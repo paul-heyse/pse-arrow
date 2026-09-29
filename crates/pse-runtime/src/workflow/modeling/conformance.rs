@@ -2203,15 +2203,24 @@ mod tests {
         use pse_backend_native::solve::{Backend, SolveIntent};
         use pse_model::generated::enums::ModelingVariableDomain as Domain;
         use pse_relations::columnar::RelationRow;
-        let text =
-            include_str!("../../../../../packages/reference/seed-data/models/price-taker.pse");
-        let rows = pse_authoring::language::parse(
-            text,
-            SemanticId::NIL,
-            pse_authoring::language::IdentityPolicy::Explicit,
-            pse_authoring::ParseBudget::default(),
-        )
-        .unwrap();
+        // The fixture's source and role are declared by the seed's references and the
+        // domain's provenance module (ADR-0123 Outcome 5).
+        let rows = [
+            include_str!("../../../../../packages/reference/seed-data/models/price-taker.pse"),
+            include_str!("../../../../../packages/reference/seed-data/models/references.pse"),
+            include_str!("../../../../../packages/reference/domain/models/provenance.pse"),
+        ]
+        .into_iter()
+        .flat_map(|text| {
+            pse_authoring::language::parse(
+                text,
+                SemanticId::NIL,
+                pse_authoring::language::IdentityPolicy::Explicit,
+                pse_authoring::ParseBudget::default(),
+            )
+            .unwrap()
+        })
+        .collect::<Vec<_>>();
         let fixture = rows
             .iter()
             .find(|r| r.name == "price_taker" && r.value.kind == DeclarationKind::Test)

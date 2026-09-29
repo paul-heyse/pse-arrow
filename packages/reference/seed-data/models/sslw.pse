@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("95b5255cbd9044769b411e7017a96a11") package sslw {
+@id("01a0ef604fe0732189b93739f8a12ea7") use provenance @"1.0.0";
+@id("01a0ef604fe0732189b9373ad00cd328") use references @"1.0.0";
 @id("4a4e39850e95401bad07ac4b47bf8b36") use costing @"1.0.0";
 @id("d294275ca68247b5b6242ca7fb6d473b") set designs:Set<costing.hx_design>={costing.floating,costing.fixed,costing.utube,costing.kettle};
-@id("8c1bcdfbc90f4425a8d0face24aed740") dataset design_data:costing.design_coefficients complete_over(d in designs) source "Seider, Seader, Lewin and Widagdo, Product and Process Design Principles, third edition, heat exchanger purchase cost correlations; IDAES 2.13 SSLW comparison constants" {
+@id("8c1bcdfbc90f4425a8d0face24aed740") dataset design_data:costing.design_coefficients complete_over(d in designs) provenance(references.sslw_3, provenance.Role.published) {
 [costing.floating]=[11.9052,0.8709,0.09005];
 [costing.fixed]=[11.2927,0.8228,0.09861];
 [costing.utube]=[11.3852,0.9186,0.0979];
 [costing.kettle]=[12.2052,0.8709,0.09005];
 }
 @id("824905e8c5b7488cbdc55e1fe6873467") set materials:Set<costing.hx_material>={costing.carbon_carbon,costing.carbon_brass,costing.carbon_stainless,costing.carbon_monel,costing.carbon_titanium,costing.carbon_crmo,costing.crmo_crmo,costing.stainless_stainless,costing.monel_monel,costing.titanium_titanium};
-@id("fdb822f6340c4b0c9cd5f2448eb39931") dataset material_data:costing.material_coefficients complete_over(m in materials) source "Seider, Seader, Lewin and Widagdo, Product and Process Design Principles, third edition, heat exchanger purchase cost correlations; IDAES 2.13 SSLW comparison constants" {
+@id("fdb822f6340c4b0c9cd5f2448eb39931") dataset material_data:costing.material_coefficients complete_over(m in materials) provenance(references.sslw_3, provenance.Role.published) {
 [costing.carbon_carbon]=[0,0];
 [costing.carbon_brass]=[1.08,0.05];
 [costing.carbon_stainless]=[1.75,0.13];
@@ -23,13 +25,13 @@
 [costing.titanium_titanium]=[9.6,0.06];
 }
 @id("58d4cf04606f4a1eb53eb183fea8711b") set lengths:Set<costing.tube_length>={costing.eight,costing.twelve,costing.sixteen,costing.twenty};
-@id("1f7e42e28a2f4841b98baf8c63972daa") dataset length_data:costing.length_factor complete_over(l in lengths) source "Seider, Seader, Lewin and Widagdo, Product and Process Design Principles, third edition, heat exchanger purchase cost correlations; IDAES 2.13 SSLW comparison constants" {
+@id("1f7e42e28a2f4841b98baf8c63972daa") dataset length_data:costing.length_factor complete_over(l in lengths) provenance(references.sslw_3, provenance.Role.published) {
 [costing.eight]=[1.25];
 [costing.twelve]=[1.12];
 [costing.sixteen]=[1.05];
 [costing.twenty]=[1];
 }
-@id("84ba982413ba458c8bef4c42ad08ba3a") test upstream source "IDAES 2.13 test_SSLW.test_cost_heat_exchanger known Utube stainless 12ft case; explicitly extrapolated below 100 psig" revision "2.13.0" fixture {dof 0; run pure; fix root.area=1000{m^2}; fix root.pressure=202650{Pa};} {
+@id("84ba982413ba458c8bef4c42ad08ba3a") test upstream oracle references.idaes_test_sslw_heat_exchanger fixture {dof 0; run pure; fix root.area=1000{m^2}; fix root.pressure=202650{Pa};} {
 @id("3a2d7f418c424332a83144aa455747d7") child root:costing.HeatExchangerCost=costing.HeatExchangerCost(pressure_extrapolation=true);
 @id("dc8261a0ac4a434c95368559f25918ad") expect costing.currency_unit()==1{USD_CE500} tolerance 1e-12{USD_CE500};
 @id("e25ce7df55d14f92bddf2f0b2de3c359") expect costing.base_amount(11840.3014583805,11.3852,0.9186,0.0979)==87704.5883652126 tolerance 1;
@@ -42,7 +44,7 @@
 @id("2c069811e94a49bf8c9db6d854100625") contribute flowsheet_capital role positive=root.capital_cost;
 @id("0f0acdf04e1542cfa1a9d7e3ca20b216") expect flowsheet_capital==root.capital_cost tolerance 1e-8{USD_CE500};
 }
-@id("be00dca04cd4497a8b78f7e5d7877279") test envelope source "SSLW analytic factors at 500 psig and CEPCI conversion" revision "2.13.0" fixture {dof 0; run pure; fix root.area=1000{m^2}; fix root.pressure=3548703.6465841806{Pa};} {
+@id("be00dca04cd4497a8b78f7e5d7877279") test envelope oracle references.sslw_3 fixture {dof 0; run pure; fix root.area=1000{m^2}; fix root.pressure=3548703.6465841806{Pa};} {
 @id("0721f71c07ab4f76a298b5a94d3a1ab4") child root:costing.HeatExchangerCost=costing.HeatExchangerCost(pressure_extrapolation=false);
 @id("bafd8d1597734d2cb4ebbcfafdbb5fe9") expect root.base_cost_per_unit==87704.6{USD_CE500} tolerance 1{USD_CE500};
 @id("ad0eaa8edc16491590a658099a9b5277") expect root.material_factor==4.08752 tolerance 0.00005;

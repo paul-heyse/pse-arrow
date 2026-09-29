@@ -11,5 +11,6 @@ dependencies = [
   { package_id = "01a0e169482c760bbd985b849a06417d", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
   { package_id = "b27409be5572b8712e47db271fae28cd", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
   { package_id = "ce317b088cc74ac89873845b0c086ea8", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0ef5e3bc973bb9bcd6df429506c6a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
 ]
 doc = "Sourced Plan 21 seed data; source, demonstration and oracle roles are explicit."

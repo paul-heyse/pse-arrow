@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1461e93764398a669e379a0c459") package chem {
+@id("01a0ef604fdf73c68b36e12ac19dda8d") use provenance @"1.0.0";
+@id("01a0ef604fdf73c68b36e12b16ddeb1c") use references @"1.0.0";
 @id("01a0ee04daa773329a4687dcaf88c749") use chemistry @"1.0.0";
 @id("01a0e1461e93764398a669e528e7ab1d") entity chemistry.element H {}
 @id("01a0e1461e93764398a669e6d1ef2ee3") entity chemistry.element C {}
@@ -40,7 +42,7 @@
 @id("01a0e1461e93764398a669fb6e743962") set alkanes:Set<chemistry.species>={methane,ethane,propane};
 @id("01a0e1461e93764398a669fca4ddfdbe") set saponification_species:Set<chemistry.species>={ethyl_acetate,sodium_hydroxide,sodium_acetate,ethanol,water};
 @id("01a0e1461e93764398a669fdf92fb6c9") table atomic_mass[e:chemistry.element]:MolarMass complete_over(e in elements);
-@id("01a0e1461e94708a83138816e9f2da10") dataset ciaaw_2024:atomic_mass source "CIAAW abridged standard atomic weights 2024; kg/mol; normal terrestrial materials" {
+@id("01a0e1461e94708a83138816e9f2da10") dataset ciaaw_2024:atomic_mass provenance(references.ciaaw_2024, provenance.Role.published) {
 [H]=[0.001008{kg/mol}];
 [C]=[0.012011{kg/mol}];
 [N]=[0.014007{kg/mol}];
@@ -64,7 +66,7 @@
 [I]=[0.1269{kg/mol}];
 }
 @id("01a0e1461e94708a83138817b9017ba3") table atoms[j:chemistry.species,e:chemistry.element]:Scalar missing default 0;
-@id("01a0e1461e94708a831388181e66cbca") dataset elemental_composition:atoms source "Molecular formulas; neutral formula units, not dissociated aqueous ions" {
+@id("01a0e1461e94708a831388181e66cbca") dataset elemental_composition:atoms provenance(references.molecular_formulas, provenance.Role.published) {
 [benzene,C]=[6];
 [benzene,H]=[6];
 [toluene,C]=[7];
@@ -92,7 +94,7 @@
 [ethanol,H]=[6];
 [ethanol,O]=[1];
 }
-@id("01a0e1461e94708a83138819c156f1bc") test formula_weights fixture {dof 0; run pure;} {
+@id("01a0e1461e94708a83138819c156f1bc") test formula_weights oracle references.ciaaw_2024 fixture {dof 0; run pure;} {
 @id("01a0e1461e94708a8313881a6114d017") expect sum(e in elements | atoms[benzene,e]*atomic_mass[e])==0.078114{kg/mol} tolerance 1e-12{kg/mol};
 @id("01a0e1461e94708a8313881b23d74d45") expect sum(e in elements | atoms[toluene,e]*atomic_mass[e])==0.092141{kg/mol} tolerance 1e-12{kg/mol};
 @id("01a0e1461e94708a8313881cd92832a5") expect sum(e in elements | atoms[methane,e]*atomic_mass[e])==0.016043{kg/mol} tolerance 1e-12{kg/mol};

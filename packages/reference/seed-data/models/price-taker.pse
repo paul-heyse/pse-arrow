@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("6caff2294b2640a49f930d6e22ccdf91") package price_taker {
+@id("01a0ef604fe0732189b93732ee1c6a72") use provenance @"1.0.0";
+@id("01a0ef604fe0732189b937333f5b7d43") use references @"1.0.0";
 @id("254be2e58a8a4895b84b56db7a767141") entity kind period {}
 @id("bb6530f3a53945cdb7a1bac82f2b5b52") entity period h1 {}
 @id("b1a33c1c3a12417f9e1529fad50a7c29") entity period h2 {}
 @id("01a45b41639f404180807a364a72d23d") entity period h3 {}
 @id("7ae87dbe740c43b6a9e04ff727dcf910") set periods:Set<period>={h1,h2,h3};
 @id("647022fecb67460e855ca78c27835cd9") table price[t:period]:Scalar complete_over(t in periods);
-@id("348bfc29dc4844b096092a8758fb30f1") dataset price_signal:price source "Synthetic price signal relative to marginal cost; not market data" {
+@id("348bfc29dc4844b096092a8758fb30f1") dataset price_signal:price provenance(references.synthetic_price_taker, provenance.Role.synthetic) {
 [h1]=[-0.5];
 [h2]=[0.8];
 [h3]=[1.2];
@@ -27,7 +29,7 @@
 @id("03f8c6ef4e764f94b9a1233d2e7bc7c2") annotation start on(0{1});
 @id("2f8b9161f55148d69856ffcbbdfbc12c") annotation start output(0{W});
 }
-@id("fd8c3e9b9115475583c56f259c717306") test price_taker source "Synthetic price-taker toy; the optimum follows by enumerating the eight on/off assignments, and the linear relaxation (85 W) exceeds it" revision "1" fixture {dof 6; run steady; intent optimize;} {
+@id("fd8c3e9b9115475583c56f259c717306") test price_taker oracle references.synthetic_price_taker fixture {dof 6; run steady; intent optimize;} {
 @id("11517cbd54da4899bd328cfa420afc4e") child root:Generator=Generator();
 @id("a22e0b9c79cc4ba9a2cbd4c0ac22c2c4") expect root.margin==70{W} tolerance 0.000001{W};
 @id("6e6b258d933f4a6b98389f1ccae542b1") expect root.output[h3]==100{W} tolerance 0.000001{W};

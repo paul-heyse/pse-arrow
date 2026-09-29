@@ -11,15 +11,17 @@ expressions, datasets and exact package dependencies are the source authority.
 | --- | --- |
 | `physical` | Units, complete quantities, conversions, physical operations, entity kinds, prelude functions and compatibility enum declarations |
 | `fixture-currency` | Explicitly synthetic currency conversion test data |
+| `domain` | The domain schema above `physical`: provenance kinds and roles |
 | `methods` | Caloric interfaces and Shomate, polynomial, constant, density and vapor-pressure functions |
 | `thermodynamics` | Potential identities, ideal/PR/PC-SAFT forms and state/equilibrium interfaces |
-| `seed-data` | Chemical entities, CIAAW masses, sourced coefficients and named property-package bindings with fixtures |
+| `seed-data` | Chemical entities, CIAAW masses, the source entities the seed cites, sourced coefficients and named property-package bindings with fixtures |
 | `process` | Control volumes, unit definitions, controllers, costing and vessel/fitting fixtures |
 | `diagnostics` | Authored diagnostic thresholds and numerical profiles |
 
-Each package's `sources.md` records physical references and qualification boundaries.
-Published datasets, upstream oracle inputs and derived demonstrations retain distinct
-provenance. Synthetic currency is not physical reference data. Scientific enums are
+Each package's `sources.md` records qualification boundaries. Every dataset and
+constant names its source entity, role and lineage, and every fixture its oracle source
+(ADR-0123 Outcome 5), so published datasets, upstream oracle inputs and synthetic or
+derived demonstrations keep distinct, typed provenance. Synthetic currency is not physical reference data. Scientific enums are
 ordinary modeling declarations; only scaling strategies interpreted by the kernel
 remain registry enums.
 

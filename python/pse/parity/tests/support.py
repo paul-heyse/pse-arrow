@@ -98,7 +98,7 @@ doc = "Parity comparison models."
         [{"package.toml": manifest, "models/parity.pse": text}]
         + [
             documents(reference / name)
-            for name in ("process", "thermodynamics", "methods", "physical")
+            for name in ("process", "thermodynamics", "methods", "domain", "physical")
         ],
         physical,
     )

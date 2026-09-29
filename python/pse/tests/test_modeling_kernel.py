@@ -584,7 +584,6 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
   @id("{identity(206).to_hex()}") annotation valid x(0,1,extrapolate);
  }}
  @id("{identity(207).to_hex()}") test sample
-  source "analytic:constant" revision "v1"
   fixture {{ dof -1; policy {{ presolve off;
    derivatives step(1e-7) tolerance(1e-4) cells(100); }} fix root.x = 2; }} {{
   @id("{identity(208).to_hex()}") child root:D=D();

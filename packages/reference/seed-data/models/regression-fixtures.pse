@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("3149dc5d1cd14fc196ebb2999ac5bd6f") package regression_fixtures {
+@id("01a0ef604fe0732189b93736cc008d81") use references @"1.0.0";
 @id("5c3a2abff6e64345b8adf84bd314276e") def FirstOrderDecay {
 @id("35b20e04c3454ca9b9995f4da79b02d4") var a:Scalar;
 @id("24108b6756cf4bfa93ebce89111edca4") var k:Scalar;
@@ -11,7 +12,7 @@
 @id("9032de80f4af446d9e95153318553872") annotation start a(1);
 @id("a7baad1fd4514523a14a678328a64b58") annotation start k(1);
 }
-@id("f767847e54e547d396cf0190032aa9d4") test first_order_decay_certified source "Least-squares first-order decay y = a exp(-k t) through five synthetic observations at t = 0..4; global optimum a = 2.012342, k = 0.506099, SSE = 0.00126275 (bounded multistart least squares, scipy 1.18.1)" revision "1" fixture {dof 2; run steady; intent certify;} {
+@id("f767847e54e547d396cf0190032aa9d4") test first_order_decay_certified oracle references.decay_fit_reference fixture {dof 2; run steady; intent certify;} {
 @id("2dcf2a69a94b49c1934a51678caa9e30") child root:FirstOrderDecay=FirstOrderDecay();
 @id("ae3e230d6cc44a7887e1f1450a453cb0") expect root.a==2.012342 tolerance 0.00001;
 @id("ad37e3947b1f4744bc7e27a190bba3f1") expect root.k==0.506099 tolerance 0.00001;

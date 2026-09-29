@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("5e8ff6278a5143e584ed0a8fc7debca8") package pressure_fixtures {
+@id("01a0ef604fe0732189b937316c4c667e") use references @"1.0.0";
 @id("01a0ee04daa874fc9167381793df0548") use chemistry @"1.0.0";
 @id("babd01d3c2d44ea799e563b2a79a4670") use chem @"1.0.0";
 @id("7fa304a44bc8414b8a6a4f708ba47945") use equilibrium @"1.0.0";
@@ -22,19 +23,19 @@
 @id("425abfaabc4745259ee4223303be79f2") override param minimum_temperature:Temperature=250{K};
 @id("cb8feb0044364b648f0c7b647ea11a2b") override param maximum_temperature:Temperature=700{K};
 }
-@id("52269fd3b5184ed49e3561867aa8e01f") test compressor source "calorically perfect single ideal gas, cp/R=3.5; Ts/Tin=(Pout/Pin)^(2/7); explicitly synthetic property approximation" revision "1" fixture {dof 0; run steady; fix root.control.inlet.T=300{K}; fix root.control.inlet.flow=1{mol/s}; fix root.control.inlet.pressure=101325{Pa}; fix root.control.inlet.z[chem.nitrogen]=1{1}; fix root.control.delta_pressure=101325{Pa}; fix root.control.efficiency=0.8;} {
+@id("52269fd3b5184ed49e3561867aa8e01f") test compressor oracle references.analytic_perfect_gas fixture {dof 0; run steady; fix root.control.inlet.T=300{K}; fix root.control.inlet.flow=1{mol/s}; fix root.control.inlet.pressure=101325{Pa}; fix root.control.inlet.z[chem.nitrogen]=1{1}; fix root.control.delta_pressure=101325{Pa}; fix root.control.efficiency=0.8;} {
 @id("c1613021ce54447b82ab44a5495fa823") child root:pressure_change.PressureChanger=pressure_change.Compressor(inlet_pkg=PerfectNitrogen(defined_state=true),outlet_pkg=PerfectNitrogen(defined_state=false),assumption=pressure_change.IsentropicAssumption(reference_pkg=PerfectNitrogen(defined_state=true)));
 @id("22ea517449a74d2e956e0c63377fd4b0") expect root.control.outlet.T==382.13012032667825{K} tolerance 1e-6{K};
 @id("8220ea7598984fc8b0b3e096bda694c1") expect root.control.work==2390.0373534820787{W} tolerance 1e-5{W};
 @id("4f94ab109ab14528b6e5dde249bac18a") expect root.control.work_fluid==1912.029882785663{W} tolerance 1e-5{W};
 }
-@id("425986dbe6744141a812652489bd1b89") test turbine source "calorically perfect single ideal gas, cp/R=3.5; Ts/Tin=(Pout/Pin)^(2/7); explicitly synthetic property approximation" revision "1" fixture {dof 0; run steady; fix root.control.inlet.T=400{K}; fix root.control.inlet.flow=1{mol/s}; fix root.control.inlet.pressure=202650{Pa}; fix root.control.inlet.z[chem.nitrogen]=1{1}; fix root.control.delta_pressure=-101325{Pa}; fix root.control.efficiency=0.8;} {
+@id("425986dbe6744141a812652489bd1b89") test turbine oracle references.analytic_perfect_gas fixture {dof 0; run steady; fix root.control.inlet.T=400{K}; fix root.control.inlet.flow=1{mol/s}; fix root.control.inlet.pressure=202650{Pa}; fix root.control.inlet.z[chem.nitrogen]=1{1}; fix root.control.delta_pressure=-101325{Pa}; fix root.control.efficiency=0.8;} {
 @id("550f90ed8b8144858847b3c4908ec35d") child root:pressure_change.PressureChanger=pressure_change.Turbine(inlet_pkg=PerfectNitrogen(defined_state=true),outlet_pkg=PerfectNitrogen(defined_state=false),assumption=pressure_change.IsentropicAssumption(reference_pkg=PerfectNitrogen(defined_state=true)));
 @id("e73f0d7e2e8b462ab8a63504bdf914c9") expect root.control.outlet.T==342.50731392244415{K} tolerance 1e-6{K};
 @id("d828eec4641e403d92a2b423ef5b6881") expect root.control.work==-1673.0727622317006{W} tolerance 1e-5{W};
 @id("d47f0ec3393644d58dbfaac6cbae8e72") expect root.control.work_fluid==-2091.3409527896256{W} tolerance 1e-5{W};
 }
-@id("5d973a4431fb4299a8cda93476766999") test pump source "incompressible hydraulic work and shaft efficiency; same dilute-liquid state as the saponification pressure-changer comparison" revision "1" fixture {dof 0; run steady; fix root.control.inlet.T=320{K}; fix root.control.inlet.volume_flow=0.001{m^3/s}; fix root.control.inlet.pressure=101325{Pa}; fix root.control.inlet.concentration[chem.water]=55388{mol/m^3}; fix root.control.inlet.concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.control.inlet.concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.control.inlet.concentration[chem.sodium_acetate]=1e-8{mol/m^3}; fix root.control.inlet.concentration[chem.ethanol]=1e-8{mol/m^3}; fix root.control.delta_pressure=20000{Pa}; fix root.control.efficiency=0.8;} {
+@id("5d973a4431fb4299a8cda93476766999") test pump oracle references.analytic_hydraulic_work fixture {dof 0; run steady; fix root.control.inlet.T=320{K}; fix root.control.inlet.volume_flow=0.001{m^3/s}; fix root.control.inlet.pressure=101325{Pa}; fix root.control.inlet.concentration[chem.water]=55388{mol/m^3}; fix root.control.inlet.concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.control.inlet.concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.control.inlet.concentration[chem.sodium_acetate]=1e-8{mol/m^3}; fix root.control.inlet.concentration[chem.ethanol]=1e-8{mol/m^3}; fix root.control.delta_pressure=20000{Pa}; fix root.control.efficiency=0.8;} {
 @id("07eaf3c432f242168af60c20ca10c35b") child root:pressure_change.PressureChanger=pressure_change.Pump(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false));
 @id("22c361edf6f449cc81ff84aaaa456eff") expect root.control.outlet.pressure==121325{Pa} tolerance 0.01{Pa};
 @id("88c1e221726847d98b23ba54058aabf8") expect root.control.work==25{W} tolerance 1e-5{W};

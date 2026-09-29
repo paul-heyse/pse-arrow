@@ -570,14 +570,24 @@ async fn indicator_realization_requires_native_backend() {
 #[tokio::test]
 async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
     use pse_model::generated::enums::ModelingConformanceStatus as Status;
-    let text = include_str!("../../../../../packages/reference/seed-data/models/gdp.pse");
-    let rows = pse_authoring::language::parse(
-        text,
-        SemanticId::NIL,
-        pse_authoring::language::IdentityPolicy::Explicit,
-        pse_authoring::ParseBudget::default(),
-    )
-    .unwrap();
+    // The fixture's oracle is declared by the seed's references and the domain's
+    // provenance module (ADR-0123 Outcome 5).
+    let rows = [
+        include_str!("../../../../../packages/reference/seed-data/models/gdp.pse"),
+        include_str!("../../../../../packages/reference/seed-data/models/references.pse"),
+        include_str!("../../../../../packages/reference/domain/models/provenance.pse"),
+    ]
+    .into_iter()
+    .flat_map(|text| {
+        pse_authoring::language::parse(
+            text,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Explicit,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap()
+    })
+    .collect::<Vec<_>>();
     let physical = fixture::physical();
     let package = fixture::runtime()
         .modeling_package(rows, physical)

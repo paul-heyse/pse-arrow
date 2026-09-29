@@ -20,11 +20,11 @@ derivative_cells = 1000000
 derivative_step = 1e-6
 derivative_tolerance = 1e-4
 
-# seed-data depends on process, thermodynamics, methods and physical, so one native run
-# discovers every seed and physical fixture exactly once.
+# seed-data depends on process, thermodynamics, methods, domain and physical, so one native
+# run discovers every seed and physical fixture exactly once.
 [[runs]]
 name = "seed"
 package = "seed-data"
-dependencies = ["process", "thermodynamics", "methods", "physical"]
+dependencies = ["process", "thermodynamics", "methods", "domain", "physical"]
 physical = "physical"
 execution = "native"

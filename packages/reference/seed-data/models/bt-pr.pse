@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1b4f611717da49a9268ae84b41b") package bt_pr {
+@id("01a0ef604fdf73c68b36e126bd42210b") use provenance @"1.0.0";
+@id("01a0ef604fdf73c68b36e12738a6e4c8") use references @"1.0.0";
 @id("01a0ee04daa773329a4687db457c50f4") use chemistry @"1.0.0";
 @id("01a0e1b4f611717da49a926a2b7ad34c") use chem @"1.0.0";
 @id("01a0e1b4f611717da49a926bcb59f976") use caloric @"1.0.0";
@@ -10,7 +12,7 @@
 @id("01a0e1b4f611717da49a926f22a030a5") use equilibrium @"1.0.0";
 @id("01a0e1b4f611717da49a9270067ac1c7") use helmholtz @"1.0.0";
 @id("01a0e1b4f611717da49a92713ed6ca46") table reference[j:chemistry.species]:{gas_fit:caloric.fit,h:PrOracleEnthalpy,s:PrOracleEntropy} complete_over(j in chem.aromatics);
-@id("01a0e1b4f611717da49a9272a559d6a6") dataset reference_values:reference source "IDAES 2.13 BT_PR configuration; RPP gas cp and formation reference values" {
+@id("01a0e1b4f611717da49a9272a559d6a6") dataset reference_values:reference provenance(references.idaes_bt_pr, provenance.Role.oracle_input) {
 [chem.benzene]=[caloric_data.benzene_gas_rpp4_oracle,82900{J/mol},-269{J/(mol*K)}];
 [chem.toluene]=[caloric_data.toluene_gas_rpp4_oracle,50100{J/mol},-321{J/(mol*K)}];
 }
@@ -40,7 +42,7 @@
 @id("01a0e1b4f611717da49a9289db1e3f2c") annotation valid T(minimum_temperature,maximum_temperature,reject);
 @id("01a0e1b4f611717da49a928a09891d4a") annotation valid pressure(80000{Pa},120000{Pa},reject);
 }
-@id("01a0e1b4f611717da49a928ba89fe8d7") test ftpx_368 source "IDAES 2.13 test_BT_PR.py test_T368_P1_x5" revision "2.13.0" fixture {dof 0; run steady; fix root.flow=100{mol/s}; fix root.T=368{K}; fix root.pressure=100000{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("01a0e1b4f611717da49a928ba89fe8d7") test ftpx_368 oracle references.idaes_test_bt_pr_368 fixture {dof 0; run steady; fix root.flow=100{mol/s}; fix root.T=368{K}; fix root.pressure=100000{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
 @id("01a0e1b4f611717da49a928c23791ee5") child root:BT_PR=BT_PR;
 @id("01a0e1b4f611717da49a928d8bf28e89") expect root.x[chem.benzene]==0.4012128{1} tolerance 0.000005{1};
 @id("01a0e1b4f611717da49a928e1252d268") expect root.y[chem.benzene]==0.6141738{1} tolerance 0.000007{1};
@@ -55,7 +57,7 @@
 @id("01a0e1b4f611717da49a92973e438b65") expect root.oracle_s_liquid==-359.256{J/(mol*K)} tolerance 0.004{J/(mol*K)};
 @id("01a0e1b4f611717da49a9298e6ab23f4") expect root.oracle_s_vapor==-262.348{J/(mol*K)} tolerance 0.003{J/(mol*K)};
 }
-@id("01a0e1c6a64b7167adfc3a95a9afa0d6") test initialized_ftpx source "IDAES 2.13 BT_PR 368 K comparison after ideal-K warm-up and original-specification solve" revision "2.13.0" fixture {dof 0; run initialized; stages("ideal-K"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); fix root.flow=100{mol/s}; fix root.T=368{K}; fix root.pressure=100000{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("01a0e1c6a64b7167adfc3a95a9afa0d6") test initialized_ftpx oracle references.idaes_test_bt_pr_368 fixture {dof 0; run initialized; stages("ideal-K"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); fix root.flow=100{mol/s}; fix root.T=368{K}; fix root.pressure=100000{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
 @id("01a0e1c6a64b7167adfc3a96dacbd442") child root:BT_PR=BT_PR;
 @id("01a0e1c6a64b7167adfc3a97e41fc4c3") expect root.x[chem.benzene]==0.4012128{1} tolerance 0.000005{1};
 @id("01a0e1c6a64b7167adfc3a98d2872c2e") expect root.y[chem.benzene]==0.6141738{1} tolerance 0.000007{1};

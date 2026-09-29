@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+[package]
+package_id = "01a0ef5e3bc973bb9bcd6df429506c6a"
+name = "pse.domain"
+version = "1.0.0"
+kind = "library"
+id_policy = "explicit"
+dependencies = [
+  { package_id = "b27409be5572b8712e47db271fae28cd", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+]
+doc = "The domain schema above pse.physical: provenance kinds and roles; see sources.md."

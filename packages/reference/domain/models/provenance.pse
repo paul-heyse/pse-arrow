@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// Provenance kinds and roles (ADR-0123 Outcome 5). An entity whose kind refines `source`
+// may be named as the source of a dataset, a constant or a test. A role is a member of
+// `Role`; the kernel acts only on the facets a member declares. Identifier values and
+// locators are data, never parsed.
+@id("01a0ef5e6c16730593968f19c107f33d") package provenance {
+@id("01a0ef5e6c16730593968f1a0b240a1f") identifier scheme doi;
+@id("01a0ef5e6c16730593968f1bb423f7c4") identifier scheme isbn;
+@id("01a0ef5e6c16730593968f1ccad082d9") entity kind source provenance {
+@id("01a0ef5e6c16730593968f1dbce1ee26") attribute title: Text;
+}
+@id("01a0ef5e6c16730593968f1ec3380db3") entity kind publication extends source {
+@id("01a0ef5e6c16730593968f1f0609e705") attribute year: Integer;
+@id("01a0ef5e6c16730593968f20d1a59b05") attribute locator: Text?;
+@id("01a0ef5e6c16730593968f216daed6b3") attribute doi: Id<doi>?;
+@id("01a0ef5e6c16730593968f2206c36ffd") attribute isbn: Id<isbn>?;
+}
+@id("01a0ef5e6c16730593968f239d0f0550") entity kind software_release extends source {
+@id("01a0ef5e6c16730593968f246a268366") attribute version: Text;
+@id("01a0ef5e6c16730593968f25e24ae751") attribute locator: Text?;
+}
+// A located file of a software release: a configuration, a parameter file or a test.
+@id("01a0ef5e6c16730593968f26d979acd1") entity kind release_artifact extends source {
+@id("01a0ef5e6c16730593968f27cb900456") attribute release: software_release;
+@id("01a0ef5e6c16730593968f28fd25e330") attribute locator: Text;
+}
+@id("01a0ef5e6c16730593968f298cb97ae4") entity kind oracle_test extends release_artifact {}
+// A reference computed from other sources with the software releases it names.
+@id("01a0ef5e6c16730593968f2a62eca112") entity kind computation extends source {
+@id("01a0ef5e6c16730593968f2b0f108a08") attribute tools: Set<software_release>;
+@id("01a0ef5e6c16730593968f2c866f792d") attribute locator: Text?;
+}
+@id("01a0ef5e6c16730593968f2d67a6156c") enum Role {@id("01a0ef5e6c16730593968f2ee048ab67") published, @id("01a0ef5e6c16730593968f2f20430874") measured, @id("01a0ef5e6c16730593968f3078be4034") derived facets(requires_lineage), @id("01a0ef5e6c16730593968f31bc74589a") fitted facets(requires_lineage), @id("01a0ef5e6c16730593968f3290f8a2ef") synthetic facets(test_only), @id("01a0ef5e6c16730593968f333164291c") oracle_input facets(test_only)}
+}

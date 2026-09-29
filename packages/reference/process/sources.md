@@ -43,9 +43,8 @@ partition independently without adding redundant conservation equations to the f
 normalization. No holdup is claimed for this instantaneous partition.
 
 Named numerical comparisons reside in `pse.seed-data/models/unit-fixtures.pse`. They retain
-inputs and printed expectations from IDAES-PSE 2.13.0's `test_heater` (BT_PR and
-Saponification), `test_mixer`, `test_flash` (BTIdeal modular) and `test_separator`
-(Saponification). The Saponification separator's upstream volume-flow expectations are
+inputs and printed expectations from the IDAES tests each fixture names as its oracle
+source. The Saponification separator's upstream volume-flow expectations are
 converted to molar flow using its supplied total concentration. These are selected behavioral
 comparisons, not a claim that every IDAES option or property package is reproduced.
 Equations are independently expressed from conservation and phase partition contracts;
@@ -62,14 +61,14 @@ therefore represent the contribution across the full physical length. Backward d
 uses right-endpoint quadrature, consistent with its cell balances. Right Radau uses the
 kernel's library-provided collocation and quadrature. PFR reaction sources use total volume,
 local concentration and temperature. The independent continuum reference integrates
-`dc/dV = -k(T)c²/q` with `T = Tin + (-ΔHr)(cin-c)/(rho_solvent cp_solvent)`;
-SciPy 1.18.1 DOP853 and Radau at relative/absolute tolerance 1e-12 agree at V=0.05 m³,
-q=1 m³/s, cin=100 mol/m³ and Tin=303.15 K: c=61.74340062 mol/m³ and T=303.599299658 K.
+`dc/dV = -k(T)c²/q` with `T = Tin + (-ΔHr)(cin-c)/(rho_solvent cp_solvent)`; the seed's
+`pfr_reference` computation agrees at V=0.05 m³, q=1 m³/s, cin=100 mol/m³ and
+Tin=303.15 K: c=61.74340062 mol/m³ and T=303.599299658 K.
 This reference is distinct from IDAES's 20-element backward-difference comparison.
 
 SSLW heat-exchanger purchase costing represents one exchanger; indexed costing children
-compose multiple purchases through the capital accumulator. The coefficient datasets use
-the Seider–Seader–Lewin–Widagdo third-edition correlation and retain the IDAES 2.13 fixture
+compose multiple purchases through the capital accumulator. The seed's coefficient
+datasets name the correlation's publication as their source and keep the IDAES costing test
 as a comparison. The pressure factor's stated envelope is 100–2000 psig. The upstream
 2-atmosphere-absolute case lies below it and explicitly requests extrapolation, recorded
 by the validity result. No such permission is implied for ordinary use. USD_CE500 and
@@ -98,8 +97,8 @@ Initialization values, smoothing and all time constants are supplied data.
 The saturation fixture uses a constant unit error, `Kp=2`, `Ti=1 s`, `Taw=0.5 s`,
 zero derivative action and `I(0)=1 s`. With the upper limit active the analytic recovery is
 `I(t)=exp(-2t) s`; its tolerance includes the declared smoothing. The controlled CSTR
-reference independently integrates concentration, temperature, integral and filter states
-using SciPy 1.18.1 DOP853 and Radau at rtol=1e-11, atol=1e-12. For V=0.0015 m³,
+reference, the seed's `cstr_controller_reference` computation, independently integrates
+concentration, temperature, integral and filter states. For V=0.0015 m³,
 q=0.001 m³/s, inlet T=303.15 K and concentration 100 mol/m³, the reduced equations are
 `dc/dt = (q/V)(cin-c) - k(T)c²` and
 `dT/dt = (q/V)(Tin-T) + (Q - V ΔHr k(T)c²)/(V rho_solvent cp_solvent)`.

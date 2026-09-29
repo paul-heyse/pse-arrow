@@ -3,6 +3,9 @@
 @id("01a0e178d29871ca9ccbc6ffbcd0f2db") package pcsaft {
 @id("01a0ee04daaa77568ef4eee37defb8f3") use chemistry @"1.0.0";
 @id("01a0e178d29871ca9ccbc70157b0176e") use caloric @"1.0.0";
+@id("01a0ef5fa28670bab2c02c74827ebeb9") use provenance @"1.0.0";
+// The nonassociating PC-SAFT equation of state; its dispersion constants are this paper's.
+@id("01a0ef5fa28670bab2c02c75d6d53f39") entity provenance.publication gross_sadowski_2001 { title = "Perturbed-Chain SAFT: An Equation of State Based on a Perturbation Theory for Chain Molecules (Gross and Sadowski), Industrial & Engineering Chemistry Research 40, 1244-1260", year = 2001, doi = Id<provenance.doi>("10.1021/ie0003887") }
 @id("01a0e178d29871ca9ccbc70251ebee9d") table segments[j:chemistry.species]:{m:Scalar,sigma_angstrom:Scalar,epsilon:TemperatureScale} complete_over(j);
 @id("01a0e178d29871ca9ccbc7039c2837c3") table interaction[i:chemistry.species,j:chemistry.species]:Scalar complete_over(i,j);
 @id("01a0e178d29871ca9ccbc70459973946") entity kind polynomial_term {}
@@ -15,7 +18,7 @@
 @id("01a0e178d29871ca9ccbc70b4f7a7bff") entity polynomial_term p6 {}
 @id("01a0e178d29871ca9ccbc70c9f4bc6b8") set powers:Set<polynomial_term>={p0,p1,p2,p3,p4,p5,p6};
 @id("01a0e178d29871ca9ccbc70d9351cd23") table dispersion_coefficients[k:polynomial_term]:{power:Scalar,a0:Scalar,a1:Scalar,a2:Scalar,b0:Scalar,b1:Scalar,b2:Scalar} complete_over(k in powers);
-@id("01a0e178d29871ca9ccbc70e51716b38") dataset gross_sadowski:dispersion_coefficients source "Gross and Sadowski 2001 universal dispersion coefficients, extended precision reproduced by FeOS 0.10.1 and teqp" {
+@id("01a0e178d29871ca9ccbc70e51716b38") dataset gross_sadowski:dispersion_coefficients provenance(gross_sadowski_2001, provenance.Role.published) {
 [p0]=[0,0.91056314451539,-0.3084016918272,-0.09061483509767,0.72409469413165,-0.5755498075345,0.09768831158356];
 [p1]=[1,0.63612814494991,0.18605311591713,0.4527842806392,2.2382791860938,0.69950955214436,-0.255757498161];
 [p2]=[2,2.68613478913903,-2.50300472586548,0.59627007280101,-4.00258494846342,3.89256733895307,-9.15585615297321];

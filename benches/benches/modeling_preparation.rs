@@ -86,6 +86,7 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
                     "process",
                     "thermodynamics",
                     "methods",
+                    "domain",
                     "physical",
                 ],
                 Some(bench),
@@ -150,6 +151,7 @@ fn bench_package(seed: &[(String, Vec<String>)], workloads: &[Value]) -> BTreeMa
          {{ package_id = \"01a0e169482c760bbd985b849a06417d\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
          {{ package_id = \"ce317b088cc74ac89873845b0c086ea8\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
          {{ package_id = \"b27409be5572b8712e47db271fae28cd\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
+         {{ package_id = \"01a0ef5e3bc973bb9bcd6df429506c6a\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
          ]\n\
          doc = \"M1 preparation-scaling bench package (Plan 23 H2); synthetic rows are not physical data.\"\n"
     );
@@ -173,7 +175,8 @@ fn bench_source(seed: &[(String, Vec<String>)], workloads: &[Value]) -> String {
     let mut s = format!(
         "package preparation_bench {{\n\
          use chemistry @\"1.0.0\";\nuse chem @\"1.0.0\";\nuse helmholtz @\"1.0.0\";\n\
-         use pcsaft @\"1.0.0\";\nuse peng_robinson @\"1.0.0\";\n"
+         use pcsaft @\"1.0.0\";\nuse peng_robinson @\"1.0.0\";\nuse provenance @\"1.0.0\";\n\
+         entity provenance.source bench_rows {{ title = \"SYNTHETIC M1 preparation-bench rows: deterministic perturbations of the seed PC-SAFT segment rows and zero binary interactions, as in the seed; not physical data\" }}\n"
     );
     let synthetic = &all[seed.len()..];
     for name in synthetic {
@@ -181,7 +184,7 @@ fn bench_source(seed: &[(String, Vec<String>)], workloads: &[Value]) -> String {
     }
     if !synthetic.is_empty() {
         // Species k repeats seed row (k-1) mod |seed|, every cell scaled by 1+0.005·(k-|seed|).
-        s.push_str("dataset synthetic_segments:pcsaft.segments source \"SYNTHETIC M1 preparation-bench rows: deterministic perturbations of the seed PC-SAFT segment rows; not physical data\" {\n");
+        s.push_str("dataset synthetic_segments:pcsaft.segments provenance(bench_rows, provenance.Role.synthetic) {\n");
         for (i, name) in synthetic.iter().enumerate() {
             let (_, base) = &seed[i % seed.len()];
             let factor = 1.0 + 0.005 * (i + 1) as f64;
@@ -189,7 +192,7 @@ fn bench_source(seed: &[(String, Vec<String>)], workloads: &[Value]) -> String {
             s.push_str(&format!("[{name}]=[{}];\n", cells.join(",")));
         }
         s.push_str("}\n");
-        s.push_str("dataset synthetic_interactions:pcsaft.interaction source \"SYNTHETIC M1 preparation-bench rows: zero binary interactions, as in the seed; not physical data\" {\n");
+        s.push_str("dataset synthetic_interactions:pcsaft.interaction provenance(bench_rows, provenance.Role.synthetic) {\n");
         for i in &all {
             for j in &all {
                 if synthetic.contains(i) || synthetic.contains(j) {

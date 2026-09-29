@@ -200,7 +200,14 @@ def test_flash_sweep_prepares_structure_once(
     package = runtime.modeling_from_documents(
         [
             documents(reference / name)
-            for name in ("seed-data", "process", "thermodynamics", "methods", "physical")
+            for name in (
+                "seed-data",
+                "process",
+                "thermodynamics",
+                "methods",
+                "domain",
+                "physical",
+            )
         ],
         physical,
     )

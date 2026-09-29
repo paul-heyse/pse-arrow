@@ -50,19 +50,19 @@ ordered-row and symmetric-derivative fugacity values. It checks that the explici
 override changes fugacity while preserving the shared pressure potential.
 
 `pcsaft.pse` implements the nonassociating hard-sphere, chain and dispersion potential
-from [Gross and Sadowski (2001)](https://doi.org/10.1021/ie0003887). The equations and
-extended-precision dispersion constants were cross-checked against the pinned FeOS
-0.10.1 source and [NIST teqp 0.23.1](https://github.com/usnistgov/teqp/blob/v0.23.1/include/teqp/models/pcsaft.hpp).
-The segment table names its fixed diameter coordinate `sigma_angstrom`; epsilon/k
+of the publication it declares as `gross_sadowski_2001`, which its dispersion-constant
+dataset names as its source. The equations and extended-precision dispersion constants
+were cross-checked against the pinned FeOS and teqp releases the seed's references
+declare. The segment table names its fixed diameter coordinate `sigma_angstrom`; epsilon/k
 is a physical temperature scale. `molecular_density` converts the explicit mol/m³
 coordinate to molecules/Å³ using the exact SI Avogadro constant. All mixture amounts
 are normalized. The envelope requires positive temperature, density and selected
 amounts, valid segment parameters and packing fraction below one. Association, polar
 terms and the exact zero-density limit are outside this potential's contract.
 
-The alkane dataset retains the existing Gross-2001 methane/ethane/propane parameters.
-The authored fixtures use all five frozen teqp states in
-`tests/fixtures/plan14/thermo-reference.json`, including a dense homogeneous state.
+The seed's alkane dataset retains the existing Gross-2001 methane/ethane/propane
+parameters. The authored fixtures use all five frozen teqp states of the Plan 14
+reference, including a dense homogeneous state.
 Residual enthalpy is compared after subtracting the independently frozen ideal-gas
 enthalpy. Pressure and every component fugacity coefficient use the stored tolerances.
 These are comparisons at supplied densities, not a phase-equilibrium qualification.

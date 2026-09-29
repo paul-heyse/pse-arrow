@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("3d46c54466244a0a9882811830e20a2e") package control_fixtures {
+@id("01a0ef604fdf73c68b36e12c8a237432") use provenance @"1.0.0";
+@id("01a0ef604fdf73c68b36e12d5c7de854") use references @"1.0.0";
 @id("c86e3989fdbe4f2c81a0a592e09b4d05") use temperature_driving_force @"1.0.0";
 @id("5b0910b1c5df49b4828c0cac56540e38") use control @"1.0.0";
 @id("3fce049dec88498792d8765449ad9d94") use distributed_volumes @"1.0.0";
@@ -20,10 +22,10 @@
 @id("b6baf9089e8e4295b96ecd4d6a7fd384") let saturation_error[i in t]:Scalar=regulator.output[i]-1;
 @id("587155b7553045238187cf7646bff87e") annotation check saturation_error(abs(saturation_error[i])<1e-6);
 }
-@id("1993725dc6e94f1099b147ff839e7758") test antiwindup_integrated source "Back-calculation PID equation, matching IDAES 2.13 gain parameterization; analytic saturation recovery I=exp(-2t) with smoothing error below 1e-10" revision "1" fixture {dof 0; run integrated; integrate samples(0{s},0.5{s},1{s},2{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s});} {
+@id("1993725dc6e94f1099b147ff839e7758") test antiwindup_integrated oracle references.analytic_antiwindup fixture {dof 0; run integrated; integrate samples(0{s},0.5{s},1{s},2{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s});} {
 @id("78b9b41aacaf4b8f8ceda9ae158a554e") child root:SaturatedPID=SaturatedPID();
 }
-@id("ea82f4b195684fe0aa01b13961782ebb") test antiwindup_simultaneous source "Back-calculation PID equation, matching IDAES 2.13 gain parameterization; analytic saturation recovery I=exp(-2t) with smoothing error below 1e-10" revision "1" fixture {dof 0; run simultaneous;} {
+@id("ea82f4b195684fe0aa01b13961782ebb") test antiwindup_simultaneous oracle references.analytic_antiwindup fixture {dof 0; run simultaneous;} {
 @id("23e535e153484561af52f15dbba71ceb") child root:SaturatedPID=SaturatedPID();
 }
 @id("01a0ede58ecc720b8be6cd2ed76aa4ce") use chemistry @"1.0.0";
@@ -32,7 +34,7 @@
 @id("69a88b61fcb945029d061a895fbfafcd") use saponification @"1.0.0";
 @id("318bf542e11744408077ff7e58ad2c32") use equilibrium @"1.0.0";
 @id("5f80787fec7e40f2a5d6e6dbb866553c") table initial_feed[j:chemistry.species]:MolarDensity complete_over(j in chem.saponification_species);
-@id("a5d890c2adfe4277a2855cad480c3dee") dataset feed:initial_feed source "Dynamic demonstration inlet at the steady IDAES 2.13 saponification CSTR specification" {
+@id("a5d890c2adfe4277a2855cad480c3dee") dataset feed:initial_feed provenance(references.idaes_test_cstr, provenance.Role.oracle_input) {
 [chem.water]=[55388{mol/m^3}];
 [chem.sodium_hydroxide]=[100{mol/m^3}];
 [chem.ethyl_acetate]=[100{mol/m^3}];
@@ -40,7 +42,7 @@
 [chem.ethanol]=[1e-08{mol/m^3}];
 }
 @id("a70dc0e63c17457196733ebac0b6952f") table initial_outlet[j:chemistry.species]:MolarDensity complete_over(j in chem.saponification_species);
-@id("65d4734c82f941688b8fe3d5dd8a07bd") dataset initial_state:initial_outlet source "Steady zero-duty CSTR solution with Arrhenius rate and solvent heat capacity, checked against IDAES 2.13 CSTR fixture" {
+@id("65d4734c82f941688b8fe3d5dd8a07bd") dataset initial_state:initial_outlet provenance(references.idaes_test_cstr, provenance.Role.oracle_input) {
 [chem.water]=[55388{mol/m^3}];
 [chem.sodium_hydroxide]=[20.316088036339764{mol/m^3}];
 [chem.ethyl_acetate]=[20.316088036339764{mol/m^3}];
@@ -82,10 +84,10 @@
 @id("d327e66fb95548ccb5033f5b100eeb56") annotation check temperature((i!=0{s} or abs(temperature[i]-304.0858373453369{K})<0.002{K}) and (i!=1{s} or abs(temperature[i]-304.684711005116{K})<0.002{K}) and (i!=5{s} or abs(temperature[i]-304.8917741663{K})<0.002{K}) and (i!=20{s} or abs(temperature[i]-304.989180370365{K})<0.002{K}));
 @id("308f004a329a4234b252341fca3b2ba8") annotation check reactant((i!=0{s} or abs(reactant[i]-20.31608803634{mol/m^3})<0.01{mol/m^3}) and (i!=1{s} or abs(reactant[i]-20.0418922088{mol/m^3})<0.01{mol/m^3}) and (i!=5{s} or abs(reactant[i]-19.91592179354{mol/m^3})<0.01{mol/m^3}) and (i!=20{s} or abs(reactant[i]-19.86671515627{mol/m^3})<0.01{mol/m^3}));
 }
-@id("7b4665c39e1748cb91118b24f3638f64") test cstr_integrated source "Independent reduced incompressible CSTR/controller ODE, SciPy 1.18.1 DOP853 and Radau agree with rtol=1e-11 atol=1e-12; sample comparisons only" revision "1" fixture {dof 0; value root.cell[0{s}].inlet.concentration[chem.water]=initial_feed[chem.water]; value root.cell[0{s}].inlet.concentration[chem.sodium_hydroxide]=initial_feed[chem.sodium_hydroxide]; value root.cell[0{s}].inlet.concentration[chem.ethyl_acetate]=initial_feed[chem.ethyl_acetate]; value root.cell[0{s}].inlet.concentration[chem.sodium_acetate]=initial_feed[chem.sodium_acetate]; value root.cell[0{s}].inlet.concentration[chem.ethanol]=initial_feed[chem.ethanol]; value root.cell[0{s}].outlet.concentration[chem.water]=initial_outlet[chem.water]; value root.cell[0{s}].outlet.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.cell[0{s}].outlet.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.cell[0{s}].outlet.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.cell[0{s}].outlet.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.cell[0{s}].reaction.concentration[chem.water]=initial_outlet[chem.water]; value root.cell[0{s}].reaction.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.cell[0{s}].reaction.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.cell[0{s}].reaction.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.cell[0{s}].reaction.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.cell[0{s}].inlet.T=303.15{K}; value root.cell[0{s}].outlet.T=304.0858373453369{K}; value root.cell[0{s}].reaction.T=304.0858373453369{K}; value root.cell[0{s}].volume=0.0015{m^3}; run integrated; integrate samples(0{s},1{s},5{s},20{s}) relative(1e-10) normalized_absolute(1e-12) step(1e-5{s});} {
+@id("7b4665c39e1748cb91118b24f3638f64") test cstr_integrated oracle references.cstr_controller_reference fixture {dof 0; value root.cell[0{s}].inlet.concentration[chem.water]=initial_feed[chem.water]; value root.cell[0{s}].inlet.concentration[chem.sodium_hydroxide]=initial_feed[chem.sodium_hydroxide]; value root.cell[0{s}].inlet.concentration[chem.ethyl_acetate]=initial_feed[chem.ethyl_acetate]; value root.cell[0{s}].inlet.concentration[chem.sodium_acetate]=initial_feed[chem.sodium_acetate]; value root.cell[0{s}].inlet.concentration[chem.ethanol]=initial_feed[chem.ethanol]; value root.cell[0{s}].outlet.concentration[chem.water]=initial_outlet[chem.water]; value root.cell[0{s}].outlet.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.cell[0{s}].outlet.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.cell[0{s}].outlet.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.cell[0{s}].outlet.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.cell[0{s}].reaction.concentration[chem.water]=initial_outlet[chem.water]; value root.cell[0{s}].reaction.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.cell[0{s}].reaction.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.cell[0{s}].reaction.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.cell[0{s}].reaction.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.cell[0{s}].inlet.T=303.15{K}; value root.cell[0{s}].outlet.T=304.0858373453369{K}; value root.cell[0{s}].reaction.T=304.0858373453369{K}; value root.cell[0{s}].volume=0.0015{m^3}; run integrated; integrate samples(0{s},1{s},5{s},20{s}) relative(1e-10) normalized_absolute(1e-12) step(1e-5{s});} {
 @id("fe7a6d2fd15843f3bf583fe189e16467") child root:ControlledCSTR=ControlledCSTR();
 }
-@id("ad7bac7b5fdd495a990a1bdcd920c35e") test cstr_simultaneous source "Independent reduced incompressible CSTR/controller ODE, SciPy 1.18.1 DOP853 and Radau agree with rtol=1e-11 atol=1e-12; sample comparisons only" revision "1" fixture {dof 0; value root.cell[0{s}].inlet.concentration[chem.water]=initial_feed[chem.water]; value root.cell[0{s}].inlet.concentration[chem.sodium_hydroxide]=initial_feed[chem.sodium_hydroxide]; value root.cell[0{s}].inlet.concentration[chem.ethyl_acetate]=initial_feed[chem.ethyl_acetate]; value root.cell[0{s}].inlet.concentration[chem.sodium_acetate]=initial_feed[chem.sodium_acetate]; value root.cell[0{s}].inlet.concentration[chem.ethanol]=initial_feed[chem.ethanol]; value root.cell[0{s}].outlet.concentration[chem.water]=initial_outlet[chem.water]; value root.cell[0{s}].outlet.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.cell[0{s}].outlet.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.cell[0{s}].outlet.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.cell[0{s}].outlet.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.cell[0{s}].reaction.concentration[chem.water]=initial_outlet[chem.water]; value root.cell[0{s}].reaction.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.cell[0{s}].reaction.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.cell[0{s}].reaction.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.cell[0{s}].reaction.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.cell[0{s}].inlet.T=303.15{K}; value root.cell[0{s}].outlet.T=304.0858373453369{K}; value root.cell[0{s}].reaction.T=304.0858373453369{K}; value root.cell[0{s}].volume=0.0015{m^3}; run simultaneous; policy { derivatives cells(8000000); }} {
+@id("ad7bac7b5fdd495a990a1bdcd920c35e") test cstr_simultaneous oracle references.cstr_controller_reference fixture {dof 0; value root.cell[0{s}].inlet.concentration[chem.water]=initial_feed[chem.water]; value root.cell[0{s}].inlet.concentration[chem.sodium_hydroxide]=initial_feed[chem.sodium_hydroxide]; value root.cell[0{s}].inlet.concentration[chem.ethyl_acetate]=initial_feed[chem.ethyl_acetate]; value root.cell[0{s}].inlet.concentration[chem.sodium_acetate]=initial_feed[chem.sodium_acetate]; value root.cell[0{s}].inlet.concentration[chem.ethanol]=initial_feed[chem.ethanol]; value root.cell[0{s}].outlet.concentration[chem.water]=initial_outlet[chem.water]; value root.cell[0{s}].outlet.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.cell[0{s}].outlet.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.cell[0{s}].outlet.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.cell[0{s}].outlet.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.cell[0{s}].reaction.concentration[chem.water]=initial_outlet[chem.water]; value root.cell[0{s}].reaction.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.cell[0{s}].reaction.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.cell[0{s}].reaction.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.cell[0{s}].reaction.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.cell[0{s}].inlet.T=303.15{K}; value root.cell[0{s}].outlet.T=304.0858373453369{K}; value root.cell[0{s}].reaction.T=304.0858373453369{K}; value root.cell[0{s}].volume=0.0015{m^3}; run simultaneous; policy { derivatives cells(8000000); }} {
 @id("c1949bf2ca80483389891e41ad1157df") child root:ControlledCSTR=ControlledCSTR();
 }
 @id("ff1ff4104ae9440b834057b61012d1f6") def SaturatedProcess {
@@ -113,10 +115,10 @@
 @id("32ffcc652f534cd497c3cb873a0d8270") annotation report tracking("tracking");
 @id("fb3a169553524aafa5740d3d57cdd09e") annotation check x(x[i]>=-1e-9 and x[i]<=1+1e-9);
 }
-@id("f33e2cf83c7e4f1b8df6da7f66212bd5") test saturated_simultaneous source "Analytic first-order lag lag*dx/dt=u-x, x(0)=0, bounded input 0<=u<=1, minimizing the integral of (x-target)^2 over 2 s: u=1 while x<target (x=1-exp(-t)), then u=target; J=(1-exp(-4))/2 at target 1 and ln(2)/4-1/8 at target 0.5" revision "1" fixture {dof 24; run simultaneous; intent optimize; fix root.u[0{s}]=1;} {
+@id("f33e2cf83c7e4f1b8df6da7f66212bd5") test saturated_simultaneous oracle references.analytic_first_order_lag fixture {dof 24; run simultaneous; intent optimize; fix root.u[0{s}]=1;} {
 @id("2f03e7e6d0554d68a3d2d714256bd59b") child root:SaturatedProcess=SaturatedProcess();
 }
-@id("50b334c432114f34ade0f9e24ff460e5") test saturated_integrated source "Analytic first-order lag lag*dx/dt=u-x, x(0)=0, under the saturated input u=1: x=1-exp(-t), integral of (x-1)^2 over 2 s (1-exp(-4))/2" revision "1" fixture {dof 0; run integrated; fix root.u[0{s}]=1; integrate samples(0.5{s},1{s},2{s}) relative(1e-10) normalized_absolute(1e-12) step(1e-5{s}) quadrature_relative(1e-9) quadrature_absolute(root.tracking=1e-10{s});} {
+@id("50b334c432114f34ade0f9e24ff460e5") test saturated_integrated oracle references.analytic_first_order_lag fixture {dof 0; run integrated; fix root.u[0{s}]=1; integrate samples(0.5{s},1{s},2{s}) relative(1e-10) normalized_absolute(1e-12) step(1e-5{s}) quadrature_relative(1e-9) quadrature_absolute(root.tracking=1e-10{s});} {
 @id("894bf686a0b24a6c91436d76b9d01f13") child root:SaturatedProcess=SaturatedProcess();
 }
 @id("74ab6d08c152445c89f6da0afdd3af46") def SwitchedProcess {
@@ -144,7 +146,7 @@
 @id("d570581e840646888472e9961fb1444c") annotation report tracking("tracking");
 @id("e7073bce56c94ae38011dd36b5c507bb") annotation check x(x[i]>=-1e-9 and x[i]<=1+1e-9);
 }
-@id("bbf77b04ed344205a780917531a693f4") test switched_simultaneous source "Analytic first-order lag lag*dx/dt=u-x, x(0)=0, with an on/off input u in (0,1) at every collocation node, minimizing the integral of (x-0.5)^2 over 2 s; bounded below by the continuous optimum ln(2)/4-1/8 and above by the always-on input, (1-exp(-4))/2-(1-exp(-2))+1/2" revision "1" fixture {dof 8; run simultaneous; intent optimize; fix root.on[0{s}]=1{1};} {
+@id("bbf77b04ed344205a780917531a693f4") test switched_simultaneous oracle references.analytic_first_order_lag fixture {dof 8; run simultaneous; intent optimize; fix root.on[0{s}]=1{1};} {
 @id("38ed5401e3224133b7c15742b6b8035f") child root:SwitchedProcess=SwitchedProcess();
 }
 }
