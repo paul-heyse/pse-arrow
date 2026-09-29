@@ -19,6 +19,9 @@ mod common;
 
 /// The crate that owns hashing (blueprint §3.1 "`blake3` ... **`pse-ids`** (sole hasher)").
 const OWNER: &str = "pse-ids";
+/// cargo-hakari's generated feature-unification crate (ADR-0122). It has no code, so its
+/// dependency on `blake3` unifies features and hashes nothing.
+const WORKSPACE_HACK: &str = "pse-workspace-hack";
 
 #[test]
 fn only_pse_ids_depends_on_blake3() {
@@ -35,7 +38,7 @@ fn only_pse_ids_depends_on_blake3() {
 
     let offenders: Vec<String> = members
         .iter()
-        .filter(|pkg| pkg.name.as_str() != OWNER)
+        .filter(|pkg| pkg.name.as_str() != OWNER && pkg.name.as_str() != WORKSPACE_HACK)
         .filter(|pkg| pkg.dependencies.iter().any(|dep| dep.name == "blake3"))
         .map(|pkg| pkg.name.to_string())
         .collect();
@@ -44,6 +47,25 @@ fn only_pse_ids_depends_on_blake3() {
         offenders.is_empty(),
         "crates other than `{OWNER}` depend on blake3 directly: {offenders:?}. Ask pse-ids \
          for the hash instead (blueprint §5.1)."
+    );
+    // The exemption holds only while the workspace-hack stays code-free.
+    let hack = metadata
+        .packages
+        .iter()
+        .find(|pkg| pkg.name.as_str() == WORKSPACE_HACK)
+        .expect("the workspace-hack is a workspace member");
+    let lib = hack
+        .manifest_path
+        .parent()
+        .expect("a manifest has a directory")
+        .join("src/lib.rs");
+    let source = std::fs::read_to_string(&lib).expect("the workspace-hack library source");
+    assert!(
+        source
+            .lines()
+            .map(str::trim)
+            .all(|line| line.is_empty() || line.starts_with("//")),
+        "{lib} holds code; the {WORKSPACE_HACK} blake3 exemption assumes it has none"
     );
 }
 
