@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e18b78db742e8fd36e3f9f5d6ffb") package bt_ideal {
 @id("01a0e18b78db742e8fd36e4082051d07") use kinds @"1.0.0";
+@id("01a0ede58ecb740c9dfc7a1da528aaf5") use chemistry @"1.0.0";
 @id("01a0e18b78db742e8fd36e41a2cd297a") use chem @"1.0.0";
 @id("01a0e18b78db742e8fd36e42afda5a53") use caloric @"1.0.0";
 @id("01a0e18b78db742e8fd36e43b3bfb495") use phase_data @"1.0.0";
@@ -28,7 +29,7 @@
 }
 @id("01a0e1971f9075519925981f0b0c0f89") fn liquid_h(T:Temperature,j:kinds.species)->MolarEnthalpy=equilibrium.enthalpy_datum()+caloric.h_unit()*((caloric_binding[j].liquid_reference-oracle_h_zero())/oracle_h_unit()-reference_shift(j))+caloric.polynomial_h_primitive(T,caloric.polynomial[caloric_binding[j].liquid_fit])-caloric.polynomial_h_primitive(caloric_binding[j].reference_temperature,caloric.polynomial[caloric_binding[j].liquid_fit]);
 @id("01a0e1971f90755199259820a9ad3ea5") fn vapor_h(T:Temperature,j:kinds.species)->MolarEnthalpy=equilibrium.enthalpy_datum()+caloric.polynomial_h_primitive(T,caloric.polynomial[caloric_binding[j].vapor_fit])-caloric.polynomial_h_primitive(stock_reference_temperature(),caloric.polynomial[caloric_binding[j].vapor_fit]);
-@id("40f35b70edac42b583ad3cc6d4e71a79") fn component_enthalpy(T:Temperature,p:kinds.phase,j:kinds.species)->MolarEnthalpy=if p==equilibrium.liquid then liquid_h(T,j) else vapor_h(T,j);
+@id("40f35b70edac42b583ad3cc6d4e71a79") fn component_enthalpy(T:Temperature,p:chemistry.phase,j:kinds.species)->MolarEnthalpy=if p==chemistry.liquid then liquid_h(T,j) else vapor_h(T,j);
 @id("01a0e1a32b1f76e89afdfd93cd6f99bd") fn oracle_h_zero()->BtOracleEnthalpy=0{J/mol};
 @id("01a0e1a32b1f76e89afdfd94c4084f91") fn oracle_h_unit()->BtOracleDeltaH=1{J/mol};
 @id("01a0e1a32b1f76e89afdfd95bb217bb1") fn stock_reference_temperature()->Temperature=298.15{K};

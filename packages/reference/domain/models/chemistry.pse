@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// The single phase authority: libraries name these phases rather than declare their own.
+@id("01a0ede5082274a785901e3183244ee3") package chemistry {
+@id("7d986668d824439f9b5828046038365d") entity kind phase {}
+@id("c1ac28b6694144a890b9854d887fa26c") entity phase liquid {}
+@id("c2e7b1a320d24eb482bfb7301782f55c") entity phase vapor {}
+}

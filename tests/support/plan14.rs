@@ -228,6 +228,7 @@ pub(crate) async fn seed_package_on(
         "process",
         "thermodynamics",
         "methods",
+        "domain",
         "physical",
     ]
     .into_iter()

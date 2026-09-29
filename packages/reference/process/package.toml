@@ -10,6 +10,7 @@ dependencies = [
  { package_id = "01a0e169482c760bbd985b849a06417d", version_req = "=1.0.0" },
  { package_id = "b27409be5572b8712e47db271fae28cd", version_req = "=1.0.0" },
  { package_id = "ce317b088cc74ac89873845b0c086ea8", version_req = "=1.0.0" },
+ { package_id = "01a0ede5081a7797b7d4a85cbe4d9a2d", version_req = "=1.0.0" },
 ]
 doc = "Authored control volumes, units and their physical composition contracts."
 

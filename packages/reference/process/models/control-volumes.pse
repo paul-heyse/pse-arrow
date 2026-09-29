@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 @id("35967416f406452a98e2d8798bc7c3eb") package control_volumes {
 @id("fad0df45a05043aab47fa86fb46a06fa") use kinds @"1.0.0";
+@id("01a0ede58eca75b18609170950fe7e0d") use chemistry @"1.0.0";
 @id("06e61a91f30f4151873a54209bd83190") use equilibrium @"1.0.0";
 @id("bee5ac9c31614333966f869cce24e75a") enum MaterialBalance {componentPhase,componentTotal,elementTotal,total}
 @id("38ac5f84712546f29f7e027a8741d512") fn element_flow_unit()->ElementFlow=1{mol/s};
@@ -26,7 +27,7 @@
 }
 }
 @id("4fee7b020ea94caaae04d6d470202852") param material_basis:MaterialBalance=MaterialBalance.componentTotal;
-@id("9b5e8a73656444e1b1db2b41a049c162") param phases:Set<kinds.phase>=outlet_package.phases;
+@id("9b5e8a73656444e1b1db2b41a049c162") param phases:Set<chemistry.phase>=outlet_package.phases;
 @id("0fecf4a5ef1b476e9d7e154dc118c3bb") param elements:Set<kinds.element>={};
 @id("eb6a112a2c7c426b99ce4d5f023bf714") param atoms:Fn(j:kinds.species,e:kinds.element)->Scalar;
 

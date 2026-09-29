@@ -51,6 +51,7 @@ def test_public_native_process_and_exact_results(
                 "process",
                 "thermodynamics",
                 "methods",
+                "domain",
                 "physical",
             )
         ],

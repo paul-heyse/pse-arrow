@@ -27,6 +27,7 @@
 @id("23e535e153484561af52f15dbba71ceb") child root:SaturatedPID=SaturatedPID();
 }
 @id("c30ef62cb57444dc89432df5850aae58") use kinds @"1.0.0";
+@id("01a0ede58ecc720b8be6cd2ed76aa4ce") use chemistry @"1.0.0";
 @id("c4a897cef26d42929e485474c8da6eed") use chem @"1.0.0";
 @id("d02bd312349f46cda9571e022d34061c") use reactors @"1.0.0";
 @id("69a88b61fcb945029d061a895fbfafcd") use saponification @"1.0.0";
@@ -59,7 +60,7 @@
 @id("37b1d1e618ea45ed853e123584ba9957") param solutes:Set<kinds.species>={chem.sodium_hydroxide,chem.ethyl_acetate,chem.sodium_acetate,chem.ethanol};
 @id("2306b66713b84a30a4dfb5415e344e5b") eq fixed_solvent_rate[i in t,p in phases]:cell[i].phase_material_accumulation[p,chem.water]==0{mol/s};
 
-@id("842bd32772424164bd60c1ff18697e3d") param phases:Set<kinds.phase>={equilibrium.liquid};
+@id("842bd32772424164bd60c1ff18697e3d") param phases:Set<chemistry.phase>={chemistry.liquid};
 @id("7cff63b22a824dc7b4e472e979ad1aa3") child cell[i in t]:reactors.CSTR=reactors.CSTR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions,holdup=true);
 @id("a618e9dd5ef0444c93e64af5541d7402") child regulator:control.PID=control.PID(timeline=t,first=0{s},initial_filter=0.40858373453369{s});
 @id("ce6814920f494e57ad2587f864778d8b") eq inlet_temperature[i in t]:cell[i].inlet.T==303.15{K};
@@ -73,8 +74,8 @@
 @id("59838f7a6d8c4abb9af8e64d80d7128a") eq measurement[i in t]:regulator.measurement[i]==(cell[i].outlet.T-300{K})/temperature_driving_force.kelvin_difference();
 @id("62fafb7ccd34404d80dbba16cf533785") eq target[i in t]:regulator.setpoint[i]==5;
 @id("6d4403abffa941aead525214ad3e5d59") eq duty[i in t]:cell[i].heat==10000*reactors.power_unit()*regulator.output[i];
-@id("09e0996be231496f9eed2ffe52faf352") eq initial_energy:cell[0{s}].phase_energy_holdup[equilibrium.liquid]==reactors.stored_energy(0.0015{m3},saponification.liquid_data[chem.water].density,saponification.component_enthalpy(304.0858373453369{K},equilibrium.liquid,chem.water),101325{Pa});
-@id("cde9c6a2b91f44b4a273281d506c3fa3") eq initial_inventory[j in solutes]:cell[0{s}].phase_material_holdup[equilibrium.liquid,j]==0.0015{m3}*initial_outlet[j];
+@id("09e0996be231496f9eed2ffe52faf352") eq initial_energy:cell[0{s}].phase_energy_holdup[chemistry.liquid]==reactors.stored_energy(0.0015{m3},saponification.liquid_data[chem.water].density,saponification.component_enthalpy(304.0858373453369{K},chemistry.liquid,chem.water),101325{Pa});
+@id("cde9c6a2b91f44b4a273281d506c3fa3") eq initial_inventory[j in solutes]:cell[0{s}].phase_material_holdup[chemistry.liquid,j]==0.0015{m3}*initial_outlet[j];
 @id("6a5989f1e66142a699392958a85bb18a") let temperature[i in t]:Temperature=cell[i].outlet.T;
 @id("9d0459f45eff45a8a6723d5ce7828bb6") let reactant[i in t]:MolarDensity=cell[i].outlet.concentration[chem.ethyl_acetate];
 @id("447c3c0e27ba44b69c088955f44a8821") annotation report temperature("controlled CSTR temperature");

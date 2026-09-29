@@ -2,11 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e18b78db742e8fd36e110ff14989") package equilibrium {
 @id("01a0e18b78db742e8fd36e12a3f932aa") use kinds @"1.0.0";
+@id("01a0ede58ecf75039afc471668012ddd") use chemistry @"1.0.0";
 @id("01a0e18b78db742e8fd36e1308c99e5c") use math @"1.0.0";
 @id("01a0e18b78db742e8fd36e14a5a5f8b3") use caloric @"1.0.0";
 @id("01a0e18b78db742e8fd36e155522a7b8") use pure_properties @"1.0.0";
-@id("c1ac28b6694144a890b9854d887fa26c") entity kinds.phase liquid {}
-@id("c2e7b1a320d24eb482bfb7301782f55c") entity kinds.phase vapor {}
 @id("74a301a092ad413bb5de501ccd67ffb5") fn pressure_difference_unit()->DeltaPressure=1{Pa};
 @id("56a9a222e4c048fc8c76aa9017ae3413") fn component_flow_unit()->ComponentFlow=1{mol/s};
 @id("4695e4aa4fc843eba60c3a122a932b9c") fn flow_unit()->Flow=1{mol/s};
@@ -152,17 +151,17 @@
 @id("01a0e1db89d774f6b2eec0873293f7a4") interface ThermoPackage extends MaterialState {
 @id("ba9aee1d2f2545f681e4e11603c10e4f") let phase_enthalpy[p in phases]:MolarEnthalpy;
 @id("1a4771793c444fb48d4f61dcd9f74b98") let phase_energy_flow[p in phases]:Power=phase_flow[p]*phase_enthalpy[p];
-@id("88efc9ad7b274af59b23dfd91f43faf7") param phases:Set<kinds.phase>;
+@id("88efc9ad7b274af59b23dfd91f43faf7") param phases:Set<chemistry.phase>;
 @id("37766651229c418598666318e635866d") let phase_flow[p in phases]:Flow;
 @id("31ea754fbae54e4b870920d04ee7a2fa") let phase_component_flow[p in phases,j in components]:ComponentFlow;
 @id("01a0e1971f90755199259812ebf22d4a") var h:MolarEnthalpy;
 @id("01a0e1db89d774f6b2eec088e3c2ac5b") let energy_flow:Power=flow*h;
 }
 @id("01a0e1971f9075519925980d433ab742") interface EquilibriumThermoPackage extends SmoothVLE,ThermoPackage {
-@id("d7f2b6e8992440dfb04edcf868375ecd") let phase_enthalpy[p in phases]:MolarEnthalpy=if p==equilibrium.liquid then h_liquid else h_vapor;
-@id("e35c912ebc5541b590703da681ccbe68") override param phases:Set<kinds.phase>={equilibrium.liquid,equilibrium.vapor};
-@id("fbaa44f3b30b474f8aac6758b0d54f70") let phase_flow[p in phases]:Flow=if p==equilibrium.liquid then liquid_flow else vapor_flow;
-@id("4f5d3eeebb87436c90f556fb9937bb98") let phase_component_flow[p in phases,j in components]:ComponentFlow=phase_flow[p]*(if p==equilibrium.liquid then x[j] else y[j]);
+@id("d7f2b6e8992440dfb04edcf868375ecd") let phase_enthalpy[p in phases]:MolarEnthalpy=if p==chemistry.liquid then h_liquid else h_vapor;
+@id("e35c912ebc5541b590703da681ccbe68") override param phases:Set<chemistry.phase>={chemistry.liquid,chemistry.vapor};
+@id("fbaa44f3b30b474f8aac6758b0d54f70") let phase_flow[p in phases]:Flow=if p==chemistry.liquid then liquid_flow else vapor_flow;
+@id("4f5d3eeebb87436c90f556fb9937bb98") let phase_component_flow[p in phases,j in components]:ComponentFlow=phase_flow[p]*(if p==chemistry.liquid then x[j] else y[j]);
 @id("01a0e1971f9075519925980eee091dae") param liquid_enthalpy:Fn(T:Temperature,j:kinds.species)->MolarEnthalpy;
 @id("01a0e1971f9075519925980f4248144b") param vapor_enthalpy:Fn(T:Temperature,j:kinds.species)->MolarEnthalpy;
 @id("01a0e1971f90755199259810f02e67ef") let h_liquid:MolarEnthalpy=enthalpy_datum()+sum(j in components | (x[j]/fraction_unit())*(liquid_enthalpy(T,j)-enthalpy_datum()));

@@ -34,9 +34,6 @@
 @id("01a0e1461e93764398a669f2264addb2") entity kinds.species sodium_hydroxide {}
 @id("01a0e1461e93764398a669f3f073acf1") entity kinds.species sodium_acetate {}
 @id("01a0e1461e93764398a669f485d31290") entity kinds.species ethanol {}
-@id("01a0e1461e93764398a669f5970cb265") entity kinds.phase liquid {}
-@id("01a0e1461e93764398a669f600e57253") entity kinds.phase vapor {}
-@id("01a0e1461e93764398a669f732daa5d4") entity kinds.phase aqueous {}
 @id("01a0e1461e93764398a669f83ae71a00") set elements:Set<kinds.element>={H,He,C,N,O,F,Na,Mg,Al,Si,P,S,Cl,Ar,K,Ca,Fe,Cu,Zn,Br,I};
 @id("01a0e1461e93764398a669f95e685efd") set species:Set<kinds.species>={benzene,toluene,water,nitrogen,methane,ethane,propane,ethyl_acetate,sodium_hydroxide,sodium_acetate,ethanol};
 @id("01a0e1461e93764398a669fa47465afc") set aromatics:Set<kinds.species>={benzene,toluene};

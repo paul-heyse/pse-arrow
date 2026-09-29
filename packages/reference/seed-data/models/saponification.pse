@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1db89d8722baac3991b501a0202") package saponification {
 @id("01a0e1db89d8722baac3991c94aa9a1b") use kinds @"1.0.0";
+@id("01a0ede58ecd7493b4ea28b8b7f5159e") use chemistry @"1.0.0";
 @id("01a0e1db89d8722baac3991de219c2d7") use chem @"1.0.0";
 @id("01a0e1db89d8722baac3991e81103ec4") use aqueous @"1.0.0";
 @id("01a0e1db89d8722baac3991f9bb50c70") use reactions @"1.0.0";
@@ -26,7 +27,7 @@
 @id("01a0e1db89d8722baac398fb13839169") fn rate(T:Temperature,c:MolarDensity[kinds.species],r:kinds.reaction)->VolumetricReactionRate=reactions.second_order(T,c[kinetics[r].first],c[kinetics[r].second],kinetics[r].k0,kinetics[r].E);
 @id("01a0e1db89d8722baac398fc47237ce7") fn heat(r:kinds.reaction)->ReactionHeat=kinetics[r].heat;
 @id("01a0e1db89d8722baac398fd08d530e4") fn coefficient(r:kinds.reaction,j:kinds.species)->Scalar=stoichiometry[r,j];
-@id("cff1a864140f486b9014e48fcf1fcbc7") fn component_enthalpy(T:Temperature,p:kinds.phase,j:kinds.species)->MolarEnthalpy=if j==chem.water then equilibrium.enthalpy_datum()+liquid_data[chem.water].cp*(T-liquid_data[chem.water].reference) else equilibrium.enthalpy_datum();
+@id("cff1a864140f486b9014e48fcf1fcbc7") fn component_enthalpy(T:Temperature,p:chemistry.phase,j:kinds.species)->MolarEnthalpy=if j==chem.water then equilibrium.enthalpy_datum()+liquid_data[chem.water].cp*(T-liquid_data[chem.water].reference) else equilibrium.enthalpy_datum();
 @id("01a0e1db89d8722baac398fedd10114a") def Saponification(defined_state:Boolean=false,selected:Set<kinds.species>=chem.saponification_species):aqueous.DiluteLiquid {
 @id("3edf7526e86c438782fd509deb920adb") override param defined:Boolean=defined_state;
 @id("01a0e1db89d8722baac398ff04498a15") override param components:Set<kinds.species>=selected;

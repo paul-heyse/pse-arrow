@@ -11,6 +11,7 @@ expressions, datasets and exact package dependencies are the source authority.
 | --- | --- |
 | `physical` | Units, complete quantities, conversions, physical operations, entity kinds, prelude functions and compatibility enum declarations |
 | `fixture-currency` | Explicitly synthetic currency conversion test data |
+| `domain` | The thermodynamic domain schema (`pse.domain`): the phase kind and the canonical `liquid` and `vapor` phases |
 | `methods` | Caloric interfaces and Shomate, polynomial, constant, density and vapor-pressure functions |
 | `thermodynamics` | Potential identities, ideal/PR/PC-SAFT forms and state/equilibrium interfaces |
 | `seed-data` | Chemical entities, CIAAW masses, sourced coefficients and named property-package bindings with fixtures |

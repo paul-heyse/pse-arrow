@@ -2,12 +2,13 @@
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1db89d8722baac398dad77ff4a3") package aqueous {
 @id("01a0e1db89d8722baac398db95708ed7") use kinds @"1.0.0";
+@id("01a0ede58ece70f380fb0a5410fa4d73") use chemistry @"1.0.0";
 @id("01a0e1db89d8722baac398dc283f9e89") use equilibrium @"1.0.0";
 @id("01a0e1db89d8722baac398dd3ce60598") use helmholtz @"1.0.0";
 @id("01a0e1db89d8722baac398b7943e4b30") fn concentration_unit()->MolarDensity=1{mol/m3};
 @id("01a0e1db89d8722baac398b849aaf90f") interface DiluteLiquid extends equilibrium.ThermoPackage {
 @id("9381ae6d45054233b6d89f641f8f47d1") let phase_enthalpy[p in phases]:MolarEnthalpy=h;
-@id("e79a4c09af7949adb56bdc03fe6e8239") override param phases:Set<kinds.phase>={equilibrium.liquid};
+@id("e79a4c09af7949adb56bdc03fe6e8239") override param phases:Set<chemistry.phase>={chemistry.liquid};
 @id("14b6cb2644874af18e9f15894efe84b2") let phase_flow[p in phases]:Flow=flow;
 @id("c653b8238ad94642aefb12f239276701") let phase_component_flow[p in phases,j in components]:ComponentFlow=component_flow[j];
 @id("01a0e1db89d8722baac398b96c1b0ffc") param solvent:kinds.species;

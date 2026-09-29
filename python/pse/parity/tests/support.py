@@ -107,7 +107,7 @@ quantity_type_id = "e2ccf6d0a394403db967f4f35b83cb7c"
         [{"package.toml": manifest, "models/parity.pse": text}]
         + [
             documents(reference / name)
-            for name in ("process", "thermodynamics", "methods", "physical")
+            for name in ("process", "thermodynamics", "methods", "domain", "physical")
         ],
         physical,
     )
