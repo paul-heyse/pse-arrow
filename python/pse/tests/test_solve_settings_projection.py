@@ -221,7 +221,7 @@ def test_solve_settings_backend_projection(
     assert msgspec.json.decode(simulation.idas, type=pse.IdasSettings) == idas
     assert msgspec.json.decode(simulation.diffsol, type=pse.DiffsolSettings) == diffsol
     assert json.loads(simulation.to_json())["idas"]["sensitivity"] == "staggered"
-    # The adjoint route's checkpoints are a document; the sensitivity is a registry name.
+    # The adjoint checkpoints are a document; the sensitivity is a registry name.
     adjoint = pse.AdjointSettings(steps_between_checkpoints=50)
     assert adjoint.max_checkpoints == pse.AdjointSettings().max_checkpoints
     gradient = pse.SimulationSettings(

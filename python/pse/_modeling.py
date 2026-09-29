@@ -805,7 +805,9 @@ class ModelingPackage:
         growth: float = 1.5,
         maximum_attempts: int = 128,
         time_limit: float = 60.0,
-        discrete: ModelingDiscreteInitialization = ModelingDiscreteInitialization.REFUSE,
+        discrete: ModelingDiscreteInitialization = (
+            ModelingDiscreteInitialization.REFUSE
+        ),
         discrete_values: Mapping[str, float] | None = None,
     ) -> ModelingInitialization:
         """Run bounded stages and adaptive homotopy, qualifying the original model.

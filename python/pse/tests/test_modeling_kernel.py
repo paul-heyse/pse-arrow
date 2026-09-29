@@ -154,8 +154,9 @@ def test_modeling_simulation_events_checks_and_terminal_reports(
  case run fixture {
   dof 0;
   run integrated;
-  integrate samples(0{s}, 0.25{s}, 0.75{s}, 2{s}) relative(1e-8) normalized_absolute(1e-8)
-   step(1e-4{s}) quadrature_relative(1e-8) quadrature_absolute(root.area=1e-9{s});
+  integrate samples(0{s}, 0.25{s}, 0.75{s}, 2{s}) relative(1e-8)
+   normalized_absolute(1e-8) step(1e-4{s}) quadrature_relative(1e-8)
+   quadrature_absolute(root.area=1e-9{s});
   mode rise;
   event root.hit[0{s}] direction(either) tolerance(1e-8{s})
    reset(root.x[0{s}] = root.jump[0{s}]) next(coast);
