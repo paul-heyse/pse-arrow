@@ -39,6 +39,7 @@ async fn study(selection: SolverSelection, threads: usize) -> Vec<(f64, f64, Mod
             ModelingStudyPoint {
                 analysis: Ok(analysis),
                 predecessor: None,
+                overlay: Default::default(),
             }
         })
         .collect();

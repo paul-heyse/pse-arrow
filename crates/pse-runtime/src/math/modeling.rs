@@ -449,9 +449,7 @@ impl MathService {
             });
         tokio::pin!(operation);
         let (product, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        self.preparations
-            .observations
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.count(|p| &p.observations);
         self.assemble_functions(product, lease, driver).await
     }
     /// Prepare the solver view of a bound structure and bind its first values: one
@@ -494,9 +492,7 @@ impl MathService {
             });
         tokio::pin!(operation);
         let owned = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        self.preparations
-            .views
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.count(|p| &p.views);
         self.own_preparation(owned)
     }
     /// Value-only rebind of a prepared view (A6). Nothing runs when no value the derived
@@ -513,10 +509,9 @@ impl MathService {
         values: pse_math::binding::CaseValues,
         driver: &crate::CancelSource,
     ) -> Result<super::Preparation, MathRuntimeError> {
-        use std::sync::atomic::Ordering::Relaxed;
         let compiled = prepared.prepared.clone();
         if compiled.values_match(&values) {
-            self.preparations.shared.fetch_add(1, Relaxed);
+            self.count(|p| &p.shared);
             // Derived realization parameters are unchanged (ADR-0104); they complete the
             // values the recorded assumptions are compared with.
             let completed = compiled.derived.complete(&values);
@@ -554,7 +549,7 @@ impl MathService {
             });
         tokio::pin!(operation);
         let (rebound, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        self.preparations.rebuilt.fetch_add(1, Relaxed);
+        self.count(|p| &p.rebuilt);
         Ok(Self::own_rebind(prepared, rebound, lease))
     }
     /// Own immutable generated declarations under the deployment pool.

@@ -716,6 +716,7 @@ mod native_tests {
         ModelingStudyPoint {
             analysis: Ok(analysis),
             predecessor,
+            overlay: Default::default(),
         }
     }
     fn native(result: &ModelingResult) -> &pse_backend_native::solve::SolveReport {
@@ -779,6 +780,55 @@ mod native_tests {
         );
         // Each changed parameter rebuilt only the value-dependent products.
         assert_eq!(end.rebuilt - start.rebuilt, 4);
+    }
+
+    /// A study reports its own preparations (A6). Two value-only studies run concurrently
+    /// on one runtime, their point values supplied as overlays: each prepares its structure
+    /// once and rebinds every later point, and together they account for exactly the
+    /// runtime's counts.
+    #[tokio::test]
+    async fn study_results_carry_preparation_counts() {
+        let runtime = runtime();
+        let cancel = crate::CancelSource::new();
+        let points = |analysis: &ModelingAnalysis| {
+            (1..=5)
+                .map(|t| ModelingStudyPoint {
+                    analysis: Ok(analysis.clone()),
+                    predecessor: None,
+                    overlay: crate::workflow::PointOverlay {
+                        values: BTreeMap::from([("t".into(), f64::from(t))]),
+                        ..Default::default()
+                    },
+                })
+                .collect::<Vec<_>>()
+        };
+        let (first, first_analysis) = package_on(&runtime, LINEAR);
+        let (second, second_analysis) = package_on(&runtime, LINEAR);
+        let before = runtime.native().preparations();
+        let (first, second) = tokio::join!(
+            first.study(points(&first_analysis), 8, &cancel),
+            second.study(points(&second_analysis), 8, &cancel),
+        );
+        let after = runtime.native().preparations();
+        let (first, second) = (first.unwrap(), second.unwrap());
+        for report in [&first, &second] {
+            for (t, outcome) in (1..=5).zip(&report.outcomes) {
+                let result = outcome.as_ref().unwrap();
+                assert!(result.accepted, "{:?}", result.diagnostic());
+                assert!((x(result) - (2. + f64::from(t))).abs() < 1e-8);
+            }
+            assert_eq!(report.preparations.views, 1, "{:?}", report.preparations);
+            assert_eq!(report.preparations.rebuilt, 4, "{:?}", report.preparations);
+            assert_eq!(report.preparations.shared, 0, "{:?}", report.preparations);
+        }
+        let (a, b) = (first.preparations, second.preparations);
+        assert_eq!(after.views - before.views, a.views + b.views);
+        assert_eq!(
+            after.observations - before.observations,
+            a.observations + b.observations
+        );
+        assert_eq!(after.rebuilt - before.rebuilt, a.rebuilt + b.rebuilt);
+        assert_eq!(after.shared - before.shared, a.shared + b.shared);
     }
 
     /// Homotopy steps change values only: they share one prepared structure and the

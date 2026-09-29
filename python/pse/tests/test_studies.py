@@ -16,6 +16,7 @@ from pse.contracts.enums import (
     JobState,
     NativeBackend,
     NativeSolveIntent,
+    NativeTermination,
     PresolvePolicyKind,
     StudyPointState,
     StudyState,
@@ -160,13 +161,68 @@ def test_durable_study_cancel_and_its_refusals(
     assert status.attempt_state == AttemptState.CANCELLED
     assert all(point.state == StudyPointState.CANCELLED for point in status.points)
 
-    # Overlays select a durable study; a package changed in memory has no authored
+    # A workspace selects a durable study; a package changed in memory has no authored
     # sources.
     with pytest.raises(ValueError, match="durable study"):
-        # pyrefly: ignore[unexpected-keyword] -- the overloads reject this call; its
+        # pyrefly: ignore[no-matching-overload] -- the overloads reject this call; its
         # runtime refusal is what is under test
-        package.study((case,), settings, overlays=(PointOverlay(),))
+        package.study((case,), settings, workspace=workspace)
     with pytest.raises(pse.InspectionError, match="changed in memory"):
         package.with_limits(pse.ModelingLimits()).study(
             (case,), settings, runtime=runtime, workspace=workspace
         )
+
+
+FLASH_BT_IDEAL = DeclarationId(SemanticId.from_hex("3ca89c2ae2704e21a11e3512bf3cdb7e"))
+
+
+@pytest.mark.integration
+def test_flash_sweep_prepares_structure_once(
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    """A feed-temperature sweep of the BT ideal flash changes values only (CT-S08)."""
+    runtime = pse.Runtime(inspection_settings)
+    reference = Path(__file__).resolve().parents[3] / "packages/reference"
+
+    def documents(path: Path) -> dict[str, str]:
+        return {
+            p.relative_to(path).as_posix(): p.read_text()
+            for p in path.rglob("*")
+            if p.is_file() and p.suffix in {".toml", ".yaml", ".yml", ".pse"}
+        }
+
+    physical = runtime.physical_from_documents(documents(reference / "physical"))
+    package = runtime.modeling_from_documents(
+        [
+            documents(reference / name)
+            for name in ("seed-data", "process", "thermodynamics", "methods", "physical")
+        ],
+        physical,
+    )
+    temperatures = (366.0, 367.0, 368.0, 369.0)
+    study = package.study(
+        tuple(FLASH_BT_IDEAL for _ in temperatures),
+        pse.SolveSettings(
+            backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT
+        ),
+        overlays=tuple(PointOverlay(values={"root.inlet.T": t}) for t in temperatures),
+    )
+    assert study.count == len(temperatures)
+    values = []
+    for index, temperature in enumerate(temperatures):
+        result = study.result(index)
+        assert result is not None, study.failure(index)
+        # Every point converges; the fixture's IDAES expectations hold at 368 K only.
+        attempt = result.attempt()
+        assert attempt is not None
+        assert attempt.termination == NativeTermination.SUCCESS, attempt.termination
+        assert result.accepted == (temperature == 368.0), result.failure()
+        values.append(attempt.primal())
+    # Each point solved its own feed temperature ...
+    assert values[0] != values[-1]
+    # ... on one prepared structure: every later point only rebound its values.
+    preparations = study.preparations
+    assert preparations.views == 1, preparations
+    assert preparations.rebuilt + preparations.shared == len(temperatures) - 1, (
+        preparations
+    )

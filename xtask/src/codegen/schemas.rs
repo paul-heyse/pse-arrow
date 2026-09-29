@@ -27,6 +27,7 @@ pub(super) fn documents() -> Vec<Document> {
         document::<pse_runtime::workflow::TerminationDetail>("termination-detail"),
         document::<pse_runtime::workflow::SourceManifest>("source-manifest"),
         document::<pse_runtime::workflow::FitUncertainty>("fit-uncertainty"),
+        document::<pse_runtime::math::PreparationCounts>("preparation-counts"),
     ]
 }
 

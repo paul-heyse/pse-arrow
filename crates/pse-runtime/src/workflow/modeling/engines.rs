@@ -221,6 +221,9 @@ pub struct ModelingStudyPoint {
     pub analysis: Result<ModelingAnalysis, Arc<WorkflowError>>,
     /// Earlier point whose candidate seeds this one.
     pub predecessor: Option<usize>,
+    /// Case values and declared parameters this point replaces, composed over its
+    /// analysis for the point only, as in a durable study.
+    pub overlay: crate::workflow::PointOverlay,
 }
 /// A point failure is represented independently of neighboring cases.
 #[derive(Clone, Debug)]
@@ -233,6 +236,9 @@ pub struct ModelingStudyReport {
     pub outcomes: Vec<Result<ModelingResult, BoundaryDiagnostic>>,
     /// Points not attempted after cancellation.
     pub unattempted: usize,
+    /// Structural preparations and value rebinds this study performed, and no concurrent
+    /// operation's (A6): points of one structure prepare it once and rebind values.
+    pub preparations: crate::math::PreparationCounts,
     pub(in crate::workflow::modeling) _owner: Arc<pse_columnar::AllocationLease>,
 }
 pub(super) fn bounded_error(error: impl std::fmt::Display) -> String {
@@ -351,35 +357,40 @@ impl ModelingPackage {
             })
             .collect();
         let mut staged = Staged::open(&self.runtime, None)?;
-        let mut outcomes: Vec<Result<ModelingResult, BoundaryDiagnostic>> = vec![];
-        let mut points = std::collections::VecDeque::from(points);
-        while let Some(p) = points.pop_front() {
-            if cancel.token().is_cancelled() {
-                break;
+        let (outcomes, preparations) = crate::math::counted(async {
+            let mut outcomes: Vec<Result<ModelingResult, BoundaryDiagnostic>> = vec![];
+            let mut points = std::collections::VecDeque::from(points);
+            while let Some(p) = points.pop_front() {
+                if cancel.token().is_cancelled() {
+                    break;
+                }
+                // Consecutive independent points that select one batching adapter run as
+                // one parallel batch (Plan 22 N5); each is still bound, assessed and
+                // recorded alone.
+                let Some(backend) = batching(&p) else {
+                    outcomes.push(self.study_point(&mut staged, p, cancel).await);
+                    continue;
+                };
+                let mut analyses = Vec::new();
+                if let Ok(analysis) = p.analysis {
+                    analyses.push(analysis);
+                }
+                while let Some(next) = points.front()
+                    && batching(next) == Some(backend)
+                    && let Some(Ok(analysis)) = points.pop_front().map(|p| p.analysis)
+                {
+                    analyses.push(analysis);
+                }
+                for result in staged
+                    .batch(self, &analyses, Obligations::Final, cancel)
+                    .await
+                {
+                    outcomes.push(result.map_err(|error| error.boundary_diagnostic()));
+                }
             }
-            // Consecutive independent points that select one batching adapter run as one
-            // parallel batch (Plan 22 N5); each is still bound, assessed and recorded alone.
-            let Some(backend) = batching(&p) else {
-                outcomes.push(self.study_point(&mut staged, p, cancel).await);
-                continue;
-            };
-            let mut analyses = Vec::new();
-            if let Ok(analysis) = p.analysis {
-                analyses.push(analysis);
-            }
-            while let Some(next) = points.front()
-                && batching(next) == Some(backend)
-                && let Some(Ok(analysis)) = points.pop_front().map(|p| p.analysis)
-            {
-                analyses.push(analysis);
-            }
-            for result in staged
-                .batch(self, &analyses, Obligations::Final, cancel)
-                .await
-            {
-                outcomes.push(result.map_err(|error| error.boundary_diagnostic()));
-            }
-        }
+            outcomes
+        })
+        .await;
         staged.close().await;
         Ok(ModelingStudyReport {
             run_id: pse_operations::mint_id(),
@@ -387,6 +398,7 @@ impl ModelingPackage {
             points: point_sources,
             unattempted: count - outcomes.len(),
             outcomes,
+            preparations,
             _owner: owner,
         })
     }
@@ -431,6 +443,11 @@ impl ModelingPackage {
                 return Err(error.boundary_diagnostic());
             }
         };
+        let overlay = Overlay {
+            values: point.overlay.values,
+            parameters: point.overlay.parameters,
+            ..Overlay::default()
+        };
         let start = point.predecessor.map_or(Start::Specification, Start::Seed);
         if let Some(previous) = point.predecessor
             && staged.seed(start).is_none()
@@ -452,7 +469,7 @@ impl ModelingPackage {
             .step(
                 self,
                 &analysis,
-                &Overlay::default(),
+                &overlay,
                 start,
                 Obligations::Final,
                 None,
@@ -791,8 +808,10 @@ fn continuation_values(
 fn batching(point: &ModelingStudyPoint) -> Option<pse_backend_native::solve::Backend> {
     let analysis = point.analysis.as_ref().ok()?;
     match analysis.solver.selection {
+        // A batch binds the points' own analyses; a point with an overlay runs alone.
         pse_backend_native::solve::SolverSelection::Explicit(backend)
             if point.predecessor.is_none()
+                && point.overlay == crate::workflow::PointOverlay::default()
                 && pse_backend_native::execution::adapter(backend)
                     .capability()
                     .batch =>
@@ -1046,18 +1065,22 @@ mod tests {
                     ModelingStudyPoint {
                         analysis: Ok(analysis.clone()),
                         predecessor: None,
+                        overlay: Default::default(),
                     },
                     ModelingStudyPoint {
                         analysis: Ok(failing),
                         predecessor: None,
+                        overlay: Default::default(),
                     },
                     ModelingStudyPoint {
                         analysis: Ok(analysis.clone()),
                         predecessor: None,
+                        overlay: Default::default(),
                     },
                     ModelingStudyPoint {
                         analysis: Ok(analysis.clone()),
                         predecessor: Some(1),
+                        overlay: Default::default(),
                     },
                 ],
                 4,
