@@ -246,6 +246,40 @@ class RuntimeFitVariablesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeInfeasibilityCertificatesFieldRayItem:
+    """Declared relation row or nested value."""
+
+    coordinate: e.NativeRayCoordinate = attrs.field(validator=attrs.validators.instance_of(e.NativeRayCoordinate))
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    value: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeInfeasibilityCertificatesFieldVerification:
+    """Declared relation row or nested value."""
+
+    residual: b.float = attrs.field(validator=v.finite_float)
+    objective: b.float = attrs.field(validator=v.finite_float)
+    cone: b.float = attrs.field(validator=v.finite_float)
+    margin: b.float = attrs.field(validator=v.finite_float)
+    tolerance: b.float = attrs.field(validator=v.finite_float)
+    verified: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeInfeasibilityCertificatesRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    backend: e.NativeBackend = attrs.field(validator=attrs.validators.instance_of(e.NativeBackend))
+    kind: e.NativeCertificateKind = attrs.field(validator=attrs.validators.instance_of(e.NativeCertificateKind))
+    accuracy: e.NativeCertificateAccuracy = attrs.field(validator=attrs.validators.instance_of(e.NativeCertificateAccuracy))
+    ray: b.tuple[RuntimeInfeasibilityCertificatesFieldRayItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeInfeasibilityCertificatesFieldRayItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    verification: RuntimeInfeasibilityCertificatesFieldVerification | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeInfeasibilityCertificatesFieldVerification)))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeMaintenanceOutcomesRow:
     """Declared relation row or nested value."""
 
@@ -1482,6 +1516,7 @@ class RuntimeSolverCapabilitiesRow:
 
     backend: e.NativeBackend = attrs.field(validator=attrs.validators.instance_of(e.NativeBackend))
     classes: b.tuple[e.NativeProblemClass, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeProblemClass), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    automatic_classes: b.tuple[e.NativeProblemClass, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeProblemClass), iterable_validator=attrs.validators.instance_of(b.tuple)))
     derivatives: e.NativeDerivativeCapability = attrs.field(validator=attrs.validators.instance_of(e.NativeDerivativeCapability))
     warm: e.NativeWarmCapability = attrs.field(validator=attrs.validators.instance_of(e.NativeWarmCapability))
     reuse: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))

@@ -163,11 +163,14 @@ impl MathService {
         self: &Arc<Self>,
         slot: tokio::sync::OwnedSemaphorePermit,
     ) -> Result<NativeSession, MathRuntimeError> {
+        // The session thread's inner-solve session cache is held within its lease (I14).
+        let sessions = self.policy.inner_session_bytes;
         let bytes = self
             .policy
             .stack_bytes
             .checked_add(self.policy.foreign_bytes)
             .and_then(|n| n.checked_add(self.policy.worker_bytes))
+            .and_then(|n| n.checked_add(sessions))
             .ok_or(MathRuntimeError::Limit("native allowance overflow"))?;
         let lease = self.reserve("math:native-session", bytes)?;
         let (sender, receiver) = mpsc::channel::<Request>();
@@ -175,7 +178,13 @@ impl MathService {
         let thread = std::thread::Builder::new()
             .name("pse-math".into())
             .stack_size(stack)
-            .spawn(move || serve(&std::sync::Mutex::new(receiver), stack))
+            .spawn(move || {
+                #[cfg(feature = "solver-kinsol")]
+                pse_backend_native::implicit::budget_sessions(sessions);
+                #[cfg(not(feature = "solver-kinsol"))]
+                let _ = sessions;
+                serve(&std::sync::Mutex::new(receiver), stack)
+            })
             .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
         let (joined, receiver) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {

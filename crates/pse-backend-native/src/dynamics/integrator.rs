@@ -2,10 +2,11 @@
 // Copyright (c) 2026 Paul Heyse
 //! Rust-only Diffsol adapter. All operator failures exit through one owned catch boundary.
 //! The scheme (BDF, TR-BDF2, ESDIRK34, Tsit45) and the Newton linear solver (faer LU or
-//! SuiteSparse KLU) are typed profile fields (ADR-0110 item 2).
+//! SuiteSparse KLU) are typed profile fields (ADR-0110 item 2). Both linear solvers are
+//! pse-owned and fail through Diffsol's typed step recovery, not by panicking (I9).
 use super::*;
 use diffsol::{
-    ConstantOp, ConstantOpSens, FaerContext, FaerSparseLU, FaerSparseMat, FaerVec, LinearOp,
+    ConstantOp, ConstantOpSens, FaerContext, FaerSparseMat, FaerVec, LinearOp,
     LinearSolver, Matrix, NonLinearOp, NonLinearOpJacobian, NonLinearOpSens, OdeBuilder,
     OdeEquations, OdeEquationsRef, OdeSolverMethod, OdeSolverStopReason, Op, Vector, VectorHost,
 };
@@ -24,12 +25,15 @@ struct Abort;
 struct Shared<'o> {
     oracle: RefCell<&'o mut dyn Oracle>,
     contract: Contract,
+    /// The integration parameter vector: unscheduled parameters, then every interval of
+    /// every scheduled input (I6). Diffsol's parameters and sensitivity columns.
     parameters: RefCell<Vec<f64>>,
+    /// The integration column of each contract parameter in the current segment.
+    columns: RefCell<Vec<usize>>,
     mode: Cell<usize>,
     integrals: RefCell<Vec<f64>>,
     seed: RefCell<Option<Vec<f64>>>,
     seed_sens: RefCell<Option<Vec<V>>>,
-    parameter_active: Cell<bool>,
     failure: RefCell<Option<(Termination, ProblemError)>>,
     cancel: Cancellation,
     deadline: Instant,
@@ -62,6 +66,19 @@ impl Shared<'_> {
     fn evaluate(&self, f: Function, t: f64, x: &[f64], derivative: bool) -> Evaluation {
         self.evaluate_mode(self.mode.get(), f, t, x, derivative)
     }
+    /// The contract parameter values of the current segment.
+    fn values(&self) -> Vec<f64> {
+        let parameters = self.parameters.borrow();
+        self.columns
+            .borrow()
+            .iter()
+            .map(|c| parameters.get(*c).copied().unwrap_or(f64::NAN))
+            .collect()
+    }
+    /// The integration parameter count: Diffsol's parameter and sensitivity width.
+    fn width(&self) -> usize {
+        self.parameters.borrow().len()
+    }
     fn evaluate_mode(
         &self,
         mode: usize,
@@ -71,10 +88,11 @@ impl Shared<'_> {
         derivative: bool,
     ) -> Evaluation {
         self.check();
-        let result =
-            self.oracle
-                .borrow_mut()
-                .evaluate(mode, f, t, x, &self.parameters.borrow(), derivative);
+        let parameters = self.values();
+        let result = self
+            .oracle
+            .borrow_mut()
+            .evaluate(mode, f, t, x, &parameters, derivative);
         match result {
             Ok(v) => {
                 let n = self.nout_mode(mode, f);
@@ -124,7 +142,13 @@ struct Operator<'o> {
     function: Function,
     mode: usize,
     state_pattern: Pattern,
+    /// Partials in the segment's integration columns: each contract parameter column is
+    /// relabeled to its interval's column; the other intervals' columns are empty.
     parameter_pattern: Pattern,
+    /// The integration column of each contract parameter in this operator's segment.
+    columns: Vec<usize>,
+    /// The contract parameter of each integration column in this segment, if any.
+    contract: Vec<Option<usize>>,
     direction: RefCell<Vec<f64>>,
 }
 impl<'o> Operator<'o> {
@@ -139,6 +163,17 @@ impl<'o> Operator<'o> {
     ) -> Result<Self, ProblemError> {
         let n = shared.contract.states.len();
         let np = shared.contract.parameters.len();
+        let width = shared.width();
+        let columns = shared.columns.borrow().clone();
+        let mut contract_columns = vec![None; width];
+        for (k, c) in columns.iter().enumerate() {
+            if let Some(slot) = contract_columns.get_mut(*c) {
+                *slot = Some(k);
+            }
+        }
+        if columns.len() != np || contract_columns.iter().flatten().count() != np {
+            return Err(ProblemError::internal("dynamic segment parameter columns"));
+        }
         let m = shared.nout_mode(mode, function);
         // The oracle's typed support becomes faer positions here.
         let mut pairs = shared
@@ -154,6 +189,12 @@ impl<'o> Operator<'o> {
         if pairs.iter().any(|&(r, c)| r >= m || c >= n + np) {
             return Err(ProblemError::internal("dynamic support bounds"));
         }
+        // Contract parameter columns become the segment's integration columns.
+        for pair in &mut pairs {
+            if pair.1 >= n {
+                pair.1 = n + columns[pair.1 - n];
+            }
+        }
         let pattern = |parameter: bool| {
             let indices: Vec<_> = pairs
                 .iter()
@@ -167,13 +208,15 @@ impl<'o> Operator<'o> {
                     }
                 })
                 .collect();
-            Pattern::try_new_from_indices(m, if parameter { np } else { n }, &indices)
+            Pattern::try_new_from_indices(m, if parameter { width } else { n }, &indices)
                 .map(|v| v.0)
                 .map_err(|e| ProblemError::internal(format!("dynamic support pattern: {e}")))
         };
         Ok(Self {
             state_pattern: pattern(false)?,
             parameter_pattern: pattern(true)?,
+            columns,
+            contract: contract_columns,
             direction: RefCell::new(vec![0.0; n + np]),
             shared,
             function,
@@ -190,16 +233,21 @@ impl<'o> Operator<'o> {
                 ProblemError::internal("missing dynamic partials"),
             );
         };
-        let offset = if parameter { self.nstates() } else { 0 };
+        let n = self.nstates();
         let target = matrix.inner_mut();
         for c in 0..target.ncols() {
+            // A parameter column reads its contract parameter's partials, if this segment
+            // maps one to it.
+            let source = if parameter {
+                self.contract.get(c).copied().flatten().map(|k| n + k)
+            } else {
+                Some(c)
+            };
             for k in target.col_range(c) {
                 let r = target.symbolic().row_idx()[k];
-                target.val_mut()[k] = if parameter && !self.shared.parameter_active.get() {
-                    0.0
-                } else {
-                    j.get(r, c + offset).copied().unwrap_or(0.0)
-                };
+                target.val_mut()[k] = source
+                    .and_then(|source| j.get(r, source).copied())
+                    .unwrap_or(0.0);
             }
         }
     }
@@ -217,9 +265,13 @@ impl<'o> Operator<'o> {
         // full admitted CSC matrix; a fresh Diffsol matrix is unnecessary.
         let mut direction = self.direction.borrow_mut();
         direction.fill(0.0);
-        let offset = if parameter { self.nstates() } else { 0 };
-        if !parameter || self.shared.parameter_active.get() {
-            direction[offset..offset + v.len()].copy_from_slice(v.as_slice());
+        let n = self.nstates();
+        if parameter {
+            for (k, c) in self.columns.iter().enumerate() {
+                direction[n + k] = v[*c];
+            }
+        } else {
+            direction[..n].copy_from_slice(v.as_slice());
         }
         let nout = self.nout();
         faer::sparse::linalg::matmul::sparse_dense_matmul(
@@ -244,7 +296,7 @@ impl Op for Operator<'_> {
         self.shared.contract.states.len()
     }
     fn nparams(&self) -> usize {
-        self.shared.contract.parameters.len()
+        self.shared.width()
     }
     fn nout(&self) -> usize {
         self.shared.nout_mode(self.mode, self.function)
@@ -340,7 +392,7 @@ impl Op for Mass<'_> {
         self.0.contract.states.len()
     }
     fn nparams(&self) -> usize {
-        self.0.contract.parameters.len()
+        self.0.width()
     }
     fn nout(&self) -> usize {
         self.nstates()
@@ -488,13 +540,15 @@ pub(super) fn integrate_with_progress(
     let contract_value = oracle.contract().clone();
     let shared = Rc::new(Shared {
         oracle: RefCell::new(oracle),
+        columns: RefCell::new(
+            profile.columns_at(contract_value.parameters.len(), profile.start),
+        ),
         contract: contract_value.clone(),
         parameters: RefCell::new(parameters.to_vec()),
         integrals: RefCell::new(vec![0.0; contract_value.quadratures.len()]),
         mode: Cell::new(0),
         seed: RefCell::new(None),
         seed_sens: RefCell::new(None),
-        parameter_active: Cell::new(true),
         failure: RefCell::new(None),
         cancel,
         deadline: Instant::now()
@@ -507,9 +561,12 @@ pub(super) fn integrate_with_progress(
         },
     });
     let mut report = Report::new(profile.start);
+    // The boundary exits Diffsol's infallible operator callbacks with the recorded typed
+    // failure (`Shared::abort`) and contains any other library panic. A failed Newton
+    // factorization never reaches it: the linear solvers return it as an error.
     let result = catch_unwind(AssertUnwindSafe(|| match profile.diffsol.linear {
-        DiffsolLinear::FaerLu => run::<FaerSparseLU<f64>>(shared.clone(), profile, &mut report),
-        DiffsolLinear::Klu => run::<diffsol::KLU<M>>(shared.clone(), profile, &mut report),
+        DiffsolLinear::FaerLu => run::<linear::FaerLu>(shared.clone(), profile, &mut report),
+        DiffsolLinear::Klu => run::<linear::Klu>(shared.clone(), profile, &mut report),
     }));
     match result {
         Ok(Ok(())) => {}
@@ -557,7 +614,12 @@ fn run<LS: LinearSolver<M>>(
     r: &mut Report,
 ) -> Result<(), ProblemError> {
     let mut time = p.start;
-    let mut change = 0;
+    // Scheduled-input changes split the horizon into segments; every segment integrates
+    // the same integration parameters with its own column map (I6).
+    let boundaries = p.boundaries();
+    let scales = p.integration_parameters(&p.parameter_scales);
+    let np = shared.contract.parameters.len();
+    let mut segment = 0;
     let mut steps = 0usize;
     loop {
         shared.check();
@@ -584,7 +646,7 @@ fn run<LS: LinearSolver<M>>(
             .rtol(p.rtol)
             .atol(p.atol.clone())
             .p(params)
-            .param_scales(p.parameter_scales.clone());
+            .param_scales(scales.clone());
         if let Some(tolerance) = p.out_rtol {
             builder = builder
                 .integrate_out(true)
@@ -603,9 +665,11 @@ fn run<LS: LinearSolver<M>>(
         if r.requested_initial.is_empty() {
             r.requested_initial = requested;
         }
-        let stop = p.changes.get(change).map_or(p.end, |v| v.time);
+        let stop = boundaries.get(segment).copied().unwrap_or(p.end);
         // One segment on the selected library scheme (ADR-0110 item 2). Every scheme
         // shares root finding, interpolation, output quadrature and reset sensitivities.
+        // The segment's own unwind catch records its statistics before an abort continues
+        // to the outer boundary.
         macro_rules! segment {
             ($solver:expr, sensitivities) => {{
                 let mut solver = $solver.map_err(native)?;
@@ -615,7 +679,7 @@ fn run<LS: LinearSolver<M>>(
                     return Ok(());
                 }
                 let attempt = catch_unwind(AssertUnwindSafe(|| {
-                    drive(&shared, &mut solver, p, r, stop, &mut steps)
+                    drive(&shared, &mut solver, p, r, (stop, &boundaries), &mut steps)
                 }));
                 r.statistics
                     .push(segment_statistics(solver.get_statistics(), &p.diffsol)?);
@@ -633,7 +697,7 @@ fn run<LS: LinearSolver<M>>(
                 if let Some(index) = result.0 {
                     let event = &shared.contract.events[shared.mode.get()][index];
                     if !event.terminal {
-                        reset_sens::<LS, _>(&shared, &mut solver, p, index)?;
+                        reset_sens::<LS, _>(&shared, &mut solver, p, &scales, index)?;
                         *shared.seed.borrow_mut() = Some(solver.state().y.as_slice().to_vec());
                     }
                 }
@@ -648,7 +712,7 @@ fn run<LS: LinearSolver<M>>(
                     return Ok(());
                 }
                 let attempt = catch_unwind(AssertUnwindSafe(|| {
-                    drive(&shared, &mut solver, p, r, stop, &mut steps)
+                    drive(&shared, &mut solver, p, r, (stop, &boundaries), &mut steps)
                 }));
                 r.statistics
                     .push(segment_statistics(solver.get_statistics(), &p.diffsol)?);
@@ -729,7 +793,7 @@ fn run<LS: LinearSolver<M>>(
             *shared.seed.borrow_mut() = Some(state);
         }
         // Roots precede a scheduled change at the same native stop time.
-        let changed = p.changes.get(change).is_some_and(|c| c.time == time);
+        let changed = boundaries.get(segment).is_some_and(|b| *b == time);
         if changed {
             if r.events.len() >= p.max_events {
                 r.termination = Termination::EventLimit;
@@ -741,9 +805,9 @@ fn run<LS: LinearSolver<M>>(
                 before: shared.seed.borrow().clone().unwrap_or_default(),
                 after: None,
             });
-            *shared.parameters.borrow_mut() = p.changes[change].parameters.clone();
-            shared.parameter_active.set(false);
-            change += 1;
+            // The integration parameters stay; the next intervals' columns take effect.
+            *shared.columns.borrow_mut() = p.columns_at(np, time);
+            segment += 1;
         }
         if time >= p.end && event.is_none() && !changed {
             r.termination = Termination::Completed;
@@ -757,6 +821,7 @@ fn reset_sens<'p, 'o: 'p, LS: LinearSolver<M>, S: OdeSolverMethod<'p, Equation<'
     shared: &Rc<Shared<'o>>,
     solver: &mut S,
     p: &Profile,
+    scales: &[f64],
     index: usize,
 ) -> Result<(), ProblemError> {
     let mode = shared.mode.get();
@@ -773,15 +838,17 @@ fn reset_sens<'p, 'o: 'p, LS: LinearSolver<M>, S: OdeSolverMethod<'p, Equation<'
         let j = roots
             .jacobian
             .ok_or_else(|| ProblemError::internal("missing root derivatives"))?;
+        let columns = shared.columns.borrow().clone();
         for (k, s) in state.s.iter().enumerate() {
+            let direct = columns
+                .iter()
+                .position(|c| *c == k)
+                .and_then(|contract| j.get(index, state.y.len() + contract).copied())
+                .unwrap_or(0.0);
             let moving = (0..state.y.len())
                 .map(|i| j.get(index, i).copied().unwrap_or(0.0) * s[i])
                 .sum::<f64>()
-                + if shared.parameter_active.get() {
-                    j.get(index, state.y.len() + k).copied().unwrap_or(0.0)
-                } else {
-                    0.0
-                };
+                + direct;
             if moving.abs() > 100.0 * f64::EPSILON {
                 return Err(contract(
                     "fixed-time observation coincides with a parameter-dependent jump",
@@ -811,7 +878,7 @@ fn reset_sens<'p, 'o: 'p, LS: LinearSolver<M>, S: OdeSolverMethod<'p, Equation<'
         .sens_rtol(p.rtol)
         .sens_atol(p.atol.clone())
         .p(parameters)
-        .param_scales(p.parameter_scales.clone())
+        .param_scales(scales.to_vec())
         .build_from_eqn(eq)
         .map_err(native)?;
     transition.ic_options = copy_initial(&p.initialization);
@@ -857,7 +924,7 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     s: &mut S,
     p: &Profile,
     r: &mut Report,
-    stop: f64,
+    (stop, boundaries): (f64, &[f64]),
     steps: &mut usize,
 ) -> Result<(Option<usize>, Vec<f64>), ProblemError> {
     s.set_stop_time(stop).map_err(native)?;
@@ -874,8 +941,8 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             _ => (s.state().t, None),
         };
         while let Some(&t) = p.samples.get(r.samples.len()) {
-            if t > time || (t == time && (root.is_some() || p.changes.iter().any(|c| c.time == t)))
-            {
+            // A sample at a root or a scheduled change observes the post-transition state.
+            if t > time || (t == time && (root.is_some() || boundaries.contains(&t))) {
                 break;
             }
             r.samples.push(sample(shared, s, t, p.sensitivities)?);
@@ -916,8 +983,9 @@ fn sample<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
         s.interpolate(t).map_err(native)?
     };
     let eval = shared.evaluate(Function::Output, t, y.as_slice(), sens);
-    let np = shared.contract.parameters.len();
+    let np = shared.width();
     let n = shared.contract.states.len();
+    let columns = shared.columns.borrow().clone();
     let mut dy = Vec::new();
     let mut dh = Vec::new();
     if sens {
@@ -933,11 +1001,13 @@ fn sample<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
         let Some(jac) = eval.jacobian else {
             return Err(ProblemError::internal("output sensitivity partials"));
         };
-        let chain = faer::Mat::from_fn(n + np, np, |i, j| {
+        // Output partials along [S; P], where P selects each contract parameter's
+        // integration column in the sample's segment.
+        let chain = faer::Mat::from_fn(n + columns.len(), np, |i, j| {
             if i < n {
                 states[(i, j)]
             } else {
-                f64::from(shared.parameter_active.get() && i - n == j)
+                f64::from(columns[i - n] == j)
             }
         });
         let mut result = faer::Mat::zeros(jac.nrows(), chain.ncols());

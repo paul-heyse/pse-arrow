@@ -184,6 +184,10 @@ impl CacheComponent for MathService {
                 Some(self.policy.foreign_bytes),
             ),
             ("math_stack_per_job", Some(self.policy.stack_bytes)),
+            (
+                "math_inner_sessions_per_job",
+                Some(self.policy.inner_session_bytes),
+            ),
         ]
     }
 }

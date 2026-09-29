@@ -75,6 +75,8 @@ class ClarabelSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     chordal_decomposition_enable: bool = True
     #: Clique merging.
     chordal_decomposition_merge_method: enums.ClarabelMergeMethod = enums.ClarabelMergeMethod.CLIQUE_GRAPH
+    #: KKT direct solver; only MKL Pardiso admits more than one thread.
+    direct: enums.ClarabelDirect = enums.ClarabelDirect.QDLDL
     #: Dynamic regularization shift.
     dynamic_regularization_delta: float = 2e-7
     #: Dynamic KKT regularization.

@@ -15,7 +15,6 @@ pse.compiler.modeling-view.v2
 pse.completed.environment.v1
 pse.completed.request.v2
 pse.durable.modeling_request.v1
-pse.dynamic.profile.v3
 pse.factorable.domain.v1
 pse.factorable.fixed-assignment.profile.v1
 pse.factorable.fixed-assignment.v1
@@ -126,3 +125,7 @@ pse.native.controls.v2
 # Plan 22 O7: a durable study's request identity and each point's binding hash.
 pse.durable.study_point_binding.v1
 pse.durable.study_request.v1
+# Plan 22 Y0c (I6): the dynamic profile's scheduled inputs replace its input changes, so
+# its identity is framed anew. dynamic.profile.v4 replaces dynamic.profile.v3, which is no
+# longer declared.
+pse.dynamic.profile.v4

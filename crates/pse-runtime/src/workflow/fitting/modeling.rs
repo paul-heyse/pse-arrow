@@ -156,6 +156,7 @@ impl ModelingPackage {
             facts: &facts,
             intent: problem.profile.solver.intent,
             convex: false,
+            least_squares: true,
             controls: &problem.profile.solver.controls,
         }
         .select(problem.profile.solver.selection)
@@ -235,13 +236,18 @@ impl ModelingPackage {
                 "duplicate fit parameter, experiment or observation binding",
             ));
         }
-        let second = profile.solver.controls.hessian == HessianMode::Exact;
-        if second && d.experiments.iter().any(|e| e.route == Route::Integrated) {
+        // A supplied Hessian (exact or Gauss–Newton) needs second-order steady models for
+        // the constraint curvature. Only the exact Hessian also needs the residual
+        // curvature, which the forward sensitivities of a transient experiment lack.
+        let hessian = profile.solver.controls.hessian;
+        if hessian == HessianMode::Exact
+            && d.experiments.iter().any(|e| e.route == Route::Integrated)
+        {
             return Err(contract(
-                "transient fitting requires limited-memory Hessians",
+                "transient fitting requires Gauss–Newton or limited-memory Hessians",
             ));
         }
-        let order = if second {
+        let order = if hessian != HessianMode::LimitedMemory {
             DerivativeOrder::Second
         } else {
             DerivativeOrder::First
@@ -479,6 +485,12 @@ impl ModelingPackage {
                 bytes = bytes
                     .checked_add(simulation.bytes)
                     .ok_or_else(|| contract("fit transient extent"))?;
+                // A fit parameter binds the integration column in effect at the start: a
+                // scheduled input's first interval, whose later intervals keep their
+                // scheduled values (I6).
+                let start = simulation
+                    .profile()
+                    .columns_at(simulation.contract().parameters.len(), simulation.profile().start);
                 let bindings = local
                     .iter()
                     .map(|(parameter, id)| {
@@ -491,7 +503,7 @@ impl ModelingPackage {
                                 contract("fitted dynamic member is not a sensitivity parameter")
                             })?;
                         Ok(ParameterBinding {
-                            local: position,
+                            local: start[position],
                             parameter: *parameter,
                             conversion: pse_quantity::UnitConvertSpec {
                                 from: parameter_ports[*parameter].unit,

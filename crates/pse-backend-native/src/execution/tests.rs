@@ -149,6 +149,7 @@ fn stub_backend_routes_through_adapter_table() {
         facts: &facts,
         intent: SolveIntent::Root,
         convex: false,
+        least_squares: false,
         controls: &controls,
     };
     // Routing reads the stub's capability record through the table.
@@ -411,6 +412,7 @@ fn published_capabilities_equal_routing_rules() {
                             facts: f,
                             intent,
                             convex,
+                            least_squares: false,
                             controls: c,
                         };
                         assert_eq!(
@@ -434,6 +436,7 @@ fn published_capabilities_equal_routing_rules() {
             facts: f,
             intent: SolveIntent::Root,
             convex: false,
+            least_squares: false,
             controls: &parallel,
         };
         assert_eq!(

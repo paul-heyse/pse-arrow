@@ -57,6 +57,8 @@ pub enum Ineligible {
         /// Required forms outside the adapter's record, in order.
         missing: Vec<NativeConstraintForm>,
     },
+    /// A Gauss–Newton Hessian needs a least-squares objective; only fits state one.
+    LeastSquares,
 }
 impl std::fmt::Display for Ineligible {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -98,6 +100,9 @@ impl std::fmt::Display for Ineligible {
                 "native {} realization needs constraint handlers this adapter lacks",
                 native_forms(missing)
             ),
+            Self::LeastSquares => {
+                f.write_str("a Gauss–Newton Hessian requires a least-squares fit objective")
+            }
         }
     }
 }
@@ -114,6 +119,7 @@ impl Ineligible {
             Self::Derivatives { .. } => NativeIneligibility::Derivatives,
             Self::Bounds { .. } => NativeIneligibility::Bounds,
             Self::NativeForms { .. } => NativeIneligibility::NativeForms,
+            Self::LeastSquares => NativeIneligibility::LeastSquares,
         }
     }
 }
@@ -159,6 +165,9 @@ pub struct Requirements<'a> {
     pub intent: SolveIntent,
     /// Convexity qualified against this coefficient snapshot.
     pub convex: bool,
+    /// The objective is a weighted least-squares sum with a response Jacobian, the only
+    /// objective whose Gauss–Newton Hessian is defined (a fit).
+    pub least_squares: bool,
     /// Complete effective native controls.
     pub controls: &'a crate::solve::Controls,
 }
@@ -256,9 +265,14 @@ pub fn admit(capability: &Capability, linked: bool, r: &Requirements<'_>) -> Vec
     if !classes.iter().any(|c| capability.classes.contains(c)) {
         reasons.push(Ineligible::Class { problem: classes });
     }
+    if r.controls.hessian == HessianMode::GaussNewton && !r.least_squares {
+        reasons.push(Ineligible::LeastSquares);
+    }
+    // Every mode other than the library's quasi-Newton approximation is a supplied
+    // Hessian: exact, or the Gauss–Newton Gram with constraint curvature.
     let required = match capability.derivatives {
         DerivativeCapability::ExactHessianOrLimitedMemory
-            if r.controls.hessian == HessianMode::Exact =>
+            if r.controls.hessian != HessianMode::LimitedMemory =>
         {
             Some(DerivativeOrder::Second)
         }
@@ -413,6 +427,7 @@ mod tests {
             facts: &facts,
             intent: SolveIntent::Root,
             convex: false,
+            least_squares: false,
             controls: &crate::solve::Controls::default(),
         };
         assert!(matches!(
@@ -442,6 +457,7 @@ mod tests {
             facts: f,
             intent,
             convex,
+            least_squares: false,
             controls: &crate::solve::Controls::default(),
         }
         .select(selection)
@@ -465,6 +481,54 @@ mod tests {
             native: vec![],
         }
     }
+    /// I8: a Gauss–Newton Hessian is admitted only for a least-squares objective; a
+    /// steady solve is refused with the typed reason by every adapter, before native work,
+    /// and a supplied Hessian of either kind requires second-order preparation.
+    #[test]
+    fn gauss_newton_requires_least_squares_objective() {
+        let mut f = root_facts();
+        f.objective = true;
+        f.equalities = false;
+        f.rows = 0;
+        f.affine_rows.clear();
+        f.prepared_derivatives = DerivativeOrder::First;
+        let controls = crate::solve::Controls {
+            hessian: HessianMode::GaussNewton,
+            ..Default::default()
+        };
+        let requirements = |least_squares| Requirements {
+            table: &LINKED,
+            facts: &f,
+            intent: SolveIntent::Optimize,
+            convex: false,
+            least_squares,
+            controls: &controls,
+        };
+        let steady = requirements(false).eligibility();
+        assert!(!steady.is_empty());
+        for e in &steady {
+            assert!(e.reasons.contains(&Ineligible::LeastSquares), "{e}");
+            assert!(e.to_string().contains("least-squares"), "{e}");
+        }
+        assert_eq!(
+            Ineligible::LeastSquares.code(),
+            NativeIneligibility::LeastSquares
+        );
+        assert!(requirements(false).select(SolverSelection::Auto).is_err());
+        for e in requirements(true).eligibility() {
+            assert!(!e.reasons.contains(&Ineligible::LeastSquares), "{e}");
+            // A supplied Gauss–Newton Hessian needs second-order derivatives from the
+            // Hessian-consuming NLP adapters, like the exact one.
+            if matches!(e.backend, Backend::Ipopt | Backend::Pounce) {
+                assert!(
+                    e.reasons.contains(&Ineligible::Derivatives {
+                        required: DerivativeOrder::Second
+                    }),
+                    "{e}"
+                );
+            }
+        }
+    }
     #[test]
     fn contextual_bounds_derivatives_and_threads_are_preparation_facts() {
         let mut f = root_facts();
@@ -476,6 +540,7 @@ mod tests {
                 facts: f,
                 intent: SolveIntent::Root,
                 convex: false,
+                least_squares: false,
                 controls: c,
             }
             .eligibility()
@@ -521,6 +586,7 @@ mod tests {
                 facts: &f,
                 intent: SolveIntent::Optimize,
                 convex: false,
+                least_squares: false,
                 controls: &controls
             }
             .select(SolverSelection::Auto)
@@ -560,6 +626,7 @@ mod tests {
             facts: &f,
             intent: SolveIntent::Optimize,
             convex: true,
+            least_squares: false,
             controls: &crate::solve::Controls::default(),
         };
         let missing = Ineligible::NativeForms {
@@ -716,6 +783,7 @@ mod tests {
                 facts: &f,
                 intent: SolveIntent::Optimize,
                 convex,
+                least_squares: false,
                 controls: &crate::solve::Controls::default(),
             };
             assert_eq!(
@@ -771,6 +839,7 @@ mod tests {
                 facts: &f,
                 intent: SolveIntent::Optimize,
                 convex,
+                least_squares: false,
                 controls: &crate::solve::Controls::default(),
             }
             .eligibility()
@@ -868,6 +937,7 @@ mod tests {
             facts: &root_facts(),
             intent: SolveIntent::Certify,
             convex: false,
+            least_squares: false,
             controls: &crate::solve::Controls::default(),
         };
         // Only a certifying record is eligible; the rule reads the record, not the backend.

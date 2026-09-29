@@ -620,8 +620,9 @@ impl ModelingPackage {
                 maximum_checks: policy.maximum_checks,
             };
             let solve_order = match policy.solver.controls.hessian {
-                pse_backend_native::solve::HessianMode::Exact => DerivativeOrder::Second,
                 pse_backend_native::solve::HessianMode::LimitedMemory => DerivativeOrder::First,
+                pse_backend_native::solve::HessianMode::Exact
+                | pse_backend_native::solve::HessianMode::GaussNewton => DerivativeOrder::Second,
             };
 
             let oracle = row.value.scope.as_ref().and_then(|s| s.oracle.as_ref());

@@ -34,7 +34,7 @@ sdp = ["clarabel/sdp", "clarabel/blas-src", "clarabel/lapack-src"]
 # which exports every symbol it resolves: the process keeps one oneMKL (ADR-0108 item 5).
 # `clarabel/faer-sparse` is not used: it pulls a second faer beside the pinned one.
 clarabel-pardiso = ["clarabel/pardiso-mkl"]
-diffsol = ["dep:diffsol", "diffsol/suitesparse"]
+diffsol = ["dep:diffsol", "dep:diffsol-la", "dep:suitesparse_sys"]
 idas = ["dep:sundials-sys", "sundials-sys/idas", "dep:suitesparse_sys"]
 scip = ["dep:scip-sys"]
 native-solvers = [
@@ -52,6 +52,7 @@ native-solvers = [
 [dependencies]
 pse-model.workspace = true
 diffsol = { workspace = true, optional = true }
+diffsol-la = { workspace = true, optional = true }
 pounce-nlp.workspace = true
 pounce-common.workspace = true
 pounce-presolve.workspace = true

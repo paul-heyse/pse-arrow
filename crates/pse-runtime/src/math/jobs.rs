@@ -213,13 +213,22 @@ impl MathService {
                 // permits bound the active workers. Serial jobs have one stack.
                 let stacks = if cores > 1 { cores.checked_add(1) } else { Some(1) };
                 let bytes=stacks.and_then(|n|n.checked_mul(service.policy.stack_bytes))
-                    .and_then(|n|n.checked_add(bytes)).and_then(|n|n.checked_add(service.policy.foreign_bytes)).ok_or(MathRuntimeError::Limit("native allowance overflow"))?;
+                    .and_then(|n|n.checked_add(bytes)).and_then(|n|n.checked_add(service.policy.foreign_bytes))
+                    // The thread's inner-solve session cache is held within this reservation (I14).
+                    .and_then(|n|n.checked_add(service.policy.inner_session_bytes)).ok_or(MathRuntimeError::Limit("native allowance overflow"))?;
                 let lease=datafusion::execution::memory_pool::MemoryConsumer::new("math:native-job").register(&service.pool);
                 lease.try_grow(bytes)?;
                 if cancel.flag().load(Ordering::Acquire){return Err(MathRuntimeError::Cancelled);}
                 if let Some(admitted)=admitted {let _=admitted.send(());}
                 let flag=cancel.flag();
-                let handle=std::thread::Builder::new().name("pse-math".into()).stack_size(service.policy.stack_bytes).spawn(move||work(flag)).map_err(|e|MathRuntimeError::Infrastructure(e.to_string()))?;
+                let sessions=service.policy.inner_session_bytes;
+                let handle=std::thread::Builder::new().name("pse-math".into()).stack_size(service.policy.stack_bytes).spawn(move||{
+                    #[cfg(feature = "solver-kinsol")]
+                    pse_backend_native::implicit::budget_sessions(sessions);
+                    #[cfg(not(feature = "solver-kinsol"))]
+                    let _ = sessions;
+                    work(flag)
+                }).map_err(|e|MathRuntimeError::Infrastructure(e.to_string()))?;
                 // Joining, not receipt of an early result, witnesses TLS destruction.
                 let result=tokio::task::spawn_blocking(move||handle.join()).await.map_err(|e|MathRuntimeError::Infrastructure(e.to_string()))?.map_err(|_|MathRuntimeError::Infrastructure("native worker panic".into()))?;
                 let result = result.and_then(|(value, retained)| {

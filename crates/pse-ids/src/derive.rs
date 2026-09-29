@@ -275,8 +275,8 @@ frames! {
         DurableStudyRequestV1 => "pse.durable.study_request.v1",
         /// The value bindings of one durable study point (Plan 22 O7).
         DurableStudyPointBindingV1 => "pse.durable.study_point_binding.v1",
-        /// A dynamic simulation profile.
-        DynamicProfileV3 => "pse.dynamic.profile.v3",
+        /// A dynamic simulation profile, with its scheduled inputs.
+        DynamicProfileV4 => "pse.dynamic.profile.v4",
         /// An explicit conic request.
         ExplicitConicV3 => "pse.explicit-conic.v3",
         /// A fitting coordinate alias of an experiment and source.

@@ -227,6 +227,111 @@ fn diffsol_klu_matches_faer_lu() {
     }
 }
 
+/// A semi-explicit DAE whose algebraic row degenerates at `t = 1`: `x' = −z` and
+/// `0 = w(t)·(z − x)` with `w = max(0, 1 − t)`. Past `t = 1` the algebraic row and its
+/// partials vanish, so every Newton matrix factored at an accepted state is singular.
+#[derive(Debug)]
+struct Degenerate {
+    c: Contract,
+}
+impl Degenerate {
+    fn new() -> Self {
+        Self {
+            c: Contract {
+                quadratures: vec![],
+                balances: vec![],
+                identity: ContentHash::from_bytes([44; 32]),
+                states: ids(45, 2),
+                differential: vec![true, false],
+                parameters: vec![],
+                outputs: ids(46, 1),
+                events: vec![vec![]],
+            },
+        }
+    }
+}
+impl Oracle for Degenerate {
+    fn contract(&self) -> &Contract {
+        &self.c
+    }
+    fn support(&self, _: usize, f: Function) -> Vec<SupportEntry> {
+        entries(match f {
+            Function::Rhs => vec![(0, 1), (1, 0), (1, 1)],
+            Function::Output => vec![(0, 0)],
+            _ => vec![],
+        })
+    }
+    fn evaluate(
+        &mut self,
+        _: usize,
+        f: Function,
+        t: f64,
+        x: &[f64],
+        _: &[f64],
+        d: bool,
+    ) -> Result<Evaluation, ProblemError> {
+        let w = (1.0 - t).max(0.0);
+        let (values, entries) = match f {
+            Function::Initial => (vec![1.0, 1.0], vec![]),
+            Function::Rhs => (
+                vec![-x[1], w * (x[1] - x[0])],
+                vec![(0, 1, -1.0), (1, 0, -w), (1, 1, w)],
+            ),
+            Function::Output => (vec![x[0]], vec![(0, 0, 1.0)]),
+            _ => (vec![], vec![]),
+        };
+        let jacobian = d.then(|| jacobian(values.len(), 2, &entries));
+        Ok(Evaluation { values, jacobian })
+    }
+}
+/// I9: a singular Newton factorization is an error of the pse-owned linear solver, which
+/// Diffsol answers by reducing the step; the final failure is a typed numerical
+/// termination with the completed samples kept, for faer LU and KLU alike.
+#[test]
+fn diffsol_singular_factorization_is_typed_numerical() {
+    for linear in [DiffsolLinear::FaerLu, DiffsolLinear::Klu] {
+        let p = Profile {
+            method: Method::Diffsol,
+            end: 10.0,
+            samples: vec![0.0, 0.5, 10.0],
+            rtol: 1e-6,
+            atol: vec![1e-8; 2],
+            diffsol: DiffsolSettings {
+                linear,
+                ..Default::default()
+            },
+            // Past the degeneration the stale Newton matrix still converges. Refresh the
+            // Jacobian at every step-size change, and change the step at every order
+            // check, so an accepted state past `t = 1` is factored.
+            native: Arc::new(diffsol::OdeSolverOptions {
+                update_jacobian_after_steps: 1,
+                update_rhs_jacobian_after_steps: 1,
+                min_timestep_growth: Some(1.0),
+                max_timestep_shrink: Some(1.0),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let r = integrate(&mut Degenerate::new(), &p, &[], Arc::default()).unwrap();
+        assert_eq!(r.termination, Termination::Failed, "{linear:?}: {:?}", r.error);
+        // Diffsol's own step recovery ends it, not a nonfinite value reaching the oracle.
+        assert!(
+            matches!(&r.error, Some(ProblemError::Numerical { detail, .. })
+                if detail.contains("nonlinear solver failures") || detail.contains("Step size is too small")),
+            "{linear:?}: {:?}",
+            r.error
+        );
+        // The samples before the degeneration are kept: x = exp(−t).
+        assert_eq!(r.samples.len(), 2, "{linear:?}");
+        assert!((r.samples[1].outputs[0] - (-0.5_f64).exp()).abs() < 1e-4);
+        assert!(r.completed_time >= 1.0, "{linear:?}: {}", r.completed_time);
+        let failures = r.statistics[0]["number_of_nonlinear_solver_fails"]
+            .as_u64()
+            .unwrap();
+        assert!(failures > 0, "{linear:?}: {:?}", r.statistics);
+    }
+}
+
 /// PI control of an ideal-gas tank between two valves, `F = Cv·u·√(Pᵢ² − Pₒ²)`, with a
 /// smoothly bounded valve opening. States are normalized: holdup/100 mol, integral
 /// error/1e5 Pa·s, then the algebraic pressure/1e5 Pa, flows/100 mol/s and opening.
@@ -387,12 +492,11 @@ impl Oracle for Tank {
 #[cfg(feature = "idas")]
 #[test]
 fn idas_pid_piecewise_inputs_match_petsc_example() {
-    let gains = [3e5, 1e-6, 1e-5, 0.0];
-    let segment = |base: f64, slope: f64| {
-        let mut values = vec![base, slope];
-        values.extend(gains);
-        values
-    };
+    // The inlet pressure offset and slope are scheduled inputs with one value per
+    // interval; setpoint, gains and bias are static (I6).
+    let mut values = vec![3e5, 1e-6, 1e-5, 0.0];
+    values.extend([5e5, 0.0, 6e5]);
+    values.extend([0.0, 5e4, 0.0]);
     let p = Profile {
         method: Method::Auto,
         trial_failures: TrialPolicy::Recoverable,
@@ -403,16 +507,12 @@ fn idas_pid_piecewise_inputs_match_petsc_example() {
         atol: vec![1e-10; 6],
         initial_step: 1e-3,
         parameter_scales: vec![1e5, 1e4, 1e5, 1e-6, 1e-5, 1.0],
-        changes: vec![
-            InputChange {
-                time: 10.0,
-                parameters: segment(0.0, 5e4),
-            },
-            InputChange {
-                time: 12.0,
-                parameters: segment(6e5, 0.0),
-            },
-        ],
+        schedule: [0, 1]
+            .map(|parameter| ScheduledInput {
+                parameter,
+                times: vec![10.0, 12.0],
+            })
+            .to_vec(),
         idas: IdasSettings {
             initialization: IdasInitialization::SteadyStates,
             ..Default::default()
@@ -420,7 +520,7 @@ fn idas_pid_piecewise_inputs_match_petsc_example() {
         ..Default::default()
     };
     assert_eq!(p.resolved_method().unwrap(), Method::Idas);
-    let r = integrate(&mut Tank::new(), &p, &segment(5e5, 0.0), Arc::default()).unwrap();
+    let r = integrate(&mut Tank::new(), &p, &values, Arc::default()).unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
     assert_eq!(r.samples.len(), 25);
     let at = |t: usize| &r.samples[t].outputs;

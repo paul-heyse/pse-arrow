@@ -395,6 +395,11 @@
               "default": "clique_graph",
               "description": "Clique merging."
             },
+            "direct": {
+              "$ref": "#/$defs/ClarabelDirect",
+              "default": "qdldl",
+              "description": "KKT direct solver; only MKL Pardiso admits more than one thread."
+            },
             "dynamic_regularization_delta": {
               "default": 2e-7,
               "description": "Dynamic regularization shift.",
@@ -623,6 +628,13 @@
         }
       ]
     },
+    "ClarabelDirect": {
+      "enum": [
+        "qdldl",
+        "mkl_pardiso"
+      ],
+      "type": "string"
+    },
     "ClarabelMergeMethod": {
       "enum": [
         "none",
@@ -766,7 +778,8 @@
     "HessianMode": {
       "enum": [
         "exact",
-        "limited_memory"
+        "limited_memory",
+        "gauss_newton"
       ],
       "type": "string"
     },

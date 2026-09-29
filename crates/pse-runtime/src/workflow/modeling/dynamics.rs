@@ -127,8 +127,7 @@ impl ModelingTrajectory {
             let mut outcomes = Vec::new();
             for (index, sample) in trajectory.report.samples.iter().enumerate() {
                 let p = &trajectory.prepared;
-                let parameters = p.profile.changes.iter().rev().find(|c| c.time <= sample.time)
-                    .map_or(p.parameters.as_slice(), |c| c.parameters.as_slice()).to_vec();
+                let parameters = p.profile.parameters_at(&p.parameters, sample.time);
                 let mut functions = vec![(Function::Rhs, p.contract.states.len()), (Function::Output, p.contract.outputs.len())];
                 if !p.contract.quadratures.is_empty() { functions.push((Function::QuadratureFlux, p.contract.quadratures.len())); }
                 let mut complete = true; let mut passed = true; let mut checked = 0; let mut suspicious = 0; let mut missing = 0; let mut details = Vec::new();
@@ -219,7 +218,9 @@ impl ModelingSimulation {
     pub fn contract(&self) -> &native::Contract {
         &self.contract
     }
-    /// Physical parameter values in the contract's declared order.
+    /// The integration parameter values: the contract's unscheduled parameters in
+    /// declared order, then every interval of every scheduled input
+    /// ([`native::Profile::parameters_at`] gives the contract values at a time).
     pub fn parameters(&self) -> &[f64] {
         &self.parameters
     }
@@ -1152,10 +1153,13 @@ impl ModelingPackage {
                     .await?,
             )
         };
-        let parameter_values = parameters
-            .iter()
-            .map(|id| values.scalars[id])
-            .collect::<Vec<_>>();
+        // Every interval of a scheduled input starts at the model's value (I6).
+        let parameter_values = profile.integration_parameters(
+            &parameters
+                .iter()
+                .map(|id| values.scalars[id])
+                .collect::<Vec<_>>(),
+        );
         let mut hash = FramedHasher::new(pse_ids::Frame::ModelingDynamicV1);
         hash.id(&root.as_id())
             .id(&instance.as_id())

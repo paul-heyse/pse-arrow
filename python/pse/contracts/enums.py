@@ -109,6 +109,13 @@ class ChangeKind(StrEnum):
     UPDATE_POSTIMAGE = "update_postimage"
 
 
+class ClarabelDirect(StrEnum):
+    """The declared ClarabelDirect enumeration."""
+
+    QDLDL = "qdldl"
+    MKL_PARDISO = "mkl_pardiso"
+
+
 class ClarabelMergeMethod(StrEnum):
     """The declared ClarabelMergeMethod enumeration."""
 
@@ -417,6 +424,7 @@ class HessianMode(StrEnum):
 
     EXACT = "exact"
     LIMITED_MEMORY = "limited_memory"
+    GAUSS_NEWTON = "gauss_newton"
 
 
 class HighsMethod(StrEnum):
@@ -794,6 +802,20 @@ class NativeCandidateKind(StrEnum):
     CONSTANT_EVALUATION = "constant_evaluation"
 
 
+class NativeCertificateAccuracy(StrEnum):
+    """The declared NativeCertificateAccuracy enumeration."""
+
+    FULL = "full"
+    REDUCED = "reduced"
+
+
+class NativeCertificateKind(StrEnum):
+    """The declared NativeCertificateKind enumeration."""
+
+    PRIMAL_INFEASIBLE = "primal_infeasible"
+    DUAL_INFEASIBLE = "dual_infeasible"
+
+
 class NativeConstraintForm(StrEnum):
     """The declared NativeConstraintForm enumeration."""
 
@@ -856,6 +878,7 @@ class NativeIneligibility(StrEnum):
     DERIVATIVES = "derivatives"
     BOUNDS = "bounds"
     NATIVE_FORMS = "native_forms"
+    LEAST_SQUARES = "least_squares"
 
 
 class NativeMetricKind(StrEnum):
@@ -900,6 +923,17 @@ class NativeQualification(StrEnum):
     STATIONARY = "stationary"
     OPTIMAL_WITHIN_TOLERANCE = "optimal_within_tolerance"
     GAP_QUALIFIED = "gap_qualified"
+
+
+class NativeRayCoordinate(StrEnum):
+    """The declared NativeRayCoordinate enumeration."""
+
+    ROW = "row"
+    ROW_LOWER = "row_lower"
+    ROW_UPPER = "row_upper"
+    VARIABLE_LOWER = "variable_lower"
+    VARIABLE_UPPER = "variable_upper"
+    VARIABLE = "variable"
 
 
 class NativeRunState(StrEnum):

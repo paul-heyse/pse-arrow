@@ -124,13 +124,78 @@ async fn mixed_shared_parameter_gradient_uses_inline_forward_sensitivities() {
     assert!((responses[(0, 0)] - 1.).abs() < 1e-6);
     assert!((responses[(1, 0)] - 1.).abs() < 1e-6);
 }
+/// I8: a Gauss–Newton Hessian needs only forward sensitivities, so a transient fit
+/// admits it while the exact Hessian stays refused. The Hessian is the response Gram, the
+/// solve converges on it, and the result records its source (PS-07).
+#[tokio::test]
+async fn gauss_newton_fit_admits_transient() {
+    let (package, mut profile) = source(true, 73.);
+    let cancel = crate::CancelSource::new();
+    profile.solver.controls.hessian = HessianMode::GaussNewton;
+    let (problem, _) = package
+        .prepare_fit_problem(
+            FitId::from(id(73)),
+            profile.clone(),
+            compiler_profile(),
+            Default::default(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    assert_eq!(problem.contract.derivatives, DerivativeOrder::Second);
+    let execution = Execution::new(
+        Arc::new(AtomicBool::new(false)),
+        &problem.profile.solver.controls,
+    );
+    let mut oracle = FitOracle::new(problem, execution).unwrap();
+    let mut hessian = vec![0.; oracle.hessian_pattern().unwrap().row_idx().len()];
+    for sigma in [1., 0.25] {
+        oracle.hessian(&[2.], sigma, &[], &mut hessian).unwrap();
+        // Both responses are dy/dp = 1 with unit weights: σ·JᵀWJ = 2σ.
+        assert_eq!(hessian.len(), 1);
+        assert!((hessian[0] - 2. * sigma).abs() < 1e-6, "{hessian:?}");
+    }
+    #[cfg(feature = "solver-ipopt")]
+    {
+        let prepared = package
+            .prepare_fit(
+                FitId::from(id(73)),
+                profile,
+                compiler_profile(),
+                Default::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let result = prepared.start().unwrap().wait().await.unwrap();
+        let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
+            panic!("missing fit")
+        };
+        // Least squares of (p − 2) and (p − 1).
+        assert!(
+            (report.candidate.as_ref().unwrap()[0] - 1.5).abs() < 1e-5,
+            "{report:?}"
+        );
+        assert_eq!(report.hessian, HessianMode::GaussNewton);
+        let table = result.table("runtime.solve_metrics").unwrap();
+        let rows = pse_relations::generated::runtime::solve_metrics::RuntimeSolveMetricsView::from_checked(&table)
+            .unwrap()
+            .rows()
+            .unwrap();
+        assert!(rows.iter().any(|r| r.namespace == "derivatives"
+            && r.name == "hessian"
+            && r.text.as_deref() == Some("gauss_newton")));
+    }
+}
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_contract() {
     for mode in 0..3 {
         let expected = match mode {
             0 => 74.,
-            1 => 73.,
+            // p is a scheduled input from 160.5 s; its second interval keeps the model's
+            // value 2, so y = 72 + p/2 (I6).
+            1 => 73.5,
             _ => 83.,
         };
         let (package, mut profile) = source(false, expected);
@@ -139,10 +204,10 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
                 .simulations
                 .get_mut(&InstanceId::from(id(74)))
                 .unwrap()
-                .changes
-                .push(native::dynamics::InputChange {
-                    time: 160.5,
-                    parameters: vec![1.],
+                .schedule
+                .push(native::dynamics::ScheduledInput {
+                    parameter: 0,
+                    times: vec![160.5],
                 });
         }
         if mode == 2 {

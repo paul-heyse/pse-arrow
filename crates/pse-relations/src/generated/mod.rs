@@ -34,9 +34,9 @@ pub mod identities;
 pub mod algorithm_arguments;
 /// Registry identity; validity is established by admission.
 pub const REGISTRY_FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    40u8, 228u8, 227u8, 7u8, 195u8, 54u8, 243u8, 57u8, 83u8, 157u8, 65u8, 24u8, 169u8,
-    46u8, 62u8, 126u8, 181u8, 63u8, 121u8, 237u8, 188u8, 199u8, 16u8, 127u8, 245u8, 73u8,
-    182u8, 79u8, 92u8, 130u8, 192u8, 39u8,
+    68u8, 229u8, 76u8, 43u8, 52u8, 170u8, 164u8, 162u8, 43u8, 104u8, 107u8, 126u8, 57u8,
+    87u8, 104u8, 19u8, 71u8, 74u8, 222u8, 22u8, 73u8, 180u8, 235u8, 128u8, 60u8, 34u8,
+    133u8, 112u8, 33u8, 117u8, 52u8, 113u8,
 ]);
 /// Resolves an exact declaration from the current registry.
 /// # Errors

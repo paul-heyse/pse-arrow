@@ -760,6 +760,7 @@ impl MathService {
             facts: f,
             intent: profile.intent,
             convex,
+            least_squares: false,
             controls: &profile.controls,
         };
         let route = requirements.select(profile.selection)?;
