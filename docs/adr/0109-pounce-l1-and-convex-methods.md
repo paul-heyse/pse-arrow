@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [DP-13, DP-15, PS-09, PS-10, PS-12]
 blueprint: [§15.5, §18.9]
-review: docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t14
+review: git:f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc:docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t14
 evidence: Interface-checked
 supersedes: []
 superseded-by: null
@@ -98,11 +98,11 @@ not a second automatic owner.
 ## More information
 
 - Architecture companion [§2.5, §6.3, §8](../plans/22-solver-capabilities-architecture.md#6-sensitivity-covariance-and-uncertainty).
-- Target review [T14](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t14).
+- Target review [T14](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t14).
 - Capability review F03, L-N5, L-N7.
 - Related: ADR-0083, ADR-0104, ADR-0106, ADR-0107. Plan 22 packets N3, N5, A3.
 
 ## Status history
 
 - 2026-09-27 — proposed (Plan 22 D0).
-- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T14 were corrected in this record before acceptance.
+- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T14 were corrected in this record before acceptance.

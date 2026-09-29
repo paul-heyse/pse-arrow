@@ -510,7 +510,7 @@ engine binds from the earlier level's optimum and its tolerances.
 in priority order, each earlier level held within its degradation of its optimum `f*`,
 `max(abs, rel·|f*|)`. The route follows from the class. Linear and mixed-integer linear
 levels go to HiGHS as one native solve over a case structure that carries every level's
-objective (`pse.math.case-structure.v4`; `CoefficientProblem.objectives`,
+objective (`pse.math.case-structure.v5`; `CoefficientProblem.objectives`,
 `Highs_passLinearObjectives` with blending off); HiGHS's record lists them as its
 `lexicographic` classes, and because HiGHS bounds an earlier level by the tighter of its two
 tolerances, the native route takes only levels with one of the two zero. Every other
@@ -700,7 +700,7 @@ reconstruct topology from variable labels (§12, §17).
 
 #### 6.15.7 Shipped reference packages and generated physical fixtures
 
-The [reference package guide](../../../packages/reference/README.md) identifies current
+The reference package guide (`packages/reference/README.md`) identifies current
 physical, method, thermodynamic, seed, process and diagnostic bundles. Their `sources.md`
 files distinguish published data, upstream comparison inputs and derived demonstrations.
 Authored fixtures live beside the knowledge and use the common conformance harness.

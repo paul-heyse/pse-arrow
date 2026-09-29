@@ -111,9 +111,9 @@ inputs that scripted callers use today.
 
 ## More information
 
-- Solver scope packet [I6 and I7](../plans/22-solver-scope-execution.md#improvements-over-the-target-design), the "rejected" list, and packets G6r kernel, G6r tests, Y0c and Y0d.
+- Solver scope packet [I6 and I7](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-scope-execution.md#improvements-over-the-target-design), the "rejected" list, and packets G6r kernel, G6r tests, Y0c and Y0d.
 - [Change-tier review](../design_review/reviews/design_review_solver-scope-decisions_2026-09-28.md#adr-0119), finding F03.
-- The G6 kernel-gap note in the [main execution packet](../plans/22-solver-capabilities-execution.md).
+- The G6 kernel-gap note in the [main execution packet](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities-execution.md).
 - Related: ADR-0101 (proposed; facts and annotations), ADR-0102, ADR-0105, ADR-0106, ADR-0110, ADR-0120.
 
 ## Status history

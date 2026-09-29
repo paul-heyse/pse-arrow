@@ -167,7 +167,7 @@ as constants, not model inputs.
 > objectives with priority, weight and degradation tolerances (Plan 22 C3, implemented:
 > members, levels, level-bound rows and the lexicographic engine,
 > [§6.8](schema-and-relations.md#section-6-8)); a native lexicographic structure carries
-> every level's objective (`pse.math.case-structure.v4`).
+> every level's objective (`pse.math.case-structure.v5`).
 >
 > Decision: [ADR-0120](../../adr/0120-provider-envelope-contract.md) — a provider output
 > becomes an auxiliary bounded by its factory's declared and checked output envelope, which
@@ -212,7 +212,7 @@ its value is checked for exact domain membership instead ([§7.6](#section-7-6))
 `integer_bounds_tightened_inward_and_recorded` and `binary_bounds_outside_unit_box_refused`
 (compiler units). `CaseStructure::key` frames each domain by its registry spelling, every
 native constraint form below and the structural requirements a lowering places on the route
-(`pse.math.case-structure.v4`), such as the `l1_exact_penalty` requirement of a penalty
+(`pse.math.case-structure.v5`), such as the `l1_exact_penalty` requirement of a penalty
 complementarity ([§19.7](workflows-and-results.md#section-19-7)); no route reads a
 requirement yet.
 

@@ -36,10 +36,9 @@ packets and reviews are not a backlog and authorize nothing.
 [Current work](docs/plans/README.md) links the owning packet status and remaining decision
 work. Plan 21 K0–K8 implementation is complete; its packet records conformance and the
 assessment's remaining static-quality findings. K9 remains proposed and excluded.
-Plan 22 (solver capabilities, discrete decisions, PostgreSQL operational store) is
-authorized in full; its execution packet owns progress. Its 2026-09-28 amendment adds typed
-data contracts (ADR-0114–ADR-0116, packets B1–B7). The store moves to a registry-generated
-schema with Cornucopia-compiled statements on tokio-postgres, and sqlx is removed.
+Plan 22 (solver capabilities, discrete decisions, the PostgreSQL operational store and
+typed data contracts) is done (2026-09-29); its Q1 is the current qualification basis
+(§24.2), and its record is retired to Git history with its deferrals in the register.
 New work starts only when the maintainer authorizes it. Build a target directly and remove replaced
 code/callers/tests without compatibility APIs or a second production path. Correctness
 tests retain explicit force-validation. Full library eligibility remains in force.

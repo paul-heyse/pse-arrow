@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-05, DP-11, DP-15, DP-20, PS-09, PS-11]
 blueprint: [§6.13, §18.3, §18.8, §18.10, §26]
-review: docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t04
+review: git:f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc:docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t04
 evidence: Interface-checked
 supersedes: [ADR-0028]
 superseded-by: null
@@ -31,7 +31,7 @@ ThirdParty/Metis and links HSL when present, so IDAES's default is MA27.
 
 On 2026-09-27 the maintainer excluded HSL (no licence route) and selected SPRAL SSIDS and
 oneMKL Pardiso, both licensed for personal use, with MUMPS rebuilt with METIS
-([execution packet](../plans/22-solver-capabilities-execution.md), decision 2).
+([execution packet](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities-execution.md), decision 2).
 
 The Ipopt 3.14.20 sources set hard constraints (*Interface-checked* in the
 `native-solver-libraries` corpus):
@@ -153,7 +153,7 @@ equality.
 ## More information
 
 - Architecture companion [§5.4](../plans/22-solver-capabilities-architecture.md#54-one-solver-image-ipopt-linear-algebra-mkl-and-openmp).
-- Target review [T04](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t04), [T05](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t05) and [T06](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t06).
+- Target review [T04](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t04), [T05](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t05) and [T06](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t06).
 - Capability review F11 and L-N2.
 - Supersedes ADR-0028. Register rows R-08, R-09, R-21, R-34. Plan 22 packets N1, A7.
 
@@ -162,4 +162,4 @@ equality.
 - 2026-09-27 — proposed (Plan 22 D0). Supersedes ADR-0028: the container build from pinned
   sources, one Ipopt, recorded options and the parity and rebuild checks are retained; netlib
   BLAS, `--without-metis`, the HSL probe and `fallback_linear_solver` are replaced.
-- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T04, T05, T06 were corrected in this record before acceptance.
+- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T04, T05, T06 were corrected in this record before acceptance.

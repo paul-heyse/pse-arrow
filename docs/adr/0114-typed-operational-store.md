@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-04, AP-05, AP-06, DP-01, DP-02, DP-03, DP-04, DP-13, DP-15, DP-19, DP-20, DP-21, DP-24]
 blueprint: [§3.2, §4.2, §17.1, §19.1, §20.1, §20.2, §20.4, §23.2, §25, §26, §D10, §D13]
-review: docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md#decision
+review: git:f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc:docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md#decision
 evidence: Interface-checked
 supersedes: [ADR-0112]
 superseded-by: null
@@ -24,7 +24,7 @@ scenarios: [docs/plans/22-solver-capabilities-architecture.md#s14, docs/plans/22
 ADR-0112 put operational state and the publication catalog in PostgreSQL 18 through
 `pse-operations`, using sqlx with runtime-typed queries. It rejected Cornucopia and sqlx's
 `query!` macros because they generate code. Core 3.1 dropped that preference, and the
-[typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md)
+[typed data contracts review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md)
 assessed the store as Plan 22 O2–O6 built it.
 
 The review found:
@@ -239,7 +239,7 @@ packets B1 and B2, which precede O7–O9.
 
 ## More information
 
-- [Typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md): TD01–TD03, TD09, slot 8.
+- [Typed data contracts review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md): TD01–TD03, TD09, slot 8.
 - Architecture companion [§9.2, §9.3, §9.7, §9.8](../plans/22-solver-capabilities-architecture.md#9-operational-store-and-publication-catalog-postgresql-18) and [§12](../plans/22-solver-capabilities-architecture.md#12-typed-data-contracts).
 - The maintainer's external reviews: [PostgreSQL options](../external-review-postgresl-options.md); [typing and other enhancements](../external-review-postgresl-typing-and-other-typing-enhancements.md).
 - The Plan 22 target review's T02, T03, T13 and T16 remain in force through the restated outcomes.

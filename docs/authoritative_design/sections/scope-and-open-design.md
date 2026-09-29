@@ -20,8 +20,9 @@ provider contracts in `pse-kernels`. The qualification basis for these statement
 > 22 G1–G7 implemented, with G4 and G6 partial as stated below);
 > [ADR-0114](../../adr/0114-typed-operational-store.md) — operational
 > store, publication catalog and durable multi-process execution (Plan 22 O1–O9, G8,
-> implemented). The Supported column changes only as the
-> [Plan 22](../../plans/22-solver-capabilities.md) packets land.
+> implemented). Plan 22 closed on 2026-09-29; its
+> [retired record](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md#outcome-recorded-after-implementation)
+> states what was built and what it deferred.
 >
 > Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — sensitivity, covariance
 > and uncertainty under PS-12 validity, through one KKT-point analysis (Plan 22 S0–S4,
@@ -74,26 +75,48 @@ no silent fallback, approximate substitute or compatibility route.
   reported as not stationary, and disabling presolve qualifies it. HiGHS's QP
   regularization is derived from the requested absolute gap and is reserved
   ([§18.10](numerical-execution.md#section-18-10)).
-- SCIP's concurrent mode is exercised by two-thread solves, including its incumbent stream;
-  cancellation under concurrency is not yet tested
-  ([§18.8](numerical-execution.md#section-18-8)).
+- SCIP's concurrent mode is exercised by two-thread solves, including its incumbent stream
+  and cancellation ([§18.8](numerical-execution.md#section-18-8)).
 - The KKT-point analysis serves the NLP routes: a quadratic program's sensitivity request
   routes to one automatically, and an explicit coefficient or cone adapter withholds the
   quantities ([§15.5.1](numerical-execution.md#section-15-5-1)). When pounce-presolve's postsolve loses
   a removed row's multiplier, the candidate qualifies only `Feasible` and its sensitivities
-  are withheld rather than recovered by switching presolve off. The comparison with Ipopt's
-  sIPOPT in the parity container is not built.
+  are withheld rather than recovered by switching presolve off. The first-order prediction
+  agrees with Ipopt's sIPOPT within 1e-6 on a nondegenerate program, compared on this machine
+  (`just parity`).
 - Covariances and intervals assume the declared standard deviations are exact; no residual
-  variance is estimated. The exact covariance of a transient fit, now reachable through the
-  exact transient Hessian, has no test yet ([§19.4](workflows-and-results.md#section-19-4)).
+  variance is estimated ([§19.4](workflows-and-results.md#section-19-4)).
 - Global certification of the Peng–Robinson instability case does not finish in bounded time
   (SCIP left a gap after 10 minutes), so instability is established locally only; the
   certified heater needs a 2 GiB foreign allowance, which is charged to every native job and
-  retained program alike ([§18.10.1](numerical-execution.md#section-18-10-1)).
+  retained program alike ([§18.10.1](numerical-execution.md#section-18-10-1), register
+  R-40).
 - Fixed Symbolica symbol registration gives semantic and numerical agreement across
   processes, not bitwise reproducibility.
 - Resource reservations are finite configurable policy with explicit allowances for
   foreign library memory; they are not a measurement of process RSS.
+- Parity, native builds and native tests run on the maintainer's Linux machine against the
+  solver prefix extracted from the pinned image; no container, CI or other-host route
+  builds the native extension.
+- Excluded solver capabilities, each impossible with the pinned libraries or a duplicate of
+  a delivered capability (DP-01, DP-16):
+
+  | Capability | Reason | Revisit |
+  |---|---|---|
+  | HSL MA27/57/77/86/97 | No licence route; SPRAL SSIDS and MKL Pardiso serve large KKT systems | register R-34 |
+  | HiGHS lazy constraints (callback kind 8) | Declared but never invoked by HiGHS 1.14.0 or 1.15.0 | register R-44 |
+  | HiGHS user-solution callback as a MIP seed | Redundant with setting the solution before the run | — |
+  | Automatic Clarabel routing without recognition | Routing derives from compiler facts ([§18.10](numerical-execution.md#section-18-10)) | — |
+  | sIPOPT, `pounce-sensitivity` or `pounce_convex::QpSensitivity` as a route | Duplicate the one KKT-point analysis; sIPOPT remains the parity oracle | ADR-0118 |
+  | Couenne or Bonmin | Duplicate SCIP's MINLP capability | ADR-0102 |
+  | Bespoke outer approximation over HiGHS and Ipopt | Reimplements solver machinery (DP-13) | — |
+  | diffsol-nl as the nested `InnerSolver` | Loses KINSOL's recoverable trials, sign constraints and cancellation | register R-47 |
+  | CVODES, ARKODE | No capability beyond Diffsol and IDAS | ADR-0110 |
+  | `scip-sys` `bundled` or `from-source`; `russcip` | Unverified downloads, a second Ipopt, panicking conversions | — |
+  | Parsing Ipopt's timing journal | Status strings are never parsed (PS-10) | register R-48 |
+  | SCIP for DegeneracyHunter and tear selection | No capability gain; HiGHS serves them | — |
+  | Clarabel `faer-sparse` | A second faer beside the pinned one; duplicates MKL Pardiso | register R-45 |
+  | SCIP `bounddisjunction` for semi domains | The `semi(indicator)` lowering serves them (ADR-0103) | register R-46 |
 
 ## 26. Risks and unresolved design choices
 

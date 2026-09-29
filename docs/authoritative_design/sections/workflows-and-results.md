@@ -599,9 +599,13 @@ against `(XᵀWX)⁻¹`), `gauss_newton_covariance_labelled`,
 `fit_uncertainty_admission`, `profile_likelihood_matches_wald_on_linear_model` and
 `profile_chain_seeds_from_predecessor` (runtime units),
 `inverse_reduced_hessian_over_solve_columns` (native backend units) and
-`unidentifiable_fit_withholds_covariance` (conformance acceptance). No test yet exercises the
-`parameter_at_bound` or `responses_unavailable` withholding, or the exact covariance of a
-transient fit, which the exact transient Hessian now permits.
+`unidentifiable_fit_withholds_covariance` (conformance acceptance). The exact covariance
+of a transient fit, read from the KKT analysis of a fit on IDAS second-order adjoints, is
+*Tested* by `exact_transient_covariance_matches_gauss_newton`, and the `parameter_at_bound`
+and `responses_unavailable` withholdings by `covariance_withheld_at_bound` and
+`covariance_withheld_without_responses` (runtime units). The fit's covariance agrees with
+parmest's within 1e-6 on a weighted linear regression
+(`test_fit_covariance_agrees_with_parmest`, `just parity`).
 
 ### 19.5 Costing
 
@@ -697,11 +701,14 @@ nonnegative:
 |---|---|---|
 | `smooth(f, width)` | One row `f(a, b, width) == 0` with the package's smoothing function, called as authored; with `math.smooth_min`, the CHKS function `(a + b − √((a − b)² + width²))/2`, the row holds exactly where `a·b = width²/4` with both members positive, so no inequality row is added and a square system stays square | `Smoothed` |
 | `disjunctive` | Nonnegative slack columns equal to each member and one native SOS1 set over them (weights 1 and 2) | `Native` |
-| `penalty(l1)` | The rows `a ≥ 0`, `b ≥ 0` and `a·b ≤ 0`, and the structural requirement `l1_exact_penalty` in the case structure (`pse.math.case-structure.v4`) | `ExactPenalty` |
+| `penalty(l1)` | The rows `a ≥ 0`, `b ≥ 0` and `a·b ≤ 0`, and the structural requirement `l1_exact_penalty` in the case structure (`pse.math.case-structure.v5`) | `ExactPenalty` |
 
 The smoothing choice belongs to the author: the realization names the function and its
 width, which may reference a parameter, so continuing the width rebinds values without a
-new structure ([§14.4](mathematics-and-compilation.md#section-14-4)). The disjunctive
+new structure ([§14.4](mathematics-and-compilation.md#section-14-4)). Two other smoothings
+were rejected: Scholtes' relaxation `a·b ≤ ε` is degenerate for interior-point methods at
+its limit, and a Fischer–Burmeister row would be a second function for the meaning
+`smooth_min` already carries. The disjunctive
 realization's SOS1 set is a native form, so it routes to SCIP and is refused on HiGHS. The
 `l1_exact_penalty` requirement enters the structure's identity and routing reads it as a
 fact (Plan 22 M5b): only POUNCE's ℓ1 exact penalty honours it, as the author's selection,

@@ -103,7 +103,7 @@ rejected.
 ## More information
 
 - [Change-tier review](../design_review/reviews/design_review_solver-scope-decisions_2026-09-28.md#adr-0120), finding F04.
-- G4 commit `7d0f8bf1` (merge `42f5a83f`); the G6 kernel-gap note in the [main execution packet](../plans/22-solver-capabilities-execution.md); the [solver scope packet](../plans/22-solver-scope-execution.md), which owns items 5–7.
+- G4 commit `7d0f8bf1` (merge `42f5a83f`); the G6 kernel-gap note in the [main execution packet](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities-execution.md); the [solver scope packet](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-scope-execution.md), which owns items 5–7.
 - Sources: `crates/pse-kernels/src/lib.rs` (`ProviderFactory::envelope`, `Registration::envelope`), `crates/pse-math/src/factorable.rs` (`FactorableRequest.envelopes`), `crates/pse-runtime/src/math/solves.rs`.
 - Related: ADR-0084, ADR-0105, ADR-0119.
 

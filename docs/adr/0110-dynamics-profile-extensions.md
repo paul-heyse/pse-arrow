@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [DP-13, PS-07, PS-08, PS-10, PS-11]
 blueprint: [§13.6, §18.9, §19.4]
-review: docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision
+review: git:f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc:docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision
 evidence: Interface-checked
 supersedes: []
 superseded-by: null
@@ -119,4 +119,4 @@ behaviour.
 
 - 2026-09-27 — proposed (Plan 22 D0). Extends ADR-0084 and ADR-0093 within their decisions;
   ADR-0093's revisit trigger fired.
-- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level).
+- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level).

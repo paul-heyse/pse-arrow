@@ -150,7 +150,7 @@ composition rules over a DAG that already exists, and exact arithmetic during pr
 
 ## More information
 
-- Solver scope packet [I10 and I11](../plans/22-solver-scope-execution.md#improvements-over-the-target-design) and packets C4 and C5, which own progress.
+- Solver scope packet [I10 and I11](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-scope-execution.md#improvements-over-the-target-design) and packets C4 and C5, which own progress.
 - [Change-tier review](../design_review/reviews/design_review_solver-scope-decisions_2026-09-28.md#adr-0121), finding F05.
 - Architecture companion [§8](../plans/22-solver-capabilities-architecture.md#8-coefficient-and-conic-extensions); capability review L-C5–L-C7 and [§8.4](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#84-coefficient-and-conic-highs-clarabel).
 - Related: ADR-0102, ADR-0105, ADR-0106, ADR-0108, ADR-0109.

@@ -312,32 +312,45 @@ and exclusions without executing anything. See the
 
 ### 24.2 Current qualification basis
 
-The most recent completed qualification covered the preceding implementation: local Linux
-qualification and case measurements of 2026-09-25/26, followed by the maintainer's
-independent review, which confirmed a satisfactory outcome. The retired execution
-record is available at an immutable commit:
-[final qualification](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-p14-p18-execution.md#verification).
+The most recent completed qualification is Plan 22's Q1 of 2026-09-29, on the final state of
+the solver, discrete-decision and operational-store work. The retired record states each
+command and result:
+[Plan 22 Outcome](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md#outcome-recorded-after-implementation).
 
-**Scope and conditions.** Local Linux, Rust 1.98.1 and Python 3.14.7, against a zero
-failure baseline: the default workspace and the full native feature graph with explicit
-force-validation; the Python native suite (unit, component and integration) on a
-freshly built extension; doctests; governance; setup controls; the strict configured
-Clippy modes; formatting, generated equivalence, family pins and documentation checks.
-Native runs used single-threaded BLAS/OpenMP. The 33 measured cases ran as separate
-processes with Criterion CSV samples, compilation untimed, in a shared checkout
-concurrently used for development: they are local observations, not isolated or
-production-profile performance guarantees.
+**Scope and conditions.** Local Linux, the pinned dated nightly (ADR-0122) and Python 3.14.7
+(parity on 3.13), against a zero failure baseline:
+- the default workspace (`just test`) and the full native feature graph with explicit
+  force-validation (`just native-test`: native units, conformance acceptance and the
+  invariant harness);
+- the store, worker and publication journeys against the local PostgreSQL 18 server;
+- the linked Python suite (unit, component and integration) on a freshly built extension;
+- doctests, governance, generated equivalence and family pins;
+- the strict Clippy modes, including the native Clippy of the linked solver contracts;
+- formatting, Python quality and documentation checks;
+- the IDAES parity comparisons on this machine (`just parity`: environment, enumerations,
+  sIPOPT sensitivities, parmest covariance, DegeneracyHunter and a PETSc PID loop).
 
-**Exclusions.** No IDAES numerical parity, exhaustive feature powerset,
-release/distribution, remote CI or other-platform result is claimed. Analytic,
-exhaustive and reference checks establish the stated cases and do not establish
+Native runs used single-threaded BLAS/OpenMP unless a test admits threads.
+
+**Measurements.** The large-KKT linear-solver and Clarabel thread measurements are single
+runs on a synthetic grid (`measurement_tests`, run on demand). They are local observations
+that separate orders of magnitude, not performance guarantees. The earlier 33 measured
+process cases (2026-09-25/26) were not rerun, and the Plan 22 process cases were not added.
+
+**Exclusions.**
+- No IDAES numerical parity beyond the exercised comparisons.
+- No exhaustive feature powerset, release or distribution, remote CI, container or
+  other-platform result.
+- No performance campaign.
+
+Analytic, exhaustive and reference checks establish the stated cases and do not establish
 untested formulations. The upstream `proc-macro-error2` future-incompatibility notice
 remains; this is not a warning-free toolchain claim.
 
 Raw reports are local ignored outputs under `build/assessment/` and are not part of the
-repository. The earlier
-[local Linux closure](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/14-m22-execution.md)
-of the library-owned foundation is historical and superseded as the current basis.
+repository. The previous basis, the
+[final qualification](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-p14-p18-execution.md#verification)
+of 2026-09-25/26, is historical.
 
 A retired qualification is not transferred to changed paths. After a change, targeted
 tests show the new behavior; comprehensive qualification runs again only when the

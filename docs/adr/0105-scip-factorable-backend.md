@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-06, DP-13, DP-15, DP-20, PS-09, PS-10]
 blueprint: [§3.3, §18.7, §18.9]
-review: docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t07
+review: git:f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc:docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t07
 evidence: Interface-checked
 supersedes: []
 superseded-by: null
@@ -140,11 +140,11 @@ status mapping and no panicking conversions.
 ## More information
 
 - Architecture companion [§5](../plans/22-solver-capabilities-architecture.md#5-factorable-projection-and-scip).
-- Target review [T07](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t07) (relaxed-export semantics) and [T08](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t08) (nested Ipopt settings).
+- Target review [T07](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t07) (relaxed-export semantics) and [T08](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t08) (nested Ipopt settings).
 - Capability review [§8.1](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#81-scip-the-maintainers-hypothesis) and qualification steps 1–7 (slot 10).
 - Related: ADR-0083 (revisit trigger fired), ADR-0102, ADR-0104, ADR-0106, ADR-0108, ADR-0112. Plan 22 packets G1–G8, C5.
 
 ## Status history
 
 - 2026-09-27 — proposed (Plan 22 D0).
-- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T07, T08 were corrected in this record before acceptance.
+- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T07, T08 were corrected in this record before acceptance.

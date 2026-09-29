@@ -1,25 +1,30 @@
 ---
 title: Solver capabilities, discrete decisions and the operational store — target architecture
-status: draft
+status: done
 date: 2026-09-27
-parent: 22-solver-capabilities.md
+parent: https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md
 review_sources:
   - ../design_review/reviews/design_review_solver-capabilities_2026-09-27.md
-  - ../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md
+  - https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md
 ---
 
 # Solver capabilities, discrete decisions and the operational store — target architecture
 
-**Evidence level: Proposed.** This document states the target that
-[Plan 22](22-solver-capabilities.md) implements. Library facts cite the
+**Retained for its scenarios.** Plan 22 is done and its record is retired
+([Outcome](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md#outcome-recorded-after-implementation)).
+This companion stays because ADR-0102–ADR-0121 cite its scenarios S10–S25; the architecture
+sections, not this text, state the current contracts, and it authorizes nothing.
+
+**Evidence level at writing: Proposed.** This document states the target that
+[Plan 22](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md) implements. Library facts cite the
 [solver capability review](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md)
 (slot 8) at the evidence level recorded there. The decisions it rests on are ADR-0102–ADR-0116,
 accepted on 2026-09-27 after the
-[Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md);
+[Plan 22 target review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md);
 the ADRs are authoritative where this text and they differ. Findings T01–T16 of that review
 were corrected here before acceptance. Nothing here is implemented until its packet lands.
 
-**Amendment (2026-09-28).** The [typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md)
+**Amendment (2026-09-28).** The [typed data contracts review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md)
 reassessed the store's client stack and the codebase's typing now that generated code is judged
 on its merits (Core 3.1). Its selections are in §9.2, §9.3, §9.7, §9.8, the new §12, and
 scenarios S19–S25. The maintainer approved them on 2026-09-28, and three accepted decision
@@ -29,7 +34,7 @@ records now own them:
 - [ADR-0116](../adr/0116-typed-boundary-documents.md) (D22-15): typed boundary documents. It supersedes ADR-0113.
 
 **As implemented (2026-09-28).** The store and typed-data track (B1–B7, O3–O9, G8) has
-landed; the [store and typed-data packet](22-store-and-typed-data-execution.md) owns its
+landed; the [store and typed-data packet](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-store-and-typed-data-execution.md) owns its
 progress and evidence. §5.3, §9 and §12 carry "As implemented" notes that record where the
 build differs from the text above them. The current contract is owned by blueprint §20.6
 (the operational store and durable execution), §20–§20.5 (publication), §4.1–§4.2, §5.1,
@@ -103,7 +108,7 @@ var modules : Count in semiinteger;
   - Spatial branch-and-bound needs finite boxes. The same admission covers continuous variables that enter a global route (§5).
 - **One authority.**
   - A registry enum `ModelingVariableDomain` [continuous, integer, binary, semicontinuous, semiinteger] is generated into `pse-model`.
-  - `pse_math::binding::VariableDomain` is deleted; `pse-math` consumes the generated type directly (it already sits above `pse-model`), so no mapping layer exists ([T15](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t15)).
+  - `pse_math::binding::VariableDomain` is deleted; `pse-math` consumes the generated type directly (it already sits above `pse-model`), so no mapping layer exists ([T15](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t15)).
   - `grouped.rs` carries the declared domain instead of hard-coding `Continuous`.
   - `runtime.solve_variables` gains a `domain` column.
 
@@ -195,7 +200,7 @@ An authored `penalty(l1)` is a declared requirement of the formulation, so it is
 selection of POUNCE `L1ExactPenalty` and is recorded as such; it does not conflict with
 "ℓ1 is never automatic" (§6.3). Mixing `penalty(l1)` with other realizations in one solve is
 admitted; the ℓ1 penalty then applies to every constraint, and the result says so
-([T14](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t14)).
+([T14](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t14)).
 
 Phase appearance can then be authored as smoothing, complementarity or explicit discrete modes,
 as package data.
@@ -209,13 +214,13 @@ These changes are ADR-0106, which supersedes ADR-0090. They are registry changes
   - `mixed_integer_quadratic` (convexity recorded as a fact);
   - `mixed_integer_nonlinear`.
 - **`SolveIntent` becomes a registry enum and gains `Certify`.** Global certification is an explicitly selected intent, never an automatic upgrade of a local solve.
-- **`NativeAssurance` gains four values** ([T10](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t10)):
+- **`NativeAssurance` gains four values** ([T10](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t10)):
   - `global_bound`: a dual bound for the exported program over the declared box, valid within the backend's recorded tolerances and the export fidelity; not interval-rigorous;
   - `proven_infeasible`: the backend's global infeasibility conclusion for the exported program, under the same conditions; not interval-rigorous;
   - `exact_certificate`: exact rational MILP, the only rigorous assurance;
   - `sos_bound_nonrigorous`: a floating-point SOS polynomial bound (POUNCE-convex), never a certificate and never part of a gap claim.
 - **`GapQualified`** extends to SCIP, recording the box, tolerances, export fidelity and the sources of the dual bound and the primal candidate. A `Relaxed` export yields bound and infeasibility claims only (§5.2).
-- **`CandidateUse`** stays the single typed decision, owned by the workflow completion owner (§16.6), and is extended rather than replaced: `usable`, `qualified_unclosed`, `seed_only` (feasible in original coordinates, but the native stop forbids use as a result; may seed a later step), `diagnostic_only` (a relaxed or least-infeasible point; an observation only) and `unusable`. Every workflow consumes it ([F13](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f13), [T01](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t01)).
+- **`CandidateUse`** stays the single typed decision, owned by the workflow completion owner (§16.6), and is extended rather than replaced: `usable`, `qualified_unclosed`, `seed_only` (feasible in original coordinates, but the native stop forbids use as a result; may seed a later step), `diagnostic_only` (a relaxed or least-infeasible point; an observation only) and `unusable`. Every workflow consumes it ([F13](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f13), [T01](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t01)).
 
 **Target routing** (automatic order first; explicit alternatives never substitute silently):
 
@@ -362,7 +367,7 @@ never replaces the evaluator.
 - A `Relaxed` export may support a **dual bound** and a **global infeasibility proof**, never an optimality or solution claim.
 - Solutions from any export are re-qualified in original coordinates by `quality.rs` (PS-10).
 - An `Unavailable` objective yields no bound, and `Certify` is refused with that reason.
-- **Mixed-integer programs with relaxed rows** ([T07](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t07)). SCIP's incumbent is an assignment proposal, recorded `diagnostic_only`. The candidate comes from the fixed-assignment continuous re-solve (§2.2) through the one NLP runner and is qualified in original coordinates. A gap may combine the relaxation's dual bound with that qualified candidate's objective; both sources are recorded.
+- **Mixed-integer programs with relaxed rows** ([T07](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t07)). SCIP's incumbent is an assignment proposal, recorded `diagnostic_only`. The candidate comes from the fixed-assignment continuous re-solve (§2.2) through the one NLP runner and is qualified in original coordinates. A gap may combine the relaxation's dual bound with that qualified candidate's objective; both sources are recorded.
 
 **As implemented (G3, `e781060c`).** The factorable runner `execution::factorable` applies
 the rule as follows; blueprint §18.10.1 owns the current contract.
@@ -417,7 +422,7 @@ The `bundled` and `from-source` scip-sys profiles are rejected (review §8.1).
 - `limits/memory` from the foreign allowance;
 - seeds recorded;
 - concurrent mode deterministic, with thread count equal to the admitted permits;
-- SCIP's nested Ipopt ([T08](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t08)): `nlpi/ipopt/linear_solver` is set from the typed Ipopt linear-solver setting (default `mumps`); `nlpi/ipopt/hsllib` and `nlpi/ipopt/pardisolib` are refused; the nested Ipopt runs serial unless threads are admitted for it.
+- SCIP's nested Ipopt ([T08](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t08)): `nlpi/ipopt/linear_solver` is set from the typed Ipopt linear-solver setting (default `mumps`); `nlpi/ipopt/hsllib` and `nlpi/ipopt/pardisolib` are refused; the nested Ipopt runs serial unless threads are admitted for it.
 
 **Cancellation** runs through an event handler that polls the attempt flag and calls
 `SCIPinterruptSolve` on the owning thread.
@@ -508,7 +513,7 @@ Blueprint §18.10.1 and §20.6 own the current contract.
 ### 5.4 One solver image: Ipopt linear algebra, MKL and OpenMP
 
 ADR-0108 owns this contract; it supersedes ADR-0028. Findings
-[T04](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t04)–[T06](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t06)
+[T04](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t04)–[T06](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t06)
 shaped it.
 
 - **Composition.** One digest-pinned image, built from checksummed sources: Ipopt 3.14.20 (the
@@ -545,7 +550,7 @@ shaped it.
 3. **ℓ1 exact penalty** (`pounce-l1penalty`, already linked) is an explicit POUNCE method. It serves complementarity (§2.5) and whole-model infeasibility explanation, replacing the whole-model part of Plan 20 §5's bespoke elastic policy.
 4. **Covariance and confidence intervals:**
    - steady fits: from the reduced Hessian;
-   - transient fits: Gauss–Newton from the response SVD that already exists, recorded with `approximation = gauss_newton` (valid under the declared statistical model with small residuals; residual curvature neglected), and exact from §7's second-order sensitivities when available, recorded as such ([T11](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t11));
+   - transient fits: Gauss–Newton from the response SVD that already exists, recorded with `approximation = gauss_newton` (valid under the declared statistical model with small residuals; residual curvature neglected), and exact from §7's second-order sensitivities when available, recorded as such ([T11](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t11));
    - profile-likelihood intervals: a study over fixed parameters.
 5. **Uncertainty propagation** (the counterpart of IDAES `sens.py`): parameter covariance propagated through output sensitivities.
 6. **Conditional quantities.** For mixed-integer problems, sensitivities and duals are computed with the discrete assignment fixed, and say so.
@@ -628,7 +633,7 @@ the current contract. Relative to the text above:
 **Multi-objective contract** (ADR-0111, refining ADR-0101's objective clause).
 `annotation objective` gains priority and weight members, and each priority level declares
 absolute and relative degradation tolerances
-([T12](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t12)):
+([T12](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t12)):
 - Within a level the objective is a weighted sum; each member must be dimensionless or carry an explicit declared normalization.
 - Across levels the order is lexicographic: each later level bounds every earlier objective by its optimum plus the declared tolerance. A zero tolerance is admitted only on the native LP/MILP path; staged NLP, QP and MINLP levels need a positive tolerance, because an exactly active objective bound breaks constraint qualification.
 - LP and MILP use HiGHS's native lexicographic objectives (`Highs_passLinearObjectives`) with the declared tolerances.
@@ -701,7 +706,7 @@ the boundary, and there are no database enum types.
 domain per entity identity, and the tables with their row checks, so no type can drift. ENUM
 types add a check text cannot give: a misspelled literal in a statement fails at `PREPARE`,
 while against a text CHECK column it prepares and silently matches nothing. That was measured
-on PostgreSQL 18.6; see the [review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md).
+on PostgreSQL 18.6; see the [review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md).
 
 **As implemented (B1, O7, O8, G8).** In the table's last row, the physical representation is
 the generated DDL, not migrations, and no conformance test remains. Published operational facts are
@@ -774,12 +779,12 @@ the DDL; the sketch above is historical. Differences from it:
 ### 9.4 Lifecycle, queue and leases
 
 - **State machine:** planned → queued → running → {completed, partial, failed, cancelled}. From running, lease expiry gives stale, and a stale attempt is superseded by a new attempt.
-- **Transitions** ([T13](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t13)). One pure Rust transition table in `pse-operations` is the only authority for legality and is testable without a database. Repository functions apply it inside a transaction under row locks, so illegal transitions are rejected (DP-03). The database enforces only the state-value domain (a `CHECK` from registry values) and append-only history (the application role cannot update or delete `attempt_transitions`).
+- **Transitions** ([T13](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t13)). One pure Rust transition table in `pse-operations` is the only authority for legality and is testable without a database. Repository functions apply it inside a transaction under row locks, so illegal transitions are rejected (DP-03). The database enforces only the state-value domain (a `CHECK` from registry values) and append-only history (the application role cannot update or delete `attempt_transitions`).
 - **Identity.** The runtime mints attempt, run and publication identities on its existing UUIDv7 `SemanticId` path before any effect; the store records them, and no database default mints a domain identity (DP-04).
 - **Claim:** `UPDATE jobs … WHERE job_id = (SELECT … FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING`.
 - **Heartbeat** extends the lease. On expiry the attempt goes to stale, and the job is requeued under an explicit retry policy (maximum tries, backoff).
 - **Idempotency:** each try is a new attempt identity, and publication is idempotent per attempt (DP-19).
-- **Cancellation** sets `cancel_requested` and sends `NOTIFY`. The column is the authority and the heartbeat returns it; `NOTIFY` only shortens latency, because notifications are not durable across a dropped listener. A worker issues `LISTEN`, commits, then re-reads state, as PostgreSQL's delivery rule requires, and re-reads again whenever `PgListener::try_recv` reports a lost connection ([T03](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t03)). The owning worker maps cancellation onto the existing cooperative cancellation lease.
+- **Cancellation** sets `cancel_requested` and sends `NOTIFY`. The column is the authority and the heartbeat returns it; `NOTIFY` only shortens latency, because notifications are not durable across a dropped listener. A worker issues `LISTEN`, commits, then re-reads state, as PostgreSQL's delivery rule requires, and re-reads again whenever `PgListener::try_recv` reports a lost connection ([T03](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t03)). The owning worker maps cancellation onto the existing cooperative cancellation lease.
 - **`MathService` admission** queues through the store instead of refusing, when durability is requested.
 
 **As implemented (O3, O4, B2, O7).**
@@ -814,8 +819,8 @@ the DDL; the sketch above is historical. Differences from it:
 
 1. **Members are unchanged:** written to Delta at attempt-scoped paths, with provisioned and written receipts.
 2. **Commit** is one PostgreSQL transaction. It checks that `publication_heads.publication_id` is the expected parent, inserts the publication and its members (location and version), and advances the head. A lost race is a typed conflict; the loser re-prepares against the new parent. This keeps today's "never rebase" rule.
-3. **Readers** resolve a publication id, or an explicit named query such as the latest head (with the resolved version recorded), to member locations and versions. A reader takes a lease row with an expiry in a short transaction and releases it when done; no reader holds a database session open while reading Delta files ([T02](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t02)).
-4. **Retention and maintenance.** The catalog computes the protected versions (SQL in `pse-operations`), replacing the DataFusion query over the Delta control relations ([T16](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t16)). Deletion is two-phase: mark the publication `expiring` so no new lease is granted, wait until every lease is released or expired, let `pse-catalog` delete the member files, then mark it `deleted`. Transaction-scoped advisory locks serialize maintainers. This replaces `.pse-retention.lock`, which works for local files only, and makes remote object stores qualifiable (R-10, decided by ADR-0112; restated by ADR-0114).
+3. **Readers** resolve a publication id, or an explicit named query such as the latest head (with the resolved version recorded), to member locations and versions. A reader takes a lease row with an expiry in a short transaction and releases it when done; no reader holds a database session open while reading Delta files ([T02](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t02)).
+4. **Retention and maintenance.** The catalog computes the protected versions (SQL in `pse-operations`), replacing the DataFusion query over the Delta control relations ([T16](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t16)). Deletion is two-phase: mark the publication `expiring` so no new lease is granted, wait until every lease is released or expired, let `pse-catalog` delete the member files, then mark it `deleted`. Transaction-scoped advisory locks serialize maintainers. This replaces `.pse-retention.lock`, which works for local files only, and makes remote object stores qualifiable (R-10, decided by ADR-0112; restated by ADR-0114).
 5. **Deletion without migration.** Existing Delta publications are regenerated by rerun. The system is in design, not production (maintainer, 2026-09-27), so there is no importer. A store written under the control table is refused as an unsupported historical format, with a migration-required diagnostic that names regeneration by rerun.
    - The Delta control table, its code and the file leases are deleted once the catalog path is proven (DP-16).
    - An export command writes a read-only manifest with the member tables for offline readers.
@@ -928,7 +933,7 @@ The [operational-store guide](../dev/operational-store.md) is the operator's ref
 - `#[sqlx::test]`.
 - A migration-conformance test that compares part of the DDL with the registry.
 
-The [typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md) found this is four hand-kept descriptions per table.
+The [typed data contracts review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md) found this is four hand-kept descriptions per table.
 Statements are checked only by executing them, and a misspelled enum literal silently matches
 nothing (TD01–TD03).
 
@@ -991,7 +996,7 @@ with these refinements:
   connection around `COMMIT` to reproduce a lost acknowledgement. `cargo tree -i sqlx` is
   empty.
 
-**Libraries not adopted for the store** (the maintainer's [external reviews](../external-review-postgresl-options.md), reassessed in the [typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md) slot 8):
+**Libraries not adopted for the store** (the maintainer's [external reviews](../external-review-postgresl-options.md), reassessed in the [typed data contracts review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md) slot 8):
 
 | Library | Reason | Revisit |
 |---|---|---|
@@ -1050,7 +1055,7 @@ leaves its study concluded with no automatic recovery.
 | sIPOPT for sensitivity | C++ only; duplicates §6. Kept as a parity oracle |
 | Keep the Delta control table beside a PostgreSQL run registry | Two authorities for publication visibility, or a registry that cannot coordinate multi-writer publication (DP-01, R-10) |
 | An in-memory fake of the operational store for tests | A second implementation of the contract; isolated real databases serve instead |
-| Hand-written DDL, records and `FromRow` beside registry-generated rows (the O2–O6 state) | Four descriptions per table, one partial comparison; statements checked only by execution ([TD01–TD03](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md#td01)) |
+| Hand-written DDL, records and `FromRow` beside registry-generated rows (the O2–O6 state) | Four descriptions per table, one partial comparison; statements checked only by execution ([TD01–TD03](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md#td01)) |
 | sqlx compile-time macros with `.sqlx` metadata | Viable; not selected. See §9.8 |
 | Database-owned schema (Diesel `print-schema`, SeaORM entities) | The database would become a second schema authority beside the registry (DP-01) |
 | Compile-time physical units (uom) for model quantities | Authored quantities are known only at run time; `pse-quantity` owns PS-01, including bases, reference states and gauge/absolute conventions (§12) |
@@ -1074,7 +1079,7 @@ leaves its study concluded with no automatic recovery.
 
 ## 12. Typed data contracts
 
-Amendment of 2026-09-28: [ADR-0114](../adr/0114-typed-operational-store.md), [ADR-0115](../adr/0115-registry-typed-identities-and-vocabularies.md) and [ADR-0116](../adr/0116-typed-boundary-documents.md) decide it; packets B1–B7 implement it. The [typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md)
+Amendment of 2026-09-28: [ADR-0114](../adr/0114-typed-operational-store.md), [ADR-0115](../adr/0115-registry-typed-identities-and-vocabularies.md) and [ADR-0116](../adr/0116-typed-boundary-documents.md) decide it; packets B1–B7 implement it. The [typed data contracts review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md)
 owns the argument and the library ledger. This section states the target.
 
 ### 12.1 Who owns each representation

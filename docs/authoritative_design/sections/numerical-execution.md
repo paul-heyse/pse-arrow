@@ -263,8 +263,8 @@ of a re-solve at a perturbed parameter), `reduced_hessian_sign_pinned`,
 `presolve_lost_multiplier_withholds_sensitivity` (native backend units), and
 `sensitivities_published_with_local_validity` and
 `sensitivity_withheld_without_local_analysis` (runtime units). The comparison against
-Ipopt's sIPOPT in the parity container that ADR-0118 names
-(`sensitivity_agrees_with_ipopt_sens`) is not built. A quadratic program with a request
+Ipopt's sIPOPT that ADR-0118 names agrees within 1e-6 on a nondegenerate program with an
+active bound (`test_sensitivity_agrees_with_ipopt_sens`, `just parity`). A quadratic program with a request
 routes to an NLP adapter and receives the same analytic quantities
 (`qp_sensitivity_through_kkt_analysis`, runtime units).
 
@@ -1298,8 +1298,9 @@ native stack, live jobs and flights.
   incumbents ([§18.10.1](#section-18-10-1)). The admitted count is recorded as
   `scip.threads`. *Tested* by `concurrent_mode_under_admitted_permits`, a two-thread solve
   that checks the native options and a gap-qualified result, and
-  `scip_concurrent_streams_incumbents` (native backend units); cancellation under
-  concurrency is not yet tested.
+  `scip_concurrent_streams_incumbents` and `scip_concurrent_solve_cancels`, whose flag,
+  raised at the first streamed incumbent, stops a two-thread solve as a cancellation that
+  claims no gap (native backend units).
 - Each attempt evaluator is built by one path, `MathService::worker`. Its provider workers
   are scoped to the attempt's cooperative cancel flag, so a nested native provider, such as
   an implicit inner solve, polls that same flag. Its numeric storage is charged to a
@@ -1533,9 +1534,9 @@ process that `pardiso_` resolves into the linked LP64 interface library, publish
 own `MKL_PARDISO_PATH` (the process's one environment write for it, made before the loader
 first reads it), and verifies that loading the alias returned the object already in the
 process and mapped no second oneMKL or Intel OpenMP runtime (`mkl::pardiso`); a loader that
-would find another `libmkl_rt` is refused. Moving the alias into the solver image is a
-recorded Plan 22 follow-up. `clarabel/faer-sparse` is not used: it would bring a second faer
-beside the pinned one.
+would find another `libmkl_rt` is refused. Moving the alias into the solver image is
+register R-38. `clarabel/faer-sparse` is not used: it would bring a second faer beside the
+pinned one (register R-45).
 
 A linear or convex quadratic program explicitly routed to Clarabel is lowered to cone form
 (`ConicProblem::from_coefficients`): equality rows form one zero cone, each finite side of
@@ -1591,7 +1592,7 @@ backend units).
 
 **Infeasibility certificates.** A primal-infeasible (Farkas) ray or a dual-infeasible
 (recession) direction from Clarabel, or from HiGHS when its diagnostics request rays
-(`diagnostics.rays`; fetching them on every infeasible LP is a recorded follow-up), becomes
+(`diagnostics.rays`; fetching them on every infeasible LP is register R-39), becomes
 one typed `InfeasibilityCertificate` with its native accuracy (`full`, or `reduced` for
 Clarabel's almost-infeasible statuses). `transport::recover_certificate` restores it to
 original coordinates, and `certificate::verify` recomputes it against the original data
@@ -1893,8 +1894,7 @@ read-back-equivalent export. The search needs a declared foreign allowance of 2 
 the first node, and 2 GiB proves optimality in 91 nodes, the whole run taking 18 s. The
 default allowance is 64 MiB. The allowance is one number charged to every native job and
 retained program, so the test also raises the shared memory ceiling to 256 GiB of
-accounting; an allowance scoped to the search that needs it is an open resource-accounting
-follow-up (DP-20).
+accounting; an allowance scoped to the search that needs it is register R-40 (DP-20).
 
 **Phase stability** (Plan 22 G6, partial). The authored tangent-plane-distance model
 (`TangentPlaneStability` in the reference thermodynamics package) minimizes the

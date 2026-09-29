@@ -34,7 +34,7 @@ Planning the remaining solver scope on 2026-09-28 found that:
 - ADR-0107 restricted sensitivity to presolve `Off` or kept parameter columns.
 
 Plan 22 N4 already factors a KKT matrix with FERAL to certify inertia (`conditioning.rs`).
-The [solver scope packet](../plans/22-solver-scope-execution.md#improvements-over-the-target-design)
+The [solver scope packet](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-scope-execution.md#improvements-over-the-target-design)
 adopts improvements I1–I4 in response.
 
 ## Scope
@@ -169,10 +169,10 @@ barrier-consistent step, a difference of the order of the barrier parameter at t
 
 ## More information
 
-- Solver scope packet: [improvements I1–I5](../plans/22-solver-scope-execution.md#improvements-over-the-target-design) and packets S0, S1, S3, S4, M2c and N5, which own progress.
+- Solver scope packet: [improvements I1–I5](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-scope-execution.md#improvements-over-the-target-design) and packets S0, S1, S3, S4, M2c and N5, which own progress.
 - [Change-tier review](../design_review/reviews/design_review_solver-scope-decisions_2026-09-28.md#adr-0118), findings F01 and F02.
 - Architecture companion [§6](../plans/22-solver-capabilities-architecture.md#6-sensitivity-covariance-and-uncertainty) (its two-route text is superseded here).
-- Target review [T11](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t11); capability review L-N1 and S02.
+- Target review [T11](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t11); capability review L-N1 and S02.
 - Related: ADR-0103, ADR-0105, ADR-0109, ADR-0110.
 
 ## Status history

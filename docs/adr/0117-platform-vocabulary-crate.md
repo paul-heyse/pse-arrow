@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-01, AP-04, DP-01, DP-17]
 blueprint: [§3.2, §4.2]
-review: docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md#addendum-adr-0117
+review: git:f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc:docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md#addendum-adr-0117
 evidence: Proposed
 supersedes: []
 superseded-by: null
@@ -89,10 +89,10 @@ The crate is small, and it removes ten duplicate types without weakening either 
 
 ## More information
 
-- [Typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md), TD06 and its [ADR-0117 addendum](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md#addendum-adr-0117).
+- [Typed data contracts review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md), TD06 and its [ADR-0117 addendum](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md#addendum-adr-0117).
 - [ADR-0115](0115-registry-typed-identities-and-vocabularies.md) Outcome 3.
 - The root `Cargo.toml` `[workspace.metadata.pse.dependency-ceilings]`.
-- Plan 22 packet B4, whose progress is owned by the [store and typed-data execution packet](../plans/22-store-and-typed-data-execution.md).
+- Plan 22 packet B4, whose progress is owned by the [store and typed-data execution packet](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-store-and-typed-data-execution.md).
 
 ## Status history
 

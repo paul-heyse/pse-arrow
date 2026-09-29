@@ -9,7 +9,7 @@
 | Tier / purpose | **Design tier, target purpose** (binding default). Authority text that blocks a best-in-class capability is recorded in slot 11 as a required change, not treated as a constraint. |
 | Reviewer / date | Agent review in the maintainer's session, 2026-09-27. Four read-only `library-leverage-reviewer` passes (NLP and sparse linear algebra; roots and dynamics; coefficient and conic; SCIP) supplied slot-8 ledgers. The reviewer verified the defects it adopts against source. This is not an independent review of any design the same agent authored. |
 | Decisions | Current implementation: behavioural adequacy **not adequate for three PS-G3 items** (F03, F04, F06); architectural fitness **G9 fail on narrow, owner-local items** (F01, F02, F09). Capability additions: **Accept-scoped at the Proposed level**, as ranked in slot 12. **SCIP: not beneficial for the classes the pipeline solves today (C); beneficial as a new certification and MINLP capability once its triggers fire (B).** Overall: **Revise-scoped**; see slot 12. |
-| Disposition owner | [Plan 22](../../plans/22-solver-capabilities.md#finding-dispositions) (draft), created after this review at the maintainer's request. It owns the status of every finding here and in the addendum; scope items need the ADR routes in slot 11. |
+| Disposition owner | [Plan 22](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md#finding-dispositions) (draft), created after this review at the maintainer's request. It owns the status of every finding here and in the addendum; scope items need the ADR routes in slot 11. |
 
 **Question.** The maintainer asked whether solvers not yet integrated, SCIP in particular,
 would benefit the current pipeline and the problem types it solves. They also asked what
@@ -411,7 +411,7 @@ Current packet status is owned by Plan 22 execution packet E11.
 **Register.** None of the C items above needs a register row unless the maintainer wants its
 trigger tracked. The SCIP triggers (slot 8.1) are the ones worth recording.
 
-**Disposition.** The owner is [Plan 22](../../plans/22-solver-capabilities.md#finding-dispositions).
+**Disposition.** The owner is [Plan 22](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md#finding-dispositions).
 It records the status of F01–F32 and the coverage of every slot-8 capability. This review keeps
 only its observations.
 
@@ -464,7 +464,7 @@ principles. A second read-only pass covered:
 It checked them against AP-01–AP-06, DP-01–DP-24 and PS-01–PS-13. It found 20 misalignments
 not covered by F01–F12. F13, F14, F15 and F17 were re-read in source by the reviewer; the rest
 are *Interface-checked* from the pass. Status belongs to
-[Plan 22](../../plans/22-solver-capabilities.md#finding-dispositions), not to this addendum.
+[Plan 22](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md#finding-dispositions), not to this addendum.
 
 | ID | Finding | Principles / gate | Evidence | Consequence | Correction |
 |---|---|---|---|---|---|
@@ -493,4 +493,4 @@ are *Interface-checked* from the pass. Status belongs to
 - AP-03 is now **violated** (F27–F29).
 - G1 (F13, F21), G2 (F14), G3 (F17) and PS-G3 (F15) gain further failing evidence.
 - The overall decision remains **Revise-scoped**. The disposition owner is
-  [Plan 22](../../plans/22-solver-capabilities.md).
+  [Plan 22](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md).

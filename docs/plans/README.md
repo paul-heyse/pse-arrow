@@ -10,21 +10,14 @@ The authorized **K0–K8 implementation is complete**; the
 and assessment evidence, including the remaining static-quality findings. Its companions
 are `21-modeling-kernel-architecture.md` and `21-knowledge-placement.md`; the earlier
 execution packets retain their original evidence.
-[Plan 22](22-solver-capabilities.md) is **authorized in full and in progress** (2026-09-27); its [execution packet](22-solver-capabilities-execution.md) owns progress. It covers:
-- every missing native solver capability, including integer variables, MINLP/GDP and global certification through SCIP;
-- the solver defects and design-principle corrections from the
-  [solver capability review](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md);
-- a PostgreSQL 18 operational store and publication catalog;
-- since 2026-09-28, typed data contracts: a registry-generated store schema with Cornucopia-compiled
-  statements on tokio-postgres, typed identities and vocabularies, and typed boundary documents
-  (ADR-0114–ADR-0117, packets B1–B7), from the
-  [typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md).
-  That track, together with O7–O9 and G8, ran first and closed with its W6 scoped
-  qualification. Its own [execution packet](22-store-and-typed-data-execution.md) owns its progress.
-- the remaining solver scope and Q1, planned on 2026-09-28. The
-  [solver scope packet](22-solver-scope-execution.md) owns its progress.
-
-Its companion is `22-solver-capabilities-architecture.md`.
+[Plan 22](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md) (solver capabilities, discrete decisions,
+the PostgreSQL operational store and typed data contracts) is **done** (2026-09-29): its
+[Outcome](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md#outcome-recorded-after-implementation)
+records what was built and its Q1 qualification, now the current basis in
+[§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2). Its
+plan, packets and target review are retired to Git history; follow-ups it deferred are
+register rows R-38–R-48. Its companion `22-solver-capabilities-architecture.md` stays
+because ADR-0102–ADR-0121 cite its scenarios S10–S25; it authorizes nothing.
 [Plan 20](20-idaes-capability-target.md) and its companions remain capability background;
 Plan 21 supersedes their target decomposition. K9 remains proposed and excluded.
 [Plan 19](19-current-documentation-consolidation.md),

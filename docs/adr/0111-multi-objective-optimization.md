@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [DP-11, DP-13, DP-14, PS-01, PS-04, PS-09]
 blueprint: [§7.5, §18.7]
-review: docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t12
+review: git:f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc:docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t12
 evidence: Proposed
 supersedes: []
 superseded-by: null
@@ -96,10 +96,10 @@ declaration. A staged route costs one solve per level, which the value-only rebi
 ## More information
 
 - Architecture companion [§8](../plans/22-solver-capabilities-architecture.md#8-coefficient-and-conic-extensions).
-- Target review [T12](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t12).
+- Target review [T12](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t12).
 - Related: ADR-0101 (objective clause refined), ADR-0105. Plan 22 packet C3.
 
 ## Status history
 
 - 2026-09-27 — proposed (Plan 22 D0).
-- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T12 were corrected in this record before acceptance.
+- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T12 were corrected in this record before acceptance.

@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-02, DP-01, DP-02, DP-03, DP-04, DP-13, DP-14, DP-21, DP-24]
 blueprint: [§4.2, §5.2, §16.5, §21.1, §21.5]
-review: docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md#decision
+review: git:f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc:docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md#decision
 evidence: Proposed
 supersedes: [ADR-0113]
 superseded-by: null
@@ -23,7 +23,7 @@ scenarios: [docs/plans/22-solver-capabilities-architecture.md#s21, docs/plans/22
 
 ADR-0113 made every backend's pse-owned, serde-versioned settings type the Python projection,
 exposed as frozen native classes. The
-[typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md)
+[typed data contracts review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md)
 found TD07: durable and boundary documents have no declared schema and no canonical identity.
 
 Specifically:
@@ -154,7 +154,7 @@ kept honest by the same governance lint.
 
 ## More information
 
-- [Typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md): TD06, TD07, TD11.
+- [Typed data contracts review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md): TD06, TD07, TD11.
 - Architecture companion [§12.5](../plans/22-solver-capabilities-architecture.md#12-typed-data-contracts).
 - Capability review F09, F26, F30, L-C1, S04, S05 (through ADR-0113).
 - Related: ADR-0024, ADR-0051, ADR-0106, ADR-0108, ADR-0115.

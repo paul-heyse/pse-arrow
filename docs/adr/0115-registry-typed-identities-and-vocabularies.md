@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-04, AP-05, DP-01, DP-02, DP-04, DP-24, PS-02]
 blueprint: [§4.1, §4.2, §5.1, §5.3, §6.8, §21.5]
-review: docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md#decision
+review: git:f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc:docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md#decision
 evidence: Proposed
 supersedes: []
 superseded-by: null
@@ -21,7 +21,7 @@ scenarios: [docs/plans/22-solver-capabilities-architecture.md#s22]
 
 ## Context
 
-The [typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md)
+The [typed data contracts review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md)
 found four gaps.
 - **TD04.** Workflow, operational and modeling identities share one untyped `SemanticId`:
   - 277 hand-written `*_id` fields, and generated rows typing every `*_id` the same way;
@@ -124,7 +124,7 @@ packets.
 
 ## More information
 
-- [Typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md): TD04, TD06, TD08, TD10.
+- [Typed data contracts review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md): TD04, TD06, TD08, TD10.
 - Architecture companion [§12.2 and §12.4](../plans/22-solver-capabilities-architecture.md#12-typed-data-contracts).
 - [ADR-0114](0114-typed-operational-store.md) (store domains and ENUM types).
 - [ADR-0116](0116-typed-boundary-documents.md) (Python boundary).

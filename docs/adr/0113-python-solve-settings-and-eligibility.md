@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-02, DP-01, DP-02, DP-14, DP-24]
 blueprint: [§21.1, §21.5]
-review: docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision
+review: git:f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc:docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision
 evidence: Proposed
 supersedes: []
 superseded-by: ADR-0116
@@ -106,5 +106,5 @@ settings type per backend, which the backend-execution adapter needs anyway.
 ## Status history
 
 - 2026-09-27 — proposed (Plan 22 D0).
-- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level).
+- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level).
 - 2026-09-28 — superseded by ADR-0116.

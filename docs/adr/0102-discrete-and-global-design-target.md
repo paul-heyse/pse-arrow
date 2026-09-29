@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-03, DP-13, DP-22, PS-06, PS-09, PS-12]
 blueprint: [§3.3, §9.5, §18.9, §19.7, §25]
-review: docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision
+review: git:f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc:docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision
 evidence: Proposed
 supersedes: []
 superseded-by: null
@@ -33,7 +33,7 @@ right library for three missing capabilities: global bounds and gap certificatio
 infeasibility proofs with a nonlinear IIS, and MINLP/GDP ([§8.1](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#81-scip-the-maintainers-hypothesis)).
 It named triggers. On 2026-09-27 the maintainer fired them: integer variables will be needed
 in the solve, and every functional capability the review found missing is to be added
-([Plan 22](../plans/22-solver-capabilities.md#context)).
+([Plan 22](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md#context)).
 
 ## Scope
 
@@ -137,10 +137,10 @@ value of global certification on process models remains *Proposed* until Q1 meas
 
 - Architecture companion: [§1–§3, §5](../plans/22-solver-capabilities-architecture.md).
 - Capability review: [§8.1](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#81-scip-the-maintainers-hypothesis), [F08](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f08), census P1 (slot 10).
-- Target review: [decision](../design_review/reviews/design_review_plan22-target_2026-09-27.md#decision), findings [T07](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t07) and [T09](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t09).
-- Disposition and packets: [Plan 22](../plans/22-solver-capabilities.md).
+- Target review: [decision](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision), findings [T07](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t07) and [T09](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t09).
+- Disposition and packets: [Plan 22](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md).
 
 ## Status history
 
 - 2026-09-27 — proposed (Plan 22 D0).
-- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T07, T09 were corrected in this record before acceptance.
+- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T07, T09 were corrected in this record before acceptance.

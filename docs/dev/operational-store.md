@@ -362,8 +362,9 @@ just pse-publication collect --workspace <name>
 just pse-publication reclaim --workspace <name>
 ```
 
-Nothing runs automatically: no policy decides which publications to retire, and captured
-solutions are not pruned (register R-36). The protocol is exercised on local file tables
+Nothing retires publications automatically: no policy decides which publications to retire
+(register R-36). Captured incumbent solutions expire with their attempt's streams unless a
+live row, job or waiting study point still names them; output seeds are never pruned. The protocol is exercised on local file tables
 and the in-memory object store; remote object stores (S3-compatible) are not qualified
 (register R-37).
 

@@ -691,6 +691,7 @@ already serve ([operational-store guide](../../dev/operational-store.md)).
 study row, and the 10 000-point scale of scenario S15 and statement performance at volume
 are unmeasured. A crashed point try's partial member tables are never collected, and a
 finalization that exhausts its retries leaves its study concluded without automatic
-recovery. Remote servers and remote object stores are not qualified (register R-37).
+recovery. A direct cancel of a waiting point can deadlock with its predecessor's
+completion; the transaction retries (register R-42). Remote servers and remote object stores are not qualified (register R-37).
 Operating the store (bootstrap, reset, generation order, backup, doctor) is covered by the
 [operational-store guide](../../dev/operational-store.md).

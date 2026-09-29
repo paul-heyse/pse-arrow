@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [DP-06, DP-08, DP-15, PS-04, PS-06, PS-09]
 blueprint: [§14.1, §19.7]
-review: docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t15
+review: git:f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc:docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t15
 evidence: Proposed
 supersedes: []
 superseded-by: null
@@ -127,10 +127,10 @@ not solver machinery.
 ## More information
 
 - Architecture companion [§2.3–§2.5](../plans/22-solver-capabilities-architecture.md#23-constraint-forms).
-- Target review [T14](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t14) (ℓ1 realization composition) and [T15](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t15) (lowering equivalence).
+- Target review [T14](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t14) (ℓ1 realization composition) and [T15](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t15) (lowering equivalence).
 - Related: ADR-0016 (superseded by ADR-0112, which restates D13), ADR-0100, ADR-0103, ADR-0105, ADR-0109. Plan 22 packets M3–M5.
 
 ## Status history
 
 - 2026-09-27 — proposed (Plan 22 D0).
-- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T14, T15 were corrected in this record before acceptance.
+- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T14, T15 were corrected in this record before acceptance.

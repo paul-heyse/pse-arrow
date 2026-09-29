@@ -21,7 +21,7 @@ review_sources: [docs/design_review/reviews/design_review_idaes-capability-targe
 > members, functions, sets and tables, accumulators, implicit blocks with realization policies,
 > and annotations. The scientific content, coverage and scenarios here remain the target.
 
-> **Amended by [Plan 22](22-solver-capabilities.md) D0 (2026-09-27).** §4–§6 name the
+> **Amended by [Plan 22](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md) D0 (2026-09-27).** §4–§6 name the
 > mechanisms decided in ADR-0102–ADR-0111: POUNCE sensitivity and `pounce-sens-core` with FERAL
 > instead of a faer KKT LU, the explicit POUNCE ℓ1 route for whole-model infeasibility,
 > discrete domains for price-taker and MatOpt, and DegeneracyHunter on HiGHS.

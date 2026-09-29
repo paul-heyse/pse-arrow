@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-01, AP-06, DP-01, DP-04, DP-19, DP-20, DP-24]
 blueprint: [§3.2, §17.1, §19.1, §20.1, §20.2, §20.4, §25, §26, §D10, §D13]
-review: docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t02
+review: git:f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc:docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t02
 evidence: Interface-checked
 supersedes: [ADR-0016, ADR-0091]
 superseded-by: ADR-0114
@@ -250,7 +250,7 @@ is in design, not production.
 
 - Architecture companion [§9](../plans/22-solver-capabilities-architecture.md#9-operational-store-and-publication-catalog-postgresql-18), client stack in §9.8.
 - The maintainer's [external review of Rust PostgreSQL options](../external-review-postgresl-options.md), assessed in Options above.
-- Target review [T02](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t02), [T03](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t03), [T09](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t09), [T13](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t13) and [T16](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t16).
+- Target review [T02](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t02), [T03](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t03), [T09](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t09), [T13](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t13) and [T16](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t16).
 - Supersedes ADR-0091 and ADR-0016. Decides register row R-10 (removed). Plan 22 packets O1–O9, G8.
 
 ## Status history
@@ -261,5 +261,5 @@ is in design, not production.
 - 2026-09-27 — before acceptance, the PostgreSQL client stack settled by the maintainer and
   the coordinator (after assessing the maintainer's external review) was recorded in Options
   and Outcome 11, and the Plan 22 target review assessed it.
-- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T02, T03, T09, T13, T16 were corrected in this record before acceptance.
+- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T02, T03, T09, T13, T16 were corrected in this record before acceptance.
 - 2026-09-28 — superseded by ADR-0114.

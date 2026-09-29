@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [DP-01, DP-02, DP-03, PS-01, PS-04, PS-11]
 blueprint: [§6.8, §18.1]
-review: docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t15
+review: git:f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc:docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t15
 evidence: Proposed
 supersedes: []
 superseded-by: null
@@ -121,10 +121,10 @@ cheaper to introduce and would have left two enums to drift.
 ## More information
 
 - Architecture companion [§2.1–§2.2](../plans/22-solver-capabilities-architecture.md#21-domain-facet).
-- Target review [T15](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t15) (domain-enum authority settled here).
+- Target review [T15](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t15) (domain-enum authority settled here).
 - Related: ADR-0099, ADR-0101 (proposed), ADR-0104, ADR-0107. Plan 22 packets M1, M2.
 
 ## Status history
 
 - 2026-09-27 — proposed (Plan 22 D0).
-- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T15 were corrected in this record before acceptance.
+- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T15 were corrected in this record before acceptance.

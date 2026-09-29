@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-04, DP-01, DP-02, DP-21, PS-10, PS-12]
 blueprint: [§4.2, §16.6, §18.6, §18.7, §21.1, §23.2]
-review: docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t01
+review: git:f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc:docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t01
 evidence: Proposed
 supersedes: [ADR-0090]
 superseded-by: null
@@ -148,7 +148,7 @@ duplication F13 exposed.
 ## More information
 
 - Architecture companion [§3–§4](../plans/22-solver-capabilities-architecture.md#3-problem-classes-routing-and-assurance-vocabulary).
-- Target review [T01](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t01) (candidate-use vocabulary) and [T10](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t10) (assurance rigour).
+- Target review [T01](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t01) (candidate-use vocabulary) and [T10](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t10) (assurance rigour).
 - Capability review findings F13, F16, F17, F19.
 - Supersedes ADR-0090. Related: ADR-0102, ADR-0105, ADR-0109. Plan 22 packets A1, G4, G5, N5.
 
@@ -157,4 +157,4 @@ duplication F13 exposed.
 - 2026-09-27 — proposed (Plan 22 D0). Supersedes ADR-0090: its outcome is restated in full
   above; the additions are the classes, intent, assurances, candidate-use values and failure
   categories.
-- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T01, T10 were corrected in this record before acceptance.
+- 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T01, T10 were corrected in this record before acceptance.
