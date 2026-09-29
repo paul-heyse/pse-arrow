@@ -58,6 +58,8 @@ pub struct PreparedBodyData {
     output_quantities: Vec<pse_quantity::QuantityTypeId>,
     expressions: Vec<Option<Atom>>,
     providers: Vec<ProviderSpec>,
+    /// Construction occurrences its builder counted; accounting, not mathematical identity.
+    occurrences: usize,
 }
 impl std::ops::Deref for PreparedBody {
     type Target = PreparedBodyData;
@@ -228,6 +230,7 @@ impl PreparedBody {
                 output_quantities: vec![],
                 expressions,
                 providers: providers.into_values().collect(),
+                occurrences: 0,
             }),
             owner: None,
         })
@@ -251,6 +254,19 @@ impl PreparedBody {
     /// Number of formal inputs.
     pub fn input_count(&self) -> usize {
         self.inputs
+    }
+    /// Formal slots the body holds: its inputs plus stage results, within its
+    /// `BodyLimits::slots` allowance.
+    pub fn slot_count(&self) -> usize {
+        self.slots
+    }
+    /// Construction occurrences counted against its `BodyLimits::occurrences` allowance;
+    /// zero for a body assembled without a typed builder.
+    pub fn occurrence_count(&self) -> usize {
+        self.occurrences
+    }
+    pub(crate) fn set_occurrences(&mut self, occurrences: usize) {
+        Arc::make_mut(&mut self.data).occurrences = occurrences;
     }
     pub(crate) fn set_effects(&mut self, effects: Vec<BTreeSet<usize>>) {
         Arc::make_mut(&mut self.data).output_effects = Some(effects);

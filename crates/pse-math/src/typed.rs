@@ -1206,6 +1206,7 @@ impl<'a> BodyBuilder<'a> {
             self.provider_order,
         )?;
         body.set_effects(outputs.iter().map(|v| v.effects.clone()).collect());
+        body.set_occurrences(self.occurrences);
         body.set_quantities(
             self.input_quantities,
             outputs.iter().map(|v| v.quantity).collect(),

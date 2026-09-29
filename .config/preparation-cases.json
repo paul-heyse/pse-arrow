@@ -1,0 +1,49 @@
+{
+  "description": "M1 preparation-scaling workloads (Plan 23 H2) of the modeling_preparation Criterion group. PC-SAFT states above three components use the bench package's synthetic rows until the DM1 data bank replaces them. `smoke` workloads run once when Criterion tests rather than measures (just bench-smoke); the nested realization needs the KINSOL capability (the native-process feature).",
+  "workloads": [
+    {
+      "id": "pcsaft-02",
+      "model": "pcsaft",
+      "components": 2,
+      "smoke": true,
+      "body_slots": 65536,
+      "body_occurrences": 1048576
+    },
+    {
+      "id": "pcsaft-05",
+      "model": "pcsaft",
+      "components": 5,
+      "body_slots": 65536,
+      "body_occurrences": 1048576
+    },
+    {
+      "id": "pcsaft-10",
+      "model": "pcsaft",
+      "components": 10,
+      "body_slots": 65536,
+      "body_occurrences": 1048576
+    },
+    {
+      "id": "pcsaft-20",
+      "model": "pcsaft",
+      "components": 20,
+      "body_slots": 65536,
+      "body_occurrences": 1048576
+    },
+    {
+      "id": "pr-inline",
+      "model": "peng-robinson",
+      "realization": "inline",
+      "smoke": true,
+      "body_slots": 65536,
+      "body_occurrences": 1048576
+    },
+    {
+      "id": "pr-nested",
+      "model": "peng-robinson",
+      "realization": "nested",
+      "body_slots": 65536,
+      "body_occurrences": 1048576
+    }
+  ]
+}

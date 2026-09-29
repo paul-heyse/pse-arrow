@@ -73,5 +73,10 @@ name = "native_process"
 harness = false
 required-features = ["native-process"]
 
+# M1 preparation scaling (Plan 23 H2); no solver is linked or started.
+[[bench]]
+name = "modeling_preparation"
+harness = false
+
 [dependencies]
 pse-workspace-hack.workspace = true

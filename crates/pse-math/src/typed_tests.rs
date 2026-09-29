@@ -457,6 +457,9 @@ fn formal_pool_extends_to_the_declared_limit_and_refuses_beyond() {
     );
     assert!(error.to_string().contains("body slots"), "{error}");
     let body = prepare(declared).unwrap();
+    // Preparation reports the slots and construction occurrences it used.
+    assert_eq!(body.slot_count(), declared);
+    assert_eq!(body.occurrence_count(), 1);
     // The pool grew in whole chunks to cover the declared allowance.
     let pool = crate::library::formal_pool_len().unwrap();
     assert!(pool >= declared && pool % FORMAL_CHUNK == 0, "{pool}");
