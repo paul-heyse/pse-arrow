@@ -276,6 +276,9 @@ pub struct DurableRecord {
     pub attempt: Result<RuntimeOperationalAttemptsRow, Arc<WorkflowError>>,
     /// The complete progress stream as stored: the snapshot publication derives from.
     pub progress: Result<Vec<ProgressEvent>, Arc<WorkflowError>>,
+    /// The complete incumbent stream as stored: the snapshot `runtime.incumbents` derives
+    /// from (Plan 22 I13).
+    pub incumbents: Result<Vec<RuntimeOperationalIncumbentsRow>, Arc<WorkflowError>>,
     /// Seeds stored from accepted steps, by step.
     pub solutions: Vec<(usize, SolutionId)>,
 }
@@ -479,17 +482,12 @@ impl DurableAttempt {
             heartbeat.stop().await;
         }
         let attempt = self.terminate(&outcome, members).await.map_err(Arc::new);
-        let progress = self
-            .operations
-            .store
-            .streams()
-            .snapshot(self.attempt)
-            .await
-            .map_err(|e| Arc::new(e.into()));
+        let (progress, incumbents) = self.snapshots().await;
         DurableRecord {
             attempt_id: self.attempt,
             attempt,
             progress,
+            incumbents,
             solutions,
         }
     }
@@ -511,6 +509,7 @@ impl DurableAttempt {
             attempt_id: self.attempt,
             attempt,
             progress: Ok(Vec::new()),
+            incumbents: Ok(Vec::new()),
             solutions: Vec::new(),
         }
     }
@@ -540,19 +539,35 @@ impl DurableAttempt {
             outcome = infrastructure(error);
         }
         let attempt = self.terminate(&outcome, Vec::new()).await.map_err(Arc::new);
-        let progress = self
-            .operations
-            .store
-            .streams()
-            .snapshot(self.attempt)
-            .await
-            .map_err(|e| Arc::new(e.into()));
+        let (progress, incumbents) = self.snapshots().await;
         DurableRecord {
             attempt_id: self.attempt,
             attempt,
             progress,
+            incumbents,
             solutions: Vec::new(),
         }
+    }
+
+    /// The attempt's two streams as the store holds them once it ended: the snapshots
+    /// publication derives from.
+    async fn snapshots(
+        &self,
+    ) -> (
+        Result<Vec<ProgressEvent>, Arc<WorkflowError>>,
+        Result<Vec<RuntimeOperationalIncumbentsRow>, Arc<WorkflowError>>,
+    ) {
+        let streams = self.operations.store.streams();
+        (
+            streams
+                .snapshot(self.attempt)
+                .await
+                .map_err(|e| Arc::new(e.into())),
+            streams
+                .incumbent_snapshot(self.attempt)
+                .await
+                .map_err(|e| Arc::new(e.into())),
+        )
     }
 
     async fn cancel_unstarted(

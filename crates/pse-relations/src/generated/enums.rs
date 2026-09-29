@@ -36,9 +36,9 @@ pub use pse_model::generated::r#enums::{
     ReductionKind, ReferenceRule, ReferenceStateKind, RetentionPhase, RetentionReason,
     ReusePolicy, RuntimeTermination, ScaleKind, SensitivityCorrector, SettlementOutcome,
     Severity, SnapshotClass, SpralOrdering, SpralPivot, SpralScaling, Stability,
-    StateSign, StoredSeedKind, StudyPointState, StudyState, SubjectRule, TearMethod,
-    TerminationClass, TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
-    WeightNormalization, WithheldReason,
+    StateSign, StoredSeedKind, StoredSolutionOrigin, StudyPointState, StudyState,
+    SubjectRule, TearMethod, TerminationClass, TimeCoordinateKind, TrajectoryTermination,
+    TrialPolicy, TruthValue, WeightNormalization, WithheldReason,
 };
 impl crate::columnar::ArrowValue for ArtifactReconstruction {
     fn append(
@@ -2781,6 +2781,25 @@ impl crate::columnar::ArrowValue for StateSign {
     }
 }
 impl crate::columnar::ArrowValue for StoredSeedKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for StoredSolutionOrigin {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

@@ -83,6 +83,23 @@ fn kernel_body_construction_limits_are_tracked_without_changing_mathematics() {
             .is_err()
     );
     assert_eq!(original.case.key(), admit(&mut workspace, root).case.key());
+    // The formal-slot allowance is overridable below the process-global pool and capped
+    // by it; the mathematics does not depend on it.
+    let mut slots = |body_slots| {
+        workspace.admit_modeling(
+            root,
+            InstanceId::from_id(SemanticId::NIL),
+            Bindings::default(),
+            Limits {
+                body_slots: Some(body_slots),
+                ..Limits::default()
+            },
+        )
+    };
+    let pool = pse_math::library::MAX_FORMAL_SYMBOLS;
+    assert_eq!(slots(pool).unwrap().case.key(), original.case.key());
+    assert!(slots(1).is_err());
+    assert!(slots(pool + 1).is_err());
 }
 
 #[test]

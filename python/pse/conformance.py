@@ -108,6 +108,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--maximum-checks", type=int, default=16384)
     parser.add_argument("--derivative-cells", type=int, default=100000)
     parser.add_argument("--body-occurrences", type=int)
+    parser.add_argument("--body-slots", type=int)
     parser.add_argument("--expansion-items", type=int)
     parser.add_argument("--expansion-members", type=int)
     parser.add_argument("--expansion-depth", type=int)
@@ -162,6 +163,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         members=args.expansion_members,
         depth=args.expansion_depth,
         body_occurrences=args.body_occurrences,
+        body_slots=args.body_slots,
     )
     with TemporaryDirectory(prefix="pse-conformance-") as spill:
         settings = EngineSettings(

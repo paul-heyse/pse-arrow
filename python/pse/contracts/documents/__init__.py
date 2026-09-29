@@ -591,7 +591,8 @@ class ScipSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     """SCIP's nested Ipopt linear solver, seed and node budget."""
 
     #: Exact rational MILP (`SCIPenableExactSolving`); admitted for linear programs
-    #: without native forms, and never with reoptimization or concurrency.
+    #: without native forms, and never with reoptimization, IIS generation (SCIP's IIS
+    #: finders do not support exact solving) or concurrency.
     exact: bool = False
     #: After a proof of infeasibility, compute an irreducible infeasible subsystem of the
     #: true exported program (`SCIPgenerateIIS`).

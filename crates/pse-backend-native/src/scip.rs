@@ -10,10 +10,13 @@
 //!
 //! The export maps the neutral program node for node onto SCIP expressions: columns and
 //! auxiliaries become variables with their closed boxes, affine functions become linear
-//! constraints and every other function a nonlinear constraint on its bounds. A nonlinear
-//! objective is exported through an epigraph variable. The native model is read back and
-//! evaluated against [`FactorableProgram::evaluate`] before any claim transfers.
-use crate::execution::factorable::Affine;
+//! constraints and every other function a nonlinear constraint on its bounds. SCIP 10 has
+//! no semicontinuous variable type, so a semi column arrives lowered by the plan's
+//! `semi(indicator)` transformation: its binary indicator is a variable after the
+//! auxiliaries and its links are linear constraints. A nonlinear objective is exported
+//! through an epigraph variable. The native model is read back and evaluated against
+//! [`FactorableProgram::evaluate`] before any claim transfers.
+use crate::execution::factorable::{Affine, Expression, Plan, Semi};
 use crate::{
     LimitKind, NativeStatus, OracleContract, ProblemError, Variable,
     execution::ScipSettings as Settings,
@@ -330,21 +333,97 @@ struct Watch {
     events: AtomicU64,
     interrupted: AtomicBool,
     failed: AtomicBool,
-    /// Incumbent and bound reporting of a program with an objective; only the owning
-    /// SCIP's handler reads it.
+    /// Incumbent and bound reporting of a program with an objective: read by the owning
+    /// SCIP's handler, and by concurrent solvers' handlers for their incumbents, whose
+    /// shared record is locked.
     objective: Option<Objective>,
 }
 /// How the owning SCIP's incumbents and bounds are reported in original units: the owning
-/// SCIP (copies share the handler data), the column variables of the export, the
-/// objective constant held outside SCIP, SCIP's infinity and the capture throttle of
-/// solution vectors.
+/// SCIP (copies share the handler data), the column variables of the export, the objective
+/// function of an epigraph export, the objective constant held outside SCIP, SCIP's
+/// infinity, the capture throttle of solution vectors and, under concurrent solving, how
+/// the concurrent solvers' incumbents map back.
 #[derive(Debug)]
 struct Objective {
     owner: *mut ffi::SCIP,
     columns: Vec<*mut ffi::SCIP_VAR>,
+    function: Option<*mut ffi::SCIP_EXPR>,
     offset: f64,
     infinity: f64,
     throttle: CaptureThrottle,
+    concurrent: Option<Concurrent>,
+}
+/// How a concurrent solver's incumbents are reported while the search runs (Plan 22 G7).
+/// Concurrent solving starts without central presolving, so every concurrent solver
+/// copies the owning SCIP's unpresolved transformed variables under their names (`t_` and
+/// the export's name): a solver's solution maps back to the program's columns and
+/// auxiliaries by name, and the neutral program evaluates the objective there. Only an
+/// incumbent better than every one reported so far is reported, whichever SCIP found it.
+#[derive(Debug)]
+struct Concurrent {
+    /// Transformed names of the column variables, then of the auxiliaries.
+    names: Vec<CString>,
+    columns: usize,
+    program: FactorableProgram,
+    objective: pse_math::factorable::NodeId,
+    sense: ObjectiveSense,
+    best: std::sync::Mutex<Option<f64>>,
+}
+impl Concurrent {
+    /// Report `objective` through `report` when it improves on every earlier report,
+    /// holding the record across the report so that the stream stays monotone.
+    fn improving(&self, objective: f64, report: impl FnOnce()) {
+        let Ok(mut best) = self.best.lock() else {
+            return;
+        };
+        if best.is_none_or(|b| match self.sense {
+            ObjectiveSense::Minimize => objective < b,
+            ObjectiveSense::Maximize => objective > b,
+        }) {
+            *best = Some(objective);
+            report();
+        }
+    }
+    /// Record an incumbent the owning SCIP reported itself.
+    fn reported(&self, objective: f64) {
+        if let Ok(mut best) = self.best.lock()
+            && best.is_none_or(|b| match self.sense {
+                ObjectiveSense::Minimize => objective < b,
+                ObjectiveSense::Maximize => objective > b,
+            })
+        {
+            *best = Some(objective);
+        }
+    }
+}
+/// The authored objective at a stored solution of `scip`, in original units: an epigraph
+/// export's objective function evaluated at the solution, since the epigraph variable SCIP
+/// optimizes only bounds it; otherwise SCIP's objective value with the constant held
+/// outside SCIP. `None` when the value is undefined or not finite.
+fn objective_value(
+    scip: *mut ffi::SCIP,
+    sol: *mut ffi::SCIP_SOL,
+    function: Option<*mut ffi::SCIP_EXPR>,
+    offset: f64,
+    infinity: f64,
+) -> Option<f64> {
+    let value = match function {
+        Some(f) => {
+            // SAFETY: the expression is held by the live instance and references its
+            // original variables, whose values SCIP projects from the stored solution; only
+            // the owning thread evaluates it.
+            let code = unsafe { ffi::SCIPevalExpr(scip, f, sol, 0) };
+            if code != ffi::SCIP_Retcode_SCIP_OKAY {
+                return None;
+            }
+            // SAFETY: reads the value SCIP just stored in the live expression; an undefined
+            // evaluation reads as SCIP_INVALID, outside the finite range below.
+            unsafe { ffi::SCIPexprGetEvalValue(f) }
+        }
+        // SAFETY: the original objective of a stored solution of this SCIP.
+        None => offset + unsafe { ffi::SCIPgetSolOrigObj(scip, sol) },
+    };
+    (value.is_finite() && value.abs() < infinity).then_some(value)
 }
 impl Objective {
     /// A finite native value in original units, the offset applied.
@@ -381,7 +460,7 @@ impl Objective {
             return;
         }
         // SAFETY: as above.
-        let (objective, dual_bound, gap, nodes, seconds, primal) = unsafe {
+        let (dual_bound, gap, nodes, seconds, primal) = unsafe {
             let primal = capture().then(|| {
                 self.columns
                     .iter()
@@ -389,7 +468,6 @@ impl Objective {
                     .collect::<Vec<f64>>()
             });
             (
-                ffi::SCIPgetSolOrigObj(scip, best),
                 ffi::SCIPgetDualbound(scip),
                 ffi::SCIPgetGap(scip),
                 ffi::SCIPgetNTotalNodes(scip),
@@ -397,9 +475,14 @@ impl Objective {
                 primal,
             )
         };
-        let Some(objective) = self.original(objective) else {
+        let Some(objective) =
+            objective_value(scip, best, self.function, self.offset, self.infinity)
+        else {
             return;
         };
+        if let Some(concurrent) = &self.concurrent {
+            concurrent.reported(objective);
+        }
         watch.progress.push(Event {
             phase: "scip.incumbent".into(),
             elapsed: watch.started.elapsed(),
@@ -412,6 +495,72 @@ impl Objective {
                 seconds,
                 primal: primal.filter(|p| p.iter().all(|v| v.is_finite())),
             }),
+        });
+    }
+    /// Report a concurrent solver's new best solution when it improves on every incumbent
+    /// reported so far, mapped back to the program's columns by name, with the solver's
+    /// node count and running time; its bounds are the solver's own and are not reported.
+    /// Nothing is reported for any other copy (a heuristic's sub-SCIP, whose solutions the
+    /// parent checks first) or when a column does not map back.
+    fn concurrent_incumbent(&self, scip: *mut ffi::SCIP, watch: &Watch) {
+        let Some(concurrent) = &self.concurrent else {
+            return;
+        };
+        // SAFETY: depth and stage queries of the live copy on its own thread. Concurrent
+        // solvers are the only copies at depth 0 (SCIPcreateConcurrent resets it).
+        let solving = unsafe {
+            ffi::SCIPgetSubscipDepth(scip) == 0
+                && matches!(
+                    ffi::SCIPgetStage(scip),
+                    ffi::SCIP_Stage_SCIP_STAGE_SOLVING | ffi::SCIP_Stage_SCIP_STAGE_SOLVED
+                )
+        };
+        if !solving {
+            return;
+        }
+        // SAFETY: the copy's best solution and its variables, queried on its own thread.
+        let best = unsafe { ffi::SCIPgetBestSol(scip) };
+        if best.is_null() {
+            return;
+        }
+        let mut values = Vec::with_capacity(concurrent.names.len());
+        for name in &concurrent.names {
+            // SAFETY: a name lookup in the copy's own variable table.
+            let var = unsafe { ffi::SCIPfindVar(scip, name.as_ptr()) };
+            if var.is_null() {
+                return;
+            }
+            // SAFETY: the value of a copy variable in the copy's stored solution.
+            values.push(unsafe { ffi::SCIPgetSolVal(scip, best, var) });
+        }
+        let (point, auxiliary) = values.split_at(concurrent.columns);
+        let Some(objective) = concurrent
+            .program
+            .evaluate(point, auxiliary)
+            .ok()
+            .and_then(|nodes| nodes.get(concurrent.objective).copied())
+            .filter(|v| v.is_finite())
+        else {
+            return;
+        };
+        // SAFETY: statistics queries of the live copy on its own thread.
+        let (nodes, seconds) =
+            unsafe { (ffi::SCIPgetNTotalNodes(scip), ffi::SCIPgetSolvingTime(scip)) };
+        concurrent.improving(objective, || {
+            let primal = self.throttle.admit().then(|| point.to_vec());
+            watch.progress.push(Event {
+                phase: "scip.incumbent".into(),
+                elapsed: watch.started.elapsed(),
+                values: BTreeMap::new(),
+                incumbent: Some(IncumbentEvent {
+                    objective,
+                    dual_bound: None,
+                    gap: None,
+                    nodes,
+                    seconds,
+                    primal: primal.filter(|p| p.iter().all(|v| v.is_finite())),
+                }),
+            });
         });
     }
     /// Report an improved dual bound, with the primal bound and gap it leaves.
@@ -503,17 +652,27 @@ unsafe extern "C" fn watch_exec(
         poll(scip, watch)
     })
 }
-/// The handler of a copy (sub-SCIP, concurrent solver, IIS sub-problem): cancellation
-/// only, since a copy's bounds are not the attempt's bounds.
+/// The handler of a copy (sub-SCIP, concurrent solver, IIS sub-problem): cancellation,
+/// and a concurrent solver's improving incumbents; a copy's bounds are not the attempt's
+/// bounds.
 unsafe extern "C" fn watch_copy_exec(
     scip: *mut ffi::SCIP,
     eventhdlr: *mut ffi::SCIP_EVENTHDLR,
-    _event: *mut ffi::SCIP_EVENT,
+    event: *mut ffi::SCIP_EVENT,
     _data: *mut ffi::SCIP_EVENTDATA,
 ) -> ffi::SCIP_RETCODE {
-    contained(|| match watch(eventhdlr) {
-        Some(watch) => poll(scip, watch),
-        None => ffi::SCIP_Retcode_SCIP_INVALIDDATA,
+    contained(|| {
+        let Some(watch) = watch(eventhdlr) else {
+            return ffi::SCIP_Retcode_SCIP_INVALIDDATA;
+        };
+        // SAFETY: SCIP passes the live event being processed.
+        let kind = unsafe { ffi::SCIPeventGetType(event) };
+        if kind & event::BESTSOLFOUND != 0
+            && let Some(objective) = &watch.objective
+        {
+            objective.concurrent_incumbent(scip, watch);
+        }
+        poll(scip, watch)
     })
 }
 /// An event execution callback.
@@ -646,6 +805,7 @@ pub(crate) struct Instance {
     scip: NonNull<ffi::SCIP>,
     vars: Vec<*mut ffi::SCIP_VAR>,
     conss: Vec<*mut ffi::SCIP_CONS>,
+    exprs: Vec<*mut ffi::SCIP_EXPR>,
     watch: NonNull<Watch>,
     infinity: f64,
     modes: Modes,
@@ -661,6 +821,10 @@ impl std::fmt::Debug for Instance {
 impl Drop for Instance {
     fn drop(&mut self) {
         let scip = self.scip.as_ptr();
+        for expr in &mut self.exprs {
+            // SAFETY: each held expression carries one reference this instance captured.
+            let _ = unsafe { ffi::SCIPreleaseExpr(scip, expr) };
+        }
         for var in &mut self.vars {
             // SAFETY: each held variable carries one reference this instance captured.
             let _ = unsafe { ffi::SCIPreleaseVar(scip, var) };
@@ -704,6 +868,7 @@ impl Instance {
             scip,
             vars: vec![],
             conss: vec![],
+            exprs: vec![],
             watch: NonNull::from(Box::leak(watch)),
             infinity: 0.0,
             modes,
@@ -758,14 +923,23 @@ impl Instance {
     }
     /// Report the next solve's incumbents and bounds for a program with an objective:
     /// solutions in the export's column variables, objective values with the offset the
-    /// export holds outside SCIP. Called between solves.
-    fn report_incumbents(&mut self, export: &Export, columns: usize, objective: bool) {
+    /// export holds outside SCIP, and under concurrent solving the concurrent solvers'
+    /// improving incumbents. Called between solves.
+    fn report_incumbents(
+        &mut self,
+        export: &Export,
+        columns: usize,
+        objective: bool,
+        concurrent: Option<Concurrent>,
+    ) {
         let reported = objective.then(|| Objective {
             owner: self.ptr(),
             columns: export.coordinates[..columns].to_vec(),
+            function: export.function,
             offset: export.offset,
             infinity: self.infinity,
             throttle: CaptureThrottle::new(),
+            concurrent,
         });
         // SAFETY: no solve is running, so no handler holds the data; the box is owned
         // exclusively by this instance.
@@ -952,7 +1126,10 @@ pub(crate) fn configure(
             OptionValue::Text(settings.nlp_linear_solver.as_str().into()),
         ),
     ];
-    // Concurrent solving is deterministic, with the admitted permits as its threads.
+    // Concurrent solving is deterministic, with the admitted permits as its threads. It
+    // starts without central presolving: every concurrent solver presolves its own copy of
+    // the unpresolved transformed problem, whose variables keep the export's names, so the
+    // solvers' incumbents map back to the program while the search runs.
     if controls.threads > 1 {
         let threads = i32::try_from(controls.threads)
             .map_err(|_| ProblemError::Unsupported("SCIP concurrent thread count".into()))?;
@@ -960,6 +1137,7 @@ pub(crate) fn configure(
             ("parallel/mode", OptionValue::Integer(1)),
             ("parallel/maxnthreads", OptionValue::Integer(threads)),
             ("parallel/minnthreads", OptionValue::Integer(threads)),
+            ("concurrent/presolvebefore", OptionValue::Bool(false)),
         ]);
     }
     // Two SCIP 10.0.2 behaviours are avoided. With bound removal, its post-processing
@@ -1030,7 +1208,7 @@ enum Kind {
 #[derive(Debug)]
 struct Exported {
     cons: *mut ffi::SCIP_CONS,
-    node: pse_math::factorable::NodeId,
+    expression: Expression,
     lower: f64,
     upper: f64,
     kind: Kind,
@@ -1038,9 +1216,15 @@ struct Exported {
 /// The native model of one plan.
 #[derive(Debug)]
 pub(crate) struct Export {
-    /// Variables of the columns, then the auxiliaries.
+    /// Variables of the columns, then the auxiliaries, then the indicators of lowered semi
+    /// columns.
     coordinates: Vec<*mut ffi::SCIP_VAR>,
+    /// Lowered semi columns, whose indicators close the coordinates.
+    semi: Vec<Semi>,
     epigraph: Option<*mut ffi::SCIP_VAR>,
+    /// The objective function of an epigraph export, held by the instance: the reported
+    /// objective of a solution is its value there.
+    function: Option<*mut ffi::SCIP_EXPR>,
     /// Exported functions; the constraint named `c{k}` belongs to plan function `k`.
     constraints: Vec<Exported>,
     /// Affine objective form, exported through variable objective coefficients.
@@ -1150,6 +1334,13 @@ impl Instance {
     fn hold(&mut self, cons: *mut ffi::SCIP_CONS) -> Result<(), ProblemError> {
         self.conss.push(cons);
         native!("SCIPaddCons", ffi::SCIPaddCons(self.ptr(), cons))
+    }
+    /// Capture an expression for the instance's lifetime.
+    fn hold_expr(&mut self, expr: *mut ffi::SCIP_EXPR) -> *mut ffi::SCIP_EXPR {
+        // SAFETY: a live expression of this instance gains the reference released on drop.
+        unsafe { ffi::SCIPcaptureExpr(expr) };
+        self.exprs.push(expr);
+        expr
     }
     /// The variable, or its negation, as a logic literal.
     fn literal(
@@ -1306,14 +1497,12 @@ fn coefficients(form: &Affine, coordinates: usize) -> Vec<f64> {
     }
     out
 }
-/// Export a plan: variables with their boxes and domains, linear, nonlinear, conditional
-/// and native constraints, and the objective (coefficients when affine, an epigraph
-/// otherwise). Exact mode admits only linear programs without native forms; a
-/// reoptimization session only affine objectives and constraints.
-pub(crate) fn export(
-    instance: &mut Instance,
-    plan: &crate::execution::factorable::Plan<'_>,
-) -> Result<Export, ProblemError> {
+/// Export a plan: variables with their boxes and domains (semi columns lowered to binary
+/// indicators and linear links), linear, nonlinear, conditional and native constraints,
+/// and the objective (coefficients when affine, an epigraph otherwise). Exact mode admits
+/// only linear programs without native forms; a reoptimization session only affine
+/// objectives and constraints.
+pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export, ProblemError> {
     let program = plan.program;
     let columns = program.variables.len();
     let modes = instance.modes;
@@ -1356,6 +1545,14 @@ pub(crate) fn export(
             ffi::SCIP_Vartype_SCIP_VARTYPE_CONTINUOUS,
         )?);
     }
+    for j in 0..plan.semi.len() {
+        coordinates.push(instance.variable(
+            &format!("z{j}"),
+            plan.boxes[plan.indicator(j)],
+            0.0,
+            ffi::SCIP_Vartype_SCIP_VARTYPE_BINARY,
+        )?);
+    }
     if let Some((_, sense)) = plan.objective {
         native!(
             "SCIPsetObjsense",
@@ -1387,8 +1584,10 @@ pub(crate) fn export(
     // Nodes under a nonlinear root, marked in one reverse pass.
     let mut needed = vec![false; program.nodes.len()];
     for c in &plan.constraints {
-        if plan.affine[c.node].is_none() {
-            needed[c.node] = true;
+        if let Expression::Node(node) = c.expression
+            && plan.affine[node].is_none()
+        {
+            needed[node] = true;
         }
     }
     let nonlinear_objective = plan
@@ -1413,7 +1612,12 @@ pub(crate) fn export(
             .condition
             .map(|c| instance.literal(coordinates[c.column], !c.active))
             .transpose()?;
-        match (&plan.affine[c.node], condition) {
+        // A function without an affine form is a program node; links are affine.
+        let node = || match c.expression {
+            Expression::Node(node) => Ok(exprs.nodes[node]),
+            Expression::Link(_) => Err(ProblemError::internal("SCIP export of a link")),
+        };
+        match (plan.form(c.expression), condition) {
             (Some(form), None) => {
                 let mut vars: Vec<_> = form.terms.iter().map(|(j, _)| coordinates[*j]).collect();
                 let mut cons = ptr::null_mut();
@@ -1469,7 +1673,7 @@ pub(crate) fn export(
                 linear += 1;
                 constraints.push(Exported {
                     cons,
-                    node: c.node,
+                    expression: c.expression,
                     lower: c.lower,
                     upper: c.upper,
                     kind,
@@ -1503,7 +1707,7 @@ pub(crate) fn export(
                     linear += 1;
                     constraints.push(Exported {
                         cons,
-                        node: c.node,
+                        expression: c.expression,
                         lower: c.lower,
                         upper: c.upper,
                         kind: Kind::Indicator {
@@ -1523,7 +1727,7 @@ pub(crate) fn export(
                         instance.ptr(),
                         &mut cons,
                         name.as_ptr(),
-                        exprs.nodes[c.node],
+                        node()?,
                         lhs,
                         rhs
                     )
@@ -1532,7 +1736,7 @@ pub(crate) fn export(
                 nonlinear += 1;
                 constraints.push(Exported {
                     cons,
-                    node: c.node,
+                    expression: c.expression,
                     lower: c.lower,
                     upper: c.upper,
                     kind: Kind::Nonlinear,
@@ -1565,7 +1769,7 @@ pub(crate) fn export(
                             ptr::null_mut()
                         )
                     )?;
-                    let mut terms = [exprs.nodes[c.node], slack_expr];
+                    let mut terms = [node()?, slack_expr];
                     let mut weights = [1.0, if upper { -1.0 } else { 1.0 }];
                     let mut expr = ptr::null_mut();
                     let created = native!(
@@ -1610,7 +1814,7 @@ pub(crate) fn export(
                     // Read back at zero slack: the lifted function is the row's.
                     constraints.push(Exported {
                         cons,
-                        node: c.node,
+                        expression: c.expression,
                         lower: if upper { f64::NEG_INFINITY } else { c.lower },
                         upper: if upper { c.upper } else { f64::INFINITY },
                         kind: Kind::Nonlinear,
@@ -1637,7 +1841,9 @@ pub(crate) fn export(
             }
         }
     }
+    let mut function = None;
     if let (Some((node, sense)), Some(z)) = (nonlinear_objective, epigraph) {
+        function = Some(instance.hold_expr(exprs.nodes[node]));
         // min f: f - z <= 0; max f: f - z >= 0.
         let mut z_expr = ptr::null_mut();
         native!(
@@ -1687,7 +1893,7 @@ pub(crate) fn export(
         nonlinear += 1;
         constraints.push(Exported {
             cons,
-            node,
+            expression: Expression::Node(node),
             lower: f64::NEG_INFINITY,
             upper: f64::INFINITY,
             kind: Kind::Epigraph,
@@ -1697,7 +1903,9 @@ pub(crate) fn export(
     let native = export_native(instance, plan, &coordinates)?;
     Ok(Export {
         coordinates,
+        semi: plan.semi.clone(),
         epigraph,
+        function,
         constraints,
         objective: affine_objective.map(|(node, _)| node),
         offset,
@@ -1716,7 +1924,7 @@ fn objsense(sense: ObjectiveSense) -> ffi::SCIP_OBJSENSE {
 /// ordinal. A fixed operand becomes a fixed variable.
 fn export_native(
     instance: &mut Instance,
-    plan: &crate::execution::factorable::Plan<'_>,
+    plan: &Plan<'_>,
     coordinates: &[*mut ffi::SCIP_VAR],
 ) -> Result<usize, ProblemError> {
     use pse_math::factorable::{NativeOperand, ProjectedNative};
@@ -1926,20 +2134,22 @@ unsafe fn activity(
     }
     Ok(total)
 }
-/// Largest relative deviation between the native model and the neutral program at one
-/// point: sides and function values of every exported constraint, and the objective. An
-/// undefined value on both sides agrees; on one side only it is an infinite deviation.
+/// Largest relative deviation between the native model and the neutral program of `plan`
+/// at one point, with each lowered semi column's indicator at its nearest branch: sides
+/// and function values of every exported constraint, and the objective. An undefined
+/// value on both sides agrees; on one side only it is an infinite deviation.
 pub(crate) fn readback(
     instance: &Instance,
     export: &Export,
-    program: &FactorableProgram,
+    plan: &Plan<'_>,
     point: &[f64],
     auxiliary: &[f64],
 ) -> Result<f64, ProblemError> {
-    let values = program.evaluate(point, auxiliary)?;
+    let values = plan.program.evaluate(point, auxiliary)?;
+    let coordinates = plan.coordinates(point, auxiliary);
     let solution = Solution::new(instance, false)?;
     let mut at: BTreeMap<*mut ffi::SCIP_VAR, f64> = BTreeMap::new();
-    for (var, value) in export.coordinates.iter().zip(point.iter().chain(auxiliary)) {
+    for (var, value) in export.coordinates.iter().zip(&coordinates) {
         solution.set(*var, *value)?;
         at.insert(*var, *value);
     }
@@ -1976,7 +2186,7 @@ pub(crate) fn readback(
     };
     let mut worst: f64 = 0.0;
     for c in &export.constraints {
-        let neutral = values[c.node];
+        let neutral = plan.value(c.expression, &values, &coordinates);
         match c.kind {
             Kind::Linear { constant } => {
                 // SAFETY: a live linear constraint held by the instance; its arrays have
@@ -2071,7 +2281,7 @@ pub(crate) fn readback(
     if let Some(node) = export.objective {
         // SAFETY: a value query of the live instance's objective offset.
         let mut native = unsafe { ffi::SCIPgetOrigObjoffset(s) } + export.offset;
-        for (var, value) in export.coordinates.iter().zip(point.iter().chain(auxiliary)) {
+        for (var, value) in export.coordinates.iter().zip(&coordinates) {
             // SAFETY: an objective-coefficient query of a held variable.
             native += unsafe { ffi::SCIPvarGetObj(*var) } * value;
         }
@@ -2079,8 +2289,9 @@ pub(crate) fn readback(
     }
     Ok(worst)
 }
-/// Submit a primal incumbent in program columns. A program with auxiliaries or an
-/// epigraph gets a partial solution, completed by SCIP; returns whether SCIP stored it.
+/// Submit a primal incumbent in program columns, each lowered semi column's indicator at
+/// its nearest branch. A program with auxiliaries or an epigraph gets a partial solution,
+/// completed by SCIP; returns whether SCIP stored it.
 fn inject(
     instance: &Instance,
     export: &Export,
@@ -2097,6 +2308,10 @@ fn inject(
     for (var, value) in export.coordinates.iter().zip(primal) {
         solution.set(*var, *value)?;
     }
+    let first = export.coordinates.len() - export.semi.len();
+    for (s, var) in export.semi.iter().zip(&export.coordinates[first..]) {
+        solution.set(*var, f64::from(u8::from(s.active(primal[s.column]))))?;
+    }
     let mut stored = 0;
     let added = native!(
         "SCIPaddSolFree",
@@ -2108,15 +2323,29 @@ fn inject(
     Ok(stored != 0)
 }
 
-/// Identity of the constraint system a reoptimization session was built for: every
-/// exported function's affine form, sides and condition, the box, the domains and the
-/// native forms. Only the objective may change between the steps of one session.
-fn system(plan: &crate::execution::factorable::Plan<'_>) -> Result<ContentHash, ProblemError> {
+/// Identity of the constraint system a reoptimization session was built for: the case
+/// layout, the branched box and domains, every exported function's affine form, sides and
+/// condition, and the native forms with their operands and weights. Only the objective may
+/// change between the steps of one session, so the program's value identity, which
+/// includes values only the objective consumes, is not part of it.
+fn system(plan: &Plan<'_>) -> Result<ContentHash, ProblemError> {
+    use pse_math::factorable::{NativeOperand, ProjectedNative};
+    let program = plan.program;
     let mut h = FramedHasher::new(pse_ids::Frame::ScipReoptimizationSystemV1);
-    h.hash(&plan.domain);
+    h.hash(&program.structure);
+    for (v, (lower, upper)) in program.variables.iter().zip(&plan.boxes) {
+        h.id(&v.id)
+            .str(v.domain.as_str())
+            .u64(pse_ids::canonical_f64_bits(*lower))
+            .u64(pse_ids::canonical_f64_bits(*upper));
+    }
+    for (lower, upper) in &plan.boxes[program.variables.len()..] {
+        h.u64(pse_ids::canonical_f64_bits(*lower))
+            .u64(pse_ids::canonical_f64_bits(*upper));
+    }
     h.u64(plan.constraints.len() as u64);
     for c in &plan.constraints {
-        let form = plan.affine[c.node].as_ref().ok_or_else(|| {
+        let form = plan.form(c.expression).ok_or_else(|| {
             ProblemError::Unsupported("SCIP reoptimization admits linear constraints only".into())
         })?;
         h.u64(pse_ids::canonical_f64_bits(c.lower))
@@ -2131,9 +2360,46 @@ fn system(plan: &crate::execution::factorable::Plan<'_>) -> Result<ContentHash, 
             None => h.bool(false),
         };
     }
+    let operand = |h: &mut FramedHasher, o: &NativeOperand| match o {
+        NativeOperand::Column(c) => {
+            h.bool(true).u64(*c as u64);
+        }
+        NativeOperand::Fixed(v) => {
+            h.bool(false).u64(pse_ids::canonical_f64_bits(*v));
+        }
+    };
     h.u64(plan.native.len() as u64);
     for k in &plan.native {
-        h.u64(*k as u64);
+        let native = &program.native[*k];
+        h.u64(*k as u64).str(native.form().as_str());
+        match native {
+            ProjectedNative::Indicator { .. } => {}
+            ProjectedNative::Sos { members, .. } => {
+                h.u64(members.len() as u64);
+                for (o, weight) in members {
+                    operand(&mut h, o);
+                    h.u64(pse_ids::canonical_f64_bits(*weight));
+                }
+            }
+            ProjectedNative::Logic {
+                resultant,
+                operands,
+                ..
+            } => {
+                operand(&mut h, resultant);
+                h.u64(operands.len() as u64);
+                for (o, negated) in operands {
+                    operand(&mut h, o);
+                    h.bool(*negated);
+                }
+            }
+            ProjectedNative::Cardinality { members, bound } => {
+                h.u64(u64::from(*bound)).u64(members.len() as u64);
+                for o in members {
+                    operand(&mut h, o);
+                }
+            }
+        }
     }
     Ok(h.finish_hash())
 }
@@ -2149,7 +2415,7 @@ impl Session {
     /// Install the step's objective in the retained problem (`SCIPchgReoptObjective`).
     fn reoptimize(
         &mut self,
-        plan: &crate::execution::factorable::Plan<'_>,
+        plan: &Plan<'_>,
         execution: &Execution,
     ) -> Result<(), ProblemError> {
         let s = self.instance.ptr();
@@ -2200,7 +2466,7 @@ impl Session {
 /// Build an instance, configure it and export the plan.
 fn build(
     r: &Request<'_>,
-    plan: &crate::execution::factorable::Plan<'_>,
+    plan: &Plan<'_>,
     gap_absolute: f64,
 ) -> Result<Session, ProblemError> {
     let mut instance = Instance::new(
@@ -2236,7 +2502,7 @@ fn build(
 /// minimized; the declared bounds of the variables the kept constraints use stay members.
 fn iis(
     session: &Session,
-    plan: &crate::execution::factorable::Plan<'_>,
+    plan: &Plan<'_>,
     execution: &Execution,
 ) -> Result<Option<Iis>, ProblemError> {
     use crate::execution::factorable::Origin;
@@ -2308,6 +2574,16 @@ fn iis(
                     instance: program.implicit[b].instance,
                     ordinal: k,
                 },
+                // A link is its semi column's domain: `x − u·z ≤ 0` carries the upper
+                // bound and `x − l·z ≥ 0` the active lower bound.
+                Origin::SemiLink { semi, upper } => {
+                    let id = program.variables[plan.semi[semi].column].id;
+                    if upper {
+                        IisMember::VariableUpper(id)
+                    } else {
+                        IisMember::VariableLower(id)
+                    }
+                }
             });
         } else if let Some(k) = ordinal(&text, 'n') {
             members.insert(IisMember::Native(k));
@@ -2425,17 +2701,11 @@ pub(crate) fn solve(
         .zip(&plan.boxes)
         .map(|(x, b)| clamp(*x, *b))
         .collect();
-    let auxiliary: Vec<f64> = plan.boxes[columns..]
+    let auxiliary: Vec<f64> = plan.boxes[columns..plan.indicator(0)]
         .iter()
         .map(|b| clamp(0.5 * (b.0 + b.1), *b))
         .collect();
-    let deviation = readback(
-        &session.instance,
-        &session.export,
-        program,
-        &start,
-        &auxiliary,
-    )?;
+    let deviation = readback(&session.instance, &session.export, &plan, &start, &auxiliary)?;
     let submitted = match r.warm {
         // Exact solving certifies its own solutions; a floating-point seed is not given.
         Some(_) if r.settings.exact => None,
@@ -2450,9 +2720,28 @@ pub(crate) fn solve(
         }
         None => None,
     };
-    session
-        .instance
-        .report_incumbents(&session.export, columns, plan.objective.is_some());
+    // Under concurrent solving the solvers' incumbents are read back by transformed name.
+    let concurrent = match plan.objective {
+        Some((objective, sense)) if r.controls.threads > 1 => Some(Concurrent {
+            names: (0..columns)
+                .map(|i| format!("t_x{i}"))
+                .chain((0..program.auxiliaries.len()).map(|k| format!("t_a{k}")))
+                .map(|name| cstring(&name))
+                .collect::<Result<_, _>>()?,
+            columns,
+            program: program.clone(),
+            objective,
+            sense,
+            best: std::sync::Mutex::new(None),
+        }),
+        _ => None,
+    };
+    session.instance.report_incumbents(
+        &session.export,
+        columns,
+        plan.objective.is_some(),
+        concurrent,
+    );
     let s = session.instance.ptr();
     if r.controls.threads > 1 {
         native!("SCIPsolveConcurrent", ffi::SCIPsolveConcurrent(s))?;
@@ -2489,8 +2778,7 @@ pub(crate) fn solve(
             .map(|var| unsafe { ffi::SCIPgetSolVal(s, sol, *var) })
             .collect()
     };
-    // SAFETY: the original objective of a stored solution.
-    let objective_of = |sol| instance.finite(unsafe { ffi::SCIPgetSolOrigObj(s, sol) } + offset);
+    let objective_of = |sol| objective_value(s, sol, export.function, offset, instance.infinity);
     let candidate = (!best.is_null()).then(|| Candidate {
         kind: CandidateKind::FeasiblePoint,
         primal: values(best),
@@ -2587,11 +2875,13 @@ pub(crate) fn solve(
         exact,
     });
     report.global = Some(Arc::new(GlobalRecord {
-        boxes: plan.boxes.clone(),
+        boxes: plan.boxes[..plan.indicator(0)].to_vec(),
         pool,
         iis: subsystem,
         exact_objective,
         reoptimized,
+        // The runner records the plan's named transformations.
+        transformations: Vec::new(),
     }));
     let metrics = &mut report.metrics;
     metrics.insert("scip.status".into(), Metric::Integer(i64::from(raw)));
@@ -2674,7 +2964,7 @@ pub(crate) fn solve(
         ("scip.api".into(), abi.api.to_string()),
         (
             "scip.objective".into(),
-            "authored sense; nonlinear objectives through an epigraph variable".into(),
+            "authored sense; nonlinear objectives through an epigraph variable, reported at the objective function's value".into(),
         ),
     ]);
     report.warm_start = candidate.as_ref().map(|c| WarmStart {
@@ -2733,7 +3023,7 @@ pub(crate) mod testing {
         let export = export(&mut instance, &plan)?;
         let mut worst: f64 = 0.0;
         for (x, a) in points {
-            worst = worst.max(readback(&instance, &export, program, x, a)?);
+            worst = worst.max(readback(&instance, &export, &plan, x, a)?);
         }
         Ok((worst, export.linear, export.nonlinear))
     }
@@ -2746,12 +3036,14 @@ pub(crate) mod testing {
     ) -> Result<f64, ProblemError> {
         let plan = crate::execution::factorable::plan(exported, SolveIntent::FeasiblePoint)
             .map_err(|r| ProblemError::Unsupported(format!("{r:?}")))?;
+        let reference = crate::execution::factorable::plan(checked, SolveIntent::FeasiblePoint)
+            .map_err(|r| ProblemError::Unsupported(format!("{r:?}")))?;
         let execution = Execution::new(Arc::default(), &Controls::default());
         let mut instance = Instance::new(&execution, Modes::default())?;
         let export = export(&mut instance, &plan)?;
         let mut worst: f64 = 0.0;
         for (x, a) in points {
-            worst = worst.max(readback(&instance, &export, checked, x, a)?);
+            worst = worst.max(readback(&instance, &export, &reference, x, a)?);
         }
         Ok(worst)
     }

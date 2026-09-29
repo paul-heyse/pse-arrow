@@ -683,6 +683,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            150u8, 195u8, 178u8, 84u8, 182u8, 133u8, 141u8, 177u8, 209u8, 159u8, 199u8,
+            42u8, 181u8, 155u8, 98u8, 98u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeIncumbents(
+                super::r#runtime::r#incumbents::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             247u8, 249u8, 97u8, 174u8, 73u8, 224u8, 141u8, 7u8, 138u8, 35u8, 82u8, 44u8,
             133u8, 253u8, 98u8, 228u8,
         ])
@@ -1581,6 +1593,9 @@ pub fn encode(
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeFitVariables(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeIncumbents(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeInfeasibilityCertificates(

@@ -135,7 +135,7 @@ pub(in crate::workflow) fn profile(hessian: HessianMode, uncertainty: Option<Fit
         modes: BTreeMap::new(),
         rank_tolerance: 1e-8,
         max_cells: 100_000,
-        derivatives: super::FitDerivatives::Responses,
+        derivatives: FitDerivatives::Responses,
         uncertainty,
     }
 }

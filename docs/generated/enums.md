@@ -1453,6 +1453,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `nlp` | `` | false |
 | `highs` | `` | false |
 
+## `StoredSolutionOrigin`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `output` | `` | false |
+| `incumbent` | `` | false |
+
 ## `StudyPointState`
 
 | Member | IDAES name | Deprecated |

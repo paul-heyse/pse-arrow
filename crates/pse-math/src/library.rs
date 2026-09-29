@@ -8,8 +8,12 @@ use symbolica::{
     atom::{Atom, AtomCore, NamespacedSymbol, SymbolBuilder},
     evaluate::ExpressionEvaluator,
 };
-/// Hard ceiling for process-global reusable formal symbols. Instances do not register symbols.
-pub const MAX_FORMAL_SYMBOLS: usize = 4096;
+/// Hard ceiling for process-global reusable formal symbols, which also bounds the formal
+/// slots of one body. Instances do not register symbols. Measured on 2026-09-29: the
+/// PC-SAFT tangent-plane body of three components needs 5510 slots, above the former
+/// 4096; 8192 is the next power of two. Registration is linear in the pool: this pool's
+/// 16 384 symbols register in 5-6 ms at start-up, a 65 536 pool's in 52 ms.
+pub const MAX_FORMAL_SYMBOLS: usize = 8192;
 /// A reusable formal input or guarded-stage result.
 /// # Errors
 /// Exceeds the process-wide symbol bound or a symbol has incompatible registration.
