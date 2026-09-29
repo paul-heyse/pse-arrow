@@ -21,6 +21,21 @@ workspace-relative path and checks freshness by mtime, so a shared directory let
 worktree reuse another's artifact for different sources (ADR-0122). Across checkouts,
 the shared sccache serves identical compilations.
 
+That reuse depends on `CARGO_TARGET_DIR` staying unset. sccache keys every rustc call on
+its `CARGO_*` environment, so an absolute per-checkout target path would make every Rust
+compilation miss the entries another checkout made. The build environment
+(`scripts/build_environment.py`, sourced through `scripts/build-env.sh` by direnv and by
+the recipe shell `scripts/build-shell.sh`) therefore removes `CARGO_TARGET_DIR` when it
+names the checkout's own `target/`, which is Cargo's default, and when it is empty or
+points outside the checkout, as a value inherited from another checkout does: a
+long-running agent or editor started under one checkout's direnv carries its absolute path
+into every worktree. A directory inside the checkout, such as `target/measure-production`,
+stays explicit, and `PSE_CARGO_TARGET_DIR` chooses another directory deliberately.
+`bash scripts/build-shell.sh -c 'echo ${CARGO_TARGET_DIR-unset}'` prints `unset` in an
+ordinary checkout. A bare `cargo` outside a recipe or an activated direnv keeps whatever
+its process inherited, possibly another checkout's target directory, so build through the
+recipes.
+
 Ordinary local `just` commands and direnv activate an installed `sccache`. Explicit
 `RUSTC_WRAPPER` settings take precedence, including the empty string. CI retains its
 existing cache policy. Workspace
