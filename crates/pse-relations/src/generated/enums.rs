@@ -10,7 +10,7 @@ pub use pse_model::generated::r#enums::{
     ColumnRole, CompositionBasis, ComputationKind, ConstraintScalingScheme,
     ConversionKind, CovarianceApproximation, DerivationGranularity, DerivedQuantity,
     Determinism, DiagnosticCode, DiagnosticSeverity, DiffsolLinear, DiffsolMethod,
-    DualQualification, DynamicSensitivity, DynamicsMethod, EntityKind,
+    DualQualification, DynamicSensitivity, DynamicsMethod, EntityKind, EventDirection,
     EvidenceUnavailableReason, ExternalDerivativeSource, ExtrapolationPolicy,
     FailureClass, FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives,
     HessianMode, HighsMethod, IdPolicy, IdasInitialization, InputConsumptionKind,
@@ -703,6 +703,25 @@ impl crate::columnar::ArrowValue for DynamicsMethod {
     }
 }
 impl crate::columnar::ArrowValue for EntityKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for EventDirection {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

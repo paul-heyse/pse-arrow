@@ -8,6 +8,19 @@ use std::collections::{BTreeMap, BTreeSet};
 fn quoted(text: &str) -> String {
     format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\""))
 }
+/// A name as a plain identifier when it is one, else quoted.
+fn name(text: &str) -> String {
+    let mut chars = text.chars();
+    if chars
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+    {
+        text.into()
+    } else {
+        quoted(text)
+    }
+}
 fn list(values: &[String], open: &str, close: &str) -> String {
     if values.is_empty() {
         String::new()
@@ -232,6 +245,21 @@ fn print_block(
                             let quadrature = integration.quadrature_relative_tolerance.map_or_else(String::new, |relative| format!(" quadrature_relative({relative}) quadrature_absolute({})", integration.quadratures.iter().map(|q|format!("{}={}",q.target,q.absolute_tolerance)).collect::<Vec<_>>().join(", ")));
                             statements.push(format!("integrate samples({}) relative({}) normalized_absolute({}) step({}){quadrature};", integration.samples.join(", "), integration.relative_tolerance, integration.normalized_absolute_tolerance, integration.initial_step));
                             statements.extend(integration.schedules.iter().map(|s| format!("schedule {} at({}) values({});", s.target, s.times.join(", "), s.values.join(", "))));
+                        }
+                        for mode in &f.modes {
+                            let facts = mode.facts.iter().map(|f| format!("{} = {}", f.name, f.value)).collect::<Vec<_>>();
+                            statements.push(format!("mode {}{};", name(&mode.name), if facts.is_empty() { String::new() } else { format!(" facts({})", facts.join(", ")) }));
+                            for e in &mode.events {
+                                let reset = e.reset.iter().map(|r| format!("{} = {}", r.target, r.expression)).collect::<Vec<_>>();
+                                statements.push(format!(
+                                    "event {} direction({}) tolerance({}){} {};",
+                                    e.guard,
+                                    e.direction.as_str(),
+                                    e.tolerance,
+                                    if reset.is_empty() { String::new() } else { format!(" reset({})", reset.join(", ")) },
+                                    e.next.as_ref().map_or_else(|| "terminal".into(), |n| format!("next({})", name(n)))
+                                ));
+                            }
                         }
                         if let Some(failure) = &f.expected_failure { statements.push(format!("failure {} {};", failure.class.as_str(), quoted(&failure.rule))); }
                         statements.extend(f.specifications.iter().map(|s|format!("{} {}{};",s.kind.as_str(),s.target,s.expression.as_ref().map_or_else(String::new,|e|format!(" = {e}")))));

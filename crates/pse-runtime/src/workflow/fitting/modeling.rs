@@ -472,21 +472,9 @@ impl ModelingPackage {
                 } else {
                     native::dynamics::DynamicSensitivity::None
                 };
-                let simulation = if let Some(modes) = profile.modes.get(&e.experiment_id) {
-                    self.prepare_simulation_modes(
-                        e.case_id,
-                        e.experiment_id,
-                        bindings,
-                        limits,
-                        case,
-                        compiler,
-                        integration,
-                        modes.clone(),
-                        cancel,
-                    )
-                    .await?
-                } else {
-                    self.prepare_simulation(
+                // The experiment's authored case declares its modes and events.
+                let simulation = self
+                    .prepare_simulation(
                         e.case_id,
                         e.experiment_id,
                         bindings,
@@ -496,8 +484,7 @@ impl ModelingPackage {
                         integration,
                         cancel,
                     )
-                    .await?
-                };
+                    .await?;
                 execution_identity.hash(&simulation.identity());
                 bytes = bytes
                     .checked_add(simulation.bytes)
@@ -572,9 +559,7 @@ impl ModelingPackage {
                 assessments.push(Assessment::Transient(Box::new(simulation)));
                 result
             } else {
-                if profile.simulations.contains_key(&e.experiment_id)
-                    || profile.modes.contains_key(&e.experiment_id)
-                {
+                if profile.simulations.contains_key(&e.experiment_id) {
                     return Err(contract("algebraic experiment has a dynamic profile"));
                 }
                 let resolved = self
@@ -848,15 +833,11 @@ impl ModelingPackage {
         }
         if measurements.len() != d.observations.len()
             || !measurements.iter().any(|o| o.included)
-            || profile
-                .simulations
-                .keys()
-                .chain(profile.modes.keys())
-                .any(|id| {
-                    !d.experiments
-                        .iter()
-                        .any(|e| e.experiment_id == *id && e.route == Route::Integrated)
-                })
+            || profile.simulations.keys().any(|id| {
+                !d.experiments
+                    .iter()
+                    .any(|e| e.experiment_id == *id && e.route == Route::Integrated)
+            })
         {
             return Err(contract("fit observation or dynamic profile ownership"));
         }

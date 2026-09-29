@@ -219,62 +219,6 @@ impl ModelingLimits {
         self.limits.body_occurrences
     }
 }
-/// Authored event expression selections; native root handling owns execution.
-#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
-#[derive(Clone, Debug)]
-pub(crate) struct ModelingEventSettings {
-    event: native::ModelingDynamicEvent,
-}
-#[pymethods]
-impl ModelingEventSettings {
-    #[new]
-    #[pyo3(signature=(*, guard, tolerance, terminal=false, next_mode=None, reset=None))]
-    fn new(
-        guard: String,
-        tolerance: f64,
-        terminal: bool,
-        next_mode: Option<String>,
-        reset: Option<BTreeMap<String, String>>,
-    ) -> Self {
-        Self {
-            event: native::ModelingDynamicEvent {
-                guard,
-                tolerance,
-                terminal,
-                next_mode,
-                reset: reset.unwrap_or_default(),
-            },
-        }
-    }
-}
-/// A same-layout source specialization selected by explicit Boolean facts.
-#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
-#[derive(Clone, Debug)]
-pub(crate) struct ModelingModeSettings {
-    mode: native::ModelingDynamicMode,
-}
-#[pymethods]
-impl ModelingModeSettings {
-    #[new]
-    #[pyo3(signature=(*, name, facts=None, events=None))]
-    fn new(
-        name: String,
-        facts: Option<BTreeMap<String, bool>>,
-        events: Option<Vec<PyRef<'_, ModelingEventSettings>>>,
-    ) -> Self {
-        Self {
-            mode: native::ModelingDynamicMode {
-                name,
-                facts: facts.unwrap_or_default(),
-                events: events
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|e| e.event.clone())
-                    .collect(),
-            },
-        }
-    }
-}
 #[pymethods]
 impl NativeModelingPackage {
     fn with_declarations(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
@@ -322,14 +266,13 @@ impl NativeModelingPackage {
         clippy::too_many_arguments,
         reason = "one parameter per argument of the Python method signature"
     )]
-    #[pyo3(signature=(fit_id, settings, simulations, *, modes=None, rank_tolerance=1e-8, max_cells=1000000, derivatives="responses"))]
+    #[pyo3(signature=(fit_id, settings, simulations, *, rank_tolerance=1e-8, max_cells=1000000, derivatives="responses"))]
     fn prepare_fit(
         &self,
         py: Python<'_>,
         fit_id: &str,
         settings: &[u8],
         simulations: Vec<(String, PyRef<'_, SimulationSettings>)>,
-        modes: Option<Vec<(String, Vec<PyRef<'_, ModelingModeSettings>>)>>,
         rank_tolerance: f64,
         max_cells: usize,
         derivatives: &str,
@@ -345,27 +288,10 @@ impl NativeModelingPackage {
         if simulations.len() != count {
             return Err(invalid(py, "duplicate experiment settings"));
         }
-        let modes = modes.unwrap_or_default();
-        let count = modes.len();
-        let modes = modes
-            .into_iter()
-            .map(|(key, values)| {
-                id(py, &key).map(|key| {
-                    (
-                        InstanceId::from(key),
-                        values.into_iter().map(|m| m.mode.clone()).collect(),
-                    )
-                })
-            })
-            .collect::<PyResult<BTreeMap<_, _>>>()?;
-        if modes.len() != count {
-            return Err(invalid(py, "duplicate experiment mode settings"));
-        }
         let cancel = CancelSource::new();
         let profile = native::FitProfile {
             solver: settings.clone(),
             simulations,
-            modes,
             rank_tolerance,
             max_cells,
             derivatives: settings::named(py, "fit derivatives", derivatives)?,
@@ -526,45 +452,25 @@ impl NativeModelingPackage {
             inner: Arc::new(inner),
         })
     }
-    #[pyo3(signature=(case_id,settings,modes=None))]
+    /// The case's authored fixture declares its modes, events and scheduled inputs.
     fn prepare_simulation(
         &self,
         py: Python<'_>,
         case_id: &str,
         settings: &SimulationSettings,
-        modes: Option<Vec<PyRef<'_, ModelingModeSettings>>>,
     ) -> PyResult<NativePreparedOperation> {
         let root = declaration(py, case_id)?;
         let cancel = CancelSource::new();
-        let modes = modes.map(|modes| modes.into_iter().map(|m| m.mode.clone()).collect());
         let inner = blocking(
             py,
             &self.owner,
-            async {
-                let prepared = if let Some(modes) = modes {
-                    self.inner
-                        .declared_simulation_modes(
-                            root,
-                            Default::default(),
-                            settings.profile.clone(),
-                            self.limits,
-                            modes,
-                            &cancel,
-                        )
-                        .await?
-                } else {
-                    self.inner
-                        .declared_simulation(
-                            root,
-                            Default::default(),
-                            Some(settings.profile.clone()),
-                            self.limits,
-                            &cancel,
-                        )
-                        .await?
-                };
-                Ok::<_, native::WorkflowError>(prepared)
-            },
+            self.inner.declared_simulation(
+                root,
+                Default::default(),
+                Some(settings.profile.clone()),
+                self.limits,
+                &cancel,
+            ),
             || cancel.cancel(),
         )?;
         Ok(NativePreparedOperation {
@@ -572,15 +478,13 @@ impl NativeModelingPackage {
             inner: PreparedOperation::Simulation(Box::new(inner)),
         })
     }
-    #[pyo3(signature=(case_id,settings,modes=None))]
     fn simulate(
         &self,
         py: Python<'_>,
         case_id: &str,
         settings: &SimulationSettings,
-        modes: Option<Vec<PyRef<'_, ModelingModeSettings>>>,
     ) -> PyResult<NativeModelingTrajectory> {
-        let operation = self.prepare_simulation(py, case_id, settings, modes)?;
+        let operation = self.prepare_simulation(py, case_id, settings)?;
         let PreparedOperation::Simulation(prepared) = operation.inner else {
             return Err(invalid(py, "simulation preparation mismatch"));
         };

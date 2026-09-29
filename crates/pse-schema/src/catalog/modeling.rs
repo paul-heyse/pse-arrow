@@ -114,6 +114,24 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                     ])
                     .with_name("integration")
                     .optional(),
+                    // ADR-0119 Outcome 3: same-layout modes in order (the first starts the
+                    // integration), the Boolean facts selecting each and its events. An event
+                    // without a successor mode is terminal.
+                    T::list(T::structure(vec![
+                        text("name"),
+                        T::list(T::structure(vec![text("name"), flag("value")]))
+                            .with_name("facts"),
+                        T::list(T::structure(vec![
+                            text("guard"),
+                            T::enumeration("EventDirection").with_name("direction"),
+                            text("tolerance"),
+                            T::list(T::structure(vec![text("target"), text("expression")]))
+                                .with_name("reset"),
+                            text("next").optional(),
+                        ]))
+                        .with_name("events"),
+                    ]))
+                    .with_name("modes"),
                     T::structure(vec![
                         T::enumeration("NativeBoundaryClass").with_name("class"),
                         text("rule"),
@@ -497,7 +515,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 T::structure(payload).with_alternative(&alternative),
             ),
         ],
-        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval (ADR-0119).",
+        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; and a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119).",
     );
     enumeration(
         builder,

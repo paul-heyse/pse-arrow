@@ -658,11 +658,10 @@ fn settings_identity_is_type_name_independent() {
         r#"{"version":1,"method":"tr_bdf2","linear":"klu"}"#
     );
     let idas = json!({
-        "version": 1,
+        "version": 2,
         "linear": {"kind": "spgmr", "dimension": 5, "preconditioner": "jacobi"},
         "sensitivity": "staggered",
         "initialization": "steady_states",
-        "constraints": ["non_negative", "free", "negative"],
     });
     assert_eq!(
         serde_json::to_value(
@@ -671,6 +670,14 @@ fn settings_identity_is_type_name_independent() {
         .unwrap(),
         idas
     );
+    // Version 2 has no sign constraints: they derive from the authored bounds
+    // (ADR-0119 Outcome 4), so a version 1 document or a constraint field is refused.
+    let mut constrained = idas.clone();
+    constrained["constraints"] = json!(["non_negative"]);
+    assert!(serde_json::from_value::<crate::dynamics::IdasSettings>(constrained).is_err());
+    let mut previous = idas.clone();
+    previous["version"] = json!(1);
+    assert!(serde_json::from_value::<crate::dynamics::IdasSettings>(previous).is_err());
     let mut unversioned = idas;
     unversioned.as_object_mut().unwrap().remove("version");
     assert!(serde_json::from_value::<crate::dynamics::IdasSettings>(unversioned).is_err());

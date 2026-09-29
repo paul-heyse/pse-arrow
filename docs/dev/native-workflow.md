@@ -45,9 +45,12 @@ they are never replaced by zero. Diagnostic points cannot change fixed or parame
 compilation; prepare another case for those changes. A sample may supply a previously
 missing free coordinate. Numerical solve admission still requires complete finite starts.
 
-`ModelingEventSettings` selects source guard and reset expressions. `ModelingModeSettings`
-selects Boolean facts, such as an authored stage, while keeping the physical state,
-parameter and output layouts fixed. Event handling belongs to the native integrator.
+A case's fixture declares its modes and events (`mode <name> facts(...)`,
+`event <guard> direction(...) tolerance(...) reset(...) next(...)`) and its scheduled
+inputs (`schedule <input> at(...) values(...)`). A mode selects Boolean facts, such as an
+authored stage, while keeping the physical state, parameter and output layouts fixed; an
+event selects source guard and reset expressions. Event handling belongs to the native
+integrator.
 The mode recorded at a coincident sample is the mode after the reset. Sampled source
 checks do not certify the intervals between samples; a native completed trajectory can
 still fail a source check. Definite integrals become available only at the declared

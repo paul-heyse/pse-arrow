@@ -178,12 +178,6 @@ impl PreparedExperiments {
             h.id(&id.as_id())
                 .hash(&crate::workflow::dynamics::profile_identity(p));
         }
-        // Mode identity is the complete serde encoding, never a hand-written field list (F09).
-        for (id, modes) in &profile.modes {
-            let encoded = serde_json::to_string(modes)
-                .map_err(|e| contract(format!("fit mode encoding: {e}")))?;
-            h.id(&id.as_id()).str(&encoded);
-        }
         let profile_key = h.finish_hash();
         let mut h = FramedHasher::new(pse_ids::Frame::FitPreparedV1);
         h.hash(&source)

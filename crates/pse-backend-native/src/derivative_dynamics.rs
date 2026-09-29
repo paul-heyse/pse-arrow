@@ -257,6 +257,7 @@ mod tests {
                     parameters: vec![id(2)],
                     outputs: vec![id(3)],
                     events: vec![vec![]],
+                    signs: vec![],
                     quadratures: vec![],
                     balances: vec![],
                 },

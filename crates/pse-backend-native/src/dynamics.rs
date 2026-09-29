@@ -23,11 +23,12 @@ mod linear;
 /// requested integration algorithm (`auto` resolves from trial requirements), the contract
 /// for domain errors at internal trial points, Diffsol's library-owned time-stepping scheme
 /// and the sparse factorization of its Newton matrices, IDAS's forward-sensitivity
-/// corrector (`IDASensInit`), its consistent initialization (`IDACalcIC`) and the declared
-/// sign of a normalized state (`IDASetConstraints`).
+/// corrector (`IDASensInit`), its consistent initialization (`IDACalcIC`), the sign a
+/// normalized state keeps (`IDASetConstraints`) and the guard crossings that trigger an
+/// event (`IDASetRootDirection`).
 pub use pse_model::generated::enums::{
     DiffsolLinear, DiffsolMethod, DynamicSensitivity, DynamicsMethod as Method,
-    IdasInitialization, SensitivityCorrector, StateSign, TrialPolicy,
+    EventDirection, IdasInitialization, SensitivityCorrector, StateSign, TrialPolicy,
 };
 /// Typed Diffsol-only method controls, a versioned boundary document (ADR-0116 Outcome 6):
 /// the version is required, and absent fields take these defaults.
@@ -149,7 +150,7 @@ pub enum IdasLinear {
 const fn unpreconditioned() -> crate::solve::Preconditioner {
     crate::solve::Preconditioner::None
 }
-/// The native IDAS/KINSOL constraint code of a declared state sign.
+/// The native IDAS/KINSOL constraint code of a state sign.
 #[cfg_attr(
     not(feature = "idas"),
     expect(dead_code, reason = "the native constraint codes exist only with IDAS")
@@ -165,13 +166,15 @@ pub(crate) const fn state_sign_code(sign: StateSign) -> f64 {
 }
 /// Typed IDAS-only method controls (ADR-0110 item 1), a versioned boundary document
 /// (ADR-0116 Outcome 6): the version is required, and absent fields take these defaults.
+/// Version 2 removes the per-state sign constraints: they derive from the authored bounds
+/// ([`Contract::signs`], ADR-0119 Outcome 4).
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct IdasSettings {
     /// Document version.
-    pub version: Version<1>,
+    pub version: Version<2>,
     /// Newton linear solver.
     #[serde(default)]
     pub linear: IdasLinear,
@@ -182,9 +185,6 @@ pub struct IdasSettings {
     /// always keep their differential states.
     #[serde(default = "IdasSettings::default_initialization")]
     pub initialization: IdasInitialization,
-    /// Empty, or one declared sign per state in state order.
-    #[serde(default)]
-    pub constraints: Vec<StateSign>,
 }
 impl IdasSettings {
     const fn default_sensitivity() -> SensitivityCorrector {
@@ -195,38 +195,27 @@ impl IdasSettings {
     }
 }
 impl Default for IdasSettings {
-    /// KLU over the analytic Jacobian, the simultaneous corrector, an initialization that
-    /// keeps the requested differential states, and no declared signs.
+    /// KLU over the analytic Jacobian, the simultaneous corrector and an initialization
+    /// that keeps the requested differential states.
     fn default() -> Self {
         Self {
             version: Version,
             linear: IdasLinear::Klu,
             sensitivity: Self::default_sensitivity(),
             initialization: Self::default_initialization(),
-            constraints: Vec::new(),
         }
     }
 }
-/// Guard crossing detected by an event (`IDASetRootDirection`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Crossing {
-    /// Every sign change.
-    #[default]
-    Either,
-    /// Only a guard increasing through zero.
-    Rising,
-    /// Only a guard decreasing through zero.
-    Falling,
-}
-impl Crossing {
-    /// The native IDAS root direction.
-    pub const fn code(self) -> i32 {
-        match self {
-            Self::Either => 0,
-            Self::Rising => 1,
-            Self::Falling => -1,
-        }
+/// The native IDAS root direction of an event's guard crossing (`IDASetRootDirection`).
+#[cfg_attr(
+    not(feature = "idas"),
+    expect(dead_code, reason = "the native root directions exist only with IDAS")
+)]
+pub(crate) const fn root_direction(direction: EventDirection) -> i32 {
+    match direction {
+        EventDirection::Either => 0,
+        EventDirection::Rising => 1,
+        EventDirection::Falling => -1,
     }
 }
 
@@ -449,7 +438,7 @@ pub struct Event {
     /// Absolute normalized guard tolerance for ambiguity detection.
     pub tolerance: f64,
     /// Guard crossings that trigger the event; Diffsol detects every sign change.
-    pub direction: Crossing,
+    pub direction: EventDirection,
 }
 /// One conserved state whose signed flux is integrated by the native solver.
 #[derive(Clone, Debug)]
@@ -484,6 +473,11 @@ pub struct Contract {
     pub outputs: Vec<SemanticId>,
     /// Same-layout modes and their active roots.
     pub events: Vec<Vec<Event>>,
+    /// Empty, or the sign each state keeps, in state order: derived from the authored
+    /// bounds and applied by IDAS (`IDASetConstraints`) to keep its steps in the domain.
+    /// The bounds' guard remains the validity authority; Diffsol has no such control
+    /// (ADR-0119 Outcome 4).
+    pub signs: Vec<StateSign>,
 }
 impl Contract {
     /// Validate finite layout and the concrete supported mass/event profile.
@@ -508,6 +502,7 @@ impl Contract {
             || !unique(&self.parameters)
             || !unique(&self.outputs)
             || self.states.iter().any(|s| self.parameters.contains(s))
+            || !(self.signs.is_empty() || self.signs.len() == self.states.len())
             || self.events.iter().any(|events| {
                 !unique(&events.iter().map(|e| e.id).collect::<Vec<_>>())
                     || events
@@ -577,7 +572,7 @@ pub struct Profile {
     /// Typed Diffsol scheme and linear solver.
     #[serde(default)]
     pub diffsol: DiffsolSettings,
-    /// Typed IDAS linear solver, sensitivity corrector, start and sign constraints.
+    /// Typed IDAS linear solver, sensitivity corrector and start.
     #[serde(default)]
     pub idas: IdasSettings,
     /// Native initialization controls, available in the linked profile.
@@ -819,19 +814,13 @@ impl Profile {
                         "IDAS forward sensitivities do not cross events; Diffsol owns reset sensitivities",
                     ));
                 }
-                let i = &self.idas;
-                if !(i.constraints.is_empty() || i.constraints.len() == n)
-                    || (!i.constraints.is_empty()
-                        && i.constraints.iter().all(|s| *s == StateSign::Free))
-                    || match i.linear {
-                        IdasLinear::Klu => false,
-                        IdasLinear::Spgmr { dimension, .. }
-                        | IdasLinear::Spfgmr { dimension, .. } => {
-                            i32::try_from(dimension.into_inner()).is_err()
-                        }
+                if match self.idas.linear {
+                    IdasLinear::Klu => false,
+                    IdasLinear::Spgmr { dimension, .. } | IdasLinear::Spfgmr { dimension, .. } => {
+                        i32::try_from(dimension.into_inner()).is_err()
                     }
-                {
-                    return Err(contract("invalid IDAS constraint or Krylov control"));
+                } {
+                    return Err(contract("invalid IDAS Krylov control"));
                 }
             }
             Method::Diffsol => {
@@ -843,7 +832,7 @@ impl Profile {
                 if c.events
                     .iter()
                     .flatten()
-                    .any(|e| e.direction != Crossing::Either)
+                    .any(|e| e.direction != EventDirection::Either)
                 {
                     return Err(ProblemError::unsupported(
                         "Diffsol detects every guard sign change; a directional event needs IDAS",

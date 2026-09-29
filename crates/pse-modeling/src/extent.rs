@@ -275,6 +275,20 @@ impl SpecializedModel {
                                 .map(|s| (s.times.capacity() + s.values.capacity()) * size_of::<f64>())
                                 .sum::<usize>()
                     })
+                    + f.modes.capacity() * size_of::<crate::specialize::FixtureMode>()
+                    + f.modes
+                        .iter()
+                        .map(|m| {
+                            m.name.capacity()
+                                + map(&m.facts, |n, _| n.capacity())
+                                + m.events.capacity()
+                                    * size_of::<crate::specialize::FixtureEvent>()
+                                + m.events
+                                    .iter()
+                                    .map(|e| map(&e.reset, |_, _| 0))
+                                    .sum::<usize>()
+                        })
+                        .sum::<usize>()
                     + f.expected_failure.as_ref().map_or(0, HeapUsage::heap_bytes)
                     + map(&f.specifications, |p, _| p.capacity())
                     + f.oracle.as_ref().map_or(0, HeapUsage::heap_bytes)

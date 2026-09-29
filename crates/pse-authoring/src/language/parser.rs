@@ -883,9 +883,104 @@ impl Cursor<'_> {
                     let mut stages = Vec::new();
                     let mut integration = None;
                     let mut schedules = Vec::new();
+                    let mut modes = Vec::<AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem>::new();
                     let mut initialization = None;
                     let mut expected_failure = None;
                     while !self.eat("}") {
+                        // ADR-0119 Outcome 3: `mode <name> [facts(<fact> = <bool>, ...)];`
+                        // declares a same-layout mode; the events after it belong to it.
+                        if self.eat("mode") {
+                            let name = self.word()?;
+                            let mut facts = Vec::new();
+                            if self.eat("facts") {
+                                self.expect("(")?;
+                                while !self.eat(")") {
+                                    let name = self.path()?;
+                                    self.expect("=")?;
+                                    let value = match self.word()?.as_str() {
+                                        "true" => true,
+                                        "false" => false,
+                                        _ => return Err(self.error("true or false")),
+                                    };
+                                    facts.push(
+                                        AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem {
+                                            name,
+                                            value,
+                                        },
+                                    );
+                                    if self.eat(")") {
+                                        break;
+                                    }
+                                    self.expect(",")?;
+                                }
+                            }
+                            self.expect(";")?;
+                            modes.push(AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem {
+                                name,
+                                facts,
+                                events: Vec::new(),
+                            });
+                            continue;
+                        }
+                        // `event <guard> direction(<d>) tolerance(<x>) [reset(<state> = <member>, ...)]
+                        // (next(<mode>) | terminal);`
+                        if self.eat("event") {
+                            let guard = self.until(&["direction"])?;
+                            self.expect("direction")?;
+                            self.expect("(")?;
+                            let direction = self
+                                .word()?
+                                .parse()
+                                .map_err(|_| self.error("either, rising or falling"))?;
+                            self.expect(")")?;
+                            self.expect("tolerance")?;
+                            self.expect("(")?;
+                            let tolerance = self.until(&[")"])?;
+                            self.expect(")")?;
+                            let mut reset = Vec::new();
+                            if self.eat("reset") {
+                                self.expect("(")?;
+                                while !self.eat(")") {
+                                    let target = self.until(&["="])?;
+                                    self.expect("=")?;
+                                    let expression = self.until(&[",", ")"])?;
+                                    reset.push(
+                                        AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem {
+                                            target,
+                                            expression,
+                                        },
+                                    );
+                                    if self.eat(")") {
+                                        break;
+                                    }
+                                    self.expect(",")?;
+                                }
+                            }
+                            let next = if self.eat("terminal") {
+                                None
+                            } else {
+                                self.expect("next")?;
+                                self.expect("(")?;
+                                let next = self.word()?;
+                                self.expect(")")?;
+                                Some(next)
+                            };
+                            self.expect(";")?;
+                            let event =
+                                AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem {
+                                    guard,
+                                    direction,
+                                    tolerance,
+                                    reset,
+                                    next,
+                                };
+                            modes
+                                .last_mut()
+                                .ok_or_else(|| self.error("a mode clause before its events"))?
+                                .events
+                                .push(event);
+                            continue;
+                        }
                         // ADR-0119 Outcome 2: `schedule u at(t1, ...) values(v0, v1, ...);`
                         // holds `u` piecewise constant with one value per interval.
                         if self.eat("schedule") {
@@ -1062,6 +1157,7 @@ impl Cursor<'_> {
                         stages,
                         initialization,
                         integration,
+                        modes,
                         expected_failure,
                         specifications,
                     })

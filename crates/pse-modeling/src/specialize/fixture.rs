@@ -44,6 +44,9 @@ pub struct Fixture {
     pub initialization: Option<pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization>,
     /// Integration samples and tolerances for the integrated route.
     pub integration: Option<IntegrationFixture>,
+    /// Same-layout modes in order, the first starting the integration; empty for one
+    /// smooth mode (ADR-0119 Outcome 3).
+    pub modes: Vec<FixtureMode>,
     /// Failure the fixture expects instead of a result.
     pub expected_failure: Option<pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure>,
 }
@@ -77,7 +80,119 @@ pub struct ScheduleFixture {
     /// One canonical value per interval: `times.len() + 1`, the first from the start.
     pub values: Vec<f64>,
 }
+/// One authored same-layout mode: the Boolean facts that select its `when` variants and
+/// stage overrides, and the events active in it (ADR-0119 Outcome 3).
+#[derive(Clone, Debug, PartialEq)]
+pub struct FixtureMode {
+    /// Name, unique within the fixture.
+    pub name: String,
+    /// Facts bound while the mode is active.
+    pub facts: BTreeMap<String, bool>,
+    /// Events active in the mode, in declaration order.
+    pub events: Vec<FixtureEvent>,
+}
+/// A zero crossing of an authored scalar member.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FixtureEvent {
+    /// The member whose zero crossing triggers the event.
+    pub guard: SemanticId,
+    /// The crossings that trigger it.
+    pub direction: pse_model::generated::enums::EventDirection,
+    /// Positive absolute guard tolerance for ambiguity detection, in the guard's canonical
+    /// unit.
+    pub tolerance: f64,
+    /// Each reset member and the member whose value it takes, of exactly its type.
+    pub reset: BTreeMap<SemanticId, SemanticId>,
+    /// The successor mode's position; `None` stops the integration at the event.
+    pub next: Option<usize>,
+}
 impl Engine<'_, '_> {
+    /// The fixture's modes and events, resolved to members (ADR-0119 Outcome 3). Only the
+    /// integrated route admits them: the steady and simultaneous routes refuse them.
+    fn fixture_modes(
+        &mut self,
+        instance: InstanceId,
+        at: DeclarationId,
+        contract: &Contract,
+        env: &Environment,
+    ) -> Result<Vec<FixtureMode>> {
+        if contract.modes.is_empty() {
+            return Ok(Vec::new());
+        }
+        let route = crate::analysis::route(&self.facts)?;
+        if route != crate::analysis::Route::Integrated {
+            return Err(invalid(
+                at,
+                format!(
+                    "authored modes and events need the integrated route; the {} route refuses them",
+                    route.as_str()
+                ),
+            ));
+        }
+        let member = |engine: &mut Self, path: &str| {
+            let targets = engine.annotation_targets(instance, path, env, at, false)?;
+            match targets.as_slice() {
+                [(id, ty, local)] if engine.model.symbols.contains_key(id) => {
+                    Ok((*id, ty.clone(), local.clone()))
+                }
+                _ => Err(invalid(at, "an event names one scalar member")),
+            }
+        };
+        let mut modes = Vec::with_capacity(contract.modes.len());
+        for mode in &contract.modes {
+            let mut events = Vec::with_capacity(mode.events.len());
+            for event in &mode.events {
+                let (guard, ty, local) = member(self, &event.guard)?;
+                if !matches!(ty, Type::Quantity(_)) {
+                    return Err(invalid(at, "an event guard requires a physical type"));
+                }
+                let tolerance = self
+                    .eval(at, &local, &event.tolerance, Some(&ty))?
+                    .scalar(at)?;
+                if !tolerance.is_finite() || tolerance <= 0. {
+                    return Err(invalid(at, "an event tolerance is positive and finite"));
+                }
+                let mut reset = BTreeMap::new();
+                for assignment in &event.reset {
+                    let (target, ..) = member(self, &assignment.target)?;
+                    let (value, ..) = member(self, &assignment.expression)?;
+                    if self.model.symbols[&target].ty != self.model.symbols[&value].ty
+                        || reset.insert(target, value).is_some()
+                    {
+                        return Err(invalid(
+                            at,
+                            "event resets assign unique members from members of exactly their physical type",
+                        ));
+                    }
+                }
+                let next = event
+                    .next
+                    .as_ref()
+                    .map(|next| {
+                        contract
+                            .modes
+                            .iter()
+                            .position(|m| m.name == *next)
+                            .ok_or_else(|| invalid(at, "event successor mode absent"))
+                    })
+                    .transpose()?;
+                events.push(FixtureEvent {
+                    guard,
+                    direction: event.direction,
+                    tolerance,
+                    reset,
+                    next,
+                });
+            }
+            self.reserve(1 + events.len())?;
+            modes.push(FixtureMode {
+                name: mode.name.clone(),
+                facts: mode.facts.iter().map(|f| (f.name.clone(), f.value)).collect(),
+                events,
+            });
+        }
+        Ok(modes)
+    }
     pub(super) fn fixture(
         &mut self,
         instance: InstanceId,
@@ -87,6 +202,7 @@ impl Engine<'_, '_> {
         env: &Environment,
     ) -> Result<()> {
         let at = row.declaration_id;
+        let modes = self.fixture_modes(instance, at, contract, env)?;
         let integration = if let Some(data) = &contract.integration {
             let axis = self.model.integrated.values().next().ok_or_else(|| {
                 invalid(
@@ -330,6 +446,7 @@ impl Engine<'_, '_> {
                 stages: contract.stages.clone(),
                 initialization: contract.initialization.clone(),
                 integration,
+                modes,
                 expected_failure: contract.expected_failure.clone(),
             },
         );

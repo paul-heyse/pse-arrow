@@ -359,6 +359,14 @@ class EntityKind(StrEnum):
     DATASET = "dataset"
 
 
+class EventDirection(StrEnum):
+    """The declared EventDirection enumeration."""
+
+    EITHER = "either"
+    RISING = "rising"
+    FALLING = "falling"
+
+
 class EvidenceUnavailableReason(StrEnum):
     """The declared EvidenceUnavailableReason enumeration."""
 

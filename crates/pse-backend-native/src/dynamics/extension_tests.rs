@@ -155,7 +155,7 @@ fn idas_scheduled_inputs_with_recoverable_trials() {
 }
 /// A state-triggered reset (`x0 = 1` sets `x0 = 3`) with a declared crossing direction.
 #[cfg(feature = "idas")]
-fn directed(dae: bool, direction: Crossing, terminal: bool) -> ResetToy {
+fn directed(dae: bool, direction: EventDirection, terminal: bool) -> ResetToy {
     let mut toy = Toy::new(dae, true);
     toy.c.events[0][0].direction = direction;
     toy.c.events[0][0].terminal = terminal;
@@ -176,7 +176,7 @@ fn idas_events_without_sensitivities() {
         let mut p = profile(dae);
         p.method = Method::Idas;
         p.samples = vec![0.0, 0.25, 0.5, 1.0];
-        let r = go(&mut directed(dae, Crossing::Either, false), &p);
+        let r = go(&mut directed(dae, EventDirection::Either, false), &p);
         assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
         assert_eq!(r.events.len(), 1);
         assert!((r.events[0].time - root).abs() < 1e-6);
@@ -196,21 +196,21 @@ fn idas_events_without_sensitivities() {
         }
         let mut diffsol = p.clone();
         diffsol.method = Method::Diffsol;
-        let reference = go(&mut directed(dae, Crossing::Either, false), &diffsol);
+        let reference = go(&mut directed(dae, EventDirection::Either, false), &diffsol);
         assert_eq!(reference.samples.len(), r.samples.len());
         for (a, b) in r.samples.iter().zip(&reference.samples) {
             assert_eq!(a.mode, b.mode);
             assert!((a.state[0] - b.state[0]).abs() < 1e-6, "{a:?} {b:?}");
         }
         // The guard decreases through zero: a rising-only event never fires.
-        let r = go(&mut directed(dae, Crossing::Rising, false), &p);
+        let r = go(&mut directed(dae, EventDirection::Rising, false), &p);
         assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
         assert!(r.events.is_empty());
         assert!((r.samples.last().unwrap().state[0] - 2.0 * (-2.0f64).exp()).abs() < 1e-6);
-        let r = go(&mut directed(dae, Crossing::Falling, false), &p);
+        let r = go(&mut directed(dae, EventDirection::Falling, false), &p);
         assert_eq!(r.events.len(), 1);
         // A terminal event stops at the root, keeping only completed samples.
-        let r = go(&mut directed(dae, Crossing::Either, true), &p);
+        let r = go(&mut directed(dae, EventDirection::Either, true), &p);
         assert_eq!(r.termination, Termination::Event, "{:?}", r.error);
         assert!((r.completed_time - root).abs() < 1e-6);
         assert!(r.events[0].after.is_none());
@@ -219,7 +219,7 @@ fn idas_events_without_sensitivities() {
     // Diffsol refuses a directional event before native work.
     let mut p = profile(false);
     p.method = Method::Diffsol;
-    let toy = directed(false, Crossing::Rising, false);
+    let toy = directed(false, EventDirection::Rising, false);
     assert!(matches!(
         p.validate(toy.contract(), &[2.0]),
         Err(ProblemError::Unsupported(_))
@@ -342,8 +342,9 @@ impl Oracle for Decay {
         Ok(Evaluation { values, jacobian })
     }
 }
-/// L-D5: `IDASetConstraints` keeps a declared non-negative state non-negative at every
-/// accepted step, where the unconstrained loose-tolerance run dips below zero.
+/// L-D5: `IDASetConstraints` keeps a non-negative state non-negative at every accepted
+/// step, where the unconstrained loose-tolerance run dips below zero. The signs are the
+/// contract's, derived from authored bounds (ADR-0119 Outcome 4).
 #[cfg(feature = "idas")]
 #[test]
 fn idas_constraints_keep_positivity() {
@@ -357,6 +358,7 @@ fn idas_constraints_keep_positivity() {
             parameters: vec![],
             outputs: vec![id(4)],
             events: vec![vec![]],
+            signs: vec![],
         },
         rate: 1.0e3,
     };
@@ -377,7 +379,7 @@ fn idas_constraints_keep_positivity() {
         .iter()
         .map(|s| s.state[0])
         .fold(f64::INFINITY, f64::min);
-    p.idas.constraints = vec![StateSign::NonNegative];
+    decay.c.signs = vec![StateSign::NonNegative];
     let kept = integrate(&mut decay, &p, &[], Arc::default()).unwrap();
     assert_eq!(kept.termination, Termination::Completed, "{:?}", kept.error);
     let lowest = kept
@@ -390,15 +392,13 @@ fn idas_constraints_keep_positivity() {
         dips < 0.0,
         "the unconstrained control run stayed non-negative ({dips})"
     );
-    // A constraint vector of the wrong length or with no declared sign is refused.
-    p.idas.constraints = vec![StateSign::Free];
+    // A sign vector is empty or has one sign per state.
+    decay.c.signs = vec![StateSign::Positive, StateSign::Free];
     assert!(p.validate(&decay.c, &[]).is_err());
-    p.idas.constraints = vec![StateSign::Positive, StateSign::Free];
-    assert!(p.validate(&decay.c, &[]).is_err());
-    // IDAS-only controls never silently reach Diffsol.
-    p.idas.constraints = vec![StateSign::Positive];
+    // Diffsol has no sign control; the bounds' guard stays the validity authority there.
+    decay.c.signs = vec![StateSign::Positive];
     p.method = Method::Diffsol;
-    assert!(p.validate(&decay.c, &[]).is_err());
+    assert!(p.validate(&decay.c, &[]).is_ok());
 }
 /// L-D5: the staggered corrector reproduces the simultaneous one and the analytic
 /// sensitivities.
@@ -458,6 +458,7 @@ impl Chain {
                 parameters: ids(20, 3),
                 outputs: ids(30, n.div_ceil(3)),
                 events: vec![vec![]],
+                signs: vec![],
             },
             outside: false,
         }

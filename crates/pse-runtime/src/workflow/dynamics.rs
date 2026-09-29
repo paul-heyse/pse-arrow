@@ -425,7 +425,7 @@ impl Oracle for DynamicWorker {
 }
 
 pub(crate) fn profile_identity(p: &SimulationProfile) -> ContentHash {
-    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV5);
+    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV6);
     h.str(&native::profile_json(p).to_string())
         .hash(&p.numerics.key());
     h.finish_hash()
