@@ -33,6 +33,8 @@ pub struct RuntimeModelingChecksRow {
     pub r#within_validity: Option<bool>,
     ///extrapolation_allowed
     pub r#extrapolation_allowed: Option<bool>,
+    ///basis
+    pub r#basis: crate::generated::enums::ModelingCheckBasis,
 }
 impl crate::SemanticEq for RuntimeModelingChecksRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -55,7 +57,7 @@ impl crate::SemanticEq for RuntimeModelingChecksRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#extrapolation_allowed,
                 &other.r#extrapolation_allowed,
-            )
+            ) && crate::SemanticEq::semantic_eq(&self.r#basis, &other.r#basis)
     }
 }
 impl PartialEq for RuntimeModelingChecksRow {
@@ -91,6 +93,8 @@ impl crate::SemanticFrame for RuntimeModelingChecksRow {
         crate::SemanticFrame::frame(&self.r#within_validity, hash);
         hash.str(stringify!(r#extrapolation_allowed));
         crate::SemanticFrame::frame(&self.r#extrapolation_allowed, hash);
+        hash.str(stringify!(r#basis));
+        crate::SemanticFrame::frame(&self.r#basis, hash);
     }
 }
 impl crate::HeapUsage for RuntimeModelingChecksRow {
@@ -108,5 +112,6 @@ impl crate::HeapUsage for RuntimeModelingChecksRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#satisfied))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#within_validity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#extrapolation_allowed))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#basis))
     }
 }

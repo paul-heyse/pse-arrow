@@ -884,7 +884,7 @@ impl PreparedFit {
                             let outputs=worker.constraints(&values).map_err(math)?;
                             program.assembly.structure().rows().iter().map(|r|r.id).zip(outputs).collect()
                         }else{BTreeMap::new()};
-                        let (checks,observations)=checks::assess_observations(run_id,model.compiled(),&values,&observed,numerics,&self.problem.quantities,true,None)?;
+                        let (checks,observations)=checks::assess_observations(run_id,model.compiled(),&values,&observed,numerics,&self.problem.quantities,true,None,None)?;
                         rows.extend(checks); reports.extend(observations);
                     },
                     (Assessment::Transient(simulation),Experiment::Transient(s))=>{

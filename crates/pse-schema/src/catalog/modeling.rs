@@ -74,6 +74,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                     T::enumeration("ModelingFixtureExecution")
                         .with_name("execution")
                         .optional(),
+                    // ADR-0119 Outcome 1: the fixture's declared solve intent; absent leaves
+                    // the intent to the runtime policy.
+                    T::enumeration("NativeSolveIntent")
+                        .with_name("intent")
+                        .optional(),
                     strings("stages"),
                     T::structure(vec![
                         T::native(D::Boolean).with_name("homotopy"),
@@ -430,7 +435,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         builder,
         N::Authored,
         "modeling_declarations",
-        3,
+        4,
         S::Model,
         &["declaration_id"],
         vec![
@@ -449,7 +454,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 T::structure(payload).with_alternative(&alternative),
             ),
         ],
-        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104).",
+        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119).",
     );
     enumeration(
         builder,
@@ -462,10 +467,15 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "validity",
         ],
     );
-    relation(
+    // ADR-0119 Outcome 5: what a check was established on. An objective-bound check reads
+    // the step's certified dual bound when the step carries one; every other check, and an
+    // objective-bound check without one, is evaluated at the point.
+    enumeration(builder, "ModelingCheckBasis", ["point", "global_bound"]);
+    relation_version(
         builder,
         N::Runtime,
         "modeling_checks",
+        2,
         S::Derived,
         &[
             "run_id",
@@ -488,8 +498,9 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("satisfied", T::native(D::Boolean)),
             column("within_validity", T::native(D::Boolean)).optional(),
             column("extrapolation_allowed", T::native(D::Boolean)).optional(),
+            column("basis", T::enumeration("ModelingCheckBasis")),
         ],
-        "Independent model checks supplement native outcomes. Step identifies the requested solve within a finite sequence; standalone analyses use zero. Static checks use sample_index zero without time; trajectory checks identify the requested sample and physical time in seconds. Validity membership and permission to extrapolate remain distinct observations.",
+        "Independent model checks supplement native outcomes. Step identifies the requested solve within a finite sequence; standalone analyses use zero. Static checks use sample_index zero without time; trajectory checks identify the requested sample and physical time in seconds. Validity membership and permission to extrapolate remain distinct observations. Version two adds basis: point for a check evaluated at the step's point, global_bound for an objective-bound check evaluated against the step's certified dual bound (ADR-0119); a point result states no global property.",
     );
     relation(
         builder,

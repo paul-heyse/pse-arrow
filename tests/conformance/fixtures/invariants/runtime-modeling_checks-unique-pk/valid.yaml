@@ -3,6 +3,7 @@
   "rows": {
     "runtime.modeling_checks": [
       {
+        "basis": "[\"enum\",\"point\"]",
         "extrapolation_allowed": "[\"bool\",true]",
         "kind": "[\"enum\",\"expectation\"]",
         "run_id": "[\"id\",\"01010101010101010101010101010101\"]",

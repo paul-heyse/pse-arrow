@@ -269,9 +269,9 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `table_uri`.
 
 ## `modeling_checks`
 
-Independent model checks supplement native outcomes. Step identifies the requested solve within a finite sequence; standalone analyses use zero. Static checks use sample_index zero without time; trajectory checks identify the requested sample and physical time in seconds. Validity membership and permission to extrapolate remain distinct observations.
+Independent model checks supplement native outcomes. Step identifies the requested solve within a finite sequence; standalone analyses use zero. Static checks use sample_index zero without time; trajectory checks identify the requested sample and physical time in seconds. Validity membership and permission to extrapolate remain distinct observations. Version two adds basis: point for a check evaluated at the step's point, global_bound for an objective-bound check evaluated against the step's certified dual bound (ADR-0119); a point result states no global property.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, sample_index, target_id, source_id, kind`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, sample_index, target_id, source_id, kind`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -287,6 +287,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, sample_index,
 | `satisfied` | `Boolean` | false | `payload` | — | — |
 | `within_validity` | `Boolean` | true | `payload` | — | — |
 | `extrapolation_allowed` | `Boolean` | true | `payload` | — | — |
+| `basis` | `enum:ModelingCheckBasis` | false | `payload` | — | — |
 
 ## `modeling_conformance`
 

@@ -760,6 +760,7 @@ impl Cursor<'_> {
                     self.expect(";")?;
                     let mut specifications = Vec::new();
                     let mut execution = None;
+                    let mut intent = None;
                     let mut stages = Vec::new();
                     let mut integration = None;
                     let mut initialization = None;
@@ -773,6 +774,18 @@ impl Cursor<'_> {
                                 self.word()?
                                     .parse()
                                     .map_err(|_| self.error("fixture execution mode"))?,
+                            );
+                            self.expect(";")?;
+                            continue;
+                        }
+                        if self.eat("intent") {
+                            if intent.is_some() {
+                                return Err(self.error("one fixture solve intent"));
+                            }
+                            intent = Some(
+                                self.word()?
+                                    .parse()
+                                    .map_err(|_| self.error("fixture solve intent"))?,
                             );
                             self.expect(";")?;
                             continue;
@@ -906,6 +919,7 @@ impl Cursor<'_> {
                     Some(AuthoredModelingDeclarationsFieldValueScopeFixture {
                         degrees_of_freedom,
                         execution,
+                        intent,
                         stages,
                         initialization,
                         integration,

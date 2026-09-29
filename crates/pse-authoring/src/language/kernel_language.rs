@@ -292,6 +292,64 @@ fn var_domain_parses_and_renders() {
 }
 
 #[test]
+fn fixture_intent_parses_and_renders() {
+    use pse_model::generated::enums::NativeSolveIntent as Intent;
+    let fixture = |rows: &[Declaration]| {
+        rows.iter()
+            .find(|r| r.name == "t")
+            .and_then(|r| r.value.scope.as_ref())
+            .and_then(|s| s.fixture.clone())
+            .unwrap()
+    };
+    let roundtrip = |rows: &[Declaration]| {
+        let printed = render(rows).unwrap();
+        let again = parse(
+            &printed,
+            SemanticId::NIL,
+            IdentityPolicy::Explicit,
+            ParseBudget::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
+            again.iter().map(|r| &r.value).collect::<Vec<_>>()
+        );
+        printed
+    };
+    for intent in Intent::ALL {
+        let source = format!(
+            "package p {{ def D {{ var x: Scalar; }} test t fixture {{ dof 0; run steady; intent {}; value root.x = 1; }} {{ child root: D = D(); }} }}",
+            intent.as_str()
+        );
+        let rows = parse_named(&source);
+        assert_eq!(fixture(&rows).intent, Some(intent));
+        let printed = roundtrip(&rows);
+        assert!(printed.contains(&format!("intent {};", intent.as_str())));
+    }
+    // Without the clause the fixture leaves the intent to the runtime policy.
+    let rows = parse_named(
+        "package p { def D { var x: Scalar; } test t fixture { dof 0; run steady; } { child root: D = D(); } }",
+    );
+    assert_eq!(fixture(&rows).intent, None);
+    assert!(!roundtrip(&rows).contains("intent"));
+    for invalid in [
+        "package p { def D { var x: Scalar; } test t fixture { dof 0; intent prove; } { child root: D = D(); } }",
+        "package p { def D { var x: Scalar; } test t fixture { dof 0; intent certify; intent optimize; } { child root: D = D(); } }",
+    ] {
+        assert!(
+            parse(
+                invalid,
+                SemanticId::NIL,
+                IdentityPolicy::Named,
+                ParseBudget::default()
+            )
+            .is_err(),
+            "{invalid}"
+        );
+    }
+}
+
+#[test]
 fn constraint_forms_and_disjunctions_parse_and_render() {
     use pse_model::generated::enums::{
         ModelingDeclarationKind as Kind, ModelingRealizationPolicy as Policy,

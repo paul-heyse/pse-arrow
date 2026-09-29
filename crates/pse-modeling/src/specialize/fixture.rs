@@ -36,6 +36,8 @@ pub struct Fixture {
     pub oracle: Option<Oracle>,
     /// Analysis route the fixture runs under; steady when unauthored.
     pub execution: pse_model::generated::enums::ModelingFixtureExecution,
+    /// Declared solve intent (ADR-0119 Outcome 1); `None` leaves it to the runtime policy.
+    pub intent: Option<pse_model::generated::enums::NativeSolveIntent>,
     /// Initialization stages to run, in order.
     pub stages: Vec<String>,
     /// Authored initialization settings.
@@ -255,6 +257,7 @@ impl Engine<'_, '_> {
                 execution: contract
                     .execution
                     .unwrap_or(pse_model::generated::enums::ModelingFixtureExecution::Steady),
+                intent: contract.intent,
                 stages: contract.stages.clone(),
                 initialization: contract.initialization.clone(),
                 integration,

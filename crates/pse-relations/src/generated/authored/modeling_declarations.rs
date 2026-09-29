@@ -60,20 +60,20 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    176u8, 155u8, 229u8, 90u8, 87u8, 58u8, 59u8, 241u8, 71u8, 137u8, 20u8, 63u8, 104u8,
-    83u8, 175u8, 80u8,
+    109u8, 188u8, 23u8, 147u8, 243u8, 139u8, 106u8, 23u8, 214u8, 81u8, 245u8, 111u8,
+    23u8, 48u8, 191u8, 152u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_declarations";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 3u32;
+pub const VERSION: u32 = 4u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    242u8, 22u8, 100u8, 133u8, 254u8, 162u8, 203u8, 210u8, 179u8, 63u8, 240u8, 210u8,
-    177u8, 253u8, 59u8, 113u8, 49u8, 41u8, 212u8, 138u8, 94u8, 141u8, 213u8, 102u8,
-    156u8, 102u8, 114u8, 176u8, 247u8, 132u8, 26u8, 49u8,
+    253u8, 247u8, 10u8, 251u8, 81u8, 171u8, 223u8, 36u8, 175u8, 197u8, 176u8, 45u8,
+    202u8, 127u8, 221u8, 107u8, 124u8, 191u8, 227u8, 102u8, 217u8, 218u8, 160u8, 147u8,
+    70u8, 142u8, 1u8, 40u8, 243u8, 103u8, 95u8, 221u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueRelaxation {
     fn append(
@@ -683,22 +683,23 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueScope
             &self.r#execution,
             children[1usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#stages, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#intent, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#stages, children[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#initialization,
-            children[3usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#integration,
             children[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#expected_failure,
+            &self.r#integration,
             children[5usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#specifications,
+            &self.r#expected_failure,
             children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#specifications,
+            children[7usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -714,21 +715,24 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueScope
         <Option<
             crate::generated::enums::ModelingFixtureExecution,
         > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            crate::generated::enums::NativeSolveIntent,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <Vec<
             String,
-        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
-        <Option<
-            AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration,
+            AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure,
+            AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration,
         > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Vec<
             AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem,
-        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -749,34 +753,40 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueScope
                 input.column(1usize).as_ref(),
                 index,
             )?,
+            r#intent: <Option<
+                crate::generated::enums::NativeSolveIntent,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
             r#stages: <Vec<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(2usize).as_ref(),
+                input.column(3usize).as_ref(),
                 index,
             )?,
             r#initialization: <Option<
                 AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization,
             > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
+                input.column(4usize).as_ref(),
                 index,
             )?,
             r#integration: <Option<
                 AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration,
             > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
+                input.column(5usize).as_ref(),
                 index,
             )?,
             r#expected_failure: <Option<
                 AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(6usize).as_ref(),
                 index,
             )?,
             r#specifications: <Vec<
                 AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
+                input.column(7usize).as_ref(),
                 index,
             )?,
         })
@@ -3780,10 +3790,10 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        390_144_usize + size_of::<Self::Builder>()
+        392_192_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        3048usize
+        3064usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -4043,6 +4053,17 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
                                                 bytes = crate::columnar::allocation_add(
                                                     bytes,
                                                     if let Some(value) = ((value).r#execution).as_ref() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            crate::columnar::allocation_add(8, (value).as_str().len())?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if let Some(value) = ((value).r#intent).as_ref() {
                                                         crate::columnar::allocation_add(
                                                             1,
                                                             crate::columnar::allocation_add(8, (value).as_str().len())?,

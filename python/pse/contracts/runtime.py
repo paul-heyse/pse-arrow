@@ -271,6 +271,7 @@ class RuntimeModelingChecksRow:
     satisfied: b.bool = attrs.field(validator=v.exact_type(b.bool))
     within_validity: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
     extrapolation_allowed: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    basis: e.ModelingCheckBasis = attrs.field(validator=attrs.validators.instance_of(e.ModelingCheckBasis))
 
 
 @attrs.frozen(kw_only=True)

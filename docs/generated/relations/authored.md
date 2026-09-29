@@ -83,9 +83,9 @@ Version: 3. Snapshot class: `case`. Primary key: `fit_id`.
 
 ## `modeling_declarations`
 
-Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104).
+Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119).
 
-Version: 3. Snapshot class: `model`. Primary key: `declaration_id`.
+Version: 4. Snapshot class: `model`. Primary key: `declaration_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -126,6 +126,7 @@ Version: 3. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.scope.fixture` | `Struct` | true | `payload` | — | — |
 | `value.scope.fixture.degrees_of_freedom` | `Int64` | false | `payload` | — | — |
 | `value.scope.fixture.execution` | `enum:ModelingFixtureExecution` | true | `payload` | — | — |
+| `value.scope.fixture.intent` | `enum:NativeSolveIntent` | true | `payload` | — | — |
 | `value.scope.fixture.stages` | `List` | false | `payload` | — | — |
 | `value.scope.fixture.stages.item` | `Utf8` | false | `payload` | — | — |
 | `value.scope.fixture.initialization` | `Struct` | true | `payload` | — | — |

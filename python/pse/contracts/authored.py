@@ -197,6 +197,7 @@ class AuthoredModelingDeclarationsFieldValueScopeFixture:
 
     degrees_of_freedom: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
     execution: e.ModelingFixtureExecution | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingFixtureExecution)))
+    intent: e.NativeSolveIntent | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeSolveIntent)))
     stages: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     initialization: AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization)))
     integration: AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration)))

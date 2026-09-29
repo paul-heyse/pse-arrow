@@ -3648,3 +3648,112 @@ fn nested_implicit_factorable_definition_exports_residual_exactly() {
             .all(|i| i.factorable_definition().is_none())
     );
 }
+
+#[test]
+fn objective_bound_check_classified() {
+    use super::ObjectiveBound as Bound;
+    let lower = |strict| Some(Bound::Lower { strict });
+    let upper = |strict| Some(Bound::Upper { strict });
+    for (objective, predicate, expected) in [
+        // The optimized side, in either operand order, against a decision-free side.
+        ("minimize", "f > -c", lower(true)),
+        ("minimize", "f >= -c", lower(false)),
+        ("minimize", "-c < f", lower(true)),
+        ("minimize", "f > d", lower(true)),
+        ("maximize", "f < c", upper(true)),
+        ("maximize", "c >= f", upper(false)),
+        // The other side, an equality, a decision on the compared side (directly or through
+        // a computed member), or a check that does not compare the objective itself.
+        ("minimize", "f < c", None),
+        ("maximize", "f > -c", None),
+        ("minimize", "f == c", None),
+        ("minimize", "f > x", None),
+        ("minimize", "f > e", None),
+        ("minimize", "x > -c", None),
+        ("minimize", "2*f > -c", None),
+        // Without an objective no check bounds one.
+        ("", "f > -c", None),
+    ] {
+        let annotation = if objective.is_empty() {
+            String::new()
+        } else {
+            format!("annotation objective f({objective});")
+        };
+        let (mut workspace, _, _, root) = setup(&format!(
+            "package p {{ def Root {{ param c: Scalar = 0.5; var x: Scalar; let f: Scalar = x*x; let d: Scalar = 2*c; let e: Scalar = x + c; eq g: x == 1; {annotation} annotation check f({predicate}); }} }}"
+        ));
+        let cancel = Arc::new(AtomicBool::new(false));
+        let prepared = workspace
+            .prepare_modeling_cancellable(
+                root,
+                InstanceId::from_id(SemanticId::NIL),
+                Bindings::default(),
+                Limits::default(),
+                cancel.clone(),
+            )
+            .unwrap();
+        let a = &prepared.admitted;
+        let check = a
+            .outputs
+            .iter()
+            .find_map(|o| match o {
+                ModelingOutput::Hint {
+                    target,
+                    declaration,
+                    kind: ModelingHint::Check,
+                } => Some((*target, *declaration)),
+                _ => None,
+            })
+            .unwrap();
+        let bounds = a
+            .outputs
+            .iter()
+            .enumerate()
+            .filter_map(|(index, o)| match o {
+                ModelingOutput::Hint {
+                    target,
+                    declaration,
+                    kind: ModelingHint::ObjectiveBound(bound),
+                } => {
+                    // The classification belongs to the check it was derived from.
+                    assert_eq!((*target, *declaration), check);
+                    Some((index, *bound))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            bounds.first().map(|(_, bound)| *bound),
+            expected,
+            "{objective} {predicate}"
+        );
+        assert!(bounds.len() <= 1);
+        // The compared side is compiled as its own decision-free output.
+        if let Some((index, _)) = bounds.first() {
+            let artifact = fixture(
+                a,
+                workspace.inputs.quantities.clone(),
+                DerivativeOrder::Value,
+                &cancel,
+            )
+            .unwrap();
+            let inputs = vec![2.0; a.inputs.len()];
+            let values = artifact
+                .worker()
+                .evaluate(
+                    &inputs,
+                    DerivativeOrder::Value,
+                    &mut BTreeMap::new(),
+                    &cancel,
+                )
+                .unwrap()
+                .values;
+            let compared = match predicate {
+                "f > d" => 4.0,
+                "f < c" | "c >= f" => 2.0,
+                _ => -2.0,
+            };
+            assert_eq!(values[*index], compared, "{predicate}");
+        }
+    }
+}

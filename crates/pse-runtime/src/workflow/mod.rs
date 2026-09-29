@@ -158,6 +158,21 @@ pub enum WorkflowError {
         /// Its expiry, microseconds since the Unix epoch.
         expires_at: i64,
     },
+    /// A fixture declares one solve intent and its runtime fixture policy names another.
+    /// Neither takes precedence (ADR-0119 Outcome 1).
+    #[error(
+        "fixture {fixture} declares intent {} but its runtime fixture policy names {}",
+        .authored.as_str(),
+        .policy.as_str()
+    )]
+    FixtureIntentConflict {
+        /// The authored fixture.
+        fixture: pse_modeling::DeclarationId,
+        /// The intent the fixture declares.
+        authored: pse_backend_native::solve::SolveIntent,
+        /// The intent the runtime fixture policy names.
+        policy: pse_backend_native::solve::SolveIntent,
+    },
     /// A stored job payload this build cannot execute (ADR-0114 Outcome 14).
     #[error(
         "job payload version {version} is not supported by this worker (supported: {supported})"
@@ -176,7 +191,7 @@ impl From<pse_model::diagnostic::BoundaryDiagnostic> for WorkflowError {
 }
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
-    code(this) {match this {Self::Contract(_)=>Some(pse_diagnostics::DiagnosticCode::CompileMath),Self::EphemeralPublication{..}|Self::UnknownPayloadVersion{..}=>Some(pse_diagnostics::DiagnosticCode::ConfigInvalid),Self::PublicationUnresolved{..}|Self::ExportLeaseExpired{..}=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::LegacyWorkspace{..}=>Some(pse_diagnostics::DiagnosticCode::SchemaInvalidDeclaration),_=>None}},
+    code(this) {match this {Self::Contract(_)=>Some(pse_diagnostics::DiagnosticCode::CompileMath),Self::EphemeralPublication{..}|Self::UnknownPayloadVersion{..}|Self::FixtureIntentConflict{..}=>Some(pse_diagnostics::DiagnosticCode::ConfigInvalid),Self::PublicationUnresolved{..}|Self::ExportLeaseExpired{..}=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::LegacyWorkspace{..}=>Some(pse_diagnostics::DiagnosticCode::SchemaInvalidDeclaration),_=>None}},
     forward(this) {match this {Self::Boundary(e)=>Some(e.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Operations(e)=>Some(e),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
 }

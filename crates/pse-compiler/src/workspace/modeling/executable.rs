@@ -35,6 +35,129 @@ pub enum ModelingHint {
     ValidUpper,
     /// Post-solve check indicator: one when the predicate holds, zero otherwise.
     Check,
+    /// The decision-free side of an objective-bound check with the same target and
+    /// declaration: the value the check compares the objective with (ADR-0119 Outcome 5).
+    ObjectiveBound(ObjectiveBound),
+}
+impl ModelingHint {
+    /// Stable identity code for structural hashing; the unit variants keep their
+    /// declaration-order codes.
+    pub(crate) const fn code(self) -> u64 {
+        match self {
+            Self::Start => 0,
+            Self::Nominal => 1,
+            Self::Lower => 2,
+            Self::Upper => 3,
+            Self::ValidLower => 4,
+            Self::ValidUpper => 5,
+            Self::Check => 6,
+            Self::ObjectiveBound(ObjectiveBound::Lower { strict }) => 7 + strict as u64,
+            Self::ObjectiveBound(ObjectiveBound::Upper { strict }) => 9 + strict as u64,
+        }
+    }
+}
+/// A check that bounds the objective from its optimized side (ADR-0119 Outcome 5): from
+/// below when minimizing, from above when maximizing. A certified dual bound of the step
+/// then establishes it over the declared box; without one it is evaluated at the point.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ObjectiveBound {
+    /// `objective > c` (strict) or `objective >= c` on a minimized objective.
+    Lower {
+        /// The authored comparison is strict.
+        strict: bool,
+    },
+    /// `objective < c` (strict) or `objective <= c` on a maximized objective.
+    Upper {
+        /// The authored comparison is strict.
+        strict: bool,
+    },
+}
+impl ObjectiveBound {
+    /// Whether `objective` satisfies the check against the compared value `bound`. Given a
+    /// certified dual bound as `objective`, a true result holds for every feasible point.
+    pub fn holds(self, objective: f64, bound: f64) -> bool {
+        match self {
+            Self::Lower { strict: true } => objective > bound,
+            Self::Lower { strict: false } => objective >= bound,
+            Self::Upper { strict: true } => objective < bound,
+            Self::Upper { strict: false } => objective <= bound,
+        }
+    }
+    /// Classify an authored check predicate against the selected objective: a comparison
+    /// of the objective member itself with a decision-free side, oriented toward the
+    /// optimized side. Returns the classification and the decision-free side; anything
+    /// else (another shape, the other side, an equality, a side that depends on a free
+    /// decision) is a point check.
+    pub(crate) fn classify(
+        model: &SpecializedModel,
+        objective: Option<(SemanticId, pse_math::binding::ObjectiveSense)>,
+        predicate: &dsl::Predicate,
+    ) -> Option<(Self, Expr)> {
+        use dsl::{CompareOp as Op, PredicateKind};
+        use pse_math::binding::ObjectiveSense as Sense;
+        let (target, sense) = objective?;
+        let PredicateKind::Compare { op, lhs, rhs } = &predicate.kind else {
+            return None;
+        };
+        let name = symbol_name(target);
+        let is_objective = |e: &Expr| {
+            matches!(&e.kind, ExprKind::Path(path)
+                if path.segments.len() == 1
+                    && path.segments[0].indices.is_empty()
+                    && path.segments[0].name == name)
+        };
+        // Orient the comparison as `objective op side`.
+        let (op, side) = match (is_objective(lhs), is_objective(rhs)) {
+            (true, false) => (*op, rhs),
+            (false, true) => (
+                match op {
+                    Op::Lt => Op::Gt,
+                    Op::Le => Op::Ge,
+                    Op::Gt => Op::Lt,
+                    Op::Ge => Op::Le,
+                    other => *other,
+                },
+                lhs,
+            ),
+            _ => return None,
+        };
+        let bound = match (sense, op) {
+            (Sense::Minimize, Op::Gt) => Self::Lower { strict: true },
+            (Sense::Minimize, Op::Ge) => Self::Lower { strict: false },
+            (Sense::Maximize, Op::Lt) => Self::Upper { strict: true },
+            (Sense::Maximize, Op::Le) => Self::Upper { strict: false },
+            _ => return None,
+        };
+        decision_free(model, side, &mut BTreeSet::new()).then(|| (bound, (**side).clone()))
+    }
+}
+/// Whether `expression` depends on no variable of the model, following computed members
+/// to their definitions. A path that names no model symbol is not decision-free.
+fn decision_free(
+    model: &SpecializedModel,
+    expression: &Expr,
+    visited: &mut BTreeSet<SemanticId>,
+) -> bool {
+    use pse_model::generated::enums::ModelingDeclarationKind as Kind;
+    expression.paths().iter().all(|path| {
+        let Some(symbol) = (path.segments.len() == 1)
+            .then(|| path.segments.first())
+            .flatten()
+            .and_then(|segment| segment.name.strip_prefix("s_"))
+            .and_then(|hex| SemanticId::parse_hex(hex).ok())
+            .and_then(|id| model.symbols.get(&id))
+        else {
+            return false;
+        };
+        if !visited.insert(symbol.id) {
+            return true;
+        }
+        match (&symbol.expression, symbol.role) {
+            (Some(definition), _) => decision_free(model, definition, visited),
+            (None, Kind::Parameter) => true,
+            (None, _) => false,
+        }
+    })
 }
 /// Source-test observation role; actual and expected retain their physical representation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -535,6 +658,7 @@ fn projection(
         p.expressions.push(elastic.penalty.clone());
     }
     use pse_modeling::annotation::AnnotationValue as A;
+    let objective = p.objective;
     for annotation in &annotations {
         let mut push = |kind, expression: Expr| {
             p.outputs.push(ModelingOutput::Hint {
@@ -555,23 +679,30 @@ fn projection(
                 push(ModelingHint::ValidLower, lower.clone());
                 push(ModelingHint::ValidUpper, upper.clone());
             }
-            A::Check(predicate) => push(
-                ModelingHint::Check,
-                Expr {
-                    kind: ExprKind::Conditional {
-                        guard: Box::new(predicate.clone()),
-                        then: Box::new(
-                            dsl::parse_expr("1")
-                                .map_err(|e| CompileError::Missing(e.to_string()))?,
-                        ),
-                        otherwise: Box::new(
-                            dsl::parse_expr("0")
-                                .map_err(|e| CompileError::Missing(e.to_string()))?,
-                        ),
+            A::Check(predicate) => {
+                // The typed classification travels as the compared side's own output.
+                if let Some((bound, side)) = ObjectiveBound::classify(&model, objective, predicate)
+                {
+                    push(ModelingHint::ObjectiveBound(bound), side);
+                }
+                push(
+                    ModelingHint::Check,
+                    Expr {
+                        kind: ExprKind::Conditional {
+                            guard: Box::new(predicate.clone()),
+                            then: Box::new(
+                                dsl::parse_expr("1")
+                                    .map_err(|e| CompileError::Missing(e.to_string()))?,
+                            ),
+                            otherwise: Box::new(
+                                dsl::parse_expr("0")
+                                    .map_err(|e| CompileError::Missing(e.to_string()))?,
+                            ),
+                        },
+                        span: Span::default(),
                     },
-                    span: Span::default(),
-                },
-            ),
+                );
+            }
             A::Scale(_) | A::Report(_) | A::Objective(_) => {}
         }
     }
@@ -705,7 +836,14 @@ fn projection(
             None
         };
         let hint_type = if let ModelingOutput::Hint { target, kind, .. } = output {
-            if *kind == ModelingHint::Check {
+            if let ModelingHint::ObjectiveBound(_) = kind {
+                // The compared side has the objective's physical type.
+                let objective = p
+                    .objective
+                    .and_then(|(objective, _)| model.symbols.get(&objective))
+                    .ok_or_else(|| CompileError::Missing("objective-bound check".into()))?;
+                Some(objective.ty.clone())
+            } else if *kind == ModelingHint::Check {
                 Some(Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
                     registry
                         .neutral_dimensionless()
