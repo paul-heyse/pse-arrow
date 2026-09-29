@@ -10,7 +10,7 @@ use super::{
 };
 use pse_backend_native::{
     kkt::{Curvature, KktPoint, Licq, Parametric, Unavailable, Withheld},
-    solve::{PrimalSource, SolveReport},
+    solve::SolveReport,
 };
 use pse_ids::SemanticId;
 use pse_math::binding::CaseStructure;
@@ -108,11 +108,12 @@ impl Rows {
     /// The rows of one step that requested sensitivities.
     pub(super) fn push(&mut self, step: &Step<'_>) -> Result<(), WorkflowError> {
         let evidence = step.report.and_then(|r| r.evidence.sensitivity.as_ref());
-        // A re-solve's quantities hold under its committed assignment (ADR-0118 item 4).
+        // Quantities read from multipliers conditional on a discrete assignment hold under
+        // that commitment, which the step's `solve_runs` row states (ADR-0118 items 4, 9).
         let conditional = step
             .report
-            .and_then(|r| r.evidence.global)
-            .is_some_and(|g| g.primal == PrimalSource::FixedAssignment);
+            .and_then(|r| r.candidate.as_ref())
+            .is_some_and(|c| c.commitment.is_some());
         let absent = || {
             if step.candidate {
                 (

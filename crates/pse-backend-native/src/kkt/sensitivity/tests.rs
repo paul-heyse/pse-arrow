@@ -235,6 +235,7 @@ fn tail(
         bound_dual: Some((zl.to_vec(), vec![0.0; n])),
         reduced_costs: None,
         slacks: None,
+        commitment: None,
     });
     let accuracy = ResolvedAccuracy::nominal();
     let tolerances = tolerances(n, m);
@@ -387,6 +388,49 @@ fn pinned_columns_keep_their_coordinates() {
         &[(3, f64::INFINITY)][..],
     ] {
         assert!(Pinned::new(Box::new(Analytic::new(P, 2.0, false, true)), pins).is_err());
+    }
+}
+
+/// `Pinned::discrete` commits every integer-valued column at a member of its domain and
+/// only committed columns (ADR-0118 item 9): x₃ ∈ [0, 10] is integer, x₂ ∈ [−10, 10]
+/// semi-continuous and x₁ continuous.
+#[test]
+fn pinned_discrete_commits_integer_columns() {
+    use crate::transform::{Commitment, Pinned, Relaxed};
+    use pse_model::generated::enums::ModelingVariableDomain as D;
+    let relaxed = || {
+        Relaxed::new(
+            Box::new(Analytic::new(P, 2.0, false, false)),
+            vec![D::Continuous, D::Semicontinuous, D::Integer],
+        )
+        .unwrap()
+    };
+    let commit = |columns: &[(u8, f64)]| Commitment {
+        columns: columns.iter().map(|(c, v)| (id(40 + c), *v)).collect(),
+    };
+    // x₃ committed at 3; the semi-continuous x₂ stays over its active interval.
+    let pinned = Pinned::discrete(relaxed(), &commit(&[(2, 3.0)])).unwrap();
+    let variables = &pinned.contract().variables;
+    assert_eq!((variables[2].lower, variables[2].upper), (3.0, 3.0));
+    assert_eq!((variables[1].lower, variables[1].upper), (-10.0, 10.0));
+    // The semi-continuous off branch and a continuous column held at zero are pins too.
+    let pinned = Pinned::discrete(relaxed(), &commit(&[(0, 0.0), (1, 0.0), (2, 3.0)])).unwrap();
+    let variables = &pinned.contract().variables;
+    assert_eq!((variables[0].lower, variables[1].upper), (0.0, 0.0));
+    for columns in [
+        // The integer column is free, off the lattice or outside its box.
+        &[][..],
+        &[(2, 2.5)][..],
+        &[(2, 11.0)][..],
+        // A continuous pin outside its box, a repeated and an unknown column.
+        &[(2, 3.0), (0, 11.0)][..],
+        &[(2, 3.0), (2, 4.0)][..],
+        &[(2, 3.0), (9, 0.0)][..],
+    ] {
+        assert!(
+            Pinned::discrete(relaxed(), &commit(columns)).is_err(),
+            "{columns:?}"
+        );
     }
 }
 

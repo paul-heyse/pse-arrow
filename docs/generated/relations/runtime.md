@@ -1957,9 +1957,9 @@ Native row check `one_evidence_value` (must be true):
 
 ## `solve_runs`
 
-Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution.
+Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution. `commitment` states the discrete assignment, by column and value in original coordinates, that the step's multipliers and every quantity derived from them are conditional on (ADR-0118 item 9): the SCIP fixed-assignment re-solve or the HiGHS fixed-commitment LP. It is absent when the multipliers are not conditional on an assignment.
 
-Version: 4. Snapshot class: `derived`. Primary key: `run_id, step`.
+Version: 5. Snapshot class: `derived`. Primary key: `run_id, step`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -1984,6 +1984,10 @@ Version: 4. Snapshot class: `derived`. Primary key: `run_id, step`.
 | `validation_error` | `Utf8` | true | `payload` | — | — |
 | `error` | `Utf8` | true | `payload` | — | — |
 | `transformation` | `content_hash` | true | `payload` | — | — |
+| `commitment` | `List` | true | `payload` | — | — |
+| `commitment.item` | `Struct` | false | `payload` | — | — |
+| `commitment.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `commitment.item.value` | `Float64` | false | `payload` | — | — |
 
 ## `solve_variables`
 

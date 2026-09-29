@@ -136,6 +136,17 @@ impl BackendExecution for Highs {
                         unavailable: BTreeMap::from([("operation".into(), e.to_string())]),
                         ..Default::default()
                     });
+                // The fixed-commitment LP prices the MIP candidate, conditional on its
+                // commitment (ADR-0118 item 9); both are still native coordinates.
+                if let Some(fixed) = &diagnostics.fixed_lp {
+                    let priced = report.candidate.as_mut().map_or_else(
+                        || Err("no MIP candidate to price".to_owned()),
+                        |candidate| fixed.price(candidate, input.accuracy),
+                    );
+                    if let Err(reason) = priced {
+                        diagnostics.unavailable.insert("fixed_lp.candidate".into(), reason);
+                    }
+                }
                 // An exported ray is the typed certificate of an infeasible or unbounded LP,
                 // in native coordinates like every adapter's; the runner verifies it.
                 report.certificate = crate::certificate::from_highs_rays(

@@ -328,6 +328,9 @@ pub fn recover(
         if let Some(v) = &mut c.slacks {
             values(v, &n.rows, false)?;
         }
+        if let Some(commitment) = &mut c.commitment {
+            commitment_values(commitment, n, contract)?;
+        }
     }
     if let Some(o) = &mut report.observation {
         if let Some(f) = &mut o.objective {
@@ -494,6 +497,22 @@ pub fn diagnostic_request(
     }
     Ok(out)
 }
+/// Committed column values in original coordinates.
+fn commitment_values(
+    commitment: &mut crate::transform::Commitment,
+    n: &Normalization,
+    contract: &OracleContract,
+) -> Result<(), ProblemError> {
+    for (id, value) in &mut commitment.columns {
+        let j = contract
+            .variables
+            .iter()
+            .position(|v| v.id == *id)
+            .ok_or_else(|| ProblemError::Internal("commitment column absent".into()))?;
+        *value = mul(*value, n.variables[j])?;
+    }
+    Ok(())
+}
 /// Restore original diagnostic directions, bounds, costs and relaxed points; IIS identities persist.
 #[cfg(feature = "highs")]
 pub fn recover_diagnostics(
@@ -515,14 +534,7 @@ pub fn recover_diagnostics(
         *v = mul(*v, n.objective)?;
     }
     if let Some(fixed) = &mut r.fixed_lp {
-        for (id, value) in &mut fixed.commitment {
-            let j = contract
-                .variables
-                .iter()
-                .position(|v| v.id == *id)
-                .ok_or_else(|| ProblemError::Internal("commitment column absent".into()))?;
-            *value = mul(*value, n.variables[j])?;
-        }
+        commitment_values(&mut fixed.commitment, n, contract)?;
         if let Some(v) = &mut fixed.objective {
             *v = mul(*v, n.objective)?;
         }

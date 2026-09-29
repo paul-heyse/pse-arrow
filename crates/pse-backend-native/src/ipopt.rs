@@ -919,6 +919,7 @@ impl Session {
                 bound_dual: duals.then(|| (lower.clone(), upper.clone())),
                 reduced_costs: None,
                 slacks: None,
+                commitment: None,
             });
             match quality::contained(|| quality::nlp(context.oracle, &x, tolerances)) {
                 Ok(q) => {

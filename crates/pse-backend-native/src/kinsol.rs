@@ -1115,6 +1115,7 @@ impl Session {
                 bound_dual: None,
                 reduced_costs: None,
                 slacks: None,
+                commitment: None,
             });
             report.warm_start = Some(WarmStart {
                 origin: None,

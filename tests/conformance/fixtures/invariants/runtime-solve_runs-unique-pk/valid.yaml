@@ -7,6 +7,7 @@
         "backend": "[\"enum\",\"ipopt\"]",
         "candidate_kind": "[\"enum\",\"final_iterate\"]",
         "case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "commitment": "[\"list\",[]]",
         "error": "[\"text\",\"value-1\"]",
         "feasible": "[\"bool\",true]",
         "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",

@@ -9,12 +9,53 @@
 //!   parameter of a parametric sensitivity (sIPOPT's pin formulation, S1) or a profile pin
 //!   (S3). A pinned column stays a column, so the KKT-point analysis sees its bound as a
 //!   strongly active row whose multiplier is the derivative of the optimal value along it.
+//!   [`Pinned::discrete`] pins a [`Relaxed`] mixed-integer case under a [`Commitment`]:
+//!   the continuous problem of a discrete assignment.
 //! - [`Unconstrained`] removes the bounds of rows a discrete assignment leaves unenforced
 //!   (the SCIP fixed-assignment re-solve).
+//!
+//! One [`Commitment`] states the assignment behind conditional multipliers, for the SCIP
+//! fixed-assignment re-solve and the HiGHS fixed-commitment LP alike; the candidate those
+//! multipliers belong to carries it.
 //!
 //! Proofs tied to the inner box or row bounds (presolve facts, the compiler's structural
 //! witness) are not forwarded; the transformed callbacks are analysed afresh.
 use crate::{DerivativeFacts, NlpOracle, OracleContract, ProblemError};
+use pse_ids::SemanticId;
+use pse_model::generated::enums::ModelingVariableDomain;
+
+/// The discrete assignment a candidate's multipliers, and every quantity derived from
+/// them, are conditional on (ADR-0118 items 4 and 9; PS-12): the committed columns by
+/// identity, in column order, at their values in original coordinates.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Commitment {
+    /// Committed columns and their values.
+    pub columns: Vec<(SemanticId, f64)>,
+}
+/// NLP callbacks over every column of a mixed-integer case, its discrete domains relaxed
+/// to their declared boxes, with each column's domain. It is not itself an [`NlpOracle`]:
+/// only [`Pinned::discrete`] turns it into callbacks, so no relaxation reaches a solver with
+/// an integer-valued column free.
+#[derive(Debug)]
+pub struct Relaxed {
+    inner: Box<dyn NlpOracle>,
+    domains: Vec<ModelingVariableDomain>,
+}
+impl Relaxed {
+    /// `inner` with the declared domain of each of its columns, in column order.
+    ///
+    /// # Errors
+    /// A domain count that differs from the column count.
+    pub(crate) fn new(
+        inner: Box<dyn NlpOracle>,
+        domains: Vec<ModelingVariableDomain>,
+    ) -> Result<Self, ProblemError> {
+        if domains.len() != inner.contract().variables.len() {
+            return Err(ProblemError::Internal("relaxed column domains".into()));
+        }
+        Ok(Self { inner, domains })
+    }
+}
 
 /// NLP callbacks with some columns held at given values by a degenerate box.
 #[derive(Debug)]
@@ -45,6 +86,56 @@ impl Pinned {
             }
             variable.lower = value;
             variable.upper = value;
+        }
+        Ok(Self { inner, contract })
+    }
+    /// The continuous problem of a mixed-integer case under `commitment` (ADR-0105 §2,
+    /// ADR-0118 item 9). Each committed column is pinned at its value:
+    /// - an integer, binary or semi-integer column must be committed, at a member of its
+    ///   domain;
+    /// - a semi-continuous column is committed at zero, its off branch, or stays free over
+    ///   its declared active interval;
+    /// - a continuous column may be committed inside its box, such as an SOS or cardinality
+    ///   member held at zero.
+    ///
+    /// # Errors
+    /// A committed identity that is not a column or is repeated, an integer-valued column
+    /// left free, or a value outside its column's domain or box.
+    pub fn discrete(relaxed: Relaxed, commitment: &Commitment) -> Result<Self, ProblemError> {
+        use ModelingVariableDomain as D;
+        let Relaxed { inner, domains } = relaxed;
+        let mut contract = inner.contract().clone();
+        let mut committed = std::collections::BTreeMap::new();
+        for (id, value) in &commitment.columns {
+            let column = contract
+                .variables
+                .iter()
+                .position(|v| v.id == *id)
+                .filter(|c| !committed.contains_key(c))
+                .ok_or_else(|| {
+                    ProblemError::Contract(format!("committed column {id} absent or repeated"))
+                })?;
+            committed.insert(column, *value);
+        }
+        for (column, (variable, domain)) in contract.variables.iter_mut().zip(&domains).enumerate()
+        {
+            let admitted = match (domain, committed.get(&column)) {
+                (D::Continuous, Some(v)) => v.is_finite() && *v >= variable.lower && *v <= variable.upper,
+                (d, Some(v)) => d.contains(*v, variable.lower, variable.upper),
+                (D::Continuous | D::Semicontinuous, None) => true,
+                (_, None) => false,
+            };
+            if !admitted {
+                return Err(ProblemError::Unsupported(format!(
+                    "a discrete assignment commits {} ({}) at a member of its domain",
+                    variable.id,
+                    domain.as_str()
+                )));
+            }
+            if let Some(v) = committed.get(&column) {
+                variable.lower = *v;
+                variable.upper = *v;
+            }
         }
         Ok(Self { inner, contract })
     }

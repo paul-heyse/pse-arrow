@@ -22,6 +22,13 @@ mod forms_tests;
 mod global_tests;
 #[cfg(all(test, feature = "solver-ipopt", feature = "solver-highs"))]
 pub(in crate::workflow) mod sensitivity_tests;
+#[cfg(all(
+    test,
+    feature = "solver-scip",
+    feature = "solver-ipopt",
+    feature = "solver-highs"
+))]
+mod commitment_tests;
 mod implicit;
 pub use diagnostics::{
     DiagnosticSampleStop, ElasticObservation, ModelingDiagnosticPolicy,

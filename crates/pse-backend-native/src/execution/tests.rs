@@ -125,6 +125,7 @@ impl BackendExecution for Stub {
             bound_dual: None,
             reduced_costs: None,
             slacks: None,
+            commitment: None,
         });
         report
             .metrics

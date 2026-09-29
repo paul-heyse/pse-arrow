@@ -21,9 +21,10 @@ use crate::{
     quality::{self, Observation, Quality, Violation},
     routing::{self, Requirements, Route},
     solve::{
-        BoundSource, Compatibility, Controls, Metric, Options, PrimalSource, SolveIntent,
-        SolveReport, SolverSelection, WarmPayload, WarmStart,
+        BoundSource, Candidate, Compatibility, Controls, Metric, Options, PrimalSource,
+        SolveIntent, SolveReport, SolverSelection, WarmPayload, WarmStart,
     },
+    transform::{Commitment, Pinned, Relaxed},
 };
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_math::{
@@ -570,14 +571,13 @@ fn refused(refusals: &[Refusal]) -> ProblemError {
     ProblemError::Unsupported(format!("factorable export refused: {}", reasons.join("; ")))
 }
 
-/// Builds original-coordinate NLP callbacks over every column, with the given column
-/// indices fixed at the given integral values.
-pub type FixedOracle<'a> =
-    dyn FnMut(&BTreeMap<usize, f64>) -> Result<Box<dyn NlpOracle>, ProblemError> + 'a;
+/// Builds original-coordinate NLP callbacks over every column of the program with its
+/// discrete domains relaxed, for the re-solve to pin under its assignment.
+pub type RelaxedOracle<'a> = dyn FnMut() -> Result<Relaxed, ProblemError> + 'a;
 /// A continuous re-solve with the discrete columns fixed (ADR-0105 §2, T07).
 pub struct Resolve<'a> {
-    /// The fixed-assignment callbacks.
-    pub oracle: &'a mut FixedOracle<'a>,
+    /// The relaxed callbacks the re-solve pins.
+    pub oracle: &'a mut RelaxedOracle<'a>,
     /// Qualified library preprocessing policy of the re-solve.
     pub presolve: &'a presolve::Policy,
     /// Presolve dimension ceiling.
@@ -596,9 +596,9 @@ impl std::fmt::Debug for Resolve<'_> {
 }
 /// A parametric sensitivity request of the fixed-assignment re-solve (Plan 22 S1).
 pub struct ResolveSensitivity<'a> {
-    /// Builds the parametric callbacks ([`crate::kkt::Sensitivity::oracle`]) with the given
-    /// columns fixed at the given values, as the re-solve's callbacks are.
-    pub oracle: &'a mut FixedOracle<'a>,
+    /// Builds the relaxed parametric callbacks ([`crate::kkt::Sensitivity::oracle`]), which
+    /// the re-solve pins under its assignment as it pins its own.
+    pub oracle: &'a mut RelaxedOracle<'a>,
     /// Each parameter's identity and value, in request order.
     pub parameters: Vec<(SemanticId, f64)>,
     /// Also compute the reduced Hessian over the parameters.
@@ -708,8 +708,8 @@ pub fn factorable(
         {
             let objective = plan.objective.is_some();
             match fixed_assignment(&step, &report, &plan, resolve, objective) {
-                Ok(resolved) => {
-                    if adopt(&mut report, resolved, &plan, run.original, &step) {
+                Ok((resolved, commitment)) => {
+                    if adopt(&mut report, resolved, commitment, &plan, run.original, &step) {
                         global.primal = PrimalSource::FixedAssignment;
                     }
                 }
@@ -908,15 +908,16 @@ fn native_violations(
 /// The continuous problem of the backend's discrete assignment, solved through the one NLP
 /// runner by the automatic NLP route and seeded there: every integer column is fixed at its
 /// rounded incumbent value, every SOS or cardinality member at zero stays zero, and a row
-/// whose indicator is inactive under the assignment is unconstrained. The re-solve's
-/// native state is its own and never replaces a retained global session.
+/// whose indicator is inactive under the assignment is unconstrained. The assignment is the
+/// returned [`Commitment`]. The re-solve's native state is its own and never replaces a
+/// retained global session.
 fn fixed_assignment(
     step: &Step<'_>,
     report: &SolveReport,
     plan: &Plan<'_>,
     resolve: Resolve<'_>,
     objective: bool,
-) -> Result<SolveReport, ProblemError> {
+) -> Result<(SolveReport, Commitment), ProblemError> {
     let program = plan.program;
     let incumbent = report
         .candidate
@@ -947,7 +948,14 @@ fn fixed_assignment(
     for (i, v) in &assignment {
         start[*i] = *v;
     }
-    let mut oracle = (resolve.oracle)(&assignment)?;
+    let commitment = Commitment {
+        columns: assignment
+            .iter()
+            .map(|(i, v)| (program.variables[*i].id, *v))
+            .collect(),
+    };
+    let mut oracle: Box<dyn NlpOracle> =
+        Box::new(Pinned::discrete((resolve.oracle)()?, &commitment)?);
     let relaxed: Vec<usize> = plan
         .rows
         .iter()
@@ -1026,7 +1034,10 @@ fn fixed_assignment(
     // cannot be built withhold the sensitivities; they never refuse the re-solve.
     let (sensitivity, unbuilt) = match resolve.sensitivity {
         Some(request) if intent == SolveIntent::Optimize => {
-            match (request.oracle)(&assignment).and_then(unconstrained) {
+            match (request.oracle)()
+                .and_then(|relaxed| Pinned::discrete(relaxed, &commitment))
+                .and_then(|pinned| unconstrained(Box::new(pinned)))
+            {
                 Ok(oracle) => (
                     Some(crate::kkt::Sensitivity {
                         oracle,
@@ -1083,15 +1094,17 @@ fn fixed_assignment(
         if unbuilt.is_some() {
             report.evidence.sensitivity = unbuilt;
         }
-        report
+        (report, commitment)
     })
 }
 /// Adopt the re-solve's candidate when it met its tolerances, re-observed against the
 /// original model with the declared box and integrality; returns whether it was adopted.
-/// The backend's incumbent objective is kept as a metric.
+/// The candidate carries the `commitment` its multipliers are conditional on. The backend's
+/// incumbent objective is kept as a metric.
 fn adopt(
     report: &mut SolveReport,
     resolved: SolveReport,
+    commitment: Commitment,
     plan: &Plan<'_>,
     original: &mut dyn OriginalModel,
     step: &Step<'_>,
@@ -1122,7 +1135,10 @@ fn adopt(
             .insert("scip.incumbent.objective".into(), Metric::Real(value));
     }
     let local = resolved.observation.clone();
-    report.candidate = resolved.candidate;
+    report.candidate = resolved.candidate.map(|candidate| Candidate {
+        commitment: Some(commitment),
+        ..candidate
+    });
     // A later global step is seeded with the adopted candidate, not the proposal.
     if let (Some(seed), Some(candidate)) = (report.warm_start.as_mut(), &report.candidate) {
         seed.payload = WarmPayload::primal(candidate.primal.clone());

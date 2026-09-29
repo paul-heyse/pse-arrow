@@ -123,6 +123,15 @@ impl RunResult {
                         error,
                         transformation: native
                             .and_then(|r| r.preprocessing.as_ref().map(|p| p.transformation)),
+                        commitment: candidate.and_then(|c| c.commitment.as_ref()).map(|c| {
+                            c.columns
+                                .iter()
+                                .map(|(id, value)| solve_runs::RuntimeSolveRunsFieldCommitmentItem {
+                                    source_id: *id,
+                                    value: *value,
+                                })
+                                .collect()
+                        }),
                     });
 
                     let preparation = request

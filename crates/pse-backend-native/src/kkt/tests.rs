@@ -138,6 +138,7 @@ fn at(
         bound_dual: Some((zl.to_vec(), zu.to_vec())),
         reduced_costs: None,
         slacks: None,
+        commitment: None,
     };
     let observation =
         Observation::from_values(Some(0.0), oracle.values(x), oracle.rows.clone()).unwrap();

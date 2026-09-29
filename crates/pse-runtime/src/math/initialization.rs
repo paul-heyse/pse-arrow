@@ -800,6 +800,7 @@ mod tests {
             bound_dual: None,
             reduced_costs: None,
             slacks: None,
+            commitment: None,
         });
         let mut values = CaseValues {
             scalars: BTreeMap::from([(id(1), 1.0)]),

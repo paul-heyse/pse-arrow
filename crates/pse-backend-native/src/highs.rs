@@ -907,6 +907,7 @@ impl Session {
                     bound_dual: None,
                     reduced_costs: dual.then(|| cd.clone()),
                     slacks: None,
+                    commitment: None,
                 });
                 let quality = p.quality(&x, tolerances)?;
                 if !quality.feasible() {

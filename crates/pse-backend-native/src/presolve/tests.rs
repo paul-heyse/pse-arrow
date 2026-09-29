@@ -443,6 +443,7 @@ fn shared_affine_transport_recovers_original_values_and_kkt() {
         bound_dual: Some((vec![0.0], vec![0.0])),
         reduced_costs: None,
         slacks: None,
+        commitment: None,
     });
     let (report, _) = p.finish(
         report,
@@ -560,6 +561,7 @@ fn failed_observation_preserves_native_status_and_candidate() {
         bound_dual: None,
         reduced_costs: None,
         slacks: None,
+        commitment: None,
     });
     crate::quality::attach_nlp(
         &mut report,
@@ -641,6 +643,7 @@ fn maximization_and_original_warm_seed_preserve_conventions() {
         bound_dual: Some((vec![0.0; 2], vec![0.0; 2])),
         reduced_costs: None,
         slacks: None,
+        commitment: None,
     });
     let (report, _) = pipeline.finish(
         report,
@@ -766,6 +769,7 @@ fn normalization_callbacks_and_original_duals_round_trip() {
         bound_dual: Some((vec![0.0; 2], vec![0.0; 2])),
         reduced_costs: None,
         slacks: None,
+        commitment: None,
     });
     let (report, _) = pipeline.finish(
         report,

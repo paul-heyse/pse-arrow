@@ -507,7 +507,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         b,
         N::Runtime,
         "solve_runs",
-        4,
+        5,
         S::Derived,
         &["run_id", "step"],
         vec![
@@ -537,8 +537,13 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("validation_error", text()).optional(),
             column("error", text()).optional(),
             column("transformation", T::hash()).optional(),
+            column(
+                "commitment",
+                T::list(record(vec![("source_id", T::id()), ("value", real())])),
+            )
+            .optional(),
         ],
-        "Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution.",
+        "Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution. `commitment` states the discrete assignment, by column and value in original coordinates, that the step's multipliers and every quantity derived from them are conditional on (ADR-0118 item 9): the SCIP fixed-assignment re-solve or the HiGHS fixed-commitment LP. It is absent when the multipliers are not conditional on an assignment.",
     );
     relation_version(
         b,

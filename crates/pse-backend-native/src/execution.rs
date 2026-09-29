@@ -34,7 +34,7 @@ mod pounce;
 mod runner;
 mod scip;
 pub use factorable::{
-    Factorable, FixedOracle, Refusal, Resolve, ResolveSensitivity, admit_program, factorable,
+    Factorable, Refusal, RelaxedOracle, Resolve, ResolveSensitivity, admit_program, factorable,
 };
 pub use runner::{
     Analysis, Coefficients, Evaluation, Nlp, OriginalModel, Roots, Step, coefficients, cone, nlp,

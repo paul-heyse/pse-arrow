@@ -1582,6 +1582,14 @@ class RuntimeSolveMetricsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeSolveRunsFieldCommitmentItem:
+    """Declared relation row or nested value."""
+
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    value: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeSolveRunsRow:
     """Declared relation row or nested value."""
 
@@ -1606,6 +1614,7 @@ class RuntimeSolveRunsRow:
     validation_error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     transformation: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    commitment: b.tuple[RuntimeSolveRunsFieldCommitmentItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveRunsFieldCommitmentItem), iterable_validator=attrs.validators.instance_of(b.tuple))))
 
 
 @attrs.frozen(kw_only=True)

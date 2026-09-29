@@ -8,11 +8,12 @@ use pse_ids::SemanticId;
 pub use crate::settings::highs::{Penalties, Request};
 /// The LP of a MIP with its discrete columns fixed at the MIP solution, solved separately.
 /// Its duals price the constraints conditional on that commitment (PS-12); they are not
-/// duals of the MIP, whose discrete decisions have none.
+/// duals of the MIP, whose discrete decisions have none. When it reaches the MIP
+/// candidate's objective, they become the candidate's multipliers ([`FixedLp::price`]).
 #[derive(Clone, Debug)]
 pub struct FixedLp {
-    /// Discrete columns and the values they are fixed at: the commitment.
-    pub commitment: Vec<(SemanticId, f64)>,
+    /// Discrete columns and the values they are fixed at.
+    pub commitment: crate::transform::Commitment,
     /// Native termination of the fixed LP.
     pub termination: NativeTermination,
     /// Objective of the fixed LP, in the authored sense.
@@ -21,6 +22,42 @@ pub struct FixedLp {
     pub row_dual: Option<Vec<f64>>,
     /// Reduced costs conditional on the commitment.
     pub reduced_costs: Option<Vec<f64>>,
+}
+impl FixedLp {
+    /// Price the MIP `candidate` by this LP (ADR-0118 item 9): its multipliers become the
+    /// candidate's, which then carries the commitment they are conditional on. The LP must
+    /// have reached the candidate's own objective within the continuous gap budget, so its
+    /// multipliers price that point. Both are in the native model's coordinates.
+    ///
+    /// # Errors
+    /// Why the candidate cannot be priced; it is left unchanged.
+    pub fn price(
+        &self,
+        candidate: &mut Candidate,
+        accuracy: &ResolvedAccuracy,
+    ) -> Result<(), String> {
+        if self.termination.category != Termination::Success {
+            return Err(format!(
+                "the fixed-commitment LP ended {}",
+                self.termination.category.as_str()
+            ));
+        }
+        let (Some(lp), Some(mip)) = (self.objective, candidate.objective) else {
+            return Err("an objective of the fixed-commitment LP or the candidate is unavailable".into());
+        };
+        if (lp - mip).abs() > accuracy.gap_absolute.max(accuracy.gap_relative * mip.abs()) {
+            return Err(format!(
+                "the fixed-commitment LP optimum {lp} differs from the candidate objective {mip}"
+            ));
+        }
+        let (Some(rows), Some(columns)) = (&self.row_dual, &self.reduced_costs) else {
+            return Err("the fixed-commitment LP has no multipliers".into());
+        };
+        candidate.row_dual = Some(rows.clone());
+        candidate.reduced_costs = Some(columns.clone());
+        candidate.commitment = Some(self.commitment.clone());
+        Ok(())
+    }
 }
 /// The variable basic at one basis position.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -829,15 +866,17 @@ fn fixed_lp(
         return Err(format!("native status={status}, columns={nc}, rows={nr}"));
     }
     lp.start[n] = nz;
-    let commitment = p
-        .contract
-        .variables
-        .iter()
-        .zip(&p.domains)
-        .enumerate()
-        .filter(|(_, (_, d))| **d != ModelingVariableDomain::Continuous)
-        .map(|(j, (v, _))| (v.id, lp.lower[j]))
-        .collect();
+    let commitment = crate::transform::Commitment {
+        columns: p
+            .contract
+            .variables
+            .iter()
+            .zip(&p.domains)
+            .enumerate()
+            .filter(|(_, (_, d))| **d != ModelingVariableDomain::Continuous)
+            .map(|(j, (v, _))| (v.id, lp.lower[j]))
+            .collect(),
+    };
     let (termination, solution, objective) = lp.solve(execution).map_err(|e| e.to_string())?;
     let (row_dual, reduced_costs) = match solution {
         Some((_, cd, rd)) => (Some(rd), Some(cd)),

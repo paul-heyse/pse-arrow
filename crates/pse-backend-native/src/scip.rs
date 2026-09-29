@@ -2499,6 +2499,7 @@ pub(crate) fn solve(
         bound_dual: None,
         reduced_costs: None,
         slacks: None,
+        commitment: None,
     });
     // SAFETY: a mode query of the live instance.
     let exact = r.settings.exact

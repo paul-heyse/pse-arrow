@@ -276,26 +276,18 @@ impl Case {
                 .unwrap(),
         )
     }
-    fn fixed_oracle(
-        &self,
-        assignment: &BTreeMap<usize, f64>,
-    ) -> Result<Box<dyn NlpOracle>, ProblemError> {
+    fn relaxed_oracle(&self) -> Result<crate::transform::Relaxed, ProblemError> {
         let worker = self
             .assembly
             .worker((self.providers)(), Arc::new(AtomicBool::new(false)));
-        let columns = self.assembly.columns();
-        let fixed = assignment.iter().map(|(i, v)| (columns[*i], *v)).collect();
-        Ok(Box::new(
-            crate::assembled::AlgebraicOracle::with_fixed_assignment(
-                worker,
-                self.values.clone(),
-                &fixed,
-            )?
-            .with_normalization(Normalization::identity(
-                columns.len(),
+        crate::assembled::AlgebraicOracle::relaxation(
+            worker,
+            self.values.clone(),
+            Normalization::identity(
+                self.assembly.columns().len(),
                 self.assembly.structure().rows().len(),
-            ))?,
-        ))
+            ),
+        )
     }
 }
 /// The original compiled model, evaluated fresh at a candidate.
@@ -376,7 +368,7 @@ fn run_with(
     let tolerances = tolerances(n, m);
     let normalization = Normalization::identity(n, m);
     let mut original = Original(case);
-    let mut fixed = |a: &BTreeMap<usize, f64>| case.fixed_oracle(a);
+    let mut relaxed = || case.relaxed_oracle();
     let presolve = crate::presolve::Policy::Auto;
     let initial = case.initial();
     let mut execution = execution(cancel);
@@ -400,7 +392,7 @@ fn run_with(
             intent,
             original: &mut original,
             resolve: resolve.then_some(Resolve {
-                oracle: &mut fixed,
+                oracle: &mut relaxed,
                 presolve: &presolve,
                 limit: 100_000,
                 sensitivity: None,
@@ -890,9 +882,18 @@ fn fixed_assignment_resolve_keeps_local_analysis() {
     assert_eq!(point.licq, Licq::Independent);
     assert_eq!(point.curvature, Curvature::Sufficient);
     assert_eq!((point.inertia, point.reduced), ((3, 3, 0), (0, 0, 0)));
-    // The incumbent of an exact export without a re-solve has no local analysis.
+    // The candidate states the commitment its multipliers are conditional on.
+    assert_eq!(
+        report.candidate.as_ref().unwrap().commitment,
+        Some(crate::transform::Commitment {
+            columns: vec![(program.variables[2].id, 1.0)],
+        })
+    );
+    // The incumbent of an exact export without a re-solve has no local analysis and no
+    // conditional multipliers.
     let direct = run(&case, &program, SolveIntent::Optimize, false, false).unwrap();
     assert!(direct.evidence.local.is_none());
+    assert!(direct.candidate.unwrap().commitment.is_none());
 }
 
 #[derive(Debug)]

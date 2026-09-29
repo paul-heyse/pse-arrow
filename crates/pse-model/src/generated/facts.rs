@@ -970,8 +970,8 @@ impl FactBatch {
             }
             Self::r#RuntimeSolveRuns(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    99u8, 233u8, 160u8, 112u8, 127u8, 7u8, 164u8, 244u8, 170u8, 38u8,
-                    168u8, 48u8, 30u8, 21u8, 248u8, 36u8,
+                    9u8, 192u8, 7u8, 103u8, 252u8, 91u8, 227u8, 73u8, 254u8, 250u8,
+                    142u8, 98u8, 175u8, 184u8, 132u8, 181u8,
                 ])
             }
             Self::r#RuntimeSolveVariables(_) => {
