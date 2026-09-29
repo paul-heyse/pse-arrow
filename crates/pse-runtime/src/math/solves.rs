@@ -1411,7 +1411,7 @@ impl MathService {
         let cancel = run.execution.cancel.clone();
         // Executable owners and their budget charges outlive every re-solve oracle.
         let mut owners = Vec::new();
-        let mut fixed = |assignment: &BTreeMap<usize, f64>| {
+        let mut fixed = |assignment: &BTreeMap<usize, (f64, f64)>| {
             (|| -> Result<Box<dyn native::NlpOracle>, MathRuntimeError> {
                 let ExecutionWorker {
                     worker,

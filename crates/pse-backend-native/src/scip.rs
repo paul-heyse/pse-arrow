@@ -10,10 +10,13 @@
 //!
 //! The export maps the neutral program node for node onto SCIP expressions: columns and
 //! auxiliaries become variables with their closed boxes, affine functions become linear
-//! constraints and every other function a nonlinear constraint on its bounds. A nonlinear
-//! objective is exported through an epigraph variable. The native model is read back and
-//! evaluated against [`FactorableProgram::evaluate`] before any claim transfers.
-use crate::execution::factorable::Affine;
+//! constraints and every other function a nonlinear constraint on its bounds. SCIP 10 has
+//! no semicontinuous variable type, so a semi column arrives lowered by the plan's
+//! `semi(indicator)` transformation: its binary indicator is a variable after the
+//! auxiliaries and its links are linear constraints. A nonlinear objective is exported
+//! through an epigraph variable. The native model is read back and evaluated against
+//! [`FactorableProgram::evaluate`] before any claim transfers.
+use crate::execution::factorable::{Affine, Expression, Plan, Semi};
 use crate::{
     LimitKind, NativeStatus, OracleContract, ProblemError, Variable,
     execution::ScipSettings as Settings,
@@ -1030,7 +1033,7 @@ enum Kind {
 #[derive(Debug)]
 struct Exported {
     cons: *mut ffi::SCIP_CONS,
-    node: pse_math::factorable::NodeId,
+    expression: Expression,
     lower: f64,
     upper: f64,
     kind: Kind,
@@ -1038,8 +1041,11 @@ struct Exported {
 /// The native model of one plan.
 #[derive(Debug)]
 pub(crate) struct Export {
-    /// Variables of the columns, then the auxiliaries.
+    /// Variables of the columns, then the auxiliaries, then the indicators of lowered semi
+    /// columns.
     coordinates: Vec<*mut ffi::SCIP_VAR>,
+    /// Lowered semi columns, whose indicators close the coordinates.
+    semi: Vec<Semi>,
     epigraph: Option<*mut ffi::SCIP_VAR>,
     /// Exported functions; the constraint named `c{k}` belongs to plan function `k`.
     constraints: Vec<Exported>,
@@ -1306,14 +1312,12 @@ fn coefficients(form: &Affine, coordinates: usize) -> Vec<f64> {
     }
     out
 }
-/// Export a plan: variables with their boxes and domains, linear, nonlinear, conditional
-/// and native constraints, and the objective (coefficients when affine, an epigraph
-/// otherwise). Exact mode admits only linear programs without native forms; a
-/// reoptimization session only affine objectives and constraints.
-pub(crate) fn export(
-    instance: &mut Instance,
-    plan: &crate::execution::factorable::Plan<'_>,
-) -> Result<Export, ProblemError> {
+/// Export a plan: variables with their boxes and domains (semi columns lowered to binary
+/// indicators and linear links), linear, nonlinear, conditional and native constraints,
+/// and the objective (coefficients when affine, an epigraph otherwise). Exact mode admits
+/// only linear programs without native forms; a reoptimization session only affine
+/// objectives and constraints.
+pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export, ProblemError> {
     let program = plan.program;
     let columns = program.variables.len();
     let modes = instance.modes;
@@ -1356,6 +1360,14 @@ pub(crate) fn export(
             ffi::SCIP_Vartype_SCIP_VARTYPE_CONTINUOUS,
         )?);
     }
+    for j in 0..plan.semi.len() {
+        coordinates.push(instance.variable(
+            &format!("z{j}"),
+            plan.boxes[plan.indicator(j)],
+            0.0,
+            ffi::SCIP_Vartype_SCIP_VARTYPE_BINARY,
+        )?);
+    }
     if let Some((_, sense)) = plan.objective {
         native!(
             "SCIPsetObjsense",
@@ -1387,8 +1399,10 @@ pub(crate) fn export(
     // Nodes under a nonlinear root, marked in one reverse pass.
     let mut needed = vec![false; program.nodes.len()];
     for c in &plan.constraints {
-        if plan.affine[c.node].is_none() {
-            needed[c.node] = true;
+        if let Expression::Node(node) = c.expression
+            && plan.affine[node].is_none()
+        {
+            needed[node] = true;
         }
     }
     let nonlinear_objective = plan
@@ -1413,7 +1427,12 @@ pub(crate) fn export(
             .condition
             .map(|c| instance.literal(coordinates[c.column], !c.active))
             .transpose()?;
-        match (&plan.affine[c.node], condition) {
+        // A function without an affine form is a program node; links are affine.
+        let node = || match c.expression {
+            Expression::Node(node) => Ok(exprs.nodes[node]),
+            Expression::Link(_) => Err(ProblemError::internal("SCIP export of a link")),
+        };
+        match (plan.form(c.expression), condition) {
             (Some(form), None) => {
                 let mut vars: Vec<_> = form.terms.iter().map(|(j, _)| coordinates[*j]).collect();
                 let mut cons = ptr::null_mut();
@@ -1469,7 +1488,7 @@ pub(crate) fn export(
                 linear += 1;
                 constraints.push(Exported {
                     cons,
-                    node: c.node,
+                    expression: c.expression,
                     lower: c.lower,
                     upper: c.upper,
                     kind,
@@ -1503,7 +1522,7 @@ pub(crate) fn export(
                     linear += 1;
                     constraints.push(Exported {
                         cons,
-                        node: c.node,
+                        expression: c.expression,
                         lower: c.lower,
                         upper: c.upper,
                         kind: Kind::Indicator {
@@ -1523,7 +1542,7 @@ pub(crate) fn export(
                         instance.ptr(),
                         &mut cons,
                         name.as_ptr(),
-                        exprs.nodes[c.node],
+                        node()?,
                         lhs,
                         rhs
                     )
@@ -1532,7 +1551,7 @@ pub(crate) fn export(
                 nonlinear += 1;
                 constraints.push(Exported {
                     cons,
-                    node: c.node,
+                    expression: c.expression,
                     lower: c.lower,
                     upper: c.upper,
                     kind: Kind::Nonlinear,
@@ -1565,7 +1584,7 @@ pub(crate) fn export(
                             ptr::null_mut()
                         )
                     )?;
-                    let mut terms = [exprs.nodes[c.node], slack_expr];
+                    let mut terms = [node()?, slack_expr];
                     let mut weights = [1.0, if upper { -1.0 } else { 1.0 }];
                     let mut expr = ptr::null_mut();
                     let created = native!(
@@ -1610,7 +1629,7 @@ pub(crate) fn export(
                     // Read back at zero slack: the lifted function is the row's.
                     constraints.push(Exported {
                         cons,
-                        node: c.node,
+                        expression: c.expression,
                         lower: if upper { f64::NEG_INFINITY } else { c.lower },
                         upper: if upper { c.upper } else { f64::INFINITY },
                         kind: Kind::Nonlinear,
@@ -1687,7 +1706,7 @@ pub(crate) fn export(
         nonlinear += 1;
         constraints.push(Exported {
             cons,
-            node,
+            expression: Expression::Node(node),
             lower: f64::NEG_INFINITY,
             upper: f64::INFINITY,
             kind: Kind::Epigraph,
@@ -1697,6 +1716,7 @@ pub(crate) fn export(
     let native = export_native(instance, plan, &coordinates)?;
     Ok(Export {
         coordinates,
+        semi: plan.semi.clone(),
         epigraph,
         constraints,
         objective: affine_objective.map(|(node, _)| node),
@@ -1716,7 +1736,7 @@ fn objsense(sense: ObjectiveSense) -> ffi::SCIP_OBJSENSE {
 /// ordinal. A fixed operand becomes a fixed variable.
 fn export_native(
     instance: &mut Instance,
-    plan: &crate::execution::factorable::Plan<'_>,
+    plan: &Plan<'_>,
     coordinates: &[*mut ffi::SCIP_VAR],
 ) -> Result<usize, ProblemError> {
     use pse_math::factorable::{NativeOperand, ProjectedNative};
@@ -1926,20 +1946,22 @@ unsafe fn activity(
     }
     Ok(total)
 }
-/// Largest relative deviation between the native model and the neutral program at one
-/// point: sides and function values of every exported constraint, and the objective. An
-/// undefined value on both sides agrees; on one side only it is an infinite deviation.
+/// Largest relative deviation between the native model and the neutral program of `plan`
+/// at one point, with each lowered semi column's indicator at its nearest branch: sides
+/// and function values of every exported constraint, and the objective. An undefined
+/// value on both sides agrees; on one side only it is an infinite deviation.
 pub(crate) fn readback(
     instance: &Instance,
     export: &Export,
-    program: &FactorableProgram,
+    plan: &Plan<'_>,
     point: &[f64],
     auxiliary: &[f64],
 ) -> Result<f64, ProblemError> {
-    let values = program.evaluate(point, auxiliary)?;
+    let values = plan.program.evaluate(point, auxiliary)?;
+    let coordinates = plan.coordinates(point, auxiliary);
     let solution = Solution::new(instance, false)?;
     let mut at: BTreeMap<*mut ffi::SCIP_VAR, f64> = BTreeMap::new();
-    for (var, value) in export.coordinates.iter().zip(point.iter().chain(auxiliary)) {
+    for (var, value) in export.coordinates.iter().zip(&coordinates) {
         solution.set(*var, *value)?;
         at.insert(*var, *value);
     }
@@ -1976,7 +1998,7 @@ pub(crate) fn readback(
     };
     let mut worst: f64 = 0.0;
     for c in &export.constraints {
-        let neutral = values[c.node];
+        let neutral = plan.value(c.expression, &values, &coordinates);
         match c.kind {
             Kind::Linear { constant } => {
                 // SAFETY: a live linear constraint held by the instance; its arrays have
@@ -2071,7 +2093,7 @@ pub(crate) fn readback(
     if let Some(node) = export.objective {
         // SAFETY: a value query of the live instance's objective offset.
         let mut native = unsafe { ffi::SCIPgetOrigObjoffset(s) } + export.offset;
-        for (var, value) in export.coordinates.iter().zip(point.iter().chain(auxiliary)) {
+        for (var, value) in export.coordinates.iter().zip(&coordinates) {
             // SAFETY: an objective-coefficient query of a held variable.
             native += unsafe { ffi::SCIPvarGetObj(*var) } * value;
         }
@@ -2079,8 +2101,9 @@ pub(crate) fn readback(
     }
     Ok(worst)
 }
-/// Submit a primal incumbent in program columns. A program with auxiliaries or an
-/// epigraph gets a partial solution, completed by SCIP; returns whether SCIP stored it.
+/// Submit a primal incumbent in program columns, each lowered semi column's indicator at
+/// its nearest branch. A program with auxiliaries or an epigraph gets a partial solution,
+/// completed by SCIP; returns whether SCIP stored it.
 fn inject(
     instance: &Instance,
     export: &Export,
@@ -2097,6 +2120,10 @@ fn inject(
     for (var, value) in export.coordinates.iter().zip(primal) {
         solution.set(*var, *value)?;
     }
+    let first = export.coordinates.len() - export.semi.len();
+    for (s, var) in export.semi.iter().zip(&export.coordinates[first..]) {
+        solution.set(*var, f64::from(u8::from(s.active(primal[s.column]))))?;
+    }
     let mut stored = 0;
     let added = native!(
         "SCIPaddSolFree",
@@ -2111,12 +2138,12 @@ fn inject(
 /// Identity of the constraint system a reoptimization session was built for: every
 /// exported function's affine form, sides and condition, the box, the domains and the
 /// native forms. Only the objective may change between the steps of one session.
-fn system(plan: &crate::execution::factorable::Plan<'_>) -> Result<ContentHash, ProblemError> {
+fn system(plan: &Plan<'_>) -> Result<ContentHash, ProblemError> {
     let mut h = FramedHasher::new(pse_ids::Frame::ScipReoptimizationSystemV1);
     h.hash(&plan.domain);
     h.u64(plan.constraints.len() as u64);
     for c in &plan.constraints {
-        let form = plan.affine[c.node].as_ref().ok_or_else(|| {
+        let form = plan.form(c.expression).ok_or_else(|| {
             ProblemError::Unsupported("SCIP reoptimization admits linear constraints only".into())
         })?;
         h.u64(pse_ids::canonical_f64_bits(c.lower))
@@ -2149,7 +2176,7 @@ impl Session {
     /// Install the step's objective in the retained problem (`SCIPchgReoptObjective`).
     fn reoptimize(
         &mut self,
-        plan: &crate::execution::factorable::Plan<'_>,
+        plan: &Plan<'_>,
         execution: &Execution,
     ) -> Result<(), ProblemError> {
         let s = self.instance.ptr();
@@ -2200,7 +2227,7 @@ impl Session {
 /// Build an instance, configure it and export the plan.
 fn build(
     r: &Request<'_>,
-    plan: &crate::execution::factorable::Plan<'_>,
+    plan: &Plan<'_>,
     gap_absolute: f64,
 ) -> Result<Session, ProblemError> {
     let mut instance = Instance::new(
@@ -2236,7 +2263,7 @@ fn build(
 /// minimized; the declared bounds of the variables the kept constraints use stay members.
 fn iis(
     session: &Session,
-    plan: &crate::execution::factorable::Plan<'_>,
+    plan: &Plan<'_>,
     execution: &Execution,
 ) -> Result<Option<Iis>, ProblemError> {
     use crate::execution::factorable::Origin;
@@ -2308,6 +2335,16 @@ fn iis(
                     instance: program.implicit[b].instance,
                     ordinal: k,
                 },
+                // A link is its semi column's domain: `x − u·z ≤ 0` carries the upper
+                // bound and `x − l·z ≥ 0` the active lower bound.
+                Origin::SemiLink { semi, upper } => {
+                    let id = program.variables[plan.semi[semi].column].id;
+                    if upper {
+                        IisMember::VariableUpper(id)
+                    } else {
+                        IisMember::VariableLower(id)
+                    }
+                }
             });
         } else if let Some(k) = ordinal(&text, 'n') {
             members.insert(IisMember::Native(k));
@@ -2425,17 +2462,11 @@ pub(crate) fn solve(
         .zip(&plan.boxes)
         .map(|(x, b)| clamp(*x, *b))
         .collect();
-    let auxiliary: Vec<f64> = plan.boxes[columns..]
+    let auxiliary: Vec<f64> = plan.boxes[columns..plan.indicator(0)]
         .iter()
         .map(|b| clamp(0.5 * (b.0 + b.1), *b))
         .collect();
-    let deviation = readback(
-        &session.instance,
-        &session.export,
-        program,
-        &start,
-        &auxiliary,
-    )?;
+    let deviation = readback(&session.instance, &session.export, &plan, &start, &auxiliary)?;
     let submitted = match r.warm {
         // Exact solving certifies its own solutions; a floating-point seed is not given.
         Some(_) if r.settings.exact => None,
@@ -2587,11 +2618,12 @@ pub(crate) fn solve(
         exact,
     });
     report.global = Some(Arc::new(GlobalRecord {
-        boxes: plan.boxes.clone(),
+        boxes: plan.boxes[..plan.indicator(0)].to_vec(),
         pool,
         iis: subsystem,
         exact_objective,
         reoptimized,
+        transformations: plan.transformations(),
     }));
     let metrics = &mut report.metrics;
     metrics.insert("scip.status".into(), Metric::Integer(i64::from(raw)));
@@ -2733,7 +2765,7 @@ pub(crate) mod testing {
         let export = export(&mut instance, &plan)?;
         let mut worst: f64 = 0.0;
         for (x, a) in points {
-            worst = worst.max(readback(&instance, &export, program, x, a)?);
+            worst = worst.max(readback(&instance, &export, &plan, x, a)?);
         }
         Ok((worst, export.linear, export.nonlinear))
     }
@@ -2746,12 +2778,14 @@ pub(crate) mod testing {
     ) -> Result<f64, ProblemError> {
         let plan = crate::execution::factorable::plan(exported, SolveIntent::FeasiblePoint)
             .map_err(|r| ProblemError::Unsupported(format!("{r:?}")))?;
+        let reference = crate::execution::factorable::plan(checked, SolveIntent::FeasiblePoint)
+            .map_err(|r| ProblemError::Unsupported(format!("{r:?}")))?;
         let execution = Execution::new(Arc::default(), &Controls::default());
         let mut instance = Instance::new(&execution, Modes::default())?;
         let export = export(&mut instance, &plan)?;
         let mut worst: f64 = 0.0;
         for (x, a) in points {
-            worst = worst.max(readback(&instance, &export, checked, x, a)?);
+            worst = worst.max(readback(&instance, &export, &reference, x, a)?);
         }
         Ok(worst)
     }

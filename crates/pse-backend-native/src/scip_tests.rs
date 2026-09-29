@@ -278,7 +278,7 @@ impl Case {
     }
     fn fixed_oracle(
         &self,
-        assignment: &BTreeMap<usize, f64>,
+        assignment: &BTreeMap<usize, (f64, f64)>,
     ) -> Result<Box<dyn NlpOracle>, ProblemError> {
         let worker = self
             .assembly
@@ -376,7 +376,7 @@ fn run_with(
     let tolerances = tolerances(n, m);
     let normalization = Normalization::identity(n, m);
     let mut original = Original(case);
-    let mut fixed = |a: &BTreeMap<usize, f64>| case.fixed_oracle(a);
+    let mut fixed = |a: &BTreeMap<usize, (f64, f64)>| case.fixed_oracle(a);
     let presolve = crate::presolve::Policy::Auto;
     let initial = case.initial();
     let mut execution = execution(cancel);
@@ -2047,4 +2047,384 @@ fn scip_incumbent_events_apply_offset() {
                 .all(|e| e.incumbent.is_none() || e.phase == "scip.incumbent")
         );
     }
+}
+
+/// Semicontinuous supply: min price·s + 3p  s.t.  s + p ≥ demand, s ∈ {0} ∪ [lower, 5]
+/// (semi-integer when `domain` says so), p ∈ [0, 3].
+fn semi_supply(
+    registry: &QuantityRegistry,
+    domain: ModelingVariableDomain,
+    lower: f64,
+    price: f64,
+    demand: f64,
+) -> Case {
+    let mut b = Body::new(registry, 2);
+    let (s, p) = (b.x[0].clone(), b.x[1].clone());
+    let row = b.op(Binary::Add, &s, &p);
+    let price = b.c(price);
+    let three = b.c(3.0);
+    let supply = b.op(Binary::Mul, &price, &s);
+    let purchase = b.op(Binary::Mul, &three, &p);
+    let objective = b.op(Binary::Add, &supply, &purchase);
+    let body = b.b.prepare(&[row, objective]).unwrap();
+    case(
+        registry,
+        body,
+        &[
+            (domain, Some(lower), Some(5.0), 0.0),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(0.0),
+                Some(3.0),
+                3.0,
+            ),
+        ],
+        &[(demand, f64::INFINITY)],
+        Some((1, ObjectiveSense::Minimize)),
+        DerivativeOrder::Second,
+    )
+}
+/// The same case on HiGHS, which consumes semi domains natively.
+fn highs_native(case: &Case) -> SolveReport {
+    let cancel = Arc::new(AtomicBool::new(false));
+    let coefficients = case
+        .assembly
+        .coefficients(&case.values, 100, &cancel)
+        .unwrap();
+    let constants = coefficients.row_constants.clone();
+    let problem = crate::CoefficientProblem::from_plan(&case.assembly, coefficients).unwrap();
+    let n = problem.contract.variables.len();
+    let m = problem.bounds.len();
+    let controls = Controls::default();
+    let accuracy = ResolvedAccuracy::nominal();
+    let tolerances = tolerances(n, m);
+    let normalization = Normalization::identity(n, m);
+    let row_bounds = case
+        .assembly
+        .structure()
+        .rows()
+        .iter()
+        .map(|r| (r.lower, r.upper))
+        .collect();
+    execution::coefficients(
+        Step {
+            adapter: execution::adapter(Backend::Highs),
+            settings: &BackendSettings::Default,
+            controls: &controls,
+            accuracy: &accuracy,
+            execution: execution(false),
+            tolerances: &tolerances,
+            normalization: &normalization,
+            compatibility: stamp(Backend::Highs),
+            warm: None,
+        },
+        &mut Retained::default(),
+        execution::Coefficients {
+            problem: &problem,
+            certificate: None,
+            row_constants: &constants,
+            row_bounds,
+            original: &mut Original(case),
+        },
+    )
+    .unwrap()
+}
+
+#[test]
+fn semi_indicator_lowering_matches_highs_native() {
+    let registry = standard_registry().unwrap();
+    // Demand 1.5 takes the zero branch (s = 0, p = 1.5: 4.5 against 5 at s = 2; the
+    // continuous relaxation would reach 3.75), demand 3 the active branch (s = 3: 7.5).
+    for (demand, expected, supply) in [(1.5, 4.5, 0.0), (3.0, 7.5, 3.0)] {
+        let case = semi_supply(
+            &registry,
+            ModelingVariableDomain::Semicontinuous,
+            2.0,
+            2.5,
+            demand,
+        );
+        let program = case.program(&FactorableRequest::default());
+        assert!(execution::admit_program(&program, SolveIntent::Optimize).is_empty());
+        let scip = run(&case, &program, SolveIntent::Optimize, true, false).unwrap();
+        assert_eq!(scip.termination.category, Termination::Success);
+        let x = &scip.candidate.as_ref().unwrap().primal;
+        assert!((x[0] - supply).abs() < 1e-6, "{demand}: {x:?}");
+        let objective = scip.observation.as_ref().unwrap().objective.unwrap();
+        assert!((objective - expected).abs() < 1e-6, "{demand}: {objective}");
+        assert_eq!(scip.qualification, Qualification::GapQualified, "{demand}");
+        let quality = scip.quality.as_ref().unwrap();
+        assert!(quality.feasible());
+        // HiGHS solves the semi domain natively to the same optimum.
+        let highs = highs_native(&case);
+        assert_eq!(highs.backend, Backend::Highs);
+        let y = &highs.candidate.as_ref().unwrap().primal;
+        let native = highs.observation.as_ref().unwrap().objective.unwrap();
+        assert!((native - objective).abs() < 1e-6, "{demand}: {native} {objective}");
+        assert!((y[0] - x[0]).abs() < 1e-6, "{demand}: {y:?} {x:?}");
+    }
+}
+
+#[test]
+fn semiinteger_lowering_keeps_integrality() {
+    // n ∈ {0} ∪ {2, …, 5} with demand 3.5 and p ≤ 3: n = 3, p = 0.5 costs 9, while a
+    // semicontinuous n = 3.5 would cost 8.75 and n = 0 is infeasible.
+    let registry = standard_registry().unwrap();
+    let case = semi_supply(
+        &registry,
+        ModelingVariableDomain::Semiinteger,
+        2.0,
+        2.5,
+        3.5,
+    );
+    let program = case.program(&FactorableRequest::default());
+    let plan = execution::factorable::plan(&program, SolveIntent::Optimize).unwrap();
+    assert_eq!(plan.semi.len(), 1);
+    assert!(plan.discrete());
+    let report = run(&case, &program, SolveIntent::Optimize, true, false).unwrap();
+    let x = &report.candidate.as_ref().unwrap().primal;
+    assert!((x[0] - 3.0).abs() < 1e-9, "{x:?}");
+    assert!((x[1] - 0.5).abs() < 1e-6, "{x:?}");
+    let objective = report.observation.as_ref().unwrap().objective.unwrap();
+    assert!((objective - 9.0).abs() < 1e-6, "{objective}");
+    assert_eq!(report.qualification, Qualification::GapQualified);
+    // The semi-integer column keeps its integrality check beside its domain check.
+    let quality = report.quality.as_ref().unwrap();
+    assert_eq!(quality.integrality.len(), 1);
+    assert_eq!(quality.integrality[0].id, id(1));
+    let record = report.global.as_ref().unwrap();
+    assert!(matches!(
+        record.transformations[..],
+        [crate::solve::ExportTransformation::SemiIndicator { integer: true, .. }]
+    ));
+}
+
+/// min w·s² + 4p  s.t.  s + p ≥ 3, s ∈ {0} ∪ [2, 5], p ∈ [0, 4]. Over the relaxed box the
+/// optimum s = 2/w falls in the gap (0, 2): w = 1.5 takes the active branch at its lower
+/// end (s = 2, p = 1: 10 against 12), w = 3 the zero branch (s = 0, p = 3: 12 against 16).
+fn semi_process(registry: &QuantityRegistry, weight: f64) -> Case {
+    let mut b = Body::new(registry, 2);
+    let (s, p) = (b.x[0].clone(), b.x[1].clone());
+    let row = b.op(Binary::Add, &s, &p);
+    let w = b.c(weight);
+    let four = b.c(4.0);
+    let ss = b.op(Binary::Mul, &s, &s);
+    let heat = b.op(Binary::Mul, &w, &ss);
+    let purchase = b.op(Binary::Mul, &four, &p);
+    let objective = b.op(Binary::Add, &heat, &purchase);
+    let body = b.b.prepare(&[row, objective]).unwrap();
+    case(
+        registry,
+        body,
+        &[
+            (
+                ModelingVariableDomain::Semicontinuous,
+                Some(2.0),
+                Some(5.0),
+                0.0,
+            ),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(0.0),
+                Some(4.0),
+                3.0,
+            ),
+        ],
+        &[(3.0, f64::INFINITY)],
+        Some((1, ObjectiveSense::Minimize)),
+        DerivativeOrder::Second,
+    )
+}
+
+#[test]
+fn semi_minlp_fixed_assignment_resolve() {
+    use crate::kkt::{Activity, Side};
+    use pse_math::index::OriginalCol;
+    let registry = standard_registry().unwrap();
+    for (weight, supply, expected, activity) in [
+        (1.5, 2.0, 10.0, Activity::Strong(Side::Lower)),
+        (3.0, 0.0, 12.0, Activity::Strong(Side::Equal)),
+    ] {
+        let case = semi_process(&registry, weight);
+        let program = case.program(&FactorableRequest::default());
+        let report = run(&case, &program, SolveIntent::Optimize, true, false).unwrap();
+        let g = report.evidence.global.unwrap();
+        // A nonlinear program with a lowered semi column is mixed-integer: SCIP's incumbent
+        // is an assignment proposal and the candidate the continuous re-solve.
+        assert_eq!(g.primal, PrimalSource::FixedAssignment, "{weight}");
+        let x = &report.candidate.as_ref().unwrap().primal;
+        assert!((x[0] - supply).abs() < 1e-6, "{weight}: {x:?}");
+        let objective = report.observation.as_ref().unwrap().objective.unwrap();
+        assert!((objective - expected).abs() < 1e-5, "{weight}: {objective}");
+        assert_eq!(report.qualification, Qualification::GapQualified, "{weight}");
+        // The re-solve committed the branch: z = 1 keeps s in [2, 5], where the lower end
+        // binds (a relaxed [0, 5] would reach s = 2/w); z = 0 pins s at zero.
+        let point = match &report.evidence.local {
+            Some(Ok(point)) => point,
+            other => panic!("{weight}: {other:?}"),
+        };
+        assert_eq!(point.bounds[OriginalCol::new(0)], activity, "{weight}");
+    }
+    // Original qualification measures the distance to {0} ∪ [2, 5]: the relaxed optimum
+    // s = 4/3 of w = 1.5 violates the semi domain by 2/3.
+    let case = semi_process(&registry, 1.5);
+    let program = case.program(&FactorableRequest::default());
+    let plan = execution::factorable::plan(&program, SolveIntent::Optimize).unwrap();
+    let gap = 4.0 / 3.0;
+    let (quality, _) = execution::factorable::assess(
+        &plan,
+        &mut Original(&case),
+        &tolerances(2, 1),
+        &[gap, 3.0 - gap],
+    )
+    .unwrap();
+    assert!(!quality.feasible());
+    assert!((quality.bounds[0].physical - 2.0 / 3.0).abs() < 1e-12);
+    for (x, violation) in [(0.0, 0.0), (0.5, 0.5), (1.5, 0.5), (3.0, 0.0), (6.0, 1.0)] {
+        assert!((plan.semi[0].violation(x) - violation).abs() < 1e-12, "{x}");
+    }
+}
+
+#[test]
+fn semi_transformation_recorded() {
+    let registry = standard_registry().unwrap();
+    let case = semi_supply(
+        &registry,
+        ModelingVariableDomain::Semicontinuous,
+        2.0,
+        2.5,
+        1.5,
+    );
+    let program = case.program(&FactorableRequest::default());
+    // The projection keeps the zero branch in the box and the active interval beside it.
+    assert_eq!(
+        (program.variables[0].lower, program.variables[0].active_lower),
+        (0.0, Some(2.0))
+    );
+    let plan = execution::factorable::plan(&program, SolveIntent::Optimize).unwrap();
+    assert_eq!(plan.boxes, vec![(0.0, 5.0), (0.0, 3.0), (0.0, 1.0)]);
+    assert_eq!(plan.links.len(), 2);
+    assert!(plan.constraints[1..].iter().all(|c| matches!(
+        c.origin,
+        execution::factorable::Origin::SemiLink { semi: 0, .. }
+    )));
+    // The active interval is part of the branched domain's identity.
+    let narrower = semi_supply(
+        &registry,
+        ModelingVariableDomain::Semicontinuous,
+        2.5,
+        2.5,
+        1.5,
+    )
+    .program(&FactorableRequest::default());
+    let other = execution::factorable::plan(&narrower, SolveIntent::Optimize).unwrap();
+    assert_eq!(other.boxes, plan.boxes);
+    assert_ne!(other.domain, plan.domain);
+    let report = run(&case, &program, SolveIntent::Optimize, true, false).unwrap();
+    let record = report.global.as_ref().unwrap();
+    assert_eq!(
+        record.transformations,
+        vec![crate::solve::ExportTransformation::SemiIndicator {
+            variable: id(1),
+            lower: 2.0,
+            upper: 5.0,
+            integer: false,
+        }]
+    );
+    // The recorded box is the declared one; the indicator belongs to the transformation.
+    assert_eq!(record.boxes, vec![(0.0, 5.0), (0.0, 3.0)]);
+    assert!(matches!(
+        report.metrics["export.lowered.semi_indicator"],
+        crate::solve::Metric::Integer(1)
+    ));
+    assert!(matches!(
+        report.metrics["export.constraints.linear"],
+        crate::solve::Metric::Integer(3)
+    ));
+    assert!(report.evidence.global.unwrap().readback);
+    // An infeasible subsystem maps the links back to the semi column's declared bounds:
+    // s ≥ 0.5 excludes the zero branch and s ≤ 1 the active one, while the continuous
+    // relaxation of the indicator is feasible.
+    let b = Body::new(&registry, 1);
+    let s = b.x[0].clone();
+    let body = b.b.prepare(&[s.clone(), s]).unwrap();
+    let blocked = super::scip_tests::case(
+        &registry,
+        body,
+        &[(
+            ModelingVariableDomain::Semicontinuous,
+            Some(2.0),
+            Some(5.0),
+            0.0,
+        )],
+        &[(0.5, f64::INFINITY), (f64::NEG_INFINITY, 1.0)],
+        None,
+        DerivativeOrder::Value,
+    );
+    let program = blocked.program(&FactorableRequest::default());
+    let settings = ScipSettings {
+        iis: true,
+        ..ScipSettings::default()
+    };
+    let report = run_with(
+        &blocked,
+        &program,
+        SolveIntent::Certify,
+        false,
+        false,
+        &settings,
+        &Controls::default(),
+        &mut Retained::default(),
+    )
+    .unwrap();
+    assert_eq!(report.termination.assurance, Assurance::ProvenInfeasible);
+    let iis = report.global.as_ref().unwrap().iis.clone().unwrap();
+    assert_eq!(
+        iis.members,
+        vec![
+            IisMember::Row(id(101)),
+            IisMember::Row(id(102)),
+            IisMember::VariableLower(id(1)),
+            IisMember::VariableUpper(id(1)),
+        ],
+        "{iis:?}"
+    );
+}
+
+#[test]
+fn exact_mode_accepts_semi_lowering() {
+    // The lowering adds a binary and two linear rows, which exact solving represents.
+    let registry = standard_registry().unwrap();
+    let case = semi_supply(
+        &registry,
+        ModelingVariableDomain::Semicontinuous,
+        2.0,
+        2.5,
+        1.5,
+    );
+    let program = case.program(&FactorableRequest::default());
+    let exact = ScipSettings {
+        exact: true,
+        ..ScipSettings::default()
+    };
+    let report = run_with(
+        &case,
+        &program,
+        SolveIntent::Certify,
+        false,
+        false,
+        &exact,
+        &Controls::default(),
+        &mut Retained::default(),
+    )
+    .unwrap();
+    assert_eq!(report.termination.category, Termination::Success);
+    let g = report.evidence.global.unwrap();
+    assert!(g.exact && g.readback, "{g:?}");
+    assert_eq!(report.termination.assurance, Assurance::ExactCertificate);
+    assert_eq!(report.qualification, Qualification::OptimalWithinTolerance);
+    let x = &report.candidate.as_ref().unwrap().primal;
+    assert!(x[0] == 0.0 && (x[1] - 1.5).abs() < 1e-12, "{x:?}");
+    let record = report.global.as_ref().unwrap();
+    assert_eq!(record.exact_objective.as_deref(), Some("9/2"));
+    assert_eq!(record.transformations.len(), 1);
 }

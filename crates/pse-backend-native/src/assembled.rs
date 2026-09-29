@@ -58,33 +58,33 @@ impl AlgebraicOracle {
         })
     }
     /// The continuous problem of a mixed-integer case with every free discrete column
-    /// fixed (ADR-0105 §2): each fixed column keeps its coordinate with the degenerate box
-    /// `[v, v]`, so candidates, normalization and tolerances keep the original column
-    /// order. Every free discrete column needs an integral value inside its box, and only
-    /// discrete columns may be fixed this way.
+    /// committed to a branch (ADR-0105 §2): each committed column keeps its coordinate
+    /// with its committed closed box, so candidates, normalization and tolerances keep the
+    /// original column order. A degenerate box `[v, v]` fixes a discrete column at a value
+    /// of its domain (a semi column's zero branch is `[0, 0]`); a semicontinuous column on
+    /// its active branch keeps exactly its active interval. Only discrete columns may be
+    /// committed, and every free one must be.
     pub fn with_fixed_assignment(
         worker: CaseWorker,
         mut values: CaseValues,
-        assignment: &std::collections::BTreeMap<pse_ids::SemanticId, f64>,
+        assignment: &std::collections::BTreeMap<pse_ids::SemanticId, (f64, f64)>,
     ) -> Result<Self, ProblemError> {
         let assembly = worker.assembly();
         for v in assembly.structure().variables().iter().filter(|v| !v.fixed) {
+            let (lower, upper) = (
+                v.lower.unwrap_or(f64::NEG_INFINITY),
+                v.upper.unwrap_or(f64::INFINITY),
+            );
             match (v.domain, assignment.get(&v.port.id)) {
                 (ModelingVariableDomain::Continuous, None) => {}
-                (d, Some(x))
-                    if d.is_integer()
-                        && !d.is_semi()
-                        && d.contains(
-                            *x,
-                            v.lower.unwrap_or(f64::NEG_INFINITY),
-                            v.upper.unwrap_or(f64::INFINITY),
-                        ) =>
-                {
-                    values.scalars.insert(v.port.id, *x);
+                (d, Some(&(l, u))) if l == u && d.is_discrete() && d.contains(l, lower, upper) => {
+                    values.scalars.insert(v.port.id, l);
                 }
+                (ModelingVariableDomain::Semicontinuous, Some(&(l, u)))
+                    if l == lower && u == upper && l < u => {}
                 _ => {
                     return Err(ProblemError::Unsupported(
-                        "a fixed assignment fixes every free integer column at an integral value in its box, and nothing else".into(),
+                        "a fixed assignment commits every free discrete column to one value of its domain, or a semicontinuous column to its active interval, and nothing else".into(),
                     ));
                 }
             }
@@ -92,9 +92,9 @@ impl AlgebraicOracle {
         assembly.structure().validate_values(&values)?;
         let mut contract = contract(assembly);
         for v in &mut contract.variables {
-            if let Some(x) = assignment.get(&v.id) {
-                v.lower = *x;
-                v.upper = *x;
+            if let Some((lower, upper)) = assignment.get(&v.id) {
+                v.lower = *lower;
+                v.upper = *upper;
             }
         }
         contract.validate(assembly.order())?;

@@ -1276,6 +1276,26 @@ pub struct GlobalRecord {
     pub exact_objective: Option<String>,
     /// The attempt reused a retained native search tree (reoptimization).
     pub reoptimized: bool,
+    /// Named transformations the export applied to the program, in column order.
+    pub transformations: Vec<ExportTransformation>,
+}
+/// A named transformation the factorable export applied to the program (ADR-0104 item 2),
+/// recorded with the global records it conditions.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ExportTransformation {
+    /// `semi(indicator)` (ADR-0103 Outcome 7), exact: a semi column is exported over the
+    /// box `[0, upper]` with a binary indicator `z` and the rows `x − upper·z ≤ 0` and
+    /// `x − lower·z ≥ 0`, for a backend without native semi domains.
+    SemiIndicator {
+        /// The lowered case variable.
+        variable: SemanticId,
+        /// Lower end of the active interval, positive.
+        lower: f64,
+        /// Upper end of the active interval.
+        upper: f64,
+        /// The column keeps its integrality (a semi-integer domain).
+        integer: bool,
+    },
 }
 /// One ranked solution of the backend's pool.
 #[derive(Clone, Debug, PartialEq)]
