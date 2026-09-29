@@ -5,6 +5,9 @@
 @id("01a0eecf2935721c9fc3aa94612a7df5") use equilibrium @"1.0.0";
 @id("01a0eecf2935721c9fc3aa9523df1db3") use flashing @"1.0.0";
 @id("01a0eecf2935721c9fc3aa96368cb9d7") use bt_pr @"1.0.0";
+@id("01a0eef9a1b5764cac354b546cbb61b9") use chemistry @"1.0.0";
+@id("01a0eef9a1b5764cac354b552088e9e5") use peng_robinson @"1.0.0";
+@id("01a0eef9a1b5764cac354b56e542fad0") use phase_stability @"1.0.0";
 @id("01a0eecf2935721c9fc3aa970addbbc4") test bt_pr_flash_smooth source "IDAES 2.13 test_flash TestInitializersCubicModularBTX (BT_PR, Flash at 368 K and 101325 Pa, zero duty and pressure change); the same flowsheet under the smooth formulation of the one BT_PR binding" revision "2.13.0" fixture {dof 0; run steady; fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa};} {
 @id("01a0eecf2935721c9fc3aa98b477b588") child root:flashing.Flash=flashing.Flash(inlet_pkg=bt_pr.BT_PR(defined_state=true,formulation=equilibrium.VleFormulation.smooth),outlet_pkg=bt_pr.BT_PR(defined_state=false,formulation=equilibrium.VleFormulation.smooth));
 @id("01a0eecf2935721c9fc3aa9922b7d32a") expect root.liquid_flow==0.6033{mol/s} tolerance 0.001{mol/s};
@@ -37,5 +40,15 @@
 @id("01a0eecf2935721c9fc3aab295f40ae0") expect root.liquid_composition[chem.toluene]==0.5843{1} tolerance 0.001{1};
 @id("01a0eecf2935721c9fc3aab315b19576") expect root.vapor_composition[chem.benzene]==0.6282{1} tolerance 0.001{1};
 @id("01a0eecf2935721c9fc3aab4f00e7637") expect root.vapor_composition[chem.toluene]==0.3718{1} tolerance 0.001{1};
+}
+@id("01a0eef9a1b5764cac354b57402b8dd1") table solved_liquid[j:chemistry.species]:Scalar complete_over(j in chem.aromatics);
+@id("01a0eef9a1b5764cac354b58c6738d25") dataset flash_liquid:solved_liquid source "Liquid of the BT_PR flash at 368 K and 101325 Pa: IDAES 2.13 test_flash TestInitializersCubicModularBTX, reproduced by bt_pr_flash_smooth, bt_pr_flash_complementarity and bt_pr_flash_nested" {
+[chem.benzene]=[0.4157];
+[chem.toluene]=[0.5843];
+}
+@id("01a0eef9a1b5764cac354b5962c36d51") fn liquid_fraction(j:chemistry.species)->Scalar=solved_liquid[j];
+@id("01a0eef9a1b5764cac354b5a39185826") test bt_pr_liquid_stability source "Tangent-plane stability of the solved BT_PR flash liquid under the same Peng-Robinson law: a phase in equilibrium has a nonnegative minimum tangent-plane distance, zero at itself and at its equilibrium vapor" revision "1" fixture {dof 1; run steady; intent certify; value root.temperature=368{K}; value root.pressure=101325{Pa}; value root.reference_lower=5000{mol/m^3}; value root.reference_upper=11000{mol/m^3}; value root.trial_upper=10500{mol/m^3}; value root.reference.rho=9460{mol/m^3}; value root.trial.rho=34{mol/m^3};} {
+@id("01a0eef9a1b5764cac354b5bc48b03c1") child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=chem.aromatics,law=peng_robinson.potential,feed=liquid_fraction);
+@id("01a0eef9a1b5764cac354b5c78b9cff2") expect root.tpd==0 tolerance 0.000001;
 }
 }
