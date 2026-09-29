@@ -55,6 +55,21 @@ pub(crate) fn tokenize(text: &str) -> Result<Vec<Token<'_>>, DslError> {
                     .nth(1)
                     .is_some_and(|next| next.is_ascii_digit()))
         {
+            // An integer immediately followed by `..` is a range bound, not a decimal:
+            // `0..2` is `0`, `..`, `2`.
+            let digits = input.as_ref().bytes().take_while(u8::is_ascii_digit).count();
+            if digits > 0 && input.as_ref()[digits..].starts_with("..") {
+                let token = input.next_slice(digits);
+                tokens.push(Token {
+                    text: token,
+                    span: Span {
+                        start,
+                        end: offset(&input),
+                    },
+                    kind: Kind::Number,
+                });
+                continue;
+            }
             let token = winnow::ascii::float::<_, f64, ContextError>
                 .take()
                 .parse_next(&mut input)

@@ -4,9 +4,9 @@
 @id("01a0e15d9eff71b98e7519e83b8efeb3") use caloric @"1.0.0";
 @id("01a0e15d9eff71b98e7519e9e5e8ca27") fn density_unit()->MolarDensity=1{mol/m^3};
 @id("01a0e15d9eff71b98e7519ead7a657a5") fn pressure_unit()->Pressure=1{Pa};
-@id("01a0e15d9eff71b98e7519eb95586157") table liquid_density[j:caloric.fit]:{a:Scalar,b:Scalar,c:TemperatureScale,d:Scalar,minimum:Temperature,maximum:Temperature};
+@id("01a0e15d9eff71b98e7519eb95586157") table liquid_density[j:caloric.fit]:{a:Scalar,b:Scalar,c:TemperatureScale,d:Scalar,minimum:Temperature,maximum:Temperature} complete_over(j);
 @id("01a0e15d9eff71b98e7519ec07e63356") fn perry_density(T:Temperature,p:Row<liquid_density>)->MolarDensity valid(T>=p.minimum and T<=p.maximum and T/p.c<1 and p.b>0) = 1000*density_unit()*p.a*exp(-(1+exp(p.d*log(1-T/p.c)))*log(p.b));
-@id("01a0e15d9eff71b98e7519ed86b88858") table vapor_pressure[j:caloric.fit]:{a:Scalar,b:Scalar,c:Scalar,d:Scalar,tc:TemperatureScale,pc:Pressure,minimum:Temperature,maximum:Temperature};
+@id("01a0e15d9eff71b98e7519ed86b88858") table vapor_pressure[j:caloric.fit]:{a:Scalar,b:Scalar,c:Scalar,d:Scalar,tc:TemperatureScale,pc:Pressure,minimum:Temperature,maximum:Temperature} complete_over(j);
 @id("01a0e15d9eff71b98e7519ee2fe5b4c6") fn rpp4_pressure(T:Temperature,p:Row<vapor_pressure>)->Pressure valid(T>=p.minimum and T<=p.maximum and T/p.tc<1 and T/p.tc>0) = p.pc*exp((p.a*tau+p.b*tau^(3/2)+p.c*tau^3+p.d*tau^6)/(1-tau)) where tau=1-T/p.tc;
 @id("01a0e15d9eff71b98e7519efb5cf642c") fn constant_density(T:Temperature,rho:MolarDensity)->MolarDensity valid(T>caloric.absolute_zero()) = rho;
 @id("01a0e15d9eff71b98e7519f0b7955f21") interface VaporPressure {

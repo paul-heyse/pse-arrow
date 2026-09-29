@@ -39,7 +39,7 @@
 @id("01a0e1461e93764398a669fa47465afc") set aromatics:Set<chemistry.species>={benzene,toluene};
 @id("01a0e1461e93764398a669fb6e743962") set alkanes:Set<chemistry.species>={methane,ethane,propane};
 @id("01a0e1461e93764398a669fca4ddfdbe") set saponification_species:Set<chemistry.species>={ethyl_acetate,sodium_hydroxide,sodium_acetate,ethanol,water};
-@id("01a0e1461e93764398a669fdf92fb6c9") table atomic_mass[e:chemistry.element]:MolarMass;
+@id("01a0e1461e93764398a669fdf92fb6c9") table atomic_mass[e:chemistry.element]:MolarMass complete_over(e in elements);
 @id("01a0e1461e94708a83138816e9f2da10") dataset ciaaw_2024:atomic_mass source "CIAAW abridged standard atomic weights 2024; kg/mol; normal terrestrial materials" {
 [H]=[0.001008{kg/mol}];
 [C]=[0.012011{kg/mol}];

@@ -323,7 +323,7 @@ fn indexed_dispatch_groups_implementations() {
  set things: Set<thing> = {a,b,c};
  interface I { var x: Scalar; }
  def A : I { var x: Scalar; } def B : I { var x: Scalar; }
- table method[j: thing]: I;
+ table method[j: thing]: I complete_over(j in things);
  dataset choices: method source "synthetic" { [a] = [A]; [b] = [B]; [c] = [A]; }
  def Root { child items[j in things]: I = method[j]; }
  }"#,
@@ -520,7 +520,7 @@ fn finite_set_projection_filter_product_and_relation_image() {
  set all: Set<item> = union(left,right);
  set pairs: Set<Tuple<item,item>> = product(left,right);
  set selected: Set<item> = {j for j in all where j != c};
- table edge[from:item,to:item]: Scalar;
+ table edge[from:item,to:item]: Scalar missing optional;
  dataset graph: edge source "synthetic" { [a,b] = [1]; [a,c] = [1]; [b,c] = [1]; }
  set image: Set<item> = {at(pair,1) for pair in keys(edge) where at(pair,0) == a};
  def Root {
@@ -690,7 +690,7 @@ fn presets_preserve_the_bound_definition_contract() {
 #[test]
 fn requirements_reduce_typed_tables_and_reject_bad_data() {
     let text = r#"package p { entity kind item {} entity item a {} entity item b {} set items: Set<item>={a,b};
- table amount[j:item]: Scalar; dataset rows: amount source "synthetic" {[a]=[2];[b]=[3];}
+ table amount[j:item]: Scalar complete_over(j in items); dataset rows: amount source "synthetic" {[a]=[2];[b]=[3];}
  def Root { require abs(sum(j in items | amount[j])-5) < 0.01 : "table closure"; }
  }"#;
     assert!(

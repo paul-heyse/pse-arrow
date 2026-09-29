@@ -517,9 +517,9 @@ pub fn infer(
                 .get(&id)
                 .ok_or_else(|| invalid(at, "keys requires a table"))?;
             Ok(Type::Set(Box::new(if table.keys.len() == 1 {
-                table.keys[0].clone()
+                table.keys[0].ty.clone()
             } else {
-                Type::Tuple(table.keys.clone())
+                Type::Tuple(table.keys.iter().map(|k| k.ty.clone()).collect())
             })))
         }
         ExprKind::NamedCall { name, args } if matches!(name.as_str(), "union" | "product") => {
@@ -1729,12 +1729,12 @@ fn path_type(
             if segment.indices.len() != table.keys.len() {
                 return Err(invalid(at, "table key arity"));
             }
-            for (index, expected) in segment.indices.iter().zip(&table.keys) {
-                if !p.subsumes(expected, &infer(index, env, p, c, at, Some(expected))?) {
+            for (index, key) in segment.indices.iter().zip(&table.keys) {
+                if !p.subsumes(&key.ty, &infer(index, env, p, c, at, Some(&key.ty))?) {
                     return Err(invalid(at, "table key type"));
                 }
             }
-            ty = if table.optional {
+            ty = if table.optional() {
                 Type::Optional(Box::new(table.result.clone()))
             } else {
                 table.result.clone()
@@ -1873,8 +1873,8 @@ fn member_type(
         Type::Row(id) => p
             .tables
             .get(id)
-            .and_then(|t| t.columns.iter().find(|(n, _)| n == name))
-            .map(|(_, ty)| (ty.clone(), None))
+            .and_then(|t| t.columns.iter().find(|c| c.name == name))
+            .map(|c| (c.ty.clone(), None))
             .ok_or_else(|| invalid(at, "unknown table column")),
         Type::Entity(id) | Type::Definition(id) | Type::Interface(id) => {
             let member = p

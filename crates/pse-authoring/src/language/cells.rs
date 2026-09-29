@@ -3,34 +3,41 @@
 
 //! Data cells as typed tagged values (ADR-0123 Outcome 1).
 //!
-//! A cell is parsed once, where it is written, into one of eight variants: a Boolean, an
+//! A cell is parsed once, where it is written, into one of nine variants: a Boolean, an
 //! integer, a quantity (a magnitude and a canonical unit product), text, an identifier of a
-//! declared scheme, a reference or a set of references by path, or explicit absence. Each
-//! may carry an uncertainty. A cell is never an expression: nothing here evaluates, and
-//! names are path segments the checker resolves once. [`render_cell`] prints the canonical
-//! spelling that [`parse_cell`] reads back to the same cell.
+//! declared scheme, a reference or a set of references by path, a keyed-row reference, or
+//! explicit absence. Each may carry an uncertainty. A cell is never an expression: nothing
+//! here evaluates, and names are path segments the checker resolves once. [`render_cell`]
+//! prints the canonical spelling that [`parse_cell`] reads back to the same cell.
 //!
 //! ```text
 //! cell  := value ['±' ('standard' | 'relative' | 'bound') '(' number ')']
 //! value := 'missing' | 'true' | 'false' | quoted
 //!        | 'Id' '<' path '>' '(' quoted ')'
 //!        | ['-'] number ['{' unit '}']
-//!        | '{' [path {',' path}] '}' | path
+//!        | '{' [path {',' path}] '}' | path ['[' key {',' key} ']']
+//! key   := a cell without an uncertainty that is a Boolean, an integer, a quantity, text,
+//!          an identifier or a reference
 //! ```
 //!
 //! A number without a unit, decimal point or exponent is an integer cell; any other number
 //! is a quantity cell, dimensionless when it has no unit. A reference path starts with a
-//! plain identifier; later segments may be quoted.
+//! plain identifier; later segments may be quoted. `path[keys]` names a row of a keyed kind
+//! or of a table by its key cells (Plan 23 KR5); admission resolves it.
 use crate::AuthoringError;
-pub use pse_model::generated::enums::{ModelingCellKind as CellKind, ModelingUncertaintyKind};
+pub use pse_model::generated::enums::{
+    ModelingCellKind as CellKind, ModelingKeyCellKind as KeyCellKind, ModelingUncertaintyKind,
+};
 pub use pse_model::generated::structures::{
     ModelingCell as Cell, ModelingCellUncertainty as CellUncertainty,
     ModelingCellValue as CellValue, ModelingCellValueBoolean as CellBoolean,
     ModelingCellValueIdentifier as CellIdentifier, ModelingCellValueInteger as CellInteger,
-    ModelingCellValueQuantity as CellQuantity, ModelingCellValueQuantityUnitItem as CellUnitFactor,
-    ModelingCellValueReference as CellReference, ModelingCellValueReferences as CellReferences,
-    ModelingCellValueReferencesPathsItem as CellPath, ModelingCellValueSelected as CellSelected,
-    ModelingCellValueText as CellText,
+    ModelingCellValueQuantity as CellQuantity, ModelingCellValueReference as CellReference,
+    ModelingCellValueReferences as CellReferences,
+    ModelingCellValueReferencesPathsItem as CellPath, ModelingCellValueRow as CellRow,
+    ModelingCellValueSelected as CellSelected, ModelingCellValueText as CellText,
+    ModelingKeyCell as KeyCell, ModelingKeyCellSelected as KeyCellSelected,
+    ModelingUnitFactor as CellUnitFactor,
 };
 
 fn bad(reason: impl Into<String>) -> AuthoringError {
@@ -46,6 +53,45 @@ pub fn cell(value: CellValue) -> Cell {
         value,
         uncertainty: None,
     }
+}
+
+/// The key cell a key of a keyed-row reference is written as: a scalar cell without an
+/// uncertainty.
+///
+/// # Errors
+/// Absence, a set, a further row reference or an uncertainty.
+pub fn key_cell(cell: &Cell) -> Result<KeyCell, AuthoringError> {
+    if cell.uncertainty.is_some() {
+        return Err(bad("a key cell carries no uncertainty"));
+    }
+    Ok(match cell.value.selected().map_err(|e| bad(e.to_string()))? {
+        CellSelected::Boolean(v) => KeyCell::from_boolean(v.clone()),
+        CellSelected::Integer(v) => KeyCell::from_integer(v.clone()),
+        CellSelected::Quantity(v) => KeyCell::from_quantity(v.clone()),
+        CellSelected::Text(v) => KeyCell::from_text(v.clone()),
+        CellSelected::Identifier(v) => KeyCell::from_identifier(v.clone()),
+        CellSelected::Reference(v) => KeyCell::from_reference(v.clone()),
+        CellSelected::Missing | CellSelected::References(_) | CellSelected::Row(_) => {
+            return Err(bad(
+                "a key cell is a Boolean, an integer, a quantity, text, an identifier or a reference",
+            ));
+        }
+    })
+}
+
+/// The cell a key cell stands for, typed as any cell is.
+///
+/// # Errors
+/// A malformed tagged key cell.
+pub fn key_cell_value(key: &KeyCell) -> Result<Cell, AuthoringError> {
+    Ok(cell(match key.selected().map_err(|e| bad(e.to_string()))? {
+        KeyCellSelected::Boolean(v) => CellValue::from_boolean(v.clone()),
+        KeyCellSelected::Integer(v) => CellValue::from_integer(v.clone()),
+        KeyCellSelected::Quantity(v) => CellValue::from_quantity(v.clone()),
+        KeyCellSelected::Text(v) => CellValue::from_text(v.clone()),
+        KeyCellSelected::Identifier(v) => CellValue::from_identifier(v.clone()),
+        KeyCellSelected::Reference(v) => CellValue::from_reference(v.clone()),
+    }))
 }
 
 /// The canonical unit product of a quantity cell; `None` for a bare number, which is the
@@ -153,6 +199,20 @@ pub fn render_cell(cell: &Cell) -> Result<String, AuthoringError> {
                 .collect::<Result<Vec<_>, _>>()?
                 .join(", ")
         ),
+        CellSelected::Row(v) => {
+            if v.keys.is_empty() {
+                return Err(bad("a keyed-row reference names at least one key"));
+            }
+            format!(
+                "{}[{}]",
+                path(&v.target)?,
+                v.keys
+                    .iter()
+                    .map(|key| render_cell(&key_cell_value(key)?))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .join(", ")
+            )
+        }
     };
     Ok(match &cell.uncertainty {
         None => value,
@@ -211,6 +271,8 @@ mod tests {
             ("chem.benzene", "chem.benzene"),
             ("{ a , b.c }", "{a, b.c}"),
             ("{}", "{}"),
+            ("caloric_set[chem.benzene, 1, \"a\"]", "caloric_set[chem.benzene, 1, \"a\"]"),
+            ("element[ \"C\" ]", "element[\"C\"]"),
             ("missing", "missing"),
             ("true", "true"),
             ("12.011{g/mol} ± standard(0.0008)", "12.011{g/mol} ± standard(0.0008)"),
@@ -222,7 +284,25 @@ mod tests {
         assert_eq!(parse_cell("6{kg}").unwrap().value.kind, CellKind::Quantity);
         // A written dimensionless unit is kept apart from a bare number.
         assert_ne!(parse_cell("0.5{1}").unwrap(), parse_cell("0.5").unwrap());
-        for invalid in ["", "1+2", "x*2", "Id<cas>(71)", "{a", "a ± sigma(1)", "f(x)", "[a]"] {
+        assert_eq!(
+            parse_cell("kind[a, 2]").unwrap().value.kind,
+            CellKind::Row
+        );
+        for invalid in [
+            "",
+            "1+2",
+            "x*2",
+            "Id<cas>(71)",
+            "{a",
+            "a ± sigma(1)",
+            "f(x)",
+            "[a]",
+            "kind[]",
+            "kind[missing]",
+            "kind[{a}]",
+            "kind[a[1]]",
+            "kind[1 ± standard(1.0)]",
+        ] {
             assert!(parse_cell(invalid).is_err(), "{invalid}");
         }
     }

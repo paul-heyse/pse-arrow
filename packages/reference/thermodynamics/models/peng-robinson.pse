@@ -5,8 +5,8 @@
 @id("01a0e16f32a3739a874c126e9ed994cd") use caloric @"1.0.0";
 @id("01a0e16f32a3739a874c126f267b5147") use pure_properties @"1.0.0";
 @id("01a0e16f32a3739a874c127084b1b608") use helmholtz @"1.0.0";
-@id("01a0e16f32a3739a874c12713218f3c0") table critical[j:chemistry.species]:{tc:Temperature,pc:Pressure,omega:Scalar};
-@id("01a0e16f32a3739a874c127263557761") table interaction[i:chemistry.species,j:chemistry.species]:Scalar;
+@id("01a0e16f32a3739a874c12713218f3c0") table critical[j:chemistry.species]:{tc:Temperature,pc:Pressure,omega:Scalar} complete_over(j);
+@id("01a0e16f32a3739a874c127263557761") table interaction[i:chemistry.species,j:chemistry.species]:Scalar complete_over(i,j);
 @id("01a0e16f32a3739a874c1273be829596") fn attractive(t:Scalar,j:chemistry.species)->Scalar valid(t>0) = 0.45724*helmholtz.reduced_gas_constant()^2*tc*tc/pc*(1+k*(1-sqrt(t/tc)))^2 where tc=critical[j].tc/caloric.kelvin(),pc=critical[j].pc/pure_properties.pressure_unit(),w=critical[j].omega,k=0.37464+1.54226*w-0.26992*w*w;
 @id("01a0e16f32a3739a874c127454d61f81") fn covolume(j:chemistry.species)->Scalar = 0.07780*helmholtz.reduced_gas_constant()*(critical[j].tc/caloric.kelvin())/(critical[j].pc/pure_properties.pressure_unit());
 @id("01a0e16f32a3739a874c12757f489c73") fn a_mix(t:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar = sum(i in members | sum(j in members | n[i]*n[j]*sqrt(attractive(t,i)*attractive(t,j))*(1-interaction[i,j])))/(sum(i in members | n[i]))^2;

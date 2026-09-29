@@ -13,6 +13,12 @@
 //! refinement is content, so key uniqueness holds across every refinement. Identifier
 //! values are opaque, compared byte-exactly and unique within the admitted package closure
 //! ([`ModelingIdentifierScope`]).
+//!
+//! Keyed rows are admitted in phases that do not depend on declaration order (ADR-0123
+//! Outcome 3): every row's identity is formed from its key cells first, so a cell may
+//! reference any keyed row by its kind and key cells (`kind[keys]`), its own kind's rows
+//! included. The references are then resolved against the admitted identities, and the
+//! rows a kind's rows reference within that kind form an acyclic lineage.
 use crate::specialize::value::{self, Value, conforms};
 use crate::{CheckedPackage, DeclarationId, Result, Type, TypeContext, invalid};
 use pse_authoring::language::{Cell, CellSelected};
@@ -202,18 +208,31 @@ fn label(p: &CheckedPackage, entity: DeclarationId, record: &Record) -> String {
     }
 }
 
+/// What a keyed-row reference cell resolves against (Plan 23 KR5).
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Rows<'a> {
+    /// No keyed row is admitted where the cell is typed: a kind's default or binding.
+    Unavailable,
+    /// Row identities are being formed: a reference is its identity and named kind,
+    /// resolved in the next phase.
+    Identity,
+    /// Every keyed row's identity and concrete kind.
+    Admitted(&'a BTreeMap<DeclarationId, DeclarationId>),
+}
+
 /// Type a cell against `ty` at the declaration `at` that holds it (ADR-0123 Outcome 1).
 ///
 /// # Errors
 /// A cell of another type, an unresolved path, an entity of another kind, an undeclared
-/// member or scheme, absence where a value is required, or an uncertainty on a value that
-/// is not numeric.
+/// member or scheme, absence where a value is required, a keyed row that is not admitted,
+/// or an uncertainty on a value that is not numeric.
 pub(crate) fn typed(
     p: &CheckedPackage,
     c: &TypeContext<'_>,
     at: DeclarationId,
     cell: &Cell,
     ty: &Type,
+    rows: Rows<'_>,
 ) -> Result<Typed> {
     let selected = cell
         .value
@@ -224,7 +243,10 @@ pub(crate) fn typed(
         (CellSelected::Missing, _) => {
             return Err(invalid(at, format!("missing value where {ty:?} is required")));
         }
-        (_, Type::Optional(inner)) => return typed(p, c, at, cell, inner),
+        (_, Type::Optional(inner)) => return typed(p, c, at, cell, inner, rows),
+        (CellSelected::Row(v), Type::Entity(expected)) => {
+            (keyed_reference(p, c, at, v, *expected, rows)?, None)
+        }
         (CellSelected::Boolean(v), Type::Boolean) => (Value::Boolean(v.value), None),
         (CellSelected::Integer(v), Type::Integer) => (Value::Integer(v.value), Some(1.)),
         (CellSelected::Integer(v), Type::Quantity(_)) => {
@@ -327,8 +349,94 @@ fn kind_name(selected: CellSelected<'_>) -> &'static str {
         CellSelected::Identifier(_) => "an identifier",
         CellSelected::Reference(_) => "a reference",
         CellSelected::References(_) => "a set",
+        CellSelected::Row(_) => "a keyed-row reference",
         CellSelected::Missing => "a missing",
     }
+}
+
+/// A keyed-row reference `kind[keys]`: the key-declaring kind's keys in order, trailing
+/// keys with a default omitted, as a lookup names them (Plan 23 KR5). Its identity is the
+/// row's; its concrete kind must refine both the named kind and the expected one.
+fn keyed_reference(
+    p: &CheckedPackage,
+    c: &TypeContext<'_>,
+    at: DeclarationId,
+    reference: &pse_authoring::language::CellRow,
+    expected: DeclarationId,
+    rows: Rows<'_>,
+) -> Result<Value> {
+    let path = reference.target.join(".");
+    let named = p
+        .resolve(at, &path)
+        .filter(|id| p.kinds.contains_key(id))
+        .ok_or_else(|| invalid(at, format!("{path} is not an entity kind")))?;
+    let Some((key_kind, keys)) = p.keys(named) else {
+        return Err(invalid(at, format!("kind {path} has no keys")));
+    };
+    if !p.refines(named, expected) && !p.refines(expected, named) {
+        return Err(invalid(
+            at,
+            format!(
+                "a {path} row is not an entity of kind {}",
+                p.declarations[&expected].name
+            ),
+        ));
+    }
+    if reference.keys.len() > keys.len() || keys[reference.keys.len()..].iter().any(|k| k.2.is_none())
+    {
+        return Err(invalid(
+            at,
+            format!(
+                "a {path} row is referenced by its keys {:?}",
+                keys.iter().map(|k| &k.0).collect::<Vec<_>>()
+            ),
+        ));
+    }
+    let mut values = Vec::with_capacity(keys.len());
+    for (index, (_, ty, default)) in keys.iter().enumerate() {
+        values.push(match reference.keys.get(index) {
+            Some(key) => {
+                let cell = pse_authoring::language::key_cell_value(key)
+                    .map_err(|e| invalid(at, e.to_string()))?;
+                typed(p, c, at, &cell, ty, rows)?.value
+            }
+            None => default.clone().ok_or_else(|| invalid(at, "key default"))?,
+        });
+    }
+    let id = keyed_identity(key_kind, &values);
+    let kind = match rows {
+        Rows::Unavailable => {
+            return Err(invalid(
+                at,
+                format!("a keyed-row reference to {path} is resolved against admitted rows; a kind's default or binding names none"),
+            ));
+        }
+        Rows::Identity => named,
+        Rows::Admitted(index) => {
+            let kind = *index.get(&id).ok_or_else(|| {
+                invalid(
+                    at,
+                    format!(
+                        "no {path} row has the keys [{}]",
+                        values.iter().map(|v| crate::data::display(p, v)).collect::<Vec<_>>().join(", ")
+                    ),
+                )
+            })?;
+            if !p.refines(kind, named) || !p.refines(kind, expected) {
+                return Err(invalid(
+                    at,
+                    format!(
+                        "the {path} row [{}] is of kind {}, not an entity of kind {}",
+                        values.iter().map(|v| crate::data::display(p, v)).collect::<Vec<_>>().join(", "),
+                        p.declarations[&kind].name,
+                        p.declarations[&expected].name
+                    ),
+                ));
+            }
+            kind
+        }
+    };
+    Ok(Value::Entity { id, kind })
 }
 
 /// A reference cell's path, resolved once against the expected type.
@@ -446,9 +554,53 @@ fn key_type(ty: &Type) -> bool {
     )
 }
 
-/// Admit every kind, constant, declared entity and keyed row (ADR-0123 Outcome 2).
+/// Admit every kind, constant, declared entity and keyed row (ADR-0123 Outcomes 2–3).
+///
+/// Phase 1 forms every keyed row's identity from its key cells; phase 2 types every
+/// constant, entity attribute and row value against those identities, so references need
+/// no declaration order; the rows each kind's rows reference within their own kind must
+/// then be acyclic.
 pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
     admit_kinds(p, c)?;
+    let datasets = p
+        .declarations
+        .values()
+        .filter_map(|row| {
+            let dataset = row.value.dataset.as_ref()?;
+            let kind = p
+                .resolve(row.declaration_id, &dataset.target)
+                .filter(|id| p.kinds.contains_key(id))?;
+            Some((row.declaration_id, kind, dataset))
+        })
+        .collect::<Vec<_>>();
+    // Phase 1: identities from keys.
+    let mut index = BTreeMap::<DeclarationId, (DeclarationId, DeclarationId)>::new();
+    for (dataset, kind, data) in &datasets {
+        for id in identities(p, c, *dataset, *kind, data)? {
+            if let Some((previous_kind, previous)) = index.insert(id, (*kind, *dataset)) {
+                return Err(invalid(
+                    *dataset,
+                    format!(
+                        "the key of this {} row is already admitted: {} (kind {}) and {} (kind {}) supply the same key of kind {}",
+                        p.declarations[kind].name,
+                        p.declarations[&previous].name,
+                        p.declarations[&previous_kind].name,
+                        p.declarations[dataset].name,
+                        p.declarations[kind].name,
+                        p.kinds[kind]
+                            .key_kind
+                            .map_or_else(String::new, |k| p.declarations[&k].name.clone()),
+                    ),
+                ));
+            }
+        }
+    }
+    let admitted = index
+        .iter()
+        .map(|(id, (kind, _))| (*id, *kind))
+        .collect::<BTreeMap<_, _>>();
+    let resolved = Rows::Admitted(&admitted);
+    // Phase 2: values typed against the admitted identities.
     let constants = p
         .declarations
         .values()
@@ -458,42 +610,23 @@ pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                 .types
                 .get(&id)
                 .ok_or_else(|| invalid(id, "constant type absent"))?;
-            Ok((id, typed(p, c, id, &constant.value, ty)?))
+            Ok((id, typed(p, c, id, &constant.value, ty, resolved)?))
         })
         .collect::<Result<BTreeMap<_, _>>>()?;
     p.constants = constants;
     let mut records = Vec::new();
     for row in p.declarations.values() {
         if let Some(entity) = &row.value.entity {
-            records.push((row.declaration_id, declared(p, c, row.declaration_id, entity)?));
-        }
-    }
-    for row in p.declarations.values() {
-        if let Some(dataset) = &row.value.dataset
-            && let Some(kind) = p
-                .resolve(row.declaration_id, &dataset.target)
-                .filter(|id| p.kinds.contains_key(id))
-        {
-            records.extend(rows(p, c, row.declaration_id, kind, dataset)?);
-        }
-    }
-    for (id, record) in records {
-        if let Some(previous) = p.entities.get(&id) {
-            return Err(invalid(
-                record.origin,
-                format!(
-                    "the key of this {} row is already admitted: {} (kind {}) and {} (kind {}) supply the same key of kind {}",
-                    p.declarations[&record.kind].name,
-                    p.declarations[&previous.origin].name,
-                    p.declarations[&previous.kind].name,
-                    p.declarations[&record.origin].name,
-                    p.declarations[&record.kind].name,
-                    p.kinds[&record.kind]
-                        .key_kind
-                        .map_or_else(String::new, |k| p.declarations[&k].name.clone()),
-                ),
+            records.push((
+                row.declaration_id,
+                declared(p, c, row.declaration_id, entity, resolved)?,
             ));
         }
+    }
+    for (dataset, kind, data) in &datasets {
+        records.extend(rows(p, c, *dataset, *kind, data, resolved)?);
+    }
+    for (id, record) in records {
         for value in record.values.values() {
             if let Value::Identifier { scheme, value } = value
                 && let Err(holder) = p.identifiers.insert(*scheme, value, id)
@@ -510,6 +643,70 @@ pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
             }
         }
         p.entities.insert(id, record);
+    }
+    lineage(p)
+}
+
+/// The rows of each key-declaring kind that its rows reference form an acyclic lineage: a
+/// fitted or derived row may name the row it came from, never, through others, itself
+/// (ADR-0123 Outcome 3). A cycle is refused with its rows named.
+fn lineage(p: &CheckedPackage) -> Result<()> {
+    let family = |id: &DeclarationId| {
+        let record = p.entities.get(id)?;
+        (record.origin != *id).then_some(())?;
+        p.kinds.get(&record.kind)?.key_kind
+    };
+    let mut graph = petgraph::graph::DiGraph::<DeclarationId, ()>::new();
+    let nodes = p
+        .entities
+        .keys()
+        .filter(|id| family(id).is_some())
+        .map(|id| (*id, graph.add_node(*id)))
+        .collect::<BTreeMap<_, _>>();
+    fn references(value: &Value, out: &mut Vec<DeclarationId>) {
+        match value {
+            Value::Entity { id, .. } => out.push(*id),
+            Value::Set(values) | Value::Tuple(values) => {
+                for v in values {
+                    references(v, out);
+                }
+            }
+            _ => {}
+        }
+    }
+    for (id, node) in &nodes {
+        let mut targets = Vec::new();
+        for value in p.entities[id].values.values() {
+            references(value, &mut targets);
+        }
+        for target in targets {
+            if let Some(to) = nodes.get(&target).filter(|_| family(&target) == family(id)) {
+                graph.add_edge(*to, *node, ());
+            }
+        }
+    }
+    if let Some(cycle) = petgraph::algo::kosaraju_scc(&graph)
+        .into_iter()
+        .find(|c| c.len() > 1 || c.first().is_some_and(|n| graph.contains_edge(*n, *n)))
+    {
+        let mut rows = cycle
+            .iter()
+            .map(|n| {
+                let id = graph[*n];
+                crate::data::display(
+                    p,
+                    &Value::Entity {
+                        id,
+                        kind: p.entities[&id].kind,
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+        rows.sort();
+        return Err(invalid(
+            p.entities[&graph[cycle[0]]].origin,
+            format!("rows reference one another in a cycle: {}", rows.join(", ")),
+        ));
     }
     Ok(())
 }
@@ -575,8 +772,10 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                         own_keys.push(name.clone());
                     }
                     if let Some(cell) = &attribute.value {
-                        kind.defaults
-                            .insert(name.clone(), typed(p, c, child, cell, &ty)?);
+                        kind.defaults.insert(
+                            name.clone(),
+                            typed(p, c, child, cell, &ty, Rows::Unavailable)?,
+                        );
                     }
                     kind.attributes.push((name, child));
                 }
@@ -680,7 +879,7 @@ fn bound(
             uncertainty: None,
         });
     }
-    typed(p, c, at, cell, ty)
+    typed(p, c, at, cell, ty, Rows::Unavailable)
 }
 
 /// A declared entity's record: supplied values, then kind bindings, defaults and absence.
@@ -689,6 +888,7 @@ fn declared(
     c: &TypeContext<'_>,
     id: DeclarationId,
     entity: &pse_authoring::language::AuthoredModelingDeclarationsFieldValueEntity,
+    rows: Rows<'_>,
 ) -> Result<Record> {
     let Some(Type::Entity(kind)) = p.types.get(&id).cloned() else {
         return Err(invalid(id, "entity requires a declared kind"));
@@ -714,7 +914,7 @@ fn declared(
         }
         supplied.insert(
             attribute.name.clone(),
-            typed(p, c, id, &attribute.value, &p.types[&declaring])?,
+            typed(p, c, id, &attribute.value, &p.types[&declaring], rows)?,
         );
     }
     record(p, kind, id, supplied)
@@ -801,17 +1001,31 @@ fn record(
     })
 }
 
-/// The rows of a dataset whose target is a keyed kind. Row keys are the keys the dataset
-/// does not bind, in declaration order; row values are the kind's other unbound
-/// attributes, in lineage order. Trailing keys and values with a default, and trailing
-/// optional values, may be omitted.
-fn rows(
-    p: &CheckedPackage,
+/// The key and value layout of a dataset whose target is a keyed kind. Row keys are the
+/// keys the dataset does not bind, in declaration order; row values are the kind's other
+/// unbound attributes, in lineage order. Trailing keys and values with a default, and
+/// trailing optional values, may be omitted.
+struct Layout<'a> {
+    key_kind: DeclarationId,
+    keys: Vec<(String, Type, Option<Value>)>,
+    bound: BTreeMap<String, Typed>,
+    values: Vec<&'a (String, DeclarationId)>,
+}
+impl Layout<'_> {
+    fn unbound(&self) -> impl Iterator<Item = &(String, Type, Option<Value>)> {
+        self.keys
+            .iter()
+            .filter(|(name, _, _)| !self.bound.contains_key(name))
+    }
+}
+fn layout<'a>(
+    p: &'a CheckedPackage,
     c: &TypeContext<'_>,
     dataset: DeclarationId,
     kind: DeclarationId,
     data: &pse_authoring::language::AuthoredModelingDeclarationsFieldValueDataset,
-) -> Result<Vec<(DeclarationId, Record)>> {
+    rows: Rows<'_>,
+) -> Result<Layout<'a>> {
     let schema = &p.kinds[&kind];
     let Some((key_kind, keys)) = p.keys(kind) else {
         return Err(invalid(
@@ -822,6 +1036,12 @@ fn rows(
             ),
         ));
     };
+    if !data.complete_over.is_empty() {
+        return Err(invalid(
+            dataset,
+            "completeness is claimed for a table's rows, not a keyed kind's",
+        ));
+    }
     let mut bound = BTreeMap::new();
     for binding in &data.bindings {
         let Some((_, ty, _)) = keys.iter().find(|(name, _, _)| *name == binding.name) else {
@@ -834,76 +1054,155 @@ fn rows(
             ));
         };
         if bound
-            .insert(binding.name.clone(), typed(p, c, dataset, &binding.value, ty)?)
+            .insert(
+                binding.name.clone(),
+                typed(p, c, dataset, &binding.value, ty, rows)?,
+            )
             .is_some()
         {
             return Err(invalid(dataset, format!("duplicate binding {}", binding.name)));
         }
     }
-    let unbound = keys
-        .iter()
-        .filter(|(name, _, _)| !bound.contains_key(name))
-        .collect::<Vec<_>>();
     let values = schema
         .attributes
         .iter()
         .filter(|(name, _)| !schema.keys.contains(name) && !schema.bound.contains_key(name))
         .collect::<Vec<_>>();
-    let omittable = |cells: usize, total: usize, has_default: &dyn Fn(usize) -> bool| {
-        cells <= total && (cells..total).all(has_default)
-    };
-    let mut output = Vec::new();
-    for (index, row) in data.rows.iter().enumerate() {
-        let at = || format!("row {index} of dataset {}", p.declarations[&dataset].name);
-        if !omittable(row.keys.len(), unbound.len(), &|i| unbound[i].2.is_some()) {
-            return Err(invalid(
-                dataset,
-                format!(
-                    "{}: {} key cells where the unbound keys are {:?}",
-                    at(),
-                    row.keys.len(),
-                    unbound.iter().map(|(name, _, _)| name).collect::<Vec<_>>()
-                ),
-            ));
-        }
-        if row.values.len() > values.len() {
-            return Err(invalid(
-                dataset,
-                format!(
-                    "{}: {} value cells where kind {} has the attributes {:?}",
-                    at(),
-                    row.values.len(),
-                    p.declarations[&kind].name,
-                    values.iter().map(|(name, _)| name).collect::<Vec<_>>()
-                ),
-            ));
-        }
-        let mut supplied = bound.clone();
-        for (cell, (name, ty, _)) in row.keys.iter().zip(&unbound) {
-            supplied.insert(name.clone(), typed(p, c, dataset, cell, ty)?);
-        }
-        for (cell, (name, declaring)) in row.values.iter().zip(&values) {
-            supplied.insert(name.clone(), typed(p, c, dataset, cell, &p.types[declaring])?);
-        }
-        let record = record(p, kind, dataset, supplied)?;
-        let key_values = keys
-            .iter()
-            .map(|(name, _, _)| record.values[name].clone())
-            .collect::<Vec<_>>();
-        output.push((keyed_identity(key_kind, &key_values), record));
+    Ok(Layout {
+        key_kind,
+        keys,
+        bound,
+        values,
+    })
+}
+/// The name of one dataset row in a refusal.
+fn row_label(p: &CheckedPackage, dataset: DeclarationId, index: usize) -> String {
+    format!("row {index} of dataset {}", p.declarations[&dataset].name)
+}
+/// The complete key values of one row, bound keys included, in the key-declaring kind's
+/// order; trailing keys the row omits take their defaults.
+fn key_values(
+    p: &CheckedPackage,
+    c: &TypeContext<'_>,
+    dataset: DeclarationId,
+    layout: &Layout<'_>,
+    index: usize,
+    cells: &[Cell],
+    rows: Rows<'_>,
+) -> Result<Vec<Value>> {
+    let unbound = layout.unbound().collect::<Vec<_>>();
+    if cells.len() > unbound.len() || unbound[cells.len()..].iter().any(|k| k.2.is_none()) {
+        return Err(invalid(
+            dataset,
+            format!(
+                "{}: {} key cells where the unbound keys are {:?}",
+                row_label(p, dataset, index),
+                cells.len(),
+                unbound.iter().map(|(name, _, _)| name).collect::<Vec<_>>()
+            ),
+        ));
     }
-    // Two rows of one dataset with one key are refused as two datasets are.
+    let mut supplied = cells.iter().zip(&unbound);
+    layout
+        .keys
+        .iter()
+        .map(|(name, ty, default)| {
+            if let Some(value) = layout.bound.get(name) {
+                return Ok(value.value.clone());
+            }
+            match supplied.next() {
+                Some((cell, _)) => {
+                    let key = typed(p, c, dataset, cell, ty, rows)?;
+                    if key.uncertainty.is_some() {
+                        return Err(invalid(
+                            dataset,
+                            format!("{}: key {name} carries no uncertainty", row_label(p, dataset, index)),
+                        ));
+                    }
+                    Ok(key.value)
+                }
+                None => default.clone().ok_or_else(|| invalid(dataset, "key default")),
+            }
+        })
+        .collect()
+}
+/// Phase 1: the identity of every row of a dataset whose target is a keyed kind, formed
+/// from its key cells alone.
+fn identities(
+    p: &CheckedPackage,
+    c: &TypeContext<'_>,
+    dataset: DeclarationId,
+    kind: DeclarationId,
+    data: &pse_authoring::language::AuthoredModelingDeclarationsFieldValueDataset,
+) -> Result<Vec<DeclarationId>> {
+    let layout = layout(p, c, dataset, kind, data, Rows::Identity)?;
     let mut seen = BTreeSet::new();
-    for (id, _) in &output {
-        if !seen.insert(*id) {
+    let mut output = Vec::with_capacity(data.rows.len());
+    for (index, row) in data.rows.iter().enumerate() {
+        let keys = key_values(p, c, dataset, &layout, index, &row.keys, Rows::Identity)?;
+        let id = keyed_identity(layout.key_kind, &keys);
+        // Two rows of one dataset with one key are refused as two datasets are.
+        if !seen.insert(id) {
             return Err(invalid(
                 dataset,
                 format!(
                     "dataset {} supplies one key of kind {} twice",
-                    p.declarations[&dataset].name, p.declarations[&key_kind].name
+                    p.declarations[&dataset].name, p.declarations[&layout.key_kind].name
                 ),
             ));
         }
+        output.push(id);
+    }
+    Ok(output)
+}
+/// Phase 2: the records of a dataset whose target is a keyed kind, every cell typed
+/// against the admitted row identities.
+fn rows(
+    p: &CheckedPackage,
+    c: &TypeContext<'_>,
+    dataset: DeclarationId,
+    kind: DeclarationId,
+    data: &pse_authoring::language::AuthoredModelingDeclarationsFieldValueDataset,
+    rows: Rows<'_>,
+) -> Result<Vec<(DeclarationId, Record)>> {
+    let layout = layout(p, c, dataset, kind, data, rows)?;
+    let mut output = Vec::with_capacity(data.rows.len());
+    for (index, row) in data.rows.iter().enumerate() {
+        if row.values.len() > layout.values.len() {
+            return Err(invalid(
+                dataset,
+                format!(
+                    "{}: {} value cells where kind {} has the attributes {:?}",
+                    row_label(p, dataset, index),
+                    row.values.len(),
+                    p.declarations[&kind].name,
+                    layout.values.iter().map(|(name, _)| name).collect::<Vec<_>>()
+                ),
+            ));
+        }
+        let keys = key_values(p, c, dataset, &layout, index, &row.keys, rows)?;
+        let mut supplied = layout
+            .keys
+            .iter()
+            .zip(&keys)
+            .map(|((name, _, _), value)| {
+                (
+                    name.clone(),
+                    layout.bound.get(name).cloned().unwrap_or(Typed {
+                        value: value.clone(),
+                        uncertainty: None,
+                    }),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        for (cell, (name, declaring)) in row.values.iter().zip(&layout.values) {
+            supplied.insert(
+                name.clone(),
+                typed(p, c, dataset, cell, &p.types[declaring], rows)?,
+            );
+        }
+        let record = record(p, kind, dataset, supplied)?;
+        output.push((keyed_identity(layout.key_kind, &keys), record));
     }
     Ok(output)
 }

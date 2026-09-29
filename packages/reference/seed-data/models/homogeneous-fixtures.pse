@@ -6,7 +6,7 @@
 @id("51ba5bfff6125fe19fa1d61672957286") use chem @"1.0.0";
 @id("7d61ec65c0dc57a7a0d329e08d7336cb") use pcsaft @"1.0.0";
 @id("3de3c2c4a1e056d0a6e7bda53153e94a") use vessel_fixtures @"1.0.0";
-@id("1ed20825f84a5ba8a90bb89b0fc0cfba") table guesses[j:chemistry.species]:{liquid:Scalar,vapor:Scalar};
+@id("1ed20825f84a5ba8a90bb89b0fc0cfba") table guesses[j:chemistry.species]:{liquid:Scalar,vapor:Scalar} complete_over(j in chem.alkanes);
 @id("3d4ac79ad5df593b8f5ca829e6b87fa1") dataset phase_starts:guesses source "Rounded nearby liquid and vapor composition starts; not reference answers" {
 [chem.methane]=[0.06,0.4];
 [chem.ethane]=[0.27,0.34];

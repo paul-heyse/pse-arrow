@@ -9,7 +9,7 @@
 @id("01a0e1b4f611717da49a926e90be3394") use pr_equilibrium @"1.0.0";
 @id("01a0e1b4f611717da49a926f22a030a5") use equilibrium @"1.0.0";
 @id("01a0e1b4f611717da49a9270067ac1c7") use helmholtz @"1.0.0";
-@id("01a0e1b4f611717da49a92713ed6ca46") table reference[j:chemistry.species]:{gas_fit:caloric.fit,h:PrOracleEnthalpy,s:PrOracleEntropy};
+@id("01a0e1b4f611717da49a92713ed6ca46") table reference[j:chemistry.species]:{gas_fit:caloric.fit,h:PrOracleEnthalpy,s:PrOracleEntropy} complete_over(j in chem.aromatics);
 @id("01a0e1b4f611717da49a9272a559d6a6") dataset reference_values:reference source "IDAES 2.13 BT_PR configuration; RPP gas cp and formation reference values" {
 [chem.benzene]=[caloric_data.benzene_gas_rpp4_oracle,82900{J/mol},-269{J/(mol*K)}];
 [chem.toluene]=[caloric_data.toluene_gas_rpp4_oracle,50100{J/mol},-321{J/(mol*K)}];

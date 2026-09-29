@@ -7,13 +7,13 @@
 @id("d9921838db16489fa7d4b21c00ae2a08") use caloric @"1.0.0";
 @id("ea83845b0990496ba5ad63238faddd97") use caloric_data @"1.0.0";
 @id("8e4d49d3158445cba3ca90614cf32535") use pcsaft @"1.0.0";
-@id("a90fb79d99024f04b9956318b9ad1cf5") table caloric_fit[j:chemistry.species]:caloric.fit;
+@id("a90fb79d99024f04b9956318b9ad1cf5") table caloric_fit[j:chemistry.species]:caloric.fit complete_over(j in chem.alkanes);
 @id("c10a486fb2d74ed294b696ca85fbbe93") dataset fits:caloric_fit source "Fixed-composition vessel DIPPR100 selection; coefficients owned by caloric_data.vessel_caloric" {
 [chem.methane]=[caloric_data.methane_dippr100];
 [chem.ethane]=[caloric_data.ethane_dippr100];
 [chem.propane]=[caloric_data.propane_dippr100];
 }
-@id("860da3de40824b0cb95af4c86956cbdb") table fractions[j:chemistry.species]:Scalar;
+@id("860da3de40824b0cb95af4c86956cbdb") table fractions[j:chemistry.species]:Scalar complete_over(j in chem.alkanes);
 @id("2f611fe7b34d400b8207691771f41a16") dataset composition:fractions source "Plan14 frozen homogeneous vessel mixture, methane/ethane/propane mole fractions" {
 [chem.methane]=[0.2];
 [chem.ethane]=[0.3];

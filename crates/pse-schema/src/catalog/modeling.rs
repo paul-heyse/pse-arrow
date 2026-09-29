@@ -47,60 +47,94 @@ pub(super) fn version_requirement() -> T {
     ])
     .named("VersionRequirement")
 }
+/// The scalar arms of a cell, each a named structure a key cell shares (ADR-0123
+/// Outcome 1): a Boolean, an integer, a quantity as a magnitude and a canonical unit
+/// product of `ModelingUnitFactor`s, text, an identifier of a scheme, and a reference by
+/// path.
+fn scalar_arms() -> Vec<T> {
+    vec![
+        T::structure(vec![flag("value")])
+            .named("ModelingCellValueBoolean")
+            .with_name("boolean")
+            .optional(),
+        T::structure(vec![T::native(D::Int64).with_name("value")])
+            .named("ModelingCellValueInteger")
+            .with_name("integer")
+            .optional(),
+        T::structure(vec![
+            T::native(D::Float64).with_name("magnitude"),
+            T::list(
+                T::structure(vec![
+                    text("symbol"),
+                    T::native(D::Int16).with_name("num"),
+                    T::native(D::Int16).with_name("den"),
+                ])
+                .named("ModelingUnitFactor"),
+            )
+            .with_name("unit")
+            .optional(),
+        ])
+        .named("ModelingCellValueQuantity")
+        .with_name("quantity")
+        .optional(),
+        T::structure(vec![text("value")])
+            .named("ModelingCellValueText")
+            .with_name("text")
+            .optional(),
+        T::structure(vec![strings("scheme"), text("value")])
+            .named("ModelingCellValueIdentifier")
+            .with_name("identifier")
+            .optional(),
+        T::structure(vec![strings("path")])
+            .named("ModelingCellValueReference")
+            .with_name("reference")
+            .optional(),
+    ]
+}
+const SCALAR_ARMS: [&str; 6] = [
+    "boolean",
+    "integer",
+    "quantity",
+    "text",
+    "identifier",
+    "reference",
+];
 /// ADR-0123 Outcome 1: a data cell is a typed tagged value, parsed once and typed at
 /// admission; it is never an expression. A quantity is a magnitude and a canonical unit
 /// product; a bare number has no unit and is the neutral scalar, while a written unit,
 /// `{1}` included, resolves against the expected quantity type. Names occur only as path
-/// segments. Any cell may carry an uncertainty, which admission accepts only on a numeric
-/// value.
+/// segments. A keyed-row reference names a keyed kind or a table and the row's key cells,
+/// each a scalar key cell, and is resolved at admission (Plan 23 KR5). Any cell may carry
+/// an uncertainty, which admission accepts only on a numeric value.
 fn cell(name: &str) -> T {
-    let path = || strings("path");
-    let arms = [
-        "boolean",
-        "integer",
-        "quantity",
-        "text",
-        "identifier",
-        "reference",
-        "references",
-    ];
-    T::structure(vec![
-        T::structure(vec![
-            T::enumeration("ModelingCellKind").with_name("kind"),
-            T::structure(vec![flag("value")])
-                .with_name("boolean")
-                .optional(),
-            T::structure(vec![T::native(D::Int64).with_name("value")])
-                .with_name("integer")
-                .optional(),
-            T::structure(vec![
-                T::native(D::Float64).with_name("magnitude"),
-                T::list(
-                    T::structure(vec![
-                        text("symbol"),
-                        T::native(D::Int16).with_name("num"),
-                        T::native(D::Int16).with_name("den"),
-                    ]),
-                )
-                .with_name("unit")
-                .optional(),
-            ])
-            .with_name("quantity")
+    let mut fields = vec![T::enumeration("ModelingCellKind").with_name("kind")];
+    fields.extend(scalar_arms());
+    fields.push(
+        T::structure(vec![T::list(T::structure(vec![strings("path")])).with_name("paths")])
+            .with_name("references")
             .optional(),
-            T::structure(vec![text("value")]).with_name("text").optional(),
-            T::structure(vec![strings("scheme"), text("value")])
-                .with_name("identifier")
-                .optional(),
-            T::structure(vec![path()]).with_name("reference").optional(),
-            T::structure(vec![T::list(T::structure(vec![path()])).with_name("paths")])
-                .with_name("references")
-                .optional(),
+    );
+    fields.push(
+        T::structure(vec![
+            strings("target"),
+            T::list(key_cell()).with_name("keys"),
         ])
-        .with_alternative(
-            &TaggedAlternative::new("kind", arms.map(|arm| (arm.into(), arm.into())))
+        .with_name("row")
+        .optional(),
+    );
+    T::structure(vec![
+        T::structure(fields)
+            .with_alternative(
+                &TaggedAlternative::new(
+                    "kind",
+                    SCALAR_ARMS
+                        .into_iter()
+                        .chain(["references", "row"])
+                        .map(|arm| (arm.into(), arm.into())),
+                )
                 .with_unit("missing"),
-        )
-        .with_name("value"),
+            )
+            .with_name("value"),
         T::structure(vec![
             T::enumeration("ModelingUncertaintyKind").with_name("kind"),
             T::native(D::Float64).with_name("magnitude"),
@@ -109,6 +143,43 @@ fn cell(name: &str) -> T {
         .optional(),
     ])
     .named("ModelingCell")
+    .with_name(name)
+}
+/// A key cell of a keyed-row reference: one scalar arm, never absent, never a set or a
+/// further row reference, and without an uncertainty (Plan 23 KR5).
+fn key_cell() -> T {
+    let mut fields = vec![T::enumeration("ModelingKeyCellKind").with_name("kind")];
+    fields.extend(scalar_arms());
+    T::structure(fields)
+        .with_alternative(&TaggedAlternative::new(
+            "kind",
+            SCALAR_ARMS.map(|arm| (arm.into(), arm.into())),
+        ))
+        .named("ModelingKeyCell")
+}
+/// An inclusive integer range: the declared values of an integer-range key, or the
+/// completeness set of an integer key (Plan 23 KR5).
+fn integer_range(name: &str) -> T {
+    T::structure(vec![
+        T::native(D::Int64).with_name("lower"),
+        T::native(D::Int64).with_name("upper"),
+    ])
+    .named("ModelingIntegerRange")
+    .with_name(name)
+}
+/// ADR-0123 Outcome 3: a relation's completeness, one entry per key. A key over a set
+/// names a declared set or an enumeration; a key over an integer range names its bounds;
+/// a key with neither is open on the relation, and each dataset that claims completeness
+/// names the set it covers.
+fn completeness(name: &str) -> T {
+    T::list(
+        T::structure(vec![
+            text("key"),
+            strings("set").optional(),
+            integer_range("range").optional(),
+        ])
+        .named("ModelingCompleteness"),
+    )
     .with_name(name)
 }
 fn parameters(name: &str) -> T {
@@ -380,16 +451,42 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             vec!["complementarity"],
             vec![indices(), text("first"), text("second")],
         ),
+        // ADR-0123 Outcome 3: a relation with constraints. Keys form row identity; an
+        // integer key may declare its range. A derived column carries the expression
+        // evaluated once per row with the keys and columns bound. `required` exactly
+        // declares completeness; `default` exactly carries its typed cell. A symmetric key
+        // pair stores each unordered pair once; uniqueness names keys and supplied columns;
+        // each requirement is a predicate every row satisfies.
         (
             "table",
             vec!["table"],
             vec![
-                parameters("keys"),
-                parameters("columns"),
+                T::list(T::structure(vec![
+                    text("name"),
+                    type_arena("type"),
+                    integer_range("range").optional(),
+                ]))
+                .with_name("keys"),
+                T::list(T::structure(vec![
+                    text("name"),
+                    type_arena("type"),
+                    text("derived").optional(),
+                ]))
+                .with_name("columns"),
                 // Present exactly when the table declares no columns.
                 type_arena("value_type").optional(),
                 T::enumeration("ModelingMissingPolicy").with_name("missing_policy"),
-                text("default_value").optional(),
+                cell("default_value").optional(),
+                completeness("complete_over"),
+                T::structure(vec![
+                    text("first"),
+                    text("second"),
+                    T::enumeration("ModelingDiagonalPolicy").with_name("diagonal"),
+                ])
+                .with_name("symmetry")
+                .optional(),
+                T::list(T::structure(vec![strings("names")])).with_name("unique"),
+                strings("requirements"),
             ],
         ),
         // ADR-0123 Outcome 2: an entity kind's attribute. A declaration carries its type, a
@@ -406,6 +503,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ),
         // Rows of a table or of a keyed entity kind: positional cells. A keyed kind's key
         // the dataset supplies for every row (for example its source) is a declared binding.
+        // A dataset of a table with open completeness keys may claim that its rows cover a
+        // declared set for each open key (ADR-0123 Outcome 3).
         (
             "dataset",
             vec!["dataset"],
@@ -413,6 +512,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 text("target"),
                 text("source"),
                 T::list(T::structure(vec![text("name"), cell("value")])).with_name("bindings"),
+                completeness("complete_over"),
                 T::list(T::structure(vec![
                     T::list(cell("key")).with_name("keys"),
                     T::list(cell("value")).with_name("values"),
@@ -605,9 +705,12 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "identifier",
             "reference",
             "references",
+            "row",
             "missing",
         ],
     );
+    // The scalar arms a key cell of a keyed-row reference may take (Plan 23 KR5).
+    enumeration(builder, "ModelingKeyCellKind", SCALAR_ARMS);
     // A standard uncertainty and a bound are in the value's unit; a relative uncertainty is
     // a dimensionless fraction of the value.
     enumeration(
@@ -650,6 +753,9 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         "ModelingMissingPolicy",
         ["required", "optional", "default"],
     );
+    // ADR-0123 Outcome 1: key symmetry. A symmetric key pair either admits a row whose two
+    // keys are equal or excludes the diagonal (Plan 23 KR5).
+    enumeration(builder, "ModelingDiagonalPolicy", ["allowed", "excluded"]);
     enumeration(
         builder,
         "ModelingAnnotationKind",
@@ -784,7 +890,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         builder,
         N::Authored,
         "modeling_declarations",
-        10,
+        11,
         S::Model,
         &["declaration_id"],
         vec![
@@ -803,7 +909,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 T::structure(payload).with_alternative(&alternative),
             ),
         ],
-        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119). Version eight adds the policy's foreign-library allowance in bytes, which the fixture's solves reserve and a native library that enforces its own memory limit receives, in place of the deployment's (ADR-0119). Version nine is structured (ADR-0123 Outcome 1): every type is a post-order type arena whose children precede their parent and whose last node is the root; table absence, annotation kinds and fact namespaces are registry enums, a validity annotation carries its typed extrapolation policy, a scaling annotation its scheme and a connectivity annotation its typed maxima; an import carries its typed version requirement (Outcome 7). Version ten makes entities typed records (ADR-0123 Outcome 2): data cells are typed tagged values (boolean, integer, quantity as magnitude and unit product, text, identifier, reference, references or missing, each with an optional uncertainty), parsed once and never expressions; entity attribute values, attribute defaults, kind-level bindings of inherited attributes, dataset rows and typed constants are cells; an attribute declares whether it is a key; a dataset names its target table or keyed kind and binds the keys it supplies for every row; enumeration members carry identities; and identifier schemes are declared.",
+        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119). Version eight adds the policy's foreign-library allowance in bytes, which the fixture's solves reserve and a native library that enforces its own memory limit receives, in place of the deployment's (ADR-0119). Version nine is structured (ADR-0123 Outcome 1): every type is a post-order type arena whose children precede their parent and whose last node is the root; table absence, annotation kinds and fact namespaces are registry enums, a validity annotation carries its typed extrapolation policy, a scaling annotation its scheme and a connectivity annotation its typed maxima; an import carries its typed version requirement (Outcome 7). Version ten makes entities typed records (ADR-0123 Outcome 2): data cells are typed tagged values (boolean, integer, quantity as magnitude and unit product, text, identifier, reference, references or missing, each with an optional uncertainty), parsed once and never expressions; entity attribute values, attribute defaults, kind-level bindings of inherited attributes, dataset rows and typed constants are cells; an attribute declares whether it is a key; a dataset names its target table or keyed kind and binds the keys it supplies for every row; enumeration members carry identities; and identifier schemes are declared. Version eleven gives relations constraints (ADR-0123 Outcome 3): a table key may declare an inclusive integer range; a column may be derived by an expression evaluated once per row; the default of the default policy is a typed cell; a required table declares its completeness, one entry per key over a declared set, an enumeration or an integer range, or open for datasets to claim; a symmetric key pair declares its diagonal policy; uniqueness constraints name keys and supplied columns; row requirements are predicates; a dataset may claim completeness over declared sets for its table's open keys; and a cell may reference a keyed row or a table row by its target and key cells.",
     );
     enumeration(
         builder,

@@ -8,11 +8,12 @@
 @id("01a0e1db89d8722baac399205b024fc2") use equilibrium @"1.0.0";
 @id("01a0e1db89d8722baac398f3a8b569cb") entity chemistry.reaction hydrolysis {}
 @id("01a0e1db89d8722baac398f4fa4d61b9") set reaction_set:Set<chemistry.reaction>={hydrolysis};
-@id("01a0e1db89d8722baac398f5f8e2ef0b") table liquid_data[j:chemistry.species]:{density:Density,cp:MolarCp,reference:Temperature,minimum:Temperature,maximum:Temperature};
+@id("e1aedb12278540ec953486150af1fca8") set solvents:Set<chemistry.species>={chem.water};
+@id("01a0e1db89d8722baac398f5f8e2ef0b") table liquid_data[j:chemistry.species]:{density:Density,cp:MolarCp,reference:Temperature,minimum:Temperature,maximum:Temperature} complete_over(j in solvents);
 @id("01a0e1db89d8722baac398f6cb94d882") dataset dilute_water:liquid_data source "IDAES 2.13 saponification_thermo: solvent approximation, 298.15 K reference; 298.15-323.15 K seed envelope" {
 [chem.water]=[55388{mol/m^3},75.327{J/(mol*K)},298.15{K},298.15{K},323.15{K}];
 }
-@id("01a0e1db89d8722baac398f71f5f62a9") table kinetics[r:chemistry.reaction]:{k0:SecondOrderRateConstant,E:ActivationEnergy,heat:ReactionHeat,first:chemistry.species,second:chemistry.species};
+@id("01a0e1db89d8722baac398f71f5f62a9") table kinetics[r:chemistry.reaction]:{k0:SecondOrderRateConstant,E:ActivationEnergy,heat:ReactionHeat,first:chemistry.species,second:chemistry.species} complete_over(r in reaction_set);
 @id("01a0e1db89d8722baac398f80032ee48") dataset saponification_kinetics:kinetics source "IDAES 2.13 saponification_reactions, supplied demonstration reaction parameters" {
 [hydrolysis]=[3132000{m^3/(mol*s)},43000{J/mol},-49000{J/mol},chem.sodium_hydroxide,chem.ethyl_acetate];
 }

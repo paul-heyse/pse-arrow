@@ -70,12 +70,14 @@ pub enum Value {
     },
     /// A pure function declaration selected as structural data.
     Function(DeclarationId),
-    /// Typed heterogeneous table row.
+    /// Typed heterogeneous table row: positional cells and the column names they bind.
     Row {
         /// Table declaration.
         table: DeclarationId,
-        /// Field values by name.
-        fields: BTreeMap<String, Value>,
+        /// Column names in column order, shared with the admitted table.
+        names: std::sync::Arc<[String]>,
+        /// Values in column order, shared with the admitted row.
+        fields: std::sync::Arc<[Value]>,
     },
     /// Ordered finite set with no duplicates.
     Set(Vec<Value>),
@@ -129,11 +131,18 @@ impl Value {
                     v.frame(h);
                 }
             }
-            Self::Row { table, fields } => {
+            // Columns are framed in name order, as a row's named fields always were.
+            Self::Row {
+                table,
+                names,
+                fields,
+            } => {
                 h.str("row").id(&table.as_id());
-                for (n, v) in fields {
-                    h.str(n);
-                    v.frame(h);
+                let mut order = (0..names.len().min(fields.len())).collect::<Vec<_>>();
+                order.sort_by(|a, b| names[*a].cmp(&names[*b]));
+                for i in order {
+                    h.str(&names[i]);
+                    fields[i].frame(h);
                 }
             }
             Self::Set(v) | Self::Tuple(v) => {
@@ -436,8 +445,10 @@ impl Evaluator<'_, '_> {
     fn member(&mut self, value: Value, name: &str) -> Result<Value> {
         Ok(match value {
             Value::Definition { id, bindings } => self.definition_member(id, &bindings, name)?,
-            Value::Row { fields, .. } => fields
-                .get(name)
+            Value::Row { names, fields, .. } => names
+                .iter()
+                .position(|n| n == name)
+                .and_then(|i| fields.get(i))
                 .cloned()
                 .ok_or_else(|| invalid(self.at, "unknown table column"))?,
             Value::Entity { id, kind } => self
@@ -656,21 +667,17 @@ impl Evaluator<'_, '_> {
                             .indices
                             .iter()
                             .zip(&table.keys)
-                            .map(|(e, ty)| {
-                                let v = self.expr(e, Some(ty), depth + 1)?;
-                                if !conforms(&v, ty, self.package) {
+                            .map(|(e, key)| {
+                                let v = self.expr(e, Some(&key.ty), depth + 1)?;
+                                if !conforms(&v, &key.ty, self.package) {
                                     return Err(invalid(id, "table key type"));
                                 }
                                 Ok(v)
                             })
                             .collect::<Result<Vec<_>>>()?;
-                        table
-                            .rows
-                            .get(&keys)
-                            .cloned()
-                            .or_else(|| table.default.clone())
-                            .or_else(|| table.optional.then_some(Value::Missing))
-                            .ok_or_else(|| invalid(id, "required table value absent"))?
+                        // ADR-0123 Outcome 3: a required table refuses a key outside its
+                        // completeness before reading a row.
+                        table.lookup(self.package, id, self.at, keys)?
                     };
                     let mut value = value;
                     for segment in &path.segments[position + 1..] {
@@ -1176,8 +1183,7 @@ impl Evaluator<'_, '_> {
             }
             return Ok(Value::Set(
                 table
-                    .rows
-                    .keys()
+                    .keys_read(self.package, id, self.at)?
                     .map(|k| {
                         if k.len() == 1 {
                             k[0].clone()

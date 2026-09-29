@@ -9,7 +9,7 @@
 #[cfg(any(test, feature = "arbitrary"))]
 mod arbitrary;
 #[cfg(any(test, feature = "arbitrary"))]
-pub use arbitrary::{TYPE_VARIABLES, cells, type_arenas};
+pub use arbitrary::{TYPE_VARIABLES, cells, tables, type_arenas};
 mod ast;
 mod error;
 pub(crate) mod lexer;

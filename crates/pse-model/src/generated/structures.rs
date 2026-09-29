@@ -206,165 +206,6 @@ impl PartialEq for MemberDescriptor {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
-pub struct ModelingCellValueBoolean {
-    ///value
-    pub r#value: bool,
-}
-impl crate::SemanticEq for ModelingCellValueBoolean {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
-    }
-}
-impl PartialEq for ModelingCellValueBoolean {
-    fn eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(self, other)
-    }
-}
-/// A row or nested value projected from the registry declaration.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-#[allow(
-    clippy::struct_field_names,
-    reason = "field names are the authoritative relation contract"
-)]
-pub struct ModelingCellValueInteger {
-    ///value
-    pub r#value: i64,
-}
-impl crate::SemanticEq for ModelingCellValueInteger {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
-    }
-}
-impl PartialEq for ModelingCellValueInteger {
-    fn eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(self, other)
-    }
-}
-/// A row or nested value projected from the registry declaration.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-#[allow(
-    clippy::struct_field_names,
-    reason = "field names are the authoritative relation contract"
-)]
-pub struct ModelingCellValueQuantityUnitItem {
-    ///symbol
-    pub r#symbol: String,
-    ///num
-    pub r#num: i16,
-    ///den
-    pub r#den: i16,
-}
-impl crate::SemanticEq for ModelingCellValueQuantityUnitItem {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(&self.r#symbol, &other.r#symbol)
-            && crate::SemanticEq::semantic_eq(&self.r#num, &other.r#num)
-            && crate::SemanticEq::semantic_eq(&self.r#den, &other.r#den)
-    }
-}
-impl PartialEq for ModelingCellValueQuantityUnitItem {
-    fn eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(self, other)
-    }
-}
-/// A row or nested value projected from the registry declaration.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-#[allow(
-    clippy::struct_field_names,
-    reason = "field names are the authoritative relation contract"
-)]
-pub struct ModelingCellValueQuantity {
-    ///magnitude
-    pub r#magnitude: f64,
-    ///unit
-    pub r#unit: Option<Vec<ModelingCellValueQuantityUnitItem>>,
-}
-impl crate::SemanticEq for ModelingCellValueQuantity {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(&self.r#magnitude, &other.r#magnitude)
-            && crate::SemanticEq::semantic_eq(&self.r#unit, &other.r#unit)
-    }
-}
-impl PartialEq for ModelingCellValueQuantity {
-    fn eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(self, other)
-    }
-}
-/// A row or nested value projected from the registry declaration.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-#[allow(
-    clippy::struct_field_names,
-    reason = "field names are the authoritative relation contract"
-)]
-pub struct ModelingCellValueText {
-    ///value
-    pub r#value: String,
-}
-impl crate::SemanticEq for ModelingCellValueText {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
-    }
-}
-impl PartialEq for ModelingCellValueText {
-    fn eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(self, other)
-    }
-}
-/// A row or nested value projected from the registry declaration.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-#[allow(
-    clippy::struct_field_names,
-    reason = "field names are the authoritative relation contract"
-)]
-pub struct ModelingCellValueIdentifier {
-    ///scheme
-    pub r#scheme: Vec<String>,
-    ///value
-    pub r#value: String,
-}
-impl crate::SemanticEq for ModelingCellValueIdentifier {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(&self.r#scheme, &other.r#scheme)
-            && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
-    }
-}
-impl PartialEq for ModelingCellValueIdentifier {
-    fn eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(self, other)
-    }
-}
-/// A row or nested value projected from the registry declaration.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-#[allow(
-    clippy::struct_field_names,
-    reason = "field names are the authoritative relation contract"
-)]
-pub struct ModelingCellValueReference {
-    ///path
-    pub r#path: Vec<String>,
-}
-impl crate::SemanticEq for ModelingCellValueReference {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
-    }
-}
-impl PartialEq for ModelingCellValueReference {
-    fn eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(self, other)
-    }
-}
-/// A row or nested value projected from the registry declaration.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-#[allow(
-    clippy::struct_field_names,
-    reason = "field names are the authoritative relation contract"
-)]
 pub struct ModelingCellValueReferencesPathsItem {
     ///path
     pub r#path: Vec<String>,
@@ -407,6 +248,30 @@ impl PartialEq for ModelingCellValueReferences {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct ModelingCellValueRow {
+    ///target
+    pub r#target: Vec<String>,
+    ///keys
+    pub r#keys: Vec<ModelingKeyCell>,
+}
+impl crate::SemanticEq for ModelingCellValueRow {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#target, &other.r#target)
+            && crate::SemanticEq::semantic_eq(&self.r#keys, &other.r#keys)
+    }
+}
+impl PartialEq for ModelingCellValueRow {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct ModelingCellValue {
     ///kind
     pub r#kind: crate::generated::enums::ModelingCellKind,
@@ -424,6 +289,8 @@ pub struct ModelingCellValue {
     pub r#reference: Option<ModelingCellValueReference>,
     ///references
     pub r#references: Option<ModelingCellValueReferences>,
+    ///row
+    pub r#row: Option<ModelingCellValueRow>,
 }
 impl crate::SemanticEq for ModelingCellValue {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -435,6 +302,7 @@ impl crate::SemanticEq for ModelingCellValue {
             && crate::SemanticEq::semantic_eq(&self.r#identifier, &other.r#identifier)
             && crate::SemanticEq::semantic_eq(&self.r#reference, &other.r#reference)
             && crate::SemanticEq::semantic_eq(&self.r#references, &other.r#references)
+            && crate::SemanticEq::semantic_eq(&self.r#row, &other.r#row)
     }
 }
 impl PartialEq for ModelingCellValue {
@@ -459,6 +327,8 @@ pub enum ModelingCellValueSelected<'a> {
     Reference(&'a ModelingCellValueReference),
     ///references
     References(&'a ModelingCellValueReferences),
+    ///row
+    Row(&'a ModelingCellValueRow),
     ///text
     Text(&'a ModelingCellValueText),
 }
@@ -473,6 +343,7 @@ impl ModelingCellValue {
             r#quantity: None,
             r#reference: None,
             r#references: None,
+            r#row: None,
             r#text: None,
         }
     }
@@ -486,6 +357,7 @@ impl ModelingCellValue {
             r#quantity: None,
             r#reference: None,
             r#references: None,
+            r#row: None,
             r#text: None,
         }
     }
@@ -499,6 +371,7 @@ impl ModelingCellValue {
             r#quantity: None,
             r#reference: None,
             r#references: None,
+            r#row: None,
             r#text: None,
         }
     }
@@ -512,6 +385,7 @@ impl ModelingCellValue {
             r#quantity: None,
             r#reference: None,
             r#references: None,
+            r#row: None,
             r#text: None,
         }
     }
@@ -525,6 +399,7 @@ impl ModelingCellValue {
             r#quantity: Some(value),
             r#reference: None,
             r#references: None,
+            r#row: None,
             r#text: None,
         }
     }
@@ -538,6 +413,7 @@ impl ModelingCellValue {
             r#quantity: None,
             r#reference: Some(value),
             r#references: None,
+            r#row: None,
             r#text: None,
         }
     }
@@ -551,6 +427,21 @@ impl ModelingCellValue {
             r#quantity: None,
             r#reference: None,
             r#references: Some(value),
+            r#row: None,
+            r#text: None,
+        }
+    }
+    #[doc = concat!("Construct the ", "row", " arm with every other arm absent.")]
+    pub fn from_row(value: ModelingCellValueRow) -> Self {
+        Self {
+            r#kind: crate::generated::enums::ModelingCellKind::Row,
+            r#boolean: None,
+            r#identifier: None,
+            r#integer: None,
+            r#quantity: None,
+            r#reference: None,
+            r#references: None,
+            r#row: Some(value),
             r#text: None,
         }
     }
@@ -564,6 +455,7 @@ impl ModelingCellValue {
             r#quantity: None,
             r#reference: None,
             r#references: None,
+            r#row: None,
             r#text: Some(value),
         }
     }
@@ -579,30 +471,34 @@ impl ModelingCellValue {
             self.r#quantity.as_ref(),
             self.r#reference.as_ref(),
             self.r#references.as_ref(),
+            self.r#row.as_ref(),
             self.r#text.as_ref(),
         ) {
-            ("boolean", Some(value), None, None, None, None, None, None) => {
+            ("boolean", Some(value), None, None, None, None, None, None, None) => {
                 Ok(ModelingCellValueSelected::Boolean(value))
             }
-            ("identifier", None, Some(value), None, None, None, None, None) => {
+            ("identifier", None, Some(value), None, None, None, None, None, None) => {
                 Ok(ModelingCellValueSelected::Identifier(value))
             }
-            ("integer", None, None, Some(value), None, None, None, None) => {
+            ("integer", None, None, Some(value), None, None, None, None, None) => {
                 Ok(ModelingCellValueSelected::Integer(value))
             }
-            ("missing", None, None, None, None, None, None, None) => {
+            ("missing", None, None, None, None, None, None, None, None) => {
                 Ok(ModelingCellValueSelected::Missing)
             }
-            ("quantity", None, None, None, Some(value), None, None, None) => {
+            ("quantity", None, None, None, Some(value), None, None, None, None) => {
                 Ok(ModelingCellValueSelected::Quantity(value))
             }
-            ("reference", None, None, None, None, Some(value), None, None) => {
+            ("reference", None, None, None, None, Some(value), None, None, None) => {
                 Ok(ModelingCellValueSelected::Reference(value))
             }
-            ("references", None, None, None, None, None, Some(value), None) => {
+            ("references", None, None, None, None, None, Some(value), None, None) => {
                 Ok(ModelingCellValueSelected::References(value))
             }
-            ("text", None, None, None, None, None, None, Some(value)) => {
+            ("row", None, None, None, None, None, None, Some(value), None) => {
+                Ok(ModelingCellValueSelected::Row(value))
+            }
+            ("text", None, None, None, None, None, None, None, Some(value)) => {
                 Ok(ModelingCellValueSelected::Text(value))
             }
             _ => Err(crate::malformed("tagged value requires exactly its selected arm")),
@@ -664,6 +560,352 @@ impl PartialEq for ModelingCell {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct ModelingCellValueBoolean {
+    ///value
+    pub r#value: bool,
+}
+impl crate::SemanticEq for ModelingCellValueBoolean {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+    }
+}
+impl PartialEq for ModelingCellValueBoolean {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ModelingCellValueIdentifier {
+    ///scheme
+    pub r#scheme: Vec<String>,
+    ///value
+    pub r#value: String,
+}
+impl crate::SemanticEq for ModelingCellValueIdentifier {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#scheme, &other.r#scheme)
+            && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+    }
+}
+impl PartialEq for ModelingCellValueIdentifier {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ModelingCellValueInteger {
+    ///value
+    pub r#value: i64,
+}
+impl crate::SemanticEq for ModelingCellValueInteger {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+    }
+}
+impl PartialEq for ModelingCellValueInteger {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ModelingCellValueQuantity {
+    ///magnitude
+    pub r#magnitude: f64,
+    ///unit
+    pub r#unit: Option<Vec<ModelingUnitFactor>>,
+}
+impl crate::SemanticEq for ModelingCellValueQuantity {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#magnitude, &other.r#magnitude)
+            && crate::SemanticEq::semantic_eq(&self.r#unit, &other.r#unit)
+    }
+}
+impl PartialEq for ModelingCellValueQuantity {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ModelingCellValueReference {
+    ///path
+    pub r#path: Vec<String>,
+}
+impl crate::SemanticEq for ModelingCellValueReference {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
+    }
+}
+impl PartialEq for ModelingCellValueReference {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ModelingCellValueText {
+    ///value
+    pub r#value: String,
+}
+impl crate::SemanticEq for ModelingCellValueText {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+    }
+}
+impl PartialEq for ModelingCellValueText {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ModelingCompleteness {
+    ///key
+    pub r#key: String,
+    ///set
+    pub r#set: Option<Vec<String>>,
+    ///range
+    pub r#range: Option<ModelingIntegerRange>,
+}
+impl crate::SemanticEq for ModelingCompleteness {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#key, &other.r#key)
+            && crate::SemanticEq::semantic_eq(&self.r#set, &other.r#set)
+            && crate::SemanticEq::semantic_eq(&self.r#range, &other.r#range)
+    }
+}
+impl PartialEq for ModelingCompleteness {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ModelingIntegerRange {
+    ///lower
+    pub r#lower: i64,
+    ///upper
+    pub r#upper: i64,
+}
+impl crate::SemanticEq for ModelingIntegerRange {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#lower, &other.r#lower)
+            && crate::SemanticEq::semantic_eq(&self.r#upper, &other.r#upper)
+    }
+}
+impl PartialEq for ModelingIntegerRange {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ModelingKeyCell {
+    ///kind
+    pub r#kind: crate::generated::enums::ModelingKeyCellKind,
+    ///boolean
+    pub r#boolean: Option<ModelingCellValueBoolean>,
+    ///integer
+    pub r#integer: Option<ModelingCellValueInteger>,
+    ///quantity
+    pub r#quantity: Option<ModelingCellValueQuantity>,
+    ///text
+    pub r#text: Option<ModelingCellValueText>,
+    ///identifier
+    pub r#identifier: Option<ModelingCellValueIdentifier>,
+    ///reference
+    pub r#reference: Option<ModelingCellValueReference>,
+}
+impl crate::SemanticEq for ModelingKeyCell {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#boolean, &other.r#boolean)
+            && crate::SemanticEq::semantic_eq(&self.r#integer, &other.r#integer)
+            && crate::SemanticEq::semantic_eq(&self.r#quantity, &other.r#quantity)
+            && crate::SemanticEq::semantic_eq(&self.r#text, &other.r#text)
+            && crate::SemanticEq::semantic_eq(&self.r#identifier, &other.r#identifier)
+            && crate::SemanticEq::semantic_eq(&self.r#reference, &other.r#reference)
+    }
+}
+impl PartialEq for ModelingKeyCell {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// The declared selected payload, borrowed without a second row representation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ModelingKeyCellSelected<'a> {
+    ///boolean
+    Boolean(&'a ModelingCellValueBoolean),
+    ///identifier
+    Identifier(&'a ModelingCellValueIdentifier),
+    ///integer
+    Integer(&'a ModelingCellValueInteger),
+    ///quantity
+    Quantity(&'a ModelingCellValueQuantity),
+    ///reference
+    Reference(&'a ModelingCellValueReference),
+    ///text
+    Text(&'a ModelingCellValueText),
+}
+impl ModelingKeyCell {
+    #[doc = concat!("Construct the ", "boolean", " arm with every other arm absent.")]
+    pub fn from_boolean(value: ModelingCellValueBoolean) -> Self {
+        Self {
+            r#kind: crate::generated::enums::ModelingKeyCellKind::Boolean,
+            r#boolean: Some(value),
+            r#identifier: None,
+            r#integer: None,
+            r#quantity: None,
+            r#reference: None,
+            r#text: None,
+        }
+    }
+    #[doc = concat!("Construct the ", "identifier", " arm with every other arm absent.")]
+    pub fn from_identifier(value: ModelingCellValueIdentifier) -> Self {
+        Self {
+            r#kind: crate::generated::enums::ModelingKeyCellKind::Identifier,
+            r#boolean: None,
+            r#identifier: Some(value),
+            r#integer: None,
+            r#quantity: None,
+            r#reference: None,
+            r#text: None,
+        }
+    }
+    #[doc = concat!("Construct the ", "integer", " arm with every other arm absent.")]
+    pub fn from_integer(value: ModelingCellValueInteger) -> Self {
+        Self {
+            r#kind: crate::generated::enums::ModelingKeyCellKind::Integer,
+            r#boolean: None,
+            r#identifier: None,
+            r#integer: Some(value),
+            r#quantity: None,
+            r#reference: None,
+            r#text: None,
+        }
+    }
+    #[doc = concat!("Construct the ", "quantity", " arm with every other arm absent.")]
+    pub fn from_quantity(value: ModelingCellValueQuantity) -> Self {
+        Self {
+            r#kind: crate::generated::enums::ModelingKeyCellKind::Quantity,
+            r#boolean: None,
+            r#identifier: None,
+            r#integer: None,
+            r#quantity: Some(value),
+            r#reference: None,
+            r#text: None,
+        }
+    }
+    #[doc = concat!("Construct the ", "reference", " arm with every other arm absent.")]
+    pub fn from_reference(value: ModelingCellValueReference) -> Self {
+        Self {
+            r#kind: crate::generated::enums::ModelingKeyCellKind::Reference,
+            r#boolean: None,
+            r#identifier: None,
+            r#integer: None,
+            r#quantity: None,
+            r#reference: Some(value),
+            r#text: None,
+        }
+    }
+    #[doc = concat!("Construct the ", "text", " arm with every other arm absent.")]
+    pub fn from_text(value: ModelingCellValueText) -> Self {
+        Self {
+            r#kind: crate::generated::enums::ModelingKeyCellKind::Text,
+            r#boolean: None,
+            r#identifier: None,
+            r#integer: None,
+            r#quantity: None,
+            r#reference: None,
+            r#text: Some(value),
+        }
+    }
+    /// Select exactly the declared payload.
+    /// # Errors
+    /// Unknown tag, missing selected arm or any overlapping arm.
+    pub fn selected(&self) -> Result<ModelingKeyCellSelected<'_>, crate::ModelError> {
+        match (
+            self.r#kind.as_str(),
+            self.r#boolean.as_ref(),
+            self.r#identifier.as_ref(),
+            self.r#integer.as_ref(),
+            self.r#quantity.as_ref(),
+            self.r#reference.as_ref(),
+            self.r#text.as_ref(),
+        ) {
+            ("boolean", Some(value), None, None, None, None, None) => {
+                Ok(ModelingKeyCellSelected::Boolean(value))
+            }
+            ("identifier", None, Some(value), None, None, None, None) => {
+                Ok(ModelingKeyCellSelected::Identifier(value))
+            }
+            ("integer", None, None, Some(value), None, None, None) => {
+                Ok(ModelingKeyCellSelected::Integer(value))
+            }
+            ("quantity", None, None, None, Some(value), None, None) => {
+                Ok(ModelingKeyCellSelected::Quantity(value))
+            }
+            ("reference", None, None, None, None, Some(value), None) => {
+                Ok(ModelingKeyCellSelected::Reference(value))
+            }
+            ("text", None, None, None, None, None, Some(value)) => {
+                Ok(ModelingKeyCellSelected::Text(value))
+            }
+            _ => Err(crate::malformed("tagged value requires exactly its selected arm")),
+        }
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct ModelingTypeArenaNodeExponent {
     ///num
     pub r#num: i16,
@@ -710,6 +952,33 @@ impl crate::SemanticEq for ModelingTypeArenaNode {
     }
 }
 impl PartialEq for ModelingTypeArenaNode {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ModelingUnitFactor {
+    ///symbol
+    pub r#symbol: String,
+    ///num
+    pub r#num: i16,
+    ///den
+    pub r#den: i16,
+}
+impl crate::SemanticEq for ModelingUnitFactor {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#symbol, &other.r#symbol)
+            && crate::SemanticEq::semantic_eq(&self.r#num, &other.r#num)
+            && crate::SemanticEq::semantic_eq(&self.r#den, &other.r#den)
+    }
+}
+impl PartialEq for ModelingUnitFactor {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
     }
@@ -882,98 +1151,6 @@ impl crate::HeapUsage for MemberDescriptor {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#selection))
     }
 }
-impl crate::SemanticFrame for ModelingCellValueBoolean {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(stringify!(r#value));
-        crate::SemanticFrame::frame(&self.r#value, hash);
-    }
-}
-impl crate::HeapUsage for ModelingCellValueBoolean {
-    fn heap_bytes(&self) -> usize {
-        0usize.saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
-    }
-}
-impl crate::SemanticFrame for ModelingCellValueInteger {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(stringify!(r#value));
-        crate::SemanticFrame::frame(&self.r#value, hash);
-    }
-}
-impl crate::HeapUsage for ModelingCellValueInteger {
-    fn heap_bytes(&self) -> usize {
-        0usize.saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
-    }
-}
-impl crate::SemanticFrame for ModelingCellValueQuantityUnitItem {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(stringify!(r#symbol));
-        crate::SemanticFrame::frame(&self.r#symbol, hash);
-        hash.str(stringify!(r#num));
-        crate::SemanticFrame::frame(&self.r#num, hash);
-        hash.str(stringify!(r#den));
-        crate::SemanticFrame::frame(&self.r#den, hash);
-    }
-}
-impl crate::HeapUsage for ModelingCellValueQuantityUnitItem {
-    fn heap_bytes(&self) -> usize {
-        0usize
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#symbol))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#num))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#den))
-    }
-}
-impl crate::SemanticFrame for ModelingCellValueQuantity {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(stringify!(r#magnitude));
-        crate::SemanticFrame::frame(&self.r#magnitude, hash);
-        hash.str(stringify!(r#unit));
-        crate::SemanticFrame::frame(&self.r#unit, hash);
-    }
-}
-impl crate::HeapUsage for ModelingCellValueQuantity {
-    fn heap_bytes(&self) -> usize {
-        0usize
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#magnitude))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unit))
-    }
-}
-impl crate::SemanticFrame for ModelingCellValueText {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(stringify!(r#value));
-        crate::SemanticFrame::frame(&self.r#value, hash);
-    }
-}
-impl crate::HeapUsage for ModelingCellValueText {
-    fn heap_bytes(&self) -> usize {
-        0usize.saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
-    }
-}
-impl crate::SemanticFrame for ModelingCellValueIdentifier {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(stringify!(r#scheme));
-        crate::SemanticFrame::frame(&self.r#scheme, hash);
-        hash.str(stringify!(r#value));
-        crate::SemanticFrame::frame(&self.r#value, hash);
-    }
-}
-impl crate::HeapUsage for ModelingCellValueIdentifier {
-    fn heap_bytes(&self) -> usize {
-        0usize
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scheme))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
-    }
-}
-impl crate::SemanticFrame for ModelingCellValueReference {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(stringify!(r#path));
-        crate::SemanticFrame::frame(&self.r#path, hash);
-    }
-}
-impl crate::HeapUsage for ModelingCellValueReference {
-    fn heap_bytes(&self) -> usize {
-        0usize.saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
-    }
-}
 impl crate::SemanticFrame for ModelingCellValueReferencesPathsItem {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#path));
@@ -996,6 +1173,21 @@ impl crate::HeapUsage for ModelingCellValueReferences {
         0usize.saturating_add(crate::HeapUsage::heap_bytes(&self.r#paths))
     }
 }
+impl crate::SemanticFrame for ModelingCellValueRow {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#target));
+        crate::SemanticFrame::frame(&self.r#target, hash);
+        hash.str(stringify!(r#keys));
+        crate::SemanticFrame::frame(&self.r#keys, hash);
+    }
+}
+impl crate::HeapUsage for ModelingCellValueRow {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#keys))
+    }
+}
 impl crate::SemanticFrame for ModelingCellValue {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#kind));
@@ -1014,6 +1206,8 @@ impl crate::SemanticFrame for ModelingCellValue {
         crate::SemanticFrame::frame(&self.r#reference, hash);
         hash.str(stringify!(r#references));
         crate::SemanticFrame::frame(&self.r#references, hash);
+        hash.str(stringify!(r#row));
+        crate::SemanticFrame::frame(&self.r#row, hash);
     }
 }
 impl crate::HeapUsage for ModelingCellValue {
@@ -1027,6 +1221,7 @@ impl crate::HeapUsage for ModelingCellValue {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#identifier))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reference))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#references))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#row))
     }
 }
 impl crate::SemanticFrame for ModelingCellUncertainty {
@@ -1057,6 +1252,143 @@ impl crate::HeapUsage for ModelingCell {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#uncertainty))
+    }
+}
+impl crate::SemanticFrame for ModelingCellValueBoolean {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#value));
+        crate::SemanticFrame::frame(&self.r#value, hash);
+    }
+}
+impl crate::HeapUsage for ModelingCellValueBoolean {
+    fn heap_bytes(&self) -> usize {
+        0usize.saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+    }
+}
+impl crate::SemanticFrame for ModelingCellValueIdentifier {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#scheme));
+        crate::SemanticFrame::frame(&self.r#scheme, hash);
+        hash.str(stringify!(r#value));
+        crate::SemanticFrame::frame(&self.r#value, hash);
+    }
+}
+impl crate::HeapUsage for ModelingCellValueIdentifier {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scheme))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+    }
+}
+impl crate::SemanticFrame for ModelingCellValueInteger {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#value));
+        crate::SemanticFrame::frame(&self.r#value, hash);
+    }
+}
+impl crate::HeapUsage for ModelingCellValueInteger {
+    fn heap_bytes(&self) -> usize {
+        0usize.saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+    }
+}
+impl crate::SemanticFrame for ModelingCellValueQuantity {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#magnitude));
+        crate::SemanticFrame::frame(&self.r#magnitude, hash);
+        hash.str(stringify!(r#unit));
+        crate::SemanticFrame::frame(&self.r#unit, hash);
+    }
+}
+impl crate::HeapUsage for ModelingCellValueQuantity {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#magnitude))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unit))
+    }
+}
+impl crate::SemanticFrame for ModelingCellValueReference {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#path));
+        crate::SemanticFrame::frame(&self.r#path, hash);
+    }
+}
+impl crate::HeapUsage for ModelingCellValueReference {
+    fn heap_bytes(&self) -> usize {
+        0usize.saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
+    }
+}
+impl crate::SemanticFrame for ModelingCellValueText {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#value));
+        crate::SemanticFrame::frame(&self.r#value, hash);
+    }
+}
+impl crate::HeapUsage for ModelingCellValueText {
+    fn heap_bytes(&self) -> usize {
+        0usize.saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+    }
+}
+impl crate::SemanticFrame for ModelingCompleteness {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#key));
+        crate::SemanticFrame::frame(&self.r#key, hash);
+        hash.str(stringify!(r#set));
+        crate::SemanticFrame::frame(&self.r#set, hash);
+        hash.str(stringify!(r#range));
+        crate::SemanticFrame::frame(&self.r#range, hash);
+    }
+}
+impl crate::HeapUsage for ModelingCompleteness {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#key))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#set))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#range))
+    }
+}
+impl crate::SemanticFrame for ModelingIntegerRange {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#lower));
+        crate::SemanticFrame::frame(&self.r#lower, hash);
+        hash.str(stringify!(r#upper));
+        crate::SemanticFrame::frame(&self.r#upper, hash);
+    }
+}
+impl crate::HeapUsage for ModelingIntegerRange {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#lower))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#upper))
+    }
+}
+impl crate::SemanticFrame for ModelingKeyCell {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#boolean));
+        crate::SemanticFrame::frame(&self.r#boolean, hash);
+        hash.str(stringify!(r#integer));
+        crate::SemanticFrame::frame(&self.r#integer, hash);
+        hash.str(stringify!(r#quantity));
+        crate::SemanticFrame::frame(&self.r#quantity, hash);
+        hash.str(stringify!(r#text));
+        crate::SemanticFrame::frame(&self.r#text, hash);
+        hash.str(stringify!(r#identifier));
+        crate::SemanticFrame::frame(&self.r#identifier, hash);
+        hash.str(stringify!(r#reference));
+        crate::SemanticFrame::frame(&self.r#reference, hash);
+    }
+}
+impl crate::HeapUsage for ModelingKeyCell {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#boolean))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#integer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#text))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#identifier))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reference))
     }
 }
 impl crate::SemanticFrame for ModelingTypeArenaNodeExponent {
@@ -1096,6 +1428,24 @@ impl crate::HeapUsage for ModelingTypeArenaNode {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#exponent))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#children))
+    }
+}
+impl crate::SemanticFrame for ModelingUnitFactor {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#symbol));
+        crate::SemanticFrame::frame(&self.r#symbol, hash);
+        hash.str(stringify!(r#num));
+        crate::SemanticFrame::frame(&self.r#num, hash);
+        hash.str(stringify!(r#den));
+        crate::SemanticFrame::frame(&self.r#den, hash);
+    }
+}
+impl crate::HeapUsage for ModelingUnitFactor {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#symbol))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#num))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#den))
     }
 }
 impl crate::SemanticFrame for VersionRequirement {

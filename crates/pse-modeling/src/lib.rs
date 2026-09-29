@@ -523,3 +523,5 @@ mod kernel_continuous;
 mod kernel_specialization;
 #[cfg(test)]
 mod kernel_entities;
+#[cfg(test)]
+mod kernel_relations;

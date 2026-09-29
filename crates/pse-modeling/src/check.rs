@@ -1123,33 +1123,6 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                 "enumeration requires distinct named members with distinct identities",
             ));
         }
-        if let Some(table) = &row.value.table {
-            // ADR-0123 Outcome 1: the default policy exactly carries its value, and a
-            // value type is declared exactly when the table has no columns.
-            if (table.missing_policy == pse_model::generated::enums::ModelingMissingPolicy::Default)
-                != table.default_value.is_some()
-            {
-                return Err(invalid(id, "invalid table absence policy"));
-            }
-            match (&table.value_type, table.columns.is_empty()) {
-                (Some(value), true) => {
-                    context.resolve(value, &variables, &names, id)?;
-                }
-                (None, false) => {}
-                _ => {
-                    return Err(invalid(
-                        id,
-                        "a table declares a value type exactly when it has no columns",
-                    ));
-                }
-            }
-            for column in &table.columns {
-                context.resolve(&column.r#type, &variables, &names, id)?;
-            }
-            for key in &table.keys {
-                context.resolve(&key.r#type, &variables, &names, id)?;
-            }
-        }
     }
     for node in toposort(&inheritance, None)
         .map_err(|c| invalid(inheritance[c.node_id()], "interface cycle"))?
@@ -1473,6 +1446,8 @@ impl CheckedPackage {
             let mut types: Vec<&Vec<pse_authoring::language::TypeNode>> = Vec::new();
             // Cells name declarations only as reference paths (ADR-0123 Outcome 1).
             let mut cells: Vec<&pse_authoring::language::Cell> = Vec::new();
+            // Completeness names declared sets and enumerations by path (Outcome 3).
+            let mut sets: Vec<&Vec<String>> = Vec::new();
             if row.value.import.is_some()
                 && let Some(target) = self.names.get(&row.name)
             {
@@ -1542,9 +1517,12 @@ impl CheckedPackage {
             }
             if let Some(v) = &row.value.table {
                 types.extend(v.value_type.as_ref());
-                texts.extend(v.default_value.as_deref());
+                cells.extend(v.default_value.as_ref());
                 types.extend(v.keys.iter().map(|k| &k.r#type));
                 types.extend(v.columns.iter().map(|c| &c.r#type));
+                texts.extend(v.columns.iter().filter_map(|c| c.derived.as_deref()));
+                texts.extend(v.requirements.iter().map(String::as_str));
+                sets.extend(v.complete_over.iter().filter_map(|e| e.set.as_ref()));
             }
             // A table or a kind depends on the datasets that supply its rows, a kind also on
             // those of its refinements.
@@ -1563,6 +1541,7 @@ impl CheckedPackage {
             }
             if let Some(v) = &row.value.dataset {
                 texts.push(&v.target);
+                sets.extend(v.complete_over.iter().filter_map(|e| e.set.as_ref()));
                 cells.extend(v.bindings.iter().map(|b| &b.value));
                 for r in &v.rows {
                     cells.extend(r.keys.iter().chain(&r.values));
@@ -1678,6 +1657,9 @@ impl CheckedPackage {
             for text in texts {
                 pending.extend(dependency_paths(self, id, text));
             }
+            for set in sets {
+                pending.extend(self.resolve(id, &set.join(".")));
+            }
             for path in cells.into_iter().flat_map(cell_paths) {
                 pending.extend(self.resolve(id, &path));
                 // A qualified enumeration member depends on its enumeration.
@@ -1703,11 +1685,11 @@ impl CheckedPackage {
                 type_dependencies(&f.result, &mut pending);
             }
             if let Some(table) = self.tables.get(&id) {
-                for ty in &table.keys {
-                    type_dependencies(ty, &mut pending);
+                for key in &table.keys {
+                    type_dependencies(&key.ty, &mut pending);
                 }
-                for (_, ty) in &table.columns {
-                    type_dependencies(ty, &mut pending);
+                for column in &table.columns {
+                    type_dependencies(&column.ty, &mut pending);
                 }
                 type_dependencies(&table.result, &mut pending);
             }
@@ -1740,18 +1722,27 @@ impl CheckedPackage {
         Ok(p)
     }
 }
-/// The paths a cell names: its reference, its set's references and an identifier's scheme.
+/// The paths a cell names: its reference, its set's references, an identifier's scheme,
+/// and a keyed-row reference's target with the paths of its key cells.
 fn cell_paths(cell: &pse_authoring::language::Cell) -> Vec<String> {
     use pse_authoring::language::CellSelected;
     match cell.value.selected() {
         Ok(CellSelected::Reference(v)) => vec![v.path.join(".")],
         Ok(CellSelected::References(v)) => v.paths.iter().map(|p| p.path.join(".")).collect(),
         Ok(CellSelected::Identifier(v)) => vec![v.scheme.join(".")],
+        Ok(CellSelected::Row(v)) => std::iter::once(v.target.join("."))
+            .chain(
+                v.keys
+                    .iter()
+                    .filter_map(|key| pse_authoring::language::key_cell_value(key).ok())
+                    .flat_map(|cell| cell_paths(&cell)),
+            )
+            .collect(),
         _ => Vec::new(),
     }
 }
 
-fn dependency_paths(
+pub(crate) fn dependency_paths(
     p: &CheckedPackage,
     owner: DeclarationId,
     text: &str,

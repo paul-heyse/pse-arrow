@@ -466,7 +466,7 @@ class AuthoredModelingDeclarationsFieldValueTableKeysItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    default_value: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    range: s.ModelingIntegerRange | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(s.ModelingIntegerRange)))
 
 
 @attrs.frozen(kw_only=True)
@@ -475,7 +475,23 @@ class AuthoredModelingDeclarationsFieldValueTableColumnsItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    default_value: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    derived: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueTableSymmetry:
+    """Declared relation row or nested value."""
+
+    first: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    second: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    diagonal: e.ModelingDiagonalPolicy = attrs.field(validator=attrs.validators.instance_of(e.ModelingDiagonalPolicy))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueTableUniqueItem:
+    """Declared relation row or nested value."""
+
+    names: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)
@@ -486,7 +502,11 @@ class AuthoredModelingDeclarationsFieldValueTable:
     columns: b.tuple[AuthoredModelingDeclarationsFieldValueTableColumnsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueTableColumnsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     value_type: b.tuple[s.ModelingTypeArenaNode, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple))))
     missing_policy: e.ModelingMissingPolicy = attrs.field(validator=attrs.validators.instance_of(e.ModelingMissingPolicy))
-    default_value: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    default_value: s.ModelingCell | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(s.ModelingCell)))
+    complete_over: b.tuple[s.ModelingCompleteness, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingCompleteness), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    symmetry: AuthoredModelingDeclarationsFieldValueTableSymmetry | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueTableSymmetry)))
+    unique: b.tuple[AuthoredModelingDeclarationsFieldValueTableUniqueItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueTableUniqueItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    requirements: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)
@@ -521,6 +541,7 @@ class AuthoredModelingDeclarationsFieldValueDataset:
     target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     source: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     bindings: b.tuple[AuthoredModelingDeclarationsFieldValueDatasetBindingsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueDatasetBindingsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    complete_over: b.tuple[s.ModelingCompleteness, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingCompleteness), iterable_validator=attrs.validators.instance_of(b.tuple)))
     rows: b.tuple[AuthoredModelingDeclarationsFieldValueDatasetRowsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueDatasetRowsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 

@@ -699,9 +699,29 @@ impl Cursor<'_> {
                     })
                 }
             }
-            _ => CellValue::from_reference(CellReference {
-                path: self.cell_path()?,
-            }),
+            _ => {
+                let path = self.cell_path()?;
+                if self.eat("[") {
+                    // Plan 23 KR5: `target[keys]` names a keyed row or a table row by its
+                    // key cells, each a scalar cell.
+                    let mut keys = Vec::new();
+                    loop {
+                        let at = self.pos;
+                        let key = self.cell()?;
+                        keys.push(key_cell(&key).map_err(|_| {
+                            self.pos = at;
+                            self.error("key cell")
+                        })?);
+                        if self.eat("]") {
+                            break;
+                        }
+                        self.expect(",")?;
+                    }
+                    CellValue::from_row(CellRow { target: path, keys })
+                } else {
+                    CellValue::from_reference(CellReference { path })
+                }
+            }
         };
         let uncertainty = if self.eat("±") {
             let kind = self.vocabulary::<ModelingUncertaintyKind>("standard, relative or bound")?;
@@ -725,6 +745,55 @@ impl Cursor<'_> {
             cells.push(self.cell()?);
             if self.eat("]") {
                 return Ok(cells);
+            }
+            self.expect(",")?;
+        }
+    }
+    /// Whether an inclusive integer range `lo..hi` starts here.
+    fn at_range(&self) -> bool {
+        let number = |ahead: usize| {
+            self.tokens
+                .get(self.pos + ahead)
+                .is_some_and(|t| t.kind == Kind::Number)
+        };
+        if self.peek() == "-" {
+            number(1) && self.peek_at(2) == ".."
+        } else {
+            number(0) && self.peek_at(1) == ".."
+        }
+    }
+    /// An inclusive integer range `lo..hi` with `lo <= hi` (Plan 23 KR5).
+    fn integer_range(&mut self) -> Result<ModelingIntegerRange> {
+        let at = self.pos;
+        let lower = i64::from(self.type_integer()?);
+        self.expect("..")?;
+        let upper = i64::from(self.type_integer()?);
+        if lower > upper {
+            self.pos = at;
+            return Err(self.error("an integer range whose lower bound is at most its upper"));
+        }
+        Ok(ModelingIntegerRange { lower, upper })
+    }
+    /// ADR-0123 Outcome 3: `complete_over(key [in set | in lo..hi], ...)`, one entry per
+    /// named key; a key named alone is open for its datasets to claim.
+    fn completeness(&mut self) -> Result<Vec<ModelingCompleteness>> {
+        self.expect("complete_over")?;
+        self.expect("(")?;
+        let mut entries = Vec::new();
+        loop {
+            let key = self.word()?;
+            let (set, range) = if self.eat("in") {
+                if self.at_range() {
+                    (None, Some(self.integer_range()?))
+                } else {
+                    (Some(self.segments()?), None)
+                }
+            } else {
+                (None, None)
+            };
+            entries.push(ModelingCompleteness { key, set, range });
+            if self.eat(")") {
+                return Ok(entries);
             }
             self.expect(",")?;
         }
@@ -2258,17 +2327,26 @@ impl Cursor<'_> {
                     transfer_side,
                 })
             }
+            // ADR-0123 Outcome 3: `table name[key: T, k: 0..2]: T | {col: T, derived d: T = e}
+            // [symmetric(i, j) [diagonal allowed|excluded]] [unique(names)]...
+            // [complete_over(key [in set | in lo..hi], ...)] [missing required|optional|default
+            // cell] [require predicate]... ;`, clauses in this order.
             "table" => {
                 let mut keys = Vec::new();
                 if self.eat("[") {
                     loop {
                         let name = self.word()?;
                         self.expect(":")?;
-                        let r#type = self.type_expr()?;
+                        let (r#type, range) = if self.at_range() {
+                            let range = self.integer_range()?;
+                            (vec![node(TypeNodeKind::Integer, vec![])], Some(range))
+                        } else {
+                            (self.type_expr()?, None)
+                        };
                         keys.push(AuthoredModelingDeclarationsFieldValueTableKeysItem {
                             name,
                             r#type,
-                            default_value: None,
+                            range,
                         });
                         if self.eat("]") {
                             break;
@@ -2280,13 +2358,20 @@ impl Cursor<'_> {
                 let mut columns = Vec::new();
                 let value_type = if self.eat("{") {
                     while !self.eat("}") {
+                        let derived = self.eat("derived");
                         let name = self.word()?;
                         self.expect(":")?;
                         let r#type = self.type_expr()?;
+                        let derived = if derived {
+                            self.expect("=")?;
+                            Some(self.until(&[",", "}"])?)
+                        } else {
+                            None
+                        };
                         columns.push(AuthoredModelingDeclarationsFieldValueTableColumnsItem {
                             name,
                             r#type,
-                            default_value: None,
+                            derived,
                         });
                         if self.eat("}") {
                             break;
@@ -2297,6 +2382,36 @@ impl Cursor<'_> {
                 } else {
                     Some(self.type_expr()?)
                 };
+                let symmetry = if self.eat("symmetric") {
+                    self.expect("(")?;
+                    let first = self.word()?;
+                    self.expect(",")?;
+                    let second = self.word()?;
+                    self.expect(")")?;
+                    let diagonal = if self.eat("diagonal") {
+                        self.vocabulary("allowed or excluded")?
+                    } else {
+                        pse_model::generated::enums::ModelingDiagonalPolicy::Allowed
+                    };
+                    Some(AuthoredModelingDeclarationsFieldValueTableSymmetry {
+                        first,
+                        second,
+                        diagonal,
+                    })
+                } else {
+                    None
+                };
+                let mut unique = Vec::new();
+                while self.eat("unique") {
+                    unique.push(AuthoredModelingDeclarationsFieldValueTableUniqueItem {
+                        names: self.names("(", ")")?,
+                    });
+                }
+                let complete_over = if self.peek() == "complete_over" {
+                    self.completeness()?
+                } else {
+                    Vec::new()
+                };
                 use pse_model::generated::enums::ModelingMissingPolicy as Missing;
                 let missing_policy = if self.eat("missing") {
                     self.vocabulary::<Missing>("required, optional or default")?
@@ -2304,10 +2419,14 @@ impl Cursor<'_> {
                     Missing::Required
                 };
                 let default_value = if missing_policy == Missing::Default {
-                    Some(self.until(&[";"])?)
+                    Some(self.cell()?)
                 } else {
                     None
                 };
+                let mut requirements = Vec::new();
+                while self.eat("require") {
+                    requirements.push(self.until(&["require", ";"])?);
+                }
                 self.expect(";")?;
                 Value::from_table(AuthoredModelingDeclarationsFieldValueTable {
                     keys,
@@ -2315,6 +2434,10 @@ impl Cursor<'_> {
                     value_type,
                     missing_policy,
                     default_value,
+                    complete_over,
+                    symmetry,
+                    unique,
+                    requirements,
                 })
             }
             // `dataset name: target [bind(key = cell, …)] source "…" { [keys] = [values]; … }`:
@@ -2340,6 +2463,11 @@ impl Cursor<'_> {
                         self.expect(",")?;
                     }
                 }
+                let complete_over = if self.peek() == "complete_over" {
+                    self.completeness()?
+                } else {
+                    Vec::new()
+                };
                 self.expect("source")?;
                 let source = self.word()?;
                 self.expect("{")?;
@@ -2363,6 +2491,7 @@ impl Cursor<'_> {
                     target,
                     source,
                     bindings,
+                    complete_over,
                     rows,
                 })
             }

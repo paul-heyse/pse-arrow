@@ -179,7 +179,11 @@ impl Value {
                 Self::Definition { bindings, .. } => {
                     map(bindings, |n, v| n.capacity() + v.retained_bytes())
                 }
-                Self::Row { fields, .. } => map(fields, |n, v| n.capacity() + v.retained_bytes()),
+                // Row cells are shared with the admitted table; each value counts them.
+                Self::Row { names, fields, .. } => {
+                    names.iter().map(String::capacity).sum::<usize>()
+                        + fields.iter().map(Self::retained_bytes).sum::<usize>()
+                }
                 Self::Set(v) | Self::Tuple(v) => {
                     v.capacity() * size_of::<Self>()
                         + v.iter().map(Self::retained_bytes).sum::<usize>()
@@ -220,26 +224,7 @@ impl CheckedPackage {
             + map(&self.interfaces, |_, v| {
                 v.len() * (size_of::<pse_ids::SemanticId>() + 64)
             })
-            + map(&self.tables, |_, v| {
-                v.keys.iter().map(ty).sum::<usize>()
-                    + v.keys.capacity() * size_of::<Type>()
-                    + ty(&v.result)
-                    + v.columns.capacity() * size_of::<(String, Type)>()
-                    + v.columns
-                        .iter()
-                        .map(|(n, v)| n.capacity() + ty(v))
-                        .sum::<usize>()
-                    + v.default.as_ref().map_or(0, Value::retained_bytes)
-                    + map(&v.rows, |k, v| {
-                        k.capacity() * size_of::<Value>()
-                            + k.iter().map(Value::retained_bytes).sum::<usize>()
-                            + v.retained_bytes()
-                    })
-                    + map(&v.origins, |k, _| {
-                        k.capacity() * size_of::<Value>()
-                            + k.iter().map(Value::retained_bytes).sum::<usize>()
-                    })
-            })
+            + map(&self.tables, |_, v| v.retained_bytes(ty))
             + map(&self.kinds, |_, k| {
                 k.attributes
                     .iter()

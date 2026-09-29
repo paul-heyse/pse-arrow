@@ -625,6 +625,7 @@ class ModelingCellKind(StrEnum):
     IDENTIFIER = "identifier"
     REFERENCE = "reference"
     REFERENCES = "references"
+    ROW = "row"
     MISSING = "missing"
 
 
@@ -750,6 +751,13 @@ class ModelingDiagnosticSampleStop(StrEnum):
     CANCELLED = "cancelled"
 
 
+class ModelingDiagonalPolicy(StrEnum):
+    """The declared ModelingDiagonalPolicy enumeration."""
+
+    ALLOWED = "allowed"
+    EXCLUDED = "excluded"
+
+
 class ModelingDiscreteInitialization(StrEnum):
     """The declared ModelingDiscreteInitialization enumeration."""
 
@@ -801,6 +809,17 @@ class ModelingInitializationStep(StrEnum):
     STAGE = "stage"
     HOMOTOPY = "homotopy"
     ORIGINAL = "original"
+
+
+class ModelingKeyCellKind(StrEnum):
+    """The declared ModelingKeyCellKind enumeration."""
+
+    BOOLEAN = "boolean"
+    INTEGER = "integer"
+    QUANTITY = "quantity"
+    TEXT = "text"
+    IDENTIFIER = "identifier"
+    REFERENCE = "reference"
 
 
 class ModelingMissingPolicy(StrEnum):

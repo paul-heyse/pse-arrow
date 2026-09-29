@@ -83,9 +83,9 @@ Version: 3. Snapshot class: `case`. Primary key: `fit_id`.
 
 ## `modeling_declarations`
 
-Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119). Version eight adds the policy's foreign-library allowance in bytes, which the fixture's solves reserve and a native library that enforces its own memory limit receives, in place of the deployment's (ADR-0119). Version nine is structured (ADR-0123 Outcome 1): every type is a post-order type arena whose children precede their parent and whose last node is the root; table absence, annotation kinds and fact namespaces are registry enums, a validity annotation carries its typed extrapolation policy, a scaling annotation its scheme and a connectivity annotation its typed maxima; an import carries its typed version requirement (Outcome 7). Version ten makes entities typed records (ADR-0123 Outcome 2): data cells are typed tagged values (boolean, integer, quantity as magnitude and unit product, text, identifier, reference, references or missing, each with an optional uncertainty), parsed once and never expressions; entity attribute values, attribute defaults, kind-level bindings of inherited attributes, dataset rows and typed constants are cells; an attribute declares whether it is a key; a dataset names its target table or keyed kind and binds the keys it supplies for every row; enumeration members carry identities; and identifier schemes are declared.
+Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119). Version eight adds the policy's foreign-library allowance in bytes, which the fixture's solves reserve and a native library that enforces its own memory limit receives, in place of the deployment's (ADR-0119). Version nine is structured (ADR-0123 Outcome 1): every type is a post-order type arena whose children precede their parent and whose last node is the root; table absence, annotation kinds and fact namespaces are registry enums, a validity annotation carries its typed extrapolation policy, a scaling annotation its scheme and a connectivity annotation its typed maxima; an import carries its typed version requirement (Outcome 7). Version ten makes entities typed records (ADR-0123 Outcome 2): data cells are typed tagged values (boolean, integer, quantity as magnitude and unit product, text, identifier, reference, references or missing, each with an optional uncertainty), parsed once and never expressions; entity attribute values, attribute defaults, kind-level bindings of inherited attributes, dataset rows and typed constants are cells; an attribute declares whether it is a key; a dataset names its target table or keyed kind and binds the keys it supplies for every row; enumeration members carry identities; and identifier schemes are declared. Version eleven gives relations constraints (ADR-0123 Outcome 3): a table key may declare an inclusive integer range; a column may be derived by an expression evaluated once per row; the default of the default policy is a typed cell; a required table declares its completeness, one entry per key over a declared set, an enumeration or an integer range, or open for datasets to claim; a symmetric key pair declares its diagonal policy; uniqueness constraints name keys and supplied columns; row requirements are predicates; a dataset may claim completeness over declared sets for its table's open keys; and a cell may reference a keyed row or a table row by its target and key cells.
 
-Version: 10. Snapshot class: `model`. Primary key: `declaration_id`.
+Version: 11. Snapshot class: `model`. Primary key: `declaration_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -326,7 +326,9 @@ Version: 10. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.table.keys.item.type.item.exponent.den` | `Int16` | false | `payload` | — | — |
 | `value.table.keys.item.type.item.children` | `List` | false | `payload` | — | — |
 | `value.table.keys.item.type.item.children.item` | `UInt32` | false | `payload` | — | — |
-| `value.table.keys.item.default_value` | `Utf8` | true | `payload` | — | — |
+| `value.table.keys.item.range` | `Struct ModelingIntegerRange` | true | `payload` | — | — |
+| `value.table.keys.item.range.lower` | `Int64` | false | `payload` | — | — |
+| `value.table.keys.item.range.upper` | `Int64` | false | `payload` | — | — |
 | `value.table.columns` | `List` | false | `payload` | — | — |
 | `value.table.columns.item` | `Struct` | false | `payload` | — | — |
 | `value.table.columns.item.name` | `Utf8` | false | `payload` | — | — |
@@ -341,7 +343,7 @@ Version: 10. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.table.columns.item.type.item.exponent.den` | `Int16` | false | `payload` | — | — |
 | `value.table.columns.item.type.item.children` | `List` | false | `payload` | — | — |
 | `value.table.columns.item.type.item.children.item` | `UInt32` | false | `payload` | — | — |
-| `value.table.columns.item.default_value` | `Utf8` | true | `payload` | — | — |
+| `value.table.columns.item.derived` | `Utf8` | true | `payload` | — | — |
 | `value.table.value_type` | `List` | true | `payload` | — | — |
 | `value.table.value_type.item` | `Struct ModelingTypeArenaNode` | false | `payload` | — | — |
 | `value.table.value_type.item.kind` | `enum:ModelingTypeNode` | false | `payload` | — | — |
@@ -354,7 +356,81 @@ Version: 10. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.table.value_type.item.children` | `List` | false | `payload` | — | — |
 | `value.table.value_type.item.children.item` | `UInt32` | false | `payload` | — | — |
 | `value.table.missing_policy` | `enum:ModelingMissingPolicy` | false | `payload` | — | — |
-| `value.table.default_value` | `Utf8` | true | `payload` | — | — |
+| `value.table.default_value` | `Struct ModelingCell` | true | `payload` | — | — |
+| `value.table.default_value.value` | `Struct` | false | `payload` | — | — |
+| `value.table.default_value.value.kind` | `enum:ModelingCellKind` | false | `payload` | — | — |
+| `value.table.default_value.value.boolean` | `Struct ModelingCellValueBoolean` | true | `payload` | — | — |
+| `value.table.default_value.value.boolean.value` | `Boolean` | false | `payload` | — | — |
+| `value.table.default_value.value.integer` | `Struct ModelingCellValueInteger` | true | `payload` | — | — |
+| `value.table.default_value.value.integer.value` | `Int64` | false | `payload` | — | — |
+| `value.table.default_value.value.quantity` | `Struct ModelingCellValueQuantity` | true | `payload` | — | — |
+| `value.table.default_value.value.quantity.magnitude` | `Float64` | false | `payload` | — | — |
+| `value.table.default_value.value.quantity.unit` | `List` | true | `payload` | — | — |
+| `value.table.default_value.value.quantity.unit.item` | `Struct ModelingUnitFactor` | false | `payload` | — | — |
+| `value.table.default_value.value.quantity.unit.item.symbol` | `Utf8` | false | `payload` | — | — |
+| `value.table.default_value.value.quantity.unit.item.num` | `Int16` | false | `payload` | — | — |
+| `value.table.default_value.value.quantity.unit.item.den` | `Int16` | false | `payload` | — | — |
+| `value.table.default_value.value.text` | `Struct ModelingCellValueText` | true | `payload` | — | — |
+| `value.table.default_value.value.text.value` | `Utf8` | false | `payload` | — | — |
+| `value.table.default_value.value.identifier` | `Struct ModelingCellValueIdentifier` | true | `payload` | — | — |
+| `value.table.default_value.value.identifier.scheme` | `List` | false | `payload` | — | — |
+| `value.table.default_value.value.identifier.scheme.item` | `Utf8` | false | `payload` | — | — |
+| `value.table.default_value.value.identifier.value` | `Utf8` | false | `payload` | — | — |
+| `value.table.default_value.value.reference` | `Struct ModelingCellValueReference` | true | `payload` | — | — |
+| `value.table.default_value.value.reference.path` | `List` | false | `payload` | — | — |
+| `value.table.default_value.value.reference.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.table.default_value.value.references` | `Struct` | true | `payload` | — | — |
+| `value.table.default_value.value.references.paths` | `List` | false | `payload` | — | — |
+| `value.table.default_value.value.references.paths.item` | `Struct` | false | `payload` | — | — |
+| `value.table.default_value.value.references.paths.item.path` | `List` | false | `payload` | — | — |
+| `value.table.default_value.value.references.paths.item.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.table.default_value.value.row` | `Struct` | true | `payload` | — | — |
+| `value.table.default_value.value.row.target` | `List` | false | `payload` | — | — |
+| `value.table.default_value.value.row.target.item` | `Utf8` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys` | `List` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item` | `Struct ModelingKeyCell` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.kind` | `enum:ModelingKeyCellKind` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.boolean` | `Struct ModelingCellValueBoolean` | true | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.boolean.value` | `Boolean` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.integer` | `Struct ModelingCellValueInteger` | true | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.integer.value` | `Int64` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.quantity` | `Struct ModelingCellValueQuantity` | true | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.quantity.magnitude` | `Float64` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.quantity.unit` | `List` | true | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.quantity.unit.item` | `Struct ModelingUnitFactor` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.quantity.unit.item.symbol` | `Utf8` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.quantity.unit.item.num` | `Int16` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.quantity.unit.item.den` | `Int16` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.text` | `Struct ModelingCellValueText` | true | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.text.value` | `Utf8` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.identifier` | `Struct ModelingCellValueIdentifier` | true | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.identifier.scheme` | `List` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.identifier.scheme.item` | `Utf8` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.identifier.value` | `Utf8` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.reference` | `Struct ModelingCellValueReference` | true | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.reference.path` | `List` | false | `payload` | — | — |
+| `value.table.default_value.value.row.keys.item.reference.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.table.default_value.uncertainty` | `Struct` | true | `payload` | — | — |
+| `value.table.default_value.uncertainty.kind` | `enum:ModelingUncertaintyKind` | false | `payload` | — | — |
+| `value.table.default_value.uncertainty.magnitude` | `Float64` | false | `payload` | — | — |
+| `value.table.complete_over` | `List` | false | `payload` | — | — |
+| `value.table.complete_over.item` | `Struct ModelingCompleteness` | false | `payload` | — | — |
+| `value.table.complete_over.item.key` | `Utf8` | false | `payload` | — | — |
+| `value.table.complete_over.item.set` | `List` | true | `payload` | — | — |
+| `value.table.complete_over.item.set.item` | `Utf8` | false | `payload` | — | — |
+| `value.table.complete_over.item.range` | `Struct ModelingIntegerRange` | true | `payload` | — | — |
+| `value.table.complete_over.item.range.lower` | `Int64` | false | `payload` | — | — |
+| `value.table.complete_over.item.range.upper` | `Int64` | false | `payload` | — | — |
+| `value.table.symmetry` | `Struct` | true | `payload` | — | — |
+| `value.table.symmetry.first` | `Utf8` | false | `payload` | — | — |
+| `value.table.symmetry.second` | `Utf8` | false | `payload` | — | — |
+| `value.table.symmetry.diagonal` | `enum:ModelingDiagonalPolicy` | false | `payload` | — | — |
+| `value.table.unique` | `List` | false | `payload` | — | — |
+| `value.table.unique.item` | `Struct` | false | `payload` | — | — |
+| `value.table.unique.item.names` | `List` | false | `payload` | — | — |
+| `value.table.unique.item.names.item` | `Utf8` | false | `payload` | — | — |
+| `value.table.requirements` | `List` | false | `payload` | — | — |
+| `value.table.requirements.item` | `Utf8` | false | `payload` | — | — |
 | `value.attribute` | `Struct` | true | `payload` | — | — |
 | `value.attribute.type` | `List` | true | `payload` | — | — |
 | `value.attribute.type.item` | `Struct ModelingTypeArenaNode` | false | `payload` | — | — |
@@ -371,24 +447,24 @@ Version: 10. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.attribute.value` | `Struct ModelingCell` | true | `payload` | — | — |
 | `value.attribute.value.value` | `Struct` | false | `payload` | — | — |
 | `value.attribute.value.value.kind` | `enum:ModelingCellKind` | false | `payload` | — | — |
-| `value.attribute.value.value.boolean` | `Struct` | true | `payload` | — | — |
+| `value.attribute.value.value.boolean` | `Struct ModelingCellValueBoolean` | true | `payload` | — | — |
 | `value.attribute.value.value.boolean.value` | `Boolean` | false | `payload` | — | — |
-| `value.attribute.value.value.integer` | `Struct` | true | `payload` | — | — |
+| `value.attribute.value.value.integer` | `Struct ModelingCellValueInteger` | true | `payload` | — | — |
 | `value.attribute.value.value.integer.value` | `Int64` | false | `payload` | — | — |
-| `value.attribute.value.value.quantity` | `Struct` | true | `payload` | — | — |
+| `value.attribute.value.value.quantity` | `Struct ModelingCellValueQuantity` | true | `payload` | — | — |
 | `value.attribute.value.value.quantity.magnitude` | `Float64` | false | `payload` | — | — |
 | `value.attribute.value.value.quantity.unit` | `List` | true | `payload` | — | — |
-| `value.attribute.value.value.quantity.unit.item` | `Struct` | false | `payload` | — | — |
+| `value.attribute.value.value.quantity.unit.item` | `Struct ModelingUnitFactor` | false | `payload` | — | — |
 | `value.attribute.value.value.quantity.unit.item.symbol` | `Utf8` | false | `payload` | — | — |
 | `value.attribute.value.value.quantity.unit.item.num` | `Int16` | false | `payload` | — | — |
 | `value.attribute.value.value.quantity.unit.item.den` | `Int16` | false | `payload` | — | — |
-| `value.attribute.value.value.text` | `Struct` | true | `payload` | — | — |
+| `value.attribute.value.value.text` | `Struct ModelingCellValueText` | true | `payload` | — | — |
 | `value.attribute.value.value.text.value` | `Utf8` | false | `payload` | — | — |
-| `value.attribute.value.value.identifier` | `Struct` | true | `payload` | — | — |
+| `value.attribute.value.value.identifier` | `Struct ModelingCellValueIdentifier` | true | `payload` | — | — |
 | `value.attribute.value.value.identifier.scheme` | `List` | false | `payload` | — | — |
 | `value.attribute.value.value.identifier.scheme.item` | `Utf8` | false | `payload` | — | — |
 | `value.attribute.value.value.identifier.value` | `Utf8` | false | `payload` | — | — |
-| `value.attribute.value.value.reference` | `Struct` | true | `payload` | — | — |
+| `value.attribute.value.value.reference` | `Struct ModelingCellValueReference` | true | `payload` | — | — |
 | `value.attribute.value.value.reference.path` | `List` | false | `payload` | — | — |
 | `value.attribute.value.value.reference.path.item` | `Utf8` | false | `payload` | — | — |
 | `value.attribute.value.value.references` | `Struct` | true | `payload` | — | — |
@@ -396,6 +472,32 @@ Version: 10. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.attribute.value.value.references.paths.item` | `Struct` | false | `payload` | — | — |
 | `value.attribute.value.value.references.paths.item.path` | `List` | false | `payload` | — | — |
 | `value.attribute.value.value.references.paths.item.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.attribute.value.value.row` | `Struct` | true | `payload` | — | — |
+| `value.attribute.value.value.row.target` | `List` | false | `payload` | — | — |
+| `value.attribute.value.value.row.target.item` | `Utf8` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys` | `List` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item` | `Struct ModelingKeyCell` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.kind` | `enum:ModelingKeyCellKind` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.boolean` | `Struct ModelingCellValueBoolean` | true | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.boolean.value` | `Boolean` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.integer` | `Struct ModelingCellValueInteger` | true | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.integer.value` | `Int64` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.quantity` | `Struct ModelingCellValueQuantity` | true | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.quantity.magnitude` | `Float64` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.quantity.unit` | `List` | true | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.quantity.unit.item` | `Struct ModelingUnitFactor` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.quantity.unit.item.symbol` | `Utf8` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.quantity.unit.item.num` | `Int16` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.quantity.unit.item.den` | `Int16` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.text` | `Struct ModelingCellValueText` | true | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.text.value` | `Utf8` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.identifier` | `Struct ModelingCellValueIdentifier` | true | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.identifier.scheme` | `List` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.identifier.scheme.item` | `Utf8` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.identifier.value` | `Utf8` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.reference` | `Struct ModelingCellValueReference` | true | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.reference.path` | `List` | false | `payload` | — | — |
+| `value.attribute.value.value.row.keys.item.reference.path.item` | `Utf8` | false | `payload` | — | — |
 | `value.attribute.value.uncertainty` | `Struct` | true | `payload` | — | — |
 | `value.attribute.value.uncertainty.kind` | `enum:ModelingUncertaintyKind` | false | `payload` | — | — |
 | `value.attribute.value.uncertainty.magnitude` | `Float64` | false | `payload` | — | — |
@@ -408,24 +510,24 @@ Version: 10. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.dataset.bindings.item.value` | `Struct ModelingCell` | false | `payload` | — | — |
 | `value.dataset.bindings.item.value.value` | `Struct` | false | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.kind` | `enum:ModelingCellKind` | false | `payload` | — | — |
-| `value.dataset.bindings.item.value.value.boolean` | `Struct` | true | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.boolean` | `Struct ModelingCellValueBoolean` | true | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.boolean.value` | `Boolean` | false | `payload` | — | — |
-| `value.dataset.bindings.item.value.value.integer` | `Struct` | true | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.integer` | `Struct ModelingCellValueInteger` | true | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.integer.value` | `Int64` | false | `payload` | — | — |
-| `value.dataset.bindings.item.value.value.quantity` | `Struct` | true | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.quantity` | `Struct ModelingCellValueQuantity` | true | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.quantity.magnitude` | `Float64` | false | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.quantity.unit` | `List` | true | `payload` | — | — |
-| `value.dataset.bindings.item.value.value.quantity.unit.item` | `Struct` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.quantity.unit.item` | `Struct ModelingUnitFactor` | false | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.quantity.unit.item.symbol` | `Utf8` | false | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.quantity.unit.item.num` | `Int16` | false | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.quantity.unit.item.den` | `Int16` | false | `payload` | — | — |
-| `value.dataset.bindings.item.value.value.text` | `Struct` | true | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.text` | `Struct ModelingCellValueText` | true | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.text.value` | `Utf8` | false | `payload` | — | — |
-| `value.dataset.bindings.item.value.value.identifier` | `Struct` | true | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.identifier` | `Struct ModelingCellValueIdentifier` | true | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.identifier.scheme` | `List` | false | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.identifier.scheme.item` | `Utf8` | false | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.identifier.value` | `Utf8` | false | `payload` | — | — |
-| `value.dataset.bindings.item.value.value.reference` | `Struct` | true | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.reference` | `Struct ModelingCellValueReference` | true | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.reference.path` | `List` | false | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.reference.path.item` | `Utf8` | false | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.references` | `Struct` | true | `payload` | — | — |
@@ -433,33 +535,67 @@ Version: 10. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.dataset.bindings.item.value.value.references.paths.item` | `Struct` | false | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.references.paths.item.path` | `List` | false | `payload` | — | — |
 | `value.dataset.bindings.item.value.value.references.paths.item.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row` | `Struct` | true | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.target` | `List` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.target.item` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys` | `List` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item` | `Struct ModelingKeyCell` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.kind` | `enum:ModelingKeyCellKind` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.boolean` | `Struct ModelingCellValueBoolean` | true | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.boolean.value` | `Boolean` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.integer` | `Struct ModelingCellValueInteger` | true | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.integer.value` | `Int64` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.quantity` | `Struct ModelingCellValueQuantity` | true | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.quantity.magnitude` | `Float64` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.quantity.unit` | `List` | true | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.quantity.unit.item` | `Struct ModelingUnitFactor` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.quantity.unit.item.symbol` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.quantity.unit.item.num` | `Int16` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.quantity.unit.item.den` | `Int16` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.text` | `Struct ModelingCellValueText` | true | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.text.value` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.identifier` | `Struct ModelingCellValueIdentifier` | true | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.identifier.scheme` | `List` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.identifier.scheme.item` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.identifier.value` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.reference` | `Struct ModelingCellValueReference` | true | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.reference.path` | `List` | false | `payload` | — | — |
+| `value.dataset.bindings.item.value.value.row.keys.item.reference.path.item` | `Utf8` | false | `payload` | — | — |
 | `value.dataset.bindings.item.value.uncertainty` | `Struct` | true | `payload` | — | — |
 | `value.dataset.bindings.item.value.uncertainty.kind` | `enum:ModelingUncertaintyKind` | false | `payload` | — | — |
 | `value.dataset.bindings.item.value.uncertainty.magnitude` | `Float64` | false | `payload` | — | — |
+| `value.dataset.complete_over` | `List` | false | `payload` | — | — |
+| `value.dataset.complete_over.item` | `Struct ModelingCompleteness` | false | `payload` | — | — |
+| `value.dataset.complete_over.item.key` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.complete_over.item.set` | `List` | true | `payload` | — | — |
+| `value.dataset.complete_over.item.set.item` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.complete_over.item.range` | `Struct ModelingIntegerRange` | true | `payload` | — | — |
+| `value.dataset.complete_over.item.range.lower` | `Int64` | false | `payload` | — | — |
+| `value.dataset.complete_over.item.range.upper` | `Int64` | false | `payload` | — | — |
 | `value.dataset.rows` | `List` | false | `payload` | — | — |
 | `value.dataset.rows.item` | `Struct` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys` | `List` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys.key` | `Struct ModelingCell` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value` | `Struct` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.kind` | `enum:ModelingCellKind` | false | `payload` | — | — |
-| `value.dataset.rows.item.keys.key.value.boolean` | `Struct` | true | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.boolean` | `Struct ModelingCellValueBoolean` | true | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.boolean.value` | `Boolean` | false | `payload` | — | — |
-| `value.dataset.rows.item.keys.key.value.integer` | `Struct` | true | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.integer` | `Struct ModelingCellValueInteger` | true | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.integer.value` | `Int64` | false | `payload` | — | — |
-| `value.dataset.rows.item.keys.key.value.quantity` | `Struct` | true | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.quantity` | `Struct ModelingCellValueQuantity` | true | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.quantity.magnitude` | `Float64` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.quantity.unit` | `List` | true | `payload` | — | — |
-| `value.dataset.rows.item.keys.key.value.quantity.unit.item` | `Struct` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.quantity.unit.item` | `Struct ModelingUnitFactor` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.quantity.unit.item.symbol` | `Utf8` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.quantity.unit.item.num` | `Int16` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.quantity.unit.item.den` | `Int16` | false | `payload` | — | — |
-| `value.dataset.rows.item.keys.key.value.text` | `Struct` | true | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.text` | `Struct ModelingCellValueText` | true | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.text.value` | `Utf8` | false | `payload` | — | — |
-| `value.dataset.rows.item.keys.key.value.identifier` | `Struct` | true | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.identifier` | `Struct ModelingCellValueIdentifier` | true | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.identifier.scheme` | `List` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.identifier.scheme.item` | `Utf8` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.identifier.value` | `Utf8` | false | `payload` | — | — |
-| `value.dataset.rows.item.keys.key.value.reference` | `Struct` | true | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.reference` | `Struct ModelingCellValueReference` | true | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.reference.path` | `List` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.reference.path.item` | `Utf8` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.references` | `Struct` | true | `payload` | — | — |
@@ -467,6 +603,32 @@ Version: 10. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.dataset.rows.item.keys.key.value.references.paths.item` | `Struct` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.references.paths.item.path` | `List` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.value.references.paths.item.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row` | `Struct` | true | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.target` | `List` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.target.item` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys` | `List` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item` | `Struct ModelingKeyCell` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.kind` | `enum:ModelingKeyCellKind` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.boolean` | `Struct ModelingCellValueBoolean` | true | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.boolean.value` | `Boolean` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.integer` | `Struct ModelingCellValueInteger` | true | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.integer.value` | `Int64` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.quantity` | `Struct ModelingCellValueQuantity` | true | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.quantity.magnitude` | `Float64` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.quantity.unit` | `List` | true | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.quantity.unit.item` | `Struct ModelingUnitFactor` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.quantity.unit.item.symbol` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.quantity.unit.item.num` | `Int16` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.quantity.unit.item.den` | `Int16` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.text` | `Struct ModelingCellValueText` | true | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.text.value` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.identifier` | `Struct ModelingCellValueIdentifier` | true | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.identifier.scheme` | `List` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.identifier.scheme.item` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.identifier.value` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.reference` | `Struct ModelingCellValueReference` | true | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.reference.path` | `List` | false | `payload` | — | — |
+| `value.dataset.rows.item.keys.key.value.row.keys.item.reference.path.item` | `Utf8` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.uncertainty` | `Struct` | true | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.uncertainty.kind` | `enum:ModelingUncertaintyKind` | false | `payload` | — | — |
 | `value.dataset.rows.item.keys.key.uncertainty.magnitude` | `Float64` | false | `payload` | — | — |
@@ -474,24 +636,24 @@ Version: 10. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.dataset.rows.item.values.value` | `Struct ModelingCell` | false | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value` | `Struct` | false | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.kind` | `enum:ModelingCellKind` | false | `payload` | — | — |
-| `value.dataset.rows.item.values.value.value.boolean` | `Struct` | true | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.boolean` | `Struct ModelingCellValueBoolean` | true | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.boolean.value` | `Boolean` | false | `payload` | — | — |
-| `value.dataset.rows.item.values.value.value.integer` | `Struct` | true | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.integer` | `Struct ModelingCellValueInteger` | true | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.integer.value` | `Int64` | false | `payload` | — | — |
-| `value.dataset.rows.item.values.value.value.quantity` | `Struct` | true | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.quantity` | `Struct ModelingCellValueQuantity` | true | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.quantity.magnitude` | `Float64` | false | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.quantity.unit` | `List` | true | `payload` | — | — |
-| `value.dataset.rows.item.values.value.value.quantity.unit.item` | `Struct` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.quantity.unit.item` | `Struct ModelingUnitFactor` | false | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.quantity.unit.item.symbol` | `Utf8` | false | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.quantity.unit.item.num` | `Int16` | false | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.quantity.unit.item.den` | `Int16` | false | `payload` | — | — |
-| `value.dataset.rows.item.values.value.value.text` | `Struct` | true | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.text` | `Struct ModelingCellValueText` | true | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.text.value` | `Utf8` | false | `payload` | — | — |
-| `value.dataset.rows.item.values.value.value.identifier` | `Struct` | true | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.identifier` | `Struct ModelingCellValueIdentifier` | true | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.identifier.scheme` | `List` | false | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.identifier.scheme.item` | `Utf8` | false | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.identifier.value` | `Utf8` | false | `payload` | — | — |
-| `value.dataset.rows.item.values.value.value.reference` | `Struct` | true | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.reference` | `Struct ModelingCellValueReference` | true | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.reference.path` | `List` | false | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.reference.path.item` | `Utf8` | false | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.references` | `Struct` | true | `payload` | — | — |
@@ -499,6 +661,32 @@ Version: 10. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.dataset.rows.item.values.value.value.references.paths.item` | `Struct` | false | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.references.paths.item.path` | `List` | false | `payload` | — | — |
 | `value.dataset.rows.item.values.value.value.references.paths.item.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row` | `Struct` | true | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.target` | `List` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.target.item` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys` | `List` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item` | `Struct ModelingKeyCell` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.kind` | `enum:ModelingKeyCellKind` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.boolean` | `Struct ModelingCellValueBoolean` | true | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.boolean.value` | `Boolean` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.integer` | `Struct ModelingCellValueInteger` | true | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.integer.value` | `Int64` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.quantity` | `Struct ModelingCellValueQuantity` | true | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.quantity.magnitude` | `Float64` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.quantity.unit` | `List` | true | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.quantity.unit.item` | `Struct ModelingUnitFactor` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.quantity.unit.item.symbol` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.quantity.unit.item.num` | `Int16` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.quantity.unit.item.den` | `Int16` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.text` | `Struct ModelingCellValueText` | true | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.text.value` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.identifier` | `Struct ModelingCellValueIdentifier` | true | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.identifier.scheme` | `List` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.identifier.scheme.item` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.identifier.value` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.reference` | `Struct ModelingCellValueReference` | true | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.reference.path` | `List` | false | `payload` | — | — |
+| `value.dataset.rows.item.values.value.value.row.keys.item.reference.path.item` | `Utf8` | false | `payload` | — | — |
 | `value.dataset.rows.item.values.value.uncertainty` | `Struct` | true | `payload` | — | — |
 | `value.dataset.rows.item.values.value.uncertainty.kind` | `enum:ModelingUncertaintyKind` | false | `payload` | — | — |
 | `value.dataset.rows.item.values.value.uncertainty.magnitude` | `Float64` | false | `payload` | — | — |
@@ -510,24 +698,24 @@ Version: 10. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.entity.attributes.item.value` | `Struct ModelingCell` | false | `payload` | — | — |
 | `value.entity.attributes.item.value.value` | `Struct` | false | `payload` | — | — |
 | `value.entity.attributes.item.value.value.kind` | `enum:ModelingCellKind` | false | `payload` | — | — |
-| `value.entity.attributes.item.value.value.boolean` | `Struct` | true | `payload` | — | — |
+| `value.entity.attributes.item.value.value.boolean` | `Struct ModelingCellValueBoolean` | true | `payload` | — | — |
 | `value.entity.attributes.item.value.value.boolean.value` | `Boolean` | false | `payload` | — | — |
-| `value.entity.attributes.item.value.value.integer` | `Struct` | true | `payload` | — | — |
+| `value.entity.attributes.item.value.value.integer` | `Struct ModelingCellValueInteger` | true | `payload` | — | — |
 | `value.entity.attributes.item.value.value.integer.value` | `Int64` | false | `payload` | — | — |
-| `value.entity.attributes.item.value.value.quantity` | `Struct` | true | `payload` | — | — |
+| `value.entity.attributes.item.value.value.quantity` | `Struct ModelingCellValueQuantity` | true | `payload` | — | — |
 | `value.entity.attributes.item.value.value.quantity.magnitude` | `Float64` | false | `payload` | — | — |
 | `value.entity.attributes.item.value.value.quantity.unit` | `List` | true | `payload` | — | — |
-| `value.entity.attributes.item.value.value.quantity.unit.item` | `Struct` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.quantity.unit.item` | `Struct ModelingUnitFactor` | false | `payload` | — | — |
 | `value.entity.attributes.item.value.value.quantity.unit.item.symbol` | `Utf8` | false | `payload` | — | — |
 | `value.entity.attributes.item.value.value.quantity.unit.item.num` | `Int16` | false | `payload` | — | — |
 | `value.entity.attributes.item.value.value.quantity.unit.item.den` | `Int16` | false | `payload` | — | — |
-| `value.entity.attributes.item.value.value.text` | `Struct` | true | `payload` | — | — |
+| `value.entity.attributes.item.value.value.text` | `Struct ModelingCellValueText` | true | `payload` | — | — |
 | `value.entity.attributes.item.value.value.text.value` | `Utf8` | false | `payload` | — | — |
-| `value.entity.attributes.item.value.value.identifier` | `Struct` | true | `payload` | — | — |
+| `value.entity.attributes.item.value.value.identifier` | `Struct ModelingCellValueIdentifier` | true | `payload` | — | — |
 | `value.entity.attributes.item.value.value.identifier.scheme` | `List` | false | `payload` | — | — |
 | `value.entity.attributes.item.value.value.identifier.scheme.item` | `Utf8` | false | `payload` | — | — |
 | `value.entity.attributes.item.value.value.identifier.value` | `Utf8` | false | `payload` | — | — |
-| `value.entity.attributes.item.value.value.reference` | `Struct` | true | `payload` | — | — |
+| `value.entity.attributes.item.value.value.reference` | `Struct ModelingCellValueReference` | true | `payload` | — | — |
 | `value.entity.attributes.item.value.value.reference.path` | `List` | false | `payload` | — | — |
 | `value.entity.attributes.item.value.value.reference.path.item` | `Utf8` | false | `payload` | — | — |
 | `value.entity.attributes.item.value.value.references` | `Struct` | true | `payload` | — | — |
@@ -535,6 +723,32 @@ Version: 10. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.entity.attributes.item.value.value.references.paths.item` | `Struct` | false | `payload` | — | — |
 | `value.entity.attributes.item.value.value.references.paths.item.path` | `List` | false | `payload` | — | — |
 | `value.entity.attributes.item.value.value.references.paths.item.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row` | `Struct` | true | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.target` | `List` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.target.item` | `Utf8` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys` | `List` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item` | `Struct ModelingKeyCell` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.kind` | `enum:ModelingKeyCellKind` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.boolean` | `Struct ModelingCellValueBoolean` | true | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.boolean.value` | `Boolean` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.integer` | `Struct ModelingCellValueInteger` | true | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.integer.value` | `Int64` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.quantity` | `Struct ModelingCellValueQuantity` | true | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.quantity.magnitude` | `Float64` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.quantity.unit` | `List` | true | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.quantity.unit.item` | `Struct ModelingUnitFactor` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.quantity.unit.item.symbol` | `Utf8` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.quantity.unit.item.num` | `Int16` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.quantity.unit.item.den` | `Int16` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.text` | `Struct ModelingCellValueText` | true | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.text.value` | `Utf8` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.identifier` | `Struct ModelingCellValueIdentifier` | true | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.identifier.scheme` | `List` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.identifier.scheme.item` | `Utf8` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.identifier.value` | `Utf8` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.reference` | `Struct ModelingCellValueReference` | true | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.reference.path` | `List` | false | `payload` | — | — |
+| `value.entity.attributes.item.value.value.row.keys.item.reference.path.item` | `Utf8` | false | `payload` | — | — |
 | `value.entity.attributes.item.value.uncertainty` | `Struct` | true | `payload` | — | — |
 | `value.entity.attributes.item.value.uncertainty.kind` | `enum:ModelingUncertaintyKind` | false | `payload` | — | — |
 | `value.entity.attributes.item.value.uncertainty.magnitude` | `Float64` | false | `payload` | — | — |
@@ -558,24 +772,24 @@ Version: 10. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.constant.value` | `Struct ModelingCell` | false | `payload` | — | — |
 | `value.constant.value.value` | `Struct` | false | `payload` | — | — |
 | `value.constant.value.value.kind` | `enum:ModelingCellKind` | false | `payload` | — | — |
-| `value.constant.value.value.boolean` | `Struct` | true | `payload` | — | — |
+| `value.constant.value.value.boolean` | `Struct ModelingCellValueBoolean` | true | `payload` | — | — |
 | `value.constant.value.value.boolean.value` | `Boolean` | false | `payload` | — | — |
-| `value.constant.value.value.integer` | `Struct` | true | `payload` | — | — |
+| `value.constant.value.value.integer` | `Struct ModelingCellValueInteger` | true | `payload` | — | — |
 | `value.constant.value.value.integer.value` | `Int64` | false | `payload` | — | — |
-| `value.constant.value.value.quantity` | `Struct` | true | `payload` | — | — |
+| `value.constant.value.value.quantity` | `Struct ModelingCellValueQuantity` | true | `payload` | — | — |
 | `value.constant.value.value.quantity.magnitude` | `Float64` | false | `payload` | — | — |
 | `value.constant.value.value.quantity.unit` | `List` | true | `payload` | — | — |
-| `value.constant.value.value.quantity.unit.item` | `Struct` | false | `payload` | — | — |
+| `value.constant.value.value.quantity.unit.item` | `Struct ModelingUnitFactor` | false | `payload` | — | — |
 | `value.constant.value.value.quantity.unit.item.symbol` | `Utf8` | false | `payload` | — | — |
 | `value.constant.value.value.quantity.unit.item.num` | `Int16` | false | `payload` | — | — |
 | `value.constant.value.value.quantity.unit.item.den` | `Int16` | false | `payload` | — | — |
-| `value.constant.value.value.text` | `Struct` | true | `payload` | — | — |
+| `value.constant.value.value.text` | `Struct ModelingCellValueText` | true | `payload` | — | — |
 | `value.constant.value.value.text.value` | `Utf8` | false | `payload` | — | — |
-| `value.constant.value.value.identifier` | `Struct` | true | `payload` | — | — |
+| `value.constant.value.value.identifier` | `Struct ModelingCellValueIdentifier` | true | `payload` | — | — |
 | `value.constant.value.value.identifier.scheme` | `List` | false | `payload` | — | — |
 | `value.constant.value.value.identifier.scheme.item` | `Utf8` | false | `payload` | — | — |
 | `value.constant.value.value.identifier.value` | `Utf8` | false | `payload` | — | — |
-| `value.constant.value.value.reference` | `Struct` | true | `payload` | — | — |
+| `value.constant.value.value.reference` | `Struct ModelingCellValueReference` | true | `payload` | — | — |
 | `value.constant.value.value.reference.path` | `List` | false | `payload` | — | — |
 | `value.constant.value.value.reference.path.item` | `Utf8` | false | `payload` | — | — |
 | `value.constant.value.value.references` | `Struct` | true | `payload` | — | — |
@@ -583,6 +797,32 @@ Version: 10. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.constant.value.value.references.paths.item` | `Struct` | false | `payload` | — | — |
 | `value.constant.value.value.references.paths.item.path` | `List` | false | `payload` | — | — |
 | `value.constant.value.value.references.paths.item.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.constant.value.value.row` | `Struct` | true | `payload` | — | — |
+| `value.constant.value.value.row.target` | `List` | false | `payload` | — | — |
+| `value.constant.value.value.row.target.item` | `Utf8` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys` | `List` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys.item` | `Struct ModelingKeyCell` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.kind` | `enum:ModelingKeyCellKind` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.boolean` | `Struct ModelingCellValueBoolean` | true | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.boolean.value` | `Boolean` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.integer` | `Struct ModelingCellValueInteger` | true | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.integer.value` | `Int64` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.quantity` | `Struct ModelingCellValueQuantity` | true | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.quantity.magnitude` | `Float64` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.quantity.unit` | `List` | true | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.quantity.unit.item` | `Struct ModelingUnitFactor` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.quantity.unit.item.symbol` | `Utf8` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.quantity.unit.item.num` | `Int16` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.quantity.unit.item.den` | `Int16` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.text` | `Struct ModelingCellValueText` | true | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.text.value` | `Utf8` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.identifier` | `Struct ModelingCellValueIdentifier` | true | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.identifier.scheme` | `List` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.identifier.scheme.item` | `Utf8` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.identifier.value` | `Utf8` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.reference` | `Struct ModelingCellValueReference` | true | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.reference.path` | `List` | false | `payload` | — | — |
+| `value.constant.value.value.row.keys.item.reference.path.item` | `Utf8` | false | `payload` | — | — |
 | `value.constant.value.uncertainty` | `Struct` | true | `payload` | — | — |
 | `value.constant.value.uncertainty.kind` | `enum:ModelingUncertaintyKind` | false | `payload` | — | — |
 | `value.constant.value.uncertainty.magnitude` | `Float64` | false | `payload` | — | — |

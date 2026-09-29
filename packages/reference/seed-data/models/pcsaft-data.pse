@@ -3,12 +3,12 @@
 @id("01a0e178d29871ca9ccbc71eb7e96800") package pcsaft_data {
 @id("01a0e178d29871ca9ccbc71fe91a5ac0") use chem @"1.0.0";
 @id("01a0e178d29871ca9ccbc72097819efb") use pcsaft @"1.0.0";
-@id("01a0e178d29871ca9ccbc7210ce65429") dataset alkanes:pcsaft.segments source "Gross and Sadowski 2001, FeOS gross2001.json pinned c658aeab; sigma in angstrom, epsilon/k in kelvin" {
+@id("01a0e178d29871ca9ccbc7210ce65429") dataset alkanes:pcsaft.segments complete_over(j in chem.alkanes) source "Gross and Sadowski 2001, FeOS gross2001.json pinned c658aeab; sigma in angstrom, epsilon/k in kelvin" {
 [chem.methane]=[1,3.7039,150.03{K}];
 [chem.ethane]=[1.6069,3.5206,191.42{K}];
 [chem.propane]=[2.002,3.6184,208.11{K}];
 }
-@id("01a0e178d29871ca9ccbc7223f564e0c") dataset interactions:pcsaft.interaction source "Frozen vessel comparison: all ordered binary interaction coefficients zero" {
+@id("01a0e178d29871ca9ccbc7223f564e0c") dataset interactions:pcsaft.interaction complete_over(i in chem.alkanes,j in chem.alkanes) source "Frozen vessel comparison: all ordered binary interaction coefficients zero" {
 [chem.methane,chem.methane]=[0];
 [chem.methane,chem.ethane]=[0];
 [chem.methane,chem.propane]=[0];

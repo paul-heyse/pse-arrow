@@ -7,12 +7,12 @@
 @id("01a0e17fb4307404bb45617d29331305") entity chemistry.species b {}
 @id("01a0e17fb4307404bb45617e1e6ad9dc") entity chemistry.species c {}
 @id("01a0e17fb4307404bb45617fd533221c") set members:Set<chemistry.species>={a,b,c};
-@id("01a0e17fb4307404bb45618032a2b567") dataset critical:peng_robinson.critical source "IDAES 2.13 test_ceos_PR fictitious component parameters; oracle inputs only" {
+@id("01a0e17fb4307404bb45618032a2b567") dataset critical:peng_robinson.critical complete_over(j in members) source "IDAES 2.13 test_ceos_PR fictitious component parameters; oracle inputs only" {
 [a]=[100{K},100000{Pa},0.1];
 [b]=[200{K},200000{Pa},0.2];
 [c]=[300{K},300000{Pa},0.3];
 }
-@id("01a0e17fb4307404bb456181aae62135") dataset interactions:peng_robinson.interaction source "IDAES test_ceos_PR zero interaction matrix" {
+@id("01a0e17fb4307404bb456181aae62135") dataset interactions:peng_robinson.interaction complete_over(i in members,j in members) source "IDAES test_ceos_PR zero interaction matrix" {
 [a,a]=[0];
 [a,b]=[0];
 [a,c]=[0];
@@ -41,11 +41,11 @@
 @id("01a0e1c189bf70b9a2a6f0aa14b05fc1") entity chemistry.species asym_a {}
 @id("01a0e1c189bf70b9a2a6f0ab9cac816a") entity chemistry.species asym_b {}
 @id("01a0e1c189bf70b9a2a6f0acc8277469") set asym_members:Set<chemistry.species>={asym_a,asym_b};
-@id("01a0e1c189bf70b9a2a6f0ad74541655") dataset asym_critical:peng_robinson.critical source "Synthetic PR convention control, not physical component data" {
+@id("01a0e1c189bf70b9a2a6f0ad74541655") dataset asym_critical:peng_robinson.critical complete_over(j in asym_members) source "Synthetic PR convention control, not physical component data" {
 [asym_a]=[300{K},5000000{Pa},0.1];
 [asym_b]=[400{K},4000000{Pa},0.2];
 }
-@id("01a0e1c189bf70b9a2a6f0ae9a640e2f") dataset asym_interactions:peng_robinson.interaction source "Deliberately asymmetric ordered interaction control" {
+@id("01a0e1c189bf70b9a2a6f0ae9a640e2f") dataset asym_interactions:peng_robinson.interaction complete_over(i in asym_members,j in asym_members) source "Deliberately asymmetric ordered interaction control" {
 [asym_a,asym_a]=[0];
 [asym_a,asym_b]=[0.1];
 [asym_b,asym_a]=[0.3];

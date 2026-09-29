@@ -626,6 +626,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `identifier` | `` | false |
 | `reference` | `` | false |
 | `references` | `` | false |
+| `row` | `` | false |
 | `missing` | `` | false |
 
 ## `ModelingCheckBasis`
@@ -750,6 +751,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `time_limit` | `` | false |
 | `cancelled` | `` | false |
 
+## `ModelingDiagonalPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `allowed` | `` | false |
+| `excluded` | `` | false |
+
 ## `ModelingDiscreteInitialization`
 
 | Member | IDAES name | Deprecated |
@@ -802,6 +810,17 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `stage` | `` | false |
 | `homotopy` | `` | false |
 | `original` | `` | false |
+
+## `ModelingKeyCellKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `boolean` | `` | false |
+| `integer` | `` | false |
+| `quantity` | `` | false |
+| `text` | `` | false |
+| `identifier` | `` | false |
+| `reference` | `` | false |
 
 ## `ModelingMissingPolicy`
 

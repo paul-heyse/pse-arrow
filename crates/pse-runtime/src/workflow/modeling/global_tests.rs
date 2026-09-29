@@ -76,7 +76,7 @@ fn report(result: &ModelingResult, label: &str) -> f64 {
 const PRICE_TAKER: &str = "package p {
     entity kind period {} entity period h1 {} entity period h2 {} entity period h3 {}
     set periods: Set<period> = {h1, h2, h3};
-    table price[t: period]: Scalar;
+    table price[t: period]: Scalar complete_over(t in periods);
     dataset signal: price source \"synthetic price signal\" { [h1] = [-0.5]; [h2] = [0.8]; [h3] = [1.2]; }
     def Root {
       param capacity: Power = 150{W}; param minimum: Power = 40{W};

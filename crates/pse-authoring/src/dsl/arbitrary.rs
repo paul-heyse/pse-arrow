@@ -294,24 +294,20 @@ fn cell_path() -> impl Strategy<Value = Vec<String>> {
         })
 }
 
-/// Well-formed cells over every variant, with and without an uncertainty (ADR-0123
-/// Outcome 1): integers across the 64-bit range, finite magnitudes including negative
-/// zero and exponents, canonical unit products, escaped text and quoted path segments.
-pub fn cells() -> impl Strategy<Value = crate::language::Cell> {
+/// Scalar cell values: the arms a key cell of a keyed-row reference may take.
+fn scalar_values() -> impl Strategy<Value = crate::language::CellValue> {
     use crate::language::{
-        Cell, CellBoolean, CellIdentifier, CellInteger, CellPath, CellQuantity, CellReference,
-        CellReferences, CellText, CellUncertainty, CellValue, ModelingUncertaintyKind,
-        unit_factors,
+        CellBoolean, CellIdentifier, CellInteger, CellQuantity, CellReference, CellText,
+        CellValue, unit_factors,
     };
     let magnitude = prop_oneof![
         prop::num::f64::NORMAL | prop::num::f64::SUBNORMAL | prop::num::f64::ZERO,
         (-1000_i32..1000).prop_map(f64::from),
     ];
-    let value = prop_oneof![
-        Just(CellValue::from_missing()),
+    prop_oneof![
         any::<bool>().prop_map(|value| CellValue::from_boolean(CellBoolean { value })),
         (i64::MIN + 1..=i64::MAX).prop_map(|value| CellValue::from_integer(CellInteger { value })),
-        (magnitude.clone(), prop::option::of(unit_product())).prop_map(|(magnitude, unit)| {
+        (magnitude, prop::option::of(unit_product())).prop_map(|(magnitude, unit)| {
             CellValue::from_quantity(CellQuantity {
                 magnitude,
                 unit: unit.as_ref().map(unit_factors),
@@ -322,9 +318,33 @@ pub fn cells() -> impl Strategy<Value = crate::language::Cell> {
             CellValue::from_identifier(CellIdentifier { scheme, value })
         }),
         cell_path().prop_map(|path| CellValue::from_reference(CellReference { path })),
+    ]
+}
+
+/// Well-formed cells over every variant, with and without an uncertainty (ADR-0123
+/// Outcome 1): integers across the 64-bit range, finite magnitudes including negative
+/// zero and exponents, canonical unit products, escaped text, quoted path segments and
+/// keyed-row references over scalar key cells (Plan 23 KR5).
+pub fn cells() -> impl Strategy<Value = crate::language::Cell> {
+    use crate::language::{
+        Cell, CellPath, CellReferences, CellRow, CellUncertainty, CellValue,
+        ModelingUncertaintyKind, cell, key_cell,
+    };
+    let value = prop_oneof![
+        Just(CellValue::from_missing()),
+        scalar_values(),
         prop::collection::vec(cell_path(), 0..3).prop_map(|paths| {
             CellValue::from_references(CellReferences {
                 paths: paths.into_iter().map(|path| CellPath { path }).collect(),
+            })
+        }),
+        (cell_path(), prop::collection::vec(scalar_values(), 1..4)).prop_map(|(target, keys)| {
+            CellValue::from_row(CellRow {
+                target,
+                keys: keys
+                    .into_iter()
+                    .filter_map(|value| key_cell(&cell(value)).ok())
+                    .collect(),
             })
         }),
     ];
@@ -336,4 +356,116 @@ pub fn cells() -> impl Strategy<Value = crate::language::Cell> {
             .prop_map(|(kind, magnitude)| CellUncertainty { kind, magnitude }),
     );
     (value, uncertainty).prop_map(|(value, uncertainty)| Cell { value, uncertainty })
+}
+
+/// A plain name for a key, a column or a set path segment.
+fn plain_name() -> impl Strategy<Value = String> {
+    prop::sample::select(vec!["j", "k", "a_b", "x1", "value", "species", "s"]).prop_map(str::to_owned)
+}
+
+/// Well-formed table declarations over every relation constraint (ADR-0123 Outcome 3,
+/// Plan 23 KR5): integer-range and typed keys, supplied and derived columns or a value
+/// type, symmetry with either diagonal policy, uniqueness, completeness over sets, ranges
+/// and open keys, each missing policy with its typed default cell, and requirements.
+pub fn tables()
+-> impl Strategy<Value = crate::language::AuthoredModelingDeclarationsFieldValueTable> {
+    use crate::language::{
+        AuthoredModelingDeclarationsFieldValueTable as Table,
+        AuthoredModelingDeclarationsFieldValueTableColumnsItem as Column,
+        AuthoredModelingDeclarationsFieldValueTableKeysItem as Key,
+        AuthoredModelingDeclarationsFieldValueTableSymmetry as Symmetry,
+        AuthoredModelingDeclarationsFieldValueTableUniqueItem as Unique, ModelingCompleteness,
+        ModelingIntegerRange, parse_type,
+    };
+    use pse_model::generated::enums::{ModelingDiagonalPolicy, ModelingMissingPolicy};
+    let ty = || {
+        prop::sample::select(vec![
+            "Mass",
+            "Integer",
+            "chemistry.species",
+            "Set<k>",
+            "Mass?",
+            "Text",
+            "Id<cas>",
+        ])
+        .prop_map(|text| parse_type(text, &[]).unwrap_or_default())
+    };
+    let range = || {
+        (-3_i64..3, 0_i64..4).prop_map(|(lower, width)| ModelingIntegerRange {
+            lower,
+            upper: lower + width,
+        })
+    };
+    let key = (
+        plain_name(),
+        prop::option::of(range()),
+        ty(),
+    )
+        .prop_map(|(name, range, r#type)| Key {
+            name,
+            r#type: if range.is_some() {
+                parse_type("Integer", &[]).unwrap_or_default()
+            } else {
+                r#type
+            },
+            range,
+        });
+    let column = (
+        plain_name(),
+        ty(),
+        prop::option::of(prop::sample::select(vec!["2 * v", "sum(i in s | x[i])", "a.b + 1{kg}"])),
+    )
+        .prop_map(|(name, r#type, derived)| Column {
+            name,
+            r#type,
+            derived: derived.map(str::to_owned),
+        });
+    let entry = (
+        plain_name(),
+        prop_oneof![
+            Just((None, None)),
+            prop::collection::vec(plain_name(), 1..3).prop_map(|set| (Some(set), None)),
+            range().prop_map(|range| (None, Some(range))),
+        ],
+    )
+        .prop_map(|(key, (set, range))| ModelingCompleteness { key, set, range });
+    (
+        prop::collection::vec(key, 0..4),
+        prop_oneof![
+            ty().prop_map(|value| (Some(value), Vec::new())),
+            prop::collection::vec(column, 1..4).prop_map(|columns| (None, columns)),
+        ],
+        prop::option::of((
+            plain_name(),
+            plain_name(),
+            prop::sample::select(ModelingDiagonalPolicy::ALL.to_vec()),
+        )),
+        prop::collection::vec(prop::collection::vec(plain_name(), 1..3), 0..3),
+        prop::collection::vec(entry, 0..3),
+        prop::sample::select(ModelingMissingPolicy::ALL.to_vec()),
+        cells(),
+        prop::collection::vec(
+            prop::sample::select(vec!["v > 0{kg}", "present(a) and b == c", "j in s"]),
+            0..3,
+        ),
+    )
+        .prop_map(
+            |(keys, (value_type, columns), symmetry, unique, complete_over, policy, default, requirements)| {
+                Table {
+                    keys,
+                    columns,
+                    value_type,
+                    missing_policy: policy,
+                    default_value: (policy == ModelingMissingPolicy::Default).then_some(default),
+                    complete_over,
+                    symmetry: symmetry.map(|(first, second, diagonal)| Symmetry {
+                        first,
+                        second,
+                        diagonal,
+                    }),
+                    unique: unique.into_iter().map(|names| Unique { names }).collect(),
+                    requirements: requirements.into_iter().map(str::to_owned).collect(),
+                }
+            },
+        )
 }

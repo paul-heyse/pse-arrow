@@ -25,8 +25,11 @@ fn roundtrip_all_declarations_and_explicit_identity() {
  enum Choice { first, @id("0123456789abcdef0123456789abcdef") second }
  constant gas: Mass = 8.314{kg} ± standard(0.001);
  set members: Set<component> = {a};
- table coefficient[j: component]: Mass missing required;
+ table coefficient[j: component]: Mass complete_over(j in members) missing required;
+ table pairing[i: component, j: component, k: 0..2]: {v: Mass, derived w: Mass = 2*v, set: parameter_set} symmetric(i, j) diagonal excluded unique(v, k) complete_over(i, j in members, k in 0..2) missing required require v > 0{kg} require w >= v;
+ table fallback[j: component]: Scalar missing default 0.5 ± relative(0.1);
  dataset values: coefficient source "synthetic" { [a] = [2{kg}]; }
+ dataset pairs: pairing complete_over(i in members) source "synthetic" { [a, a, 0] = [1{kg}, linear[a, 2]]; }
  dataset lines: linear bind(variant = 2) source "synthetic" { [a] = [-1.5]; [b] = []; }
  fn square<Q>(x: Q) -> Q^2 = x*x;
  interface I { fn f(x: Mass) -> Mass; let doubled: Mass = x+x; }
@@ -751,9 +754,19 @@ fn missing_policy_is_enum() {
     };
     assert_eq!(table(""), (Missing::Required, None));
     assert_eq!(table(" missing optional"), (Missing::Optional, None));
+    // Plan 23 KR5: the default is a typed cell, never expression text.
     assert_eq!(
         table(" missing default 1{kg}"),
-        (Missing::Default, Some("1{kg}".into()))
+        (Missing::Default, Some(parse_cell("1{kg}").unwrap()))
+    );
+    assert!(
+        parse(
+            "package p { entity kind k {} table t[j: k]: Mass missing default 1{kg} + 1{kg}; }",
+            SemanticId::NIL,
+            IdentityPolicy::Named,
+            ParseBudget::default(),
+        )
+        .is_err()
     );
     assert_eq!(
         Missing::ALL.map(Missing::as_str),
@@ -929,4 +942,58 @@ fn enum_member_identity_survives_rename() {
         ),
         Err(crate::AuthoringError::MissingId { .. })
     ));
+}
+
+mod relations {
+    use super::*;
+    use proptest::prelude::*;
+    use proptest::test_runner::RngSeed;
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            cases: 512,
+            rng_seed: RngSeed::Fixed(0x5053_452d_5441_424c),
+            failure_persistence: None,
+            ..ProptestConfig::default()
+        })]
+        /// Every table declaration over every relation constraint prints to a spelling that
+        /// parses back to the same declaration (ADR-0123 Outcome 3, Plan 23 KR5).
+        #[test]
+        fn table_render_parse_roundtrip(table in crate::dsl::tables()) {
+            let mut rows = parse_named("package p { table t: Mass missing optional; }");
+            rows[1].value = Value::from_table(table);
+            let printed = render(&rows)
+                .map_err(|e| TestCaseError::fail(format!("{:?}: {e}", rows[1].value)))?;
+            let again = parse(
+                &printed,
+                SemanticId::NIL,
+                IdentityPolicy::Explicit,
+                ParseBudget::default(),
+            )
+            .map_err(|e| TestCaseError::fail(format!("{printed}: {e}")))?;
+            prop_assert_eq!(&again[1].value, &rows[1].value, "{}", printed);
+        }
+    }
+
+    /// Integer ranges lex as bounds, never as decimals, and a reversed range is refused
+    /// where it is written.
+    #[test]
+    fn integer_range_keys_parse_as_bounds() {
+        let rows = parse_named("package p { table kappa[f: k, j: -1..2, n: 0..0]: Scalar complete_over(f, j in -1..2, n) missing required; }");
+        let table = rows[1].value.table.clone().unwrap();
+        assert_eq!(
+            table.keys.iter().map(|k| k.range.as_ref().map(|r| (r.lower, r.upper))).collect::<Vec<_>>(),
+            [None, Some((-1, 2)), Some((0, 0))]
+        );
+        assert_eq!(table.complete_over[1].range.as_ref().map(|r| (r.lower, r.upper)), Some((-1, 2)));
+        assert!(table.complete_over[0].set.is_none() && table.complete_over[0].range.is_none());
+        let error = parse(
+            "package p { table t[k: 2..1]: Scalar; }",
+            SemanticId::NIL,
+            IdentityPolicy::Named,
+            ParseBudget::default(),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("lower bound"), "{error}");
+    }
 }

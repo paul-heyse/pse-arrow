@@ -6,7 +6,7 @@
 @id("b1a33c1c3a12417f9e1529fad50a7c29") entity period h2 {}
 @id("01a45b41639f404180807a364a72d23d") entity period h3 {}
 @id("7ae87dbe740c43b6a9e04ff727dcf910") set periods:Set<period>={h1,h2,h3};
-@id("647022fecb67460e855ca78c27835cd9") table price[t:period]:Scalar;
+@id("647022fecb67460e855ca78c27835cd9") table price[t:period]:Scalar complete_over(t in periods);
 @id("348bfc29dc4844b096092a8758fb30f1") dataset price_signal:price source "Synthetic price signal relative to marginal cost; not market data" {
 [h1]=[-0.5];
 [h2]=[0.8];

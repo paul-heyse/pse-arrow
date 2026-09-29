@@ -6,7 +6,7 @@
 @id("bb47906570b24eca9db33b0d7dee49e1") use helmholtz @"1.0.0";
 @id("30448313577e45088ceb7dc8a7f0d416") use phase_stability @"1.0.0";
 @id("97025dfbe5f24c42a2db9f7f79abe86a") use vessel_fixtures @"1.0.0";
-@id("a82abeca35f743c586078c7257f7935c") table feeds[j:chemistry.species]:Scalar;
+@id("a82abeca35f743c586078c7257f7935c") table feeds[j:chemistry.species]:Scalar complete_over(j in chem.aromatics);
 @id("b9ef452ef0ab4ab78c137b4d013c83b2") dataset equimolar_bt:feeds source "Equimolar benzene/toluene feed inside the Peng-Robinson two-phase region at 368 K and 101325 Pa; tests/fixtures/pr-stability-reference.json (teqp 0.23.1)" {
 [chem.benzene]=[0.5];
 [chem.toluene]=[0.5];

@@ -71,6 +71,14 @@ class ModelingCellValueBoolean:
 
 
 @attrs.frozen(kw_only=True)
+class ModelingCellValueIdentifier:
+    """Declared relation row or nested value."""
+
+    scheme: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
 class ModelingCellValueInteger:
     """Declared relation row or nested value."""
 
@@ -78,7 +86,7 @@ class ModelingCellValueInteger:
 
 
 @attrs.frozen(kw_only=True)
-class ModelingCellValueQuantityUnitItem:
+class ModelingUnitFactor:
     """Declared relation row or nested value."""
 
     symbol: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
@@ -91,7 +99,14 @@ class ModelingCellValueQuantity:
     """Declared relation row or nested value."""
 
     magnitude: b.float = attrs.field(validator=v.finite_float)
-    unit: b.tuple[ModelingCellValueQuantityUnitItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ModelingCellValueQuantityUnitItem), iterable_validator=attrs.validators.instance_of(b.tuple))))
+    unit: b.tuple[ModelingUnitFactor, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ModelingUnitFactor), iterable_validator=attrs.validators.instance_of(b.tuple))))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingCellValueReference:
+    """Declared relation row or nested value."""
+
+    path: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)
@@ -102,18 +117,21 @@ class ModelingCellValueText:
 
 
 @attrs.frozen(kw_only=True)
-class ModelingCellValueIdentifier:
+class ModelingKeyCell:
     """Declared relation row or nested value."""
 
-    scheme: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    kind: e.ModelingKeyCellKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingKeyCellKind))
+    boolean: ModelingCellValueBoolean | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueBoolean)))
+    integer: ModelingCellValueInteger | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueInteger)))
+    quantity: ModelingCellValueQuantity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueQuantity)))
+    text: ModelingCellValueText | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueText)))
+    identifier: ModelingCellValueIdentifier | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueIdentifier)))
+    reference: ModelingCellValueReference | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueReference)))
 
-
-@attrs.frozen(kw_only=True)
-class ModelingCellValueReference:
-    """Declared relation row or nested value."""
-
-    path: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "boolean" and self.boolean is not None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is None and self.text is None) or (self.kind == "identifier" and self.boolean is None and self.identifier is not None and self.integer is None and self.quantity is None and self.reference is None and self.text is None) or (self.kind == "integer" and self.boolean is None and self.identifier is None and self.integer is not None and self.quantity is None and self.reference is None and self.text is None) or (self.kind == "quantity" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is not None and self.reference is None and self.text is None) or (self.kind == "reference" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is not None and self.text is None) or (self.kind == "text" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is None and self.text is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
 
 
 @attrs.frozen(kw_only=True)
@@ -131,6 +149,14 @@ class ModelingCellValueReferences:
 
 
 @attrs.frozen(kw_only=True)
+class ModelingCellValueRow:
+    """Declared relation row or nested value."""
+
+    target: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    keys: b.tuple[ModelingKeyCell, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ModelingKeyCell), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class ModelingCellValue:
     """Declared relation row or nested value."""
 
@@ -142,9 +168,10 @@ class ModelingCellValue:
     identifier: ModelingCellValueIdentifier | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueIdentifier)))
     reference: ModelingCellValueReference | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueReference)))
     references: ModelingCellValueReferences | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueReferences)))
+    row: ModelingCellValueRow | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueRow)))
 
     def __attrs_post_init__(self) -> None:
-        if not ((self.kind == "boolean" and self.boolean is not None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is None and self.references is None and self.text is None) or (self.kind == "identifier" and self.boolean is None and self.identifier is not None and self.integer is None and self.quantity is None and self.reference is None and self.references is None and self.text is None) or (self.kind == "integer" and self.boolean is None and self.identifier is None and self.integer is not None and self.quantity is None and self.reference is None and self.references is None and self.text is None) or (self.kind == "missing" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is None and self.references is None and self.text is None) or (self.kind == "quantity" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is not None and self.reference is None and self.references is None and self.text is None) or (self.kind == "reference" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is not None and self.references is None and self.text is None) or (self.kind == "references" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is None and self.references is not None and self.text is None) or (self.kind == "text" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is None and self.references is None and self.text is not None)):
+        if not ((self.kind == "boolean" and self.boolean is not None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is None and self.references is None and self.row is None and self.text is None) or (self.kind == "identifier" and self.boolean is None and self.identifier is not None and self.integer is None and self.quantity is None and self.reference is None and self.references is None and self.row is None and self.text is None) or (self.kind == "integer" and self.boolean is None and self.identifier is None and self.integer is not None and self.quantity is None and self.reference is None and self.references is None and self.row is None and self.text is None) or (self.kind == "missing" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is None and self.references is None and self.row is None and self.text is None) or (self.kind == "quantity" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is not None and self.reference is None and self.references is None and self.row is None and self.text is None) or (self.kind == "reference" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is not None and self.references is None and self.row is None and self.text is None) or (self.kind == "references" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is None and self.references is not None and self.row is None and self.text is None) or (self.kind == "row" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is None and self.references is None and self.row is not None and self.text is None) or (self.kind == "text" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is None and self.references is None and self.row is None and self.text is not None)):
             message = "tagged value requires exactly its selected arm"
             raise ValueError(message)
 
@@ -163,6 +190,23 @@ class ModelingCell:
 
     value: ModelingCellValue = attrs.field(validator=attrs.validators.instance_of(ModelingCellValue))
     uncertainty: ModelingCellUncertainty | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellUncertainty)))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingIntegerRange:
+    """Declared relation row or nested value."""
+
+    lower: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+    upper: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingCompleteness:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    set: b.tuple[b.str, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple))))
+    range: ModelingIntegerRange | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingIntegerRange)))
 
 
 @attrs.frozen(kw_only=True)

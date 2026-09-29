@@ -31,7 +31,7 @@
 @id("d02bd312349f46cda9571e022d34061c") use reactors @"1.0.0";
 @id("69a88b61fcb945029d061a895fbfafcd") use saponification @"1.0.0";
 @id("318bf542e11744408077ff7e58ad2c32") use equilibrium @"1.0.0";
-@id("5f80787fec7e40f2a5d6e6dbb866553c") table initial_feed[j:chemistry.species]:MolarDensity;
+@id("5f80787fec7e40f2a5d6e6dbb866553c") table initial_feed[j:chemistry.species]:MolarDensity complete_over(j in chem.saponification_species);
 @id("a5d890c2adfe4277a2855cad480c3dee") dataset feed:initial_feed source "Dynamic demonstration inlet at the steady IDAES 2.13 saponification CSTR specification" {
 [chem.water]=[55388{mol/m^3}];
 [chem.sodium_hydroxide]=[100{mol/m^3}];
@@ -39,7 +39,7 @@
 [chem.sodium_acetate]=[1e-08{mol/m^3}];
 [chem.ethanol]=[1e-08{mol/m^3}];
 }
-@id("a70dc0e63c17457196733ebac0b6952f") table initial_outlet[j:chemistry.species]:MolarDensity;
+@id("a70dc0e63c17457196733ebac0b6952f") table initial_outlet[j:chemistry.species]:MolarDensity complete_over(j in chem.saponification_species);
 @id("65d4734c82f941688b8fe3d5dd8a07bd") dataset initial_state:initial_outlet source "Steady zero-duty CSTR solution with Arrhenius rate and solvent heat capacity, checked against IDAES 2.13 CSTR fixture" {
 [chem.water]=[55388{mol/m^3}];
 [chem.sodium_hydroxide]=[20.316088036339764{mol/m^3}];

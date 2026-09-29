@@ -37,6 +37,31 @@ fn indices<'a>(pairs: impl Iterator<Item = (&'a str, &'a str)>) -> String {
         "]",
     )
 }
+/// An inclusive integer range `lo..hi`.
+fn range_text(range: &super::ModelingIntegerRange) -> String {
+    format!("{}..{}", range.lower, range.upper)
+}
+/// ADR-0123 Outcome 3: `complete_over(key in set, key in lo..hi, key)`.
+fn completeness(entries: &[super::ModelingCompleteness]) -> Result<String, AuthoringError> {
+    let entries = entries
+        .iter()
+        .map(|entry| {
+            Ok(match (&entry.set, &entry.range) {
+                (Some(set), None) => format!(
+                    "{} in {}",
+                    name(&entry.key),
+                    set.iter().map(|s| name(s)).collect::<Vec<_>>().join(".")
+                ),
+                (None, Some(range)) => format!("{} in {}", name(&entry.key), range_text(range)),
+                (None, None) => name(&entry.key),
+                (Some(_), Some(_)) => {
+                    return Err(bad("a completeness entry is over a set or a range, not both"));
+                }
+            })
+        })
+        .collect::<Result<Vec<_>, AuthoringError>>()?;
+    Ok(format!("complete_over({})", entries.join(", ")))
+}
 /// The canonical spelling of a declared type (ADR-0123 Outcome 1).
 fn ty(nodes: &[super::TypeNode]) -> Result<String, AuthoringError> {
     Ok(super::render_type(nodes)?)
@@ -491,33 +516,73 @@ fn print_block(
                 },
                 v.expression
             ),
-            Selected::Table(v) => format!(
-                "table {n}{}: {} missing {}{};",
-                list(
-                    &v.keys
-                        .iter()
-                        .map(|k| Ok(format!("{}: {}", k.name, ty(&k.r#type)?)))
-                        .collect::<Result<Vec<_>, AuthoringError>>()?,
-                    "[",
-                    "]"
-                ),
-                match (&v.value_type, v.columns.is_empty()) {
-                    (Some(value), true) => ty(value)?,
-                    (None, false) => format!(
-                        "{{{}}}",
-                        v.columns
+            Selected::Table(v) => {
+                use pse_model::generated::enums::ModelingMissingPolicy as Missing;
+                let mut clauses = String::new();
+                if let Some(symmetry) = &v.symmetry {
+                    clauses.push_str(&format!(
+                        " symmetric({}, {}) diagonal {}",
+                        name(&symmetry.first),
+                        name(&symmetry.second),
+                        symmetry.diagonal.as_str()
+                    ));
+                }
+                for unique in &v.unique {
+                    if unique.names.is_empty() {
+                        return Err(bad("a uniqueness constraint names at least one key or column"));
+                    }
+                    clauses.push_str(&format!(" unique({})", unique.names.join(", ")));
+                }
+                if !v.complete_over.is_empty() {
+                    clauses.push_str(&format!(" {}", completeness(&v.complete_over)?));
+                }
+                clauses.push_str(&format!(" missing {}", v.missing_policy.as_str()));
+                match (v.missing_policy, &v.default_value) {
+                    (Missing::Default, Some(cell)) => {
+                        clauses.push_str(&format!(" {}", super::render_cell(cell)?));
+                    }
+                    (Missing::Default, None) | (_, Some(_)) => {
+                        return Err(bad("the default policy exactly carries its value"));
+                    }
+                    _ => {}
+                }
+                for requirement in &v.requirements {
+                    clauses.push_str(&format!(" require {requirement}"));
+                }
+                format!(
+                    "table {n}{}: {}{clauses};",
+                    list(
+                        &v.keys
                             .iter()
-                            .map(|c| Ok(format!("{}: {}", c.name, ty(&c.r#type)?)))
-                            .collect::<Result<Vec<_>, AuthoringError>>()?
-                            .join(", ")
+                            .map(|k| Ok(match &k.range {
+                                Some(range) => format!("{}: {}", name(&k.name), range_text(range)),
+                                None => format!("{}: {}", name(&k.name), ty(&k.r#type)?),
+                            }))
+                            .collect::<Result<Vec<_>, AuthoringError>>()?,
+                        "[",
+                        "]"
                     ),
-                    _ => return Err(bad("a table declares a value type exactly when it has no columns")),
-                },
-                v.missing_policy.as_str(),
-                v.default_value
-                    .as_ref()
-                    .map_or(String::new(), |d| format!(" {d}"))
-            ),
+                    match (&v.value_type, v.columns.is_empty()) {
+                        (Some(value), true) => ty(value)?,
+                        (None, false) => format!(
+                            "{{{}}}",
+                            v.columns
+                                .iter()
+                                .map(|c| Ok(match &c.derived {
+                                    Some(expression) => format!(
+                                        "derived {}: {} = {expression}",
+                                        name(&c.name),
+                                        ty(&c.r#type)?
+                                    ),
+                                    None => format!("{}: {}", name(&c.name), ty(&c.r#type)?),
+                                }))
+                                .collect::<Result<Vec<_>, AuthoringError>>()?
+                                .join(", ")
+                        ),
+                        _ => return Err(bad("a table declares a value type exactly when it has no columns")),
+                    },
+                )
+            }
             Selected::Dataset(v) => {
                 let cells = |cells: &[super::Cell]| -> Result<String, AuthoringError> {
                     Ok(cells
@@ -527,7 +592,7 @@ fn print_block(
                         .join(", "))
                 };
                 format!(
-                    "dataset {n}: {}{} source {} {{ {} }}",
+                    "dataset {n}: {}{}{} source {} {{ {} }}",
                     v.target,
                     if v.bindings.is_empty() {
                         String::new()
@@ -540,6 +605,11 @@ fn print_block(
                                 .collect::<Result<Vec<_>, AuthoringError>>()?
                                 .join(", ")
                         )
+                    },
+                    if v.complete_over.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" {}", completeness(&v.complete_over)?)
                     },
                     quoted(&v.source),
                     v.rows

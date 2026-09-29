@@ -2,13 +2,15 @@
 // Copyright (c) 2026 Paul Heyse
 @id("95b5255cbd9044769b411e7017a96a11") package sslw {
 @id("4a4e39850e95401bad07ac4b47bf8b36") use costing @"1.0.0";
-@id("8c1bcdfbc90f4425a8d0face24aed740") dataset design_data:costing.design_coefficients source "Seider, Seader, Lewin and Widagdo, Product and Process Design Principles, third edition, heat exchanger purchase cost correlations; IDAES 2.13 SSLW comparison constants" {
+@id("d294275ca68247b5b6242ca7fb6d473b") set designs:Set<costing.hx_design>={costing.floating,costing.fixed,costing.utube,costing.kettle};
+@id("8c1bcdfbc90f4425a8d0face24aed740") dataset design_data:costing.design_coefficients complete_over(d in designs) source "Seider, Seader, Lewin and Widagdo, Product and Process Design Principles, third edition, heat exchanger purchase cost correlations; IDAES 2.13 SSLW comparison constants" {
 [costing.floating]=[11.9052,0.8709,0.09005];
 [costing.fixed]=[11.2927,0.8228,0.09861];
 [costing.utube]=[11.3852,0.9186,0.0979];
 [costing.kettle]=[12.2052,0.8709,0.09005];
 }
-@id("fdb822f6340c4b0c9cd5f2448eb39931") dataset material_data:costing.material_coefficients source "Seider, Seader, Lewin and Widagdo, Product and Process Design Principles, third edition, heat exchanger purchase cost correlations; IDAES 2.13 SSLW comparison constants" {
+@id("824905e8c5b7488cbdc55e1fe6873467") set materials:Set<costing.hx_material>={costing.carbon_carbon,costing.carbon_brass,costing.carbon_stainless,costing.carbon_monel,costing.carbon_titanium,costing.carbon_crmo,costing.crmo_crmo,costing.stainless_stainless,costing.monel_monel,costing.titanium_titanium};
+@id("fdb822f6340c4b0c9cd5f2448eb39931") dataset material_data:costing.material_coefficients complete_over(m in materials) source "Seider, Seader, Lewin and Widagdo, Product and Process Design Principles, third edition, heat exchanger purchase cost correlations; IDAES 2.13 SSLW comparison constants" {
 [costing.carbon_carbon]=[0,0];
 [costing.carbon_brass]=[1.08,0.05];
 [costing.carbon_stainless]=[1.75,0.13];
@@ -20,7 +22,8 @@
 [costing.monel_monel]=[3.3,0.08];
 [costing.titanium_titanium]=[9.6,0.06];
 }
-@id("1f7e42e28a2f4841b98baf8c63972daa") dataset length_data:costing.length_factor source "Seider, Seader, Lewin and Widagdo, Product and Process Design Principles, third edition, heat exchanger purchase cost correlations; IDAES 2.13 SSLW comparison constants" {
+@id("58d4cf04606f4a1eb53eb183fea8711b") set lengths:Set<costing.tube_length>={costing.eight,costing.twelve,costing.sixteen,costing.twenty};
+@id("1f7e42e28a2f4841b98baf8c63972daa") dataset length_data:costing.length_factor complete_over(l in lengths) source "Seider, Seader, Lewin and Widagdo, Product and Process Design Principles, third edition, heat exchanger purchase cost correlations; IDAES 2.13 SSLW comparison constants" {
 [costing.eight]=[1.25];
 [costing.twelve]=[1.12];
 [costing.sixteen]=[1.05];

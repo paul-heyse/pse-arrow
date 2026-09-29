@@ -18,12 +18,14 @@ pub use pse_model::generated::authored::modeling_declarations::{
     AuthoredModelingDeclarationsFieldValue as Value,
     AuthoredModelingDeclarationsFieldValueSelected as Selected, Row as Declaration,
 };
-pub use pse_model::generated::structures::VersionRequirement;
+pub use pse_model::generated::structures::{
+    ModelingCompleteness, ModelingIntegerRange, VersionRequirement,
+};
 pub use cells::{
     Cell, CellBoolean, CellIdentifier, CellInteger, CellKind, CellPath, CellQuantity,
-    CellReference, CellReferences, CellSelected, CellText, CellUncertainty, CellUnitFactor,
-    CellValue, ModelingUncertaintyKind, cell, parse_cell, render_cell, unit_factors,
-    unit_product,
+    CellReference, CellReferences, CellRow, CellSelected, CellText, CellUncertainty,
+    CellUnitFactor, CellValue, KeyCell, KeyCellKind, KeyCellSelected, ModelingUncertaintyKind,
+    cell, key_cell, key_cell_value, parse_cell, render_cell, unit_factors, unit_product,
 };
 pub use render::render;
 pub use version::{exact_requirement, requirement_admits, requirement_version};

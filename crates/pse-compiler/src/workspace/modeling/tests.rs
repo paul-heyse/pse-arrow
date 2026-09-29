@@ -688,7 +688,7 @@ fn kernel_table_function_references_dispatch_and_share_specializations() {
  set items: Set<item> = {a,b,c};
  fn double(x: Scalar)->Scalar=x*2; fn triple(x: Scalar)->Scalar=x*3;
  fn apply(method: Fn(x: Scalar)->Scalar, x: Scalar)->Scalar=method(x);
- table methods[j: item]: Fn(x: Scalar)->Scalar;
+ table methods[j: item]: Fn(x: Scalar)->Scalar complete_over(j in items);
  dataset choices: methods source "synthetic" { [a]=[double]; [b]=[triple]; [c]=[double]; }
  def Root { var x[j in items]: Scalar; eq e[j in items]: apply(methods[j],x[j]) == 0; }
  }"#,
@@ -2775,7 +2775,7 @@ fn kernel_immutable_function_data_is_visible_differentiable_and_invalidated() {
     let text = r#"package data {
       entity kind item {} entity item a {} entity item b {}
       set items:Set<item>={a,b};
-      table coefficients[j:item]:{value:Scalar};
+      table coefficients[j:item]:{value:Scalar} complete_over(j in items);
       dataset values:coefficients source "synthetic" {[a]=[3];[b]=[4];}
       fn energy(x:Scalar,n:Scalar[item])->Scalar=sum(j in items | coefficients[j].value*x*n[j]);
     }
@@ -2840,7 +2840,8 @@ fn kernel_immutable_function_data_is_visible_differentiable_and_invalidated() {
 fn kernel_imported_table_paths_preserve_rows_columns_and_visibility() {
     let text = r#"package data {
         entity kind item {} entity item a {}
-        table coefficients[j:item]:{value:Scalar};
+        set items:Set<item>={a};
+        table coefficients[j:item]:{value:Scalar} complete_over(j in items);
         dataset values:coefficients source "synthetic" {[a]=[7];}
         fn read(row:Row<coefficients>)->Scalar=row.value;
     }
@@ -2967,7 +2968,7 @@ fn kernel_function_slots_select_overrides_indexed_methods_and_forward_arguments(
       fn double(x:Scalar)->Scalar=2*x;
       fn triple(x:Scalar)->Scalar=3*x;
       fn apply(method:Fn(x:Scalar)->Scalar,x:Scalar)->Scalar=method(x);
-      table methods[j:item]:Fn(x:Scalar)->Scalar;
+      table methods[j:item]:Fn(x:Scalar)->Scalar complete_over(j in items);
       dataset choices:methods source "synthetic" {[a]=[double];[b]=[triple];}
       interface Port {
         param method:Fn(x:Scalar)->Scalar=double;
@@ -3306,7 +3307,7 @@ fn kernel_finite_reductions_retain_domains_prototypes_and_derivatives() {
         .replace("{mol/s}", "{K}");
     let mut other = CompilerWorkspace::new(inputs, WorkspaceLimits::default()).unwrap();
     assert!(other.publish_modeling(source(&invalid), names.clone()).is_err());
-    let static_source = text.replace("def Root {", "table flow_data[j:species]:ComponentFlow; dataset values_data:flow_data source \"synthetic component values\" {[a]=[2{mol/s}];[b]=[2{mol/s}];} def Root {param total_static:Flow=sum(j in species_set | flow_data[j]); param empty_static:Flow=sum(j in empty | flow_data[j]);");
+    let static_source = text.replace("def Root {", "table flow_data[j:species]:ComponentFlow complete_over(j in species_set); dataset values_data:flow_data source \"synthetic component values\" {[a]=[2{mol/s}];[b]=[2{mol/s}];} def Root {param total_static:Flow=sum(j in species_set | flow_data[j]); param empty_static:Flow=sum(j in empty | flow_data[j]);");
     workspace
         .publish_modeling(
             source(&static_source),
@@ -3481,7 +3482,8 @@ fn kernel_qualified_enumeration_arguments_select_structure() {
 fn kernel_pure_function_names_do_not_capture_caller_members() {
     let text = r#"package p {
       entity kind item {} entity item a {} entity item b {}
-      table data[j:item]:Scalar; dataset values:data source "synthetic" {[a]=[5];[b]=[7];}
+      set items:Set<item>={a,b};
+      table data[j:item]:Scalar complete_over(j in items); dataset values:data source "synthetic" {[a]=[5];[b]=[7];}
       fn helper(x:Scalar)->Scalar=3*x;
       fn read(x:Scalar,j:item)->Scalar=data[j]+helper(x);
       interface Port {

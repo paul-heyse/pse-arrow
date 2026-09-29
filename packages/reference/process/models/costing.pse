@@ -22,9 +22,9 @@
 @id("c095d4f089fb4ed88cb79bcfbab7d7fd") entity tube_length twelve {}
 @id("ec70e2d4a79c4313883a033041dde3d1") entity tube_length sixteen {}
 @id("cbfdf9a87e5041e4bf512c3a4a48518d") entity tube_length twenty {}
-@id("1fe0e59de7df4951bc1aced29b50d020") table design_coefficients[d:hx_design]:{constant:Scalar,linear:Scalar,quadratic:Scalar};
-@id("e1f183461bdb4f08b9dec444556478a8") table material_coefficients[m:hx_material]:{offset:Scalar,exponent:Scalar};
-@id("cda011e4a3f74dfd9b51d4dc32cd03a4") table length_factor[l:tube_length]:Scalar;
+@id("1fe0e59de7df4951bc1aced29b50d020") table design_coefficients[d:hx_design]:{constant:Scalar,linear:Scalar,quadratic:Scalar} complete_over(d);
+@id("e1f183461bdb4f08b9dec444556478a8") table material_coefficients[m:hx_material]:{offset:Scalar,exponent:Scalar} complete_over(m);
+@id("cda011e4a3f74dfd9b51d4dc32cd03a4") table length_factor[l:tube_length]:Scalar complete_over(l);
 @id("8f71dc0c02f84ddc8c7033d1fb607799") fn square_foot()->Area=0.09290304{m^2};
 @id("97c5376022b34a2d95e9200d0e935fc7") fn atmospheric_pressure()->Pressure=101325{Pa};
 @id("63abf3f232a54b73a4087fc469dfc344") fn hundred_psi()->DeltaPressure=689475.7293168361{Pa};
