@@ -124,7 +124,7 @@ fn vessel_profile(dae: bool) -> Profile {
         atol: vec![1e-10; if dae { 2 } else { 1 }],
         initial_step: 1e-4,
         parameter_scales: vec![1.0],
-        sensitivities: true,
+        sensitivity: DynamicSensitivity::Forward,
         ..Default::default()
     }
 }

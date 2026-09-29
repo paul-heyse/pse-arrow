@@ -20,7 +20,6 @@ pse.factorable.fixed-assignment.profile.v1
 pse.factorable.fixed-assignment.v1
 pse.fit.coordinate.v1
 pse.fit.prepared.v1
-pse.fit.profile.v2
 pse.fit.source.v1
 pse.flow.projection.v1
 pse.highs.iis-relaxation.v1
@@ -126,6 +125,10 @@ pse.native.controls.v2
 pse.durable.study_point_binding.v1
 pse.durable.study_request.v1
 # Plan 22 Y0c (I6): the dynamic profile's scheduled inputs replace its input changes, so
-# its identity is framed anew. dynamic.profile.v4 replaces dynamic.profile.v3, which is no
-# longer declared.
-pse.dynamic.profile.v4
+# its identity is framed anew. dynamic.profile.v4 replaced dynamic.profile.v3.
+# Plan 22 Y3a (ADR-0110 item 3): the dynamic profile's typed sensitivity (none, forward,
+# adjoint) and adjoint checkpoint settings replace its sensitivity flag, and the fit profile
+# gains its derivative source (responses or gradient). dynamic.profile.v5 replaces
+# dynamic.profile.v4 and fit.profile.v3 replaces fit.profile.v2; neither is declared.
+pse.dynamic.profile.v5
+pse.fit.profile.v3

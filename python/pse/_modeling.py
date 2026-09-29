@@ -41,7 +41,7 @@ from pse.contracts.authored import (
     AuthoredObservationsRow,
 )
 from pse.contracts.documents import PointOverlay, SolveSettings
-from pse.contracts.enums import ModelingAnalysisRoute
+from pse.contracts.enums import FitDerivatives, ModelingAnalysisRoute
 from pse.contracts.identities import DeclarationId, FitId, InstanceId, RunId
 from pse.contracts.values import ContentHash, SemanticId
 
@@ -501,11 +501,13 @@ class ModelingPackage:
         modes: Mapping[InstanceId, Sequence[ModelingModeSettings]] | None = None,
         rank_tolerance: float = 1e-8,
         max_cells: int = 1000000,
+        derivatives: FitDerivatives = FitDerivatives.RESPONSES,
     ) -> "PreparedOperation":
         """Compile shared parameters over authored algebraic or integrated experiments.
 
         Experiment settings are keyed by the experiment's instance, its
-        ``experiment_id``.
+        ``experiment_id``. ``derivatives`` selects the response Jacobian or, with the
+        limited-memory Hessian, the adjoint gradient alone.
         """
         profiles = [(key.to_hex(), value) for key, value in (simulations or {}).items()]
         return PreparedOperation(
@@ -519,6 +521,7 @@ class ModelingPackage:
                 ],
                 rank_tolerance=rank_tolerance,
                 max_cells=max_cells,
+                derivatives=derivatives.value,
             )
         )
 

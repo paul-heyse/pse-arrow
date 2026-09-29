@@ -59,6 +59,7 @@ fn source(mixed: bool, expected: f64) -> (crate::workflow::ModelingPackage, FitP
         modes: BTreeMap::new(),
         rank_tolerance: 1e-8,
         max_cells: 100000,
+        derivatives: FitDerivatives::Responses,
     };
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
     (
@@ -185,6 +186,156 @@ async fn gauss_newton_fit_admits_transient() {
         assert!(rows.iter().any(|r| r.namespace == "derivatives"
             && r.name == "hessian"
             && r.text.as_deref() == Some("gauss_newton")));
+    }
+}
+/// ADR-0110 item 3: a gradient-only fit's objective gradient is the adjoint product of its
+/// transient experiment, and it equals the forward-sensitivity gradient and central finite
+/// differences of the objective, with and without a scheduled input (declared tolerances:
+/// 1e-6 against forward, 1e-5 against differences). The gradient fit integrates without
+/// sensitivities, needs the limited-memory Hessian, and reruns the forward sensitivities
+/// once for rank at its candidate (PS-12).
+#[tokio::test]
+async fn adjoint_gradient_equals_forward_on_transient_fit() {
+    for scheduled in [false, true] {
+        let (package, mut profile) = source(true, 73.);
+        if scheduled {
+            profile
+                .simulations
+                .get_mut(&InstanceId::from(id(74)))
+                .unwrap()
+                .schedule
+                .push(native::dynamics::ScheduledInput {
+                    parameter: 0,
+                    times: vec![160.5],
+                });
+        }
+        let cancel = crate::CancelSource::new();
+        let oracle = |derivatives| {
+            let (package, mut profile) = (package.clone(), profile.clone());
+            let cancel = cancel.clone();
+            async move {
+                profile.derivatives = derivatives;
+                let (problem, _) = package
+                    .prepare_fit_problem(
+                        FitId::from(id(73)),
+                        profile,
+                        compiler_profile(),
+                        Default::default(),
+                        &cancel,
+                    )
+                    .await
+                    .unwrap();
+                let mut execution = Execution::new(
+                    Arc::new(AtomicBool::new(false)),
+                    &problem.profile.solver.controls,
+                );
+                execution.memory = Some(64 << 20);
+                FitOracle::new(problem, execution).unwrap()
+            }
+        };
+        let mut forward = oracle(FitDerivatives::Responses).await;
+        let mut adjoint = oracle(FitDerivatives::Gradient).await;
+        let transient = |o: &FitOracle| {
+            let Experiment::Transient(s) = &o.prepared.experiments[0] else {
+                panic!("transient experiment")
+            };
+            s.profile.sensitivity
+        };
+        assert_eq!(
+            transient(&forward),
+            native::dynamics::DynamicSensitivity::Forward
+        );
+        assert_eq!(
+            transient(&adjoint),
+            native::dynamics::DynamicSensitivity::Adjoint
+        );
+        for x in [2.5, 0.7] {
+            let (mut g, mut a) = ([0.], [0.]);
+            forward.gradient(&[x], &mut g).unwrap();
+            adjoint.gradient(&[x], &mut a).unwrap();
+            assert!(g[0].abs() > 0.1, "a nonzero gradient at {x}: {g:?}");
+            assert!(
+                (a[0] - g[0]).abs() <= 1e-6 * (1. + g[0].abs()),
+                "scheduled={scheduled} x={x}: adjoint {a:?} forward {g:?}"
+            );
+            let step = 1e-4;
+            let difference = (adjoint.objective(&[x + step]).unwrap()
+                - adjoint.objective(&[x - step]).unwrap())
+                / (2. * step);
+            assert!(
+                (a[0] - difference).abs() <= 1e-5 * (1. + difference.abs()),
+                "scheduled={scheduled} x={x}: adjoint {a:?} differences {difference}"
+            );
+            // The gradient fit's own integrations carry no sensitivities.
+            let point = adjoint.evaluate(&[x]).unwrap();
+            assert!(
+                point
+                    .trajectories
+                    .values()
+                    .flat_map(|r| &r.samples)
+                    .all(|s| s.output_sensitivities.is_empty())
+            );
+        }
+        // The rank rerun forms the response Jacobian with forward sensitivities.
+        let RankDiagnostic {
+            responses, rank, ..
+        } = adjoint.response_rank(&[2.]).unwrap();
+        assert_eq!(rank, 1);
+        let expected = if scheduled { 0.5 } else { 1. };
+        assert!((responses[(0, 0)] - expected).abs() < 1e-5, "{responses:?}");
+        // No response Jacobian means no supplied Hessian.
+        let mut gauss_newton = profile.clone();
+        gauss_newton.derivatives = FitDerivatives::Gradient;
+        gauss_newton.solver.controls.hessian = HessianMode::GaussNewton;
+        assert!(
+            package
+                .prepare_fit_problem(
+                    FitId::from(id(73)),
+                    gauss_newton,
+                    compiler_profile(),
+                    Default::default(),
+                    &cancel,
+                )
+                .await
+                .is_err()
+        );
+    }
+    #[cfg(feature = "solver-ipopt")]
+    {
+        // The complete gradient-only fit reaches the forward fit's estimate, records its
+        // derivative source and qualifies its rank from the rerun.
+        let (package, mut profile) = source(true, 73.);
+        profile.derivatives = FitDerivatives::Gradient;
+        let cancel = crate::CancelSource::new();
+        let prepared = package
+            .prepare_fit(
+                FitId::from(id(73)),
+                profile,
+                compiler_profile(),
+                Default::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let result = prepared.start().unwrap().wait().await.unwrap();
+        let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
+            panic!("missing fit")
+        };
+        // Least squares of (p − 2) and (p − 1).
+        assert!(
+            (report.candidate.as_ref().unwrap()[0] - 1.5).abs() < 1e-5,
+            "{report:?}"
+        );
+        assert_eq!(report.derivatives, FitDerivatives::Gradient);
+        assert_eq!(report.rank, Some(1));
+        let table = result.table("runtime.solve_metrics").unwrap();
+        let rows = pse_relations::generated::runtime::solve_metrics::RuntimeSolveMetricsView::from_checked(&table)
+            .unwrap()
+            .rows()
+            .unwrap();
+        assert!(rows.iter().any(|r| r.namespace == "derivatives"
+            && r.name == "gradient"
+            && r.text.as_deref() == Some("gradient")));
     }
 }
 #[cfg(feature = "solver-ipopt")]

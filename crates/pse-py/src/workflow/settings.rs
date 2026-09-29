@@ -60,6 +60,11 @@ pub(super) fn idas(py: Python<'_>, bytes: &[u8]) -> PyResult<dynamics::IdasSetti
     document(py, "IDAS settings", bytes)
 }
 
+/// An encoded `AdjointSettings` document.
+pub(super) fn adjoint(py: Python<'_>, bytes: &[u8]) -> PyResult<dynamics::AdjointSettings> {
+    document(py, "adjoint settings", bytes)
+}
+
 /// A boundary name, parsed by the owning type's serde spelling (a registry enum's is its
 /// `as_str`); a refusal lists every accepted name.
 pub(super) fn named<T: DeserializeOwned>(py: Python<'_>, what: &str, name: &str) -> PyResult<T> {

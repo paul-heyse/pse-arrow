@@ -6,10 +6,14 @@
 //! pse-owned and fail through Diffsol's typed step recovery, not by panicking (I9).
 use super::*;
 use diffsol::{
-    ConstantOp, ConstantOpSens, FaerContext, FaerSparseMat, FaerVec, LinearOp,
-    LinearSolver, Matrix, NonLinearOp, NonLinearOpJacobian, NonLinearOpSens, OdeBuilder,
-    OdeEquations, OdeEquationsRef, OdeSolverMethod, OdeSolverStopReason, Op, Vector, VectorHost,
+    ConstantOp, ConstantOpSens, ConstantOpSensAdjoint, FaerContext, FaerSparseMat, FaerVec,
+    LinearOp, LinearOpTranspose, LinearSolver, Matrix, NonLinearOp, NonLinearOpAdjoint,
+    NonLinearOpJacobian, NonLinearOpSens, NonLinearOpSensAdjoint, OdeBuilder, OdeEquations,
+    OdeEquationsRef, OdeSolverMethod, OdeSolverStopReason, Op, Vector, VectorHost,
 };
+
+mod adjoint;
+pub(super) use adjoint::gradient;
 use std::{
     cell::{Cell, RefCell},
     panic::{AssertUnwindSafe, catch_unwind, resume_unwind},
@@ -150,6 +154,11 @@ struct Operator<'o> {
     /// The contract parameter of each integration column in this segment, if any.
     contract: Vec<Option<usize>>,
     direction: RefCell<Vec<f64>>,
+    /// The transposed patterns of the adjoint operators −Jₓᵀ and −Jₚᵀ.
+    state_adjoint_pattern: Pattern,
+    parameter_adjoint_pattern: Pattern,
+    /// One transposed-product buffer over the state followed by the contract parameters.
+    transposed: RefCell<Vec<f64>>,
 }
 impl<'o> Operator<'o> {
     fn new(shared: Rc<Shared<'o>>, function: Function) -> Result<Self, ProblemError> {
@@ -212,27 +221,93 @@ impl<'o> Operator<'o> {
                 .map(|v| v.0)
                 .map_err(|e| ProblemError::internal(format!("dynamic support pattern: {e}")))
         };
+        let state_pattern = pattern(false)?;
+        let parameter_pattern = pattern(true)?;
+        let transpose = |p: &Pattern| {
+            p.as_ref()
+                .transpose()
+                .to_col_major()
+                .map_err(|e| ProblemError::memory(format!("dynamic adjoint pattern: {e}")))
+        };
         Ok(Self {
-            state_pattern: pattern(false)?,
-            parameter_pattern: pattern(true)?,
+            state_adjoint_pattern: transpose(&state_pattern)?,
+            parameter_adjoint_pattern: transpose(&parameter_pattern)?,
+            state_pattern,
+            parameter_pattern,
             columns,
             contract: contract_columns,
             direction: RefCell::new(vec![0.0; n + np]),
+            transposed: RefCell::new(vec![0.0; n + np]),
             shared,
             function,
             mode,
         })
     }
-    fn partials(&self, x: &V, t: f64, matrix: &mut M, parameter: bool) {
+    /// The raw partials at `(x, t)`, which Diffsol's callbacks cannot fail: a missing
+    /// Jacobian exits through the owned abort.
+    fn raw_partials(&self, x: &V, t: f64) -> faer::sparse::SparseColMat<usize, f64> {
         let result = self
             .shared
             .evaluate_mode(self.mode, self.function, t, x.as_slice(), true);
-        let Some(j) = result.jacobian else {
-            self.shared.abort(
+        match result.jacobian {
+            Some(j) => j,
+            None => self.shared.abort(
                 Termination::Failed,
                 ProblemError::internal("missing dynamic partials"),
-            );
-        };
+            ),
+        }
+    }
+    /// −Jᵀv from the oracle's one CSC by a faer transpose product: over the state, or over
+    /// the segment's integration columns, where a column this segment maps no contract
+    /// parameter to is zero.
+    fn transpose_product(&self, x: &V, t: f64, v: &V, y: &mut V, parameter: bool) {
+        let j = self.raw_partials(x, t);
+        let n = self.nstates();
+        let mut product = self.transposed.borrow_mut();
+        let width = product.len();
+        faer::sparse::linalg::matmul::sparse_dense_matmul(
+            faer::MatMut::from_column_major_slice_mut(&mut product, width, 1),
+            faer::Accum::Replace,
+            j.as_ref().transpose(),
+            faer::MatRef::from_column_major_slice(v.as_slice(), v.len(), 1),
+            -1.0,
+            faer::Par::Seq,
+        );
+        if parameter {
+            for (k, slot) in y.as_mut_slice().iter_mut().enumerate() {
+                *slot = self
+                    .contract
+                    .get(k)
+                    .copied()
+                    .flatten()
+                    .map_or(0.0, |c| product[n + c]);
+            }
+        } else {
+            y.as_mut_slice().copy_from_slice(&product[..n]);
+        }
+    }
+    /// −Jᵀ in its transposed pattern: each column is a function row, each row a state or
+    /// an integration column of the segment.
+    fn transpose_partials(&self, x: &V, t: f64, matrix: &mut M, parameter: bool) {
+        let j = self.raw_partials(x, t);
+        let n = self.nstates();
+        let target = matrix.inner_mut();
+        for c in 0..target.ncols() {
+            for k in target.col_range(c) {
+                let r = target.symbolic().row_idx()[k];
+                let source = if parameter {
+                    self.contract.get(r).copied().flatten().map(|p| n + p)
+                } else {
+                    Some(r)
+                };
+                target.val_mut()[k] = source
+                    .and_then(|source| j.get(c, source).copied())
+                    .map_or(0.0, |v| -v);
+            }
+        }
+    }
+    fn partials(&self, x: &V, t: f64, matrix: &mut M, parameter: bool) {
+        let j = self.raw_partials(x, t);
         let n = self.nstates();
         let target = matrix.inner_mut();
         for c in 0..target.ncols() {
@@ -252,15 +327,7 @@ impl<'o> Operator<'o> {
         }
     }
     fn product(&self, x: &V, t: f64, v: &V, y: &mut V, parameter: bool) {
-        let result = self
-            .shared
-            .evaluate_mode(self.mode, self.function, t, x.as_slice(), true);
-        let Some(j) = result.jacobian else {
-            self.shared.abort(
-                Termination::Failed,
-                ProblemError::internal("missing dynamic partials"),
-            );
-        };
+        let j = self.raw_partials(x, t);
         // Keep one direction buffer per operator attempt. faer multiplies the
         // full admitted CSC matrix; a fresh Diffsol matrix is unnecessary.
         let mut direction = self.direction.borrow_mut();
@@ -334,6 +401,52 @@ impl NonLinearOpSens for Operator<'_> {
         Some(self.parameter_pattern.clone())
     }
 }
+/// The adjoint operators, −Jₓᵀ and −Jₚᵀ, from the same CSC as the forward products; the
+/// matrix forms fill the transposed pattern directly instead of Diffsol's default of one
+/// product per column (ADR-0110 item 3).
+impl NonLinearOpAdjoint for Operator<'_> {
+    fn jac_transpose_mul_inplace(&self, x: &V, t: f64, v: &V, y: &mut V) {
+        self.transpose_product(x, t, v, y, false);
+    }
+    fn adjoint_inplace(&self, x: &V, t: f64, y: &mut M) {
+        self.transpose_partials(x, t, y, false);
+    }
+    fn adjoint_sparsity(&self) -> Option<Pattern> {
+        Some(self.state_adjoint_pattern.clone())
+    }
+}
+impl NonLinearOpSensAdjoint for Operator<'_> {
+    fn sens_transpose_mul_inplace(&self, x: &V, t: f64, v: &V, y: &mut V) {
+        self.transpose_product(x, t, v, y, true);
+    }
+    fn sens_adjoint_inplace(&self, x: &V, t: f64, y: &mut M) {
+        self.transpose_partials(x, t, y, true);
+    }
+    fn sens_adjoint_sparsity(&self) -> Option<Pattern> {
+        Some(self.parameter_adjoint_pattern.clone())
+    }
+}
+/// −(∂x₀/∂p)ᵀv of the initial values. A seeded segment starts from the previous segment's
+/// state, whose parameter dependence the adjoint state carries across the boundary, so its
+/// own initial values contribute nothing.
+impl ConstantOpSensAdjoint for Operator<'_> {
+    fn sens_transpose_mul_inplace(&self, t: f64, v: &V, y: &mut V) {
+        if self.shared.seed.borrow().is_some() {
+            y.as_mut_slice().fill(0.0);
+            return;
+        }
+        self.transpose_product(
+            &V::zeros(self.nstates(), self.shared.context),
+            t,
+            v,
+            y,
+            true,
+        );
+    }
+    fn sens_adjoint_sparsity(&self) -> Option<Pattern> {
+        Some(self.parameter_adjoint_pattern.clone())
+    }
+}
 impl ConstantOp for Operator<'_> {
     fn call_inplace(&self, t: f64, y: &mut V) {
         if let Some(seed) = self.shared.seed.borrow().as_ref() {
@@ -399,15 +512,35 @@ impl Op for Mass<'_> {
     }
 }
 impl LinearOp for Mass<'_> {
+    /// `y = M·x + β·y`; with β = 0 the previous `y` is not read, as in BLAS.
     fn gemv_inplace(&self, x: &V, _t: f64, beta: f64, y: &mut V) {
         for (i, d) in self.0.contract.differential.iter().enumerate() {
-            y[i] = if *d { x[i] } else { 0.0 } + beta * y[i];
+            let mass = if *d { x[i] } else { 0.0 };
+            y[i] = if beta == 0.0 { mass } else { mass + beta * y[i] };
         }
     }
     fn sparsity(&self) -> Option<Pattern> {
         Some(
             <Pattern as diffsol::matrix::sparsity::MatrixSparsity<M>>::new_diagonal(self.nstates()),
         )
+    }
+}
+/// The fixed diagonal mass is its own transpose.
+impl LinearOpTranspose for Mass<'_> {
+    fn gemv_transpose_inplace(&self, x: &V, t: f64, beta: f64, y: &mut V) {
+        self.gemv_inplace(x, t, beta, y);
+    }
+    fn transpose_inplace(&self, _t: f64, y: &mut M) {
+        let target = y.inner_mut();
+        for c in 0..target.ncols() {
+            for k in target.col_range(c) {
+                let r = target.symbolic().row_idx()[k];
+                target.val_mut()[k] = f64::from(r == c && self.0.contract.differential[c]);
+            }
+        }
+    }
+    fn transpose_sparsity(&self) -> Option<Pattern> {
+        self.sparsity()
     }
 }
 struct Equation<'o> {
@@ -537,60 +670,79 @@ pub(super) fn integrate_with_progress(
     progress: Arc<crate::solve::Progress>,
 ) -> Result<Report, ProblemError> {
     profile.validate(oracle.contract(), parameters)?;
-    let contract_value = oracle.contract().clone();
-    let shared = Rc::new(Shared {
-        oracle: RefCell::new(oracle),
-        columns: RefCell::new(
-            profile.columns_at(contract_value.parameters.len(), profile.start),
-        ),
-        contract: contract_value.clone(),
-        parameters: RefCell::new(parameters.to_vec()),
-        integrals: RefCell::new(vec![0.0; contract_value.quadratures.len()]),
-        mode: Cell::new(0),
-        seed: RefCell::new(None),
-        seed_sens: RefCell::new(None),
-        failure: RefCell::new(None),
-        cancel,
-        deadline: Instant::now()
-            .checked_add(profile.time_limit)
-            .ok_or_else(|| ProblemError::unsupported("dynamic deadline overflow"))?,
-        started: Instant::now(),
-        progress,
-        context: FaerContext {
-            par: faer::Par::Seq,
-        },
-    });
+    let shared = Shared::new(oracle, profile, parameters, cancel, progress)?;
     let mut report = Report::new(profile.start);
-    // The boundary exits Diffsol's infallible operator callbacks with the recorded typed
-    // failure (`Shared::abort`) and contains any other library panic. A failed Newton
-    // factorization never reaches it: the linear solvers return it as an error.
     let result = catch_unwind(AssertUnwindSafe(|| match profile.diffsol.linear {
         DiffsolLinear::FaerLu => run::<linear::FaerLu>(shared.clone(), profile, &mut report),
         DiffsolLinear::Klu => run::<linear::Klu>(shared.clone(), profile, &mut report),
     }));
-    match result {
-        Ok(Ok(())) => {}
-        Ok(Err(e)) => {
-            report.termination = Termination::Failed;
-            report.error = Some(e);
-        }
-        Err(payload) => {
-            if payload.is::<Abort>() {
-                if let Some((status, error)) = shared.failure.borrow_mut().take() {
-                    report.termination = status;
-                    report.error = Some(error);
+    shared.contain(result, &mut report);
+    Ok(report)
+}
+impl<'o> Shared<'o> {
+    /// The owned context of one integration attempt, starting in the first segment.
+    fn new(
+        oracle: &'o mut dyn Oracle,
+        profile: &Profile,
+        parameters: &[f64],
+        cancel: Cancellation,
+        progress: Arc<crate::solve::Progress>,
+    ) -> Result<Rc<Self>, ProblemError> {
+        let contract_value = oracle.contract().clone();
+        Ok(Rc::new(Shared {
+            oracle: RefCell::new(oracle),
+            columns: RefCell::new(
+                profile.columns_at(contract_value.parameters.len(), profile.start),
+            ),
+            integrals: RefCell::new(vec![0.0; contract_value.quadratures.len()]),
+            contract: contract_value,
+            parameters: RefCell::new(parameters.to_vec()),
+            mode: Cell::new(0),
+            seed: RefCell::new(None),
+            seed_sens: RefCell::new(None),
+            failure: RefCell::new(None),
+            cancel,
+            deadline: Instant::now()
+                .checked_add(profile.time_limit)
+                .ok_or_else(|| ProblemError::unsupported("dynamic deadline overflow"))?,
+            started: Instant::now(),
+            progress,
+            context: FaerContext {
+                par: faer::Par::Seq,
+            },
+        }))
+    }
+    /// The boundary exits Diffsol's infallible operator callbacks with the recorded typed
+    /// failure (`Shared::abort`) and contains any other library panic. A failed Newton
+    /// factorization never reaches it: the linear solvers return it as an error.
+    fn contain(
+        &self,
+        result: std::thread::Result<Result<(), ProblemError>>,
+        report: &mut Report,
+    ) {
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => {
+                report.termination = Termination::Failed;
+                report.error = Some(e);
+            }
+            Err(payload) => {
+                if payload.is::<Abort>() {
+                    if let Some((status, error)) = self.failure.borrow_mut().take() {
+                        report.termination = status;
+                        report.error = Some(error);
+                    } else {
+                        report.termination = Termination::Panic;
+                        report.error = Some(ProblemError::internal("unattributed dynamic abort"));
+                    }
                 } else {
                     report.termination = Termination::Panic;
-                    report.error = Some(ProblemError::internal("unattributed dynamic abort"));
+                    report.error = Some(ProblemError::internal("panic inside Diffsol operation"));
                 }
-            } else {
-                report.termination = Termination::Panic;
-                report.error = Some(ProblemError::internal("panic inside Diffsol operation"));
             }
         }
+        (report.progress, report.dropped_progress) = self.progress.snapshot();
     }
-    (report.progress, report.dropped_progress) = shared.progress.snapshot();
-    Ok(report)
 }
 /// Statistics of one finished segment, labelled with the scheme and linear solver.
 fn segment_statistics(
@@ -608,6 +760,57 @@ fn segment_statistics(
     }
     Ok(value)
 }
+/// One segment's problem from `time`, whose operators hold the segment's column map.
+fn build_problem<'o>(
+    shared: &Rc<Shared<'o>>,
+    p: &Profile,
+    time: f64,
+    scales: &[f64],
+) -> Result<diffsol::OdeSolverProblem<Equation<'o>>, ProblemError> {
+    let eq = Equation {
+        rhs: Operator::new(shared.clone(), Function::Rhs)?,
+        init: Operator::new(shared.clone(), Function::Initial)?,
+        out: Operator::new(
+            shared.clone(),
+            if shared.contract.quadratures.is_empty() {
+                Function::Output
+            } else {
+                Function::QuadratureFlux
+            },
+        )?,
+        root: Operator::new(shared.clone(), Function::Roots)?,
+        mass: Mass(shared.clone()),
+        reset: None,
+    };
+    let params = shared.parameters.borrow().clone();
+    let mut builder = OdeBuilder::<M>::new()
+        .context(shared.context)
+        .t0(time)
+        .h0(p.initial_step)
+        .rtol(p.rtol)
+        .atol(p.atol.clone())
+        .p(params)
+        .param_scales(scales.to_vec());
+    if let Some(tolerance) = p.out_rtol {
+        builder = builder
+            .integrate_out(true)
+            .out_rtol(tolerance)
+            .out_atol(p.out_atol.clone());
+    }
+    if p.forward() {
+        builder = builder.sens_rtol(p.rtol).sens_atol(p.atol.clone());
+    }
+    if p.sensitivity == DynamicSensitivity::Adjoint {
+        let atol = p.atol.iter().copied().fold(f64::INFINITY, f64::min);
+        builder = builder
+            .param_rtol(p.rtol)
+            .param_atol(vec![atol; scales.len()]);
+    }
+    let mut problem = builder.build_from_eqn(eq).map_err(native)?;
+    problem.ic_options = copy_initial(&p.initialization);
+    problem.ode_options = copy_native(&p.native);
+    Ok(problem)
+}
 fn run<LS: LinearSolver<M>>(
     shared: Rc<Shared<'_>>,
     p: &Profile,
@@ -623,42 +826,7 @@ fn run<LS: LinearSolver<M>>(
     let mut steps = 0usize;
     loop {
         shared.check();
-        let eq = Equation {
-            rhs: Operator::new(shared.clone(), Function::Rhs)?,
-            init: Operator::new(shared.clone(), Function::Initial)?,
-            out: Operator::new(
-                shared.clone(),
-                if shared.contract.quadratures.is_empty() {
-                    Function::Output
-                } else {
-                    Function::QuadratureFlux
-                },
-            )?,
-            root: Operator::new(shared.clone(), Function::Roots)?,
-            mass: Mass(shared.clone()),
-            reset: None,
-        };
-        let params = shared.parameters.borrow().clone();
-        let mut builder = OdeBuilder::<M>::new()
-            .context(shared.context)
-            .t0(time)
-            .h0(p.initial_step)
-            .rtol(p.rtol)
-            .atol(p.atol.clone())
-            .p(params)
-            .param_scales(scales.clone());
-        if let Some(tolerance) = p.out_rtol {
-            builder = builder
-                .integrate_out(true)
-                .out_rtol(tolerance)
-                .out_atol(p.out_atol.clone());
-        }
-        if p.sensitivities {
-            builder = builder.sens_rtol(p.rtol).sens_atol(p.atol.clone());
-        }
-        let mut problem = builder.build_from_eqn(eq).map_err(native)?;
-        problem.ic_options = copy_initial(&p.initialization);
-        problem.ode_options = copy_native(&p.native);
+        let problem = build_problem(&shared, p, time, &scales)?;
         let requested = ConstantOp::call(&problem.eqn.init(), time)
             .as_slice()
             .to_vec();
@@ -722,7 +890,7 @@ fn run<LS: LinearSolver<M>>(
                 }
             }};
         }
-        let (event, state) = match (p.sensitivities, p.diffsol.method) {
+        let (event, state) = match (p.forward(), p.diffsol.method) {
             (true, DiffsolMethod::Bdf) => segment!(problem.bdf_sens::<LS>(), sensitivities),
             (true, DiffsolMethod::TrBdf2) => {
                 segment!(problem.tr_bdf2_sens::<LS>(), sensitivities)
@@ -781,7 +949,7 @@ fn run<LS: LinearSolver<M>>(
                 r.termination = Termination::Event;
                 return Ok(());
             }
-            if !p.sensitivities {
+            if !p.forward() {
                 *shared.seed.borrow_mut() = Some(
                     shared
                         .evaluate(Function::Reset(index), time, &state, false)
@@ -914,7 +1082,7 @@ fn record_start<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
         }
     }
     if p.samples.get(r.samples.len()).is_some_and(|t| *t == time) {
-        r.samples.push(sample(shared, s, time, p.sensitivities)?);
+        r.samples.push(sample(shared, s, time, p.forward())?);
     }
     r.completed_time = time;
     Ok(())
@@ -945,7 +1113,7 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             if t > time || (t == time && (root.is_some() || boundaries.contains(&t))) {
                 break;
             }
-            r.samples.push(sample(shared, s, t, p.sensitivities)?);
+            r.samples.push(sample(shared, s, t, p.forward())?);
         }
         r.completed_time = time;
         shared.progress.push(crate::solve::Event {

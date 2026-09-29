@@ -1144,7 +1144,7 @@ impl SimulationSettings {
         clippy::too_many_arguments,
         reason = "mechanical keyword-only projection of native integration controls"
     )]
-    #[pyo3(signature=(*, start, end, samples, atol, parameter_scales, sensitivities=None, rtol=None, out_rtol=None, out_atol=None, initial_step=None, max_steps: "int | None"=None, max_events: "int | None"=None, time_limit=None, max_cells: "int | None"=None, method=None, trial_failures=None, numerics: "dict[str, object] | None"=None, diffsol=None, idas=None))]
+    #[pyo3(signature=(*, start, end, samples, atol, parameter_scales, sensitivity=None, rtol=None, out_rtol=None, out_atol=None, initial_step=None, max_steps: "int | None"=None, max_events: "int | None"=None, time_limit=None, max_cells: "int | None"=None, method=None, trial_failures=None, numerics: "dict[str, object] | None"=None, diffsol=None, idas=None, adjoint=None))]
     fn new(
         py: Python<'_>,
         start: f64,
@@ -1152,7 +1152,7 @@ impl SimulationSettings {
         samples: Vec<f64>,
         atol: Vec<f64>,
         parameter_scales: Vec<f64>,
-        sensitivities: Option<bool>,
+        sensitivity: Option<&str>,
         rtol: Option<f64>,
         out_rtol: Option<f64>,
         out_atol: Option<Vec<f64>>,
@@ -1166,6 +1166,7 @@ impl SimulationSettings {
         numerics: Option<&Bound<'_, pyo3::types::PyDict>>,
         diffsol: Option<&[u8]>,
         idas: Option<&[u8]>,
+        adjoint: Option<&[u8]>,
     ) -> PyResult<Self> {
         let mut profile = native::SimulationProfile {
             start,
@@ -1177,8 +1178,8 @@ impl SimulationSettings {
             numerics: settings::numerical_policy(py, numerics)?,
             ..Default::default()
         };
-        if let Some(sensitivities) = sensitivities {
-            profile.sensitivities = sensitivities;
+        if let Some(sensitivity) = sensitivity {
+            profile.sensitivity = settings::named(py, "dynamic sensitivity", sensitivity)?;
         }
         if let Some(rtol) = rtol {
             profile.rtol = rtol;
@@ -1214,6 +1215,9 @@ impl SimulationSettings {
         if let Some(idas) = idas {
             profile.idas = settings::idas(py, idas)?;
         }
+        if let Some(adjoint) = adjoint {
+            profile.adjoint = settings::adjoint(py, adjoint)?;
+        }
         Ok(Self { profile })
     }
     /// The encoded Diffsol settings document in effect.
@@ -1225,6 +1229,11 @@ impl SimulationSettings {
     #[getter]
     fn idas(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
         serde_json::to_vec(&self.profile.idas).map_err(|e| invalid(py, e.to_string()))
+    }
+    /// The encoded adjoint checkpoint settings document in effect.
+    #[getter]
+    fn adjoint(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        serde_json::to_vec(&self.profile.adjoint).map_err(|e| invalid(py, e.to_string()))
     }
     /// Round-trip the complete pinned native BDF and initialization options.
     fn to_json(&self, py: Python<'_>) -> PyResult<String> {

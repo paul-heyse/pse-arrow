@@ -26,8 +26,8 @@ mod linear;
 /// corrector (`IDASensInit`), its consistent initialization (`IDACalcIC`) and the declared
 /// sign of a normalized state (`IDASetConstraints`).
 pub use pse_model::generated::enums::{
-    DiffsolLinear, DiffsolMethod, DynamicsMethod as Method, IdasInitialization,
-    SensitivityCorrector, StateSign, TrialPolicy,
+    DiffsolLinear, DiffsolMethod, DynamicSensitivity, DynamicsMethod as Method,
+    IdasInitialization, SensitivityCorrector, StateSign, TrialPolicy,
 };
 /// Typed Diffsol-only method controls, a versioned boundary document (ADR-0116 Outcome 6):
 /// the version is required, and absent fields take these defaults.
@@ -60,6 +60,55 @@ impl Default for DiffsolSettings {
             version: Version,
             method: Self::default_method(),
             linear: Self::default_linear(),
+        }
+    }
+}
+/// Forward checkpoints of the adjoint backward pass (ADR-0110 item 3), a versioned boundary
+/// document (ADR-0116 Outcome 6): the version is required, and absent fields take these
+/// defaults. The backward pass replays at most `steps_between_checkpoints` native steps
+/// from a stored checkpoint, and at most `max_checkpoints` are held at once, at least two
+/// per scheduled segment; a forward pass that needs more stops with a typed memory limit.
+/// Their estimated bytes are charged against the caller's memory allowance before any
+/// native work.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
+pub struct AdjointSettings {
+    /// Document version.
+    pub version: Version<1>,
+    /// Native forward steps between stored checkpoints (IDAS `IDAAdjInit`'s `Nd`).
+    #[serde(default = "AdjointSettings::default_steps")]
+    pub steps_between_checkpoints: PositiveCount,
+    /// Largest number of forward checkpoints held at once.
+    #[serde(default = "AdjointSettings::default_checkpoints")]
+    pub max_checkpoints: PositiveCount,
+}
+impl AdjointSettings {
+    const fn default_steps() -> PositiveCount {
+        pse_model::scalar!(PositiveCount(250))
+    }
+    const fn default_checkpoints() -> PositiveCount {
+        pse_model::scalar!(PositiveCount(400))
+    }
+}
+impl Default for AdjointSettings {
+    /// A checkpoint every 250 steps, at most 400 of them.
+    ///
+    /// ```
+    /// use pse_backend_native::dynamics::AdjointSettings;
+    ///
+    /// let settings: AdjointSettings = serde_json::from_str(r#"{"version":1}"#).unwrap();
+    /// assert_eq!(settings, AdjointSettings::default());
+    /// assert_eq!(settings.steps_between_checkpoints.into_inner(), 250);
+    /// let zero = r#"{"version":1,"max_checkpoints":0}"#;
+    /// assert!(serde_json::from_str::<AdjointSettings>(zero).is_err());
+    /// ```
+    fn default() -> Self {
+        Self {
+            version: Version,
+            steps_between_checkpoints: Self::default_steps(),
+            max_checkpoints: Self::default_checkpoints(),
         }
     }
 }
@@ -224,6 +273,152 @@ pub fn integrate_with_progress(
     }
 }
 
+/// A functional's gradient and the forward trajectory it was taken on (ADR-0110 item 3).
+#[derive(Debug)]
+pub struct Gradient {
+    /// The forward pass, whose samples carry values without sensitivities. A backward pass
+    /// that fails records its termination and cause here; the forward samples remain.
+    pub report: Report,
+    /// dJ/dp over the integration parameters, present when both passes completed.
+    pub gradient: Option<Vec<f64>>,
+    /// Forward checkpoints the native library actually stored.
+    pub checkpoints: usize,
+    /// The checkpoint estimate charged against the caller's allowance.
+    pub reserved_bytes: usize,
+}
+/// The cotangent of a scalar functional J of the sampled outputs, from the completed
+/// forward report: `dJ/d outputs[o]` at sample `i` in `i * outputs + o`.
+pub type Cotangent<'c> = &'c mut dyn FnMut(&Report) -> Result<Vec<f64>, ProblemError>;
+
+/// The gradient of a scalar functional of the sampled outputs with respect to the
+/// integration parameters, by checkpointed adjoint sensitivities. The profile requests
+/// [`DynamicSensitivity::Adjoint`]; the checkpoint estimate ([`Profile::checkpoint_bytes`])
+/// must fit `memory` before any native work. The forward pass runs once, `cotangent` reads
+/// its samples, and the backward pass carries the adjoint state across scheduled changes.
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub fn gradient(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    cotangent: Cotangent<'_>,
+    cancel: Cancellation,
+    memory: usize,
+) -> Result<Gradient, ProblemError> {
+    profile.validate(oracle.contract(), parameters)?;
+    if profile.sensitivity != DynamicSensitivity::Adjoint {
+        return Err(contract("a gradient needs the adjoint sensitivity profile"));
+    }
+    let reserved = profile.checkpoint_bytes(oracle.contract())?;
+    if reserved > memory {
+        return Err(ProblemError::memory(format!(
+            "adjoint checkpoint estimate of {reserved} bytes exceeds the {memory}-byte allowance"
+        )));
+    }
+    let progress = Arc::new(crate::solve::Progress::new(256));
+    match profile.resolved_method()? {
+        #[cfg(feature = "diffsol")]
+        Method::Diffsol => {
+            integrator::gradient(oracle, profile, parameters, cotangent, cancel, progress)
+        }
+        _ => Err(ProblemError::unsupported(
+            "the requested dynamic backend has no linked adjoint",
+        )),
+    }
+    .map(|mut g| {
+        g.reserved_bytes = reserved;
+        g
+    })
+}
+
+/// The jump of the adjoint at an observed sample, shared by both adjoint backends
+/// (ADR-0110 item 3). With `c` the cotangent of the sample's outputs `y = g(x, p)`, the
+/// differential adjoint gains `dJ/dx_d` and the gradient gains `dJ/dp` over the contract
+/// parameters, both total derivatives through the algebraic states, which the index-1
+/// constraint `F_a(x_d, x_a, p) = 0` determines: with `F_aaᵀ w = g_aᵀc`,
+/// `dJ/dx_d = g_dᵀc − F_adᵀw` and `dJ/dp = g_pᵀc − F_apᵀw`. The algebraic adjoint has no
+/// jump of its own; the integrator's consistent initialization recomputes it. `output` and
+/// `rhs` are the raw partials over the state followed by the contract parameters; `rhs` is
+/// needed only with algebraic states.
+#[cfg(feature = "diffsol")]
+pub(crate) fn sample_jump(
+    differential: &[bool],
+    output: faer::sparse::SparseColMatRef<'_, usize, f64>,
+    rhs: Option<faer::sparse::SparseColMatRef<'_, usize, f64>>,
+    cotangent: &[f64],
+) -> Result<(Vec<f64>, Vec<f64>), ProblemError> {
+    use faer::{linalg::solvers::Solve, sparse::linalg::matmul::sparse_dense_matmul};
+    let n = differential.len();
+    let width = output.ncols();
+    if output.nrows() != cotangent.len() || width < n {
+        return Err(ProblemError::internal("adjoint jump extent"));
+    }
+    let product = |matrix: faer::sparse::SparseColMatRef<'_, usize, f64>, v: &[f64]| {
+        let mut out = vec![0.0; matrix.ncols()];
+        sparse_dense_matmul(
+            faer::MatMut::from_column_major_slice_mut(&mut out, matrix.ncols(), 1),
+            faer::Accum::Replace,
+            matrix.transpose(),
+            faer::MatRef::from_column_major_slice(v, v.len(), 1),
+            1.0,
+            faer::Par::Seq,
+        );
+        out
+    };
+    let mut jump = product(output, cotangent);
+    let algebraic = (0..n).filter(|i| !differential[*i]).collect::<Vec<_>>();
+    if !algebraic.is_empty() {
+        let f = rhs.ok_or_else(|| ProblemError::internal("adjoint jump constraint partials"))?;
+        if f.nrows() != n || f.ncols() != width {
+            return Err(ProblemError::internal("adjoint jump constraint extent"));
+        }
+        let mut slot = vec![None; n];
+        for (k, i) in algebraic.iter().enumerate() {
+            slot[*i] = Some(k);
+        }
+        // F_aaᵀ: the constraint rows' partials in the algebraic columns, transposed.
+        let mut triplets = Vec::new();
+        for column in &algebraic {
+            for k in f.col_range(*column) {
+                if let (Some(i), Some(j)) = (slot[f.row_idx()[k]], slot[*column]) {
+                    triplets.push(faer::sparse::Triplet::new(j, i, f.val()[k]));
+                }
+            }
+        }
+        let na = algebraic.len();
+        let transposed = faer::sparse::SparseColMat::try_new_from_triplets(na, na, &triplets)
+            .map_err(|e| ProblemError::memory(format!("adjoint jump constraint block: {e:?}")))?;
+        let symbolic = faer::sparse::linalg::solvers::SymbolicLu::try_new(transposed.symbolic())
+            .map_err(|e| ProblemError::numerical(format!("adjoint jump constraint LU: {e:?}")))?;
+        let lu = faer::sparse::linalg::solvers::Lu::try_new_with_symbolic(
+            symbolic,
+            transposed.as_ref(),
+        )
+        .map_err(|e| ProblemError::numerical(format!("adjoint jump constraint LU: {e:?}")))?;
+        let mut w = algebraic.iter().map(|i| jump[*i]).collect::<Vec<_>>();
+        lu.solve_in_place(faer::MatMut::from_column_major_slice_mut(&mut w, na, 1));
+        if w.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical(
+                "singular algebraic block at an observed sample",
+            ));
+        }
+        let mut scattered = vec![0.0; n];
+        for (k, i) in algebraic.iter().enumerate() {
+            scattered[*i] = w[k];
+        }
+        for (total, correction) in jump.iter_mut().zip(product(f, &scattered)) {
+            *total -= correction;
+        }
+        for i in &algebraic {
+            jump[*i] = 0.0;
+        }
+    }
+    if jump.iter().any(|v| !v.is_finite()) {
+        return Err(ProblemError::numerical("nonfinite adjoint jump"));
+    }
+    let parameters = jump.split_off(n);
+    Ok((jump, parameters))
+}
+
 /// One compiled function role, not a second expression representation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Function {
@@ -362,8 +557,14 @@ pub struct Profile {
     pub time_limit: Duration,
     /// Maximum retained scalar cells, including sensitivities and event states.
     pub max_cells: usize,
-    /// Integrate smooth forward sensitivities for every selected parameter.
-    pub sensitivities: bool,
+    /// Parameter derivatives: none, forward sensitivities of every sample, or adjoint
+    /// gradients of one functional of the sampled outputs through [`gradient`]; none when
+    /// absent.
+    #[serde(default = "no_sensitivity")]
+    pub sensitivity: DynamicSensitivity,
+    /// Checkpointing of the adjoint backward pass; used only by adjoint gradients.
+    #[serde(default)]
+    pub adjoint: AdjointSettings,
     /// Positive characteristic scales in the contract's parameter order, also used for
     /// sensitivity tolerances; every interval of a scheduled input takes its parameter's.
     pub parameter_scales: Vec<f64>,
@@ -487,7 +688,6 @@ impl Profile {
             .map(|n| n + self.schedule.len())
     }
     /// Every distinct change time in increasing order: the segment boundaries.
-    #[cfg(any(feature = "diffsol", feature = "idas"))]
     pub(crate) fn boundaries(&self) -> Vec<f64> {
         let mut times = self
             .schedule
@@ -519,6 +719,78 @@ impl Profile {
         }
         Ok(method)
     }
+    /// Forward sensitivities are integrated with every sample.
+    pub fn forward(&self) -> bool {
+        self.sensitivity == DynamicSensitivity::Forward
+    }
+    /// The adjoint route's profile limits (ADR-0110 items 3 and 6), refused before native
+    /// work: the functional observes sampled outputs only, so declared quadratures need
+    /// forward sensitivities; no event is crossed, because Diffsol has no mass-matrix reset
+    /// adjoint and keeps the reset metadata between its checkpoint segments private; every
+    /// scheduled change precedes the end; and every scheduled segment stores at least its
+    /// two end checkpoints.
+    fn admit_adjoint(&self, c: &Contract) -> Result<(), ProblemError> {
+        if c.events.iter().any(|e| !e.is_empty()) {
+            return Err(ProblemError::unsupported(
+                "adjoint gradients do not cross events or resets; request forward sensitivities",
+            ));
+        }
+        if !c.quadratures.is_empty() {
+            return Err(ProblemError::unsupported(
+                "adjoint gradients observe sampled outputs only; declared quadratures need forward sensitivities",
+            ));
+        }
+        // A change at the end is observed by the final sample alone: that single-point
+        // segment has no interval for a backward pass.
+        if self.boundaries().last().is_some_and(|t| *t >= self.end) {
+            return Err(contract(
+                "adjoint gradients need every scheduled change before the end",
+            ));
+        }
+        let segments = self.segments();
+        if self.adjoint.max_checkpoints.into_inner() < segments.saturating_mul(2) {
+            return Err(contract(
+                "adjoint max_checkpoints below two per scheduled segment",
+            ));
+        }
+        Ok(())
+    }
+    /// The number of scheduled segments: one more than the distinct change times.
+    fn segments(&self) -> usize {
+        self.boundaries().len() + 1
+    }
+    /// The estimated bytes of the adjoint forward checkpoints and their replay buffers,
+    /// charged against the caller's allowance before native work. The count is the smaller
+    /// of `max_checkpoints` and what `max_steps` can store; each Diffsol checkpoint is a
+    /// method state bounded by a BDF difference table (the largest), each IDAS checkpoint
+    /// its history array, and the replay holds `steps_between_checkpoints` Hermite points
+    /// per segment (two interpolants on Diffsol). Accounting, not an RSS claim.
+    pub fn checkpoint_bytes(&self, c: &Contract) -> Result<usize, ProblemError> {
+        let n = c.states.len();
+        let steps = self.adjoint.steps_between_checkpoints.into_inner();
+        let segments = self.segments();
+        let (state, interpolants) = match self.resolved_method()? {
+            Method::Idas => (6, 1),
+            _ => (16, 2),
+        };
+        let checkpoints = segments
+            .checked_mul(2)
+            .and_then(|ends| (self.max_steps / steps).checked_add(ends))
+            .map(|count| count.min(self.adjoint.max_checkpoints.into_inner()));
+        let bytes = checkpoints
+            .and_then(|count| count.checked_mul(n.checked_mul(state)?.checked_add(64)?))
+            .and_then(|b| {
+                b.checked_add(
+                    segments
+                        .checked_mul(interpolants)?
+                        .checked_mul(steps.checked_add(2)?)?
+                        .checked_mul(n.checked_mul(2)?.checked_add(1)?)?,
+                )
+            })
+            .and_then(|cells| cells.checked_mul(size_of::<f64>()))
+            .ok_or_else(|| ProblemError::memory("adjoint checkpoint extent overflow"))?;
+        Ok(bytes)
+    }
     /// Validate before allocation or native construction; arithmetic overflow is a refusal.
     pub fn validate(&self, c: &Contract, p: &[f64]) -> Result<usize, ProblemError> {
         c.validate()?;
@@ -532,7 +804,7 @@ impl Profile {
                     ));
                 }
                 // ADR-0110 item 1: Diffsol owns reset sensitivities; IDAS has no saltation.
-                if self.sensitivities && c.events.iter().any(|e| !e.is_empty()) {
+                if self.forward() && c.events.iter().any(|e| !e.is_empty()) {
                     return Err(ProblemError::unsupported(
                         "IDAS forward sensitivities do not cross events; Diffsol owns reset sensitivities",
                     ));
@@ -581,7 +853,7 @@ impl Profile {
             }
             Method::Auto => return Err(ProblemError::internal("unresolved dynamic method")),
         }
-        if self.sensitivities && c.events.iter().flatten().any(|e| e.terminal) {
+        if self.forward() && c.events.iter().flatten().any(|e| e.terminal) {
             return Err(contract(
                 "terminal-event sensitivities require a declared event-time output contract",
             ));
@@ -639,6 +911,9 @@ impl Profile {
                 return Err(contract("invalid native Diffsol control"));
             }
         }
+        if self.sensitivity == DynamicSensitivity::Adjoint {
+            self.admit_adjoint(c)?;
+        }
         let m = c.outputs.len();
         let np = self.integration_width(c.parameters.len());
         let scheduled = self.schedule.iter().map(|s| s.parameter).collect::<BTreeSet<_>>();
@@ -676,8 +951,8 @@ impl Profile {
                 .iter()
                 .any(|t| !t.is_finite() || *t < self.start || *t > self.end)
             || self.samples.windows(2).any(|w| w[0] >= w[1])
-            || (self.sensitivities && np == 0)
-            || (self.sensitivities
+            || (self.sensitivity != DynamicSensitivity::None && np == 0)
+            || (self.forward()
                 && !c.quadratures.is_empty()
                 && c.events.iter().any(|e| !e.is_empty()))
         {
@@ -694,7 +969,7 @@ impl Profile {
                     .ok_or_else(|| contract("dynamic output extent"))?,
             )
             .and_then(|v| {
-                v.checked_mul(if self.sensitivities {
+                v.checked_mul(if self.forward() {
                     np.checked_add(1)?
                 } else {
                     1
@@ -887,7 +1162,7 @@ impl std::fmt::Debug for Profile {
             .field("start", &self.start)
             .field("end", &self.end)
             .field("samples", &self.samples)
-            .field("sensitivities", &self.sensitivities)
+            .field("sensitivity", &self.sensitivity)
             .finish_non_exhaustive()
     }
 }
@@ -1041,6 +1316,9 @@ const fn automatic() -> Method {
 const fn terminal() -> TrialPolicy {
     TrialPolicy::Terminal
 }
+const fn no_sensitivity() -> DynamicSensitivity {
+    DynamicSensitivity::None
+}
 impl Default for Profile {
     fn default() -> Self {
         Self {
@@ -1059,7 +1337,8 @@ impl Default for Profile {
             max_events: 1000,
             time_limit: Duration::from_secs(300),
             max_cells: 1_000_000,
-            sensitivities: false,
+            sensitivity: no_sensitivity(),
+            adjoint: AdjointSettings::default(),
             parameter_scales: vec![],
             schedule: vec![],
             diffsol: DiffsolSettings::default(),

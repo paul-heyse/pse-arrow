@@ -314,6 +314,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `unavailable` | `` | false |
 | `not_applicable_parameter` | `` | false |
 
+## `DynamicSensitivity`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `none` | `` | false |
+| `forward` | `` | false |
+| `adjoint` | `` | false |
+
 ## `DynamicsMethod`
 
 | Member | IDAES name | Deprecated |
@@ -418,6 +426,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `error` | `` | false |
 | `warning` | `` | false |
+
+## `FitDerivatives`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `responses` | `` | false |
+| `gradient` | `` | false |
 
 ## `HessianMode`
 

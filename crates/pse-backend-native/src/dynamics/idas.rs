@@ -711,7 +711,7 @@ impl<'a> Session<'a> {
         }
         let Some(initial) =
             s.callback
-                .evaluate(Function::Initial, p.start, &vec![0.0; n], p.sensitivities)
+                .evaluate(Function::Initial, p.start, &vec![0.0; n], p.forward())
         else {
             return Err(s.callback.failed("initial function"));
         };
@@ -762,7 +762,7 @@ impl<'a> Session<'a> {
                 )?;
             }
         }
-        if p.sensitivities {
+        if p.forward() {
             let j = initial
                 .jacobian
                 .ok_or_else(|| ProblemError::internal("IDAS initial sensitivity missing"))?;
@@ -950,7 +950,7 @@ impl<'a> Session<'a> {
                 ffi::IDAGetConsistentIC(self.mem, self.y, self.dy),
                 "consistent state retrieval",
             )?;
-            if p.sensitivities {
+            if p.forward() {
                 check(
                     ffi::IDAGetSensConsistentIC(
                         self.mem,
@@ -974,7 +974,7 @@ impl<'a> Session<'a> {
         mode_changed: bool,
     ) -> Result<(), ProblemError> {
         unsafe {
-            if p.sensitivities {
+            if p.forward() {
                 // The carried sensitivities and their rates (the rates are only guesses
                 // for `IDACalcIC`).
                 let mut time = t;
@@ -1003,7 +1003,7 @@ impl<'a> Session<'a> {
                 ffi::IDAReInit(self.mem, t, self.y, self.dy),
                 "reinitialization",
             )?;
-            if p.sensitivities {
+            if p.forward() {
                 check(
                     ffi::IDASensReInit(
                         self.mem,
@@ -1032,13 +1032,13 @@ impl<'a> Session<'a> {
         let x = unsafe { read(self.y, n) };
         let Some(e) = self
             .callback
-            .evaluate(Function::Output, t, &x, p.sensitivities)
+            .evaluate(Function::Output, t, &x, p.forward())
         else {
             return Err(self.callback.failed("output"));
         };
         let mut state_sensitivities = Vec::new();
         let mut output_sensitivities = Vec::new();
-        if p.sensitivities {
+        if p.forward() {
             let mut time = t;
             if stepped {
                 unsafe {

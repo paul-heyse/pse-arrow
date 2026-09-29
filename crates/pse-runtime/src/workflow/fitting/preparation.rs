@@ -68,7 +68,7 @@ impl PreparedExperiments {
                 Experiment::Transient(s) => s
                     .program
                     .metadata_bytes()
-                    .checked_add(s.bindings.capacity() * size_of::<ParameterBinding>())
+                    .checked_add(s.bindings.capacity() * size_of::<Binding>())
                     .and_then(|n| n.checked_add(s.parameters.capacity() * size_of::<f64>()))
                     .and_then(|n| n.checked_add(s.output_ports.capacity() * size_of::<Port>()))
                     .ok_or_else(|| contract("fit transient metadata"))?,
@@ -166,13 +166,14 @@ impl PreparedExperiments {
         h.hash(&source_identity);
         d.frame(&mut h);
         let source = h.finish_hash();
-        let mut h = FramedHasher::new(pse_ids::Frame::FitProfileV2);
+        let mut h = FramedHasher::new(pse_ids::Frame::FitProfileV3);
         h.hash(
             &crate::math::solves::profile_key(&profile.solver)
                 .map_err(crate::math::MathRuntimeError::from)?,
         );
         h.u64(profile.rank_tolerance.to_bits())
-            .u64(profile.max_cells as u64);
+            .u64(profile.max_cells as u64)
+            .str(profile.derivatives.as_str());
         for (id, p) in &profile.simulations {
             h.id(&id.as_id())
                 .hash(&crate::workflow::dynamics::profile_identity(p));

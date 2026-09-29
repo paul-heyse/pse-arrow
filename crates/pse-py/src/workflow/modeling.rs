@@ -322,7 +322,7 @@ impl NativeModelingPackage {
         clippy::too_many_arguments,
         reason = "one parameter per argument of the Python method signature"
     )]
-    #[pyo3(signature=(fit_id, settings, simulations, *, modes=None, rank_tolerance=1e-8, max_cells=1000000))]
+    #[pyo3(signature=(fit_id, settings, simulations, *, modes=None, rank_tolerance=1e-8, max_cells=1000000, derivatives="responses"))]
     fn prepare_fit(
         &self,
         py: Python<'_>,
@@ -332,6 +332,7 @@ impl NativeModelingPackage {
         modes: Option<Vec<(String, Vec<PyRef<'_, ModelingModeSettings>>)>>,
         rank_tolerance: f64,
         max_cells: usize,
+        derivatives: &str,
     ) -> PyResult<NativePreparedOperation> {
         let settings = settings::solve_profile(py, settings)?;
         let fit = id(py, fit_id).map(pse_model::generated::identities::FitId::from)?;
@@ -367,6 +368,7 @@ impl NativeModelingPackage {
             modes,
             rank_tolerance,
             max_cells,
+            derivatives: settings::named(py, "fit derivatives", derivatives)?,
         };
         let inner = blocking(
             py,
