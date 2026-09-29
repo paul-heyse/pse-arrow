@@ -50,6 +50,9 @@ pub struct Limits {
     /// Optional operation/occurrence allowance for each lowered mathematical body.
     /// None uses the mathematical backend's default, independently of mesh extent.
     pub body_occurrences: Option<usize>,
+    /// Optional formal-slot allowance (inputs plus stage results) for each lowered
+    /// mathematical body, at most the process-global formal pool. None uses the pool.
+    pub body_slots: Option<usize>,
 }
 impl Default for Limits {
     fn default() -> Self {
@@ -58,6 +61,7 @@ impl Default for Limits {
             items: 100_000,
             members: 100_000,
             body_occurrences: None,
+            body_slots: None,
         }
     }
 }

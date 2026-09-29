@@ -659,7 +659,7 @@ impl Pipeline {
         sense: ObjectiveSense,
         analysis: &crate::kkt::Analysis,
         budget: crate::kkt::Budget,
-    ) -> SolveReport {
+    ) -> (SolveReport, Option<crate::kkt::KktFactor>) {
         report.variables = self
             .original
             .borrow()
@@ -733,13 +733,14 @@ impl Pipeline {
                 report.candidate = Some(original);
             }
         }
+        let mut factor = None;
         {
             let mut original = self.original.borrow_mut();
             match original.state.execution.stopped() {
                 None => {
                     quality::attach_nlp(&mut report, original.oracle.as_mut(), tolerance, sense);
                     let original = &mut *original;
-                    crate::kkt::attach(
+                    factor = crate::kkt::attach(
                         &mut report,
                         original.oracle.as_mut(),
                         &original.normalization,
@@ -788,7 +789,7 @@ impl Pipeline {
         }
         self.report.diagnostics.insert("recovery".into(),"library finalize traversal; independently observed original model; duals use minimization convention".into());
         report.preprocessing = Some(self.report);
-        report
+        (report, factor)
     }
 }
 fn failure(original: &Rc<RefCell<Adapter>>) -> ProblemError {

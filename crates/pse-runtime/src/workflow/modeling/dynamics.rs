@@ -561,8 +561,7 @@ impl ModelingPackage {
             self.integration_profile(&model, fixture, &Default::default())?
         };
         self.prepare_simulation(
-            root, instance, bindings, limits, case, compiler, profile, cancel,
-        )
+            root, instance, bindings, limits, case, compiler, profile, DerivativeOrder::First, cancel)
         .await
     }
     /// Prepare integrated dynamics from one specialized definition. Rates are compiler
@@ -580,10 +579,16 @@ impl ModelingPackage {
         case: ModelingCaseBindings,
         compiler: Profile,
         mut profile: native::Profile,
+        derivatives: DerivativeOrder,
         mode: usize,
         mode_names: &[String],
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        if derivatives < DerivativeOrder::First {
+            return Err(contract(
+                "integrated dynamics needs at least first-order partials",
+            ));
+        }
         let model = self
             .prepare(root, instance, bindings, limits, cancel)
             .await?;
@@ -1018,7 +1023,7 @@ impl ModelingPackage {
                     model.clone(),
                     selected,
                     derivative_coordinates.clone(),
-                    DerivativeOrder::First,
+                    derivatives,
                     compiler,
                     cancel,
                 )
@@ -1215,7 +1220,12 @@ impl ModelingPackage {
         hash.id(&root.as_id())
             .id(&instance.as_id())
             .hash(&numerics.key)
-            .hash(&super::super::dynamics::profile_identity(&profile));
+            .hash(&super::super::dynamics::profile_identity(&profile))
+            .u64(match derivatives {
+                DerivativeOrder::Value => 0,
+                DerivativeOrder::First => 1,
+                DerivativeOrder::Second => 2,
+            });
         for p in &programs {
             for id in p.case.assembly.bodies().keys() {
                 hash.hash(id);
@@ -1295,6 +1305,7 @@ impl ModelingPackage {
             quadratures: product.model.integrals.keys().copied().collect(),
             balances: vec![],
             signs,
+            derivatives,
         };
         let cells = profile
             .validate(&contract, &parameter_values)
@@ -2310,8 +2321,8 @@ mod tests {
                     ModelingCaseBindings::default(),
                     compiler,
                     profile.clone(),
-                    &cancel,
-                )
+                    DerivativeOrder::First,
+                    &cancel)
                 .await;
             if noncausal {
                 let error = preparation.unwrap_err().to_string();
@@ -2381,6 +2392,7 @@ mod tests {
                         ModelingCaseBindings::default(),
                         compiler,
                         short,
+                        DerivativeOrder::First,
                         &cancel
                     )
                     .await
@@ -2399,8 +2411,8 @@ mod tests {
                     ModelingCaseBindings::default(),
                     compiler,
                     derivatives,
-                    &cancel,
-                )
+                    DerivativeOrder::First,
+                    &cancel)
                 .await
                 .unwrap();
             let sensitive = sensitive.run(&cancel).await.unwrap();
@@ -2450,8 +2462,8 @@ mod tests {
                         samples: vec![0., 1., 2.],
                         ..Default::default()
                     },
-                    &cancel,
-                )
+                    DerivativeOrder::First,
+                    &cancel)
                 .await
                 .unwrap();
             let result = prepared.run(&cancel).await.unwrap();
@@ -2541,8 +2553,8 @@ mod tests {
                         sensitivity: native::DynamicSensitivity::Forward,
                         ..Default::default()
                     },
-                    &cancel,
-                )
+                    DerivativeOrder::First,
+                    &cancel)
                 .await;
             if nonlinear {
                 let error = result.unwrap_err().to_string();
@@ -2649,8 +2661,8 @@ mod tests {
                 case,
                 super::super::super::tests::compiler_profile(),
                 profile.clone(),
-                &cancel,
-            )
+                DerivativeOrder::First,
+                &cancel)
         };
         let error = simulate(ModelingCaseBindings::default())
             .await
@@ -2710,8 +2722,8 @@ mod tests {
                 ModelingCaseBindings::default(),
                 compiler,
                 profile,
-                &cancel,
-            )
+                DerivativeOrder::First,
+                &cancel)
             .await
             .unwrap();
         assert_eq!(prepared.contract.states.len(), 1);
@@ -2869,8 +2881,8 @@ mod tests {
                     Default::default(),
                     super::super::super::tests::compiler_profile(),
                     profile,
-                    &cancel,
-                )
+                    DerivativeOrder::First,
+                    &cancel)
                 .await
                 .unwrap();
             let y = prepared
@@ -2965,8 +2977,8 @@ mod tests {
                 ModelingCaseBindings::default(),
                 compiler,
                 profile.clone(),
-                &cancel,
-            )
+                DerivativeOrder::First,
+                &cancel)
             .await
             .unwrap();
         let xi = prepared
@@ -3001,6 +3013,7 @@ mod tests {
                     ModelingCaseBindings::default(),
                     compiler,
                     profile.clone(),
+                    DerivativeOrder::First,
                     &cancel
                 )
                 .await
@@ -3022,6 +3035,7 @@ mod tests {
                     ModelingCaseBindings::default(),
                     compiler,
                     profile.clone(),
+                    DerivativeOrder::First,
                     &cancel
                 )
                 .await
@@ -3047,8 +3061,8 @@ mod tests {
                 ModelingCaseBindings::default(),
                 compiler,
                 profile,
-                &cancel,
-            )
+                DerivativeOrder::First,
+                &cancel)
             .await
             .unwrap();
         let mut worker = prepared
@@ -3118,8 +3132,8 @@ mod tests {
                 case,
                 compiler,
                 profile,
-                &cancel,
-            )
+                DerivativeOrder::First,
+                &cancel)
             .await
             .unwrap();
         let result = override_bounds.run(&cancel).await.unwrap();
@@ -3165,8 +3179,8 @@ mod tests {
                     parameter_scales: vec![1.; 2],
                     ..Default::default()
                 },
-                &cancel,
-            )
+                DerivativeOrder::First,
+                &cancel)
             .await
             .unwrap();
         let trajectory = simulation.run(&cancel).await.unwrap();

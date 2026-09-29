@@ -466,6 +466,7 @@ fn second_order_analysis_needs_an_optimizing_intent() {
             analysis: Analysis {
                 second_order: true,
                 sensitivity: None,
+                inverse_reduced_hessian: None,
             },
         },
     )

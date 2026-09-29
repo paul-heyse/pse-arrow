@@ -72,6 +72,7 @@ fn source_case(
         rank_tolerance: 1e-8,
         max_cells: 100000,
         derivatives: FitDerivatives::Responses,
+        uncertainty: None,
     };
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
     (
@@ -549,4 +550,238 @@ async fn transient_fit_deadline_is_time_limit() {
         native::callback::classify(&error),
         native::callback::Failure::Stopped(native::solve::Termination::Cancelled)
     );
+}
+/// T11 (ADR-0118 items 3 and 8): a transient fit's covariance is Gauss–Newton from its
+/// forward-sensitivity responses, whichever supplied Hessian it solved with, and is
+/// published with that label. `y = 71 + p` observed once with σ = 1 gives `Σ = 1`.
+#[cfg(feature = "solver-ipopt")]
+#[tokio::test]
+async fn gauss_newton_covariance_labelled() {
+    use pse_relations::{
+        columnar::RelationRow,
+        generated::{
+            enums::{CovarianceApproximation, DerivedQuantity},
+            runtime::{local_validity, parameter_covariances},
+        },
+    };
+    for hessian in [HessianMode::LimitedMemory, HessianMode::GaussNewton] {
+        let (package, mut profile) = source(false, 73.);
+        profile.solver.controls.hessian = hessian;
+        let result = package
+            .prepare_fit(
+                FitId::from(id(73)),
+                profile,
+                compiler_profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap()
+            .start()
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
+        let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
+            panic!("missing fit")
+        };
+        assert!((report.candidate.as_ref().unwrap()[0] - 2.).abs() < 1e-5, "{report:?}");
+        let covariance = report.covariance.as_ref().unwrap();
+        assert_eq!(covariance.approximation, CovarianceApproximation::GaussNewton);
+        let values = covariance.values.as_ref().unwrap();
+        assert!((values[0] - 1.).abs() < 1e-6, "{hessian:?} {values:?}");
+        let rows = parameter_covariances::Row::rows(
+            &result.table("runtime.parameter_covariances").unwrap(),
+        )
+        .unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].approximation, CovarianceApproximation::GaussNewton);
+        let validity =
+            local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap();
+        assert_eq!(validity.len(), 1);
+        assert_eq!(validity[0].quantity, DerivedQuantity::ParameterCovariance);
+        assert!(validity[0].validity.certified);
+        // A Gauss–Newton covariance is not read from a KKT point.
+        assert_eq!(validity[0].validity.second_order, None);
+    }
+}
+
+/// A curved transient fit: `x' = −z/1 s` with the algebraic closure `z = k·x²` from
+/// `x(0) = a`, observed through x at four times and z at one, with data from `k = 1.3`,
+/// `a = 1.8` (`x = a/(1 + a·k·t)`, t in seconds).
+#[cfg(feature = "solver-idas")]
+fn curved_source(method: native::dynamics::Method) -> (crate::workflow::ModelingPackage, FitProfile) {
+    let mut physical = crate::workflow::tests::physical();
+    physical.preconditions = Arc::new(
+        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
+            .unwrap(),
+    );
+    physical.key =
+        pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
+    let scalar = physical.quantities.neutral_dimensionless().unwrap();
+    let time = pse_quantity::QuantityTypeId::from_id(
+        SemanticId::parse_hex("e2ccf6d0a394403db967f4f35b83cb7c").unwrap(),
+    );
+    let rows = pse_authoring::language::parse(
+        "package p { def Decay { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param k: Scalar = 1; param a: Scalar = 2; var x[i in t]: Scalar; var z[i in t]: Scalar; eq rate[i in t]: d(x[i])/di == -z[i]/1{s}; eq closure[i in t]: z[i] == k*x[i]*x[i]; eq initial: x[0{s}] == a; annotation start x(1); annotation start z(1); annotation report x(\"state\"); annotation report z(\"closure\"); } }",
+        id(20),
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    )
+    .unwrap();
+    let root = rows.iter().find(|r| r.name == "Decay").unwrap().declaration_id;
+    let unit = physical.quantities.quantity_type(scalar).unwrap().canonical_unit.as_id();
+    let exact = |t: f64| 1.8 / (1. + 1.8 * 1.3 * t);
+    let observed = [
+        (91, "x", 0.5, exact(0.5)),
+        (92, "x", 1.0, exact(1.0)),
+        (93, "x", 1.5, exact(1.5)),
+        (94, "x", 2.0, exact(2.0)),
+        (95, "z", 1.0, 1.3 * exact(1.0).powi(2)),
+    ];
+    let mut data = FitData::default();
+    data.datasets.push(serde_json::from_value(serde_json::json!({"dataset_id":id(90),"name":"curved","source":"analytic","content_hash":ContentHash::from_bytes([2;32])})).unwrap());
+    let mut observations = Vec::new();
+    for (obs, member, t, value) in observed {
+        data.observations.push(serde_json::from_value(serde_json::json!({"observation_id":id(obs),"dataset_id":id(90),"target":member,"value":value,"unit_id":unit,"std_dev":0.1,"timestamp":null,"tag":null,"source_span":{"document_id":id(90),"start":0,"end":0}})).unwrap());
+        observations.push(serde_json::json!({"observation_id":id(obs),"experiment_id":id(84),"output_path":format!("{member}[0{{s}}]"),"time":t,"time_basis":"model_clock","included":true,"importance":1.}));
+    }
+    data.fits.push(serde_json::from_value(serde_json::json!({"fit_id":id(80),"parameters":[{"symbol_id":id(81),"fixed":false,"value":1.,"lower":0.1,"upper":10.,"scale":1.},{"symbol_id":id(82),"fixed":false,"value":2.,"lower":0.1,"upper":10.,"scale":1.}],"experiments":[{"experiment_id":id(84),"case_id":root,"route":"integrated","bindings":[{"parameter_id":id(81),"path":"k"},{"parameter_id":id(82),"path":"a"}]}],"observations":observations})).unwrap());
+    let profile = FitProfile {
+        solver: SolverProfile {
+            intent: SolveIntent::Optimize,
+            selection: native::solve::SolverSelection::Explicit(Backend::Ipopt),
+            controls: native::solve::Controls {
+                hessian: HessianMode::Exact,
+                ..Default::default()
+            },
+            presolve: native::presolve::Policy::Off,
+            numerics: Default::default(),
+            convexity: Default::default(),
+            backend: native::execution::BackendSettings::Default,
+            sensitivity: None,
+        },
+        simulations: BTreeMap::from([(
+            InstanceId::from(id(84)),
+            native::dynamics::Profile {
+                method,
+                end: 2.,
+                samples: vec![0., 2.],
+                rtol: 1e-8,
+                atol: vec![1e-10; 2],
+                initial_step: 1e-5,
+                parameter_scales: vec![1.; 2],
+                ..Default::default()
+            },
+        )]),
+        rank_tolerance: 1e-8,
+        max_cells: 100000,
+        derivatives: FitDerivatives::Responses,
+        uncertainty: None,
+    };
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    (
+        runtime
+            .modeling_package(
+                rows,
+                physical,
+                BTreeMap::from([("Scalar".into(), scalar), ("Time".into(), time)]),
+            )
+            .unwrap()
+            .with_fit_data(data)
+            .unwrap(),
+        profile,
+    )
+}
+
+/// ADR-0110 item 4 through the fit: an exact Hessian is admitted for an IDAS transient
+/// experiment, whose curvature block comes from second-order adjoint sensitivities, and
+/// refused with a typed reason for a Diffsol one. The Lagrangian Hessian equals central
+/// differences of the forward-sensitivity objective gradient (declared relative tolerance
+/// 1e-4, steps of 1e-5) at two points and two objective weights, and the solve records the
+/// transient Hessian's source (PS-07).
+#[cfg(feature = "solver-idas")]
+#[tokio::test]
+async fn exact_transient_fit_hessian_matches_finite_difference() {
+    let cancel = crate::CancelSource::new();
+    let (package, profile) = curved_source(native::dynamics::Method::Diffsol);
+    let refused = package
+        .prepare_fit_problem(FitId::from(id(80)), profile, compiler_profile(), Default::default(), &cancel)
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(
+            refused,
+            WorkflowError::Math(crate::math::MathRuntimeError::Solve(ProblemError::Unsupported(_)))
+        ),
+        "{refused:?}"
+    );
+    let (package, profile) = curved_source(native::dynamics::Method::Idas);
+    let (problem, _) = package
+        .prepare_fit_problem(FitId::from(id(80)), profile.clone(), compiler_profile(), Default::default(), &cancel)
+        .await
+        .unwrap();
+    let Experiment::Transient(s) = &problem.experiments[0] else {
+        panic!("transient experiment")
+    };
+    assert_eq!(s.program.contract.derivatives, DerivativeOrder::Second);
+    let mut execution = Execution::new(
+        Arc::new(AtomicBool::new(false)),
+        &problem.profile.solver.controls,
+    );
+    execution.memory = Some(256 << 20);
+    let mut oracle = FitOracle::new(problem, execution).unwrap();
+    let pattern = oracle.hessian_pattern().unwrap().to_owned().unwrap();
+    for x in [[1., 2.], [1.6, 1.5]] {
+        for sigma in [1., 0.5] {
+            let mut values = vec![0.; pattern.row_idx().len()];
+            oracle.hessian(&x, sigma, &[], &mut values).unwrap();
+            let h = SparseColMat::new(pattern.clone(), values).to_dense();
+            let step = 1e-5;
+            for j in 0..2 {
+                let mut gradient = |delta: f64| {
+                    let mut y = x;
+                    y[j] += delta;
+                    let mut g = [0.; 2];
+                    oracle.gradient(&y, &mut g).unwrap();
+                    g
+                };
+                let plus = gradient(step);
+                let minus = gradient(-step);
+                for i in j..2 {
+                    let difference = sigma * (plus[i] - minus[i]) / (2. * step);
+                    assert!(
+                        (h[(i, j)] - difference).abs() <= 1e-4 * (1. + difference.abs()),
+                        "x={x:?} sigma={sigma}: H[{i},{j}] {} vs differences {difference}",
+                        h[(i, j)]
+                    );
+                }
+            }
+        }
+    }
+    #[cfg(feature = "solver-ipopt")]
+    {
+        let prepared = package
+            .prepare_fit(FitId::from(id(80)), profile, compiler_profile(), Default::default(), &cancel)
+            .await
+            .unwrap();
+        let result = prepared.start().unwrap().wait().await.unwrap();
+        let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
+            panic!("missing fit")
+        };
+        let candidate = report.candidate.as_ref().unwrap();
+        assert!(
+            (candidate[0] - 1.3).abs() < 1e-5 && (candidate[1] - 1.8).abs() < 1e-5,
+            "{report:?}"
+        );
+        assert_eq!(report.hessian, HessianMode::Exact);
+        let table = result.table("runtime.solve_metrics").unwrap();
+        let rows = pse_relations::generated::runtime::solve_metrics::RuntimeSolveMetricsView::from_checked(&table)
+            .unwrap()
+            .rows()
+            .unwrap();
+        assert!(rows.iter().any(|r| r.namespace == "derivatives"
+            && r.name == "transient_hessian"
+            && r.text.as_deref() == Some("idas_forward_over_adjoint")));
+    }
 }

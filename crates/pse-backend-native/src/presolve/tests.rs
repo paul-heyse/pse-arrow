@@ -286,7 +286,7 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
             _ => panic!("test helper supports only the two shared NLP adapters"),
         }
         .unwrap();
-        let mut report = pipeline.finish(
+        let (mut report, _) = pipeline.finish(
             report,
             &tolerances(),
             ObjectiveSense::Minimize,
@@ -444,7 +444,7 @@ fn shared_affine_transport_recovers_original_values_and_kkt() {
         reduced_costs: None,
         slacks: None,
     });
-    let report = p.finish(
+    let (report, _) = p.finish(
         report,
         &tolerances(),
         ObjectiveSense::Minimize,
@@ -642,7 +642,7 @@ fn maximization_and_original_warm_seed_preserve_conventions() {
         reduced_costs: None,
         slacks: None,
     });
-    let report = pipeline.finish(
+    let (report, _) = pipeline.finish(
         report,
         &tolerances(),
         ObjectiveSense::Maximize,
@@ -767,7 +767,7 @@ fn normalization_callbacks_and_original_duals_round_trip() {
         reduced_costs: None,
         slacks: None,
     });
-    let report = pipeline.finish(
+    let (report, _) = pipeline.finish(
         report,
         &tolerances(),
         ObjectiveSense::Minimize,

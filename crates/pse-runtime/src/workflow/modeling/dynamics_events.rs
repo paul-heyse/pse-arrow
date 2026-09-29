@@ -6,7 +6,9 @@ use super::*;
 use pse_modeling::specialize::FixtureMode;
 
 impl ModelingPackage {
-    /// Prepare an integrated simulation of one instance under explicit bindings. The
+    /// Prepare an integrated simulation of one instance under explicit bindings, with its
+    /// functions compiled to the `derivatives` order: first order for integration and
+    /// sensitivities, second order for exact transient Hessians (ADR-0110 item 4). The
     /// instance's fixture declares its modes and events (ADR-0119 Outcome 3): the first mode
     /// starts the integration, and without any one smooth mode integrates. Every mode is
     /// compiled before native admission; layout, units and state scaling stay fixed.
@@ -23,6 +25,7 @@ impl ModelingPackage {
         case: ModelingCaseBindings,
         compiler: Profile,
         mut profile: native::Profile,
+        derivatives: DerivativeOrder,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
         if bindings.facts.keys().any(|k| k.starts_with("analysis."))
@@ -70,7 +73,16 @@ impl ModelingPackage {
             profile.method = native::Method::Idas;
         }
         self.prepare_simulation_modes(
-            root, instance, bindings, limits, case, compiler, profile, &modes, cancel,
+            root,
+            instance,
+            bindings,
+            limits,
+            case,
+            compiler,
+            profile,
+            derivatives,
+            &modes,
+            cancel,
         )
         .await
     }
@@ -88,6 +100,7 @@ impl ModelingPackage {
         case: ModelingCaseBindings,
         compiler: Profile,
         profile: native::Profile,
+        derivatives: DerivativeOrder,
         modes: &[FixtureMode],
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
@@ -121,6 +134,7 @@ impl ModelingPackage {
                     case.clone(),
                     compiler,
                     profile.clone(),
+                    derivatives,
                     index,
                     &names,
                     cancel,

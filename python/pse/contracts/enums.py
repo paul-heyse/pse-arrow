@@ -213,7 +213,8 @@ class DerivedQuantity(StrEnum):
     PARAMETRIC_SENSITIVITY = "parametric_sensitivity"
     REDUCED_HESSIAN = "reduced_hessian"
     PARAMETER_COVARIANCE = "parameter_covariance"
-    PARAMETER_INTERVAL = "parameter_interval"
+    WALD_INTERVAL = "wald_interval"
+    PROFILE_INTERVAL = "profile_interval"
     PROPAGATED_COVARIANCE = "propagated_covariance"
 
 
@@ -512,6 +513,14 @@ class IntervalMethod(StrEnum):
     PROFILE_LIKELIHOOD = "profile_likelihood"
 
 
+class IntervalOutcome(StrEnum):
+    """The declared IntervalOutcome enumeration."""
+
+    THRESHOLD = "threshold"
+    BOUND = "bound"
+    STOPPED = "stopped"
+
+
 class InvariantKind(StrEnum):
     """The declared InvariantKind enumeration."""
 
@@ -738,6 +747,7 @@ class ModelingFixtureExecution(StrEnum):
     INITIALIZED = "initialized"
     INTEGRATED = "integrated"
     SIMULTANEOUS = "simultaneous"
+    SHOOTING = "shooting"
 
 
 class ModelingInitializationStep(StrEnum):
@@ -1392,6 +1402,13 @@ class Severity(StrEnum):
     WARNING = "warning"
 
 
+class ShootingMethod(StrEnum):
+    """The declared ShootingMethod enumeration."""
+
+    SINGLE = "single"
+    MULTIPLE = "multiple"
+
+
 class SnapshotClass(StrEnum):
     """The declared SnapshotClass enumeration."""
 
@@ -1450,6 +1467,13 @@ class StoredSeedKind(StrEnum):
     ROOT = "root"
     NLP = "nlp"
     HIGHS = "highs"
+
+
+class StoredSolutionOrigin(StrEnum):
+    """The declared StoredSolutionOrigin enumeration."""
+
+    OUTPUT = "output"
+    INCUMBENT = "incumbent"
 
 
 class StudyPointState(StrEnum):
@@ -1552,8 +1576,9 @@ class WithheldReason(StrEnum):
     SECOND_ORDER_FAILED = "second_order_failed"
     BACKSOLVE_FAILED = "backsolve_failed"
     RANK_DEFICIENT = "rank_deficient"
-    UNDECLARED_DEVIATION = "undeclared_deviation"
     NONUNIT_IMPORTANCE = "nonunit_importance"
+    RESPONSES_UNAVAILABLE = "responses_unavailable"
+    PARAMETER_AT_BOUND = "parameter_at_bound"
     UPSTREAM_WITHHELD = "upstream_withheld"
 
 

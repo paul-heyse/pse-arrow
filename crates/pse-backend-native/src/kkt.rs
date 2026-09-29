@@ -36,6 +36,13 @@
 //! is qualified, and reads the parametric step, the optimal value's derivatives and the
 //! reduced Hessian from that factor through `pounce-sens-core` (the `sensitivity` module).
 //! Each quantity is computed or withheld with its typed reason.
+//!
+//! **Inverse reduced Hessian.** A request over some of the solve's own columns (Plan 22 S3)
+//! reads `B·K⁻¹·Bᵀ` with `B` selecting their rows of the `x` block from the step's factor,
+//! after qualification. With `Z` a basis of the null space of the active gradients,
+//! `[K⁻¹]ₓₓ = Z(ZᵀHZ)⁻¹Zᵀ`, so the block is the inverse reduced Hessian over the selected
+//! columns: sIPOPT's reduced Hessian over free variables. Over a fit's parameter columns it
+//! is the exact covariance of the estimate (ADR-0118 item 8).
 use crate::{
     NlpOracle, ProblemError,
     quality::{self, Observation, Tolerances},
@@ -49,8 +56,10 @@ use pse_math::{
 use std::sync::Arc;
 
 mod sensitivity;
-pub use sensitivity::{Parametric, ReducedHessian, Sensitivities, Sensitivity, Withheld};
-pub(crate) use sensitivity::derive;
+pub use sensitivity::{
+    InverseReducedHessian, Parametric, ReducedHessian, Sensitivities, Sensitivity, Withheld,
+};
+pub(crate) use sensitivity::{derive, invert};
 
 /// What the local analysis of an NLP step computes at its candidate. The caller selects it
 /// (PS-11); the runner never derives it from the model or the intent.
@@ -62,12 +71,17 @@ pub struct Analysis {
     /// Parametric sensitivities and, on request, the reduced Hessian over the named
     /// parameters (Plan 22 S1).
     pub sensitivity: Option<Sensitivity>,
+    /// The inverse reduced Hessian over these of the solve's own original columns, read
+    /// from the step's KKT factor after qualification (Plan 22 S3): over a fit's parameter
+    /// columns, the exact covariance of its estimate. It needs `second_order`.
+    pub inverse_reduced_hessian: Option<Vec<OriginalCol>>,
 }
 impl Analysis {
     /// No analysis.
     pub const NONE: Self = Self {
         second_order: false,
         sensitivity: None,
+        inverse_reduced_hessian: None,
     };
     /// The standing selection for a solve of `intent`: the KKT-point analysis for an
     /// optimization, and none for the feasibility purposes, which solve a constant
@@ -76,6 +90,7 @@ impl Analysis {
         Self {
             second_order: intent == SolveIntent::Optimize,
             sensitivity: None,
+            inverse_reduced_hessian: None,
         }
     }
 }
@@ -376,7 +391,8 @@ impl SensBacksolver for KktFactor {
 
 /// Record the requested local analysis of a report's candidate against the original model.
 /// A report without a candidate or an original observation gets none; an unqualified one
-/// gets the typed reason.
+/// gets the typed reason. Returns the factor when a quantity is still to be read from it
+/// after qualification (an inverse reduced Hessian); otherwise it is dropped here.
 pub(crate) fn attach(
     report: &mut SolveReport,
     oracle: &mut dyn NlpOracle,
@@ -384,12 +400,12 @@ pub(crate) fn attach(
     tolerances: &Tolerances,
     analysis: &Analysis,
     budget: Budget,
-) {
+) -> Option<KktFactor> {
     if !analysis.second_order {
-        return;
+        return None;
     }
     let (Some(candidate), Some(observation)) = (&report.candidate, &report.observation) else {
-        return;
+        return None;
     };
     let local = if observation.dual_error.is_some() {
         Err(Unavailable::Multipliers)
@@ -412,7 +428,12 @@ pub(crate) fn attach(
     // The factor serves this step's analysis and is dropped with it; it never enters the
     // report. Keeping it for a later step (Y5c) moves it into `Retained` here, charged to
     // the job allowance (I14).
-    report.evidence.local = Some(local.map(|(point, _factor)| point));
+    let (local, factor) = match local {
+        Ok((point, factor)) => (Ok(point), Some(factor)),
+        Err(unavailable) => (Err(unavailable), None),
+    };
+    report.evidence.local = Some(local);
+    factor.filter(|_| analysis.inverse_reduced_hessian.is_some())
 }
 
 /// Every stored entry of a faer pattern, in storage order, in the spaces `R` and `C`.

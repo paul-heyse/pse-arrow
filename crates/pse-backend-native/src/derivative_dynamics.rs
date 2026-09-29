@@ -260,6 +260,7 @@ mod tests {
                     signs: vec![],
                     quadratures: vec![],
                     balances: vec![],
+                    derivatives: DerivativeOrder::First,
                 },
                 wrong,
                 missing,

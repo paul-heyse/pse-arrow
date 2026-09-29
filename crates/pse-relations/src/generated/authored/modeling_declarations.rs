@@ -79,9 +79,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 6u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    74u8, 122u8, 248u8, 179u8, 26u8, 67u8, 121u8, 60u8, 150u8, 135u8, 76u8, 128u8, 176u8,
-    102u8, 63u8, 15u8, 169u8, 206u8, 215u8, 169u8, 173u8, 129u8, 238u8, 152u8, 103u8,
-    64u8, 179u8, 121u8, 112u8, 215u8, 69u8, 34u8,
+    5u8, 201u8, 174u8, 100u8, 129u8, 141u8, 211u8, 141u8, 146u8, 61u8, 204u8, 59u8, 27u8,
+    103u8, 196u8, 251u8, 34u8, 68u8, 21u8, 203u8, 107u8, 218u8, 187u8, 150u8, 59u8,
+    169u8, 32u8, 130u8, 179u8, 216u8, 168u8, 245u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueRelaxation {
     fn append(

@@ -1072,11 +1072,12 @@ unit-dynamics-fitting:
     cargo nextest run -p pse-backend-native -p pse-runtime -p pse-math -p pse-compiler -p pse-relations --lib --locked --features pse-runtime/native-solvers,pse-relations/force-validate -E 'test(dynamics::) | test(fitting::) | test(workflow::tests::) | test(function_coordinates)'
 
 [group('mutating')]
-[doc('Regenerate independent PC-SAFT references in an isolated locked Python 3.12 environment')]
+[doc('Regenerate independent PC-SAFT and Peng-Robinson references in an isolated locked Python 3.12 environment')]
 plan14-reference:
     UV_PROJECT_ENVIRONMENT=build/plan14-reference uv sync --locked --python 3.12 --only-group thermo-reference
     build/plan14-reference/bin/python scripts/plan14_reference.py
     build/plan14-reference/bin/python -m scripts.feos_entropy_reference
+    build/plan14-reference/bin/python scripts/pr_stability_reference.py
 
 [group('local')]
 [doc('Bit-exact source-to-generated physical fixture equivalence; no solver workflow')]

@@ -148,6 +148,26 @@ fn case_with(
     order: DerivativeOrder,
     native: Vec<NativeConstraint>,
 ) -> Case {
+    case_of(
+        registry, body, columns, &[], rows, objective, order, native,
+    )
+}
+/// As [`case_with`], with case parameters `id(80 + j)` bound after the columns: body input
+/// `columns.len() + j` takes the value `parameters[j]`.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "a test case binds its body, columns, parameters, rows, objective, order and native forms"
+)]
+fn case_of(
+    registry: &QuantityRegistry,
+    body: pse_math::guarded::PreparedBody,
+    columns: &[(ModelingVariableDomain, Option<f64>, Option<f64>, f64)],
+    parameters: &[f64],
+    rows: &[(f64, f64)],
+    objective: Option<(usize, ObjectiveSense)>,
+    order: DerivativeOrder,
+    native: Vec<NativeConstraint>,
+) -> Case {
     let key = ContentHash::from_bytes([7; 32]);
     let variables = columns
         .iter()
@@ -160,11 +180,16 @@ fn case_with(
             upper: *upper,
         })
         .collect();
+    let parameter = |j: usize| port(registry, 80 + u8::try_from(j).unwrap());
     let slots = (0..columns.len())
         .map(|i| {
             let p = port(registry, u8::try_from(i + 1).unwrap());
             SlotBinding::new(&p, &p, registry).unwrap()
         })
+        .chain((0..parameters.len()).map(|j| {
+            let p = parameter(j);
+            SlotBinding::new(&p, &p, registry).unwrap()
+        }))
         .collect();
     let mut row = 0;
     let mut contributions = Vec::new();
@@ -194,7 +219,7 @@ fn case_with(
     let structure = Arc::new(
         CaseStructure::new(
             variables,
-            vec![],
+            (0..parameters.len()).map(parameter).collect(),
             vec![InstanceBinding {
                 instance: id(9),
                 body: key,
@@ -236,6 +261,12 @@ fn case_with(
             .iter()
             .enumerate()
             .map(|(i, c)| (id(u8::try_from(i + 1).unwrap()), c.3))
+            .chain(
+                parameters
+                    .iter()
+                    .enumerate()
+                    .map(|(j, v)| (id(80 + u8::try_from(j).unwrap()), *v)),
+            )
             .collect(),
     };
     Case {
@@ -278,7 +309,7 @@ impl Case {
     }
     fn fixed_oracle(
         &self,
-        assignment: &BTreeMap<usize, f64>,
+        assignment: &BTreeMap<usize, (f64, f64)>,
     ) -> Result<Box<dyn NlpOracle>, ProblemError> {
         let worker = self
             .assembly
@@ -376,7 +407,7 @@ fn run_with(
     let tolerances = tolerances(n, m);
     let normalization = Normalization::identity(n, m);
     let mut original = Original(case);
-    let mut fixed = |a: &BTreeMap<usize, f64>| case.fixed_oracle(a);
+    let mut fixed = |a: &BTreeMap<usize, (f64, f64)>| case.fixed_oracle(a);
     let presolve = crate::presolve::Policy::Auto;
     let initial = case.initial();
     let mut execution = execution(cancel);
@@ -1667,6 +1698,93 @@ fn commitment_optimum(prices: [f64; 2]) -> f64 {
         .fold(f64::NEG_INFINITY, f64::max)
 }
 
+/// [`commitment`] with the prices as case parameter values instead of body constants: one
+/// prepared structure whose objective coefficients follow the values.
+fn priced_commitment(registry: &QuantityRegistry, prices: [f64; 2]) -> Case {
+    let mut b = Body::new(registry, 6);
+    let x = b.x.clone();
+    let five = b.c(5.0);
+    let three = b.c(3.0);
+    let mut outputs = vec![];
+    for t in 0..2 {
+        let cap = b.op(Binary::Mul, &five, &x[2 + t]);
+        outputs.push(b.op(Binary::Sub, &x[t], &cap));
+    }
+    outputs.push(b.op(Binary::Add, &x[0], &x[1]));
+    let r0 = b.op(Binary::Mul, &x[4], &x[0]);
+    let r1 = b.op(Binary::Mul, &x[5], &x[1]);
+    let on = b.op(Binary::Add, &x[2], &x[3]);
+    let cost = b.op(Binary::Mul, &three, &on);
+    let revenue = b.op(Binary::Add, &r0, &r1);
+    outputs.push(b.op(Binary::Sub, &revenue, &cost));
+    let body = b.b.prepare(&outputs).unwrap();
+    let flow = (
+        ModelingVariableDomain::Continuous,
+        Some(0.0),
+        Some(5.0),
+        0.0,
+    );
+    let binary = (ModelingVariableDomain::Binary, None, None, 0.0);
+    case_of(
+        registry,
+        body,
+        &[flow, flow, binary, binary],
+        &prices,
+        &[
+            (f64::NEG_INFINITY, 0.0),
+            (f64::NEG_INFINITY, 0.0),
+            (f64::NEG_INFINITY, 8.0),
+        ],
+        Some((3, ObjectiveSense::Maximize)),
+        DerivativeOrder::Value,
+        vec![],
+    )
+}
+
+/// A reoptimization session is identified by the exported constraint system, never by the
+/// values the objective consumes: prices passed as case parameter values change the
+/// program's value identity at every step, yet each later step reuses the retained search
+/// tree. (A changed constraint system rebuilds: `reoptimized_sequence_matches_cold_solves`.)
+#[test]
+fn reoptimization_session_follows_the_constraint_system() {
+    let registry = standard_registry().unwrap();
+    let settings = ScipSettings {
+        reoptimize: true,
+        ..ScipSettings::default()
+    };
+    let controls = Controls {
+        reuse: crate::solve::ReusePolicy::AllowRebuild,
+        ..Controls::default()
+    };
+    let mut retained = Retained::default();
+    let mut keys = Vec::new();
+    for (step, prices) in [[4.0, 1.0], [1.0, 4.0], [2.0, 2.0]].into_iter().enumerate() {
+        let case = priced_commitment(&registry, prices);
+        let program = case.program(&FactorableRequest::default());
+        keys.push(program.key);
+        let report = run_with(
+            &case,
+            &program,
+            SolveIntent::Optimize,
+            false,
+            false,
+            &settings,
+            &controls,
+            &mut retained,
+        )
+        .unwrap();
+        let objective = report.observation.as_ref().unwrap().objective.unwrap();
+        let expected = commitment_optimum(prices);
+        assert!(
+            (objective - expected).abs() < 1e-6,
+            "{step}: {objective} vs {expected}"
+        );
+        assert_eq!(report.evidence.reused_native_state, step > 0, "{step}");
+    }
+    // The consumed prices are part of each program's value identity.
+    assert!(keys[0] != keys[1] && keys[1] != keys[2]);
+}
+
 #[test]
 fn reoptimized_sequence_matches_cold_solves() {
     let registry = standard_registry().unwrap();
@@ -1892,9 +2010,12 @@ fn indicator_on_nonlinear_row_unenforced_in_fixed_assignment_resolve() {
 /// A strongly correlated 0-1 knapsack, `max Σ (wᵢ + 10)·xᵢ + 100` with `Σ wᵢ·xᵢ ≤ ½·Σ wᵢ`:
 /// small, but it needs a branch-and-bound search, and its objective carries a constant.
 fn knapsack_with_constant(registry: &QuantityRegistry) -> Case {
-    const ITEMS: usize = 24;
-    let weights: Vec<f64> = (0..ITEMS).map(|i| 30.0 + ((i * 37) % 71) as f64).collect();
-    let mut b = Body::new(registry, ITEMS);
+    knapsack_of(registry, 24)
+}
+/// [`knapsack_with_constant`] over `items` items.
+fn knapsack_of(registry: &QuantityRegistry, items: usize) -> Case {
+    let weights: Vec<f64> = (0..items).map(|i| 30.0 + ((i * 37) % 71) as f64).collect();
+    let mut b = Body::new(registry, items);
     let x = b.x.clone();
     let mut load = None;
     let mut value = None;
@@ -1919,7 +2040,7 @@ fn knapsack_with_constant(registry: &QuantityRegistry) -> Case {
     case(
         registry,
         body,
-        &[binary; ITEMS],
+        &vec![binary; items],
         &[(f64::NEG_INFINITY, 0.5 * weights.iter().sum::<f64>())],
         Some((1, ObjectiveSense::Maximize)),
         DerivativeOrder::Value,
@@ -2052,3 +2173,632 @@ fn scip_incumbent_events_apply_offset() {
 
 #[cfg(all(feature = "ipopt", feature = "pounce"))]
 mod sensitivity;
+/// Semicontinuous supply: min price·s + 3p  s.t.  s + p ≥ demand, s ∈ {0} ∪ [lower, 5]
+/// (semi-integer when `domain` says so), p ∈ [0, 3].
+fn semi_supply(
+    registry: &QuantityRegistry,
+    domain: ModelingVariableDomain,
+    lower: f64,
+    price: f64,
+    demand: f64,
+) -> Case {
+    let mut b = Body::new(registry, 2);
+    let (s, p) = (b.x[0].clone(), b.x[1].clone());
+    let row = b.op(Binary::Add, &s, &p);
+    let price = b.c(price);
+    let three = b.c(3.0);
+    let supply = b.op(Binary::Mul, &price, &s);
+    let purchase = b.op(Binary::Mul, &three, &p);
+    let objective = b.op(Binary::Add, &supply, &purchase);
+    let body = b.b.prepare(&[row, objective]).unwrap();
+    case(
+        registry,
+        body,
+        &[
+            (domain, Some(lower), Some(5.0), 0.0),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(0.0),
+                Some(3.0),
+                3.0,
+            ),
+        ],
+        &[(demand, f64::INFINITY)],
+        Some((1, ObjectiveSense::Minimize)),
+        DerivativeOrder::Second,
+    )
+}
+/// The same case on HiGHS, which consumes semi domains natively.
+fn highs_native(case: &Case) -> SolveReport {
+    let cancel = Arc::new(AtomicBool::new(false));
+    let coefficients = case
+        .assembly
+        .coefficients(&case.values, 100, &cancel)
+        .unwrap();
+    let constants = coefficients.row_constants.clone();
+    let problem = crate::CoefficientProblem::from_plan(&case.assembly, coefficients).unwrap();
+    let n = problem.contract.variables.len();
+    let m = problem.bounds.len();
+    let controls = Controls::default();
+    let accuracy = ResolvedAccuracy::nominal();
+    let tolerances = tolerances(n, m);
+    let normalization = Normalization::identity(n, m);
+    let row_bounds = case
+        .assembly
+        .structure()
+        .rows()
+        .iter()
+        .map(|r| (r.lower, r.upper))
+        .collect();
+    execution::coefficients(
+        Step {
+            adapter: execution::adapter(Backend::Highs),
+            settings: &BackendSettings::Default,
+            controls: &controls,
+            accuracy: &accuracy,
+            execution: execution(false),
+            tolerances: &tolerances,
+            normalization: &normalization,
+            compatibility: stamp(Backend::Highs),
+            warm: None,
+        },
+        &mut Retained::default(),
+        execution::Coefficients {
+            problem: &problem,
+            certificate: None,
+            row_constants: &constants,
+            row_bounds,
+            original: &mut Original(case),
+        },
+    )
+    .unwrap()
+}
+
+#[test]
+fn semi_indicator_lowering_matches_highs_native() {
+    let registry = standard_registry().unwrap();
+    // Demand 1.5 takes the zero branch (s = 0, p = 1.5: 4.5 against 5 at s = 2; the
+    // continuous relaxation would reach 3.75), demand 3 the active branch (s = 3: 7.5).
+    for (demand, expected, supply) in [(1.5, 4.5, 0.0), (3.0, 7.5, 3.0)] {
+        let case = semi_supply(
+            &registry,
+            ModelingVariableDomain::Semicontinuous,
+            2.0,
+            2.5,
+            demand,
+        );
+        let program = case.program(&FactorableRequest::default());
+        assert!(execution::admit_program(&program, SolveIntent::Optimize).is_empty());
+        let scip = run(&case, &program, SolveIntent::Optimize, true, false).unwrap();
+        assert_eq!(scip.termination.category, Termination::Success);
+        let x = &scip.candidate.as_ref().unwrap().primal;
+        assert!((x[0] - supply).abs() < 1e-6, "{demand}: {x:?}");
+        let objective = scip.observation.as_ref().unwrap().objective.unwrap();
+        assert!((objective - expected).abs() < 1e-6, "{demand}: {objective}");
+        assert_eq!(scip.qualification, Qualification::GapQualified, "{demand}");
+        let quality = scip.quality.as_ref().unwrap();
+        assert!(quality.feasible());
+        // HiGHS solves the semi domain natively to the same optimum.
+        let highs = highs_native(&case);
+        assert_eq!(highs.backend, Backend::Highs);
+        let y = &highs.candidate.as_ref().unwrap().primal;
+        let native = highs.observation.as_ref().unwrap().objective.unwrap();
+        assert!((native - objective).abs() < 1e-6, "{demand}: {native} {objective}");
+        assert!((y[0] - x[0]).abs() < 1e-6, "{demand}: {y:?} {x:?}");
+    }
+}
+
+#[test]
+fn semiinteger_lowering_keeps_integrality() {
+    // n ∈ {0} ∪ {2, …, 5} with demand 3.5 and p ≤ 3: n = 3, p = 0.5 costs 9, while a
+    // semicontinuous n = 3.5 would cost 8.75 and n = 0 is infeasible.
+    let registry = standard_registry().unwrap();
+    let case = semi_supply(
+        &registry,
+        ModelingVariableDomain::Semiinteger,
+        2.0,
+        2.5,
+        3.5,
+    );
+    let program = case.program(&FactorableRequest::default());
+    let plan = execution::factorable::plan(&program, SolveIntent::Optimize).unwrap();
+    assert_eq!(plan.semi.len(), 1);
+    assert!(plan.discrete());
+    let report = run(&case, &program, SolveIntent::Optimize, true, false).unwrap();
+    let x = &report.candidate.as_ref().unwrap().primal;
+    assert!((x[0] - 3.0).abs() < 1e-9, "{x:?}");
+    assert!((x[1] - 0.5).abs() < 1e-6, "{x:?}");
+    let objective = report.observation.as_ref().unwrap().objective.unwrap();
+    assert!((objective - 9.0).abs() < 1e-6, "{objective}");
+    assert_eq!(report.qualification, Qualification::GapQualified);
+    // The semi-integer column keeps its integrality check beside its domain check.
+    let quality = report.quality.as_ref().unwrap();
+    assert_eq!(quality.integrality.len(), 1);
+    assert_eq!(quality.integrality[0].id, id(1));
+    let record = report.global.as_ref().unwrap();
+    assert!(matches!(
+        record.transformations[..],
+        [crate::solve::ExportTransformation::SemiIndicator { integer: true, .. }]
+    ));
+}
+
+/// min w·s² + 4p  s.t.  s + p ≥ 3, s ∈ {0} ∪ [2, 5], p ∈ [0, 4]. Over the relaxed box the
+/// optimum s = 2/w falls in the gap (0, 2): w = 1.5 takes the active branch at its lower
+/// end (s = 2, p = 1: 10 against 12), w = 3 the zero branch (s = 0, p = 3: 12 against 16).
+fn semi_process(registry: &QuantityRegistry, weight: f64) -> Case {
+    let mut b = Body::new(registry, 2);
+    let (s, p) = (b.x[0].clone(), b.x[1].clone());
+    let row = b.op(Binary::Add, &s, &p);
+    let w = b.c(weight);
+    let four = b.c(4.0);
+    let ss = b.op(Binary::Mul, &s, &s);
+    let heat = b.op(Binary::Mul, &w, &ss);
+    let purchase = b.op(Binary::Mul, &four, &p);
+    let objective = b.op(Binary::Add, &heat, &purchase);
+    let body = b.b.prepare(&[row, objective]).unwrap();
+    case(
+        registry,
+        body,
+        &[
+            (
+                ModelingVariableDomain::Semicontinuous,
+                Some(2.0),
+                Some(5.0),
+                0.0,
+            ),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(0.0),
+                Some(4.0),
+                3.0,
+            ),
+        ],
+        &[(3.0, f64::INFINITY)],
+        Some((1, ObjectiveSense::Minimize)),
+        DerivativeOrder::Second,
+    )
+}
+
+#[test]
+fn semi_minlp_fixed_assignment_resolve() {
+    use crate::kkt::{Activity, Side};
+    use pse_math::index::OriginalCol;
+    let registry = standard_registry().unwrap();
+    for (weight, supply, expected, activity) in [
+        (1.5, 2.0, 10.0, Activity::Strong(Side::Lower)),
+        (3.0, 0.0, 12.0, Activity::Strong(Side::Equal)),
+    ] {
+        let case = semi_process(&registry, weight);
+        let program = case.program(&FactorableRequest::default());
+        let report = run(&case, &program, SolveIntent::Optimize, true, false).unwrap();
+        let g = report.evidence.global.unwrap();
+        // A nonlinear program with a lowered semi column is mixed-integer: SCIP's incumbent
+        // is an assignment proposal and the candidate the continuous re-solve.
+        assert_eq!(g.primal, PrimalSource::FixedAssignment, "{weight}");
+        let x = &report.candidate.as_ref().unwrap().primal;
+        assert!((x[0] - supply).abs() < 1e-6, "{weight}: {x:?}");
+        let objective = report.observation.as_ref().unwrap().objective.unwrap();
+        assert!((objective - expected).abs() < 1e-5, "{weight}: {objective}");
+        assert_eq!(report.qualification, Qualification::GapQualified, "{weight}");
+        // The re-solve committed the branch: z = 1 keeps s in [2, 5], where the lower end
+        // binds (a relaxed [0, 5] would reach s = 2/w); z = 0 pins s at zero.
+        let point = match &report.evidence.local {
+            Some(Ok(point)) => point,
+            other => panic!("{weight}: {other:?}"),
+        };
+        assert_eq!(point.bounds[OriginalCol::new(0)], activity, "{weight}");
+    }
+    // Original qualification measures the distance to {0} ∪ [2, 5]: the relaxed optimum
+    // s = 4/3 of w = 1.5 violates the semi domain by 2/3.
+    let case = semi_process(&registry, 1.5);
+    let program = case.program(&FactorableRequest::default());
+    let plan = execution::factorable::plan(&program, SolveIntent::Optimize).unwrap();
+    let gap = 4.0 / 3.0;
+    let (quality, _) = execution::factorable::assess(
+        &plan,
+        &mut Original(&case),
+        &tolerances(2, 1),
+        &[gap, 3.0 - gap],
+    )
+    .unwrap();
+    assert!(!quality.feasible());
+    assert!((quality.bounds[0].physical - 2.0 / 3.0).abs() < 1e-12);
+    for (x, violation) in [(0.0, 0.0), (0.5, 0.5), (1.5, 0.5), (3.0, 0.0), (6.0, 1.0)] {
+        assert!((plan.semi[0].violation(x) - violation).abs() < 1e-12, "{x}");
+    }
+}
+
+#[test]
+fn semi_transformation_recorded() {
+    let registry = standard_registry().unwrap();
+    let case = semi_supply(
+        &registry,
+        ModelingVariableDomain::Semicontinuous,
+        2.0,
+        2.5,
+        1.5,
+    );
+    let program = case.program(&FactorableRequest::default());
+    // The projection keeps the zero branch in the box and the active interval beside it.
+    assert_eq!(
+        (program.variables[0].lower, program.variables[0].active_lower),
+        (0.0, Some(2.0))
+    );
+    let plan = execution::factorable::plan(&program, SolveIntent::Optimize).unwrap();
+    assert_eq!(plan.boxes, vec![(0.0, 5.0), (0.0, 3.0), (0.0, 1.0)]);
+    assert_eq!(plan.links.len(), 2);
+    assert!(plan.constraints[1..].iter().all(|c| matches!(
+        c.origin,
+        execution::factorable::Origin::SemiLink { semi: 0, .. }
+    )));
+    // The active interval is part of the branched domain's identity.
+    let narrower = semi_supply(
+        &registry,
+        ModelingVariableDomain::Semicontinuous,
+        2.5,
+        2.5,
+        1.5,
+    )
+    .program(&FactorableRequest::default());
+    let other = execution::factorable::plan(&narrower, SolveIntent::Optimize).unwrap();
+    assert_eq!(other.boxes, plan.boxes);
+    assert_ne!(other.domain, plan.domain);
+    let report = run(&case, &program, SolveIntent::Optimize, true, false).unwrap();
+    let record = report.global.as_ref().unwrap();
+    assert_eq!(
+        record.transformations,
+        vec![crate::solve::ExportTransformation::SemiIndicator {
+            variable: id(1),
+            lower: 2.0,
+            upper: 5.0,
+            integer: false,
+        }]
+    );
+    // The recorded box is the declared one; the indicator belongs to the transformation.
+    assert_eq!(record.boxes, vec![(0.0, 5.0), (0.0, 3.0)]);
+    assert!(matches!(
+        report.metrics["export.lowered.semi_indicator"],
+        crate::solve::Metric::Integer(1)
+    ));
+    assert!(matches!(
+        report.metrics["export.constraints.linear"],
+        crate::solve::Metric::Integer(3)
+    ));
+    assert!(report.evidence.global.unwrap().readback);
+    // An infeasible subsystem maps the links back to the semi column's declared bounds:
+    // s ≥ 0.5 excludes the zero branch and s ≤ 1 the active one, while the continuous
+    // relaxation of the indicator is feasible.
+    let b = Body::new(&registry, 1);
+    let s = b.x[0].clone();
+    let body = b.b.prepare(&[s.clone(), s]).unwrap();
+    let blocked = super::scip_tests::case(
+        &registry,
+        body,
+        &[(
+            ModelingVariableDomain::Semicontinuous,
+            Some(2.0),
+            Some(5.0),
+            0.0,
+        )],
+        &[(0.5, f64::INFINITY), (f64::NEG_INFINITY, 1.0)],
+        None,
+        DerivativeOrder::Value,
+    );
+    let program = blocked.program(&FactorableRequest::default());
+    let settings = ScipSettings {
+        iis: true,
+        ..ScipSettings::default()
+    };
+    let report = run_with(
+        &blocked,
+        &program,
+        SolveIntent::Certify,
+        false,
+        false,
+        &settings,
+        &Controls::default(),
+        &mut Retained::default(),
+    )
+    .unwrap();
+    assert_eq!(report.termination.assurance, Assurance::ProvenInfeasible);
+    let iis = report.global.as_ref().unwrap().iis.clone().unwrap();
+    assert_eq!(
+        iis.members,
+        vec![
+            IisMember::Row(id(101)),
+            IisMember::Row(id(102)),
+            IisMember::VariableLower(id(1)),
+            IisMember::VariableUpper(id(1)),
+        ],
+        "{iis:?}"
+    );
+}
+
+#[test]
+fn exact_mode_accepts_semi_lowering() {
+    // The lowering adds a binary and two linear rows, which exact solving represents.
+    let registry = standard_registry().unwrap();
+    let case = semi_supply(
+        &registry,
+        ModelingVariableDomain::Semicontinuous,
+        2.0,
+        2.5,
+        1.5,
+    );
+    let program = case.program(&FactorableRequest::default());
+    let exact = ScipSettings {
+        exact: true,
+        ..ScipSettings::default()
+    };
+    let report = run_with(
+        &case,
+        &program,
+        SolveIntent::Certify,
+        false,
+        false,
+        &exact,
+        &Controls::default(),
+        &mut Retained::default(),
+    )
+    .unwrap();
+    assert_eq!(report.termination.category, Termination::Success);
+    let g = report.evidence.global.unwrap();
+    assert!(g.exact && g.readback, "{g:?}");
+    assert_eq!(report.termination.assurance, Assurance::ExactCertificate);
+    assert_eq!(report.qualification, Qualification::OptimalWithinTolerance);
+    let x = &report.candidate.as_ref().unwrap().primal;
+    assert!(x[0] == 0.0 && (x[1] - 1.5).abs() < 1e-12, "{x:?}");
+    let record = report.global.as_ref().unwrap();
+    assert_eq!(record.exact_objective.as_deref(), Some("9/2"));
+    assert_eq!(record.transformations.len(), 1);
+}
+
+/// SCIP optimizes a nonlinear objective through its epigraph variable, whose value in a
+/// stored solution only bounds the function: SCIP's trivial heuristic stores, for instance,
+/// x = 2 with the epigraph at a large value. Every reported objective (the candidate's, each
+/// streamed incumbent's and each pooled solution's) is the function at the solution.
+#[test]
+fn epigraph_incumbent_reports_function_value() {
+    // min (x − 1)² − 3 over x ∈ [−2, 2]: optimum −3 at x = 1.
+    let registry = standard_registry().unwrap();
+    let mut b = Body::new(&registry, 1);
+    let x = b.x[0].clone();
+    let one = b.c(1.0);
+    let three = b.c(3.0);
+    let d = b.op(Binary::Sub, &x, &one);
+    let dd = b.op(Binary::Mul, &d, &d);
+    let objective = b.op(Binary::Sub, &dd, &three);
+    let body = b.b.prepare(&[objective]).unwrap();
+    let case = case(
+        &registry,
+        body,
+        &[(
+            ModelingVariableDomain::Continuous,
+            Some(-2.0),
+            Some(2.0),
+            0.0,
+        )],
+        &[],
+        Some((0, ObjectiveSense::Minimize)),
+        DerivativeOrder::Second,
+    );
+    let program = case.program(&FactorableRequest::default());
+    let plan = execution::factorable::plan(&program, SolveIntent::Optimize).unwrap();
+    assert!(plan.nonlinear());
+    let settings = ScipSettings {
+        pool: 16,
+        ..ScipSettings::default()
+    };
+    let controls = Controls::default();
+    let accuracy = ResolvedAccuracy::nominal();
+    let tolerances = tolerances(1, 0);
+    let normalization = Normalization::identity(1, 0);
+    let mut original = Original(&case);
+    let initial = case.initial();
+    let tap = Arc::new(Collected::default());
+    let mut execution = execution(false);
+    execution.progress = Arc::new(crate::solve::Progress::tapped(
+        controls.history,
+        tap.clone(),
+    ));
+    let report = execution::factorable(
+        Step {
+            adapter: execution::adapter(Backend::Scip),
+            settings: &BackendSettings::Scip(settings),
+            controls: &controls,
+            accuracy: &accuracy,
+            execution,
+            tolerances: &tolerances,
+            normalization: &normalization,
+            compatibility: stamp(Backend::Scip),
+            warm: None,
+        },
+        &mut Retained::default(),
+        Factorable {
+            program: &program,
+            initial: &initial,
+            intent: SolveIntent::Optimize,
+            original: &mut original,
+            resolve: None,
+        },
+    )
+    .unwrap();
+    let f = |primal: &[f64]| Original(&case).evaluate(primal).unwrap().objective.unwrap();
+    let candidate = report.candidate.as_ref().unwrap();
+    assert!((candidate.primal[0] - 1.0).abs() < 1e-5, "{candidate:?}");
+    assert!((candidate.objective.unwrap() - f(&candidate.primal)).abs() < 1e-9);
+    assert_eq!(report.qualification, Qualification::GapQualified);
+    let pool = &report.global.as_ref().unwrap().pool;
+    // The trivial upper-bound solution x = 2, stored with its epigraph at SCIP's large
+    // value, is reported at f(2) = −2.
+    assert!(
+        pool.iter()
+            .any(|s| s.primal == [2.0] && s.objective == Some(-2.0)),
+        "{pool:?}"
+    );
+    for solution in pool {
+        let value = f(&solution.primal);
+        assert!(
+            (solution.objective.unwrap() - value).abs() < 1e-9,
+            "{solution:?}: {value}"
+        );
+    }
+    let events = tap.0.lock().unwrap().clone();
+    let incumbents: Vec<&crate::solve::IncumbentEvent> =
+        events.iter().filter_map(|e| e.incumbent.as_ref()).collect();
+    // The first incumbent is the trivial zero solution, whose epigraph variable SCIP holds
+    // at 0: reported at f(0) = −2.
+    assert_eq!(incumbents[0].primal.as_deref(), Some(&[0.0][..]));
+    assert_eq!(incumbents[0].objective, -2.0);
+    for incumbent in &incumbents {
+        if let Some(primal) = &incumbent.primal {
+            let value = f(primal);
+            assert!(
+                (incumbent.objective - value).abs() < 1e-9,
+                "{incumbent:?}: {value}"
+            );
+        }
+    }
+}
+
+/// A multidimensional 0-1 knapsack, `max Σ vᵢ·xᵢ + 7` with `dims` capacity rows
+/// `Σ wₖᵢ·xᵢ ≤ ½·Σ wₖᵢ` over pseudo-random integer data: presolve does not solve it, so
+/// the search branches and improves its incumbent several times.
+fn multidimensional_knapsack(registry: &QuantityRegistry, items: usize, dims: usize) -> Case {
+    let mut state = 12_345_u64;
+    let mut next = |range: u64| {
+        state = state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        ((state >> 33) % range) as f64
+    };
+    let weights: Vec<Vec<f64>> = (0..dims)
+        .map(|_| (0..items).map(|_| 10.0 + next(90)).collect())
+        .collect();
+    let values: Vec<f64> = (0..items).map(|_| 20.0 + next(80)).collect();
+    let mut b = Body::new(registry, items);
+    let x = b.x.clone();
+    let mut outputs = Vec::new();
+    for row in &weights {
+        let mut load = None;
+        for (i, w) in row.iter().enumerate() {
+            let weight = b.c(*w);
+            let term = b.op(Binary::Mul, &weight, &x[i]);
+            load = Some(match load {
+                Some(sum) => b.op(Binary::Add, &sum, &term),
+                None => term,
+            });
+        }
+        outputs.push(load.unwrap());
+    }
+    let mut value = b.c(7.0);
+    for (i, v) in values.iter().enumerate() {
+        let price = b.c(*v);
+        let term = b.op(Binary::Mul, &price, &x[i]);
+        value = b.op(Binary::Add, &value, &term);
+    }
+    outputs.push(value);
+    let body = b.b.prepare(&outputs).unwrap();
+    let binary = (ModelingVariableDomain::Binary, None, None, 0.0);
+    let rows: Vec<(f64, f64)> = weights
+        .iter()
+        .map(|row| (f64::NEG_INFINITY, 0.5 * row.iter().sum::<f64>()))
+        .collect();
+    case(
+        registry,
+        body,
+        &vec![binary; items],
+        &rows,
+        Some((dims, ObjectiveSense::Maximize)),
+        DerivativeOrder::Value,
+    )
+}
+
+/// Concurrent solving under admitted permits streams incumbents while the search runs
+/// (Plan 22 G7): the concurrent solvers' improving solutions map back to the program's
+/// columns by name, the stream stays monotone, every captured solution evaluates in the
+/// original model to its reported objective, and the last incumbent is the result.
+#[test]
+fn scip_concurrent_streams_incumbents() {
+    let registry = standard_registry().unwrap();
+    let case = multidimensional_knapsack(&registry, 40, 5);
+    let program = case.program(&FactorableRequest::default());
+    let n = program.variables.len();
+    let m = program.rows.len();
+    let accuracy = ResolvedAccuracy::nominal();
+    let tolerances = tolerances(n, m);
+    let normalization = Normalization::identity(n, m);
+    let initial = case.initial();
+    let solve = |threads: usize| {
+        let controls = Controls {
+            threads,
+            ..Controls::default()
+        };
+        let mut original = Original(&case);
+        let tap = Arc::new(Collected::default());
+        let mut execution = execution(false);
+        execution.progress = Arc::new(crate::solve::Progress::tapped(
+            controls.history,
+            tap.clone(),
+        ));
+        let report = execution::factorable(
+            Step {
+                adapter: execution::adapter(Backend::Scip),
+                settings: &BackendSettings::Scip(ScipSettings::default()),
+                controls: &controls,
+                accuracy: &accuracy,
+                execution,
+                tolerances: &tolerances,
+                normalization: &normalization,
+                compatibility: stamp(Backend::Scip),
+                warm: None,
+            },
+            &mut Retained::default(),
+            Factorable {
+                program: &program,
+                initial: &initial,
+                intent: SolveIntent::Optimize,
+                original: &mut original,
+                resolve: None,
+            },
+        )
+        .unwrap();
+        let events = tap.0.lock().unwrap().clone();
+        (report, events)
+    };
+    let (serial, _) = solve(1);
+    let optimum = serial.candidate.as_ref().unwrap().objective.unwrap();
+    let (report, events) = solve(2);
+    assert!(matches!(
+        report.metrics["scip.threads"],
+        crate::solve::Metric::Integer(2)
+    ));
+    assert_eq!(
+        report.options["concurrent/presolvebefore"],
+        OptionValue::Bool(false)
+    );
+    assert_eq!(report.qualification, Qualification::GapQualified);
+    let result = report.candidate.as_ref().unwrap().objective.unwrap();
+    assert!((result - optimum).abs() < 1e-6, "{result} vs {optimum}");
+    let incumbents: Vec<&crate::solve::IncumbentEvent> =
+        events.iter().filter_map(|e| e.incumbent.as_ref()).collect();
+    // The search improved several times, and each improvement was streamed as it came.
+    let mut distinct: Vec<f64> = incumbents.iter().map(|i| i.objective).collect();
+    distinct.dedup_by(|a, b| (*a - *b).abs() < 1e-6);
+    assert!(distinct.len() >= 3, "{incumbents:?}");
+    for pair in incumbents.windows(2) {
+        assert!(pair[1].objective >= pair[0].objective - 1e-6, "{incumbents:?}");
+    }
+    assert!(incumbents[0].primal.is_some());
+    for incumbent in &incumbents {
+        if let Some(primal) = &incumbent.primal {
+            let value = Original(&case).evaluate(primal).unwrap().objective.unwrap();
+            assert!(
+                (value - incumbent.objective).abs() < 1e-6,
+                "{value} vs {}",
+                incumbent.objective
+            );
+        }
+    }
+    assert!((incumbents.last().unwrap().objective - result).abs() < 1e-6);
+}

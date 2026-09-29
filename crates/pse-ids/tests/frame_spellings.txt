@@ -140,10 +140,18 @@ pse.provider.configuration.v1
 # lowerings place on the route (l1_exact_penalty). math.case-structure.v4 replaces
 # math.case-structure.v3, which is no longer declared.
 pse.math.case-structure.v4
-# Plan 22 Y0c kernel (ADR-0119 Outcome 2): a simulation's identity covers its integration
-# parameter values, whose scheduled intervals carry authored values. modeling.dynamic.v2
-# replaces modeling.dynamic.v1, which is no longer declared.
+# Plan 22 Y4b (ADR-0110 item 4) and Y0c/Y0d (ADR-0119 Outcomes 2-4): a prepared dynamic
+# simulation's identity includes the derivative order its functions were compiled to, so
+# the exact transient Hessian's second-order preparation is a distinct simulation, and its
+# integration parameter values (scheduled intervals carry authored values), event
+# directions and state signs. modeling.dynamic.v2 replaces modeling.dynamic.v1, which is
+# not declared.
 pse.modeling.dynamic.v2
+# Plan 22 Y5b (ADR-0110 Outcome 5): a shooting window's oracle, whose parameters include
+# the differential start states and whose quadratures may be observed as states, and the
+# shooting NLP over the windows.
+pse.shooting.problem.v1
+pse.shooting.window.v1
 # Plan 22 Y0d (ADR-0119 Outcome 4, review F03): IDAS sign constraints derive from the
 # authored bounds, so the profile's IDAS settings (document version 2) no longer carry
 # them. dynamic.profile.v6 replaces dynamic.profile.v5, which is no longer declared.

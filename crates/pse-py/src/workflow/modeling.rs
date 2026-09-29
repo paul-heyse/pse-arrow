@@ -178,13 +178,14 @@ pub(crate) struct ModelingLimits {
 #[pymethods]
 impl ModelingLimits {
     #[new]
-    #[pyo3(signature=(*, depth=None, items=None, members=None, body_occurrences=None))]
+    #[pyo3(signature=(*, depth=None, items=None, members=None, body_occurrences=None, body_slots=None))]
     fn new(
         py: Python<'_>,
         depth: Option<usize>,
         items: Option<usize>,
         members: Option<usize>,
         body_occurrences: Option<usize>,
+        body_slots: Option<usize>,
     ) -> PyResult<Self> {
         let default = pse_modeling::Limits::default();
         let limits = pse_modeling::Limits {
@@ -192,11 +193,13 @@ impl ModelingLimits {
             items: items.unwrap_or(default.items),
             members: members.unwrap_or(default.members),
             body_occurrences,
+            body_slots,
         };
         if limits.depth == 0
             || limits.items == 0
             || limits.members == 0
             || limits.body_occurrences == Some(0)
+            || limits.body_slots == Some(0)
         {
             return Err(invalid(py, "modeling expansion limits must be positive"));
         }
@@ -217,6 +220,10 @@ impl ModelingLimits {
     #[getter]
     fn body_occurrences(&self) -> Option<usize> {
         self.limits.body_occurrences
+    }
+    #[getter]
+    fn body_slots(&self) -> Option<usize> {
+        self.limits.body_slots
     }
 }
 #[pymethods]
@@ -266,7 +273,7 @@ impl NativeModelingPackage {
         clippy::too_many_arguments,
         reason = "one parameter per argument of the Python method signature"
     )]
-    #[pyo3(signature=(fit_id, settings, simulations, *, rank_tolerance=1e-8, max_cells=1000000, derivatives="responses"))]
+    #[pyo3(signature=(fit_id, settings, simulations, *, rank_tolerance=1e-8, max_cells=1000000, derivatives="responses", uncertainty=None))]
     fn prepare_fit(
         &self,
         py: Python<'_>,
@@ -276,8 +283,14 @@ impl NativeModelingPackage {
         rank_tolerance: f64,
         max_cells: usize,
         derivatives: &str,
+        uncertainty: Option<&[u8]>,
     ) -> PyResult<NativePreparedOperation> {
         let settings = settings::solve_profile(py, settings)?;
+        // The typed `fit-uncertainty` document (Plan 22 S3).
+        let uncertainty = uncertainty
+            .map(serde_json::from_slice::<native::FitUncertainty>)
+            .transpose()
+            .map_err(|e| invalid(py, e.to_string()))?;
         let fit = id(py, fit_id).map(pse_model::generated::identities::FitId::from)?;
         let count = simulations.len();
         // Experiment settings are keyed by the experiment's instance.
@@ -295,6 +308,7 @@ impl NativeModelingPackage {
             rank_tolerance,
             max_cells,
             derivatives: settings::named(py, "fit derivatives", derivatives)?,
+            uncertainty,
         };
         let inner = blocking(
             py,

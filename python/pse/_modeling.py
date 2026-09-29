@@ -39,7 +39,7 @@ from pse.contracts.authored import (
     AuthoredModelingDeclarationsRow,
     AuthoredObservationsRow,
 )
-from pse.contracts.documents import PointOverlay, SolveSettings
+from pse.contracts.documents import FitUncertainty, PointOverlay, SolveSettings
 from pse.contracts.enums import FitDerivatives, ModelingAnalysisRoute
 from pse.contracts.identities import DeclarationId, FitId, InstanceId, RunId
 from pse.contracts.values import ContentHash, SemanticId
@@ -500,13 +500,16 @@ class ModelingPackage:
         rank_tolerance: float = 1e-8,
         max_cells: int = 1000000,
         derivatives: FitDerivatives = FitDerivatives.RESPONSES,
+        uncertainty: FitUncertainty | None = None,
     ) -> "PreparedOperation":
         """Compile shared parameters over authored algebraic or integrated experiments.
 
         Experiment settings are keyed by the experiment's instance, its
         ``experiment_id``; an experiment's modes and events are those its authored case
         declares. ``derivatives`` selects the response Jacobian or, with the
-        limited-memory Hessian, the adjoint gradient alone.
+        limited-memory Hessian, the adjoint gradient alone. Every fit with free
+        parameters derives their covariance; ``uncertainty`` also requests Wald and,
+        optionally, profile-likelihood intervals.
         """
         profiles = [(key.to_hex(), value) for key, value in (simulations or {}).items()]
         return PreparedOperation(
@@ -517,6 +520,9 @@ class ModelingPackage:
                 rank_tolerance=rank_tolerance,
                 max_cells=max_cells,
                 derivatives=derivatives.value,
+                uncertainty=(
+                    None if uncertainty is None else codec.encode_json(uncertainty)
+                ),
             )
         )
 

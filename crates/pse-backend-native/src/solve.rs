@@ -400,7 +400,8 @@ pub struct Event {
 /// source coordinates, the coordinates a primal warm start of the same layout takes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct IncumbentEvent {
-    /// The incumbent's objective value; always finite.
+    /// The objective function's value at the incumbent in the authored sense, never the
+    /// value of an auxiliary the backend optimizes in its place; always finite.
     pub objective: f64,
     /// The global dual bound, in the objective's units; absent while none is finite.
     pub dual_bound: Option<f64>,
@@ -1276,6 +1277,26 @@ pub struct GlobalRecord {
     pub exact_objective: Option<String>,
     /// The attempt reused a retained native search tree (reoptimization).
     pub reoptimized: bool,
+    /// Named transformations the export applied to the program, in column order.
+    pub transformations: Vec<ExportTransformation>,
+}
+/// A named transformation the factorable export applied to the program (ADR-0104 item 2),
+/// recorded with the global records it conditions.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ExportTransformation {
+    /// `semi(indicator)` (ADR-0103 Outcome 7), exact: a semi column is exported over the
+    /// box `[0, upper]` with a binary indicator `z` and the rows `x − upper·z ≤ 0` and
+    /// `x − lower·z ≥ 0`, for a backend without native semi domains.
+    SemiIndicator {
+        /// The lowered case variable.
+        variable: SemanticId,
+        /// Lower end of the active interval, positive.
+        lower: f64,
+        /// Upper end of the active interval.
+        upper: f64,
+        /// The column keeps its integrality (a semi-integer domain).
+        integer: bool,
+    },
 }
 /// One ranked solution of the backend's pool.
 #[derive(Clone, Debug, PartialEq)]
@@ -1284,7 +1305,9 @@ pub struct PoolSolution {
     pub rank: usize,
     /// Values in program column order.
     pub primal: Vec<f64>,
-    /// Native objective in the authored sense, when an objective is exported.
+    /// The objective function's value at the solution in the authored sense, when an
+    /// objective is exported. The rank follows the backend's own objective, which for an
+    /// epigraph export only bounds the function.
     pub objective: Option<f64>,
     /// Original-coordinate feasibility; absent when it could not be evaluated.
     pub feasible: Option<bool>,
@@ -1364,6 +1387,11 @@ pub struct Evidence {
     /// computed or withheld with its reason; `None` when none was requested or the step
     /// ended before its analysis.
     pub sensitivity: Option<crate::kkt::Parametric>,
+    /// The inverse reduced Hessian a request named over the solve's own columns (Plan 22
+    /// S3), or why it is withheld; `None` when none was requested or the step ended before
+    /// its analysis.
+    pub inverse_reduced_hessian:
+        Option<Result<crate::kkt::InverseReducedHessian, crate::kkt::Withheld>>,
     /// Global bound evidence of a certifying adapter.
     pub global: Option<GlobalEvidence>,
 }

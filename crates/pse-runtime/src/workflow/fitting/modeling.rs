@@ -203,6 +203,16 @@ impl ModelingPackage {
                 "fitting consumes declared guesses and fresh solver allocations",
             ));
         }
+        // A fit's parameters are its unknowns: what it derives from them is its covariance
+        // and intervals, never the parametric sensitivities of a modeling solve.
+        if profile.solver.sensitivity.is_some() {
+            return Err(contract(
+                "a fit derives its covariance and intervals (FitProfile.uncertainty), not parametric sensitivities",
+            ));
+        }
+        if let Some(uncertainty) = &profile.uncertainty {
+            uncertainty.admit()?;
+        }
         if profile.solver.intent != SolveIntent::Optimize
             || !profile.rank_tolerance.is_finite()
             || !(0.0..1.0).contains(&profile.rank_tolerance)
@@ -238,15 +248,10 @@ impl ModelingPackage {
         }
         // A supplied Hessian (exact or Gauss–Newton) needs second-order steady models for
         // the constraint curvature. Only the exact Hessian also needs the residual
-        // curvature, which the forward sensitivities of a transient experiment lack.
+        // curvature, which a transient experiment takes from IDAS forward-over-adjoint
+        // second-order sensitivities over dynamic functions compiled to second order
+        // (ADR-0110 item 4).
         let hessian = profile.solver.controls.hessian;
-        if hessian == HessianMode::Exact
-            && d.experiments.iter().any(|e| e.route == Route::Integrated)
-        {
-            return Err(contract(
-                "transient fitting requires Gauss–Newton or limited-memory Hessians",
-            ));
-        }
         // An adjoint gradient carries no response Jacobian, so no supplied Hessian can be
         // formed from it (ADR-0110 item 3).
         if profile.derivatives == FitDerivatives::Gradient && hessian != HessianMode::LimitedMemory
@@ -472,6 +477,12 @@ impl ModelingPackage {
                 } else {
                     native::dynamics::DynamicSensitivity::None
                 };
+                // Exact transient Hessians need the dynamic functions' second derivatives.
+                let transient_order = if hessian == HessianMode::Exact {
+                    DerivativeOrder::Second
+                } else {
+                    DerivativeOrder::First
+                };
                 // The experiment's authored case declares its modes and events.
                 let simulation = self
                     .prepare_simulation(
@@ -482,6 +493,7 @@ impl ModelingPackage {
                         case,
                         compiler,
                         integration,
+                        transient_order,
                         cancel,
                     )
                     .await?;
@@ -518,6 +530,26 @@ impl ModelingPackage {
                         })
                     })
                     .collect::<Result<Vec<_>, WorkflowError>>()?;
+                // The exact Hessian's second-order route is admitted before any native
+                // work: the adjoint profile limits, IDAS (Diffsol has no second-order
+                // adjoint), and its estimate against the math allowance.
+                if hessian == HessianMode::Exact {
+                    let mut second = simulation.profile().clone();
+                    second.sensitivity = native::dynamics::DynamicSensitivity::Adjoint;
+                    let directions = bindings
+                        .iter()
+                        .filter(|b| parameter_columns[b.parameter].is_some())
+                        .map(|b| b.local)
+                        .collect::<Vec<_>>();
+                    if !directions.is_empty() {
+                        second
+                            .validate(simulation.contract(), &simulation.parameters)
+                            .and_then(|_| {
+                                second.admit_second_order(simulation.contract(), &directions)
+                            })
+                            .map_err(|e| WorkflowError::Math(e.into()))?;
+                    }
+                }
                 let output_ports = simulation
                     .contract()
                     .outputs
@@ -831,6 +863,17 @@ impl ModelingPackage {
             }
             experiments.push(experiment);
         }
+        // The predictions' propagated covariance is bounded like the dense diagnostics.
+        let included = measurements.iter().filter(|o| o.included).count();
+        if profile.uncertainty.as_ref().is_some_and(|u| u.predictions)
+            && included
+                .checked_mul(included)
+                .is_none_or(|cells| cells > profile.max_cells)
+        {
+            return Err(contract(
+                "the predictions' propagated covariance exceeds the fit's max_cells",
+            ));
+        }
         if measurements.len() != d.observations.len()
             || !measurements.iter().any(|o| o.included)
             || profile.simulations.keys().any(|id| {
@@ -875,9 +918,12 @@ impl PreparedFit {
         run_id: RunId,
         flag: Arc<std::sync::atomic::AtomicBool>,
         progress: Arc<native::solve::Progress>,
+        workers: usize,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
         let started = std::time::Instant::now();
-        let mut report = self.problem.execute(self.route, flag.clone(), progress)?;
+        let mut report = self
+            .problem
+            .execute(self.route, flag.clone(), progress, workers)?;
         let Some(candidate) = report.candidate.as_ref() else {
             return Ok(report);
         };

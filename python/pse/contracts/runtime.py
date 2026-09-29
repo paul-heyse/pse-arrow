@@ -246,6 +246,23 @@ class RuntimeFitVariablesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeIncumbentsRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    seq: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    elapsed_seconds: b.float = attrs.field(validator=v.finite_float)
+    phase: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    objective: b.float = attrs.field(validator=v.finite_float)
+    dual_bound: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    gap: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    nodes: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+    seconds: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    solution_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeInfeasibilityCertificatesFieldRayItem:
     """Declared relation row or nested value."""
 
@@ -1210,6 +1227,7 @@ class RuntimeOperationalSolutionsRow:
     compatibility_stamp: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     preparation_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     kind: e.StoredSeedKind = attrs.field(validator=attrs.validators.instance_of(e.StoredSeedKind))
+    origin: e.StoredSolutionOrigin = attrs.field(validator=attrs.validators.instance_of(e.StoredSolutionOrigin))
     backend: e.NativeBackend = attrs.field(validator=attrs.validators.instance_of(e.NativeBackend))
     profile_stamp: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     data_stamp: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
@@ -1302,6 +1320,34 @@ class RuntimeOperationalWorkspacesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeParameterCovariancesRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    approximation: e.CovarianceApproximation = attrs.field(validator=attrs.validators.instance_of(e.CovarianceApproximation))
+    parameters: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    parameter_units: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    values: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeParameterIntervalsRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    parameter_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    method: e.IntervalMethod = attrs.field(validator=attrs.validators.instance_of(e.IntervalMethod))
+    end: e.IntervalEnd = attrs.field(validator=attrs.validators.instance_of(e.IntervalEnd))
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    level: b.float = attrs.field(validator=v.finite_float)
+    estimate: b.float = attrs.field(validator=v.finite_float)
+    value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    outcome: e.IntervalOutcome = attrs.field(validator=attrs.validators.instance_of(e.IntervalOutcome))
+    points: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    detail: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeParametricSensitivitiesRow:
     """Declared relation row or nested value."""
 
@@ -1314,6 +1360,36 @@ class RuntimeParametricSensitivitiesRow:
     target_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     primal: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     dual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    parameter_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    end: e.IntervalEnd = attrs.field(validator=attrs.validators.instance_of(e.IntervalEnd))
+    point: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    value: b.float = attrs.field(validator=v.finite_float)
+    seed: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 4294967295)))
+    qualification: e.NativeQualification | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeQualification)))
+    objective: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    statistic: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    accepted: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    detail: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimePropagatedCovariancesRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    covariance_run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    parameters: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    outputs: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    output_units: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    values: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)
@@ -1380,6 +1456,18 @@ class RuntimeResolvedNumericsRow:
     relative: b.float = attrs.field(validator=v.finite_float)
     budget: b.float = attrs.field(validator=v.finite_float)
     provenance: b.tuple[RuntimeResolvedNumericsFieldProvenanceItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeResolvedNumericsFieldProvenanceItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeResponseDirectionsRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    direction: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    parameter_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    singular_value: b.float = attrs.field(validator=v.finite_float)
+    identifiable: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    component: b.float = attrs.field(validator=v.finite_float)
 
 
 @attrs.frozen(kw_only=True)

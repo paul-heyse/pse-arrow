@@ -108,6 +108,7 @@ pub(in crate::dynamics) fn gradient(
     Ok(Gradient {
         report,
         gradient: outcome.gradient,
+        hessian: None,
         checkpoints: outcome.checkpoints,
         reserved_bytes: 0,
     })
@@ -161,7 +162,7 @@ fn schemes<LS: LinearSolver<M>>(
             out,
             Scheme::new(
                 |problem| problem.bdf::<LS>(),
-                |problem, adjoint| problem.bdf_state_adjoint::<LS, _>(adjoint),
+                |problem, adjoint| adjoint_start::<LS, diffsol::BdfState<V>, _>(problem, adjoint, true),
                 |problem, state, adjoint| problem.bdf_solver_adjoint_from_state::<LS, _>(state, adjoint),
             ),
         ),
@@ -172,7 +173,7 @@ fn schemes<LS: LinearSolver<M>>(
             out,
             Scheme::new(
                 |problem| problem.tr_bdf2::<LS>(),
-                |problem, adjoint| problem.tr_bdf2_state_adjoint::<LS, _>(adjoint),
+                |problem, adjoint| adjoint_start::<LS, diffsol::RkState<V>, _>(problem, adjoint, true),
                 |problem, state, adjoint| {
                     problem.tr_bdf2_solver_adjoint_from_state::<LS, _>(state, adjoint)
                 },
@@ -185,7 +186,7 @@ fn schemes<LS: LinearSolver<M>>(
             out,
             Scheme::new(
                 |problem| problem.esdirk34::<LS>(),
-                |problem, adjoint| problem.esdirk34_state_adjoint::<LS, _>(adjoint),
+                |problem, adjoint| adjoint_start::<LS, diffsol::RkState<V>, _>(problem, adjoint, true),
                 |problem, state, adjoint| {
                     problem.esdirk34_solver_adjoint_from_state::<LS, _>(state, adjoint)
                 },
@@ -198,11 +199,42 @@ fn schemes<LS: LinearSolver<M>>(
             out,
             Scheme::new(
                 |problem| problem.tsit45(),
-                |problem, adjoint| problem.tsit45_state_adjoint(adjoint),
+                |problem, adjoint| adjoint_start::<LS, diffsol::RkState<V>, _>(problem, adjoint, false),
                 |problem, state, adjoint| problem.tsit45_solver_adjoint_from_state(state, adjoint),
             ),
         ),
     }
+}
+
+/// The adjoint's terminal state at a segment's stop, built as Diffsol's `*_state_adjoint`
+/// builds it (with consistent algebraic values for the implicit schemes) but without its
+/// step-size probe. That probe takes an explicit step of 0.01·|y|/|y'| over the state's
+/// forward slot and evaluates the adjoint there, which leaves the segment's checkpoints —
+/// a Diffsol error — whenever the forward state is nearly steady at the stop. The backward
+/// pass starts with the forward pass's last step instead, and the scheme's error control
+/// adapts it.
+fn adjoint_start<'a, 'o: 'a, LS, S, F>(
+    problem: &'a Problem<'o>,
+    adjoint: &mut Adjoint<'a, 'o, F>,
+    implicit: bool,
+) -> Result<S, DiffsolError>
+where
+    LS: LinearSolver<M>,
+    S: OdeSolverState<V>,
+    F: OdeSolverMethod<'a, Equation<'o>>,
+{
+    let t = adjoint.last_t();
+    let mut state = S::new_without_initialise_augmented_at(problem, adjoint, t)?;
+    *state.as_mut().t = t;
+    *state.as_mut().h = -adjoint.last_h().unwrap_or(problem.h0);
+    if implicit {
+        let mut newton = diffsol::NewtonNonlinearSolver::new(LS::default(), diffsol::NoLineSearch);
+        state.as_mut().set_consistent(problem, &mut newton)?;
+        state
+            .as_mut()
+            .set_consistent_augmented(problem, adjoint, &mut newton)?;
+    }
+    Ok(state)
 }
 
 /// The forward pass and its checkpoints over one scheme.

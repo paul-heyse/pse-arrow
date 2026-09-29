@@ -10,8 +10,12 @@
 //! - every exported function is a row with a projection, an unconditional obligation
 //!   (strict bounds closed by [`STRICT_MARGIN`]), or an implicit residual (`== 0`) or bound;
 //! - rows without a projection are dropped, which keeps the export a sound relaxation;
+//! - a semi column is lowered by the named, exact `semi(indicator)` transformation
+//!   (ADR-0103 Outcome 7, ADR-0104): a binary indicator coordinate `z` and the links
+//!   `x − u·z ≤ 0` and `x − l·z ≥ 0` over the box `[0, u]`;
 //! - an unavailable objective, a variable or auxiliary of a nonlinear term without a finite
-//!   box, a semi domain or a nonfinite constant refuses with a typed [`Refusal`].
+//!   box, a semi domain without a finite active interval or a nonfinite constant refuses
+//!   with a typed [`Refusal`].
 use super::{
     BackendExecution, BackendSettings, Input, LINKED, Nlp, OriginalModel, Problem, Retained, Step,
     nlp,
@@ -21,8 +25,8 @@ use crate::{
     quality::{self, Observation, Quality, Violation},
     routing::{self, Requirements, Route},
     solve::{
-        BoundSource, Compatibility, Controls, Metric, Options, PrimalSource, SolveIntent,
-        SolveReport, SolverSelection, WarmPayload, WarmStart,
+        BoundSource, Compatibility, Controls, ExportTransformation, Metric, Options,
+        PrimalSource, SolveIntent, SolveReport, SolverSelection, WarmPayload, WarmStart,
     },
 };
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
@@ -51,8 +55,9 @@ pub enum Refusal {
     /// A variable or auxiliary inside a nonlinear term has no finite box; spatial
     /// branch-and-bound needs one.
     UnboundedNonlinear(MissingBound),
-    /// Semicontinuous and semi-integer domains need a declared lowering (Plan 22 M3).
-    SemiDomain(SemanticId),
+    /// A semi domain without a finite active interval `[l, u]` with `0 < l`, which the
+    /// `semi(indicator)` lowering needs; domain admission establishes it for every case.
+    SemiInterval(SemanticId),
     /// A constant or exponent outside finite representation.
     Constant(NodeId),
     /// A row is conditional on more than one indicator; a native handler takes one.
@@ -81,9 +86,9 @@ impl std::fmt::Display for Refusal {
                     " enters a nonlinear term without {side}; spatial branching needs a finite box"
                 )
             }
-            Self::SemiDomain(id) => write!(
+            Self::SemiInterval(id) => write!(
                 f,
-                "variable {id} has a semi domain, which needs a declared lowering"
+                "variable {id} has a semi domain without a finite active interval [l, u] with 0 < l, which the semi(indicator) lowering needs"
             ),
             Self::Constant(node) => write!(f, "node {node} holds a nonfinite constant"),
             Self::Conjunctive(row) => write!(
@@ -109,6 +114,40 @@ pub(crate) enum Origin {
     Residual(usize, usize),
     /// An implicit block's declared bound.
     ImplicitBound(usize, usize),
+    /// A `semi(indicator)` link of the lowered semi column at this ordinal of
+    /// [`Plan::semi`]: `x − u·z ≤ 0` when `upper`, otherwise `x − l·z ≥ 0`.
+    SemiLink { semi: usize, upper: bool },
+}
+/// What an exported function evaluates.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Expression {
+    /// A node of the program.
+    Node(NodeId),
+    /// A `semi(indicator)` link, affine in the combined coordinates: its ordinal in
+    /// [`Plan::links`].
+    Link(usize),
+}
+/// A semi column lowered by `semi(indicator)` (ADR-0103 Outcome 7, ADR-0104): its box is
+/// `[0, upper]` with its integrality kept, its binary indicator coordinate follows the
+/// auxiliaries, and the links `x − upper·z ≤ 0` and `x − lower·z ≥ 0` make `z = 0` fix the
+/// column at zero and `z = 1` keep it in its active interval. The lowering is exact.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Semi {
+    /// The column, in program order.
+    pub column: usize,
+    /// Active interval `[lower, upper]`, `0 < lower <= upper`.
+    pub lower: f64,
+    pub upper: f64,
+}
+impl Semi {
+    /// Whether `x` lies nearer the active interval than the zero branch.
+    pub(crate) fn active(&self, x: f64) -> bool {
+        quality::interval(x, self.lower, self.upper) < x.abs()
+    }
+    /// Physical distance from `x` to the domain `{0} ∪ [lower, upper]`.
+    pub(crate) fn violation(&self, x: f64) -> f64 {
+        x.abs().min(quality::interval(x, self.lower, self.upper))
+    }
 }
 /// The binary column whose value activates a conditional row (ADR-0104).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -136,20 +175,34 @@ impl Enforcement {
         }
     }
 }
-/// One exported constraint `lower <= node <= upper`, enforced while `condition` holds.
+/// One exported constraint `lower <= expression <= upper`, enforced while `condition` holds.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Function {
-    pub node: NodeId,
+    pub expression: Expression,
     pub lower: f64,
     pub upper: f64,
     pub origin: Origin,
     pub condition: Option<Condition>,
 }
-/// An affine form over the combined coordinates: columns first, then auxiliaries.
+/// An affine form over the combined coordinates: columns first, then auxiliaries, then
+/// the indicators of lowered semi columns.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Affine {
     pub terms: Vec<(usize, f64)>,
     pub constant: f64,
+}
+impl Affine {
+    #[cfg_attr(
+        not(feature = "scip"),
+        expect(dead_code, reason = "the SCIP adapter reads links back")
+    )]
+    fn at(&self, coordinates: &[f64]) -> f64 {
+        self.terms
+            .iter()
+            .map(|(j, c)| c * coordinates[*j])
+            .sum::<f64>()
+            + self.constant
+    }
 }
 /// The library-neutral export of one admitted program.
 #[derive(Debug)]
@@ -163,11 +216,17 @@ pub(crate) struct Plan<'p> {
     pub dropped: usize,
     /// Worst fidelity of the export, counting dropped rows as a relaxation.
     pub fidelity: Fidelity,
-    /// Closed boxes of the columns and then the auxiliaries; a binary column is `[0, 1]`
-    /// intersected with its declaration.
+    /// Closed boxes of the columns, then the auxiliaries, then the indicators of lowered
+    /// semi columns; a binary column is `[0, 1]` intersected with its declaration, and a
+    /// semi column `[0, u]`.
     pub boxes: Vec<(f64, f64)>,
     /// Affine form of every node, when it is affine and small enough.
     pub affine: Vec<Option<Affine>>,
+    /// Semi columns lowered by `semi(indicator)`, in column order; the indicator of the
+    /// one at ordinal `j` is coordinate [`Plan::indicator`]`(j)`.
+    pub semi: Vec<Semi>,
+    /// The `semi(indicator)` links, two per lowered semi column (upper side first).
+    pub links: Vec<Affine>,
     /// Identity of the declared box and domains the backend branches over.
     pub domain: ContentHash,
     /// Enforcement of every selected row, in row order.
@@ -180,14 +239,78 @@ impl Plan<'_> {
     pub(crate) fn nonlinear(&self) -> bool {
         self.constraints
             .iter()
-            .map(|c| c.node)
-            .chain(self.objective.map(|o| o.0))
-            .any(|n| self.affine[n].is_none())
+            .any(|c| self.form(c.expression).is_none())
+            || self.objective.is_some_and(|o| self.affine[o.0].is_none())
     }
-    /// A column has an integer domain, or a native form makes the program combinatorial.
+    /// A column has a discrete domain (integer, binary or semi), or a native form makes
+    /// the program combinatorial.
     pub(crate) fn discrete(&self) -> bool {
-        self.program.variables.iter().any(|v| v.domain.is_integer())
+        self.program.variables.iter().any(|v| v.domain.is_discrete())
             || !self.program.native.is_empty()
+    }
+    /// The affine form of an exported function, when it has one.
+    pub(crate) fn form(&self, expression: Expression) -> Option<&Affine> {
+        match expression {
+            Expression::Node(node) => self.affine[node].as_ref(),
+            Expression::Link(k) => Some(&self.links[k]),
+        }
+    }
+    /// The coordinate of the indicator of the lowered semi column at ordinal `j`.
+    #[cfg_attr(
+        not(feature = "scip"),
+        expect(dead_code, reason = "the SCIP adapter exports the indicators")
+    )]
+    pub(crate) fn indicator(&self, j: usize) -> usize {
+        self.program.variables.len() + self.program.auxiliaries.len() + j
+    }
+    /// The lowered semi column of a program column, if any.
+    pub(crate) fn semi_of(&self, column: usize) -> Option<&Semi> {
+        self.semi
+            .binary_search_by_key(&column, |s| s.column)
+            .ok()
+            .map(|j| &self.semi[j])
+    }
+    /// Every combined coordinate at a program point: the columns, the auxiliaries, and
+    /// each lowered semi column's indicator at the branch nearest its value.
+    #[cfg_attr(
+        not(feature = "scip"),
+        expect(dead_code, reason = "the SCIP adapter reads its export back")
+    )]
+    pub(crate) fn coordinates(&self, point: &[f64], auxiliary: &[f64]) -> Vec<f64> {
+        point
+            .iter()
+            .chain(auxiliary)
+            .copied()
+            .chain(
+                self.semi
+                    .iter()
+                    .map(|s| f64::from(u8::from(s.active(point[s.column])))),
+            )
+            .collect()
+    }
+    /// An exported function's value from the program's node values and the combined
+    /// coordinates at one point.
+    #[cfg_attr(
+        not(feature = "scip"),
+        expect(dead_code, reason = "the SCIP adapter reads its export back")
+    )]
+    pub(crate) fn value(&self, expression: Expression, nodes: &[f64], coordinates: &[f64]) -> f64 {
+        match expression {
+            Expression::Node(node) => nodes[node],
+            Expression::Link(k) => self.links[k].at(coordinates),
+        }
+    }
+    /// The named transformations of this export, in column order (ADR-0104 item 2).
+    pub(crate) fn transformations(&self) -> Vec<ExportTransformation> {
+        self.semi
+            .iter()
+            .map(|s| ExportTransformation::SemiIndicator {
+                variable: self.program.variables[s.column].id,
+                lower: s.lower,
+                upper: s.upper,
+                integer: self.program.variables[s.column].domain.is_integer(),
+            })
+            .collect()
     }
 }
 /// A native operand that must be binary: a binary column, or a fixed 0 or 1.
@@ -215,6 +338,8 @@ fn close(c: &Constraint) -> (f64, f64) {
 fn column_box(domain: ModelingVariableDomain, lower: f64, upper: f64) -> (f64, f64) {
     if domain == ModelingVariableDomain::Binary {
         (lower.max(0.0), upper.min(1.0))
+    } else if domain.is_semi() {
+        (0.0, upper)
     } else {
         (lower, upper)
     }
@@ -403,7 +528,7 @@ pub(crate) fn plan(
             Some(node) => {
                 fidelity = fidelity.max(row.fidelity);
                 constraints.push(Function {
-                    node,
+                    expression: Expression::Node(node),
                     lower: row.lower,
                     upper: row.upper,
                     origin: Origin::Row(r),
@@ -424,7 +549,7 @@ pub(crate) fn plan(
         for (k, c) in obligation.constraints.iter().enumerate() {
             let (lower, upper) = close(c);
             constraints.push(Function {
-                node: c.expression,
+                expression: Expression::Node(c.expression),
                 lower,
                 upper,
                 origin: Origin::Obligation(o, k),
@@ -436,7 +561,7 @@ pub(crate) fn plan(
         fidelity = fidelity.max(block.fidelity);
         for (k, residual) in block.residuals.iter().enumerate() {
             constraints.push(Function {
-                node: *residual,
+                expression: Expression::Node(*residual),
                 lower: 0.0,
                 upper: 0.0,
                 origin: Origin::Residual(b, k),
@@ -446,7 +571,7 @@ pub(crate) fn plan(
         for (k, c) in block.bounds.iter().enumerate() {
             let (lower, upper) = close(c);
             constraints.push(Function {
-                node: c.expression,
+                expression: Expression::Node(c.expression),
                 lower,
                 upper,
                 origin: Origin::ImplicitBound(b, k),
@@ -457,17 +582,48 @@ pub(crate) fn plan(
     if let (Some(o), Some(_)) = (&program.objective, objective) {
         fidelity = fidelity.max(o.fidelity);
     }
-    for v in &program.variables {
-        if v.domain.is_semi() {
-            refusals.push(Refusal::SemiDomain(v.id));
+    let columns = program.variables.len();
+    // `semi(indicator)`: each semi column gets a binary indicator after the auxiliaries
+    // and two exact links over its box [0, u].
+    let mut semi = Vec::new();
+    for (column, v) in program.variables.iter().enumerate() {
+        if !v.domain.is_semi() {
+            continue;
+        }
+        match v.active_lower {
+            Some(lower) if lower > 0.0 && lower <= v.upper && v.upper.is_finite() => {
+                semi.push(Semi {
+                    column,
+                    lower,
+                    upper: v.upper,
+                });
+            }
+            _ => refusals.push(Refusal::SemiInterval(v.id)),
         }
     }
-    let columns = program.variables.len();
+    let first = columns + program.auxiliaries.len();
+    let mut links = Vec::with_capacity(2 * semi.len());
+    for (j, s) in semi.iter().enumerate() {
+        for (upper, bound) in [(true, s.upper), (false, s.lower)] {
+            constraints.push(Function {
+                expression: Expression::Link(links.len()),
+                lower: if upper { f64::NEG_INFINITY } else { 0.0 },
+                upper: if upper { 0.0 } else { f64::INFINITY },
+                origin: Origin::SemiLink { semi: j, upper },
+                condition: None,
+            });
+            links.push(Affine {
+                terms: vec![(s.column, 1.0), (first + j, -bound)],
+                constant: 0.0,
+            });
+        }
+    }
     let boxes: Vec<(f64, f64)> = program
         .variables
         .iter()
         .map(|v| column_box(v.domain, v.lower, v.upper))
         .chain(program.auxiliaries.iter().map(|a| (a.lower, a.upper)))
+        .chain(semi.iter().map(|_| (0.0, 1.0)))
         .collect();
     // Reachable nodes, and those under a nonlinear operator, in one reverse pass each.
     let nodes = &program.nodes;
@@ -475,7 +631,10 @@ pub(crate) fn plan(
     let mut reachable = vec![false; nodes.len()];
     for root in constraints
         .iter()
-        .map(|c| c.node)
+        .filter_map(|c| match c.expression {
+            Expression::Node(node) => Some(node),
+            Expression::Link(_) => None,
+        })
         .chain(objective.map(|o| o.0))
     {
         reachable[root] = true;
@@ -544,8 +703,12 @@ pub(crate) fn plan(
             .u64(v.domain as u64)
             .u64(lower.to_bits())
             .u64(upper.to_bits());
+        // A semi column's active interval is part of the domain it branches over.
+        if let Some(active) = v.active_lower.filter(|_| v.domain.is_semi()) {
+            h.u64(active.to_bits());
+        }
     }
-    for (lower, upper) in &boxes[columns..] {
+    for (lower, upper) in &boxes[columns..first] {
         h.u64(lower.to_bits()).u64(upper.to_bits());
     }
     Ok(Plan {
@@ -559,6 +722,8 @@ pub(crate) fn plan(
         domain: h.finish_hash(),
         rows: enforcement,
         native,
+        semi,
+        links,
     })
 }
 /// Every typed refusal of exporting `program` for `intent`; empty means admitted.
@@ -571,9 +736,11 @@ fn refused(refusals: &[Refusal]) -> ProblemError {
 }
 
 /// Builds original-coordinate NLP callbacks over every column, with the given column
-/// indices fixed at the given integral values.
+/// indices committed to the given closed boxes: a degenerate box `[v, v]` fixes a discrete
+/// column at `v`, and a semicontinuous column on its active branch keeps its active
+/// interval `[l, u]`.
 pub type FixedOracle<'a> =
-    dyn FnMut(&BTreeMap<usize, f64>) -> Result<Box<dyn NlpOracle>, ProblemError> + 'a;
+    dyn FnMut(&BTreeMap<usize, (f64, f64)>) -> Result<Box<dyn NlpOracle>, ProblemError> + 'a;
 /// A continuous re-solve with the discrete columns fixed (ADR-0105 §2, T07).
 pub struct Resolve<'a> {
     /// The fixed-assignment callbacks.
@@ -677,9 +844,12 @@ pub fn factorable(
         },
     )?;
     observe(&mut report, &plan, run.original, step.tolerances);
-    // Every pooled solution is re-qualified in original coordinates, like the candidate.
+    // Every pooled solution is re-qualified in original coordinates, like the candidate,
+    // and the record states the named transformations the plan applied.
     if let Some(record) = report.global.as_mut() {
-        for solution in &mut std::sync::Arc::make_mut(record).pool {
+        let record = std::sync::Arc::make_mut(record);
+        record.transformations = plan.transformations();
+        for solution in &mut record.pool {
             solution.feasible = assess(&plan, run.original, step.tolerances, &solution.primal)
                 .ok()
                 .map(|(q, _)| q.feasible());
@@ -688,6 +858,10 @@ pub fn factorable(
     report.metrics.insert(
         "export.rows.dropped".into(),
         Metric::Integer(i64::try_from(plan.dropped).unwrap_or(i64::MAX)),
+    );
+    report.metrics.insert(
+        "export.lowered.semi_indicator".into(),
+        Metric::Integer(i64::try_from(plan.semi.len()).unwrap_or(i64::MAX)),
     );
     if let Some(mut global) = report.evidence.global {
         // The runner's plan is the authority for what was exported.
@@ -756,9 +930,9 @@ fn observe(
     }
 }
 /// Original-coordinate quality at `x`: rows enforced there against their bounds (an
-/// inactive indicator row is unconstrained), the declared box, integrality and every
-/// native form's discrete structure.
-fn assess(
+/// inactive indicator row is unconstrained), the declared box (for a semi column, its
+/// domain `{0} ∪ [l, u]`), integrality and every native form's discrete structure.
+pub(crate) fn assess(
     plan: &Plan<'_>,
     original: &mut dyn OriginalModel,
     tolerances: &quality::Tolerances,
@@ -799,16 +973,20 @@ fn assess(
         observation.sources = fresh.sources;
         let mut bounds = Vec::with_capacity(x.len());
         let mut integrality = Vec::new();
-        for (((v, x), t), (lower, upper)) in program
+        for (column, (((v, x), t), (lower, upper))) in program
             .variables
             .iter()
             .zip(x)
             .zip(&tolerances.variables)
             .zip(&plan.boxes)
+            .enumerate()
         {
             bounds.push(Violation {
                 id: v.id,
-                physical: quality::interval(*x, *lower, *upper),
+                physical: plan.semi_of(column).map_or_else(
+                    || quality::interval(*x, *lower, *upper),
+                    |s| s.violation(*x),
+                ),
                 tolerance: *t,
             });
             if v.domain.is_integer() {
@@ -907,9 +1085,11 @@ fn native_violations(
 
 /// The continuous problem of the backend's discrete assignment, solved through the one NLP
 /// runner by the automatic NLP route and seeded there: every integer column is fixed at its
-/// rounded incumbent value, every SOS or cardinality member at zero stays zero, and a row
-/// whose indicator is inactive under the assignment is unconstrained. The re-solve's
-/// native state is its own and never replaces a retained global session.
+/// rounded incumbent value; a semi column on its zero branch is fixed at zero, and on its
+/// active branch kept in `[l, u]` (a semi-integer one fixed at its rounded value); every
+/// SOS or cardinality member at zero stays zero, and a row whose indicator is inactive
+/// under the assignment is unconstrained. The re-solve's native state is its own and never
+/// replaces a retained global session.
 fn fixed_assignment(
     step: &Step<'_>,
     report: &SolveReport,
@@ -922,13 +1102,23 @@ fn fixed_assignment(
         .candidate
         .as_ref()
         .ok_or_else(|| ProblemError::Internal("fixed assignment without an incumbent".into()))?;
-    let mut assignment: BTreeMap<usize, f64> = program
-        .variables
-        .iter()
-        .enumerate()
-        .filter(|(_, v)| v.domain.is_integer())
-        .map(|(i, _)| (i, incumbent.primal[i].round()))
-        .collect();
+    let mut assignment: BTreeMap<usize, (f64, f64)> = BTreeMap::new();
+    for (i, v) in program.variables.iter().enumerate() {
+        let x = incumbent.primal[i];
+        let committed = match plan.semi_of(i) {
+            Some(s) if !s.active(x) => Some((0.0, 0.0)),
+            Some(s) if v.domain.is_integer() => {
+                let value = x.round().clamp(s.lower, s.upper);
+                Some((value, value))
+            }
+            Some(s) => Some((s.lower, s.upper)),
+            None if v.domain.is_integer() => Some((x.round(), x.round())),
+            None => None,
+        };
+        if let Some(committed) = committed {
+            assignment.insert(i, committed);
+        }
+    }
     for k in &plan.native {
         let members: Vec<NativeOperand> = match &program.native[*k] {
             ProjectedNative::Sos { members, .. } => members.iter().map(|(o, _)| *o).collect(),
@@ -939,13 +1129,13 @@ fn fixed_assignment(
             if let NativeOperand::Column(c) = member
                 && incumbent.primal[c].abs() <= step.tolerances.variables[c]
             {
-                assignment.insert(c, 0.0);
+                assignment.insert(c, (0.0, 0.0));
             }
         }
     }
     let mut start = incumbent.primal.clone();
-    for (i, v) in &assignment {
-        start[*i] = *v;
+    for (i, (lower, upper)) in &assignment {
+        start[*i] = start[*i].clamp(*lower, *upper);
     }
     let mut oracle = (resolve.oracle)(&assignment)?;
     let relaxed: Vec<usize> = plan
@@ -1002,8 +1192,11 @@ fn fixed_assignment(
     }
     let mut layout = FramedHasher::new(pse_ids::Frame::FactorableFixedAssignmentV1);
     layout.hash(&step.compatibility.layout);
-    for (i, v) in &assignment {
-        layout.u64(*i as u64).u64(v.to_bits());
+    for (i, (lower, upper)) in &assignment {
+        layout
+            .u64(*i as u64)
+            .u64(lower.to_bits())
+            .u64(upper.to_bits());
     }
     // The re-solve's native profile is its own: default settings of its NLP adapter under
     // the step's profile.

@@ -636,3 +636,63 @@ async fn highs_incumbents_stored_as_highs_seeds() {
     )
     .await;
 }
+
+/// A durable run publishes its incumbent stream as the store held it when the attempt
+/// ended (Plan 22 I13): `runtime.incumbents` equals an independent reader's snapshot
+/// field by field, captured points included by identity.
+#[tokio::test]
+async fn published_incumbents_equal_stream_snapshot() {
+    use pse_relations::{columnar::RelationRow, generated::runtime::incumbents};
+    let database = TestDatabase::create().await.unwrap();
+    let (runtime, package, analysis) = discrete_on(&database, &knapsack(), Backend::Scip).await;
+    let Durability::Durable(operations) = runtime.durability() else {
+        panic!()
+    };
+    let cancel = crate::CancelSource::new();
+    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let result = prepared.start().unwrap().wait().await.unwrap();
+    assert!(result.usable(), "{:?}", result.assessments());
+    let attempt = record(&result).attempt_id;
+    let snapshot = operations
+        .store()
+        .streams()
+        .incumbent_snapshot(attempt)
+        .await
+        .unwrap();
+    assert!(!snapshot.is_empty());
+    assert!(snapshot.iter().any(|i| i.solution_id.is_some()));
+    let table = result.table("runtime.incumbents").unwrap();
+    let published = incumbents::Row::rows(&table).unwrap();
+    assert_eq!(published.len(), snapshot.len());
+    for (row, stored) in published.iter().zip(&snapshot) {
+        assert_eq!(row.run_id, result.run_id);
+        assert_eq!(
+            (
+                row.seq,
+                row.step,
+                row.elapsed_seconds.to_bits(),
+                row.phase.as_str(),
+                row.objective.to_bits(),
+                row.dual_bound.map(f64::to_bits),
+                row.gap.map(f64::to_bits),
+                row.nodes,
+                row.seconds.map(f64::to_bits),
+                row.solution_id,
+            ),
+            (
+                stored.seq,
+                i64::from(stored.step),
+                stored.elapsed_seconds.to_bits(),
+                stored.phase.as_str(),
+                stored.objective.to_bits(),
+                stored.dual_bound.map(f64::to_bits),
+                stored.gap.map(f64::to_bits),
+                stored.nodes,
+                stored.seconds.map(f64::to_bits),
+                stored.solution_id.map(|s| s.as_id()),
+            )
+        );
+    }
+    drop(runtime);
+    database.remove().await.unwrap();
+}

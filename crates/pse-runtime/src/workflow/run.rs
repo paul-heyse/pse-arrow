@@ -358,9 +358,24 @@ impl super::PreparedFit {
         let progress = progress_for(256, durable.as_ref());
         let cancel = FlightCancellation::default();
         let (submission, signal) = submission(&cancel, &progress, durable.is_some());
+        // Profile chains solved at once each need the fit's threads and a solve's memory.
+        let workers = self.problem.profile_workers(runtime.native().cores());
+        let cores = self
+            .problem
+            .profile
+            .solver
+            .controls
+            .threads
+            .checked_mul(workers)
+            .ok_or(MathRuntimeError::Limit("optimizer cores"))?;
+        let bytes = self
+            .problem
+            .bytes
+            .checked_mul(workers)
+            .ok_or(MathRuntimeError::Limit("fit profile extent"))?;
         let handle = runtime.native().submit_with(
-            self.problem.profile.solver.controls.threads,
-            self.problem.bytes,
+            cores,
+            bytes,
             submission,
             move |flag, progress| {
                 let allowance = prepared
@@ -369,7 +384,7 @@ impl super::PreparedFit {
                     .solver
                     .controls
                     .report_allowance()?;
-                let report = prepared.execute(run_id, flag, progress)?;
+                let report = prepared.execute(run_id, flag, progress, workers)?;
                 let retained = report
                     .numeric_bytes()
                     .checked_add(allowance)

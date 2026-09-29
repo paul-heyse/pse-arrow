@@ -575,7 +575,7 @@
             },
             "exact": {
               "default": false,
-              "description": "Exact rational MILP (`SCIPenableExactSolving`); admitted for linear programs\nwithout native forms, and never with reoptimization or concurrency.",
+              "description": "Exact rational MILP (`SCIPenableExactSolving`); admitted for linear programs\nwithout native forms, and never with reoptimization, IIS generation (SCIP's IIS\nfinders do not support exact solving) or concurrency.",
               "type": "boolean"
             },
             "iis": {
@@ -1375,6 +1375,38 @@
       ],
       "description": "Native option type; each adapter validates registration, type and protected controls.\nA document states the value itself: a JSON Boolean, integer, other number or string\ndecodes as the Boolean, integer, real or text option of that value."
     },
+    "ParameterCovariance": {
+      "additionalProperties": false,
+      "description": "A parameter covariance as `runtime.parameter_covariances` publishes it.",
+      "properties": {
+        "parameters": {
+          "description": "The fitted parameters by identity, in the order of `values`.",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "run_id": {
+          "description": "The fit run that derived it.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string"
+        },
+        "values": {
+          "description": "`Σ_θ` row-major, in the parameters' units.",
+          "items": {
+            "$ref": "#/$defs/FiniteBound"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "parameters",
+        "values"
+      ],
+      "type": "object"
+    },
     "PardisoMatching": {
       "enum": [
         "complete",
@@ -1430,6 +1462,29 @@
         "explicit"
       ],
       "type": "string"
+    },
+    "Propagation": {
+      "additionalProperties": false,
+      "description": "Propagation of a parameter covariance to solved variables, `Σ_y = J·Σ_θ·Jᵀ` with `J` the\nstep's parametric sensitivities (Plan 22 S4; ADR-0118 items 1 and 11). The result holds\nwhile the sensitivities do: its validity is theirs, and the covariance's, which a fit\npublishes only when certified.",
+      "properties": {
+        "covariance": {
+          "$ref": "#/$defs/ParameterCovariance",
+          "description": "The covariance to propagate, as a fit run published it."
+        },
+        "outputs": {
+          "description": "Solved variables of the case by identity, in the order of the result; at least one,\nnone repeated.",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "covariance",
+        "outputs"
+      ],
+      "type": "object"
     },
     "RestartBarrier": {
       "description": "The initial barrier parameter of an interior-point restart.",
@@ -1488,6 +1543,17 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "propagation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Propagation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Also propagate a fit's parameter covariance through the sensitivities to named\nvariables (Plan 22 S4); absent propagates none and is not encoded."
         },
         "reduced_hessian": {
           "default": false,

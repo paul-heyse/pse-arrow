@@ -27,7 +27,7 @@ struct Point {
     adjoint: Option<Vec<f64>>,
 }
 #[derive(Debug)]
-struct FitOracle {
+pub(super) struct FitOracle {
     prepared: Arc<FitProblem>,
     workers: Vec<Option<CaseWorker>>,
     execution: Execution,
@@ -41,13 +41,18 @@ struct FitOracle {
 struct RankDiagnostic {
     responses: pse_columnar::Leased<Mat<f64>>,
     singular_values: Vec<f64>,
+    /// The full right singular basis of the weighted, scaled response matrix.
+    directions: Mat<f64>,
     rank: usize,
 }
 fn error(message: impl Into<String>) -> ProblemError {
     ProblemError::Contract(message.into())
 }
 impl FitOracle {
-    fn new(p: impl Into<Arc<FitProblem>>, execution: Execution) -> Result<Self, ProblemError> {
+    pub(super) fn new(
+        p: impl Into<Arc<FitProblem>>,
+        execution: Execution,
+    ) -> Result<Self, ProblemError> {
         let p = p.into();
         let workers = p
             .experiments
@@ -306,26 +311,8 @@ impl FitOracle {
         x: &[f64],
     ) -> Result<Vec<(usize, f64)>, ProblemError> {
         let outputs = s.program.contract.outputs.len();
-        let mut cotangent = |report: &native::dynamics::Report| {
-            let mut weights = vec![0.0; report.samples.len() * outputs];
-            for o in p
-                .measurements
-                .iter()
-                .filter(|o| o.experiment == ei && o.included)
-            {
-                let index = o
-                    .sample_index
-                    .ok_or_else(|| ProblemError::internal("missing prepared transient sample"))?;
-                let prediction = report
-                    .samples
-                    .get(index)
-                    .and_then(|sample| sample.outputs.get(o.row))
-                    .ok_or_else(|| ProblemError::internal("missing adjoint transient sample"))?;
-                let (r, w) = Self::residual(o, *prediction)?;
-                weights[index * outputs + o.row] += r * w;
-            }
-            Ok(weights)
-        };
+        let mut cotangent =
+            |report: &native::dynamics::Report| Self::cotangent(p, ei, outputs, report);
         s.gradient(&|k| Self::value(p, x, k), &self.execution, &mut cotangent)
             .map(|(_, contributions)| contributions)
     }
@@ -338,6 +325,91 @@ impl FitOracle {
         _: &[f64],
     ) -> Result<Vec<(usize, f64)>, ProblemError> {
         Err(ProblemError::unsupported("Diffsol not linked"))
+    }
+    #[cfg(feature = "solver-diffsol")]
+    /// The cotangent of the fit objective's transient part: each included observation's
+    /// weighted residual `rᵢwᵢ` at its sample and output, from the integration's report.
+    fn cotangent(
+        p: &FitProblem,
+        ei: usize,
+        outputs: usize,
+        report: &native::dynamics::Report,
+    ) -> Result<Vec<f64>, ProblemError> {
+        let mut weights = vec![0.0; report.samples.len() * outputs];
+        for o in p
+            .measurements
+            .iter()
+            .filter(|o| o.experiment == ei && o.included)
+        {
+            let index = o
+                .sample_index
+                .ok_or_else(|| ProblemError::internal("missing prepared transient sample"))?;
+            let prediction = report
+                .samples
+                .get(index)
+                .and_then(|sample| sample.outputs.get(o.row))
+                .ok_or_else(|| ProblemError::internal("missing adjoint transient sample"))?;
+            let (r, w) = Self::residual(o, *prediction)?;
+            weights[index * outputs + o.row] += r * w;
+        }
+        Ok(weights)
+    }
+    /// Every transient experiment's curvature block `Σ rᵢwᵢ∇²yᵢ` over its free parameters'
+    /// bindings, as the dense block the layout's transient Hessian sources index; absent
+    /// for steady experiments and for transient ones without an included observation or
+    /// a free parameter.
+    fn transient_curvatures(&self, x: &[f64]) -> Result<Vec<Option<Vec<f64>>>, ProblemError> {
+        let p = self.prepared.clone();
+        p.experiments
+            .iter()
+            .enumerate()
+            .map(|(ei, e)| {
+                let Experiment::Transient(s) = e else {
+                    return Ok(None);
+                };
+                let free = s
+                    .bindings
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, b)| p.parameter_columns[b.parameter].is_some())
+                    .map(|(i, _)| i)
+                    .collect::<Vec<_>>();
+                if free.is_empty()
+                    || !p
+                        .measurements
+                        .iter()
+                        .any(|o| o.experiment == ei && o.included)
+                {
+                    return Ok(None);
+                }
+                self.transient_curvature(&p, ei, s, x, &free).map(Some)
+            })
+            .collect()
+    }
+    #[cfg(feature = "solver-idas")]
+    fn transient_curvature(
+        &self,
+        p: &FitProblem,
+        ei: usize,
+        s: &IntegratedExperiment,
+        x: &[f64],
+        free: &[usize],
+    ) -> Result<Vec<f64>, ProblemError> {
+        let outputs = s.program.contract.outputs.len();
+        let mut cotangent = |report: &native::dynamics::Report| Self::cotangent(p, ei, outputs, report);
+        s.hessian(&|k| Self::value(p, x, k), &self.execution, free, &mut cotangent)
+            .map(|(_, _, curvature)| curvature)
+    }
+    #[cfg(not(feature = "solver-idas"))]
+    fn transient_curvature(
+        &self,
+        _: &FitProblem,
+        _: usize,
+        _: &IntegratedExperiment,
+        _: &[f64],
+        _: &[usize],
+    ) -> Result<Vec<f64>, ProblemError> {
+        Err(ProblemError::unsupported("IDAS not linked"))
     }
     fn residual(o: &Measurement, pred: f64) -> Result<(f64, f64), ProblemError> {
         let sigma = o.sigma.ok_or_else(|| error("missing standard deviation"))?;
@@ -469,6 +541,20 @@ impl NlpOracle for FitOracle {
         {
             return Err(ProblemError::internal("fit Lagrangian demand"));
         }
+        let exact = match self.prepared.profile.solver.controls.hessian {
+            HessianMode::Exact => true,
+            HessianMode::GaussNewton => false,
+            HessianMode::LimitedMemory => {
+                return Err(ProblemError::internal("limited-memory fit Hessian demand"));
+            }
+        };
+        // The exact Hessian's transient curvature Σ rᵢwᵢ∇²yᵢ, by second-order adjoint
+        // sensitivities of each transient experiment (ADR-0110 item 4).
+        let curvatures = if exact {
+            self.transient_curvatures(x)?
+        } else {
+            vec![None; self.prepared.experiments.len()]
+        };
         let p = &self.prepared;
         let point = self
             .point
@@ -497,23 +583,18 @@ impl NlpOracle for FitOracle {
             .as_mut()
             .ok_or_else(|| ProblemError::internal("Gram not prepared"))?
             .refill(&point.responses, &weights, objective_weight, h)?;
-        let exact = match p.profile.solver.controls.hessian {
-            HessianMode::Exact => true,
-            HessianMode::GaussNewton => false,
-            HessianMode::LimitedMemory => {
-                return Err(ProblemError::internal("limited-memory fit Hessian demand"));
-            }
-        };
         for (ei, e) in p.experiments.iter().enumerate() {
             let s = match e {
                 Experiment::Steady(s) => s,
-                // A transient experiment adds no constraint rows; its Gauss–Newton part is
-                // the Gram term alone.
-                Experiment::Transient(_) if !exact => continue,
+                // A transient experiment adds no constraint rows: its Gauss–Newton part is
+                // the Gram term alone, and the exact Hessian adds its curvature block.
                 Experiment::Transient(_) => {
-                    return Err(ProblemError::unsupported(
-                        "transient exact Hessian unavailable",
-                    ));
+                    if let Some(curvature) = &curvatures[ei] {
+                        for &(source, target) in &p.layout.mappings[ei].hessian {
+                            h.add(target, objective_weight * curvature[source])?;
+                        }
+                    }
+                    continue;
                 }
             };
             let mut lambda = vec![0.0; s.case.assembly.structure().rows().len()];
@@ -554,11 +635,14 @@ impl NlpOracle for FitOracle {
     }
 }
 impl FitProblem {
+    /// Run the fit, then derive its covariance and requested intervals, solving up to
+    /// `workers` profile chains at once.
     pub(crate) fn execute(
         self: &Arc<Self>,
         route: native::routing::Route,
         flag: Arc<AtomicBool>,
         progress: Arc<native::solve::Progress>,
+        workers: usize,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
         let adapters: Vec<&dyn native::execution::BackendExecution> = match route {
             native::routing::Route::Native(backend) => vec![native::execution::adapter(backend)],
@@ -568,7 +652,7 @@ impl FitProblem {
             &adapters,
             self.profile.solver.controls.threads,
             self.runtime.native().stack_bytes(),
-            || self.execute_inner(route, flag, progress),
+            || self.execute_inner(route, flag, progress, workers),
         )
     }
     fn execute_inner(
@@ -576,6 +660,7 @@ impl FitProblem {
         route: native::routing::Route,
         flag: Arc<AtomicBool>,
         progress: Arc<native::solve::Progress>,
+        workers: usize,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
         let execution = Execution {
             cancel: flag,
@@ -619,9 +704,15 @@ impl FitProblem {
                     intent: self.profile.solver.intent,
                     sense: pse_math::binding::ObjectiveSense::Minimize,
                     limit: self.profile.max_cells,
-                    analysis: native::execution::Analysis::for_intent(
-                        self.profile.solver.intent,
-                    ),
+                    // An exact-Hessian fit reads its covariance from its own KKT analysis:
+                    // the inverse reduced Hessian over its parameter columns (ADR-0118 item 8).
+                    analysis: native::execution::Analysis {
+                        inverse_reduced_hessian: (self.profile.solver.controls.hessian
+                            == HessianMode::Exact)
+                            .then(|| self.free().map(|(_, col)| col).collect::<Vec<_>>())
+                            .filter(|columns| !columns.is_empty()),
+                        ..native::execution::Analysis::for_intent(self.profile.solver.intent)
+                    },
                 },
             )?;
             let candidate = report.candidate.as_ref().map(|c| c.primal.clone());
@@ -643,9 +734,31 @@ impl FitProblem {
             trajectories: BTreeMap::new(),
             responses: None,
             singular_values: vec![],
+            directions: None,
             rank: None,
             diagnostic: None,
+            covariance: None,
+            wald: None,
+            profiles: None,
         };
+        self.observe(&mut report, execution.clone())?;
+        self.derive(&mut report, route, &execution, workers);
+        Ok(report)
+    }
+    /// The free parameters: each one's declaration index and fit column, in fit order.
+    pub(super) fn free(&self) -> impl Iterator<Item = (usize, OriginalCol)> + '_ {
+        self.parameter_columns
+            .iter()
+            .enumerate()
+            .filter_map(|(k, c)| c.map(|c| (k, c)))
+    }
+    /// The fresh final evaluation of the candidate, independent of the native callback
+    /// cache and candidate status, and the local response diagnostic.
+    fn observe(
+        self: &Arc<Self>,
+        report: &mut FitReport,
+        execution: Execution,
+    ) -> Result<(), crate::math::MathRuntimeError> {
         if let Some(x) = report.candidate.as_ref() {
             // Fresh final evaluation is independent of native callback cache and candidate status.
             let mut final_oracle = FitOracle::new(self.clone(), execution)?;
@@ -668,7 +781,7 @@ impl FitProblem {
                             FitRule::ObjectiveOverflow,
                             ProblemError::numerical("fresh fitting objective overflow"),
                         ));
-                        return Ok(report);
+                        return Ok(());
                     }
                     report.objective = Some(objective);
                     report.quality = Some(native::quality::observed(
@@ -688,6 +801,7 @@ impl FitProblem {
                         Ok(diagnostic) => {
                             report.responses = Some(diagnostic.responses);
                             report.singular_values = diagnostic.singular_values;
+                            report.directions = Some(diagnostic.directions);
                             report.rank = Some(diagnostic.rank);
                         }
                         Err(e) => {
@@ -697,10 +811,20 @@ impl FitProblem {
                 }
             }
         }
-        Ok(report)
+        Ok(())
     }
 }
 fn singular_values(a: &Mat<f64>, limit: usize) -> Result<Vec<f64>, ProblemError> {
+    decompose(a, limit, false).map(|(s, _)| s)
+}
+/// The singular values of `a`, decreasing, and on request its full right singular basis:
+/// column `k` belongs to singular value `k`, and the columns beyond `min(rows, cols)` span
+/// the null space.
+fn decompose(
+    a: &Mat<f64>,
+    limit: usize,
+    vectors: bool,
+) -> Result<(Vec<f64>, Option<Mat<f64>>), ProblemError> {
     if a.as_ref()
         .col_iter()
         .any(|c| c.iter().any(|v| !v.is_finite()))
@@ -713,31 +837,42 @@ fn singular_values(a: &Mat<f64>, limit: usize) -> Result<Vec<f64>, ProblemError>
         dyn_stack::{MemBuffer, MemStack},
         linalg::svd,
     };
-    let req = rank_scratch(a.nrows(), a.ncols());
+    let req = rank_scratch(a.nrows(), a.ncols(), vectors);
     if req.size_bytes() > limit {
         return Err(ProblemError::memory("rank scratch allowance"));
     }
     let mut buffer = MemBuffer::try_new(req).map_err(|e| ProblemError::memory(e.to_string()))?;
     let mut s = Diag::<f64>::zeros(a.nrows().min(a.ncols()));
+    let mut v = vectors.then(|| Mat::<f64>::zeros(a.ncols(), a.ncols()));
     svd::svd(
         a.as_ref(),
         s.as_mut(),
         None,
-        None,
+        v.as_mut().map(Mat::as_mut),
         Par::Seq,
         MemStack::new(&mut buffer),
         Default::default(),
     )
     .map_err(|e| ProblemError::numerical(format!("{e:?}")))?;
-    Ok(s.column_vector().iter().copied().collect())
+    if v
+        .as_ref()
+        .is_some_and(|v| v.col_iter().any(|c| c.iter().any(|x| !x.is_finite())))
+    {
+        return Err(ProblemError::numerical("nonfinite right singular vectors"));
+    }
+    Ok((s.column_vector().iter().copied().collect(), v))
 }
-fn rank_scratch(rows: usize, cols: usize) -> faer::dyn_stack::StackReq {
+fn rank_scratch(rows: usize, cols: usize, vectors: bool) -> faer::dyn_stack::StackReq {
     use faer::linalg::svd::{self, ComputeSvdVectors};
     svd::svd_scratch::<f64>(
         rows,
         cols,
         ComputeSvdVectors::No,
-        ComputeSvdVectors::No,
+        if vectors {
+            ComputeSvdVectors::Full
+        } else {
+            ComputeSvdVectors::No
+        },
         faer::Par::Seq,
         Default::default(),
     )
@@ -857,10 +992,12 @@ impl FitOracle {
         }
         use faer::linalg::temp_mat_scratch;
         let rows = p.measurements.len();
+        // The response and its weighted copy, and the right singular basis.
         let mut bytes = temp_mat_scratch::<f64>(rows, np)
             .size_bytes()
-            .checked_mul(2);
-        let mut scratch = rank_scratch(rows, np).size_bytes();
+            .checked_mul(2)
+            .and_then(|b| b.checked_add(temp_mat_scratch::<f64>(np, np).size_bytes()));
+        let mut scratch = rank_scratch(rows, np, true).size_bytes();
         for experiment in &p.experiments {
             if let Experiment::Steady(s) = experiment {
                 let n = s.local_states;
@@ -876,7 +1013,7 @@ impl FitOracle {
                     })
                     .and_then(|b| b.checked_add(n.checked_mul(4 * size_of::<usize>())?));
                 scratch = scratch
-                    .max(rank_scratch(n, n).size_bytes())
+                    .max(rank_scratch(n, n, false).size_bytes())
                     .max(response_scratch(n, np).size_bytes());
             }
         }
@@ -996,7 +1133,9 @@ impl FitOracle {
             let scale = p.declaration.parameters[free[j].0].scale;
             response[(row, j)] * scale * o.importance.sqrt() / o.sigma.unwrap_or(1.0)
         });
-        let spectrum = singular_values(&weighted, bytes)?;
+        let (spectrum, directions) = decompose(&weighted, bytes, true)?;
+        let directions =
+            directions.ok_or_else(|| ProblemError::internal("right singular vectors"))?;
         let cutoff = spectrum.first().copied().unwrap_or(0.0) * p.profile.rank_tolerance;
         let rank = spectrum.iter().filter(|s| **s > cutoff).count();
         let retained = temp_mat_scratch::<f64>(rows, np).size_bytes();
@@ -1005,6 +1144,7 @@ impl FitOracle {
         Ok(RankDiagnostic {
             responses: response,
             singular_values: spectrum,
+            directions,
             rank,
         })
     }
@@ -1087,6 +1227,7 @@ mod tests {
             rank_tolerance: 1e-8,
             max_cells: 100000,
             derivatives: FitDerivatives::Responses,
+            uncertainty: None,
         }
     }
     #[tokio::test]
@@ -1164,6 +1305,7 @@ mod tests {
             responses: j,
             singular_values: s,
             rank: r,
+            ..
         } = o.response_rank(&[2.0]).unwrap();
         assert_eq!(r, 1);
         assert!((j[(0, 0)] - 4.0).abs() < 1e-12);

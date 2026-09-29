@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Shared-parameter experiment compilation. Trial values never enter Salsa queries.
+mod covariance;
 mod modeling;
 mod oracle;
 mod preparation;
+mod profile;
+pub use covariance::{Covariance, FitWithheld, Interval, IntervalBound};
 pub use modeling::FitData;
+pub use profile::{ProfileChain, ProfilePoint};
+#[cfg(test)]
+pub(in crate::workflow) mod regression;
 mod results;
 mod sparse;
 /// Exact fitting declaration from the schema registry.
@@ -25,7 +31,10 @@ use pse_math::{
     normalization::Normalization,
     numerics::{SourcedRequirement, TargetSpec},
 };
-use pse_model::SemanticFrame;
+use pse_model::{
+    SemanticFrame, scalar,
+    scalars::{Fraction, PositiveCount},
+};
 use pse_model::generated::identities::{FitId, InstanceId};
 use pse_model::{
     generated::enums::{NumericalCoordinates, NumericalSource, NumericalTarget},
@@ -56,6 +65,97 @@ pub struct FitProfile {
     /// alone (with the limited-memory Hessian), whose final assessment reruns the forward
     /// sensitivities once for rank (PS-12).
     pub derivatives: FitDerivatives,
+    /// The confidence intervals to derive from the estimate beyond its covariance (Plan 22
+    /// S3); absent derives the covariance alone.
+    pub uncertainty: Option<FitUncertainty>,
+}
+/// What a fit derives from its estimate beyond the covariance, which every fit with free
+/// parameters derives (ADR-0118 item 8; Plan 22 S3).
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FitUncertainty {
+    /// The confidence level of the intervals, below one.
+    pub level: Fraction,
+    /// Also derive profile-likelihood intervals under these controls; absent derives Wald
+    /// intervals alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<ProfileControls>,
+    /// Also propagate the covariance to the included observations' predictions,
+    /// `Σ_y = R·Σ_θ·Rᵀ` over the fit's response derivatives (Plan 22 S4); their count
+    /// squared is bounded by the profile's `max_cells`.
+    #[serde(default)]
+    pub predictions: bool,
+}
+/// Controls of the profile-likelihood pin chains (ADR-0118 item 8).
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProfileControls {
+    /// Pinned fits at most per chain, refinements and failed fits included.
+    #[serde(default = "ProfileControls::default_points")]
+    pub points: PositiveCount,
+    /// Relative tolerance on the signed-root statistic at a threshold end.
+    #[serde(default = "ProfileControls::default_tolerance")]
+    pub tolerance: Fraction,
+    /// Chains solved at once, each pinned fit on the fit's own threads; the fit's job admits
+    /// the cores of all of them. Absent solves as many at once as one job's cores admit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workers: Option<PositiveCount>,
+}
+impl ProfileControls {
+    const fn default_points() -> PositiveCount {
+        scalar!(PositiveCount(40))
+    }
+    const fn default_tolerance() -> Fraction {
+        scalar!(Fraction(1e-3))
+    }
+}
+impl Default for ProfileControls {
+    fn default() -> Self {
+        Self {
+            points: Self::default_points(),
+            tolerance: Self::default_tolerance(),
+            workers: None,
+        }
+    }
+}
+impl FitUncertainty {
+    /// Intervals at `level`, Wald alone.
+    pub fn wald(level: Fraction) -> Self {
+        Self {
+            level,
+            profile: None,
+            predictions: false,
+        }
+    }
+    /// A confidence level below one: at one every interval is unbounded.
+    fn admit(&self) -> Result<(), WorkflowError> {
+        if self.level.into_inner() >= 1.0 {
+            return Err(contract("a fit's confidence level lies below one"));
+        }
+        Ok(())
+    }
+}
+impl FitProblem {
+    /// The profile chains solved at once: the requested workers, at most one per chain and
+    /// as many as `cores` admit at the fit's threads each; one without a profile.
+    pub(crate) fn profile_workers(&self, cores: usize) -> usize {
+        let Some(controls) = self
+            .profile
+            .uncertainty
+            .as_ref()
+            .and_then(|u| u.profile.as_ref())
+        else {
+            return 1;
+        };
+        let chains = 2 * self.parameter_columns.iter().flatten().count();
+        let admitted = cores / self.profile.solver.controls.threads.max(1);
+        controls
+            .workers
+            .map_or(usize::MAX, PositiveCount::into_inner)
+            .min(chains)
+            .min(admitted)
+            .max(1)
+    }
 }
 #[derive(Clone, Debug)]
 struct Measurement {
@@ -169,10 +269,22 @@ pub struct FitReport {
     pub responses: Option<pse_columnar::Leased<faer::Mat<f64>>>,
     /// Singular values of the weighted, parameter-scaled response Jacobian.
     pub singular_values: Vec<f64>,
+    /// Its right singular vectors in coordinates divided by each parameter's declared
+    /// scale, one column per direction by decreasing singular value; the columns beyond
+    /// `singular_values` span its null space. The first `rank` columns span the locally
+    /// identifiable subspace.
+    pub directions: Option<faer::Mat<f64>>,
     /// Local numerical column rank, when independently qualified.
     pub rank: Option<usize>,
     /// Why prediction or local sensitivity qualification is unavailable.
     pub diagnostic: Option<FitDiagnostic>,
+    /// The covariance of the free parameters, certified or withheld; absent when no
+    /// parameter is free (ADR-0118 item 8).
+    pub covariance: Option<Covariance>,
+    /// The Wald intervals, when the profile requested intervals.
+    pub wald: Option<Result<Vec<Interval>, FitWithheld>>,
+    /// The profile-likelihood chains, two per free parameter, when requested.
+    pub profiles: Option<Result<Vec<ProfileChain>, FitWithheld>>,
 }
 /// Stable rule for an unavailable fresh prediction or local sensitivity.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -226,8 +338,17 @@ impl FitReport {
             + self.trajectories.values().map(|report| report.numeric_bytes() + 128).sum::<usize>()
             + (self.constraint_values.capacity()
                 + self.singular_values.capacity()
-                + self.candidate.as_ref().map_or(0, Vec::capacity))
+                + self.directions.as_ref().map_or(0, |v| v.nrows() * v.ncols())
+                + self.candidate.as_ref().map_or(0, Vec::capacity)
+                + self.covariance.as_ref().map_or(0, Covariance::cells))
                 * size_of::<f64>()
+            + self.wald.as_ref().map_or(0, |w| {
+                w.as_ref().map_or(0, |w| w.len() * size_of::<Interval>())
+            })
+            + self.profiles.as_ref().map_or(0, |p| {
+                p.as_ref()
+                    .map_or(0, |p| p.iter().map(ProfileChain::bytes).sum())
+            })
             // The optional dense response carries its own reservation.
             + self
                 .diagnostic

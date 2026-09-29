@@ -296,6 +296,10 @@ pub struct ProjectedVariable {
     pub lower: f64,
     /// Closed upper bound, or positive infinity.
     pub upper: f64,
+    /// Declared lower bound of a semi domain's active branch `[active_lower, upper]`, which
+    /// the box `[lower, upper]` joins with the zero branch; absent for every other domain,
+    /// and for a semi domain whose case leaves it undeclared.
+    pub active_lower: Option<f64>,
 }
 
 /// One selected constraint row.
@@ -754,6 +758,7 @@ impl CasePlan {
                         v.lower.unwrap_or(f64::NEG_INFINITY)
                     },
                     upper: v.upper.unwrap_or(f64::INFINITY),
+                    active_lower: v.lower.filter(|_| v.domain.is_semi()),
                 })
             })
             .collect::<Result<Vec<_>, MathError>>()?;

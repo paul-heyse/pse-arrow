@@ -150,6 +150,9 @@ fn declare_enumerations(b: &mut RegistryBuilder) {
     );
     // The native meaning of a stored seed's vectors (the portable warm-start payloads).
     enumeration(b, "StoredSeedKind", ["root", "nlp", "highs"]);
+    // Where a stored solution came from (Plan 22 I13): the accepted output seed of a step,
+    // or a point captured from a search's incumbent stream, pruned with that stream.
+    enumeration(b, "StoredSolutionOrigin", ["output", "incumbent"]);
     // Which typed column names an attempt's termination (X4): the last native solver
     // termination, the last run state when no native termination was reported, a
     // trajectory termination, a runtime-owned outcome, or the diagnostic code of a
@@ -526,6 +529,7 @@ fn declare_solutions(b: &mut RegistryBuilder) {
                 column("compatibility_stamp", T::hash()),
                 column("preparation_identity", T::hash()),
                 column("kind", T::enumeration("StoredSeedKind")),
+                column("origin", T::enumeration("StoredSolutionOrigin")),
                 column("backend", T::enumeration("NativeBackend")),
                 column("profile_stamp", T::hash()),
                 column("data_stamp", T::hash()),
@@ -541,9 +545,13 @@ fn declare_solutions(b: &mut RegistryBuilder) {
                 attempt_ref("created_by").optional(),
                 column("created_at", ts()),
             ],
-            "Reusable seeds in original source coordinates, keyed by the coordinate-compatibility stamp (the layout stamp) and the preparation identity. `kind` fixes which vectors are present; an NLP seed may carry the final barrier parameter of its interior-point producer (authored objective units); basis codes keep the native integer statuses. The seed's content identity enters the lineage of every result it seeds (F25).",
+            "Reusable seeds in original source coordinates, keyed by the coordinate-compatibility stamp (the layout stamp) and the preparation identity. `kind` fixes which vectors are present; an NLP seed may carry the final barrier parameter of its interior-point producer (authored objective units); basis codes keep the native integer statuses. `origin` is `output` for a step's accepted output seed, the only kind the newest-compatible lookup returns, and `incumbent` for a point captured from an attempt's incumbent stream: a capture belongs to its attempt and expires with that stream unless a queued job's start or a waiting study point still names it. The seed's content identity enters the lineage of every result it seeds (F25).",
         )
         .check("vectors", SEED_VECTORS)
+        .check(
+            "capture_has_attempt",
+            "\"origin\" <> 'incumbent' OR \"created_by\" IS NOT NULL",
+        )
         .check("barrier_positive", "\"barrier\" IS NULL OR \"barrier\" > 0"),
     );
 }

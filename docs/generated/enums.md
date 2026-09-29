@@ -214,7 +214,8 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `parametric_sensitivity` | `` | false |
 | `reduced_hessian` | `` | false |
 | `parameter_covariance` | `` | false |
-| `parameter_interval` | `` | false |
+| `wald_interval` | `` | false |
+| `profile_interval` | `` | false |
 | `propagated_covariance` | `` | false |
 
 ## `Determinism`
@@ -512,6 +513,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `wald` | `` | false |
 | `profile_likelihood` | `` | false |
 
+## `IntervalOutcome`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `threshold` | `` | false |
+| `bound` | `` | false |
+| `stopped` | `` | false |
+
 ## `InvariantKind`
 
 | Member | IDAES name | Deprecated |
@@ -739,6 +748,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `initialized` | `` | false |
 | `integrated` | `` | false |
 | `simultaneous` | `` | false |
+| `shooting` | `` | false |
 
 ## `ModelingInitializationStep`
 
@@ -1392,6 +1402,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `error` | `` | false |
 | `warning` | `` | false |
 
+## `ShootingMethod`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `single` | `` | false |
+| `multiple` | `` | false |
+
 ## `SnapshotClass`
 
 | Member | IDAES name | Deprecated |
@@ -1451,6 +1468,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `root` | `` | false |
 | `nlp` | `` | false |
 | `highs` | `` | false |
+
+## `StoredSolutionOrigin`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `output` | `` | false |
+| `incumbent` | `` | false |
 
 ## `StudyPointState`
 
@@ -1553,6 +1577,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `second_order_failed` | `` | false |
 | `backsolve_failed` | `` | false |
 | `rank_deficient` | `` | false |
-| `undeclared_deviation` | `` | false |
 | `nonunit_importance` | `` | false |
+| `responses_unavailable` | `` | false |
+| `parameter_at_bound` | `` | false |
 | `upstream_withheld` | `` | false |

@@ -16,6 +16,7 @@ pub struct InsertSolutionParams<
     pub compatibility_stamp: pse_ids::ContentHash,
     pub preparation_identity: pse_ids::ContentHash,
     pub kind: pse_model::generated::enums::StoredSeedKind,
+    pub origin: pse_model::generated::enums::StoredSolutionOrigin,
     pub backend: pse_model::generated::enums::NativeBackend,
     pub profile_stamp: pse_ids::ContentHash,
     pub data_stamp: pse_ids::ContentHash,
@@ -170,7 +171,7 @@ where
 pub struct InsertSolutionStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn insert_solution() -> InsertSolutionStmt {
     InsertSolutionStmt(
-        "INSERT INTO pse_ops.solutions AS s (solution_id, compatibility_stamp, preparation_identity, kind, backend, profile_stamp, data_stamp, primal, lower_bound_duals, upper_bound_duals, column_duals, row_duals, barrier, basis_columns, basis_rows, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING s",
+        "INSERT INTO pse_ops.solutions AS s (solution_id, compatibility_stamp, preparation_identity, kind, origin, backend, profile_stamp, data_stamp, primal, lower_bound_duals, upper_bound_duals, column_duals, row_duals, barrier, basis_columns, basis_rows, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING s",
         None,
     )
 }
@@ -201,6 +202,7 @@ impl InsertSolutionStmt {
         compatibility_stamp: &'a pse_ids::ContentHash,
         preparation_identity: &'a pse_ids::ContentHash,
         kind: &'a pse_model::generated::enums::StoredSeedKind,
+        origin: &'a pse_model::generated::enums::StoredSolutionOrigin,
         backend: &'a pse_model::generated::enums::NativeBackend,
         profile_stamp: &'a pse_ids::ContentHash,
         data_stamp: &'a pse_ids::ContentHash,
@@ -219,7 +221,7 @@ impl InsertSolutionStmt {
         's,
         C,
         pse_model::generated::runtime::operational_solutions::RuntimeOperationalSolutionsRow,
-        16,
+        17,
     > {
         PsemodelGeneratedRuntimeOperationalsolutionsRuntimeOperationalSolutionsRowQuery {
             client,
@@ -228,6 +230,7 @@ impl InsertSolutionStmt {
                 compatibility_stamp,
                 preparation_identity,
                 kind,
+                origin,
                 backend,
                 profile_stamp,
                 data_stamp,
@@ -271,7 +274,7 @@ impl<
         's,
         C,
         pse_model::generated::runtime::operational_solutions::RuntimeOperationalSolutionsRow,
-        16,
+        17,
     >,
     C,
 > for InsertSolutionStmt {
@@ -285,7 +288,7 @@ impl<
         's,
         C,
         pse_model::generated::runtime::operational_solutions::RuntimeOperationalSolutionsRow,
-        16,
+        17,
     > {
         self.bind(
             client,
@@ -293,6 +296,7 @@ impl<
             &params.compatibility_stamp,
             &params.preparation_identity,
             &params.kind,
+            &params.origin,
             &params.backend,
             &params.profile_stamp,
             &params.data_stamp,
@@ -348,7 +352,7 @@ impl SolutionStmt {
 pub struct LatestCompatibleStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn latest_compatible() -> LatestCompatibleStmt {
     LatestCompatibleStmt(
-        "SELECT s FROM pse_ops.solutions AS s WHERE s.compatibility_stamp = $1::pse_ops.content_hash AND s.preparation_identity = $2::pse_ops.content_hash AND s.backend = $3 ORDER BY s.created_at DESC, s.solution_id DESC LIMIT 1",
+        "SELECT s FROM pse_ops.solutions AS s WHERE s.compatibility_stamp = $1::pse_ops.content_hash AND s.preparation_identity = $2::pse_ops.content_hash AND s.backend = $3 AND s.origin = 'output' ORDER BY s.created_at DESC, s.solution_id DESC LIMIT 1",
         None,
     )
 }

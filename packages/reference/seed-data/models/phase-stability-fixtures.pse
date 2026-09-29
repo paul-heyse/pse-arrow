@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("881a0e9fb03144108d64f181a79d1e9f") package phase_stability_fixtures {
+@id("5be21ec99471419a91d7e7a037f55073") use kinds @"1.0.0";
+@id("92f9b10e46114b5ab2177265f5d883b4") use chem @"1.0.0";
+@id("bb47906570b24eca9db33b0d7dee49e1") use helmholtz @"1.0.0";
+@id("30448313577e45088ceb7dc8a7f0d416") use phase_stability @"1.0.0";
+@id("97025dfbe5f24c42a2db9f7f79abe86a") use vessel_fixtures @"1.0.0";
+@id("a82abeca35f743c586078c7257f7935c") table feeds[j:kinds.species]:Scalar;
+@id("b9ef452ef0ab4ab78c137b4d013c83b2") dataset equimolar_bt:feeds source "Equimolar benzene/toluene feed inside the Peng-Robinson two-phase region at 368 K and 101325 Pa; tests/fixtures/pr-stability-reference.json (teqp 0.23.1)" {
+[chem.benzene]=[0.5];
+[chem.toluene]=[0.5];
+}
+@id("2ed407471d154508a8e6db87779f4b90") fn bt_feed(j:kinds.species)->Scalar=feeds[j];
+@id("f622163224f64cecaa98b10d0952aa16") test tpd_ideal source "An ideal mixture is stable at every feed: its tangent-plane distance is the Kullback-Leibler divergence of the trial from the feed, zero at the feed" revision "1" fixture {dof 2; run steady; intent certify;} {
+@id("4fdb92718b0840589294cd7b11f68fc0") child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=chem.alkanes,law=helmholtz.ideal,feed=vessel_fixtures.fraction);
+@id("42c7c868378e407f97d1fa652302d315") expect root.tpd==0 tolerance 0.000001;
+}
+}

@@ -253,6 +253,26 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, experiment_id, symb
 | `lower` | `Float64` | true | `payload` | — | — |
 | `upper` | `Float64` | true | `payload` | — | — |
 
+## `incumbents`
+
+The incumbent stream of a durable run as the operational store holds it when the attempt ends (Plan 22 I13): each improving feasible point of a branch-and-bound search with the bound at that time, numbered `seq` by the producer, with the step, the phase and `elapsed_seconds` of the event that reported it. `solution_id` names the captured point stored for resumption; the store prunes captures with their stream, so the published row outlives it. An ephemeral run keeps its retained incumbents in runtime.solve_metrics instead.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, seq`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `seq` | `Int64` | false | `key` | — | — |
+| `step` | `Int64` | false | `payload` | — | — |
+| `elapsed_seconds` | `Float64` | false | `payload` | — | — |
+| `phase` | `Utf8` | false | `payload` | — | — |
+| `objective` | `Float64` | false | `payload` | — | — |
+| `dual_bound` | `Float64` | true | `payload` | — | — |
+| `gap` | `Float64` | true | `payload` | — | — |
+| `nodes` | `Int64` | true | `payload` | — | — |
+| `seconds` | `Float64` | true | `payload` | — | — |
+| `solution_id` | `semantic_id` | true | `payload` | — | — |
+
 ## `infeasibility_certificates`
 
 A native infeasibility (Farkas) or unboundedness ray, in original physical coordinates over the cone form of the solved problem: rows then finite variable bounds, lower before upper. Verification recomputes it against the original data: `residual` is the worst column's |Aᵀy| (or row's |Px|, |Ax| on zero rows) relative to the magnitudes it sums, `objective` is bᵀy (or qᵀx) and `cone` the dual-cone (or cone) violation, both relative to the ray's largest entry; `margin` is -bᵀy less the rows' and bounds' acceptance budgets weighted by |y| (or -qᵀx), relative to the same entry. A ray is verified when every relative quantity is within `tolerance` and the margin is positive, so a problem infeasible by less than its acceptance budgets is never certified. Only a verified ray at full accuracy carries the certificate assurance. Absent verification means the original data could not be evaluated.
@@ -1343,7 +1363,7 @@ Native row check `reason_nonempty` (must be true):
 
 ## `operational_solutions`
 
-Reusable seeds in original source coordinates, keyed by the coordinate-compatibility stamp (the layout stamp) and the preparation identity. `kind` fixes which vectors are present; an NLP seed may carry the final barrier parameter of its interior-point producer (authored objective units); basis codes keep the native integer statuses. The seed's content identity enters the lineage of every result it seeds (F25).
+Reusable seeds in original source coordinates, keyed by the coordinate-compatibility stamp (the layout stamp) and the preparation identity. `kind` fixes which vectors are present; an NLP seed may carry the final barrier parameter of its interior-point producer (authored objective units); basis codes keep the native integer statuses. `origin` is `output` for a step's accepted output seed, the only kind the newest-compatible lookup returns, and `incumbent` for a point captured from an attempt's incumbent stream: a capture belongs to its attempt and expires with that stream unless a queued job's start or a waiting study point still names it. The seed's content identity enters the lineage of every result it seeds (F25).
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `solution_id`.
 
@@ -1353,6 +1373,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `solution_id`.
 | `compatibility_stamp` | `content_hash` | false | `payload` | — | — |
 | `preparation_identity` | `content_hash` | false | `payload` | — | — |
 | `kind` | `enum:StoredSeedKind` | false | `payload` | — | — |
+| `origin` | `enum:StoredSolutionOrigin` | false | `payload` | — | — |
 | `backend` | `enum:NativeBackend` | false | `payload` | — | — |
 | `profile_stamp` | `content_hash` | false | `payload` | — | — |
 | `data_stamp` | `content_hash` | false | `payload` | — | — |
@@ -1378,6 +1399,12 @@ Native row check `barrier_positive` (must be true):
 
 ```sql
 "barrier" IS NULL OR "barrier" > 0
+```
+
+Native row check `capture_has_attempt` (must be true):
+
+```sql
+"origin" <> 'incumbent' OR "created_by" IS NOT NULL
 ```
 
 Native row check `vectors` (must be true):
@@ -1558,6 +1585,43 @@ Native row check `root_uri_nonempty` (must be true):
 "root_uri" <> ''
 ```
 
+## `parameter_covariances`
+
+The covariance of a fit's free parameters at a certified estimate (ADR-0118 item 8), under the declared statistical model: weighted least squares with a declared standard deviation and unit importance for every included observation, the deviations taken as absolute, so no residual variance rescales it. One covariance per fit; the validity is in local_validity.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `approximation` | `enum:CovarianceApproximation` | false | `payload` | — | — |
+| `parameters` | `List` | false | `payload` | — | — |
+| `parameters.item` | `semantic_id` | false | `payload` | — | — |
+| `parameter_units` | `List` | false | `payload` | — | — |
+| `parameter_units.item` | `semantic_id` | false | `payload` | — | — |
+| `values` | `List` | false | `payload` | — | — |
+| `values.item` | `Float64` | false | `payload` | — | — |
+
+## `parameter_intervals`
+
+Confidence intervals of a fit's free parameters (ADR-0118 item 8). A Wald end is the estimate ± z·σ with z the standard normal quantile of (1 + level)/2. A profile-likelihood end is the pinned value at which the signed root of twice the objective increase, √(2(f − f*)), reaches √χ²₁(level), found by an adaptive pin chain; with absolute deviations both use the same quantile, so they agree on a linear model. The validity of each method's intervals is in local_validity.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, parameter_id, method, end`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `parameter_id` | `semantic_id` | false | `key` | — | — |
+| `method` | `enum:IntervalMethod` | false | `key` | — | — |
+| `end` | `enum:IntervalEnd` | false | `key` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `level` | `Float64` | false | `payload` | — | — |
+| `estimate` | `Float64` | false | `payload` | — | — |
+| `value` | `Float64` | true | `payload` | — | — |
+| `outcome` | `enum:IntervalOutcome` | false | `payload` | — | — |
+| `points` | `Int64` | false | `payload` | — | — |
+| `detail` | `Utf8` | true | `payload` | — | — |
+
 ## `parametric_sensitivities`
 
 Local parametric sensitivities at a certified KKT point (ADR-0118 items 5–7): original physical units per parameter unit, in original coordinates whatever presolve removed. A first-order statement about the local solution map, valid while the active set holds; the validity is in local_validity.
@@ -1575,6 +1639,46 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, parameter_id,
 | `target_unit_id` | `semantic_id` | false | `payload` | — | — |
 | `primal` | `Float64` | true | `payload` | — | — |
 | `dual` | `Float64` | true | `payload` | — | — |
+
+## `profile_points`
+
+Every pinned fit of a profile-likelihood chain (ADR-0118 item 8): one chain per free parameter and end, each point pinning the parameter on the fit prepared once and seeded from its chain's latest accepted point, which is recorded as its input.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, parameter_id, end, point`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `parameter_id` | `semantic_id` | false | `key` | — | — |
+| `end` | `enum:IntervalEnd` | false | `key` | — | — |
+| `point` | `Int64` | false | `key` | — | — |
+| `value` | `Float64` | false | `payload` | — | — |
+| `seed` | `Int64` | true | `payload` | — | — |
+| `qualification` | `enum:NativeQualification` | true | `payload` | — | — |
+| `objective` | `Float64` | true | `payload` | — | — |
+| `statistic` | `Float64` | true | `payload` | — | — |
+| `accepted` | `Boolean` | false | `payload` | — | — |
+| `detail` | `Utf8` | true | `payload` | — | — |
+
+## `propagated_covariances`
+
+A parameter covariance propagated to outputs, Σ_y = J·Σ_θ·Jᵀ (ADR-0118 items 1 and 11; the counterpart of IDAES sens.py): J is a modeling step's parametric sensitivities over the covariance's parameters, matched by identity, or a fit's response derivatives. A first-order statement valid while both its inputs are; its validity, the conjunction of theirs, is in local_validity.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `covariance_run_id` | `semantic_id` | false | `payload` | — | — |
+| `parameters` | `List` | false | `payload` | — | — |
+| `parameters.item` | `semantic_id` | false | `payload` | — | — |
+| `outputs` | `List` | false | `payload` | — | — |
+| `outputs.item` | `semantic_id` | false | `payload` | — | — |
+| `output_units` | `List` | false | `payload` | — | — |
+| `output_units.item` | `semantic_id` | false | `payload` | — | — |
+| `values` | `List` | false | `payload` | — | — |
+| `values.item` | `Float64` | false | `payload` | — | — |
 
 ## `publication_manifests`
 
@@ -1702,6 +1806,21 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, target_kind, 
 | `provenance.item.selected` | `Boolean` | false | `payload` | — | — |
 | `provenance.item.value` | `Float64` | false | `payload` | — | — |
 | `provenance.item.description` | `Utf8` | false | `payload` | — | — |
+
+## `response_directions`
+
+The right singular vectors of a fit's weighted, parameter-scaled response matrix at its candidate (ADR-0118 item 8): the identifiable directions span the locally identifiable subspace, and the others are the parameter combinations the observations do not determine.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, direction, parameter_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `direction` | `Int64` | false | `key` | — | — |
+| `parameter_id` | `semantic_id` | false | `key` | — | — |
+| `singular_value` | `Float64` | false | `payload` | — | — |
+| `identifiable` | `Boolean` | false | `payload` | — | — |
+| `component` | `Float64` | false | `payload` | — | — |
 
 ## `response_sensitivities`
 

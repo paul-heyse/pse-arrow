@@ -350,6 +350,7 @@ impl Oracle for Decay {
 fn idas_constraints_keep_positivity() {
     let mut decay = Decay {
         c: Contract {
+            derivatives: pse_kernels::DerivativeOrder::First,
             quadratures: vec![],
             balances: vec![],
             identity: ContentHash::from_bytes([3; 32]),
@@ -450,6 +451,7 @@ impl Chain {
         };
         Self {
             c: Contract {
+                derivatives: pse_kernels::DerivativeOrder::First,
                 quadratures: vec![],
                 balances: vec![],
                 identity: ContentHash::from_bytes([5; 32]),

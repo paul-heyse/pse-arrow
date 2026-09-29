@@ -106,7 +106,7 @@ impl SensitivityProgram {
         &self,
         worker: pse_math::assembly::CaseWorker,
         values: &CaseValues,
-        assignment: Option<&BTreeMap<pse_ids::SemanticId, f64>>,
+        assignment: Option<&BTreeMap<pse_ids::SemanticId, (f64, f64)>>,
     ) -> Result<native::kkt::Sensitivity, ProblemError> {
         let oracle = match assignment {
             Some(assignment) => native::assembled::AlgebraicOracle::with_fixed_assignment(
@@ -1530,7 +1530,7 @@ impl MathService {
         let cancel = run.execution.cancel.clone();
         // Executable owners and their budget charges outlive every re-solve oracle.
         let mut owners = Vec::new();
-        let mut fixed = |assignment: &BTreeMap<usize, f64>| {
+        let mut fixed = |assignment: &BTreeMap<usize, (f64, f64)>| {
             (|| -> Result<Box<dyn native::NlpOracle>, MathRuntimeError> {
                 let ExecutionWorker {
                     worker,
@@ -1554,7 +1554,7 @@ impl MathService {
         };
         // The re-solve's parametric callbacks under the same assignment (Plan 22 S1).
         let mut parametric_owners = Vec::new();
-        let mut parametric = |assignment: &BTreeMap<usize, f64>| {
+        let mut parametric = |assignment: &BTreeMap<usize, (f64, f64)>| {
             (|| -> Result<Box<dyn native::NlpOracle>, MathRuntimeError> {
                 let request = sensitivity.as_ref().ok_or_else(|| {
                     ProblemError::Internal("no sensitivity program to differentiate".into())
@@ -1838,6 +1838,13 @@ pub(crate) fn profile_key(p: &SolverProfile) -> Result<pse_ids::ContentHash, Pro
             .u64(request.parameters.len() as u64);
         for parameter in &request.parameters {
             h.id(parameter);
+        }
+        // A propagation is identified by its complete serde encoding (F09); a request
+        // without one keeps its identity.
+        if let Some(propagation) = &request.propagation {
+            let encoded = serde_json::to_string(propagation)
+                .map_err(|e| ProblemError::Internal(format!("propagation encoding: {e}")))?;
+            h.str("propagation").str(&encoded);
         }
     }
     Ok(h.finish_hash())

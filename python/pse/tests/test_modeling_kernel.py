@@ -116,6 +116,13 @@ def test_modeling_expansion_limits_are_explicit_and_isolated(
     )
     with pytest.raises(pse.InspectionError, match="positive"):
         pse.ModelingLimits(body_occurrences=0)
+    assert limits.body_slots is None
+    with pytest.raises(pse.InspectionError, match="slots"):
+        package.with_limits(pse.ModelingLimits(body_slots=1)).solve_case(
+            case, pse.SolveSettings(intent=NativeSolveIntent.ROOT)
+        )
+    with pytest.raises(pse.InspectionError, match="positive"):
+        pse.ModelingLimits(body_slots=0)
     with pytest.raises(pse.InspectionError, match="positive"):
         pse.ModelingLimits(members=0)
 

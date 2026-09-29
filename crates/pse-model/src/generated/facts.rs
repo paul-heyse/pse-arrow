@@ -129,6 +129,8 @@ pub enum FactBatch {
     r#RuntimeFitParameters(Vec<super::r#runtime::r#fit_parameters::Row>),
     #[doc = stringify!(r#RuntimeFitVariables)]
     r#RuntimeFitVariables(Vec<super::r#runtime::r#fit_variables::Row>),
+    #[doc = stringify!(r#RuntimeIncumbents)]
+    r#RuntimeIncumbents(Vec<super::r#runtime::r#incumbents::Row>),
     #[doc = stringify!(r#RuntimeInfeasibilityCertificates)]
     r#RuntimeInfeasibilityCertificates(
         Vec<super::r#runtime::r#infeasibility_certificates::Row>,
@@ -251,16 +253,26 @@ pub enum FactBatch {
     ),
     #[doc = stringify!(r#RuntimeOperationalWorkspaces)]
     r#RuntimeOperationalWorkspaces(Vec<super::r#runtime::r#operational_workspaces::Row>),
+    #[doc = stringify!(r#RuntimeParameterCovariances)]
+    r#RuntimeParameterCovariances(Vec<super::r#runtime::r#parameter_covariances::Row>),
+    #[doc = stringify!(r#RuntimeParameterIntervals)]
+    r#RuntimeParameterIntervals(Vec<super::r#runtime::r#parameter_intervals::Row>),
     #[doc = stringify!(r#RuntimeParametricSensitivities)]
     r#RuntimeParametricSensitivities(
         Vec<super::r#runtime::r#parametric_sensitivities::Row>,
     ),
+    #[doc = stringify!(r#RuntimeProfilePoints)]
+    r#RuntimeProfilePoints(Vec<super::r#runtime::r#profile_points::Row>),
+    #[doc = stringify!(r#RuntimePropagatedCovariances)]
+    r#RuntimePropagatedCovariances(Vec<super::r#runtime::r#propagated_covariances::Row>),
     #[doc = stringify!(r#RuntimePublicationManifests)]
     r#RuntimePublicationManifests(Vec<super::r#runtime::r#publication_manifests::Row>),
     #[doc = stringify!(r#RuntimeReducedHessians)]
     r#RuntimeReducedHessians(Vec<super::r#runtime::r#reduced_hessians::Row>),
     #[doc = stringify!(r#RuntimeResolvedNumerics)]
     r#RuntimeResolvedNumerics(Vec<super::r#runtime::r#resolved_numerics::Row>),
+    #[doc = stringify!(r#RuntimeResponseDirections)]
+    r#RuntimeResponseDirections(Vec<super::r#runtime::r#response_directions::Row>),
     #[doc = stringify!(r#RuntimeResponseSensitivities)]
     r#RuntimeResponseSensitivities(Vec<super::r#runtime::r#response_sensitivities::Row>),
     #[doc = stringify!(r#RuntimeRetainedVersions)]
@@ -628,6 +640,12 @@ impl FactBatch {
                     170u8, 2u8, 231u8, 180u8, 178u8, 86u8,
                 ])
             }
+            Self::r#RuntimeIncumbents(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    150u8, 195u8, 178u8, 84u8, 182u8, 133u8, 141u8, 177u8, 209u8, 159u8,
+                    199u8, 42u8, 181u8, 155u8, 98u8, 98u8,
+                ])
+            }
             Self::r#RuntimeInfeasibilityCertificates(_) => {
                 pse_ids::SemanticId::from_bytes([
                     247u8, 249u8, 97u8, 174u8, 73u8, 224u8, 141u8, 7u8, 138u8, 35u8,
@@ -856,10 +874,34 @@ impl FactBatch {
                     199u8, 153u8, 79u8, 253u8, 142u8, 81u8,
                 ])
             }
+            Self::r#RuntimeParameterCovariances(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    99u8, 85u8, 126u8, 252u8, 216u8, 59u8, 118u8, 217u8, 66u8, 229u8,
+                    119u8, 91u8, 64u8, 226u8, 120u8, 12u8,
+                ])
+            }
+            Self::r#RuntimeParameterIntervals(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    230u8, 10u8, 91u8, 1u8, 29u8, 235u8, 14u8, 116u8, 50u8, 194u8, 78u8,
+                    227u8, 56u8, 186u8, 221u8, 214u8,
+                ])
+            }
             Self::r#RuntimeParametricSensitivities(_) => {
                 pse_ids::SemanticId::from_bytes([
                     131u8, 112u8, 170u8, 50u8, 0u8, 109u8, 90u8, 134u8, 237u8, 209u8,
                     190u8, 134u8, 18u8, 113u8, 186u8, 123u8,
+                ])
+            }
+            Self::r#RuntimeProfilePoints(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    114u8, 6u8, 16u8, 161u8, 161u8, 104u8, 128u8, 88u8, 217u8, 165u8,
+                    66u8, 89u8, 143u8, 73u8, 168u8, 63u8,
+                ])
+            }
+            Self::r#RuntimePropagatedCovariances(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    133u8, 37u8, 225u8, 93u8, 183u8, 139u8, 91u8, 104u8, 16u8, 43u8,
+                    10u8, 137u8, 176u8, 52u8, 119u8, 61u8,
                 ])
             }
             Self::r#RuntimePublicationManifests(_) => {
@@ -878,6 +920,12 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     235u8, 132u8, 190u8, 98u8, 165u8, 69u8, 41u8, 119u8, 173u8, 161u8,
                     174u8, 241u8, 101u8, 122u8, 240u8, 211u8,
+                ])
+            }
+            Self::r#RuntimeResponseDirections(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    38u8, 238u8, 176u8, 153u8, 79u8, 7u8, 108u8, 167u8, 177u8, 103u8,
+                    240u8, 139u8, 82u8, 196u8, 219u8, 180u8,
                 ])
             }
             Self::r#RuntimeResponseSensitivities(_) => {
@@ -1019,6 +1067,7 @@ impl FactBatch {
             Self::r#RuntimeFitObservations(rows) => rows.len(),
             Self::r#RuntimeFitParameters(rows) => rows.len(),
             Self::r#RuntimeFitVariables(rows) => rows.len(),
+            Self::r#RuntimeIncumbents(rows) => rows.len(),
             Self::r#RuntimeInfeasibilityCertificates(rows) => rows.len(),
             Self::r#RuntimeLocalValidity(rows) => rows.len(),
             Self::r#RuntimeMaintenanceOutcomes(rows) => rows.len(),
@@ -1057,10 +1106,15 @@ impl FactBatch {
             Self::r#RuntimeOperationalStudyPointMembers(rows) => rows.len(),
             Self::r#RuntimeOperationalStudyPoints(rows) => rows.len(),
             Self::r#RuntimeOperationalWorkspaces(rows) => rows.len(),
+            Self::r#RuntimeParameterCovariances(rows) => rows.len(),
+            Self::r#RuntimeParameterIntervals(rows) => rows.len(),
             Self::r#RuntimeParametricSensitivities(rows) => rows.len(),
+            Self::r#RuntimeProfilePoints(rows) => rows.len(),
+            Self::r#RuntimePropagatedCovariances(rows) => rows.len(),
             Self::r#RuntimePublicationManifests(rows) => rows.len(),
             Self::r#RuntimeReducedHessians(rows) => rows.len(),
             Self::r#RuntimeResolvedNumerics(rows) => rows.len(),
+            Self::r#RuntimeResponseDirections(rows) => rows.len(),
             Self::r#RuntimeResponseSensitivities(rows) => rows.len(),
             Self::r#RuntimeRetainedVersions(rows) => rows.len(),
             Self::r#RuntimeRunLineage(rows) => rows.len(),
@@ -1366,6 +1420,11 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeIncumbents(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeInfeasibilityCertificates(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -1556,7 +1615,27 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeParameterCovariances(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeParameterIntervals(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeParametricSensitivities(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeProfilePoints(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimePropagatedCovariances(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1572,6 +1651,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeResolvedNumerics(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeResponseDirections(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1861,6 +1945,9 @@ impl FactBatch {
             Self::r#RuntimeFitVariables(rows) => {
                 rows.get(index).map(|row| Self::r#RuntimeFitVariables(vec![row.clone()]))
             }
+            Self::r#RuntimeIncumbents(rows) => {
+                rows.get(index).map(|row| Self::r#RuntimeIncumbents(vec![row.clone()]))
+            }
             Self::r#RuntimeInfeasibilityCertificates(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeInfeasibilityCertificates(
@@ -2045,9 +2132,25 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeOperationalWorkspaces(vec![row.clone()]))
             }
+            Self::r#RuntimeParameterCovariances(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeParameterCovariances(vec![row.clone()]))
+            }
+            Self::r#RuntimeParameterIntervals(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeParameterIntervals(vec![row.clone()]))
+            }
             Self::r#RuntimeParametricSensitivities(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeParametricSensitivities(vec![row.clone()]))
+            }
+            Self::r#RuntimeProfilePoints(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeProfilePoints(vec![row.clone()]))
+            }
+            Self::r#RuntimePropagatedCovariances(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimePropagatedCovariances(vec![row.clone()]))
             }
             Self::r#RuntimePublicationManifests(rows) => {
                 rows.get(index)
@@ -2060,6 +2163,10 @@ impl FactBatch {
             Self::r#RuntimeResolvedNumerics(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeResolvedNumerics(vec![row.clone()]))
+            }
+            Self::r#RuntimeResponseDirections(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeResponseDirections(vec![row.clone()]))
             }
             Self::r#RuntimeResponseSensitivities(rows) => {
                 rows.get(index)
@@ -2673,6 +2780,14 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (Self::r#RuntimeIncumbents(left), Self::r#RuntimeIncumbents(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
             (
                 Self::r#RuntimeInfeasibilityCertificates(left),
                 Self::r#RuntimeInfeasibilityCertificates(right),
@@ -3089,8 +3204,49 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeParameterCovariances(left),
+                Self::r#RuntimeParameterCovariances(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeParameterIntervals(left),
+                Self::r#RuntimeParameterIntervals(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeParametricSensitivities(left),
                 Self::r#RuntimeParametricSensitivities(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (Self::r#RuntimeProfilePoints(left), Self::r#RuntimeProfilePoints(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimePropagatedCovariances(left),
+                Self::r#RuntimePropagatedCovariances(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -3124,6 +3280,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeResolvedNumerics(left),
                 Self::r#RuntimeResolvedNumerics(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeResponseDirections(left),
+                Self::r#RuntimeResponseDirections(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -3658,6 +3825,13 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeIncumbents(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeInfeasibilityCertificates(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -3924,7 +4098,35 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeParameterCovariances(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeParameterIntervals(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeParametricSensitivities(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeProfilePoints(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimePropagatedCovariances(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -3946,6 +4148,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeResolvedNumerics(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeResponseDirections(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -4785,6 +4994,15 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (Self::r#RuntimeIncumbents(left), Self::r#RuntimeIncumbents(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(&left.r#seq, &right.r#seq)
+                    }
+                    _ => false,
+                }
+            }
             (
                 Self::r#RuntimeInfeasibilityCertificates(left),
                 Self::r#RuntimeInfeasibilityCertificates(right),
@@ -5392,6 +5610,37 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeParameterCovariances(left),
+                Self::r#RuntimeParameterCovariances(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeParameterIntervals(left),
+                Self::r#RuntimeParameterIntervals(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#parameter_id,
+                                &right.r#parameter_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#method,
+                                &right.r#method,
+                            )
+                            && crate::SemanticEq::semantic_eq(&left.r#end, &right.r#end)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeParametricSensitivities(left),
                 Self::r#RuntimeParametricSensitivities(right),
             ) => {
@@ -5413,6 +5662,38 @@ impl FactBatch {
                             && crate::SemanticEq::semantic_eq(
                                 &left.r#target_id,
                                 &right.r#target_id,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (Self::r#RuntimeProfilePoints(left), Self::r#RuntimeProfilePoints(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#parameter_id,
+                                &right.r#parameter_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(&left.r#end, &right.r#end)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#point,
+                                &right.r#point,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimePropagatedCovariances(left),
+                Self::r#RuntimePropagatedCovariances(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
                             )
                     }
                     _ => false,
@@ -5465,6 +5746,25 @@ impl FactBatch {
                             && crate::SemanticEq::semantic_eq(
                                 &left.r#target_id,
                                 &right.r#target_id,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeResponseDirections(left),
+                Self::r#RuntimeResponseDirections(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#direction,
+                                &right.r#direction,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#parameter_id,
+                                &right.r#parameter_id,
                             )
                     }
                     _ => false,
@@ -5956,6 +6256,11 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#experiment_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#symbol_id, &mut hash);
             }
+            Self::r#RuntimeIncumbents(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#seq, &mut hash);
+            }
             Self::r#RuntimeInfeasibilityCertificates(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
@@ -6146,6 +6451,17 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#workspace_id, &mut hash);
             }
+            Self::r#RuntimeParameterCovariances(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+            }
+            Self::r#RuntimeParameterIntervals(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#parameter_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#method, &mut hash);
+                crate::SemanticFrame::frame(&row.r#end, &mut hash);
+            }
             Self::r#RuntimeParametricSensitivities(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
@@ -6153,6 +6469,18 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#parameter_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#target_kind, &mut hash);
                 crate::SemanticFrame::frame(&row.r#target_id, &mut hash);
+            }
+            Self::r#RuntimeProfilePoints(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#parameter_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#end, &mut hash);
+                crate::SemanticFrame::frame(&row.r#point, &mut hash);
+            }
+            Self::r#RuntimePropagatedCovariances(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
             }
             Self::r#RuntimePublicationManifests(rows) => {
                 let row = rows.get(index)?;
@@ -6169,6 +6497,12 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#step, &mut hash);
                 crate::SemanticFrame::frame(&row.r#target_kind, &mut hash);
                 crate::SemanticFrame::frame(&row.r#target_id, &mut hash);
+            }
+            Self::r#RuntimeResponseDirections(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#direction, &mut hash);
+                crate::SemanticFrame::frame(&row.r#parameter_id, &mut hash);
             }
             Self::r#RuntimeResponseSensitivities(rows) => {
                 let row = rows.get(index)?;
@@ -6618,6 +6952,10 @@ impl FactBatch {
                 left.append(&mut right);
                 Ok(())
             }
+            (Self::r#RuntimeIncumbents(left), Self::r#RuntimeIncumbents(mut right)) => {
+                left.append(&mut right);
+                Ok(())
+            }
             (
                 Self::r#RuntimeInfeasibilityCertificates(left),
                 Self::r#RuntimeInfeasibilityCertificates(mut right),
@@ -6885,8 +7223,36 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeParameterCovariances(left),
+                Self::r#RuntimeParameterCovariances(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeParameterIntervals(left),
+                Self::r#RuntimeParameterIntervals(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeParametricSensitivities(left),
                 Self::r#RuntimeParametricSensitivities(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeProfilePoints(left),
+                Self::r#RuntimeProfilePoints(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimePropagatedCovariances(left),
+                Self::r#RuntimePropagatedCovariances(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -6908,6 +7274,13 @@ impl FactBatch {
             (
                 Self::r#RuntimeResolvedNumerics(left),
                 Self::r#RuntimeResolvedNumerics(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeResponseDirections(left),
+                Self::r#RuntimeResponseDirections(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -7090,6 +7463,7 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeFitObservations(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeFitParameters(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeFitVariables(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeIncumbents(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeInfeasibilityCertificates(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
@@ -7188,7 +7562,15 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeOperationalWorkspaces(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeParameterCovariances(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeParameterIntervals(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeParametricSensitivities(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeProfilePoints(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimePropagatedCovariances(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimePublicationManifests(rows) => {
@@ -7196,6 +7578,7 @@ impl crate::HeapUsage for FactBatch {
             }
             Self::r#RuntimeReducedHessians(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeResolvedNumerics(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeResponseDirections(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeResponseSensitivities(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }

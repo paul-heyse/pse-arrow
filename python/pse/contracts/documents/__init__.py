@@ -183,6 +183,22 @@ class FeralSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     static_pivoting: bool | None = None
 
 
+class FitUncertainty(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """What a fit derives from its estimate beyond the covariance, which every fit with free
+    parameters derives (ADR-0118 item 8; Plan 22 S3).
+    """
+
+    #: The confidence level of the intervals, below one.
+    level: Fraction
+    #: Also propagate the covariance to the included observations' predictions,
+    #: `Σ_y = R·Σ_θ·Rᵀ` over the fit's response derivatives (Plan 22 S4); their count
+    #: squared is bounded by the profile's `max_cells`.
+    predictions: bool = False
+    #: Also derive profile-likelihood intervals under these controls; absent derives Wald
+    #: intervals alone.
+    profile: ProfileControls | None = None
+
+
 class HighsDiagnostics(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Requested native diagnostic work, bounded by the original attempt's deadline."""
 
@@ -498,6 +514,17 @@ class NumericalPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     strict_nominals: bool = False
 
 
+class ParameterCovariance(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A parameter covariance as `runtime.parameter_covariances` publishes it."""
+
+    #: The fitted parameters by identity, in the order of `values`.
+    parameters: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: The fit run that derived it.
+    run_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: `Σ_θ` row-major, in the parameters' units.
+    values: tuple[FiniteBound, ...]
+
+
 class PointOverlay(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Values a study point replaces in its authored case, composed over the original for the
     point only.
@@ -520,6 +547,32 @@ class PounceSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     restart: WarmRestart = msgspec.field(default_factory=lambda: msgspec.convert({"barrier": {"kind": "seed"}, "bound_frac": 1e-9, "bound_push": 1e-9, "mult_bound_push": 1e-9, "slack_bound_frac": 1e-9, "slack_bound_push": 1e-9}, type=WarmRestart))
 
 
+class ProfileControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Controls of the profile-likelihood pin chains (ADR-0118 item 8)."""
+
+    #: Pinned fits at most per chain, refinements and failed fits included.
+    points: PositiveCount = 40
+    #: Relative tolerance on the signed-root statistic at a threshold end.
+    tolerance: Fraction = 0.001
+    #: Chains solved at once, each pinned fit on the fit's own threads; the fit's job admits
+    #: the cores of all of them. Absent solves as many at once as one job's cores admit.
+    workers: PositiveCount | None = None
+
+
+class Propagation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Propagation of a parameter covariance to solved variables, `Σ_y = J·Σ_θ·Jᵀ` with `J` the
+    step's parametric sensitivities (Plan 22 S4; ADR-0118 items 1 and 11). The result holds
+    while the sensitivities do: its validity is theirs, and the covariance's, which a fit
+    publishes only when certified.
+    """
+
+    #: The covariance to propagate, as a fit run published it.
+    covariance: ParameterCovariance
+    #: Solved variables of the case by identity, in the order of the result; at least one,
+    #: none repeated.
+    outputs: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+
+
 class RestartBarrierSeed(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="seed"):
     """The final barrier value the producing interior-point solve recorded with the seed. A
     seed without one (an authored seed) leaves the native default in force, and the
@@ -538,7 +591,8 @@ class ScipSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     """SCIP's nested Ipopt linear solver, seed and node budget."""
 
     #: Exact rational MILP (`SCIPenableExactSolving`); admitted for linear programs
-    #: without native forms, and never with reoptimization or concurrency.
+    #: without native forms, and never with reoptimization, IIS generation (SCIP's IIS
+    #: finders do not support exact solving) or concurrency.
     exact: bool = False
     #: After a proof of infeasibility, compute an irreducible infeasible subsystem of the
     #: true exported program (`SCIPgenerateIIS`).
@@ -569,6 +623,9 @@ class SensitivityRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     #: Declared parameters of the solved case by identity, in the order results report
     #: them; at least one, none repeated.
     parameters: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Also propagate a fit's parameter covariance through the sensitivities to named
+    #: variables (Plan 22 S4); absent propagates none and is not encoded.
+    propagation: Propagation | None = None
     #: Also compute the reduced Hessian over the parameters: the second derivative of the
     #: optimal value.
     reduced_hessian: bool = False
@@ -778,6 +835,7 @@ __all__ = [
     "DiffsolSettings",
     "FeralSettings",
     "FiniteBound",
+    "FitUncertainty",
     "Fraction",
     "HighsDiagnostics",
     "HighsPenalties",
@@ -815,9 +873,12 @@ __all__ = [
     "KktTolerances",
     "NumericalPolicy",
     "OptionValue",
+    "ParameterCovariance",
     "PointOverlay",
     "PositiveCount",
     "PounceSettings",
+    "ProfileControls",
+    "Propagation",
     "RestartBarrier",
     "RestartBarrierSeed",
     "RestartBarrierValue",

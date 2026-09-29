@@ -28,6 +28,13 @@
 //! multiplier for every original row that passes original-coordinate complementarity
 //! (F01: presolve is never switched off to recover one), and the parametric KKT point has
 //! independent active gradients, strict complementarity and second-order sufficiency.
+//!
+//! **Inverse reduced Hessian** (Plan 22 S3). Over some of the solve's own columns,
+//! `IndexSchurData` selects their rows of the `x` block with sign `+1`, and
+//! `compute_reduced_hessian` returns `B·K⁻¹·Bᵀ`, the block of `Z(ZᵀHZ)⁻¹Zᵀ`: upstream
+//! sIPOPT's reduced Hessian over free variables, an inverse (gh#937). It is read from the
+//! normalized factor of the step's own analysis under the same validity, and mapped to
+//! physical units through the normalization.
 use super::{Budget, Curvature, KktFactor, KktPoint, Licq, Side, Unavailable};
 use crate::{
     NlpOracle, OracleContract, ProblemError,
@@ -179,6 +186,24 @@ pub struct ReducedHessian {
     /// `k`, its entries over the parameters in request order.
     pub eigenvectors: Vec<f64>,
     /// The coordinate scale `S_p` of each parameter, in request order.
+    pub coordinate_scales: Vec<f64>,
+    /// The objective's coordinate scale `S_f`.
+    pub objective_scale: f64,
+}
+
+/// The inverse reduced Hessian over selected columns of the solve, `B·K⁻¹·Bᵀ` in the
+/// authored objective sense: over a fit's parameter columns, the exact covariance of the
+/// estimate (ADR-0118 item 8).
+#[derive(Clone, Debug, PartialEq)]
+pub struct InverseReducedHessian {
+    /// The selected columns, in request order: the order of every matrix.
+    pub columns: Vec<OriginalCol>,
+    /// Row-major `k × k`, in column unit per column unit per objective unit.
+    pub values: Vec<f64>,
+    /// Row-major dimensionless block `S_f·S_c⁻¹·(B·K⁻¹·Bᵀ)·S_c⁻¹` under the declared
+    /// coordinate scales.
+    pub normalized: Vec<f64>,
+    /// The coordinate scale `S_c` of each column, in request order.
     pub coordinate_scales: Vec<f64>,
     /// The objective's coordinate scale `S_f`.
     pub objective_scale: f64,
@@ -374,6 +399,82 @@ fn analysed(
     )
     .map_err(Withheld::Analysis)?;
     Ok((point, factor, multipliers))
+}
+
+/// Read the inverse reduced Hessian over `columns` from the step's own factor at its
+/// qualified, certified candidate, or record why it is withheld. The factor is dropped
+/// with this call.
+pub(crate) fn invert(
+    report: &mut SolveReport,
+    factor: Option<KktFactor>,
+    columns: &[OriginalCol],
+    sense: ObjectiveSense,
+) {
+    let result = inverse(report, factor, columns, sense);
+    report.evidence.inverse_reduced_hessian = Some(result);
+}
+
+fn inverse(
+    report: &SolveReport,
+    factor: Option<KktFactor>,
+    columns: &[OriginalCol],
+    sense: ObjectiveSense,
+) -> Result<InverseReducedHessian, Withheld> {
+    qualified(report)?;
+    let failed = |message: &str| {
+        Withheld::Analysis(Unavailable::from(ProblemError::internal(message.to_owned())))
+    };
+    let point = match &report.evidence.local {
+        Some(Ok(point)) => point,
+        Some(Err(unavailable)) => return Err(Withheld::Analysis(unavailable.clone())),
+        None => return Err(failed("no KKT-point analysis at the candidate")),
+    };
+    certify(point)?;
+    let factor = factor.ok_or_else(|| failed("the analysis kept no factor"))?;
+    let n = factor.layout().variables;
+    let k = columns.len();
+    let rows = columns
+        .iter()
+        .map(|c| (c.get() < n).then(|| i32::try_from(c.get()).ok()).flatten())
+        .collect::<Option<Vec<i32>>>()
+        .ok_or_else(|| failed("a selected column is not a column of the KKT system"))?;
+    let selector =
+        IndexSchurData::from_parts(rows, vec![1; k]).map_err(|_| Withheld::Backsolve)?;
+    let mut app = SensApplication::new(
+        selector,
+        factor.normalized(),
+        SensOptions {
+            compute_red_hessian: true,
+            ..SensOptions::default()
+        },
+    );
+    let mut raw = vec![0.0; k * k];
+    if !app.compute_reduced_hessian(&mut raw) || raw.iter().any(|v| !v.is_finite()) {
+        return Err(Withheld::Backsolve);
+    }
+    // Over x rows the Schur reduction returns B·K̃⁻¹·Bᵀ itself (column-major, symmetric)
+    // in the minimization convention; the authored sense multiplies by the objective's
+    // sign, the inverse of the authored Hessian.
+    let sign = sense.sign();
+    let normalized: Vec<f64> = (0..k * k)
+        .map(|index| sign * raw[(index % k) * k + index / k])
+        .collect();
+    // K⁻¹ = P·K̃⁻¹·P / S_f, and P is the coordinate scale on the x block.
+    let coordinate_scales: Vec<f64> = columns.iter().map(|c| factor.column_scale(*c)).collect();
+    let objective_scale = factor.objective_scale();
+    let values = (0..k * k)
+        .map(|index| {
+            let (i, j) = (index / k, index % k);
+            normalized[index] * coordinate_scales[i] * coordinate_scales[j] / objective_scale
+        })
+        .collect();
+    Ok(InverseReducedHessian {
+        columns: columns.to_vec(),
+        values,
+        normalized,
+        coordinate_scales,
+        objective_scale,
+    })
 }
 
 /// The point's verdicts: independent active gradients, strict complementarity and

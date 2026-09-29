@@ -449,7 +449,9 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
             if let Some(fixture) = &scope.fixture {
                 use pse_model::generated::enums::ModelingFixtureExecution as Execution;
                 let execution = fixture.execution.unwrap_or(Execution::Steady);
-                if (execution == Execution::Integrated) != fixture.integration.is_some()
+                // The integrated and shooting routes take the fixture's integration controls.
+                if matches!(execution, Execution::Integrated | Execution::Shooting)
+                    != fixture.integration.is_some()
                     || execution != Execution::Initialized
                         && (!fixture.stages.is_empty() || fixture.initialization.is_some())
                     || fixture.stages.iter().any(|s| s.is_empty())

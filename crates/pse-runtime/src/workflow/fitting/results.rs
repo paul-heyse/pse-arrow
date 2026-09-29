@@ -5,9 +5,15 @@ use super::*;
 use crate::workflow::{RunReport, RunRequest, RunResult, relation};
 use pse_relations::{
     columnar::FieldCheckedBatch,
-    generated::runtime::{
-        computation_runs, fit_constraints, fit_observations, fit_parameters, fit_variables,
-        infeasibility_certificates, response_sensitivities, solve_metrics,
+    generated::{
+        enums::{DerivedQuantity, IntervalEnd, IntervalMethod},
+        identities::RunId,
+        runtime::{
+            computation_runs, fit_constraints, fit_observations, fit_parameters, fit_variables,
+            infeasibility_certificates, local_validity, parameter_covariances,
+            parameter_intervals, profile_points, propagated_covariances, response_directions,
+            response_sensitivities, solve_metrics,
+        },
     },
 };
 impl RunResult {
@@ -246,6 +252,19 @@ impl RunResult {
                 "gradient",
                 Metric::Text(r.derivatives.as_str().into()),
             )?;
+            // An exact Hessian's transient curvature comes from IDAS forward-over-adjoint
+            // second-order sensitivities (ADR-0110 item 4).
+            if r.hessian == HessianMode::Exact
+                && p.experiments
+                    .iter()
+                    .any(|e| matches!(e, Experiment::Transient(_)))
+            {
+                metric(
+                    "derivatives",
+                    "transient_hessian",
+                    Metric::Text("idas_forward_over_adjoint".into()),
+                )?;
+            }
             metric(
                 "estimate",
                 "qualified",
@@ -264,13 +283,6 @@ impl RunResult {
                     "local_response",
                     "unavailable",
                     Metric::Text(d.rule.as_str().into()),
-                )?;
-            }
-            for (i, s) in r.singular_values.iter().enumerate() {
-                metric(
-                    "local_response.singular_value",
-                    &i.to_string(),
-                    Metric::Real(*s),
                 )?;
             }
             if let Some(s) = &r.solve {
@@ -300,7 +312,8 @@ impl RunResult {
         {
             certificates.push(row).map_err(relation)?;
         }
-        let mut batches = BTreeMap::from([
+        let mut batches = uncertainty(registry, self.run_id, p, report.map(|r| &**r))?;
+        batches.extend([
             (
                 fit_variables::RELATION_ID,
                 states.finish().map_err(relation)?,
@@ -359,4 +372,291 @@ impl RunResult {
         batches.extend(source.source_tables()?);
         Ok(batches)
     }
+}
+
+/// The fit's derived quantities (ADR-0118 items 8 and 10; PS-12): a `local_validity` row at
+/// step 0 per quantity the fit derives, certified or withheld with its reason, and the data
+/// rows of the certified ones; the response directions whenever the responses exist.
+fn uncertainty(
+    registry: &pse_schema::Registry,
+    run_id: RunId,
+    p: &FitProblem,
+    report: Option<&FitReport>,
+) -> Result<BTreeMap<SemanticId, FieldCheckedBatch>, WorkflowError> {
+    let mut validity = local_validity::Builder::with_registry(registry, 0).map_err(relation)?;
+    let mut covariances =
+        parameter_covariances::Builder::with_registry(registry, 0).map_err(relation)?;
+    let mut intervals =
+        parameter_intervals::Builder::with_registry(registry, 0).map_err(relation)?;
+    let mut points = profile_points::Builder::with_registry(registry, 0).map_err(relation)?;
+    let mut directions =
+        response_directions::Builder::with_registry(registry, 0).map_err(relation)?;
+    let mut propagated =
+        propagated_covariances::Builder::with_registry(registry, 0).map_err(relation)?;
+    let predictions = p.profile.uncertainty.as_ref().is_some_and(|u| u.predictions);
+    let free: Vec<(usize, SemanticId)> = p
+        .free()
+        .map(|(k, _)| (k, p.declaration.parameters[k].symbol_id))
+        .collect();
+    let unit = |id: SemanticId| {
+        free.iter()
+            .find(|(_, f)| *f == id)
+            .map(|(k, _)| p.parameter_ports[*k].unit.as_id())
+            .ok_or_else(|| contract(format!("no free fit parameter {id}")))
+    };
+    let mut row = |quantity, outcome: Result<(), &FitWithheld>, point| {
+        validity
+            .push(local_validity::Row {
+                run_id,
+                step: 0,
+                quantity,
+                validity: crate::workflow::local_analysis::record(
+                    outcome.map(|()| &()).map_err(|w| (w.reason(), w.to_string())),
+                    point,
+                    false,
+                ),
+            })
+            .map_err(relation)
+    };
+    // A run without a report withholds every quantity it would have derived.
+    let absent = FitWithheld::Local(pse_backend_native::kkt::Withheld::NoCandidate);
+    let Some(report) = report else {
+        if !free.is_empty() {
+            row(DerivedQuantity::ParameterCovariance, Err(&absent), None)?;
+            if let Some(u) = &p.profile.uncertainty {
+                row(DerivedQuantity::WaldInterval, Err(&absent), None)?;
+                if u.profile.is_some() {
+                    row(DerivedQuantity::ProfileInterval, Err(&absent), None)?;
+                }
+            }
+            if predictions {
+                let upstream = FitWithheld::Upstream(DerivedQuantity::ParameterCovariance);
+                row(DerivedQuantity::PropagatedCovariance, Err(&upstream), None)?;
+            }
+        }
+        return finish(
+            validity,
+            covariances,
+            intervals,
+            points,
+            directions,
+            propagated,
+        );
+    };
+    if let Some(covariance) = &report.covariance {
+        // The exact covariance is read from the fit's KKT point, whose verdicts it states.
+        let point = (covariance.approximation
+            == pse_relations::generated::enums::CovarianceApproximation::Exact)
+            .then(|| report.solve.as_ref())
+            .flatten()
+            .and_then(|s| s.evidence.local.as_ref())
+            .and_then(|l| l.as_ref().ok());
+        row(
+            DerivedQuantity::ParameterCovariance,
+            covariance.values.as_ref().map(|_| ()),
+            point,
+        )?;
+        if let Ok(values) = &covariance.values {
+            covariances
+                .push(parameter_covariances::Row {
+                    run_id,
+                    approximation: covariance.approximation,
+                    parameters: covariance.parameters.clone(),
+                    parameter_units: covariance
+                        .parameters
+                        .iter()
+                        .map(|id| unit(*id))
+                        .collect::<Result<_, _>>()?,
+                    values: values.clone(),
+                })
+                .map_err(relation)?;
+        }
+    }
+    let level = p
+        .profile
+        .uncertainty
+        .as_ref()
+        .map_or(0.0, |u| u.level.into_inner());
+    let mut interval = |parameter: SemanticId,
+                        method,
+                        end,
+                        estimate,
+                        bound: &IntervalBound,
+                        count: usize,
+                        detail: Option<String>| {
+        intervals
+            .push(parameter_intervals::Row {
+                run_id,
+                parameter_id: parameter,
+                method,
+                end,
+                unit_id: unit(parameter)?,
+                level,
+                estimate,
+                value: bound.value,
+                outcome: bound.outcome,
+                points: i64::try_from(count).map_err(|_| contract("profile chain length"))?,
+                detail,
+            })
+            .map_err(relation)
+    };
+    if let Some(wald) = &report.wald {
+        row(
+            DerivedQuantity::WaldInterval,
+            wald.as_ref().map(|_| ()),
+            None,
+        )?;
+        for i in wald.iter().flatten() {
+            for (end, bound) in [(IntervalEnd::Lower, &i.lower), (IntervalEnd::Upper, &i.upper)] {
+                interval(i.parameter, IntervalMethod::Wald, end, i.estimate, bound, 0, None)?;
+            }
+        }
+    }
+    if let Some(profiles) = &report.profiles {
+        row(
+            DerivedQuantity::ProfileInterval,
+            profiles.as_ref().map(|_| ()),
+            None,
+        )?;
+        for chain in profiles.iter().flatten() {
+            interval(
+                chain.parameter,
+                IntervalMethod::ProfileLikelihood,
+                chain.end,
+                chain.estimate,
+                &chain.bound,
+                chain.points.len(),
+                chain.detail.clone(),
+            )?;
+            for (k, point) in chain.points.iter().enumerate() {
+                let ordinal =
+                    |k: usize| i64::try_from(k).map_err(|_| contract("profile point ordinal"));
+                points
+                    .push(profile_points::Row {
+                        run_id,
+                        parameter_id: chain.parameter,
+                        end: chain.end,
+                        point: ordinal(k)?,
+                        value: point.value,
+                        seed: point.seed.map(ordinal).transpose()?,
+                        qualification: point.qualification,
+                        objective: point.objective,
+                        statistic: point.statistic,
+                        accepted: point.accepted,
+                        detail: point.detail.clone(),
+                    })
+                    .map_err(relation)?;
+            }
+        }
+    }
+    // The covariance propagated to the included predictions through the responses (S4).
+    if let Some(covariance) = report.covariance.as_ref().filter(|_| predictions) {
+        let included: Vec<(usize, &Measurement)> = p
+            .measurements
+            .iter()
+            .enumerate()
+            .filter(|(_, o)| o.included)
+            .collect();
+        let jacobian = report.responses.as_ref().map(|r| crate::workflow::uncertainty::Jacobian {
+            outputs: included.iter().map(|(_, o)| o.id).collect(),
+            parameters: covariance.parameters.clone(),
+            values: included
+                .iter()
+                .flat_map(|(i, _)| (0..r.ncols()).map(move |j| r[(*i, j)]))
+                .collect(),
+        });
+        let jacobian = jacobian.ok_or_else(|| crate::workflow::uncertainty::Upstream {
+            quantity: DerivedQuantity::ParameterCovariance,
+            reason: pse_relations::generated::enums::WithheldReason::ResponsesUnavailable,
+            detail: "the fit's responses are unavailable".into(),
+        });
+        let input = covariance.propagation_input(run_id);
+        let result = crate::workflow::uncertainty::propagate(
+            input.as_ref().map_err(Clone::clone),
+            jacobian.as_ref().map_err(Clone::clone),
+        )?;
+        validity
+            .push(local_validity::Row {
+                run_id,
+                step: 0,
+                quantity: DerivedQuantity::PropagatedCovariance,
+                validity: crate::workflow::local_analysis::record(
+                    result.as_ref().map_err(|u| {
+                        (
+                            pse_relations::generated::enums::WithheldReason::UpstreamWithheld,
+                            u.to_string(),
+                        )
+                    }),
+                    None,
+                    false,
+                ),
+            })
+            .map_err(relation)?;
+        if let Ok(result) = result {
+            propagated
+                .push(propagated_covariances::Row {
+                    run_id,
+                    step: 0,
+                    covariance_run_id: result.covariance_run,
+                    parameters: result.parameters,
+                    output_units: included.iter().map(|(_, o)| o.port.unit.as_id()).collect(),
+                    outputs: result.outputs,
+                    values: result.values,
+                })
+                .map_err(relation)?;
+        }
+    }
+    if let (Some(basis), Some(rank)) = (&report.directions, report.rank) {
+        for k in 0..basis.ncols() {
+            for (j, (_, parameter)) in free.iter().enumerate() {
+                directions
+                    .push(response_directions::Row {
+                        run_id,
+                        direction: i64::try_from(k).map_err(|_| contract("direction ordinal"))?,
+                        parameter_id: *parameter,
+                        singular_value: report.singular_values.get(k).copied().unwrap_or(0.0),
+                        identifiable: k < rank,
+                        component: basis[(j, k)],
+                    })
+                    .map_err(relation)?;
+            }
+        }
+    }
+    finish(
+        validity,
+        covariances,
+        intervals,
+        points,
+        directions,
+        propagated,
+    )
+}
+fn finish(
+    validity: local_validity::Builder,
+    covariances: parameter_covariances::Builder,
+    intervals: parameter_intervals::Builder,
+    points: profile_points::Builder,
+    directions: response_directions::Builder,
+    propagated: propagated_covariances::Builder,
+) -> Result<BTreeMap<SemanticId, FieldCheckedBatch>, WorkflowError> {
+    Ok(BTreeMap::from([
+        (
+            propagated_covariances::RELATION_ID,
+            propagated.finish().map_err(relation)?,
+        ),
+        (local_validity::RELATION_ID, validity.finish().map_err(relation)?),
+        (
+            parameter_covariances::RELATION_ID,
+            covariances.finish().map_err(relation)?,
+        ),
+        (
+            parameter_intervals::RELATION_ID,
+            intervals.finish().map_err(relation)?,
+        ),
+        (profile_points::RELATION_ID, points.finish().map_err(relation)?),
+        (
+            response_directions::RELATION_ID,
+            directions.finish().map_err(relation)?,
+        ),
+    ]))
 }

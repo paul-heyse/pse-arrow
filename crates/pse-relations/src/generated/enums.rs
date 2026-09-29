@@ -14,8 +14,8 @@ pub use pse_model::generated::r#enums::{
     EvidenceUnavailableReason, ExternalDerivativeSource, ExtrapolationPolicy,
     FailureClass, FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives,
     HessianMode, HighsMethod, IdPolicy, IdasInitialization, InputConsumptionKind,
-    IntervalEnd, IntervalMethod, InvariantKind, IpoptLinearSolver, JobState,
-    KinsolOrthogonalization, KinsolStrategy, MemberSelectionKind, MigrationOp,
+    IntervalEnd, IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
+    JobState, KinsolOrthogonalization, KinsolStrategy, MemberSelectionKind, MigrationOp,
     ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingCheckBasis,
     ModelingCheckKind, ModelingConformanceKind, ModelingConformanceStatus,
     ModelingContributionRole, ModelingDeclarationKind, ModelingDiagnosticSampleStop,
@@ -35,10 +35,10 @@ pub use pse_model::generated::r#enums::{
     QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis,
     ReductionKind, ReferenceRule, ReferenceStateKind, RetentionPhase, RetentionReason,
     ReusePolicy, RuntimeTermination, ScaleKind, SensitivityCorrector, SettlementOutcome,
-    Severity, SnapshotClass, SpralOrdering, SpralPivot, SpralScaling, Stability,
-    StateSign, StoredSeedKind, StudyPointState, StudyState, SubjectRule, TearMethod,
-    TerminationClass, TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
-    WeightNormalization, WithheldReason,
+    Severity, ShootingMethod, SnapshotClass, SpralOrdering, SpralPivot, SpralScaling,
+    Stability, StateSign, StoredSeedKind, StoredSolutionOrigin, StudyPointState,
+    StudyState, SubjectRule, TearMethod, TerminationClass, TimeCoordinateKind,
+    TrajectoryTermination, TrialPolicy, TruthValue, WeightNormalization, WithheldReason,
 };
 impl crate::columnar::ArrowValue for ArtifactReconstruction {
     fn append(
@@ -1013,6 +1013,25 @@ impl crate::columnar::ArrowValue for IntervalEnd {
     }
 }
 impl crate::columnar::ArrowValue for IntervalMethod {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for IntervalOutcome {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -2654,6 +2673,25 @@ impl crate::columnar::ArrowValue for Severity {
             })
     }
 }
+impl crate::columnar::ArrowValue for ShootingMethod {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for SnapshotClass {
     fn append(
         &self,
@@ -2781,6 +2819,25 @@ impl crate::columnar::ArrowValue for StateSign {
     }
 }
 impl crate::columnar::ArrowValue for StoredSeedKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for StoredSolutionOrigin {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

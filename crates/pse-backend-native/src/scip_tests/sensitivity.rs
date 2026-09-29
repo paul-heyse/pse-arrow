@@ -134,7 +134,7 @@ impl Parameterized {
     fn oracle(
         &self,
         assembly: &Arc<CaseAssembly>,
-        assignment: &BTreeMap<usize, f64>,
+        assignment: &BTreeMap<usize, (f64, f64)>,
         facts: bool,
     ) -> Result<Box<dyn NlpOracle>, ProblemError> {
         let worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
@@ -157,7 +157,7 @@ impl Parameterized {
         }
         Ok(Box::new(oracle))
     }
-    fn request(&self, assignment: &BTreeMap<usize, f64>) -> Sensitivity {
+    fn request(&self, assignment: &BTreeMap<usize, (f64, f64)>) -> Sensitivity {
         Sensitivity {
             oracle: self.oracle(&self.parametric, assignment, false).unwrap(),
             parameters: self.parameters.clone(),
@@ -170,7 +170,7 @@ impl Parameterized {
 fn nlp(
     case: &Parameterized,
     backend: Backend,
-    assignment: &BTreeMap<usize, f64>,
+    assignment: &BTreeMap<usize, (f64, f64)>,
     presolve: &Policy,
 ) -> SolveReport {
     let (n, m) = (case.solve.columns().len(), case.rows());
@@ -203,6 +203,7 @@ fn nlp(
             analysis: execution::Analysis {
                 second_order: true,
                 sensitivity: Some(case.request(assignment)),
+                inverse_reduced_hessian: None,
             },
         },
     )
@@ -224,8 +225,8 @@ fn scip(case: &Parameterized) -> SolveReport {
     let tolerances = tolerances(n, m);
     let normalization = Normalization::identity(n, m);
     let mut original = Evaluated(case);
-    let mut fixed = |a: &BTreeMap<usize, f64>| case.oracle(&case.solve, a, false);
-    let mut parametric = |a: &BTreeMap<usize, f64>| case.oracle(&case.parametric, a, false);
+    let mut fixed = |a: &BTreeMap<usize, (f64, f64)>| case.oracle(&case.solve, a, false);
+    let mut parametric = |a: &BTreeMap<usize, (f64, f64)>| case.oracle(&case.parametric, a, false);
     let initial = case.initial();
     execution::factorable(
         Step {
