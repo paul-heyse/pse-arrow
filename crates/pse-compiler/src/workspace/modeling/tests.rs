@@ -21,14 +21,11 @@ fn setup(
 ) -> (
     CompilerWorkspace,
     Vec<Declaration>,
-    BTreeMap<String, QuantityTypeId>,
+    PhysicalScope,
     DeclarationId,
 ) {
     let input = super::super::tests::inputs();
-    let names = BTreeMap::from([(
-        "Scalar".into(),
-        input.quantities.neutral_dimensionless().unwrap(),
-    )]);
+    let names = PhysicalScope::default();
     let rows = source(text);
     let root = rows
         .iter()
@@ -253,6 +250,8 @@ fn kernel_physical_prerequisites_survive_admission_and_context_republication() {
     let mut quantity = neutral.clone();
     quantity.id = QuantityTypeId::from_id(SemanticId::from_bytes([245; 16]));
     quantity.key.kind = kind.id;
+    // The test's own type is named in its physical inventory (ADR-0123 Outcome 6).
+    quantity.name = Some("Qualified".into());
     let qualified = quantity.id;
     let prerequisite = InvariantId::from_id(SemanticId::from_bytes([246; 16]));
     let mut operation = inputs
@@ -290,7 +289,7 @@ fn kernel_physical_prerequisites_survive_admission_and_context_republication() {
     let rows = source(
         "package p { fn ratio(x:Qualified,y:Qualified)->Scalar=x/y; def Root {var x:Qualified; var y:Qualified; eq e:ratio(x,y)==1;} }",
     );
-    let names = BTreeMap::from([("Scalar".into(), scalar), ("Qualified".into(), qualified)]);
+    let names = PhysicalScope::default();
     let root = rows
         .iter()
         .find(|row| row.name == "Root")
@@ -441,9 +440,7 @@ fn kernel_structure_follows_lazy_specialization_and_cancellation_is_transient() 
 fn kernel_literals_keep_physical_context_after_source_spans_are_removed() {
     let mut input = super::super::tests::inputs();
     input.quantities = Arc::new(pse_quantity::standard::standard_registry().unwrap());
-    let temperature =
-        QuantityTypeId::from_id(SemanticId::parse_hex("c64b96975a4a59755f8711d3bf628bc9").unwrap());
-    let names = BTreeMap::from([("Temperature".into(), temperature)]);
+    let names = PhysicalScope::default();
     let rows = source(
         "package p { fn reference() -> Temperature = 300{K}; def Root { var t: Temperature; let initial: Temperature = 300{K}; eq e: t == initial; eq f: t == reference(); } }",
     );
@@ -552,7 +549,7 @@ fn kernel_child_contract_refinement_preserves_inherited_members() {
         "package p {interface Basic {} interface Rich extends Basic {} interface Base {param state:Basic;} def Root:Base {override param state:Rich;}}".into(),
     ] {
         let input = super::super::tests::inputs();
-        let names = BTreeMap::from([("Scalar".into(),input.quantities.neutral_dimensionless().unwrap())]);
+        let names = PhysicalScope::default();
         let mut workspace = CompilerWorkspace::new(input,WorkspaceLimits::default()).unwrap();
         let declarations = self::source(&source);
         let root = declarations.iter().find(|r|r.name=="Root").unwrap().declaration_id;
@@ -652,10 +649,7 @@ fn kernel_conservation_assembles_local_derivatives() {
 fn kernel_empty_indexed_polymorphic_sum_retains_physical_type() {
     let mut input = super::super::tests::inputs();
     input.quantities = Arc::new(pse_quantity::standard::standard_registry().unwrap());
-    let names = BTreeMap::from([(
-        "Flow".into(),
-        QuantityTypeId::from_id(SemanticId::parse_hex("6df479e3be3bda77c5938727311f1063").unwrap()),
-    )]);
+    let names = PhysicalScope::default();
     let rows = source(
         "package p { entity kind item {} set items: Set<item> = {}; fn total<Q>(x: Q[item], members: Set<item>)->Q=sum(j in members | x[j]); def Root { var x[j in items]: Flow; eq e: total(x,items) == 0{mol/s}; } }",
     );
@@ -739,16 +733,7 @@ fn kernel_table_function_references_dispatch_and_share_specializations() {
 #[test]
 fn package_declared_axis_indexes_a_sum_without_a_registered_shaped_type() {
     let inputs = super::super::tests::inputs();
-    let flow = QuantityTypeId::from_id(
-        SemanticId::parse_hex("6df479e3be3bda77c5938727311f1063").unwrap(),
-    );
-    let names = BTreeMap::from([
-        (
-            "Scalar".into(),
-            inputs.quantities.neutral_dimensionless().unwrap(),
-        ),
-        ("Flow".into(), flow),
-    ]);
+    let names = PhysicalScope::default();
     let rows = source(
         r#"package p {
       entity kind stream {} entity stream a {} entity stream b {} entity stream c {}
@@ -1544,7 +1529,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
                 e.expression = format!("{expression} == 0");
             }
         }
-        let names = BTreeMap::from([("Scalar".into(), q)]);
+        let names = PhysicalScope::default();
         w.publish_modeling(rows, names).unwrap();
         let a = admit(&mut w, root);
         let cancel = Arc::new(AtomicBool::new(false));
@@ -1587,7 +1572,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
             e.expression = "partial(composed,x[p.a],x[p.b],x[p.b])(x,1) == 0".into();
         }
     }
-    w.publish_modeling(unsupported, BTreeMap::from([("Scalar".into(), q)]))
+    w.publish_modeling(unsupported, PhysicalScope::default())
         .unwrap();
     assert!(
         w.admit_modeling(
@@ -1598,7 +1583,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
         )
         .is_err()
     );
-    w.publish_modeling(rows, BTreeMap::from([("Scalar".into(), q)]))
+    w.publish_modeling(rows, PhysicalScope::default())
         .unwrap();
     let mut changed = spec;
     changed.data = revision;
@@ -2253,15 +2238,7 @@ fn kernel_integrated_axis_retains_symbolic_time_and_original_derivative_lineage(
     input.preconditions = Arc::new(
         PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap(),
     );
-    let time =
-        QuantityTypeId::from_id(SemanticId::parse_hex("e2ccf6d0a394403db967f4f35b83cb7c").unwrap());
-    let names = BTreeMap::from([
-        (
-            "Scalar".into(),
-            input.quantities.neutral_dimensionless().unwrap(),
-        ),
-        ("Time".into(), time),
-    ]);
+    let names = PhysicalScope::default();
     let rows = source(
         "package p { def Cell { var x:Time; } def Root { domain t: Time from 0{s} to 2{s}; discretize mesh on t using integrated(elements=1,order=1); child cell[i in t]:Cell=Cell(); eq ode[i in t]: d(cell[i].x)/di == 1; eq initial: cell[0{s}].x == 0{s}; eq clock[i in t]: cell[i].x == i; annotation start cell[0{s}].x(0{s}); } }",
     );
@@ -2895,10 +2872,7 @@ fn kernel_explicit_primitive_functions_preserve_references_and_derivative_checks
     workspace
         .publish_modeling(
             bad,
-            BTreeMap::from([(
-                "Scalar".into(),
-                workspace.inputs.quantities.neutral_dimensionless().unwrap(),
-            )]),
+            PhysicalScope::default(),
         )
         .unwrap();
     let results = workspace
@@ -2974,10 +2948,7 @@ fn kernel_function_slots_select_overrides_indexed_methods_and_forward_arguments(
     workspace
         .publish_modeling(
             cyclic,
-            BTreeMap::from([(
-                "Scalar".into(),
-                workspace.inputs.quantities.neutral_dimensionless().unwrap(),
-            )]),
+            PhysicalScope::default(),
         )
         .unwrap();
     let error = workspace
@@ -3102,11 +3073,9 @@ fn kernel_implicit_functions_read_enclosing_indexed_members() {
 #[test]
 fn kernel_negative_literals_keep_the_expected_physical_contract() {
     let inputs = super::super::tests::inputs();
-    let energy =
-        QuantityTypeId::from_id(SemanticId::parse_hex("d5bb3d48b9804f2f8d5a6f0a7cadaee8").unwrap());
-    let names = BTreeMap::from([("EnergyDifference".into(), energy)]);
+    let names = PhysicalScope::default();
     let rows = source(
-        "package p {fn negative()->EnergyDifference=-2{J/mol}; test physical fixture {dof 0; run pure;} {expect negative()==-2{J/mol} tolerance 1e-10{J/mol};}} ",
+        "package p {fn negative()->DeltaH=-2{J/mol}; test physical fixture {dof 0; run pure;} {expect negative()==-2{J/mol} tolerance 1e-10{J/mol};}} ",
     );
     let id = rows
         .iter()
@@ -3133,26 +3102,17 @@ fn kernel_negative_literals_keep_the_expected_physical_contract() {
 #[test]
 fn kernel_generic_normalization_requires_the_concrete_physical_operation() {
     for (quantity, value, accepted) in [
-        ("dc255c612cf27e30cb835377c8dafcf4", "2", true),
-        ("459a933fd00837bbc50372e31ac9801c", "2{K}", true),
-        ("1831d0d72dc74b299ba8ecb6d4da6f53", "2{J/mol}", false),
+        ("Scalar", "2", true),
+        ("DeltaTemperature", "2{K}", true),
+        ("MolarEnthalpy", "2{J/mol}", false),
     ] {
         let mut inputs = super::super::tests::inputs();
         inputs.preconditions = Arc::new(
             PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap(),
         );
-        let names = BTreeMap::from([
-            (
-                "Scalar".into(),
-                inputs.quantities.neutral_dimensionless().unwrap(),
-            ),
-            (
-                "Value".into(),
-                QuantityTypeId::from_id(SemanticId::parse_hex(quantity).unwrap()),
-            ),
-        ]);
+        let names = PhysicalScope::default();
         let rows = source(&format!(
-            "package p {{fn norm<Q>(a:Q,b:Q)->Scalar=a/b; fn value()->Value={value}; test trial fixture {{dof 0; run pure;}} {{expect norm(value(),value())==1 tolerance 1e-12;}}}}"
+            "package p {{fn norm<Q>(a:Q,b:Q)->Scalar=a/b; fn value()->{quantity}={value}; test trial fixture {{dof 0; run pure;}} {{expect norm(value(),value())==1 tolerance 1e-12;}}}}"
         ));
         let id = rows
             .iter()
@@ -3188,17 +3148,7 @@ fn kernel_finite_reductions_retain_domains_prototypes_and_derivatives() {
         PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap(),
     );
     let quantity = |id| QuantityTypeId::from_id(SemanticId::parse_hex(id).unwrap());
-    let names = BTreeMap::from([
-        (
-            "Scalar".into(),
-            inputs.quantities.neutral_dimensionless().unwrap(),
-        ),
-        (
-            "ComponentFlow".into(),
-            quantity("8ce2f0977877ae56c3712f710201be89"),
-        ),
-        ("Flow".into(), quantity("6df479e3be3bda77c5938727311f1063")),
-    ]);
+    let names = PhysicalScope::default();
     let text = r#"package p {
       @id("1c998211e5d74955863f377662f56526") entity kind species {}
       entity species a {} entity species b {}
@@ -3279,32 +3229,20 @@ fn kernel_finite_reductions_retain_domains_prototypes_and_derivatives() {
             .is_err()
     );
     // An empty reduction still rejects an affine-point prototype.
-    let mut bad_names = names;
-    bad_names.insert(
-        "ComponentFlow".into(),
-        quantity("c64b96975a4a59755f8711d3bf628bc9"),
-    );
-    let invalid = text.replace(
-        "fn total(values:ComponentFlow[species],selected:Set<species>)->Flow",
-        "fn total(values:ComponentFlow[species],selected:Set<species>)->ComponentFlow",
-    );
+    let invalid = text
+        .replace(
+            "fn total(values:ComponentFlow[species],selected:Set<species>)->Flow",
+            "fn total(values:ComponentFlow[species],selected:Set<species>)->ComponentFlow",
+        )
+        .replace("ComponentFlow", "Temperature")
+        .replace("{mol/s}", "{K}");
     let mut other = CompilerWorkspace::new(inputs, WorkspaceLimits::default()).unwrap();
-    assert!(other.publish_modeling(source(&invalid), bad_names).is_err());
+    assert!(other.publish_modeling(source(&invalid), names.clone()).is_err());
     let static_source = text.replace("def Root {", "table flow_data[j:species]:ComponentFlow; dataset values_data:flow_data source \"synthetic component values\" {[a]=[2{mol/s}];[b]=[2{mol/s}];} def Root {param total_static:Flow=sum(j in species_set | flow_data[j]); param empty_static:Flow=sum(j in empty | flow_data[j]);");
     workspace
         .publish_modeling(
             source(&static_source),
-            BTreeMap::from([
-                (
-                    "Scalar".into(),
-                    workspace.inputs.quantities.neutral_dimensionless().unwrap(),
-                ),
-                (
-                    "ComponentFlow".into(),
-                    quantity("8ce2f0977877ae56c3712f710201be89"),
-                ),
-                ("Flow".into(), quantity("6df479e3be3bda77c5938727311f1063")),
-            ]),
+            PhysicalScope::default(),
         )
         .unwrap();
     let model = workspace
@@ -3648,11 +3586,7 @@ fn kernel_dimensional_objectives_require_normalization_before_elastic_combinatio
         let temperature = QuantityTypeId::from_id(
             SemanticId::parse_hex("c64b96975a4a59755f8711d3bf628bc9").unwrap(),
         );
-        let mut names = BTreeMap::from([("Temperature".into(), temperature)]);
-        names.insert(
-            "Scalar".into(),
-            input.quantities.neutral_dimensionless().unwrap(),
-        );
+        let names = PhysicalScope::default();
         let relaxation = if elastic {
             "var x:Scalar; eq e:x==1; relax r on e nominal 1;"
         } else {

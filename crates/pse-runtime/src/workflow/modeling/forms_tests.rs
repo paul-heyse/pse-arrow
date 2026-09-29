@@ -21,11 +21,6 @@ fn scip_package(text: &str) -> (ModelingPackage, DeclarationId) {
 }
 fn package_on(text: &str, runtime: Runtime) -> (ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
-    let mut names = fixture::discrete_names();
-    names.insert(
-        "Scalar".into(),
-        physical.quantities.neutral_dimensionless().unwrap(),
-    );
     let rows = pse_authoring::language::parse(
         text,
         SemanticId::NIL,
@@ -38,7 +33,7 @@ fn package_on(text: &str, runtime: Runtime) -> (ModelingPackage, DeclarationId) 
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, physical, names).unwrap();
+    let package = runtime.modeling_package(rows, physical).unwrap();
     (package, root)
 }
 fn profile(selection: SolverSelection) -> crate::math::solves::SolverProfile {
@@ -584,13 +579,8 @@ async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
     )
     .unwrap();
     let physical = fixture::physical();
-    let mut names = fixture::discrete_names();
-    names.insert(
-        "Scalar".into(),
-        physical.quantities.neutral_dimensionless().unwrap(),
-    );
     let package = fixture::runtime()
-        .modeling_package(rows, physical, names)
+        .modeling_package(rows, physical)
         .unwrap();
     let mut policy = ModelingConformancePolicy {
         compiler: fixture::compiler_profile(),

@@ -52,7 +52,7 @@ pub struct FiniteReduction {
 pub struct CheckedPackage {
     pub(crate) quantities: Arc<pse_quantity::QuantityRegistry>,
     pub(crate) preconditions: Arc<pse_quantity::PhysicalPreconditions>,
-    pub(crate) quantity_names: Arc<BTreeMap<String, pse_quantity::QuantityTypeId>>,
+    pub(crate) scope: Arc<crate::PhysicalScope>,
     pub(crate) lowered_functions: BTreeSet<DeclarationId>,
     /// Registry-generated authoritative declarations.
     pub(crate) declarations: BTreeMap<DeclarationId, Declaration>,
@@ -77,7 +77,86 @@ impl CheckedPackage {
         TypeContext {
             quantities: &self.quantities,
             preconditions: &self.preconditions,
-            names: &self.quantity_names,
+            scope: &self.scope,
+        }
+    }
+    /// The top-level package declaration owning `id`.
+    fn package_of(&self, mut id: DeclarationId) -> Option<&Declaration> {
+        loop {
+            let row = self.declarations.get(&id)?;
+            match row.parent_id {
+                Some(parent) => id = parent,
+                None => return Some(row),
+            }
+        }
+    }
+    /// The physical name `name` denotes at `at`: a name of the physical document the
+    /// owning package sees, unqualified or as `<package>.<Name>` (ADR-0123 Outcome 6).
+    pub(crate) fn physical_name(
+        &self,
+        at: DeclarationId,
+        name: &str,
+    ) -> Option<pse_quantity::PhysicalName> {
+        let package = self.package_of(at)?;
+        if !self.scope.sees(package.document_id) {
+            return None;
+        }
+        let local = match &self.scope.package {
+            Some(prefix) => name
+                .strip_prefix(prefix.as_str())
+                .and_then(|tail| tail.strip_prefix('.'))
+                .unwrap_or(name),
+            None => name,
+        };
+        self.quantities.physical_name(local)
+    }
+    /// The physical name bindings the admitted source resolves with: each top-level
+    /// package that sees the physical names, and each name, qualified by that package
+    /// (ADR-0123 Outcome 8).
+    pub fn physical_bindings(&self) -> BTreeMap<String, SemanticId> {
+        let mut bindings = BTreeMap::new();
+        for package in self
+            .declarations
+            .values()
+            .filter(|row| row.parent_id.is_none() && self.scope.sees(row.document_id))
+        {
+            for (name, value) in self.quantities.physical_names() {
+                let id = match value {
+                    pse_quantity::PhysicalName::QuantityType(id) => id.as_id(),
+                    pse_quantity::PhysicalName::ReferenceState(id) => id.as_id(),
+                };
+                bindings.insert(format!("{}.{name}", package.name), id);
+            }
+        }
+        bindings
+    }
+    /// The one quantity type every reference state states `attribute` in, which types
+    /// `state.temperature` and `state.pressure` (ADR-0123 Outcome 6).
+    pub(crate) fn reference_attribute_type(
+        &self,
+        attribute: &str,
+        at: DeclarationId,
+    ) -> Result<pse_quantity::QuantityTypeId> {
+        let types = self
+            .quantities
+            .reference_states()
+            .filter_map(|state| match attribute {
+                "temperature" => state.temperature,
+                "pressure" => state.pressure,
+                _ => None,
+            })
+            .map(|condition| condition.quantity_type)
+            .collect::<BTreeSet<_>>();
+        match types.into_iter().collect::<Vec<_>>().as_slice() {
+            [one] => Ok(*one),
+            [] => Err(invalid(
+                at,
+                format!("no reference state declares a {attribute}"),
+            )),
+            _ => Err(invalid(
+                at,
+                format!("reference states state {attribute} in different quantity types"),
+            )),
         }
     }
     /// Look up an entry point in the admitted inventory. Expression visibility uses `resolve`.
@@ -263,16 +342,22 @@ impl CheckedPackage {
             chain.push(id);
             node = self.declarations[&id].parent_id;
         }
-        if let Some(package) = chain.last().and_then(|id| self.declarations.get(id)) {
-            let prefix = format!("{}.", package.name);
-            for (name, quantity) in self.quantity_names.iter() {
-                if let Some(local) = name.strip_prefix(&prefix)
-                    && !local.contains('.')
-                {
-                    let ty = Type::Quantity(pse_quantity::scheme::Scheme::Concrete(*quantity));
-                    names.insert(local.into(), ty.clone());
-                    names.insert(name.clone(), ty);
+        // ADR-0123 Outcome 6: a package whose manifest depends on the declaring package
+        // sees the physical names unqualified and as `<package>.<Name>`.
+        if let Some(package) = chain.last().and_then(|id| self.declarations.get(id))
+            && self.scope.sees(package.document_id)
+        {
+            for (name, value) in self.quantities.physical_names() {
+                let ty = match value {
+                    pse_quantity::PhysicalName::QuantityType(id) => {
+                        Type::Quantity(pse_quantity::scheme::Scheme::Concrete(id))
+                    }
+                    pse_quantity::PhysicalName::ReferenceState(_) => Type::ReferenceState,
+                };
+                if let Some(prefix) = &self.scope.package {
+                    names.insert(format!("{prefix}.{name}"), ty.clone());
                 }
+                names.insert(name.into(), ty);
             }
         }
         for owner in chain.into_iter().rev() {
@@ -281,16 +366,6 @@ impl CheckedPackage {
                 if let Some(import) = &row.value.import {
                     let alias = import.alias.as_deref().unwrap_or(&row.name);
                     let prefix = format!("{}.", row.name);
-                    for (name, quantity) in self.quantity_names.iter() {
-                        if let Some(tail) = name.strip_prefix(&prefix)
-                            && !tail.contains('.')
-                        {
-                            names.insert(
-                                format!("{alias}.{tail}"),
-                                Type::Quantity(pse_quantity::scheme::Scheme::Concrete(*quantity)),
-                            );
-                        }
-                    }
                     for (name, id) in &self.names {
                         if let Some(tail) = name.strip_prefix(&prefix)
                             && let Some(ty) = self.types.get(id)
@@ -324,7 +399,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
     let mut p = CheckedPackage {
         quantities: Arc::new(context.quantities.clone()),
         preconditions: Arc::new(context.preconditions.clone()),
-        quantity_names: Arc::new(context.names.clone()),
+        scope: Arc::new(context.scope.clone()),
         lowered_functions: BTreeSet::new(),
         declarations: BTreeMap::new(),
         names: BTreeMap::new(),
@@ -702,15 +777,28 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
             p.types.insert(id, ty);
         }
     }
-    for (name, quantity) in context.names {
-        context
-            .quantities
-            .quantity_type(*quantity)
-            .map_err(|e| invalid(SemanticId::NIL, e.to_string()))?;
-        if p.names.contains_key(name) {
+    // ADR-0123 Outcome 6: a package that sees the physical names declares none of them;
+    // the same name in both places is ambiguous and refused.
+    for row in rows {
+        let Some(package) = row.parent_id.and_then(|id| p.declarations.get(&id)) else {
+            continue;
+        };
+        if package.parent_id.is_some() || !context.scope.sees(package.document_id) {
+            continue;
+        }
+        let local = row
+            .value
+            .import
+            .as_ref()
+            .and_then(|import| import.alias.as_deref())
+            .unwrap_or(&row.name);
+        if context.quantities.physical_name(local).is_some() {
             return Err(invalid(
-                p.names[name],
-                "physical alias conflicts with a declaration",
+                row.declaration_id,
+                format!(
+                    "ambiguous name {local}: declared by package {} and by the physical document",
+                    package.name
+                ),
             ));
         }
     }

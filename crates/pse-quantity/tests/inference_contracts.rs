@@ -99,6 +99,7 @@ fn fixture(extra_rules: usize) -> QuantityRegistry {
     for (id, scale_kind) in [(1, ScaleKind::Point), (2, ScaleKind::Difference)] {
         b.quantity_type(QuantityType {
             id: qty(id),
+            name: None,
             key: QuantityTypeKey {
                 scale_kind,
                 ..key.clone()
@@ -109,6 +110,7 @@ fn fixture(extra_rules: usize) -> QuantityRegistry {
     }
     b.quantity_type(QuantityType {
         id: qty(3),
+        name: None,
         key: QuantityTypeKey {
             kind: QuantityKindId::from_id(raw(2)),
             ..key.clone()
@@ -119,6 +121,7 @@ fn fixture(extra_rules: usize) -> QuantityRegistry {
     .neutral_dimensionless(qty(3));
     b.quantity_type(QuantityType {
         id: qty(4),
+        name: None,
         key: QuantityTypeKey {
             kind: QuantityKindId::from_id(raw(3)),
             ..key

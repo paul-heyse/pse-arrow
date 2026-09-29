@@ -81,9 +81,10 @@ fn assert_quantities_equal(a: &QuantityRegistry, b: &QuantityRegistry) {
             .map(|x| {
                 (
                     x.id,
+                    x.name.clone(),
                     x.kind,
-                    x.temperature.map(f64::to_bits),
-                    x.pressure.map(f64::to_bits),
+                    x.temperature,
+                    x.pressure,
                     x.include_enthalpy_of_formation,
                     x.subject,
                 )
@@ -96,6 +97,7 @@ fn assert_quantities_equal(a: &QuantityRegistry, b: &QuantityRegistry) {
             .map(|x| {
                 (
                     x.id,
+                    x.name.clone(),
                     x.key.clone(),
                     x.canonical_unit,
                     x.nominal_magnitude.map(f64::to_bits),
@@ -219,9 +221,13 @@ fn reference_package_admission_scientific_units() {
     let reference = units
         .reference_state(psi.reference_state.expect("explicit datum"))
         .expect("datum");
+    // Typed conditions, read in their quantity types' canonical units (ADR-0123 Outcome 6).
+    let condition = |value: Option<pse_quantity::ReferenceCondition>| {
+        units.reference_condition(&value.expect("typed condition")).expect("condition")
+    };
     assert_eq!(
-        (reference.temperature, reference.pressure),
-        (Some(298.15), Some(101_325.0))
+        (condition(reference.temperature), condition(reference.pressure)),
+        (298.15, 101_325.0)
     );
     let unit_set = units
         .unit_sets()

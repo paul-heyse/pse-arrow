@@ -519,18 +519,6 @@ Version: 1. Snapshot class: `case`. Primary key: `observation_id`.
 | `tag` | `Utf8` | true | `payload` | — | — |
 | `source_span` | `source_span` | false | `payload` | — | — |
 
-## `package_quantity_aliases`
-
-Physical type names visible within the declaring package's modeling source.
-
-Version: 1. Snapshot class: `model`. Primary key: `package_id, name`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `package_id` | `semantic_id` | false | `reference` | `authored.packages.package_id` | — |
-| `name` | `Utf8` | false | `label` | — | — |
-| `quantity_type_id` | `semantic_id` | false | `reference` | `reference.quantity_types.quantity_type_id` | — |
-
 ## `package_unit_sets`
 
 Explicit package representation unit selection; absence is not a default.
@@ -546,7 +534,7 @@ Version: 1. Snapshot class: `model`. Primary key: `package_id`.
 
 One row per package: its version, its identity policy and its exact dependencies.
 
-Version: 1. Snapshot class: `model`. Primary key: `package_id`.
+Version: 2. Snapshot class: `model`. Primary key: `package_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -558,6 +546,10 @@ Version: 1. Snapshot class: `model`. Primary key: `package_id`.
 | `dependencies` | `List` | false | `payload` | — | — |
 | `dependencies.item` | `Struct` | false | `payload` | — | — |
 | `dependencies.item.package_id` | `semantic_id` | false | `payload` | — | — |
-| `dependencies.item.version_req` | `Utf8` | false | `payload` | — | — |
+| `dependencies.item.version_req` | `Struct VersionRequirement` | false | `payload` | — | — |
+| `dependencies.item.version_req.operator` | `enum:ModelingVersionOperator` | false | `payload` | — | — |
+| `dependencies.item.version_req.major` | `Int64` | false | `payload` | — | — |
+| `dependencies.item.version_req.minor` | `Int64` | false | `payload` | — | — |
+| `dependencies.item.version_req.patch` | `Int64` | false | `payload` | — | — |
 | `content_hash` | `content_hash` | false | `payload` | — | — |
 | `doc` | `Utf8` | false | `label` | — | — |

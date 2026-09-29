@@ -37,7 +37,7 @@ fn depends(package: &mut authored::packages::Row, target: u8, version: &str) {
         .dependencies
         .push(authored::packages::AuthoredPackagesFieldDependenciesItem {
             package_id: id(target),
-            version_req: version.to_owned(),
+            version_req: pse_authoring::language::exact_requirement(version).unwrap(),
         });
 }
 #[test]
@@ -60,7 +60,8 @@ fn identical_hashes_do_not_hide_changed_versions_missing_packages_or_cycles() {
     let mut cyclic = second.clone();
     depends(&mut cyclic, 1, "1.0.0");
     assert!(resolve(&[first.clone(), cyclic], &session).is_err());
-    first.dependencies[0].version_req = "^1.0.0".to_owned();
+    // A requirement the target's version does not meet is refused.
+    first.dependencies[0].version_req = pse_authoring::language::exact_requirement("1.0.1").unwrap();
     assert!(resolve(&[first, second], &session).is_err());
 }
 

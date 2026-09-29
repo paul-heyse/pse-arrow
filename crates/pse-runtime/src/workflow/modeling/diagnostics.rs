@@ -926,10 +926,6 @@ mod tests {
     async fn kernel_diagnostics_missing_starts_remain_missing_and_solves_stay_strict() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let declarations = pse_authoring::language::parse(
             "package p { def Root {var x:Scalar; eq e:x==2; annotation bounds x(0,1);} }",
             SemanticId::NIL,
@@ -942,7 +938,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(declarations, physical, names).unwrap();
+        let package = rt.modeling_package(declarations, physical).unwrap();
         let cancel = crate::CancelSource::new();
         let mut analysis = ModelingAnalysis {
             root,
@@ -1039,10 +1035,6 @@ mod tests {
     async fn kernel_diagnostics_name_sources_and_keep_numerical_rank_distinct_from_structure() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let rows = pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; var y:Scalar; eq a:x+y==0; eq b:2*x+2*y==0; } }",
             SemanticId::NIL,
@@ -1055,7 +1047,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical, names).unwrap();
+        let package = rt.modeling_package(rows, physical).unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let analysis = ModelingAnalysis {
@@ -1208,17 +1200,13 @@ mod tests {
         #[cfg(feature = "solver-kinsol")]
         {
             let physical = super::super::super::tests::physical();
-            let names = BTreeMap::from([(
-                "Scalar".into(),
-                physical.quantities.neutral_dimensionless().unwrap(),
-            )]);
             let rows = pse_authoring::language::parse("package p { def Root { var x:Scalar; var unused:Scalar; implicit i {var y:Scalar; eq e:y==2; annotation start y(1);} realize r on i using nested; eq e:x==i.y; } }", SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
             let root = rows
                 .iter()
                 .find(|r| r.name == "Root")
                 .unwrap()
                 .declaration_id;
-            let nested = rt.modeling_package(rows, physical, names).unwrap();
+            let nested = rt.modeling_package(rows, physical).unwrap();
             let analysis = ModelingAnalysis {
                 root,
                 instance: pse_modeling::specialize::root_instance(root),

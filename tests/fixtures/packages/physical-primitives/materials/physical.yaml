@@ -550,6 +550,7 @@
   "quantity_types": [
     {
       "quantity_type_id": "1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e",
+      "name": "Length",
       "quantity_kind_id": "14141414141414141414141414141414",
       "basis_id": null,
       "reference_state_id": null,
@@ -562,6 +563,7 @@
     },
     {
       "quantity_type_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+      "name": "Scalar",
       "quantity_kind_id": "15151515151515151515151515151515",
       "basis_id": null,
       "reference_state_id": null,

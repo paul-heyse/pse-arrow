@@ -7,53 +7,10 @@ version = "1.0.0"
 kind = "library"
 id_policy = "explicit"
 dependencies = [
-  { package_id = "b27409be5572b8712e47db271fae28cd", version_req = "=1.0.0" },
+  { package_id = "b27409be5572b8712e47db271fae28cd", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
 ]
 doc = "See sources.md for source, domain and qualification boundaries."
 
 [[unit_sets]]
 package_id = "ce317b088cc74ac89873845b0c086ea8"
 unit_set_id = "e95dc4e82a284f3877f924cb656b1de2"
-
-[[quantity_aliases]]
-name = "Scalar"
-quantity_type_id = "dc255c612cf27e30cb835377c8dafcf4"
-[[quantity_aliases]]
-name = "MolarMass"
-quantity_type_id = "5945d169556c4e70bb5d7c4fcd2c2000"
-
-[[quantity_aliases]]
-name = "Temperature"
-quantity_type_id = "c64b96975a4a59755f8711d3bf628bc9"
-
-[[quantity_aliases]]
-name = "TemperatureScale"
-quantity_type_id = "f7915376b5de04f118de80d4b6eba23d"
-
-[[quantity_aliases]]
-name = "MolarCp"
-quantity_type_id = "cd653ba98fa94d16b5d66b363f21c3d6"
-
-[[quantity_aliases]]
-name = "MolarEnthalpy"
-quantity_type_id = "1831d0d72dc74b299ba8ecb6d4da6f53"
-
-[[quantity_aliases]]
-name = "DeltaH"
-quantity_type_id = "d5bb3d48b9804f2f8d5a6f0a7cadaee8"
-
-[[quantity_aliases]]
-name = "MolarEntropy"
-quantity_type_id = "571c90b8909e43c0ae859554cc2e3479"
-
-[[quantity_aliases]]
-name = "DeltaS"
-quantity_type_id = "a9c45d0c2b764f4e87d1b95d5bc15da6"
-
-[[quantity_aliases]]
-name = "Pressure"
-quantity_type_id = "a0fa145fd8b2ecec448c39666960debc"
-
-[[quantity_aliases]]
-name = "MolarDensity"
-quantity_type_id = "39bebc51897c494a9f7f84bf3962cb0e"

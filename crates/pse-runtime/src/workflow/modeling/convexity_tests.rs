@@ -18,11 +18,6 @@ use pse_math::convexity::{ConvexityAssessment, ConvexityClass, Unrecognized};
 fn package(text: &str) -> (ModelingPackage, DeclarationId) {
     let runtime = fixture::runtime();
     let physical = fixture::physical();
-    let mut names = fixture::discrete_names();
-    names.insert(
-        "Scalar".into(),
-        physical.quantities.neutral_dimensionless().unwrap(),
-    );
     let rows = pse_authoring::language::parse(
         text,
         SemanticId::NIL,
@@ -35,7 +30,7 @@ fn package(text: &str) -> (ModelingPackage, DeclarationId) {
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, physical, names).unwrap();
+    let package = runtime.modeling_package(rows, physical).unwrap();
     (package, root)
 }
 fn profile(selection: SolverSelection, convexity: ConvexityPolicy) -> SolverProfile {

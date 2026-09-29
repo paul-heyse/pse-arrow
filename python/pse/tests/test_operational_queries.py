@@ -23,6 +23,14 @@ from pse.contracts.enums import (
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 
+
+#: A manifest dependency on the physical primitives fixture, whose physical document names
+#: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
+PRIMITIVES = (
+    'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
+    'version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]'
+)
+
 SOURCE = """package algebraic { def Root {
     param a:Scalar = 4;
     var x:Scalar;
@@ -49,10 +57,7 @@ def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, DeclarationId]:
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += (
-        '\n[[quantity_aliases]]\nname = "Scalar"\n'
-        f'quantity_type_id = "{SemanticId(bytes([31]) * 16).to_hex()}"\n'
-    )
+    manifest = manifest.replace("dependencies = []", PRIMITIVES)
     package = runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/root.pse": SOURCE}], physical
     )

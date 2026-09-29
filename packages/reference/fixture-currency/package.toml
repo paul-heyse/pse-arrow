@@ -7,6 +7,6 @@ version = "1.0.0"
 kind = "reference"
 id_policy = "explicit"
 dependencies = [
-  { package_id = "b27409be5572b8712e47db271fae28cd", version_req = "=1.0.0" },
+  { package_id = "b27409be5572b8712e47db271fae28cd", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
 ]
 doc = "See sources.md for located definitions and limits."

@@ -140,8 +140,10 @@ impl QuantityRegistryBuilder {
             by_opcode: BTreeMap::new(),
             by_conversion: BTreeMap::new(),
             by_monomial: BTreeMap::new(),
+            by_name: BTreeMap::new(),
         };
         registry.validate()?;
+        registry.by_name = registry.names()?;
         registry.by_monomial = registry
             .kinds
             .values()
@@ -192,6 +194,15 @@ pub struct QuantityRegistry {
     by_opcode: BTreeMap<Opcode, Vec<OperationId>>,
     by_conversion: BTreeMap<(QuantityTypeId, QuantityTypeId), Vec<ConversionId>>,
     by_monomial: BTreeMap<Vec<KindFactor>, QuantityKindId>,
+    by_name: BTreeMap<String, PhysicalName>,
+}
+/// What a physical name declared in the physical document denotes (ADR-0123 Outcome 6).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum PhysicalName {
+    /// A named quantity type.
+    QuantityType(QuantityTypeId),
+    /// A named reference state.
+    ReferenceState(ReferenceStateId),
 }
 macro_rules! lookup {
     ($method:ident, $field:ident, $id:ty, $ty:ty) => {
@@ -227,6 +238,7 @@ impl QuantityRegistry {
             self.by_opcode.len(),
             self.by_conversion.len(),
             self.by_monomial.len(),
+            self.by_name.len(),
         ]
         .into_iter()
         .fold(size_of::<Self>(), |n, count| {
@@ -244,6 +256,9 @@ impl QuantityRegistry {
         }
         for symbol in self.by_symbol.keys() {
             bytes = bytes.saturating_add(symbol.capacity());
+        }
+        for name in self.by_name.keys() {
+            bytes = bytes.saturating_add(name.capacity().saturating_mul(3));
         }
         for kind in self.kinds.values() {
             if let Some(definition) = &kind.definition {
@@ -569,6 +584,89 @@ impl QuantityRegistry {
     pub fn neutral_dimensionless(&self) -> Option<QuantityTypeId> {
         self.neutral
     }
+    /// What a name declared in the physical document denotes (ADR-0123 Outcome 6).
+    pub fn physical_name(&self, name: &str) -> Option<PhysicalName> {
+        self.by_name.get(name).copied()
+    }
+    /// Every declared physical name, in name order.
+    pub fn physical_names(&self) -> impl ExactSizeIterator<Item = (&str, PhysicalName)> {
+        self.by_name.iter().map(|(name, value)| (name.as_str(), *value))
+    }
+    /// A typed reference condition's value in its quantity type's canonical unit.
+    ///
+    /// # Errors
+    /// An unknown type or unit, or a unit that does not convert to the type's.
+    pub fn reference_condition(
+        &self,
+        condition: &crate::ReferenceCondition,
+    ) -> Result<f64, QuantityError> {
+        let ty = self.quantity_type(condition.quantity_type)?;
+        let spec = crate::unit::convert_spec_for_type(
+            self.unit(condition.unit)?,
+            self.unit(ty.canonical_unit)?,
+            &ty.key,
+        )?;
+        Ok(crate::unit::convert_value(&spec, condition.value))
+    }
+    /// The physical names, checked: identifiers, one namespace across quantity types and
+    /// reference states.
+    fn names(&self) -> Result<BTreeMap<String, PhysicalName>, QuantityError> {
+        let mut names = BTreeMap::new();
+        let declared = self
+            .quantity_types
+            .values()
+            .filter_map(|ty| Some((ty.name.as_deref()?, PhysicalName::QuantityType(ty.id), ty.id.as_id())))
+            .chain(self.reference_states.values().map(|state| {
+                (
+                    state.name.as_str(),
+                    PhysicalName::ReferenceState(state.id),
+                    state.id.as_id(),
+                )
+            }));
+        for (name, value, subject) in declared {
+            let mut chars = name.chars();
+            require(
+                chars.next().is_some_and(|c| c == '_' || c.is_alphabetic())
+                    && chars.all(|c| c == '_' || c.is_alphanumeric()),
+                "physical_name.identifier",
+                subject,
+                "a physical name is an identifier",
+            )?;
+            require(
+                names.insert(name.to_owned(), value).is_none(),
+                "physical_name.unique",
+                subject,
+                &format!("the physical name {name} is declared more than once"),
+            )?;
+        }
+        Ok(names)
+    }
+    /// A typed condition states the dimension it names, in a point type without a datum,
+    /// and a unit of that type, with a finite positive value.
+    fn validate_condition(
+        &self,
+        state: ReferenceStateId,
+        condition: &crate::ReferenceCondition,
+        dimension: &DimensionVector,
+        rule: &'static str,
+    ) -> Result<(), QuantityError> {
+        let ty = self.quantity_type(condition.quantity_type)?;
+        require(
+            &self.kind(ty.key.kind)?.dimension == dimension
+                && ty.key.scale_kind == ScaleKind::Point
+                && ty.key.reference_state.is_none(),
+            rule,
+            state.as_id(),
+            "the condition's quantity type is an absolute point of its dimension",
+        )?;
+        let value = self.reference_condition(condition)?;
+        require(
+            value.is_finite() && value > 0.0,
+            "reference_state.conditions",
+            state.as_id(),
+            "reference conditions must be finite and positive",
+        )
+    }
     fn validate(&self) -> Result<(), QuantityError> {
         let mut symbols = BTreeSet::new();
         for kind in self.entity_kinds.values() {
@@ -610,16 +708,31 @@ impl QuantityRegistry {
                 "the numeral 1 spells the empty product; declare it as a defined unit",
             )?;
         }
+        let temperature = DimensionVector::base(crate::BaseDimension::Temperature);
+        let pressure = DimensionVector::base(crate::BaseDimension::Mass)
+            .div(&DimensionVector::base(crate::BaseDimension::Length))
+            .and_then(|d| {
+                d.div(
+                    &DimensionVector::base(crate::BaseDimension::Time)
+                        .pow(crate::Ratio::new(2, 1)?)?,
+                )
+            })
+            .map_err(QuantityError::from)?;
         for reference in self.reference_states.values() {
-            for value in [reference.temperature, reference.pressure]
-                .into_iter()
-                .flatten()
-            {
-                require(
-                    value.is_finite() && value > 0.0,
-                    "reference_state.conditions",
-                    reference.id.as_id(),
-                    "reference conditions must be finite and positive",
+            if let Some(condition) = &reference.temperature {
+                self.validate_condition(
+                    reference.id,
+                    condition,
+                    &temperature,
+                    "reference_state.temperature",
+                )?;
+            }
+            if let Some(condition) = &reference.pressure {
+                self.validate_condition(
+                    reference.id,
+                    condition,
+                    &pressure,
+                    "reference_state.pressure",
                 )?;
             }
         }
@@ -1298,6 +1411,7 @@ mod generic_kind_tests {
         });
         seed.quantity_type(QuantityType {
             id: raw.into(),
+            name: None,
             key: QuantityTypeKey {
                 kind: raw.into(),
                 basis: None,

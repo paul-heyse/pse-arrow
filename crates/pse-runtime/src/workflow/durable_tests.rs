@@ -13,17 +13,13 @@ use pse_operations::{
     lifecycle::AttemptState,
     testing::TestDatabase,
 };
-use std::{collections::BTreeMap, time::Duration};
+use std::time::Duration;
 
 pub(super) const LINEAR: &str = "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 2+t; annotation start x(2+t); annotation check x(x > 0); } }";
 
 /// A package over `runtime` and its root analysis, solved by KINSOL.
 pub(super) fn package_on(runtime: &Runtime, source: &str) -> (ModelingPackage, ModelingAnalysis) {
     let physical = physical();
-    let names = BTreeMap::from([(
-        "Scalar".into(),
-        physical.quantities.neutral_dimensionless().unwrap(),
-    )]);
     let rows = pse_authoring::language::parse(
         source,
         SemanticId::NIL,
@@ -36,7 +32,7 @@ pub(super) fn package_on(runtime: &Runtime, source: &str) -> (ModelingPackage, M
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, physical, names).unwrap();
+    let package = runtime.modeling_package(rows, physical).unwrap();
     let mut solver = profile();
     solver.selection = SolverSelection::Explicit(Backend::Kinsol);
     solver.controls.reuse = ReusePolicy::AllowRebuild;
@@ -481,11 +477,6 @@ async fn discrete_on(
     let runtime = tests::runtime_with(16 << 20, 16 << 20, 2 << 30)
         .with_durability(Durability::Durable(operations));
     let physical = physical();
-    let mut names = tests::discrete_names();
-    names.insert(
-        "Scalar".into(),
-        physical.quantities.neutral_dimensionless().unwrap(),
-    );
     let rows = pse_authoring::language::parse(
         source,
         SemanticId::NIL,
@@ -498,7 +489,7 @@ async fn discrete_on(
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, physical, names).unwrap();
+    let package = runtime.modeling_package(rows, physical).unwrap();
     let mut solver = profile();
     solver.intent = pse_backend_native::solve::SolveIntent::Optimize;
     solver.selection = SolverSelection::Explicit(backend);

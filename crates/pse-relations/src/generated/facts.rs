@@ -95,18 +95,6 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            238u8, 181u8, 59u8, 157u8, 219u8, 60u8, 118u8, 16u8, 9u8, 153u8, 81u8, 78u8,
-            148u8, 255u8, 12u8, 172u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredPackageQuantityAliases(
-                super::r#authored::r#package_quantity_aliases::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
             227u8, 111u8, 49u8, 18u8, 121u8, 184u8, 106u8, 6u8, 179u8, 192u8, 102u8,
             78u8, 31u8, 255u8, 69u8, 246u8,
         ])
@@ -119,8 +107,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            195u8, 212u8, 67u8, 68u8, 165u8, 39u8, 40u8, 12u8, 50u8, 125u8, 4u8, 66u8,
-            130u8, 190u8, 129u8, 203u8,
+            8u8, 54u8, 224u8, 43u8, 223u8, 231u8, 15u8, 176u8, 101u8, 205u8, 234u8, 77u8,
+            193u8, 35u8, 242u8, 48u8,
         ])
     {
         return Ok(
@@ -371,8 +359,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            228u8, 11u8, 11u8, 173u8, 94u8, 208u8, 248u8, 198u8, 44u8, 56u8, 224u8,
-            179u8, 227u8, 192u8, 189u8, 172u8,
+            228u8, 124u8, 152u8, 191u8, 127u8, 7u8, 236u8, 14u8, 206u8, 64u8, 148u8,
+            142u8, 112u8, 115u8, 24u8, 250u8,
         ])
     {
         return Ok(
@@ -383,8 +371,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            86u8, 153u8, 55u8, 246u8, 1u8, 112u8, 46u8, 87u8, 44u8, 63u8, 47u8, 79u8,
-            61u8, 244u8, 130u8, 128u8,
+            32u8, 56u8, 150u8, 106u8, 246u8, 158u8, 30u8, 94u8, 91u8, 136u8, 3u8, 122u8,
+            220u8, 2u8, 103u8, 160u8,
         ])
     {
         return Ok(
@@ -1460,9 +1448,6 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#AuthoredObservations(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
-        pse_model::generated::facts::FactBatch::r#AuthoredPackageQuantityAliases(
-            rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
         pse_model::generated::facts::FactBatch::r#AuthoredPackageUnitSets(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }

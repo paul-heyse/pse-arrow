@@ -195,8 +195,9 @@ frames! {
         /// A local expression occurrence.
         MathLocalOccurrenceV2 => "pse.math.local-occurrence.v2",
         /// A physical inventory, including unit compositions and derived-kind definitions
-        /// (ADR-0124).
-        MathPhysicalInventoryV4 => "pse.math.physical-inventory.v4",
+        /// (ADR-0124), and the names and typed conditions its quantity types and reference
+        /// states are addressed by (ADR-0123 Outcome 6).
+        MathPhysicalInventoryV5 => "pse.math.physical-inventory.v5",
         /// A physical reduction pass.
         MathPhysicalPassV1 => "pse.math.physical-pass.v1",
         /// A typed definition's admitted outputs; function validity predicates are framed

@@ -45,15 +45,11 @@ pub fn resolve_rows(
             if !seen.insert(dependency.package_id) {
                 return Err(contract("duplicate package dependency"));
             }
-            let required = dependency
-                .version_req
-                .strip_prefix('=')
-                .unwrap_or(&dependency.version_req);
-            version(required)?;
             let target = packages
                 .get(&dependency.package_id)
                 .ok_or_else(|| contract("package dependency target absent"))?;
-            if required != target.version {
+            // ADR-0123 Outcome 7: the typed requirement admits the target's version.
+            if !crate::language::requirement_admits(&dependency.version_req, &target.version) {
                 return Err(contract("package exact version requirement differs"));
             }
             edges.push((dependency.package_id, header.package_id));
@@ -144,7 +140,7 @@ mod computation_unit {
                 .map(
                     |n| authored::packages::AuthoredPackagesFieldDependenciesItem {
                         package_id: id(*n),
-                        version_req: "=1.0.0".into(),
+                        version_req: crate::language::exact_requirement("1.0.0").unwrap(),
                     },
                 )
                 .collect(),
@@ -182,8 +178,9 @@ mod computation_unit {
         ] {
             assert!(resolve_rows(&rows, limits).is_err());
         }
+        // A requirement the target's version does not meet is refused.
         let mut invalid = package(2, &[1]);
-        invalid.dependencies[0].version_req = "^1.0".into();
+        invalid.dependencies[0].version_req = crate::language::exact_requirement("1.0.1").unwrap();
         assert!(resolve_rows(&[package(1, &[]), invalid], limits).is_err());
     }
 }

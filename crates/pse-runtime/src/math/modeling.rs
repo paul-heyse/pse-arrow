@@ -9,7 +9,6 @@ use pse_ids::SemanticId;
 use pse_model::HeapUsage;
 use pse_model::lineage::Solved;
 use pse_modeling::{Bindings, DeclarationId, InstanceId, Limits};
-use pse_quantity::QuantityTypeId;
 use std::{
     collections::BTreeMap,
     sync::{Arc, atomic::AtomicBool},
@@ -22,8 +21,8 @@ pub struct ModelingRevision {
     _lease: Arc<AllocationLease>,
 }
 impl ModelingRevision {
-    pub(crate) fn quantity_names(&self) -> &BTreeMap<String, QuantityTypeId> {
-        self.admitted.quantity_names()
+    pub(crate) fn physical_scope(&self) -> &pse_modeling::PhysicalScope {
+        self.admitted.physical_scope()
     }
     /// What specializing `root` as `instance` solves (`pse_model::lineage`).
     fn solved(
@@ -52,7 +51,7 @@ impl ModelingRevision {
 pub(crate) fn source_revision(
     rows: &[Declaration],
     physical: &pse_ids::ContentHash,
-    names: &BTreeMap<String, QuantityTypeId>,
+    names: &BTreeMap<String, SemanticId>,
 ) -> pse_ids::ContentHash {
     use pse_model::SemanticFrame;
     let mut source = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingSourceRevisionV2);
@@ -62,8 +61,8 @@ pub(crate) fn source_revision(
     }
     source.hash(physical);
     source.u64(names.len() as u64);
-    for (name, quantity) in names {
-        source.str(name).id(&quantity.as_id());
+    for (name, id) in names {
+        source.str(name).id(id);
     }
     source.finish_hash()
 }
@@ -580,12 +579,15 @@ impl MathService {
         &self,
         workspace: &Workspace,
         rows: Vec<Declaration>,
-        names: BTreeMap<String, QuantityTypeId>,
+        scope: pse_modeling::PhysicalScope,
         physical: &pse_ids::ContentHash,
     ) -> Result<ModelingRevision, MathRuntimeError> {
-        let bytes = rows
-            .owned_bytes()
-            .saturating_add(names.keys().map(|n| n.capacity() + 128).sum::<usize>());
+        let bytes = rows.owned_bytes().saturating_add(
+            scope
+                .documents
+                .as_ref()
+                .map_or(0, |d| d.len() * (size_of::<SemanticId>() + 32)),
+        );
         if bytes > self.policy.workspace_bytes / 2 {
             return Err(MathRuntimeError::Limit("modeling source bytes"));
         }
@@ -594,12 +596,16 @@ impl MathService {
         let reservation =
             pse_columnar::MemoryConsumer::new("modeling:source-revision").register(&self.pool);
         reservation.try_grow(bytes)?;
-        let identity = source_revision(&rows, physical, &names);
         let admitted = workspace
             .compiler
             .lock()
             .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?
-            .publish_modeling(rows, names)?;
+            .publish_modeling(rows, scope)?;
+        let identity = source_revision(
+            admitted.declarations(),
+            physical,
+            &admitted.physical_bindings(),
+        );
         if admitted.retained_bytes() > self.policy.workspace_bytes / 2 {
             return Err(MathRuntimeError::Limit("modeling admitted source bytes"));
         }
@@ -661,7 +667,6 @@ impl MathService {
 mod tests {
     use super::source_revision;
     use pse_ids::{ContentHash, SemanticId};
-    use pse_quantity::QuantityTypeId;
     use std::collections::BTreeMap;
 
     fn rows() -> Vec<pse_authoring::language::Declaration> {
@@ -673,11 +678,8 @@ mod tests {
         )
         .unwrap()
     }
-    fn names(id: u8) -> BTreeMap<String, QuantityTypeId> {
-        BTreeMap::from([(
-            "p.Temperature".to_owned(),
-            QuantityTypeId::from_id(SemanticId::from_bytes([id; 16])),
-        )])
+    fn names(id: u8) -> BTreeMap<String, SemanticId> {
+        BTreeMap::from([("p.Temperature".to_owned(), SemanticId::from_bytes([id; 16]))])
     }
 
     /// ADR-0123 Outcome 8: the same rows, physical inventory and name bindings reproduce

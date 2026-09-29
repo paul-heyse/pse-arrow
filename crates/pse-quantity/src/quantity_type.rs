@@ -27,6 +27,9 @@ pub struct QuantityTypeKey {
 pub struct QuantityType {
     /// Registry identity.
     pub id: QuantityTypeId,
+    /// The name packages address it by, declared once in the physical document and unique
+    /// within it (ADR-0123 Outcome 6).
+    pub name: Option<String>,
     /// The complete semantic key.
     pub key: QuantityTypeKey,
     /// Canonical unit of the package.
@@ -45,6 +48,7 @@ impl QuantityType {
 impl PartialEq for QuantityType {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
+            && self.name == other.name
             && self.key == other.key
             && self.canonical_unit == other.canonical_unit
             && self.nominal_magnitude.map(f64::to_bits) == other.nominal_magnitude.map(f64::to_bits)

@@ -316,15 +316,26 @@ impl FixtureValues {
         quote! { b.basis(crate::Basis { id: #id, kind: #kind, composition_basis: #composition,
         rate_basis: #rate, reference_conditions: #reference }); }
     }
+    /// A typed reference condition (ADR-0123 Outcome 6).
+    fn condition(&mut self, value: Option<pse_quantity::ReferenceCondition>) -> TokenStream {
+        optional(value.map(|condition| {
+            let value = number(condition.value);
+            let quantity = self.typed_id("QuantityTypeId", condition.quantity_type.as_id());
+            let unit = self.typed_id("UnitId", condition.unit.as_id());
+            quote! { crate::ReferenceCondition { value: #value, quantity_type: #quantity,
+            unit: #unit } }
+        }))
+    }
     fn reference(&mut self, value: &pse_quantity::ReferenceState) -> TokenStream {
         let id = self.typed_id("ReferenceStateId", value.id.as_id());
+        let name = &value.name;
         let kind = enumeration("ReferenceStateKind", value.kind);
-        let temperature = optional_number(value.temperature);
-        let pressure = optional_number(value.pressure);
+        let temperature = self.condition(value.temperature);
+        let pressure = self.condition(value.pressure);
         let formation = value.include_enthalpy_of_formation;
         let subject = optional(value.subject.map(|value| self.id(value)));
-        quote! { b.reference_state(crate::ReferenceState { id: #id, kind: #kind,
-        temperature: #temperature, pressure: #pressure,
+        quote! { b.reference_state(crate::ReferenceState { id: #id, name: #name.to_owned(),
+        kind: #kind, temperature: #temperature, pressure: #pressure,
         include_enthalpy_of_formation: #formation, subject: #subject }); }
     }
     fn quantity(&mut self, value: &pse_quantity::QuantityType) -> TokenStream {
@@ -354,7 +365,9 @@ impl FixtureValues {
         );
         let unit = self.typed_id("UnitId", value.canonical_unit.as_id());
         let nominal = optional_number(value.nominal_magnitude);
-        quote! { b.quantity_type(crate::QuantityType { id: #id, key: crate::QuantityTypeKey {
+        let name = optional(value.name.as_ref().map(|name| quote! { #name.to_owned() }));
+        quote! { b.quantity_type(crate::QuantityType { id: #id, name: #name,
+            key: crate::QuantityTypeKey {
             kind: #kind, basis: #basis, reference_state: #reference, scale_kind: #scale,
             shape: vec![#(#shape),*], subject_kind: #subject,
         }, canonical_unit: #unit, nominal_magnitude: #nominal }); }

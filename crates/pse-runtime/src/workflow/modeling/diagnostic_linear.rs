@@ -141,10 +141,6 @@ mod tests {
     async fn kernel_linear_diagnostics_use_native_iis_and_refuse_nonlinear_models() {
         let rt = super::super::super::super::tests::runtime();
         let physical = super::super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         for (rhs, linear) in [("x", true), ("x*x", false)] {
             let source = format!(
                 "package p {{ def Root {{ var x:Scalar; eq lo:{rhs}>=2; eq hi:{rhs}<=1; annotation start x(0); }} }}"
@@ -162,7 +158,7 @@ mod tests {
                 .unwrap()
                 .declaration_id;
             let package = rt
-                .modeling_package(declarations, physical.clone(), names.clone())
+                .modeling_package(declarations, physical.clone())
                 .unwrap();
             let cancel = crate::CancelSource::new();
             let analysis = ModelingAnalysis {

@@ -25,7 +25,7 @@ fn word(h: &mut FramedHasher, v: Option<&str>) {
     }
 }
 pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> ContentHash {
-    let mut h = FramedHasher::new(pse_ids::Frame::MathPhysicalInventoryV4);
+    let mut h = FramedHasher::new(pse_ids::Frame::MathPhysicalInventoryV5);
     h.str("entity-kinds").u64(r.entity_kinds().count() as u64);
     for kind in r.entity_kinds() {
         h.id(&kind.id.as_id());
@@ -94,17 +94,27 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
     h.str("references").u64(r.reference_states().len() as u64);
     for v in r.reference_states() {
         h.id(&v.id.as_id())
+            .str(&v.name)
             .str(v.kind.as_str())
             .u64(u64::from(v.include_enthalpy_of_formation));
-        number(&mut h, v.temperature);
-        number(&mut h, v.pressure);
+        // Typed conditions: the value, its quantity type and its unit (ADR-0123 Outcome 6).
+        for condition in [v.temperature, v.pressure] {
+            h.u64(u64::from(condition.is_some()));
+            if let Some(c) = condition {
+                h.u64(c.value.to_bits())
+                    .id(&c.quantity_type.as_id())
+                    .id(&c.unit.as_id());
+            }
+        }
         id(&mut h, v.subject);
     }
     h.str("quantities").u64(r.quantity_types().count() as u64);
     for v in r.quantity_types() {
         let k = &v.key;
-        h.id(&v.id.as_id())
-            .id(&k.kind.as_id())
+        h.id(&v.id.as_id());
+        // The physical name a package addresses the type by (ADR-0123 Outcome 6).
+        word(&mut h, v.name.as_deref());
+        h.id(&k.kind.as_id())
             .id(&v.canonical_unit.as_id())
             .str(k.scale_kind.as_str());
         id(&mut h, k.basis.map(pse_quantity::BasisId::as_id));
@@ -231,7 +241,7 @@ mod tests {
     use super::*;
     use pse_quantity::*;
 
-    fn registry(declared_basis: bool) -> QuantityRegistry {
+    fn registry(declared_basis: bool, name: Option<&str>) -> QuantityRegistry {
         let raw = |n: u8| SemanticId::from_bytes([n; 16]);
         let length = DimensionVector::base(BaseDimension::Length);
         let mass = DimensionVector::base(BaseDimension::Mass);
@@ -285,6 +295,7 @@ mod tests {
             })
             .quantity_type(QuantityType {
                 id: QuantityTypeId::from_id(raw(30)),
+                name: name.map(str::to_owned),
                 key: QuantityTypeKey {
                     kind: QuantityKindId::from_id(raw(12)),
                     basis: Some(molar),
@@ -299,18 +310,23 @@ mod tests {
         b.build().unwrap()
     }
 
-    /// The frozen preimage layout of `pse.math.physical-inventory.v4` over an empty
-    /// inventory, and its sensitivity to a derived kind's definition (ADR-0124).
+    /// The frozen preimage layout of `pse.math.physical-inventory.v5` over an empty
+    /// inventory, and its sensitivity to a derived kind's definition (ADR-0124) and to the
+    /// name a quantity type is addressed by (ADR-0123 Outcome 6).
     #[test]
     fn physical_inventory_identity_frames_derived_definitions() {
         let none = PhysicalPreconditions::new(vec![]).unwrap();
         let empty = QuantityRegistryBuilder::new().build().unwrap();
         assert_eq!(
             identity(&empty, &none).to_hex(),
-            "506fbeee3aae5b9c684b8aecd134f4be5b44eebe795e82ac2f569334e712251f"
+            "3cb659a221309cab9089ed95234e53059e6cdda15ce2dc7e024c5370b7daf981"
         );
         // Two inventories that differ only in a derived kind's declared result basis.
-        assert_ne!(identity(&registry(false), &none), identity(&registry(true), &none));
-        assert_eq!(identity(&registry(true), &none), identity(&registry(true), &none));
+        assert_ne!(identity(&registry(false, None), &none), identity(&registry(true, None), &none));
+        assert_eq!(identity(&registry(true, None), &none), identity(&registry(true, None), &none));
+        // Naming the one quantity type, or naming it differently, is another inventory.
+        let named = |name| identity(&registry(true, name), &none);
+        assert_ne!(named(None), named(Some("Named")));
+        assert_ne!(named(Some("Named")), named(Some("Renamed")));
     }
 }

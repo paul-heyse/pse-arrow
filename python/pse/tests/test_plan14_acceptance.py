@@ -132,14 +132,7 @@ def test_public_dynamic_and_transient_fit(
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += (
-        '\n[[quantity_aliases]]\nname = "Scalar"\n'
-        f'quantity_type_id = "{identity(31).to_hex()}"\n'
-    )
-    manifest += (
-        '\n[[quantity_aliases]]\nname = "Time"\n'
-        f'quantity_type_id = "{identity(222).to_hex()}"\n'
-    )
+    manifest = manifest.replace("dependencies = []", PRIMITIVES)
     package = runtime.modeling_from_documents(
         [
             {
@@ -311,6 +304,14 @@ class NoPyomo(importlib.abc.MetaPathFinder):
             raise AssertionError('production attempted to import Pyomo')
 sys.meta_path.insert(0, NoPyomo())
 import pse
+
+
+#: A manifest dependency on the physical primitives fixture, whose physical document names
+#: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
+PRIMITIVES = (
+    'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
+    'version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]'
+)
 assert pse.Runtime and pse.ModelingPackage and pse.SolveSettings
 assert not any(n == 'pyomo' or n.startswith('pyomo.') for n in sys.modules)
 """

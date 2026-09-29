@@ -68,8 +68,7 @@ pub use cases::{ModelingObservations, ModelingSolvePreparation, StartSource};
 use pse_authoring::language::Declaration;
 use pse_compiler::workspace::{Inputs, WorkspaceLimits};
 use pse_ids::SemanticId;
-use pse_modeling::{Bindings, DeclarationId, InstanceId, Limits};
-use pse_quantity::QuantityTypeId;
+use pse_modeling::{Bindings, DeclarationId, InstanceId, Limits, PhysicalScope};
 use pse_relations::columnar::RelationRow;
 pub use results::{ModelingCheck, ModelingReport, ModelingResult};
 use std::collections::BTreeMap;
@@ -115,10 +114,11 @@ fn compiler_inputs(
         values: BTreeMap::new(),
     }
 }
-/// Declarations, quantity names, fit data and source batches decoded from the documents.
+/// Declarations, their physical-name scope, fit data and source batches decoded from the
+/// documents.
 type DocumentInputs = (
     Vec<Declaration>,
-    BTreeMap<String, QuantityTypeId>,
+    PhysicalScope,
     super::FitData,
     crate::authoring_driver::document::Batches,
 );
@@ -129,11 +129,18 @@ fn document_inputs(
     workspace_bytes: usize,
 ) -> Result<DocumentInputs, WorkflowError> {
     documents.validate_registry(registry)?;
-    let headers = documents
+    let mut headers = documents
         .bundles()
         .iter()
         .map(|b| b.package.clone())
         .collect::<Vec<_>>();
+    // A manifest may depend on the package the physical context was admitted from without
+    // repeating its documents (ADR-0123 Outcome 6).
+    if let Some(declaring) = &physical.package
+        && !headers.iter().any(|h| h.package_id.as_id() == declaring.id)
+    {
+        headers.push(declaring.header.clone());
+    }
     pse_authoring::p0::resolve_rows(
         &headers,
         pse_authoring::p0::GraphLimits {
@@ -149,18 +156,17 @@ fn document_inputs(
         .ok_or_else(|| contract("documents contain no modeling declarations"))?;
     let rows = wire::Row::rows(batch).map_err(relation)?;
     validate_import_versions(&rows, documents)?;
-    let names = document_quantity_aliases(&rows, documents, physical)?;
+    let scope = physical_scope(documents, physical);
     let context = [
         pse_relations::generated::authored::packages::RELATION_ID,
         pse_relations::generated::authored::documents::RELATION_ID,
-        pse_relations::generated::authored::package_quantity_aliases::RELATION_ID,
     ]
     .into_iter()
     .filter_map(|id| batches.get(&id).map(|batch| (id, batch.clone())))
     .collect();
     Ok((
         rows,
-        names,
+        scope,
         super::FitData::from_batches(&batches)?,
         context,
     ))
@@ -172,14 +178,14 @@ impl Runtime {
         documents: &crate::authoring_driver::document::OwnedDocumentSet,
         physical: PhysicalContext,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let (rows, names, data, sources) = document_inputs(
+        let (rows, scope, data, sources) = document_inputs(
             documents,
             &self.registry,
             &physical,
             self.shared.budget().math.workspace_bytes,
         )?;
         let mut package = self
-            .modeling_package(rows, physical, names)?
+            .modeling_package_scoped(rows, physical, scope, BTreeMap::new())?
             .with_fit_data(data)?;
         let pool = self.shared.pool();
         let cancel = pse_columnar::CancellationToken::new();
@@ -195,27 +201,39 @@ impl Runtime {
         );
         Ok(package)
     }
-    /// Admit generated declarations without serializing through a text document.
+    /// Admit generated declarations without serializing through a text document. Rows
+    /// admitted without manifests see the physical names everywhere.
     pub fn modeling_package(
         &self,
         rows: Vec<Declaration>,
         physical: PhysicalContext,
-        names: BTreeMap<String, QuantityTypeId>,
     ) -> Result<ModelingPackage, WorkflowError> {
-        self.modeling_package_registered(rows, physical, names, BTreeMap::new())
+        self.modeling_package_registered(rows, physical, BTreeMap::new())
     }
     /// Supply native capabilities explicitly; declaration strings never instantiate implementations.
     pub fn modeling_package_registered(
         &self,
         rows: Vec<Declaration>,
         physical: PhysicalContext,
-        names: BTreeMap<String, QuantityTypeId>,
+        providers: BTreeMap<String, pse_kernels::Registration>,
+    ) -> Result<ModelingPackage, WorkflowError> {
+        let scope = PhysicalScope {
+            package: physical.package.as_ref().map(|p| p.name.clone()),
+            documents: None,
+        };
+        self.modeling_package_scoped(rows, physical, scope, providers)
+    }
+    fn modeling_package_scoped(
+        &self,
+        rows: Vec<Declaration>,
+        physical: PhysicalContext,
+        scope: PhysicalScope,
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
         let service = self.shared.math();
         let inputs = compiler_inputs(&physical, &providers);
         let workspace = service.workspace(inputs, WorkspaceLimits::default())?;
-        let revision = service.modeling_revision(&workspace, rows, names, &physical.key)?;
+        let revision = service.modeling_revision(&workspace, rows, scope, &physical.key)?;
         Ok(ModelingPackage {
             runtime: self.clone(),
             workspace,
@@ -232,57 +250,34 @@ impl Runtime {
         })
     }
 }
-fn document_quantity_aliases(
-    rows: &[Declaration],
+/// Which documents see the physical names (ADR-0123 Outcome 6): those of packages whose
+/// manifest depends on, or is, the package that declared them. A physical context admitted
+/// without documents names no declaring package, so every row sees its names.
+fn physical_scope(
     documents: &crate::authoring_driver::document::OwnedDocumentSet,
     physical: &PhysicalContext,
-) -> Result<BTreeMap<String, QuantityTypeId>, WorkflowError> {
-    use pse_relations::generated::authored::package_quantity_aliases as wire;
-    let mut names = BTreeMap::new();
-    for bundle in documents.bundles() {
-        let aliases = bundle
-            .batches
-            .get(&wire::RELATION_ID)
-            .map(|batch| wire::View::from_checked(batch).and_then(|view| view.rows()))
-            .transpose()
-            .map_err(relation)?
-            .unwrap_or_default();
-        let mut local = BTreeMap::new();
-        for alias in aliases {
-            if alias.name.is_empty()
-                || !alias
-                    .name
-                    .chars()
-                    .enumerate()
-                    .all(|(i, c)| c == '_' || c.is_alphabetic() || i > 0 && c.is_ascii_digit())
-            {
-                return Err(contract("physical alias must be a local identifier"));
-            }
-            let quantity = QuantityTypeId::from_id(alias.quantity_type_id);
-            physical
-                .quantities
-                .quantity_type(quantity)
-                .map_err(pse_math::MathError::from)
-                .map_err(crate::math::MathRuntimeError::from)?;
-            if local.insert(alias.name, quantity).is_some() {
-                return Err(contract("duplicate package physical alias"));
-            }
-        }
-        for package in rows.iter().filter(|r| {
-            r.value.kind == pse_model::generated::enums::ModelingDeclarationKind::Package
-                && bundle.documents.iter().any(|d| d.id == r.document_id)
-        }) {
-            for (name, quantity) in &local {
-                if names
-                    .insert(format!("{}.{name}", package.name), *quantity)
-                    .is_some()
-                {
-                    return Err(contract("duplicate modeling package physical alias"));
-                }
-            }
-        }
+) -> PhysicalScope {
+    let Some(declaring) = &physical.package else {
+        return PhysicalScope::default();
+    };
+    PhysicalScope {
+        package: Some(declaring.name.clone()),
+        documents: Some(
+            documents
+                .bundles()
+                .iter()
+                .filter(|bundle| {
+                    bundle.package.package_id.as_id() == declaring.id
+                        || bundle
+                            .package
+                            .dependencies
+                            .iter()
+                            .any(|dependency| dependency.package_id.as_id() == declaring.id)
+                })
+                .flat_map(|bundle| bundle.documents.iter().map(|document| document.id))
+                .collect(),
+        ),
     }
-    Ok(names)
 }
 fn validate_import_versions(
     rows: &[Declaration],
@@ -316,6 +311,9 @@ fn validate_import_versions(
             let target = owners
                 .get(&target.document_id)
                 .ok_or_else(|| contract("import target document absent"))?;
+            // ADR-0123 Outcome 7: the import's typed requirement admits the target's
+            // version, and the importing manifest depends on the target by identity with a
+            // requirement that admits it too.
             if !pse_authoring::language::requirement_admits(&import.version, &target.version) {
                 return Err(contract(
                     "modeling import differs from admitted package version",
@@ -324,7 +322,10 @@ fn validate_import_versions(
             if source.package_id != target.package_id
                 && !source.dependencies.iter().any(|dependency| {
                     dependency.package_id == target.package_id
-                        && dependency.version_req.trim_start_matches('=') == target.version
+                        && pse_authoring::language::requirement_admits(
+                            &dependency.version_req,
+                            &target.version,
+                        )
                 })
             {
                 return Err(contract(
@@ -428,15 +429,6 @@ impl ModelingPackage {
                 merge_context!(
                     packages,
                     |r: &pse_relations::generated::authored::packages::Row| r.package_id,
-                    batch
-                );
-            } else if key.qualified_name() == "authored.package_quantity_aliases" {
-                merge_context!(
-                    package_quantity_aliases,
-                    |r: &pse_relations::generated::authored::package_quantity_aliases::Row| (
-                        r.package_id,
-                        r.name.clone()
-                    ),
                     batch
                 );
             } else {
@@ -598,22 +590,15 @@ impl ModelingPackage {
             .prepare_modeling_flow(model, self.quantities.clone(), selection, cancel)
             .await?)
     }
-    /// Replace source declarations while preserving this revision's admitted physical aliases.
-    /// No old document text is retained as the source of the edited IR.
+    /// Replace source declarations while preserving which documents see the physical
+    /// names. No old document text is retained as the source of the edited IR.
     pub fn with_declarations(&self, rows: Vec<Declaration>) -> Result<Self, WorkflowError> {
-        self.revised(rows, self.revision.quantity_names().clone())
-    }
-    /// Replace source inputs while retaining incremental storage. Existing revisions stay valid.
-    pub fn revised(
-        &self,
-        rows: Vec<Declaration>,
-        names: BTreeMap<String, QuantityTypeId>,
-    ) -> Result<Self, WorkflowError> {
-        let revision =
-            self.runtime
-                .shared
-                .math()
-                .modeling_revision(&self.workspace, rows, names, &self.physical.key)?;
+        let revision = self.runtime.shared.math().modeling_revision(
+            &self.workspace,
+            rows,
+            self.revision.physical_scope().clone(),
+            &self.physical.key,
+        )?;
         Ok(Self {
             // Direct IR edits provide no replacement document bytes. Preserve no
             // stale source text as the declaration of the new revision.
@@ -677,11 +662,7 @@ mod tests {
         };
         let rows = parse("package application {}");
         let mut package = runtime
-            .modeling_package(
-                rows.clone(),
-                super::super::tests::physical(),
-                BTreeMap::new(),
-            )
+            .modeling_package(rows.clone(), super::super::tests::physical())
             .unwrap();
         let spec = runtime.registry.relation_by_id(wire::RELATION_ID).unwrap();
         let table = |rows: Vec<Declaration>| {
@@ -720,10 +701,6 @@ mod tests {
     async fn generic_documents_prepare_revisions_and_cancel_without_poisoning() {
         let rt = super::super::tests::runtime();
         let physical = super::super::tests::physical();
-        let names: BTreeMap<String, QuantityTypeId> = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let rows = pse_authoring::language::parse(
             "package p { def Root { param p: Scalar = 2; var x: Scalar; eq e: x*p == 6; } }",
             SemanticId::from_bytes([77; 16]),
@@ -740,13 +717,7 @@ mod tests {
         let texts = BTreeMap::from([
             (
                 "package.toml".into(),
-                format!(
-                    "{}\n[[quantity_aliases]]\nname = \"Scalar\"\nquantity_type_id = \"{}\"\n",
-                    include_str!(
-                        "../../../../tests/fixtures/packages/minimal_explicit/package.toml"
-                    ),
-                    names["Scalar"].as_id()
-                ),
+                include_str!("../../../../tests/fixtures/packages/minimal_explicit/package.toml").to_owned(),
             ),
             ("models/kernel.pse".into(), source),
         ]);
@@ -788,7 +759,7 @@ mod tests {
             .as_mut()
             .unwrap()
             .expression = Some("3".into());
-        let revised = package.revised(updated, names).unwrap();
+        let revised = package.with_declarations(updated).unwrap();
         let changed = revised
             .prepare(
                 root,
@@ -843,16 +814,148 @@ mod tests {
 #[cfg(test)]
 mod import_tests {
     use super::*;
+    use pse_quantity::QuantityTypeId;
+
+    /// The physical primitives fixture's documents by relative path.
+    fn primitives() -> BTreeMap<String, String> {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/fixtures/packages/physical-primitives");
+        ["package.toml", "materials/physical.yaml", "materials/time.yaml"]
+            .into_iter()
+            .map(|path| {
+                (
+                    path.to_owned(),
+                    std::fs::read_to_string(root.join(path)).unwrap(),
+                )
+            })
+            .collect()
+    }
+    fn load(
+        rt: &Runtime,
+        texts: &BTreeMap<String, String>,
+    ) -> Result<crate::authoring_driver::document::OwnedDocumentSet, WorkflowError> {
+        let token = pse_columnar::CancellationToken::new();
+        let pool = rt.shared.pool();
+        let bundle = crate::authoring_driver::document::load_package_texts_owned(
+            texts,
+            &rt.registry,
+            pse_authoring::ParseBudget::default(),
+            &pool,
+            &token,
+        )?;
+        Ok(crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
+            vec![bundle],
+            &pool,
+            &token,
+        )?)
+    }
+
+    /// ADR-0123 Outcome 6: quantity types are named once, in the physical document. The
+    /// reference inventory names exactly the former manifest aliases; a manifest can no
+    /// longer declare a name; a name declared twice is refused at physical admission.
+    #[tokio::test]
+    async fn quantity_names_declared_once_in_physical_document() {
+        let rt = super::super::tests::runtime();
+        let token = pse_columnar::CancellationToken::new();
+        let physical = rt
+            .physical_from_documents(&load(&rt, &primitives()).unwrap(), &token)
+            .await
+            .unwrap();
+        let named = |name| physical.quantities().physical_name(name);
+        assert_eq!(
+            named("Scalar"),
+            Some(pse_quantity::PhysicalName::QuantityType(
+                QuantityTypeId::from_id(SemanticId::from_bytes([0x1f; 16]))
+            ))
+        );
+        assert!(named("Length").is_some() && named("Time").is_some());
+        // The reference inventory (the generated standard registry) names 42 quantity
+        // types, the former manifest aliases, and its four reference states.
+        let standard = pse_quantity::standard::standard_registry().unwrap();
+        let (types, states): (Vec<_>, Vec<_>) = standard
+            .physical_names()
+            .partition(|(_, n)| matches!(n, pse_quantity::PhysicalName::QuantityType(_)));
+        assert_eq!((types.len(), states.len()), (42, 4));
+        assert_eq!(
+            standard.physical_name("MolarCp"),
+            Some(pse_quantity::PhysicalName::QuantityType(
+                QuantityTypeId::from_id(
+                    SemanticId::parse_hex("cd653ba98fa94d16b5d66b363f21c3d6").unwrap()
+                )
+            ))
+        );
+        // A manifest declares no physical names.
+        let mut aliased = BTreeMap::from([(
+            "package.toml".to_owned(),
+            include_str!("../../../../tests/fixtures/packages/minimal_named/package.toml")
+                .to_owned()
+                + "\n[[quantity_aliases]]\nname = \"Scalar\"\nquantity_type_id = \"1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f\"\n",
+        )]);
+        let refused = load(&rt, &aliased).unwrap_err().to_string();
+        assert!(refused.contains("quantity_aliases"), "{refused}");
+        aliased.clear();
+        // Naming a second type `Scalar` in the physical document is refused.
+        let mut twice = primitives();
+        let time = twice.get_mut("materials/time.yaml").unwrap();
+        *time = time.replacen("\"name\": \"Time\"", "\"name\": \"Scalar\"", 1);
+        let refused = rt
+            .physical_from_documents(&load(&rt, &twice).unwrap(), &token)
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(refused.contains("declared more than once"), "{refused}");
+    }
+
+    /// ADR-0123 Outcome 6: a package sees the physical names, unqualified or qualified by
+    /// the declaring package, exactly when its manifest depends on that package.
+    #[tokio::test]
+    async fn quantity_name_requires_manifest_dependency() {
+        let rt = super::super::tests::runtime();
+        let token = pse_columnar::CancellationToken::new();
+        let physical = rt
+            .physical_from_documents(&load(&rt, &primitives()).unwrap(), &token)
+            .await
+            .unwrap();
+        let manifest = include_str!("../../../../tests/fixtures/packages/minimal_named/package.toml");
+        let dependent = manifest.replace(
+            "dependencies = []",
+            r#"dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]"#,
+        );
+        let package = |manifest: &str, source: &str| {
+            load(
+                &rt,
+                &BTreeMap::from([
+                    ("package.toml".to_owned(), manifest.to_owned()),
+                    ("models/root.pse".to_owned(), source.to_owned()),
+                ]),
+            )
+            .unwrap()
+        };
+        for source in [
+            "package app { def Root { var x: Scalar; } }",
+            "package app { def Root { var x: \"physical-primitives\".Scalar; } }",
+        ] {
+            assert!(
+                rt.modeling_from_documents(&package(&dependent, source), physical.clone())
+                    .is_ok(),
+                "{source}"
+            );
+            let refused = rt
+                .modeling_from_documents(&package(manifest, source), physical.clone())
+                .unwrap_err()
+                .to_string();
+            assert!(refused.contains("unknown type"), "{source}: {refused}");
+        }
+    }
     #[test]
     fn modeling_closure_refuses_missing_conflicting_and_cyclic_dependencies() {
         let rt = super::super::tests::runtime();
         let physical = super::super::tests::physical();
-        let scalar = physical.quantities.neutral_dimensionless().unwrap().as_id();
         let token = pse_columnar::CancellationToken::new();
         let pool = rt.shared.pool();
-        let package = |id: u8, name: &str, dependencies: &str, source: &str, aliases: &str| {
+        let package = |id: u8, name: &str, dependencies: &str, source: &str| {
             let manifest = format!(
-                "[package]\nid=\"{}\"\nname=\"{name}\"\nversion=\"1.0.0\"\nkind=\"model\"\nid_policy=\"named\"\ndependencies=[{dependencies}]\ndoc=\"synthetic closure\"\n{aliases}",
+                "[package]\nid=\"{}\"\nname=\"{name}\"\nversion=\"1.0.0\"\nkind=\"model\"\nid_policy=\"named\"\ndependencies=[{dependencies}]\ndoc=\"synthetic closure\"\n",
                 SemanticId::from_bytes([id; 16])
             );
             crate::authoring_driver::document::load_package_texts_owned(
@@ -867,27 +970,18 @@ mod import_tests {
             )
             .unwrap()
         };
-        let aliases =
-            format!("[[quantity_aliases]]\nname=\"Scalar\"\nquantity_type_id=\"{scalar}\"\n");
-        let dependency = |id, version| {
+        let dependency = |id, major| {
             format!(
-                "{{package_id=\"{}\",version_req=\"{version}\"}}",
+                "{{package_id=\"{}\",version_req={{operator=\"exact\",major={major},minor=0,patch=0}}}}",
                 SemanticId::from_bytes([id; 16])
             )
         };
-        let library = package(
-            81,
-            "lib",
-            "",
-            "package lib {fn twice(x:Scalar)->Scalar=2*x;}",
-            &aliases,
-        );
+        let library = package(81, "lib", "", "package lib {fn twice(x:Scalar)->Scalar=2*x;}");
         let application = package(
             82,
             "app",
-            &dependency(81, "=1.0.0"),
+            &dependency(81, 1),
             "package app {use lib @\"1.0.0\"; def Root {let result:Scalar=lib.twice(2);}}",
-            &aliases,
         );
         let admit = |parts| {
             let documents = crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
@@ -902,41 +996,89 @@ mod import_tests {
         let cycle = package(
             81,
             "lib",
-            &dependency(82, "1.0.0"),
+            &dependency(82, 1),
             "package lib {fn twice(x:Scalar)->Scalar=2*x;}",
-            &aliases,
         );
         assert!(admit(vec![cycle, application.clone()]).is_err());
-        for (dependency_text, source_text, alias_text) in [
-            (dependency(81, "2.0.0"), "package app {}", aliases.clone()),
+        for (dependency_text, source_text) in [
+            (dependency(81, 2), "package app {}"),
+            (String::new(), "package app {use lib @\"1.0.0\";}"),
             (
-                String::new(),
-                "package app {use lib @\"1.0.0\";}",
-                aliases.clone(),
-            ),
-            (
-                dependency(81, "1.0.0"),
+                dependency(81, 1),
                 "package app {fn f(x:Scalar)->Scalar=lib.twice(x);}",
-                aliases.clone(),
-            ),
-            (
-                dependency(81, "1.0.0"),
-                "package app {}",
-                format!("{aliases}{aliases}"),
             ),
         ] {
-            let bad = package(82, "app", &dependency_text, source_text, &alias_text);
+            let bad = package(82, "app", &dependency_text, source_text);
             assert!(admit(vec![library.clone(), bad]).is_err());
         }
+    }
+    /// ADR-0123 Outcome 7: an import resolves its target package by identity. A manifest
+    /// dependency on another package at the same version grants nothing; the dependency on
+    /// the target's identity must carry a requirement that admits the target's version, as
+    /// the import's own typed requirement must.
+    #[test]
+    fn import_requires_dependency_by_identity() {
+        let rt = super::super::tests::runtime();
+        let physical = super::super::tests::physical();
+        let token = pse_columnar::CancellationToken::new();
+        let pool = rt.shared.pool();
+        let package = |id: u8, name: &str, dependencies: &[(u8, i64)], source: &str| {
+            let dependencies = dependencies
+                .iter()
+                .map(|(id, major)| {
+                    format!(
+                        "{{package_id=\"{}\",version_req={{operator=\"exact\",major={major},minor=0,patch=0}}}}",
+                        SemanticId::from_bytes([*id; 16])
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            let manifest = format!(
+                "[package]\nid=\"{}\"\nname=\"{name}\"\nversion=\"1.0.0\"\nkind=\"model\"\nid_policy=\"named\"\ndependencies=[{dependencies}]\ndoc=\"synthetic identity\"\n",
+                SemanticId::from_bytes([id; 16])
+            );
+            crate::authoring_driver::document::load_package_texts_owned(
+                &BTreeMap::from([
+                    ("package.toml".into(), manifest),
+                    ("models/kernel.pse".into(), source.into()),
+                ]),
+                &rt.registry,
+                pse_authoring::ParseBudget::default(),
+                &pool,
+                &token,
+            )
+            .unwrap()
+        };
+        let library = package(91, "lib", &[], "package lib {fn twice(x:Scalar)->Scalar=2*x;}");
+        let other = package(93, "other", &[], "package other {}");
+        let application = |dependencies: &[(u8, i64)]| {
+            package(
+                92,
+                "app",
+                dependencies,
+                "package app {use lib @\"1.0.0\"; def Root {let result:Scalar=lib.twice(2);}}",
+            )
+        };
+        let admit = |parts| {
+            let documents = crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
+                parts, &pool, &token,
+            )
+            .unwrap();
+            rt.modeling_from_documents(&documents, physical.clone())
+        };
+        assert!(admit(vec![library.clone(), other.clone(), application(&[(91, 1)])]).is_ok());
+        // The same version, depended on under another identity, is not the target.
+        let refused = admit(vec![library.clone(), other.clone(), application(&[(93, 1)])])
+            .unwrap_err()
+            .to_string();
+        assert!(refused.contains("exact manifest dependency"), "{refused}");
+        // The typed requirement is checked against the manifest version.
+        assert!(admit(vec![library, other, application(&[(91, 2)])]).is_err());
     }
     #[test]
     fn modeling_document_import_checks_the_admitted_version() {
         let rt = super::super::tests::runtime();
         let physical = super::super::tests::physical();
-        let names: BTreeMap<String, QuantityTypeId> = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         for (version, valid) in [("1.0.0", true), ("2.0.0", false)] {
             let source = format!(
                 "package library {{ fn f(x:Scalar)->Scalar=x; }} package p {{ use library @ \"{version}\"; def Root {{ var x:Scalar; eq e:library.f(x)==0; }} }}"
@@ -950,13 +1092,7 @@ mod import_tests {
             let texts = BTreeMap::from([
                 (
                     "package.toml".into(),
-                    format!(
-                        "{}\n[[quantity_aliases]]\nname = \"Scalar\"\nquantity_type_id = \"{}\"\n",
-                        include_str!(
-                            "../../../../tests/fixtures/packages/minimal_explicit/package.toml"
-                        ),
-                        names["Scalar"].as_id()
-                    ),
+                    include_str!("../../../../tests/fixtures/packages/minimal_explicit/package.toml").to_owned(),
                 ),
                 ("models/kernel.pse".into(), source),
             ]);

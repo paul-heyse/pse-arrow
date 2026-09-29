@@ -8,20 +8,20 @@ pub use pse_model::generated::r#authored::r#packages::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    195u8, 212u8, 67u8, 68u8, 165u8, 39u8, 40u8, 12u8, 50u8, 125u8, 4u8, 66u8, 130u8,
-    190u8, 129u8, 203u8,
+    8u8, 54u8, 224u8, 43u8, 223u8, 231u8, 15u8, 176u8, 101u8, 205u8, 234u8, 77u8, 193u8,
+    35u8, 242u8, 48u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "packages";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    187u8, 217u8, 193u8, 196u8, 162u8, 244u8, 170u8, 140u8, 105u8, 37u8, 212u8, 104u8,
-    159u8, 32u8, 33u8, 61u8, 167u8, 188u8, 74u8, 150u8, 86u8, 214u8, 123u8, 67u8, 132u8,
-    27u8, 24u8, 146u8, 223u8, 102u8, 193u8, 250u8,
+    21u8, 155u8, 133u8, 192u8, 181u8, 19u8, 143u8, 188u8, 10u8, 79u8, 223u8, 255u8, 46u8,
+    162u8, 226u8, 191u8, 78u8, 137u8, 187u8, 68u8, 183u8, 56u8, 125u8, 150u8, 165u8,
+    246u8, 53u8, 18u8, 195u8, 249u8, 135u8, 120u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredPackagesFieldDependenciesItem {
     fn append(
@@ -53,7 +53,9 @@ impl crate::columnar::ArrowValue for AuthoredPackagesFieldDependenciesItem {
         <crate::generated::identities::PackageId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <crate::generated::structures::VersionRequirement as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
         output.append(false);
         Ok(())
     }
@@ -68,7 +70,7 @@ impl crate::columnar::ArrowValue for AuthoredPackagesFieldDependenciesItem {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#version_req: <String as crate::columnar::ArrowValue>::read(
+            r#version_req: <crate::generated::structures::VersionRequirement as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -278,10 +280,10 @@ impl crate::columnar::RelationRow for AuthoredPackagesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        25_600_usize + size_of::<Self::Builder>()
+        32_768_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        200usize
+        256usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -321,10 +323,29 @@ impl crate::columnar::RelationRow for AuthoredPackagesRow {
                             )?;
                             bytes = crate::columnar::allocation_add(
                                 bytes,
-                                crate::columnar::allocation_add(
-                                    8,
-                                    ((item).r#version_req).len(),
-                                )?,
+                                {
+                                    let mut bytes = 1usize;
+                                    bytes = crate::columnar::allocation_add(
+                                        bytes,
+                                        crate::columnar::allocation_add(
+                                            8,
+                                            (((item).r#version_req).r#operator).as_str().len(),
+                                        )?,
+                                    )?;
+                                    bytes = crate::columnar::allocation_add(
+                                        bytes,
+                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                    )?;
+                                    bytes = crate::columnar::allocation_add(
+                                        bytes,
+                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                    )?;
+                                    bytes = crate::columnar::allocation_add(
+                                        bytes,
+                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                    )?;
+                                    Ok::<usize, crate::RelationError>(bytes)
+                                }?,
                             )?;
                             Ok::<usize, crate::RelationError>(bytes)
                         }?,

@@ -99,7 +99,8 @@ pub use crate::kind::{DerivedKind, KindDefinition, KindFactor, QuantityKind};
 pub use crate::operation::{InputConversion, QuantityOperation};
 pub use crate::precondition::{PhysicalPrecondition, PhysicalRequirement};
 pub use crate::quantity_type::{QuantityType, QuantityTypeKey};
-pub use crate::reference_state::ReferenceState;
+pub use crate::reference_state::{ReferenceCondition, ReferenceState};
+pub use crate::registry::PhysicalName;
 pub use crate::registry::{QuantityRegistry, QuantityRegistryBuilder};
 pub use crate::unit::{
     DefinedUnit, Unit, UnitConvertSpec, UnitFactor, convert_spec, convert_spec_for_type,

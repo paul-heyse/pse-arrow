@@ -1213,10 +1213,8 @@ mod tests {
         data.datasets.push(serde_json::from_value(serde_json::json!({"dataset_id":id(30),"name":"synthetic","source":"unit","content_hash":ContentHash::from_bytes([1;32])})).unwrap());
         data.observations.push(serde_json::from_value(serde_json::json!({"observation_id":id(31),"dataset_id":id(30),"target":"x squared","value":3.0,"unit_id":unit,"std_dev":2.0,"timestamp":null,"tag":null,"source_span":{"document_id":id(30),"start":0,"end":0}})).unwrap());
         data.fits.push(serde_json::from_value(serde_json::json!({"fit_id":id(32),"parameters":[{"symbol_id":id(1),"fixed":fixed,"value":2.0,"lower":0.1,"upper":10.0,"scale":2.0}],"experiments":[{"experiment_id":id(33),"case_id":root,"route":"steady","bindings":[{"parameter_id":id(1),"path":"p"}]}],"observations":[{"observation_id":id(31),"experiment_id":id(33),"output_path":"y","time":null,"included":true,"importance":4.0}]})).unwrap());
-        let mut names = crate::workflow::tests::discrete_names();
-        names.insert("Scalar".into(), quantity);
         runtime()
-            .modeling_package(rows, physical, names)
+            .modeling_package(rows, physical)
             .unwrap()
             .with_fit_data(data)
             .unwrap()
@@ -1902,10 +1900,6 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let compiler = compiler_profile();
         let physical = physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let rows = pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3); annotation nominal x(2); } }",
             SemanticId::NIL,
@@ -1918,7 +1912,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime().modeling_package(rows, physical, names).unwrap();
+        let package = runtime().modeling_package(rows, physical).unwrap();
         let ipopt = |intent| SolverProfile {
             presolve: Default::default(),
             numerics: Default::default(),

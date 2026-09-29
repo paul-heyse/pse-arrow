@@ -1115,10 +1115,6 @@ mod tests {
     async fn kernel_starts_numerics_and_constant_solver_share_the_existing_pipeline() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let rows=pse_authoring::language::parse(
             "package p { def Root { param p: Scalar = 2; var x: Scalar; var y: Scalar; let bad: Scalar = log(-1); eq balance: x+y == 6; annotation start x(p); annotation start y(2*x); annotation bounds x(0,10); annotation nominal x(2); annotation nominal y(4); annotation scale balance(inverseSum); annotation check x(x > 2.5); annotation report y(\"computed y\"); } }",
             SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
@@ -1127,7 +1123,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical, names).unwrap();
+        let package = rt.modeling_package(rows, physical).unwrap();
         let mut bindings = Bindings::default();
         bindings.demand.push("bad".into());
         let case = ModelingCaseBindings {
@@ -1255,7 +1251,7 @@ mod tests {
             .unwrap()
             .declaration_id;
         let package = fixture::runtime()
-            .modeling_package(rows, fixture::physical(), fixture::discrete_names())
+            .modeling_package(rows, fixture::physical())
             .unwrap();
         let error = package
             .prepare_solve(
@@ -1312,10 +1308,9 @@ mod tests {
         use super::super::super::tests as fixture;
         let physical = fixture::physical();
         let quantities = std::sync::Arc::clone(&physical.quantities);
-        let molar_cp = QuantityTypeId::from_id(
+        let molar_cp = pse_quantity::QuantityTypeId::from_id(
             SemanticId::parse_hex("cd653ba98fa94d16b5d66b363f21c3d6").unwrap(),
         );
-        let names = BTreeMap::from([("MolarCp".into(), molar_cp)]);
         let rows = pse_authoring::language::parse(
             "package p { def Root { param cp: MolarCp = 75.3{J/(K*mol)}; var y: MolarCp; eq e: y == cp; annotation start y(cp); annotation report y(\"cp\"); } }",
             SemanticId::NIL,
@@ -1329,7 +1324,7 @@ mod tests {
             .unwrap()
             .declaration_id;
         let package = fixture::runtime()
-            .modeling_package(rows, physical, names)
+            .modeling_package(rows, physical)
             .unwrap();
         let fixed = ModelingCaseBindings {
             values: BTreeMap::new(),
@@ -1413,17 +1408,13 @@ mod native_tests {
     async fn kernel_native_root_solves_and_qualifies_the_authored_model() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let rows=pse_authoring::language::parse("package p { def Root { var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3); annotation nominal x(2); annotation valid x(0.5,3,reject); annotation check x(x>0); annotation report x(\"root\"); expect x == 2 tolerance 1e-6; } }",SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
         let root = rows
             .iter()
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical, names).unwrap();
+        let package = rt.modeling_package(rows, physical).unwrap();
         let mut profile = super::super::super::tests::profile();
         profile.selection = pse_backend_native::solve::SolverSelection::Explicit(
             pse_backend_native::solve::Backend::Kinsol,

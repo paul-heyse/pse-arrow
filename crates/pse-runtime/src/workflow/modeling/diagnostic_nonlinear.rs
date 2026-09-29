@@ -439,10 +439,6 @@ mod tests {
     async fn kernel_nonlinear_explanation_keeps_local_evidence_and_original_specification() {
         let rt = super::super::super::super::tests::runtime();
         let physical = super::super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let source = "package p { def Root { var x:Scalar; eq lo:x*x>=4; eq hi:x*x<=1; eq spare:x*x<=100; annotation start x(1.5); } }";
         let rows = pse_authoring::language::parse(
             source,
@@ -456,7 +452,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical, names).unwrap();
+        let package = rt.modeling_package(rows, physical).unwrap();
         let compiler = super::super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let mut solver = super::super::super::super::tests::profile();

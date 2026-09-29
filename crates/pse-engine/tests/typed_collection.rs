@@ -7,7 +7,7 @@ use pse_columnar::CancellationToken;
 use pse_ids::{ContentHash, SemanticId};
 use pse_relations::columnar::Collection;
 use pse_relations::generated::{
-    authored::package_quantity_aliases as quantity_aliases,
+    authored::package_unit_sets as unit_sets,
     authored::packages::{self, AuthoredPackagesFieldDependenciesItem},
     enums::{IdPolicy, PackageKind},
     reference::units,
@@ -22,7 +22,12 @@ fn package() -> packages::Row {
         id_policy: IdPolicy::Explicit,
         dependencies: vec![AuthoredPackagesFieldDependenciesItem {
             package_id: SemanticId::from_bytes([2; 16]).into(),
-            version_req: "=2.3.4".to_owned(),
+            version_req: pse_model::generated::structures::VersionRequirement {
+                operator: pse_model::generated::enums::ModelingVersionOperator::Exact,
+                major: 2,
+                minor: 3,
+                patch: 4,
+            },
         }],
         content_hash: ContentHash::NIL,
         doc: "nested payload".to_owned(),
@@ -73,12 +78,11 @@ fn typed_collection_keeps_distinct_schemas_and_explicit_empty_relations()
     let mut collection = Collection::new(registry, &budget, &cancel);
     collection.ensure::<units::Row>()?;
     collection.push(package())?;
-    let alias = quantity_aliases::Row {
+    let selection = unit_sets::Row {
         package_id: SemanticId::from_bytes([1; 16]).into(),
-        name: "Flow".into(),
-        quantity_type_id: SemanticId::from_bytes([4; 16]),
+        unit_set_id: SemanticId::from_bytes([4; 16]),
     };
-    collection.push(alias.clone())?;
+    collection.push(selection.clone())?;
     let batches = collection.finish()?;
     assert_eq!(batches.len(), 3);
     assert_eq!(
@@ -86,9 +90,8 @@ fn typed_collection_keeps_distinct_schemas_and_explicit_empty_relations()
         vec![package()],
     );
     assert_eq!(
-        quantity_aliases::View::from_checked(&batches[&quantity_aliases::spec(registry)?.key])?
-            .rows()?,
-        vec![alias],
+        unit_sets::View::from_checked(&batches[&unit_sets::spec(registry)?.key])?.rows()?,
+        vec![selection],
     );
     assert_eq!(batches[&units::spec(registry)?.key].batch().num_rows(), 0);
     assert!(budget.reserved() > 0);
@@ -113,12 +116,14 @@ fn detached_nested_buffer_retains_the_construction_claim() -> Result<(), Box<dyn
         .to_data()
         .child_data()[0]
         .child_data()[1]
+        // The typed requirement's operator, a string enum column (ADR-0123 Outcome 7).
+        .child_data()[0]
         .buffers()[1]
         .clone();
     let held = budget.reserved();
     drop(batches);
     assert!(budget.reserved() >= buffer.len() && budget.reserved() < held);
-    assert_eq!(buffer.as_slice(), b"=2.3.4");
+    assert_eq!(buffer.as_slice(), b"exact");
     drop(buffer);
     assert_eq!(budget.reserved(), 0);
     Ok(())

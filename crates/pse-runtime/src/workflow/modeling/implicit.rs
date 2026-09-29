@@ -491,10 +491,6 @@ mod tests {
     async fn kernel_nested_observations_ignore_undemanded_missing_starts() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let source = "package p { def Root { var x:Scalar; implicit missing {var y:Scalar; eq root:y==2;} realize r on missing using nested; eq independent:x==1; eq dependent:missing.y==x; } }";
         let rows = pse_authoring::language::parse(
             source,
@@ -508,7 +504,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical, names).unwrap();
+        let package = rt.modeling_package(rows, physical).unwrap();
         let cancel = crate::CancelSource::new();
         let compiler = super::super::super::tests::compiler_profile();
         let model = package
@@ -574,10 +570,6 @@ mod tests {
     async fn kernel_nested_hints_order_siblings_before_outer_starts() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let source = "package p { def Root { implicit a {var y:Scalar; eq e:y==2; annotation start y(1);} realize ra on a using nested; implicit b {var z:Scalar; eq e:z==a.y+1; annotation start z(a.y); annotation bounds z(0,10);} realize rb on b using nested; var x:Scalar; eq pin:x==b.z; annotation start x(b.z); } }";
         for (text, succeeds) in [
             (source.to_string(), true),
@@ -599,7 +591,7 @@ mod tests {
                 .unwrap()
                 .declaration_id;
             let package = rt
-                .modeling_package(rows, physical.clone(), names.clone())
+                .modeling_package(rows, physical.clone())
                 .unwrap();
             let compiler = super::super::super::tests::compiler_profile();
             let cancel = crate::CancelSource::new();
@@ -639,10 +631,6 @@ mod tests {
     async fn kernel_regime_selection_executes_branch_hints_and_refuses_ties() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let rows=pse_authoring::language::parse(
             "package p { def Root { param target:Scalar; implicit roots select minimum((y-target)*(y-target), 1e-8) { var y:Scalar; regime negative eligible(y<0) { eq root:y == -1; annotation start y(-0.5); annotation bounds y(-2,-0.1); } regime positive eligible(y>0) { eq root:y == 1; annotation start y(0.5); annotation bounds y(0.1,2); } } realize r on roots using nested; annotation report roots.y(\"selected\"); } }",
             SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
@@ -651,7 +639,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical, names).unwrap();
+        let package = rt.modeling_package(rows, physical).unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let model = package
@@ -714,10 +702,6 @@ mod tests {
     async fn nested_stage_reports_regime_crossings_per_outer_iteration() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let rows=pse_authoring::language::parse(
             "package p { def Root { var target:Scalar; var s:Scalar; implicit roots select minimum((y-target)*(y-target), 1e-8) { var y:Scalar; regime negative eligible(y<0) { eq root:y == -1; annotation start y(-0.5); annotation bounds y(-2,-0.1); } regime positive eligible(y>0) { eq root:y == 1; annotation start y(0.5); annotation bounds y(0.1,2); } } realize r on roots using nested; eq link:s == roots.y; eq pin:target == 2; annotation start target(-2); annotation start s(-1); } }",
             SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
@@ -726,7 +710,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical, names).unwrap();
+        let package = rt.modeling_package(rows, physical).unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let mut solver = super::super::super::tests::profile();
@@ -801,10 +785,6 @@ mod tests {
     async fn kernel_nested_stage_composes_child_residuals_and_second_derivatives() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let rows=pse_authoring::language::parse(
             "package p { def Root { var x: Scalar; implicit outer { var y: Scalar; implicit child { var z: Scalar; eq residual: z*z == y; annotation start z(sqrt(y)); annotation bounds z(sqrt(y)-0.01,sqrt(y)+0.01); annotation nominal z(sqrt(y)); annotation scale residual(inverseSum); } realize c on child using nested; eq residual: y+child.z == x; annotation start y(1); annotation bounds y(0.1,100); } realize p on outer using nested; eq pin: outer.y == 4; annotation start x(3); annotation report outer.child.z(\"child\"); } }",
             SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
@@ -813,7 +793,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical, names).unwrap();
+        let package = rt.modeling_package(rows, physical).unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let mut solver = super::super::super::tests::profile();
@@ -898,10 +878,6 @@ mod tests {
     async fn kernel_nested_stage_runs_on_outer_worker_and_uses_authored_hints() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let rows=pse_authoring::language::parse(
             "package p { def Root { var x: Scalar; implicit root { var y: Scalar; eq residual: y*y == x; annotation scale residual(inverseSum); annotation start y(1); annotation bounds y(0.5,3); annotation valid y(0.5,3,reject); annotation nominal y(2); } realize policy on root using nested; eq pin: root.y == 2; annotation start x(2); annotation report root.y(\"root\"); } }",
             SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
@@ -910,7 +886,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical, names).unwrap();
+        let package = rt.modeling_package(rows, physical).unwrap();
         let mut solver = super::super::super::tests::profile();
         solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
             pse_backend_native::solve::Backend::Kinsol,

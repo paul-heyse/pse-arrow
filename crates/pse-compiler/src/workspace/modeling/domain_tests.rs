@@ -17,18 +17,7 @@ pub(super) fn power() -> QuantityTypeId {
 }
 pub(super) fn setup(text: &str) -> (CompilerWorkspace, DeclarationId) {
     let input = super::super::tests::inputs();
-    let names = BTreeMap::from([
-        (
-            "Scalar".into(),
-            input.quantities.neutral_dimensionless().unwrap(),
-        ),
-        ("Count".into(), quantity("3a8f6d2c9b1e4f7a8c5d0e3b6a9f2c18")),
-        (
-            "Indicator".into(),
-            quantity("b5d9e1c4a7f2483e9d6c1b0a5e8f3d27"),
-        ),
-        ("Power".into(), power()),
-    ]);
+    let names = PhysicalScope::default();
     let rows = parse(
         text,
         SemanticId::from_bytes([82; 16]),
@@ -156,7 +145,7 @@ fn integer_requires_count_or_indicator_type() {
     .unwrap();
     let input = super::super::tests::inputs();
     let mut w = CompilerWorkspace::new(input, WorkspaceLimits::default()).unwrap();
-    assert!(w.publish_modeling(rows, BTreeMap::new()).is_err());
+    assert!(w.publish_modeling(rows, PhysicalScope::default()).is_err());
 }
 
 #[test]

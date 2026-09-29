@@ -86,11 +86,7 @@ fn source_case(
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
     (
         runtime
-            .modeling_package(
-                rows,
-                physical,
-                BTreeMap::from([("Scalar".into(), scalar), ("Time".into(), time)]),
-            )
+            .modeling_package(rows, physical)
             .unwrap()
             .with_fit_data(data)
             .unwrap(),
@@ -731,9 +727,6 @@ fn curved_source(
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
     let scalar = physical.quantities.neutral_dimensionless().unwrap();
-    let time = pse_quantity::QuantityTypeId::from_id(
-        SemanticId::parse_hex("e2ccf6d0a394403db967f4f35b83cb7c").unwrap(),
-    );
     let rows = pse_authoring::language::parse(
         "package p { def Decay { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param k: Scalar = 1; param a: Scalar = 2; var x[i in t]: Scalar; var z[i in t]: Scalar; eq rate[i in t]: d(x[i])/di == -z[i]/1{s}; eq closure[i in t]: z[i] == k*x[i]*x[i]; eq initial: x[0{s}] == a; annotation start x(1); annotation start z(1); annotation report x(\"state\"); annotation report z(\"closure\"); } }",
         id(20),
@@ -803,11 +796,7 @@ fn curved_source(
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
     (
         runtime
-            .modeling_package(
-                rows,
-                physical,
-                BTreeMap::from([("Scalar".into(), scalar), ("Time".into(), time)]),
-            )
+            .modeling_package(rows, physical)
             .unwrap()
             .with_fit_data(data)
             .unwrap(),

@@ -860,10 +860,6 @@ mod tests {
     ) -> (ModelingPackage, ModelingAnalysis, ModelingInitialization) {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let rows = pse_authoring::language::parse(
             source,
             SemanticId::NIL,
@@ -876,7 +872,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical, names).unwrap();
+        let package = rt.modeling_package(rows, physical).unwrap();
         let mut solver = super::super::super::tests::profile();
         solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
             pse_backend_native::solve::Backend::Kinsol,
@@ -1025,10 +1021,6 @@ mod tests {
     async fn kernel_study_isolates_failures_and_initialization_restores_original_specification() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let rows=pse_authoring::language::parse(
             "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 2+t; annotation start x(2+t); annotation check x(x >= 2); continue ramp on t from 0 to 1; stage easy { override eq e: x == 2+t; } stage wrong { override eq e: x == -1; } } }",
             SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
@@ -1037,7 +1029,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical, names).unwrap();
+        let package = rt.modeling_package(rows, physical).unwrap();
         let analysis = ModelingAnalysis {
             root,
             instance: pse_modeling::specialize::root_instance(root),
@@ -1177,11 +1169,6 @@ mod discrete_tests {
     }
     fn package(start: &str) -> (ModelingPackage, ModelingAnalysis) {
         let physical = fixture::physical();
-        let mut names = fixture::discrete_names();
-        names.insert(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        );
         let rows = pse_authoring::language::parse(
             &source(start),
             SemanticId::NIL,
@@ -1195,7 +1182,7 @@ mod discrete_tests {
             .unwrap()
             .declaration_id;
         let package = fixture::runtime_with(16 << 20, 16 << 20, 2 << 30)
-            .modeling_package(rows, physical, names)
+            .modeling_package(rows, physical)
             .unwrap();
         let mut solver = fixture::profile();
         solver.intent = SolveIntent::Optimize;

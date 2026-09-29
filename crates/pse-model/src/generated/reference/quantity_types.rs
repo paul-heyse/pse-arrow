@@ -12,6 +12,8 @@
 pub struct ReferenceQuantityTypesRow {
     ///quantity_type_id
     pub r#quantity_type_id: pse_ids::SemanticId,
+    ///name
+    pub r#name: Option<String>,
     ///quantity_kind_id
     pub r#quantity_kind_id: pse_ids::SemanticId,
     ///basis_id
@@ -36,7 +38,7 @@ impl crate::SemanticEq for ReferenceQuantityTypesRow {
         crate::SemanticEq::semantic_eq(
             &self.r#quantity_type_id,
             &other.r#quantity_type_id,
-        )
+        ) && crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
             && crate::SemanticEq::semantic_eq(
                 &self.r#quantity_kind_id,
                 &other.r#quantity_kind_id,
@@ -71,6 +73,8 @@ impl crate::SemanticFrame for ReferenceQuantityTypesRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#quantity_type_id));
         crate::SemanticFrame::frame(&self.r#quantity_type_id, hash);
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
         hash.str(stringify!(r#quantity_kind_id));
         crate::SemanticFrame::frame(&self.r#quantity_kind_id, hash);
         hash.str(stringify!(r#basis_id));
@@ -95,6 +99,7 @@ impl crate::HeapUsage for ReferenceQuantityTypesRow {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity_type_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity_kind_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#basis_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reference_state_id))

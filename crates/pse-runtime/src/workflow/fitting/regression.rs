@@ -108,10 +108,8 @@ pub(in crate::workflow) fn package_with(
     data.fits.push(serde_json::from_value(serde_json::json!({"fit_id":id(32),"parameters":parameters,
         "experiments":[{"experiment_id":id(33),"case_id":root,"route":"steady","bindings":bindings}],
         "observations":observations})).unwrap());
-    let mut names = crate::workflow::tests::discrete_names();
-    names.insert("Scalar".into(), quantity);
     runtime()
-        .modeling_package(rows, physical, names)
+        .modeling_package(rows, physical)
         .unwrap()
         .with_fit_data(data)
         .unwrap()

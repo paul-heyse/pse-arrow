@@ -36,6 +36,17 @@ fn type_arena(name: &str) -> T {
     )
     .with_name(name)
 }
+/// ADR-0123 Outcome 7: a typed requirement on a package version, shared by imports and
+/// manifest dependencies.
+pub(super) fn version_requirement() -> T {
+    T::structure(vec![
+        T::enumeration("ModelingVersionOperator").with_name("operator"),
+        T::nonnegative(i64::MAX).with_name("major"),
+        T::nonnegative(i64::MAX).with_name("minor"),
+        T::nonnegative(i64::MAX).with_name("patch"),
+    ])
+    .named("VersionRequirement")
+}
 fn parameters(name: &str) -> T {
     T::list(T::structure(vec![
         text("name"),
@@ -342,14 +353,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             vec!["import"],
             vec![
                 // ADR-0123 Outcome 7: the typed requirement on the imported package's version.
-                T::structure(vec![
-                    T::enumeration("ModelingVersionOperator").with_name("operator"),
-                    T::nonnegative(i64::MAX).with_name("major"),
-                    T::nonnegative(i64::MAX).with_name("minor"),
-                    T::nonnegative(i64::MAX).with_name("patch"),
-                ])
-                .named("VersionRequirement")
-                .with_name("version"),
+                version_requirement().with_name("version"),
                 text("alias").optional(),
             ],
         ),

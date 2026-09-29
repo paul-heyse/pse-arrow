@@ -49,11 +49,6 @@ pub(in crate::workflow) const LINEAR: &str = "package p {
 
 pub(in crate::workflow) fn package(text: &str) -> (ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
-    let mut names = fixture::discrete_names();
-    names.insert(
-        "Scalar".into(),
-        physical.quantities.neutral_dimensionless().unwrap(),
-    );
     let rows = pse_authoring::language::parse(
         text,
         SemanticId::NIL,
@@ -67,7 +62,7 @@ pub(in crate::workflow) fn package(text: &str) -> (ModelingPackage, DeclarationI
         .unwrap()
         .declaration_id;
     let package = fixture::runtime_with(16 << 20, 1 << 20, 1 << 30)
-        .modeling_package(rows, physical, names)
+        .modeling_package(rows, physical)
         .unwrap();
     (package, root)
 }

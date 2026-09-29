@@ -20,6 +20,14 @@ from pse.contracts.enums import (
 from pse.contracts.values import SemanticId
 
 
+#: A manifest dependency on the physical primitives fixture, whose physical document names
+#: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
+PRIMITIVES = (
+    'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
+    'version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]'
+)
+
+
 @pytest.mark.integration
 def test_authored_solve_join_warm_start_checks_and_publication(
     inspection_settings: pse.EngineSettings,
@@ -42,10 +50,7 @@ def test_authored_solve_join_warm_start_checks_and_publication(
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += (
-        '\n[[quantity_aliases]]\nname = "Scalar"\n'
-        f'quantity_type_id = "{SemanticId(bytes([31]) * 16).to_hex()}"\n'
-    )
+    manifest = manifest.replace("dependencies = []", PRIMITIVES)
     source = """package algebraic { def Root {
         var x:Scalar;
         eq square:x*x==4;
@@ -90,8 +95,14 @@ def test_authored_solve_join_warm_start_checks_and_publication(
     assert warmed.run_id != result.run_id
     primal = {SemanticId(rows[0]["symbol_id"]): 1.5}
     assert prepared.with_primal_start(primal).start().wait().usable
-    aliases = pa.table(result.table("authored.package_quantity_aliases")).to_pylist()
-    assert any(row["name"] == "Scalar" for row in aliases)
+    # The manifest's typed dependency on the primitives, whose physical document names
+    # `Scalar`, is part of the published source (ADR-0123 Outcomes 6 and 7).
+    packages = pa.table(result.table("authored.packages")).to_pylist()
+    assert any(
+        dependency["version_req"]["operator"] == "exact"
+        for row in packages
+        for dependency in row["dependencies"]
+    ), packages
     documents = pa.table(result.table("authored.documents")).to_pylist()
     assert any(row["source_text"] == source for row in documents), documents
     assert result.attempt_id is not None

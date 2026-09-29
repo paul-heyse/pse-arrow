@@ -6,30 +6,22 @@ use pse_quantity::{
     QuantityTypeId,
     scheme::{Scheme, Substitution},
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub(crate) fn physical() -> (
     pse_quantity::QuantityRegistry,
     BTreeMap<String, QuantityTypeId>,
 ) {
+    // The standard registry names its quantity types in its physical document (ADR-0123
+    // Outcome 6); tests read those names back.
     let registry = pse_quantity::standard::standard_registry().unwrap();
-    let names = [
-        ("Scalar", "dc255c612cf27e30cb835377c8dafcf4"),
-        ("Temperature", "c64b96975a4a59755f8711d3bf628bc9"),
-        ("DeltaTemperature", "459a933fd00837bbc50372e31ac9801c"),
-        ("Flow", "6df479e3be3bda77c5938727311f1063"),
-        ("MassFlow", "63a6d5d8add842d4848b7ee99b39b4d7"),
-        ("Enthalpy", "553e33a36c6245619508d88d585c148b"),
-        ("OtherEnthalpy", "1831d0d72dc74b299ba8ecb6d4da6f53"),
-    ]
-    .into_iter()
-    .map(|(n, id)| {
-        (
-            n.into(),
-            QuantityTypeId::from_id(SemanticId::parse_hex(id).unwrap()),
-        )
-    })
-    .collect();
+    let names = registry
+        .physical_names()
+        .filter_map(|(name, value)| match value {
+            pse_quantity::PhysicalName::QuantityType(id) => Some((name.to_owned(), id)),
+            pse_quantity::PhysicalName::ReferenceState(_) => None,
+        })
+        .collect();
     (registry, names)
 }
 pub(crate) fn source(text: &str) -> Vec<Declaration> {
@@ -51,7 +43,7 @@ fn polymorphic_smoothing_and_complete_substitution() {
     let c = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let rows = source(
         "package p { fn smooth<Q>(a: Q, b: Q, eps: Delta<Q>) -> Q = b + ((a-b) + sqrt((a-b)^2 + eps^2))/2; }",
@@ -67,9 +59,9 @@ fn polymorphic_smoothing_and_complete_substitution() {
         .unwrap();
     assert!(q.bind(names["Flow"], &registry, &mut bindings).is_err());
     let mut bindings = Substitution::new();
-    q.bind(names["Enthalpy"], &registry, &mut bindings).unwrap();
+    q.bind(names["MolarEnthalpy"], &registry, &mut bindings).unwrap();
     assert!(
-        q.bind(names["OtherEnthalpy"], &registry, &mut bindings)
+        q.bind(names["PrOracleEnthalpy"], &registry, &mut bindings)
             .is_err()
     );
 }
@@ -80,7 +72,7 @@ fn powers_keep_the_exponent_quantity_in_the_authoritative_operation() {
     let context = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     check(
         &source(
@@ -110,11 +102,11 @@ fn powers_keep_the_exponent_quantity_in_the_authoritative_operation() {
 }
 #[test]
 fn default_override_and_diamond_conflict() {
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let c = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let text = "package p { interface I { let f: Scalar = 1; } def D : I { override let f: Scalar = 2; } }";
     let p = check(&source(text), &c).unwrap();
@@ -130,16 +122,16 @@ fn default_override_and_diamond_conflict() {
 }
 #[test]
 fn wrong_basis_reference_and_uninstantiated_definition_are_rejected() {
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let c = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     for text in [
-        "package p { def NeverUsed { var a: Flow; var b: MassFlow; eq invalid: a == b; } }",
-        "package p { def NeverUsed { var a: Enthalpy; var b: OtherEnthalpy; eq invalid: a == b; } }",
-        "package p { fn wrong(x: Flow) -> MassFlow = x; }",
+        "package p { def NeverUsed { var a: Flow; var b: VolumeFlow; eq invalid: a == b; } }",
+        "package p { def NeverUsed { var a: MolarEnthalpy; var b: PrOracleEnthalpy; eq invalid: a == b; } }",
+        "package p { fn wrong(x: Flow) -> VolumeFlow = x; }",
         "package p { def D { var t: Temperature; eq bad: t+t == t; } }",
     ] {
         assert!(check(&source(text), &c).is_err(), "{text}");
@@ -147,11 +139,11 @@ fn wrong_basis_reference_and_uninstantiated_definition_are_rejected() {
 }
 #[test]
 fn arbitrary_entity_kinds_are_data() {
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let c = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let p=check(&source("package p { entity kind membrane { attribute area: Scalar; } entity membrane a { area = 1 } table permeability[j: membrane]: Scalar missing optional; }"),&c).unwrap();
     assert!(matches!(p.types[&p.names["p.a"]],Type::Entity(id) if id==p.names["p.membrane"]));
@@ -159,11 +151,11 @@ fn arbitrary_entity_kinds_are_data() {
 
 #[test]
 fn every_dataset_row_is_checked_before_instantiation() {
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let c = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let text = r#"package p { entity kind item {} entity item a {} table coeff[j: item]: { flow: Flow, count: Integer }; dataset data: coeff source "synthetic" { [a] = [2{mol/s}, 9007199254740993]; } }"#;
     let p = check(&source(text), &c).unwrap();
@@ -191,11 +183,11 @@ fn every_dataset_row_is_checked_before_instantiation() {
 #[test]
 fn requirements_can_read_typed_rows_and_exact_integer_counts() {
     let text = r#"package p { entity kind item {} entity item a {} table coeff[j: item]: { flow: Flow, count: Integer, next: Integer }; dataset data: coeff source "synthetic" { [a] = [2{mol/s}, 9007199254740993, 9007199254740994]; } def Root { require coeff[a].count + 1 == coeff[a].next : "exact"; } }"#;
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let c = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let p = check(&source(text), &c).unwrap();
     specialize(
@@ -210,11 +202,11 @@ fn requirements_can_read_typed_rows_and_exact_integer_counts() {
 
 #[test]
 fn recursive_functions_and_implicit_captures_are_refused_before_selection() {
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let c = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     for text in [
         "package p { fn f(x: Scalar) -> Scalar = f(x); }",
@@ -229,11 +221,11 @@ fn recursive_functions_and_implicit_captures_are_refused_before_selection() {
 
 #[test]
 fn polymorphic_functions_compose_without_dimension_only_substitution() {
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let c = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let simple =
         "package p { fn same<Q>(x:Q) -> Q = x; fn composed<R>(x:R) -> R = same(same(x)); }";
@@ -244,11 +236,11 @@ fn polymorphic_functions_compose_without_dimension_only_substitution() {
 
 #[test]
 fn indexed_function_types_and_partial_coordinates_are_checked_before_selection() {
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let c = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let prelude = "package p { entity kind item {} entity kind other {} entity item a {} entity other b {} set items: Set<item> = {a}; fn total<Q>(x: Q[item], members: Set<item>)->Q=sum(j in members | x[j]); ";
     assert!(check(&source(&format!("{prelude} def D {{ var x[j in items]: Flow; eq e: total(x,items) == 0{{mol/s}}; }} }}")),&c).is_ok());
@@ -272,11 +264,11 @@ fn indexed_function_types_and_partial_coordinates_are_checked_before_selection()
 
 #[test]
 fn indirect_function_calls_use_only_visible_immutable_package_tables() {
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let c = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let text = r#"package p { entity kind item {} entity item a {} fn double(x:Scalar)->Scalar=x*2;
  table methods[j:item]: Fn(x:Scalar)->Scalar; dataset choices: methods source "test" {[a]=[double];}
@@ -291,11 +283,11 @@ fn indirect_function_calls_use_only_visible_immutable_package_tables() {
 
 #[test]
 fn package_visibility_requires_an_import_for_functions_and_types() {
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let context = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let library = "package library { entity kind item {} fn twice(x:Scalar)->Scalar=x*2; }";
     for body in [
@@ -337,19 +329,22 @@ fn package_visibility_requires_an_import_for_functions_and_types() {
 
 #[test]
 fn admitted_physical_context_survives_caller_changes() {
-    let (registry, mut names) = physical();
+    let (registry, _) = physical();
+    let mut scope = PhysicalScope {
+        package: Some("pse.physical".into()),
+        documents: None,
+    };
     let checked = check(
         &source("package p { def Root {var x:Scalar; eq e:x==2;} }"),
         &TypeContext {
             preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
             quantities: &registry,
-            names: &names,
+            scope: &scope,
         },
     )
     .unwrap();
-    let original = names["Scalar"];
-    names.insert("Scalar".into(), names["Temperature"]);
-    assert_eq!(checked.context().names["Scalar"], original);
+    scope.documents = Some(BTreeSet::new());
+    assert_eq!(checked.context().scope.documents, None);
     let model = specialize(
         &checked,
         checked.entry("p.Root").unwrap(),
@@ -361,49 +356,77 @@ fn admitted_physical_context_survives_caller_changes() {
     assert_eq!(model.equations.len(), 1);
 }
 
+/// ADR-0123 Outcome 6: a package sees the physical names when its document is in scope,
+/// unqualified and qualified by the declaring package; a package outside it does not.
 #[test]
-fn physical_aliases_are_scoped_and_compose_in_quantity_schemes() {
-    let (registry, standard) = physical();
-    let names = BTreeMap::from([
-        ("a.Measure".into(), standard["Temperature"]),
-        ("b.Measure".into(), standard["Scalar"]),
-    ]);
+fn physical_names_are_scoped_by_document() {
+    let (registry, names) = physical();
+    let seen = SemanticId::from_bytes([1; 16]);
+    let unseen = SemanticId::from_bytes([2; 16]);
+    let scope = PhysicalScope {
+        package: Some("pse.physical".into()),
+        documents: Some(BTreeSet::from([seen])),
+    };
     let context = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &scope,
     };
-    let source_text = "package a { fn difference(x:Measure,y:Measure)->Delta<Measure>=x-y; } package b {fn identity(x:Measure)->Measure=x;}";
-    let checked = check(&source(source_text), &context).unwrap();
-    assert_ne!(
-        checked.functions[&checked.entry("a.difference").unwrap()].arguments[0].1,
-        checked.functions[&checked.entry("b.identity").unwrap()].arguments[0].1
-    );
-    for ty in ["a.Measure", "Delta<a.Measure>"] {
-        assert!(
-            check(
-                &source(&format!(
-                    "package a {{}} package b {{def Root {{var x:{ty};}}}}"
-                )),
-                &context
-            )
-            .is_err()
-        );
+    let rows = |document: SemanticId, text: &str| {
+        pse_authoring::language::parse(
+            text,
+            document,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap()
+    };
+    for ty in ["Temperature", "pse.physical.Temperature", "Delta<Temperature>"] {
+        let text = format!("package a {{ fn f(x: {ty}) -> {ty} = x; }}");
+        let checked = check(&rows(seen, &text), &context).unwrap();
+        if ty != "Delta<Temperature>" {
+            assert_eq!(
+                checked.functions[&checked.entry("a.f").unwrap()].result,
+                Type::Quantity(Scheme::Concrete(names["Temperature"])),
+                "{ty}"
+            );
+        }
+        let refused = check(&rows(unseen, &text), &context).unwrap_err();
+        assert!(refused.to_string().contains("unknown type"), "{ty}: {refused}");
     }
-    assert!(check(&source("package a {} package b {use a @\"1.0.0\" as imported; def Root {var x:imported.Measure; var y:Delta<imported.Measure>;}}"), &context).is_ok());
+}
+
+/// ADR-0123 Outcome 6: a package that sees the physical names cannot declare one of them;
+/// the name would be ambiguous.
+#[test]
+fn ambiguous_quantity_name_refused() {
+    let (registry, _) = physical();
+    let context = TypeContext {
+        preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
+        quantities: &registry,
+        scope: &PhysicalScope::default(),
+    };
+    for declaration in [
+        "enum Temperature { low, high }",
+        "def Pressure {}",
+        "fn stock() -> Scalar = 1;",
+        "use other @\"1.0.0\" as Scalar;",
+    ] {
+        let text = format!("package other {{}} package p {{ {declaration} }}");
+        let error = check(&source(&text), &context).unwrap_err().to_string();
+        assert!(error.contains("ambiguous name"), "{declaration}: {error}");
+    }
+    // Control: a member of a definition is lexical and shadows the physical name.
+    assert!(check(&source("package p { def D { param Temperature: Scalar = 1; } }"), &context).is_ok());
 }
 
 #[test]
 fn constraint_forms_are_placed_and_typed_at_declaration() {
-    let (registry, mut names) = physical();
-    names.insert(
-        "Indicator".into(),
-        QuantityTypeId::from_id(SemanticId::parse_hex("b5d9e1c4a7f2483e9d6c1b0a5e8f3d27").unwrap()),
-    );
+    let (registry, names) = physical();
     let context = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let admitted = check(
         &source(

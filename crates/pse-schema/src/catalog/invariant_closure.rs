@@ -13,7 +13,9 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         &["package_id"],
         r"SELECT DISTINCT s.package_id FROM
             (SELECT package_id, dependency.package_id AS target_package,
-                regexp_replace(dependency.version_req, '^=', '') AS target_version
+                concat(CAST(get_field(dependency.version_req, 'major') AS VARCHAR), '.',
+                    CAST(get_field(dependency.version_req, 'minor') AS VARCHAR), '.',
+                    CAST(get_field(dependency.version_req, 'patch') AS VARCHAR)) AS target_version
                 FROM (SELECT package_id, unnest(dependencies) AS dependency FROM authored.packages)) s
             WHERE NOT EXISTS (SELECT 1 FROM authored.packages p WHERE p.package_id = s.target_package
                 AND p.version = s.target_version)",

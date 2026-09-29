@@ -21,7 +21,6 @@ Version: `1`. Determinism: `deterministic`. Native effects: {Read}.
 | output | `schema_documents` | `reference.schema_documents` |
 | output | `schema_document_sections` | `reference.schema_document_sections` |
 | output | `packages` | `authored.packages` |
-| output | `package_quantity_aliases` | `authored.package_quantity_aliases` |
 | output | `documents` | `authored.documents` |
 | output | `entities` | `authored.entities` |
 | output | `aliases` | `reference.aliases` |

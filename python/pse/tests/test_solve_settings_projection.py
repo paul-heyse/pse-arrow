@@ -34,6 +34,14 @@ from pse.contracts.enums import (
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 
+
+#: A manifest dependency on the physical primitives fixture, whose physical document names
+#: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
+PRIMITIVES = (
+    'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
+    'version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]'
+)
+
 MODELS = """package settings {
  def Lp {var x:Scalar; var y:Scalar; eq total:x+y>=1; eq cap:x<=0.5;
   annotation bounds x(0, 10); annotation bounds y(0, 10);
@@ -81,10 +89,7 @@ def cases(
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    scalar = identity(31).to_hex()
-    manifest += (
-        f'\n[[quantity_aliases]]\nname = "Scalar"\nquantity_type_id = "{scalar}"\n'
-    )
+    manifest = manifest.replace("dependencies = []", PRIMITIVES)
     package = runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/settings.pse": MODELS}], physical
     )

@@ -532,6 +532,8 @@ fn finite_membership_and_ragged_bindings_match_clean_preparation() {
             .unwrap(),
     ];
     shaped.id = QuantityTypeId::from_id(id(91));
+    // A physical name is declared once; the shaped variant is unnamed.
+    shaped.name = None;
     let shaped_id = i.quantities.resolve_key(&shaped.key).unwrap_or(shaped.id);
     if shaped_id == shaped.id {
         let mut builder = i.quantities.to_builder();

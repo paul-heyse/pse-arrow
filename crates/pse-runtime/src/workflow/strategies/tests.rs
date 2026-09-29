@@ -66,7 +66,6 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
     use std::collections::BTreeMap;
     let runtime = runtime();
     let physical = physical();
-    let neutral = physical.quantities.neutral_dimensionless().unwrap();
     let rows=pse_authoring::language::parse("package p {def Root {param a:Scalar=4; var x:Scalar; var y:Scalar; eq first:x*x==a; eq second:y==x+1; annotation start x(2); annotation start y(3); annotation nominal x(2);}}",id(80),pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
     let root = rows
         .iter()
@@ -74,7 +73,7 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
         .unwrap()
         .declaration_id;
     let package = runtime
-        .modeling_package(rows, physical, BTreeMap::from([("Scalar".into(), neutral)]))
+        .modeling_package(rows, physical)
         .unwrap();
     let original = package.revision.identity();
     let cancel = crate::CancelSource::new();
@@ -144,10 +143,9 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
 #[tokio::test]
 async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
     use pse_structural::flowsheet::{Decision, Policy};
-    use std::collections::{BTreeMap, BTreeSet};
+    use std::collections::BTreeSet;
     let runtime = runtime();
     let physical = physical();
-    let neutral = physical.quantities.neutral_dimensionless().unwrap();
     let rows=pse_authoring::language::parse("package p {def Root {param a:Scalar=2; var x:Scalar; var hidden:Scalar; let output:Scalar=x/2+a; let bad:Scalar=x+hidden; port inlet:Scalar=x; annotation connectivity inlet(1,0); port outlet:Scalar=output; annotation connectivity outlet(0,1); connect outlet -> inlet; annotation start x(1); annotation nominal x(5); annotation start hidden(0);}}",id(81),pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
     let root = rows
         .iter()
@@ -155,7 +153,7 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
         .unwrap()
         .declaration_id;
     let package = runtime
-        .modeling_package(rows, physical, BTreeMap::from([("Scalar".into(), neutral)]))
+        .modeling_package(rows, physical)
         .unwrap();
     let cancel = crate::CancelSource::new();
     let mut analysis = package

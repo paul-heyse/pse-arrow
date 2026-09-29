@@ -474,9 +474,7 @@ pub(super) fn bundle_retained(bundle: &super::DocumentBundle) -> Result<usize, D
             >(),
         )?,
     )?;
-    for dependency in &package.dependencies {
-        bytes = add(bytes, dependency.version_req.capacity())?;
-    }
+    // A typed version requirement is inline in the dependency item (ADR-0123 Outcome 7).
     Ok(bytes)
 }
 #[cfg(test)]

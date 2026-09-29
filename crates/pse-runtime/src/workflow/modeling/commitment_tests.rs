@@ -69,11 +69,6 @@ fn quadratic(build: bool) -> String {
 
 fn package(text: &str) -> (ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
-    let mut names = fixture::discrete_names();
-    names.insert(
-        "Scalar".into(),
-        physical.quantities.neutral_dimensionless().unwrap(),
-    );
     let rows = pse_authoring::language::parse(
         text,
         SemanticId::NIL,
@@ -87,7 +82,7 @@ fn package(text: &str) -> (ModelingPackage, DeclarationId) {
         .unwrap()
         .declaration_id;
     let package = fixture::runtime_with(16 << 20, 16 << 20, 2 << 30)
-        .modeling_package(rows, physical, names)
+        .modeling_package(rows, physical)
         .unwrap();
     (package, root)
 }

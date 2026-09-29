@@ -80,7 +80,7 @@ Derived in: pse-compiler.
 |---|---|---|
 | `MathArtifactV4` | `pse.math.artifact.v4` | A compiled mathematics artifact request. |
 | `MathLocalOccurrenceV2` | `pse.math.local-occurrence.v2` | A local expression occurrence. |
-| `MathPhysicalInventoryV4` | `pse.math.physical-inventory.v4` | A physical inventory, including unit compositions and derived-kind definitions (ADR-0124). |
+| `MathPhysicalInventoryV5` | `pse.math.physical-inventory.v5` | A physical inventory, including unit compositions and derived-kind definitions (ADR-0124), and the names and typed conditions its quantity types and reference states are addressed by (ADR-0123 Outcome 6). |
 | `MathPhysicalPassV1` | `pse.math.physical-pass.v1` | A physical reduction pass. |
 | `MathTypedDefinitionV3` | `pse.math.typed-definition.v3` | A typed definition's admitted outputs; function validity predicates are framed in their canonical spelling, unit literals by their canonical products (ADR-0123 Outcome 8). |
 | `CompilerModelingViewV2` | `pse.compiler.modeling-view.v2` | A prepared view of a compiled modeling structure. |

@@ -140,11 +140,20 @@ pub(super) fn inventory(
                 row.reference_state_id
             )));
         }
+        // Version two: a named state with typed conditions (ADR-0123 Outcome 6).
+        let condition = |value: Option<extension_values::QuantityValue>| {
+            value.map(|value| pse_quantity::ReferenceCondition {
+                value: value.value,
+                quantity_type: QuantityTypeId::from_id(value.quantity_type_id),
+                unit: UnitId::from_id(value.unit_id),
+            })
+        };
         builder.reference_state(ReferenceState {
             id: ReferenceStateId::from_id(row.reference_state_id),
+            name: row.name,
             kind: row.kind,
-            temperature: row.temperature,
-            pressure: row.pressure,
+            temperature: condition(row.temperature),
+            pressure: condition(row.pressure),
             include_enthalpy_of_formation: row.include_enthalpy_of_formation,
             subject: row.subject_id.map(Into::into),
         });
@@ -211,6 +220,7 @@ pub(super) fn inventory(
     rows!(quantity_types, row, {
         builder.quantity_type(QuantityType {
             id: QuantityTypeId::from_id(row.quantity_type_id),
+            name: row.name,
             key: QuantityTypeKey {
                 kind: QuantityKindId::from_id(row.quantity_kind_id),
                 basis: row.basis_id.map(BasisId::from_id),

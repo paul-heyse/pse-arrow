@@ -17,8 +17,6 @@ pub mod r#numerical_requirements;
 ///Generated relation contract.
 pub mod r#observations;
 ///Generated relation contract.
-pub mod r#package_quantity_aliases;
-///Generated relation contract.
 pub mod r#package_unit_sets;
 ///Generated relation contract.
 pub mod r#packages;

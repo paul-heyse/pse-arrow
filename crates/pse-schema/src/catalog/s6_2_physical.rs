@@ -180,17 +180,27 @@ fn declare_reference_bases(builder: &mut RegistryBuilder) {
 }
 
 fn declare_reference_reference_states(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Reference,
         "reference_states",
+        2,
         S::Model,
         &["reference_state_id"],
         vec![
             column("reference_state_id", T::id()),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("kind", T::enumeration("ReferenceStateKind")),
-            column("temperature", T::native(arrow_schema::DataType::Float64)).optional(),
-            column("pressure", T::native(arrow_schema::DataType::Float64)).optional(),
+            column(
+                "temperature",
+                T::extended(crate::model::ExtensionUse::QuantityValue),
+            )
+            .optional(),
+            column(
+                "pressure",
+                T::extended(crate::model::ExtensionUse::QuantityValue),
+            )
+            .optional(),
             column(
                 "include_enthalpy_of_formation",
                 T::native(arrow_schema::DataType::Boolean),
@@ -200,19 +210,21 @@ fn declare_reference_reference_states(builder: &mut RegistryBuilder) {
                 .with_fk("authored.modeling_declarations", "declaration_id"),
             column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
-        "blueprint §6.2 physical type: reference_states.",
+        "blueprint §6.2 physical type: reference_states. Version two names each reference state once, in the physical document, so packages address it by that name (ADR-0123 Outcome 6), and types its temperature and pressure: each is a value in a declared unit of a declared quantity type, which admission checks against the temperature and pressure dimensions.",
     );
 }
 
 fn declare_reference_quantity_types(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Reference,
         "quantity_types",
+        2,
         S::Model,
         &["quantity_type_id"],
         vec![
             column("quantity_type_id", T::id()),
+            column("name", T::native(arrow_schema::DataType::Utf8)).optional(),
             column("quantity_kind_id", T::id())
                 .with_fk("reference.quantity_kinds", "quantity_kind_id"),
             column("basis_id", T::id())
@@ -232,7 +244,7 @@ fn declare_reference_quantity_types(builder: &mut RegistryBuilder) {
             .optional(),
             column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
-        "blueprint §6.2 physical type: quantity_types.",
+        "blueprint §6.2 physical type: quantity_types. Version two adds the optional name a quantity type is addressed by, declared once in the physical document and unique within it (ADR-0123 Outcome 6); a package sees it unqualified and as `<package>.<name>` when its manifest depends on the declaring package.",
     );
 }
 

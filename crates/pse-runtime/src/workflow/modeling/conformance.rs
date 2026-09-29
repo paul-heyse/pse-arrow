@@ -1727,10 +1727,6 @@ mod tests {
     fn package(text: &str) -> ModelingPackage {
         let runtime = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let rows = pse_authoring::language::parse(
             text,
             SemanticId::NIL,
@@ -1738,7 +1734,7 @@ mod tests {
             pse_authoring::ParseBudget::default(),
         )
         .unwrap();
-        runtime.modeling_package(rows, physical, names).unwrap()
+        runtime.modeling_package(rows, physical).unwrap()
     }
     fn policy() -> ModelingConformancePolicy {
         ModelingConformancePolicy {
@@ -1816,7 +1812,7 @@ mod tests {
             "run steady; policy { limits foreign_bytes(0); }",
         ] {
             assert!(
-                rt.modeling_package(rows(metadata), physical.clone(), BTreeMap::new())
+                rt.modeling_package(rows(metadata), physical.clone())
                     .is_err(),
                 "{metadata}"
             );
@@ -1829,7 +1825,7 @@ mod tests {
             "run steady; policy { derivatives tolerance(-1); }",
         ] {
             let package = rt
-                .modeling_package(rows(metadata), physical.clone(), BTreeMap::new())
+                .modeling_package(rows(metadata), physical.clone())
                 .unwrap();
             let error = package
                 .conform(policy(), &crate::CancelSource::new())
@@ -2114,10 +2110,6 @@ mod tests {
     async fn kernel_conformance_dispatches_pure_checks_and_preserves_expected_failures() {
         let runtime = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let source = r#"package p {
             fn square(x:Scalar)->Scalar=x*x;
             test pure fixture { dof 0; run pure; } {
@@ -2146,7 +2138,7 @@ mod tests {
             rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
             roundtrip.iter().map(|r| &r.value).collect::<Vec<_>>()
         );
-        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let package = runtime.modeling_package(rows, physical).unwrap();
         let report = package
             .conform(policy(), &crate::CancelSource::new())
             .await
@@ -2202,13 +2194,8 @@ mod tests {
             .unwrap()
             .declaration_id;
         let physical = super::super::super::tests::physical();
-        let mut names = super::super::super::tests::discrete_names();
-        names.insert(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        );
         let package = super::super::super::tests::runtime()
-            .modeling_package(rows, physical, names)
+            .modeling_package(rows, physical)
             .unwrap();
         let mut policy = policy();
         policy.solver.intent = SolveIntent::Optimize;

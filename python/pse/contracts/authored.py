@@ -783,15 +783,6 @@ class AuthoredObservationsRow:
 
 
 @attrs.frozen(kw_only=True)
-class AuthoredPackageQuantityAliasesRow:
-    """Declared relation row or nested value."""
-
-    package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
 class AuthoredPackageUnitSetsRow:
     """Declared relation row or nested value."""
 
@@ -804,7 +795,7 @@ class AuthoredPackagesFieldDependenciesItem:
     """Declared relation row or nested value."""
 
     package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    version_req: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    version_req: s.VersionRequirement = attrs.field(validator=attrs.validators.instance_of(s.VersionRequirement))
 
 
 @attrs.frozen(kw_only=True)

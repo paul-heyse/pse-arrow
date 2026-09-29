@@ -355,19 +355,6 @@ impl IntoBatches for pse_authoring::generated::documents::PackageHeaderDocument 
             )
             .or_default()
             .push(builder.finish()?);
-        let mut builder = pse_relations::generated::r#authored::r#package_quantity_aliases::Builder::with_registry(
-            registry,
-            self.r#quantity_aliases.len(),
-        )?;
-        for row in self.r#quantity_aliases {
-            builder.push(row)?;
-        }
-        batches
-            .entry(
-                pse_relations::generated::r#authored::r#package_quantity_aliases::RELATION_ID,
-            )
-            .or_default()
-            .push(builder.finish()?);
         Ok(batches)
     }
 }

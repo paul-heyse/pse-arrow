@@ -75,31 +75,29 @@ fn entity(registry: &Registry, invariant: &InvariantSpec, valid: &mut Rows, inva
 
 fn packages(registry: &Registry, valid: &mut Rows, invalid: &mut Rows) {
     let relation = "authored.packages";
-    let target = row(registry, registry.relation(relation).unwrap(), 2);
+    let mut target = row(registry, registry.relation(relation).unwrap(), 2);
+    // The target is at version 1.0.0; a dependency carries a typed exact requirement
+    // (ADR-0123 Outcome 7).
+    target.insert("version".to_owned(), serde_json::json!(["text", "1.0.0"]));
     valid.get_mut(relation).unwrap().push(target);
-    set(
-        valid,
-        relation,
-        "dependencies",
+    let requirement = |major: i64| {
+        serde_json::json!([
+            "struct",
+            vec![
+                serde_json::json!(["enum", "exact"]),
+                serde_json::json!(["i64", major]),
+                serde_json::json!(["i64", 0]),
+                serde_json::json!(["i64", 0]),
+            ]
+        ])
+    };
+    let dependency = |major| {
         serde_json::json!([
             "list",
-            vec![serde_json::json!([
-                "struct",
-                vec![id(2), serde_json::json!(["text", "value-2"])]
-            ])]
-        ]),
-    );
+            vec![serde_json::json!(["struct", vec![id(2), requirement(major)]])]
+        ])
+    };
+    set(valid, relation, "dependencies", dependency(1));
     *invalid = valid.clone();
-    set(
-        invalid,
-        relation,
-        "dependencies",
-        serde_json::json!([
-            "list",
-            vec![serde_json::json!([
-                "struct",
-                vec![id(2), serde_json::json!(["text", "missing version"]),]
-            ])]
-        ]),
-    );
+    set(invalid, relation, "dependencies", dependency(2));
 }

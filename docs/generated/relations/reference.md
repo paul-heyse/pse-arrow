@@ -278,13 +278,14 @@ Version: 1. Snapshot class: `model`. Primary key: `invariant_id`.
 
 ## `quantity_types`
 
-blueprint §6.2 physical type: quantity_types.
+blueprint §6.2 physical type: quantity_types. Version two adds the optional name a quantity type is addressed by, declared once in the physical document and unique within it (ADR-0123 Outcome 6); a package sees it unqualified and as `<package>.<name>` when its manifest depends on the declaring package.
 
-Version: 1. Snapshot class: `model`. Primary key: `quantity_type_id`.
+Version: 2. Snapshot class: `model`. Primary key: `quantity_type_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `quantity_type_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | true | `payload` | — | — |
 | `quantity_kind_id` | `semantic_id` | false | `payload` | `reference.quantity_kinds.quantity_kind_id` | — |
 | `basis_id` | `semantic_id` | true | `payload` | `reference.bases.basis_id` | — |
 | `reference_state_id` | `semantic_id` | true | `payload` | `reference.reference_states.reference_state_id` | — |
@@ -304,16 +305,17 @@ nominal_magnitude IS NULL OR nominal_magnitude > 0
 
 ## `reference_states`
 
-blueprint §6.2 physical type: reference_states.
+blueprint §6.2 physical type: reference_states. Version two names each reference state once, in the physical document, so packages address it by that name (ADR-0123 Outcome 6), and types its temperature and pressure: each is a value in a declared unit of a declared quantity type, which admission checks against the temperature and pressure dimensions.
 
-Version: 1. Snapshot class: `model`. Primary key: `reference_state_id`.
+Version: 2. Snapshot class: `model`. Primary key: `reference_state_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `reference_state_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
 | `kind` | `enum:ReferenceStateKind` | false | `payload` | — | — |
-| `temperature` | `Float64` | true | `payload` | — | — |
-| `pressure` | `Float64` | true | `payload` | — | — |
+| `temperature` | `quantity_value` | true | `payload` | — | — |
+| `pressure` | `quantity_value` | true | `payload` | — | — |
 | `include_enthalpy_of_formation` | `Boolean` | false | `payload` | — | — |
 | `subject_id` | `semantic_id` | true | `payload` | `authored.modeling_declarations.declaration_id` | — |
 | `doc` | `Utf8` | false | `payload` | — | — |

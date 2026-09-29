@@ -44,7 +44,7 @@ def test_conformance_runs_the_declared_reference_set(
         (root / "tests/fixtures/packages/minimal_explicit/package.toml")
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
-        + quantity_aliases()
+        .replace("dependencies = []", PRIMITIVES)
     )
     source = """package pure {
       fn square(x:Scalar)->Scalar=x*x;
@@ -90,13 +90,17 @@ execution = "pure"
     with pytest.raises(SystemExit):
         conformance_main([*arguments, "--report", str(tmp_path / "one.arrow")])
 
-def quantity_aliases() -> str:
-    return (
-        '\n[[quantity_aliases]]\nname = "Scalar"\n'
-        f'quantity_type_id = "{identity(31).to_hex()}"\n'
-        '\n[[quantity_aliases]]\nname = "Time"\n'
-        f'quantity_type_id = "{identity(222).to_hex()}"\n'
-    )
+#: A manifest dependency on the physical primitives fixture, whose physical document names
+#: `Scalar` and `Time` (ADR-0123 Outcome 6).
+PRIMITIVES = (
+    'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
+    'version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]'
+)
+
+
+def on_primitives(manifest: str) -> str:
+    """A manifest whose package depends on the physical primitives."""
+    return manifest.replace("dependencies = []", PRIMITIVES)
 
 
 def physical(runtime: pse.Runtime) -> pse.PhysicalContext:
@@ -123,7 +127,7 @@ def test_modeling_expansion_limits_are_explicit_and_isolated(
         (root / "tests/fixtures/packages/minimal_explicit/package.toml")
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
-    ) + quantity_aliases()
+    ).replace("dependencies = []", PRIMITIVES)
     package = runtime.modeling_from_documents(
         [
             {
@@ -218,7 +222,7 @@ def test_modeling_simulation_events_checks_and_terminal_reports(
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += quantity_aliases()
+    manifest = on_primitives(manifest)
     package = runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/dynamic.pse": source}],
         physical(runtime),
@@ -294,10 +298,11 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     package = runtime.modeling_from_documents(
         [
             {
-                "package.toml": (
-                    root / "tests/fixtures/packages/minimal_explicit/package.toml"
-                ).read_text()
-                + quantity_aliases(),
+                "package.toml": on_primitives(
+                    (
+                        root / "tests/fixtures/packages/minimal_explicit/package.toml"
+                    ).read_text()
+                ),
                 "models/diagnostic.pse": source,
             }
         ],
@@ -510,7 +515,7 @@ def test_modeling_native_linear_diagnostics_preserve_scope_and_source_coordinate
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += quantity_aliases()
+    manifest = on_primitives(manifest)
     package = runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/linear.pse": source}],
         physical(runtime),
@@ -590,7 +595,7 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
     manifest = (
         root / "tests/fixtures/packages/minimal_explicit/package.toml"
     ).read_text()
-    manifest += quantity_aliases()
+    manifest = on_primitives(manifest)
     package = runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/example.pse": source}],
         physical(runtime),
@@ -733,7 +738,7 @@ def test_modeling_nonlinear_explanation_retains_local_evidence(
  }
  case run { child root:D=D(); }
 }"""
-    manifest += quantity_aliases()
+    manifest = on_primitives(manifest)
     package = runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/explanation.pse": source}],
         physical(runtime),
@@ -822,7 +827,7 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
         root / "tests/fixtures/packages/minimal_explicit/package.toml"
     ).read_text().replace(
         'id_policy = "explicit"', 'id_policy = "named"'
-    ) + quantity_aliases()
+    ).replace("dependencies = []", PRIMITIVES)
     source = """package pure {
       fn square(x:Scalar)->Scalar=x*x;
       test positive fixture {dof 0; run pure;} {

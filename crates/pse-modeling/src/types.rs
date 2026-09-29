@@ -5,7 +5,7 @@
 use crate::{Result, invalid};
 use pse_authoring::language::{TypeNode, TypeNodeKind, TypeRef, TypeTree};
 use pse_model::generated::identities::DeclarationId;
-use pse_quantity::{QuantityRegistry, QuantityTypeId, Ratio, scheme::Scheme};
+use pse_quantity::{QuantityRegistry, Ratio, scheme::Scheme};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// A checked language type. Kind and subject references never use scientific enums.
@@ -59,15 +59,34 @@ pub enum Type {
         axes: Vec<DeclarationId>,
     },
 }
+/// Which modeling documents see the names of the physical document (ADR-0123 Outcome 6).
+/// A document sees them when its manifest depends on the package that declared them, and
+/// then also reads them qualified as `<package>.<Name>`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct PhysicalScope {
+    /// The package that declared the names, when admission knows it.
+    pub package: Option<String>,
+    /// The documents whose manifest depends on, or is, the declaring package. `None` lets
+    /// every row see the names: rows admitted without manifests.
+    pub documents: Option<BTreeSet<pse_ids::SemanticId>>,
+}
+impl PhysicalScope {
+    /// Whether rows of `document` see the physical names.
+    pub fn sees(&self, document: pse_ids::SemanticId) -> bool {
+        self.documents
+            .as_ref()
+            .is_none_or(|documents| documents.contains(&document))
+    }
+}
 /// Physical context supplied by admission; no registry is inferred from source literals.
 #[derive(Debug)]
 pub struct TypeContext<'a> {
-    /// Fully admitted reference physical registry.
+    /// Fully admitted reference physical registry, including its declared names.
     pub quantities: &'a QuantityRegistry,
     /// Admitted physical prerequisites; each use checks its actual operand contracts.
     pub preconditions: &'a pse_quantity::PhysicalPreconditions,
-    /// Package names bound to complete physical types.
-    pub names: &'a BTreeMap<String, QuantityTypeId>,
+    /// Which documents see the physical names.
+    pub scope: &'a PhysicalScope,
 }
 impl TypeContext<'_> {
     /// Resolve a declared type arena against the current lexical declaration and quantity
@@ -234,13 +253,7 @@ impl TypeContext<'_> {
                 match names.get(&name) {
                     Some(Type::Quantity(scheme)) => scheme.clone(),
                     Some(_) => return Err(invalid(at, format!("{name} is not a physical type"))),
-                    None => self
-                        .names
-                        .get(&name)
-                        .filter(|_| node.path().len() == 1)
-                        .copied()
-                        .map(Scheme::Concrete)
-                        .ok_or_else(|| invalid(at, format!("unknown type {name}")))?,
+                    None => return Err(invalid(at, format!("unknown type {name}"))),
                 }
             }
             _ => {

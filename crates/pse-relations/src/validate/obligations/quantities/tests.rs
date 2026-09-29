@@ -67,6 +67,7 @@ fn quantity(
     indexed: bool,
 ) -> quantity_types::Row {
     quantity_types::Row {
+        name: None,
         quantity_type_id: id(identity),
         quantity_kind_id: id(50),
         basis_id: None,

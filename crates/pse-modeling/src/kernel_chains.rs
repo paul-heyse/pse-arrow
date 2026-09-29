@@ -16,11 +16,13 @@ const MOLAR_CP: &str = "cd653ba98fa94d16b5d66b363f21c3d6";
 const DELTA_H: &str = "d5bb3d48b9804f2f8d5a6f0a7cadaee8";
 const DELTA_S: &str = "a9c45d0c2b764f4e87d1b95d5bc15da6";
 
+/// The standard registry and its physical names, which include `MolarCp`, `DeltaH` and
+/// `DeltaS` (ADR-0123 Outcome 6).
 fn names() -> (QuantityRegistry, BTreeMap<String, QuantityTypeId>) {
-    let (registry, mut names) = physical();
-    names.insert("MolarCp".into(), id(MOLAR_CP));
-    names.insert("DeltaH".into(), id(DELTA_H));
-    names.insert("DeltaS".into(), id(DELTA_S));
+    let (registry, names) = physical();
+    for (name, expected) in [("MolarCp", MOLAR_CP), ("DeltaH", DELTA_H), ("DeltaS", DELTA_S)] {
+        assert_eq!(names[name], id(expected), "{name}");
+    }
     (registry, names)
 }
 fn preconditions() -> pse_quantity::PhysicalPreconditions {
@@ -84,12 +86,12 @@ fn rpp4_ds(T0: Temperature, T: Temperature, a: MolarCp, b: MolarCp/Temperature, 
 
 #[test]
 fn seed_forms_type_without_intermediate_kinds() {
-    let (registry, names) = names();
+    let (registry, _) = names();
     let preconditions = preconditions();
     let context = TypeContext {
         preconditions: &preconditions,
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let checked = check(&source(FORMS), &context).unwrap();
     let function = |name: &str| &checked.functions[&checked.entry(name).unwrap()];
@@ -158,12 +160,16 @@ fn type_expression_resolves_by_monomial() {
     let context = TypeContext {
         preconditions: &preconditions,
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let at = DeclarationId::from(SemanticId::NIL);
+    let env = names
+        .iter()
+        .map(|(name, id)| (name.clone(), Type::Quantity(Scheme::Concrete(*id))))
+        .collect::<BTreeMap<_, _>>();
     let resolve = |text: &str| {
         let nodes = pse_authoring::language::parse_type(text, &[]).unwrap();
-        context.resolve(&nodes, &BTreeSet::new(), &BTreeMap::new(), at)
+        context.resolve(&nodes, &BTreeSet::new(), &env, at)
     };
     let squared = resolve("MolarCp/Temperature^2").unwrap();
     assert_eq!(
@@ -200,12 +206,12 @@ fn type_expression_resolves_by_monomial() {
 fn static_chains_evaluate_as_a_whole() {
     // Static evaluation types a chain once at its root: T³ alone names no kind, while
     // c3·T³/3 is a declared enthalpy increment (3·(400³ − 300³)/3 J/mol = 3.7e7 J/mol).
-    let (registry, names) = names();
+    let (registry, _) = names();
     let preconditions = preconditions();
     let context = TypeContext {
         preconditions: &preconditions,
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let execute = |h: &str| {
         let text = format!(
@@ -236,12 +242,12 @@ fn static_chains_evaluate_as_a_whole() {
 /// its registered rules. The factored closed form is exact.
 #[test]
 fn ds_increment_types_as_entropy_difference() {
-    let (registry, names) = names();
+    let (registry, _) = names();
     let preconditions = preconditions();
     let context = TypeContext {
         preconditions: &preconditions,
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     // Static evaluation of the same increment, inline: coefficients and bounds are
     // typed parameters, and the bounds bracket 125.66848739118448 J/(mol K), computed
@@ -290,12 +296,12 @@ fn ds_increment_types_as_entropy_difference() {
 
 #[test]
 fn returning_heat_capacity_where_entropy_is_expected_is_refused() {
-    let (registry, names) = names();
+    let (registry, _) = names();
     let preconditions = preconditions();
     let context = TypeContext {
         preconditions: &preconditions,
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let form = |body: &str| {
         check(

@@ -45,7 +45,7 @@ def package_row() -> dict[str, object]:
         "version": "1.0.0",
         "kind": "model",
         "id_policy": "explicit",
-        "dependencies": [{"package_id": "02" * 16, "version_req": "=1.0.0"}],
+        "dependencies": [{"package_id": "02" * 16, "version_req": {"operator": "exact", "major": 1, "minor": 0, "patch": 0}}],
         "content_hash": "blake3:" + "03" * 32,
         "doc": "nested fixture",
     }
@@ -66,7 +66,7 @@ def test_nested_generated_row_is_typed_and_frozen() -> None:
 @pytest.mark.unit
 def test_declared_dependency_collection_rejects_duplicates_and_accepts_empty() -> None:
     document = package_row()
-    item = {"package_id": "02" * 16, "version_req": "=1.0.0"}
+    item = {"package_id": "02" * 16, "version_req": {"operator": "exact", "major": 1, "minor": 0, "patch": 0}}
     document["dependencies"] = [item, item]
     with pytest.raises((ValueError, cattrs.BaseValidationError)):
         structure_rows([document], AuthoredPackagesRow)
@@ -114,7 +114,7 @@ def test_member_descriptor_is_one_named_structure() -> None:
 def test_nested_unknown_column_is_not_ignored() -> None:
     document = package_row()
     document["dependencies"] = [
-        {"package_id": "02" * 16, "version_req": "=1.0.0", "unchecked": True},
+        {"package_id": "02" * 16, "version_req": {"operator": "exact", "major": 1, "minor": 0, "patch": 0}, "unchecked": True},
     ]
     with pytest.raises(cattrs.BaseValidationError):
         structure_rows([document], AuthoredPackagesRow)

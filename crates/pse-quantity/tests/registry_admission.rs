@@ -42,6 +42,7 @@ fn kind(n: u8) -> QuantityKind {
 fn ty(n: u8) -> QuantityType {
     QuantityType {
         id: QuantityTypeId::from_id(raw(n)),
+        name: None,
         key: QuantityTypeKey {
             kind: QuantityKindId::from_id(raw(1)),
             basis: None,
@@ -205,13 +206,159 @@ fn neutral_binding_rejects_composition_obligations() {
         .neutral_dimensionless(ty(1).id);
     assert!(b.build().is_err());
 }
+/// A registry with absolute temperature and pressure types (K and Pa, and degC as an
+/// affine temperature unit) and a gauge-pressure type with a datum.
+fn conditions() -> QuantityRegistryBuilder {
+    let base = DimensionVector::base;
+    let pressure = base(BaseDimension::Mass)
+        .div(&base(BaseDimension::Length))
+        .unwrap()
+        .div(&base(BaseDimension::Time).pow(Ratio::new(2, 1).unwrap()).unwrap())
+        .unwrap();
+    let mut b = builder();
+    let typed = |n: u8, kind: u8, unit: u8, reference: Option<u8>| QuantityType {
+        id: QuantityTypeId::from_id(raw(n)),
+        name: None,
+        key: QuantityTypeKey {
+            kind: QuantityKindId::from_id(raw(kind)),
+            reference_state: reference.map(|r| ReferenceStateId::from_id(raw(r))),
+            ..ty(n).key
+        },
+        canonical_unit: UnitId::from_id(raw(unit)),
+        nominal_magnitude: None,
+    };
+    b.unit(unit(20, base(BaseDimension::Temperature)))
+        .unit(Unit {
+            offset_to_canonical: 273.15,
+            is_affine: true,
+            ..unit(21, base(BaseDimension::Temperature))
+        })
+        .unit(unit(22, pressure))
+        .kind(QuantityKind {
+            dimension: base(BaseDimension::Temperature),
+            ..kind(20)
+        })
+        .kind(QuantityKind {
+            dimension: pressure,
+            ..kind(22)
+        })
+        .quantity_type(typed(20, 20, 20, None))
+        .quantity_type(typed(22, 22, 22, None))
+        .quantity_type(typed(23, 22, 22, Some(9)))
+        .reference_state(ReferenceState {
+            id: ReferenceStateId::from_id(raw(9)),
+            name: "gauge".into(),
+            kind: ReferenceStateKind::Custom,
+            temperature: None,
+            pressure: None,
+            include_enthalpy_of_formation: false,
+            subject: None,
+        });
+    b
+}
+fn condition(value: f64, quantity: u8, unit: u8) -> ReferenceCondition {
+    ReferenceCondition {
+        value,
+        quantity_type: QuantityTypeId::from_id(raw(quantity)),
+        unit: UnitId::from_id(raw(unit)),
+    }
+}
+/// ADR-0123 Outcome 6: a reference state's temperature and pressure are typed values. The
+/// declared type states the dimension of the condition, as an absolute point without a
+/// datum; the unit converts to the type; the canonical value is finite and positive.
+#[test]
+fn reference_state_conditions_are_typed() {
+    let stock = ReferenceState {
+        id: ReferenceStateId::from_id(raw(1)),
+        name: "stock".into(),
+        kind: ReferenceStateKind::Custom,
+        temperature: Some(condition(25.0, 20, 21)),
+        pressure: Some(condition(101_325.0, 22, 22)),
+        include_enthalpy_of_formation: false,
+        subject: None,
+    };
+    let mut b = conditions();
+    b.reference_state(stock.clone());
+    let registry = b.build().unwrap();
+    let admitted = registry
+        .reference_state(ReferenceStateId::from_id(raw(1)))
+        .unwrap();
+    // 25 degC is 298.15 in the temperature type's canonical unit.
+    let temperature = registry
+        .reference_condition(&admitted.temperature.unwrap())
+        .unwrap();
+    assert!((temperature - 298.15).abs() < 1e-12, "{temperature}");
+    for refused in [
+        // A pressure type or unit states no temperature.
+        ReferenceState {
+            temperature: Some(condition(101_325.0, 22, 22)),
+            ..stock.clone()
+        },
+        ReferenceState {
+            temperature: Some(condition(298.15, 20, 22)),
+            ..stock.clone()
+        },
+        // A gauge type carries a datum; a condition is absolute.
+        ReferenceState {
+            pressure: Some(condition(0.0, 23, 22)),
+            ..stock.clone()
+        },
+        ReferenceState {
+            pressure: Some(condition(f64::NAN, 22, 22)),
+            ..stock.clone()
+        },
+        ReferenceState {
+            temperature: Some(condition(-300.0, 20, 21)),
+            ..stock.clone()
+        },
+    ] {
+        let mut b = conditions();
+        b.reference_state(refused.clone());
+        assert!(b.build().is_err(), "{refused:?}");
+    }
+}
+/// ADR-0123 Outcome 6: quantity types and reference states are named once, in one
+/// namespace of identifiers.
+#[test]
+fn physical_names_are_unique_identifiers() {
+    let named = |n: u8, name: &str| QuantityType {
+        name: Some(name.into()),
+        ..ty(n)
+    };
+    let shaped = |n: u8, name: &str, axes: usize| QuantityType {
+        key: QuantityTypeKey {
+            shape: vec![EntityKindId::from_id(raw(91)); axes],
+            ..ty(n).key
+        },
+        ..named(n, name)
+    };
+    let mut b = conditions();
+    b.quantity_type(shaped(2, "Scalar2", 1));
+    let registry = b.build().unwrap();
+    assert_eq!(
+        registry.physical_name("Scalar2"),
+        Some(PhysicalName::QuantityType(QuantityTypeId::from_id(raw(2))))
+    );
+    assert_eq!(
+        registry.physical_name("gauge"),
+        Some(PhysicalName::ReferenceState(ReferenceStateId::from_id(raw(9))))
+    );
+    assert_eq!(registry.physical_name("Scalar"), None);
+    for (name, other) in [("gauge", "Scalar3"), ("two words", "x"), ("Twice", "Twice")] {
+        let mut b = conditions();
+        b.quantity_type(shaped(2, name, 1))
+            .quantity_type(shaped(3, other, 2));
+        assert!(b.build().is_err(), "{name} {other}");
+    }
+}
 #[test]
 fn reference_states_and_standard_volume_bases_are_admitted_together() {
     let reference = ReferenceState {
         id: ReferenceStateId::from_id(raw(1)),
+        name: "standard".into(),
         kind: ReferenceStateKind::Custom,
-        temperature: Some(298.15),
-        pressure: Some(101_325.0),
+        temperature: None,
+        pressure: None,
         include_enthalpy_of_formation: true,
         subject: None,
     };
@@ -232,12 +379,6 @@ fn reference_states_and_standard_volume_bases_are_admitted_together() {
     b.basis(Basis {
         reference_conditions: None,
         ..basis
-    });
-    assert!(b.build().is_err());
-    let mut b = builder();
-    b.reference_state(ReferenceState {
-        pressure: Some(f64::NAN),
-        ..reference
     });
     assert!(b.build().is_err());
 }

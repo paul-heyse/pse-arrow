@@ -1842,6 +1842,11 @@ fn member_type(
                 .map(|ty| (ty, Some(member)))
                 .ok_or_else(|| invalid(at, "member type absent"))
         }
+        // ADR-0123 Outcome 6: a reference state's typed conditions.
+        Type::ReferenceState if matches!(name, "temperature" | "pressure") => Ok((
+            Type::Quantity(Scheme::Concrete(p.reference_attribute_type(name, at)?)),
+            None,
+        )),
         Type::Optional(_) => Err(invalid(
             at,
             "optional value must be guarded before member access",

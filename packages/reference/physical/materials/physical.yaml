@@ -4110,6 +4110,7 @@
   "quantity_types": [
     {
       "quantity_type_id": "444b0e3a605868226f322ae3a06f450e",
+      "name": "ActivationEnergy",
       "quantity_kind_id": "f0b65828f7769f742347b939ab579f07",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": null,
@@ -4122,6 +4123,7 @@
     },
     {
       "quantity_type_id": "459a933fd00837bbc50372e31ac9801c",
+      "name": "DeltaTemperature",
       "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
       "basis_id": null,
       "reference_state_id": null,
@@ -4134,6 +4136,7 @@
     },
     {
       "quantity_type_id": "4f842bb63da53a798dca2764c2c64ece",
+      "name": "MoleFraction",
       "quantity_kind_id": "8f4371dab851e04c2bca4625159cdfca",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": null,
@@ -4182,6 +4185,7 @@
     },
     {
       "quantity_type_id": "6df479e3be3bda77c5938727311f1063",
+      "name": "Flow",
       "quantity_kind_id": "a2b5006844e3f6b70dd5d84bcabf5f46",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": null,
@@ -4206,6 +4210,7 @@
     },
     {
       "quantity_type_id": "8ce2f0977877ae56c3712f710201be89",
+      "name": "ComponentFlow",
       "quantity_kind_id": "9ed4576374b1809385f72b1f33d17ee6",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": null,
@@ -4230,6 +4235,7 @@
     },
     {
       "quantity_type_id": "a0fa145fd8b2ecec448c39666960debc",
+      "name": "Pressure",
       "quantity_kind_id": "f789180fbded8b11fd73e2436d33fc9e",
       "basis_id": null,
       "reference_state_id": null,
@@ -4254,6 +4260,7 @@
     },
     {
       "quantity_type_id": "b6edcb08fc072d81a9f99b45f7f9c90a",
+      "name": "Density",
       "quantity_kind_id": "89a563673835109d4c3a68d4603bab31",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": null,
@@ -4266,6 +4273,7 @@
     },
     {
       "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "name": "Temperature",
       "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
       "basis_id": null,
       "reference_state_id": null,
@@ -4278,6 +4286,7 @@
     },
     {
       "quantity_type_id": "dc255c612cf27e30cb835377c8dafcf4",
+      "name": "Scalar",
       "quantity_kind_id": "244ab9399bc477e20aa4d0780b5b0d43",
       "basis_id": null,
       "reference_state_id": null,
@@ -4302,6 +4311,7 @@
     },
     {
       "quantity_type_id": "f7915376b5de04f118de80d4b6eba23d",
+      "name": "TemperatureScale",
       "quantity_kind_id": "abc39afbb0b7ad4d32ffa8ffd2bf11c0",
       "basis_id": null,
       "reference_state_id": null,
@@ -4340,6 +4350,7 @@
     },
     {
       "quantity_type_id": "cd653ba98fa94d16b5d66b363f21c3d6",
+      "name": "MolarCp",
       "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": null,
@@ -4388,6 +4399,7 @@
     },
     {
       "quantity_type_id": "0a5c3c4563964c8389c72e4344aed80e",
+      "name": "Volume",
       "quantity_kind_id": "c9f5ceb86a0c4842b220055099696f74",
       "basis_id": null,
       "reference_state_id": null,
@@ -4400,6 +4412,7 @@
     },
     {
       "quantity_type_id": "3920ffa71353463f9435aa67ac151577",
+      "name": "VolumeFlow",
       "quantity_kind_id": "c0b95c990b2945ee84d1d1ce2aab43f4",
       "basis_id": null,
       "reference_state_id": null,
@@ -4412,6 +4425,7 @@
     },
     {
       "quantity_type_id": "5945d169556c4e70bb5d7c4fcd2c2000",
+      "name": "MolarMass",
       "quantity_kind_id": "b623cb3b2d8740b2bfd8b69a332c753e",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": null,
@@ -4424,6 +4438,7 @@
     },
     {
       "quantity_type_id": "67cd93d093514a2e9f3f01c7519435d7",
+      "name": "TotalAmount",
       "quantity_kind_id": "4ae5c1106e204702a2fe6cb653624850",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": null,
@@ -4496,6 +4511,7 @@
     },
     {
       "quantity_type_id": "39bebc51897c494a9f7f84bf3962cb0e",
+      "name": "MolarDensity",
       "quantity_kind_id": "89a563673835109d4c3a68d4603bab31",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": null,
@@ -4942,6 +4958,7 @@
     },
     {
       "quantity_type_id": "1831d0d72dc74b299ba8ecb6d4da6f53",
+      "name": "MolarEnthalpy",
       "quantity_kind_id": "99263c30741ca81f1c4c3d4b987d4085",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
@@ -4954,6 +4971,7 @@
     },
     {
       "quantity_type_id": "e1f2106da9eb4fe0aa2749fa5469fa1a",
+      "name": "Power",
       "quantity_kind_id": "05408163cb6c117e9a1bc4a2cfe35cd2",
       "basis_id": null,
       "reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
@@ -4966,6 +4984,7 @@
     },
     {
       "quantity_type_id": "d5bb3d48b9804f2f8d5a6f0a7cadaee8",
+      "name": "DeltaH",
       "quantity_kind_id": "99263c30741ca81f1c4c3d4b987d4085",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
@@ -4978,6 +4997,7 @@
     },
     {
       "quantity_type_id": "571c90b8909e43c0ae859554cc2e3479",
+      "name": "MolarEntropy",
       "quantity_kind_id": "faa6f95459144650ac414fd389e16e27",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
@@ -4990,6 +5010,7 @@
     },
     {
       "quantity_type_id": "a9c45d0c2b764f4e87d1b95d5bc15da6",
+      "name": "DeltaS",
       "quantity_kind_id": "faa6f95459144650ac414fd389e16e27",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
@@ -5242,6 +5263,7 @@
     },
     {
       "quantity_type_id": "d3e8173d5c454d8b94388323bb7f05c2",
+      "name": "DeltaPressure",
       "quantity_kind_id": "f789180fbded8b11fd73e2436d33fc9e",
       "basis_id": null,
       "reference_state_id": null,
@@ -5254,6 +5276,7 @@
     },
     {
       "quantity_type_id": "12c45d05b6a64dd2ac6eb2f06ec816b1",
+      "name": "Amount",
       "quantity_kind_id": "4ae5c1106e204702a2fe6cb653624850",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": null,
@@ -5266,6 +5289,7 @@
     },
     {
       "quantity_type_id": "95a63d951afd459b9af1ef6bc6d53185",
+      "name": "Energy",
       "quantity_kind_id": "172d45499cbd4d8bbabc6c02c2a0f56b",
       "basis_id": null,
       "reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
@@ -5278,6 +5302,7 @@
     },
     {
       "quantity_type_id": "dec8e0f2063a46b79e62db4cd1b35714",
+      "name": "ElementFlow",
       "quantity_kind_id": "7999d370cdbf409f807a7c0f49ad6e47",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": null,
@@ -5340,6 +5365,7 @@
     },
     {
       "quantity_type_id": "01a0e1a32b1d71818c260dfd3598e7f1",
+      "name": "BtOracleEnthalpy",
       "quantity_kind_id": "99263c30741ca81f1c4c3d4b987d4085",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": "01a0e1a32b1d71818c260dfce3346e65",
@@ -5352,6 +5378,7 @@
     },
     {
       "quantity_type_id": "01a0e1a32b1e704d9e4dae253f015758",
+      "name": "BtOracleDeltaH",
       "quantity_kind_id": "99263c30741ca81f1c4c3d4b987d4085",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": "01a0e1a32b1d71818c260dfce3346e65",
@@ -5364,6 +5391,7 @@
     },
     {
       "quantity_type_id": "01a0e1b4f60f70fdb854e09cd23223cf",
+      "name": "PrOracleEnthalpy",
       "quantity_kind_id": "99263c30741ca81f1c4c3d4b987d4085",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": "01a0e1b4f60f70fdb854e09b635b800a",
@@ -5376,6 +5404,7 @@
     },
     {
       "quantity_type_id": "01a0e1b4f60f70fdb854e09d3407ccb3",
+      "name": "PrOracleDeltaH",
       "quantity_kind_id": "99263c30741ca81f1c4c3d4b987d4085",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": "01a0e1b4f60f70fdb854e09b635b800a",
@@ -5388,6 +5417,7 @@
     },
     {
       "quantity_type_id": "01a0e1b4f60f70fdb854e09e9bc0dc21",
+      "name": "PrOracleEntropy",
       "quantity_kind_id": "faa6f95459144650ac414fd389e16e27",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": "01a0e1b4f60f70fdb854e09b635b800a",
@@ -5400,6 +5430,7 @@
     },
     {
       "quantity_type_id": "01a0e1b4f60f70fdb854e09fec643c3c",
+      "name": "PrOracleDeltaS",
       "quantity_kind_id": "faa6f95459144650ac414fd389e16e27",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": "01a0e1b4f60f70fdb854e09b635b800a",
@@ -5412,6 +5443,7 @@
     },
     {
       "quantity_type_id": "01a0e1d9b0257478868a5b71bfbc9eda",
+      "name": "SecondOrderRateConstant",
       "quantity_kind_id": "01a0e1d9b0257478868a5b708be68f5f",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": null,
@@ -5424,6 +5456,7 @@
     },
     {
       "quantity_type_id": "01a0e1d9b0257478868a5b74c6980643",
+      "name": "VolumetricReactionRate",
       "quantity_kind_id": "01a0e1d9b0257478868a5b73ddaa56b5",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": null,
@@ -5436,6 +5469,7 @@
     },
     {
       "quantity_type_id": "01a0e1d9b0257478868a5b7538f4faa1",
+      "name": "ReactionHeat",
       "quantity_kind_id": "01a0e1d9b0257478868a5b76b9ec0724",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": null,
@@ -5448,6 +5482,7 @@
     },
     {
       "quantity_type_id": "8193343e102747128772c4662d3b8137",
+      "name": "Area",
       "quantity_kind_id": "46119e9ebe9b4158bbb2a508865fdc73",
       "basis_id": null,
       "reference_state_id": null,
@@ -5460,6 +5495,7 @@
     },
     {
       "quantity_type_id": "f5f10107ab6f4adcbb9586e169f75400",
+      "name": "HeatTransferCoefficient",
       "quantity_kind_id": "e168de566c8043459da3902316952ae5",
       "basis_id": null,
       "reference_state_id": null,
@@ -5472,6 +5508,7 @@
     },
     {
       "quantity_type_id": "d13792af7b964982a12b451f01d54033",
+      "name": "CapitalCost",
       "quantity_kind_id": "142eb18a2f374daf92fd3b248fe2f136",
       "basis_id": null,
       "reference_state_id": null,
@@ -5484,6 +5521,7 @@
     },
     {
       "quantity_type_id": "ed48fb533422432e9d81340da141da2e",
+      "name": "Length",
       "quantity_kind_id": "3b9239e54a9a4983bb444216f72daaaa",
       "basis_id": null,
       "reference_state_id": null,
@@ -5496,6 +5534,7 @@
     },
     {
       "quantity_type_id": "e2ccf6d0a394403db967f4f35b83cb7c",
+      "name": "Time",
       "quantity_kind_id": "46e7ff5d8b2e4a00b21e0b5c2ae28296",
       "basis_id": null,
       "reference_state_id": null,
@@ -5508,6 +5547,7 @@
     },
     {
       "quantity_type_id": "368c7ebb44ee45318fa572df5fe706b9",
+      "name": "Frequency",
       "quantity_kind_id": "b85f796885db43b3ae2b706d9922d0c1",
       "basis_id": null,
       "reference_state_id": null,
@@ -5520,6 +5560,7 @@
     },
     {
       "quantity_type_id": "3a8f6d2c9b1e4f7a8c5d0e3b6a9f2c18",
+      "name": "Count",
       "quantity_kind_id": "7c1d5e0a3b9f4e6c8a2d4f1b6e9c3a05",
       "basis_id": null,
       "reference_state_id": null,
@@ -5532,6 +5573,7 @@
     },
     {
       "quantity_type_id": "b5d9e1c4a7f2483e9d6c1b0a5e8f3d27",
+      "name": "Indicator",
       "quantity_kind_id": "9e4b2c7d1f6a4d3e8b5c0a9f2e7d1c64",
       "basis_id": null,
       "reference_state_id": null,
@@ -5630,36 +5672,72 @@
   "reference_states": [
     {
       "reference_state_id": "d24e51d1e5d8acdd6f01ab79f2139d9c",
+      "name": "package_datum",
       "kind": "custom",
-      "temperature": 298.15,
-      "pressure": 101325.0,
+      "temperature": {
+        "value": 298.15,
+        "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+        "unit_id": "92e0dd5b939210176bdc7dfc2e191d14"
+      },
+      "pressure": {
+        "value": 101325.0,
+        "quantity_type_id": "a0fa145fd8b2ecec448c39666960debc",
+        "unit_id": "5ef27d6bf2d172cc23a1f4da3a7ffa3b"
+      },
       "include_enthalpy_of_formation": false,
       "subject_id": null,
       "doc": "Explicit package datum 298.15 K and 101325 Pa; formation enthalpy excluded."
     },
     {
       "reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
+      "name": "stock",
       "kind": "ideal_gas_at_conditions",
-      "temperature": 298.15,
-      "pressure": 100000.0,
+      "temperature": {
+        "value": 298.15,
+        "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+        "unit_id": "92e0dd5b939210176bdc7dfc2e191d14"
+      },
+      "pressure": {
+        "value": 100000.0,
+        "quantity_type_id": "a0fa145fd8b2ecec448c39666960debc",
+        "unit_id": "5ef27d6bf2d172cc23a1f4da3a7ffa3b"
+      },
       "include_enthalpy_of_formation": false,
       "subject_id": null,
       "doc": "Stock thermochemistry at 298.15 K and 1 bar. Sensible component enthalpy is zero at reference; entropy uses explicitly supplied absolute standard component values. Correlation coefficients never choose a datum implicitly."
     },
     {
       "reference_state_id": "01a0e1a32b1d71818c260dfce3346e65",
+      "name": "bt_ideal_oracle",
       "kind": "custom",
-      "temperature": 300.0,
-      "pressure": 100000.0,
+      "temperature": {
+        "value": 300.0,
+        "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+        "unit_id": "92e0dd5b939210176bdc7dfc2e191d14"
+      },
+      "pressure": {
+        "value": 100000.0,
+        "quantity_type_id": "a0fa145fd8b2ecec448c39666960debc",
+        "unit_id": "5ef27d6bf2d172cc23a1f4da3a7ffa3b"
+      },
       "include_enthalpy_of_formation": true,
       "subject_id": null,
       "doc": "IDAES BTIdeal oracle enthalpy convention at 300 K and 1 bar, including supplied component formation enthalpies. Explicitly rebased to stock sensible enthalpy by the authored binding."
     },
     {
       "reference_state_id": "01a0e1b4f60f70fdb854e09b635b800a",
+      "name": "bt_pr_oracle",
       "kind": "custom",
-      "temperature": 298.15,
-      "pressure": 101325.0,
+      "temperature": {
+        "value": 298.15,
+        "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+        "unit_id": "92e0dd5b939210176bdc7dfc2e191d14"
+      },
+      "pressure": {
+        "value": 101325.0,
+        "quantity_type_id": "a0fa145fd8b2ecec448c39666960debc",
+        "unit_id": "5ef27d6bf2d172cc23a1f4da3a7ffa3b"
+      },
       "include_enthalpy_of_formation": true,
       "subject_id": null,
       "doc": "BT_PR oracle formation enthalpy and entropy at 298.15 K, 101325 Pa; authored reference conversion is explicit."

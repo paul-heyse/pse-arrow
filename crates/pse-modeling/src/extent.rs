@@ -202,7 +202,12 @@ impl CheckedPackage {
                 })
                 .sum::<usize>()
             + self.quantities.allocation_extent()
-            + map(&self.quantity_names, |n, _| n.capacity())
+            + self.scope.package.as_ref().map_or(0, String::capacity)
+            + self
+                .scope
+                .documents
+                .as_ref()
+                .map_or(0, |d| d.len() * (size_of::<pse_ids::SemanticId>() + 32))
             + self.lowered_functions.len() * (size_of::<pse_ids::SemanticId>() + 64)
             + map(&self.declarations, |_, v| v.heap_bytes())
             + map(&self.names, |n, _| n.capacity())

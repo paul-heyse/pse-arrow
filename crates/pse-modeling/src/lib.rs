@@ -20,7 +20,7 @@ pub use pse_authoring::language::{Declaration, Selected};
 use pse_ids::SemanticId;
 pub use specialize::{Bindings, Limits, SpecializedModel, specialize};
 pub use specialize::{DeclarationId, InstanceId};
-pub use types::{Type, TypeContext};
+pub use types::{PhysicalScope, Type, TypeContext};
 
 /// An attributable checking or specialization failure.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]

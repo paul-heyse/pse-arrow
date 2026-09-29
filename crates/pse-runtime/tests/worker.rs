@@ -73,12 +73,15 @@ fn sources() -> (BTreeMap<String, String>, BTreeMap<String, String>) {
 /// The sources of a one-document package over the physical primitives fixture.
 fn sources_of(source: &str) -> (BTreeMap<String, String>, BTreeMap<String, String>) {
     let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/packages");
-    let mut manifest = std::fs::read_to_string(fixtures.join("minimal_explicit/package.toml"))
+    let manifest = std::fs::read_to_string(fixtures.join("minimal_explicit/package.toml"))
         .unwrap()
-        .replace(r#"id_policy = "explicit""#, r#"id_policy = "named""#);
-    manifest.push_str(
-        "\n[[quantity_aliases]]\nname = \"Scalar\"\nquantity_type_id = \"1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f\"\n",
-    );
+        .replace(r#"id_policy = "explicit""#, r#"id_policy = "named""#)
+        // The primitives declare `Scalar`; depending on them makes it visible (ADR-0123
+        // Outcome 6).
+        .replace(
+            "dependencies = []",
+            r#"dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]"#,
+        );
     (
         texts(&fixtures.join("physical-primitives")),
         BTreeMap::from([
@@ -343,7 +346,7 @@ fn physical_with_indicator() -> BTreeMap<String, String> {
       "category": "indicator", "doc": "Zero-or-one decisions."}},"#
     );
     let ty = r#""quantity_types": [
-    {"quantity_type_id": "1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c",
+    {"quantity_type_id": "1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c", "name": "Indicator",
       "quantity_kind_id": "18181818181818181818181818181818", "basis_id": null,
       "reference_state_id": null, "scale_kind": "point", "shape": [], "subject_kind": null,
       "canonical_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a", "nominal_magnitude": null,
@@ -398,13 +401,9 @@ fn market_split() -> String {
     )
 }
 
-/// The modeling sources of `source` with `Scalar` and `Indicator` aliases.
+/// The modeling sources of `source`, which sees the primitives' `Scalar` and `Indicator`.
 fn discrete_sources(source: &str) -> BTreeMap<String, String> {
     let (_, mut modeling) = sources();
-    let manifest = modeling.get_mut("package.toml").unwrap();
-    manifest.push_str(
-        "\n[[quantity_aliases]]\nname = \"Indicator\"\nquantity_type_id = \"1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c\"\n",
-    );
     modeling.insert("models/root.pse".to_owned(), source.to_owned());
     modeling
 }

@@ -21,10 +21,6 @@ pub enum FactBatch {
     ),
     #[doc = stringify!(r#AuthoredObservations)]
     r#AuthoredObservations(Vec<super::r#authored::r#observations::Row>),
-    #[doc = stringify!(r#AuthoredPackageQuantityAliases)]
-    r#AuthoredPackageQuantityAliases(
-        Vec<super::r#authored::r#package_quantity_aliases::Row>,
-    ),
     #[doc = stringify!(r#AuthoredPackageUnitSets)]
     r#AuthoredPackageUnitSets(Vec<super::r#authored::r#package_unit_sets::Row>),
     #[doc = stringify!(r#AuthoredPackages)]
@@ -348,12 +344,6 @@ impl FactBatch {
                     18u8, 169u8, 98u8, 155u8, 27u8, 96u8,
                 ])
             }
-            Self::r#AuthoredPackageQuantityAliases(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    238u8, 181u8, 59u8, 157u8, 219u8, 60u8, 118u8, 16u8, 9u8, 153u8,
-                    81u8, 78u8, 148u8, 255u8, 12u8, 172u8,
-                ])
-            }
             Self::r#AuthoredPackageUnitSets(_) => {
                 pse_ids::SemanticId::from_bytes([
                     227u8, 111u8, 49u8, 18u8, 121u8, 184u8, 106u8, 6u8, 179u8, 192u8,
@@ -362,8 +352,8 @@ impl FactBatch {
             }
             Self::r#AuthoredPackages(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    195u8, 212u8, 67u8, 68u8, 165u8, 39u8, 40u8, 12u8, 50u8, 125u8, 4u8,
-                    66u8, 130u8, 190u8, 129u8, 203u8,
+                    8u8, 54u8, 224u8, 43u8, 223u8, 231u8, 15u8, 176u8, 101u8, 205u8,
+                    234u8, 77u8, 193u8, 35u8, 242u8, 48u8,
                 ])
             }
             Self::r#NormalizedPackageGraph(_) => {
@@ -488,14 +478,14 @@ impl FactBatch {
             }
             Self::r#ReferenceQuantityTypes(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    228u8, 11u8, 11u8, 173u8, 94u8, 208u8, 248u8, 198u8, 44u8, 56u8,
-                    224u8, 179u8, 227u8, 192u8, 189u8, 172u8,
+                    228u8, 124u8, 152u8, 191u8, 127u8, 7u8, 236u8, 14u8, 206u8, 64u8,
+                    148u8, 142u8, 112u8, 115u8, 24u8, 250u8,
                 ])
             }
             Self::r#ReferenceReferenceStates(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    86u8, 153u8, 55u8, 246u8, 1u8, 112u8, 46u8, 87u8, 44u8, 63u8, 47u8,
-                    79u8, 61u8, 244u8, 130u8, 128u8,
+                    32u8, 56u8, 150u8, 106u8, 246u8, 158u8, 30u8, 94u8, 91u8, 136u8, 3u8,
+                    122u8, 220u8, 2u8, 103u8, 160u8,
                 ])
             }
             Self::r#ReferenceSchemaColumns(_) => {
@@ -1026,7 +1016,6 @@ impl FactBatch {
             Self::r#AuthoredModelingDeclarations(rows) => rows.len(),
             Self::r#AuthoredNumericalRequirements(rows) => rows.len(),
             Self::r#AuthoredObservations(rows) => rows.len(),
-            Self::r#AuthoredPackageQuantityAliases(rows) => rows.len(),
             Self::r#AuthoredPackageUnitSets(rows) => rows.len(),
             Self::r#AuthoredPackages(rows) => rows.len(),
             Self::r#NormalizedPackageGraph(rows) => rows.len(),
@@ -1180,11 +1169,6 @@ impl FactBatch {
                 }
             }
             Self::r#AuthoredObservations(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredPackageQuantityAliases(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1769,10 +1753,6 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#AuthoredObservations(vec![row.clone()]))
             }
-            Self::r#AuthoredPackageQuantityAliases(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredPackageQuantityAliases(vec![row.clone()]))
-            }
             Self::r#AuthoredPackageUnitSets(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#AuthoredPackageUnitSets(vec![row.clone()]))
@@ -2294,17 +2274,6 @@ impl FactBatch {
                 }
             }
             (Self::r#AuthoredObservations(left), Self::r#AuthoredObservations(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredPackageQuantityAliases(left),
-                Self::r#AuthoredPackageQuantityAliases(right),
-            ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(left, right)
@@ -3511,13 +3480,6 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
-            Self::r#AuthoredPackageQuantityAliases(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
             Self::r#AuthoredPackageUnitSets(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -4369,20 +4331,6 @@ impl FactBatch {
                             &left.r#observation_id,
                             &right.r#observation_id,
                         )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredPackageQuantityAliases(left),
-                Self::r#AuthoredPackageQuantityAliases(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#package_id,
-                            &right.r#package_id,
-                        ) && crate::SemanticEq::semantic_eq(&left.r#name, &right.r#name)
                     }
                     _ => false,
                 }
@@ -6092,11 +6040,6 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#observation_id, &mut hash);
             }
-            Self::r#AuthoredPackageQuantityAliases(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#package_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#name, &mut hash);
-            }
             Self::r#AuthoredPackageUnitSets(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#package_id, &mut hash);
@@ -6679,13 +6622,6 @@ impl FactBatch {
             (
                 Self::r#AuthoredObservations(left),
                 Self::r#AuthoredObservations(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredPackageQuantityAliases(left),
-                Self::r#AuthoredPackageQuantityAliases(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -7451,9 +7387,6 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#AuthoredObservations(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredPackageQuantityAliases(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
             Self::r#AuthoredPackageUnitSets(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredPackages(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#NormalizedPackageGraph(rows) => crate::HeapUsage::heap_bytes(rows),

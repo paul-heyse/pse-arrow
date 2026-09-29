@@ -134,8 +134,9 @@ fn members(seed: &[(String, Vec<String>)], n: usize) -> Vec<String> {
         .collect()
 }
 
-/// The bench package's documents: its manifest, with the physical aliases its model names,
-/// and its authored model and tests for the registered workloads.
+/// The bench package's documents: its manifest, whose dependency on `pse.physical` lets its
+/// model name the physical quantity types, and its authored model and tests for the
+/// registered workloads.
 fn bench_package(seed: &[(String, Vec<String>)], workloads: &[Value]) -> BTreeMap<String, String> {
     let manifest = format!(
         "[package]\n\
@@ -145,15 +146,12 @@ fn bench_package(seed: &[(String, Vec<String>)], workloads: &[Value]) -> BTreeMa
          kind = \"model\"\n\
          id_policy = \"named\"\n\
          dependencies = [\n\
-         {{ package_id = \"01a0e1461e93764398a669e208f425e7\", version_req = \"=1.0.0\" }},\n\
-         {{ package_id = \"01a0e169482c760bbd985b849a06417d\", version_req = \"=1.0.0\" }},\n\
-         {{ package_id = \"ce317b088cc74ac89873845b0c086ea8\", version_req = \"=1.0.0\" }},\n\
-         {{ package_id = \"b27409be5572b8712e47db271fae28cd\", version_req = \"=1.0.0\" }},\n\
+         {{ package_id = \"01a0e1461e93764398a669e208f425e7\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
+         {{ package_id = \"01a0e169482c760bbd985b849a06417d\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
+         {{ package_id = \"ce317b088cc74ac89873845b0c086ea8\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
+         {{ package_id = \"b27409be5572b8712e47db271fae28cd\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
          ]\n\
-         doc = \"M1 preparation-scaling bench package (Plan 23 H2); synthetic rows are not physical data.\"\n\
-         [[quantity_aliases]]\nname = \"Scalar\"\nquantity_type_id = \"dc255c612cf27e30cb835377c8dafcf4\"\n\
-         [[quantity_aliases]]\nname = \"Pressure\"\nquantity_type_id = \"a0fa145fd8b2ecec448c39666960debc\"\n\
-         [[quantity_aliases]]\nname = \"DeltaH\"\nquantity_type_id = \"d5bb3d48b9804f2f8d5a6f0a7cadaee8\"\n"
+         doc = \"M1 preparation-scaling bench package (Plan 23 H2); synthetic rows are not physical data.\"\n"
     );
     BTreeMap::from([
         ("package.toml".to_owned(), manifest),

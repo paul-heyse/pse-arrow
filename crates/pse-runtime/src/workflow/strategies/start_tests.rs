@@ -13,7 +13,6 @@ use std::collections::BTreeMap;
 async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance() {
     let runtime = runtime();
     let physical = physical();
-    let neutral = physical.quantities().neutral_dimensionless().unwrap();
     let rows=pse_authoring::language::parse("package p {def Root {param threshold:Scalar=-3; var x:Scalar; eq square:x*x==4; annotation start x(1); annotation check x(x>threshold);}}",id(90),pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
     let root = rows
         .iter()
@@ -21,7 +20,7 @@ async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance()
         .unwrap()
         .declaration_id;
     let package = runtime
-        .modeling_package(rows, physical, BTreeMap::from([("Scalar".into(), neutral)]))
+        .modeling_package(rows, physical)
         .unwrap();
     let cancel = crate::CancelSource::new();
     let mut analysis = package
@@ -156,7 +155,6 @@ async fn root_package() -> (
 ) {
     let runtime = runtime();
     let physical = physical();
-    let neutral = physical.quantities().neutral_dimensionless().unwrap();
     let rows = pse_authoring::language::parse(
         "package p {def Root {var x:Scalar; eq square:x*x==4; annotation start x(1);}}",
         id(91),
@@ -170,7 +168,7 @@ async fn root_package() -> (
         .unwrap()
         .declaration_id;
     let package = runtime
-        .modeling_package(rows, physical, BTreeMap::from([("Scalar".into(), neutral)]))
+        .modeling_package(rows, physical)
         .unwrap();
     let cancel = crate::CancelSource::new();
     let analysis = package

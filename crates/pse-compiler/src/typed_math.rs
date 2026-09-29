@@ -1676,6 +1676,8 @@ mod tests {
         let scalar = ids::quantity(physical_name);
         let mut shaped = original.quantity_type(scalar).unwrap().clone();
         shaped.id = QuantityTypeId::from_id(SemanticId::from_bytes([91; 16]));
+        // A physical name is declared once; the shaped variant is unnamed.
+        shaped.name = None;
         shaped.key.shape = vec![
             standard_registry()
                 .unwrap()

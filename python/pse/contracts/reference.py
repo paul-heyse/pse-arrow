@@ -262,6 +262,7 @@ class ReferenceQuantityTypesRow:
     """Declared relation row or nested value."""
 
     quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     quantity_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     basis_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     reference_state_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
@@ -278,9 +279,10 @@ class ReferenceReferenceStatesRow:
     """Declared relation row or nested value."""
 
     reference_state_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     kind: e.ReferenceStateKind = attrs.field(validator=attrs.validators.instance_of(e.ReferenceStateKind))
-    temperature: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-    pressure: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    temperature: v.QuantityValue | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.QuantityValue)))
+    pressure: v.QuantityValue | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.QuantityValue)))
     include_enthalpy_of_formation: b.bool = attrs.field(validator=v.exact_type(b.bool))
     subject_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))

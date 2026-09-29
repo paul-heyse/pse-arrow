@@ -72,6 +72,10 @@ pub enum Value {
     Set(Vec<Value>),
     /// Ragged coordinate or table key.
     Tuple(Vec<Value>),
+    /// A named quantity type of the physical document (ADR-0123 Outcome 6).
+    QuantityType(QuantityTypeId),
+    /// A named reference state of the physical document (ADR-0123 Outcome 6).
+    ReferenceState(pse_quantity::ReferenceStateId),
     /// Explicit absence, never numeric zero.
     Missing,
 }
@@ -130,6 +134,12 @@ impl Value {
                 for x in v {
                     x.frame(h);
                 }
+            }
+            Self::QuantityType(id) => {
+                h.str("quantity-type").id(&id.as_id());
+            }
+            Self::ReferenceState(id) => {
+                h.str("reference-state").id(&id.as_id());
             }
             Self::Missing => {
                 h.str("missing");
@@ -339,10 +349,16 @@ impl Evaluator<'_, '_> {
         if let Some(v) = self.env.get(name) {
             return Ok(v.clone());
         }
-        let id = self
-            .package
-            .resolve(self.at, name)
-            .ok_or_else(|| invalid(self.at, format!("missing static binding {name}")))?;
+        let Some(id) = self.package.resolve(self.at, name) else {
+            // ADR-0123 Outcome 6: a physical name the owning package sees.
+            return match self.package.physical_name(self.at, name) {
+                Some(pse_quantity::PhysicalName::QuantityType(id)) => Ok(Value::QuantityType(id)),
+                Some(pse_quantity::PhysicalName::ReferenceState(id)) => {
+                    Ok(Value::ReferenceState(id))
+                }
+                None => Err(invalid(self.at, format!("missing static binding {name}"))),
+            };
+        };
         if self.stack.contains(&id) {
             return Err(invalid(
                 id,
@@ -397,6 +413,45 @@ impl Evaluator<'_, '_> {
         self.at = saved_at;
         self.stack.pop();
         value
+    }
+    /// A reference state's typed condition, in its quantity type's canonical unit
+    /// (ADR-0123 Outcome 6).
+    fn reference_condition(
+        &self,
+        state: pse_quantity::ReferenceStateId,
+        attribute: &str,
+    ) -> Result<Value> {
+        let quantities = self.physical.quantities;
+        let reference = quantities
+            .reference_state(state)
+            .map_err(|e| invalid(self.at, e.to_string()))?;
+        let condition = match attribute {
+            "temperature" => reference.temperature,
+            "pressure" => reference.pressure,
+            _ => {
+                return Err(invalid(
+                    self.at,
+                    format!("a reference state has no attribute {attribute}"),
+                ));
+            }
+        }
+        .ok_or_else(|| {
+            invalid(
+                self.at,
+                format!("reference state {} declares no {attribute}", reference.name),
+            )
+        })?;
+        let expected = self.package.reference_attribute_type(attribute, self.at)?;
+        if condition.quantity_type != expected {
+            return Err(invalid(self.at, "reference condition type"));
+        }
+        let value = quantities
+            .reference_condition(&condition)
+            .map_err(|e| invalid(self.at, e.to_string()))?;
+        Ok(Value::Number {
+            bits: value.to_bits(),
+            quantity: condition.quantity_type,
+        })
     }
     /// The complete type of a static arithmetic result, inferred at its root.
     fn typed_result(&self, e: &Expr, result: f64, expected: Option<&Type>) -> Result<Value> {
@@ -635,7 +690,23 @@ impl Evaluator<'_, '_> {
                         }
                         return Err(invalid(id, "unknown enumeration member"));
                     }
-                    let (count, mut value) = match definition_prefix {
+                    // A qualified physical name, `<package>.<Name>`, before its attributes.
+                    let physical_prefix = (2..path.segments.len()).rev().find_map(|count| {
+                        let prefix = path.segments[..count]
+                            .iter()
+                            .map(|s| s.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(".");
+                        match self.package.physical_name(self.at, &prefix)? {
+                            pse_quantity::PhysicalName::ReferenceState(id) => {
+                                Some((count, Value::ReferenceState(id)))
+                            }
+                            pse_quantity::PhysicalName::QuantityType(id) => {
+                                Some((count, Value::QuantityType(id)))
+                            }
+                        }
+                    });
+                    let (count, mut value) = match definition_prefix.or(physical_prefix) {
                         Some(value) => value,
                         None => (1, self.reference(&first.name, depth + 1)?),
                     };
@@ -691,6 +762,9 @@ impl Evaluator<'_, '_> {
                                 self.at = saved;
                                 self.stack.pop();
                                 result?
+                            }
+                            Value::ReferenceState(id) => {
+                                self.reference_condition(id, &segment.name)?
                             }
                             Value::Missing => {
                                 return Err(invalid(
@@ -1292,6 +1366,8 @@ pub(crate) fn value_type(value: &Value) -> Option<Type> {
             .map(value_type)
             .collect::<Option<Vec<_>>>()
             .map(Type::Tuple),
+        Value::QuantityType(_) => Some(Type::QuantityType),
+        Value::ReferenceState(_) => Some(Type::ReferenceState),
         Value::Function(_) | Value::Missing => None,
     }
 }

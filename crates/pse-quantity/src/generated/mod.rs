@@ -73,25 +73,25 @@ const ID_244: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_103: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0e1a32b1d71818c260dfce3346e65_u128.to_be_bytes(),
 );
-const ID_105: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_107: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0e1a32b1d71818c260dfd3598e7f1_u128.to_be_bytes(),
 );
-const ID_106: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_108: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0e1a32b1e704d9e4dae253f015758_u128.to_be_bytes(),
 );
-const ID_104: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_106: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0e1b4f60f70fdb854e09b635b800a_u128.to_be_bytes(),
 );
-const ID_107: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_109: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0e1b4f60f70fdb854e09cd23223cf_u128.to_be_bytes(),
 );
-const ID_108: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_110: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0e1b4f60f70fdb854e09d3407ccb3_u128.to_be_bytes(),
 );
-const ID_109: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_111: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0e1b4f60f70fdb854e09e9bc0dc21_u128.to_be_bytes(),
 );
-const ID_110: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_112: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0e1b4f60f70fdb854e09fec643c3c_u128.to_be_bytes(),
 );
 const ID_246: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -127,16 +127,16 @@ const ID_255: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_54: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0e1d9b0257478868a5b708be68f5f_u128.to_be_bytes(),
 );
-const ID_111: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_113: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0e1d9b0257478868a5b71bfbc9eda_u128.to_be_bytes(),
 );
 const ID_55: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0e1d9b0257478868a5b73ddaa56b5_u128.to_be_bytes(),
 );
-const ID_112: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_114: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0e1d9b0257478868a5b74c6980643_u128.to_be_bytes(),
 );
-const ID_113: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_115: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0e1d9b0257478868a5b7538f4faa1_u128.to_be_bytes(),
 );
 const ID_56: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -208,31 +208,31 @@ const ID_13: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_57: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0ede7d15f73b7a48eec327dd1aaa4_u128.to_be_bytes(),
 );
-const ID_114: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_116: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0ede7d15f73b7a48eec330d1c9906_u128.to_be_bytes(),
 );
 const ID_60: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0ede7d15f73b7a48eec3460d43db5_u128.to_be_bytes(),
 );
-const ID_115: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_117: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0ede7d15f73b7a48eec355dd7f3f0_u128.to_be_bytes(),
 );
 const ID_61: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0ede7d15f73b7a48eec36239dba56_u128.to_be_bytes(),
 );
-const ID_116: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_118: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0ede7d15f73b7a48eec3774be08a7_u128.to_be_bytes(),
 );
 const ID_62: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0ede7d15f73b7a48eec382896e473_u128.to_be_bytes(),
 );
-const ID_117: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_119: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0ede7d15f73b7a48eec39a39397fd_u128.to_be_bytes(),
 );
 const ID_63: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0ede7d15f73b7a48eec3abb846fca_u128.to_be_bytes(),
 );
-const ID_118: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_120: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0ede7d15f73b7a48eec3b81e80346_u128.to_be_bytes(),
 );
 const ID_64: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -241,10 +241,10 @@ const ID_64: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_65: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0ee03d43674589ac9f749f527cd8c_u128.to_be_bytes(),
 );
-const ID_119: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_121: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0ee03d43674589ac9f74a31200230_u128.to_be_bytes(),
 );
-const ID_120: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_122: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01a0ee03d43674589ac9f74b1975e94e_u128.to_be_bytes(),
 );
 const ID_276: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -286,16 +286,16 @@ const ID_14: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_287: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x05b44bcbbe51470e9b36194623bf507c_u128.to_be_bytes(),
 );
-const ID_121: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_123: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x05bf9acdf51d4a9fbd42484fb09967a3_u128.to_be_bytes(),
 );
-const ID_122: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_124: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x05f6a46fb8444cf5a68e129b87b5c2e6_u128.to_be_bytes(),
 );
-const ID_123: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_125: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x06e81d8e6655455b98a554360d7abcdf_u128.to_be_bytes(),
 );
-const ID_124: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_126: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x082718107f9d49b49c64b0a74090aa58_u128.to_be_bytes(),
 );
 const ID_290: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -304,10 +304,10 @@ const ID_290: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_293: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x0929870a51dbb0dc359e8e65670a055e_u128.to_be_bytes(),
 );
-const ID_125: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_127: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x09dad555ca594f61816239536cad1d25_u128.to_be_bytes(),
 );
-const ID_126: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_128: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x0a5c3c4563964c8389c72e4344aed80e_u128.to_be_bytes(),
 );
 const ID_294: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -334,10 +334,10 @@ const ID_297: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_67: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x0e37e9effdac41b5aa5b33150a12db09_u128.to_be_bytes(),
 );
-const ID_127: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_129: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x0f83c0a2bffb4cd09c7f727ae6c42d20_u128.to_be_bytes(),
 );
-const ID_128: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_130: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x11a07d5c43da49afbf360f3b404ce9ca_u128.to_be_bytes(),
 );
 const ID_339: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -346,13 +346,13 @@ const ID_339: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_300: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x12258c6b333dfa36720308c4c973a6e8_u128.to_be_bytes(),
 );
-const ID_129: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_131: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x12c45d05b6a64dd2ac6eb2f06ec816b1_u128.to_be_bytes(),
 );
 const ID_21: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x1404082cae27874bc68e432be49c0bd5_u128.to_be_bytes(),
 );
-const ID_130: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_132: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x141340d1a636485eace4c8fe036ceb28_u128.to_be_bytes(),
 );
 const ID_301: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -361,28 +361,28 @@ const ID_301: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_68: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x142eb18a2f374daf92fd3b248fe2f136_u128.to_be_bytes(),
 );
-const ID_131: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_133: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x1652036bc6194392a271d9b0b16af21d_u128.to_be_bytes(),
 );
 const ID_69: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x172d45499cbd4d8bbabc6c02c2a0f56b_u128.to_be_bytes(),
 );
-const ID_132: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_134: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x1787570a241c443c88570b56048ab99d_u128.to_be_bytes(),
 );
 const ID_302: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x17bb5d3ef267894a556192869c739d49_u128.to_be_bytes(),
 );
-const ID_133: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_135: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x1831d0d72dc74b299ba8ecb6d4da6f53_u128.to_be_bytes(),
 );
-const ID_134: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_136: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x19f5822654e94307b8e028194c968c76_u128.to_be_bytes(),
 );
-const ID_135: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_137: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x1a62994b6ff14c768e2598697ebb4c8a_u128.to_be_bytes(),
 );
-const ID_136: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_138: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x1bba41b6bde74878a042944e56c24ce5_u128.to_be_bytes(),
 );
 const ID_1: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -403,7 +403,7 @@ const ID_306: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_2: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x1fe263f6a81d4a9fb4584520b4dd4a0b_u128.to_be_bytes(),
 );
-const ID_137: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_139: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x2085b2ed4fd6467db7df6cca9854123e_u128.to_be_bytes(),
 );
 const ID_400: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -418,7 +418,7 @@ const ID_333: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_70: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x223e3a3419af1afad5ca8d61823beec1_u128.to_be_bytes(),
 );
-const ID_138: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_140: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x22e8342ee9ca4c82aa86bd6c80a31eb4_u128.to_be_bytes(),
 );
 const ID_71: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -475,22 +475,22 @@ const ID_365: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_407: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x354915a035aa4556b7c09f5975335887_u128.to_be_bytes(),
 );
-const ID_139: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_141: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x368c7ebb44ee45318fa572df5fe706b9_u128.to_be_bytes(),
 );
 const ID_24: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x390c3451e52c94f706832e51fdbf151d_u128.to_be_bytes(),
 );
-const ID_140: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_142: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x3920ffa71353463f9435aa67ac151577_u128.to_be_bytes(),
 );
-const ID_141: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_143: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x39bebc51897c494a9f7f84bf3962cb0e_u128.to_be_bytes(),
 );
-const ID_142: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_144: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x3a8f6d2c9b1e4f7a8c5d0e3b6a9f2c18_u128.to_be_bytes(),
 );
-const ID_143: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_145: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x3ae575cce0384da680f75e974b6a5df3_u128.to_be_bytes(),
 );
 const ID_378: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -499,7 +499,7 @@ const ID_378: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_73: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x3b9239e54a9a4983bb444216f72daaaa_u128.to_be_bytes(),
 );
-const ID_144: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_146: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x3bb75d503e0e4e54ba44c06ada9d2004_u128.to_be_bytes(),
 );
 const ID_323: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -508,7 +508,7 @@ const ID_323: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_102: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x3d39297dc34f41d18a13d6cd29784f95_u128.to_be_bytes(),
 );
-const ID_145: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_147: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x3f83dbf632a24b9f972af97a12ed0117_u128.to_be_bytes(),
 );
 const ID_375: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -520,13 +520,13 @@ const ID_58: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_25: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x42a671644390a59b1fc2c76bb60193fa_u128.to_be_bytes(),
 );
-const ID_146: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_148: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x444b0e3a605868226f322ae3a06f450e_u128.to_be_bytes(),
 );
-const ID_147: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_149: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x4510a87f54c74825b28ac795a45a8847_u128.to_be_bytes(),
 );
-const ID_148: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_150: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x459a933fd00837bbc50372e31ac9801c_u128.to_be_bytes(),
 );
 const ID_74: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -538,7 +538,7 @@ const ID_75: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_314: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x48a4bcac73914cc9a085f140a48b34a1_u128.to_be_bytes(),
 );
-const ID_149: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_151: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x48d20f75a8f44ff1bf187f295d7a48d1_u128.to_be_bytes(),
 );
 const ID_327: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -547,13 +547,13 @@ const ID_327: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_329: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x49ba5ab0a43d435496559c2063c5da6e_u128.to_be_bytes(),
 );
-const ID_150: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_152: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x4a35c10eb2964b778296ef56cd64ab2a_u128.to_be_bytes(),
 );
 const ID_76: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x4ae5c1106e204702a2fe6cb653624850_u128.to_be_bytes(),
 );
-const ID_151: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_153: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x4b2f172f8eaf440e983e739f9d22e0ae_u128.to_be_bytes(),
 );
 const ID_332: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -565,10 +565,10 @@ const ID_364: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_334: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x4dedb313d21745e6ad582904f7603083_u128.to_be_bytes(),
 );
-const ID_152: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_154: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x4f842bb63da53a798dca2764c2c64ece_u128.to_be_bytes(),
 );
-const ID_153: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_155: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x4fa622c4dfa34feb8de348b0cfb5b1c9_u128.to_be_bytes(),
 );
 const ID_336: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -577,28 +577,28 @@ const ID_336: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_26: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x5322364702c4dd0cf550863c7c0cc121_u128.to_be_bytes(),
 );
-const ID_154: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_156: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x53279f3ced4148358959c5cfcc1c2843_u128.to_be_bytes(),
 );
-const ID_155: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_157: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x53af9ca34ba94d1687a9cd89083b7c74_u128.to_be_bytes(),
 );
 const ID_331: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x541aff8cf87a430c820b2bde0faac3fb_u128.to_be_bytes(),
 );
-const ID_156: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_158: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x545b96856a0c4c739842bcbd1e11d704_u128.to_be_bytes(),
 );
-const ID_157: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_159: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x553e33a36c6245619508d88d585c148b_u128.to_be_bytes(),
 );
-const ID_158: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_160: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x55594bd5bd4a68a69d5f2905939f56e3_u128.to_be_bytes(),
 );
 const ID_292: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x555c827b488e43408adb44abbc6ef848_u128.to_be_bytes(),
 );
-const ID_159: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_161: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x571c90b8909e43c0ae859554cc2e3479_u128.to_be_bytes(),
 );
 const ID_338: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -613,7 +613,7 @@ const ID_59: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_341: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x57ff14857b954c3c94bd9bc27ff71679_u128.to_be_bytes(),
 );
-const ID_160: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_162: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x5945d169556c4e70bb5d7c4fcd2c2000_u128.to_be_bytes(),
 );
 const ID_28: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -631,7 +631,7 @@ const ID_344: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_337: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x5b821f2dca7a49a8a320003227229c1e_u128.to_be_bytes(),
 );
-const ID_161: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_163: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x5bca75f213c8488aa2b0aa3c35b442df_u128.to_be_bytes(),
 );
 const ID_352: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -649,19 +649,19 @@ const ID_30: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_325: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x5fb265684ac54237b0c5eccccebaf640_u128.to_be_bytes(),
 );
-const ID_162: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_164: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x5fcd5a06196548f6a9ea9df50bf131f0_u128.to_be_bytes(),
 );
 const ID_396: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x618482cf5cd34ebbab39ec5ffe07576d_u128.to_be_bytes(),
 );
-const ID_163: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_165: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x63a6d5d8add842d4848b7ee99b39b4d7_u128.to_be_bytes(),
 );
 const ID_389: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x63b559d62a2b4093a497578cf9a465d5_u128.to_be_bytes(),
 );
-const ID_164: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_166: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x642c8c94364c7b23d2a737628f256580_u128.to_be_bytes(),
 );
 const ID_347: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -670,7 +670,7 @@ const ID_347: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_78: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x65af5b931e46425f8e5797144491640e_u128.to_be_bytes(),
 );
-const ID_165: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_167: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x67cd93d093514a2e9f3f01c7519435d7_u128.to_be_bytes(),
 );
 const ID_349: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -685,7 +685,7 @@ const ID_403: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_31: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x6c6f8deca198f4660f039d926c317b43_u128.to_be_bytes(),
 );
-const ID_166: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_168: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x6df479e3be3bda77c5938727311f1063_u128.to_be_bytes(),
 );
 const ID_353: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -727,13 +727,13 @@ const ID_345: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_80: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x7c1d5e0a3b9f4e6c8a2d4f1b6e9c3a05_u128.to_be_bytes(),
 );
-const ID_167: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_169: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x7c912b3c709e4fe690d5897be9bc4329_u128.to_be_bytes(),
 );
 const ID_6: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x7d986668d824439f9b5828046038365d_u128.to_be_bytes(),
 );
-const ID_168: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_170: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x7dd2acabbc2a4dce9195a2f67af40261_u128.to_be_bytes(),
 );
 const ID_36: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -748,13 +748,13 @@ const ID_368: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_38: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x80ef33b1eb464d3baed688b08ca1ec04_u128.to_be_bytes(),
 );
-const ID_169: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_171: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x8193343e102747128772c4662d3b8137_u128.to_be_bytes(),
 );
 const ID_362: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x8330f038c31944778201f4d2b274f1c4_u128.to_be_bytes(),
 );
-const ID_170: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_172: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x83324baf96b643418233489deb5d8a14_u128.to_be_bytes(),
 );
 const ID_358: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -769,7 +769,7 @@ const ID_354: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_32: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x8603b85ce543b8a618530ae4e9153091_u128.to_be_bytes(),
 );
-const ID_171: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_173: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x873515896891417ebbee98c18b59ba33_u128.to_be_bytes(),
 );
 const ID_289: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -778,10 +778,10 @@ const ID_289: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_39: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x886453ffbfd13e2fd10d6e1d1828395d_u128.to_be_bytes(),
 );
-const ID_172: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_174: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x89248e0d0a55e73fe378d8af87a26900_u128.to_be_bytes(),
 );
-const ID_173: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_175: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x899354057d474a1ab027860e1b3a18ea_u128.to_be_bytes(),
 );
 const ID_81: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -793,28 +793,28 @@ const ID_361: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_355: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x8c6c144db7785d951523144a49699515_u128.to_be_bytes(),
 );
-const ID_174: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_176: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x8ce2f0977877ae56c3712f710201be89_u128.to_be_bytes(),
 );
-const ID_175: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_177: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x8cfff60a6d4a4265b4c06729551fcfc9_u128.to_be_bytes(),
 );
-const ID_176: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_178: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x8d06e53709bca40bc924c0c4bb945e24_u128.to_be_bytes(),
 );
 const ID_82: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x8f4371dab851e04c2bca4625159cdfca_u128.to_be_bytes(),
 );
-const ID_177: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_179: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x8f6bb02a27e24a319b7632513d8c0628_u128.to_be_bytes(),
 );
-const ID_178: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_180: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x91aa112c29f04f43ac35ec87efa066a3_u128.to_be_bytes(),
 );
 const ID_356: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x92012d63542b7b384ac7ebeec3c39eda_u128.to_be_bytes(),
 );
-const ID_179: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_181: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x923c9c3922bf4672bed230410b7f73e0_u128.to_be_bytes(),
 );
 const ID_19: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -829,13 +829,13 @@ const ID_321: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_410: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x9412c063b93d4445879a87b5746f4b20_u128.to_be_bytes(),
 );
-const ID_180: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_182: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x94b88c5bead5458629c2afc11ffcff20_u128.to_be_bytes(),
 );
 const ID_15: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x94e71aed4ef8d26cd686cf578884d940_u128.to_be_bytes(),
 );
-const ID_181: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_183: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x95a63d951afd459b9af1ef6bc6d53185_u128.to_be_bytes(),
 );
 const ID_357: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -859,7 +859,7 @@ const ID_85: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_86: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x9e4b2c7d1f6a4d3e8b5c0a9f2e7d1c64_u128.to_be_bytes(),
 );
-const ID_182: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_184: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x9e9394478ebd4141ac83d5f6cb1886ad_u128.to_be_bytes(),
 );
 const ID_87: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -868,7 +868,7 @@ const ID_87: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_366: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xa08e98a607c84171a4b6a47ac52a2930_u128.to_be_bytes(),
 );
-const ID_183: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_105: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xa0fa145fd8b2ecec448c39666960debc_u128.to_be_bytes(),
 );
 const ID_7: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -877,7 +877,7 @@ const ID_7: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_88: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xa2b5006844e3f6b70dd5d84bcabf5f46_u128.to_be_bytes(),
 );
-const ID_184: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_185: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xa37400111065e4e8233dd19eede0e608_u128.to_be_bytes(),
 );
 const ID_89: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -907,7 +907,7 @@ const ID_42: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_330: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xa97d390095d947699545a5c12c6bfd16_u128.to_be_bytes(),
 );
-const ID_185: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_186: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xa9c45d0c2b764f4e87d1b95d5bc15da6_u128.to_be_bytes(),
 );
 const ID_90: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -925,7 +925,7 @@ const ID_377: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_371: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xafa09a4cef7749c19e18db7126a7e660_u128.to_be_bytes(),
 );
-const ID_186: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_187: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xb0a41e1aea704dd498e5289720965abf_u128.to_be_bytes(),
 );
 const ID_44: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -946,7 +946,7 @@ const ID_380: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_8: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xb51af2741ddc495e81c3e03af443ea4b_u128.to_be_bytes(),
 );
-const ID_187: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_188: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xb5d9e1c4a7f2483e9d6c1b0a5e8f3d27_u128.to_be_bytes(),
 );
 const ID_91: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -955,7 +955,7 @@ const ID_91: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_283: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xb656f080a3254189ab6eae4b0405d643_u128.to_be_bytes(),
 );
-const ID_188: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_189: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xb6edcb08fc072d81a9f99b45f7f9c90a_u128.to_be_bytes(),
 );
 const ID_45: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -964,7 +964,7 @@ const ID_45: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_92: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xb85f796885db43b3ae2b706d9922d0c1_u128.to_be_bytes(),
 );
-const ID_189: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_190: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xb89522815ec24d6db4c2949ca9631d46_u128.to_be_bytes(),
 );
 const ID_46: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -973,19 +973,19 @@ const ID_46: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_310: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xbb255152fd114160a3bf860557a751ea_u128.to_be_bytes(),
 );
-const ID_190: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_191: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xbd1e715f0b004da285a65c8f9eac4b6e_u128.to_be_bytes(),
 );
-const ID_191: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_192: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xbeb5fa3c6225463789c4edc09f258f40_u128.to_be_bytes(),
 );
 const ID_382: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xbf86c062f4e3d4a0039f0694c839eed7_u128.to_be_bytes(),
 );
-const ID_192: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_193: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xbfb69b620cc244389ed413a3a52054fe_u128.to_be_bytes(),
 );
-const ID_193: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_194: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xc090f93e2d0d4e528944b2fc20174666_u128.to_be_bytes(),
 );
 const ID_93: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -1003,7 +1003,7 @@ const ID_346: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_384: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xc44413b4b74e47039bb5a52f10e14c5f_u128.to_be_bytes(),
 );
-const ID_194: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_104: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xc64b96975a4a59755f8711d3bf628bc9_u128.to_be_bytes(),
 );
 const ID_195: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -2307,68 +2307,79 @@ fn append_1(
     });
     b.reference_state(crate::ReferenceState {
         id: crate::ReferenceStateId::from_id(ID_103),
+        name: "bt_ideal_oracle".to_owned(),
         kind: crate::ReferenceStateKind::Custom,
-        temperature: Some(f64::from_bits(0x4072_c000_0000_0000_u64)),
-        pressure: Some(f64::from_bits(0x40f8_6a00_0000_0000_u64)),
+        temperature: Some(crate::ReferenceCondition {
+            value: f64::from_bits(0x4072_c000_0000_0000_u64),
+            quantity_type: crate::QuantityTypeId::from_id(ID_104),
+            unit: crate::UnitId::from_id(ID_19),
+        }),
+        pressure: Some(crate::ReferenceCondition {
+            value: f64::from_bits(0x40f8_6a00_0000_0000_u64),
+            quantity_type: crate::QuantityTypeId::from_id(ID_105),
+            unit: crate::UnitId::from_id(ID_30),
+        }),
         include_enthalpy_of_formation: true,
         subject: None,
     });
     b.reference_state(crate::ReferenceState {
-        id: crate::ReferenceStateId::from_id(ID_104),
+        id: crate::ReferenceStateId::from_id(ID_106),
+        name: "bt_pr_oracle".to_owned(),
         kind: crate::ReferenceStateKind::Custom,
-        temperature: Some(f64::from_bits(0x4072_a266_6666_6666_u64)),
-        pressure: Some(f64::from_bits(0x40f8_bcd0_0000_0000_u64)),
+        temperature: Some(crate::ReferenceCondition {
+            value: f64::from_bits(0x4072_a266_6666_6666_u64),
+            quantity_type: crate::QuantityTypeId::from_id(ID_104),
+            unit: crate::UnitId::from_id(ID_19),
+        }),
+        pressure: Some(crate::ReferenceCondition {
+            value: f64::from_bits(0x40f8_bcd0_0000_0000_u64),
+            quantity_type: crate::QuantityTypeId::from_id(ID_105),
+            unit: crate::UnitId::from_id(ID_30),
+        }),
         include_enthalpy_of_formation: true,
         subject: None,
     });
     b.reference_state(crate::ReferenceState {
         id: crate::ReferenceStateId::from_id(ID_27),
+        name: "package_datum".to_owned(),
         kind: crate::ReferenceStateKind::Custom,
-        temperature: Some(f64::from_bits(0x4072_a266_6666_6666_u64)),
-        pressure: Some(f64::from_bits(0x40f8_bcd0_0000_0000_u64)),
+        temperature: Some(crate::ReferenceCondition {
+            value: f64::from_bits(0x4072_a266_6666_6666_u64),
+            quantity_type: crate::QuantityTypeId::from_id(ID_104),
+            unit: crate::UnitId::from_id(ID_19),
+        }),
+        pressure: Some(crate::ReferenceCondition {
+            value: f64::from_bits(0x40f8_bcd0_0000_0000_u64),
+            quantity_type: crate::QuantityTypeId::from_id(ID_105),
+            unit: crate::UnitId::from_id(ID_30),
+        }),
         include_enthalpy_of_formation: false,
         subject: None,
     });
     b.reference_state(crate::ReferenceState {
         id: crate::ReferenceStateId::from_id(ID_84),
+        name: "stock".to_owned(),
         kind: crate::ReferenceStateKind::IdealGasAtConditions,
-        temperature: Some(f64::from_bits(0x4072_a266_6666_6666_u64)),
-        pressure: Some(f64::from_bits(0x40f8_6a00_0000_0000_u64)),
+        temperature: Some(crate::ReferenceCondition {
+            value: f64::from_bits(0x4072_a266_6666_6666_u64),
+            quantity_type: crate::QuantityTypeId::from_id(ID_104),
+            unit: crate::UnitId::from_id(ID_19),
+        }),
+        pressure: Some(crate::ReferenceCondition {
+            value: f64::from_bits(0x40f8_6a00_0000_0000_u64),
+            quantity_type: crate::QuantityTypeId::from_id(ID_105),
+            unit: crate::UnitId::from_id(ID_30),
+        }),
         include_enthalpy_of_formation: false,
         subject: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_105),
-        key: crate::QuantityTypeKey {
-            kind: crate::QuantityKindId::from_id(ID_83),
-            basis: Some(crate::BasisId::from_id(ID_101)),
-            reference_state: Some(crate::ReferenceStateId::from_id(ID_103)),
-            scale_kind: crate::ScaleKind::Point,
-            shape: vec![],
-            subject_kind: None,
-        },
-        canonical_unit: crate::UnitId::from_id(ID_45),
-        nominal_magnitude: None,
-    });
-    b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_106),
-        key: crate::QuantityTypeKey {
-            kind: crate::QuantityKindId::from_id(ID_83),
-            basis: Some(crate::BasisId::from_id(ID_101)),
-            reference_state: Some(crate::ReferenceStateId::from_id(ID_103)),
-            scale_kind: crate::ScaleKind::Difference,
-            shape: vec![],
-            subject_kind: None,
-        },
-        canonical_unit: crate::UnitId::from_id(ID_45),
-        nominal_magnitude: None,
-    });
-    b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_107),
+        name: Some("BtOracleEnthalpy".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
-            reference_state: Some(crate::ReferenceStateId::from_id(ID_104)),
+            reference_state: Some(crate::ReferenceStateId::from_id(ID_103)),
             scale_kind: crate::ScaleKind::Point,
             shape: vec![],
             subject_kind: None,
@@ -2378,10 +2389,11 @@ fn append_1(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_108),
+        name: Some("BtOracleDeltaH".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
-            reference_state: Some(crate::ReferenceStateId::from_id(ID_104)),
+            reference_state: Some(crate::ReferenceStateId::from_id(ID_103)),
             scale_kind: crate::ScaleKind::Difference,
             shape: vec![],
             subject_kind: None,
@@ -2391,10 +2403,39 @@ fn append_1(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_109),
+        name: Some("PrOracleEnthalpy".to_owned()),
+        key: crate::QuantityTypeKey {
+            kind: crate::QuantityKindId::from_id(ID_83),
+            basis: Some(crate::BasisId::from_id(ID_101)),
+            reference_state: Some(crate::ReferenceStateId::from_id(ID_106)),
+            scale_kind: crate::ScaleKind::Point,
+            shape: vec![],
+            subject_kind: None,
+        },
+        canonical_unit: crate::UnitId::from_id(ID_45),
+        nominal_magnitude: None,
+    });
+    b.quantity_type(crate::QuantityType {
+        id: crate::QuantityTypeId::from_id(ID_110),
+        name: Some("PrOracleDeltaH".to_owned()),
+        key: crate::QuantityTypeKey {
+            kind: crate::QuantityKindId::from_id(ID_83),
+            basis: Some(crate::BasisId::from_id(ID_101)),
+            reference_state: Some(crate::ReferenceStateId::from_id(ID_106)),
+            scale_kind: crate::ScaleKind::Difference,
+            shape: vec![],
+            subject_kind: None,
+        },
+        canonical_unit: crate::UnitId::from_id(ID_45),
+        nominal_magnitude: None,
+    });
+    b.quantity_type(crate::QuantityType {
+        id: crate::QuantityTypeId::from_id(ID_111),
+        name: Some("PrOracleEntropy".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
-            reference_state: Some(crate::ReferenceStateId::from_id(ID_104)),
+            reference_state: Some(crate::ReferenceStateId::from_id(ID_106)),
             scale_kind: crate::ScaleKind::Point,
             shape: vec![],
             subject_kind: None,
@@ -2403,11 +2444,12 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_110),
+        id: crate::QuantityTypeId::from_id(ID_112),
+        name: Some("PrOracleDeltaS".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
-            reference_state: Some(crate::ReferenceStateId::from_id(ID_104)),
+            reference_state: Some(crate::ReferenceStateId::from_id(ID_106)),
             scale_kind: crate::ScaleKind::Difference,
             shape: vec![],
             subject_kind: None,
@@ -2416,7 +2458,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_111),
+        id: crate::QuantityTypeId::from_id(ID_113),
+        name: Some("SecondOrderRateConstant".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_54),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2429,7 +2472,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_112),
+        id: crate::QuantityTypeId::from_id(ID_114),
+        name: Some("VolumetricReactionRate".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_55),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2442,7 +2486,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_113),
+        id: crate::QuantityTypeId::from_id(ID_115),
+        name: Some("ReactionHeat".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_56),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2455,7 +2500,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_114),
+        id: crate::QuantityTypeId::from_id(ID_116),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_57),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2468,7 +2514,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_115),
+        id: crate::QuantityTypeId::from_id(ID_117),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_60),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2481,7 +2528,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_116),
+        id: crate::QuantityTypeId::from_id(ID_118),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_61),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2494,7 +2542,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_117),
+        id: crate::QuantityTypeId::from_id(ID_119),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_62),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2507,7 +2556,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_118),
+        id: crate::QuantityTypeId::from_id(ID_120),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_63),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2520,7 +2570,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_119),
+        id: crate::QuantityTypeId::from_id(ID_121),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_64),
             basis: None,
@@ -2533,7 +2584,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_120),
+        id: crate::QuantityTypeId::from_id(ID_122),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_65),
             basis: None,
@@ -2546,7 +2598,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_121),
+        id: crate::QuantityTypeId::from_id(ID_123),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_66),
             basis: None,
@@ -2559,7 +2612,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_122),
+        id: crate::QuantityTypeId::from_id(ID_124),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2572,7 +2626,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_123),
+        id: crate::QuantityTypeId::from_id(ID_125),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2585,7 +2640,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_124),
+        id: crate::QuantityTypeId::from_id(ID_126),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_78),
             basis: None,
@@ -2598,7 +2654,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_125),
+        id: crate::QuantityTypeId::from_id(ID_127),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_78),
             basis: None,
@@ -2611,7 +2668,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_126),
+        id: crate::QuantityTypeId::from_id(ID_128),
+        name: Some("Volume".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_95),
             basis: None,
@@ -2624,7 +2682,8 @@ fn append_1(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_127),
+        id: crate::QuantityTypeId::from_id(ID_129),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2644,7 +2703,8 @@ fn append_2(
 ) -> Result<(), crate::QuantityError> {
     let _ = dimensions;
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_128),
+        id: crate::QuantityTypeId::from_id(ID_130),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_67),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2657,7 +2717,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_129),
+        id: crate::QuantityTypeId::from_id(ID_131),
+        name: Some("Amount".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_76),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2670,7 +2731,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_130),
+        id: crate::QuantityTypeId::from_id(ID_132),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_76),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2683,7 +2745,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_131),
+        id: crate::QuantityTypeId::from_id(ID_133),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_58),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2696,7 +2759,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_132),
+        id: crate::QuantityTypeId::from_id(ID_134),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_81),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2709,7 +2773,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_133),
+        id: crate::QuantityTypeId::from_id(ID_135),
+        name: Some("MolarEnthalpy".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2722,7 +2787,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_134),
+        id: crate::QuantityTypeId::from_id(ID_136),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_58),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2735,7 +2801,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_135),
+        id: crate::QuantityTypeId::from_id(ID_137),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2748,7 +2815,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_136),
+        id: crate::QuantityTypeId::from_id(ID_138),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2761,7 +2829,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_137),
+        id: crate::QuantityTypeId::from_id(ID_139),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_88),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2774,7 +2843,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_138),
+        id: crate::QuantityTypeId::from_id(ID_140),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_66),
             basis: None,
@@ -2787,7 +2857,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_139),
+        id: crate::QuantityTypeId::from_id(ID_141),
+        name: Some("Frequency".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_92),
             basis: None,
@@ -2800,7 +2871,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_140),
+        id: crate::QuantityTypeId::from_id(ID_142),
+        name: Some("VolumeFlow".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_93),
             basis: None,
@@ -2813,7 +2885,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_141),
+        id: crate::QuantityTypeId::from_id(ID_143),
+        name: Some("MolarDensity".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_81),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2826,7 +2899,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_142),
+        id: crate::QuantityTypeId::from_id(ID_144),
+        name: Some("Count".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_80),
             basis: None,
@@ -2839,7 +2913,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_143),
+        id: crate::QuantityTypeId::from_id(ID_145),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_95),
             basis: None,
@@ -2852,7 +2927,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_144),
+        id: crate::QuantityTypeId::from_id(ID_146),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_94),
             basis: None,
@@ -2865,7 +2941,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_145),
+        id: crate::QuantityTypeId::from_id(ID_147),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2878,7 +2955,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_146),
+        id: crate::QuantityTypeId::from_id(ID_148),
+        name: Some("ActivationEnergy".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_98),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2891,7 +2969,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_147),
+        id: crate::QuantityTypeId::from_id(ID_149),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2904,7 +2983,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_148),
+        id: crate::QuantityTypeId::from_id(ID_150),
+        name: Some("DeltaTemperature".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_59),
             basis: None,
@@ -2917,7 +2997,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_149),
+        id: crate::QuantityTypeId::from_id(ID_151),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_77),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2930,7 +3011,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_150),
+        id: crate::QuantityTypeId::from_id(ID_152),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_93),
             basis: None,
@@ -2943,7 +3025,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_151),
+        id: crate::QuantityTypeId::from_id(ID_153),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_99),
             basis: None,
@@ -2956,7 +3039,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_152),
+        id: crate::QuantityTypeId::from_id(ID_154),
+        name: Some("MoleFraction".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_82),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2969,7 +3053,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_153),
+        id: crate::QuantityTypeId::from_id(ID_155),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -2982,7 +3067,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_154),
+        id: crate::QuantityTypeId::from_id(ID_156),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_99),
             basis: None,
@@ -2995,7 +3081,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_155),
+        id: crate::QuantityTypeId::from_id(ID_157),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3008,7 +3095,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_156),
+        id: crate::QuantityTypeId::from_id(ID_158),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_82),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3021,7 +3109,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_157),
+        id: crate::QuantityTypeId::from_id(ID_159),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3034,7 +3123,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_158),
+        id: crate::QuantityTypeId::from_id(ID_160),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_89),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3047,7 +3137,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_159),
+        id: crate::QuantityTypeId::from_id(ID_161),
+        name: Some("MolarEntropy".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3060,7 +3151,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_160),
+        id: crate::QuantityTypeId::from_id(ID_162),
+        name: Some("MolarMass".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_91),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3073,7 +3165,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_161),
+        id: crate::QuantityTypeId::from_id(ID_163),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3086,7 +3179,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_162),
+        id: crate::QuantityTypeId::from_id(ID_164),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_67),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3099,7 +3193,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_163),
+        id: crate::QuantityTypeId::from_id(ID_165),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_72),
             basis: Some(crate::BasisId::from_id(ID_102)),
@@ -3112,7 +3207,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_164),
+        id: crate::QuantityTypeId::from_id(ID_166),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_66),
             basis: None,
@@ -3125,7 +3221,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_165),
+        id: crate::QuantityTypeId::from_id(ID_167),
+        name: Some("TotalAmount".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_76),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3138,7 +3235,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_166),
+        id: crate::QuantityTypeId::from_id(ID_168),
+        name: Some("Flow".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_88),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3151,7 +3249,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_167),
+        id: crate::QuantityTypeId::from_id(ID_169),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3164,7 +3263,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_168),
+        id: crate::QuantityTypeId::from_id(ID_170),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3177,7 +3277,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_169),
+        id: crate::QuantityTypeId::from_id(ID_171),
+        name: Some("Area".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_74),
             basis: None,
@@ -3190,7 +3291,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_170),
+        id: crate::QuantityTypeId::from_id(ID_172),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_81),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3203,7 +3305,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_171),
+        id: crate::QuantityTypeId::from_id(ID_173),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3216,7 +3319,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_172),
+        id: crate::QuantityTypeId::from_id(ID_174),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_99),
             basis: None,
@@ -3229,7 +3333,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_173),
+        id: crate::QuantityTypeId::from_id(ID_175),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3242,7 +3347,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_174),
+        id: crate::QuantityTypeId::from_id(ID_176),
+        name: Some("ComponentFlow".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_87),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3255,7 +3361,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_175),
+        id: crate::QuantityTypeId::from_id(ID_177),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3268,7 +3375,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_176),
+        id: crate::QuantityTypeId::from_id(ID_178),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_94),
             basis: None,
@@ -3281,7 +3389,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_177),
+        id: crate::QuantityTypeId::from_id(ID_179),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_90),
             basis: None,
@@ -3294,7 +3403,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_178),
+        id: crate::QuantityTypeId::from_id(ID_180),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_89),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3307,7 +3417,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_179),
+        id: crate::QuantityTypeId::from_id(ID_181),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_70),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3320,7 +3431,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_180),
+        id: crate::QuantityTypeId::from_id(ID_182),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3333,7 +3445,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_181),
+        id: crate::QuantityTypeId::from_id(ID_183),
+        name: Some("Energy".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_69),
             basis: None,
@@ -3346,7 +3459,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_182),
+        id: crate::QuantityTypeId::from_id(ID_184),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_98),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3359,7 +3473,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_183),
+        id: crate::QuantityTypeId::from_id(ID_105),
+        name: Some("Pressure".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_99),
             basis: None,
@@ -3372,7 +3487,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_184),
+        id: crate::QuantityTypeId::from_id(ID_185),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_70),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3385,7 +3501,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_185),
+        id: crate::QuantityTypeId::from_id(ID_186),
+        name: Some("DeltaS".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3398,7 +3515,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_186),
+        id: crate::QuantityTypeId::from_id(ID_187),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3411,7 +3529,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_187),
+        id: crate::QuantityTypeId::from_id(ID_188),
+        name: Some("Indicator".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_86),
             basis: None,
@@ -3424,7 +3543,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_188),
+        id: crate::QuantityTypeId::from_id(ID_189),
+        name: Some("Density".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_81),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3437,7 +3557,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_189),
+        id: crate::QuantityTypeId::from_id(ID_190),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3450,7 +3571,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_190),
+        id: crate::QuantityTypeId::from_id(ID_191),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_85),
             basis: None,
@@ -3463,7 +3585,8 @@ fn append_2(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_191),
+        id: crate::QuantityTypeId::from_id(ID_192),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_59),
             basis: None,
@@ -3483,7 +3606,8 @@ fn append_3(
 ) -> Result<(), crate::QuantityError> {
     let _ = dimensions;
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_192),
+        id: crate::QuantityTypeId::from_id(ID_193),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_96),
             basis: None,
@@ -3496,7 +3620,8 @@ fn append_3(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_193),
+        id: crate::QuantityTypeId::from_id(ID_194),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3509,7 +3634,8 @@ fn append_3(
         nominal_magnitude: None,
     });
     b.quantity_type(crate::QuantityType {
-        id: crate::QuantityTypeId::from_id(ID_194),
+        id: crate::QuantityTypeId::from_id(ID_104),
+        name: Some("Temperature".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_59),
             basis: None,
@@ -3523,6 +3649,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_195),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_87),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3536,6 +3663,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_196),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_58),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3549,6 +3677,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_197),
+        name: Some("MolarCp".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_58),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3562,6 +3691,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_198),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_71),
             basis: None,
@@ -3575,6 +3705,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_199),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_59),
             basis: None,
@@ -3588,6 +3719,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_200),
+        name: Some("CapitalCost".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_68),
             basis: None,
@@ -3601,6 +3733,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_201),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3614,6 +3747,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_202),
+        name: Some("DeltaPressure".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_99),
             basis: None,
@@ -3627,6 +3761,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_203),
+        name: Some("DeltaH".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3640,6 +3775,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_204),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3653,6 +3789,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_205),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_72),
             basis: Some(crate::BasisId::from_id(ID_102)),
@@ -3666,6 +3803,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_206),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_99),
             basis: None,
@@ -3679,6 +3817,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_207),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_78),
             basis: None,
@@ -3692,6 +3831,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_208),
+        name: Some("Scalar".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_71),
             basis: None,
@@ -3705,6 +3845,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_209),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3718,6 +3859,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_210),
+        name: Some("ElementFlow".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_79),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3731,6 +3873,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_211),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3744,6 +3887,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_212),
+        name: Some("Power".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_66),
             basis: None,
@@ -3757,6 +3901,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_213),
+        name: Some("Time".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_75),
             basis: None,
@@ -3770,6 +3915,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_214),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_78),
             basis: None,
@@ -3783,6 +3929,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_215),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_77),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3796,6 +3943,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_216),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3809,6 +3957,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_217),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3822,6 +3971,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_218),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_100),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3835,6 +3985,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_219),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_91),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3848,6 +3999,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_220),
+        name: Some("Length".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_73),
             basis: None,
@@ -3861,6 +4013,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_221),
+        name: Some("HeatTransferCoefficient".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_97),
             basis: None,
@@ -3874,6 +4027,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_222),
+        name: Some("TemperatureScale".to_owned()),
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_90),
             basis: None,
@@ -3887,6 +4041,7 @@ fn append_3(
     });
     b.quantity_type(crate::QuantityType {
         id: crate::QuantityTypeId::from_id(ID_223),
+        name: None,
         key: crate::QuantityTypeKey {
             kind: crate::QuantityKindId::from_id(ID_83),
             basis: Some(crate::BasisId::from_id(ID_101)),
@@ -3900,8 +4055,8 @@ fn append_3(
     });
     b.conversion(crate::ConversionRule {
         id: crate::ConversionId::from_id(ID_224),
-        from: crate::QuantityTypeId::from_id(ID_172),
-        to: crate::QuantityTypeId::from_id(ID_183),
+        from: crate::QuantityTypeId::from_id(ID_174),
+        to: crate::QuantityTypeId::from_id(ID_105),
         kind: crate::ConversionKind::Affine,
         kernel: None,
         required_parameters: vec![],
@@ -6368,7 +6523,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_227),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_148),
+                required: crate::QuantityTypeId::from_id(ID_150),
                 match_shape: false,
             },
         },
@@ -6392,7 +6547,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_233),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::SameReferenceDifferences {
-                required: crate::QuantityTypeId::from_id(ID_185),
+                required: crate::QuantityTypeId::from_id(ID_186),
                 match_shape: false,
             },
         },
@@ -6400,7 +6555,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_235),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_188),
+                required: crate::QuantityTypeId::from_id(ID_189),
                 match_shape: false,
             },
         },
@@ -6408,7 +6563,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_237),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_129),
+                required: crate::QuantityTypeId::from_id(ID_131),
                 match_shape: false,
             },
         },
@@ -6416,7 +6571,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_239),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_183),
+                required: crate::QuantityTypeId::from_id(ID_105),
                 match_shape: false,
             },
         },
@@ -6432,7 +6587,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_243),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_152),
+                required: crate::QuantityTypeId::from_id(ID_154),
                 match_shape: false,
             },
         },
@@ -6440,7 +6595,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_245),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_148),
+                required: crate::QuantityTypeId::from_id(ID_150),
                 match_shape: false,
             },
         },
@@ -6456,7 +6611,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_249),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_141),
+                required: crate::QuantityTypeId::from_id(ID_143),
                 match_shape: false,
             },
         },
@@ -6464,7 +6619,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_251),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_166),
+                required: crate::QuantityTypeId::from_id(ID_168),
                 match_shape: false,
             },
         },
@@ -6472,7 +6627,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_253),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_174),
+                required: crate::QuantityTypeId::from_id(ID_176),
                 match_shape: false,
             },
         },
@@ -6480,7 +6635,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_255),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_140),
+                required: crate::QuantityTypeId::from_id(ID_142),
                 match_shape: false,
             },
         },
@@ -6488,7 +6643,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_257),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_111),
+                required: crate::QuantityTypeId::from_id(ID_113),
                 match_shape: false,
             },
         },
@@ -6496,7 +6651,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_259),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_112),
+                required: crate::QuantityTypeId::from_id(ID_114),
                 match_shape: false,
             },
         },
@@ -6504,7 +6659,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_261),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_113),
+                required: crate::QuantityTypeId::from_id(ID_115),
                 match_shape: false,
             },
         },
@@ -6512,7 +6667,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_263),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_140),
+                required: crate::QuantityTypeId::from_id(ID_142),
                 match_shape: false,
             },
         },
@@ -6520,7 +6675,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_264),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_141),
+                required: crate::QuantityTypeId::from_id(ID_143),
                 match_shape: false,
             },
         },
@@ -6528,7 +6683,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_266),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_140),
+                required: crate::QuantityTypeId::from_id(ID_142),
                 match_shape: false,
             },
         },
@@ -6536,7 +6691,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_267),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_188),
+                required: crate::QuantityTypeId::from_id(ID_189),
                 match_shape: false,
             },
         },
@@ -6552,7 +6707,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_270),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_148),
+                required: crate::QuantityTypeId::from_id(ID_150),
                 match_shape: false,
             },
         },
@@ -6560,7 +6715,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_272),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_141),
+                required: crate::QuantityTypeId::from_id(ID_143),
                 match_shape: false,
             },
         },
@@ -6568,7 +6723,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_274),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_146),
+                required: crate::QuantityTypeId::from_id(ID_148),
                 match_shape: false,
             },
         },
@@ -6576,7 +6731,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_276),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_194),
+                required: crate::QuantityTypeId::from_id(ID_104),
                 match_shape: false,
             },
         },
@@ -6584,7 +6739,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_278),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_148),
+                required: crate::QuantityTypeId::from_id(ID_150),
                 match_shape: false,
             },
         },
@@ -6592,7 +6747,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_279),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_194),
+                required: crate::QuantityTypeId::from_id(ID_104),
                 match_shape: false,
             },
         },
@@ -6600,7 +6755,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_402),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_139),
+                required: crate::QuantityTypeId::from_id(ID_141),
                 match_shape: false,
             },
         },
@@ -6608,7 +6763,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_285),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_181),
+                required: crate::QuantityTypeId::from_id(ID_183),
                 match_shape: false,
             },
         },
@@ -6632,7 +6787,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_326),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_133),
+                required: crate::QuantityTypeId::from_id(ID_135),
                 match_shape: false,
             },
         },
@@ -6648,7 +6803,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_333),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_141),
+                required: crate::QuantityTypeId::from_id(ID_143),
                 match_shape: false,
             },
         },
@@ -6656,7 +6811,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_299),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_166),
+                required: crate::QuantityTypeId::from_id(ID_168),
                 match_shape: false,
             },
         },
@@ -6672,7 +6827,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_322),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_139),
+                required: crate::QuantityTypeId::from_id(ID_141),
                 match_shape: false,
             },
         },
@@ -6680,7 +6835,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_304),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_126),
+                required: crate::QuantityTypeId::from_id(ID_128),
                 match_shape: false,
             },
         },
@@ -6696,7 +6851,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_328),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_169),
+                required: crate::QuantityTypeId::from_id(ID_171),
                 match_shape: false,
             },
         },
@@ -6712,7 +6867,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_407),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_190),
+                required: crate::QuantityTypeId::from_id(ID_191),
                 match_shape: false,
             },
         },
@@ -6720,7 +6875,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_378),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_166),
+                required: crate::QuantityTypeId::from_id(ID_168),
                 match_shape: false,
             },
         },
@@ -6736,7 +6891,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_314),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_183),
+                required: crate::QuantityTypeId::from_id(ID_105),
                 match_shape: false,
             },
         },
@@ -6744,7 +6899,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_364),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_129),
+                required: crate::QuantityTypeId::from_id(ID_131),
                 match_shape: false,
             },
         },
@@ -6752,7 +6907,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_331),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_134),
+                required: crate::QuantityTypeId::from_id(ID_136),
                 match_shape: false,
             },
         },
@@ -6760,7 +6915,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_292),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_166),
+                required: crate::QuantityTypeId::from_id(ID_168),
                 match_shape: false,
             },
         },
@@ -6775,7 +6930,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_337),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_188),
+                required: crate::QuantityTypeId::from_id(ID_189),
                 match_shape: false,
             },
         },
@@ -6791,7 +6946,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_325),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_188),
+                required: crate::QuantityTypeId::from_id(ID_189),
                 match_shape: false,
             },
         },
@@ -6799,7 +6954,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_396),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_139),
+                required: crate::QuantityTypeId::from_id(ID_141),
                 match_shape: false,
             },
         },
@@ -6815,7 +6970,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_403),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_181),
+                required: crate::QuantityTypeId::from_id(ID_183),
                 match_shape: false,
             },
         },
@@ -6831,7 +6986,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_388),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_126),
+                required: crate::QuantityTypeId::from_id(ID_128),
                 match_shape: false,
             },
         },
@@ -6839,7 +6994,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_307),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_174),
+                required: crate::QuantityTypeId::from_id(ID_176),
                 match_shape: false,
             },
         },
@@ -6847,7 +7002,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_367),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_165),
+                required: crate::QuantityTypeId::from_id(ID_167),
                 match_shape: false,
             },
         },
@@ -6863,7 +7018,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_345),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_165),
+                required: crate::QuantityTypeId::from_id(ID_167),
                 match_shape: false,
             },
         },
@@ -6879,7 +7034,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_362),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_128),
+                required: crate::QuantityTypeId::from_id(ID_130),
                 match_shape: false,
             },
         },
@@ -6887,7 +7042,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_358),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_174),
+                required: crate::QuantityTypeId::from_id(ID_176),
                 match_shape: false,
             },
         },
@@ -6895,7 +7050,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_335),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_127),
+                required: crate::QuantityTypeId::from_id(ID_129),
                 match_shape: false,
             },
         },
@@ -6919,7 +7074,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_321),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_165),
+                required: crate::QuantityTypeId::from_id(ID_167),
                 match_shape: false,
             },
         },
@@ -6927,7 +7082,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_410),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_139),
+                required: crate::QuantityTypeId::from_id(ID_141),
                 match_shape: false,
             },
         },
@@ -6935,7 +7090,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_342),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_139),
+                required: crate::QuantityTypeId::from_id(ID_141),
                 match_shape: false,
             },
         },
@@ -6943,7 +7098,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_305),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_141),
+                required: crate::QuantityTypeId::from_id(ID_143),
                 match_shape: false,
             },
         },
@@ -6951,7 +7106,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_330),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_152),
+                required: crate::QuantityTypeId::from_id(ID_154),
                 match_shape: false,
             },
         },
@@ -6959,7 +7114,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_395),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_181),
+                required: crate::QuantityTypeId::from_id(ID_183),
                 match_shape: false,
             },
         },
@@ -6967,7 +7122,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_371),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_165),
+                required: crate::QuantityTypeId::from_id(ID_167),
                 match_shape: false,
             },
         },
@@ -6999,7 +7154,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_283),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_152),
+                required: crate::QuantityTypeId::from_id(ID_154),
                 match_shape: false,
             },
         },
@@ -7007,7 +7162,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_310),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_181),
+                required: crate::QuantityTypeId::from_id(ID_183),
                 match_shape: false,
             },
         },
@@ -7015,7 +7170,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_346),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_165),
+                required: crate::QuantityTypeId::from_id(ID_167),
                 match_shape: false,
             },
         },
@@ -7023,7 +7178,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_348),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_174),
+                required: crate::QuantityTypeId::from_id(ID_176),
                 match_shape: false,
             },
         },
@@ -7039,7 +7194,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_317),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_139),
+                required: crate::QuantityTypeId::from_id(ID_141),
                 match_shape: false,
             },
         },
@@ -7047,7 +7202,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_385),
             operand_positions: vec![0u16, 1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_126),
+                required: crate::QuantityTypeId::from_id(ID_128),
                 match_shape: false,
             },
         },
@@ -7063,7 +7218,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_370),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_139),
+                required: crate::QuantityTypeId::from_id(ID_141),
                 match_shape: false,
             },
         },
@@ -7071,7 +7226,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_381),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_152),
+                required: crate::QuantityTypeId::from_id(ID_154),
                 match_shape: false,
             },
         },
@@ -7079,7 +7234,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_311),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_181),
+                required: crate::QuantityTypeId::from_id(ID_183),
                 match_shape: false,
             },
         },
@@ -7087,7 +7242,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_316),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_129),
+                required: crate::QuantityTypeId::from_id(ID_131),
                 match_shape: false,
             },
         },
@@ -7103,7 +7258,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_308),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_192),
+                required: crate::QuantityTypeId::from_id(ID_193),
                 match_shape: false,
             },
         },
@@ -7111,7 +7266,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_406),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_163),
+                required: crate::QuantityTypeId::from_id(ID_165),
                 match_shape: false,
             },
         },
@@ -7119,7 +7274,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_343),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_129),
+                required: crate::QuantityTypeId::from_id(ID_131),
                 match_shape: false,
             },
         },
@@ -7135,7 +7290,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             id: crate::InvariantId::from_id(ID_295),
             operand_positions: vec![0u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
-                required: crate::QuantityTypeId::from_id(ID_139),
+                required: crate::QuantityTypeId::from_id(ID_141),
                 match_shape: false,
             },
         },

@@ -135,6 +135,7 @@
   "quantity_types": [
     {
       "quantity_type_id": "dededededededededededededededede",
+      "name": "Time",
       "quantity_kind_id": "dddddddddddddddddddddddddddddddd",
       "basis_id": null,
       "reference_state_id": null,

@@ -13,7 +13,21 @@ pub struct PhysicalContext {
     pub(crate) preconditions: Arc<PhysicalPreconditions>,
     pub(crate) sources: BTreeMap<pse_schema::model::RelationKey, FieldCheckedBatch>,
     pub(crate) key: ContentHash,
+    /// The package whose physical document declared the names (ADR-0123 Outcome 6),
+    /// when the context was admitted from documents.
+    pub(crate) package: Option<PhysicalPackage>,
     pub(super) _inventory: Option<Arc<crate::physical::PhysicalInventory>>,
+}
+/// The package that declared a physical inventory's names.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct PhysicalPackage {
+    /// Its identity, which a depending manifest names.
+    pub(crate) id: pse_ids::SemanticId,
+    /// Its name, which qualifies the physical names.
+    pub(crate) name: String,
+    /// Its manifest header: a modeling closure that depends on the package resolves the
+    /// dependency against the admitted context when the package's documents are not in it.
+    pub(crate) header: pse_model::generated::authored::packages::Row,
 }
 impl PhysicalContext {
     /// Read the admitted registry used to resolve public physical type names.
@@ -30,6 +44,7 @@ impl PhysicalContext {
             preconditions,
             key,
             sources: inventory.source_batches().clone(),
+            package: None,
             _inventory: Some(inventory),
         }
     }
@@ -58,6 +73,32 @@ impl PhysicalContext {
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<Self, WorkflowError> {
         documents.validate_registry(&registry)?;
+        // ADR-0123 Outcome 6: the package whose physical document declares quantity types
+        // declares their names; one package declares the inventory (register R-51).
+        let declaring = documents
+            .bundles()
+            .iter()
+            .filter(|bundle| {
+                bundle
+                    .batches
+                    .get(&pse_relations::generated::reference::quantity_types::RELATION_ID)
+                    .is_some_and(|batch| batch.batch().num_rows() > 0)
+            })
+            .map(|bundle| PhysicalPackage {
+                id: bundle.package.package_id.as_id(),
+                name: bundle.package.name.clone(),
+                header: bundle.package.clone(),
+            })
+            .collect::<Vec<_>>();
+        let package = match declaring.as_slice() {
+            [] => None,
+            [one] => Some(one.clone()),
+            _ => {
+                return Err(contract(
+                    "one package declares the physical inventory and its names",
+                ));
+            }
+        };
         let batches = crate::authoring_driver::p1::source_batches(documents.bundles(), &registry)?;
         let keys = crate::physical::input_keys(&registry);
         let roots = keys
@@ -87,6 +128,7 @@ impl PhysicalContext {
             .await
             .map_err(|e| pse_engine::EngineError::Semantic(Arc::new(e)))?;
         let mut context = PhysicalContext::admitted(Arc::new(inventory));
+        context.package = package;
         context.sources.extend(retained_support);
         Ok(context)
     }

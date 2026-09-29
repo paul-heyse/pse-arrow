@@ -44,16 +44,18 @@ fn texts(root: &Path) -> BTreeMap<String, String> {
     texts
 }
 
+/// A manifest dependency on the physical primitives fixture package.
+pub(super) const PRIMITIVES: &str = r#"dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]"#;
 /// The authored sources of a one-model package over the physical primitives fixture.
 pub(super) fn sources(source: &str) -> (BTreeMap<String, String>, BTreeMap<String, String>) {
     let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/packages");
     let physical = texts(&fixtures.join("physical-primitives"));
-    let mut manifest = std::fs::read_to_string(fixtures.join("minimal_explicit/package.toml"))
+    let manifest = std::fs::read_to_string(fixtures.join("minimal_explicit/package.toml"))
         .unwrap()
-        .replace(r#"id_policy = "explicit""#, r#"id_policy = "named""#);
-    manifest.push_str(
-        "\n[[quantity_aliases]]\nname = \"Scalar\"\nquantity_type_id = \"1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f\"\n",
-    );
+        .replace(r#"id_policy = "explicit""#, r#"id_policy = "named""#)
+        // The primitives declare `Scalar`; depending on them makes it visible (ADR-0123
+        // Outcome 6).
+        .replace("dependencies = []", PRIMITIVES);
     let modeling = BTreeMap::from([
         ("package.toml".to_owned(), manifest),
         ("models/root.pse".to_owned(), source.to_owned()),

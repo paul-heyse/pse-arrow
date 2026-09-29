@@ -55,7 +55,7 @@ fn authored_foreign_keys_bind_current_declarations_and_packages() {
             "declaration_id",
         ),
         (
-            "authored.package_quantity_aliases",
+            "authored.package_unit_sets",
             "package_id",
             "authored.packages",
             "package_id",

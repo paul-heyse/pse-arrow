@@ -35,17 +35,6 @@ pub fn declare(builder: &mut RegistryBuilder) {
 
                 doc: "Optional explicit representation-unit selector, at most one per package.",
             },
-            DocumentSection {
-                key: "quantity_aliases",
-                relation: "authored.package_quantity_aliases",
-                repeated: true,
-                identity_column: None,
-                entity_kind: None,
-                name_column: None,
-                naming_scope_column: None,
-
-                doc: "Physical type names scoped to this package's modeling declarations.",
-            },
         ],
         doc: "Package identity, exact dependencies and authored identity policy.",
     });

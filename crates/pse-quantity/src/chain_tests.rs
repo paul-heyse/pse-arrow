@@ -76,6 +76,7 @@ fn kind(n: u8, dimension: DimensionVector) -> QuantityKind {
 fn ty(id: u8, kind: u8, basis: Option<u8>, unit: u8) -> QuantityType {
     QuantityType {
         id: QuantityTypeId::from_id(raw(id)),
+        name: None,
         key: QuantityTypeKey {
             kind: QuantityKindId::from_id(raw(kind)),
             basis: basis.map(|b| BasisId::from_id(raw(b))),

@@ -33,6 +33,14 @@ from pse.contracts.identities import DeclarationId, FitId, InstanceId, Publicati
 from pse.contracts.values import ContentHash, SemanticId, SourceSpan
 
 
+#: A manifest dependency on the physical primitives fixture, whose physical document names
+#: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
+PRIMITIVES = (
+    'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
+    'version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]'
+)
+
+
 def identity(n: int) -> SemanticId:
     return SemanticId(bytes([n]) * 16)
 
@@ -104,10 +112,7 @@ def test_explicit_primal_seed_and_transactional_initialization(
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += (
-        '\n[[quantity_aliases]]\nname = "Scalar"\n'
-        f'quantity_type_id = "{identity(31).to_hex()}"\n'
-    )
+    manifest = manifest.replace("dependencies = []", PRIMITIVES)
     package = runtime.modeling_from_documents(
         [
             {
@@ -190,10 +195,7 @@ def package_documents(source: str) -> dict[str, str]:
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += (
-        '\n[[quantity_aliases]]\nname = "Length"\n'
-        f'quantity_type_id = "{identity(30).to_hex()}"\n'
-    )
+    manifest = manifest.replace("dependencies = []", PRIMITIVES)
     return {"package.toml": manifest, "models/fixed.pse": source}
 
 
@@ -390,10 +392,7 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += (
-        '\n[[quantity_aliases]]\nname = "Length"\n'
-        f'quantity_type_id = "{identity(30).to_hex()}"\n'
-    )
+    manifest = manifest.replace("dependencies = []", PRIMITIVES)
     package = runtime.modeling_from_documents(
         [
             {

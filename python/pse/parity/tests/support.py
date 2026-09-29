@@ -16,9 +16,6 @@ from pse.contracts.values import SemanticId
 
 #: python/pse/parity/tests/support.py -> pse-arrow/
 ROOT = Path(__file__).resolve().parents[4]
-#: The physical primitives' neutral dimensionless and time quantity types.
-SCALAR = SemanticId(bytes([0x1F]) * 16)
-TIME = SemanticId(bytes([0xDE]) * 16)
 
 
 def runtime(spill: Path) -> pse.Runtime:
@@ -41,7 +38,8 @@ def package(
 ) -> tuple[pse.ModelingPackage, dict[str, DeclarationId]]:
     """An authored package over the physical primitives, by declaration name.
 
-    The package's manifest aliases `Scalar` and `Time`.
+    The package's manifest depends on the primitives, whose physical document names
+    `Scalar` and `Time`.
     """
     primitives = ROOT / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(
@@ -55,12 +53,12 @@ def package(
         (ROOT / "tests/fixtures/packages/minimal_explicit/package.toml")
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
-    )
-    for name, quantity in (("Scalar", SCALAR), ("Time", TIME)):
-        manifest += (
-            f'\n[[quantity_aliases]]\nname = "{name}"\n'
-            f'quantity_type_id = "{quantity.to_hex()}"\n'
+        .replace(
+            "dependencies = []",
+            'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
+            'version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]',
         )
+    )
     authored = runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/parity.pse": text}], physical
     )
@@ -79,7 +77,8 @@ def documents(path: Path) -> dict[str, str]:
 def reference_package(runtime: pse.Runtime, text: str) -> pse.ModelingPackage:
     """An authored package that uses the reference libraries (`control`, `math`).
 
-    The package's manifest takes the libraries' `Scalar` and `Time` aliases.
+    The package's manifest depends on `pse.physical`, whose physical document names
+    `Scalar` and `Time`.
     """
     reference = ROOT / "packages/reference"
     physical = runtime.physical_from_documents(documents(reference / "physical"))
@@ -90,18 +89,10 @@ version = "1.0.0"
 kind = "model"
 id_policy = "named"
 dependencies = [
-  { package_id = "12104e13f2494492ba75de08955299a6", version_req = "=1.0.0" },
-  { package_id = "b27409be5572b8712e47db271fae28cd", version_req = "=1.0.0" },
+  { package_id = "12104e13f2494492ba75de08955299a6", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "b27409be5572b8712e47db271fae28cd", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
 ]
 doc = "Parity comparison models."
-
-[[quantity_aliases]]
-name = "Scalar"
-quantity_type_id = "dc255c612cf27e30cb835377c8dafcf4"
-
-[[quantity_aliases]]
-name = "Time"
-quantity_type_id = "e2ccf6d0a394403db967f4f35b83cb7c"
 """
     return runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/parity.pse": text}]

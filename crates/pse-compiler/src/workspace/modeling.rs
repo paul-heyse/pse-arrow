@@ -4,9 +4,9 @@
 use super::*;
 use pse_authoring::language::Declaration;
 use pse_modeling::{
-    Bindings, CheckedPackage, DeclarationId, InstanceId, Limits, SpecializedModel, TypeContext,
+    Bindings, CheckedPackage, DeclarationId, InstanceId, Limits, PhysicalScope, SpecializedModel,
+    TypeContext,
 };
-use pse_quantity::QuantityTypeId;
 use salsa::Setter;
 
 #[salsa::input]
@@ -30,7 +30,7 @@ pub(super) struct State {
 #[derive(Clone, Debug)]
 pub struct ModelingRevision {
     rows: Arc<Vec<Declaration>>,
-    names: Arc<BTreeMap<String, QuantityTypeId>>,
+    scope: Arc<PhysicalScope>,
     checked: Arc<CheckedPackage>,
     input_bytes: usize,
 }
@@ -39,9 +39,13 @@ impl ModelingRevision {
     pub fn declarations(&self) -> &[Declaration] {
         &self.rows
     }
-    /// Admitted physical aliases for immutable source edits.
-    pub fn quantity_names(&self) -> &BTreeMap<String, QuantityTypeId> {
-        &self.names
+    /// Which documents see the physical names, for immutable source edits.
+    pub fn physical_scope(&self) -> &PhysicalScope {
+        &self.scope
+    }
+    /// The physical name bindings the admitted source resolves with (ADR-0123 Outcome 8).
+    pub fn physical_bindings(&self) -> BTreeMap<String, SemanticId> {
+        self.checked.physical_bindings()
     }
     /// What specializing `root` as `instance` solves: its model, case and instance
     /// (`pse_model::lineage`), or `None` when the revision admits no such root.
@@ -60,25 +64,27 @@ impl ModelingRevision {
 }
 fn revision(
     rows: Arc<Vec<Declaration>>,
-    names: Arc<BTreeMap<String, QuantityTypeId>>,
+    scope: Arc<PhysicalScope>,
     checked: Arc<CheckedPackage>,
 ) -> Arc<ModelingRevision> {
     use pse_model::HeapUsage;
     let input_bytes = rows
         .owned_bytes()
         .saturating_add(checked.retained_bytes())
-        .saturating_add(
-            names
-                .keys()
-                .map(|name| name.capacity() + 128)
-                .sum::<usize>(),
-        );
+        .saturating_add(scope_bytes(&scope));
     Arc::new(ModelingRevision {
         rows,
-        names,
+        scope,
         checked,
         input_bytes,
     })
+}
+fn scope_bytes(scope: &PhysicalScope) -> usize {
+    scope.package.as_ref().map_or(0, String::capacity)
+        + scope
+            .documents
+            .as_ref()
+            .map_or(0, |d| d.len() * (size_of::<SemanticId>() + 32))
 }
 #[salsa::tracked(returns(clone),lru=64,heap_size=selected_heap)]
 fn selected(
@@ -157,20 +163,20 @@ impl CompilerWorkspace {
     pub fn publish_modeling(
         &mut self,
         rows: impl Into<Arc<Vec<Declaration>>>,
-        names: impl Into<Arc<BTreeMap<String, QuantityTypeId>>>,
+        scope: impl Into<Arc<PhysicalScope>>,
     ) -> Result<Arc<ModelingRevision>> {
         use pse_model::HeapUsage;
         let rows = rows.into();
-        let names = names.into();
+        let scope = scope.into();
         if let Some(state) = &self.modeling
             && state.revision.rows == rows
-            && state.revision.names == names
+            && state.revision.scope == scope
         {
             return Ok(state.revision.clone());
         }
         if rows
             .owned_bytes()
-            .saturating_add(names.keys().map(|n| n.capacity()).sum::<usize>())
+            .saturating_add(scope_bytes(&scope))
             > self.limits.input_bytes
         {
             return Err(CompileError::Limit("modeling input bytes"));
@@ -181,10 +187,10 @@ impl CompilerWorkspace {
         let context = TypeContext {
             quantities: &self.inputs.quantities,
             preconditions: &self.inputs.preconditions,
-            names: &names,
+            scope: &scope,
         };
         let checked = Arc::new(pse_modeling::check(&rows, &context)?);
-        let revision = revision(rows, names, checked);
+        let revision = revision(rows, scope, checked);
         self.publish_modeling_revision(revision.clone())?;
         Ok(revision)
     }
@@ -245,10 +251,10 @@ impl CompilerWorkspace {
                     &TypeContext {
                         quantities,
                         preconditions,
-                        names: &old.names,
+                        scope: &old.scope,
                     },
                 )?);
-                let next = revision(old.rows.clone(), old.names.clone(), checked);
+                let next = revision(old.rows.clone(), old.scope.clone(), checked);
                 let bytes = next.input_bytes;
                 Ok((next, bytes))
             })

@@ -177,4 +177,4 @@ pse.quantity.unit-product.v1
 # Plan 23 KR2 (ADR-0124 Derived kinds): the physical inventory frames unit compositions and
 # derived-kind definitions. physical-inventory.v4 replaces physical-inventory.v3, which is no
 # longer declared.
-pse.math.physical-inventory.v4
+pse.math.physical-inventory.v5

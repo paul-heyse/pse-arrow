@@ -5,11 +5,11 @@ use crate::*;
 use pse_ids::SemanticId;
 
 fn run(text: &str) -> Result<SpecializedModel> {
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let context = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let package = check(&kernel_types::try_source(text)?, &context)?;
     specialize(

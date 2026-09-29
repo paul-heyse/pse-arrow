@@ -8,23 +8,3 @@ kind = "reference"
 id_policy = "explicit"
 dependencies = []
 doc = "See sources.md for located definitions and limits."
-
-[[quantity_aliases]]
-name = "Scalar"
-quantity_type_id = "dc255c612cf27e30cb835377c8dafcf4"
-
-[[quantity_aliases]]
-name = "Temperature"
-quantity_type_id = "c64b96975a4a59755f8711d3bf628bc9"
-
-[[quantity_aliases]]
-name = "DeltaTemperature"
-quantity_type_id = "459a933fd00837bbc50372e31ac9801c"
-
-[[quantity_aliases]]
-name = "Count"
-quantity_type_id = "3a8f6d2c9b1e4f7a8c5d0e3b6a9f2c18"
-
-[[quantity_aliases]]
-name = "Indicator"
-quantity_type_id = "b5d9e1c4a7f2483e9d6c1b0a5e8f3d27"

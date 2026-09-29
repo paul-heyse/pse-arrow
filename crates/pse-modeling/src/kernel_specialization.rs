@@ -6,11 +6,11 @@ use pse_ids::SemanticId;
 use specialize::{Value, symbol_name};
 
 fn run(text: &str, root: &str, bindings: Bindings) -> Result<SpecializedModel> {
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let c = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let p = check(&kernel_types::try_source(text)?, &c)?;
     specialize(
@@ -73,13 +73,13 @@ fn implicit_members_remain_addressable_through_child_paths_and_indexed_arguments
 
 #[test]
 fn multiplicative_literals_keep_operand_units_in_typed_and_static_expressions() {
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let preconditions =
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
             .unwrap();
     let context = TypeContext {
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
         preconditions: &preconditions,
     };
     let execute = |text: &str| -> Result<SpecializedModel> {
@@ -116,12 +116,12 @@ fn kernel_diamond_keeps_the_most_specific_checked_member() {
         let text = format!(
             "package p {{ interface A {{let x:Scalar;}} interface B extends A {{let x:Scalar=2;}} interface C extends A {{}} def Root:{bases} {{eq e:x==2;}} }}"
         );
-        let (registry, names) = physical();
+        let (registry, _) = physical();
         let preconditions = pse_quantity::PhysicalPreconditions::new(vec![]).unwrap();
         let c = TypeContext {
             preconditions: &preconditions,
             quantities: &registry,
-            names: &names,
+            scope: &PhysicalScope::default(),
         };
         let p = check(&source(&text), &c).unwrap();
         assert_eq!(
@@ -356,7 +356,7 @@ fn accumulator_closure_and_transfer_controls() {
         )
         .is_err()
     );
-    assert!(run("package p { def D { var x: MassFlow; accumulate a: Flow conservation tolerance 1e-8{mol/s}; contribute a role inflow = x; } }","p.D",Bindings::default()).is_err());
+    assert!(run("package p { def D { var x: VolumeFlow; accumulate a: Flow conservation tolerance 1e-8{mol/s}; contribute a role inflow = x; } }","p.D",Bindings::default()).is_err());
 }
 #[test]
 fn static_guards_requirements_and_budget() {
@@ -368,11 +368,11 @@ fn static_guards_requirements_and_budget() {
         .arguments
         .insert("enabled".into(), Value::Boolean(true));
     assert!(run(text, "p.D", bindings).is_err());
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let c = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let p = check(&source(text), &c).unwrap();
     assert!(
@@ -485,11 +485,11 @@ fn indexed_attributes_rows_enums_and_optional_guards() {
 
 #[test]
 fn bounded_expansion_observes_caller_cancellation() {
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let context = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let package = check(
         &source("package p { def D { var a: Scalar; var b: Scalar; var c: Scalar; } }"),
@@ -623,7 +623,7 @@ fn typed_ports_connect_existing_coordinates_across_children() {
     assert_eq!(m.equations.len(), 1);
     assert!(
         run(
-            &text.replace("port inlet: Flow = flow", "port inlet: MassFlow = flow"),
+            &text.replace("port inlet: Flow = flow", "port inlet: VolumeFlow = flow"),
             "p.Root",
             Bindings::default()
         )
@@ -666,11 +666,11 @@ fn presets_bind_before_demand_and_retain_lineage() {
             .equations
             .is_empty()
     );
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let c = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     assert!(check(&source("package p { preset A = B(); preset B = A(); }"), &c).is_err());
 }
@@ -712,11 +712,11 @@ fn requirements_reduce_typed_tables_and_reject_bad_data() {
 #[test]
 fn expression_expansion_spends_the_shared_item_budget() {
     let text = "package p { entity kind item {} entity item a {} entity item b {} set items: Set<item>={a,b}; def Root { eq e:sum(i in items | sum(j in items | sum(k in items | 1))) == 8; } }";
-    let (registry, names) = physical();
+    let (registry, _) = physical();
     let c = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
-        names: &names,
+        scope: &PhysicalScope::default(),
     };
     let p = check(&source(text), &c).unwrap();
     assert!(matches!(
@@ -940,5 +940,53 @@ fn annotation_kind_dispatch_is_exhaustive() {
             foreign.extrapolation = Some(pse_model::generated::enums::ExtrapolationPolicy::Reject);
         }
         assert!(shape(&foreign, at).is_err(), "{:?}", row.kind);
+    }
+}
+
+/// ADR-0123 Outcome 6: a package addresses a named reference state of the physical document
+/// as a `ReferenceState` value, and reads its typed conditions as `.temperature` and
+/// `.pressure`, in their declared quantity types and canonical units.
+#[test]
+fn reference_state_attributes_are_typed() {
+    let text = r#"package p {
+        def Child(datum: ReferenceState) {
+            require datum.temperature == 298.15{K} and datum.pressure == 100000{Pa} : "stock conditions";
+            require bt_ideal_oracle.temperature == 300{K} : "a second named state";
+            param t0: Temperature = datum.temperature;
+            var x: Temperature;
+            eq e: x == t0;
+        }
+        def Root { child c: Child = Child(datum = stock); }
+    }"#;
+    let model = run(text, "p.Root", Bindings::default()).unwrap();
+    let t0 = model
+        .symbols
+        .values()
+        .find(|s| s.lineage.path == "Root.c.t0")
+        .unwrap();
+    let (registry, names) = physical();
+    assert_eq!(
+        t0.ty,
+        Type::Quantity(pse_quantity::scheme::Scheme::Concrete(names["Temperature"]))
+    );
+    assert_eq!(
+        t0.initial,
+        Some(Value::Number {
+            bits: 298.15_f64.to_bits(),
+            quantity: names["Temperature"],
+        })
+    );
+    assert!(registry.physical_name("stock").is_some());
+    for (from, to) in [
+        // A condition keeps its declared type: a temperature is not a pressure.
+        ("param t0: Temperature = datum.temperature;", "param t0: Pressure = datum.temperature;"),
+        // A reference state has exactly its typed conditions.
+        ("param t0: Temperature = datum.temperature;", "param t0: Temperature = datum.volume;"),
+        // A quantity type is not a reference state.
+        ("Child(datum = stock)", "Child(datum = Temperature)"),
+        ("Child(datum = stock)", "Child(datum = unknown_state)"),
+    ] {
+        let refused = text.replace(from, to);
+        assert!(run(&refused, "p.Root", Bindings::default()).is_err(), "{to}");
     }
 }

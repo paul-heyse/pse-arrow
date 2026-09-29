@@ -1855,7 +1855,7 @@ mod tests {
         }
         assert_eq!(start_row(&outputs, state, None).unwrap(), None);
     }
-    fn physical() -> (PhysicalContext, BTreeMap<String, QuantityTypeId>) {
+    fn physical() -> PhysicalContext {
         let mut physical = super::super::super::tests::physical();
         physical.preconditions = Arc::new(
             pse_quantity::PhysicalPreconditions::new(
@@ -1867,24 +1867,12 @@ mod tests {
             &physical.quantities,
             &physical.preconditions,
         );
-        let names = BTreeMap::from([
-            (
-                "Scalar".into(),
-                physical.quantities.neutral_dimensionless().unwrap(),
-            ),
-            (
-                "Time".into(),
-                QuantityTypeId::from_id(
-                    SemanticId::parse_hex("e2ccf6d0a394403db967f4f35b83cb7c").unwrap(),
-                ),
-            ),
-        ]);
-        (physical, names)
+        physical
     }
     #[tokio::test]
     async fn kernel_conformance_integrates_authored_samples_and_retains_each_check() {
         let runtime = super::super::super::tests::runtime();
-        let (physical, names) = physical();
+        let physical = physical();
         let text = "package p { def Root {domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==2; eq initial:x[0{s}]==1{s}; annotation check x(x[i]<=4{s}); annotation valid x(0{s},4{s},reject); let area:Time=integral(i in t | 2); annotation check area(area>1.9{s});} test dynamic fixture {dof 0; run integrated; integrate samples(0{s},0.5{s},1{s}) relative(1e-6) normalized_absolute(1e-8) step(1e-4{s}) quadrature_relative(1e-6) quadrature_absolute(root.area=1e-7{s});} {child root:Root=Root();} }";
         let rows = pse_authoring::language::parse(
             text,
@@ -1905,7 +1893,7 @@ mod tests {
             rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
             reparsed.iter().map(|r| &r.value).collect::<Vec<_>>()
         );
-        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let package = runtime.modeling_package(rows, physical).unwrap();
         let policy = ModelingConformancePolicy {
             compiler: super::super::super::tests::compiler_profile(),
             solver: super::super::super::tests::profile(),
@@ -1971,7 +1959,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_fixture_schedules_inputs() {
         let runtime = super::super::super::tests::runtime();
-        let (physical, names) = physical();
+        let physical = physical();
         let text = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param u: Scalar = 5; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == u; eq initial: x[0{s}] == 1{s}; } test scheduled fixture {dof 0; run integrated; integrate samples(0{s}, 0.5{s}, 1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.u at(0.5{s}) values(2, -1);} {child root: Root = Root();} test on_state fixture {dof 0; run integrated; integrate samples(0{s}, 1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.x[0{s}] at(0.5{s}) values(1{s}, 2{s});} {child root: Root = Root();} }";
         let rows = pse_authoring::language::parse(
             text,
@@ -1998,7 +1986,7 @@ mod tests {
         );
         let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
         let (scheduled, on_state) = (root("scheduled"), root("on_state"));
-        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let package = runtime.modeling_package(rows, physical).unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let prepared = package
@@ -2073,7 +2061,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_integrated_events_bind_source_resets_and_same_layout_modes() {
         let runtime = super::super::super::tests::runtime();
-        let (physical, names) = physical();
+        let physical = physical();
         let integrate = "dof 0; run integrated; integrate samples(0{s}, 0.25{s}, 0.75{s}, 2{s}) relative(1e-8) normalized_absolute(1e-8) step(1e-4{s});";
         let source = format!(
             "package p {{ def Root {{ domain t: Time from 0{{s}} to 2{{s}}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == p; eq initial: x[0{{s}}] == 1{{s}}; let hit[i in t]: Time = x[i]-2{{s}}; let jump[i in t]: Time = 2*x[i]; let wrong: Scalar = 0; stage coast {{ override eq rate[i in t]: d(x[i])/di == 0; }} annotation check x(x[i] <= 4.01{{s}}); }} \
@@ -2108,7 +2096,7 @@ mod tests {
         );
         let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
         let (evented, mistyped, stopped) = (root("evented"), root("mistyped"), root("stopped"));
-        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let package = runtime.modeling_package(rows, physical).unwrap();
         let cancel = crate::CancelSource::new();
         let profile = native::Profile {
             end: 2.,
@@ -2175,7 +2163,7 @@ mod tests {
     #[tokio::test]
     async fn authored_directional_event_routes_to_idas() {
         let runtime = super::super::super::tests::runtime();
-        let (physical, names) = physical();
+        let physical = physical();
         let fixture = |direction: &str| {
             format!(
                 "test {direction} fixture {{ dof 0; run integrated; integrate samples(0{{s}}, 0.5{{s}}, 1{{s}}) relative(1e-9) normalized_absolute(1e-10) step(1e-4{{s}}); mode arc; event root.g[0{{s}}] direction({direction}) tolerance(1e-8{{s}}) terminal; }} {{ child root: Arc = Arc(); }}"
@@ -2196,7 +2184,7 @@ mod tests {
         .unwrap();
         let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
         let tests = ["either", "rising", "falling"].map(root);
-        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let package = runtime.modeling_package(rows, physical).unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let (rise, fall) = (0.5 - 0.5f64.sqrt() / 2., 0.5 + 0.5f64.sqrt() / 2.);
@@ -2255,7 +2243,7 @@ mod tests {
     #[tokio::test]
     async fn idas_sign_constraints_from_authored_bounds() {
         let runtime = super::super::super::tests::runtime();
-        let (physical, names) = physical();
+        let physical = physical();
         let integrate = "dof 0; run integrated; integrate samples(0{s}, 10{s}) relative(1e-2) normalized_absolute(1e-2) step(1e-4{s});";
         let decay = |state: &str, start: &str, rate: &str, bounds: &str| {
             format!(
@@ -2282,7 +2270,7 @@ mod tests {
         .unwrap();
         let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
         let [decay, relaxed, signs] = ["decay", "relaxed", "signs"].map(root);
-        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let package = runtime.modeling_package(rows, physical).unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let prepare = |root, profile| {
@@ -2347,7 +2335,7 @@ mod tests {
     #[tokio::test]
     async fn simultaneous_route_refuses_authored_events() {
         let runtime = super::super::super::tests::runtime();
-        let (physical, names) = physical();
+        let physical = physical();
         let def = "def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == 2; eq initial: x[0{s}] == 1{s}; let hit[i in t]: Time = x[i]-2{s}; }";
         let events =
             "mode run; event root.hit[0{s}] direction(rising) tolerance(1e-8{s}) terminal;";
@@ -2369,7 +2357,7 @@ mod tests {
             .unwrap()
             .declaration_id;
         let package = runtime
-            .modeling_package(rows, physical.clone(), names.clone())
+            .modeling_package(rows, physical.clone())
             .unwrap();
         let cancel = crate::CancelSource::new();
         let error = package
@@ -2402,7 +2390,7 @@ mod tests {
         let rows = parse(&format!(
             "package p {{ {def} test declared fixture {{ dof 0; run simultaneous; {events} }} {{ child root: Root = Root(); }} }}"
         ));
-        let error = runtime.modeling_package(rows, physical, names).unwrap_err();
+        let error = runtime.modeling_package(rows, physical).unwrap_err();
         assert!(error.to_string().contains("integrated route"), "{error}");
     }
     #[tokio::test]
@@ -2413,7 +2401,7 @@ mod tests {
     }
     async fn terminal_quadratures(method: native::Method) {
         let runtime = super::super::super::tests::runtime();
-        let (physical, names) = physical();
+        let physical = physical();
         let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == p; eq initial: x[0{s}] == 1{s}; let area: Time = integral(i in t | p); let score: Scalar = log(area/1{s}); annotation report area(\"integral\"); annotation report score(\"log-integral\"); annotation check area(area > 3{s}); annotation check x(x[i] <= 6{s}); } }";
         let cancel = crate::CancelSource::new();
         let compiler = super::super::super::tests::compiler_profile();
@@ -2437,7 +2425,7 @@ mod tests {
                 .unwrap()
                 .declaration_id;
             let package = runtime
-                .modeling_package(rows, physical.clone(), names.clone())
+                .modeling_package(rows, physical.clone())
                 .unwrap();
             let profile = native::Profile {
                 method,
@@ -2565,7 +2553,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_integrated_sample_checks_share_model_semantics_and_owned_rows() {
         let runtime = super::super::super::tests::runtime();
-        let (physical, names) = physical();
+        let physical = physical();
         let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == 2; eq initial: x[0{s}] == 1{s}; annotation check x(x[i] <= 4{s}); annotation valid x(0{s},4{s},extrapolate); } }";
         for (text, accepted) in [
             (source.to_string(), false),
@@ -2584,7 +2572,7 @@ mod tests {
                 .unwrap()
                 .declaration_id;
             let package = runtime
-                .modeling_package(declarations, physical.clone(), names.clone())
+                .modeling_package(declarations, physical.clone())
                 .unwrap();
             let cancel = crate::CancelSource::new();
             let prepared = package
@@ -2644,7 +2632,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_integrated_coupled_rate_matrix_uses_original_residual_and_parameter_jets() {
         let runtime = super::super::super::tests::runtime();
-        let (physical, names) = physical();
+        let physical = physical();
         let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize mesh on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; var y[i in t]: Time; eq first[i in t]: p*d(x[i])/di+d(y[i])/di == p; eq second[i in t]: d(x[i])/di+2*d(y[i])/di == 0; eq ix: x[0{s}] == 1{s}; eq iy: y[0{s}] == 3{s}; } }";
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
@@ -2674,7 +2662,7 @@ mod tests {
                 .unwrap()
                 .declaration_id;
             let package = runtime
-                .modeling_package(rows, physical.clone(), names.clone())
+                .modeling_package(rows, physical.clone())
                 .unwrap();
             let result = package
                 .prepare_simulation(
@@ -2769,8 +2757,7 @@ mod tests {
     #[tokio::test]
     async fn dynamics_refuses_free_integer() {
         let runtime = super::super::super::tests::runtime();
-        let (physical, mut names) = physical();
-        names.extend(super::super::super::tests::discrete_names());
+        let physical = physical();
         let source = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); var x[i in t]: Time; var units: Count in integer; eq ode[i in t]: d(x[i])/di == 2; eq initial: x[0{s}] == 1{s}; annotation start x(0{s}); annotation start units(1{1}); annotation bounds units(0{1}, 3{1}); } }";
         let rows = pse_authoring::language::parse(
             source,
@@ -2784,7 +2771,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let package = runtime.modeling_package(rows, physical).unwrap();
         let profile = native::Profile {
             end: 1.,
             samples: vec![0., 1.],
@@ -2830,7 +2817,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_integrated_time_uses_generated_rates_native_solver_and_initial_sensitivities() {
         let runtime = super::super::super::tests::runtime();
-        let (physical, names) = physical();
+        let physical = physical();
         let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize mesh on t using integrated(elements=1,order=1); param p: Scalar = 2; param offset: Time = 1{s}; var x[i in t]: Time; eq ode[i in t]: d(x[i])/di == p; eq initial: x[0{s}] == offset; annotation start x(0{s}); annotation nominal x(10{s}); annotation check x(abs(x[i] - offset - p*i) < 1e-5{s}); } }";
         let rows = pse_authoring::language::parse(
             source,
@@ -2844,7 +2831,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let package = runtime.modeling_package(rows, physical).unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let profile = native::Profile {
@@ -2981,7 +2968,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_nonlinear_dae_initial_parameter_sensitivities_and_quadrature_agree() {
         let runtime = super::super::super::tests::runtime();
-        let (physical, names) = physical();
+        let physical = physical();
         let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); param p:Scalar=2; param offset:Time=1{s}; var x[i in t]:Time; var y[i in t]:Scalar; eq rate[i in t]:d(x[i])/di==p; eq initial:x[0{s}]==offset; eq algebraic[i in t]:y[i]*y[i]==x[i]/1{s}; annotation start x(1{s}); annotation start y(1); let area:Time=integral(i in t | p); annotation check area(abs(area-2{s})<1e-5{s}); } }";
         let rows = pse_authoring::language::parse(
             source,
@@ -2996,7 +2983,7 @@ mod tests {
             .unwrap()
             .declaration_id;
         let y_declaration = rows.iter().find(|r| r.name == "y").unwrap().declaration_id;
-        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let package = runtime.modeling_package(rows, physical).unwrap();
         let cancel = crate::CancelSource::new();
         let mut methods = vec![native::Method::Diffsol];
         #[cfg(feature = "solver-idas")]
@@ -3081,7 +3068,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_integrated_dae_checks_partition_and_retains_completed_samples_on_failure() {
         let runtime = super::super::super::tests::runtime();
-        let (physical, names) = physical();
+        let physical = physical();
         let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize mesh on t using integrated(elements=1,order=1); param p: Scalar = 2; param offset: Time = 1{s}; var x[i in t]: Time; var y: Scalar; eq ode[i in t]: d(x[i])/di == y; eq initial: x[0{s}] == offset; eq algebraic: y == 2*p; annotation start x(0{s}); annotation start y(999); } }";
         let parse = |source: &str| {
             pse_authoring::language::parse(
@@ -3099,7 +3086,7 @@ mod tests {
             .unwrap()
             .declaration_id;
         let package = runtime
-            .modeling_package(rows, physical, names.clone())
+            .modeling_package(rows, physical)
             .unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
@@ -3145,7 +3132,7 @@ mod tests {
             assert!((sample.outputs[yi] - 4.).abs() < 1e-6);
         }
         let singular = package
-            .revised(parse(&source.replace("y == 2*p", "p == 2")), names.clone())
+            .with_declarations(parse(&source.replace("y == 2*p", "p == 2")))
             .unwrap();
         assert!(
             singular
@@ -3164,10 +3151,7 @@ mod tests {
                 .is_err()
         );
         let no_initial = package
-            .revised(
-                parse(&source.replace("eq initial: x[0{s}] == offset;", "")),
-                names.clone(),
-            )
+            .with_declarations(parse(&source.replace("eq initial: x[0{s}] == offset;", "")))
             .unwrap();
         assert!(
             no_initial
@@ -3188,13 +3172,10 @@ mod tests {
                 .contains("initial condition")
         );
         let guarded = package
-            .revised(
-                parse(&source.replace(
+            .with_declarations(parse(&source.replace(
                     "annotation start x(0{s});",
                     "annotation start x(0{s}); annotation valid x(0{s},2{s},reject);",
-                )),
-                names.clone(),
-            )
+                )))
             .unwrap();
         let prepared = guarded
             .prepare_simulation(
@@ -3249,13 +3230,10 @@ mod tests {
         assert!(!result.report.samples.is_empty());
         assert!(result.report.samples.iter().all(|s| s.outputs[xi] <= 2.));
         let bounded = package
-            .revised(
-                parse(&source.replace(
+            .with_declarations(parse(&source.replace(
                     "annotation start x(0{s});",
                     "annotation start x(0{s}); annotation bounds x(0{s},2{s});",
-                )),
-                names,
-            )
+                )))
             .unwrap();
         let profile = prepared.profile.clone();
         let case = ModelingCaseBindings {
@@ -3296,7 +3274,7 @@ mod tests {
     async fn kernel_same_definition_selects_steady_integrated_and_simultaneous() {
         use pse_modeling::analysis::Route;
         let runtime = super::super::super::tests::runtime();
-        let (physical, names) = physical();
+        let physical = physical();
         let source = "package p { difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0.5,0.5); def Root { domain t: Time from 0{s} to 1{s}; when analysis.route == analysis.integrated { discretize native on t using integrated(elements=1,order=1); } when analysis.route != analysis.integrated { discretize grid on t using backward(elements=4,order=1); } param target: Time = 2{s}; param tau: Time = 1{s}; var x[i in t]: Time; when analysis.dynamic { eq transient[i in t]: d(x[i])/di == (target-x[i])/tau; eq initial: x[0{s}] == 0{s}; } when not analysis.dynamic { eq stationary[i in t]: 0 == (target-x[i])/tau; } annotation start x(0{s}); } }";
         let rows = pse_authoring::language::parse(
             source,
@@ -3310,7 +3288,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let package = runtime.modeling_package(rows, physical).unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let simulation = package

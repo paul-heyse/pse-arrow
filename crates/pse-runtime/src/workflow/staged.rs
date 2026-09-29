@@ -673,10 +673,6 @@ mod native_tests {
 
     fn package_on(runtime: &Runtime, source: &str) -> (ModelingPackage, ModelingAnalysis) {
         let physical = physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         let rows = pse_authoring::language::parse(
             source,
             SemanticId::NIL,
@@ -689,7 +685,7 @@ mod native_tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let package = runtime.modeling_package(rows, physical).unwrap();
         let mut solver = profile();
         solver.selection = SolverSelection::Explicit(Backend::Kinsol);
         solver.controls.reuse = ReusePolicy::AllowRebuild;

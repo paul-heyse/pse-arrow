@@ -105,9 +105,10 @@ fn builder() -> QuantityRegistryBuilder {
         })
         .reference_state(ReferenceState {
             id: ReferenceStateId::from_id(raw(GAUGE)),
+            name: "gauge".into(),
             kind: ReferenceStateKind::Custom,
-            temperature: Some(298.15),
-            pressure: Some(101_325.0),
+            temperature: None,
+            pressure: None,
             include_enthalpy_of_formation: false,
             subject: None,
         })
@@ -122,6 +123,7 @@ fn builder() -> QuantityRegistryBuilder {
         })
         .quantity_type(QuantityType {
             id: QuantityTypeId::from_id(raw(MOLAR_CP)),
+            name: None,
             key: QuantityTypeKey {
                 kind: QuantityKindId::from_id(raw(MOLAR_CP)),
                 basis: None,

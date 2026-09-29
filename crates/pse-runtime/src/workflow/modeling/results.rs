@@ -686,7 +686,6 @@ mod tests {
             .quantity_type(neutral)
             .unwrap()
             .canonical_unit;
-        let names = BTreeMap::from([("Scalar".into(), neutral)]);
         let source = "package p { entity kind Item {} entity Item a {} entity Item b {} set items: Set<Item> = {a,b}; def Root { var x[j in items]: Scalar; eq e[j in items]: x[j] == 2; annotation start x(2); annotation report x(\"value\"); annotation valid x(0,1,extrapolate); } }";
         let rows = pse_authoring::language::parse(
             source,
@@ -700,7 +699,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let package = runtime.modeling_package(rows, physical).unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let case = ModelingCaseBindings {
@@ -830,10 +829,6 @@ mod tests {
         use pse_backend_native::solve::Assurance;
         let runtime = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let names = BTreeMap::from([(
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        )]);
         // A tangent-plane-style stability check: the minimized objective stays above -c.
         let source = "package p { def Root { param c: Scalar = 0.5; var x: Scalar; let f: Scalar = x*x; eq g: x <= 2; annotation bounds x(-2, 2); annotation start x(1); annotation objective f(minimize); annotation check f(f > -c); } }";
         let rows = pse_authoring::language::parse(
@@ -848,7 +843,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let package = runtime.modeling_package(rows, physical).unwrap();
         let cancel = crate::CancelSource::new();
         let prepared = package
             .prepare_solve(

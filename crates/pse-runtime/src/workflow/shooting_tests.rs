@@ -20,10 +20,6 @@ async fn tracking(method: Method) -> crate::workflow::ModelingSimulation {
     );
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
-    let scalar = physical.quantities.neutral_dimensionless().unwrap();
-    let time = pse_quantity::QuantityTypeId::from_id(
-        SemanticId::parse_hex("e2ccf6d0a394403db967f4f35b83cb7c").unwrap(),
-    );
     let rows = pse_authoring::language::parse(
         "package p { def Tracking { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param u: Scalar = 0.5; var x[i in t]: Scalar; var y[i in t]: Scalar; eq rate[i in t]: d(x[i])/di == (u - x[i])/1{s}; eq square[i in t]: y[i] == x[i]*x[i]; eq initial: x[0{s}] == 0; annotation start x(0); annotation start y(0); let cost: Scalar = integral(i in t | (x[i]-1)*(x[i]-1)/1{s}); annotation check cost(cost >= 0); let miss[i in t]: Scalar = (x[i]-1.5)*(x[i]-1.5); annotation report miss(\"terminal miss\"); } }",
         id(30),
@@ -37,11 +33,7 @@ async fn tracking(method: Method) -> crate::workflow::ModelingSimulation {
         .unwrap()
         .declaration_id;
     let package = crate::workflow::tests::runtime_with_workspace(32 << 20)
-        .modeling_package(
-            rows,
-            physical,
-            BTreeMap::from([("Scalar".into(), scalar), ("Time".into(), time)]),
-        )
+        .modeling_package(rows, physical)
         .unwrap();
     // IDAS DAE forward sensitivities fail their first error test at t = 0 below 1e-8.
     let rtol = if method == Method::Idas { 1e-8 } else { 1e-10 };
@@ -392,10 +384,7 @@ async fn shooting_path_bounds_hold_at_samples() {
 }
 
 /// The physical context of the authored shooting fixtures: Scalar and Time.
-fn physical() -> (
-    crate::workflow::PhysicalContext,
-    BTreeMap<String, pse_quantity::QuantityTypeId>,
-) {
+fn physical() -> crate::workflow::PhysicalContext {
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -403,19 +392,7 @@ fn physical() -> (
     );
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
-    let names = BTreeMap::from([
-        (
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        ),
-        (
-            "Time".into(),
-            pse_quantity::QuantityTypeId::from_id(
-                SemanticId::parse_hex("e2ccf6d0a394403db967f4f35b83cb7c").unwrap(),
-            ),
-        ),
-    ]);
-    (physical, names)
+    physical
 }
 fn parse(
     text: &str,
@@ -432,7 +409,7 @@ fn parse(
 /// declaration before any integration.
 #[tokio::test]
 async fn shooting_fixture_needs_authored_controls() {
-    let (physical, names) = physical();
+    let physical = physical();
     let runtime = crate::workflow::tests::runtime();
     let def = "def Root {domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param u:Scalar=1; var x[i in t]:Scalar; eq rate[i in t]:d(x[i])/di==(u-x[i])/1{s}; eq initial:x[0{s}]==0;}";
     let integrate =
@@ -477,7 +454,7 @@ async fn shooting_fixture_needs_authored_controls() {
             "package p {{ {def} test shot fixture {{dof 0; {fixture}}} {{child root:Root=Root();}} }}"
         );
         let Err(error) =
-            runtime.modeling_package(parse(&text).unwrap(), physical.clone(), names.clone())
+            runtime.modeling_package(parse(&text).unwrap(), physical.clone())
         else {
             panic!("admitted: {fixture}");
         };
@@ -493,7 +470,7 @@ async fn shooting_fixture_needs_authored_controls() {
 /// and conformance solves the fixture and passes its model checks.
 #[tokio::test]
 async fn authored_shooting_fixture_solves() {
-    let (physical, names) = physical();
+    let physical = physical();
     let def = "def Tracking { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param u: Scalar = 0.5; var x[i in t]: Scalar; var y[i in t]: Scalar; eq rate[i in t]: d(x[i])/di == (u - x[i])/1{s}; eq square[i in t]: y[i] == x[i]*x[i]; eq initial: x[0{s}] == 0; annotation start x(0); annotation start y(0); let cost: Scalar = integral(i in t | (x[i]-1)*(x[i]-1)/1{s}); annotation check cost(cost >= 0); let miss[i in t]: Scalar = (x[i]-1.5)*(x[i]-1.5); annotation report miss(\"terminal miss\"); annotation objective cost(minimize, weight = 1); annotation objective miss(minimize, weight = 1); }";
     let fixture = |name: &str, shoot: &str| {
         format!(
@@ -523,7 +500,7 @@ async fn authored_shooting_fixture_solves() {
     let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
     let fixtures = [root("single"), root("multiple")];
     let package = crate::workflow::tests::runtime_with_workspace(32 << 20)
-        .modeling_package(rows, physical, names)
+        .modeling_package(rows, physical)
         .unwrap();
     let cancel = crate::CancelSource::new();
     let (optimum, value) = analytic();

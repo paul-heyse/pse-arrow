@@ -13,7 +13,7 @@ pub struct AuthoredPackagesFieldDependenciesItem {
     ///package_id
     pub r#package_id: crate::generated::identities::PackageId,
     ///version_req
-    pub r#version_req: String,
+    pub r#version_req: crate::generated::structures::VersionRequirement,
 }
 impl crate::SemanticEq for AuthoredPackagesFieldDependenciesItem {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -44,7 +44,7 @@ pub struct AuthoredPackagesRow {
     pub r#kind: crate::generated::enums::PackageKind,
     ///`explicit` or `named` (blueprint §5.1). Recorded on the package, never in the ID.
     pub r#id_policy: crate::generated::enums::IdPolicy,
-    ///The declared dependencies. Phase 0 admits exact version requirements only.
+    ///The declared dependencies, each a package identity and a typed version requirement (ADR-0123 Outcome 7). Phase 0 admits exact version requirements only. Version two types the requirement.
     pub r#dependencies: Vec<AuthoredPackagesFieldDependenciesItem>,
     ///The digest of the package's documents.
     pub r#content_hash: pse_ids::ContentHash,

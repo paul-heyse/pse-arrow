@@ -18,6 +18,14 @@ use pse_relations::generated::enums::{IdPolicy, PackageKind};
 use pse_relations::generated::identities::PackageId;
 use pse_relations::generated::reference::units;
 
+fn requirement(major: i64) -> pse_model::generated::structures::VersionRequirement {
+    pse_model::generated::structures::VersionRequirement {
+        operator: pse_model::generated::enums::ModelingVersionOperator::Exact,
+        major,
+        minor: 0,
+        patch: 0,
+    }
+}
 fn package_row() -> packages::Row {
     packages::Row {
         package_id: PackageId::from_bytes([3; 16]),
@@ -27,7 +35,7 @@ fn package_row() -> packages::Row {
         id_policy: IdPolicy::Explicit,
         dependencies: vec![AuthoredPackagesFieldDependenciesItem {
             package_id: PackageId::from_bytes([4; 16]),
-            version_req: "=1.0.0".to_owned(),
+            version_req: requirement(1),
         }],
         content_hash: ContentHash::NIL,
         doc: "fixture".to_owned(),
@@ -136,7 +144,7 @@ fn bulk_append_preserves_nested_slices_and_declared_enum_strings() {
     second_row.name = "second".to_owned();
     second_row.package_id = PackageId::from_bytes([9; 16]);
     second_row.kind = PackageKind::Library;
-    second_row.dependencies[0].version_req = "^2.0".to_owned();
+    second_row.dependencies[0].version_req = requirement(2);
     second.push(second_row.clone()).expect("second row");
     let second = second.finish().expect("finish");
     let slice = second.batch().slice(1, 1);

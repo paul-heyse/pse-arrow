@@ -12,12 +12,14 @@
 pub struct ReferenceReferenceStatesRow {
     ///reference_state_id
     pub r#reference_state_id: pse_ids::SemanticId,
+    ///name
+    pub r#name: String,
     ///kind
     pub r#kind: crate::generated::enums::ReferenceStateKind,
     ///temperature
-    pub r#temperature: Option<f64>,
+    pub r#temperature: Option<crate::generated::extension_values::QuantityValue>,
     ///pressure
-    pub r#pressure: Option<f64>,
+    pub r#pressure: Option<crate::generated::extension_values::QuantityValue>,
     ///include_enthalpy_of_formation
     pub r#include_enthalpy_of_formation: bool,
     ///subject_id
@@ -30,7 +32,8 @@ impl crate::SemanticEq for ReferenceReferenceStatesRow {
         crate::SemanticEq::semantic_eq(
             &self.r#reference_state_id,
             &other.r#reference_state_id,
-        ) && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+        ) && crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
             && crate::SemanticEq::semantic_eq(&self.r#temperature, &other.r#temperature)
             && crate::SemanticEq::semantic_eq(&self.r#pressure, &other.r#pressure)
             && crate::SemanticEq::semantic_eq(
@@ -51,6 +54,8 @@ impl crate::SemanticFrame for ReferenceReferenceStatesRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#reference_state_id));
         crate::SemanticFrame::frame(&self.r#reference_state_id, hash);
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
         hash.str(stringify!(r#kind));
         crate::SemanticFrame::frame(&self.r#kind, hash);
         hash.str(stringify!(r#temperature));
@@ -69,6 +74,7 @@ impl crate::HeapUsage for ReferenceReferenceStatesRow {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reference_state_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#temperature))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#pressure))

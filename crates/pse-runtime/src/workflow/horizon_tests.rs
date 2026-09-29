@@ -14,7 +14,7 @@ use pse_backend_native::{
 };
 use pse_compiler::workspace::{ModelingCaseBindings, ModelingVariableState};
 use pse_modeling::{Bindings, DeclarationId, Limits, analysis::Route};
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 
 /// The antiwindup loop of the `control_fixtures` package (`SaturatedPID`): an actuator
 /// saturated to the control library PID's output limits [0, 1] drives a first-order process
@@ -68,18 +68,6 @@ fn package(runtime: Runtime) -> (ModelingPackage, [DeclarationId; 3]) {
     );
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
-    let names = BTreeMap::from([
-        (
-            "Scalar".into(),
-            physical.quantities.neutral_dimensionless().unwrap(),
-        ),
-        (
-            "Time".into(),
-            pse_quantity::QuantityTypeId::from_id(
-                SemanticId::parse_hex("e2ccf6d0a394403db967f4f35b83cb7c").unwrap(),
-            ),
-        ),
-    ]);
     let rows = pse_authoring::language::parse(
         LOOP,
         SemanticId::NIL,
@@ -89,7 +77,7 @@ fn package(runtime: Runtime) -> (ModelingPackage, [DeclarationId; 3]) {
     .unwrap();
     let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
     let roots = [root("Loop"), root("Plant"), root("Estimator")];
-    let package = runtime.modeling_package(rows, physical, names).unwrap();
+    let package = runtime.modeling_package(rows, physical).unwrap();
     (package, roots)
 }
 fn fixed(values: &[(&str, f64)], fixed: &[&str]) -> ModelingCaseBindings {

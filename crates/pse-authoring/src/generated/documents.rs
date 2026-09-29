@@ -132,9 +132,4 @@ pub struct PackageHeaderDocument {
     ///Optional explicit representation-unit selector, at most one per package.
     #[serde(default)]
     pub r#unit_sets: Vec<pse_model::generated::r#authored::r#package_unit_sets::Row>,
-    ///Physical type names scoped to this package's modeling declarations.
-    #[serde(default)]
-    pub r#quantity_aliases: Vec<
-        pse_model::generated::r#authored::r#package_quantity_aliases::Row,
-    >,
 }

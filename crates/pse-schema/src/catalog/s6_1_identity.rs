@@ -22,40 +22,10 @@ pub fn declare(builder: &mut RegistryBuilder) {
         "One authored package",
     ));
     declare_packages(builder);
-    declare_quantity_aliases(builder);
     declare_documents(builder);
     declare_entities(builder);
     declare_aliases(builder);
     declare_package_graph(builder);
-}
-
-fn declare_quantity_aliases(builder: &mut RegistryBuilder) {
-    builder.declare_relation(
-        RelationDecl::new(
-            Namespace::Authored,
-            "package_quantity_aliases",
-            1,
-            Authority::Authored,
-            SnapshotClass::Model,
-            "Physical type names visible within the declaring package's modeling source.",
-        )
-        .pk(&["package_id", "name"])
-        .columns(vec![
-            FieldContract::reference("package_id", FieldContract::id(), "The declaring package.")
-                .with_fk("authored.packages", "package_id"),
-            FieldContract::label(
-                "name",
-                FieldContract::native(arrow_schema::DataType::Utf8),
-                "Local physical type name.",
-            ),
-            FieldContract::reference(
-                "quantity_type_id",
-                FieldContract::id(),
-                "The complete admitted physical type.",
-            )
-            .with_fk("reference.quantity_types", "quantity_type_id"),
-        ]),
-    );
 }
 
 /// `authored.packages @1` (blueprint §6.1).
@@ -64,7 +34,7 @@ fn declare_packages(builder: &mut RegistryBuilder) {
         RelationDecl::new(
             Namespace::Authored,
             "packages",
-            1,
+            2,
             Authority::Authored,
             SnapshotClass::Model,
             "One row per package: its version, its identity policy and its exact dependencies.",
@@ -101,12 +71,12 @@ fn declare_packages(builder: &mut RegistryBuilder) {
                         .with_name("package_id")
                         .with_nullable(false)
                         .with_identity("package"),
-                    FieldContract::native(arrow_schema::DataType::Utf8)
+                    super::modeling::version_requirement()
                         .with_name("version_req")
                         .with_nullable(false),
                 ]))
                 .with_collection(crate::model::CollectionContract::SET),
-                "The declared dependencies. Phase 0 admits exact version requirements only.",
+                "The declared dependencies, each a package identity and a typed version requirement (ADR-0123 Outcome 7). Phase 0 admits exact version requirements only. Version two types the requirement.",
             ),
             FieldContract::payload(
                 "content_hash",

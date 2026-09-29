@@ -399,13 +399,6 @@ impl RunResult {
             packages,
             |r: &pse_relations::generated::authored::packages::Row| r.package_id
         );
-        merge_source!(
-            package_quantity_aliases,
-            |r: &pse_relations::generated::authored::package_quantity_aliases::Row| (
-                r.package_id,
-                r.name.clone()
-            )
-        );
         batches.extend(
             collection
                 .finish()

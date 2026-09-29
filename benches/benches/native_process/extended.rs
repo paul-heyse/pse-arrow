@@ -56,11 +56,7 @@ async fn algebraic(
         .declaration_id;
     (
         runtime(owner)
-            .modeling_package(
-                rows,
-                physical,
-                BTreeMap::from([("Scalar".into(), q.into())]),
-            )
+            .modeling_package(rows, physical)
             .unwrap(),
         root,
     )
@@ -106,11 +102,7 @@ async fn recycle(owner: &WorkflowRuntime) {
         .unwrap()
         .declaration_id;
     let package = runtime(owner)
-        .modeling_package(
-            rows,
-            physical,
-            BTreeMap::from([("Scalar".into(), q.into())]),
-        )
+        .modeling_package(rows, physical)
         .unwrap();
     let cancel = CancelSource::new();
     let analysis = package
@@ -235,11 +227,7 @@ async fn sparse_fit(owner: &WorkflowRuntime, n: usize) {
         "experiments":[{"experiment_id":id(74),"case_id":root,"route":"steady","bindings":(0..n).map(|i|json!({"parameter_id":id(1000+i as u32),"path":format!("p{i}")})).collect::<Vec<_>>()}],
         "observations":(0..n).map(|i|json!({"observation_id":id(4000+i as u32),"experiment_id":id(74),"output_path":format!("p{i}"),"time":null,"included":true,"importance":1.})).collect::<Vec<_>>()})).unwrap());
     let package = runtime(owner)
-        .modeling_package(
-            rows,
-            physical,
-            BTreeMap::from([("Scalar".into(), pse_quantity::QuantityTypeId::from_id(q))]),
-        )
+        .modeling_package(rows, physical)
         .unwrap()
         .with_fit_data(data)
         .unwrap();
