@@ -54,6 +54,7 @@ impl PreparedInitialization {
                     numerical_psd: false,
                     least_squares: false,
                     controls,
+                    settings: &execution::BackendSettings::Default,
                 }
                 .select(selection)
             })

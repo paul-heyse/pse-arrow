@@ -1176,6 +1176,7 @@ fn fixed_assignment(
         numerical_psd: false,
         least_squares: false,
         controls: &controls,
+        settings: &BackendSettings::Default,
     })
     .select(SolverSelection::Auto)?
     else {

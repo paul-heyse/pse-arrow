@@ -55,6 +55,9 @@ pub struct ProblemFacts {
     pub quadratic: bool,
     /// Native constraint handlers the structure requires (ADR-0104), sorted and unique.
     pub native: Vec<pse_model::generated::enums::NativeConstraintForm>,
+    /// Structural requirements the formulation's lowerings place on the route, such as the
+    /// l1 exact penalty an authored `penalty(l1)` realization states (ADR-0104 §5).
+    pub requirements: Vec<pse_model::generated::enums::ModelingStructuralRequirement>,
     /// Exact convexity established at preparation (ADR-0121): a coefficient program's
     /// objective quadratic by an exact Gram certificate, any other program by the curvature
     /// pass. It carries the identity of the values it consumed and rebinds with them.
@@ -137,6 +140,7 @@ impl ProblemFacts {
                 .collect::<std::collections::BTreeSet<_>>()
                 .into_iter()
                 .collect(),
+            requirements: plan.structure().requirements().to_vec(),
             convexity,
         })
     }

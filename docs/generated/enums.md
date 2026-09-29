@@ -953,6 +953,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `bounds` | `` | false |
 | `native_forms` | `` | false |
 | `least_squares` | `` | false |
+| `method` | `` | false |
 
 ## `NativeMetricKind`
 

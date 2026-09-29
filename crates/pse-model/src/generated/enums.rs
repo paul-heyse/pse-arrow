@@ -8925,6 +8925,9 @@ pub enum NativeIneligibility {
     ///least_squares
     #[serde(rename = "least_squares")]
     LeastSquares,
+    ///method
+    #[serde(rename = "method")]
+    Method,
 }
 impl crate::SemanticEq for NativeIneligibility {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -8933,7 +8936,7 @@ impl crate::SemanticEq for NativeIneligibility {
 }
 impl NativeIneligibility {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 10usize] = [
+    pub const ALL: [Self; 11usize] = [
         Self::NotLinked,
         Self::Serial,
         Self::NotSquareRoot,
@@ -8944,6 +8947,7 @@ impl NativeIneligibility {
         Self::Bounds,
         Self::NativeForms,
         Self::LeastSquares,
+        Self::Method,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -8958,6 +8962,7 @@ impl NativeIneligibility {
             Self::Bounds => "bounds",
             Self::NativeForms => "native_forms",
             Self::LeastSquares => "least_squares",
+            Self::Method => "method",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -8973,6 +8978,7 @@ impl NativeIneligibility {
             Self::Bounds => 7usize,
             Self::NativeForms => 8usize,
             Self::LeastSquares => 9usize,
+            Self::Method => 10usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -8993,6 +8999,7 @@ impl NativeIneligibility {
             Self::Bounds => None,
             Self::NativeForms => None,
             Self::LeastSquares => None,
+            Self::Method => None,
         }
     }
 }
@@ -9011,7 +9018,7 @@ impl schemars::JsonSchema for NativeIneligibility {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["not_linked", "serial", "not_square_root",
             "no_objective", "certification", "class", "derivatives", "bounds",
-            "native_forms", "least_squares"] }
+            "native_forms", "least_squares", "method"] }
         )
     }
 }
@@ -9029,6 +9036,7 @@ impl core::str::FromStr for NativeIneligibility {
             "bounds" => Ok(Self::Bounds),
             "native_forms" => Ok(Self::NativeForms),
             "least_squares" => Ok(Self::LeastSquares),
+            "method" => Ok(Self::Method),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(NativeIneligibility).to_owned(),

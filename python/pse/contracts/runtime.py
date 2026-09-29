@@ -1658,6 +1658,7 @@ class RuntimeSolverCapabilitiesRow:
     parallel: b.bool = attrs.field(validator=v.exact_type(b.bool))
     certifies: b.bool = attrs.field(validator=v.exact_type(b.bool))
     native_forms: b.tuple[e.NativeConstraintForm, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeConstraintForm), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    requirements: b.tuple[e.ModelingStructuralRequirement, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.ModelingStructuralRequirement), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)

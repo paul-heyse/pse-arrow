@@ -952,6 +952,7 @@ class NativeIneligibility(StrEnum):
     BOUNDS = "bounds"
     NATIVE_FORMS = "native_forms"
     LEAST_SQUARES = "least_squares"
+    METHOD = "method"
 
 
 class NativeMetricKind(StrEnum):

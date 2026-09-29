@@ -8,20 +8,20 @@ pub use pse_model::generated::r#runtime::r#solver_capabilities::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    115u8, 109u8, 126u8, 171u8, 112u8, 182u8, 10u8, 175u8, 162u8, 151u8, 107u8, 190u8,
-    100u8, 166u8, 142u8, 85u8,
+    84u8, 77u8, 24u8, 247u8, 10u8, 33u8, 22u8, 151u8, 224u8, 120u8, 63u8, 0u8, 186u8,
+    139u8, 212u8, 230u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "solver_capabilities";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 2u32;
+pub const VERSION: u32 = 3u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    195u8, 9u8, 122u8, 154u8, 226u8, 221u8, 150u8, 29u8, 99u8, 18u8, 124u8, 174u8, 190u8,
-    74u8, 149u8, 214u8, 254u8, 109u8, 160u8, 6u8, 191u8, 52u8, 132u8, 50u8, 234u8, 166u8,
-    183u8, 178u8, 231u8, 85u8, 0u8, 135u8,
+    17u8, 47u8, 182u8, 171u8, 233u8, 114u8, 164u8, 58u8, 97u8, 52u8, 39u8, 62u8, 223u8,
+    150u8, 85u8, 166u8, 147u8, 153u8, 251u8, 138u8, 246u8, 187u8, 30u8, 183u8, 70u8,
+    66u8, 26u8, 117u8, 176u8, 216u8, 147u8, 149u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
     fn append(
@@ -72,6 +72,10 @@ impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
             &self.r#native_forms,
             children[12usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#requirements,
+            children[13usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -107,6 +111,9 @@ impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
         <Vec<
             crate::generated::enums::NativeConstraintForm,
         > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
+        <Vec<
+            crate::generated::enums::ModelingStructuralRequirement,
+        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -173,6 +180,12 @@ impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
                 crate::generated::enums::NativeConstraintForm,
             > as crate::columnar::ArrowValue>::read(
                 input.column(12usize).as_ref(),
+                index,
+            )?,
+            r#requirements: <Vec<
+                crate::generated::enums::ModelingStructuralRequirement,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(13usize).as_ref(),
                 index,
             )?,
         })
@@ -263,6 +276,10 @@ impl crate::columnar::RelationRow for RuntimeSolverCapabilitiesRow {
             &self.r#native_forms,
             columns[12usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#requirements,
+            columns[13usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -297,10 +314,10 @@ impl crate::columnar::RelationRow for RuntimeSolverCapabilitiesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        29_696_usize + size_of::<Self::Builder>()
+        32_768_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        232usize
+        256usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -380,6 +397,18 @@ impl crate::columnar::RelationRow for RuntimeSolverCapabilitiesRow {
                     ),
                 )?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#requirements)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        crate::columnar::allocation_add(8, (item).as_str().len())?,
+                    ),
+                )?,
+        )?;
         Ok(bytes)
     }
 }
@@ -390,7 +419,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 14usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "backend",
@@ -456,6 +485,11 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
         name: "native_forms",
         position: 12usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "requirements",
+        position: 13usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -485,6 +519,8 @@ pub mod columns {
     pub const CERTIFIES: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///native_forms
     pub const NATIVE_FORMS: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    ///requirements
+    pub const REQUIREMENTS: crate::columnar::ColumnReference = super::COLUMNS[13usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -504,6 +540,7 @@ pub struct RuntimeSolverCapabilitiesView<'a> {
     parallel_column: &'a arrow_array::BooleanArray,
     certifies_column: &'a arrow_array::BooleanArray,
     native_forms_column: &'a arrow_array::ListArray,
+    requirements_column: &'a arrow_array::ListArray,
 }
 impl<'a> RuntimeSolverCapabilitiesView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -582,6 +619,9 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
             native_forms_column: crate::columnar::array::<
                 arrow_array::ListArray,
             >(batch.column(12usize).as_ref())?,
+            requirements_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(13usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -752,6 +792,18 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
     pub fn native_forms_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[12usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "requirements",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn requirements_column(&self) -> &'a arrow_array::ListArray {
+        self.requirements_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "requirements", "`.")]
+    pub fn requirements_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[13usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -799,6 +851,10 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
             )?,
             r#native_forms: crate::columnar::ArrowValue::read(
                 self.native_forms_column,
+                index,
+            )?,
+            r#requirements: crate::columnar::ArrowValue::read(
+                self.requirements_column,
                 index,
             )?,
         })

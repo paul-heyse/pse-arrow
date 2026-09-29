@@ -13,7 +13,8 @@ use crate::{
 use pse_kernels::DerivativeOrder;
 use pse_math::facts::{BoundShape, ProblemFacts};
 use pse_model::generated::enums::{
-    ModelingVariableDomain, NativeConstraintForm, NativeIneligibility,
+    ModelingStructuralRequirement, ModelingVariableDomain, NativeConstraintForm,
+    NativeIneligibility,
 };
 /// Selected execution class, including the zero-variable path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -59,6 +60,12 @@ pub enum Ineligible {
     },
     /// A Gauss–Newton Hessian needs a least-squares objective; only fits state one.
     LeastSquares,
+    /// The formulation states structural requirements (ADR-0104 §5) that the adapter's record
+    /// does not honour, or that the request's settings select a method that does not.
+    Method {
+        /// Unmet requirements, in order.
+        requirements: Vec<ModelingStructuralRequirement>,
+    },
 }
 impl std::fmt::Display for Ineligible {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -103,6 +110,15 @@ impl std::fmt::Display for Ineligible {
             Self::LeastSquares => {
                 f.write_str("a Gauss–Newton Hessian requires a least-squares fit objective")
             }
+            Self::Method { requirements } => write!(
+                f,
+                "the formulation's {} requirement needs a method this adapter or its settings do not select",
+                requirements
+                    .iter()
+                    .map(|r| r.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         }
     }
 }
@@ -120,6 +136,7 @@ impl Ineligible {
             Self::Bounds { .. } => NativeIneligibility::Bounds,
             Self::NativeForms { .. } => NativeIneligibility::NativeForms,
             Self::LeastSquares => NativeIneligibility::LeastSquares,
+            Self::Method { .. } => NativeIneligibility::Method,
         }
     }
 }
@@ -172,6 +189,8 @@ pub struct Requirements<'a> {
     pub least_squares: bool,
     /// Complete effective native controls.
     pub controls: &'a crate::solve::Controls,
+    /// The request's typed backend settings, which select a method.
+    pub settings: &'a crate::execution::BackendSettings,
 }
 /// Project an already admitted native oracle into the same contextual selector.
 /// Callers supply the represented objective/equality meaning, not a backend preference.
@@ -203,6 +222,7 @@ pub fn oracle_facts(c: &crate::OracleContract, objective: bool, equalities: bool
         bound_assumptions: c.identity,
         quadratic: false,
         native: vec![],
+        requirements: vec![],
         convexity: pse_math::convexity::Convexity::not_assessed(c.identity),
     }
 }
@@ -254,7 +274,12 @@ pub fn problem_classes(
 }
 /// The one eligibility rule: a function of an adapter's capability record, its linkage and
 /// the request. Every adapter is assessed through it.
-pub fn admit(capability: &Capability, linked: bool, r: &Requirements<'_>) -> Vec<Ineligible> {
+pub fn admit(
+    backend: Backend,
+    capability: &Capability,
+    linked: bool,
+    r: &Requirements<'_>,
+) -> Vec<Ineligible> {
     let f = r.facts;
     let mut reasons = Vec::new();
     if !linked {
@@ -321,6 +346,20 @@ pub fn admit(capability: &Capability, linked: bool, r: &Requirements<'_>) -> Vec
         .collect();
     if !missing.is_empty() {
         reasons.push(Ineligible::NativeForms { missing });
+    }
+    // A structural requirement is a fact of the formulation (ADR-0104 §5): only a record that
+    // honours it, run with settings whose method does, is eligible. An authored realization
+    // is the author's selection, so nothing here is chosen automatically.
+    let unmet: Vec<_> = f
+        .requirements
+        .iter()
+        .filter(|q| !capability.requirements.contains(q) || !r.settings.honours(backend, **q))
+        .copied()
+        .collect();
+    if !unmet.is_empty() {
+        reasons.push(Ineligible::Method {
+            requirements: unmet,
+        });
     }
     reasons
 }
@@ -430,7 +469,7 @@ fn native_forms(forms: &[NativeConstraintForm]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::execution::{LINKED, adapter};
+    use crate::execution::{BackendSettings, LINKED, adapter};
     use pse_math::convexity::{
         ConeSummary, Convexity, ConvexityClass, Definiteness, GramCertificate, Unrecognized,
     };
@@ -476,6 +515,7 @@ mod tests {
             numerical_psd: false,
             least_squares: false,
             controls: &crate::solve::Controls::default(),
+            settings: &BackendSettings::Default,
         };
         assert!(matches!(
             requirements.select(SolverSelection::Auto),
@@ -506,6 +546,7 @@ mod tests {
             numerical_psd,
             least_squares: false,
             controls: &crate::solve::Controls::default(),
+            settings: &BackendSettings::Default,
         }
         .select(selection)
     }
@@ -526,6 +567,7 @@ mod tests {
             bound_assumptions: pse_ids::ContentHash::from_bytes([0; 32]),
             quadratic: false,
             native: vec![],
+            requirements: vec![],
             convexity: Convexity::not_assessed(pse_ids::ContentHash::from_bytes([0; 32])),
         }
     }
@@ -551,6 +593,7 @@ mod tests {
             numerical_psd: false,
             least_squares,
             controls: &controls,
+            settings: &BackendSettings::Default,
         };
         let steady = requirements(false).eligibility();
         assert!(!steady.is_empty());
@@ -590,6 +633,7 @@ mod tests {
                 numerical_psd: false,
                 least_squares: false,
                 controls: c,
+                settings: &BackendSettings::Default,
             }
             .eligibility()
         };
@@ -635,7 +679,8 @@ mod tests {
                 intent: SolveIntent::Optimize,
                 numerical_psd: false,
                 least_squares: false,
-                controls: &controls
+                controls: &controls,
+                settings: &BackendSettings::Default,
             }
             .select(SolverSelection::Auto)
             .is_err()
@@ -658,6 +703,7 @@ mod tests {
             objective_degree: Some(2),
             bound_assumptions: pse_ids::ContentHash::from_bytes([0; 32]),
             native: vec![],
+            requirements: vec![],
             convexity: Convexity::not_assessed(pse_ids::ContentHash::from_bytes([0; 32])),
         }
     }
@@ -677,6 +723,7 @@ mod tests {
             numerical_psd: true,
             least_squares: false,
             controls: &crate::solve::Controls::default(),
+            settings: &BackendSettings::Default,
         };
         let missing = Ineligible::NativeForms {
             missing: vec![NativeConstraintForm::Indicator],
@@ -703,8 +750,8 @@ mod tests {
             native_forms: &[NativeConstraintForm::Indicator],
             ..*highs
         };
-        assert!(admit(highs, true, &requirements).contains(&missing));
-        assert!(admit(&consuming, true, &requirements).is_empty());
+        assert!(admit(Backend::Highs, highs, true, &requirements).contains(&missing));
+        assert!(admit(Backend::Highs, &consuming, true, &requirements).is_empty());
         // Without free variables the constant route cannot enforce the form either.
         f.variables = 0;
         assert!(matches!(
@@ -861,6 +908,7 @@ mod tests {
                 numerical_psd: false,
                 least_squares: false,
                 controls: &crate::solve::Controls::default(),
+                settings: &BackendSettings::Default,
             };
             assert_eq!(
                 requirements
@@ -949,6 +997,88 @@ mod tests {
             Route::Native(Backend::Clarabel)
         );
     }
+    /// ADR-0104 §5 and ADR-0109: a structure whose authored `penalty(l1)` realization states
+    /// the l1 exact penalty admits only an adapter whose record honours it, run with a method
+    /// that does. Every other adapter, and POUNCE with another method, is ineligible with the
+    /// typed `method` reason; automatic routing reaches POUNCE because the author selected
+    /// the realization, and its native defaults take the l1 method. Without the requirement
+    /// nothing selects the l1 method.
+    #[test]
+    fn authored_l1_requirement_is_routing_fact() {
+        use crate::settings::pounce::{Method, Settings};
+        let mut f = root_facts();
+        f.equalities = false;
+        f.requirements = vec![ModelingStructuralRequirement::L1ExactPenalty];
+        let requirement = Ineligible::Method {
+            requirements: vec![ModelingStructuralRequirement::L1ExactPenalty],
+        };
+        assert_eq!(requirement.code(), NativeIneligibility::Method);
+        assert!(requirement.to_string().contains("l1_exact_penalty"), "{requirement}");
+        let interior = BackendSettings::Pounce(Settings::default());
+        let l1 = BackendSettings::Pounce(Settings {
+            method: Method::L1ExactPenalty,
+            ..Settings::default()
+        });
+        let controls = crate::solve::Controls::default();
+        let requirements = |settings| Requirements {
+            table: &LINKED,
+            facts: &f,
+            intent: SolveIntent::FeasiblePoint,
+            numerical_psd: false,
+            least_squares: false,
+            controls: &controls,
+            settings,
+        };
+        for settings in [&BackendSettings::Default, &interior, &l1] {
+            for e in requirements(settings).eligibility() {
+                let honours = e.backend == Backend::Pounce && !std::ptr::eq(settings, &interior);
+                assert_eq!(!e.reasons.contains(&requirement), honours, "{e}");
+            }
+        }
+        if adapter(Backend::Pounce).linked() {
+            for settings in [&BackendSettings::Default, &l1] {
+                assert_eq!(
+                    requirements(settings).select(SolverSelection::Auto).unwrap(),
+                    Route::Native(Backend::Pounce)
+                );
+            }
+            assert!(
+                requirements(&interior)
+                    .select(SolverSelection::Explicit(Backend::Pounce))
+                    .is_err()
+            );
+        }
+        assert!(
+            requirements(&BackendSettings::Default)
+                .select(SolverSelection::Explicit(Backend::Ipopt))
+                .is_err()
+        );
+        // Native defaults take the author's method on POUNCE only, and only under the
+        // requirement; explicit settings are unchanged.
+        let effective = BackendSettings::Default.for_requirements(Backend::Pounce, &f.requirements);
+        assert!(matches!(
+            effective,
+            BackendSettings::Pounce(Settings { method: Method::L1ExactPenalty, .. })
+        ));
+        assert!(matches!(
+            BackendSettings::Default.for_requirements(Backend::Pounce, &[]),
+            BackendSettings::Default
+        ));
+        assert!(matches!(
+            BackendSettings::Default.for_requirements(Backend::Ipopt, &f.requirements),
+            BackendSettings::Default
+        ));
+        // Without the requirement automatic routing is unchanged and never takes l1.
+        let mut plain = f.clone();
+        plain.requirements.clear();
+        let unrequired = Requirements {
+            facts: &plain,
+            ..requirements(&BackendSettings::Default)
+        };
+        for e in unrequired.eligibility() {
+            assert!(!e.reasons.iter().any(|r| matches!(r, Ineligible::Method { .. })), "{e}");
+        }
+    }
     #[test]
     fn miqp_routes_to_scip() {
         let f = miqp_facts();
@@ -960,6 +1090,7 @@ mod tests {
                 numerical_psd,
                 least_squares: false,
                 controls: &crate::solve::Controls::default(),
+                settings: &BackendSettings::Default,
             }
             .eligibility()
         };
@@ -1058,6 +1189,7 @@ mod tests {
             numerical_psd: false,
             least_squares: false,
             controls: &crate::solve::Controls::default(),
+            settings: &BackendSettings::Default,
         };
         // Only a certifying record is eligible; the rule reads the record, not the backend.
         for e in requirements.eligibility() {

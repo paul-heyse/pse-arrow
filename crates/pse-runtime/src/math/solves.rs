@@ -853,9 +853,20 @@ impl MathService {
             numerical_psd,
             least_squares: false,
             controls: &profile.controls,
+            settings: &profile.backend,
         };
         let route = requirements.select(profile.selection)?;
         let eligibility = requirements.eligibility();
+        // An authored realization's structural requirement selects the method it needs on
+        // the route it admitted (ADR-0104 §5): the author's selection, recorded with the
+        // result, never an automatic choice.
+        let profile = match route {
+            Route::Native(backend) => SolverProfile {
+                backend: profile.backend.for_requirements(backend, &f.requirements),
+                ..profile
+            },
+            Route::Constant => profile,
+        };
         let adapter = match route {
             Route::Native(backend) => Some(execution::adapter(backend)),
             Route::Constant => None,
@@ -1436,7 +1447,11 @@ impl MathService {
             compatibility: stamp,
             warm,
         };
-        let report = match (representation, adapter.representation()) {
+        let authored = match &representation {
+            Representation::Algebraic(a) => a.prepared.prepared.facts.requirements.clone(),
+            Representation::Conic { .. } => Vec::new(),
+        };
+        let mut report = match (representation, adapter.representation()) {
             (
                 Representation::Conic {
                     problem,
@@ -1470,6 +1485,16 @@ impl MathService {
                 .into());
             }
         };
+        if authored.contains(&pse_model::generated::enums::ModelingStructuralRequirement::L1ExactPenalty) {
+            report.provenance.insert(
+                "method.selection".into(),
+                "the authored penalty(l1) realization selects POUNCE's l1 exact penalty-barrier (ADR-0104 §5): the author's selection, not an automatic one".into(),
+            );
+            report.provenance.insert(
+                "method.penalty_scope".into(),
+                "the l1 exact penalty relaxes every constraint row of the solve, not only the rows of the penalty(l1) realization".into(),
+            );
+        }
         Ok(Outcome::Native(Box::new(report)))
     }
     /// Coefficient projection of the compiled case, re-checked against the original case.

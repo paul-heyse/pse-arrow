@@ -131,4 +131,15 @@ impl NativeIneligible {
             _ => Vec::new(),
         }
     }
+    /// Registry structural requirements of the formulation the adapter or its settings'
+    /// method cannot honour (`method`).
+    #[getter]
+    fn requirements(&self) -> Vec<&'static str> {
+        match &self.inner {
+            Ineligible::Method { requirements } => {
+                requirements.iter().map(|r| r.as_str()).collect()
+            }
+            _ => Vec::new(),
+        }
+    }
 }

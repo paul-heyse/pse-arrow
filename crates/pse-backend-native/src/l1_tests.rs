@@ -300,6 +300,11 @@ fn l1_never_automatic() {
             );
         }
     }
+    // Native defaults take the l1 method only from an authored requirement (ADR-0104 §5).
+    assert!(matches!(
+        BackendSettings::Default.for_requirements(Backend::Pounce, &[]),
+        BackendSettings::Default
+    ));
     // The explicit method still never enables the retry.
     let report = run(infeasible(), &l1(), Options::new()).unwrap();
     assert_eq!(

@@ -21,7 +21,7 @@ use pse_math::{
     binding::ObjectiveSense, convexity::QuadraticEvidence, factorable::FactorableProgram,
     normalization::Normalization, presolve::GuardSign,
 };
-use pse_model::generated::enums::NativeConstraintForm;
+use pse_model::generated::enums::{ModelingStructuralRequirement, NativeConstraintForm};
 use std::{any::Any, collections::BTreeMap};
 
 mod clarabel;
@@ -96,6 +96,10 @@ pub struct Capability {
     /// Constraint handlers the adapter consumes for forms a native realization leaves to
     /// the backend (ADR-0104). A structure requiring any other form is ineligible.
     pub native_forms: &'static [NativeConstraintForm],
+    /// Structural requirements of a formulation the adapter honours with a method its
+    /// settings select (ADR-0104 §5, [`BackendSettings::honours`]). A structure stating any
+    /// other requirement is ineligible.
+    pub requirements: &'static [ModelingStructuralRequirement],
     /// Native allocation/data reuse boundary.
     pub reuse: &'static str,
     /// Actual interrupt checkpoints.
@@ -120,6 +124,7 @@ impl Capability {
             parallel: self.parallel,
             certifies: self.certifies,
             native_forms: self.native_forms.to_vec(),
+            requirements: self.requirements.to_vec(),
         }
     }
 }
@@ -255,7 +260,12 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     /// only from the capability record and linkage, so the published row is the routing
     /// rule; adapters do not override it.
     fn admit(&self, requirements: &Requirements<'_>) -> Vec<Ineligible> {
-        crate::routing::admit(self.capability(), self.linked(), requirements)
+        crate::routing::admit(
+            self.backend(),
+            self.capability(),
+            self.linked(),
+            requirements,
+        )
     }
     /// Typed settings and native controls of a selected route: settings must belong to
     /// this adapter and the thread count to its capability.
@@ -455,6 +465,49 @@ impl BackendSettings {
     /// The settings a document states; its absence is the routed backend's native defaults.
     pub fn from_document(document: Option<Self>) -> Self {
         document.unwrap_or_default()
+    }
+    /// Whether these settings, on `backend`, run a method that honours a structural
+    /// requirement of the formulation (ADR-0104 §5). The l1 exact penalty an authored
+    /// `penalty(l1)` realization states is honoured only by POUNCE's
+    /// [`crate::settings::pounce::Method::L1ExactPenalty`]: explicit POUNCE settings must
+    /// select it, and native defaults take it from the author's realization
+    /// ([`Self::for_requirements`]), which is the author's selection, never an automatic one.
+    pub fn honours(&self, backend: Backend, requirement: ModelingStructuralRequirement) -> bool {
+        match requirement {
+            ModelingStructuralRequirement::L1ExactPenalty => {
+                backend == Backend::Pounce
+                    && match self {
+                        Self::Default => true,
+                        Self::Pounce(settings) => {
+                            settings.method == crate::settings::pounce::Method::L1ExactPenalty
+                        }
+                        _ => false,
+                    }
+            }
+        }
+    }
+    /// The effective settings of a route over a structure stating `requirements`: native
+    /// defaults on POUNCE under an authored `penalty(l1)` realization run its l1 exact
+    /// penalty (ADR-0104 §5); any other settings are unchanged, and routing has already
+    /// refused settings that do not honour a requirement ([`Self::honours`]).
+    #[must_use]
+    pub fn for_requirements(
+        self,
+        backend: Backend,
+        requirements: &[ModelingStructuralRequirement],
+    ) -> Self {
+        match self {
+            Self::Default
+                if backend == Backend::Pounce
+                    && requirements.contains(&ModelingStructuralRequirement::L1ExactPenalty) =>
+            {
+                Self::Pounce(crate::settings::pounce::Settings {
+                    method: crate::settings::pounce::Method::L1ExactPenalty,
+                    ..Default::default()
+                })
+            }
+            settings => settings,
+        }
     }
     /// The selected method relaxes every constraint row (the ℓ1 exact penalty, ADR-0109), so
     /// no presolve pass may assume the rows hold.

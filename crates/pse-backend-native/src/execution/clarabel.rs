@@ -35,6 +35,7 @@ static CAPABILITY: Capability = Capability {
     parallel: cfg!(feature = "clarabel-pardiso"),
     certifies: false,
     native_forms: &[],
+    requirements: &[],
     reuse: "native data-update eligibility; reusable mode disables preprocessing",
     cancellation: "native iteration termination callback",
     diagnostics: "complete native info/settings, cone slacks/duals and certificates",

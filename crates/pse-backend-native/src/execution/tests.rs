@@ -29,6 +29,7 @@ static STUB_CAPABILITY: Capability = Capability {
     parallel: false,
     certifies: false,
     native_forms: &[],
+    requirements: &[],
     reuse: "test session counter",
     cancellation: "none",
     diagnostics: "none",
@@ -151,6 +152,7 @@ fn stub_backend_routes_through_adapter_table() {
         numerical_psd: false,
         least_squares: false,
         controls: &controls,
+        settings: &BackendSettings::Default,
     };
     // Routing reads the stub's capability record through the table.
     let backend = Backend::Idas;
@@ -317,6 +319,7 @@ fn from_row(row: &pse_model::generated::runtime::solver_capabilities::Row) -> &'
         parallel: row.parallel,
         certifies: row.certifies,
         native_forms: Box::leak(row.native_forms.clone().into_boxed_slice()),
+        requirements: Box::leak(row.requirements.clone().into_boxed_slice()),
         reuse: "",
         cancellation: "",
         diagnostics: "",
@@ -375,6 +378,7 @@ fn grid() -> Vec<ProblemFacts> {
                             bound_assumptions: ContentHash::from_bytes([0; 32]),
                             quadratic,
                             native: native.clone(),
+                            requirements: vec![],
                             convexity,
                         });
                         }
@@ -427,6 +431,7 @@ fn published_capabilities_equal_routing_rules() {
                             numerical_psd,
                             least_squares: false,
                             controls: c,
+                            settings: &BackendSettings::Default,
                         };
                         assert_eq!(
                             adapter.admit(&r),
@@ -451,6 +456,7 @@ fn published_capabilities_equal_routing_rules() {
             numerical_psd: false,
             least_squares: false,
             controls: &parallel,
+            settings: &BackendSettings::Default,
         };
         assert_eq!(
             adapter.admit(&r).contains(&Ineligible::Serial),

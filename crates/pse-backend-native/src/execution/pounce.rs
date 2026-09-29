@@ -23,6 +23,9 @@ static CAPABILITY: Capability = Capability {
     parallel: true,
     certifies: false,
     native_forms: &[],
+    // The l1 exact penalty an authored `penalty(l1)` realization states, with the
+    // `L1ExactPenalty` method (ADR-0104 §5).
+    requirements: &[pse_model::generated::enums::ModelingStructuralRequirement::L1ExactPenalty],
     reuse: "native application and compatible starts; iteration factors are library-owned",
     cancellation: "TNLP intermediate/evaluation checkpoints",
     diagnostics: "complete SolveStatistics, phase timing, FERAL inertia/pivots/fill, restoration and crossover",
