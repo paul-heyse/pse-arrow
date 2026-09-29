@@ -69,6 +69,8 @@ pounce-rs = { workspace = true, optional = true }
 # The FERAL configuration of the POUNCE settings document, compiled in every build (Plan 22 B5).
 pounce-feral.workspace = true
 feral.workspace = true
+# The backsolver contract of the KKT-point analysis (Plan 22 S0).
+pounce-sens-core.workspace = true
 rayon = { workspace = true, optional = true }
 sundials-sys = { workspace = true, optional = true }
 suitesparse_sys = { workspace = true, optional = true }

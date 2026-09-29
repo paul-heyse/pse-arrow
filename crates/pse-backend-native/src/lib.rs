@@ -19,6 +19,7 @@ pub mod implicit;
 pub mod ipopt;
 #[cfg(feature = "highs")]
 pub mod jacobian_diagnostics;
+pub mod kkt;
 #[cfg(feature = "kinsol")]
 pub mod kinsol;
 mod nlp_pattern;

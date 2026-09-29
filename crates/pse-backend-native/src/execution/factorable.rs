@@ -1017,6 +1017,9 @@ fn fixed_assignment(
                 .as_ref()
                 .map_or(ObjectiveSense::Minimize, |o| o.sense),
             limit: resolve.limit,
+            // The standing analysis of the re-solve's purpose; its point, like its
+            // multipliers, is conditional on the assignment.
+            analysis: super::Analysis::for_intent(intent),
         },
     )
 }
@@ -1062,6 +1065,16 @@ fn adopt(
         seed.payload = WarmPayload::primal(candidate.primal.clone());
     }
     report.evidence.kkt = resolved.evidence.kkt;
+    // The re-solve analysed the original rows and columns of this report; its local
+    // analysis is conditional on the assignment, like its multipliers.
+    let aligned = resolved.rows == report.rows && resolved.variables == report.variables;
+    report.evidence.local = if aligned {
+        resolved.evidence.local
+    } else {
+        Some(Err(crate::kkt::Unavailable::Failed(std::sync::Arc::new(
+            ProblemError::internal("the re-solve's rows or columns differ from the program's"),
+        ))))
+    };
     report.preprocessing = resolved.preprocessing;
     observe(report, plan, original, step.tolerances);
     // Multipliers of the fixed-assignment problem are conditional on the assignment.

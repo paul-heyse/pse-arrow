@@ -535,8 +535,12 @@ pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::
     }
     // The typed evidence an adapter records selects the class rule; no backend is named,
     // so a new adapter qualifies through the evidence it produces.
-    let evidence = report.evidence;
-    if let Some(c) = evidence.coefficient {
+    let (coefficient, conic, kkt) = (
+        report.evidence.coefficient,
+        report.evidence.conic,
+        report.evidence.kkt,
+    );
+    if let Some(c) = coefficient {
         if !c.upload_equivalent {
             return;
         }
@@ -565,7 +569,7 @@ pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::
             report.qualification = Qualification::OptimalWithinTolerance;
             report.termination.assurance = Assurance::NativeOptimal;
         }
-    } else if let Some(c) = evidence.conic {
+    } else if let Some(c) = conic {
         if c.primal_residual <= accuracy.feasibility
             && c.dual_residual <= accuracy.stationarity
             && (c.gap_absolute <= accuracy.gap_absolute || c.gap_relative <= accuracy.gap_relative)
@@ -577,9 +581,7 @@ pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::
         .observation
         .as_ref()
         .is_some_and(|o| o.dual_error.is_none())
-        && evidence
-            .kkt
-            .is_some_and(|k| k.stationarity == Some(true) && k.complementarity == Some(true))
+        && kkt.is_some_and(|k| k.stationarity == Some(true) && k.complementarity == Some(true))
         && (report.termination.category != Termination::Acceptable || accuracy.acceptable.is_some())
     {
         report.qualification = Qualification::Stationary;

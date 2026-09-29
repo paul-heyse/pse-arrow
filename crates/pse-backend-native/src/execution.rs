@@ -35,7 +35,8 @@ mod runner;
 mod scip;
 pub use factorable::{Factorable, FixedOracle, Refusal, Resolve, admit_program, factorable};
 pub use runner::{
-    Coefficients, Evaluation, Nlp, OriginalModel, Roots, Step, coefficients, cone, nlp, roots,
+    Analysis, Coefficients, Evaluation, Nlp, OriginalModel, Roots, Step, coefficients, cone, nlp,
+    roots,
 };
 pub use scip::Settings as ScipSettings;
 

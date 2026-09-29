@@ -170,6 +170,7 @@ pub(crate) fn run(
             intent: SolveIntent::Optimize,
             sense: ObjectiveSense::Minimize,
             limit: 1 << 20,
+            analysis: execution::Analysis::for_intent(SolveIntent::Optimize),
         },
     )
     .unwrap()

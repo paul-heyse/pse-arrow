@@ -2,21 +2,13 @@
 // Copyright (c) 2026 Paul Heyse
 //! Sparse conditioning and certified inertia through FERAL (Plan 22 N4, L-N6).
 //!
-//! A square Jacobian's 1-norm condition number is estimated from a sparse LU; a KKT matrix
-//! `[H Aᵀ; A 0]` is factored as LDLᵀ, whose pivot signs give its inertia (Sylvester's law)
-//! and whose factor gives the 1-norm condition estimate. The inertia decides second-order
-//! sufficiency at an NLP candidate: `In(K) = In(Zᵀ H Z) + (m, m, 0)` when the `m` active
-//! gradients are independent, with `Z` a basis of their null space.
-use crate::{
-    NlpOracle, ProblemError,
-    quality::{Observation, Tolerances},
-    solve::{Candidate, Curvature, SecondOrder},
-};
+//! A square Jacobian's 1-norm condition number is estimated from a sparse LU; a symmetric
+//! KKT matrix `[H Aᵀ; A 0]` is factored as LDLᵀ, whose pivot signs give its inertia
+//! (Sylvester's law) and whose factor gives the 1-norm condition estimate. The KKT-point
+//! analysis at an NLP candidate ([`crate::kkt`]) factors through the same entry points.
+use crate::ProblemError;
 use faer::sparse::SparseColMatRef;
-use pse_math::{
-    index::{Entry, OriginalCol, OriginalRow, ReducedCol, ReducedRow, TiVec, Triplet},
-    normalization::Normalization,
-};
+use pse_math::index::Triplet;
 
 /// Hager–Higham estimate of the 1-norm condition number of the square matrix
 /// `diag(row_scales) · A · diag(column_scales)`. The estimate is a lower bound on the true
@@ -152,9 +144,39 @@ where
         });
     }
     let matrix = feral::CscMatrix::from_triplets(order, &rows, &cols, &values).map_err(native)?;
-    // Serial and FMA-free: the diagnostic owns no admitted thread team.
+    let (solver, inertia) = factor(&matrix)?;
+    Ok(Kkt {
+        inertia,
+        condition_1norm: solver
+            .estimate_condition_1norm(&matrix)
+            .ok()
+            .filter(|v| v.is_finite()),
+    })
+}
+
+/// Factor a symmetric matrix (its lower triangle) with a new serial FERAL LDLᵀ solver, and
+/// read its certified inertia (positive, negative, zero).
+///
+/// # Errors
+/// A factorization that reports no inertia, or an inertia that does not cover the order.
+pub(crate) fn factor(
+    matrix: &feral::CscMatrix,
+) -> Result<(feral::Solver, (usize, usize, usize)), ProblemError> {
+    // Serial and FMA-free: a diagnostic owns no admitted thread team.
     let mut solver = feral::Solver::new().with_parallel(false);
-    match solver.factor(&matrix, None) {
+    let inertia = factor_into(&mut solver, matrix)?;
+    Ok((solver, inertia))
+}
+/// [`factor`] on an existing solver, which keeps its symbolic analysis for an unchanged
+/// pattern.
+///
+/// # Errors
+/// As [`factor`].
+pub(crate) fn factor_into(
+    solver: &mut feral::Solver,
+    matrix: &feral::CscMatrix,
+) -> Result<(usize, usize, usize), ProblemError> {
+    match solver.factor(matrix, None) {
         feral::FactorStatus::Success | feral::FactorStatus::WrongInertia { .. } => {}
         feral::FactorStatus::Singular => {
             return Err(ProblemError::numerical(
@@ -166,265 +188,16 @@ where
     let inertia = solver
         .inertia()
         .ok_or_else(|| ProblemError::internal("FERAL factor without an inertia"))?;
-    if inertia.total() != order {
+    if inertia.total() != matrix.n {
         return Err(ProblemError::internal(
             "FERAL inertia does not cover the KKT order",
         ));
     }
-    Ok(Kkt {
-        inertia: (inertia.positive, inertia.negative, inertia.zero),
-        condition_1norm: solver
-            .estimate_condition_1norm(&matrix)
-            .ok()
-            .filter(|v| v.is_finite()),
-    })
+    Ok((inertia.positive, inertia.negative, inertia.zero))
 }
 
-/// Every stored entry of a faer pattern, in storage order, in the spaces `R` and `C`.
-fn entries<R: From<usize>, C: From<usize>>(
-    pattern: faer::sparse::SymbolicSparseColMatRef<'_, usize>,
-) -> Vec<Entry<R, C>> {
-    (0..pattern.ncols())
-        .flat_map(|j| {
-            pattern
-                .row_idx_of_col(j)
-                .map(move |i| Entry::new(R::from(i), C::from(j)))
-        })
-        .collect()
-}
-
-fn native(error: feral::FeralError) -> ProblemError {
+pub(crate) fn native(error: feral::FeralError) -> ProblemError {
     ProblemError::numerical(format!("FERAL: {error}"))
-}
-
-/// Budgets of the post-solve second-order check.
-#[derive(Clone, Copy, Debug)]
-pub struct Check {
-    /// Normalized multiplier magnitude at or below which an active constraint is weakly
-    /// active: the dual stationarity budget, below which a multiplier is not
-    /// distinguishable from zero.
-    pub dual_budget: f64,
-    /// Entry ceiling of the KKT matrix, the NLP run's dimension ceiling.
-    pub limit: usize,
-}
-
-/// Record the second-order check of a qualified optimizing candidate on the report. A
-/// candidate without valid multipliers, an infeasible one, or a failed check leaves the
-/// evidence empty and the reason in the metrics.
-pub(crate) fn attach_second_order(
-    report: &mut crate::solve::SolveReport,
-    oracle: &mut dyn NlpOracle,
-    normalization: &Normalization,
-    tolerances: &Tolerances,
-    check: Check,
-) {
-    let (Some(candidate), Some(observation)) = (&report.candidate, &report.observation) else {
-        return;
-    };
-    let outcome = if let Some(error) = &observation.dual_error {
-        Err(ProblemError::unsupported(format!("multipliers: {error}")))
-    } else if !report
-        .quality
-        .as_ref()
-        .is_some_and(crate::quality::Quality::feasible)
-    {
-        Err(ProblemError::unsupported("the candidate is not feasible"))
-    } else {
-        crate::quality::contained(|| {
-            second_order(
-                oracle,
-                candidate,
-                observation,
-                normalization,
-                tolerances,
-                check.dual_budget,
-                check.limit,
-            )
-        })
-    };
-    match outcome {
-        Ok(evidence) => report.evidence.second_order = Some(evidence),
-        Err(error) => {
-            report.metrics.insert(
-                "second_order.unavailable".into(),
-                crate::solve::Metric::Text(error.to_string()),
-            );
-        }
-    }
-}
-
-/// A constraint of the local model: an active row, or an active bound on one variable.
-enum Active {
-    Row(OriginalRow),
-    Bound(OriginalCol),
-}
-
-/// The second-order check at an NLP candidate, in normalized coordinates (PS-12). A
-/// constraint is active within its physical tolerance and strongly active when its
-/// normalized multiplier exceeds `dual_budget`. The reduced Hessian is tested first on the
-/// null space of the strongly active constraints, which contains the critical cone
-/// (sufficiency), then, when weakly active constraints exist, on the null space of all
-/// active constraints, which the critical cone contains (necessity).
-///
-/// # Errors
-/// Missing multipliers or Hessian, a failed evaluation, a KKT larger than `limit` entries,
-/// or a failed factorization.
-pub(crate) fn second_order(
-    oracle: &mut dyn NlpOracle,
-    candidate: &Candidate,
-    observation: &Observation,
-    normalization: &Normalization,
-    tolerances: &Tolerances,
-    dual_budget: f64,
-    limit: usize,
-) -> Result<SecondOrder, ProblemError> {
-    let n = oracle.contract().variables.len();
-    let m = oracle.contract().rows.len();
-    let (Some(lambda), Some((zl, zu))) = (&candidate.row_dual, &candidate.bound_dual) else {
-        return Err(ProblemError::unsupported("multipliers unavailable"));
-    };
-    if normalization.variables.len() != n
-        || normalization.rows.len() != m
-        || tolerances.variables.len() != n
-        || tolerances.rows.len() != m
-        || observation.values.len() != m
-        || lambda.len() != m
-        || zl.len() != n
-        || zu.len() != n
-    {
-        return Err(ProblemError::internal("second-order check dimensions"));
-    }
-    let x = &candidate.primal;
-    let (sx, sr, so) = (
-        &normalization.variables,
-        &normalization.rows,
-        normalization.objective,
-    );
-    // Normalized Lagrangian Hessian (lower triangle) and constraint Jacobian, in the
-    // oracle's original coordinates.
-    let hessian: Vec<Triplet<OriginalCol, OriginalCol>> = {
-        let pattern = oracle
-            .hessian_pattern()
-            .ok_or_else(|| ProblemError::unsupported("the profile has no exact Hessian"))?;
-        let entries = entries::<OriginalCol, OriginalCol>(pattern);
-        let mut values = vec![0.0; entries.len()];
-        oracle.hessian(x, 1.0, lambda, &mut values)?;
-        entries
-            .into_iter()
-            .zip(values)
-            .map(|(e, v)| Triplet::new(e.row, e.col, sx[e.row.get()] * v * sx[e.col.get()] / so))
-            .collect()
-    };
-    let jacobian: Vec<Triplet<OriginalRow, OriginalCol>> = {
-        let pattern = oracle.jacobian_pattern();
-        let entries = entries::<OriginalRow, OriginalCol>(pattern);
-        let mut values = vec![0.0; entries.len()];
-        oracle.jacobian(x, &mut values)?;
-        entries
-            .into_iter()
-            .zip(values)
-            .map(|(e, v)| Triplet::new(e.row, e.col, v * sx[e.col.get()] / sr[e.row.get()]))
-            .collect()
-    };
-    // Activity and strength of every row and bound.
-    let mut active = vec![];
-    for (r, (&(l, u), &value)) in observation
-        .bounds
-        .iter()
-        .zip(&observation.values)
-        .enumerate()
-    {
-        let strong = l == u || (lambda[r] * sr[r] / so).abs() > dual_budget;
-        if l == u || value - l <= tolerances.rows[r] || u - value <= tolerances.rows[r] {
-            active.push((Active::Row(OriginalRow::new(r)), strong));
-        }
-    }
-    for (j, v) in oracle.contract().variables.iter().enumerate() {
-        let at_lower = v.lower.is_finite() && x[j] - v.lower <= tolerances.variables[j];
-        let at_upper = v.upper.is_finite() && v.upper - x[j] <= tolerances.variables[j];
-        if v.lower == v.upper || at_lower || at_upper {
-            let multiplier = if at_upper { zu[j] } else { zl[j] };
-            let strong = v.lower == v.upper || multiplier * sx[j] / so > dual_budget;
-            active.push((Active::Bound(OriginalCol::new(j)), strong));
-        }
-    }
-    let weakly_active = active.iter().filter(|(_, strong)| !strong).count();
-    let test = |strong_only: bool| -> Result<SecondOrder, ProblemError> {
-        let tested = active
-            .iter()
-            .filter(|(_, strong)| *strong || !strong_only)
-            .map(|(a, _)| a)
-            .collect::<Vec<_>>();
-        // The KKT block is over the free columns and the tested active rows.
-        let mut fixed: TiVec<OriginalCol, bool> = vec![false; n].into();
-        let mut rows: TiVec<OriginalRow, Option<ReducedRow>> = vec![None; m].into();
-        let mut count = 0;
-        for a in &tested {
-            match a {
-                Active::Bound(j) => fixed[*j] = true,
-                Active::Row(r) => {
-                    rows[*r] = Some(ReducedRow::new(count));
-                    count += 1;
-                }
-            }
-        }
-        let mut position: TiVec<OriginalCol, Option<ReducedCol>> = vec![None; n].into();
-        let mut free = 0;
-        for (j, fixed) in fixed.iter_enumerated() {
-            if !fixed {
-                position[j] = Some(ReducedCol::new(free));
-                free += 1;
-            }
-        }
-        let h = hessian
-            .iter()
-            .filter_map(|t| Some(Triplet::new(position[t.row]?, position[t.col]?, t.value)))
-            .collect::<Vec<_>>();
-        let a = jacobian
-            .iter()
-            .filter_map(|t| Some(Triplet::new(rows[t.row]?, position[t.col]?, t.value)))
-            .collect::<Vec<_>>();
-        if free + count + h.len() + a.len() > limit {
-            return Err(ProblemError::unsupported(
-                "the KKT matrix exceeds the diagnostic entry limit",
-            ));
-        }
-        let factored = kkt(free, count, &h, &a)?;
-        let (_, negative, zero) = factored.inertia;
-        let curvature = if zero > 0 {
-            Curvature::Singular
-        } else if negative == count {
-            if strong_only {
-                Curvature::Sufficient
-            } else {
-                Curvature::Undecided
-            }
-        } else if !strong_only || weakly_active == 0 {
-            Curvature::Negative
-        } else {
-            Curvature::Undecided
-        };
-        Ok(SecondOrder {
-            free,
-            active: count + (n - free),
-            weakly_active,
-            inertia: factored.inertia,
-            condition_1norm: factored.condition_1norm,
-            curvature,
-        })
-    };
-    let sufficient = test(true)?;
-    if sufficient.curvature != Curvature::Undecided || weakly_active == 0 {
-        return Ok(sufficient);
-    }
-    // Weakly active constraints: negative curvature on the smaller subspace still refutes
-    // a local minimizer; otherwise the verdict stays open.
-    let necessary = test(false)?;
-    Ok(if necessary.curvature == Curvature::Negative {
-        necessary
-    } else {
-        sufficient
-    })
 }
 
 #[cfg(test)]
@@ -434,6 +207,7 @@ mod tests {
         linalg::solvers::DenseSolveCore,
         sparse::{SparseColMat, Triplet},
     };
+    use pse_math::index::{ReducedCol, ReducedRow};
 
     /// Exact κ₁ from the dense inverse.
     fn dense_condition(a: &[[f64; 4]; 4]) -> f64 {
@@ -550,186 +324,5 @@ mod tests {
         )
         .unwrap();
         assert_eq!(k.inertia.2, 1, "{:?}", k.inertia);
-    }
-
-    /// `f = ½ xᵀ diag(q) x` over two variables with bounds, and one row `x₀ + x₁`.
-    #[derive(Debug)]
-    struct Quadratic {
-        contract: crate::OracleContract,
-        q: [f64; 2],
-        rows: Vec<(f64, f64)>,
-        jacobian: SparseColMat<usize, f64>,
-        hessian: SparseColMat<usize, f64>,
-    }
-    impl Quadratic {
-        fn new(q: [f64; 2], bounds: [(f64, f64); 2]) -> Self {
-            Self {
-                contract: crate::OracleContract {
-                    identity: pse_ids::ContentHash::from_bytes([8; 32]),
-                    variables: bounds
-                        .iter()
-                        .enumerate()
-                        .map(|(i, &(lower, upper))| crate::Variable {
-                            id: pse_ids::SemanticId::from_bytes([40 + i as u8; 16]),
-                            lower,
-                            upper,
-                        })
-                        .collect(),
-                    rows: vec![pse_ids::SemanticId::from_bytes([50; 16])],
-                    derivatives: pse_kernels::DerivativeOrder::Second,
-                    smoothness: pse_kernels::DerivativeOrder::Second,
-                },
-                q,
-                rows: vec![(-10.0, 10.0)],
-                jacobian: SparseColMat::try_new_from_triplets(
-                    1,
-                    2,
-                    &[Triplet::new(0, 0, 1.0), Triplet::new(0, 1, 1.0)],
-                )
-                .unwrap(),
-                hessian: SparseColMat::try_new_from_triplets(
-                    2,
-                    2,
-                    &[Triplet::new(0, 0, 1.0), Triplet::new(1, 1, 1.0)],
-                )
-                .unwrap(),
-            }
-        }
-    }
-    impl NlpOracle for Quadratic {
-        fn contract(&self) -> &crate::OracleContract {
-            &self.contract
-        }
-        fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
-            self.jacobian.symbolic()
-        }
-        fn hessian_pattern(&self) -> Option<faer::sparse::SymbolicSparseColMatRef<'_, usize>> {
-            Some(self.hessian.symbolic())
-        }
-        fn constraint_bounds(&self) -> &[(f64, f64)] {
-            &self.rows
-        }
-        fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
-            Ok(0.5 * (self.q[0] * x[0] * x[0] + self.q[1] * x[1] * x[1]))
-        }
-        fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-            out[0] = x[0] + x[1];
-            Ok(())
-        }
-        fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-            out[0] = self.q[0] * x[0];
-            out[1] = self.q[1] * x[1];
-            Ok(())
-        }
-        fn jacobian(&mut self, _: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-            out.fill(1.0);
-            Ok(())
-        }
-        fn hessian(
-            &mut self,
-            _: &[f64],
-            weight: f64,
-            _: &[f64],
-            out: &mut [f64],
-        ) -> Result<(), ProblemError> {
-            out[0] = weight * self.q[0];
-            out[1] = weight * self.q[1];
-            Ok(())
-        }
-    }
-    /// The check at the stationary point `x = 0` with zero multipliers.
-    fn at_origin(q: [f64; 2], bounds: [(f64, f64); 2]) -> SecondOrder {
-        let mut oracle = Quadratic::new(q, bounds);
-        let candidate = Candidate {
-            kind: crate::solve::CandidateKind::FinalIterate,
-            primal: vec![0.0; 2],
-            objective: Some(0.0),
-            row_dual: Some(vec![0.0]),
-            bound_dual: Some((vec![0.0; 2], vec![0.0; 2])),
-            reduced_costs: None,
-            slacks: None,
-        };
-        let observation =
-            Observation::from_values(Some(0.0), vec![0.0], vec![(-10.0, 10.0)]).unwrap();
-        second_order(
-            &mut oracle,
-            &candidate,
-            &observation,
-            &Normalization::identity(2, 1),
-            &Tolerances {
-                variables: vec![1e-8; 2],
-                rows: vec![1e-8],
-                integrality: 1e-8,
-            },
-            1e-9,
-            1000,
-        )
-        .unwrap()
-    }
-
-    #[test]
-    fn second_order_verdicts_follow_the_inertia() {
-        let free = [(-1.0, 1.0); 2];
-        // A saddle: stationary, not a minimizer.
-        let saddle = at_origin([2.0, -2.0], free);
-        assert_eq!(saddle.curvature, Curvature::Negative);
-        assert_eq!(
-            (saddle.free, saddle.active, saddle.inertia),
-            (2, 0, (1, 1, 0))
-        );
-        // A flat direction: the reduced Hessian is singular.
-        assert_eq!(at_origin([2.0, 0.0], free).curvature, Curvature::Singular);
-        // A weakly active bound (zero multiplier) under positive curvature: the test on the
-        // larger subspace still certifies sufficiency.
-        let weak = at_origin([2.0, 2.0], [(-1.0, 1.0), (0.0, 1.0)]);
-        assert_eq!(weak.curvature, Curvature::Sufficient);
-        assert_eq!(weak.weakly_active, 1);
-        // A weakly active bound with negative curvature along it: neither test decides.
-        let open = at_origin([2.0, -2.0], [(-1.0, 1.0), (0.0, 1.0)]);
-        assert_eq!(open.curvature, Curvature::Undecided);
-        // A fixed variable is active and removed from the reduced space.
-        let fixed = at_origin([2.0, -2.0], [(-1.0, 1.0), (0.0, 0.0)]);
-        assert_eq!(fixed.curvature, Curvature::Sufficient);
-        assert_eq!((fixed.free, fixed.active), (1, 1));
-    }
-
-    #[cfg(all(feature = "ipopt", feature = "pounce"))]
-    #[test]
-    fn kkt_inertia_certifies_second_order() {
-        use crate::{
-            execution::BackendSettings,
-            presolve::Policy,
-            restart_tests::{Simplex, TARGET, run},
-            solve::Backend,
-        };
-        for (backend, settings) in [
-            (Backend::Ipopt, BackendSettings::Ipopt(Default::default())),
-            (Backend::Pounce, BackendSettings::Pounce(Default::default())),
-        ] {
-            // The projection onto the simplex keeps three coordinates positive: the simplex
-            // row and three lower bounds are active with positive multipliers, and the
-            // reduced Hessian 2·I is positive definite, so In(K) = (3, 1, 0).
-            let report = run(
-                backend,
-                &settings,
-                Simplex::new(&TARGET, 1.0, 4.0),
-                None,
-                &Policy::Auto,
-            );
-            let evidence = report.evidence.second_order.unwrap_or_else(|| {
-                panic!(
-                    "{backend:?}: {:?}",
-                    report.metrics.get("second_order.unavailable")
-                )
-            });
-            assert_eq!(evidence.curvature, Curvature::Sufficient, "{backend:?}");
-            assert_eq!(
-                (evidence.free, evidence.active, evidence.weakly_active),
-                (3, 4, 0),
-                "{backend:?}"
-            );
-            assert_eq!(evidence.inertia, (3, 1, 0), "{backend:?}");
-            assert!(evidence.condition_1norm.is_some_and(|c| c >= 1.0));
-        }
     }
 }

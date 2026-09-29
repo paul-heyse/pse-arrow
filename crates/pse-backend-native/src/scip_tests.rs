@@ -738,6 +738,7 @@ fn certify_known_global_optimum() {
             intent: SolveIntent::Optimize,
             sense: ObjectiveSense::Minimize,
             limit: 100_000,
+            analysis: execution::Analysis::for_intent(SolveIntent::Optimize),
         },
     )
     .unwrap();
@@ -860,6 +861,37 @@ fn minlp_candidate_from_fixed_assignment_resolve() {
         PrimalSource::Backend
     );
     assert!(direct.evidence.kkt.is_none());
+}
+
+#[test]
+fn fixed_assignment_resolve_keeps_local_analysis() {
+    use crate::kkt::{Activity, Curvature, Licq, Side};
+    use pse_math::index::{OriginalCol, OriginalRow};
+    let registry = standard_registry().unwrap();
+    let case = synthesis(&registry);
+    let program = case.program(&FactorableRequest::default());
+    let report = run(&case, &program, SolveIntent::Optimize, true, false).unwrap();
+    assert_eq!(
+        report.evidence.global.unwrap().primal,
+        PrimalSource::FixedAssignment
+    );
+    // The re-solve's KKT-point analysis is carried over, conditional on y = 1 like its
+    // multipliers: the demand row and s = 0 are strongly active, and the fixed binary is a
+    // pinned bound row, so the three active gradients span the space.
+    let point = match &report.evidence.local {
+        Some(Ok(point)) => point,
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(point.rows[OriginalRow::new(0)], Activity::Strong(Side::Lower));
+    assert_eq!(point.bounds[OriginalCol::new(0)], Activity::Inactive);
+    assert_eq!(point.bounds[OriginalCol::new(1)], Activity::Strong(Side::Lower));
+    assert_eq!(point.bounds[OriginalCol::new(2)], Activity::Strong(Side::Equal));
+    assert_eq!(point.licq, Licq::Independent);
+    assert_eq!(point.curvature, Curvature::Sufficient);
+    assert_eq!((point.inertia, point.reduced), ((3, 3, 0), (0, 0, 0)));
+    // The incumbent of an exact export without a re-solve has no local analysis.
+    let direct = run(&case, &program, SolveIntent::Optimize, false, false).unwrap();
+    assert!(direct.evidence.local.is_none());
 }
 
 #[derive(Debug)]

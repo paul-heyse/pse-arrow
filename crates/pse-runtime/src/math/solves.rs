@@ -1494,6 +1494,7 @@ impl MathService {
                 intent: profile.intent,
                 sense,
                 limit: self.policy.worker_bytes / 256,
+                analysis: execution::Analysis::for_intent(profile.intent),
             },
         )?;
         // The case owner and enclosing job reservation outlive every native callback.
