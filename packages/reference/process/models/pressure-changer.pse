@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Paul Heyse
 @id("302da51bb005408280715645c335f6b5") package pressure_change {
 @id("a725f06a48ea4fbcaffc3d7325e56d44") use caloric @"1.0.0";
-@id("72167001068f43f9af953a96fd7d0088") use kinds @"1.0.0";
 @id("a169e92da111405fb7cdae5ac895b217") use equilibrium @"1.0.0";
 @id("5488e742a20444799876441900c8aa28") use aqueous @"1.0.0";
 @id("ce3dea7fa2dc4397ad2036386917ae02") use control_volumes @"1.0.0";

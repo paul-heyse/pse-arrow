@@ -5,8 +5,8 @@
 @id("01a0ede58ecb740c9dfc7a1c08fa33a6") use chemistry @"1.0.0";
 @id("b3e046733e624badab90577f49b10991") use equilibrium @"1.0.0";
 @id("2986feb642324507bed40668b933e2d0") enum SplitBasis {totalFlow,componentFlow,phaseFlow,phaseComponentFlow}
-@id("1a28803f01a340b2bd9417a4c7011b05") def Separator(pkg:equilibrium.ThermoPackage,outlets:Set<kinds.port_set>,component_enthalpy:Fn(T:Temperature,p:chemistry.phase,j:kinds.species)->MolarEnthalpy,basis:SplitBasis=SplitBasis.totalFlow) {
-@id("b4821433ccd74fc8b927aed1e79e3d4f") param components:Set<kinds.species>=pkg.components;
+@id("1a28803f01a340b2bd9417a4c7011b05") def Separator(pkg:equilibrium.ThermoPackage,outlets:Set<kinds.port_set>,component_enthalpy:Fn(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy,basis:SplitBasis=SplitBasis.totalFlow) {
+@id("b4821433ccd74fc8b927aed1e79e3d4f") param components:Set<chemistry.species>=pkg.components;
 @id("0b31b11e765246b2bee57d7c34f09533") param phases:Set<chemistry.phase>=pkg.phases;
 @id("5196ab83b91842c88a135ad704c00277") require pkg.defined : "the separator inlet supplies a defined state";
 @id("a2dc653ba6e540aebb867bcc551dcf56") require not analysis.dynamic : "an instantaneous partition has no dynamic holdup";

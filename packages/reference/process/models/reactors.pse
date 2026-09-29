@@ -3,7 +3,7 @@
 @id("b79a061e0dd9457b8249f2afcee73e1d") package reactors {
 @id("73e9f7cd1f0d417a9f88db56742be3d6") use caloric @"1.0.0";
 @id("2659777aab884fbb9b22d3a06e0812d9") use helmholtz @"1.0.0";
-@id("6b1048fd2cfe4660ac34be15f0ce901d") use kinds @"1.0.0";
+@id("01a0ee04daa670cda7ed74b1f6c21a55") use chemistry @"1.0.0";
 @id("cc4293f7a9a24deeb0160f9804ebf817") use equilibrium @"1.0.0";
 @id("c6f7b655191549fb8f4819344cabafd8") use aqueous @"1.0.0";
 @id("fa1a7c1344694910a9a4d8e8e4cd347a") use reactions @"1.0.0";
@@ -20,7 +20,7 @@
 @id("af4800211ca84b30ac2b2ef22df75993") override child inlet:aqueous.DiluteLiquid=inlet_pkg;
 @id("798186e63641424e83bc1c7b4731b41a") override child outlet:aqueous.DiluteLiquid=outlet_pkg;
 @id("9e9040ca12634b7a9579c1cb5dbdb7d9") child reaction:reactions.RateLaw=reaction_pkg;
-@id("f17710cf241c478b807cd5c237f69084") param reaction_set:Set<kinds.reaction>=reaction_pkg.reactions;
+@id("f17710cf241c478b807cd5c237f69084") param reaction_set:Set<chemistry.reaction>=reaction_pkg.reactions;
 @id("0839c88a4a90484ca4ed59bfaaabc446") require reaction_pkg.components==components : "reaction and material state component sets must agree";
 @id("24152de1d8284af8b0d1045aa8ee3d47") var volume:Volume;
 @id("2e9d9e6619b9449bb6a32f386e7529fb") annotation bounds volume(1e-12{m3},1000000{m3});
@@ -49,7 +49,7 @@
 @id("61d143637a1a4b69a2d2fadf211fa139") override param radau_scheme:Boolean=use_radau;
 @id("1deb3fd98bfc4fda978aee8e689ebf36") override param interpolation_order:Integer=order;
 @id("616dcfe48cb14e5191ec871a0654d221") override child state[i in x]:aqueous.DiluteLiquid=if i==0 then inlet_pkg else outlet_pkg;
-@id("05b25f09b3c54a98ade20b8517199cb0") param reaction_set:Set<kinds.reaction>=reaction_pkg.reactions;
+@id("05b25f09b3c54a98ade20b8517199cb0") param reaction_set:Set<chemistry.reaction>=reaction_pkg.reactions;
 @id("bffc26989b5044eba0042a62fa6feed0") require reaction_pkg.components==components : "reaction and spatial material components must agree";
 @id("4481793703b344c2a09816dc4f040917") child reaction[i in x]:reactions.RateLaw=reaction_pkg;
 @id("125ea57b237d415493e0563d0220ffde") var length:Length;

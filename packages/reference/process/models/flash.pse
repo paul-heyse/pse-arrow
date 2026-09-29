@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("65729aa4c1204931a1331e7052930be9") package flashing {
-@id("efc7390c98104e5786f3f68afeec0374") use kinds @"1.0.0";
 @id("01a0ede58eca75b18609170a440f3914") use chemistry @"1.0.0";
 @id("cd9787611e26439c9125da99c897ab4b") use equilibrium @"1.0.0";
 @id("2d99e2f21b6440c09855786741770a48") use control_volumes @"1.0.0";

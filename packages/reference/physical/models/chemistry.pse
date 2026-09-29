@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// The chemical core: every chemistry kind has one owner here, beside the physical
+// quantity types that name them as subjects. This module is the single phase authority.
+@id("01a0ede5082274a785901e3183244ee3") package chemistry {
+@id("1c998211e5d74955863f377662f56526") entity kind species {}
+@id("1fe263f6a81d4a9fb4584520b4dd4a0b") entity kind element {}
+@id("0d15cb60062d4ee79e10ae2aea8c397e") entity kind reaction {}
+@id("7d986668d824439f9b5828046038365d") entity kind phase {}
+@id("c1ac28b6694144a890b9854d887fa26c") entity phase liquid {}
+@id("c2e7b1a320d24eb482bfb7301782f55c") entity phase vapor {}
+}

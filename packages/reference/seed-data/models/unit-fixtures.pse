@@ -129,15 +129,15 @@
 @id("77fc3b81f304427f936e67fd285ca1b5") expect root.control.work_fluid==-20{W} tolerance 0.01{W};
 }
 @id("5cedb8e3a37b463ab20d70386e91472f") use control_volumes @"1.0.0";
-@id("9adfd09aa49a40458c859d84fcf040ae") fn element_atoms(j:kinds.species,e:kinds.element)->Scalar=chem.atoms[j,e];
+@id("9adfd09aa49a40458c859d84fcf040ae") fn element_atoms(j:chemistry.species,e:chemistry.element)->Scalar=chem.atoms[j,e];
 @id("dd9727cad00941acbac7c618b1789736") def WaterVolume(basis:control_volumes.MaterialBalance):control_volumes.ControlVolume0D {
 @id("6fa71b72e81a4d71a92809b7c672e7e0") override child inlet:aqueous.DiluteLiquid=saponification.Saponification(defined_state=true,selected={chem.water});
 @id("04d8fd6181db4178bab96fa0ea6ee7e7") override child outlet:aqueous.DiluteLiquid=saponification.Saponification(defined_state=false,selected={chem.water});
 @id("a0674b9bc4e24ccd93a90a9ffb7886c8") override param inlet_package:equilibrium.ThermoPackage=saponification.Saponification(defined_state=true,selected={chem.water});
 @id("88073401e9a045b1b221b3e27ff27330") override param outlet_package:equilibrium.ThermoPackage=saponification.Saponification(defined_state=false,selected={chem.water});
 @id("e1a2b0f6972a4b0ba96cba5c3e79f80d") override param material_basis:control_volumes.MaterialBalance=basis;
-@id("6f622f45041549e28fc7c480b3667dd2") override param elements:Set<kinds.element>={chem.O};
-@id("3b1e193103fb4e50ac4b01948cc24af6") override param atoms:Fn(j:kinds.species,e:kinds.element)->Scalar=element_atoms;
+@id("6f622f45041549e28fc7c480b3667dd2") override param elements:Set<chemistry.element>={chem.O};
+@id("3b1e193103fb4e50ac4b01948cc24af6") override param atoms:Fn(j:chemistry.species,e:chemistry.element)->Scalar=element_atoms;
 @id("64b6e00d894141abb1b2e772987ac900") eq no_heat:heat==0{W};
 @id("2afda9d04c2b46adb64960ed55a9064b") eq no_work:work==0{W};
 }

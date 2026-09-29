@@ -1,45 +1,45 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1461e93764398a669e379a0c459") package chem {
-@id("01a0e1461e93764398a669e482cb31ab") use kinds @"1.0.0";
-@id("01a0e1461e93764398a669e528e7ab1d") entity kinds.element H {}
-@id("01a0e1461e93764398a669e6d1ef2ee3") entity kinds.element C {}
-@id("01a0e1461e93764398a669e7465421a5") entity kinds.element N {}
-@id("01a0e1461e93764398a669e8c3ab1e4f") entity kinds.element O {}
-@id("01a0e1461e93764398a669e9973a610c") entity kinds.element Na {}
-@id("baaceaac974a24b0f4b0e1b880368a39") entity kinds.element He {}
-@id("2684a153d116b947d2f1685b496bde76") entity kinds.element F {}
-@id("b27420fac7577d8c85ebbf31cde8f520") entity kinds.element Mg {}
-@id("e68b413afac4e94e81268eeaed50b27c") entity kinds.element Al {}
-@id("4a2d7db2f55cdd149ae5b0e22e346698") entity kinds.element Si {}
-@id("81ca231c74198e0a3d218fc374aae18b") entity kinds.element P {}
-@id("b162ce1ec7e035ad4e4caadea3adf181") entity kinds.element S {}
-@id("0e5fc3ecff3d97bf91e0f77e03508f2d") entity kinds.element Cl {}
-@id("e9ba8f6e5b689ec8eac6dacb0b6347e2") entity kinds.element Ar {}
-@id("e2e27d26620b881b8fc71108b5fa4fe8") entity kinds.element K {}
-@id("374e5f9940afd32be500ae9ff83ee6c7") entity kinds.element Ca {}
-@id("08ae872fad328c4e73a2ca4ae1426070") entity kinds.element Fe {}
-@id("076c1f2a09cb38c1093d0bf755b4d179") entity kinds.element Cu {}
-@id("bec4907ef715c48c2ec6ace7b9b068ad") entity kinds.element Zn {}
-@id("946acbf5e40aceb0b0a961ff128d19c6") entity kinds.element Br {}
-@id("27e1f07b8970a8453b4ad288a5e733ec") entity kinds.element I {}
-@id("01a0e1461e93764398a669ea78d82d27") entity kinds.species benzene {}
-@id("01a0e1461e93764398a669eb046f4eaf") entity kinds.species toluene {}
-@id("01a0e1461e93764398a669ec398dd8a0") entity kinds.species water {}
-@id("01a0e1461e93764398a669eda0966d99") entity kinds.species nitrogen {}
-@id("01a0e1461e93764398a669ee491806c6") entity kinds.species methane {}
-@id("01a0e1461e93764398a669ef76e30f69") entity kinds.species ethane {}
-@id("01a0e1461e93764398a669f099714f13") entity kinds.species propane {}
-@id("01a0e1461e93764398a669f1c287283e") entity kinds.species ethyl_acetate {}
-@id("01a0e1461e93764398a669f2264addb2") entity kinds.species sodium_hydroxide {}
-@id("01a0e1461e93764398a669f3f073acf1") entity kinds.species sodium_acetate {}
-@id("01a0e1461e93764398a669f485d31290") entity kinds.species ethanol {}
-@id("01a0e1461e93764398a669f83ae71a00") set elements:Set<kinds.element>={H,He,C,N,O,F,Na,Mg,Al,Si,P,S,Cl,Ar,K,Ca,Fe,Cu,Zn,Br,I};
-@id("01a0e1461e93764398a669f95e685efd") set species:Set<kinds.species>={benzene,toluene,water,nitrogen,methane,ethane,propane,ethyl_acetate,sodium_hydroxide,sodium_acetate,ethanol};
-@id("01a0e1461e93764398a669fa47465afc") set aromatics:Set<kinds.species>={benzene,toluene};
-@id("01a0e1461e93764398a669fb6e743962") set alkanes:Set<kinds.species>={methane,ethane,propane};
-@id("01a0e1461e93764398a669fca4ddfdbe") set saponification_species:Set<kinds.species>={ethyl_acetate,sodium_hydroxide,sodium_acetate,ethanol,water};
-@id("01a0e1461e93764398a669fdf92fb6c9") table atomic_mass[e:kinds.element]:MolarMass;
+@id("01a0ee04daa773329a4687dcaf88c749") use chemistry @"1.0.0";
+@id("01a0e1461e93764398a669e528e7ab1d") entity chemistry.element H {}
+@id("01a0e1461e93764398a669e6d1ef2ee3") entity chemistry.element C {}
+@id("01a0e1461e93764398a669e7465421a5") entity chemistry.element N {}
+@id("01a0e1461e93764398a669e8c3ab1e4f") entity chemistry.element O {}
+@id("01a0e1461e93764398a669e9973a610c") entity chemistry.element Na {}
+@id("baaceaac974a24b0f4b0e1b880368a39") entity chemistry.element He {}
+@id("2684a153d116b947d2f1685b496bde76") entity chemistry.element F {}
+@id("b27420fac7577d8c85ebbf31cde8f520") entity chemistry.element Mg {}
+@id("e68b413afac4e94e81268eeaed50b27c") entity chemistry.element Al {}
+@id("4a2d7db2f55cdd149ae5b0e22e346698") entity chemistry.element Si {}
+@id("81ca231c74198e0a3d218fc374aae18b") entity chemistry.element P {}
+@id("b162ce1ec7e035ad4e4caadea3adf181") entity chemistry.element S {}
+@id("0e5fc3ecff3d97bf91e0f77e03508f2d") entity chemistry.element Cl {}
+@id("e9ba8f6e5b689ec8eac6dacb0b6347e2") entity chemistry.element Ar {}
+@id("e2e27d26620b881b8fc71108b5fa4fe8") entity chemistry.element K {}
+@id("374e5f9940afd32be500ae9ff83ee6c7") entity chemistry.element Ca {}
+@id("08ae872fad328c4e73a2ca4ae1426070") entity chemistry.element Fe {}
+@id("076c1f2a09cb38c1093d0bf755b4d179") entity chemistry.element Cu {}
+@id("bec4907ef715c48c2ec6ace7b9b068ad") entity chemistry.element Zn {}
+@id("946acbf5e40aceb0b0a961ff128d19c6") entity chemistry.element Br {}
+@id("27e1f07b8970a8453b4ad288a5e733ec") entity chemistry.element I {}
+@id("01a0e1461e93764398a669ea78d82d27") entity chemistry.species benzene {}
+@id("01a0e1461e93764398a669eb046f4eaf") entity chemistry.species toluene {}
+@id("01a0e1461e93764398a669ec398dd8a0") entity chemistry.species water {}
+@id("01a0e1461e93764398a669eda0966d99") entity chemistry.species nitrogen {}
+@id("01a0e1461e93764398a669ee491806c6") entity chemistry.species methane {}
+@id("01a0e1461e93764398a669ef76e30f69") entity chemistry.species ethane {}
+@id("01a0e1461e93764398a669f099714f13") entity chemistry.species propane {}
+@id("01a0e1461e93764398a669f1c287283e") entity chemistry.species ethyl_acetate {}
+@id("01a0e1461e93764398a669f2264addb2") entity chemistry.species sodium_hydroxide {}
+@id("01a0e1461e93764398a669f3f073acf1") entity chemistry.species sodium_acetate {}
+@id("01a0e1461e93764398a669f485d31290") entity chemistry.species ethanol {}
+@id("01a0e1461e93764398a669f83ae71a00") set elements:Set<chemistry.element>={H,He,C,N,O,F,Na,Mg,Al,Si,P,S,Cl,Ar,K,Ca,Fe,Cu,Zn,Br,I};
+@id("01a0e1461e93764398a669f95e685efd") set species:Set<chemistry.species>={benzene,toluene,water,nitrogen,methane,ethane,propane,ethyl_acetate,sodium_hydroxide,sodium_acetate,ethanol};
+@id("01a0e1461e93764398a669fa47465afc") set aromatics:Set<chemistry.species>={benzene,toluene};
+@id("01a0e1461e93764398a669fb6e743962") set alkanes:Set<chemistry.species>={methane,ethane,propane};
+@id("01a0e1461e93764398a669fca4ddfdbe") set saponification_species:Set<chemistry.species>={ethyl_acetate,sodium_hydroxide,sodium_acetate,ethanol,water};
+@id("01a0e1461e93764398a669fdf92fb6c9") table atomic_mass[e:chemistry.element]:MolarMass;
 @id("01a0e1461e94708a83138816e9f2da10") dataset ciaaw_2024:atomic_mass source "CIAAW abridged standard atomic weights 2024; kg/mol; normal terrestrial materials" {
 [H]=[0.001008{kg/mol}];
 [C]=[0.012011{kg/mol}];
@@ -63,7 +63,7 @@
 [Br]=[0.079904{kg/mol}];
 [I]=[0.1269{kg/mol}];
 }
-@id("01a0e1461e94708a83138817b9017ba3") table atoms[j:kinds.species,e:kinds.element]:Scalar missing default 0;
+@id("01a0e1461e94708a83138817b9017ba3") table atoms[j:chemistry.species,e:chemistry.element]:Scalar missing default 0;
 @id("01a0e1461e94708a831388181e66cbca") dataset elemental_composition:atoms source "Molecular formulas; neutral formula units, not dissociated aqueous ions" {
 [benzene,C]=[6];
 [benzene,H]=[6];

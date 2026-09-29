@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1b4f611717da49a9268ae84b41b") package bt_pr {
-@id("01a0e1b4f611717da49a9269be9c4234") use kinds @"1.0.0";
+@id("01a0ee04daa773329a4687db457c50f4") use chemistry @"1.0.0";
 @id("01a0e1b4f611717da49a926a2b7ad34c") use chem @"1.0.0";
 @id("01a0e1b4f611717da49a926bcb59f976") use caloric @"1.0.0";
 @id("01a0e1b4f611717da49a926cdeeaaff7") use caloric_data @"1.0.0";
@@ -9,7 +9,7 @@
 @id("01a0e1b4f611717da49a926e90be3394") use pr_equilibrium @"1.0.0";
 @id("01a0e1b4f611717da49a926f22a030a5") use equilibrium @"1.0.0";
 @id("01a0e1b4f611717da49a9270067ac1c7") use helmholtz @"1.0.0";
-@id("01a0e1b4f611717da49a92713ed6ca46") table reference[j:kinds.species]:{gas_fit:caloric.fit,h:PrOracleEnthalpy,s:PrOracleEntropy};
+@id("01a0e1b4f611717da49a92713ed6ca46") table reference[j:chemistry.species]:{gas_fit:caloric.fit,h:PrOracleEnthalpy,s:PrOracleEntropy};
 @id("01a0e1b4f611717da49a9272a559d6a6") dataset reference_values:reference source "IDAES 2.13 BT_PR configuration; RPP gas cp and formation reference values" {
 [chem.benzene]=[caloric_data.benzene_gas_rpp4_oracle,82900{J/mol},-269{J/(mol*K)}];
 [chem.toluene]=[caloric_data.toluene_gas_rpp4_oracle,50100{J/mol},-321{J/(mol*K)}];
@@ -20,15 +20,15 @@
 @id("01a0e1b4f611717da49a92764aeb5711") fn source_s_unit()->PrOracleDeltaS=1{J/(mol*K)};
 @id("01a0e1b4f611717da49a9277ee0cda0d") fn reference_T()->Temperature=298.15{K};
 @id("01a0e1b4f611717da49a927833f4d3d9") fn reference_P()->Pressure=101325{Pa};
-@id("01a0e1b4f611717da49a9279038f6687") fn gas_h(T:Temperature,j:kinds.species)->MolarEnthalpy=equilibrium.enthalpy_datum()+caloric.polynomial_h_primitive(T,caloric.polynomial[reference[j].gas_fit])-caloric.polynomial_h_primitive(reference_T(),caloric.polynomial[reference[j].gas_fit]);
-@id("01a0e1b4f611717da49a927a3d93aefe") fn gas_s(T:Temperature,j:kinds.species)->MolarEntropy=equilibrium.entropy_datum()+caloric.polynomial_s_primitive(T,caloric.polynomial[reference[j].gas_fit])-caloric.polynomial_s_primitive(reference_T(),caloric.polynomial[reference[j].gas_fit]);
+@id("01a0e1b4f611717da49a9279038f6687") fn gas_h(T:Temperature,j:chemistry.species)->MolarEnthalpy=equilibrium.enthalpy_datum()+caloric.polynomial_h_primitive(T,caloric.polynomial[reference[j].gas_fit])-caloric.polynomial_h_primitive(reference_T(),caloric.polynomial[reference[j].gas_fit]);
+@id("01a0e1b4f611717da49a927a3d93aefe") fn gas_s(T:Temperature,j:chemistry.species)->MolarEntropy=equilibrium.entropy_datum()+caloric.polynomial_s_primitive(T,caloric.polynomial[reference[j].gas_fit])-caloric.polynomial_s_primitive(reference_T(),caloric.polynomial[reference[j].gas_fit]);
 @id("01a0e1b4f611717da49a927b8ced04f1") def BT_PR(defined_state:Boolean=true,minimum:Temperature=350{K},maximum:Temperature=400{K}):pr_equilibrium.SmoothPR {
 @id("e5066feedc994f50b82c7a5e05569a15") override param defined:Boolean=defined_state;
-@id("01a0e1b4f611717da49a927c9b92fa31") override param components:Set<kinds.species>=chem.aromatics;
-@id("01a0e1b4f611717da49a927de67a6ef2") override param psat:Fn(T:Temperature,j:kinds.species)->Pressure=bt_ideal.psat;
-@id("01a0e1b4f611717da49a927ed0b8a92b") override param liquid_enthalpy:Fn(T:Temperature,j:kinds.species)->MolarEnthalpy=gas_h;
-@id("01a0e1b4f611717da49a927f2e75c933") override param vapor_enthalpy:Fn(T:Temperature,j:kinds.species)->MolarEnthalpy=gas_h;
-@id("01a0e1b4f611717da49a9280671a1c99") override param ideal_entropy:Fn(T:Temperature,j:kinds.species)->MolarEntropy=gas_s;
+@id("01a0e1b4f611717da49a927c9b92fa31") override param components:Set<chemistry.species>=chem.aromatics;
+@id("01a0e1b4f611717da49a927de67a6ef2") override param psat:Fn(T:Temperature,j:chemistry.species)->Pressure=bt_ideal.psat;
+@id("01a0e1b4f611717da49a927ed0b8a92b") override param liquid_enthalpy:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=gas_h;
+@id("01a0e1b4f611717da49a927f2e75c933") override param vapor_enthalpy:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=gas_h;
+@id("01a0e1b4f611717da49a9280671a1c99") override param ideal_entropy:Fn(T:Temperature,j:chemistry.species)->MolarEntropy=gas_s;
 @id("01a0e1b4f611717da49a92813ed1c284") override param minimum_temperature:Temperature=minimum;
 @id("01a0e1b4f611717da49a9282c0816d92") override param maximum_temperature:Temperature=maximum;
 @id("01a0e1b4f611717da49a9283d7e5bb29") override param bubble_start:Temperature=365{K};

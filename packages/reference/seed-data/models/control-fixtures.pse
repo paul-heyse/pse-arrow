@@ -26,13 +26,12 @@
 @id("ea82f4b195684fe0aa01b13961782ebb") test antiwindup_simultaneous source "Back-calculation PID equation, matching IDAES 2.13 gain parameterization; analytic saturation recovery I=exp(-2t) with smoothing error below 1e-10" revision "1" fixture {dof 0; run simultaneous;} {
 @id("23e535e153484561af52f15dbba71ceb") child root:SaturatedPID=SaturatedPID();
 }
-@id("c30ef62cb57444dc89432df5850aae58") use kinds @"1.0.0";
 @id("01a0ede58ecc720b8be6cd2ed76aa4ce") use chemistry @"1.0.0";
 @id("c4a897cef26d42929e485474c8da6eed") use chem @"1.0.0";
 @id("d02bd312349f46cda9571e022d34061c") use reactors @"1.0.0";
 @id("69a88b61fcb945029d061a895fbfafcd") use saponification @"1.0.0";
 @id("318bf542e11744408077ff7e58ad2c32") use equilibrium @"1.0.0";
-@id("5f80787fec7e40f2a5d6e6dbb866553c") table initial_feed[j:kinds.species]:MolarDensity;
+@id("5f80787fec7e40f2a5d6e6dbb866553c") table initial_feed[j:chemistry.species]:MolarDensity;
 @id("a5d890c2adfe4277a2855cad480c3dee") dataset feed:initial_feed source "Dynamic demonstration inlet at the steady IDAES 2.13 saponification CSTR specification" {
 [chem.water]=[55388{mol/m3}];
 [chem.sodium_hydroxide]=[100{mol/m3}];
@@ -40,7 +39,7 @@
 [chem.sodium_acetate]=[1e-08{mol/m3}];
 [chem.ethanol]=[1e-08{mol/m3}];
 }
-@id("a70dc0e63c17457196733ebac0b6952f") table initial_outlet[j:kinds.species]:MolarDensity;
+@id("a70dc0e63c17457196733ebac0b6952f") table initial_outlet[j:chemistry.species]:MolarDensity;
 @id("65d4734c82f941688b8fe3d5dd8a07bd") dataset initial_state:initial_outlet source "Steady zero-duty CSTR solution with Arrhenius rate and solvent heat capacity, checked against IDAES 2.13 CSTR fixture" {
 [chem.water]=[55388{mol/m3}];
 [chem.sodium_hydroxide]=[20.316088036339764{mol/m3}];
@@ -56,8 +55,8 @@
 @id("e61c2d04f46f4793a1e43588332592f3") when analysis.route==analysis.simultaneous {
 @id("9c0d5164d1874e2bb64cc02b6938fbd1") discretize grid on t using distributed_volumes.radau(elements=12,order=3);
 }
-@id("51e4def814ea4480a226e1b9cc2dafb8") param components:Set<kinds.species>=chem.saponification_species;
-@id("37b1d1e618ea45ed853e123584ba9957") param solutes:Set<kinds.species>={chem.sodium_hydroxide,chem.ethyl_acetate,chem.sodium_acetate,chem.ethanol};
+@id("51e4def814ea4480a226e1b9cc2dafb8") param components:Set<chemistry.species>=chem.saponification_species;
+@id("37b1d1e618ea45ed853e123584ba9957") param solutes:Set<chemistry.species>={chem.sodium_hydroxide,chem.ethyl_acetate,chem.sodium_acetate,chem.ethanol};
 @id("2306b66713b84a30a4dfb5415e344e5b") eq fixed_solvent_rate[i in t,p in phases]:cell[i].phase_material_accumulation[p,chem.water]==0{mol/s};
 
 @id("842bd32772424164bd60c1ff18697e3d") param phases:Set<chemistry.phase>={chemistry.liquid};

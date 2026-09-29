@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e178d29871ca9ccbc6ffbcd0f2db") package pcsaft {
-@id("01a0e178d29871ca9ccbc700a3012acd") use kinds @"1.0.0";
+@id("01a0ee04daaa77568ef4eee37defb8f3") use chemistry @"1.0.0";
 @id("01a0e178d29871ca9ccbc70157b0176e") use caloric @"1.0.0";
-@id("01a0e178d29871ca9ccbc70251ebee9d") table segments[j:kinds.species]:{m:Scalar,sigma_angstrom:Scalar,epsilon:TemperatureScale};
-@id("01a0e178d29871ca9ccbc7039c2837c3") table interaction[i:kinds.species,j:kinds.species]:Scalar;
+@id("01a0e178d29871ca9ccbc70251ebee9d") table segments[j:chemistry.species]:{m:Scalar,sigma_angstrom:Scalar,epsilon:TemperatureScale};
+@id("01a0e178d29871ca9ccbc7039c2837c3") table interaction[i:chemistry.species,j:chemistry.species]:Scalar;
 @id("01a0e178d29871ca9ccbc70459973946") entity kind polynomial_term {}
 @id("01a0e178d29871ca9ccbc705e130cc62") entity polynomial_term p0 {}
 @id("01a0e178d29871ca9ccbc706f86a7646") entity polynomial_term p1 {}
@@ -26,17 +26,17 @@
 }
 @id("01a0e178d29871ca9ccbc70f9786cf12") fn pi()->Scalar=3.1415926535897932384626433832795;
 @id("01a0e178d29871ca9ccbc71004f6a928") fn molecular_density(r:Scalar)->Scalar=r*6.02214076e-7;
-@id("01a0e178d29871ca9ccbc711c2a85eeb") fn diameter(t:Scalar,j:kinds.species)->Scalar=segments[j].sigma_angstrom*(1-0.12*exp(-3*(segments[j].epsilon/caloric.kelvin())/t));
-@id("01a0e178d29871ca9ccbc712d88170e2") fn mean_segments(n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar=sum(j in members | n[j]*segments[j].m)/sum(j in members | n[j]);
-@id("01a0e178d29871ca9ccbc713b0771902") fn moment(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>,k:Scalar)->Scalar=pi()/6*molecular_density(r)*sum(j in members | n[j]*segments[j].m*diameter(t,j)^k)/sum(j in members | n[j]);
-@id("01a0e178d29871ca9ccbc714ff477ce4") fn hard_sphere(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar=6/(pi()*molecular_density(r))*(3*z1*z2/(1-z3)+z2^3/(z3*(1-z3)^2)+(z2^3/z3^2-z0)*log(1-z3)) where z0=moment(t,r,n,members,0),z1=moment(t,r,n,members,1),z2=moment(t,r,n,members,2),z3=moment(t,r,n,members,3);
-@id("01a0e178d29871ca9ccbc715e7434513") fn contact(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>,j:kinds.species)->Scalar=1/(1-z3)+1.5*d*z2/(1-z3)^2+0.5*d*d*z2*z2/(1-z3)^3 where d=diameter(t,j),z2=moment(t,r,n,members,2),z3=moment(t,r,n,members,3);
-@id("01a0e178d29871ca9ccbc71679d8e782") fn hard_chain(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar=hard_sphere(t,r,n,members)-sum(j in members | n[j]*(segments[j].m-1)*log(contact(t,r,n,members,j)))/sum(j in members | n[j]);
+@id("01a0e178d29871ca9ccbc711c2a85eeb") fn diameter(t:Scalar,j:chemistry.species)->Scalar=segments[j].sigma_angstrom*(1-0.12*exp(-3*(segments[j].epsilon/caloric.kelvin())/t));
+@id("01a0e178d29871ca9ccbc712d88170e2") fn mean_segments(n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=sum(j in members | n[j]*segments[j].m)/sum(j in members | n[j]);
+@id("01a0e178d29871ca9ccbc713b0771902") fn moment(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,k:Scalar)->Scalar=pi()/6*molecular_density(r)*sum(j in members | n[j]*segments[j].m*diameter(t,j)^k)/sum(j in members | n[j]);
+@id("01a0e178d29871ca9ccbc714ff477ce4") fn hard_sphere(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=6/(pi()*molecular_density(r))*(3*z1*z2/(1-z3)+z2^3/(z3*(1-z3)^2)+(z2^3/z3^2-z0)*log(1-z3)) where z0=moment(t,r,n,members,0),z1=moment(t,r,n,members,1),z2=moment(t,r,n,members,2),z3=moment(t,r,n,members,3);
+@id("01a0e178d29871ca9ccbc715e7434513") fn contact(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,j:chemistry.species)->Scalar=1/(1-z3)+1.5*d*z2/(1-z3)^2+0.5*d*d*z2*z2/(1-z3)^3 where d=diameter(t,j),z2=moment(t,r,n,members,2),z3=moment(t,r,n,members,3);
+@id("01a0e178d29871ca9ccbc71679d8e782") fn hard_chain(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=hard_sphere(t,r,n,members)-sum(j in members | n[j]*(segments[j].m-1)*log(contact(t,r,n,members,j)))/sum(j in members | n[j]);
 @id("01a0e178d29871ca9ccbc7173413b738") fn integral_one(eta:Scalar,m:Scalar)->Scalar=sum(k in powers | (dispersion_coefficients[k].a0+(m-1)/m*dispersion_coefficients[k].a1+(m-1)*(m-2)/(m*m)*dispersion_coefficients[k].a2)*eta^dispersion_coefficients[k].power);
 @id("01a0e178d29871ca9ccbc718e02b1137") fn integral_two(eta:Scalar,m:Scalar)->Scalar=sum(k in powers | (dispersion_coefficients[k].b0+(m-1)/m*dispersion_coefficients[k].b1+(m-1)*(m-2)/(m*m)*dispersion_coefficients[k].b2)*eta^dispersion_coefficients[k].power);
 @id("01a0e178d29871ca9ccbc719b560043e") fn compressibility_factor(eta:Scalar,m:Scalar)->Scalar=1/(1+m*(8*eta-2*eta^2)/(1-eta)^4+(1-m)*(20*eta-27*eta^2+12*eta^3-2*eta^4)/((1-eta)*(2-eta))^2);
-@id("01a0e178d29871ca9ccbc71a1f0df014") fn pair_energy(t:Scalar,i:kinds.species,j:kinds.species)->Scalar=sqrt((segments[i].epsilon/caloric.kelvin())*(segments[j].epsilon/caloric.kelvin()))*(1-interaction[i,j])/t;
-@id("01a0e178d29871ca9ccbc71bb828b13a") fn pair_size(i:kinds.species,j:kinds.species)->Scalar=((segments[i].sigma_angstrom+segments[j].sigma_angstrom)/2)^3;
-@id("01a0e178d29871ca9ccbc71c1cf81175") fn dispersion(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar=-pi()*molecular_density(r)*(2*integral_one(eta,m)*e1+m*compressibility_factor(eta,m)*integral_two(eta,m)*e2) where eta=moment(t,r,n,members,3),m=mean_segments(n,members),total=sum(j in members | n[j]),e1=sum(i in members | sum(j in members | n[i]*n[j]*segments[i].m*segments[j].m*pair_size(i,j)*pair_energy(t,i,j)))/(total*total),e2=sum(i in members | sum(j in members | n[i]*n[j]*segments[i].m*segments[j].m*pair_size(i,j)*pair_energy(t,i,j)^2))/(total*total);
-@id("01a0e178d29871ca9ccbc71d66cc95d6") fn potential(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar valid(t>0 and r>0 and sum(j in members | n[j])>0 and sum(j in members | if n[j]>0 and segments[j].m>=1 and segments[j].sigma_angstrom>0 and segments[j].epsilon/caloric.kelvin()>0 then 0 else 1)==0 and moment(t,r,n,members,3)<1)=hard_chain(t,r,n,members)+dispersion(t,r,n,members);
+@id("01a0e178d29871ca9ccbc71a1f0df014") fn pair_energy(t:Scalar,i:chemistry.species,j:chemistry.species)->Scalar=sqrt((segments[i].epsilon/caloric.kelvin())*(segments[j].epsilon/caloric.kelvin()))*(1-interaction[i,j])/t;
+@id("01a0e178d29871ca9ccbc71bb828b13a") fn pair_size(i:chemistry.species,j:chemistry.species)->Scalar=((segments[i].sigma_angstrom+segments[j].sigma_angstrom)/2)^3;
+@id("01a0e178d29871ca9ccbc71c1cf81175") fn dispersion(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=-pi()*molecular_density(r)*(2*integral_one(eta,m)*e1+m*compressibility_factor(eta,m)*integral_two(eta,m)*e2) where eta=moment(t,r,n,members,3),m=mean_segments(n,members),total=sum(j in members | n[j]),e1=sum(i in members | sum(j in members | n[i]*n[j]*segments[i].m*segments[j].m*pair_size(i,j)*pair_energy(t,i,j)))/(total*total),e2=sum(i in members | sum(j in members | n[i]*n[j]*segments[i].m*segments[j].m*pair_size(i,j)*pair_energy(t,i,j)^2))/(total*total);
+@id("01a0e178d29871ca9ccbc71d66cc95d6") fn potential(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar valid(t>0 and r>0 and sum(j in members | n[j])>0 and sum(j in members | if n[j]>0 and segments[j].m>=1 and segments[j].sigma_angstrom>0 and segments[j].epsilon/caloric.kelvin()>0 then 0 else 1)==0 and moment(t,r,n,members,3)<1)=hard_chain(t,r,n,members)+dispersion(t,r,n,members);
 }

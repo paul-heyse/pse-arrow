@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e169482c760bbd985b853a73d244") package helmholtz {
-@id("01a0e169482c760bbd985b8662bbfa14") use kinds @"1.0.0";
+@id("01a0ee04daa976149d39b4df4fca2f80") use chemistry @"1.0.0";
 @id("01a0e169482c760bbd985b8723f1c35d") use caloric @"1.0.0";
 @id("01a0e169482c760bbd985b8848e69141") use pure_properties @"1.0.0";
 @id("01a0e169482c760bbd985b8995b2e9f0") fn density_unit()->Density=1{mol/m3};
 @id("01a0e169482c760bbd985b8aa49ee84e") fn amount_unit()->Amount=1{mol};
 @id("01a0e16f32a3739a874c126a54d4b1df") fn gas_constant_value()->MolarCp=8.31446261815324{J/(mol*K)};
 @id("01a0e16f32a3739a874c126bbea4fbfb") fn reduced_gas_constant()->Scalar=gas_constant_value()/caloric.cp_unit();
-@id("01a0e169482c760bbd985b8ba5e213d1") fn ideal(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar valid(t>0 and r>0 and sum(j in members | n[j])>0 and sum(j in members | if n[j]>0 then 0 else 1)==0) = 0;
+@id("01a0e169482c760bbd985b8ba5e213d1") fn ideal(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar valid(t>0 and r>0 and sum(j in members | n[j])>0 and sum(j in members | if n[j]>0 then 0 else 1)==0) = 0;
 @id("01a0e169482c760bbd985b8c35f27202") interface PhaseThermo {
 @id("01a0e169482c760bbd985b8d1f399312") var T:Temperature;
 @id("01a0e169482c760bbd985b8e823fb2d3") var rho:Density;
-@id("01a0e169482c760bbd985b8f116f63f5") param components:Set<kinds.species>;
+@id("01a0e169482c760bbd985b8f116f63f5") param components:Set<chemistry.species>;
 @id("01a0e169482c760bbd985b902107e9b7") var amount[j in components]:Amount;
 @id("01a0e169482c760bbd985b914fb83330") let pressure:Pressure;
 @id("01a0e169482c760bbd985b92f41e61df") let h_residual:DeltaH;
@@ -22,7 +22,7 @@
 @id("01a0e169482c760bbd985b965c2e1880") let ln_phi[j in components]:Scalar;
 }
 @id("01a0e169482c760bbd985b978b04ff85") interface HelmholtzPhase extends PhaseThermo {
-@id("01a0e169482c760bbd985b986b16ec53") param potential:Fn(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar;
+@id("01a0e169482c760bbd985b986b16ec53") param potential:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar;
 @id("01a0e169482c760bbd985b99cc558184") let gas_constant:MolarCp=gas_constant_value();
 @id("01a0e169482c760bbd985b9aff400b64") let t:Scalar=T/caloric.kelvin();
 @id("01a0e169482c760bbd985b9b4c7f7392") let r:Scalar=rho/density_unit();
@@ -45,8 +45,8 @@
 @id("01a0e169482c760bbd985bacc3823e79") override let ln_phi[j in components]:Scalar=alpha+Z-1+total*partial(potential,n[j])(t,r,n,components)-log(Z);
 @id("01a0e169482c760bbd985bade69cd1af") annotation check rho(mechanical_response>0);
 }
-@id("01a0e169482c760bbd985baed5a8101a") def HomogeneousPhase(selected:Set<kinds.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar):HelmholtzPhase {
-@id("01a0e169482c760bbd985baf2aa4f2bd") override param components:Set<kinds.species>=selected;
-@id("01a0e169482c760bbd985bb0cc16528a") override param potential:Fn(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar=law;
+@id("01a0e169482c760bbd985baed5a8101a") def HomogeneousPhase(selected:Set<chemistry.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar):HelmholtzPhase {
+@id("01a0e169482c760bbd985baf2aa4f2bd") override param components:Set<chemistry.species>=selected;
+@id("01a0e169482c760bbd985bb0cc16528a") override param potential:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=law;
 }
 }

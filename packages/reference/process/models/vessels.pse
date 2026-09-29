@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("0c743f676d4141ceb2f7b2f0a54fb5d9") package vessels {
-@id("bd5d4b36144b4f2d98cd98d4b403e104") use kinds @"1.0.0";
+@id("01a0ee04daa773329a4687dad894a4c0") use chemistry @"1.0.0";
 @id("a69097f8f9404758a9102eecb2c81c16") use helmholtz @"1.0.0";
 @id("97f0c0e572ab4634a4bead052e4b85a4") use caloric @"1.0.0";
 @id("493a4ef6c4d64b1da73ccbfad0889a83") use equilibrium @"1.0.0";
@@ -9,8 +9,8 @@
 @id("fb3524e88c784b649eb2ec69c8759454") use math @"1.0.0";
 @id("5ae4821f97574d13a6ccf312208799be") use distributed_volumes @"1.0.0";
 @id("3c3cac1f8d9f48d89043c3665983f067") fn amount_unit()->TotalAmount=1{mol};
-@id("dc2feadd3d654595974ade2ced45cc87") def HomogeneousInventory(selected:Set<kinds.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar,ideal_h:Fn(T:Temperature,j:kinds.species)->DeltaH,composition:Fn(j:kinds.species)->Scalar,V:Volume=0.1{m3}) {
-@id("1f30d2fff1dc4bcaa50eec59dc02c1bb") param components:Set<kinds.species>=selected;
+@id("dc2feadd3d654595974ade2ced45cc87") def HomogeneousInventory(selected:Set<chemistry.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar,ideal_h:Fn(T:Temperature,j:chemistry.species)->DeltaH,composition:Fn(j:chemistry.species)->Scalar,V:Volume=0.1{m3}) {
+@id("1f30d2fff1dc4bcaa50eec59dc02c1bb") param components:Set<chemistry.species>=selected;
 @id("6ff9152d6ade4e98af547589b315da58") param volume:Volume=V;
 @id("c2430aba81344a0fa7af49930b3fb097") var amount:TotalAmount;
 @id("56c585b73992411c9a1f9681a9a87d47") var energy:Energy;
@@ -40,7 +40,7 @@
 @id("aa384bd8d0df470e949ddf0c13d747ca") annotation report pressure("vessel pressure");
 @id("bec538d266344adc9f042bfb541208ec") annotation report phase.T("vessel temperature");
 }
-@id("1349887846a543049eaab457f8887a99") def Vessel(selected:Set<kinds.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar,ideal_h:Fn(T:Temperature,j:kinds.species)->DeltaH,composition:Fn(j:kinds.species)->Scalar,horizon:Time=1{s},valve:Boolean=false,V:Volume=0.1{m3},time_elements:Integer=1) {
+@id("1349887846a543049eaab457f8887a99") def Vessel(selected:Set<chemistry.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar,ideal_h:Fn(T:Temperature,j:chemistry.species)->DeltaH,composition:Fn(j:chemistry.species)->Scalar,horizon:Time=1{s},valve:Boolean=false,V:Volume=0.1{m3},time_elements:Integer=1) {
 @id("334a0cce8ef14f08873530eeb1dbc60a") require analysis.dynamic : "vessel trajectories require dynamic analysis";
 @id("7ed9cf5934764a4f849fc109e2bdb5c8") domain t:Time from 0{s} to horizon;
 @id("886e5d17145c43c0becb9b2a687a9482") when analysis.route==analysis.integrated {

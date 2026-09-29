@@ -2,10 +2,11 @@
 // Copyright (c) 2026 Paul Heyse
 @id("302c8b46d6a64a3ab66cfba2fe03f39e") package mixing {
 @id("54f5de96e5ec41afac979a2d6a43bd3a") use kinds @"1.0.0";
+@id("01a0ee04daa670cda7ed74b076406be5") use chemistry @"1.0.0";
 @id("4b83b792951d41c1875ddf220e20ae53") use equilibrium @"1.0.0";
 @id("965d150600a14d82ad54a7a98e46c7b1") use math @"1.0.0";
 @id("ad9e7e09fb5e43e29f663be91fb9bd5c") def Mixer(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,inlets:Set<kinds.port_set>) {
-@id("9462bb04f86b48e6a4fd4b357f1b3487") param components:Set<kinds.species>=outlet_pkg.components;
+@id("9462bb04f86b48e6a4fd4b357f1b3487") param components:Set<chemistry.species>=outlet_pkg.components;
 @id("850888c6170b4fec8ba0d7155da115e0") require inlet_pkg.components==components : "all mixer states use one component membership";
 @id("6c80630f504947349b3980e0ec2c20a3") require inlet_pkg.defined and not outlet_pkg.defined : "specified inlets and normalized outlet are required";
 @id("2cd22b18f8254baca76844727d28f7b3") require not analysis.dynamic : "this mixer has no holdup";

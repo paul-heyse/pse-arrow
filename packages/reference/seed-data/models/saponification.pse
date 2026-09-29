@@ -1,37 +1,36 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1db89d8722baac3991b501a0202") package saponification {
-@id("01a0e1db89d8722baac3991c94aa9a1b") use kinds @"1.0.0";
 @id("01a0ede58ecd7493b4ea28b8b7f5159e") use chemistry @"1.0.0";
 @id("01a0e1db89d8722baac3991de219c2d7") use chem @"1.0.0";
 @id("01a0e1db89d8722baac3991e81103ec4") use aqueous @"1.0.0";
 @id("01a0e1db89d8722baac3991f9bb50c70") use reactions @"1.0.0";
 @id("01a0e1db89d8722baac399205b024fc2") use equilibrium @"1.0.0";
-@id("01a0e1db89d8722baac398f3a8b569cb") entity kinds.reaction hydrolysis {}
-@id("01a0e1db89d8722baac398f4fa4d61b9") set reaction_set:Set<kinds.reaction>={hydrolysis};
-@id("01a0e1db89d8722baac398f5f8e2ef0b") table liquid_data[j:kinds.species]:{density:Density,cp:MolarCp,reference:Temperature,minimum:Temperature,maximum:Temperature};
+@id("01a0e1db89d8722baac398f3a8b569cb") entity chemistry.reaction hydrolysis {}
+@id("01a0e1db89d8722baac398f4fa4d61b9") set reaction_set:Set<chemistry.reaction>={hydrolysis};
+@id("01a0e1db89d8722baac398f5f8e2ef0b") table liquid_data[j:chemistry.species]:{density:Density,cp:MolarCp,reference:Temperature,minimum:Temperature,maximum:Temperature};
 @id("01a0e1db89d8722baac398f6cb94d882") dataset dilute_water:liquid_data source "IDAES 2.13 saponification_thermo: solvent approximation, 298.15 K reference; 298.15-323.15 K seed envelope" {
 [chem.water]=[55388{mol/m3},75.327{J/(mol*K)},298.15{K},298.15{K},323.15{K}];
 }
-@id("01a0e1db89d8722baac398f71f5f62a9") table kinetics[r:kinds.reaction]:{k0:SecondOrderRateConstant,E:ActivationEnergy,heat:ReactionHeat,first:kinds.species,second:kinds.species};
+@id("01a0e1db89d8722baac398f71f5f62a9") table kinetics[r:chemistry.reaction]:{k0:SecondOrderRateConstant,E:ActivationEnergy,heat:ReactionHeat,first:chemistry.species,second:chemistry.species};
 @id("01a0e1db89d8722baac398f80032ee48") dataset saponification_kinetics:kinetics source "IDAES 2.13 saponification_reactions, supplied demonstration reaction parameters" {
 [hydrolysis]=[3132000{m^3/(mol*s)},43000{J/mol},-49000{J/mol},chem.sodium_hydroxide,chem.ethyl_acetate];
 }
-@id("01a0e1db89d8722baac398f929f1953a") table stoichiometry[r:kinds.reaction,j:kinds.species]:Scalar missing default 0;
+@id("01a0e1db89d8722baac398f929f1953a") table stoichiometry[r:chemistry.reaction,j:chemistry.species]:Scalar missing default 0;
 @id("01a0e1db89d8722baac398fab6aec8fe") dataset reaction_stoichiometry:stoichiometry source "Ethyl acetate + sodium hydroxide -> sodium acetate + ethanol; neutral formula units" {
 [hydrolysis,chem.sodium_hydroxide]=[-1];
 [hydrolysis,chem.ethyl_acetate]=[-1];
 [hydrolysis,chem.sodium_acetate]=[1];
 [hydrolysis,chem.ethanol]=[1];
 }
-@id("01a0e1db89d8722baac398fb13839169") fn rate(T:Temperature,c:MolarDensity[kinds.species],r:kinds.reaction)->VolumetricReactionRate=reactions.second_order(T,c[kinetics[r].first],c[kinetics[r].second],kinetics[r].k0,kinetics[r].E);
-@id("01a0e1db89d8722baac398fc47237ce7") fn heat(r:kinds.reaction)->ReactionHeat=kinetics[r].heat;
-@id("01a0e1db89d8722baac398fd08d530e4") fn coefficient(r:kinds.reaction,j:kinds.species)->Scalar=stoichiometry[r,j];
-@id("cff1a864140f486b9014e48fcf1fcbc7") fn component_enthalpy(T:Temperature,p:chemistry.phase,j:kinds.species)->MolarEnthalpy=if j==chem.water then equilibrium.enthalpy_datum()+liquid_data[chem.water].cp*(T-liquid_data[chem.water].reference) else equilibrium.enthalpy_datum();
-@id("01a0e1db89d8722baac398fedd10114a") def Saponification(defined_state:Boolean=false,selected:Set<kinds.species>=chem.saponification_species):aqueous.DiluteLiquid {
+@id("01a0e1db89d8722baac398fb13839169") fn rate(T:Temperature,c:MolarDensity[chemistry.species],r:chemistry.reaction)->VolumetricReactionRate=reactions.second_order(T,c[kinetics[r].first],c[kinetics[r].second],kinetics[r].k0,kinetics[r].E);
+@id("01a0e1db89d8722baac398fc47237ce7") fn heat(r:chemistry.reaction)->ReactionHeat=kinetics[r].heat;
+@id("01a0e1db89d8722baac398fd08d530e4") fn coefficient(r:chemistry.reaction,j:chemistry.species)->Scalar=stoichiometry[r,j];
+@id("cff1a864140f486b9014e48fcf1fcbc7") fn component_enthalpy(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy=if j==chem.water then equilibrium.enthalpy_datum()+liquid_data[chem.water].cp*(T-liquid_data[chem.water].reference) else equilibrium.enthalpy_datum();
+@id("01a0e1db89d8722baac398fedd10114a") def Saponification(defined_state:Boolean=false,selected:Set<chemistry.species>=chem.saponification_species):aqueous.DiluteLiquid {
 @id("3edf7526e86c438782fd509deb920adb") override param defined:Boolean=defined_state;
-@id("01a0e1db89d8722baac398ff04498a15") override param components:Set<kinds.species>=selected;
-@id("01a0e1db89d8722baac39900c7508bca") override param solvent:kinds.species=chem.water;
+@id("01a0e1db89d8722baac398ff04498a15") override param components:Set<chemistry.species>=selected;
+@id("01a0e1db89d8722baac39900c7508bca") override param solvent:chemistry.species=chem.water;
 @id("01a0e1db89d8722baac39901d7c55a8c") override param solvent_density:Density=liquid_data[solvent].density;
 @id("01a0e1db89d8722baac3990223bec3df") override param solvent_cp:MolarCp=liquid_data[solvent].cp;
 @id("01a0e1db89d8722baac39903bc2ffa18") override param reference_temperature:Temperature=liquid_data[solvent].reference;
@@ -39,11 +38,11 @@
 @id("01a0e1db89d8722baac3990587b21ab6") override param maximum_temperature:Temperature=liquid_data[solvent].maximum;
 }
 @id("01a0e1db89d8722baac3990681e27b98") def SaponificationReactions:reactions.RateLaw {
-@id("01a0e1db89d8722baac39907c1143d29") override param components:Set<kinds.species>=chem.saponification_species;
-@id("01a0e1db89d8722baac3990823ce080f") override param reactions:Set<kinds.reaction>=reaction_set;
-@id("01a0e1db89d8722baac39909a1de2d2a") override param method:Fn(T:Temperature,c:MolarDensity[kinds.species],r:kinds.reaction)->VolumetricReactionRate=saponification.rate;
-@id("01a0e1db89d8722baac3990a328f5988") override param heat_method:Fn(r:kinds.reaction)->ReactionHeat=saponification.heat;
-@id("01a0e1db89d8722baac3990b73214a6b") override param stoichiometry:Fn(r:kinds.reaction,j:kinds.species)->Scalar=coefficient;
+@id("01a0e1db89d8722baac39907c1143d29") override param components:Set<chemistry.species>=chem.saponification_species;
+@id("01a0e1db89d8722baac3990823ce080f") override param reactions:Set<chemistry.reaction>=reaction_set;
+@id("01a0e1db89d8722baac39909a1de2d2a") override param method:Fn(T:Temperature,c:MolarDensity[chemistry.species],r:chemistry.reaction)->VolumetricReactionRate=saponification.rate;
+@id("01a0e1db89d8722baac3990a328f5988") override param heat_method:Fn(r:chemistry.reaction)->ReactionHeat=saponification.heat;
+@id("01a0e1db89d8722baac3990b73214a6b") override param stoichiometry:Fn(r:chemistry.reaction,j:chemistry.species)->Scalar=coefficient;
 }
 @id("01a0e1db89d8722baac3990c10d5ac0d") test reaction_values source "IDAES 2.13 Arrhenius parameter oracle and neutral formula conservation" revision "2.13.0" fixture {dof 0; run pure;} {
 @id("01a0e1db89d8722baac3990de9758ee8") expect reactions.arrhenius(303.15{K},kinetics[hydrolysis].k0,kinetics[hydrolysis].E)==0.1221230445517785{m^3/(mol*s)} tolerance 1e-12{m^3/(mol*s)};

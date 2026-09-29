@@ -3,13 +3,13 @@
 // Primitive outputs carry the explicit stock ideal-gas datum; constants cancel at T_ref.
 @id("01a0e1484fb87705b3f22bcc49115347") package caloric {
 @id("01a0e159fa9673b48608c5b407839d6e") entity kind fit {}
-@id("01a0e1484fb87705b3f22bcdb67f6a51") use kinds @"1.0.0";
+@id("01a0ee04daa57017b6dc5b42cc7509c7") use chemistry @"1.0.0";
 @id("01a0e1484fb87705b3f22bcfdf690ead") fn kelvin()->TemperatureScale=1{K};
 @id("01a0e15a835e76d5952a640c8086d9a8") fn absolute_zero()->Temperature=0{K};
 @id("01a0e1484fb87705b3f22bd02c706e6c") fn cp_unit()->MolarCp=1{J/(mol*K)};
 @id("01a0e1484fb87705b3f22bd1c8d58a85") fn h_unit()->DeltaH=1{J/mol};
 @id("01a0e1484fb87705b3f22bd2617a4090") fn s_unit()->DeltaS=1{J/(mol*K)};
-@id("01a0e1484fb87705b3f22bd397b45caf") table shomate[j:kinds.species]:{a:Scalar,b:Scalar,c:Scalar,d:Scalar,e:Scalar,minimum:Temperature,maximum:Temperature};
+@id("01a0e1484fb87705b3f22bd397b45caf") table shomate[j:chemistry.species]:{a:Scalar,b:Scalar,c:Scalar,d:Scalar,e:Scalar,minimum:Temperature,maximum:Temperature};
 @id("01a0e1484fb87705b3f22bd556f38474") fn shomate_cp(T:Temperature,p:Row<shomate>)->MolarCp valid(T>=p.minimum and T<=p.maximum) = cp_unit()*(p.a+p.b*t+p.c*t^2+p.d*t^3+p.e/t^2) where t=T/(1000*kelvin());
 @id("01a0e1484fb87705b3f22bd62c1b8f02") fn shomate_h_primitive(T:Temperature,p:Row<shomate>)->DeltaH valid(T>=p.minimum and T<=p.maximum) = 1000*h_unit()*(p.a*t+p.b*t^2/2+p.c*t^3/3+p.d*t^4/4-p.e/t) where t=T/(1000*kelvin());
 @id("01a0e1484fb87705b3f22bd70ea77e09") fn shomate_s_primitive(T:Temperature,p:Row<shomate>)->DeltaS valid(T>=p.minimum and T<=p.maximum) = s_unit()*(p.a*log(t)+p.b*t+p.c*t^2/2+p.d*t^3/3-p.e/(2*t^2)) where t=T/(1000*kelvin());
