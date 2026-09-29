@@ -95,6 +95,21 @@ pub fn nlp(
     if let Some(request) = &sensitivity {
         request.admit(run.oracle.contract())?;
     }
+    // An inverse reduced Hessian is read from the step's own analysis, over distinct
+    // columns of the solve.
+    if let Some(columns) = &run.analysis.inverse_reduced_hessian {
+        let n = run.oracle.contract().variables.len();
+        let distinct: std::collections::BTreeSet<_> = columns.iter().collect();
+        if !run.analysis.second_order
+            || columns.is_empty()
+            || distinct.len() != columns.len()
+            || columns.iter().any(|c| c.get() >= n)
+        {
+            return Err(ProblemError::Contract(
+                "an inverse reduced Hessian names distinct columns of the solve and needs its second-order analysis".into(),
+            ));
+        }
+    }
     // Presolve tightens bounds and removes rows on the premise that every row holds; a
     // method that relaxes the rows would then minimize violation over a domain those rows
     // already restricted. `Auto` lets the system choose, and it chooses no pass, recorded
@@ -164,7 +179,8 @@ pub fn nlp(
         dual: step.accuracy.stationarity,
         limit: run.limit,
     };
-    let mut report = pipeline.finish(report, step.tolerances, run.sense, &run.analysis, budget);
+    let (mut report, factor) =
+        pipeline.finish(report, step.tolerances, run.sense, &run.analysis, budget);
     quality::record_kkt(&mut report, step.normalization, step.accuracy);
     quality::qualify(&mut report, step.accuracy);
     report.least_infeasible = quality::least_infeasible(&report);
@@ -172,6 +188,9 @@ pub fn nlp(
     // step only (ADR-0118 item 12).
     if let Some(request) = sensitivity {
         crate::kkt::derive(&mut report, request, step.tolerances, run.sense, budget);
+    }
+    if let Some(columns) = run.analysis.inverse_reduced_hessian.take() {
+        crate::kkt::invert(&mut report, factor, &columns, run.sense);
     }
     Ok(report)
 }

@@ -303,6 +303,7 @@ pub(crate) async fn heat_fit(
             rank_tolerance: 1e-8,
             max_cells: 1 << 20,
             derivatives: pse_runtime::workflow::FitDerivatives::Responses,
+            uncertainty: None,
         },
     )
 }

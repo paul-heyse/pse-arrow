@@ -200,6 +200,10 @@ impl MathService {
     pub(crate) fn stack_bytes(&self) -> usize {
         self.policy.stack_bytes
     }
+    /// The cores one native job may admit.
+    pub(crate) fn cores(&self) -> usize {
+        self.cores
+    }
 }
 impl std::fmt::Debug for MathService {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

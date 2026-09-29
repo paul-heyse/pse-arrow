@@ -1820,9 +1820,12 @@ pub enum DerivedQuantity {
     ///The covariance of fitted parameters under the declared statistical model.
     #[serde(rename = "parameter_covariance")]
     ParameterCovariance,
-    ///A confidence interval of one fitted parameter.
-    #[serde(rename = "parameter_interval")]
-    ParameterInterval,
+    ///The Wald confidence intervals of the fitted parameters, from their covariance.
+    #[serde(rename = "wald_interval")]
+    WaldInterval,
+    ///The profile-likelihood confidence intervals of the fitted parameters, from adaptive pin chains.
+    #[serde(rename = "profile_interval")]
+    ProfileInterval,
     ///Parameter covariance propagated to outputs, Σ_y = J·Σ_θ·Jᵀ.
     #[serde(rename = "propagated_covariance")]
     PropagatedCovariance,
@@ -1834,11 +1837,12 @@ impl crate::SemanticEq for DerivedQuantity {
 }
 impl DerivedQuantity {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
+    pub const ALL: [Self; 6usize] = [
         Self::ParametricSensitivity,
         Self::ReducedHessian,
         Self::ParameterCovariance,
-        Self::ParameterInterval,
+        Self::WaldInterval,
+        Self::ProfileInterval,
         Self::PropagatedCovariance,
     ];
     /// The declared member spelling.
@@ -1847,7 +1851,8 @@ impl DerivedQuantity {
             Self::ParametricSensitivity => "parametric_sensitivity",
             Self::ReducedHessian => "reduced_hessian",
             Self::ParameterCovariance => "parameter_covariance",
-            Self::ParameterInterval => "parameter_interval",
+            Self::WaldInterval => "wald_interval",
+            Self::ProfileInterval => "profile_interval",
             Self::PropagatedCovariance => "propagated_covariance",
         }
     }
@@ -1857,8 +1862,9 @@ impl DerivedQuantity {
             Self::ParametricSensitivity => 0usize,
             Self::ReducedHessian => 1usize,
             Self::ParameterCovariance => 2usize,
-            Self::ParameterInterval => 3usize,
-            Self::PropagatedCovariance => 4usize,
+            Self::WaldInterval => 3usize,
+            Self::ProfileInterval => 4usize,
+            Self::PropagatedCovariance => 5usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -1872,7 +1878,8 @@ impl DerivedQuantity {
             Self::ParametricSensitivity => None,
             Self::ReducedHessian => None,
             Self::ParameterCovariance => None,
-            Self::ParameterInterval => None,
+            Self::WaldInterval => None,
+            Self::ProfileInterval => None,
             Self::PropagatedCovariance => None,
         }
     }
@@ -1889,7 +1896,8 @@ impl schemars::JsonSchema for DerivedQuantity {
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["parametric_sensitivity", "reduced_hessian",
-            "parameter_covariance", "parameter_interval", "propagated_covariance"] }
+            "parameter_covariance", "wald_interval", "profile_interval",
+            "propagated_covariance"] }
         )
     }
 }
@@ -1900,7 +1908,8 @@ impl core::str::FromStr for DerivedQuantity {
             "parametric_sensitivity" => Ok(Self::ParametricSensitivity),
             "reduced_hessian" => Ok(Self::ReducedHessian),
             "parameter_covariance" => Ok(Self::ParameterCovariance),
-            "parameter_interval" => Ok(Self::ParameterInterval),
+            "wald_interval" => Ok(Self::WaldInterval),
+            "profile_interval" => Ok(Self::ProfileInterval),
             "propagated_covariance" => Ok(Self::PropagatedCovariance),
             _ => {
                 Err(crate::ModelError::EnumMember {
@@ -4138,6 +4147,104 @@ impl core::str::FromStr for IntervalMethod {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(IntervalMethod).to_owned(),
                     enumeration: stringify!(IntervalMethod).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum IntervalOutcome {
+    ///The end is where the interval's statistic reaches its quantile: a Wald end, or a profile point within the chain tolerance of the likelihood-ratio threshold.
+    #[serde(rename = "threshold")]
+    Threshold,
+    ///The profile reached the parameter's declared bound below the threshold: the end is the bound, and the interval is cut there by the admissible domain.
+    #[serde(rename = "bound")]
+    Bound,
+    ///The profile chain stopped before the threshold or the bound: a pinned fit failed at the smallest step, the point budget or the deadline ran out, or a pinned fit found an objective below the estimate's. The end has no value; the detail states why.
+    #[serde(rename = "stopped")]
+    Stopped,
+}
+impl crate::SemanticEq for IntervalOutcome {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl IntervalOutcome {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::Threshold, Self::Bound, Self::Stopped];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Threshold => "threshold",
+            Self::Bound => "bound",
+            Self::Stopped => "stopped",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Threshold => 0usize,
+            Self::Bound => 1usize,
+            Self::Stopped => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Threshold => None,
+            Self::Bound => None,
+            Self::Stopped => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for IntervalOutcome {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(IntervalOutcome))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(IntervalOutcome)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["threshold", "bound", "stopped"] }
+        )
+    }
+}
+impl core::str::FromStr for IntervalOutcome {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "threshold" => Ok(Self::Threshold),
+            "bound" => Ok(Self::Bound),
+            "stopped" => Ok(Self::Stopped),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(IntervalOutcome).to_owned(),
+                    enumeration: stringify!(IntervalOutcome).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -14197,12 +14304,15 @@ pub enum WithheldReason {
     ///The fit's responses do not have full rank: a parameter combination is unidentifiable.
     #[serde(rename = "rank_deficient")]
     RankDeficient,
-    ///An included observation has no declared standard deviation.
-    #[serde(rename = "undeclared_deviation")]
-    UndeclaredDeviation,
     ///An included observation has an importance weight other than one.
     #[serde(rename = "nonunit_importance")]
     NonunitImportance,
+    ///The fit's local responses at the candidate are unavailable, so its response rank is unknown: a closure that is not square, the dense allowance, or a failed evaluation.
+    #[serde(rename = "responses_unavailable")]
+    ResponsesUnavailable,
+    ///A fitted parameter lies at a declared bound: the estimate is held there, and its local curvature does not describe its distribution.
+    #[serde(rename = "parameter_at_bound")]
+    ParameterAtBound,
     ///A quantity this one is computed from was withheld.
     #[serde(rename = "upstream_withheld")]
     UpstreamWithheld,
@@ -14214,7 +14324,7 @@ impl crate::SemanticEq for WithheldReason {
 }
 impl WithheldReason {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 14usize] = [
+    pub const ALL: [Self; 15usize] = [
         Self::NoCandidate,
         Self::NoLocalAnalysis,
         Self::MultipliersUnrecovered,
@@ -14226,8 +14336,9 @@ impl WithheldReason {
         Self::SecondOrderFailed,
         Self::BacksolveFailed,
         Self::RankDeficient,
-        Self::UndeclaredDeviation,
         Self::NonunitImportance,
+        Self::ResponsesUnavailable,
+        Self::ParameterAtBound,
         Self::UpstreamWithheld,
     ];
     /// The declared member spelling.
@@ -14244,8 +14355,9 @@ impl WithheldReason {
             Self::SecondOrderFailed => "second_order_failed",
             Self::BacksolveFailed => "backsolve_failed",
             Self::RankDeficient => "rank_deficient",
-            Self::UndeclaredDeviation => "undeclared_deviation",
             Self::NonunitImportance => "nonunit_importance",
+            Self::ResponsesUnavailable => "responses_unavailable",
+            Self::ParameterAtBound => "parameter_at_bound",
             Self::UpstreamWithheld => "upstream_withheld",
         }
     }
@@ -14263,9 +14375,10 @@ impl WithheldReason {
             Self::SecondOrderFailed => 8usize,
             Self::BacksolveFailed => 9usize,
             Self::RankDeficient => 10usize,
-            Self::UndeclaredDeviation => 11usize,
-            Self::NonunitImportance => 12usize,
-            Self::UpstreamWithheld => 13usize,
+            Self::NonunitImportance => 11usize,
+            Self::ResponsesUnavailable => 12usize,
+            Self::ParameterAtBound => 13usize,
+            Self::UpstreamWithheld => 14usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -14287,8 +14400,9 @@ impl WithheldReason {
             Self::SecondOrderFailed => None,
             Self::BacksolveFailed => None,
             Self::RankDeficient => None,
-            Self::UndeclaredDeviation => None,
             Self::NonunitImportance => None,
+            Self::ResponsesUnavailable => None,
+            Self::ParameterAtBound => None,
             Self::UpstreamWithheld => None,
         }
     }
@@ -14308,7 +14422,8 @@ impl schemars::JsonSchema for WithheldReason {
             "multipliers_unrecovered", "complementarity_failed", "not_stationary",
             "analysis_unavailable", "licq_failed", "weakly_active",
             "second_order_failed", "backsolve_failed", "rank_deficient",
-            "undeclared_deviation", "nonunit_importance", "upstream_withheld"] }
+            "nonunit_importance", "responses_unavailable", "parameter_at_bound",
+            "upstream_withheld"] }
         )
     }
 }
@@ -14327,8 +14442,9 @@ impl core::str::FromStr for WithheldReason {
             "second_order_failed" => Ok(Self::SecondOrderFailed),
             "backsolve_failed" => Ok(Self::BacksolveFailed),
             "rank_deficient" => Ok(Self::RankDeficient),
-            "undeclared_deviation" => Ok(Self::UndeclaredDeviation),
             "nonunit_importance" => Ok(Self::NonunitImportance),
+            "responses_unavailable" => Ok(Self::ResponsesUnavailable),
+            "parameter_at_bound" => Ok(Self::ParameterAtBound),
             "upstream_withheld" => Ok(Self::UpstreamWithheld),
             _ => {
                 Err(crate::ModelError::EnumMember {
@@ -14716,6 +14832,16 @@ impl crate::HeapUsage for IntervalMethod {
     }
 }
 impl crate::SemanticFrame for IntervalMethod {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for IntervalOutcome {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for IntervalOutcome {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

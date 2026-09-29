@@ -42,6 +42,8 @@ native-solvers = [
 [dependencies]
 tracing.workspace = true
 faer.workspace = true
+# Normal and χ² quantiles of the fit's confidence intervals (Plan 22 S3).
+statrs.workspace = true
 pse-buildinfo.workspace = true
 url.workspace = true
 pse-backend-native.workspace = true

@@ -4,7 +4,10 @@
 //! item 10; PS-12): one `local_validity` row per requested quantity, certified or withheld
 //! with its reason, and the data rows of the certified ones. The backend's typed reasons
 //! map onto the registry `WithheldReason` here, at the publication boundary.
-use super::{WorkflowError, contract, relation};
+use super::{
+    WorkflowError, contract, relation,
+    uncertainty::{self, Jacobian, Propagated, Upstream},
+};
 use pse_backend_native::{
     kkt::{Curvature, KktPoint, Licq, Parametric, Unavailable, Withheld},
     solve::{PrimalSource, SolveReport},
@@ -19,7 +22,7 @@ use pse_relations::{
         identities::RunId,
         runtime::{
             local_validity as validity, parametric_sensitivities as sensitivities,
-            reduced_hessians as hessians,
+            propagated_covariances as propagated, reduced_hessians as hessians,
         },
         structures::LocalValidity,
     },
@@ -27,7 +30,7 @@ use pse_relations::{
 use std::collections::BTreeMap;
 
 /// The registry reason of a withheld quantity and its typed cause.
-fn reason(withheld: &Withheld) -> WithheldReason {
+pub(super) fn reason(withheld: &Withheld) -> WithheldReason {
     match withheld {
         Withheld::NoCandidate => WithheldReason::NoCandidate,
         Withheld::Multipliers | Withheld::Analysis(Unavailable::Multipliers) => {
@@ -47,7 +50,7 @@ fn reason(withheld: &Withheld) -> WithheldReason {
 
 /// The validity record of one quantity: its outcome, whether it is conditional on a
 /// discrete assignment, and the verdicts of the point it was read from.
-fn record<T>(
+pub(super) fn record<T>(
     outcome: Result<&T, (WithheldReason, String)>,
     point: Option<&KktPoint>,
     conditional: bool,
@@ -85,11 +88,12 @@ pub(super) struct Step<'a> {
     pub quantities: &'a QuantityRegistry,
 }
 
-/// Builders of the three local-analysis relations over a run's steps.
+/// Builders of the four local-analysis relations over a run's steps.
 pub(super) struct Rows {
     validity: validity::Builder,
     sensitivities: sensitivities::Builder,
     hessians: hessians::Builder,
+    propagated: propagated::Builder,
 }
 impl Rows {
     pub(super) fn new(registry: &pse_schema::Registry) -> Result<Self, WorkflowError> {
@@ -98,6 +102,7 @@ impl Rows {
             sensitivities: sensitivities::Builder::with_registry(registry, 0)
                 .map_err(relation)?,
             hessians: hessians::Builder::with_registry(registry, 0).map_err(relation)?,
+            propagated: propagated::Builder::with_registry(registry, 0).map_err(relation)?,
         })
     }
     /// The rows of one step that requested sensitivities.
@@ -132,7 +137,7 @@ impl Rows {
                 run_id: step.run_id,
                 step: step.step,
                 quantity: DerivedQuantity::ParametricSensitivity,
-                validity: record(sensitivity, point, conditional),
+                validity: record(sensitivity.clone(), point, conditional),
             })
             .map_err(relation)?;
         let hessian = step.request.reduced_hessian.then(|| {
@@ -158,6 +163,25 @@ impl Rows {
                     ),
                 })
                 .map_err(relation)?;
+        }
+        // The requested propagation holds while the sensitivities it reads do (S4).
+        if let Some(propagation) = &step.request.propagation {
+            let jacobian = match (&sensitivity, step.report, evidence) {
+                (Ok(s), Some(report), Some(parametric)) => {
+                    Ok(jacobian(report, parametric, s, &propagation.outputs)?)
+                }
+                (Err((reason, detail)), ..) => Err(Upstream {
+                    quantity: DerivedQuantity::ParametricSensitivity,
+                    reason: *reason,
+                    detail: detail.clone(),
+                }),
+                (Ok(_), ..) => return Err(contract("certified sensitivities without a report")),
+            };
+            let result = uncertainty::propagate(
+                Ok(&propagation.covariance),
+                jacobian.as_ref().map_err(Clone::clone),
+            )?;
+            self.propagate(step, result, point, conditional)?;
         }
         let (Some(report), Some(parametric)) = (step.report, evidence) else {
             return Ok(());
@@ -250,10 +274,54 @@ impl Rows {
             })
             .map_err(relation)
     }
+    /// A propagated covariance's validity row and, when certified, its data row; the
+    /// outputs' units are read from `step`.
+    fn propagate(
+        &mut self,
+        step: &Step<'_>,
+        result: Result<Propagated, Upstream>,
+        point: Option<&KktPoint>,
+        conditional: bool,
+    ) -> Result<(), WorkflowError> {
+        self.validity
+            .push(validity::Row {
+                run_id: step.run_id,
+                step: step.step,
+                quantity: DerivedQuantity::PropagatedCovariance,
+                validity: record(
+                    result
+                        .as_ref()
+                        .map_err(|u| (WithheldReason::UpstreamWithheld, u.to_string())),
+                    point,
+                    conditional,
+                ),
+            })
+            .map_err(relation)?;
+        if let Ok(propagated) = result {
+            let units = Units::of(step)?;
+            let output_units = propagated
+                .outputs
+                .iter()
+                .map(|id| units.variable(*id))
+                .collect::<Result<_, _>>()?;
+            self.propagated
+                .push(propagated::Row {
+                    run_id: step.run_id,
+                    step: step.step,
+                    covariance_run_id: propagated.covariance_run,
+                    parameters: propagated.parameters,
+                    outputs: propagated.outputs,
+                    output_units,
+                    values: propagated.values,
+                })
+                .map_err(relation)?;
+        }
+        Ok(())
+    }
     /// The finished relations.
     pub(super) fn finish(
         self,
-    ) -> Result<[(SemanticId, FieldCheckedBatch); 3], WorkflowError> {
+    ) -> Result<[(SemanticId, FieldCheckedBatch); 4], WorkflowError> {
         Ok([
             (validity::RELATION_ID, self.validity.finish().map_err(relation)?),
             (
@@ -261,8 +329,41 @@ impl Rows {
                 self.sensitivities.finish().map_err(relation)?,
             ),
             (hessians::RELATION_ID, self.hessians.finish().map_err(relation)?),
+            (
+                propagated::RELATION_ID,
+                self.propagated.finish().map_err(relation)?,
+            ),
         ])
     }
+}
+
+/// `J` of a propagation from a step's certified sensitivities: `dx/dp` of each output
+/// variable over the request's parameters.
+fn jacobian(
+    report: &SolveReport,
+    parametric: &Parametric,
+    s: &pse_backend_native::kkt::Sensitivities,
+    outputs: &[SemanticId],
+) -> Result<Jacobian, WorkflowError> {
+    let columns = outputs
+        .iter()
+        .map(|id| {
+            report
+                .variables
+                .iter()
+                .position(|v| v == id)
+                .ok_or_else(|| contract(format!("propagation output {id} is not a solved variable")))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let n = parametric.parameters.len();
+    Ok(Jacobian {
+        outputs: outputs.to_vec(),
+        parameters: parametric.parameters.clone(),
+        values: columns
+            .iter()
+            .flat_map(|j| (0..n).map(move |k| s.primal[k][*j]))
+            .collect(),
+    })
 }
 
 /// The physical unit of every coordinate a sensitivity row names.

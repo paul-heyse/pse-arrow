@@ -1839,6 +1839,13 @@ pub(crate) fn profile_key(p: &SolverProfile) -> Result<pse_ids::ContentHash, Pro
         for parameter in &request.parameters {
             h.id(parameter);
         }
+        // A propagation is identified by its complete serde encoding (F09); a request
+        // without one keeps its identity.
+        if let Some(propagation) = &request.propagation {
+            let encoded = serde_json::to_string(propagation)
+                .map_err(|e| ProblemError::Internal(format!("propagation encoding: {e}")))?;
+            h.str("propagation").str(&encoded);
+        }
     }
     Ok(h.finish_hash())
 }

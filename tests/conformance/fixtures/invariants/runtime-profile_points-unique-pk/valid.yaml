@@ -1,0 +1,21 @@
+{
+  "invariant": "runtime.profile_points:unique:pk",
+  "rows": {
+    "runtime.profile_points": [
+      {
+        "accepted": "[\"bool\",true]",
+        "detail": "[\"text\",\"value-1\"]",
+        "end": "[\"enum\",\"lower\"]",
+        "objective": "[\"f64\",\"3ff0000000000000\"]",
+        "parameter_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "point": "[\"i64\",1]",
+        "qualification": "[\"enum\",\"unqualified\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "seed": "[\"i64\",1]",
+        "statistic": "[\"f64\",\"3ff0000000000000\"]",
+        "value": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -203,6 +203,16 @@ impl ModelingPackage {
                 "fitting consumes declared guesses and fresh solver allocations",
             ));
         }
+        // A fit's parameters are its unknowns: what it derives from them is its covariance
+        // and intervals, never the parametric sensitivities of a modeling solve.
+        if profile.solver.sensitivity.is_some() {
+            return Err(contract(
+                "a fit derives its covariance and intervals (FitProfile.uncertainty), not parametric sensitivities",
+            ));
+        }
+        if let Some(uncertainty) = &profile.uncertainty {
+            uncertainty.admit()?;
+        }
         if profile.solver.intent != SolveIntent::Optimize
             || !profile.rank_tolerance.is_finite()
             || !(0.0..1.0).contains(&profile.rank_tolerance)
@@ -846,6 +856,17 @@ impl ModelingPackage {
             }
             experiments.push(experiment);
         }
+        // The predictions' propagated covariance is bounded like the dense diagnostics.
+        let included = measurements.iter().filter(|o| o.included).count();
+        if profile.uncertainty.as_ref().is_some_and(|u| u.predictions)
+            && included
+                .checked_mul(included)
+                .is_none_or(|cells| cells > profile.max_cells)
+        {
+            return Err(contract(
+                "the predictions' propagated covariance exceeds the fit's max_cells",
+            ));
+        }
         if measurements.len() != d.observations.len()
             || !measurements.iter().any(|o| o.included)
             || profile
@@ -894,9 +915,12 @@ impl PreparedFit {
         run_id: RunId,
         flag: Arc<std::sync::atomic::AtomicBool>,
         progress: Arc<native::solve::Progress>,
+        workers: usize,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
         let started = std::time::Instant::now();
-        let mut report = self.problem.execute(self.route, flag.clone(), progress)?;
+        let mut report = self
+            .problem
+            .execute(self.route, flag.clone(), progress, workers)?;
         let Some(candidate) = report.candidate.as_ref() else {
             return Ok(report);
         };

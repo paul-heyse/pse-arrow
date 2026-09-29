@@ -1,0 +1,17 @@
+{
+  "invariant": "runtime.propagated_covariances:unique:pk",
+  "rows": {
+    "runtime.propagated_covariances": [
+      {
+        "covariance_run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "output_units": "[\"list\",[]]",
+        "outputs": "[\"list\",[]]",
+        "parameters": "[\"list\",[]]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "step": "[\"i64\",1]",
+        "values": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

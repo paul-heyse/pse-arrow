@@ -1558,6 +1558,43 @@ Native row check `root_uri_nonempty` (must be true):
 "root_uri" <> ''
 ```
 
+## `parameter_covariances`
+
+The covariance of a fit's free parameters at a certified estimate (ADR-0118 item 8), under the declared statistical model: weighted least squares with a declared standard deviation and unit importance for every included observation, the deviations taken as absolute, so no residual variance rescales it. One covariance per fit; the validity is in local_validity.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `approximation` | `enum:CovarianceApproximation` | false | `payload` | — | — |
+| `parameters` | `List` | false | `payload` | — | — |
+| `parameters.item` | `semantic_id` | false | `payload` | — | — |
+| `parameter_units` | `List` | false | `payload` | — | — |
+| `parameter_units.item` | `semantic_id` | false | `payload` | — | — |
+| `values` | `List` | false | `payload` | — | — |
+| `values.item` | `Float64` | false | `payload` | — | — |
+
+## `parameter_intervals`
+
+Confidence intervals of a fit's free parameters (ADR-0118 item 8). A Wald end is the estimate ± z·σ with z the standard normal quantile of (1 + level)/2. A profile-likelihood end is the pinned value at which the signed root of twice the objective increase, √(2(f − f*)), reaches √χ²₁(level), found by an adaptive pin chain; with absolute deviations both use the same quantile, so they agree on a linear model. The validity of each method's intervals is in local_validity.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, parameter_id, method, end`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `parameter_id` | `semantic_id` | false | `key` | — | — |
+| `method` | `enum:IntervalMethod` | false | `key` | — | — |
+| `end` | `enum:IntervalEnd` | false | `key` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `level` | `Float64` | false | `payload` | — | — |
+| `estimate` | `Float64` | false | `payload` | — | — |
+| `value` | `Float64` | true | `payload` | — | — |
+| `outcome` | `enum:IntervalOutcome` | false | `payload` | — | — |
+| `points` | `Int64` | false | `payload` | — | — |
+| `detail` | `Utf8` | true | `payload` | — | — |
+
 ## `parametric_sensitivities`
 
 Local parametric sensitivities at a certified KKT point (ADR-0118 items 5–7): original physical units per parameter unit, in original coordinates whatever presolve removed. A first-order statement about the local solution map, valid while the active set holds; the validity is in local_validity.
@@ -1575,6 +1612,46 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, parameter_id,
 | `target_unit_id` | `semantic_id` | false | `payload` | — | — |
 | `primal` | `Float64` | true | `payload` | — | — |
 | `dual` | `Float64` | true | `payload` | — | — |
+
+## `profile_points`
+
+Every pinned fit of a profile-likelihood chain (ADR-0118 item 8): one chain per free parameter and end, each point pinning the parameter on the fit prepared once and seeded from its chain's latest accepted point, which is recorded as its input.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, parameter_id, end, point`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `parameter_id` | `semantic_id` | false | `key` | — | — |
+| `end` | `enum:IntervalEnd` | false | `key` | — | — |
+| `point` | `Int64` | false | `key` | — | — |
+| `value` | `Float64` | false | `payload` | — | — |
+| `seed` | `Int64` | true | `payload` | — | — |
+| `qualification` | `enum:NativeQualification` | true | `payload` | — | — |
+| `objective` | `Float64` | true | `payload` | — | — |
+| `statistic` | `Float64` | true | `payload` | — | — |
+| `accepted` | `Boolean` | false | `payload` | — | — |
+| `detail` | `Utf8` | true | `payload` | — | — |
+
+## `propagated_covariances`
+
+A parameter covariance propagated to outputs, Σ_y = J·Σ_θ·Jᵀ (ADR-0118 items 1 and 11; the counterpart of IDAES sens.py): J is a modeling step's parametric sensitivities over the covariance's parameters, matched by identity, or a fit's response derivatives. A first-order statement valid while both its inputs are; its validity, the conjunction of theirs, is in local_validity.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `covariance_run_id` | `semantic_id` | false | `payload` | — | — |
+| `parameters` | `List` | false | `payload` | — | — |
+| `parameters.item` | `semantic_id` | false | `payload` | — | — |
+| `outputs` | `List` | false | `payload` | — | — |
+| `outputs.item` | `semantic_id` | false | `payload` | — | — |
+| `output_units` | `List` | false | `payload` | — | — |
+| `output_units.item` | `semantic_id` | false | `payload` | — | — |
+| `values` | `List` | false | `payload` | — | — |
+| `values.item` | `Float64` | false | `payload` | — | — |
 
 ## `publication_manifests`
 
@@ -1702,6 +1779,21 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, target_kind, 
 | `provenance.item.selected` | `Boolean` | false | `payload` | — | — |
 | `provenance.item.value` | `Float64` | false | `payload` | — | — |
 | `provenance.item.description` | `Utf8` | false | `payload` | — | — |
+
+## `response_directions`
+
+The right singular vectors of a fit's weighted, parameter-scaled response matrix at its candidate (ADR-0118 item 8): the identifiable directions span the locally identifiable subspace, and the others are the parameter combinations the observations do not determine.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, direction, parameter_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `direction` | `Int64` | false | `key` | — | — |
+| `parameter_id` | `semantic_id` | false | `key` | — | — |
+| `singular_value` | `Float64` | false | `payload` | — | — |
+| `identifiable` | `Boolean` | false | `payload` | — | — |
+| `component` | `Float64` | false | `payload` | — | — |
 
 ## `response_sensitivities`
 
