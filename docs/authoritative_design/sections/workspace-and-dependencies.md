@@ -25,14 +25,24 @@ numerical algorithms, relational execution and storage.
 
 ### 3.1 Version authority and pinned families
 
+> Decision: [ADR-0122](../../adr/0122-nightly-toolchain-and-feature-unification.md), superseding
+> ADR-0018, amends the toolchain rule below. `rust-toolchain.toml` pins one dated nightly,
+> its only declaration, and `rust-version` is the stable language floor (1.98.1) that the
+> nightly must be at or above (`toolchain_matches_msrv`). `.cargo/config.toml` turns on
+> workspace feature unification. Each checkout keeps its own build directory in
+> `target/`; a build directory shared between checkouts is rejected as unsound, and
+> sccache serves reuse across checkouts. The `=` pins, the committed lockfile, `--locked`
+> and the supply-chain checks stand. The dependency ceilings do not follow the
+> feature-only edge to `pse-workspace-hack`. Implemented.
+
 **Authority.** Every third-party Rust version is declared once, in
 `[workspace.dependencies]` of the root `Cargo.toml`. Members inherit it with
 `.workspace = true`. External dependencies use exact `=` versions or an exact commit.
 `Cargo.lock` is committed, and every recipe runs `--locked`. Runtime Python libraries are
 pinned with `==` in `pyproject.toml`. Tools that only execute carry floors in dependency
-groups, and `uv.lock` records what resolved. `rust-toolchain.toml` pins the stable
-toolchain, and `rust-version` stays equal to it
-([ADR-0018](../../adr/0018-dependency-pins-lockfile-and-msrv.md); governance test
+groups, and `uv.lock` records what resolved. `rust-toolchain.toml` pins one dated
+nightly, and `rust-version` is the stable language floor at or below it
+([ADR-0122](../../adr/0122-nightly-toolchain-and-feature-unification.md); governance test
 `toolchain_matches_msrv`). The manifests contain no `[patch]` or `[replace]` tables.
 The `dependency_pins` governance test checks that each external declaration is exact.
 No prose table in this collection is a second pin authority. Read the manifest for a
@@ -83,6 +93,12 @@ evidence.
 
 ### 3.2 Workspace crates and dependency direction
 
+> Decision: [ADR-0122](../../adr/0122-nightly-toolchain-and-feature-unification.md) — the crate
+> `pse-workspace-hack` has no code. cargo-hakari generates its dependencies from
+> `.config/hakari.toml`, and every member except `pse-ids`, `pse-diagnostics` and the
+> generated `pse-operations-queries` depends on it, for feature unification only.
+> Implemented.
+>
 > Decision: [ADR-0082](../../adr/0082-library-owned-process-mathematics.md),
 > [ADR-0083](../../adr/0083-class-specific-native-execution.md),
 > [ADR-0098](../../adr/0098-modeling-knowledge-ownership.md) (proposed; implementation authorized).
@@ -129,6 +145,7 @@ register crates.
 | `pse-buildinfo` | Build provenance: toolchain, profile, Git revision and embedded lockfile identity |
 | `pse-py` | The PyO3 extension `pse._native`, which is the whole Rust/Python boundary ([§21](workflows-and-results.md#section-21)) |
 | `pse-testkit` | Development-only fixtures that use production engine factories; never a production dependency |
+| `pse-workspace-hack` | No code: cargo-hakari generates its dependencies so every package selection resolves one feature set per dependency ([ADR-0122](../../adr/0122-nightly-toolchain-and-feature-unification.md)) |
 
 | Non-product member | Role |
 |---|---|
