@@ -23,6 +23,11 @@ provider contracts in `pse-kernels`. The qualification basis for these statement
 > store, publication catalog and durable multi-process execution (Plan 22 O1–O9, G8,
 > implemented). The Supported column changes only as the
 > [Plan 22](../../plans/22-solver-capabilities.md) packets land.
+>
+> Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — sensitivity, covariance
+> and uncertainty under PS-12 validity, through one KKT-point analysis for every NLP and QP
+> route (Plan 22 S0–S4; not yet implemented). ADR-0118 supersedes ADR-0107, which the
+> fitting row below still cites.
 
 The Supported column describes implemented contracts and the exercised K8 seed.
 The earlier local Linux qualification in §24.2 predates this replacement; the current

@@ -463,6 +463,11 @@ bound case cannot admit is `ModelingError::Realization` (`modeling.realization`,
 
 ### 6.10 Cases, observations, dynamics and fitting
 
+> Decision: [ADR-0119](../../adr/0119-fixture-analysis-selections.md) — a fixture declares
+> its solve intent (`intent certify;`; a conflict with the runtime fixture policy is a typed
+> refusal), integration schedules, events with a direction, and modes (Plan 22 G6r kernel,
+> Y0c and Y0d; not yet implemented).
+
 Case and test scopes in the modeling IR carry root bindings, values, fixed/free state,
 bounds and analysis choices. Initialized, steady, integrated and simultaneous fixture routes
 share the same definitions. A fixture retains expected outcomes, oracle provenance and

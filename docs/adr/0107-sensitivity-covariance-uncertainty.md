@@ -1,7 +1,7 @@
 ---
 id: ADR-0107
 title: Admit parametric sensitivity, covariance and uncertainty propagation under PS-12 validity
-status: accepted
+status: superseded
 date: 2026-09-27
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§15.5, §19.4, §19.8, §25]
 review: docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t11
 evidence: Proposed
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0118
 revisit: The S1 API verification finds that neither pounce-sensitivity 0.12.0 nor pounce-sens-core composes with the FERAL factory and the presolve back-map, or sensitivity_agrees_with_ipopt_sens fails beyond its declared tolerance.
 verification: Review scenario S02 and architecture scenario S13, settled by the Plan 22 S1–S4 tests sensitivity_matches_analytic_nlp, sensitivity_withheld_when_sosc_fails, sensitivity_agrees_with_ipopt_sens (parity-container oracle), ipopt_route_sensitivity_matches_pounce_route, linear_regression_covariance_analytic, unidentifiable_fit_withholds_covariance and uncertainty_propagation_linear_exact.
 standard: core-3.0/process-simulator-1.1
@@ -120,3 +120,4 @@ approximation that must be labelled.
 
 - 2026-09-27 — proposed (Plan 22 D0).
 - 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T11 were corrected in this record before acceptance.
+- 2026-09-28 — superseded by ADR-0118.
