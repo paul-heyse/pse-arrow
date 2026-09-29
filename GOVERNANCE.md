@@ -205,9 +205,12 @@ Dependabot proposes these as grouped PRs (`arrow-family`, `datafusion-family`,
 group is closed, not merged. Python pins move with `uv lock --upgrade-package <name>`;
 `idaes-pse` is explicitly ignored by Dependabot because it is the parity pin.
 
-**The Rust toolchain and MSRV.** `rust-toolchain.toml` and
-`[workspace.package] rust-version` are kept equal by a governance test. They move
-together, in their own PR, with an ADR when the MSRV rises (ADR-0018).
+**The Rust toolchain and MSRV.** `rust-toolchain.toml` pins one dated nightly, the only
+place its date is written; `[workspace.package] rust-version` is the stable language
+floor the source is written against, and a governance test requires the pinned nightly
+to be at or above it (ADR-0122). Move the nightly in its own PR once its components exist
+for that date, then rebuild and re-pin the solver `dev` image; raising the floor is a
+separate decision.
 
 **The solver image.** `docker/solvers/` is content-addressed: manually dispatching
 `solvers-image.yml` with `publish=true` publishes an image and prepares a pin update PR.

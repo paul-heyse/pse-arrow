@@ -83,6 +83,7 @@ scope in the plan is implemented (or when the maintainer requests comprehensive
 qualification), `just ci-fast` covers fmt,
 `cargo check`, clippy `-D warnings`, nextest and doctests — **nextest does not run
 doctests**, which is why `just doctest` is a separate step. `just governance` covers
-pins, crate registration, MSRV, dependency floors, unsafe allowlist and error taxonomy.
+pins, crate registration, the nightly pin against the `rust-version` floor, dependency
+floors, unsafe allowlist and error taxonomy.
 Select integration and performance checks for the implemented scope. These aggregates
 are not commit, push or merge gates.

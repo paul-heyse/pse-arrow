@@ -82,6 +82,7 @@ GROUPS = {
         "codegen-queries-check",
         "codegen-bindgen-check",
         "codegen-schemas-check",
+        "codegen-hakari-check",
     ),
     "codegen-contracts-check": (
         "codegen-rust-contracts-check",

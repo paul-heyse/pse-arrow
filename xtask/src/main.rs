@@ -254,7 +254,7 @@ fn family_check(root: &Path, evidence: &[PathBuf], families_only: bool) -> Resul
                 acc
             });
 
-    let mut failures = dependency_ceilings::check(&metadata)?;
+    let mut failures = dependency_ceilings::check(root, &metadata)?;
     let mut in_family: BTreeSet<String> = BTreeSet::new();
 
     println!("family            declared   match   resolved   packages");

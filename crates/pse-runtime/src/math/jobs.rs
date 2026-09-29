@@ -30,7 +30,7 @@ impl WorkerBudget {
     /// The job's live workers and this one exceed its worker capacity.
     pub fn charge(self: &Arc<Self>, bytes: usize) -> Result<WorkerCharge, MathRuntimeError> {
         self.used
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |used| {
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |used| {
                 used.checked_add(bytes).filter(|n| *n <= self.capacity)
             })
             .map_err(|_| MathRuntimeError::Limit("worker storage"))?;

@@ -35,3 +35,4 @@ pse-ids.workspace = true
 pse-quantity.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+pse-workspace-hack.workspace = true

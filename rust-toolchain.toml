@@ -1,11 +1,18 @@
-# Pinned stable toolchain. Nightly is never the default in this repository: the nightly
-# used for rustdoc-JSON extraction is pinned in tooling/dfarrow-apiex/rust-toolchain.toml
-# and applies only inside that directory (rustup picks the nearest toolchain file);
-# scheduled jobs that need nightly say `+nightly-YYYY-MM-DD` explicitly.
+# The one toolchain pin: a dated nightly, and the only place its date is written (ADR-0122).
+# Every Cargo invocation in the repository uses it -- recipes, bare cargo, rust-analyzer,
+# maturin and CI -- because .cargo/config.toml turns on Cargo's unstable workspace feature
+# unification, which stable Cargo ignores. The source uses no nightly language or library
+# feature.
 #
-# [workspace.package].rust-version in Cargo.toml is kept EQUAL to this channel by
-# tests/governance (toolchain_matches_msrv); bump both together (ADR-0018).
+# [workspace.package].rust-version in Cargo.toml is the stable language floor the source
+# is written against; tests/governance (toolchain_matches_msrv) requires this nightly's
+# release to be at or above it and the channel to be a dated nightly. Move the date
+# deliberately: the components below must exist for it, and the solver `dev` image
+# (docker/solvers/Dockerfile) bakes the same channel.
+#
+# tooling/dfarrow-apiex/rust-toolchain.toml pins its own rustdoc-JSON nightly for that
+# directory only (rustup picks the nearest toolchain file).
 [toolchain]
-channel = "1.98.1"
+channel = "nightly-2026-09-29"
 profile = "minimal"
 components = ["rustfmt", "clippy", "rust-src", "rust-analyzer", "llvm-tools"]

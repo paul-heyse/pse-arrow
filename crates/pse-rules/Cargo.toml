@@ -28,6 +28,7 @@ pse-schema.workspace = true
 pse-ids.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+pse-workspace-hack.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true

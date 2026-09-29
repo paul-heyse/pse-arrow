@@ -26,7 +26,7 @@ def main() -> None:
             {
                 "free_bytes": shutil.disk_usage(root).free,
                 "free_space_floor_gib": settings["free_space_gib"],
-                "retention": "stable + selected nightly + at most one temporary candidate; no automatic deletion",
+                "retention": "each checkout's target and at most one temporary campaign; no automatic deletion",
                 "paths": [str(path) for path in paths],
             },
             indent=2,

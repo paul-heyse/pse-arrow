@@ -16,3 +16,6 @@ publish = false
 
 [lints]
 workspace = true
+
+[dependencies]
+pse-workspace-hack.workspace = true

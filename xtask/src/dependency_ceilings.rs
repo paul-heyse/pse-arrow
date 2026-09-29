@@ -1,11 +1,30 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Enforce the resolved normal closure, including transitive native back-edges.
+//!
+//! The cargo-hakari workspace-hack (ADR-0122) is a feature-only edge: a member cannot name
+//! its dependencies, which exist only to unify features. The closure does not follow it.
 use anyhow::{Context, Result};
 use cargo_metadata::{DependencyKind, Metadata, PackageId};
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
-pub(crate) fn check(metadata: &Metadata) -> Result<Vec<String>> {
+/// The workspace-hack package named by `.config/hakari.toml`, its one declaration.
+fn feature_only_package(root: &Path) -> Result<String> {
+    let path = root.join(".config/hakari.toml");
+    let text =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let config: toml::Table =
+        toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+    config
+        .get("hakari-package")
+        .and_then(toml::Value::as_str)
+        .map(str::to_owned)
+        .with_context(|| format!("{} names no hakari-package", path.display()))
+}
+
+pub(crate) fn check(root: &Path, metadata: &Metadata) -> Result<Vec<String>> {
+    let feature_only = feature_only_package(root)?;
     let profiles = metadata.workspace_metadata["pse"]["dependency-ceilings"]
         .as_object()
         .context("missing dependency ceiling declarations")?;
@@ -49,6 +68,7 @@ pub(crate) fn check(metadata: &Metadata) -> Result<Vec<String>> {
                         .dep_kinds
                         .iter()
                         .any(|kind| kind.kind == DependencyKind::Normal)
+                        && packages[&edge.pkg].name.as_str() != feature_only
                         && !packages[&edge.pkg]
                             .targets
                             .iter()

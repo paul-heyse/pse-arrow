@@ -69,3 +69,4 @@ pse-kernels.workspace = true
 pse-rules.workspace = true
 tokio.workspace = true
 miette.workspace = true
+pse-workspace-hack.workspace = true

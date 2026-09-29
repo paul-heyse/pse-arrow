@@ -30,3 +30,4 @@ futures-util.workspace = true
 async-trait.workspace = true
 
 tokio.workspace = true
+pse-workspace-hack.workspace = true

@@ -30,9 +30,6 @@ env:
   RUST_BACKTRACE: "1"
   # PLACEHOLDER until the first solver image is pushed; see rust.yml for the full note.
   SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-ccfd084f7324@sha256:835ef07219c6a2699fad52900778fc39c8ae2e77ca529e32740f3a6b2f2ba2dd
-  # The only nightly this repository names outside tooling/dfarrow-apiex. cargo-udeps
-  # needs one; it is pinned so a nightly regression cannot silently change the result.
-  NIGHTLY: nightly-2026-09-08
 
 jobs:
   # Owner: maintainer. Response: a broken feature combination is a bug in the feature
@@ -97,13 +94,10 @@ jobs:
           shared-key: udeps
           save-if: "true"
           tools: cargo-udeps
-      - name: install the pinned nightly
-        run: |
-          set -euo pipefail
-          rustup toolchain install "${NIGHTLY}" --profile minimal --no-self-update
-          rustup run "${NIGHTLY}" rustc --version
       - name: unused dependencies
-        run: cargo "+${NIGHTLY}" udeps --workspace --locked --all-targets
+        # cargo-udeps needs nightly; the repository toolchain is the dated nightly in
+        # rust-toolchain.toml, so no second nightly is named here (ADR-0122).
+        run: cargo udeps --workspace --locked --all-targets
 
   # Owner: maintainer. Advisory only (`continue-on-error`): a surviving mutant is a
   # question about test strength, not a defect. Response: read the artifact and decide

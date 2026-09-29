@@ -87,11 +87,16 @@ class BuildEnvironmentTests(unittest.TestCase):
         ).stdout
         self.assertIn("unset CARGO_TARGET_DIR", out.splitlines())
 
-    def test_nightly_preserves_flags_and_stable_rejects_unstable(self) -> None:
+    def test_toolchain_file_is_the_only_toolchain_authority(self) -> None:
+        # The environment never selects a toolchain; rustup reads rust-toolchain.toml.
+        self.assertNotIn("RUSTUP_TOOLCHAIN", build.configure(build.ROOT, {}))
+        settings = build.tomllib.loads((build.ROOT / ".config/build.toml").read_text())
+        self.assertEqual(set(settings), {"cache_size", "free_space_gib"})
+
+    def test_frontend_preserves_flags_and_isolates_its_artifacts(self) -> None:
         env = build.configure(
             build.ROOT,
             {"RUSTFLAGS": "-C link-arg=-fuse-ld=mold"},
-            mode="nightly",
             cache="off",
             frontend=2,
             jobs=24,
@@ -101,9 +106,11 @@ class BuildEnvironmentTests(unittest.TestCase):
             ["-C", "link-arg=-fuse-ld=mold", "-Zthreads=2"],
         )
         self.assertEqual(env["CARGO_BUILD_JOBS"], "24")
-        self.assertIn("nightly-", env["CARGO_TARGET_DIR"])
-        with self.assertRaisesRegex(ValueError, "unstable"):
-            build.configure(build.ROOT, env, mode="stable")
+        self.assertEqual(env["CARGO_TARGET_DIR"], str(build.ROOT / "target/frontend-2"))
+        # A nested recipe keeps the experiment's directories and flags.
+        self.assertEqual(build.configure(build.ROOT, env), env)
+        with self.assertRaisesRegex(ValueError, "frontend flags already supplied"):
+            build.configure(build.ROOT, env, frontend=4)
         flags = build.effective_flags(
             build.ROOT,
             {"CARGO_ENCODED_RUSTFLAGS": "-C\x1fdebuginfo=0", "RUSTFLAGS": "ignored"},

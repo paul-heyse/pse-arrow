@@ -4,11 +4,11 @@
 # One place where every CI job gets its Rust toolchain, its cache, and its cargo tools.
 #
 # The toolchain is NEVER named here. `rust-toolchain.toml` is the single authority
-# (channel 1.98.1, profile minimal, the five components); this action only makes sure
-# rustup exists and then runs `rustup show active-toolchain`, which installs whatever
-# that file asks for. That is also why the solver container's `ci` stage works: it ships
-# no rustup, so the first step installs one with `--default-toolchain none` and lets the
-# toolchain file decide.
+# (a dated nightly, profile minimal, the five components; ADR-0122); this action only
+# makes sure rustup exists and then runs `rustup show active-toolchain`, which installs
+# whatever that file asks for. That is also why the solver container's `ci` stage works:
+# it ships no rustup, so the first step installs one with `--default-toolchain none` and
+# lets the toolchain file decide.
 #
 # Tool names are passed in by the caller. No release is named: taiki-e/install-action
 # fetches the current prebuilt binary of each tool, as `just bootstrap` does locally.

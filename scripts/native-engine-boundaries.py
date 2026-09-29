@@ -6,6 +6,7 @@
 
 import json
 import sys
+import tomllib
 from pathlib import Path
 from typing import TypedDict, cast
 
@@ -66,6 +67,11 @@ def check(metadata: Metadata) -> list[str]:
     nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
     by_name = {package["name"]: key for key, package in packages.items()}
     root = Path(metadata["workspace_root"])
+    # The cargo-hakari workspace-hack only unifies features (ADR-0122); a member cannot
+    # name its dependencies, so ownership does not follow that edge.
+    feature_only = tomllib.loads((root / ".config/hakari.toml").read_text())[
+        "hakari-package"
+    ]
     failures = []
 
     def runtime_dependencies(start: str) -> set[str]:
@@ -77,6 +83,8 @@ def check(metadata: Metadata) -> list[str]:
                 continue
             visited.add(key)
             for edge in nodes[key]["deps"]:
+                if packages[edge["pkg"]]["name"] == feature_only:
+                    continue
                 if any(kind["kind"] != "dev" for kind in edge["dep_kinds"]):
                     pending.append(edge["pkg"])
         return {packages[key]["name"] for key in visited}

@@ -31,6 +31,7 @@ thiserror.workspace = true
 miette.workspace = true
 postgres-types = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
+pse-workspace-hack.workspace = true
 
 [features]
 # PostgreSQL values of the operational store's registry enums and typed ids

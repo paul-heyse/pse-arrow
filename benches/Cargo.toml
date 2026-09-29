@@ -72,3 +72,6 @@ harness = false
 name = "native_process"
 harness = false
 required-features = ["native-process"]
+
+[dependencies]
+pse-workspace-hack.workspace = true

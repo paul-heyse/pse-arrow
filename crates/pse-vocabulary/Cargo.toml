@@ -21,6 +21,7 @@ workspace = true
 pse-diagnostics.workspace = true
 serde.workspace = true
 postgres-types = { workspace = true, optional = true, features = ["derive"] }
+pse-workspace-hack.workspace = true
 
 [features]
 # PostgreSQL values of the vocabularies a store column uses (ADR-0117 Outcome 4): each

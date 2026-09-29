@@ -132,7 +132,7 @@ where
                 }
                 match f
                     .waiters
-                    .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+                    .try_update(Ordering::AcqRel, Ordering::Acquire, |n| {
                         (n > 0 && n < self.limit).then(|| n + 1)
                     }) {
                     Ok(_) => {}

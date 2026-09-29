@@ -36,6 +36,7 @@ pse-schema.workspace = true
 pse-ids.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+pse-workspace-hack.workspace = true
 
 [features]
 # Arrow's full array validation, exposed so it can be switched on for tests and CI only

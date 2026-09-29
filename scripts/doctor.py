@@ -261,31 +261,44 @@ def check_quality_tools() -> Check:
 
 def check_rust() -> Check:
     wanted = ""
+    components: list[str] = []
     toolchain = ROOT / "rust-toolchain.toml"
     if toolchain.exists():
-        wanted = (
-            tomllib.loads(toolchain.read_text(encoding="utf-8"))
-            .get("toolchain", {})
-            .get("channel", "")
-        )
+        pin = tomllib.loads(toolchain.read_text(encoding="utf-8")).get("toolchain", {})
+        wanted = pin.get("channel", "")
+        components = pin.get("components", [])
     if shutil.which("rustup") is None:
         return Check("rust", False, "rustup not installed", "https://rustup.rs")
-    # `rustup run` fails for an absent toolchain instead of auto-installing it.
+    install = f"rustup toolchain install {wanted} --profile minimal" + "".join(
+        f" -c {name}" for name in components
+    )
+    # `rustup run` fails for an absent toolchain instead of auto-installing it. The pin is
+    # a dated nightly whose rustc reports its own release and commit date, so a successful
+    # run of that channel is the identity check.
     code, out = run("rustup", "run", wanted, "rustc", "--version")
     if code != 0:
         return Check(
-            "rust",
-            False,
-            out.splitlines()[0] if out else "rustc failed",
-            f"rustup toolchain install {wanted}",
+            "rust", False, out.splitlines()[0] if out else "rustc failed", install
         )
-    actual = out.split()[1] if len(out.split()) > 1 else "?"
-    ok = actual == wanted or not wanted
+    actual = " ".join(out.split()[1:]) or "?"
+    code, listed = run(
+        "rustup", "component", "list", "--toolchain", wanted, "--installed"
+    )
+    # Installed components are listed with the host triple appended (`clippy-<host>`),
+    # except target-independent ones (`rust-src`).
+    installed = listed.split() if code == 0 else []
+    missing = [
+        name
+        for name in components
+        if not any(item == name or item.startswith(f"{name}-") for item in installed)
+    ]
+    ok = not missing
     return Check(
         "rust",
         ok,
-        f"rustc {actual}" + ("" if ok else f" (rust-toolchain.toml wants {wanted})"),
-        "" if ok else f"rustup toolchain install {wanted}",
+        f"rustc {actual} ({wanted})"
+        + ("" if ok else f"; missing components: {', '.join(missing)}"),
+        "" if ok else install,
     )
 
 

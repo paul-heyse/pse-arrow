@@ -71,7 +71,7 @@ impl super::NativeCacheService {
     /// Aggregate predicate capacity would be exceeded.
     pub fn admit_predicates(&self, bytes: usize) -> datafusion::common::Result<PredicateGuard> {
         self.predicate_live
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |current| {
                 current
                     .checked_add(bytes)
                     .filter(|next| *next <= self.policy.predicate_total_bytes)

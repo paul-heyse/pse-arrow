@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-# Experimental until Plan 15 qualification; stable remains the canonical toolchain.
-nightly = "nightly-2026-09-13"
-frontend_threads = 1
+# Local compiler-cache and storage budgets. The toolchain is rust-toolchain.toml's dated
+# nightly; nothing here names another one (ADR-0122).
 cache_size = "100G"
 free_space_gib = 50

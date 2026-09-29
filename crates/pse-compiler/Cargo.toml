@@ -32,6 +32,7 @@ pse-ids.workspace = true
 pse-math.workspace = true
 pse-kernels.workspace = true
 pse-quantity.workspace = true
+pse-workspace-hack.workspace = true
 
 [dev-dependencies]
 pse-quantity = { workspace = true, features = ["fixtures"] }

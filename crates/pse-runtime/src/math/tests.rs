@@ -521,7 +521,7 @@ async fn native_staged_recycle_and_singular_block_preserve_original_values() {
                 initial.clone(),
                 BTreeMap::new(),
                 InitializationProfile {
-                    solver: super::solves::SolverProfile {
+                    solver: solves::SolverProfile {
                         intent: SolveIntent::Initialize,
                         ..Default::default()
                     },
@@ -665,7 +665,7 @@ async fn initialization_prepares_conditional_programs_and_rejects_invalid_schedu
         .unwrap();
     assert_eq!(p.boundaries().count(), 1);
     let profile = InitializationProfile {
-        solver: super::solves::SolverProfile {
+        solver: solves::SolverProfile {
             intent: SolveIntent::Initialize,
             ..Default::default()
         },

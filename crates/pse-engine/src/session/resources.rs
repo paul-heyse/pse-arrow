@@ -23,7 +23,7 @@ struct Quota {
 impl Quota {
     fn claim(&self, owner: &str, bytes: usize) -> Result<(), ReserveError> {
         self.used
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |used| {
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |used| {
                 used.checked_add(bytes).filter(|next| *next <= self.limit)
             })
             .map(|_| ())

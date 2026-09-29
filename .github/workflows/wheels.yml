@@ -206,19 +206,22 @@ jobs:
       - name: compiler provenance and no numpy on import
         # numpy must stay behind the pse._array boundary; importing pse must not pull it
         # in. A subprocess with a poisoned finder is the fixture; here a plain check.
+        # The pin is a dated nightly channel; the wheel records the rustc release it
+        # reports, so compare against that channel's own release.
         run: |
           set -euo pipefail
+          channel="$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)"
+          rustup toolchain install "${channel}" --profile minimal --no-self-update
+          PSE_EXPECTED_RUSTC="$(rustup run "${channel}" rustc -vV | sed -n 's/^release: //p')"
+          export PSE_EXPECTED_RUSTC
           cd "${RUNNER_TEMP}"
           uv run --python "${GITHUB_WORKSPACE}/.venv-${INSTALL_PYTHON}" \
             --no-project python - <<'PY'
           import os
-          import pathlib
           import sys
-          import tomllib
           import pse
 
-          pin = pathlib.Path(os.environ["GITHUB_WORKSPACE"]) / "rust-toolchain.toml"
-          expected = tomllib.loads(pin.read_text())["toolchain"]["channel"]
+          expected = os.environ["PSE_EXPECTED_RUSTC"]
           actual = pse.build_info().rustc_version
           assert actual == expected, f"wheel compiler {actual} != pinned {expected}"
           assert "numpy" not in sys.modules, "importing pse pulled in numpy"
