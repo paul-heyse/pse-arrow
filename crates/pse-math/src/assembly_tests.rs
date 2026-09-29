@@ -771,3 +771,126 @@ fn exhausted_optional_presolve_tapes_preserve_original_evaluation_and_independen
         Err(crate::MathError::Cancelled)
     ));
 }
+
+/// The parametric projection (Plan 22 S1) keeps the objective and every row, appends the
+/// requested parameters to the free columns as derivative coordinates at second order, and
+/// resolves the parameters as variable targets; only declared parameters are admitted.
+#[test]
+fn parametric_plan_keeps_objective_and_differentiates_parameters() {
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let port = |n| Port {
+        id: id(n),
+        quantity,
+        unit: registry.quantity_type(quantity).unwrap().canonical_unit,
+    };
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        2,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let x = builder.input(0, quantity, IndexSet::new(), id(20)).unwrap();
+    let p = builder.input(1, quantity, IndexSet::new(), id(21)).unwrap();
+    let product = builder
+        .binary(Binary::Mul, x.clone(), p.clone(), None, id(22))
+        .unwrap();
+    let sum = builder.binary(Binary::Add, x, p, None, id(23)).unwrap();
+    let body = Arc::new(builder.prepare(&[product, sum]).unwrap());
+    let key = ContentHash::from_bytes([4; 32]);
+    let structure = Arc::new(
+        CaseStructure::new(
+            vec![Variable {
+                port: port(1),
+                fixed: false,
+                domain: ModelingVariableDomain::Continuous,
+                lower: None,
+                upper: None,
+            }],
+            vec![port(2)],
+            vec![InstanceBinding {
+                instance: id(9),
+                body: key,
+                slots: vec![
+                    SlotBinding::new(&port(1), &port(1), &registry).unwrap(),
+                    SlotBinding::new(&port(2), &port(2), &registry).unwrap(),
+                ],
+                contributions: vec![
+                    Contribution {
+                        output: 0,
+                        target: Target::Objective,
+                        scale: 1.0,
+                    },
+                    Contribution {
+                        output: 1,
+                        target: Target::Row(id(10)),
+                        scale: 1.0,
+                    },
+                ],
+            }],
+            vec![Row {
+                id: id(10),
+                quantity,
+                lower: 0.0,
+                upper: 10.0,
+            }],
+            Some(Objective {
+                quantity,
+                sense: ObjectiveSense::Minimize,
+            }),
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    let cancel = Arc::new(AtomicBool::new(false));
+    let plan = CasePlan::prepare(
+        structure,
+        BTreeMap::from([(key, body)]),
+        &registry,
+        DerivativeOrder::First,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    assert_eq!(plan.columns(), &[id(1)]);
+    assert!(plan.parameter_targets().is_empty());
+    for refused in [&[][..], &[id(1)][..], &[id(3)][..], &[id(2), id(2)][..]] {
+        assert!(plan.parametric(refused, &registry, &cancel).is_err());
+    }
+    let parametric = Arc::new(plan.parametric(&[id(2)], &registry, &cancel).unwrap());
+    assert_eq!(parametric.columns(), &[id(1), id(2)]);
+    assert_eq!(parametric.order(), DerivativeOrder::Second);
+    let targets = parametric.parameter_targets();
+    assert_eq!(targets.len(), 1);
+    assert_eq!(
+        (targets[0].id, targets[0].kind),
+        (id(2), pse_model::generated::enums::NumericalTarget::Variable)
+    );
+    assert!(
+        parametric
+            .numerical_targets(&registry)
+            .unwrap()
+            .iter()
+            .any(|t| t.id == id(2))
+    );
+    // f = x·p and g = x + p at (x, p) = (2, 3): ∇f = (p, x), ∂²f/∂x∂p = 1, ∇g = (1, 1).
+    let assembly = Arc::new(
+        parametric
+            .compile(Optimization::default(), EvaluationLimits::default(), &cancel)
+            .unwrap(),
+    );
+    let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
+    let values = CaseValues {
+        scalars: BTreeMap::from([(id(1), 2.0), (id(2), 3.0)]),
+    };
+    assert_eq!(worker.objective(&values).unwrap(), 6.0);
+    assert_eq!(worker.gradient(&values).unwrap(), vec![3.0, 2.0]);
+    assert_eq!(
+        worker.jacobian(&values).unwrap().to_dense()[(0, 1)],
+        1.0
+    );
+    let hessian = worker.hessian(&values, 1.0, &[0.0]).unwrap().to_dense();
+    assert_eq!(hessian[(1, 0)], 1.0);
+}

@@ -79,6 +79,8 @@ pub(in crate::workflow) struct ModelingCaseResolution {
     pub numerical: NumericalInputs,
     pub solver: SolverProfile,
     pub numerics: std::sync::Arc<pse_model::numerics::ResolvedNumericalPolicy>,
+    /// The parametric program of the solver's sensitivity request (Plan 22 S1).
+    pub parametric: Option<std::sync::Arc<crate::math::ExecutableCase>>,
 }
 impl ModelingPackage {
     /// Evaluate exactly the selected source observations through shared compiler artifacts.
@@ -400,9 +402,10 @@ impl ModelingPackage {
             providers,
             numerical,
             solver,
+            parametric,
             ..
         } = resolution;
-        let solve = self
+        let mut solve = self
             .runtime
             .shared
             .math()
@@ -415,6 +418,9 @@ impl ModelingPackage {
                 numerical,
             )
             .await?;
+        if let Some(program) = parametric {
+            solve = solve.with_sensitivity(program)?;
+        }
         Ok(ModelingSolvePreparation {
             source: self.clone(),
             compiler,
@@ -508,6 +514,30 @@ impl ModelingPackage {
         let prepared = self
             .bound_case(&model, values.clone(), &states, order, compiler, cancel)
             .await?;
+        // A sensitivity request differentiates the view's parametric program, and each
+        // parameter resolves its coordinate scale as a variable coordinate (Plan 22 S1).
+        let parametric = match &solver.sensitivity {
+            Some(request) => {
+                request
+                    .admit(solver.intent)
+                    .map_err(crate::math::MathRuntimeError::from)?;
+                let program = self
+                    .parametric_program(
+                        &model,
+                        &prepared,
+                        &request.parameters,
+                        order,
+                        compiler,
+                        cancel,
+                    )
+                    .await?;
+                numerical
+                    .targets
+                    .extend(program.assembly.parameter_targets());
+                Some(program)
+            }
+            None => None,
+        };
         // ADR-0103 item 6: a root or initialization solve cannot decide a discrete variable.
         let analysis = match solver.intent {
             pse_backend_native::solve::SolveIntent::Root => Some(DomainAnalysis::Root),
@@ -546,6 +576,7 @@ impl ModelingPackage {
             providers,
             numerical,
             solver,
+            parametric,
         })
     }
     /// Variable states of the solver view: evaluated bound hints, nominal declarations for
@@ -727,16 +758,18 @@ impl ModelingPackage {
             &solver.numerics,
         )
         .map_err(crate::math::MathRuntimeError::from)?;
+        // Free variables move to their nominal; fixed variables and the parameter
+        // coordinates of a sensitivity request keep their values.
         for t in &resolved.targets {
             if t.kind == NumericalTarget::Variable
-                && !prepared
+                && prepared
                     .case
                     .compiled()
                     .plan
                     .structure()
                     .variables()
                     .iter()
-                    .any(|v| v.port.id == t.id && v.fixed)
+                    .any(|v| v.port.id == t.id && !v.fixed)
             {
                 nominal_point.scalars.insert(t.id, t.nominal);
             }

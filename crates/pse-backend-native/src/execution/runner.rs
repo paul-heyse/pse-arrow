@@ -70,23 +70,30 @@ pub struct Nlp<'a> {
 }
 /// The one NLP runner (F28): presolve pipeline, native solve (or the pipeline's terminal
 /// report), library recovery with independent original observation, the requested local
-/// analysis, KKT evidence and qualification. Solve sequences, initialization and fitting all
-/// run through it.
+/// analysis, KKT evidence, qualification and the requested sensitivities. Solve sequences,
+/// initialization and fitting all run through it.
 ///
 /// # Errors
-/// A second-order analysis requested for a feasibility purpose, pipeline admission, or
-/// native execution failed before a report existed.
+/// A second-order or sensitivity analysis requested for a feasibility purpose, an
+/// inconsistent sensitivity request, pipeline admission, or native execution failed before
+/// a report existed.
 pub fn nlp(
     step: Step<'_>,
     retained: &mut Retained,
-    run: Nlp<'_>,
+    mut run: Nlp<'_>,
 ) -> Result<SolveReport, ProblemError> {
     // Feasibility purposes solve a constant objective, whose curvature says nothing.
-    if run.analysis.second_order && run.intent != SolveIntent::Optimize {
+    if (run.analysis.second_order || run.analysis.sensitivity.is_some())
+        && run.intent != SolveIntent::Optimize
+    {
         return Err(ProblemError::Contract(format!(
-            "a second-order analysis needs an optimizing intent, not {}",
+            "a second-order or sensitivity analysis needs an optimizing intent, not {}",
             run.intent.as_str()
         )));
+    }
+    let sensitivity = run.analysis.sensitivity.take();
+    if let Some(request) = &sensitivity {
+        request.admit(run.oracle.contract())?;
     }
     // Presolve tightens bounds and removes rows on the premise that every row holds; a
     // method that relaxes the rows would then minimize violation over a domain those rows
@@ -161,6 +168,11 @@ pub fn nlp(
     quality::record_kkt(&mut report, step.normalization, step.accuracy);
     quality::qualify(&mut report, step.accuracy);
     report.least_infeasible = quality::least_infeasible(&report);
+    // The requested sensitivities read the qualified report; their factor lives for this
+    // step only (ADR-0118 item 12).
+    if let Some(request) = sensitivity {
+        crate::kkt::derive(&mut report, request, step.tolerances, run.sense, budget);
+    }
     Ok(report)
 }
 

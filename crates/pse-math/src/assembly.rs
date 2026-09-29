@@ -437,6 +437,48 @@ impl CasePlan {
             coordinates,
         )
     }
+    /// The parametric projection of this plan (Plan 22 S1): the same structure, objective
+    /// and rows, with this plan's columns followed by `parameters`, in request order, as
+    /// derivative coordinates, at second order. [`Self::functions`] drops the objective; a
+    /// parametric sensitivity needs the Lagrangian, so this keeps it. The parameter
+    /// coordinates are differentiated, never solved for: the KKT-point analysis pins them
+    /// (sIPOPT's pin formulation), so their Hessian and Jacobian entries are what the
+    /// parametric step and the reduced Hessian read.
+    ///
+    /// # Errors
+    /// An empty, repeated or undeclared parameter, a parameter already among the columns,
+    /// or the ordinary preparation failures.
+    pub fn parametric(
+        &self,
+        parameters: &[SemanticId],
+        registry: &QuantityRegistry,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Self, MathError> {
+        let declared: BTreeSet<_> = self.structure.parameters().iter().map(|p| p.id).collect();
+        if parameters.is_empty() || parameters.iter().any(|p| !declared.contains(p)) {
+            return Err(MathError::Contract(
+                "parametric coordinates are declared parameters, at least one".into(),
+            ));
+        }
+        let coordinates = self
+            .columns
+            .iter()
+            .chain(parameters)
+            .copied()
+            .collect::<Vec<_>>();
+        Self::prepare_with_coordinates(
+            self.structure.clone(),
+            self.bodies.clone(),
+            registry,
+            DerivativeOrder::Second,
+            AssemblyLimits {
+                worker_bytes: self.worker_bytes,
+                ..AssemblyLimits::default()
+            },
+            cancel,
+            coordinates,
+        )
+    }
     /// Compile one explicitly conditional initialization block. Outside variables
     /// become fixed boundary values and unrelated row demands disappear entirely.
     /// This is not an independent optimization decomposition.

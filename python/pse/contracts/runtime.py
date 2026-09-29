@@ -246,6 +246,16 @@ class RuntimeFitVariablesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeLocalValidityRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    quantity: e.DerivedQuantity = attrs.field(validator=attrs.validators.instance_of(e.DerivedQuantity))
+    validity: s.LocalValidity = attrs.field(validator=attrs.validators.instance_of(s.LocalValidity))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeMaintenanceOutcomesRow:
     """Declared relation row or nested value."""
 
@@ -1257,6 +1267,21 @@ class RuntimeOperationalWorkspacesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeParametricSensitivitiesRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    parameter_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    target_kind: e.NumericalTarget = attrs.field(validator=attrs.validators.instance_of(e.NumericalTarget))
+    target_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    parameter_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    target_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    primal: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    dual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimePublicationManifestsRow:
     """Declared relation row or nested value."""
 
@@ -1273,6 +1298,23 @@ class RuntimePublicationManifestsRow:
     export_expires_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
     maintenance_epoch: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     store_fingerprint: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeReducedHessiansRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    parameters: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    parameter_units: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    objective_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    coordinate_scales: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
+    objective_scale: b.float = attrs.field(validator=v.finite_float)
+    values: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
+    normalized: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
+    eigenvalues: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
+    eigenvectors: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)

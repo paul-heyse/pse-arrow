@@ -538,6 +538,22 @@ class ScipSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     seed: Annotated[int, msgspec.Meta(ge=0, le=65535)] = 0
 
 
+class SensitivityRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A request for the parametric sensitivities of an optimization's local solution with
+    respect to declared parameters (Plan 22 S1; ADR-0118). They are computed from the
+    KKT-point analysis at the qualified candidate, in original coordinates and physical
+    units, and each is published with its validity: certified, or withheld with the
+    condition that failed.
+    """
+
+    #: Declared parameters of the solved case by identity, in the order results report
+    #: them; at least one, none repeated.
+    parameters: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Also compute the reduced Hessian over the parameters: the second derivative of the
+    #: optimal value.
+    reduced_hessian: bool = False
+
+
 class SolveControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Finite shared attempt controls chosen by the caller; solver-specific settings remain
     native typed values. Accuracy is not among them: it is resolved from the numerical
@@ -589,6 +605,10 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     presolve_options: dict[str, OptionValue] = msgspec.field(default_factory=dict)
     #: Passes that may not silently become unavailable; an explicit policy only.
     required_passes: tuple[enums.PresolvePass, ...] = msgspec.field(default_factory=tuple)
+    #: Parametric sensitivities to compute at the candidate of an optimization (Plan 22
+    #: S1); absent computes none. An absent request is not encoded, so a document without
+    #: one keeps its identity.
+    sensitivity: SensitivityRequest | None = None
     #: Typed settings of one backend; absent is the routed backend's native defaults.
     settings: BackendSettings | None = None
 
@@ -781,6 +801,7 @@ __all__ = [
     "RestartBarrierSeed",
     "RestartBarrierValue",
     "ScipSettings",
+    "SensitivityRequest",
     "SolveControls",
     "SolveSettings",
     "SourceManifest",

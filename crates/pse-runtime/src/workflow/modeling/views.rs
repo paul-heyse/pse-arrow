@@ -46,6 +46,7 @@ impl<T> Default for Bounded<T> {
 pub(in crate::workflow) struct Views {
     solver: Mutex<Bounded<Preparation>>,
     observations: Mutex<Bounded<Arc<ExecutableCase>>>,
+    parametric: Mutex<Bounded<Arc<ExecutableCase>>>,
 }
 impl Views {
     fn lock<T>(
@@ -100,6 +101,46 @@ impl ModelingPackage {
             values: case.compiled().complete(&values),
             case,
         })
+    }
+    /// The parametric program of the solver view `prepared` over `parameters`, in request
+    /// order (Plan 22 S1), compiled once per view and parameter selection and cached with
+    /// the view (A6). Every declared parameter of the view's structure is admitted.
+    pub(in crate::workflow) async fn parametric_program(
+        &self,
+        model: &ModelingPreparation,
+        prepared: &ModelingCasePreparation,
+        parameters: &[SemanticId],
+        order: DerivativeOrder,
+        compiler: Profile,
+        cancel: &crate::CancelSource,
+    ) -> Result<Arc<ExecutableCase>, WorkflowError> {
+        let structure = prepared.case.compiled().plan.structure();
+        let declared: BTreeSet<_> = structure.parameters().iter().map(|p| p.id).collect();
+        if let Some(unknown) = parameters.iter().find(|p| !declared.contains(p)) {
+            return Err(contract(format!(
+                "sensitivity parameter {unknown} is not a declared parameter of the solved case"
+            )));
+        }
+        let product = model.compiled();
+        let view = product.view_key(structure, order, compiler, &self.physical.key);
+        let key = pse_compiler::workspace::PreparedModeling::parametric_key(&view, parameters);
+        if let Some(program) = Views::lock(&self.views.parametric)?.get(&key) {
+            return Ok(program);
+        }
+        let program = self
+            .runtime
+            .shared
+            .math()
+            .prepare_modeling_parametric(
+                self.workspace.clone(),
+                prepared.case.clone(),
+                parameters.to_vec(),
+                compiler,
+                cancel,
+            )
+            .await?;
+        Views::lock(&self.views.parametric)?.insert(key, program.clone());
+        Ok(program)
     }
     /// The value-independent program observing `rows` of `model`, compiled once per
     /// structure.

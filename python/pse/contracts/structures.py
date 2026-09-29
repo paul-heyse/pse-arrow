@@ -12,6 +12,22 @@ from pse.contracts import values as v
 
 
 @attrs.frozen(kw_only=True)
+class LocalValidity:
+    """Declared relation row or nested value."""
+
+    certified: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    reason: e.WithheldReason | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.WithheldReason)))
+    detail: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    conditional: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    licq: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    strict_complementarity: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    second_order: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    weakly_active: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 4294967295)))
+    condition_1norm: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    residual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+
+
+@attrs.frozen(kw_only=True)
 class MemberDescriptorSelectionRevision:
     """Declared relation row or nested value."""
 

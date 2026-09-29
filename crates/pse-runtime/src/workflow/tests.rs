@@ -123,6 +123,7 @@ pub(super) fn profile() -> SolverProfile {
         selection: SolverSelection::Auto,
         controls: Controls::default(),
         backend: BackendSettings::Default,
+        sensitivity: None,
     }
 }
 pub(super) fn compiler_profile() -> pse_compiler::workspace::Profile {

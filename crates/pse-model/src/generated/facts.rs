@@ -129,6 +129,8 @@ pub enum FactBatch {
     r#RuntimeFitParameters(Vec<super::r#runtime::r#fit_parameters::Row>),
     #[doc = stringify!(r#RuntimeFitVariables)]
     r#RuntimeFitVariables(Vec<super::r#runtime::r#fit_variables::Row>),
+    #[doc = stringify!(r#RuntimeLocalValidity)]
+    r#RuntimeLocalValidity(Vec<super::r#runtime::r#local_validity::Row>),
     #[doc = stringify!(r#RuntimeMaintenanceOutcomes)]
     r#RuntimeMaintenanceOutcomes(Vec<super::r#runtime::r#maintenance_outcomes::Row>),
     #[doc = stringify!(r#RuntimeModelingChecks)]
@@ -245,8 +247,14 @@ pub enum FactBatch {
     ),
     #[doc = stringify!(r#RuntimeOperationalWorkspaces)]
     r#RuntimeOperationalWorkspaces(Vec<super::r#runtime::r#operational_workspaces::Row>),
+    #[doc = stringify!(r#RuntimeParametricSensitivities)]
+    r#RuntimeParametricSensitivities(
+        Vec<super::r#runtime::r#parametric_sensitivities::Row>,
+    ),
     #[doc = stringify!(r#RuntimePublicationManifests)]
     r#RuntimePublicationManifests(Vec<super::r#runtime::r#publication_manifests::Row>),
+    #[doc = stringify!(r#RuntimeReducedHessians)]
+    r#RuntimeReducedHessians(Vec<super::r#runtime::r#reduced_hessians::Row>),
     #[doc = stringify!(r#RuntimeResolvedNumerics)]
     r#RuntimeResolvedNumerics(Vec<super::r#runtime::r#resolved_numerics::Row>),
     #[doc = stringify!(r#RuntimeResponseSensitivities)]
@@ -616,6 +624,12 @@ impl FactBatch {
                     170u8, 2u8, 231u8, 180u8, 178u8, 86u8,
                 ])
             }
+            Self::r#RuntimeLocalValidity(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    137u8, 55u8, 94u8, 214u8, 185u8, 47u8, 59u8, 201u8, 200u8, 36u8,
+                    157u8, 19u8, 95u8, 3u8, 57u8, 68u8,
+                ])
+            }
             Self::r#RuntimeMaintenanceOutcomes(_) => {
                 pse_ids::SemanticId::from_bytes([
                     218u8, 241u8, 38u8, 36u8, 183u8, 143u8, 195u8, 23u8, 184u8, 79u8,
@@ -832,10 +846,22 @@ impl FactBatch {
                     199u8, 153u8, 79u8, 253u8, 142u8, 81u8,
                 ])
             }
+            Self::r#RuntimeParametricSensitivities(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    131u8, 112u8, 170u8, 50u8, 0u8, 109u8, 90u8, 134u8, 237u8, 209u8,
+                    190u8, 134u8, 18u8, 113u8, 186u8, 123u8,
+                ])
+            }
             Self::r#RuntimePublicationManifests(_) => {
                 pse_ids::SemanticId::from_bytes([
                     192u8, 131u8, 237u8, 62u8, 131u8, 132u8, 155u8, 254u8, 202u8, 14u8,
                     195u8, 142u8, 129u8, 81u8, 74u8, 154u8,
+                ])
+            }
+            Self::r#RuntimeReducedHessians(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    86u8, 30u8, 33u8, 246u8, 18u8, 151u8, 110u8, 145u8, 19u8, 11u8, 52u8,
+                    25u8, 44u8, 92u8, 184u8, 11u8,
                 ])
             }
             Self::r#RuntimeResolvedNumerics(_) => {
@@ -983,6 +1009,7 @@ impl FactBatch {
             Self::r#RuntimeFitObservations(rows) => rows.len(),
             Self::r#RuntimeFitParameters(rows) => rows.len(),
             Self::r#RuntimeFitVariables(rows) => rows.len(),
+            Self::r#RuntimeLocalValidity(rows) => rows.len(),
             Self::r#RuntimeMaintenanceOutcomes(rows) => rows.len(),
             Self::r#RuntimeModelingChecks(rows) => rows.len(),
             Self::r#RuntimeModelingConformance(rows) => rows.len(),
@@ -1019,7 +1046,9 @@ impl FactBatch {
             Self::r#RuntimeOperationalStudyPointMembers(rows) => rows.len(),
             Self::r#RuntimeOperationalStudyPoints(rows) => rows.len(),
             Self::r#RuntimeOperationalWorkspaces(rows) => rows.len(),
+            Self::r#RuntimeParametricSensitivities(rows) => rows.len(),
             Self::r#RuntimePublicationManifests(rows) => rows.len(),
+            Self::r#RuntimeReducedHessians(rows) => rows.len(),
             Self::r#RuntimeResolvedNumerics(rows) => rows.len(),
             Self::r#RuntimeResponseSensitivities(rows) => rows.len(),
             Self::r#RuntimeRetainedVersions(rows) => rows.len(),
@@ -1326,6 +1355,11 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeLocalValidity(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeMaintenanceOutcomes(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -1506,7 +1540,17 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeParametricSensitivities(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimePublicationManifests(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeReducedHessians(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1801,6 +1845,10 @@ impl FactBatch {
             Self::r#RuntimeFitVariables(rows) => {
                 rows.get(index).map(|row| Self::r#RuntimeFitVariables(vec![row.clone()]))
             }
+            Self::r#RuntimeLocalValidity(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeLocalValidity(vec![row.clone()]))
+            }
             Self::r#RuntimeMaintenanceOutcomes(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeMaintenanceOutcomes(vec![row.clone()]))
@@ -1975,9 +2023,17 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeOperationalWorkspaces(vec![row.clone()]))
             }
+            Self::r#RuntimeParametricSensitivities(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeParametricSensitivities(vec![row.clone()]))
+            }
             Self::r#RuntimePublicationManifests(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimePublicationManifests(vec![row.clone()]))
+            }
+            Self::r#RuntimeReducedHessians(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeReducedHessians(vec![row.clone()]))
             }
             Self::r#RuntimeResolvedNumerics(rows) => {
                 rows.get(index)
@@ -2595,6 +2651,14 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (Self::r#RuntimeLocalValidity(left), Self::r#RuntimeLocalValidity(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
             (
                 Self::r#RuntimeMaintenanceOutcomes(left),
                 Self::r#RuntimeMaintenanceOutcomes(right),
@@ -2992,8 +3056,30 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeParametricSensitivities(left),
+                Self::r#RuntimeParametricSensitivities(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimePublicationManifests(left),
                 Self::r#RuntimePublicationManifests(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeReducedHessians(left),
+                Self::r#RuntimeReducedHessians(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -3539,6 +3625,13 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeLocalValidity(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeMaintenanceOutcomes(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -3791,7 +3884,21 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeParametricSensitivities(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimePublicationManifests(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeReducedHessians(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -4638,6 +4745,22 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (Self::r#RuntimeLocalValidity(left), Self::r#RuntimeLocalValidity(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#quantity,
+                                &right.r#quantity,
+                            )
+                    }
+                    _ => false,
+                }
+            }
             (
                 Self::r#RuntimeMaintenanceOutcomes(left),
                 Self::r#RuntimeMaintenanceOutcomes(right),
@@ -5214,6 +5337,33 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeParametricSensitivities(left),
+                Self::r#RuntimeParametricSensitivities(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#parameter_id,
+                                &right.r#parameter_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#target_kind,
+                                &right.r#target_kind,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#target_id,
+                                &right.r#target_id,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimePublicationManifests(left),
                 Self::r#RuntimePublicationManifests(right),
             ) => {
@@ -5223,6 +5373,21 @@ impl FactBatch {
                             &left.r#publication_id,
                             &right.r#publication_id,
                         )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeReducedHessians(left),
+                Self::r#RuntimeReducedHessians(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
+                            )
                     }
                     _ => false,
                 }
@@ -5736,6 +5901,12 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#experiment_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#symbol_id, &mut hash);
             }
+            Self::r#RuntimeLocalValidity(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+                crate::SemanticFrame::frame(&row.r#quantity, &mut hash);
+            }
             Self::r#RuntimeMaintenanceOutcomes(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#table_uri, &mut hash);
@@ -5915,9 +6086,22 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#workspace_id, &mut hash);
             }
+            Self::r#RuntimeParametricSensitivities(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+                crate::SemanticFrame::frame(&row.r#parameter_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#target_kind, &mut hash);
+                crate::SemanticFrame::frame(&row.r#target_id, &mut hash);
+            }
             Self::r#RuntimePublicationManifests(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#publication_id, &mut hash);
+            }
+            Self::r#RuntimeReducedHessians(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
             }
             Self::r#RuntimeResolvedNumerics(rows) => {
                 let row = rows.get(index)?;
@@ -6375,6 +6559,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeLocalValidity(left),
+                Self::r#RuntimeLocalValidity(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeMaintenanceOutcomes(left),
                 Self::r#RuntimeMaintenanceOutcomes(mut right),
             ) => {
@@ -6627,8 +6818,22 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeParametricSensitivities(left),
+                Self::r#RuntimeParametricSensitivities(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimePublicationManifests(left),
                 Self::r#RuntimePublicationManifests(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeReducedHessians(left),
+                Self::r#RuntimeReducedHessians(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -6818,6 +7023,7 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeFitObservations(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeFitParameters(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeFitVariables(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeLocalValidity(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeMaintenanceOutcomes(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
@@ -6912,9 +7118,13 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeOperationalWorkspaces(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeParametricSensitivities(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimePublicationManifests(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeReducedHessians(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeResolvedNumerics(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeResponseSensitivities(rows) => {
                 crate::HeapUsage::heap_bytes(rows)

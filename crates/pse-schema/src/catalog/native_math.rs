@@ -128,6 +128,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "unavailable_or_invalid",
             "unavailable",
             "not_applicable_parameter",
+            "sensitivity_certified",
         ],
     );
     enumeration(
@@ -489,6 +490,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
     );
     declare_dynamics_fitting(b);
+    declare_local_analysis(b);
     enumeration(b, "NativeObjectiveSense", ["minimize", "maximize"]);
     enumeration(
         b,
@@ -860,3 +862,246 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         "Observation-aligned original physical predictions and half weighted squared standardized residual contributions.",
     );
 }
+
+/// Quantities derived from the KKT-point analysis at a qualified candidate (ADR-0118
+/// items 2, 3 and 10; Plan 22 S1). Every requested quantity has one `local_validity` row
+/// stating whether it is certified or why it is withheld; a withheld quantity has no data
+/// rows, so its reason has this home of its own (PS-12). The vocabularies of the fit
+/// covariance, its intervals and their propagation are declared here once, with the
+/// quantities that use them.
+fn declare_local_analysis(b: &mut RegistryBuilder) {
+    b.declare_enum(EnumDecl::platform(
+        "DerivedQuantity",
+        vec![
+            EnumMember::new(
+                "parametric_sensitivity",
+                "Derivatives of the primal and dual solution and of the optimal value with respect to declared parameters.",
+            ),
+            EnumMember::new(
+                "reduced_hessian",
+                "The reduced Hessian over declared parameters: the second derivative of the optimal value.",
+            ),
+            EnumMember::new(
+                "parameter_covariance",
+                "The covariance of fitted parameters under the declared statistical model.",
+            ),
+            EnumMember::new(
+                "parameter_interval",
+                "A confidence interval of one fitted parameter.",
+            ),
+            EnumMember::new(
+                "propagated_covariance",
+                "Parameter covariance propagated to outputs, Σ_y = J·Σ_θ·Jᵀ.",
+            ),
+        ],
+    ));
+    b.declare_enum(EnumDecl::platform(
+        "WithheldReason",
+        vec![
+            EnumMember::new(
+                "no_candidate",
+                "No candidate was observed in original coordinates.",
+            ),
+            EnumMember::new(
+                "no_local_analysis",
+                "The route ran no KKT-point analysis at its candidate: a coefficient, cone or root route, or a global incumbent adopted without the fixed-assignment re-solve.",
+            ),
+            EnumMember::new(
+                "multipliers_unrecovered",
+                "A multiplier of some original row or bound is missing or failed recovery, postsolve included.",
+            ),
+            EnumMember::new(
+                "complementarity_failed",
+                "The recovered multipliers fail original-coordinate complementarity.",
+            ),
+            EnumMember::new(
+                "not_stationary",
+                "The candidate is not qualified stationary or better in original coordinates.",
+            ),
+            EnumMember::new(
+                "analysis_unavailable",
+                "The KKT-point analysis produced no point: no exact Hessian, the entry ceiling, or a failed evaluation or factorization.",
+            ),
+            EnumMember::new(
+                "licq_failed",
+                "The active constraint gradients are linearly dependent.",
+            ),
+            EnumMember::new(
+                "weakly_active",
+                "An active constraint's multiplier is within the dual budget of zero: strict complementarity fails.",
+            ),
+            EnumMember::new(
+                "second_order_failed",
+                "Second-order sufficiency does not hold at the candidate.",
+            ),
+            EnumMember::new(
+                "backsolve_failed",
+                "A backsolve or eigen-decomposition against the KKT factor failed.",
+            ),
+            EnumMember::new(
+                "rank_deficient",
+                "The fit's responses do not have full rank: a parameter combination is unidentifiable.",
+            ),
+            EnumMember::new(
+                "undeclared_deviation",
+                "An included observation has no declared standard deviation.",
+            ),
+            EnumMember::new(
+                "nonunit_importance",
+                "An included observation has an importance weight other than one.",
+            ),
+            EnumMember::new(
+                "upstream_withheld",
+                "A quantity this one is computed from was withheld.",
+            ),
+        ],
+    ));
+    b.declare_enum(EnumDecl::platform(
+        "CovarianceApproximation",
+        vec![
+            EnumMember::new(
+                "exact",
+                "The inverse reduced Hessian of the fit's exact KKT analysis.",
+            ),
+            EnumMember::new(
+                "gauss_newton",
+                "The Gauss–Newton covariance from the response singular value decomposition; it neglects residual curvature.",
+            ),
+        ],
+    ));
+    b.declare_enum(EnumDecl::platform(
+        "IntervalMethod",
+        vec![
+            EnumMember::new("wald", "A Wald interval from the covariance and a quantile."),
+            EnumMember::new(
+                "profile_likelihood",
+                "A profile-likelihood interval from adaptive pin chains.",
+            ),
+        ],
+    ));
+    b.declare_enum(EnumDecl::platform(
+        "IntervalEnd",
+        vec![
+            EnumMember::new("lower", "The interval's lower end."),
+            EnumMember::new("upper", "The interval's upper end."),
+        ],
+    ));
+    let validity = record(vec![
+        ("certified", flag()),
+        ("reason", T::enumeration("WithheldReason").optional()),
+        ("detail", text().optional()),
+        ("conditional", flag()),
+        ("licq", flag().optional()),
+        ("strict_complementarity", flag().optional()),
+        ("second_order", flag().optional()),
+        ("weakly_active", ordinal().optional()),
+        ("condition_1norm", real().optional()),
+        ("residual", real().optional()),
+    ])
+    .named("LocalValidity");
+    relation(
+        b,
+        N::Runtime,
+        "local_validity",
+        S::Derived,
+        &["run_id", "step", "quantity"],
+        vec![
+            run_id(),
+            column("step", ordinal()),
+            column("quantity", T::enumeration("DerivedQuantity")),
+            documented(
+                "validity",
+                validity,
+                "Whether the quantity is certified or why it is withheld (`reason`, with the typed cause in `detail`), whether it is conditional on a discrete assignment, and the verdicts of the KKT point it was read from when the analysis ran: independent active gradients, strict complementarity, second-order sufficiency, the count of weakly active constraints, the 1-norm condition estimate of the normalized KKT matrix and the backward error of a refined backsolve.",
+            ),
+        ],
+        "One row per quantity a step requested (PS-12, ADR-0118 item 10). A certified quantity's data rows are in its own relation; a withheld quantity has none, and this row states why.",
+    );
+    relation(
+        b,
+        N::Runtime,
+        "parametric_sensitivities",
+        S::Derived,
+        &["run_id", "step", "parameter_id", "target_kind", "target_id"],
+        vec![
+            run_id(),
+            column("step", ordinal()),
+            column("parameter_id", T::id()),
+            column("target_kind", T::enumeration("NumericalTarget")),
+            documented(
+                "target_id",
+                T::id(),
+                "The variable or row differentiated; nil for the objective.",
+            ),
+            column("parameter_unit_id", T::id()),
+            documented(
+                "target_unit_id",
+                T::id(),
+                "The unit of the variable, of the row's quantity, or of the objective's quantity.",
+            ),
+            documented(
+                "primal",
+                real(),
+                "For a variable, dx/dp in its unit per parameter unit; for the objective, df*/dp in the authored sense; absent for a row.",
+            )
+            .optional(),
+            documented(
+                "dual",
+                real(),
+                "For a row, the derivative of its multiplier; for a variable, of its bound multiplier z_L − z_U; both in the minimization convention of `solve_constraints.dual`, zero where the constraint is inactive; absent for the objective.",
+            )
+            .optional(),
+        ],
+        "Local parametric sensitivities at a certified KKT point (ADR-0118 items 5–7): original physical units per parameter unit, in original coordinates whatever presolve removed. A first-order statement about the local solution map, valid while the active set holds; the validity is in local_validity.",
+    );
+    relation(
+        b,
+        N::Runtime,
+        "reduced_hessians",
+        S::Derived,
+        &["run_id", "step"],
+        vec![
+            run_id(),
+            column("step", ordinal()),
+            documented(
+                "parameters",
+                T::list(T::id()),
+                "The parameters, in request order: the order of every list in the row.",
+            ),
+            column("parameter_units", T::list(T::id())),
+            column("objective_unit_id", T::id()),
+            documented(
+                "coordinate_scales",
+                T::list(real()),
+                "Each parameter's resolved coordinate scale S_p.",
+            ),
+            documented(
+                "objective_scale",
+                real(),
+                "The objective's resolved coordinate scale S_f.",
+            ),
+            documented(
+                "values",
+                T::list(real()),
+                "d²f*/dp² row-major, in the authored objective sense: objective units per row-parameter unit per column-parameter unit.",
+            ),
+            documented(
+                "normalized",
+                T::list(real()),
+                "The dimensionless S_p·H·S_p / S_f, row-major.",
+            ),
+            documented(
+                "eigenvalues",
+                T::list(real()),
+                "The eigenvalues of the normalized matrix, ascending.",
+            ),
+            documented(
+                "eigenvectors",
+                T::list(real()),
+                "Its unit eigenvectors, column-major: column k belongs to eigenvalue k.",
+            ),
+        ],
+        "The reduced Hessian over declared parameters at a certified KKT point (ADR-0118 item 6): the second derivative of the optimal value, read over the parameter pin rows. Its eigen-decomposition is taken in the declared coordinate scales, where it does not depend on the choice of units. The validity is in local_validity.",
+    );
+}
+

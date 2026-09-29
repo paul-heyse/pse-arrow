@@ -45,6 +45,7 @@ fn source(mixed: bool, expected: f64) -> (crate::workflow::ModelingPackage, FitP
             numerics: Default::default(),
             convexity: Default::default(),
             backend: native::execution::BackendSettings::Default,
+            sensitivity: None,
         },
         simulations: BTreeMap::from([(
             InstanceId::from(id(74)),

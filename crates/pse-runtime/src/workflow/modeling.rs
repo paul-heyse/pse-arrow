@@ -18,6 +18,8 @@ mod diagnostics;
 mod forms_tests;
 #[cfg(all(test, feature = "solver-scip", feature = "solver-ipopt"))]
 mod global_tests;
+#[cfg(all(test, feature = "solver-ipopt", feature = "solver-highs"))]
+mod sensitivity_tests;
 mod implicit;
 pub use diagnostics::{
     DiagnosticSampleStop, ElasticObservation, ModelingDiagnosticPolicy,

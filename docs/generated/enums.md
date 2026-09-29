@@ -186,12 +186,29 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `affine` | `` | false |
 | `kernel` | `` | false |
 
+## `CovarianceApproximation`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `exact` | `` | false |
+| `gauss_newton` | `` | false |
+
 ## `DerivationGranularity`
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `row` | `` | false |
 | `rule` | `` | false |
+
+## `DerivedQuantity`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `parametric_sensitivity` | `` | false |
+| `reduced_hessian` | `` | false |
+| `parameter_covariance` | `` | false |
+| `parameter_interval` | `` | false |
+| `propagated_covariance` | `` | false |
 
 ## `Determinism`
 
@@ -306,6 +323,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `unavailable_or_invalid` | `` | false |
 | `unavailable` | `` | false |
 | `not_applicable_parameter` | `` | false |
+| `sensitivity_certified` | `` | false |
 
 ## `DynamicsMethod`
 
@@ -448,6 +466,20 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `whole` | `` | false |
 | `columns` | `` | false |
+
+## `IntervalEnd`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `lower` | `` | false |
+| `upper` | `` | false |
+
+## `IntervalMethod`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `wald` | `` | false |
+| `profile_likelihood` | `` | false |
 
 ## `InvariantKind`
 
@@ -1431,3 +1463,22 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `divide_by_sum` | `` | false |
 | `certified_unit_sum` | `` | false |
+
+## `WithheldReason`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `no_candidate` | `` | false |
+| `no_local_analysis` | `` | false |
+| `multipliers_unrecovered` | `` | false |
+| `complementarity_failed` | `` | false |
+| `not_stationary` | `` | false |
+| `analysis_unavailable` | `` | false |
+| `licq_failed` | `` | false |
+| `weakly_active` | `` | false |
+| `second_order_failed` | `` | false |
+| `backsolve_failed` | `` | false |
+| `rank_deficient` | `` | false |
+| `undeclared_deviation` | `` | false |
+| `nonunit_importance` | `` | false |
+| `upstream_withheld` | `` | false |

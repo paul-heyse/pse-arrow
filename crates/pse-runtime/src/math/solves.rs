@@ -52,6 +52,9 @@ pub struct SolverProfile {
     pub controls: Controls,
     /// Complete backend-specific typed settings.
     pub backend: BackendSettings,
+    /// Parametric sensitivities to compute at the candidate (Plan 22 S1); only a modeling
+    /// solve prepares the parametric program they need.
+    pub sensitivity: Option<super::settings::SensitivityRequest>,
 }
 /// The one owner of request defaults: every boundary takes an omitted field from here
 /// rather than restating it (ADR-0113).
@@ -65,6 +68,7 @@ impl Default for SolverProfile {
             selection: SolverSelection::Auto,
             controls: Controls::default(),
             backend: BackendSettings::Default,
+            sensitivity: None,
         }
     }
 }
@@ -82,6 +86,51 @@ struct AlgebraicCase {
         Arc<pse_math::factorable::FactorableProgram>,
         Arc<pse_columnar::AllocationLease>,
     )>,
+    /// The parametric program of a sensitivity request (Plan 22 S1), attached by
+    /// [`PreparedSolve::with_sensitivity`].
+    sensitivity: Option<SensitivityProgram>,
+}
+/// The parametric program a sensitivity request differentiates, with the normalization of
+/// its columns and each parameter's value.
+#[derive(Clone, Debug)]
+struct SensitivityProgram {
+    program: Arc<ExecutableCase>,
+    normalization: Normalization,
+    parameters: Vec<(pse_ids::SemanticId, f64)>,
+    reduced_hessian: bool,
+}
+impl SensitivityProgram {
+    /// The request for the backend: callbacks over `worker` with the columns of
+    /// `assignment` fixed, or the reason none could be built.
+    fn request(
+        &self,
+        worker: pse_math::assembly::CaseWorker,
+        values: &CaseValues,
+        assignment: Option<&BTreeMap<pse_ids::SemanticId, f64>>,
+    ) -> Result<native::kkt::Sensitivity, ProblemError> {
+        let oracle = match assignment {
+            Some(assignment) => native::assembled::AlgebraicOracle::with_fixed_assignment(
+                worker,
+                values.clone(),
+                assignment,
+            )?,
+            None => native::assembled::AlgebraicOracle::new(worker, values.clone())?,
+        }
+        .with_normalization(self.normalization.clone())?;
+        Ok(native::kkt::Sensitivity {
+            oracle: Box::new(oracle),
+            parameters: self.parameters.clone(),
+            reduced_hessian: self.reduced_hessian,
+        })
+    }
+    /// Every quantity withheld because the parametric callbacks could not be built.
+    fn withheld(&self, cause: ProblemError) -> native::kkt::Parametric {
+        native::kkt::Parametric::withheld(
+            self.parameters.iter().map(|(id, _)| *id).collect(),
+            self.reduced_hessian,
+            native::kkt::Withheld::Analysis(cause.into()),
+        )
+    }
 }
 #[derive(Clone, Debug)]
 enum Representation {
@@ -251,6 +300,62 @@ impl PreparedSolve {
         seed.validate_shape(n, m)?;
         self.profile.controls.start = StartPolicy::Explicit;
         self.explicit_start = Some(seed);
+        Ok(self)
+    }
+    /// Attach the parametric program of the profile's sensitivity request (Plan 22 S1):
+    /// the case's plan with the requested parameters appended as coordinates
+    /// ([`pse_math::assembly::CasePlan::parametric`]). Its parameter columns are normalized
+    /// by the step's resolved numerical policy, which must resolve each parameter's
+    /// coordinate scale.
+    ///
+    /// # Errors
+    /// No request in the profile, a conic representation, a program whose columns are not
+    /// the case's followed by the requested parameters, or an unresolved coordinate.
+    pub fn with_sensitivity(
+        mut self,
+        program: Arc<ExecutableCase>,
+    ) -> Result<Self, MathRuntimeError> {
+        let request = self.profile.sensitivity.clone().ok_or_else(|| {
+            ProblemError::Contract("no sensitivity request to attach a program to".into())
+        })?;
+        request.admit(self.profile.intent)?;
+        let Representation::Algebraic(case) = &mut self.representation else {
+            return Err(ProblemError::Contract(
+                "parametric sensitivities need an algebraic case".into(),
+            )
+            .into());
+        };
+        let plan = &case.prepared.prepared.plan;
+        let columns = program.assembly.columns();
+        if columns.len() != plan.columns().len() + request.parameters.len()
+            || columns[..plan.columns().len()] != *plan.columns()
+            || columns[plan.columns().len()..] != *request.parameters
+            || program.assembly.structure().key() != plan.structure().key()
+        {
+            return Err(ProblemError::Contract(
+                "the parametric program is not the case's columns followed by the requested parameters".into(),
+            )
+            .into());
+        }
+        let rows: Vec<_> = plan.structure().rows().iter().map(|r| r.id).collect();
+        let normalization = Normalization::from_policy(&self.numerics, columns, &rows)?;
+        let parameters = request
+            .parameters
+            .iter()
+            .map(|id| {
+                case.values
+                    .scalars
+                    .get(id)
+                    .map(|v| (*id, *v))
+                    .ok_or_else(|| ProblemError::Contract(format!("no value for parameter {id}")))
+            })
+            .collect::<Result<_, _>>()?;
+        case.sensitivity = Some(SensitivityProgram {
+            program,
+            normalization,
+            parameters,
+            reduced_hessian: request.reduced_hessian,
+        });
         Ok(self)
     }
     /// Current quadratic evidence, including explicit inconclusive or numerical assessments.
@@ -861,6 +966,7 @@ impl MathService {
                 providers,
                 certificate,
                 factorable,
+                sensitivity: None,
             }),
             profile,
             numerics,
@@ -937,6 +1043,7 @@ impl MathService {
                 certificate: None,
                 // A block runs only on a root or NLP route, refused above otherwise.
                 factorable: None,
+                sensitivity: None,
             }),
             profile,
             numerics,
@@ -1260,6 +1367,17 @@ impl MathService {
             compatibility,
             ..
         } = step;
+        // Only a modeling solve prepares the parametric program a sensitivity request
+        // differentiates; any other caller is refused rather than silently ignored.
+        if profile.sensitivity.is_some()
+            && !matches!(&representation, Representation::Algebraic(a) if a.sensitivity.is_some())
+        {
+            return Err(ProblemError::Contract(
+                "a sensitivity request needs the parametric program a modeling solve prepares"
+                    .into(),
+            )
+            .into());
+        }
         let Route::Native(backend) = route else {
             return self.constant(representation, &tolerances, &execution.cancel, budget);
         };
@@ -1370,6 +1488,7 @@ impl MathService {
             values,
             providers,
             factorable,
+            sensitivity,
             ..
         } = case;
         let (program, _owner) = factorable
@@ -1417,6 +1536,27 @@ impl MathService {
             })()
             .map_err(MathRuntimeError::into_problem)
         };
+        // The re-solve's parametric callbacks under the same assignment (Plan 22 S1).
+        let mut parametric_owners = Vec::new();
+        let mut parametric = |assignment: &BTreeMap<usize, f64>| {
+            (|| -> Result<Box<dyn native::NlpOracle>, MathRuntimeError> {
+                let request = sensitivity.as_ref().ok_or_else(|| {
+                    ProblemError::Internal("no sensitivity program to differentiate".into())
+                })?;
+                let ExecutionWorker {
+                    worker,
+                    _case,
+                    _charge,
+                } = self.worker(request.program.clone(), &providers, cancel.clone(), budget)?;
+                parametric_owners.push((_case, _charge));
+                let assignment = assignment
+                    .iter()
+                    .map(|(i, v)| (plan.columns()[*i], *v))
+                    .collect();
+                Ok(request.request(worker, &values, Some(&assignment))?.oracle)
+            })()
+            .map_err(MathRuntimeError::into_problem)
+        };
         let report = execution::factorable(
             run,
             retained,
@@ -1429,10 +1569,18 @@ impl MathService {
                     oracle: &mut fixed,
                     presolve: &profile.presolve,
                     limit: self.policy.worker_bytes / 256,
+                    sensitivity: sensitivity.as_ref().map(|request| {
+                        execution::ResolveSensitivity {
+                            oracle: &mut parametric,
+                            parameters: request.parameters.clone(),
+                            reduced_hessian: request.reduced_hessian,
+                        }
+                    }),
                 }),
             },
         )?;
         drop(owners);
+        drop(parametric_owners);
         Ok(report)
     }
     /// Callback oracle over the compiled case for an NLP or root-system adapter.
@@ -1450,8 +1598,24 @@ impl MathService {
             case,
             values,
             providers,
+            sensitivity,
             ..
         } = case;
+        // The parametric callbacks of a sensitivity request (Plan 22 S1), with their
+        // evaluator's owner and charge; callbacks that cannot be built withhold the
+        // sensitivities and never refuse the solve.
+        let parametric = sensitivity.as_ref().map(|program| {
+            self.worker(
+                program.program.clone(),
+                &providers,
+                run.execution.cancel.clone(),
+                budget,
+            )
+            .map_err(MathRuntimeError::into_problem)
+            .and_then(|ExecutionWorker { worker, _case, _charge }| {
+                Ok((program.request(worker, &values, None)?, (_case, _charge)))
+            })
+        });
         let ExecutionWorker {
             worker,
             _case,
@@ -1484,7 +1648,12 @@ impl MathService {
             .structure()
             .objective()
             .map_or(ObjectiveSense::Minimize, |o| o.sense);
-        let report = execution::nlp(
+        let (request, unbuilt, parametric_owner) = match (parametric, &sensitivity) {
+            (Some(Ok((request, owner))), _) => (Some(request), None, Some(owner)),
+            (Some(Err(cause)), Some(program)) => (None, Some(program.withheld(cause)), None),
+            _ => (None, None, None),
+        };
+        let mut report = execution::nlp(
             run,
             retained,
             execution::Nlp {
@@ -1494,12 +1663,19 @@ impl MathService {
                 intent: profile.intent,
                 sense,
                 limit: self.policy.worker_bytes / 256,
-                analysis: execution::Analysis::for_intent(profile.intent),
+                analysis: execution::Analysis {
+                    sensitivity: request,
+                    ..execution::Analysis::for_intent(profile.intent)
+                },
             },
         )?;
+        if unbuilt.is_some() {
+            report.evidence.sensitivity = unbuilt;
+        }
         // The case owner and enclosing job reservation outlive every native callback.
         drop(_case);
         drop(_charge);
+        drop(parametric_owner);
         Ok(report)
     }
     /// Worker-scoped providers and one attempt-local evaluator on this thread.
@@ -1636,6 +1812,16 @@ pub(crate) fn profile_key(p: &SolverProfile) -> Result<pse_ids::ContentHash, Pro
         }
         SolverSelection::Explicit(b) => {
             h.str(b.as_str());
+        }
+    }
+    // A sensitivity request changes what the step computes and publishes, not how it
+    // solves; a profile without one keeps its identity.
+    if let Some(request) = &p.sensitivity {
+        h.str("sensitivity")
+            .bool(request.reduced_hessian)
+            .u64(request.parameters.len() as u64);
+        for parameter in &request.parameters {
+            h.id(parameter);
         }
     }
     Ok(h.finish_hash())

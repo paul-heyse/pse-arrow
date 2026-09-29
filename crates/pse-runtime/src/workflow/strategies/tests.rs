@@ -15,6 +15,7 @@ pub(super) fn profile(intent: SolveIntent) -> SolverProfile {
         presolve: Default::default(),
         numerics: Default::default(),
         convexity: Default::default(),
+        sensitivity: None,
     }
 }
 #[tokio::test]

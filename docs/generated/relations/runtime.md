@@ -253,6 +253,29 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, experiment_id, symb
 | `lower` | `Float64` | true | `payload` | — | — |
 | `upper` | `Float64` | true | `payload` | — | — |
 
+## `local_validity`
+
+One row per quantity a step requested (PS-12, ADR-0118 item 10). A certified quantity's data rows are in its own relation; a withheld quantity has none, and this row states why.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, quantity`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `quantity` | `enum:DerivedQuantity` | false | `key` | — | — |
+| `validity` | `Struct LocalValidity` | false | `payload` | — | — |
+| `validity.certified` | `Boolean` | false | `payload` | — | — |
+| `validity.reason` | `enum:WithheldReason` | true | `payload` | — | — |
+| `validity.detail` | `Utf8` | true | `payload` | — | — |
+| `validity.conditional` | `Boolean` | false | `payload` | — | — |
+| `validity.licq` | `Boolean` | true | `payload` | — | — |
+| `validity.strict_complementarity` | `Boolean` | true | `payload` | — | — |
+| `validity.second_order` | `Boolean` | true | `payload` | — | — |
+| `validity.weakly_active` | `Int64` | true | `payload` | — | — |
+| `validity.condition_1norm` | `Float64` | true | `payload` | — | — |
+| `validity.residual` | `Float64` | true | `payload` | — | — |
+
 ## `maintenance_outcomes`
 
 Actual native Delta maintenance outcomes; no bespoke data file deletion.
@@ -1508,6 +1531,24 @@ Native row check `root_uri_nonempty` (must be true):
 "root_uri" <> ''
 ```
 
+## `parametric_sensitivities`
+
+Local parametric sensitivities at a certified KKT point (ADR-0118 items 5–7): original physical units per parameter unit, in original coordinates whatever presolve removed. A first-order statement about the local solution map, valid while the active set holds; the validity is in local_validity.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, parameter_id, target_kind, target_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `parameter_id` | `semantic_id` | false | `key` | — | — |
+| `target_kind` | `enum:NumericalTarget` | false | `key` | — | — |
+| `target_id` | `semantic_id` | false | `key` | — | — |
+| `parameter_unit_id` | `semantic_id` | false | `payload` | — | — |
+| `target_unit_id` | `semantic_id` | false | `payload` | — | — |
+| `primal` | `Float64` | true | `payload` | — | — |
+| `dual` | `Float64` | true | `payload` | — | — |
+
 ## `publication_manifests`
 
 One publication record: identity, workspace, parent, durable attempt, kind, the exact input and member vectors and the change windows read. The operational catalog is the authority for what is published; an export writes this row once as version 1 of a one-row Delta table together with the reader lease protecting its members, the workspace maintenance epoch and the operational store fingerprint, so an offline reader opens exactly those members.
@@ -1579,6 +1620,33 @@ Native row check `parent_is_another_publication` (must be true):
 ```sql
 "parent_publication_id" IS DISTINCT FROM "publication_id"
 ```
+
+## `reduced_hessians`
+
+The reduced Hessian over declared parameters at a certified KKT point (ADR-0118 item 6): the second derivative of the optimal value, read over the parameter pin rows. Its eigen-decomposition is taken in the declared coordinate scales, where it does not depend on the choice of units. The validity is in local_validity.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `parameters` | `List` | false | `payload` | — | — |
+| `parameters.item` | `semantic_id` | false | `payload` | — | — |
+| `parameter_units` | `List` | false | `payload` | — | — |
+| `parameter_units.item` | `semantic_id` | false | `payload` | — | — |
+| `objective_unit_id` | `semantic_id` | false | `payload` | — | — |
+| `coordinate_scales` | `List` | false | `payload` | — | — |
+| `coordinate_scales.item` | `Float64` | false | `payload` | — | — |
+| `objective_scale` | `Float64` | false | `payload` | — | — |
+| `values` | `List` | false | `payload` | — | — |
+| `values.item` | `Float64` | false | `payload` | — | — |
+| `normalized` | `List` | false | `payload` | — | — |
+| `normalized.item` | `Float64` | false | `payload` | — | — |
+| `eigenvalues` | `List` | false | `payload` | — | — |
+| `eigenvalues.item` | `Float64` | false | `payload` | — | — |
+| `eigenvectors` | `List` | false | `payload` | — | — |
+| `eigenvectors.item` | `Float64` | false | `payload` | — | — |
 
 ## `resolved_numerics`
 

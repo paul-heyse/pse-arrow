@@ -9,6 +9,65 @@
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct LocalValidity {
+    ///certified
+    pub r#certified: bool,
+    ///reason
+    pub r#reason: Option<crate::generated::enums::WithheldReason>,
+    ///detail
+    pub r#detail: Option<String>,
+    ///conditional
+    pub r#conditional: bool,
+    ///licq
+    pub r#licq: Option<bool>,
+    ///strict_complementarity
+    pub r#strict_complementarity: Option<bool>,
+    ///second_order
+    pub r#second_order: Option<bool>,
+    ///weakly_active
+    pub r#weakly_active: Option<i64>,
+    ///condition_1norm
+    pub r#condition_1norm: Option<f64>,
+    ///residual
+    pub r#residual: Option<f64>,
+}
+impl crate::SemanticEq for LocalValidity {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#certified, &other.r#certified)
+            && crate::SemanticEq::semantic_eq(&self.r#reason, &other.r#reason)
+            && crate::SemanticEq::semantic_eq(&self.r#detail, &other.r#detail)
+            && crate::SemanticEq::semantic_eq(&self.r#conditional, &other.r#conditional)
+            && crate::SemanticEq::semantic_eq(&self.r#licq, &other.r#licq)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#strict_complementarity,
+                &other.r#strict_complementarity,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#second_order,
+                &other.r#second_order,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#weakly_active,
+                &other.r#weakly_active,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#condition_1norm,
+                &other.r#condition_1norm,
+            ) && crate::SemanticEq::semantic_eq(&self.r#residual, &other.r#residual)
+    }
+}
+impl PartialEq for LocalValidity {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct MemberDescriptorSelectionRevision {
     ///column
     pub r#column: String,
@@ -171,6 +230,45 @@ impl crate::SemanticEq for VersionWindow {
 impl PartialEq for VersionWindow {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::SemanticFrame for LocalValidity {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#certified));
+        crate::SemanticFrame::frame(&self.r#certified, hash);
+        hash.str(stringify!(r#reason));
+        crate::SemanticFrame::frame(&self.r#reason, hash);
+        hash.str(stringify!(r#detail));
+        crate::SemanticFrame::frame(&self.r#detail, hash);
+        hash.str(stringify!(r#conditional));
+        crate::SemanticFrame::frame(&self.r#conditional, hash);
+        hash.str(stringify!(r#licq));
+        crate::SemanticFrame::frame(&self.r#licq, hash);
+        hash.str(stringify!(r#strict_complementarity));
+        crate::SemanticFrame::frame(&self.r#strict_complementarity, hash);
+        hash.str(stringify!(r#second_order));
+        crate::SemanticFrame::frame(&self.r#second_order, hash);
+        hash.str(stringify!(r#weakly_active));
+        crate::SemanticFrame::frame(&self.r#weakly_active, hash);
+        hash.str(stringify!(r#condition_1norm));
+        crate::SemanticFrame::frame(&self.r#condition_1norm, hash);
+        hash.str(stringify!(r#residual));
+        crate::SemanticFrame::frame(&self.r#residual, hash);
+    }
+}
+impl crate::HeapUsage for LocalValidity {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#certified))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reason))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#detail))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#conditional))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#licq))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#strict_complementarity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#second_order))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#weakly_active))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#condition_1norm))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#residual))
     }
 }
 impl crate::SemanticFrame for MemberDescriptorSelectionRevision {

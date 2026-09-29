@@ -190,6 +190,8 @@ frames! {
         MathTypedDefinitionV2 => "pse.math.typed-definition.v2",
         /// A prepared view of a compiled modeling structure.
         CompilerModelingViewV2 => "pse.compiler.modeling-view.v2",
+        /// The parametric projection of a prepared modeling view over requested parameters.
+        CompilerModelingParametricV1 => "pse.compiler.modeling-parametric.v1",
         /// A grouped consumer body.
         ModelingConsumerBodyV1 => "pse.modeling.consumer-body.v1",
         /// An implicit residual.

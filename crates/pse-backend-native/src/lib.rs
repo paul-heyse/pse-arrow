@@ -38,6 +38,7 @@ pub mod solve;
 pub mod structural;
 pub mod tears;
 mod tnlp;
+pub mod transform;
 pub mod transport;
 pub use convexity::GramCertificate;
 use pse_ids::{ContentHash, SemanticId};

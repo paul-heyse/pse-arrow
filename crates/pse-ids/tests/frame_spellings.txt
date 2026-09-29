@@ -126,3 +126,5 @@ pse.native.controls.v2
 # Plan 22 O7: a durable study's request identity and each point's binding hash.
 pse.durable.study_point_binding.v1
 pse.durable.study_request.v1
+# Plan 22 S1: the parametric projection of a prepared modeling view (A6 cache key).
+pse.compiler.modeling-parametric.v1

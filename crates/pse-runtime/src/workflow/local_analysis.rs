@@ -1,0 +1,326 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+//! Publication of the quantities derived from the KKT-point analysis (Plan 22 S1; ADR-0118
+//! item 10; PS-12): one `local_validity` row per requested quantity, certified or withheld
+//! with its reason, and the data rows of the certified ones. The backend's typed reasons
+//! map onto the registry `WithheldReason` here, at the publication boundary.
+use super::{WorkflowError, contract, relation};
+use pse_backend_native::{
+    kkt::{Curvature, KktPoint, Licq, Parametric, Unavailable, Withheld},
+    solve::{PrimalSource, SolveReport},
+};
+use pse_ids::SemanticId;
+use pse_math::binding::CaseStructure;
+use pse_quantity::QuantityRegistry;
+use pse_relations::{
+    columnar::FieldCheckedBatch,
+    generated::{
+        enums::{DerivedQuantity, NumericalTarget, WithheldReason},
+        identities::RunId,
+        runtime::{
+            local_validity as validity, parametric_sensitivities as sensitivities,
+            reduced_hessians as hessians,
+        },
+        structures::LocalValidity,
+    },
+};
+use std::collections::BTreeMap;
+
+/// The registry reason of a withheld quantity and its typed cause.
+fn reason(withheld: &Withheld) -> WithheldReason {
+    match withheld {
+        Withheld::NoCandidate => WithheldReason::NoCandidate,
+        Withheld::Multipliers | Withheld::Analysis(Unavailable::Multipliers) => {
+            WithheldReason::MultipliersUnrecovered
+        }
+        Withheld::Complementarity => WithheldReason::ComplementarityFailed,
+        Withheld::Unqualified(_) | Withheld::Analysis(Unavailable::Infeasible) => {
+            WithheldReason::NotStationary
+        }
+        Withheld::Analysis(_) => WithheldReason::AnalysisUnavailable,
+        Withheld::Licq { .. } => WithheldReason::LicqFailed,
+        Withheld::WeaklyActive { .. } => WithheldReason::WeaklyActive,
+        Withheld::SecondOrder(_) => WithheldReason::SecondOrderFailed,
+        Withheld::Backsolve => WithheldReason::BacksolveFailed,
+    }
+}
+
+/// The validity record of one quantity: its outcome, whether it is conditional on a
+/// discrete assignment, and the verdicts of the point it was read from.
+fn record<T>(
+    outcome: Result<&T, (WithheldReason, String)>,
+    point: Option<&KktPoint>,
+    conditional: bool,
+) -> LocalValidity {
+    let (certified, reason, detail) = match outcome {
+        Ok(_) => (true, None, None),
+        Err((reason, detail)) => (false, Some(reason), Some(detail)),
+    };
+    LocalValidity {
+        certified,
+        reason,
+        detail,
+        conditional,
+        licq: point.map(|p| p.licq == Licq::Independent),
+        strict_complementarity: point.map(|p| p.weakly_active() == 0),
+        second_order: point.map(|p| p.curvature == Curvature::Sufficient),
+        weakly_active: point.and_then(|p| i64::try_from(p.weakly_active()).ok()),
+        condition_1norm: point.and_then(|p| p.condition_1norm),
+        residual: point.and_then(|p| p.residual),
+    }
+}
+
+/// The step's inputs to the local-analysis relations.
+pub(super) struct Step<'a> {
+    pub run_id: RunId,
+    pub step: i64,
+    /// The requested parameters and whether the reduced Hessian was requested.
+    pub request: &'a crate::math::settings::SensitivityRequest,
+    /// The native report, when the step ran one.
+    pub report: Option<&'a SolveReport>,
+    /// Whether the step observed a candidate at all.
+    pub candidate: bool,
+    /// The solved structure, for units.
+    pub structure: &'a CaseStructure,
+    pub quantities: &'a QuantityRegistry,
+}
+
+/// Builders of the three local-analysis relations over a run's steps.
+pub(super) struct Rows {
+    validity: validity::Builder,
+    sensitivities: sensitivities::Builder,
+    hessians: hessians::Builder,
+}
+impl Rows {
+    pub(super) fn new(registry: &pse_schema::Registry) -> Result<Self, WorkflowError> {
+        Ok(Self {
+            validity: validity::Builder::with_registry(registry, 0).map_err(relation)?,
+            sensitivities: sensitivities::Builder::with_registry(registry, 0)
+                .map_err(relation)?,
+            hessians: hessians::Builder::with_registry(registry, 0).map_err(relation)?,
+        })
+    }
+    /// The rows of one step that requested sensitivities.
+    pub(super) fn push(&mut self, step: &Step<'_>) -> Result<(), WorkflowError> {
+        let evidence = step.report.and_then(|r| r.evidence.sensitivity.as_ref());
+        // A re-solve's quantities hold under its committed assignment (ADR-0118 item 4).
+        let conditional = step
+            .report
+            .and_then(|r| r.evidence.global)
+            .is_some_and(|g| g.primal == PrimalSource::FixedAssignment);
+        let absent = || {
+            if step.candidate {
+                (
+                    WithheldReason::NoLocalAnalysis,
+                    "the route ran no KKT-point analysis at its candidate".to_owned(),
+                )
+            } else {
+                (
+                    WithheldReason::NoCandidate,
+                    Withheld::NoCandidate.to_string(),
+                )
+            }
+        };
+        let withheld = |w: &Withheld| (reason(w), w.to_string());
+        let point = evidence.and_then(|p| p.point.as_ref());
+        let sensitivity = evidence.map_or_else(
+            || Err(absent()),
+            |p| p.sensitivities.as_ref().map_err(withheld),
+        );
+        self.validity
+            .push(validity::Row {
+                run_id: step.run_id,
+                step: step.step,
+                quantity: DerivedQuantity::ParametricSensitivity,
+                validity: record(sensitivity, point, conditional),
+            })
+            .map_err(relation)?;
+        let hessian = step.request.reduced_hessian.then(|| {
+            evidence.map_or_else(
+                || Err(absent()),
+                |p| match &p.reduced_hessian {
+                    Some(Ok(h)) => Ok(h),
+                    Some(Err(w)) => Err(withheld(w)),
+                    None => Err(absent()),
+                },
+            )
+        });
+        if let Some(hessian) = &hessian {
+            self.validity
+                .push(validity::Row {
+                    run_id: step.run_id,
+                    step: step.step,
+                    quantity: DerivedQuantity::ReducedHessian,
+                    validity: record(
+                        hessian.as_ref().map(|h| *h).map_err(Clone::clone),
+                        point,
+                        conditional,
+                    ),
+                })
+                .map_err(relation)?;
+        }
+        let (Some(report), Some(parametric)) = (step.report, evidence) else {
+            return Ok(());
+        };
+        if let Ok(s) = &parametric.sensitivities {
+            self.sensitivities(step, report, parametric, s)?;
+        }
+        if let Some(Ok(h)) = hessian {
+            self.hessian(step, parametric, h)?;
+        }
+        Ok(())
+    }
+    fn sensitivities(
+        &mut self,
+        step: &Step<'_>,
+        report: &SolveReport,
+        parametric: &Parametric,
+        s: &pse_backend_native::kkt::Sensitivities,
+    ) -> Result<(), WorkflowError> {
+        let units = Units::of(step)?;
+        for (k, parameter) in parametric.parameters.iter().enumerate() {
+            let parameter_unit_id = units.parameter(*parameter)?;
+            let mut push = |target_kind, target_id, target_unit_id, primal, dual| {
+                self.sensitivities
+                    .push(sensitivities::Row {
+                        run_id: step.run_id,
+                        step: step.step,
+                        parameter_id: *parameter,
+                        target_kind,
+                        target_id,
+                        parameter_unit_id,
+                        target_unit_id,
+                        primal,
+                        dual,
+                    })
+                    .map_err(relation)
+            };
+            for (j, id) in report.variables.iter().enumerate() {
+                push(
+                    NumericalTarget::Variable,
+                    *id,
+                    units.variable(*id)?,
+                    Some(s.primal[k][j]),
+                    Some(s.bounds[k][j]),
+                )?;
+            }
+            for (r, id) in report.rows.iter().enumerate() {
+                push(
+                    NumericalTarget::Row,
+                    *id,
+                    units.row(*id)?,
+                    None,
+                    Some(s.rows[k][r]),
+                )?;
+            }
+            push(
+                NumericalTarget::Objective,
+                SemanticId::NIL,
+                units.objective()?,
+                Some(s.objective[k]),
+                None,
+            )?;
+        }
+        Ok(())
+    }
+    fn hessian(
+        &mut self,
+        step: &Step<'_>,
+        parametric: &Parametric,
+        h: &pse_backend_native::kkt::ReducedHessian,
+    ) -> Result<(), WorkflowError> {
+        let units = Units::of(step)?;
+        self.hessians
+            .push(hessians::Row {
+                run_id: step.run_id,
+                step: step.step,
+                parameters: parametric.parameters.clone(),
+                parameter_units: parametric
+                    .parameters
+                    .iter()
+                    .map(|p| units.parameter(*p))
+                    .collect::<Result<_, _>>()?,
+                objective_unit_id: units.objective()?,
+                coordinate_scales: h.coordinate_scales.clone(),
+                objective_scale: h.objective_scale,
+                values: h.values.clone(),
+                normalized: h.normalized.clone(),
+                eigenvalues: h.eigenvalues.clone(),
+                eigenvectors: h.eigenvectors.clone(),
+            })
+            .map_err(relation)
+    }
+    /// The finished relations.
+    pub(super) fn finish(
+        self,
+    ) -> Result<[(SemanticId, FieldCheckedBatch); 3], WorkflowError> {
+        Ok([
+            (validity::RELATION_ID, self.validity.finish().map_err(relation)?),
+            (
+                sensitivities::RELATION_ID,
+                self.sensitivities.finish().map_err(relation)?,
+            ),
+            (hessians::RELATION_ID, self.hessians.finish().map_err(relation)?),
+        ])
+    }
+}
+
+/// The physical unit of every coordinate a sensitivity row names.
+struct Units<'a> {
+    structure: &'a CaseStructure,
+    quantities: &'a QuantityRegistry,
+    variables: BTreeMap<SemanticId, SemanticId>,
+}
+impl<'a> Units<'a> {
+    fn of(step: &Step<'a>) -> Result<Self, WorkflowError> {
+        Ok(Self {
+            structure: step.structure,
+            quantities: step.quantities,
+            variables: step
+                .structure
+                .variables()
+                .iter()
+                .map(|v| (v.port.id, v.port.unit.as_id()))
+                .chain(
+                    step.structure
+                        .parameters()
+                        .iter()
+                        .map(|p| (p.id, p.unit.as_id())),
+                )
+                .collect(),
+        })
+    }
+    fn variable(&self, id: SemanticId) -> Result<SemanticId, WorkflowError> {
+        self.variables
+            .get(&id)
+            .copied()
+            .ok_or_else(|| contract(format!("no unit for coordinate {id}")))
+    }
+    fn parameter(&self, id: SemanticId) -> Result<SemanticId, WorkflowError> {
+        self.variable(id)
+    }
+    fn canonical(&self, quantity: pse_quantity::QuantityTypeId) -> Result<SemanticId, WorkflowError> {
+        Ok(self
+            .quantities
+            .quantity_type(quantity)
+            .map_err(super::math)?
+            .canonical_unit
+            .as_id())
+    }
+    fn row(&self, id: SemanticId) -> Result<SemanticId, WorkflowError> {
+        let row = self
+            .structure
+            .rows()
+            .iter()
+            .find(|r| r.id == id)
+            .ok_or_else(|| contract(format!("no row {id}")))?;
+        self.canonical(row.quantity)
+    }
+    fn objective(&self) -> Result<SemanticId, WorkflowError> {
+        let objective = self
+            .structure
+            .objective()
+            .ok_or_else(|| contract("a sensitivity differentiates an objective"))?;
+        self.canonical(objective.quantity)
+    }
+}

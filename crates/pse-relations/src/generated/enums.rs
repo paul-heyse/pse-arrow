@@ -8,12 +8,13 @@ pub use pse_model::generated::r#enums::{
     BasisKind, BasisRule, BoundKind, BoundStatus, CandidateUse, ChangeKind,
     ClarabelMergeMethod, ClarabelMode, ClosureAssessment, ClosurePolicy, ColumnRole,
     CompositionBasis, ComputationKind, ConstraintScalingScheme, ConversionKind,
-    DerivationGranularity, Determinism, DiagnosticCode, DiagnosticSeverity,
-    DiffsolLinear, DiffsolMethod, DualQualification, DynamicsMethod, EntityKind,
-    EvidenceUnavailableReason, ExternalDerivativeSource, ExtrapolationPolicy,
-    FailureClass, FeralOrdering, FeralScaling, FindingSeverity, HessianMode, HighsMethod,
-    IdPolicy, IdasInitialization, InputConsumptionKind, InvariantKind, IpoptLinearSolver,
-    JobState, KinsolOrthogonalization, KinsolStrategy, MemberSelectionKind, MigrationOp,
+    CovarianceApproximation, DerivationGranularity, DerivedQuantity, Determinism,
+    DiagnosticCode, DiagnosticSeverity, DiffsolLinear, DiffsolMethod, DualQualification,
+    DynamicsMethod, EntityKind, EvidenceUnavailableReason, ExternalDerivativeSource,
+    ExtrapolationPolicy, FailureClass, FeralOrdering, FeralScaling, FindingSeverity,
+    HessianMode, HighsMethod, IdPolicy, IdasInitialization, InputConsumptionKind,
+    IntervalEnd, IntervalMethod, InvariantKind, IpoptLinearSolver, JobState,
+    KinsolOrthogonalization, KinsolStrategy, MemberSelectionKind, MigrationOp,
     ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingCheckKind,
     ModelingConformanceKind, ModelingConformanceStatus, ModelingContributionRole,
     ModelingDeclarationKind, ModelingDiagnosticSampleStop, ModelingElasticObservation,
@@ -35,7 +36,7 @@ pub use pse_model::generated::r#enums::{
     SpralOrdering, SpralPivot, SpralScaling, Stability, StateSign, StoredSeedKind,
     StudyPointState, StudyState, SubjectRule, TearMethod, TerminationClass,
     TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
-    WeightNormalization,
+    WeightNormalization, WithheldReason,
 };
 impl crate::columnar::ArrowValue for ArtifactReconstruction {
     fn append(
@@ -453,6 +454,25 @@ impl crate::columnar::ArrowValue for ConversionKind {
             })
     }
 }
+impl crate::columnar::ArrowValue for CovarianceApproximation {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for DerivationGranularity {
     fn append(
         &self,
@@ -476,6 +496,25 @@ impl crate::columnar::ArrowValue for DerivationGranularity {
                 enumeration: stringify!(DerivationGranularity).to_owned(),
                 value: value.to_owned(),
             })
+    }
+}
+impl crate::columnar::ArrowValue for DerivedQuantity {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
 impl crate::columnar::ArrowValue for Determinism {
@@ -858,6 +897,44 @@ impl crate::columnar::ArrowValue for IdasInitialization {
     }
 }
 impl crate::columnar::ArrowValue for InputConsumptionKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for IntervalEnd {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for IntervalMethod {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -2749,5 +2826,24 @@ impl crate::columnar::ArrowValue for WeightNormalization {
                 enumeration: stringify!(WeightNormalization).to_owned(),
                 value: value.to_owned(),
             })
+    }
+}
+impl crate::columnar::ArrowValue for WithheldReason {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }

@@ -683,6 +683,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            137u8, 55u8, 94u8, 214u8, 185u8, 47u8, 59u8, 201u8, 200u8, 36u8, 157u8, 19u8,
+            95u8, 3u8, 57u8, 68u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeLocalValidity(
+                super::r#runtime::r#local_validity::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             218u8, 241u8, 38u8, 36u8, 183u8, 143u8, 195u8, 23u8, 184u8, 79u8, 192u8,
             192u8, 197u8, 195u8, 179u8, 237u8,
         ])
@@ -1115,6 +1127,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            131u8, 112u8, 170u8, 50u8, 0u8, 109u8, 90u8, 134u8, 237u8, 209u8, 190u8,
+            134u8, 18u8, 113u8, 186u8, 123u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeParametricSensitivities(
+                super::r#runtime::r#parametric_sensitivities::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             192u8, 131u8, 237u8, 62u8, 131u8, 132u8, 155u8, 254u8, 202u8, 14u8, 195u8,
             142u8, 129u8, 81u8, 74u8, 154u8,
         ])
@@ -1122,6 +1146,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimePublicationManifests(
                 super::r#runtime::r#publication_manifests::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            86u8, 30u8, 33u8, 246u8, 18u8, 151u8, 110u8, 145u8, 19u8, 11u8, 52u8, 25u8,
+            44u8, 92u8, 184u8, 11u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeReducedHessians(
+                super::r#runtime::r#reduced_hessians::Row::rows(batch)?,
             ),
         );
     }
@@ -1475,6 +1511,9 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeFitVariables(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeLocalValidity(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
         pse_model::generated::facts::FactBatch::r#RuntimeMaintenanceOutcomes(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
@@ -1583,7 +1622,13 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalWorkspaces(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeParametricSensitivities(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimePublicationManifests(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeReducedHessians(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeResolvedNumerics(rows) => {
