@@ -465,6 +465,7 @@ fn second_order_analysis_needs_an_optimizing_intent() {
             limit: 1 << 20,
             analysis: Analysis {
                 second_order: true,
+                sensitivity: None,
             },
         },
     )

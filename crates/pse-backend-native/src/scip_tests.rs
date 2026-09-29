@@ -403,6 +403,7 @@ fn run_with(
                 oracle: &mut fixed,
                 presolve: &presolve,
                 limit: 100_000,
+                sensitivity: None,
             }),
         },
     )
@@ -2048,3 +2049,6 @@ fn scip_incumbent_events_apply_offset() {
         );
     }
 }
+
+#[cfg(all(feature = "ipopt", feature = "pounce"))]
+mod sensitivity;

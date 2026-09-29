@@ -76,6 +76,7 @@ impl RunResult {
         let mut pool_rows = pool::Builder::with_registry(registry, 0).map_err(relation)?;
         let mut certificate_rows =
             certificates::Builder::with_registry(registry, 0).map_err(relation)?;
+        let mut local = super::local_analysis::Rows::new(registry)?;
         for (ordinal, request) in requests.iter().enumerate() {
             let declaration = request.model.case.compiled().plan.structure();
             let step = ordinal as i64;
@@ -96,6 +97,21 @@ impl RunResult {
                 .and_then(|r| r.observation.as_ref())
                 .or_else(|| constant.map(|r| &r.observation));
             let candidate = native.and_then(|r| r.candidate.as_ref());
+            // Multipliers read from a KKT point that certified the requested sensitivities
+            // are sensitivity certified: independent active gradients, strict
+            // complementarity and second-order sufficiency hold (ADR-0118 item 10).
+            let certified = native
+                .and_then(|r| r.evidence.sensitivity.as_ref())
+                .is_some_and(|p| p.sensitivities.is_ok());
+            let qualified = |o: &pse_backend_native::quality::Observation| {
+                if o.dual_error.is_some() {
+                    DualQualification::UnavailableOrInvalid
+                } else if certified {
+                    DualQualification::SensitivityCertified
+                } else {
+                    DualQualification::EvaluatedKktNotSensitivityCertified
+                }
+            };
 
             let coordinates: BTreeMap<_, _> = native
                 .map(|r| {
@@ -127,13 +143,7 @@ impl RunResult {
                         .position(|id| *id == p.id);
                     i.and_then(|i| request.solve.tolerances().variables.get(i).copied())
                 };
-                let dual_status = match observation {
-                    Some(o) if o.dual_error.is_none() => {
-                        DualQualification::EvaluatedKktNotSensitivityCertified
-                    }
-                    Some(o) if o.dual_error.is_some() => DualQualification::UnavailableOrInvalid,
-                    _ => DualQualification::Unavailable,
-                };
+                let dual_status = observation.map_or(DualQualification::Unavailable, qualified);
                 variable_rows
                     .push(variables::Row {
                         run_id: self.run_id,
@@ -228,16 +238,8 @@ impl RunResult {
                         tolerance: request.solve.tolerances().rows.get(i).copied(),
                         dual: candidate
                             .and_then(|c| c.row_dual.as_ref().and_then(|v| v.get(i).copied())),
-                        dual_qualification: observation.map_or(
-                            DualQualification::Unavailable,
-                            |o| {
-                                if o.dual_error.is_none() {
-                                    DualQualification::EvaluatedKktNotSensitivityCertified
-                                } else {
-                                    DualQualification::UnavailableOrInvalid
-                                }
-                            },
-                        ),
+                        dual_qualification: observation
+                            .map_or(DualQualification::Unavailable, qualified),
                     })
                     .map_err(relation)?;
             }
@@ -283,6 +285,18 @@ impl RunResult {
                         })
                         .map_err(relation)?;
                 }
+            }
+            // Every quantity a sensitivity request asked for, certified or withheld.
+            if let Some(sensitivity) = &request.profile.sensitivity {
+                local.push(&super::local_analysis::Step {
+                    run_id: self.run_id,
+                    step,
+                    request: sensitivity,
+                    report: native,
+                    candidate: candidate.is_some(),
+                    structure: declaration,
+                    quantities: &request.source.physical.quantities,
+                })?;
             }
             if let Some(result) = result {
                 for row in &result.checks {
@@ -390,6 +404,7 @@ impl RunResult {
                 certificate_rows.finish().map_err(relation)?,
             ),
         ]);
+        batches.extend(local.finish()?);
         self.retain_sources(&mut batches)?;
         Ok(batches)
     }

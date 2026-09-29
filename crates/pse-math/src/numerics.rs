@@ -11,6 +11,7 @@ use pse_model::{
     numerics::*,
 };
 use pse_quantity::{QuantityRegistry, QuantityTypeId, UnitId};
+use std::collections::BTreeMap;
 
 /// Exact admitted coordinate; declared representation is retained through normalization.
 #[derive(Clone, Debug)]
@@ -476,12 +477,39 @@ pub fn resolve(
 }
 
 impl crate::assembly::CasePlan {
-    /// Complete source coordinates, including fixed variables whose requirements remain meaningful.
+    /// Complete source coordinates, including fixed variables whose requirements remain
+    /// meaningful, and the parameter coordinates of a parametric plan.
     pub fn numerical_targets(
         &self,
         registry: &QuantityRegistry,
     ) -> Result<Vec<TargetSpec>, MathError> {
-        self.structure().numerical_targets(registry)
+        let mut out = self.structure().numerical_targets(registry)?;
+        out.extend(self.parameter_targets());
+        Ok(out)
+    }
+    /// The parameter coordinates of a parametric plan ([`Self::parametric`]) as variable
+    /// targets: the analysis differentiates along them as it does along a free variable,
+    /// so each resolves a coordinate scale and a budget through the same sources, and the
+    /// scale's source is recorded with it. Empty for every other plan.
+    pub fn parameter_targets(&self) -> Vec<TargetSpec> {
+        let parameters: BTreeMap<_, _> = self
+            .structure()
+            .parameters()
+            .iter()
+            .map(|p| (p.id, p))
+            .collect();
+        self.columns()
+            .iter()
+            .filter_map(|id| parameters.get(id))
+            .map(|p| TargetSpec {
+                id: p.id,
+                kind: NumericalTarget::Variable,
+                quantity: p.quantity,
+                unit: p.unit,
+                integer: false,
+                declared_tolerance: None,
+            })
+            .collect()
     }
 }
 impl crate::binding::CaseStructure {

@@ -74,6 +74,7 @@ Derived in: pse-compiler.
 | `MathPhysicalPassV1` | `pse.math.physical-pass.v1` | A physical reduction pass. |
 | `MathTypedDefinitionV2` | `pse.math.typed-definition.v2` | A typed definition's admitted outputs. |
 | `CompilerModelingViewV2` | `pse.compiler.modeling-view.v2` | A prepared view of a compiled modeling structure. |
+| `CompilerModelingParametricV1` | `pse.compiler.modeling-parametric.v1` | The parametric projection of a prepared modeling view over requested parameters. |
 | `ModelingConsumerBodyV1` | `pse.modeling.consumer-body.v1` | A grouped consumer body. |
 | `ModelingImplicitResidualV1` | `pse.modeling.implicit-residual.v1` | An implicit residual. |
 

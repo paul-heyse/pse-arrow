@@ -1004,6 +1004,7 @@ mod tests {
                 selection: native::solve::SolverSelection::Explicit(Backend::Ipopt),
                 controls: Default::default(),
                 backend: native::execution::BackendSettings::Default,
+                sensitivity: None,
             },
             simulations: BTreeMap::new(),
             modes: BTreeMap::new(),
@@ -1691,6 +1692,7 @@ mod tests {
             selection: SolverSelection::Explicit(Backend::Ipopt),
             controls: Controls::default(),
             backend: native::execution::BackendSettings::Default,
+            sensitivity: None,
         };
         // A solve sequence step.
         let prepared = package

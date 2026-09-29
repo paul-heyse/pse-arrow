@@ -1685,6 +1685,97 @@ impl crate::SemanticFrame for ConversionKind {
         hash.str(self.as_str());
     }
 }
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum CovarianceApproximation {
+    ///The inverse reduced Hessian of the fit's exact KKT analysis.
+    #[serde(rename = "exact")]
+    Exact,
+    ///The Gauss–Newton covariance from the response singular value decomposition; it neglects residual curvature.
+    #[serde(rename = "gauss_newton")]
+    GaussNewton,
+}
+impl crate::SemanticEq for CovarianceApproximation {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl CovarianceApproximation {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Exact, Self::GaussNewton];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Exact => "exact",
+            Self::GaussNewton => "gauss_newton",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Exact => 0usize,
+            Self::GaussNewton => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Exact => None,
+            Self::GaussNewton => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for CovarianceApproximation {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(CovarianceApproximation))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(CovarianceApproximation)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["exact", "gauss_newton"] })
+    }
+}
+impl core::str::FromStr for CovarianceApproximation {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "exact" => Ok(Self::Exact),
+            "gauss_newton" => Ok(Self::GaussNewton),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(CovarianceApproximation).to_owned(),
+                    enumeration: stringify!(CovarianceApproximation).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
 /// A vocabulary owned by its source type; the registry declares its members.
 pub type DerivationGranularity = pse_vocabulary::DerivationGranularity;
 impl crate::SemanticEq for DerivationGranularity {
@@ -1700,6 +1791,125 @@ impl crate::HeapUsage for DerivationGranularity {
 impl crate::SemanticFrame for DerivationGranularity {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum DerivedQuantity {
+    ///Derivatives of the primal and dual solution and of the optimal value with respect to declared parameters.
+    #[serde(rename = "parametric_sensitivity")]
+    ParametricSensitivity,
+    ///The reduced Hessian over declared parameters: the second derivative of the optimal value.
+    #[serde(rename = "reduced_hessian")]
+    ReducedHessian,
+    ///The covariance of fitted parameters under the declared statistical model.
+    #[serde(rename = "parameter_covariance")]
+    ParameterCovariance,
+    ///A confidence interval of one fitted parameter.
+    #[serde(rename = "parameter_interval")]
+    ParameterInterval,
+    ///Parameter covariance propagated to outputs, Σ_y = J·Σ_θ·Jᵀ.
+    #[serde(rename = "propagated_covariance")]
+    PropagatedCovariance,
+}
+impl crate::SemanticEq for DerivedQuantity {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl DerivedQuantity {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 5usize] = [
+        Self::ParametricSensitivity,
+        Self::ReducedHessian,
+        Self::ParameterCovariance,
+        Self::ParameterInterval,
+        Self::PropagatedCovariance,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ParametricSensitivity => "parametric_sensitivity",
+            Self::ReducedHessian => "reduced_hessian",
+            Self::ParameterCovariance => "parameter_covariance",
+            Self::ParameterInterval => "parameter_interval",
+            Self::PropagatedCovariance => "propagated_covariance",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::ParametricSensitivity => 0usize,
+            Self::ReducedHessian => 1usize,
+            Self::ParameterCovariance => 2usize,
+            Self::ParameterInterval => 3usize,
+            Self::PropagatedCovariance => 4usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::ParametricSensitivity => None,
+            Self::ReducedHessian => None,
+            Self::ParameterCovariance => None,
+            Self::ParameterInterval => None,
+            Self::PropagatedCovariance => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for DerivedQuantity {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(DerivedQuantity))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(DerivedQuantity)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["parametric_sensitivity", "reduced_hessian",
+            "parameter_covariance", "parameter_interval", "propagated_covariance"] }
+        )
+    }
+}
+impl core::str::FromStr for DerivedQuantity {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "parametric_sensitivity" => Ok(Self::ParametricSensitivity),
+            "reduced_hessian" => Ok(Self::ReducedHessian),
+            "parameter_covariance" => Ok(Self::ParameterCovariance),
+            "parameter_interval" => Ok(Self::ParameterInterval),
+            "propagated_covariance" => Ok(Self::PropagatedCovariance),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(DerivedQuantity).to_owned(),
+                    enumeration: stringify!(DerivedQuantity).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
     }
 }
 /// A vocabulary owned by its source type; the registry declares its members.
@@ -2065,6 +2275,9 @@ pub enum DualQualification {
     ///not_applicable_parameter
     #[serde(rename = "not_applicable_parameter")]
     NotApplicableParameter,
+    ///sensitivity_certified
+    #[serde(rename = "sensitivity_certified")]
+    SensitivityCertified,
 }
 impl crate::SemanticEq for DualQualification {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -2073,11 +2286,12 @@ impl crate::SemanticEq for DualQualification {
 }
 impl DualQualification {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
+    pub const ALL: [Self; 5usize] = [
         Self::EvaluatedKktNotSensitivityCertified,
         Self::UnavailableOrInvalid,
         Self::Unavailable,
         Self::NotApplicableParameter,
+        Self::SensitivityCertified,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -2088,6 +2302,7 @@ impl DualQualification {
             Self::UnavailableOrInvalid => "unavailable_or_invalid",
             Self::Unavailable => "unavailable",
             Self::NotApplicableParameter => "not_applicable_parameter",
+            Self::SensitivityCertified => "sensitivity_certified",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -2097,6 +2312,7 @@ impl DualQualification {
             Self::UnavailableOrInvalid => 1usize,
             Self::Unavailable => 2usize,
             Self::NotApplicableParameter => 3usize,
+            Self::SensitivityCertified => 4usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -2111,6 +2327,7 @@ impl DualQualification {
             Self::UnavailableOrInvalid => None,
             Self::Unavailable => None,
             Self::NotApplicableParameter => None,
+            Self::SensitivityCertified => None,
         }
     }
 }
@@ -2126,7 +2343,8 @@ impl schemars::JsonSchema for DualQualification {
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["evaluated_kkt_not_sensitivity_certified",
-            "unavailable_or_invalid", "unavailable", "not_applicable_parameter"] }
+            "unavailable_or_invalid", "unavailable", "not_applicable_parameter",
+            "sensitivity_certified"] }
         )
     }
 }
@@ -2140,6 +2358,7 @@ impl core::str::FromStr for DualQualification {
             "unavailable_or_invalid" => Ok(Self::UnavailableOrInvalid),
             "unavailable" => Ok(Self::Unavailable),
             "not_applicable_parameter" => Ok(Self::NotApplicableParameter),
+            "sensitivity_certified" => Ok(Self::SensitivityCertified),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(DualQualification).to_owned(),
@@ -3550,6 +3769,186 @@ impl core::str::FromStr for InputConsumptionKind {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(InputConsumptionKind).to_owned(),
                     enumeration: stringify!(InputConsumptionKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum IntervalEnd {
+    ///The interval's lower end.
+    #[serde(rename = "lower")]
+    Lower,
+    ///The interval's upper end.
+    #[serde(rename = "upper")]
+    Upper,
+}
+impl crate::SemanticEq for IntervalEnd {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl IntervalEnd {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Lower, Self::Upper];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Lower => "lower",
+            Self::Upper => "upper",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Lower => 0usize,
+            Self::Upper => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Lower => None,
+            Self::Upper => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for IntervalEnd {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(IntervalEnd))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(IntervalEnd)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["lower", "upper"] })
+    }
+}
+impl core::str::FromStr for IntervalEnd {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "lower" => Ok(Self::Lower),
+            "upper" => Ok(Self::Upper),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(IntervalEnd).to_owned(),
+                    enumeration: stringify!(IntervalEnd).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum IntervalMethod {
+    ///A Wald interval from the covariance and a quantile.
+    #[serde(rename = "wald")]
+    Wald,
+    ///A profile-likelihood interval from adaptive pin chains.
+    #[serde(rename = "profile_likelihood")]
+    ProfileLikelihood,
+}
+impl crate::SemanticEq for IntervalMethod {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl IntervalMethod {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Wald, Self::ProfileLikelihood];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Wald => "wald",
+            Self::ProfileLikelihood => "profile_likelihood",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Wald => 0usize,
+            Self::ProfileLikelihood => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Wald => None,
+            Self::ProfileLikelihood => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for IntervalMethod {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(IntervalMethod))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(IntervalMethod)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["wald", "profile_likelihood"] }
+        )
+    }
+}
+impl core::str::FromStr for IntervalMethod {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "wald" => Ok(Self::Wald),
+            "profile_likelihood" => Ok(Self::ProfileLikelihood),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(IntervalMethod).to_owned(),
+                    enumeration: stringify!(IntervalMethod).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -13442,6 +13841,200 @@ impl crate::SemanticFrame for WeightNormalization {
         hash.str(self.as_str());
     }
 }
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum WithheldReason {
+    ///No candidate was observed in original coordinates.
+    #[serde(rename = "no_candidate")]
+    NoCandidate,
+    ///The route ran no KKT-point analysis at its candidate: a coefficient, cone or root route, or a global incumbent adopted without the fixed-assignment re-solve.
+    #[serde(rename = "no_local_analysis")]
+    NoLocalAnalysis,
+    ///A multiplier of some original row or bound is missing or failed recovery, postsolve included.
+    #[serde(rename = "multipliers_unrecovered")]
+    MultipliersUnrecovered,
+    ///The recovered multipliers fail original-coordinate complementarity.
+    #[serde(rename = "complementarity_failed")]
+    ComplementarityFailed,
+    ///The candidate is not qualified stationary or better in original coordinates.
+    #[serde(rename = "not_stationary")]
+    NotStationary,
+    ///The KKT-point analysis produced no point: no exact Hessian, the entry ceiling, or a failed evaluation or factorization.
+    #[serde(rename = "analysis_unavailable")]
+    AnalysisUnavailable,
+    ///The active constraint gradients are linearly dependent.
+    #[serde(rename = "licq_failed")]
+    LicqFailed,
+    ///An active constraint's multiplier is within the dual budget of zero: strict complementarity fails.
+    #[serde(rename = "weakly_active")]
+    WeaklyActive,
+    ///Second-order sufficiency does not hold at the candidate.
+    #[serde(rename = "second_order_failed")]
+    SecondOrderFailed,
+    ///A backsolve or eigen-decomposition against the KKT factor failed.
+    #[serde(rename = "backsolve_failed")]
+    BacksolveFailed,
+    ///The fit's responses do not have full rank: a parameter combination is unidentifiable.
+    #[serde(rename = "rank_deficient")]
+    RankDeficient,
+    ///An included observation has no declared standard deviation.
+    #[serde(rename = "undeclared_deviation")]
+    UndeclaredDeviation,
+    ///An included observation has an importance weight other than one.
+    #[serde(rename = "nonunit_importance")]
+    NonunitImportance,
+    ///A quantity this one is computed from was withheld.
+    #[serde(rename = "upstream_withheld")]
+    UpstreamWithheld,
+}
+impl crate::SemanticEq for WithheldReason {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl WithheldReason {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 14usize] = [
+        Self::NoCandidate,
+        Self::NoLocalAnalysis,
+        Self::MultipliersUnrecovered,
+        Self::ComplementarityFailed,
+        Self::NotStationary,
+        Self::AnalysisUnavailable,
+        Self::LicqFailed,
+        Self::WeaklyActive,
+        Self::SecondOrderFailed,
+        Self::BacksolveFailed,
+        Self::RankDeficient,
+        Self::UndeclaredDeviation,
+        Self::NonunitImportance,
+        Self::UpstreamWithheld,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::NoCandidate => "no_candidate",
+            Self::NoLocalAnalysis => "no_local_analysis",
+            Self::MultipliersUnrecovered => "multipliers_unrecovered",
+            Self::ComplementarityFailed => "complementarity_failed",
+            Self::NotStationary => "not_stationary",
+            Self::AnalysisUnavailable => "analysis_unavailable",
+            Self::LicqFailed => "licq_failed",
+            Self::WeaklyActive => "weakly_active",
+            Self::SecondOrderFailed => "second_order_failed",
+            Self::BacksolveFailed => "backsolve_failed",
+            Self::RankDeficient => "rank_deficient",
+            Self::UndeclaredDeviation => "undeclared_deviation",
+            Self::NonunitImportance => "nonunit_importance",
+            Self::UpstreamWithheld => "upstream_withheld",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::NoCandidate => 0usize,
+            Self::NoLocalAnalysis => 1usize,
+            Self::MultipliersUnrecovered => 2usize,
+            Self::ComplementarityFailed => 3usize,
+            Self::NotStationary => 4usize,
+            Self::AnalysisUnavailable => 5usize,
+            Self::LicqFailed => 6usize,
+            Self::WeaklyActive => 7usize,
+            Self::SecondOrderFailed => 8usize,
+            Self::BacksolveFailed => 9usize,
+            Self::RankDeficient => 10usize,
+            Self::UndeclaredDeviation => 11usize,
+            Self::NonunitImportance => 12usize,
+            Self::UpstreamWithheld => 13usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::NoCandidate => None,
+            Self::NoLocalAnalysis => None,
+            Self::MultipliersUnrecovered => None,
+            Self::ComplementarityFailed => None,
+            Self::NotStationary => None,
+            Self::AnalysisUnavailable => None,
+            Self::LicqFailed => None,
+            Self::WeaklyActive => None,
+            Self::SecondOrderFailed => None,
+            Self::BacksolveFailed => None,
+            Self::RankDeficient => None,
+            Self::UndeclaredDeviation => None,
+            Self::NonunitImportance => None,
+            Self::UpstreamWithheld => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for WithheldReason {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(WithheldReason))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(WithheldReason)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["no_candidate", "no_local_analysis",
+            "multipliers_unrecovered", "complementarity_failed", "not_stationary",
+            "analysis_unavailable", "licq_failed", "weakly_active",
+            "second_order_failed", "backsolve_failed", "rank_deficient",
+            "undeclared_deviation", "nonunit_importance", "upstream_withheld"] }
+        )
+    }
+}
+impl core::str::FromStr for WithheldReason {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "no_candidate" => Ok(Self::NoCandidate),
+            "no_local_analysis" => Ok(Self::NoLocalAnalysis),
+            "multipliers_unrecovered" => Ok(Self::MultipliersUnrecovered),
+            "complementarity_failed" => Ok(Self::ComplementarityFailed),
+            "not_stationary" => Ok(Self::NotStationary),
+            "analysis_unavailable" => Ok(Self::AnalysisUnavailable),
+            "licq_failed" => Ok(Self::LicqFailed),
+            "weakly_active" => Ok(Self::WeaklyActive),
+            "second_order_failed" => Ok(Self::SecondOrderFailed),
+            "backsolve_failed" => Ok(Self::BacksolveFailed),
+            "rank_deficient" => Ok(Self::RankDeficient),
+            "undeclared_deviation" => Ok(Self::UndeclaredDeviation),
+            "nonunit_importance" => Ok(Self::NonunitImportance),
+            "upstream_withheld" => Ok(Self::UpstreamWithheld),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(WithheldReason).to_owned(),
+                    enumeration: stringify!(WithheldReason).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
 impl crate::HeapUsage for ArtifactReconstruction {
     fn heap_bytes(&self) -> usize {
         0
@@ -13588,6 +14181,26 @@ impl crate::HeapUsage for ConstraintScalingScheme {
     }
 }
 impl crate::SemanticFrame for ConstraintScalingScheme {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for CovarianceApproximation {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for CovarianceApproximation {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for DerivedQuantity {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for DerivedQuantity {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -13758,6 +14371,26 @@ impl crate::HeapUsage for InputConsumptionKind {
     }
 }
 impl crate::SemanticFrame for InputConsumptionKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for IntervalEnd {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for IntervalEnd {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for IntervalMethod {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for IntervalMethod {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -14548,6 +15181,16 @@ impl crate::HeapUsage for TruthValue {
     }
 }
 impl crate::SemanticFrame for TruthValue {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for WithheldReason {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for WithheldReason {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

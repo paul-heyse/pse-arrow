@@ -29,6 +29,8 @@ pub mod r#fit_variables;
 ///Generated relation contract.
 pub mod r#infeasibility_certificates;
 ///Generated relation contract.
+pub mod r#local_validity;
+///Generated relation contract.
 pub mod r#maintenance_outcomes;
 ///Generated relation contract.
 pub mod r#modeling_checks;
@@ -101,7 +103,11 @@ pub mod r#operational_study_points;
 ///Generated relation contract.
 pub mod r#operational_workspaces;
 ///Generated relation contract.
+pub mod r#parametric_sensitivities;
+///Generated relation contract.
 pub mod r#publication_manifests;
+///Generated relation contract.
+pub mod r#reduced_hessians;
 ///Generated relation contract.
 pub mod r#resolved_numerics;
 ///Generated relation contract.

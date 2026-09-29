@@ -72,6 +72,7 @@ pub use modeling::{
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
 #[cfg(test)]
 mod durable_tests;
+mod local_analysis;
 mod modeling_results;
 mod publication;
 mod reading;

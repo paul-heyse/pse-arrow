@@ -600,6 +600,48 @@ impl CompilerWorkspace {
     }
 }
 
+impl PreparedModeling {
+    /// Identity of the parametric projection of the view keyed `view` over `parameters`, in
+    /// request order (A6, DP-09): the view's complete identity and the ordered parameter
+    /// coordinates. Equal keys give equal parametric plans and artifact requests.
+    pub fn parametric_key(view: &ContentHash, parameters: &[SemanticId]) -> ContentHash {
+        let mut h = FramedHasher::new(pse_ids::Frame::CompilerModelingParametricV1);
+        h.hash(view).u64(parameters.len() as u64);
+        for parameter in parameters {
+            h.id(parameter);
+        }
+        h.finish_hash()
+    }
+}
+
+impl CompilerWorkspace {
+    /// The parametric projection of a prepared solver view (Plan 22 S1): the view's plan
+    /// with its objective and rows, its free columns followed by `parameters` as derivative
+    /// coordinates at second order ([`CasePlan::parametric`]), and the artifact requests
+    /// that compile it. It depends on no value, like the view it projects, so one program
+    /// serves every value rebind of that view; the runtime caches it under
+    /// [`PreparedModeling::parametric_key`].
+    ///
+    /// # Errors
+    /// An empty, repeated or undeclared parameter, or cancellation.
+    pub fn prepare_modeling_parametric(
+        &self,
+        view: &PreparedCase,
+        parameters: &[SemanticId],
+        profile: Profile,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<PreparedFunctions> {
+        let plan = Arc::new(
+            view.plan
+                .parametric(parameters, &self.inputs.quantities, cancel)?,
+        );
+        Ok(PreparedFunctions {
+            artifacts: artifact_requests(&plan, profile, self.inventory.environment(&self.db)),
+            plan,
+        })
+    }
+}
+
 impl CompilerWorkspace {
     /// Structural index-one eligibility uses the existing library matching owner;
     /// a successful matching is not a numerical nonsingularity claim.

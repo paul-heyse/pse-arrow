@@ -1360,6 +1360,10 @@ pub struct Evidence {
     /// The requested KKT-point analysis of an NLP candidate (L-N6, PS-12), or why it
     /// produced none; `None` when none was requested or no candidate was observed.
     pub local: Option<crate::kkt::Local>,
+    /// The derived quantities of a parametric sensitivity request (Plan 22 S1), each
+    /// computed or withheld with its reason; `None` when none was requested or the step
+    /// ended before its analysis.
+    pub sensitivity: Option<crate::kkt::Parametric>,
     /// Global bound evidence of a certifying adapter.
     pub global: Option<GlobalEvidence>,
 }

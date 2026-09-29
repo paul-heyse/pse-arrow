@@ -54,6 +54,49 @@ pub struct SolveSettings {
     /// Relative eigenvalue budget of a numerical convexity assessment.
     #[serde(default)]
     pub convexity_relative: Option<f64>,
+    /// Parametric sensitivities to compute at the candidate of an optimization (Plan 22
+    /// S1); absent computes none. An absent request is not encoded, so a document without
+    /// one keeps its identity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sensitivity: Option<SensitivityRequest>,
+}
+
+/// A request for the parametric sensitivities of an optimization's local solution with
+/// respect to declared parameters (Plan 22 S1; ADR-0118). They are computed from the
+/// KKT-point analysis at the qualified candidate, in original coordinates and physical
+/// units, and each is published with its validity: certified, or withheld with the
+/// condition that failed.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SensitivityRequest {
+    /// Declared parameters of the solved case by identity, in the order results report
+    /// them; at least one, none repeated.
+    pub parameters: Vec<pse_ids::SemanticId>,
+    /// Also compute the reduced Hessian over the parameters: the second derivative of the
+    /// optimal value.
+    #[serde(default)]
+    pub reduced_hessian: bool,
+}
+impl SensitivityRequest {
+    /// Admit the request for a solve of `intent`: an optimization, and distinct parameters.
+    ///
+    /// # Errors
+    /// A contract error naming the violated rule.
+    pub fn admit(&self, intent: SolveIntent) -> Result<(), ProblemError> {
+        if intent != SolveIntent::Optimize {
+            return Err(ProblemError::Contract(format!(
+                "parametric sensitivities differentiate an optimum, not a {} solve",
+                intent.as_str()
+            )));
+        }
+        let distinct: BTreeSet<_> = self.parameters.iter().collect();
+        if self.parameters.is_empty() || distinct.len() != self.parameters.len() {
+            return Err(ProblemError::Contract(
+                "a sensitivity request names at least one parameter, none repeated".into(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 mod defaults {
@@ -82,6 +125,7 @@ impl Default for SolveSettings {
             numerics: NumericalPolicy::default(),
             convexity_absolute: None,
             convexity_relative: None,
+            sensitivity: None,
         }
     }
 }
@@ -89,7 +133,8 @@ impl Default for SolveSettings {
 impl SolveSettings {
     /// The solver profile these settings state, after the rules that relate fields:
     /// presolve options and required passes only with an explicit policy, finite controls,
-    /// independent acceptance budgets, and both or neither convexity budget.
+    /// independent acceptance budgets, both or neither convexity budget, and a sensitivity
+    /// request only for an optimization.
     ///
     /// # Errors
     /// A typed refusal naming the violated rule.
@@ -101,6 +146,9 @@ impl SolveSettings {
             .map_err(|e| ProblemError::Contract(e.to_string()))?;
         let convexity =
             ConvexityPolicy::from_tolerances(self.convexity_absolute, self.convexity_relative)?;
+        if let Some(request) = &self.sensitivity {
+            request.admit(self.intent)?;
+        }
         Ok(SolverProfile {
             presolve,
             numerics: self.numerics,
@@ -111,6 +159,7 @@ impl SolveSettings {
                 .map_or(SolverSelection::Auto, SolverSelection::Explicit),
             controls: self.controls,
             backend: BackendSettings::from_document(self.settings),
+            sensitivity: self.sensitivity,
         })
     }
 }
@@ -159,6 +208,50 @@ mod tests {
         let profile = back.profile().unwrap();
         assert_eq!(profile.intent, SolverProfile::default().intent);
         assert_eq!(profile.controls, Controls::default());
+    }
+
+    /// A sensitivity request is a typed field of the settings document (Plan 22 S1): it
+    /// decodes with the parameter identities it names, enters the profile and its request
+    /// identity, and is refused for a solve that optimizes nothing, a repeated parameter or
+    /// an unknown field.
+    #[test]
+    fn sensitivity_request_in_solve_settings() {
+        let (a, b) = (
+            pse_ids::SemanticId::from_bytes([1; 16]),
+            pse_ids::SemanticId::from_bytes([2; 16]),
+        );
+        let settings: SolveSettings = serde_json::from_value(json!({
+            "version": 1,
+            "sensitivity": {"parameters": [a, b], "reduced_hessian": true},
+        }))
+        .unwrap();
+        let request = SensitivityRequest {
+            parameters: vec![a, b],
+            reduced_hessian: true,
+        };
+        assert_eq!(settings.sensitivity, Some(request.clone()));
+        let profile = settings.profile().unwrap();
+        assert_eq!(profile.sensitivity, Some(request));
+        let plain = SolveSettings::default().profile().unwrap();
+        assert_ne!(
+            super::super::solves::profile_key(&profile).unwrap(),
+            super::super::solves::profile_key(&plain).unwrap()
+        );
+        for refused in [
+            json!({"version": 1, "intent": "root", "sensitivity": {"parameters": [a]}}),
+            json!({"version": 1, "sensitivity": {"parameters": [a, a]}}),
+            json!({"version": 1, "sensitivity": {"parameters": []}}),
+        ] {
+            let settings: SolveSettings = serde_json::from_value(refused.clone()).unwrap();
+            assert!(settings.profile().is_err(), "{refused}");
+        }
+        assert!(
+            serde_json::from_value::<SolveSettings>(json!({
+                "version": 1,
+                "sensitivity": {"parameters": [a], "gradient": true},
+            }))
+            .is_err()
+        );
     }
 
     /// A value outside its single-value domain is refused where the document is decoded,

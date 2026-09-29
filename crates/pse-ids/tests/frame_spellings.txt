@@ -129,3 +129,5 @@ pse.durable.study_request.v1
 # its identity is framed anew. dynamic.profile.v4 replaces dynamic.profile.v3, which is no
 # longer declared.
 pse.dynamic.profile.v4
+# Plan 22 S1: the parametric projection of a prepared modeling view (A6 cache key).
+pse.compiler.modeling-parametric.v1

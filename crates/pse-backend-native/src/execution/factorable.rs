@@ -582,11 +582,33 @@ pub struct Resolve<'a> {
     pub presolve: &'a presolve::Policy,
     /// Presolve dimension ceiling.
     pub limit: usize,
+    /// The sensitivity request of an optimizing re-solve, conditional on its assignment
+    /// like its multipliers (ADR-0118 item 4).
+    pub sensitivity: Option<ResolveSensitivity<'a>>,
 }
 impl std::fmt::Debug for Resolve<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Resolve")
             .field("limit", &self.limit)
+            .field("sensitivity", &self.sensitivity)
+            .finish_non_exhaustive()
+    }
+}
+/// A parametric sensitivity request of the fixed-assignment re-solve (Plan 22 S1).
+pub struct ResolveSensitivity<'a> {
+    /// Builds the parametric callbacks ([`crate::kkt::Sensitivity::oracle`]) with the given
+    /// columns fixed at the given values, as the re-solve's callbacks are.
+    pub oracle: &'a mut FixedOracle<'a>,
+    /// Each parameter's identity and value, in request order.
+    pub parameters: Vec<(SemanticId, f64)>,
+    /// Also compute the reduced Hessian over the parameters.
+    pub reduced_hessian: bool,
+}
+impl std::fmt::Debug for ResolveSensitivity<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ResolveSensitivity")
+            .field("parameters", &self.parameters)
+            .field("reduced_hessian", &self.reduced_hessian)
             .finish_non_exhaustive()
     }
 }
@@ -933,9 +955,14 @@ fn fixed_assignment(
         .filter(|(_, e)| !e.enforced(&start))
         .map(|(r, _)| r)
         .collect();
-    if !relaxed.is_empty() {
-        oracle = Box::new(Unconstrained::new(oracle, &relaxed)?);
-    }
+    let unconstrained = |oracle: Box<dyn NlpOracle>| -> Result<Box<dyn NlpOracle>, ProblemError> {
+        Ok(if relaxed.is_empty() {
+            oracle
+        } else {
+            Box::new(crate::transform::Unconstrained::new(oracle, &relaxed)?)
+        })
+    };
+    oracle = unconstrained(oracle)?;
     let equalities = oracle
         .constraint_bounds()
         .iter()
@@ -995,6 +1022,31 @@ fn fixed_assignment(
         compatibility: compatibility.clone(),
         payload: adapter.primal_start(start.clone())?,
     };
+    // A feasibility re-solve has no objective to differentiate. Parametric callbacks that
+    // cannot be built withhold the sensitivities; they never refuse the re-solve.
+    let (sensitivity, unbuilt) = match resolve.sensitivity {
+        Some(request) if intent == SolveIntent::Optimize => {
+            match (request.oracle)(&assignment).and_then(unconstrained) {
+                Ok(oracle) => (
+                    Some(crate::kkt::Sensitivity {
+                        oracle,
+                        parameters: request.parameters,
+                        reduced_hessian: request.reduced_hessian,
+                    }),
+                    None,
+                ),
+                Err(cause) => (
+                    None,
+                    Some(crate::kkt::Parametric::withheld(
+                        request.parameters.iter().map(|(id, _)| *id).collect(),
+                        request.reduced_hessian,
+                        crate::kkt::Withheld::Analysis(cause.into()),
+                    )),
+                ),
+            }
+        }
+        _ => (None, None),
+    };
     nlp(
         Step {
             adapter,
@@ -1018,11 +1070,21 @@ fn fixed_assignment(
                 .as_ref()
                 .map_or(ObjectiveSense::Minimize, |o| o.sense),
             limit: resolve.limit,
-            // The standing analysis of the re-solve's purpose; its point, like its
-            // multipliers, is conditional on the assignment.
-            analysis: super::Analysis::for_intent(intent),
+            // The standing analysis of the re-solve's purpose and the requested
+            // sensitivities; its point, like its multipliers, is conditional on the
+            // assignment.
+            analysis: super::Analysis {
+                sensitivity,
+                ..super::Analysis::for_intent(intent)
+            },
         },
     )
+    .map(|mut report| {
+        if unbuilt.is_some() {
+            report.evidence.sensitivity = unbuilt;
+        }
+        report
+    })
 }
 /// Adopt the re-solve's candidate when it met its tolerances, re-observed against the
 /// original model with the declared box and integrality; returns whether it was adopted.
@@ -1069,12 +1131,29 @@ fn adopt(
     // The re-solve analysed the original rows and columns of this report; its local
     // analysis is conditional on the assignment, like its multipliers.
     let aligned = resolved.rows == report.rows && resolved.variables == report.variables;
+    let misaligned = || {
+        crate::kkt::Unavailable::Failed(std::sync::Arc::new(ProblemError::internal(
+            "the re-solve's rows or columns differ from the program's",
+        )))
+    };
     report.evidence.local = if aligned {
         resolved.evidence.local
     } else {
-        Some(Err(crate::kkt::Unavailable::Failed(std::sync::Arc::new(
-            ProblemError::internal("the re-solve's rows or columns differ from the program's"),
-        ))))
+        Some(Err(misaligned()))
+    };
+    // Its sensitivities are conditional on the assignment in the same way.
+    report.evidence.sensitivity = if aligned {
+        resolved.evidence.sensitivity
+    } else {
+        resolved.evidence.sensitivity.map(|p| {
+            let withheld = crate::kkt::Withheld::Analysis(misaligned());
+            crate::kkt::Parametric {
+                point: None,
+                sensitivities: Err(withheld.clone()),
+                reduced_hessian: p.reduced_hessian.map(|_| Err(withheld)),
+                ..p
+            }
+        })
     };
     report.preprocessing = resolved.preprocessing;
     observe(report, plan, original, step.tolerances);
@@ -1085,68 +1164,4 @@ fn adopt(
         observation.dual_error = local.dual_error;
     }
     true
-}
-
-/// NLP callbacks with the bounds of some rows removed: the rows a discrete assignment
-/// leaves unenforced. Proofs tied to the original row bounds are not forwarded.
-#[derive(Debug)]
-struct Unconstrained {
-    inner: Box<dyn NlpOracle>,
-    bounds: Vec<(f64, f64)>,
-}
-impl Unconstrained {
-    fn new(inner: Box<dyn NlpOracle>, rows: &[usize]) -> Result<Self, ProblemError> {
-        let mut bounds = inner.constraint_bounds().to_vec();
-        for r in rows {
-            *bounds
-                .get_mut(*r)
-                .ok_or_else(|| ProblemError::Internal("unconstrained row ordinal".into()))? =
-                (f64::NEG_INFINITY, f64::INFINITY);
-        }
-        Ok(Self { inner, bounds })
-    }
-}
-impl NlpOracle for Unconstrained {
-    fn normalization(&self) -> Option<&pse_math::normalization::Normalization> {
-        self.inner.normalization()
-    }
-    fn constraint_sources(&self) -> Result<Vec<pse_math::assembly::OutputValue>, ProblemError> {
-        self.inner.constraint_sources()
-    }
-    fn derivative_facts(&self) -> crate::DerivativeFacts {
-        self.inner.derivative_facts()
-    }
-    fn contract(&self) -> &crate::OracleContract {
-        self.inner.contract()
-    }
-    fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
-        self.inner.jacobian_pattern()
-    }
-    fn hessian_pattern(&self) -> Option<faer::sparse::SymbolicSparseColMatRef<'_, usize>> {
-        self.inner.hessian_pattern()
-    }
-    fn constraint_bounds(&self) -> &[(f64, f64)] {
-        &self.bounds
-    }
-    fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
-        self.inner.objective(x)
-    }
-    fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        self.inner.constraints(x, out)
-    }
-    fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        self.inner.gradient(x, out)
-    }
-    fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        self.inner.jacobian(x, out)
-    }
-    fn hessian(
-        &mut self,
-        x: &[f64],
-        objective_weight: f64,
-        multipliers: &[f64],
-        out: &mut [f64],
-    ) -> Result<(), ProblemError> {
-        self.inner.hessian(x, objective_weight, multipliers, out)
-    }
 }

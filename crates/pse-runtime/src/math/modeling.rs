@@ -388,6 +388,46 @@ impl MathService {
         let (prepared, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         self.assemble_functions(prepared, lease, driver).await
     }
+    /// Compile the parametric program of a prepared solver view over `parameters`, in
+    /// request order (Plan 22 S1), through the compiler and artifact cache. It depends on no
+    /// value, so one program serves every value rebind of the view (A6).
+    pub async fn prepare_modeling_parametric(
+        self: &Arc<Self>,
+        workspace: Workspace,
+        view: super::Preparation,
+        parameters: Vec<SemanticId>,
+        profile: pse_compiler::workspace::Profile,
+        driver: &crate::CancelSource,
+    ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
+        let control = FlightCancellation::default();
+        let foreign = self.policy.foreign_bytes;
+        let operation = self.job_retained(
+            1,
+            self.policy.workspace_bytes,
+            control.clone(),
+            move |flag| {
+                let _lease = workspace.lease;
+                let compiler = workspace.compiler.lock().map_err(|_| {
+                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
+                })?;
+                let prepared = compiler.prepare_modeling_parametric(
+                    view.compiled(),
+                    &parameters,
+                    profile,
+                    &flag,
+                )?;
+                let bytes = prepared
+                    .plan
+                    .retained_bytes()
+                    .checked_add(foreign)
+                    .ok_or(MathRuntimeError::Limit("parametric program extent"))?;
+                Ok((prepared, bytes))
+            },
+        );
+        tokio::pin!(operation);
+        let (prepared, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        self.assemble_functions(prepared, lease, driver).await
+    }
     /// Compile a value-independent observation program for `rows` through the compiler
     /// and artifact cache. Every evaluation binds its own values (A6).
     pub async fn prepare_modeling_observations(

@@ -30,6 +30,12 @@
 //! second-order sufficiency under strict complementarity. When weakly active constraints
 //! exist, the same assembly with their rows released (couplings removed, diagonal `−1`)
 //! tests the null space of the strongly active constraints, which contains the cone.
+//!
+//! **Sensitivities.** A sensitivity request (Plan 22 S1) runs the same analysis over the
+//! solve's model with the requested parameters appended as pinned columns, after the report
+//! is qualified, and reads the parametric step, the optimal value's derivatives and the
+//! reduced Hessian from that factor through `pounce-sens-core` (the `sensitivity` module).
+//! Each quantity is computed or withheld with its typed reason.
 use crate::{
     NlpOracle, ProblemError,
     quality::{self, Observation, Tolerances},
@@ -42,18 +48,26 @@ use pse_math::{
 };
 use std::sync::Arc;
 
+mod sensitivity;
+pub use sensitivity::{Parametric, ReducedHessian, Sensitivities, Sensitivity, Withheld};
+pub(crate) use sensitivity::derive;
+
 /// What the local analysis of an NLP step computes at its candidate. The caller selects it
 /// (PS-11); the runner never derives it from the model or the intent.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default)]
 pub struct Analysis {
     /// The KKT-point analysis of an optimizing candidate: activity, LICQ, second-order
     /// curvature, inertia, the condition estimate and the backsolve residual.
     pub second_order: bool,
+    /// Parametric sensitivities and, on request, the reduced Hessian over the named
+    /// parameters (Plan 22 S1).
+    pub sensitivity: Option<Sensitivity>,
 }
 impl Analysis {
     /// No analysis.
     pub const NONE: Self = Self {
         second_order: false,
+        sensitivity: None,
     };
     /// The standing selection for a solve of `intent`: the KKT-point analysis for an
     /// optimization, and none for the feasibility purposes, which solve a constant
@@ -61,6 +75,7 @@ impl Analysis {
     pub fn for_intent(intent: SolveIntent) -> Self {
         Self {
             second_order: intent == SolveIntent::Optimize,
+            sensitivity: None,
         }
     }
 }
@@ -289,6 +304,42 @@ impl KktFactor {
     /// Where each variable and active constraint sits.
     pub fn layout(&self) -> &Layout {
         &self.layout
+    }
+    /// The coordinate scale `S_x` of an original column.
+    pub fn column_scale(&self, col: OriginalCol) -> f64 {
+        self.scales[col.get()]
+    }
+    /// The objective nominal `S_f`.
+    pub fn objective_scale(&self) -> f64 {
+        self.objective
+    }
+    /// The same factor answering in normalized coordinates: `K̃ w = r` solved directly.
+    pub fn normalized(&self) -> NormalizedFactor {
+        NormalizedFactor(self.clone())
+    }
+}
+/// A [`KktFactor`] answering in the normalized coordinates of the matrix it factored,
+/// `K̃ = P·K·P / S_f`, where every active bound row is a unit row. A quantity read from it
+/// is dimensionless under the declared coordinate scales.
+#[derive(Clone, Debug)]
+pub struct NormalizedFactor(KktFactor);
+impl SensBacksolver for NormalizedFactor {
+    fn dim(&self) -> usize {
+        self.0.dim()
+    }
+    fn solve(&self, rhs: &[f64], lhs: &mut [f64]) -> bool {
+        let n = self.dim();
+        if rhs.len() != n || lhs.len() != n {
+            return false;
+        }
+        let Ok(w) = self.0.solver.solve_refined(&self.0.matrix, rhs) else {
+            return false;
+        };
+        if w.len() != n {
+            return false;
+        }
+        lhs.copy_from_slice(&w);
+        lhs.iter().all(|v| v.is_finite())
     }
 }
 impl SensBacksolver for KktFactor {

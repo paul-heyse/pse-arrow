@@ -84,6 +84,7 @@ pub(crate) fn profile(backend: Backend, optimize: bool) -> SolverProfile {
         selection: SolverSelection::Explicit(backend),
         controls: Controls::default(),
         backend: BackendSettings::Default,
+        sensitivity: None,
     }
 }
 pub(crate) fn variable(result: &RunResult, id: SemanticId) -> f64 {

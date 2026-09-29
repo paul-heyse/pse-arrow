@@ -4,9 +4,154 @@
 
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#structures::{
-    MemberDescriptorSelectionRevision, MemberDescriptorSelection,
+    LocalValidity, MemberDescriptorSelectionRevision, MemberDescriptorSelection,
     MemberDescriptorSelectionSelected, MemberDescriptor, VersionWindow,
 };
+impl crate::columnar::ArrowValue for LocalValidity {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#certified,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#reason, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#detail, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#conditional,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#licq, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#strict_complementarity,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#second_order,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#weakly_active,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#condition_1norm,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#residual,
+            children[9usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <bool as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Option<
+            crate::generated::enums::WithheldReason,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            bool,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            bool,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            bool,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#certified: <bool as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#reason: <Option<
+                crate::generated::enums::WithheldReason,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#detail: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#conditional: <bool as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#licq: <Option<
+                bool,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#strict_complementarity: <Option<
+                bool,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#second_order: <Option<
+                bool,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#weakly_active: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#condition_1norm: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#residual: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 impl crate::columnar::ArrowValue for MemberDescriptorSelectionRevision {
     fn append(
         &self,

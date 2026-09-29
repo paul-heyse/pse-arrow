@@ -193,11 +193,28 @@ class ConversionKind(StrEnum):
     KERNEL = "kernel"
 
 
+class CovarianceApproximation(StrEnum):
+    """The declared CovarianceApproximation enumeration."""
+
+    EXACT = "exact"
+    GAUSS_NEWTON = "gauss_newton"
+
+
 class DerivationGranularity(StrEnum):
     """The declared DerivationGranularity enumeration."""
 
     ROW = "row"
     RULE = "rule"
+
+
+class DerivedQuantity(StrEnum):
+    """The declared DerivedQuantity enumeration."""
+
+    PARAMETRIC_SENSITIVITY = "parametric_sensitivity"
+    REDUCED_HESSIAN = "reduced_hessian"
+    PARAMETER_COVARIANCE = "parameter_covariance"
+    PARAMETER_INTERVAL = "parameter_interval"
+    PROPAGATED_COVARIANCE = "propagated_covariance"
 
 
 class Determinism(StrEnum):
@@ -312,6 +329,7 @@ class DualQualification(StrEnum):
     UNAVAILABLE_OR_INVALID = "unavailable_or_invalid"
     UNAVAILABLE = "unavailable"
     NOT_APPLICABLE_PARAMETER = "not_applicable_parameter"
+    SENSITIVITY_CERTIFIED = "sensitivity_certified"
 
 
 class DynamicsMethod(StrEnum):
@@ -455,6 +473,20 @@ class InputConsumptionKind(StrEnum):
 
     WHOLE = "whole"
     COLUMNS = "columns"
+
+
+class IntervalEnd(StrEnum):
+    """The declared IntervalEnd enumeration."""
+
+    LOWER = "lower"
+    UPPER = "upper"
+
+
+class IntervalMethod(StrEnum):
+    """The declared IntervalMethod enumeration."""
+
+    WALD = "wald"
+    PROFILE_LIKELIHOOD = "profile_likelihood"
 
 
 class InvariantKind(StrEnum):
@@ -1471,6 +1503,25 @@ class WeightNormalization(StrEnum):
 
     DIVIDE_BY_SUM = "divide_by_sum"
     CERTIFIED_UNIT_SUM = "certified_unit_sum"
+
+
+class WithheldReason(StrEnum):
+    """The declared WithheldReason enumeration."""
+
+    NO_CANDIDATE = "no_candidate"
+    NO_LOCAL_ANALYSIS = "no_local_analysis"
+    MULTIPLIERS_UNRECOVERED = "multipliers_unrecovered"
+    COMPLEMENTARITY_FAILED = "complementarity_failed"
+    NOT_STATIONARY = "not_stationary"
+    ANALYSIS_UNAVAILABLE = "analysis_unavailable"
+    LICQ_FAILED = "licq_failed"
+    WEAKLY_ACTIVE = "weakly_active"
+    SECOND_ORDER_FAILED = "second_order_failed"
+    BACKSOLVE_FAILED = "backsolve_failed"
+    RANK_DEFICIENT = "rank_deficient"
+    UNDECLARED_DEVIATION = "undeclared_deviation"
+    NONUNIT_IMPORTANCE = "nonunit_importance"
+    UPSTREAM_WITHHELD = "upstream_withheld"
 
 
 IDAES_NAMES: dict[str, tuple[str, dict[str, str]]] = {

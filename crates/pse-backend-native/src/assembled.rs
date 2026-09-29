@@ -319,26 +319,41 @@ impl NleOracle for AlgebraicOracle {
         copy(&result, out)
     }
 }
-/// Native contract preserves every selected variable/row, including isolated vertices.
+/// Native contract preserves every selected variable/row, including isolated vertices. Its
+/// columns are the plan's columns, in order: the free variables with their declared boxes
+/// and, for a parametric plan ([`CasePlan::parametric`]), the parameter coordinates, which
+/// declare no box. A parameter coordinate is unbounded in these callbacks; the KKT-point
+/// analysis pins it at its value ([`crate::transform::Pinned`]) and nothing solves for it.
 pub fn contract(assembly: &CasePlan) -> OracleContract {
+    let declared: std::collections::BTreeMap<_, _> = assembly
+        .structure()
+        .variables()
+        .iter()
+        .map(|v| (v.port.id, v))
+        .collect();
     OracleContract {
         identity: assembly.structure().key(),
         variables: assembly
-            .structure()
-            .variables()
+            .columns()
             .iter()
-            .filter(|v| !v.fixed)
-            .map(|v| Variable {
-                id: v.port.id,
-                lower: if v.domain == ModelingVariableDomain::Binary {
-                    v.lower.unwrap_or(0.0).max(0.0)
-                } else {
-                    v.lower.unwrap_or(f64::NEG_INFINITY)
+            .map(|id| match declared.get(id) {
+                Some(v) => Variable {
+                    id: *id,
+                    lower: if v.domain == ModelingVariableDomain::Binary {
+                        v.lower.unwrap_or(0.0).max(0.0)
+                    } else {
+                        v.lower.unwrap_or(f64::NEG_INFINITY)
+                    },
+                    upper: if v.domain == ModelingVariableDomain::Binary {
+                        v.upper.unwrap_or(1.0).min(1.0)
+                    } else {
+                        v.upper.unwrap_or(f64::INFINITY)
+                    },
                 },
-                upper: if v.domain == ModelingVariableDomain::Binary {
-                    v.upper.unwrap_or(1.0).min(1.0)
-                } else {
-                    v.upper.unwrap_or(f64::INFINITY)
+                None => Variable {
+                    id: *id,
+                    lower: f64::NEG_INFINITY,
+                    upper: f64::INFINITY,
                 },
             })
             .collect(),
