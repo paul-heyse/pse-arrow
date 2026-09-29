@@ -518,8 +518,8 @@ baseline with its command and conditions.
 
 | Step | Packets | State |
 |---|---|---|
-| W7 | ADR-0118–ADR-0121; DOCS-a; R82874 → S0; Y0a → Y0b → Y4a → Y0c backend; C4; M2a → G6r kernel | running: ADR-0118–ADR-0121 accepted and merged (`68f4ea6d`); DOCS-a and T-N, T-Y, T-C, T-L running |
-| W8 | S1; Y3a → Y3b; G-semi → epigraph → G4r → G8f; ENV → C3 authoring → M5a | not started |
+| W7 | ADR-0118–ADR-0121; DOCS-a; R82874 → S0; Y0a → Y0b → Y4a → Y0c backend; C4; M2a → G6r kernel | complete: decision records `68f4ea6d`, DOCS-a `5143f567`, R82874 and S0 `407103b1`, C4 `7cffc2e9`, Y0a–Y0c `fbd03320`, M2a and G6r kernel `4e0d2107` |
+| W8 | S1; Y3a → Y3b; G-semi → epigraph → G4r → G8f; ENV → C3 authoring → M5a | running: S1 (T-N), Y3a → Y3b (T-Y), ENV → C3 authoring → M5a (T-L), and T-G with G6r tests and the SCIP follow-ups pulled forward from W10 |
 | W9 | S3 → S4; Y4b → Y5b; C5 → M5b → N5; M2b → M2c → C3 engine | not started |
 | W10 | G6r tests, PC-SAFT, SCIP concurrency; Y0c kernel and Y0d; Y5a | not started |
 | W11 | Y5c1 → Y5c2 | not started |
@@ -547,6 +547,20 @@ beside the worktrees; it is coordination scaffolding and is not tracked.
 - F05 is settled in ADR-0121 itself: an explicit numerical-convexity request stays a per-request routing input.
 
 Blueprint revision 69. `just adr-lint` exits 0 on `main`.
+
+**W7 complete; build infrastructure changed (2026-09-29).**
+- **Code tracks.** T-N, T-C, T-Y and T-L merged through a warm scratch worktree. Generated conflicts were resolved by regenerating from the merged registry (`codegen-contracts`, then `codegen`) plus `conformance-fixtures`. The only semantic conflict was C4's routing test literal missing Y4a's `least_squares`.
+- **Compiler cache** (`b3fa3141`). Shared sccache hits across checkouts were 0% for Rust, because every checkout exported an absolute `CARGO_TARGET_DIR` and sccache keys `CARGO_*` env. The recipe environment no longer exports the default.
+- **Toolchain and features** (ADR-0122, merge `a75bcf71`): pinned nightly-2026-09-29, `-Z feature-unification` with `feature-unification = "workspace"`, and cargo-hakari (`pse-workspace-hack`). Distinct builds of symbolica, datafusion and arrow-array across the seven recipe selections drop from 7 to 4.
+- **Shared build directory rejected.** It was tried and dropped: Cargo keys workspace members by workspace-relative path with mtime freshness, so diverging worktrees reused each other's units. Intermediates stay per checkout.
+- **Validation.** Compile checks only, by maintainer direction.
+- **Solver image.** The dev stage now bakes the pinned nightly. Re-publication run 36514323160 is in flight, and then the pin moves.
+- **Follow-ups carried:**
+  - the `libmkl_rt.so` alias and `MKL_PARDISO_PATH` move into the image, replacing C4's runtime environment write;
+  - fetching HiGHS rays automatically on an infeasible LP;
+  - the declared-analysis path and fixture intent (T-L W7 report);
+  - hakari's hand-kept skip list (arrow, the native-solver crates, pse-ids, pse-diagnostics, diffsol-la);
+  - nothing compiles on the stable 1.98.1 floor any more.
 
 **Next:** in dependency order:
 1. the decision records;
