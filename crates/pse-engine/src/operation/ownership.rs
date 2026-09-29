@@ -17,8 +17,12 @@ use datafusion::{
         stream::RecordBatchStreamAdapter,
     },
 };
+use crate::cache_service::load::PredicateGuard;
 use futures_util::StreamExt;
-use std::{fmt, sync::Arc};
+use std::{
+    fmt,
+    sync::{Arc, Weak},
+};
 
 /// Retain a supplied resource owner and native predicate-cache budget.
 pub fn provider(
@@ -37,11 +41,7 @@ pub fn execution(
     inner: Arc<dyn ExecutionPlan>,
     owner: Arc<dyn ExecutionOwner>,
 ) -> Arc<dyn ExecutionPlan> {
-    Arc::new(RetainedExec {
-        inner,
-        lease: owner,
-        predicate_bytes: 0,
-    })
+    Arc::new(RetainedExec::new(inner, owner, 0))
 }
 /// The wrapper is reset-transparent; eligibility still checks the actual child.
 pub fn supports_reset(plan: &dyn ExecutionPlan) -> bool {
@@ -84,11 +84,11 @@ impl TableProvider for RetainedProvider {
         limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let inner = self.inner.scan(state, projection, filters, limit).await?;
-        Ok(Arc::new(RetainedExec {
+        Ok(Arc::new(RetainedExec::new(
             inner,
-            lease: Arc::clone(&self.lease),
-            predicate_bytes: self.predicate_bytes,
-        }))
+            Arc::clone(&self.lease),
+            self.predicate_bytes,
+        )))
     }
     async fn scan_with_args<'a>(
         &self,
@@ -97,11 +97,7 @@ impl TableProvider for RetainedProvider {
     ) -> Result<datafusion::catalog::ScanResult> {
         let inner = self.inner.scan_with_args(state, args).await?.into_inner();
         Ok(datafusion::catalog::ScanResult::new(Arc::new(
-            RetainedExec {
-                inner,
-                lease: Arc::clone(&self.lease),
-                predicate_bytes: self.predicate_bytes,
-            },
+            RetainedExec::new(inner, Arc::clone(&self.lease), self.predicate_bytes),
         )))
     }
 }
@@ -111,6 +107,84 @@ struct RetainedExec {
     inner: Arc<dyn ExecutionPlan>,
     lease: Arc<dyn ExecutionOwner>,
     predicate_bytes: usize,
+    /// Each live execution's reader admission, keyed by its task context: every output
+    /// partition of one execution shares the admission of its actual native readers.
+    admissions: std::sync::Mutex<Vec<Admission>>,
+}
+/// One execution's admitted Parquet reader allowance, retained by its partition streams.
+type Admission = (Weak<TaskContext>, Weak<ReaderAllowance>);
+/// The predicate caches of an execution's actual Parquet readers: an active and a
+/// prefetched file each, admitted in aggregate and charged to the memory pool.
+#[derive(Debug)]
+struct ReaderAllowance {
+    _predicate: PredicateGuard,
+    _reservation: datafusion::execution::memory_pool::MemoryReservation,
+}
+impl RetainedExec {
+    fn new(
+        inner: Arc<dyn ExecutionPlan>,
+        lease: Arc<dyn ExecutionOwner>,
+        predicate_bytes: usize,
+    ) -> Self {
+        Self {
+            inner,
+            lease,
+            predicate_bytes,
+            admissions: std::sync::Mutex::default(),
+        }
+    }
+    /// The execution's reader allowance: admitted by its first partition, shared by the
+    /// others. Round-robin fan-out above a reader adds output partitions, not readers.
+    fn allowance(&self, context: &Arc<TaskContext>) -> Result<Option<Arc<ReaderAllowance>>> {
+        if self.predicate_bytes == 0 {
+            return Ok(None);
+        }
+        let mut admissions = self
+            .admissions
+            .lock()
+            .map_err(|_| DataFusionError::Internal("reader admission lock poisoned".into()))?;
+        admissions.retain(|(_, allowance)| allowance.strong_count() > 0);
+        if let Some(allowance) = admissions
+            .iter()
+            .find(|(owner, _)| std::ptr::eq(owner.as_ptr(), Arc::as_ptr(context)))
+            .and_then(|(_, allowance)| allowance.upgrade())
+        {
+            return Ok(Some(allowance));
+        }
+        let bytes = reader_partitions(&self.inner)
+            .checked_mul(self.predicate_bytes)
+            .and_then(|bytes| bytes.checked_mul(2))
+            .ok_or_else(|| {
+                DataFusionError::ResourcesExhausted("predicate reader extent overflow".into())
+            })?;
+        let service = context
+            .session_config()
+            .get_extension::<crate::cache_service::NativeCacheService>()
+            .ok_or_else(|| {
+                DataFusionError::Plan("predicate cache requires its aggregate admission owner".into())
+            })?;
+        let predicate = service.admit_predicates(bytes)?;
+        let reservation =
+            datafusion::execution::memory_pool::MemoryConsumer::new("pse.parquet.predicate_cache")
+                .register(&context.runtime_env().memory_pool);
+        reservation.try_grow(bytes)?;
+        let allowance = Arc::new(ReaderAllowance {
+            _predicate: predicate,
+            _reservation: reservation,
+        });
+        admissions.push((Arc::downgrade(context), Arc::downgrade(&allowance)));
+        Ok(Some(allowance))
+    }
+}
+/// Native reader partitions: the output partitions of the plan's leaf sources, however
+/// many output partitions the operators above them fan out to.
+fn reader_partitions(plan: &Arc<dyn ExecutionPlan>) -> usize {
+    let children = plan.children();
+    if children.is_empty() {
+        plan.properties().output_partitioning().partition_count()
+    } else {
+        children.into_iter().map(reader_partitions).sum()
+    }
 }
 impl DisplayAs for RetainedExec {
     fn fmt_as(&self, _: DisplayFormatType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -128,11 +202,7 @@ impl ExecutionPlan for RetainedExec {
         self.inner
             .with_fetch(limit)
             .map(|inner| -> Arc<dyn ExecutionPlan> {
-                Arc::new(Self {
-                    inner,
-                    lease: self.lease.clone(),
-                    predicate_bytes: self.predicate_bytes,
-                })
+                Arc::new(Self::new(inner, self.lease.clone(), self.predicate_bytes))
             })
     }
     fn fetch(&self) -> Option<usize> {
@@ -154,11 +224,11 @@ impl ExecutionPlan for RetainedExec {
         let [inner]: [Arc<dyn ExecutionPlan>; 1] = children.try_into().map_err(|_| {
             DataFusionError::Plan("Delta reader lease requires one native child".into())
         })?;
-        Ok(Arc::new(Self {
+        Ok(Arc::new(Self::new(
             inner,
-            lease: Arc::clone(&self.lease),
-            predicate_bytes: self.predicate_bytes,
-        }))
+            Arc::clone(&self.lease),
+            self.predicate_bytes,
+        )))
     }
     fn maintains_input_order(&self) -> Vec<bool> {
         vec![true]
@@ -235,34 +305,71 @@ impl ExecutionPlan for RetainedExec {
         partition: usize,
         context: Arc<TaskContext>,
     ) -> Result<SendableRecordBatchStream> {
-        let reservation =
-            datafusion::execution::memory_pool::MemoryConsumer::new("pse.parquet.predicate_cache")
-                .register(&context.runtime_env().memory_pool);
-        let bytes = self.predicate_bytes.checked_mul(2).ok_or_else(|| {
-            DataFusionError::ResourcesExhausted("predicate reader extent overflow".into())
-        })?;
-        let predicate = if bytes == 0 {
-            None
-        } else {
-            let service = context
-                .session_config()
-                .get_extension::<crate::cache_service::NativeCacheService>()
-                .ok_or_else(|| {
-                    DataFusionError::Plan(
-                        "predicate cache requires its aggregate admission owner".into(),
-                    )
-                })?;
-            Some(service.admit_predicates(bytes)?)
-        };
-        reservation.try_grow(bytes)?;
+        let allowance = self.allowance(&context)?;
         let stream = self.inner.execute(partition, context)?;
         let lease = Arc::clone(&self.lease);
         Ok(Box::pin(RecordBatchStreamAdapter::new(
             self.schema(),
             stream.map(move |batch| {
-                let _retained = (&lease, &reservation, &predicate);
+                let _retained = (&lease, &allowance);
                 batch
             }),
         )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use datafusion::{
+        arrow::{
+            array::{Int64Array, RecordBatch},
+            datatypes::{DataType, Field, Schema},
+        },
+        datasource::memory::MemorySourceConfig,
+        execution::memory_pool::{GreedyMemoryPool, MemoryPool},
+        physical_plan::{Partitioning, repartition::RepartitionExec},
+        prelude::{SessionConfig, SessionContext},
+    };
+
+    fn execution(service: &Arc<crate::cache_service::NativeCacheService>) -> Arc<TaskContext> {
+        SessionContext::new_with_config(SessionConfig::new().with_extension(Arc::clone(service)))
+            .task_ctx()
+    }
+
+    #[test]
+    fn reader_lease_admits_actual_reader_partitions_once_per_execution() {
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(1 << 20));
+        let mut policy = crate::cache_service::CacheBudget::disabled(1);
+        policy.predicate_cache_bytes = 64;
+        // Exactly one reader's active and prefetched file.
+        policy.predicate_total_bytes = 128;
+        let service = crate::cache_service::NativeCacheService::new(policy, &pool).unwrap();
+        let schema = Arc::new(Schema::new(vec![Field::new("v", DataType::Int64, false)]));
+        let batch =
+            RecordBatch::try_new(schema.clone(), vec![Arc::new(Int64Array::from(vec![1, 2]))])
+                .unwrap();
+        let reader = MemorySourceConfig::try_new_exec(&[vec![batch]], schema, None).unwrap();
+        // One native reader fanned out round-robin to four output partitions.
+        let fanned =
+            Arc::new(RepartitionExec::try_new(reader, Partitioning::RoundRobinBatch(4)).unwrap());
+        let lease = RetainedExec::new(fanned, Arc::new(()), 64);
+        assert_eq!(lease.properties().output_partitioning().partition_count(), 4);
+        assert_eq!(reader_partitions(&lease.inner), 1);
+        // Every output partition of one execution shares its one reader's allowance.
+        let first = execution(&service);
+        let streams = (0..4)
+            .map(|partition| lease.execute(partition, Arc::clone(&first)))
+            .collect::<Result<Vec<_>>>()
+            .unwrap();
+        // Another execution admits its own readers: refused while the first holds them.
+        let second = execution(&service);
+        assert!(matches!(
+            lease.execute(0, Arc::clone(&second)),
+            Err(DataFusionError::ResourcesExhausted(_))
+        ));
+        // The allowance lives with the first execution's streams.
+        drop(streams);
+        drop(lease.execute(0, second).unwrap());
     }
 }
