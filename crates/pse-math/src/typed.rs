@@ -54,6 +54,84 @@ impl TypedValue {
     }
 }
 
+/// One maximal product, quotient and exact-power subtree of admitted operands, typed as
+/// a whole (ADR-0124). Each node keeps its source occurrence for domain diagnostics.
+#[derive(Clone, Debug)]
+pub enum ChainTree {
+    /// An admitted factor.
+    Leaf(TypedValue),
+    /// Ordered product.
+    Mul(Box<ChainTree>, Box<ChainTree>, SemanticId),
+    /// Ordered quotient; the divisor acquires a nonzero requirement.
+    Div(Box<ChainTree>, Box<ChainTree>, SemanticId),
+    /// Exact rational power of a subtree.
+    Pow {
+        /// The base subtree.
+        base: Box<ChainTree>,
+        /// The exact exponent fact.
+        exponent: Ratio,
+        /// The admitted exponent value, which must equal the fact.
+        power: TypedValue,
+        /// Source occurrence.
+        source: SemanticId,
+    },
+}
+impl ChainTree {
+    fn operations(&self) -> usize {
+        match self {
+            Self::Leaf(_) => 0,
+            Self::Mul(left, right, _) | Self::Div(left, right, _) => {
+                1 + left.operations() + right.operations()
+            }
+            Self::Pow { base, .. } => 1 + base.operations(),
+        }
+    }
+    fn check_degrees(&self) -> Result<(), MathError> {
+        match self {
+            Self::Leaf(_) => Ok(()),
+            Self::Mul(left, right, _) | Self::Div(left, right, _) => {
+                left.check_degrees()?;
+                right.check_degrees()
+            }
+            Self::Pow { base, exponent, .. } => {
+                if exponent.den() == 1 && exponent.num().unsigned_abs() > 1024 {
+                    return Err(MathError::Limit("integral power degree"));
+                }
+                base.check_degrees()
+            }
+        }
+    }
+    fn quantity_chain(&self) -> infer::Chain<'_> {
+        fn operand(value: &TypedValue) -> Operand<'_> {
+            Operand {
+                quantity_type: value.quantity,
+                indices: &value.indices,
+            }
+        }
+        match self {
+            Self::Leaf(value) => infer::Chain::Leaf(operand(value)),
+            Self::Mul(left, right, _) => infer::Chain::Mul(
+                Box::new(left.quantity_chain()),
+                Box::new(right.quantity_chain()),
+            ),
+            Self::Div(left, right, _) => infer::Chain::Div(
+                Box::new(left.quantity_chain()),
+                Box::new(right.quantity_chain()),
+            ),
+            Self::Pow {
+                base,
+                exponent,
+                power,
+                ..
+            } => infer::Chain::Pow {
+                base: Box::new(base.quantity_chain()),
+                exponent: *exponent,
+                power: operand(power),
+            },
+        }
+    }
+}
+
 /// Source arithmetic distinction retained until physical inference has completed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Binary {
@@ -521,22 +599,111 @@ impl<'a> BodyBuilder<'a> {
         });
         Ok(slot)
     }
-    /// Admit ordered physical arithmetic, then normalize with Symbolica.
+    /// Admit ordered physical arithmetic, then normalize with Symbolica. A product,
+    /// quotient or exact power is typed as a (two-factor) multiplicative chain
+    /// (ADR-0124); a caller lowering a larger product passes the whole subtree to
+    /// [`Self::chain`].
     /// # Errors
     /// Incompatible physical contracts or unsupported real power facts.
     pub fn binary(
         &mut self,
         op: Binary,
-        mut left: TypedValue,
-        mut right: TypedValue,
+        left: TypedValue,
+        right: TypedValue,
         exponent: Option<Ratio>,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
-        if op == Binary::Pow
-            && exponent.is_some_and(|r| r.den() == 1 && r.num().unsigned_abs() > 1024)
-        {
-            return Err(MathError::Limit("integral power degree"));
+        let leaf = |value| Box::new(ChainTree::Leaf(value));
+        match (op, exponent) {
+            (Binary::Mul, _) => return self.chain(ChainTree::Mul(leaf(left), leaf(right), source)),
+            (Binary::Div, _) => return self.chain(ChainTree::Div(leaf(left), leaf(right), source)),
+            (Binary::Pow, Some(exponent)) => {
+                return self.chain(ChainTree::Pow {
+                    base: leaf(left),
+                    exponent,
+                    power: right,
+                    source,
+                });
+            }
+            _ => {}
         }
+        let request = match op {
+            Binary::Add => OpRequest::Add,
+            Binary::Sub => OpRequest::Sub,
+            Binary::Mul => OpRequest::Mul,
+            Binary::Div => OpRequest::Div,
+            Binary::Pow => OpRequest::Pow {
+                exponent: Exponent::Symbolic,
+            },
+        };
+        let (quantity, indices) = self.result(request, &[&left, &right])?;
+        self.combine(op, left, right, None, (quantity, indices), source)
+    }
+    /// Admit one maximal product, quotient and exact-power subtree as a whole: the
+    /// registered rules and the canonical monomial type it together (ADR-0124), then
+    /// Symbolica builds each node with its domain requirements.
+    /// # Errors
+    /// Disagreeing or failed physical routes, unsupported power facts or exhausted budgets.
+    pub fn chain(&mut self, tree: ChainTree) -> Result<TypedValue, MathError> {
+        tree.check_degrees()?;
+        // One budgeted operation per product, quotient or power, as node by node.
+        for _ in 0..tree.operations() {
+            self.tick()?;
+        }
+        let (quantity, indices) = {
+            let chain = tree.quantity_chain();
+            let inferred = infer::infer_chain(&chain, self.registry, self.checker)?;
+            // Composition-dependent conversions need an explicit provider/model operation.
+            if !inferred.conversions.is_empty() {
+                return Err(MathError::Contract(
+                    "physical input conversion requires an explicit model operation".into(),
+                ));
+            }
+            (inferred.result, inferred.indices)
+        };
+        self.assemble(tree, &(quantity, indices))
+    }
+    fn assemble(
+        &mut self,
+        tree: ChainTree,
+        result: &(QuantityTypeId, IndexSet),
+    ) -> Result<TypedValue, MathError> {
+        let (op, left, right, exponent, source) = match tree {
+            ChainTree::Leaf(value) => return Ok(value),
+            ChainTree::Mul(left, right, source) => (Binary::Mul, *left, *right, None, source),
+            ChainTree::Div(left, right, source) => (Binary::Div, *left, *right, None, source),
+            ChainTree::Pow {
+                base,
+                exponent,
+                power,
+                source,
+            } => {
+                let base = self.assemble(*base, result)?;
+                return self.combine(
+                    Binary::Pow,
+                    base,
+                    power,
+                    Some(exponent),
+                    result.clone(),
+                    source,
+                );
+            }
+        };
+        let left = self.assemble(left, result)?;
+        let right = self.assemble(right, result)?;
+        self.combine(op, left, right, exponent, result.clone(), source)
+    }
+    /// Build one admitted node. Inner chain nodes carry the chain's result contract;
+    /// only the root's is observable.
+    fn combine(
+        &mut self,
+        op: Binary,
+        mut left: TypedValue,
+        mut right: TypedValue,
+        exponent: Option<Ratio>,
+        (quantity, indices): (QuantityTypeId, IndexSet),
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
         if !self.physical_only
             && op == Binary::Pow
             && let Some(ratio) = exponent
@@ -548,16 +715,6 @@ impl<'a> BodyBuilder<'a> {
                 ));
             }
         }
-        let request = match op {
-            Binary::Add => OpRequest::Add,
-            Binary::Sub => OpRequest::Sub,
-            Binary::Mul => OpRequest::Mul,
-            Binary::Div => OpRequest::Div,
-            Binary::Pow => OpRequest::Pow {
-                exponent: exponent.map_or(Exponent::Symbolic, Exponent::Rational),
-            },
-        };
-        let (quantity, indices) = self.result(request, &[&left, &right])?;
         if self.physical_only {
             return Ok(TypedValue {
                 effects: left.effects.union(&right.effects).copied().collect(),

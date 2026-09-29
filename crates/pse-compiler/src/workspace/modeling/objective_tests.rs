@@ -379,10 +379,12 @@ fn dimensional_weighted_sum_refused() {
     );
     // A normalization divides the member through the package's quantity operations; a
     // kind without a declared ratio to itself cannot be normalized, and nothing invents one.
+    // No registered rule divides the datum-bearing power, and chain resolution refuses
+    // its point with a nonzero datum by name (ADR-0124).
     let (mut workspace, root) = setup(&source("b(maximize, weight = 0.5, normalization = 2{W})"));
     let error = prepare(&mut workspace, root, None).unwrap_err().to_string();
     assert!(
-        error.contains("no unique registered quantity operation"),
+        error.contains("nonzero datum") && error.contains("e1f2106da9eb4fe0aa2749fa5469fa1a"),
         "{error}"
     );
     // Normalized and weighted, the level minimizes 0.25·a − 0.5·c/2: the maximized

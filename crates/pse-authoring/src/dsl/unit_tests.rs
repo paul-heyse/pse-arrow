@@ -3,7 +3,6 @@
 
 //! Unit literals flatten into one canonical product whose identity is spelling-independent
 //! (ADR-0124, Plan 23 KR1).
-#![expect(clippy::unwrap_used, reason = "fixed literal unit fixtures")]
 
 use super::{ExprKind, parse_expr, render_expr};
 use pse_ids::SemanticId;

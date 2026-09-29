@@ -41,7 +41,6 @@ pse.math.guarded-real.v1
 pse.math.local-occurrence.v2
 pse.math.normalization.v1
 pse.math.normalized-facts.v1
-pse.math.physical-inventory.v3
 pse.math.physical-pass.v1
 pse.math.typed-definition.v2
 pse.modeling.consumer-body.v1
@@ -175,3 +174,7 @@ pse.presolve.transformation.v3
 # Plan 23 KR1 (ADR-0124 Units): a unit product's identity over its canonical atomic
 # factors, so a composite literal needs no registered whole unit.
 pse.quantity.unit-product.v1
+# Plan 23 KR2 (ADR-0124 Derived kinds): the physical inventory frames unit compositions and
+# derived-kind definitions. physical-inventory.v4 replaces physical-inventory.v3, which is no
+# longer declared.
+pse.math.physical-inventory.v4

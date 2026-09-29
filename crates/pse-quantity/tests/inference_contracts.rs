@@ -60,6 +60,7 @@ fn fixture(extra_rules: usize) -> QuantityRegistry {
         extensive: false,
         addition_kind: QuantityAdditionKind::OriginSensitive,
         category: None,
+        definition: None,
     });
     b.kind(QuantityKind {
         id: QuantityKindId::from_id(raw(2)),
@@ -67,6 +68,7 @@ fn fixture(extra_rules: usize) -> QuantityRegistry {
         extensive: false,
         addition_kind: QuantityAdditionKind::Additive,
         category: None,
+        definition: None,
     });
     b.kind(QuantityKind {
         id: QuantityKindId::from_id(raw(3)),
@@ -74,6 +76,7 @@ fn fixture(extra_rules: usize) -> QuantityRegistry {
         extensive: false,
         addition_kind: QuantityAdditionKind::Additive,
         category: None,
+        definition: None,
     });
     b.unit(Unit {
         id: UnitId::from_id(raw(3)),

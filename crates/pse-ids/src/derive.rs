@@ -194,8 +194,9 @@ frames! {
         MathArtifactV4 => "pse.math.artifact.v4",
         /// A local expression occurrence.
         MathLocalOccurrenceV2 => "pse.math.local-occurrence.v2",
-        /// A physical inventory.
-        MathPhysicalInventoryV3 => "pse.math.physical-inventory.v3",
+        /// A physical inventory, including unit compositions and derived-kind definitions
+        /// (ADR-0124).
+        MathPhysicalInventoryV4 => "pse.math.physical-inventory.v4",
         /// A physical reduction pass.
         MathPhysicalPassV1 => "pse.math.physical-pass.v1",
         /// A typed definition's admitted outputs.

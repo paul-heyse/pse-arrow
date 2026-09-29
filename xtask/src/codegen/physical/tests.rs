@@ -49,7 +49,16 @@ fn assert_quantities_equal(a: &QuantityRegistry, b: &QuantityRegistry) {
     assert_eq!(units(a), units(b));
     let kinds = |r: &QuantityRegistry| {
         r.kinds()
-            .map(|x| (x.id, x.dimension, x.extensive, x.addition_kind))
+            .map(|x| {
+                (
+                    x.id,
+                    x.dimension,
+                    x.extensive,
+                    x.addition_kind,
+                    x.category,
+                    x.definition.clone(),
+                )
+            })
             .collect::<Vec<_>>()
     };
     assert_eq!(kinds(a), kinds(b));

@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Unit algebra: composed literals, atomic and defined units (ADR-0124, Plan 23 KR1).
-#![expect(clippy::unwrap_used, reason = "fixed unit algebra fixtures")]
 
 use crate::literal::{LiteralContext, resolve_literal};
 use crate::*;
@@ -119,6 +118,7 @@ fn builder() -> QuantityRegistryBuilder {
             extensive: false,
             addition_kind: QuantityAdditionKind::Additive,
             category: None,
+            definition: None,
         })
         .quantity_type(QuantityType {
             id: QuantityTypeId::from_id(raw(MOLAR_CP)),

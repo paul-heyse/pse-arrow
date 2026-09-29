@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Quantity-polymorphic signatures use complete physical types and existing inference.
-use crate::infer::{Exponent, InvariantChecker, NoInvariantFacts, OpRequest, Operand};
+use crate::infer::{Chain, InvariantChecker, NoInvariantFacts, OpRequest, Operand};
 use crate::{IndexSet, QuantityRegistry, QuantityTypeId, Ratio};
 use std::collections::BTreeMap;
 
@@ -73,45 +73,47 @@ impl Scheme {
                 let id = value.resolve_with_evidence(registry, bindings, checker)?;
                 binary(registry, OpRequest::Sub, id, id, checker)
             }
-            Self::Product(a, b) => binary(
-                registry,
-                OpRequest::Mul,
-                a.resolve_with_evidence(registry, bindings, checker)?,
-                b.resolve_with_evidence(registry, bindings, checker)?,
-                checker,
-            ),
-            Self::Quotient(a, b) => binary(
-                registry,
-                OpRequest::Div,
-                a.resolve_with_evidence(registry, bindings, checker)?,
-                b.resolve_with_evidence(registry, bindings, checker)?,
-                checker,
-            ),
-            Self::Power(a, exponent) => {
+            // A product, quotient or power resolves as one maximal chain, by the
+            // registered rules and by its canonical monomial (ADR-0124).
+            Self::Product(..) | Self::Quotient(..) | Self::Power(..) => {
                 let indices = IndexSet::new();
-                let operand = Operand {
-                    quantity_type: a.resolve_with_evidence(registry, bindings, checker)?,
-                    indices: &indices,
-                };
-                let scalar = registry
-                    .neutral_dimensionless()
-                    .ok_or_else(|| bad("neutral exponent type absent".into()))?;
-                let power = Operand {
-                    quantity_type: scalar,
-                    indices: &indices,
-                };
-                crate::infer::infer_with_evidence(
-                    &OpRequest::Pow {
-                        exponent: Exponent::Rational(*exponent),
-                    },
-                    &[operand, power],
-                    registry,
-                    checker,
-                )
-                .map(|t| t.result)
-                .map_err(|e| bad(e.to_string()))
+                let chain = self.chain(registry, bindings, checker, &indices)?;
+                crate::infer::infer_chain(&chain, registry, checker)
+                    .map(|t| t.result)
+                    .map_err(|e| bad(e.to_string()))
             }
         }
+    }
+    fn chain<'a>(
+        &self,
+        registry: &QuantityRegistry,
+        bindings: &Substitution,
+        checker: &dyn InvariantChecker,
+        indices: &'a IndexSet,
+    ) -> Result<Chain<'a>, SchemeError> {
+        let node = |value: &Self| {
+            value
+                .chain(registry, bindings, checker, indices)
+                .map(Box::new)
+        };
+        Ok(match self {
+            Self::Product(a, b) => Chain::Mul(node(a)?, node(b)?),
+            Self::Quotient(a, b) => Chain::Div(node(a)?, node(b)?),
+            Self::Power(a, exponent) => Chain::Pow {
+                base: node(a)?,
+                exponent: *exponent,
+                power: Operand {
+                    quantity_type: registry.neutral_dimensionless().ok_or_else(|| {
+                        SchemeError::Contract("neutral exponent type absent".into())
+                    })?,
+                    indices,
+                },
+            },
+            leaf => Chain::Leaf(Operand {
+                quantity_type: leaf.resolve_with_evidence(registry, bindings, checker)?,
+                indices,
+            }),
+        })
     }
     /// Substitute complete schemes when checking one polymorphic function inside another.
     /// # Errors

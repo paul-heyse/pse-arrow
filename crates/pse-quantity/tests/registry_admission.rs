@@ -36,6 +36,7 @@ fn kind(n: u8) -> QuantityKind {
         extensive: false,
         addition_kind: QuantityAdditionKind::Additive,
         category: None,
+        definition: None,
     }
 }
 fn ty(n: u8) -> QuantityType {

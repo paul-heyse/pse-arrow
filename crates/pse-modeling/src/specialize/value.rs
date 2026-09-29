@@ -398,6 +398,68 @@ impl Evaluator<'_, '_> {
         self.stack.pop();
         value
     }
+    /// The complete type of a static arithmetic result, inferred at its root.
+    fn typed_result(&self, e: &Expr, result: f64, expected: Option<&Type>) -> Result<Value> {
+        let env = self
+            .env
+            .iter()
+            .filter_map(|(n, v)| value_type(v).map(|t| (n.clone(), t)))
+            .collect();
+        let ty =
+            crate::expression::infer(e, &env, self.package, self.physical, self.at, expected)?;
+        match ty {
+            Type::Quantity(Scheme::Concrete(quantity)) => Ok(Value::Number {
+                bits: result.to_bits(),
+                quantity,
+            }),
+            Type::Integer if result.fract() == 0.0 && result.abs() < i64::MAX as f64 => {
+                Ok(Value::Integer(result as i64))
+            }
+            _ => Err(invalid(self.at, "static arithmetic result type")),
+        }
+    }
+    /// The value of a multiplicative chain: exact when every factor is an integer.
+    fn chain_value(&mut self, e: &Expr, depth: usize) -> Result<Numeric> {
+        if depth > 64 {
+            return Err(invalid(self.at, "static expression depth"));
+        }
+        let ExprKind::Binary { op, lhs, rhs } = &e.kind else {
+            return Ok(match self.expr(e, None, depth)? {
+                Value::Integer(value) => Numeric::Integer(value),
+                other => Numeric::Real(other.scalar(self.at)?),
+            });
+        };
+        if !crate::expression::chain_operation(*op, rhs) {
+            return Ok(Numeric::Real(self.expr(e, None, depth)?.scalar(self.at)?));
+        }
+        let a = self.chain_value(lhs, depth + 1)?;
+        let b = if *op == BinaryOp::Pow {
+            let expected = matches!(a, Numeric::Integer(_)).then_some(Type::Integer);
+            match self.expr(rhs, expected.as_ref(), depth + 1)? {
+                Value::Integer(value) => Numeric::Integer(value),
+                other => Numeric::Real(other.scalar(self.at)?),
+            }
+        } else {
+            self.chain_value(rhs, depth + 1)?
+        };
+        if let (Numeric::Integer(x), Numeric::Integer(y)) = (a, b) {
+            let result = match op {
+                BinaryOp::Mul => x.checked_mul(y),
+                BinaryOp::Div if y != 0 && x.checked_rem(y) == Some(0) => x.checked_div(y),
+                BinaryOp::Pow => u32::try_from(y).ok().and_then(|y| x.checked_pow(y)),
+                _ => None,
+            };
+            return result.map(Numeric::Integer).ok_or_else(|| {
+                invalid(self.at, "integer arithmetic overflow or nonintegral result")
+            });
+        }
+        let (x, y) = (a.real(), b.real());
+        Ok(Numeric::Real(match op {
+            BinaryOp::Mul => x * y,
+            BinaryOp::Div => x / y,
+            _ => x.powf(y),
+        }))
+    }
     pub(crate) fn expr(
         &mut self,
         e: &Expr,
@@ -670,6 +732,22 @@ impl Evaluator<'_, '_> {
                     _ => Err(invalid(self.at, "numeric negation")),
                 }
             }
+            ExprKind::Binary { op, lhs, rhs }
+                if crate::expression::chain_operation(*op, rhs)
+                    && expected != Some(&Type::Integer) =>
+            {
+                // A maximal product, quotient and exact-power subtree is evaluated as a
+                // whole and typed once at its root (ADR-0124); its inner nodes have no
+                // type of their own.
+                let result = match self.chain_value(e, depth)? {
+                    Numeric::Integer(value) => return Ok(Value::Integer(value)),
+                    Numeric::Real(value) => value,
+                };
+                if !result.is_finite() {
+                    return Err(invalid(self.at, "nonfinite static arithmetic"));
+                }
+                self.typed_result(e, result, expected)
+            }
             ExprKind::Binary { op, lhs, rhs } => {
                 let additive = matches!(op, BinaryOp::Add | BinaryOp::Sub);
                 let operand_expected = if additive || expected == Some(&Type::Integer) {
@@ -713,29 +791,7 @@ impl Evaluator<'_, '_> {
                 if !result.is_finite() {
                     return Err(invalid(self.at, "nonfinite static arithmetic"));
                 }
-                let env = self
-                    .env
-                    .iter()
-                    .filter_map(|(n, v)| value_type(v).map(|t| (n.clone(), t)))
-                    .collect();
-                let ty = crate::expression::infer(
-                    e,
-                    &env,
-                    self.package,
-                    self.physical,
-                    self.at,
-                    expected,
-                )?;
-                match ty {
-                    Type::Quantity(Scheme::Concrete(quantity)) => Ok(Value::Number {
-                        bits: result.to_bits(),
-                        quantity,
-                    }),
-                    Type::Integer if result.fract() == 0.0 && result.abs() < i64::MAX as f64 => {
-                        Ok(Value::Integer(result as i64))
-                    }
-                    _ => Err(invalid(self.at, "static arithmetic result type")),
-                }
+                self.typed_result(e, result, expected)
             }
             ExprKind::Call { function, args } => {
                 if args.len() != 1 {
@@ -1198,6 +1254,20 @@ impl Evaluator<'_, '_> {
                 }
             }
             PredicateKind::Null => Err(invalid(self.at, "unknown static predicate")),
+        }
+    }
+}
+/// A static chain value before its root is typed.
+#[derive(Clone, Copy)]
+enum Numeric {
+    Integer(i64),
+    Real(f64),
+}
+impl Numeric {
+    fn real(self) -> f64 {
+        match self {
+            Self::Integer(value) => value as f64,
+            Self::Real(value) => value,
         }
     }
 }

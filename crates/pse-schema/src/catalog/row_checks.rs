@@ -56,6 +56,12 @@ pub(super) fn for_relation(namespace: Namespace, name: &str) -> BTreeMap<String,
                 ),
             ]);
         }
+        (Reference, "quantity_kinds") => (
+            "base_or_derived",
+            "(definition IS NULL) = (dimension IS NOT NULL) \
+             AND (definition IS NULL OR category IS NULL)"
+                .into(),
+        ),
         (Reference, "quantity_types") => (
             "positive_nominal",
             "nominal_magnitude IS NULL OR nominal_magnitude > 0".into(),

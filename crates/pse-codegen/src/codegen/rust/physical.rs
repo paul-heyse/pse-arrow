@@ -45,12 +45,19 @@ pub fn append_quantity_fixture(
         .kinds()
         .map(|value| {
             let id = values.typed_id("QuantityKindId", value.id.as_id());
-            let dimension = values.dimension(value.dimension);
             let extensive = value.extensive;
             let addition = enumeration("QuantityAdditionKind", value.addition_kind);
+            // A derived kind projects its definition only; admission derives its dimension.
+            if let Some(definition) = &value.definition {
+                let definition = values.kind_definition(definition);
+                return quote! { b.derived_kind(crate::DerivedKind { id: #id,
+                extensive: #extensive, addition_kind: #addition, definition: #definition }); };
+            }
+            let dimension = values.dimension(value.dimension);
             let category = optional_enum("QuantityKindCategory", value.category);
             quote! { b.kind(crate::QuantityKind { id: #id, dimension: #dimension,
-            extensive: #extensive, addition_kind: #addition, category: #category }); }
+            extensive: #extensive, addition_kind: #addition, category: #category,
+            definition: None }); }
         })
         .collect::<Vec<_>>();
     let bases = registry
@@ -267,6 +274,33 @@ impl FixtureValues {
         quote! { b.unit(crate::Unit { id: #id, symbol: #symbol.to_owned(), dimension: #dimension,
         scale_to_canonical: #scale, offset_to_canonical: #offset, is_affine: #affine,
         reference_state: #reference, definition: None }); }
+    }
+    fn kind_definition(&mut self, value: &pse_quantity::KindDefinition) -> TokenStream {
+        let monomial = value
+            .monomial
+            .iter()
+            .map(|factor| {
+                let kind = self.typed_id("QuantityKindId", factor.kind.as_id());
+                let num = i32::from(factor.exponent.num());
+                let den = i32::from(factor.exponent.den());
+                quote! { crate::KindFactor { kind: #kind, exponent: crate::Ratio::new(#num, #den)? } }
+            })
+            .collect::<Vec<_>>();
+        let unit = self.typed_id("UnitId", value.canonical_unit.as_id());
+        let basis = self.optional_id("BasisId", value.basis.map(pse_quantity::BasisId::as_id));
+        let reference = self.optional_id(
+            "ReferenceStateId",
+            value
+                .reference_state
+                .map(pse_quantity::ReferenceStateId::as_id),
+        );
+        let scale = enumeration("ScaleKind", value.scale_kind);
+        let subject = self.optional_id(
+            "EntityKindId",
+            value.subject_kind.map(pse_quantity::EntityKindId::as_id),
+        );
+        quote! { crate::KindDefinition { monomial: vec![#(#monomial),*], canonical_unit: #unit,
+        basis: #basis, reference_state: #reference, scale_kind: #scale, subject_kind: #subject } }
     }
     fn basis(&mut self, value: &pse_quantity::Basis) -> TokenStream {
         let id = self.typed_id("BasisId", value.id.as_id());

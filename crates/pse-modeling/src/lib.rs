@@ -514,6 +514,9 @@ pub(crate) fn invalid(id: impl Into<SemanticId>, message: impl Into<String>) -> 
 mod kernel_types;
 
 #[cfg(test)]
+mod kernel_chains;
+
+#[cfg(test)]
 mod kernel_continuous;
 #[cfg(test)]
 mod kernel_specialization;

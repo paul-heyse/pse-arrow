@@ -12,7 +12,7 @@ use pse_quantity::{
     InputConversion, InvariantId, OperationId, QuantityKind, QuantityKindId, QuantityOperation,
     QuantityRegistry, QuantityRegistryBuilder, QuantityType, QuantityTypeId, QuantityTypeKey,
     Ratio, ReferenceState, ReferenceStateId, Unit, UnitFactor, UnitId, UnitSet, UnitSetId,
-    DefinedUnit,
+    DefinedUnit, DerivedKind, KindDefinition, KindFactor,
 };
 use pse_relations::{
     columnar::FieldCheckedBatch,
@@ -150,13 +150,54 @@ pub(super) fn inventory(
         });
     });
     rows!(quantity_kinds, row, {
-        builder.kind(QuantityKind {
-            id: QuantityKindId::from_id(row.quantity_kind_id),
-            dimension: dimension(row.dimension)?,
-            extensive: row.extensive,
-            addition_kind: row.addition_kind,
-            category: row.category,
-        });
+        // Version three: a base kind authors its dimension; a derived kind authors its
+        // monomial, canonical unit and result policy, and admission derives its dimension
+        // (ADR-0124).
+        let id = QuantityKindId::from_id(row.quantity_kind_id);
+        match (row.definition, row.dimension) {
+            (None, Some(value)) => {
+                builder.kind(QuantityKind {
+                    id,
+                    dimension: dimension(value)?,
+                    extensive: row.extensive,
+                    addition_kind: row.addition_kind,
+                    category: row.category,
+                    definition: None,
+                });
+            }
+            (Some(definition), None) if row.category.is_none() => {
+                builder.derived_kind(DerivedKind {
+                    id,
+                    extensive: row.extensive,
+                    addition_kind: row.addition_kind,
+                    definition: KindDefinition {
+                        monomial: definition
+                            .monomial
+                            .into_iter()
+                            .map(|factor| {
+                                Ok(KindFactor {
+                                    kind: QuantityKindId::from_id(factor.quantity_kind_id),
+                                    exponent: Ratio::from_parts(factor.num, factor.den)
+                                        .map_err(pse_quantity::QuantityError::from)?,
+                                })
+                            })
+                            .collect::<Result<_, PhysicalError>>()?,
+                        canonical_unit: UnitId::from_id(definition.canonical_unit_id),
+                        basis: definition.basis_id.map(BasisId::from_id),
+                        reference_state: definition
+                            .reference_state_id
+                            .map(ReferenceStateId::from_id),
+                        scale_kind: definition.scale_kind,
+                        subject_kind: definition.subject_kind.map(EntityKindId::from_id),
+                    },
+                });
+            }
+            _ => {
+                return Err(invalid(format!(
+                    "quantity kind {id} must author either its dimension (base) or only its definition (derived)"
+                )));
+            }
+        }
     });
     rows!(bases, row, {
         builder.basis(Basis {

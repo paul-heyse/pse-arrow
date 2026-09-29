@@ -75,6 +75,8 @@ pub mod smoothing;
 pub mod standard;
 pub mod unit;
 #[cfg(test)]
+mod chain_tests;
+#[cfg(test)]
 mod unit_algebra_tests;
 pub mod unit_product;
 pub mod unit_set;
@@ -93,7 +95,7 @@ pub use crate::ids::{
     OperationId, QuantityKindId, QuantityTypeId, ReferenceStateId, UnitId, UnitSetId,
 };
 pub use crate::index::{BinderConflict, BoundIndexRef, IndexSet};
-pub use crate::kind::QuantityKind;
+pub use crate::kind::{DerivedKind, KindDefinition, KindFactor, QuantityKind};
 pub use crate::operation::{InputConversion, QuantityOperation};
 pub use crate::precondition::{PhysicalPrecondition, PhysicalRequirement};
 pub use crate::quantity_type::{QuantityType, QuantityTypeKey};

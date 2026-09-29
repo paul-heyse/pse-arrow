@@ -10,7 +10,7 @@ use pse_math::{
     MathError,
     binding::BodySpec,
     guarded::Comparison,
-    typed::{Binary, BodyBuilder, BodyLimits, Guard, TypedValue},
+    typed::{Binary, BodyBuilder, BodyLimits, ChainTree, Guard, TypedValue},
 };
 #[cfg(test)]
 use pse_math::{guarded::CompiledBody, library::Optimization};
@@ -393,6 +393,48 @@ impl Lower<'_, '_> {
         });
         Ok(id)
     }
+    /// One node of a multiplicative chain, with the occurrence and hash bookkeeping of
+    /// [`Self::expression_expected`]; any other expression is a factor.
+    fn chain_node(
+        &mut self,
+        expr: &Expr,
+        builder: &mut BodyBuilder<'_>,
+        depth: usize,
+    ) -> Result<ChainTree, MathError> {
+        match &expr.kind {
+            ExprKind::Binary { op, lhs, rhs } if chain_operation(*op, rhs) => {
+                let source = self.source(expr, depth)?;
+                self.chain_children(*op, lhs, rhs, builder, depth, source)
+            }
+            _ => Ok(ChainTree::Leaf(
+                self.expression_expected(expr, builder, depth, None)?,
+            )),
+        }
+    }
+    fn chain_children(
+        &mut self,
+        op: BinaryOp,
+        lhs: &Expr,
+        rhs: &Expr,
+        builder: &mut BodyBuilder<'_>,
+        depth: usize,
+        source: SemanticId,
+    ) -> Result<ChainTree, MathError> {
+        self.hash.str(op.as_str());
+        let left = Box::new(self.chain_node(lhs, builder, depth + 1)?);
+        Ok(match (op, literal_exponent(rhs)) {
+            (BinaryOp::Pow, Some(exponent)) => ChainTree::Pow {
+                base: left,
+                exponent,
+                power: self.expression_expected(rhs, builder, depth + 1, None)?,
+                source,
+            },
+            (BinaryOp::Div, _) => {
+                ChainTree::Div(left, Box::new(self.chain_node(rhs, builder, depth + 1)?), source)
+            }
+            _ => ChainTree::Mul(left, Box::new(self.chain_node(rhs, builder, depth + 1)?), source),
+        })
+    }
     fn expression(
         &mut self,
         expr: &Expr,
@@ -482,6 +524,12 @@ impl Lower<'_, '_> {
                 self.hash.str("neg");
                 let value = self.expression_expected(value, builder, depth + 1, expected)?;
                 builder.negate(value, source)
+            }
+            ExprKind::Binary { op, lhs, rhs } if chain_operation(*op, rhs) => {
+                // A maximal product, quotient and exact-power subtree is typed as one
+                // multiplicative chain (ADR-0124); its factors lower as before.
+                let tree = self.chain_children(*op, lhs, rhs, builder, depth, source)?;
+                builder.chain(tree)
             }
             ExprKind::Binary { op, lhs, rhs } => {
                 self.hash.str(op.as_str());
@@ -1301,6 +1349,14 @@ impl Lower<'_, '_> {
         }
     }
 }
+/// A product, a quotient or an exact literal power belongs to a multiplicative chain.
+fn chain_operation(op: BinaryOp, rhs: &Expr) -> bool {
+    match op {
+        BinaryOp::Mul | BinaryOp::Div => true,
+        BinaryOp::Pow => literal_exponent(rhs).is_some(),
+        BinaryOp::Add | BinaryOp::Sub => false,
+    }
+}
 fn literal_exponent(expression: &Expr) -> Option<Ratio> {
     match &expression.kind {
         ExprKind::Number(number)
@@ -1381,6 +1437,56 @@ mod tests {
             Optimization::default(),
             &Arc::new(AtomicBool::new(false)),
         )
+    }
+    /// A maximal product lowers as one chain typed by its canonical monomial (ADR-0124):
+    /// c3·t³/3 is a declared enthalpy increment although t³ alone names no kind.
+    #[test]
+    fn multiplicative_chains_lower_by_monomial() {
+        use pse_quantity::scheme::{Scheme, Substitution};
+        let registry = standard_registry().unwrap();
+        let quantity = |hex| QuantityTypeId::from_id(SemanticId::parse_hex(hex).unwrap());
+        let temperature = quantity("c64b96975a4a59755f8711d3bf628bc9");
+        let coefficient = Scheme::Quotient(
+            Box::new(Scheme::Concrete(quantity("cd653ba98fa94d16b5d66b363f21c3d6"))),
+            Box::new(Scheme::Power(
+                Box::new(Scheme::Concrete(temperature)),
+                Ratio::new(2, 1).unwrap(),
+            )),
+        )
+        .resolve_with_evidence(&registry, &Substitution::new(), &StandardInvariantChecker)
+        .unwrap();
+        let formals = [
+            Formal {
+                path: "c".into(),
+                quantity: coefficient,
+            },
+            Formal {
+                path: "t".into(),
+                quantity: temperature,
+            },
+        ];
+        let body = compile("c*t^3/3", &formals, DerivativeOrder::First).unwrap();
+        assert_eq!(
+            body.prepared.quantities,
+            [quantity("d5bb3d48b9804f2f8d5a6f0a7cadaee8")]
+        );
+        let jet = body
+            .worker()
+            .evaluate(
+                &[3.0, 10.0],
+                DerivativeOrder::First,
+                &mut BTreeMap::new(),
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        assert!((jet.values[0] - 1000.0).abs() < 1e-9, "{}", jet.values[0]);
+        let error = compile("t^3", &formals, DerivativeOrder::First)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("no declared quantity kind has the monomial"),
+            "{error}"
+        );
     }
     #[test]
     fn authored_power_literals_preserve_exact_facts_and_analytic_jets() {

@@ -146,7 +146,6 @@ impl std::fmt::Display for UnitProduct {
 }
 
 #[cfg(test)]
-#[expect(clippy::unwrap_used, reason = "fixed literal test products")]
 mod tests {
     use super::*;
 

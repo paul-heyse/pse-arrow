@@ -7,7 +7,7 @@
 //! participates in validity, type selection, or the proof that a conversion applies.
 use crate::basis::Basis;
 use crate::conversion::ConversionRule;
-use crate::kind::QuantityKind;
+use crate::kind::{DerivedKind, KindDefinition, KindFactor, QuantityKind};
 use crate::operation::QuantityOperation;
 use crate::quantity_type::{QuantityType, QuantityTypeKey};
 use crate::reference_state::ReferenceState;
@@ -30,6 +30,7 @@ pub struct QuantityRegistryBuilder {
     units: Vec<Unit>,
     defined_units: Vec<DefinedUnit>,
     kinds: Vec<QuantityKind>,
+    derived_kinds: Vec<DerivedKind>,
     bases: Vec<Basis>,
     reference_states: Vec<ReferenceState>,
     quantity_types: Vec<QuantityType>,
@@ -57,6 +58,7 @@ impl QuantityRegistryBuilder {
     add_declaration!(unit, units, Unit);
     add_declaration!(defined_unit, defined_units, DefinedUnit);
     add_declaration!(kind, kinds, QuantityKind);
+    add_declaration!(derived_kind, derived_kinds, DerivedKind);
     add_declaration!(basis, bases, Basis);
     add_declaration!(reference_state, reference_states, ReferenceState);
     add_declaration!(quantity_type, quantity_types, QuantityType);
@@ -102,10 +104,22 @@ impl QuantityRegistryBuilder {
         for unit in admit_defined(&units, self.defined_units)? {
             units.insert(unit.id, unit);
         }
+        let mut kinds = index(self.kinds, |x| x.id, "quantity_kind")?;
+        for kind in kinds.values() {
+            require(
+                kind.definition.is_none(),
+                "quantity_kind.base_declaration",
+                kind.id.as_id(),
+                "a kind with a monomial is declared as a derived kind",
+            )?;
+        }
+        for kind in admit_derived_kinds(&kinds, self.derived_kinds)? {
+            kinds.insert(kind.id, kind);
+        }
         let mut registry = QuantityRegistry {
             entity_kinds: index(self.entity_kinds, |x| x.id, "entity_kind")?,
             units,
-            kinds: index(self.kinds, |x| x.id, "quantity_kind")?,
+            kinds,
             bases: index(self.bases, |x| x.id, "basis")?,
             reference_states: index(self.reference_states, |x| x.id, "reference_state")?,
             quantity_types: index(self.quantity_types, |x| x.id, "quantity_type")?,
@@ -125,8 +139,14 @@ impl QuantityRegistryBuilder {
             by_symbol: BTreeMap::new(),
             by_opcode: BTreeMap::new(),
             by_conversion: BTreeMap::new(),
+            by_monomial: BTreeMap::new(),
         };
         registry.validate()?;
+        registry.by_monomial = registry
+            .kinds
+            .values()
+            .filter_map(|kind| Some((kind.definition.as_ref()?.monomial.clone(), kind.id)))
+            .collect();
         registry.by_key = registry
             .quantity_types
             .values()
@@ -171,6 +191,7 @@ pub struct QuantityRegistry {
     by_symbol: BTreeMap<String, UnitId>,
     by_opcode: BTreeMap<Opcode, Vec<OperationId>>,
     by_conversion: BTreeMap<(QuantityTypeId, QuantityTypeId), Vec<ConversionId>>,
+    by_monomial: BTreeMap<Vec<KindFactor>, QuantityKindId>,
 }
 macro_rules! lookup {
     ($method:ident, $field:ident, $id:ty, $ty:ty) => {
@@ -205,6 +226,7 @@ impl QuantityRegistry {
             self.by_symbol.len(),
             self.by_opcode.len(),
             self.by_conversion.len(),
+            self.by_monomial.len(),
         ]
         .into_iter()
         .fold(size_of::<Self>(), |n, count| {
@@ -222,6 +244,16 @@ impl QuantityRegistry {
         }
         for symbol in self.by_symbol.keys() {
             bytes = bytes.saturating_add(symbol.capacity());
+        }
+        for kind in self.kinds.values() {
+            if let Some(definition) = &kind.definition {
+                bytes = bytes.saturating_add(
+                    definition
+                        .monomial
+                        .capacity()
+                        .saturating_mul(2 * size_of::<KindFactor>()),
+                );
+            }
         }
         for quantity in self.quantity_types.values() {
             bytes = bytes.saturating_add(quantity.key.shape.capacity().saturating_mul(32));
@@ -282,7 +314,24 @@ impl QuantityRegistry {
                     })
                 })
                 .collect(),
-            kinds: self.kinds.values().cloned().collect(),
+            kinds: self
+                .kinds
+                .values()
+                .filter(|kind| kind.definition.is_none())
+                .cloned()
+                .collect(),
+            derived_kinds: self
+                .kinds
+                .values()
+                .filter_map(|kind| {
+                    Some(DerivedKind {
+                        id: kind.id,
+                        extensive: kind.extensive,
+                        addition_kind: kind.addition_kind,
+                        definition: kind.definition.clone()?,
+                    })
+                })
+                .collect(),
             bases: self.bases.values().cloned().collect(),
             reference_states: self.reference_states.values().cloned().collect(),
             quantity_types: self.quantity_types.values().cloned().collect(),
@@ -420,6 +469,37 @@ impl QuantityRegistry {
     /// All admitted quantity kinds in stable identity order.
     pub fn kinds(&self) -> impl ExactSizeIterator<Item = &QuantityKind> {
         self.kinds.values()
+    }
+    /// A kind's canonical monomial over base kinds (ADR-0124): a derived kind's expanded
+    /// definition, or the base kind itself with exponent one.
+    ///
+    /// # Errors
+    /// Rejects a kind absent from this admitted registry.
+    pub fn kind_monomial(&self, id: QuantityKindId) -> Result<Vec<KindFactor>, QuantityError> {
+        let kind = self.kind(id)?;
+        Ok(kind.definition.as_ref().map_or_else(
+            || {
+                vec![KindFactor {
+                    kind: id,
+                    exponent: crate::Ratio::ONE,
+                }]
+            },
+            |definition| definition.monomial.clone(),
+        ))
+    }
+    /// The declared kind whose canonical monomial this is: a base kind for itself with
+    /// exponent one, otherwise the unique derived kind declaring it. Never synthesized.
+    pub fn kind_by_monomial(&self, monomial: &[KindFactor]) -> Option<QuantityKindId> {
+        if let [only] = monomial
+            && only.exponent == crate::Ratio::ONE
+            && self
+                .kinds
+                .get(&only.kind)
+                .is_some_and(|kind| kind.definition.is_none())
+        {
+            return Some(only.kind);
+        }
+        self.by_monomial.get(monomial).copied()
     }
     /// The declared count or indicator category of a quantity type's kind (ADR-0103).
     /// A measured kind has none.
@@ -572,6 +652,7 @@ impl QuantityRegistry {
             )?;
             self.validate_type(ty)?;
         }
+        self.validate_derived_kinds()?;
         for conversion in self.conversions.values() {
             self.validate_conversion(conversion)?;
         }
@@ -612,6 +693,72 @@ impl QuantityRegistry {
                 "quantity_type.neutral_scalar",
                 id.as_id(),
                 "neutral scalar has physical obligations",
+            )?;
+        }
+        Ok(())
+    }
+    /// Derived kinds (ADR-0124): unique monomials, a canonical unit of the derived
+    /// dimension that every type of the kind stores in, existing result components, and a
+    /// registered result type.
+    fn validate_derived_kinds(&self) -> Result<(), QuantityError> {
+        let mut monomials = BTreeSet::new();
+        for kind in self.kinds.values() {
+            let Some(definition) = &kind.definition else {
+                continue;
+            };
+            let id = kind.id.as_id();
+            require(
+                monomials.insert(&definition.monomial),
+                "quantity_kind.monomial_unique",
+                id,
+                "two derived kinds declare one monomial",
+            )?;
+            let unit = self.unit(definition.canonical_unit)?;
+            require(
+                unit.dimension == kind.dimension
+                    && !unit.is_affine
+                    && unit.offset_to_canonical == 0.0
+                    && (unit.reference_state.is_none()
+                        || unit.reference_state == definition.reference_state),
+                "quantity_kind.canonical_unit",
+                id,
+                "the declared canonical unit does not store the derived dimension",
+            )?;
+            if let Some(basis) = definition.basis {
+                self.basis(basis)?;
+            }
+            if let Some(reference) = definition.reference_state {
+                self.reference_state(reference)?;
+            }
+            if let Some(subject) = definition.subject_kind {
+                self.entity_kind(subject)?;
+            }
+            require(
+                kind.addition_kind == QuantityAdditionKind::OriginSensitive
+                    || definition.scale_kind == ScaleKind::Point,
+                "quantity_kind.result_scale",
+                id,
+                "difference is reserved for origin-sensitive kinds",
+            )?;
+            let mut result = false;
+            for ty in self.quantity_types.values().filter(|ty| ty.key.kind == kind.id) {
+                require(
+                    ty.canonical_unit == definition.canonical_unit,
+                    "quantity_kind.canonical_unit",
+                    ty.id.as_id(),
+                    "a type of a derived kind stores in the kind's declared canonical unit",
+                )?;
+                result |= ty.key.reference_state == definition.reference_state
+                    && ty.key.scale_kind == definition.scale_kind
+                    && ty.key.shape.is_empty()
+                    && ty.key.subject_kind == definition.subject_kind
+                    && definition.basis.is_none_or(|basis| ty.key.basis == Some(basis));
+            }
+            require(
+                result,
+                "quantity_kind.result_type",
+                id,
+                "no registered type has the declared result",
             )?;
         }
         Ok(())
@@ -974,6 +1121,109 @@ fn expand(
     Ok(factors)
 }
 
+/// Expand each derived kind's monomial into canonical base-kind factors (ADR-0124),
+/// refusing cycles, dimensionless factors and aliases, and derive its dimension.
+fn admit_derived_kinds(
+    base: &BTreeMap<QuantityKindId, QuantityKind>,
+    derived: Vec<DerivedKind>,
+) -> Result<Vec<QuantityKind>, QuantityError> {
+    let declared = index(derived, |x| x.id, "quantity_kind")?;
+    for id in declared.keys() {
+        require(
+            !base.contains_key(id),
+            "registry.unique_id",
+            id.as_id(),
+            "duplicate quantity_kind identity",
+        )?;
+    }
+    let mut expanded = BTreeMap::new();
+    for id in declared.keys() {
+        expand_kind(*id, base, &declared, &mut expanded, &mut BTreeSet::new())?;
+    }
+    declared
+        .into_values()
+        .map(|kind| {
+            let monomial = expanded.remove(&kind.id).unwrap_or_default();
+            require(
+                !monomial.is_empty()
+                    && !matches!(monomial.as_slice(), [only] if only.exponent == crate::Ratio::ONE),
+                "quantity_kind.definition_alias",
+                kind.id.as_id(),
+                "a derived kind's monomial is neither empty nor another kind",
+            )?;
+            let mut dimension = DimensionVector::DIMENSIONLESS;
+            for factor in &monomial {
+                let factor_kind = base.get(&factor.kind).ok_or(QuantityError::UnknownId {
+                    kind: "kind",
+                    id: factor.kind.as_id(),
+                })?;
+                dimension = dimension.mul(&factor_kind.dimension.pow(factor.exponent)?)?;
+            }
+            Ok(QuantityKind {
+                id: kind.id,
+                dimension,
+                extensive: kind.extensive,
+                addition_kind: kind.addition_kind,
+                category: None,
+                definition: Some(KindDefinition {
+                    monomial,
+                    ..kind.definition
+                }),
+            })
+        })
+        .collect()
+}
+fn expand_kind(
+    id: QuantityKindId,
+    base: &BTreeMap<QuantityKindId, QuantityKind>,
+    declared: &BTreeMap<QuantityKindId, DerivedKind>,
+    expanded: &mut BTreeMap<QuantityKindId, Vec<KindFactor>>,
+    visiting: &mut BTreeSet<QuantityKindId>,
+) -> Result<Vec<KindFactor>, QuantityError> {
+    if let Some(kind) = base.get(&id) {
+        // A pure number takes no part in a monomial (the chain drops the neutral
+        // scalar), so a definition over a dimensionless kind could never resolve.
+        require(
+            !kind.dimension.is_dimensionless(),
+            "quantity_kind.dimensionless_factor",
+            id.as_id(),
+            "a derived kind's factor has a dimension",
+        )?;
+        return Ok(vec![KindFactor {
+            kind: id,
+            exponent: crate::Ratio::ONE,
+        }]);
+    }
+    if let Some(done) = expanded.get(&id) {
+        return Ok(done.clone());
+    }
+    let kind = declared.get(&id).ok_or(QuantityError::UnknownId {
+        kind: "kind",
+        id: id.as_id(),
+    })?;
+    require(
+        visiting.insert(id),
+        "quantity_kind.definition_cycle",
+        id.as_id(),
+        "a derived kind's monomial refers back to itself",
+    )?;
+    let mut merged = BTreeMap::<QuantityKindId, crate::Ratio>::new();
+    for factor in &kind.definition.monomial {
+        for inner in expand_kind(factor.kind, base, declared, expanded, visiting)? {
+            let slot = merged.entry(inner.kind).or_insert(crate::Ratio::ZERO);
+            *slot = slot.checked_add(inner.exponent.checked_mul(factor.exponent)?)?;
+        }
+    }
+    let factors: Vec<_> = merged
+        .into_iter()
+        .filter(|(_, exponent)| !exponent.is_zero())
+        .map(|(kind, exponent)| KindFactor { kind, exponent })
+        .collect();
+    visiting.remove(&id);
+    expanded.insert(id, factors.clone());
+    Ok(factors)
+}
+
 fn index<K: Ord + Copy + Into<SemanticId>, V>(
     values: Vec<V>,
     key: impl Fn(&V) -> K,
@@ -1037,6 +1287,7 @@ mod generic_kind_tests {
             extensive: false,
             addition_kind: QuantityAdditionKind::Additive,
             category: None,
+            definition: None,
         });
         seed.quantity_type(QuantityType {
             id: raw.into(),

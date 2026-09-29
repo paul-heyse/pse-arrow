@@ -464,8 +464,8 @@ impl FactBatch {
             }
             Self::r#ReferenceQuantityKinds(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    237u8, 135u8, 148u8, 233u8, 20u8, 159u8, 174u8, 145u8, 123u8, 13u8,
-                    252u8, 172u8, 166u8, 107u8, 167u8, 197u8,
+                    218u8, 30u8, 248u8, 250u8, 144u8, 101u8, 57u8, 141u8, 174u8, 115u8,
+                    255u8, 216u8, 131u8, 148u8, 10u8, 147u8,
                 ])
             }
             Self::r#ReferenceQuantityOperationReductions(_) => {

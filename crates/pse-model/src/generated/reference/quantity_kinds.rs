@@ -9,19 +9,93 @@
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct ReferenceQuantityKindsFieldDefinitionMonomialItem {
+    ///quantity_kind_id
+    pub r#quantity_kind_id: pse_ids::SemanticId,
+    ///num
+    pub r#num: i16,
+    ///den
+    pub r#den: i16,
+}
+impl crate::SemanticEq for ReferenceQuantityKindsFieldDefinitionMonomialItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(
+            &self.r#quantity_kind_id,
+            &other.r#quantity_kind_id,
+        ) && crate::SemanticEq::semantic_eq(&self.r#num, &other.r#num)
+            && crate::SemanticEq::semantic_eq(&self.r#den, &other.r#den)
+    }
+}
+impl PartialEq for ReferenceQuantityKindsFieldDefinitionMonomialItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ReferenceQuantityKindsFieldDefinition {
+    ///monomial
+    pub r#monomial: Vec<ReferenceQuantityKindsFieldDefinitionMonomialItem>,
+    ///canonical_unit_id
+    pub r#canonical_unit_id: pse_ids::SemanticId,
+    ///basis_id
+    pub r#basis_id: Option<pse_ids::SemanticId>,
+    ///reference_state_id
+    pub r#reference_state_id: Option<pse_ids::SemanticId>,
+    ///scale_kind
+    pub r#scale_kind: crate::generated::enums::ScaleKind,
+    ///subject_kind
+    pub r#subject_kind: Option<pse_ids::SemanticId>,
+}
+impl crate::SemanticEq for ReferenceQuantityKindsFieldDefinition {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#monomial, &other.r#monomial)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#canonical_unit_id,
+                &other.r#canonical_unit_id,
+            ) && crate::SemanticEq::semantic_eq(&self.r#basis_id, &other.r#basis_id)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#reference_state_id,
+                &other.r#reference_state_id,
+            ) && crate::SemanticEq::semantic_eq(&self.r#scale_kind, &other.r#scale_kind)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#subject_kind,
+                &other.r#subject_kind,
+            )
+    }
+}
+impl PartialEq for ReferenceQuantityKindsFieldDefinition {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct ReferenceQuantityKindsRow {
     ///quantity_kind_id
     pub r#quantity_kind_id: pse_ids::SemanticId,
     ///name
     pub r#name: String,
     ///dimension
-    pub r#dimension: crate::generated::extension_values::DimensionVector,
+    pub r#dimension: Option<crate::generated::extension_values::DimensionVector>,
     ///extensive
     pub r#extensive: bool,
     ///addition_kind
     pub r#addition_kind: crate::generated::enums::QuantityAdditionKind,
     ///category
     pub r#category: Option<crate::generated::enums::QuantityKindCategory>,
+    ///definition
+    pub r#definition: Option<ReferenceQuantityKindsFieldDefinition>,
     ///doc
     pub r#doc: String,
 }
@@ -37,6 +111,7 @@ impl crate::SemanticEq for ReferenceQuantityKindsRow {
                 &self.r#addition_kind,
                 &other.r#addition_kind,
             ) && crate::SemanticEq::semantic_eq(&self.r#category, &other.r#category)
+            && crate::SemanticEq::semantic_eq(&self.r#definition, &other.r#definition)
             && crate::SemanticEq::semantic_eq(&self.r#doc, &other.r#doc)
     }
 }
@@ -47,6 +122,51 @@ impl PartialEq for ReferenceQuantityKindsRow {
 }
 /// The concrete generated relation row.
 pub type Row = ReferenceQuantityKindsRow;
+impl crate::SemanticFrame for ReferenceQuantityKindsFieldDefinitionMonomialItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#quantity_kind_id));
+        crate::SemanticFrame::frame(&self.r#quantity_kind_id, hash);
+        hash.str(stringify!(r#num));
+        crate::SemanticFrame::frame(&self.r#num, hash);
+        hash.str(stringify!(r#den));
+        crate::SemanticFrame::frame(&self.r#den, hash);
+    }
+}
+impl crate::HeapUsage for ReferenceQuantityKindsFieldDefinitionMonomialItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity_kind_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#num))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#den))
+    }
+}
+impl crate::SemanticFrame for ReferenceQuantityKindsFieldDefinition {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#monomial));
+        crate::SemanticFrame::frame(&self.r#monomial, hash);
+        hash.str(stringify!(r#canonical_unit_id));
+        crate::SemanticFrame::frame(&self.r#canonical_unit_id, hash);
+        hash.str(stringify!(r#basis_id));
+        crate::SemanticFrame::frame(&self.r#basis_id, hash);
+        hash.str(stringify!(r#reference_state_id));
+        crate::SemanticFrame::frame(&self.r#reference_state_id, hash);
+        hash.str(stringify!(r#scale_kind));
+        crate::SemanticFrame::frame(&self.r#scale_kind, hash);
+        hash.str(stringify!(r#subject_kind));
+        crate::SemanticFrame::frame(&self.r#subject_kind, hash);
+    }
+}
+impl crate::HeapUsage for ReferenceQuantityKindsFieldDefinition {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#monomial))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#canonical_unit_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#basis_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reference_state_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scale_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#subject_kind))
+    }
+}
 impl crate::SemanticFrame for ReferenceQuantityKindsRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#quantity_kind_id));
@@ -61,6 +181,8 @@ impl crate::SemanticFrame for ReferenceQuantityKindsRow {
         crate::SemanticFrame::frame(&self.r#addition_kind, hash);
         hash.str(stringify!(r#category));
         crate::SemanticFrame::frame(&self.r#category, hash);
+        hash.str(stringify!(r#definition));
+        crate::SemanticFrame::frame(&self.r#definition, hash);
         hash.str(stringify!(r#doc));
         crate::SemanticFrame::frame(&self.r#doc, hash);
     }
@@ -74,6 +196,7 @@ impl crate::HeapUsage for ReferenceQuantityKindsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#extensive))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#addition_kind))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#category))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#definition))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#doc))
     }
 }

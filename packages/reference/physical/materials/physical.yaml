@@ -320,43 +320,28 @@
     {
       "quantity_kind_id": "99263c30741ca81f1c4c3d4b987d4085",
       "name": "molar_enthalpy",
-      "dimension": [
-        {
-          "num": 2,
-          "den": 1
-        },
-        {
-          "num": 1,
-          "den": 1
-        },
-        {
-          "num": -2,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        }
-      ],
       "extensive": false,
       "addition_kind": "origin_sensitive",
-      "doc": "Explicit complete physical kind; dimensions alone do not determine it."
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
+            "num": 1,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "b73f6834274def3690812937802e17da",
+        "basis_id": null,
+        "reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
+        "scale_kind": "difference",
+        "subject_kind": null
+      },
+      "doc": "Derived kind (ADR-0124): a chain of molar heat capacity and temperature is an enthalpy increment from the stock datum."
     },
     {
       "quantity_kind_id": "9ed4576374b1809385f72b1f33d17ee6",
@@ -1630,6 +1615,136 @@
       "addition_kind": "additive",
       "category": "indicator",
       "doc": "A dimensionless zero-or-one state (on/off, selected); the kind of a binary decision (ADR-0103)."
+    },
+    {
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec327dd1aaa4",
+      "name": "molar_heat_capacity_per_temperature",
+      "extensive": false,
+      "addition_kind": "additive",
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
+            "num": -1,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "42a671644390a59b1fc2c76bb60193fa",
+        "basis_id": null,
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": null
+      },
+      "doc": "Derived kind (ADR-0124): DIPPR 100 and RPP4 c2: molar heat capacity per temperature."
+    },
+    {
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec3460d43db5",
+      "name": "molar_heat_capacity_per_temperature_squared",
+      "extensive": false,
+      "addition_kind": "additive",
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
+            "num": -2,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "0bc13e485d1417960c0b02632f5038c6",
+        "basis_id": null,
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": null
+      },
+      "doc": "Derived kind (ADR-0124): DIPPR 100 and RPP4 c3: molar heat capacity per squared temperature."
+    },
+    {
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec36239dba56",
+      "name": "molar_heat_capacity_per_temperature_cubed",
+      "extensive": false,
+      "addition_kind": "additive",
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
+            "num": -3,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "77aaf84f80594e4097bc87d5044d9814",
+        "basis_id": null,
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": null
+      },
+      "doc": "Derived kind (ADR-0124): DIPPR 100 and RPP4 c4: molar heat capacity per cubed temperature."
+    },
+    {
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec382896e473",
+      "name": "molar_heat_capacity_per_temperature_fourth",
+      "extensive": false,
+      "addition_kind": "additive",
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
+            "num": -4,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "0dd99049af4b0ad6d29a16b306ff4dc4",
+        "basis_id": null,
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": null
+      },
+      "doc": "Derived kind (ADR-0124): DIPPR 100 c5: molar heat capacity per fourth power of temperature."
+    },
+    {
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec3abb846fca",
+      "name": "molar_heat_capacity_times_temperature_squared",
+      "extensive": false,
+      "addition_kind": "additive",
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
+            "num": 2,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "b168ec7adeca3ebe2e6950a9e2c46223",
+        "basis_id": null,
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": null
+      },
+      "doc": "Derived kind (ADR-0124): Shomate E: molar heat capacity times squared temperature."
     }
   ],
   "quantity_operations": [
@@ -10528,6 +10643,66 @@
       "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
       "doc": "Complete physical contract of a zero-or-one indicator."
+    },
+    {
+      "quantity_type_id": "01a0ede7d15f73b7a48eec330d1c9906",
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec327dd1aaa4",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "42a671644390a59b1fc2c76bb60193fa",
+      "nominal_magnitude": null,
+      "doc": "Correlation coefficient type of a derived kind (ADR-0124)."
+    },
+    {
+      "quantity_type_id": "01a0ede7d15f73b7a48eec355dd7f3f0",
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec3460d43db5",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "0bc13e485d1417960c0b02632f5038c6",
+      "nominal_magnitude": null,
+      "doc": "Correlation coefficient type of a derived kind (ADR-0124)."
+    },
+    {
+      "quantity_type_id": "01a0ede7d15f73b7a48eec3774be08a7",
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec36239dba56",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "77aaf84f80594e4097bc87d5044d9814",
+      "nominal_magnitude": null,
+      "doc": "Correlation coefficient type of a derived kind (ADR-0124)."
+    },
+    {
+      "quantity_type_id": "01a0ede7d15f73b7a48eec39a39397fd",
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec382896e473",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "0dd99049af4b0ad6d29a16b306ff4dc4",
+      "nominal_magnitude": null,
+      "doc": "Correlation coefficient type of a derived kind (ADR-0124)."
+    },
+    {
+      "quantity_type_id": "01a0ede7d15f73b7a48eec3b81e80346",
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec3abb846fca",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "b168ec7adeca3ebe2e6950a9e2c46223",
+      "nominal_magnitude": null,
+      "doc": "Correlation coefficient type of a derived kind (ADR-0124)."
     }
   ],
   "reference_states": [
@@ -11681,6 +11856,131 @@
       "reference_state_id": null,
       "system": "SI",
       "doc": "See packages/reference/physical/sources.md for definition and datum conventions."
+    },
+    {
+      "unit_id": "42a671644390a59b1fc2c76bb60193fa",
+      "symbol": "J/(K^2*mol)",
+      "name": "J/(K^2*mol)",
+      "reference_state_id": null,
+      "definition": [
+        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
+          "num": -1,
+          "den": 1
+        },
+        {
+          "unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+          "num": -2,
+          "den": 1
+        },
+        {
+          "unit_id": "94e71aed4ef8d26cd686cf578884d940",
+          "num": 1,
+          "den": 1
+        }
+      ],
+      "system": "SI",
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
+    },
+    {
+      "unit_id": "0bc13e485d1417960c0b02632f5038c6",
+      "symbol": "J/(K^3*mol)",
+      "name": "J/(K^3*mol)",
+      "reference_state_id": null,
+      "definition": [
+        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
+          "num": -1,
+          "den": 1
+        },
+        {
+          "unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+          "num": -3,
+          "den": 1
+        },
+        {
+          "unit_id": "94e71aed4ef8d26cd686cf578884d940",
+          "num": 1,
+          "den": 1
+        }
+      ],
+      "system": "SI",
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
+    },
+    {
+      "unit_id": "77aaf84f80594e4097bc87d5044d9814",
+      "symbol": "J/(K^4*mol)",
+      "name": "J/(K^4*mol)",
+      "reference_state_id": null,
+      "definition": [
+        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
+          "num": -1,
+          "den": 1
+        },
+        {
+          "unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+          "num": -4,
+          "den": 1
+        },
+        {
+          "unit_id": "94e71aed4ef8d26cd686cf578884d940",
+          "num": 1,
+          "den": 1
+        }
+      ],
+      "system": "SI",
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
+    },
+    {
+      "unit_id": "0dd99049af4b0ad6d29a16b306ff4dc4",
+      "symbol": "J/(K^5*mol)",
+      "name": "J/(K^5*mol)",
+      "reference_state_id": null,
+      "definition": [
+        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
+          "num": -1,
+          "den": 1
+        },
+        {
+          "unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+          "num": -5,
+          "den": 1
+        },
+        {
+          "unit_id": "94e71aed4ef8d26cd686cf578884d940",
+          "num": 1,
+          "den": 1
+        }
+      ],
+      "system": "SI",
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
+    },
+    {
+      "unit_id": "b168ec7adeca3ebe2e6950a9e2c46223",
+      "symbol": "J*K/mol",
+      "name": "J*K/mol",
+      "reference_state_id": null,
+      "definition": [
+        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
+          "num": -1,
+          "den": 1
+        },
+        {
+          "unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+          "num": 1,
+          "den": 1
+        },
+        {
+          "unit_id": "94e71aed4ef8d26cd686cf578884d940",
+          "num": 1,
+          "den": 1
+        }
+      ],
+      "system": "SI",
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     }
   ],
   "math_context": [

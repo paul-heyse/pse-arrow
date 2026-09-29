@@ -185,19 +185,36 @@ Version: 1. Snapshot class: `model`. Primary key: `package_id`.
 
 ## `quantity_kinds`
 
-blueprint §6.2 physical type: quantity_kinds. Version two adds the count or indicator category of a dimensionless pure-number kind (ADR-0103); measured kinds carry none.
+blueprint §6.2 physical type: quantity_kinds. Version two adds the count or indicator category of a dimensionless pure-number kind (ADR-0103); measured kinds carry none. Version three adds derived kinds (ADR-0124): a derived kind authors a monomial over declared kinds with reduced rational exponents, its canonical unit and the complete result a multiplicative chain resolving to it takes (scale, optional datum and subject, and a basis when the factors' bases may differ); admission derives its dimension, so it authors none.
 
-Version: 2. Snapshot class: `model`. Primary key: `quantity_kind_id`.
+Version: 3. Snapshot class: `model`. Primary key: `quantity_kind_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `quantity_kind_id` | `semantic_id` | false | `key` | — | — |
 | `name` | `Utf8` | false | `payload` | — | — |
-| `dimension` | `dimension_vector` | false | `payload` | — | — |
+| `dimension` | `dimension_vector` | true | `payload` | — | — |
 | `extensive` | `Boolean` | false | `payload` | — | — |
 | `addition_kind` | `enum:QuantityAdditionKind` | false | `payload` | — | — |
 | `category` | `enum:QuantityKindCategory` | true | `payload` | — | — |
+| `definition` | `Struct` | true | `payload` | — | — |
+| `definition.monomial` | `List` | false | `payload` | — | — |
+| `definition.monomial.item` | `Struct` | false | `payload` | — | — |
+| `definition.monomial.item.quantity_kind_id` | `semantic_id` | false | `payload` | — | — |
+| `definition.monomial.item.num` | `Int16` | false | `payload` | — | — |
+| `definition.monomial.item.den` | `Int16` | false | `payload` | — | — |
+| `definition.canonical_unit_id` | `semantic_id` | false | `payload` | — | — |
+| `definition.basis_id` | `semantic_id` | true | `payload` | — | — |
+| `definition.reference_state_id` | `semantic_id` | true | `payload` | — | — |
+| `definition.scale_kind` | `enum:ScaleKind` | false | `payload` | — | — |
+| `definition.subject_kind` | `semantic_id` | true | `payload` | — | — |
 | `doc` | `Utf8` | false | `payload` | — | — |
+
+Native row check `base_or_derived` (must be true):
+
+```sql
+(definition IS NULL) = (dimension IS NOT NULL) AND (definition IS NULL OR category IS NULL)
+```
 
 ## `quantity_operation_reductions`
 
