@@ -298,18 +298,6 @@ class ModelingDiagnosticSettings:
     def to_json(self, /) -> str: ...
 
 @final
-class ModelingFixturePolicy:
-    def __new__(
-        cls,
-        /,
-        settings: bytes | None = None,
-        *,
-        derivative_step: float | None = None,
-        derivative_tolerance: float | None = None,
-        derivative_cells: int | None = None,
-    ) -> ModelingFixturePolicy: ...
-
-@final
 class ModelingLimits:
     def __new__(
         cls,
@@ -505,7 +493,6 @@ class NativeModelingPackage:
         derivative_cells: int = 100000,
         derivative_step: float = 1e-6,
         derivative_tolerance: float = 1e-4,
-        fixture_policies: dict[str, ModelingFixturePolicy] | None = None,
     ) -> NativeModelingConformance: ...
     def declarations(self, /) -> bytes: ...
     def diagnose(

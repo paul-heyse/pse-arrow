@@ -5,7 +5,7 @@ mod modeling;
 mod routes;
 mod settings;
 pub(crate) use modeling::{
-    ModelingDiagnosticSettings, ModelingFixturePolicy, ModelingLimits, NativeModelingConformance,
+    ModelingDiagnosticSettings, ModelingLimits, NativeModelingConformance,
     NativeModelingDiagnosticSamples, NativeModelingDiagnostics, NativeModelingElasticAttempt,
     NativeModelingInitialization, NativeModelingInitializationAttempt,
     NativeModelingNativeAnalysis, NativeModelingNonlinearExplanation, NativeModelingPackage,

@@ -312,23 +312,6 @@ pub(super) fn observed(
                     result.rule = "workflow.export_expired".into();
                     None
                 }
-                // The authored fixture and its runtime policy name different intents
-                // (ADR-0119 Outcome 1).
-                super::WorkflowError::FixtureIntentConflict {
-                    fixture,
-                    authored,
-                    policy,
-                } => {
-                    result.class = Class::Conflict;
-                    result.rule = "workflow.fixture_intent_conflict".into();
-                    result.sources = vec![fixture.as_id()];
-                    for (name, intent) in [("authored", authored), ("policy", policy)] {
-                        result
-                            .observations
-                            .insert(name.into(), Observation::Text(intent.as_str().into()));
-                    }
-                    None
-                }
             }
         } else if let Some(driver) = error.downcast_ref::<crate::authoring_driver::DriverError>() {
             use crate::authoring_driver::DriverError as E;

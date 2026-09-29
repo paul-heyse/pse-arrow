@@ -349,6 +349,101 @@ fn fixture_intent_parses_and_renders() {
     }
 }
 
+/// ADR-0119: a fixture's execution policy is typed fixture data, printed in one canonical
+/// order and parsed back to the same declaration.
+#[test]
+fn fixture_policy_parses_and_renders() {
+    use pse_model::generated::enums::{NativeBackend, PresolvePolicyKind};
+    let fixture = |rows: &[Declaration]| {
+        rows.iter()
+            .find(|r| r.name == "t")
+            .and_then(|r| r.value.scope.as_ref())
+            .and_then(|s| s.fixture.clone())
+            .unwrap()
+    };
+    let roundtrip = |rows: &[Declaration]| {
+        let printed = render(rows).unwrap();
+        let again = parse_named(&printed);
+        assert_eq!(
+            rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
+            again.iter().map(|r| &r.value).collect::<Vec<_>>()
+        );
+        printed
+    };
+    let source = |policy: &str| {
+        format!(
+            "package p {{ def D {{ var x: Scalar; }} test t fixture {{ dof 0; run steady; {policy} value root.x = 1; }} {{ child root: D = D(); }} }}"
+        )
+    };
+    // Every setting, written out of canonical order.
+    let rows = parse_named(&source(
+        "policy { limits body_slots(512) items(1000000) body_occurrences(65536); derivatives cells(8000000) tolerance(1e-4) step(1e-9); presolve off; backend ipopt; }",
+    ));
+    let policy = fixture(&rows).policy.unwrap();
+    assert_eq!(policy.backend, Some(NativeBackend::Ipopt));
+    assert_eq!(policy.presolve, Some(PresolvePolicyKind::Off));
+    assert_eq!(policy.derivative_step, Some(1e-9));
+    assert_eq!(policy.derivative_tolerance, Some(1e-4));
+    assert_eq!(policy.derivative_cells, Some(8_000_000));
+    assert_eq!(policy.items, Some(1_000_000));
+    assert_eq!(policy.body_occurrences, Some(65_536));
+    assert_eq!(policy.body_slots, Some(512));
+    assert!(roundtrip(&rows).contains(
+        "policy { backend ipopt; presolve off; derivatives step(1e-9) tolerance(0.0001) cells(8000000); limits items(1000000) body_occurrences(65536) body_slots(512); }"
+    ));
+    // One setting leaves the others to the run.
+    let rows = parse_named(&source("policy { presolve auto; }"));
+    let policy = fixture(&rows).policy.unwrap();
+    assert_eq!(policy.presolve, Some(PresolvePolicyKind::Auto));
+    assert_eq!(
+        (policy.backend, policy.derivative_step, policy.items),
+        (None, None, None)
+    );
+    assert!(roundtrip(&rows).contains("policy { presolve auto; }"));
+    // Control: without the clause the fixture carries no policy and prints none.
+    let rows = parse_named(&source(""));
+    assert_eq!(fixture(&rows).policy, None);
+    assert!(!roundtrip(&rows).contains("policy"));
+}
+/// An unknown, repeated or malformed fixture policy setting is refused where it is written.
+#[test]
+fn kernel_conformance_refuses_unknown_fixture_policy_setting() {
+    for (policy, at, expected) in [
+        ("policy { time_limit(600); }", "time_limit", "backend, presolve, derivatives or limits"),
+        ("policy { backend ipopt; backend kinsol; }", "backend kinsol", "one backend setting"),
+        ("policy { backend newton; }", "newton", "native backend"),
+        ("policy { presolve explicit; }", "explicit", "auto or off"),
+        ("policy { derivatives step(1e-9) step(1e-6); }", "step(1e-6)", "one step option"),
+        ("policy { derivatives cells(-1); }", "-1", "nonnegative integer"),
+        ("policy { derivatives step(small); }", "small", "number"),
+        ("policy { derivatives; }", ";", "step, tolerance, cells"),
+        ("policy { limits members(10); }", "members", "items, body_occurrences, body_slots"),
+        ("policy { }", "}", "a fixture policy setting"),
+        ("policy { presolve off; } policy { presolve auto; }", "policy { presolve auto", "one fixture policy"),
+    ] {
+        let text = format!(
+            "package p {{ def D {{ var x: Scalar; }} test t fixture {{ dof 0; run steady; {policy} }} {{ child root: D = D(); }} }}"
+        );
+        let error = parse(
+            &text,
+            SemanticId::NIL,
+            IdentityPolicy::Named,
+            ParseBudget::default(),
+        )
+        .unwrap_err();
+        let crate::AuthoringError::Syntax {
+            offset,
+            expected: said,
+            ..
+        } = &error
+        else {
+            panic!("{policy}: {error}");
+        };
+        assert_eq!(said, expected, "{policy}");
+        let written = text.find("policy").unwrap() + policy.find(at).unwrap();
+        assert_eq!(*offset as usize, written, "{policy}: {error}");
+    }
+}
 #[test]
 fn constraint_forms_and_disjunctions_parse_and_render() {
     use pse_model::generated::enums::{

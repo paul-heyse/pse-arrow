@@ -50,7 +50,6 @@ _NativeModelingNativeAnalysis = _native.NativeModelingNativeAnalysis
 _NativeModelingNonlinearExplanation = _native.NativeModelingNonlinearExplanation
 _NativeModelingElasticAttempt = _native.NativeModelingElasticAttempt
 ModelingLimits = _native.ModelingLimits
-ModelingFixturePolicy = _native.ModelingFixturePolicy
 ModelingDiagnosticSettings = _native.ModelingDiagnosticSettings
 _NativeModelingDiagnostics = _native.NativeModelingDiagnostics
 _NativeModelingDiagnosticSamples = _native.NativeModelingDiagnosticSamples

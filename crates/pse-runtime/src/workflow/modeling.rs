@@ -6,7 +6,6 @@ mod conformance;
 mod pure;
 pub use conformance::{
     ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
-    ModelingFixturePolicy,
 };
 pub use pure::conform_pure_documents;
 pub(super) mod dynamics;

@@ -556,6 +556,32 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                         "invalid bounded initialization fixture policy",
                     ));
                 }
+                // ADR-0119: an execution policy states at least one setting; allowances
+                // are positive; a pure fixture starts no solver, so its policy holds only
+                // specialization allowances. The consumer validates the derivative step and
+                // tolerance with the run's derivative policy.
+                if let Some(policy) = &fixture.policy {
+                    let solver = policy.backend.is_some()
+                        || policy.presolve.is_some()
+                        || policy.derivative_step.is_some()
+                        || policy.derivative_tolerance.is_some()
+                        || policy.derivative_cells.is_some();
+                    let allowances = [
+                        policy.derivative_cells,
+                        policy.items,
+                        policy.body_occurrences,
+                        policy.body_slots,
+                    ];
+                    if !solver && allowances.iter().all(Option::is_none)
+                        || allowances.iter().flatten().any(|n| *n <= 0)
+                        || solver && execution == Execution::Pure
+                    {
+                        return Err(invalid(
+                            row.declaration_id,
+                            "a fixture policy states at least one setting and positive allowances; a pure fixture's policy holds only specialization allowances",
+                        ));
+                    }
+                }
                 if let Some(integration) = &fixture.integration {
                     if integration.quadrature_relative_tolerance.is_some()
                         != !integration.quadratures.is_empty()

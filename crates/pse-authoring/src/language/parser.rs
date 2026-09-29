@@ -299,6 +299,139 @@ impl Cursor<'_> {
         self.expect(name)?;
         self.fixture_literal()
     }
+    /// A registry vocabulary word; a word outside it is refused at its own position.
+    fn vocabulary<T: std::str::FromStr>(&mut self, expected: &str) -> Result<T> {
+        let at = self.pos;
+        let word = self.word()?;
+        word.parse().map_err(|_| {
+            self.pos = at;
+            self.error(expected)
+        })
+    }
+    /// `(<literal>)` holding a number or, with `expected` "nonnegative integer", a count
+    /// in the registry's nonnegative domain; a malformed literal is refused where it is
+    /// written. The policy's consumer owns the admissible values.
+    fn policy_literal<T: std::str::FromStr>(
+        &mut self,
+        expected: &str,
+        admitted: impl Fn(&T) -> bool,
+    ) -> Result<T> {
+        self.expect("(")?;
+        let at = self.pos;
+        let value = self.until(&[")"])?.parse::<T>().ok().filter(admitted);
+        let value = value.ok_or_else(|| {
+            self.pos = at;
+            self.error(expected)
+        })?;
+        self.expect(")")?;
+        Ok(value)
+    }
+    fn policy_number(&mut self) -> Result<f64> {
+        self.policy_literal("number", |_| true)
+    }
+    fn policy_count(&mut self) -> Result<i64> {
+        self.policy_literal("nonnegative integer", |v: &i64| *v >= 0)
+    }
+    /// The named options of one policy setting, each at most once and at least one, in any
+    /// order: `<name>(<value>) ...`; `read` takes each value by its index in `names`.
+    fn policy_options<const N: usize>(
+        &mut self,
+        names: [&str; N],
+        mut read: impl FnMut(&mut Self, usize) -> Result<()>,
+    ) -> Result<()> {
+        let mut seen = [false; N];
+        while let Some(index) = names.iter().position(|n| *n == self.peek()) {
+            if seen[index] {
+                return Err(self.error(&format!("one {} option", names[index])));
+            }
+            seen[index] = true;
+            self.pos += 1;
+            read(self, index)?;
+        }
+        if !seen.contains(&true) {
+            return Err(self.error(&names.join(", ")));
+        }
+        Ok(())
+    }
+    /// ADR-0119: `policy { backend <b>; presolve <auto|off>; derivatives [step(x)]
+    /// [tolerance(x)] [cells(n)]; limits [items(n)] [body_occurrences(n)] [body_slots(n)]; }`
+    /// states the fixture's execution policy over the run's. Every setting is optional and
+    /// at most once; an unknown or repeated setting is refused where it is written.
+    fn fixture_policy(&mut self) -> Result<AuthoredModelingDeclarationsFieldValueScopeFixturePolicy> {
+        use pse_model::generated::enums::{NativeBackend, PresolvePolicyKind};
+        self.expect("{")?;
+        let mut policy = AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
+            backend: None,
+            presolve: None,
+            derivative_step: None,
+            derivative_tolerance: None,
+            derivative_cells: None,
+            items: None,
+            body_occurrences: None,
+            body_slots: None,
+        };
+        let mut seen = BTreeSet::new();
+        loop {
+            if self.peek() == "}" {
+                if seen.is_empty() {
+                    return Err(self.error("a fixture policy setting"));
+                }
+                self.pos += 1;
+                return Ok(policy);
+            }
+            let setting = self.peek().to_owned();
+            if !matches!(
+                setting.as_str(),
+                "backend" | "presolve" | "derivatives" | "limits"
+            ) {
+                return Err(self.error("backend, presolve, derivatives or limits"));
+            }
+            if !seen.insert(setting.clone()) {
+                return Err(self.error(&format!("one {setting} setting")));
+            }
+            self.pos += 1;
+            match setting.as_str() {
+                "backend" => {
+                    policy.backend = Some(self.vocabulary::<NativeBackend>("native backend")?);
+                }
+                "presolve" => {
+                    let at = self.pos;
+                    let kind = self.vocabulary::<PresolvePolicyKind>("auto or off")?;
+                    // Explicit presolve needs complete library controls, not a fixture word.
+                    if kind == PresolvePolicyKind::Explicit {
+                        self.pos = at;
+                        return Err(self.error("auto or off"));
+                    }
+                    policy.presolve = Some(kind);
+                }
+                "derivatives" => {
+                    self.policy_options(["step", "tolerance", "cells"], |cursor, index| {
+                        match index {
+                            0 => policy.derivative_step = Some(cursor.policy_number()?),
+                            1 => policy.derivative_tolerance = Some(cursor.policy_number()?),
+                            _ => policy.derivative_cells = Some(cursor.policy_count()?),
+                        }
+                        Ok(())
+                    })?;
+                }
+                _ => {
+                    self.policy_options(
+                        ["items", "body_occurrences", "body_slots"],
+                        |cursor, index| {
+                            let value = Some(cursor.policy_count()?);
+                            match index {
+                                0 => policy.items = value,
+                                1 => policy.body_occurrences = value,
+                                _ => policy.body_slots = value,
+                            }
+                            Ok(())
+                        },
+                    )?;
+                }
+            }
+            self.expect(";")?;
+        }
+    }
     /// A parenthesized, comma-separated list of expressions, kept as source text.
     fn expressions(&mut self) -> Result<Vec<String>> {
         self.expect("(")?;
@@ -880,6 +1013,7 @@ impl Cursor<'_> {
                     let mut specifications = Vec::new();
                     let mut execution = None;
                     let mut intent = None;
+                    let mut policy = None;
                     let mut stages = Vec::new();
                     let mut integration = None;
                     let mut schedules = Vec::new();
@@ -1065,6 +1199,14 @@ impl Cursor<'_> {
                             self.expect(";")?;
                             continue;
                         }
+                        if self.peek() == "policy" {
+                            if policy.is_some() {
+                                return Err(self.error("one fixture policy"));
+                            }
+                            self.pos += 1;
+                            policy = Some(self.fixture_policy()?);
+                            continue;
+                        }
                         if self.eat("stages") {
                             if !stages.is_empty() {
                                 return Err(self.error("one initialization stage sequence"));
@@ -1196,6 +1338,7 @@ impl Cursor<'_> {
                         degrees_of_freedom,
                         execution,
                         intent,
+                        policy,
                         stages,
                         initialization,
                         integration,

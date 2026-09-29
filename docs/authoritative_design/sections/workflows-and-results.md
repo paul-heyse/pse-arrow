@@ -884,8 +884,9 @@ generator emits `Any`, duplicate enums and unfrozen structs. Python's `SolveSett
 entry points decode the encoded document, so no `**fields: object` signature remains.
 Single-value setting domains are validated types (`Tolerance`, `Fraction`,
 `PositiveCount`, `FiniteBound`, built with nutype) refused at decode with a typed cause;
-`admit_settings` keeps the cross-field and environment rules. `SimulationSettings` and
-`ModelingFixturePolicy` stay native classes that take an encoded document.
+`admit_settings` keeps the cross-field and environment rules. `SimulationSettings` stays a
+native class that takes an encoded document; fixture execution policies are authored data
+([§6.10](schema-and-relations.md#section-6-10)).
 
 - **Strict structuring.** cattrs converters forbid extra keys and keep detailed
   validation; msgspec structs forbid unknown fields for wire envelopes, settings and

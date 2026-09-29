@@ -11,7 +11,7 @@ import pyarrow as pa
 import pytest
 
 import pse
-from pse import codec
+from pse.conformance import load_manifest
 from pse.conformance import main as conformance_main
 from pse.contracts.enums import NativeBackend, NativeSolveIntent
 from pse.contracts.identities import DeclarationId
@@ -27,18 +27,68 @@ def declaration(n: int) -> DeclarationId:
     return DeclarationId(identity(n))
 
 
-@pytest.mark.unit
-@pytest.mark.parametrize("modes", [("invalid",), ("auto", "off")])
-def test_conformance_cli_refuses_invalid_or_duplicate_fixture_presolve(
-    modes: tuple[str, ...],
-) -> None:
-    arguments = ["unused", "--physical", "unused", "--memory-limit-bytes", "1"]
-    for mode in modes:
-        arguments.extend(["--fixture-presolve", identity(207).to_hex(), mode])
-    with pytest.raises(SystemExit) as refused:
-        conformance_main(arguments)
-    assert refused.value.code == 2
 
+@pytest.mark.unit
+def test_conformance_runs_the_declared_reference_set(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A manifest's runs execute once each, with their reports and one verdict line."""
+    root = Path(__file__).resolve().parents[3]
+    # The declared reference set names existing package roots.
+    reference = load_manifest(root / "packages/reference/conformance.toml")
+    assert reference.runs
+    # A tiny synthetic set: one pure run whose fixture declares its own allowance.
+    package = tmp_path / "pure"
+    (package / "models").mkdir(parents=True)
+    (package / "package.toml").write_text(
+        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
+        .read_text()
+        .replace('id_policy = "explicit"', 'id_policy = "named"')
+        + quantity_aliases()
+    )
+    source = """package pure {
+      fn square(x:Scalar)->Scalar=x*x;
+      test positive fixture {dof 0; run pure; policy { limits items(1000); }} {
+        expect square(2)==4 tolerance 1e-12 relative 1e-8;
+      }
+    }"""
+    (package / "models/pure.pse").write_text(source)
+    manifest = tmp_path / "conformance.toml"
+    text = f"""
+[settings]
+memory_limit_bytes = {8 << 30}
+maximum_checks = 32
+
+[[runs]]
+name = "tiny"
+package = "pure"
+physical = "{root / "tests/fixtures/packages/physical-primitives"}"
+execution = "pure"
+"""
+    manifest.write_text(text)
+    reports = tmp_path / "reports"
+    arguments = ["--manifest", str(manifest), "--report-dir", str(reports)]
+    assert conformance_main(arguments) == 0
+    (line,) = capsys.readouterr().out.splitlines()
+    assert line.startswith("tiny: passed=True complete=True checks=")
+    assert line.endswith("fixtures=1 (passed 1)")
+    for suffix in (".arrow", ".fixtures.arrow", ".findings.arrow"):
+        assert (reports / f"tiny{suffix}").is_file()
+    # A failed fixture fails the command.
+    (package / "models/pure.pse").write_text(source.replace("==4", "==5"))
+    assert conformance_main(arguments) == 1
+    assert "tiny: passed=False complete=True" in capsys.readouterr().out
+    # Unknown settings, duplicate runs and missing roots are refused before any run.
+    for invalid in (
+        text.replace("maximum_checks", "maximum_check"),
+        text + text[text.index("[[runs]]") :],
+        text.replace('package = "pure"', 'package = "absent"'),
+    ):
+        manifest.write_text(invalid)
+        with pytest.raises((msgspec.ValidationError, ValueError)):
+            conformance_main(arguments)
+    with pytest.raises(SystemExit):
+        conformance_main([*arguments, "--report", str(tmp_path / "one.arrow")])
 
 def quantity_aliases() -> str:
     return (
@@ -530,7 +580,8 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
  }}
  @id("{identity(207).to_hex()}") test sample
   source "analytic:constant" revision "v1"
-  fixture {{ dof -1; fix root.x = 2; }} {{
+  fixture {{ dof -1; policy {{ presolve off;
+   derivatives step(1e-7) tolerance(1e-4) cells(100); }} fix root.x = 2; }} {{
   @id("{identity(208).to_hex()}") child root:D=D();
   @id("{identity(209).to_hex()}") expect root.x==2 tolerance 1e-6;
  }}
@@ -551,19 +602,7 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
     assert result.outcome_kind == "constant_evaluation"
     assert result.attempt() is None
     assert result.failure() is None
-    local_policy = pse.ModelingFixturePolicy(
-        codec.encode_json(settings), derivative_step=1e-7, derivative_cells=100
-    )
-    with pytest.raises(pse.InspectionError, match="unknown fixture"):
-        package.conform(settings, fixture_policies={declaration(250): local_policy})
-    with pytest.raises(pse.InspectionError):
-        pse.ModelingFixturePolicy(derivative_step=0)
-    conformance = package.conform(
-        settings,
-        maximum_checks=64,
-        derivative_cells=100,
-        fixture_policies={declaration(207): local_policy},
-    )
+    conformance = package.conform(settings, maximum_checks=64)
     checks = pa.table(conformance.table())
     assert conformance.passed, checks.to_pylist()
     assert conformance.complete, checks.to_pylist()
@@ -665,20 +704,6 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
             str(report_path),
             "--maximum-checks",
             "64",
-            "--derivative-cells",
-            "100",
-            "--fixture-solver",
-            identity(207).to_hex(),
-            "root",
-            "auto",
-            "--fixture-presolve",
-            identity(207).to_hex(),
-            "off",
-            "--fixture-derivatives",
-            identity(207).to_hex(),
-            "1e-7",
-            "1e-4",
-            "100",
         ],
         check=False,
         capture_output=True,

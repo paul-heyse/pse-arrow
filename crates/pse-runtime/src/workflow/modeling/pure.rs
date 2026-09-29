@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Standalone pure conformance shares admission and compiler semantics, without MathService.
-use super::conformance::NO_FIXTURE;
+use super::conformance::{NO_FIXTURE, fixture_limits};
 use super::*;
 use pse_columnar::{AllocationLease, MemoryConsumer};
 use pse_model::generated::enums::{
@@ -156,8 +156,14 @@ pub async fn conform_pure_documents(
                     maximum_checks,
                 );
             }
+            // Every fixture's declared allowances are resolved, and refused, before any
+            // fixture runs (ADR-0119).
+            let fixture_limits = fixtures
+                .iter()
+                .map(|row| fixture_limits(row, limits))
+                .collect::<Result<Vec<_>, _>>()?;
             let mut covered = BTreeSet::new();
-            for (index, row) in fixtures.iter().enumerate() {
+            for (index, (row, limits)) in fixtures.iter().zip(fixture_limits).enumerate() {
                 let fixture = row.declaration_id;
                 let oracle = row.value.scope.as_ref().and_then(|s| s.oracle.as_ref());
                 let data = row.value.scope.as_ref().and_then(|s| s.fixture.as_ref());

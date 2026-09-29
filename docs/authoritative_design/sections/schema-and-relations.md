@@ -532,10 +532,10 @@ and `objective_levels_prepare_once_per_level` (runtime units).
 ### 6.10 Cases, observations, dynamics and fitting
 
 > Decision: [ADR-0119](../../adr/0119-fixture-analysis-selections.md) — a fixture declares
-> its solve intent (`intent certify;`; a conflict with the runtime fixture policy is a typed
-> refusal; Plan 22 G6r kernel, implemented), integration schedules, events with a direction,
-> and modes, and a shooting problem (Plan 22 Y0c kernel, Y0d and authored Y5b,
-> implemented; `authored.modeling_declarations` version 6).
+> its solve intent (`intent certify;`; Plan 22 G6r kernel, implemented), integration
+> schedules, events with a direction, and modes, and a shooting problem (Plan 22 Y0c
+> kernel, Y0d and authored Y5b, implemented). Plan 23 H1 adds the fixture's execution
+> policy within the same decision (`authored.modeling_declarations` version 7).
 
 Case and test scopes in the modeling IR carry root bindings, values, fixed/free state,
 bounds and analysis choices. Initialized, steady, integrated and simultaneous fixture routes
@@ -550,16 +550,26 @@ through a disjunction realized by `hull`; its optimum follows by enumerating the
 alternatives.
 
 A fixture may declare its solve intent with the clause `intent <solve intent>;`, at most one
-per fixture, naming any `NativeSolveIntent` (version 4 of `authored.modeling_declarations`
-stores it). Conformance runs a fixture under its declared intent, which replaces the intent
-of the solver profile the fixture would otherwise use (its runtime fixture policy's, else the
-run's). A runtime fixture policy (`ModelingFixturePolicy.solver`) that names a different
-intent is refused (`WorkflowError::FixtureIntentConflict`, rule
-`workflow.fixture_intent_conflict`, class `conflict`, with the authored and policy intents
-observed); neither takes precedence. Without a declared intent the runtime policy decides.
+per fixture, naming any `NativeSolveIntent`. Conformance runs a fixture under its declared
+intent in place of the run's. A fixture may also declare its execution policy, at most once:
+
+```
+policy { backend <NativeBackend>; presolve auto|off;
+         derivatives [step(x)] [tolerance(x)] [cells(n)];
+         limits [items(n)] [body_occurrences(n)] [body_slots(n)]; }
+```
+
+Every setting is a typed field of the fixture in `authored.modeling_declarations`
+version 7; none is text. Unknown, repeated or malformed settings are refused where they
+are written. An empty policy, a non-positive allowance and a solver setting on a pure
+fixture are refused at admission. A fixture's limits apply to that fixture only.
+Execution policy never changes scientific declarations or expectations. There is no
+runtime per-fixture policy: `packages/reference/conformance.toml` and
+`just seed-conformance` run every reference fixture once under the run defaults and the
+authored policies.
 `intent certify;` is how a fixture reaches global certification
 ([§18.10.1](numerical-execution.md#section-18-10-1)). *Tested* by
-`fixture_policy_intent_conflict_refused` (runtime units) and `fixture_intent_selects_certify`
+`kernel_conformance_reads_fixture_policies_from_declarations` (runtime units) and `fixture_intent_selects_certify`
 (native acceptance conformance).
 
 An integration fixture also declares its analysis selections (ADR-0119; version 6 of

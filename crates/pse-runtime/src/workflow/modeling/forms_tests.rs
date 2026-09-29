@@ -601,7 +601,6 @@ async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
             relative_tolerance: 1e-4,
             maximum_cells: 100,
         },
-        fixture_policies: BTreeMap::new(),
         maximum_fixtures: 10,
         maximum_checks: 50,
     };

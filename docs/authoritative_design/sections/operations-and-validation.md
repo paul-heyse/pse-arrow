@@ -233,9 +233,9 @@ ephemeral run asked to publish (`workflow.ephemeral_publication`), an unknown jo
 version (`workflow.job_payload_version`), a former Delta control root
 (`workflow.legacy_workspace`) and an expired export (`workflow.export_expired`) are
 `incompatible`; an unconfirmed catalog commit is `infrastructure`
-(`workflow.publication_unresolved`). A fixture whose declared solve intent differs from its
-runtime fixture policy's is `conflict` (`workflow.fixture_intent_conflict`, code
-`config.invalid`, [§6.10](schema-and-relations.md#section-6-10)).
+(`workflow.publication_unresolved`). A fixture's execution policy is authored with the
+fixture ([§6.10](schema-and-relations.md#section-6-10)); no runtime policy can contradict
+its declared intent.
 
 **Native engine errors.** `pse-columnar::engine` classifies `DataFusionError` in one
 place, by the plan's origin (`PlanOrigin`), never per call site:

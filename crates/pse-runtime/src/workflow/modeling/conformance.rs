@@ -19,51 +19,102 @@ pub use pse_model::generated::runtime::modeling_conformance::Row as ModelingConf
 use pse_modeling::annotation::AnnotationValue;
 use std::{collections::BTreeSet, sync::Arc};
 
-/// An explicit fixture-local execution policy; scientific data remains unchanged.
-#[derive(Clone, Debug, Default)]
-pub struct ModelingFixturePolicy {
-    /// Solver profile for this fixture instead of the run's.
-    pub solver: Option<SolverProfile>,
-    /// Derivative sampling policy for this fixture instead of the run's.
-    pub derivatives: Option<pse_backend_native::derivative_diagnostics::Policy>,
+/// The authored fixture data of a test declaration, if any.
+fn authored_fixture(
+    row: &Declaration,
+) -> Option<
+    &pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixture,
+> {
+    row.value.scope.as_ref().and_then(|s| s.fixture.as_ref())
 }
-
-/// The solve intent an authored test fixture declares, if any (ADR-0119 Outcome 1).
-fn authored_intent(row: &Declaration) -> Option<pse_backend_native::solve::SolveIntent> {
-    row.value
-        .scope
-        .as_ref()
-        .and_then(|s| s.fixture.as_ref())
-        .and_then(|f| f.intent)
+/// The specialization limits one fixture runs under: the run's, with each allowance its
+/// declared execution policy states (ADR-0119); admission refused a nonpositive one.
+pub(super) fn fixture_limits(row: &Declaration, run: Limits) -> Result<Limits, WorkflowError> {
+    let Some(declared) = authored_fixture(row).and_then(|f| f.policy.as_ref()) else {
+        return Ok(run);
+    };
+    let fixture = row.declaration_id;
+    let allowance = |name: &str, value: i64| {
+        usize::try_from(value)
+            .map_err(|_| contract(format!("fixture {fixture} policy {name} allowance")))
+    };
+    Ok(Limits {
+        items: declared
+            .items
+            .map_or(Ok(run.items), |v| allowance("items", v))?,
+        body_occurrences: declared
+            .body_occurrences
+            .map(|v| allowance("body_occurrences", v))
+            .transpose()?
+            .or(run.body_occurrences),
+        body_slots: declared
+            .body_slots
+            .map(|v| allowance("body_slots", v))
+            .transpose()?
+            .or(run.body_slots),
+        ..run
+    })
 }
-/// The solver profile one fixture runs under (ADR-0119 Outcome 1): its runtime fixture
-/// policy's, else the run's, with the intent the fixture declares. A runtime fixture policy
-/// that names a different intent is refused; neither takes precedence. A fixture without an
-/// intent leaves it to the runtime policy.
-fn fixture_solver(
-    fixture: DeclarationId,
-    authored: Option<pse_backend_native::solve::SolveIntent>,
-    local: Option<&SolverProfile>,
-    run: &SolverProfile,
-) -> Result<SolverProfile, WorkflowError> {
-    if let (Some(authored), Some(local)) = (authored, local)
-        && local.intent != authored
-    {
-        return Err(WorkflowError::FixtureIntentConflict {
-            fixture,
-            authored,
-            policy: local.intent,
-        });
-    }
-    let mut solver = local.unwrap_or(run).clone();
-    if let Some(intent) = authored {
+/// The policy one fixture runs under (ADR-0119): the run's, with the solve intent and each
+/// execution-policy setting its declaration states, for this fixture only. The time limit
+/// and every other control stay the run's. The fixture's derivative policy is validated
+/// here, so a caller that resolves every fixture first refuses before any runs.
+fn fixture_policy(
+    row: &Declaration,
+    run: &ModelingConformancePolicy,
+) -> Result<ModelingConformancePolicy, WorkflowError> {
+    use pse_backend_native::presolve::{Policy as Presolve, PolicyKind};
+    let fixture = row.declaration_id;
+    let authored = authored_fixture(row);
+    let mut solver = run.solver.clone();
+    if let Some(intent) = authored.and_then(|f| f.intent) {
         solver.intent = intent;
     }
-    Ok(solver)
+    let mut derivatives = run.derivatives;
+    if let Some(declared) = authored.and_then(|f| f.policy.as_ref()) {
+        if let Some(backend) = declared.backend {
+            solver.selection = pse_backend_native::solve::SolverSelection::Explicit(backend);
+        }
+        match declared.presolve {
+            Some(PolicyKind::Off) => solver.presolve = Presolve::Off,
+            Some(PolicyKind::Auto) => solver.presolve = Presolve::Auto,
+            Some(PolicyKind::Explicit) => {
+                return Err(contract(format!(
+                    "fixture {fixture} policy presolve is auto or off"
+                )));
+            }
+            None => {}
+        }
+        derivatives.perturbation = declared.derivative_step.unwrap_or(derivatives.perturbation);
+        derivatives.relative_tolerance = declared
+            .derivative_tolerance
+            .unwrap_or(derivatives.relative_tolerance);
+        if let Some(cells) = declared.derivative_cells {
+            derivatives.maximum_cells = usize::try_from(cells).map_err(|_| {
+                contract(format!("fixture {fixture} policy derivative cell allowance"))
+            })?;
+        }
+    }
+    derivatives.allowance().map_err(|error| {
+        contract(format!(
+            "fixture {fixture} derivative policy: {}",
+            MathRuntimeError::from(error)
+        ))
+    })?;
+    Ok(ModelingConformancePolicy {
+        compiler: run.compiler,
+        solver,
+        numerical: run.numerical.clone(),
+        limits: fixture_limits(row, run.limits)?,
+        derivatives,
+        maximum_fixtures: run.maximum_fixtures,
+        maximum_checks: run.maximum_checks,
+    })
 }
 /// The fixture of package-level checks that belong to no authored fixture (coverage).
 pub(super) const NO_FIXTURE: DeclarationId = DeclarationId::from_id(SemanticId::NIL);
-/// Execution policy is supplied independently of scientific fixture and oracle data.
+/// The run's execution policy, independent of scientific fixture and oracle data. A
+/// fixture's declared execution policy replaces a setting for that fixture only (ADR-0119).
 #[derive(Clone, Debug)]
 pub struct ModelingConformancePolicy {
     /// Compiler profile for every fixture.
@@ -72,12 +123,10 @@ pub struct ModelingConformancePolicy {
     pub solver: SolverProfile,
     /// Numerical policy inputs for every fixture.
     pub numerical: NumericalInputs,
-    /// Specialization limits for every fixture.
+    /// Default specialization limits.
     pub limits: Limits,
     /// Default derivative sampling policy.
     pub derivatives: pse_backend_native::derivative_diagnostics::Policy,
-    /// Per-fixture overrides, by fixture declaration.
-    pub fixture_policies: BTreeMap<DeclarationId, ModelingFixturePolicy>,
     /// Maximum fixtures executed, at most 4096.
     pub maximum_fixtures: usize,
     /// Maximum checks recorded, at most 100 000; further checks make the report incomplete.
@@ -590,21 +639,12 @@ impl ModelingPackage {
             .iter()
             .filter(|r| r.value.kind == DeclarationKind::Test)
             .collect::<Vec<_>>();
-        for (fixture, local) in &policy.fixture_policies {
-            let Some(row) = fixtures.iter().find(|row| row.declaration_id == *fixture) else {
-                return Err(contract("conformance policy names an unknown fixture"));
-            };
-            // A conflicting intent is refused before any fixture runs.
-            fixture_solver(
-                *fixture,
-                authored_intent(row),
-                local.solver.as_ref(),
-                &policy.solver,
-            )?;
-            if let Some(derivatives) = local.derivatives {
-                derivatives.allowance().map_err(MathRuntimeError::from)?;
-            }
-        }
+        // Every fixture's declared execution policy is resolved, and refused, before any
+        // fixture runs.
+        let policies = fixtures
+            .iter()
+            .map(|row| fixture_policy(row, &policy))
+            .collect::<Result<Vec<_>, _>>()?;
         let mut report = ModelingConformanceReport::new(
             self.runtime.registry.clone(),
             self.runtime.shared.pool(),
@@ -626,7 +666,7 @@ impl ModelingPackage {
                 cap,
             );
         }
-        for (index, row) in fixtures.iter().enumerate() {
+        for (index, (row, policy)) in fixtures.iter().zip(policies).enumerate() {
             if index >= policy.maximum_fixtures || cancel.token().is_cancelled() || !report.complete
             {
                 report.complete = false;
@@ -643,24 +683,6 @@ impl ModelingPackage {
                 break;
             }
             let fixture = row.declaration_id;
-            let local = policy.fixture_policies.get(&fixture);
-            let policy = ModelingConformancePolicy {
-                compiler: policy.compiler,
-                solver: fixture_solver(
-                    fixture,
-                    authored_intent(row),
-                    local.and_then(|p| p.solver.as_ref()),
-                    &policy.solver,
-                )?,
-                numerical: policy.numerical.clone(),
-                limits: policy.limits,
-                derivatives: local
-                    .and_then(|p| p.derivatives)
-                    .unwrap_or(policy.derivatives),
-                fixture_policies: BTreeMap::new(),
-                maximum_fixtures: policy.maximum_fixtures,
-                maximum_checks: policy.maximum_checks,
-            };
             let solve_order = match policy.solver.controls.hessian {
                 pse_backend_native::solve::HessianMode::LimitedMemory => DerivativeOrder::First,
                 pse_backend_native::solve::HessianMode::Exact
@@ -1718,7 +1740,6 @@ mod tests {
                 relative_tolerance: 1e-4,
                 maximum_cells: 100,
             },
-            fixture_policies: BTreeMap::new(),
             maximum_fixtures: 10,
             maximum_checks: 50,
         }
@@ -1758,22 +1779,57 @@ mod tests {
         assert!(!result.complete);
         assert!(!result.passed());
     }
-    #[test]
-    fn kernel_conformance_refuses_mismatched_or_unbounded_fixture_policies() {
+    /// A fixture's metadata or execution policy that disagrees with its route or states no
+    /// allowance is refused at admission; a declared derivative policy outside its bounds
+    /// refuses the whole run before any fixture runs.
+    #[tokio::test]
+    async fn kernel_conformance_refuses_mismatched_or_unbounded_fixture_policies() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
+        let rows = |metadata: &str| {
+            pse_authoring::language::parse(&format!("package p {{test valid fixture {{dof 0; run pure;}} {{expect 1==1 tolerance 1e-6;}} test invalid fixture {{dof 0; {metadata}}} {{expect 1==1 tolerance 1e-6;}}}}"), SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap()
+        };
         for metadata in [
             "run steady; stages(warm);",
             "run initialized; initialize homotopy(true) step(0) minimum(1e-6) growth(2) attempts(4) seconds(30);",
             "run initialized; initialize homotopy(true) step(0.5) minimum(0.6) growth(2) attempts(4) seconds(30);",
             "run initialized; initialize homotopy(true) step(0.5) minimum(1e-6) growth(1) attempts(4) seconds(30);",
             "run integrated;",
+            // A pure fixture starts no solver; allowances are positive.
+            "run pure; policy { backend ipopt; }",
+            "run pure; policy { derivatives step(1e-7); }",
+            "run steady; policy { limits items(0); }",
+            "run steady; policy { derivatives cells(0); }",
         ] {
-            let rows = pse_authoring::language::parse(&format!("package p {{test invalid fixture {{dof 0; {metadata}}} {{expect 1==1 tolerance 1e-6;}}}}"), SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
             assert!(
-                rt.modeling_package(rows, physical.clone(), BTreeMap::new())
+                rt.modeling_package(rows(metadata), physical.clone(), BTreeMap::new())
                     .is_err(),
                 "{metadata}"
+            );
+        }
+        // Admitted, but the derivative policy it declares is outside its bounds: the whole
+        // run is refused, before the valid fixture ahead of it runs.
+        for metadata in [
+            "run steady; policy { derivatives step(1.5); }",
+            "run steady; policy { derivatives step(0) tolerance(1e-4); }",
+            "run steady; policy { derivatives tolerance(-1); }",
+        ] {
+            let package = rt
+                .modeling_package(rows(metadata), physical.clone(), BTreeMap::new())
+                .unwrap();
+            let error = package
+                .conform(policy(), &crate::CancelSource::new())
+                .await
+                .unwrap_err();
+            let invalid = package
+                .declarations()
+                .iter()
+                .find(|r| r.name == "invalid")
+                .unwrap()
+                .declaration_id;
+            assert!(
+                error.to_string().contains(&invalid.to_string()),
+                "{metadata}: {error}"
             );
         }
     }
@@ -1843,134 +1899,95 @@ mod tests {
         assert!(initialization.attempts[0].accepted());
         assert!(!initialization.attempts[1].accepted());
     }
+    /// Each fixture runs under the run's policy with the solve intent and execution policy
+    /// its declaration states, for that fixture only (ADR-0119); the specialized kernel
+    /// fixture carries the declared intent.
     #[tokio::test]
-    async fn fixture_policy_intent_conflict_refused() {
-        use pse_backend_native::solve::SolveIntent as Intent;
-        use pse_model::diagnostic::{BoundaryClass, Observation};
+    async fn kernel_conformance_reads_fixture_policies_from_declarations() {
+        use pse_backend_native::presolve::Policy as Presolve;
+        use pse_backend_native::solve::{Backend, SolveIntent as Intent, SolverSelection};
         let p = package(
-            "package p { def D { var x:Scalar; eq e:x==1; } test certified fixture {dof 0; run steady; intent certify;} {child root:D=D();} test open fixture {dof 0; run steady;} {child root:D=D();} }",
+            "package p { def D { var x:Scalar; eq e:x==1; } test declared fixture {dof 0; run steady; intent certify; policy { backend ipopt; presolve off; derivatives step(1e-7) cells(64); limits items(12) body_occurrences(4096); }} {child root:D=D();} test open fixture {dof 0; run steady;} {child root:D=D();} }",
         );
-        let fixture = |name: &str| {
+        let rows = p.declarations();
+        let row = |name: &str| rows.iter().find(|r| r.name == name).unwrap();
+        let run = policy();
+        let declared = fixture_policy(row("declared"), &run).unwrap();
+        assert_eq!(declared.solver.intent, Intent::Certify);
+        assert_eq!(
+            declared.solver.selection,
+            SolverSelection::Explicit(Backend::Ipopt)
+        );
+        assert!(matches!(declared.solver.presolve, Presolve::Off));
+        assert_eq!(declared.derivatives.perturbation, 1e-7);
+        assert_eq!(declared.derivatives.maximum_cells, 64);
+        assert_eq!(
+            declared.derivatives.relative_tolerance,
+            run.derivatives.relative_tolerance
+        );
+        assert_eq!(
+            declared.limits,
+            Limits {
+                items: 12,
+                body_occurrences: Some(4096),
+                ..run.limits
+            }
+        );
+        // The time limit and every other control stay the run's.
+        assert_eq!(declared.solver.controls, run.solver.controls);
+        let open = fixture_policy(row("open"), &run).unwrap();
+        assert_eq!(open.solver.intent, run.solver.intent);
+        assert_eq!(open.solver.selection, run.solver.selection);
+        assert!(matches!(open.solver.presolve, Presolve::Auto));
+        assert_eq!(open.limits, run.limits);
+        assert_eq!(
+            (
+                open.derivatives.perturbation,
+                open.derivatives.relative_tolerance,
+                open.derivatives.maximum_cells
+            ),
+            (
+                run.derivatives.perturbation,
+                run.derivatives.relative_tolerance,
+                run.derivatives.maximum_cells
+            )
+        );
+        let cancel = crate::CancelSource::new();
+        for (name, expected) in [("declared", Some(Intent::Certify)), ("open", None)] {
+            let id = row(name).declaration_id;
+            let instance = pse_modeling::specialize::root_instance(id);
+            let model = p
+                .prepare(id, instance, Bindings::default(), Limits::default(), &cancel)
+                .await
+                .unwrap();
+            assert_eq!(model.compiled().model.fixtures[&instance].intent, expected);
+        }
+        // A declared allowance applies to its own fixture only.
+        let p = package(
+            "package p { def D { var x:Scalar; let y:Scalar=x*x; } test large fixture {dof 0; run pure; fix root.x=2;} {child root:D=D(); expect root.y==4 tolerance 1e-12;} test small fixture {dof 0; run pure; policy { limits items(1); } fix root.x=2;} {child root:D=D(); expect root.y==4 tolerance 1e-12;} }",
+        );
+        let id = |name: &str| {
             p.declarations()
                 .iter()
                 .find(|r| r.name == name)
                 .unwrap()
                 .declaration_id
         };
-        let (certified, open) = (fixture("certified"), fixture("open"));
-        let rows = p.declarations();
-        let row = |id| rows.iter().find(|r| r.declaration_id == id).unwrap();
-        assert_eq!(authored_intent(row(certified)), Some(Intent::Certify));
-        assert_eq!(authored_intent(row(open)), None);
-        // The specialized kernel fixture carries the declared intent.
-        let cancel = crate::CancelSource::new();
-        for (id, expected) in [(certified, Some(Intent::Certify)), (open, None)] {
-            let instance = pse_modeling::specialize::root_instance(id);
-            let model = p
-                .prepare(
-                    id,
-                    instance,
-                    Bindings::default(),
-                    Limits::default(),
-                    &cancel,
-                )
-                .await
-                .unwrap();
-            assert_eq!(model.compiled().model.fixtures[&instance].intent, expected);
-        }
-        let run = policy().solver;
-        let with = |intent| {
-            let mut solver = run.clone();
-            solver.intent = intent;
-            solver
-        };
-        let intent = |authored, local: Option<&SolverProfile>| {
-            fixture_solver(certified, authored, local, &run).map(|s| s.intent)
-        };
-        // The declared intent replaces the run's; a runtime fixture policy may repeat it.
+        let report = p.conform(policy(), &cancel).await.unwrap();
         assert_eq!(
-            intent(Some(Intent::Certify), None).unwrap(),
-            Intent::Certify
+            report.fixture_statuses[&id("large")],
+            Status::Passed,
+            "{:?}",
+            report.checks
         );
-        assert_eq!(
-            intent(Some(Intent::Certify), Some(&with(Intent::Certify))).unwrap(),
-            Intent::Certify
-        );
-        // Without a declared intent the runtime policy decides.
-        assert_eq!(
-            intent(None, Some(&with(Intent::Optimize))).unwrap(),
-            Intent::Optimize
-        );
-        assert_eq!(intent(None, None).unwrap(), run.intent);
-        // A runtime fixture policy that names another intent is refused, naming both,
-        // before any fixture runs: neither takes precedence.
-        let mut conflicting = policy();
-        conflicting.fixture_policies.insert(
-            certified,
-            ModelingFixturePolicy {
-                solver: Some(with(Intent::Optimize)),
-                derivatives: None,
-            },
-        );
-        let error = p.conform(conflicting, &cancel).await.unwrap_err();
+        // The exhausted allowance is its own: two items required, one allowed.
+        assert_eq!(report.fixture_statuses[&id("small")], Status::Inconclusive);
         assert!(
-            matches!(
-                error,
-                WorkflowError::FixtureIntentConflict {
-                    fixture,
-                    authored: Intent::Certify,
-                    policy: Intent::Optimize,
-                } if fixture == certified
-            ),
-            "{error}"
-        );
-        let diagnostic = error.boundary_diagnostic();
-        assert_eq!(diagnostic.class, BoundaryClass::Conflict);
-        assert_eq!(diagnostic.rule, "workflow.fixture_intent_conflict");
-        assert_eq!(diagnostic.sources, vec![certified.as_id()]);
-        for (name, spelling) in [("authored", "certify"), ("policy", "optimize")] {
-            assert!(
-                matches!(diagnostic.observations.get(name), Some(Observation::Text(t)) if t == spelling),
-                "{diagnostic:?}"
-            );
-        }
-    }
-    #[tokio::test]
-    async fn kernel_conformance_refuses_unused_or_invalid_fixture_policy() {
-        let p = package(
-            "package p {test sample fixture {dof 0; run pure;} {expect 1==1 tolerance 0;}}",
-        );
-        let fixture = p
-            .declarations()
-            .iter()
-            .find(|r| r.value.kind == DeclarationKind::Test)
-            .unwrap()
-            .declaration_id;
-        let mut policy = policy();
-        policy
-            .fixture_policies
-            .insert(NO_FIXTURE, ModelingFixturePolicy::default());
-        assert!(
-            p.conform(policy.clone(), &crate::CancelSource::new())
-                .await
-                .is_err()
-        );
-        policy.fixture_policies.clear();
-        policy.fixture_policies.insert(
-            fixture,
-            ModelingFixturePolicy {
-                derivatives: Some(pse_backend_native::derivative_diagnostics::Policy {
-                    perturbation: f64::NAN,
-                    relative_tolerance: 1e-4,
-                    maximum_cells: 100,
-                }),
-                ..Default::default()
-            },
-        );
-        assert!(
-            p.conform(policy, &crate::CancelSource::new())
-                .await
-                .is_err()
+            report.checks.iter().any(|c| c.fixture_id == id("small")
+                && c.kind == Kind::Preparation
+                && c.message.ends_with("required 2, allowed 1")),
+            "{:?}",
+            report.checks
         );
     }
     #[cfg(feature = "solver-ipopt")]
@@ -1982,7 +1999,7 @@ mod tests {
                 var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3);
                 expect x==2 tolerance 1e-6;
             }
-            test optimization fixture {dof 1; run steady;} {
+            test optimization fixture {dof 1; run steady; intent optimize; policy { backend ipopt; derivatives step(1e-7) tolerance(1e-4) cells(100); }} {
                 var x:Scalar; let cost:Scalar=(x-3)^2; annotation objective cost(minimize);
                 annotation start x(1); expect x==3 tolerance 1e-6;
             }
@@ -1998,28 +2015,21 @@ mod tests {
         policy.solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
             pse_backend_native::solve::Backend::Ipopt,
         );
-        let mut optimize = policy.solver.clone();
-        optimize.intent = pse_backend_native::solve::SolveIntent::Optimize;
-        policy.fixture_policies.insert(
-            fixture,
-            ModelingFixturePolicy {
-                solver: Some(optimize),
-                derivatives: Some(pse_backend_native::derivative_diagnostics::Policy {
-                    perturbation: 1e-7,
-                    relative_tolerance: 1e-4,
-                    maximum_cells: 100,
-                }),
-            },
-        );
         let report = p
             .conform(policy, &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(report.passed(), "{:?}", report.checks);
         assert_eq!(report.results.len(), 2);
-        assert!(report.checks.iter().any(|r| r.fixture_id == fixture
-            && r.kind == Kind::Derivatives
-            && r.message.contains("step=0.0000001")));
+        // The declared derivative step applies to its own fixture only.
+        for (id, step) in report
+            .checks
+            .iter()
+            .filter(|r| r.kind == Kind::Derivatives)
+            .map(|r| (r.fixture_id, r.message.contains("step=0.0000001")))
+        {
+            assert_eq!(id == fixture, step);
+        }
     }
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]

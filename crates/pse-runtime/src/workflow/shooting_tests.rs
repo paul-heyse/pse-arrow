@@ -561,7 +561,6 @@ async fn authored_shooting_fixture_solves() {
         assert!(report.checks_complete && report.checks.iter().all(|c| c.satisfied));
     }
     let policy = crate::workflow::ModelingConformancePolicy {
-        fixture_policies: BTreeMap::new(),
         compiler: compiler_profile(),
         solver: solver(),
         numerical: Default::default(),

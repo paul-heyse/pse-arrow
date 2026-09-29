@@ -46,6 +46,40 @@ fn parameters<'a>(items: impl Iterator<Item = (&'a str, &'a str, Option<&'a str>
         ")",
     )
 }
+/// A fixture's execution policy clause, settings and options in their canonical order.
+fn fixture_policy(
+    policy: &super::AuthoredModelingDeclarationsFieldValueScopeFixturePolicy,
+) -> String {
+    fn options(values: [(&str, Option<String>); 3]) -> Option<String> {
+        let written = values
+            .into_iter()
+            .filter_map(|(name, value)| value.map(|v| format!("{name}({v})")))
+            .collect::<Vec<_>>();
+        (!written.is_empty()).then(|| written.join(" "))
+    }
+    let mut settings = Vec::new();
+    if let Some(backend) = policy.backend {
+        settings.push(format!("backend {};", backend.as_str()));
+    }
+    if let Some(presolve) = policy.presolve {
+        settings.push(format!("presolve {};", presolve.as_str()));
+    }
+    if let Some(derivatives) = options([
+        ("step", policy.derivative_step.map(|v| format!("{v:?}"))),
+        ("tolerance", policy.derivative_tolerance.map(|v| format!("{v:?}"))),
+        ("cells", policy.derivative_cells.map(|v| v.to_string())),
+    ]) {
+        settings.push(format!("derivatives {derivatives};"));
+    }
+    if let Some(limits) = options([
+        ("items", policy.items.map(|v| v.to_string())),
+        ("body_occurrences", policy.body_occurrences.map(|v| v.to_string())),
+        ("body_slots", policy.body_slots.map(|v| v.to_string())),
+    ]) {
+        settings.push(format!("limits {limits};"));
+    }
+    format!("policy {{ {} }}", settings.join(" "))
+}
 fn bad(reason: impl Into<String>) -> AuthoringError {
     AuthoringError::Contract {
         at: None,
@@ -239,6 +273,7 @@ fn print_block(
                         let mut statements = vec![format!("dof {};", f.degrees_of_freedom)];
                         if let Some(execution) = f.execution { statements.push(format!("run {};", execution.as_str())); }
                         if let Some(intent) = f.intent { statements.push(format!("intent {};", intent.as_str())); }
+                        if let Some(policy) = &f.policy { statements.push(fixture_policy(policy)); }
                         if !f.stages.is_empty() { statements.push(format!("stages({});", f.stages.iter().map(|s| quoted(s)).collect::<Vec<_>>().join(", "))); }
                         if let Some(policy) = &f.initialization { statements.push(format!("initialize homotopy({}) step({}) minimum({}) growth({}) attempts({}) seconds({});", policy.homotopy, policy.initial_step, policy.minimum_step, policy.growth, policy.maximum_attempts, policy.time_limit_seconds)); }
                         if let Some(integration) = &f.integration {

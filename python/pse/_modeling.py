@@ -13,7 +13,6 @@ from pse._build import (
     DiagnosticReport,
     EngineSettings,
     ModelingDiagnosticSettings,
-    ModelingFixturePolicy,
     ModelingLimits,
     NativeAttempt,
     SimulationSettings,
@@ -929,9 +928,12 @@ class ModelingPackage:
         derivative_cells: int = 100000,
         derivative_step: float = 1e-6,
         derivative_tolerance: float = 1e-4,
-        fixture_policies: Mapping[DeclarationId, ModelingFixturePolicy] | None = None,
     ) -> ModelingConformance:
-        """Discover authored tests and run bounded shared checks without IDAES."""
+        """Discover authored tests and run bounded shared checks without IDAES.
+
+        The settings and derivative policy are the run's; a fixture's declared execution
+        policy replaces a setting for that fixture only.
+        """
         return ModelingConformance(
             self._handle.conform(
                 codec.encode_json(settings),
@@ -940,9 +942,5 @@ class ModelingPackage:
                 derivative_cells=derivative_cells,
                 derivative_step=derivative_step,
                 derivative_tolerance=derivative_tolerance,
-                fixture_policies={
-                    key.to_hex(): value
-                    for key, value in (fixture_policies or {}).items()
-                },
             )
         )

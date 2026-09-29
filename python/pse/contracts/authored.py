@@ -143,6 +143,20 @@ class AuthoredModelingDeclarationsFieldValueScopeOracle:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueScopeFixturePolicy:
+    """Declared relation row or nested value."""
+
+    backend: e.NativeBackend | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeBackend)))
+    presolve: e.PresolvePolicyKind | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.PresolvePolicyKind)))
+    derivative_step: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    derivative_tolerance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    derivative_cells: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    items: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    body_occurrences: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    body_slots: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization:
     """Declared relation row or nested value."""
 
@@ -255,6 +269,7 @@ class AuthoredModelingDeclarationsFieldValueScopeFixture:
     degrees_of_freedom: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
     execution: e.ModelingFixtureExecution | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingFixtureExecution)))
     intent: e.NativeSolveIntent | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeSolveIntent)))
+    policy: AuthoredModelingDeclarationsFieldValueScopeFixturePolicy | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixturePolicy)))
     stages: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     initialization: AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization)))
     integration: AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration)))

@@ -1904,7 +1904,6 @@ mod tests {
         );
         let package = runtime.modeling_package(rows, physical, names).unwrap();
         let policy = ModelingConformancePolicy {
-            fixture_policies: BTreeMap::new(),
             compiler: super::super::super::tests::compiler_profile(),
             solver: super::super::super::tests::profile(),
             numerical: Default::default(),

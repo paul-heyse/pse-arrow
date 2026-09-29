@@ -187,8 +187,9 @@ and after.
 
 | Packet | Responsibility / dependencies | Acceptance | Deletion | Status |
 |---|---|---|---|---|
-| P0 Decisions and plan transfer | ADR-0123–0126 accepted after review; Plan 21 Outcome, K9 and F01–F13 transfer, retirement of Plan 21 records; register rows; current-work indexes | `just adr-lint` | Plan 21, its execution packets, the K0–K3/K4–K7/through-K8 reviews (ADR-0096) | in progress |
-| H1 Whole-seed conformance | Typed fixture `policy { backend; presolve; derivatives; expansion; body slots; time limit }` (within ADR-0119); `packages/reference/conformance.toml`; `just seed-conformance` | `kernel_conformance_reads_fixture_policies_from_declarations`, `kernel_conformance_refuses_unknown_fixture_policy_setting`, `test_conformance_runs_the_declared_reference_set`; one complete run of every fixture | `--fixture-solver/--fixture-presolve/--fixture-derivatives` flags and the ID-keyed policy map (the declaration-ID fixture subset in `tests/support/plan14.rs` stays: it selects fixtures for targeted Rust tests) | in progress |
+| P0 Decisions and plan transfer | ADR-0123–0126 accepted after review; Plan 21 Outcome, K9 and F01–F13 transfer, retirement of Plan 21 records; register rows; current-work indexes | `just adr-lint` | Plan 21, its execution packets, the K0–K3/K4–K7/through-K8 reviews (ADR-0096) | done (`0e725de2`, `41336c23`) |
+| H1 Whole-seed conformance | Typed fixture `policy { backend; presolve; derivatives; expansion; body slots; time limit }` (within ADR-0119); `packages/reference/conformance.toml`; `just seed-conformance` | `kernel_conformance_reads_fixture_policies_from_declarations`, `kernel_conformance_refuses_unknown_fixture_policy_setting`, `test_conformance_runs_the_declared_reference_set`; one complete run of every fixture | `--fixture-solver/--fixture-presolve/--fixture-derivatives` flags, the runtime `ModelingFixturePolicy` map and parameter, `WorkflowError::FixtureIntentConflict` (the declaration-ID fixture subset in `tests/support/plan14.rs` stays: it selects fixtures for targeted Rust tests) | done; first complete run 90 passed, 1 failed, 3 inconclusive of 94 (H1f) |
+| H1f Whole-seed findings; H1 | The first complete run's non-passing fixtures, each fixed at its cause: SCIP's native allowance is unreachable from a fixture (`heater_optimization_certified` fails; register R-40); derivative sampling perturbs an input fixed at its bound (`saturated_integrated` inconclusive); the tangent-plane check miscounts compared entries (`tpd_ideal` inconclusive); automatic selection now stops `pfr_radau` at a local infeasibility where K8 passed (a routing or Ipopt regression, not a fixture policy) | `just seed-conformance` 94/94 with no masking policy | Whatever each root cause replaces | pending |
 | SM0 Chemistry kinds and phase authority | Confirm the modeling path needs no registry-shaped chemistry types, delete the unreferenced shaped types from `physical.yaml`, and create the `pse.domain` distribution with the species, element, reaction and phase kinds (identities unchanged) and the canonical phases; references move from `kinds.*` and `equilibrium.liquid/vapor`; dependent manifests gain `pse.domain` | `package_declared_axis_indexes_a_sum_without_a_registered_shaped_type`; H1 unchanged | 354 shaped quantity types over species, element, phase and phase-species axes, `kinds.phase_species`, the four kinds in `kinds.pse`, `equilibrium.liquid/vapor`, `chem.liquid/vapor/aqueous` | pending |
 
 ### Track K — kernel (sequential; owns `pse-schema`, the parser and `pse-modeling/data.rs`)
@@ -352,9 +353,22 @@ and `just case-measure` for M1–M3 and 10⁵-row admission, and the AUD review.
 
 ## Current checkpoint
 
-2026-09-29: P0 decisions done: ADR-0123 to ADR-0126 accepted after the typed-domain
-design review, with the resolution check in review §13; Plan 21 closed with its Outcome.
-H1 in progress.
+2026-09-29: P0 done.
+- ADR-0123 to ADR-0126 were accepted after the typed-domain design review; its resolution
+  check is review §13.
+- Plan 21 was closed (`0e725de2`) and retired (`41336c23`, blueprint revision 77).
+
+H1 done: typed fixture `policy` clauses, `packages/reference/conformance.toml` and
+`just seed-conformance`. The first complete run passed 90 of 94 fixtures in 5 min 43 s on a
+128 GiB pool with one thread, root intent, automatic backend, automatic presolve and a
+600 s limit. H1f owns the four that did not pass.
+
+In progress:
+- KR1 → KR2, in the worktree `/home/paul/pse-arrow-wt/kr` (branch `plan23/kr`).
+- H2, in the worktree `/home/paul/pse-arrow-wt/h` (branch `plan23/h`).
+
+KR3 starts after H1 merges, because both change `authored.modeling_declarations`. SM0 and
+track C start after H1.
 
 Decisions during execution:
 - The `chem` split into data-bank distributions moves from SM0 to SM1. In SM0 it would

@@ -675,6 +675,14 @@ modeling-conformance *args:
     "{{ py }}" -m pse.conformance {{ args }}
 
 [group('local')]
+[doc('Run every reference fixture once from packages/reference/conformance.toml; Arrow reports in build/seed-conformance')]
+seed-conformance:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-execution-env.sh
+    "{{ py }}" -m pse.conformance --manifest packages/reference/conformance.toml --report-dir build/seed-conformance
+
+[group('local')]
 [doc('Repository-config lint: taplo, typos, reuse, actionlint, zizmor, shellcheck, ast-grep')]
 lint-repo:
     python3 -m scripts.validation --group lint-repo

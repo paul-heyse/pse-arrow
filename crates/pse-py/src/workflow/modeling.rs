@@ -127,48 +127,6 @@ pub(crate) struct NativeModelingPackage {
     /// for its workers; none once the package was changed in memory.
     sources: Option<Arc<native::PackageSources>>,
 }
-/// Fixture-local solve and derivative inspection choices over the shared harness.
-#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
-#[derive(Clone, Debug)]
-pub(crate) struct ModelingFixturePolicy {
-    inner: native::ModelingFixturePolicy,
-}
-#[pymethods]
-impl ModelingFixturePolicy {
-    #[new]
-    #[pyo3(signature=(settings=None, *, derivative_step=None, derivative_tolerance=None, derivative_cells=None))]
-    fn new(
-        py: Python<'_>,
-        settings: Option<&[u8]>,
-        derivative_step: Option<f64>,
-        derivative_tolerance: Option<f64>,
-        derivative_cells: Option<usize>,
-    ) -> PyResult<Self> {
-        let settings = settings
-            .map(|s| settings::solve_profile(py, s))
-            .transpose()?;
-        let derivatives = if derivative_step.is_some()
-            || derivative_tolerance.is_some()
-            || derivative_cells.is_some()
-        {
-            let policy = pse_backend_native::derivative_diagnostics::Policy {
-                perturbation: derivative_step.unwrap_or(1e-6),
-                relative_tolerance: derivative_tolerance.unwrap_or(1e-4),
-                maximum_cells: derivative_cells.unwrap_or(100_000),
-            };
-            policy.allowance().map_err(|e| errors::diagnostic(py, &e))?;
-            Some(policy)
-        } else {
-            None
-        };
-        Ok(Self {
-            inner: native::ModelingFixturePolicy {
-                solver: settings,
-                derivatives,
-            },
-        })
-    }
-}
 /// Explicit source expansion limits, independent of runtime memory and native work budgets.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Copy, Debug)]
@@ -1181,7 +1139,7 @@ impl NativeModelingPackage {
         clippy::too_many_arguments,
         reason = "one parameter per argument of the Python method signature"
     )]
-    #[pyo3(signature=(settings, *, maximum_fixtures=1024, maximum_checks=16384, derivative_cells=100000, derivative_step=1e-6, derivative_tolerance=1e-4, fixture_policies=None))]
+    #[pyo3(signature=(settings, *, maximum_fixtures=1024, maximum_checks=16384, derivative_cells=100000, derivative_step=1e-6, derivative_tolerance=1e-4))]
     fn conform(
         &self,
         py: Python<'_>,
@@ -1191,17 +1149,10 @@ impl NativeModelingPackage {
         derivative_cells: usize,
         derivative_step: f64,
         derivative_tolerance: f64,
-        fixture_policies: Option<BTreeMap<String, Py<ModelingFixturePolicy>>>,
     ) -> PyResult<NativeModelingConformance> {
         let settings = settings::solve_profile(py, settings)?;
         let cancel = CancelSource::new();
-        let fixture_policies = fixture_policies
-            .unwrap_or_default()
-            .into_iter()
-            .map(|(key, policy)| Ok((declaration(py, &key)?, policy.borrow(py).inner.clone())))
-            .collect::<PyResult<BTreeMap<_, _>>>()?;
         let policy = native::ModelingConformancePolicy {
-            fixture_policies,
             compiler: Default::default(),
             solver: settings.clone(),
             numerical: Default::default(),

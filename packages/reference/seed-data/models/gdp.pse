@@ -27,7 +27,7 @@
 @id("23e71c9d4fff4392b735a963ca86f84d") annotation start cost(0{W});
 @id("2fb3f6cb706f4bf78ce2160f88b785e8") annotation objective cost(minimize);
 }
-@id("5dab1e9702954b9182f023a5a55c8b9c") test gdp_selection source "Synthetic unit selection; the optimum follows by enumerating the three alternatives at 60 W demand" revision "1" fixture {dof 5; run steady;} {
+@id("5dab1e9702954b9182f023a5a55c8b9c") test gdp_selection source "Synthetic unit selection; the optimum follows by enumerating the three alternatives at 60 W demand" revision "1" fixture {dof 5; run steady; intent optimize;} {
 @id("3b2f96864d9e414fa25dc4730f1afccc") child root:Supply=Supply();
 @id("c4a1f2e8d7b64a1e9f3c2b5d8e7a6f10") expect root.cost==36{W} tolerance 0.000001{W};
 @id("a9b8c7d6e5f44321b0a9c8d7e6f5a4b3") expect root.output==60{W} tolerance 0.000001{W};

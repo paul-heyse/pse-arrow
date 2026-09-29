@@ -74,7 +74,7 @@ mod _native {
         },
         registry_fingerprint,
         workflow::{
-            Incumbent, ModelingDiagnosticSettings, ModelingFixturePolicy, ModelingLimits,
+            Incumbent, ModelingDiagnosticSettings, ModelingLimits,
             NativeAttempt, NativeEligibility, NativeIneligible, NativeModelingConformance,
             NativeModelingDiagnosticSamples, NativeModelingDiagnostics,
             NativeModelingElasticAttempt, NativeModelingInitialization,

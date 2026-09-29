@@ -9,6 +9,7 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
     AuthoredModelingDeclarationsFieldValueScopeParametersItem,
     AuthoredModelingDeclarationsFieldValueScopeSelection,
     AuthoredModelingDeclarationsFieldValueScopeOracle,
+    AuthoredModelingDeclarationsFieldValueScopeFixturePolicy,
     AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization,
     AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem,
     AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem,
@@ -69,20 +70,20 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    166u8, 97u8, 213u8, 69u8, 201u8, 57u8, 82u8, 141u8, 99u8, 54u8, 20u8, 198u8, 227u8,
-    16u8, 136u8, 147u8,
+    171u8, 94u8, 211u8, 103u8, 104u8, 188u8, 226u8, 174u8, 158u8, 159u8, 246u8, 1u8,
+    227u8, 142u8, 124u8, 183u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_declarations";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 6u32;
+pub const VERSION: u32 = 7u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    25u8, 97u8, 43u8, 184u8, 30u8, 192u8, 9u8, 238u8, 205u8, 180u8, 13u8, 115u8, 14u8,
-    174u8, 217u8, 16u8, 245u8, 20u8, 47u8, 77u8, 118u8, 225u8, 3u8, 207u8, 67u8, 185u8,
-    90u8, 194u8, 237u8, 24u8, 103u8, 235u8,
+    222u8, 97u8, 238u8, 62u8, 183u8, 38u8, 58u8, 87u8, 65u8, 255u8, 139u8, 100u8, 229u8,
+    172u8, 78u8, 67u8, 163u8, 157u8, 154u8, 240u8, 71u8, 106u8, 227u8, 159u8, 66u8,
+    250u8, 195u8, 91u8, 154u8, 45u8, 187u8, 161u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueRelaxation {
     fn append(
@@ -335,6 +336,137 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueScope
             )?,
             r#revision: <String as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#backend, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#presolve,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#derivative_step,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#derivative_tolerance,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#derivative_cells,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#items, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#body_occurrences,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#body_slots,
+            children[7usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <Option<
+            crate::generated::enums::NativeBackend,
+        > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Option<
+            crate::generated::enums::PresolvePolicyKind,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#backend: <Option<
+                crate::generated::enums::NativeBackend,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#presolve: <Option<
+                crate::generated::enums::PresolvePolicyKind,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#derivative_step: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#derivative_tolerance: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#derivative_cells: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#items: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#body_occurrences: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#body_slots: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
                 index,
             )?,
         })
@@ -1073,27 +1205,28 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueScope
             children[1usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#intent, children[2usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#stages, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#policy, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#stages, children[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#initialization,
-            children[4usize].as_mut(),
+            children[5usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#integration,
-            children[5usize].as_mut(),
+            children[6usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#modes, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#modes, children[7usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#shooting,
-            children[7usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#expected_failure,
             children[8usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#specifications,
+            &self.r#expected_failure,
             children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#specifications,
+            children[10usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -1112,27 +1245,30 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueScope
         <Option<
             crate::generated::enums::NativeSolveIntent,
         > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            AuthoredModelingDeclarationsFieldValueScopeFixturePolicy,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Vec<
             String,
-        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <Option<
-            AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration,
+            AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization,
         > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Vec<
             AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem,
-        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
-        <Option<
-            AuthoredModelingDeclarationsFieldValueScopeFixtureShooting,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure,
+            AuthoredModelingDeclarationsFieldValueScopeFixtureShooting,
         > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         <Vec<
             AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem,
-        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -1159,46 +1295,52 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueScope
                 input.column(2usize).as_ref(),
                 index,
             )?,
+            r#policy: <Option<
+                AuthoredModelingDeclarationsFieldValueScopeFixturePolicy,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
             r#stages: <Vec<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
+                input.column(4usize).as_ref(),
                 index,
             )?,
             r#initialization: <Option<
                 AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization,
             > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
+                input.column(5usize).as_ref(),
                 index,
             )?,
             r#integration: <Option<
                 AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(6usize).as_ref(),
                 index,
             )?,
             r#modes: <Vec<
                 AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
+                input.column(7usize).as_ref(),
                 index,
             )?,
             r#shooting: <Option<
                 AuthoredModelingDeclarationsFieldValueScopeFixtureShooting,
             > as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
+                input.column(8usize).as_ref(),
                 index,
             )?,
             r#expected_failure: <Option<
                 AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure,
             > as crate::columnar::ArrowValue>::read(
-                input.column(8usize).as_ref(),
+                input.column(9usize).as_ref(),
                 index,
             )?,
             r#specifications: <Vec<
                 AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(9usize).as_ref(),
+                input.column(10usize).as_ref(),
                 index,
             )?,
         })
@@ -4444,10 +4586,10 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        467_968_usize + size_of::<Self::Builder>()
+        485_376_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        3656usize
+        3792usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -4721,6 +4863,108 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
                                                         crate::columnar::allocation_add(
                                                             1,
                                                             crate::columnar::allocation_add(8, (value).as_str().len())?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if let Some(value) = ((value).r#policy).as_ref() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            {
+                                                                let mut bytes = 1usize;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    if let Some(value) = ((value).r#backend).as_ref() {
+                                                                        crate::columnar::allocation_add(
+                                                                            1,
+                                                                            crate::columnar::allocation_add(8, (value).as_str().len())?,
+                                                                        )
+                                                                    } else {
+                                                                        Ok::<usize, crate::RelationError>(1)
+                                                                    }?,
+                                                                )?;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    if let Some(value) = ((value).r#presolve).as_ref() {
+                                                                        crate::columnar::allocation_add(
+                                                                            1,
+                                                                            crate::columnar::allocation_add(8, (value).as_str().len())?,
+                                                                        )
+                                                                    } else {
+                                                                        Ok::<usize, crate::RelationError>(1)
+                                                                    }?,
+                                                                )?;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    if ((value).r#derivative_step).is_some() {
+                                                                        crate::columnar::allocation_add(
+                                                                            1,
+                                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                                        )
+                                                                    } else {
+                                                                        Ok::<usize, crate::RelationError>(1)
+                                                                    }?,
+                                                                )?;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    if ((value).r#derivative_tolerance).is_some() {
+                                                                        crate::columnar::allocation_add(
+                                                                            1,
+                                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                                        )
+                                                                    } else {
+                                                                        Ok::<usize, crate::RelationError>(1)
+                                                                    }?,
+                                                                )?;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    if ((value).r#derivative_cells).is_some() {
+                                                                        crate::columnar::allocation_add(
+                                                                            1,
+                                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                                        )
+                                                                    } else {
+                                                                        Ok::<usize, crate::RelationError>(1)
+                                                                    }?,
+                                                                )?;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    if ((value).r#items).is_some() {
+                                                                        crate::columnar::allocation_add(
+                                                                            1,
+                                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                                        )
+                                                                    } else {
+                                                                        Ok::<usize, crate::RelationError>(1)
+                                                                    }?,
+                                                                )?;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    if ((value).r#body_occurrences).is_some() {
+                                                                        crate::columnar::allocation_add(
+                                                                            1,
+                                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                                        )
+                                                                    } else {
+                                                                        Ok::<usize, crate::RelationError>(1)
+                                                                    }?,
+                                                                )?;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    if ((value).r#body_slots).is_some() {
+                                                                        crate::columnar::allocation_add(
+                                                                            1,
+                                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                                        )
+                                                                    } else {
+                                                                        Ok::<usize, crate::RelationError>(1)
+                                                                    }?,
+                                                                )?;
+                                                                Ok::<usize, crate::RelationError>(bytes)
+                                                            }?,
                                                         )
                                                     } else {
                                                         Ok::<usize, crate::RelationError>(1)

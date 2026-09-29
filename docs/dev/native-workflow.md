@@ -164,13 +164,13 @@ derivatives, envelopes, native execution, original checks and expectations. Pure
 can run without solver services through `ModelingConformance.pure`. Oracle text identifies
 the reference supporting the authored expectation; it does not execute an upstream tool.
 
-One run can apply explicit `fixture_policies` keyed by fixture semantic ID. A
-`ModelingFixturePolicy` supplies optional `SolveSettings` and an optional complete derivative
-inspection policy (`derivative_step`, `derivative_tolerance`, `derivative_cells`). Solver
-settings otherwise inherit the run default. If any derivative field is supplied, omitted
-fields use the constructor defaults; omit all three to inherit the run derivative policy.
-Unknown fixture IDs and invalid numerical policies refuse before execution. No policy
-changes scientific declarations or expected outcomes.
+A fixture's execution policy is authored with it: `policy { backend …; presolve …;
+derivatives …; limits …; }` in the fixture header (blueprint §6.10). The run supplies the
+defaults, which the policy overrides for that fixture only. Invalid policies refuse before
+execution. No policy changes scientific declarations or expected outcomes.
+`just seed-conformance` runs every reference fixture once, from
+`packages/reference/conformance.toml`, and writes Arrow reports to `build/seed-conformance`.
+`python -m pse.conformance --manifest <toml> --report-dir <dir>` runs any manifest.
 
 The report retains every discovered fixture independently of its detailed row cap.
 `complete=False`, inconclusive, cancelled and unattempted results cannot pass. Results,

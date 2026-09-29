@@ -138,6 +138,58 @@ impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeOracle {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
+    ///backend
+    pub r#backend: Option<crate::generated::enums::NativeBackend>,
+    ///presolve
+    pub r#presolve: Option<crate::generated::enums::PresolvePolicyKind>,
+    ///derivative_step
+    pub r#derivative_step: Option<f64>,
+    ///derivative_tolerance
+    pub r#derivative_tolerance: Option<f64>,
+    ///derivative_cells
+    pub r#derivative_cells: Option<i64>,
+    ///items
+    pub r#items: Option<i64>,
+    ///body_occurrences
+    pub r#body_occurrences: Option<i64>,
+    ///body_slots
+    pub r#body_slots: Option<i64>,
+}
+impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#backend, &other.r#backend)
+            && crate::SemanticEq::semantic_eq(&self.r#presolve, &other.r#presolve)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#derivative_step,
+                &other.r#derivative_step,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#derivative_tolerance,
+                &other.r#derivative_tolerance,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#derivative_cells,
+                &other.r#derivative_cells,
+            ) && crate::SemanticEq::semantic_eq(&self.r#items, &other.r#items)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#body_occurrences,
+                &other.r#body_occurrences,
+            ) && crate::SemanticEq::semantic_eq(&self.r#body_slots, &other.r#body_slots)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization {
     ///homotopy
     pub r#homotopy: bool,
@@ -512,6 +564,8 @@ pub struct AuthoredModelingDeclarationsFieldValueScopeFixture {
     pub r#execution: Option<crate::generated::enums::ModelingFixtureExecution>,
     ///intent
     pub r#intent: Option<crate::generated::enums::NativeSolveIntent>,
+    ///policy
+    pub r#policy: Option<AuthoredModelingDeclarationsFieldValueScopeFixturePolicy>,
     ///stages
     pub r#stages: Vec<String>,
     ///initialization
@@ -542,6 +596,7 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeFixture {
             &other.r#degrees_of_freedom,
         ) && crate::SemanticEq::semantic_eq(&self.r#execution, &other.r#execution)
             && crate::SemanticEq::semantic_eq(&self.r#intent, &other.r#intent)
+            && crate::SemanticEq::semantic_eq(&self.r#policy, &other.r#policy)
             && crate::SemanticEq::semantic_eq(&self.r#stages, &other.r#stages)
             && crate::SemanticEq::semantic_eq(
                 &self.r#initialization,
@@ -5560,6 +5615,39 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeOracle {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#revision))
     }
 }
+impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#backend));
+        crate::SemanticFrame::frame(&self.r#backend, hash);
+        hash.str(stringify!(r#presolve));
+        crate::SemanticFrame::frame(&self.r#presolve, hash);
+        hash.str(stringify!(r#derivative_step));
+        crate::SemanticFrame::frame(&self.r#derivative_step, hash);
+        hash.str(stringify!(r#derivative_tolerance));
+        crate::SemanticFrame::frame(&self.r#derivative_tolerance, hash);
+        hash.str(stringify!(r#derivative_cells));
+        crate::SemanticFrame::frame(&self.r#derivative_cells, hash);
+        hash.str(stringify!(r#items));
+        crate::SemanticFrame::frame(&self.r#items, hash);
+        hash.str(stringify!(r#body_occurrences));
+        crate::SemanticFrame::frame(&self.r#body_occurrences, hash);
+        hash.str(stringify!(r#body_slots));
+        crate::SemanticFrame::frame(&self.r#body_slots, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#backend))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#presolve))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#derivative_step))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#derivative_tolerance))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#derivative_cells))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#items))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#body_occurrences))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#body_slots))
+    }
+}
 impl crate::SemanticFrame
 for AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
@@ -5810,6 +5898,8 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueScopeFixture
         crate::SemanticFrame::frame(&self.r#execution, hash);
         hash.str(stringify!(r#intent));
         crate::SemanticFrame::frame(&self.r#intent, hash);
+        hash.str(stringify!(r#policy));
+        crate::SemanticFrame::frame(&self.r#policy, hash);
         hash.str(stringify!(r#stages));
         crate::SemanticFrame::frame(&self.r#stages, hash);
         hash.str(stringify!(r#initialization));
@@ -5832,6 +5922,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixture {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#degrees_of_freedom))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#execution))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#intent))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#policy))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#stages))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#initialization))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#integration))
