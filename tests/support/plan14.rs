@@ -155,6 +155,7 @@ pub(crate) async fn seed_package_on(
                             "68ba8dc2d6b05d9a9fe1b1a3625d8015",
                             "040af20814bc57abb565c3c7f680be05",
                             "079a378ba3ce46728b32c87f4fe6a3df",
+                            "e0d4fbe894134e60bb4e364dddae9c5f",
                             "fc52409793e44e61adb3eff88946fdb6",
                             "efcd1d0ad288438daf6764b4ab25a2a6",
                             "8c22c4a4f87141b083bfc0d9442d382c",

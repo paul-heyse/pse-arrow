@@ -108,3 +108,60 @@ async fn tpd_certifies_stable_feed() {
     assert!(value.abs() < 1e-6 && check, "{value}");
     authored_success(&result);
 }
+
+/// The foreign-library allowance this test declares for SCIP's search over the PC-SAFT
+/// heater, which becomes SCIP's `limits/memory`. Measured on 2026-09-28: at 512 MiB and
+/// 1 GiB SCIP stops with `SCIP_STATUS_MEMLIMIT` before its first node; at 2 GiB it proves
+/// optimality in 91 nodes (the whole run 18 s, process peak 3.3 GB). The runtime default is
+/// 64 MiB.
+const SCIP_FOREIGN_BYTES: usize = 2 << 30;
+/// The shared memory ceiling the allowance needs: it is charged to every native job and
+/// retained program, and the 64 GiB workflow ceiling is exhausted during preparation at a
+/// 2 GiB allowance. The ceiling is an accounting bound, not an allocation.
+const SCIP_POOL_BYTES: usize = 256 << 30;
+
+#[tokio::test]
+async fn heater_optimization_certified() {
+    // The authored `intent certify;` fixture: heater_optimization over a declared
+    // vapor-branch box, so the certified global minimum is the selected local one.
+    let owner = WorkflowRuntime::with_math(
+        pse_runtime::math::MathPolicy {
+            foreign_bytes: SCIP_FOREIGN_BYTES,
+            ..Default::default()
+        },
+        SCIP_POOL_BYTES,
+    )
+    .unwrap();
+    let package = seed_package(&owner).await;
+    let case = SemanticId::parse_hex("e0d4fbe894134e60bb4e364dddae9c5f").unwrap();
+    let result = seed_prepare(&package, case, certify(10), &CancelSource::new())
+        .await
+        .unwrap()
+        .start()
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
+    let report = authored_success(&result);
+    let Outcome::Native(native) = &report.outcome else {
+        panic!("expected a native certification");
+    };
+    assert_eq!(native.backend, Backend::Scip);
+    assert_eq!(native.termination.name, "SCIP_STATUS_OPTIMAL");
+    assert_eq!(
+        native.qualification,
+        Qualification::GapQualified,
+        "{native:?}"
+    );
+    assert_eq!(native.termination.assurance, Assurance::GlobalBound);
+    // The certified bound and the qualified candidate's fresh objective agree within the
+    // recorded gap; the authored expectations (T = 350 K on the vapor root) hold.
+    let g = native.evidence.global.unwrap();
+    assert!(g.readback && g.nodes > 0, "{g:?}");
+    let bound = g.dual_bound.unwrap();
+    let objective = native.observation.as_ref().unwrap().objective.unwrap();
+    assert!(
+        (objective - bound).abs() <= g.gap_absolute + g.gap_relative * bound.abs(),
+        "{objective} {bound}"
+    );
+}
