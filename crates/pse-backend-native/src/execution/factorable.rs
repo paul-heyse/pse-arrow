@@ -192,6 +192,10 @@ pub(crate) struct Affine {
     pub constant: f64,
 }
 impl Affine {
+    #[cfg_attr(
+        not(feature = "scip"),
+        expect(dead_code, reason = "the SCIP adapter reads links back")
+    )]
     fn at(&self, coordinates: &[f64]) -> f64 {
         self.terms
             .iter()
@@ -252,6 +256,10 @@ impl Plan<'_> {
         }
     }
     /// The coordinate of the indicator of the lowered semi column at ordinal `j`.
+    #[cfg_attr(
+        not(feature = "scip"),
+        expect(dead_code, reason = "the SCIP adapter exports the indicators")
+    )]
     pub(crate) fn indicator(&self, j: usize) -> usize {
         self.program.variables.len() + self.program.auxiliaries.len() + j
     }
@@ -264,6 +272,10 @@ impl Plan<'_> {
     }
     /// Every combined coordinate at a program point: the columns, the auxiliaries, and
     /// each lowered semi column's indicator at the branch nearest its value.
+    #[cfg_attr(
+        not(feature = "scip"),
+        expect(dead_code, reason = "the SCIP adapter reads its export back")
+    )]
     pub(crate) fn coordinates(&self, point: &[f64], auxiliary: &[f64]) -> Vec<f64> {
         point
             .iter()
@@ -278,6 +290,10 @@ impl Plan<'_> {
     }
     /// An exported function's value from the program's node values and the combined
     /// coordinates at one point.
+    #[cfg_attr(
+        not(feature = "scip"),
+        expect(dead_code, reason = "the SCIP adapter reads its export back")
+    )]
     pub(crate) fn value(&self, expression: Expression, nodes: &[f64], coordinates: &[f64]) -> f64 {
         match expression {
             Expression::Node(node) => nodes[node],
@@ -806,9 +822,12 @@ pub fn factorable(
         },
     )?;
     observe(&mut report, &plan, run.original, step.tolerances);
-    // Every pooled solution is re-qualified in original coordinates, like the candidate.
+    // Every pooled solution is re-qualified in original coordinates, like the candidate,
+    // and the record states the named transformations the plan applied.
     if let Some(record) = report.global.as_mut() {
-        for solution in &mut std::sync::Arc::make_mut(record).pool {
+        let record = std::sync::Arc::make_mut(record);
+        record.transformations = plan.transformations();
+        for solution in &mut record.pool {
             solution.feasible = assess(&plan, run.original, step.tolerances, &solution.primal)
                 .ok()
                 .map(|(q, _)| q.feasible());

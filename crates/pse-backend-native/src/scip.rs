@@ -2673,7 +2673,8 @@ pub(crate) fn solve(
         iis: subsystem,
         exact_objective,
         reoptimized,
-        transformations: plan.transformations(),
+        // The runner records the plan's named transformations.
+        transformations: Vec::new(),
     }));
     let metrics = &mut report.metrics;
     metrics.insert("scip.status".into(), Metric::Integer(i64::from(raw)));
