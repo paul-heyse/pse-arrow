@@ -392,13 +392,15 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(images.projections(ROOT, pins), {})
         with self.assertRaises(ValueError):
             images.validate({**pins, "dev": pins["dev"].split("@")[0]})
+        # A dev pin from another recipe tree than ci is refused. The tree is read from the
+        # current pin so that re-pinning cannot silently turn this into a no-op.
+        tree = re.search(r"dev-([0-9a-f]{12})@", pins["dev"])
+        self.assertIsNotNone(tree)
+        other = "0" * 12 if tree[1] != "0" * 12 else "1" * 12
+        mismatched = pins["dev"].replace(f"dev-{tree[1]}", f"dev-{other}")
+        self.assertNotEqual(mismatched, pins["dev"])
         with self.assertRaises(ValueError):
-            images.validate(
-                {
-                    **pins,
-                    "dev": pins["dev"].replace("dev-e84fdce84e2f", "dev-000000000000"),
-                }
-            )
+            images.validate({**pins, "dev": mismatched})
 
     def test_accepted_adr_edits_rejected_against_base(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
