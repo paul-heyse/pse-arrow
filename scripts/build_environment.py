@@ -93,6 +93,17 @@ def configure(
                     / f"pse-sccache-{os.getuid()}-{key}.sock"
                 ),
             )
+    # Each checkout, git worktrees included, builds into its own target directory. A
+    # directory inherited from another checkout is not an override for this one: a
+    # long-running agent or editor process started under that checkout's direnv carries
+    # its absolute export into every worktree, which would then share one build and one
+    # Cargo lock. Choose a directory outside the checkout with PSE_CARGO_TARGET_DIR.
+    if env.get("PSE_CARGO_TARGET_DIR"):
+        env["CARGO_TARGET_DIR"] = env["PSE_CARGO_TARGET_DIR"]
+    elif env.get("CARGO_TARGET_DIR") and not (
+        Path(env["CARGO_TARGET_DIR"]).resolve().is_relative_to(root.resolve())
+    ):
+        env["CARGO_TARGET_DIR"] = str(root / "target")
     if mode:
         stable = tomllib.loads((root / "rust-toolchain.toml").read_text())["toolchain"][
             "channel"
