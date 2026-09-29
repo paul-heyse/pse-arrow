@@ -16,9 +16,8 @@ provider contracts in `pse-kernels`. The qualification basis for these statement
 ## 25. Supported scope and recorded limits
 
 > Decision: [ADR-0102](../../adr/0102-discrete-and-global-design-target.md) —
-> mixed-integer, disjunctive and globally certified classes enter the design target;
-> [ADR-0107](../../adr/0107-sensitivity-covariance-uncertainty.md) — sensitivity,
-> covariance and uncertainty under PS-12 validity;
+> mixed-integer, disjunctive and globally certified classes enter the design target (Plan
+> 22 G1–G7 implemented, with G4 and G6 partial as stated below);
 > [ADR-0114](../../adr/0114-typed-operational-store.md) — operational
 > store, publication catalog and durable multi-process execution (Plan 22 O1–O9, G8,
 > implemented). The Supported column changes only as the
@@ -26,8 +25,7 @@ provider contracts in `pse-kernels`. The qualification basis for these statement
 >
 > Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — sensitivity, covariance
 > and uncertainty under PS-12 validity, through one KKT-point analysis for every NLP and QP
-> route (Plan 22 S0–S4; not yet implemented). ADR-0118 supersedes ADR-0107, which the
-> fitting row below still cites.
+> route (Plan 22 S0–S4; not yet implemented). ADR-0118 supersedes ADR-0107.
 
 The Supported column describes implemented contracts and the exercised K8 seed.
 The earlier local Linux qualification in §24.2 predates this replacement; the current
@@ -38,13 +36,13 @@ no silent fallback, approximate substitute or compatibility route.
 | Area | Supported | Refused or outside the profile | Contract |
 |---|---|---|---|
 | Definitions and composition | Generic typed definitions, interfaces/defaults, finite/indexed and continuous membership, lazy demand, functions/partials, accumulators, children, cases and typed connections; indicator, SOS, cardinality, piecewise-linear and logic declarations and nested disjunctions, lowered by declared realizations | Ambiguous interfaces/imports, unavailable demanded contracts, invalid physical operations, exceeded expansion limits; a realization whose preconditions fail (infinite bounds, an incomplete or unbounded FBBT interval, a nonlinear disjunct row under plain `hull`); complementarity until Plan 22 M5 | [§10](models-and-composition.md#section-10)–[§12](models-and-composition.md#section-12), [§22](models-and-composition.md#section-22) |
-| Physical properties | Authored ideal, PR and PC-SAFT seed potentials, DIPPR/Shomate/RPP4/Perry calorics, FTPx/FPhx, BTIdeal/BT_PR and dilute-liquid state bindings; explicit data/reference/envelope contracts | Unproved global stability or branch smoothness (a certified tangent-plane stability check is in the target: ADR-0102, Plan 22 G6, not yet implemented); undeclared extrapolation; unported property families | [§9](physical-semantics.md#section-9) |
+| Physical properties | Authored ideal, PR and PC-SAFT seed potentials, DIPPR/Shomate/RPP4/Perry calorics, FTPx/FPhx, BTIdeal/BT_PR and dilute-liquid state bindings; explicit data/reference/envelope contracts | Unproved global stability or branch smoothness: the authored tangent-plane model certifies an ideal feed stable on the `certify` route (ADR-0102, Plan 22 G6, partial), while detecting a known instability and PC-SAFT stability are scheduled, not built; undeclared extrapolation; unported property families | [§9](physical-semantics.md#section-9) |
 | Reactions | Authored saponification stoichiometry, kinetics and heat conventions composed with generic accumulators | Unported reaction knowledge; missing demanded physical contracts | [§9](physical-semantics.md#section-9) |
 | Numerical policy | One resolved policy with recorded precedence; reversible normalization; frozen absolute and relative budgets; original-space acceptance; exact Gram convexity evidence, numerical PSD evidence only on opt-in | Conflicting equal-priority sources; relaxation of hard guards | [§16](numerical-execution.md#section-16) |
-| Problem classes | NLP (Ipopt, POUNCE), square roots, including one-sided bounds, and declared fixed-point maps (KINSOL), LP, MILP including authored integer, binary and semi-variable domains, and certified convex QP (HiGHS), explicit cones including SDP (Clarabel); MIQP and MINLP (SCIP, automatic) and, on the explicit `certify` intent, tolerance-qualified global certification of factorable problems over finite boxes (SCIP: `global_bound`, `proven_infeasible`, `GapQualified`); disjunctive programs through linear realizations | Native realizations of constraint forms until a linked adapter consumes the handler (Plan 22 G7); certification or global solving where an implicit block or provider output enters a nonlinear term (Plan 22 G4); semi domains on SCIP; exact rational MILP and nonlinear IIS (G5, G7); free discrete variables in root, initialization, fitting, integrated-dynamics and nested implicit solves; nonconvex QP to HiGHS; two-sided boxes on KINSOL and constrained fixed-point iteration; JIT or SIMD evaluation | [§18](numerical-execution.md#section-18) |
+| Problem classes | NLP (Ipopt with MUMPS, SPRAL or oneMKL Pardiso; POUNCE, including the explicit ℓ1 route), square roots, including one-sided bounds, and declared fixed-point maps (KINSOL), LP, MILP including authored integer, binary and semi-variable domains, and certified convex QP (HiGHS), explicit cones including SDP (Clarabel); MIQP and MINLP (SCIP, automatic) and, on the explicit `certify` intent, tolerance-qualified global certification of factorable problems over finite boxes, implicit blocks included (SCIP: `global_bound`, `proven_infeasible`, `GapQualified`); on SCIP, exact rational MILP (`exact_certificate`), IIS of linear and nonlinear programs, a ranked solution pool, reoptimization across a MIP sequence and deterministic concurrency; disjunctive programs through linear realizations, or native ones on SCIP | Native realizations on any adapter but SCIP; certification or global solving where a provider output without a declared envelope enters a nonlinear term (no production provider declares one yet); semi domains on SCIP; exact rational solving beyond linear programs without native forms, and exact solving with IIS, reoptimization or concurrency; free discrete variables in root, initialization, fitting, integrated-dynamics and nested implicit solves; nonconvex QP to HiGHS; two-sided boxes on KINSOL and constrained fixed-point iteration; JIT or SIMD evaluation | [§18](numerical-execution.md#section-18) |
 | Initialization and recycles | Transactional staged initialization as one staged sequence with per-step overlays and value-only rebind; finite supplied continuation and bounded adaptive homotopy; authored tears selected by HiGHS MILP with an independent acyclicity witness; causal fixed-point maps; explicit starts independent of allocation reuse | Any convergence guarantee for a strategy | [§17](numerical-execution.md#section-17) |
 | Dynamics | ODE and index-1 DAE with a fixed diag(I,0) mass matrix; Diffsol BDF, SDIRK and (mass-free) explicit schemes with faer LU or KLU; IDAS with recoverable trials, scheduled inputs crossed by forward sensitivities, directional events without sensitivities, sign constraints, Krylov with a Jacobi preconditioner and a steady start; consistent initialization; finite events/resets; physical time origins; smooth forward sensitivities; native quadratures; simultaneous authored FD/Radau schemes | Higher-index or general implicit DAE; variable-layout dynamics; IDAS sensitivities across events; adjoint and second-order sensitivities and shooting until Plan 22 Y3–Y5 land (in the target: ADR-0110); unsupported residual/index structure | [§13](workflows-and-results.md#section-13) |
-| Fitting | Steady, transient and mixed fitting over declared sparse or dense support; candidate response derivatives; a qualified estimate requires convergence, original feasibility and response rank | Covariance, confidence intervals and uncertainty propagation until Plan 22 S3–S4 land (in the target with PS-12 validity: ADR-0107); global identifiability | [§19](workflows-and-results.md#section-19) |
+| Fitting | Steady, transient and mixed fitting over declared sparse or dense support; candidate response derivatives; a qualified estimate requires convergence, original feasibility and response rank | Covariance, confidence intervals and uncertainty propagation until Plan 22 S3–S4 land (in the target with PS-12 validity: ADR-0118); global identifiability | [§19](workflows-and-results.md#section-19) |
 | Results and publication | Typed completion through Rust, Arrow and Python; exact publication through the PostgreSQL catalog by concurrent local publishers, settlement by catalog query, reader-leased reopening, offline export manifests and catalog-owned retention; typed migration-required refusal for unsupported historical formats | Publication from an ephemeral runtime; automatic migration of Delta publications or of the operational store (a schema change resets it: register R-35); remote object stores, which are unqualified (register R-37); automatic retention (register R-36) | [§20](identity-and-publication.md#section-20), [§21](workflows-and-results.md#section-21) |
 | Durable execution | Durable attempts with typed terminations; a job queue claimed by `pse-worker` processes under leases, with stale recovery, retries and cross-process cancellation; progress and incumbent streams; stored seeds and resumption from the latest incumbent; studies across workers published once; SQL over the operational relations | Distributing one solve across processes; a store another build created (refused by fingerprint); remote PostgreSQL deployment, which is unqualified | [§20.6](identity-and-publication.md#section-20-6), [§19.3](workflows-and-results.md#section-19-3) |
 | Python | Registry-generated declarations and typed ids, generated boundary documents (settings, payloads), blocking and async jobs, Arrow result streams, durable runtimes, publication, settlement, studies and progress streams | Mathematics in Python; production Pyomo or NL routes | [§21](workflows-and-results.md#section-21) |
@@ -57,8 +55,10 @@ no silent fallback, approximate substitute or compatibility route.
   higher-index DAEs and interval-rigorous global optimization are not part of the design
   target, not merely unimplemented. Tolerance-qualified global certification
   ([ADR-0102](../../adr/0102-discrete-and-global-design-target.md)) is implemented for
-  factorable problems over finite boxes whose nonlinear terms involve no implicit block or
-  provider output; the rest is Plan 22 G4. Durable multi-process execution through the
+  factorable problems over finite boxes; implicit blocks enter through their residuals, and
+  a provider output inside a nonlinear term needs a declared envelope, which no production
+  provider declares yet. Only `exact_certificate`, from SCIP's exact rational MILP, is
+  rigorous. Durable multi-process execution through the
   operational store ([ADR-0114](../../adr/0114-typed-operational-store.md)) is
   implemented and exercised with local worker and publisher processes against a local
   PostgreSQL 18 server; the 10 000-point study scale (scenario S15) is unmeasured.
@@ -68,9 +68,13 @@ no silent fallback, approximate substitute or compatibility route.
 - The IDAES parity harness covers the pinned environment and explicitly exercised
   compatibility names. It does not establish numerical equivalence with IDAES.
 - With automatic presolve, pinned bound tightening can return a multiplier that fails
-  complementarity against the original bound; HiGHS' default QP regularization can miss
-  a stricter requested objective gap. Both candidates remain feasible and are reported as
-  not qualified; disabling presolve or setting `qp_regularization_value` qualifies them.
+  complementarity against the original bound; the candidate remains feasible and is
+  reported as not stationary, and disabling presolve qualifies it. HiGHS's QP
+  regularization is derived from the requested absolute gap and is reserved
+  ([§18.10](numerical-execution.md#section-18-10)).
+- SCIP's concurrent mode is exercised by one two-thread solve; incumbent streaming and
+  cancellation under concurrency are not yet tested
+  ([§18.8](numerical-execution.md#section-18-8)).
 - Fixed Symbolica symbol registration gives semantic and numerical agreement across
   processes, not bitwise reproducibility.
 - Resource reservations are finite configurable policy with explicit allowances for
@@ -112,7 +116,7 @@ R-37).
 | Distribution of native solvers | Solvers are linked from the pinned local build; no wheel carries them | Decide bundling versus runtime loading and per-platform build recipes at the first distributed artifact (register R-08, R-09) |
 | Licence admission at release | Dependency and licence admission is advisory ([ADR-0066](../../adr/0066-dependency-admission-and-licence-policy-are-advisory.md)) | The first published crate or wheel makes every linked licence a release question (register R-31) |
 | Compiled third-party providers | Providers are registered in-tree in `pse-kernels` | An actual external provider package; its loading boundary and failure containment must preserve [D9](architecture-overview.md#section-d9) (register R-04) |
-| Broader phase-equilibrium knowledge | Selected seed formulations only; local branch evidence is not global stability (a certified stability check is in the target: ADR-0102) | New authored formulations with explicit stability, validity and derivative contracts under [§9](physical-semantics.md#section-9) |
+| Broader phase-equilibrium knowledge | Selected seed formulations only; local branch evidence is not global stability. The certified tangent-plane check covers an ideal feed (ADR-0102, Plan 22 G6, partial) | New authored formulations with explicit stability, validity and derivative contracts under [§9](physical-semantics.md#section-9) |
 
 ## Capability coverage against IDAES
 

@@ -172,8 +172,9 @@ whose only unsafe use reads the GMP/MPFR version strings
 >
 > Decision: [ADR-0102](../../adr/0102-discrete-and-global-design-target.md),
 > [ADR-0105](../../adr/0105-scip-factorable-backend.md) — SCIP for MIQP, MINLP and global
-> certification; [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) —
-> SPRAL SSIDS, oneMKL and METIS for Ipopt;
+> certification (Plan 22 G1–G7, implemented, with G4 and G6 partial);
+> [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) — SPRAL SSIDS, oneMKL
+> and METIS for Ipopt (Plan 22 N1, implemented);
 > [ADR-0114](../../adr/0114-typed-operational-store.md) — PostgreSQL 18
 > through `pse-operations`: tokio-postgres, deadpool-postgres, postgres-types and
 > tokio-postgres-rustls, with statements compiled by Cornucopia; sqlx is removed (Plan 22 B2,
@@ -197,12 +198,12 @@ units, identity, schemas or canonical encoding merely because it is present.
 | Symbolica/Numerica | `pse-math` | Algebra, normalization, differentiation, multi-output evaluators and jets | Starts after physical typing and domain obligations; derived artifacts only |
 | faer | `pse-math`, `pse-backend-native`, `pse-runtime` | Sparse structure, refill maps, products; bounded LU/SVD for implicit responses and rank | Native solver factorizations stay with their solver |
 | FeOS, `feos-core`, num-dual, `quantity`, nalgebra | optional conformance reference tests | Independent thermodynamic and derivative comparisons | No production property route or physical-type authority |
-| Ipopt (C ABI), POUNCE | `pse-backend-native` | Local NLP through one shared oracle | Separate native routes; no fallback between them |
+| Ipopt (C ABI) with MUMPS+METIS, SPRAL SSIDS and oneMKL Pardiso; POUNCE | `pse-backend-native` | Local NLP through one shared oracle; a typed linear-solver selection for Ipopt | Separate native routes; no fallback between them or between linear solvers; one BLAS/LAPACK provider (oneMKL) and one OpenMP runtime (libgomp) per process ([§18.3](numerical-execution.md#section-18-3)) |
 | pounce-presolve | `pse-math`, `pse-structural`, `pse-backend-native` | Matching, DM, BTF and qualified presolve/postsolve | Original-coordinate recovery is validated independently |
 | SUNDIALS KINSOL/IDAS (+ KLU) | `pse-backend-native` | Square roots, including one-sided bounds, and declared fixed-point iteration; IDAS for recoverable trials, scheduled inputs, directional events and sign constraints | Optional features; two-sided boxes on KINSOL and unsupported profiles are refused |
 | HiGHS | `pse-backend-native` | LP, MILP, certified convex QP and tear MILPs | Integrality is never relaxed silently |
-| Clarabel | `pse-backend-native` | Explicit cones, with SDP under an optional feature | No implicit cone recognition |
-| SCIP 10.0.2 (`scip-sys`) | `pse-backend-native` | MIQP, MINLP and explicit global certification over the factorable projection | Raw binding against the solver image, checked at build and run time; serial; every claim re-qualified in original coordinates ([§18.10.1](numerical-execution.md#section-18-10-1)) |
+| Clarabel | `pse-backend-native` | Explicit cones, with SDP under an optional feature on oneMKL | pse-owned boundary types; no implicit cone recognition |
+| SCIP 10.0.2 (`scip-sys`) | `pse-backend-native` | MIQP, MINLP and explicit global certification over the factorable projection; native constraint handlers, exact rational MILP, IIS, a ranked solution pool and reoptimization | Raw binding against the solver image, checked at build and run time; deterministic concurrency under admitted threads; every claim re-qualified in original coordinates ([§18.10.1](numerical-execution.md#section-18-10-1)) |
 | Diffsol | `pse-backend-native` | BDF, SDIRK and explicit dynamics for the admitted mass-matrix profile, with faer LU or KLU, events and forward sensitivities | No second model language |
 | Salsa | `pse-compiler` | Synchronous semantic reuse over admitted values | No I/O, native state or effects in tracked queries |
 | rustworkx-core, petgraph | `pse-structural` | Deterministic ordering, acyclicity and graph projections | Graph indices never cross the projection boundary |
@@ -218,10 +219,11 @@ A library's presence does not grant capability. A feature that is compiled in st
 needs an admitted operation, profile and test before a workflow advertises it
 ([§18](numerical-execution.md#section-18)). JIT and SIMD evaluation and GPU execution are
 not admitted. Mixed-integer nonlinear solving and global certification through SCIP
-(ADR-0102, ADR-0105) are implemented for factorable problems over finite boxes; the SCIP
-extensions of Plan 22 G4–G7 are not yet implemented (durable incumbents, G8, are:
-[§20.6](identity-and-publication.md#section-20-6)), as is any library that has no current
-consumer. That is a limit of the present scope, not a prohibition
+(ADR-0102, ADR-0105) are implemented for factorable problems over finite boxes, with the
+Plan 22 G4–G7 extensions ([§18.10.1](numerical-execution.md#section-18-10-1)) and durable
+incumbents, G8 ([§20.6](identity-and-publication.md#section-20-6)). A library that has no
+current consumer is not admitted either. That is a limit of the present scope, not a
+prohibition
 ([§25](scope-and-open-design.md#section-25)).
 
 #### 3.3.1 Arrow and DataFusion roles and capability eligibility

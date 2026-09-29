@@ -169,8 +169,8 @@ as constants, not model inputs.
 >
 > Decision: [ADR-0120](../../adr/0120-provider-envelope-contract.md) — a provider output
 > becomes an auxiliary bounded by its factory's declared and checked output envelope, which
-> makes the dependent rows `Relaxed` (Plan 22 G4, implemented; the G4 status stated below
-> predates it); enforcement at evaluation is not yet implemented.
+> makes the dependent rows `Relaxed` (Plan 22 G4, implemented); enforcement at evaluation
+> is not yet implemented, and no production provider declares an envelope yet.
 > [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — `ProblemFacts.convexity` from a
 > DCP pass over `FactorableProgram` and exact rational LDLᵀ Gram certificates, rebound with
 > values (Plan 22 C5; not yet implemented).
@@ -199,7 +199,7 @@ also need a count or indicator quantity kind
 passed on unchanged: the recorded inward tightening of ADR-0103 is not implemented. A fixed
 variable needs no search range; its value is checked for exact domain membership instead
 ([§7.6](#section-7-6)). `CaseStructure::key` frames each domain by its registry spelling,
-and every native constraint form below (`pse.math.case-structure.v2`).
+and every native constraint form below (`pse.math.case-structure.v3`).
 
 **Native constraint forms.** A constraint form or disjunction realized `native` or
 `indicator` ([§6.8](schema-and-relations.md#section-6-8),
@@ -248,8 +248,9 @@ and original-coordinate qualification remain the authority for every candidate.
   in {±1, ±2, ±½}: minimum, maximum and absolute value in either guard orientation. Any
   other branch follows the declared `BranchPolicy`. The default, `Auxiliary`, makes its
   result an auxiliary, bounded by the branch values when all of them are constant.
-  `Disjunctive` is a typed refusal (`FactorableError::DisjunctiveBranch`) until Plan 22
-  G7; authored disjunctions are lowered to rows at specialization
+  `Disjunctive` is a typed refusal (`FactorableError::DisjunctiveBranch`): the exact
+  mixed-integer export of a continuous branch is not provided. Authored disjunctions are
+  lowered to rows at specialization
   ([§19.7](workflows-and-results.md#section-19-7)) and do not use this policy. A guard
   that is constant under the consumed values selects its region statically.
 - `Require` and `Domain` stages are obligations, never value dependencies. Each becomes a
@@ -261,14 +262,23 @@ and original-coordinate qualification remain the authority for every candidate.
 - Implicit blocks export their original residual equations and declared bounds whatever
   their realization, from owner-supplied definitions
   (`AdmittedImplicit::factorable_definition`); a regime selection stays a provider output.
-  Other provider outputs become auxiliaries within the envelope their evaluation enforces,
-  which makes the dependent rows `Relaxed`. An exhausted node budget leaves the affected
-  rows `Unavailable` and records the instance as incomplete.
+  Residuals are exported only where the call is unconditional, since inside a branch region
+  they would constrain points where the call is never made. Other provider outputs become
+  auxiliaries within the envelope their evaluation enforces, which makes the dependent rows
+  `Relaxed`. An exhausted node budget leaves the affected rows `Unavailable` and records
+  the instance as incomplete.
 
-The SCIP route ([§18.10.1](numerical-execution.md#section-18-10-1)) projects under the
-default request as well: supplying implicit definitions and provider envelopes to it is
-Plan 22 G4 and not yet implemented, so a provider output inside a nonlinear term has no
-finite box and that export is refused.
+The SCIP route ([§18.10.1](numerical-execution.md#section-18-10-1)) projects under a request
+that carries the case's implicit definitions (`factorable_definitions`, where a case bound
+on an unknown replaces that endpoint's bound hint, as it does for the evaluator) and the
+declared output envelope of every registered provider that has one
+(`Registration::envelope`, checked against the provider's contract;
+[§9.4](physical-semantics.md#section-9-4)). The envelopes enter the program's identity. A
+provider output without a declared envelope has no finite box, so an export with such an
+output inside a nonlinear term is refused; no production provider declares an envelope yet.
+*Tested* by `implicit_residual_exported_exactly` and `relaxed_rows_enclose_evaluator`
+(`pse-math` units), `certify_exports_implicit_residuals_exactly` (runtime units) and
+`provider_envelope_is_checked_against_the_contract` (`pse-kernels` units).
 
 **Presolve facts.** `CasePlan::presolve_facts` derives FBBT tapes and obligation admission
 from this projection, under the default request (no implicit definitions or envelopes;

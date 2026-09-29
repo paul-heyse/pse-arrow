@@ -258,7 +258,10 @@ Derivative availability and smoothness are separate contracts.
 
 > Decision: [ADR-0102](../../adr/0102-discrete-and-global-design-target.md) — a certified
 > tangent-plane-distance stability check over the global certification route enters the
-> design target (Plan 22 G6; not yet implemented).
+> design target (Plan 22 G6, partial: the authored tangent-plane model certifies an ideal
+> feed stable on the `certify` route,
+> [§18.10.1](numerical-execution.md#section-18-10-1); detecting a known instability and the
+> PC-SAFT model are scheduled, not built).
 
 Authored equilibrium knowledge includes ideal bubble/dew equations, Rachford–Rice starts,
 SmoothVLE and log-fugacity equality. The seed binds BTIdeal, FPhx and BT_PR comparisons.
