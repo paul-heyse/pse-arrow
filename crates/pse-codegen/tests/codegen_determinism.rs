@@ -15,10 +15,9 @@ use pse_schema::model::SourceColumn;
 #[test]
 fn source_schema_sorts_nested_objects_and_keeps_required_column_order() {
     let registry = pse_schema::registry().expect("registry");
-    let tree = generate(registry, Language::Markdown).expect("document schema generation");
-    let bytes = &tree.files[std::path::Path::new("docs/generated/schema/authoring.schema.json")];
-    let text = std::str::from_utf8(bytes).expect("UTF-8 schema");
-    let schema: serde_json::Value = serde_json::from_slice(bytes).expect("valid schema JSON");
+    // The authoring schema is the documents target's (B5.2), not Markdown's.
+    let text = pse_codegen::codegen::jsonschema::generate(registry).expect("authoring schema");
+    let schema: serde_json::Value = serde_json::from_str(&text).expect("valid schema JSON");
     for document in registry.documents() {
         for section in &document.sections {
             let key = format!("source:{}:{}", document.name, section.key);

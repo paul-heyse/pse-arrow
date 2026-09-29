@@ -353,11 +353,57 @@ def solver(base: Path) -> Path:
         ) from error
 
 
+def runtime_env(dockerfile: Path) -> dict[str, str]:
+    """The solver image's runtime process environment, without its paths into the image.
+
+    The ``solvers`` stage's ``ENV`` of ``docker/solvers/Dockerfile`` is the one
+    declaration (``solver-pin-check`` ties the pinned image to that tree): the MKL and
+    OpenMP settings the libraries need, such as ``OMP_CANCELLATION`` for SPRAL. Native
+    binaries that run on the host against the extracted prefix need them too; variables
+    that point into ``/opt/pse-solvers``, and ``PATH``, are the prefix's and are left out.
+    """
+    lines: list[str] = []
+    pending = ""
+    for raw in dockerfile.read_text().splitlines():
+        line = raw.rstrip()
+        if not pending and line.lstrip().startswith("#"):
+            continue
+        if line.endswith("\\"):
+            pending += line[:-1] + " "
+            continue
+        lines.append(pending + line)
+        pending = ""
+    stage = None
+    env: dict[str, str] = {}
+    for line in lines:
+        words = line.split()
+        if not words:
+            continue
+        if words[0].upper() == "FROM":
+            stage = words[3] if len(words) >= 4 and words[2].upper() == "AS" else None
+        elif words[0].upper() == "ENV" and stage == "solvers":
+            for pair in shlex.split(line.strip()[3:]):
+                key, _, value = pair.partition("=")
+                env[key] = value
+    if not env:
+        raise ValueError(f"{dockerfile} declares no solvers-stage ENV")
+    return {
+        key: value
+        for key, value in env.items()
+        if key != "PATH" and "/opt/pse-solvers" not in value
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("klu", "solver", "compiler-shell"))
+    parser.add_argument(
+        "action", choices=("klu", "solver", "compiler-shell", "runtime-env")
+    )
     args = parser.parse_args()
-    if args.action == "compiler-shell":
+    if args.action == "runtime-env":
+        for key, value in runtime_env(ROOT / "docker/solvers/Dockerfile").items():
+            print(f"export {key}={shlex.quote(value)}")
+    elif args.action == "compiler-shell":
         for key, value in compiler_env(dict(os.environ)).items():
             if os.environ.get(key) != value:
                 print(f"export {key}={shlex.quote(value)}")

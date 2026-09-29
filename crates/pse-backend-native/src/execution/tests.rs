@@ -731,7 +731,15 @@ fn backend_settings_schema_generated() {
         .collect::<Vec<_>>();
     assert_eq!(
         tags,
-        ["ipopt", "pounce", "kinsol", "highs", "clarabel", "scip"]
+        [
+            "ipopt",
+            "pounce",
+            "kinsol",
+            "highs",
+            "clarabel",
+            "scip",
+            "pounce_convex"
+        ]
     );
     let titles = alternatives
         .iter()
@@ -745,7 +753,8 @@ fn backend_settings_schema_generated() {
             "KinsolSettings",
             "HighsSettings",
             "ClarabelSettings",
-            "ScipSettings"
+            "ScipSettings",
+            "PounceConvexSettings"
         ]
     );
     let definitions = schema["$defs"].as_object().unwrap();

@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
+// The catalog publication futures prove `Send` through deep async nesting; this crate
+// instantiates them, so it needs pse-catalog's own recursion limit.
+#![recursion_limit = "256"]
 
 //! Exact-pin integration contracts: real native children, caller state and validation.
 #![allow(

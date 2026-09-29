@@ -119,11 +119,10 @@ fn tagged_arms_project_to_native_fields_and_all_generated_contracts() {
     let python =
         std::str::from_utf8(&python.files[Path::new("python/pse/contracts/authored.py")]).unwrap();
     assert!(python.contains("def __attrs_post_init__"));
-    let docs = generate(&registry, Language::Markdown).unwrap();
-    let schema: serde_json::Value = serde_json::from_slice(
-        &docs.files[Path::new("docs/generated/schema/authoring.schema.json")],
-    )
-    .unwrap();
+    // The authoring schema is the documents target's (B5.2), not Markdown's.
+    let schema: serde_json::Value =
+        serde_json::from_str(&pse_codegen::codegen::jsonschema::generate(&registry).unwrap())
+            .unwrap();
     let arms =
         &schema["$defs"]["authored.native_fields"]["properties"]["value"]["allOf"][1]["oneOf"];
     assert_eq!(arms.as_array().unwrap().len(), 2);
@@ -183,11 +182,10 @@ fn unit_and_shared_payload_tags_have_one_declared_shape() {
         assert!(rust.contains(constructor));
     }
     syn::parse_file(rust).unwrap();
-    let docs = generate(&registry, Language::Markdown).unwrap();
-    let json: serde_json::Value = serde_json::from_slice(
-        &docs.files[Path::new("docs/generated/schema/authoring.schema.json")],
-    )
-    .unwrap();
+    // The authoring schema is the documents target's (B5.2), not Markdown's.
+    let json: serde_json::Value =
+        serde_json::from_str(&pse_codegen::codegen::jsonschema::generate(&registry).unwrap())
+            .unwrap();
     let variants =
         json["$defs"]["authored.native_fields"]["properties"]["value"]["allOf"][1]["oneOf"]
             .as_array()
@@ -263,11 +261,10 @@ fn collection_facets_preserve_empty_order_and_unique_meanings_across_projections
     )
     .unwrap();
     syn::parse_file(source).unwrap();
-    let docs = generate(&registry, Language::Markdown).unwrap();
-    let json: serde_json::Value = serde_json::from_slice(
-        &docs.files[Path::new("docs/generated/schema/authoring.schema.json")],
-    )
-    .unwrap();
+    // The authoring schema is the documents target's (B5.2), not Markdown's.
+    let json: serde_json::Value =
+        serde_json::from_str(&pse_codegen::codegen::jsonschema::generate(&registry).unwrap())
+            .unwrap();
     let schema = &json["$defs"]["authored.native_fields"]["properties"]["value"];
     assert_eq!(schema["uniqueItems"], true);
     assert_eq!(schema["minItems"], 1);
@@ -346,11 +343,10 @@ fn bounded_signed_domains_project_to_languages_and_durable_storage() {
             .unwrap()
             .contains("v.integer_range(0, 255)")
     }));
-    let markdown = generate(&registry, Language::Markdown).unwrap();
-    let json: serde_json::Value = serde_json::from_slice(
-        &markdown.files[Path::new("docs/generated/schema/authoring.schema.json")],
-    )
-    .unwrap();
+    // The authoring schema is the documents target's (B5.2), not Markdown's.
+    let json: serde_json::Value =
+        serde_json::from_str(&pse_codegen::codegen::jsonschema::generate(&registry).unwrap())
+            .unwrap();
     let item = &json["$defs"]["authored.native_fields"]["properties"]["value"]["items"]["anyOf"][0];
     assert_eq!(item["minimum"], 0);
     assert_eq!(item["maximum"], 255);
@@ -591,11 +587,9 @@ fn generated_language_views_preserve_nullable_list_elements() {
         .collect::<Vec<_>>()
         .join("\n");
     assert!(contents.contains("b.tuple[v.SemanticId | None, ...]"));
-    let markdown = generate(&reg, Language::Markdown).unwrap();
-    let json: serde_json::Value = serde_json::from_slice(
-        &markdown.files[Path::new("docs/generated/schema/authoring.schema.json")],
-    )
-    .unwrap();
+    // The authoring schema is the documents target's (B5.2), not Markdown's.
+    let json: serde_json::Value =
+        serde_json::from_str(&pse_codegen::codegen::jsonschema::generate(&reg).unwrap()).unwrap();
     assert_eq!(
         json["$defs"]["authored.native_fields"]["properties"]["value"]["items"]["anyOf"][1]["type"],
         "null"
@@ -618,7 +612,7 @@ fn native_binary_and_dictionary_do_not_acquire_undeclared_domain_meaning() {
             &arrow::bind_type(&reg, &data_type, "value").unwrap()
         );
         assert!(!field.metadata().contains_key(arrow::KEY_EXTENSION_NAME));
-        for language in [Language::Rust, Language::Python, Language::Markdown] {
+        for language in [Language::Rust, Language::Python] {
             assert!(
                 generate(&reg, language)
                     .unwrap_err()
@@ -626,6 +620,13 @@ fn native_binary_and_dictionary_do_not_acquire_undeclared_domain_meaning() {
                     .contains("explicit declaration")
             );
         }
+        // The authoring schema is the documents target's (B5.2), not Markdown's.
+        assert!(
+            pse_codegen::codegen::jsonschema::generate(&reg)
+                .unwrap_err()
+                .to_string()
+                .contains("explicit declaration")
+        );
     }
 }
 

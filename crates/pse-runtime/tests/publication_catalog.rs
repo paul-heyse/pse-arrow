@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
+// The catalog publication futures prove `Send` through deep async nesting; this crate
+// instantiates them, so it needs pse-catalog's own recursion limit.
+#![recursion_limit = "256"]
 //! Publication through the operational catalog end to end (Plan 22 O8.5): durable
 //! attempts publish composed artifacts into registered workspaces in isolated PostgreSQL
 //! databases; readers hold catalog leases; retirement, collection and exports follow the

@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
+// The catalog publication futures prove `Send` through deep async nesting; this crate
+// instantiates them, so it needs pse-catalog's own recursion limit.
+#![recursion_limit = "256"]
 
 //! C12 only: actual Delta residency and consumed-value publication reuse.
 #[path = "support/cache_journey.rs"]

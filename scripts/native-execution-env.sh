@@ -14,4 +14,8 @@ if [[ -f "$pse_native_root/.envrc.local" ]]; then
 fi
 unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
 export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
+# Binaries run on the host against the extracted prefix, so they take the solver
+# image's runtime process environment (its ENV: OMP_CANCELLATION for SPRAL, the
+# MKL reproducibility and threading settings, OpenMP binding).
+eval "$(python3 "$pse_native_root/scripts/native_cache.py" runtime-env)"
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1

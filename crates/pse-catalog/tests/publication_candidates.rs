@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
+// The catalog publication futures prove `Send` through deep async nesting; this crate
+// instantiates them, so it needs pse-catalog's own recursion limit.
+#![recursion_limit = "256"]
 
 //! The member-only publication API (Plan 22 O8.4): candidate composition admits a complete
 //! record without making anything visible; a catalog selection reopens exactly its

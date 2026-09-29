@@ -729,7 +729,7 @@ mod tests {
                 "pair": {"type": ["array", "null"], "items": {"type": "number"}, "minItems": 2, "maxItems": 2, "default": null},
             },
             "$defs": {
-                "HessianMode": {"type": "string", "enum": ["exact", "limited_memory"]},
+                "HessianMode": {"type": "string", "enum": ["exact", "limited_memory", "gauss_newton"]},
                 "Budget": {"type": "number", "exclusiveMinimum": 0.0},
                 "Choice": {"oneOf": [
                     {"type": "object", "additionalProperties": false, "required": ["kind"],
