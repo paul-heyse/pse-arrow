@@ -511,7 +511,7 @@ baseline with its command and conditions.
 
 | Step | Packets | State |
 |---|---|---|
-| W7 | ADR-0118–ADR-0121; DOCS-a; R82874 → S0; Y0a → Y0b → Y4a → Y0c backend; C4; M2a → G6r kernel | not started |
+| W7 | ADR-0118–ADR-0121; DOCS-a; R82874 → S0; Y0a → Y0b → Y4a → Y0c backend; C4; M2a → G6r kernel | running (2026-09-28): tracks T-D, T-N, T-Y, T-C, T-L in worktrees under `../pse-arrow-wt/` |
 | W8 | S1; Y3a → Y3b; G-semi → epigraph → G4r → G8f; C3 authoring → M5a | not started |
 | W9 | S3 → S4; Y4b → Y5b; C5 → M5b → N5; M2b → M2c → C3 engine | not started |
 | W10 | G6r tests, PC-SAFT, SCIP concurrency; Y0c kernel and Y0d; Y5a | not started |
@@ -524,6 +524,13 @@ baseline with its command and conditions.
 **State.** Planned; nothing implemented. The solver image is published and pinned
 (`b0aed3ef`), and the doctor recognizes the native build (`9cab2ca2`). W7 starts with the
 decision records.
+
+**W7 started (2026-09-28).** Five worktrees branch from `0fac35d9` (`plan22/w7-<track>`):
+- T-D writes ADR-0118–ADR-0121 and their change-tier review first; DOCS-a follows after the records land;
+- T-N, T-Y, T-C and T-L compile in parallel.
+
+Each worktree has its own target directory and dependency venv. The shared agent brief sits
+beside the worktrees; it is coordination scaffolding and is not tracked.
 
 **Next:** in dependency order:
 1. the decision records;
