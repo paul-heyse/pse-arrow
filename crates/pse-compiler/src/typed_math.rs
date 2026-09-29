@@ -1488,6 +1488,53 @@ mod tests {
             "{error}"
         );
     }
+    /// The entropy increment lowers through the declared reinterpretation: ln(T/T0) and
+    /// (T − T0)/T are logarithmic temperature increments, and a molar heat capacity over
+    /// one is a molar entropy difference (ADR-0124).
+    #[test]
+    fn entropy_increment_lowers_to_its_closed_form() {
+        use pse_quantity::scheme::{Scheme, Substitution};
+        let registry = standard_registry().unwrap();
+        let quantity = |hex| QuantityTypeId::from_id(SemanticId::parse_hex(hex).unwrap());
+        let temperature = quantity("c64b96975a4a59755f8711d3bf628bc9");
+        let cp = quantity("cd653ba98fa94d16b5d66b363f21c3d6");
+        let per_temperature = Scheme::Quotient(
+            Box::new(Scheme::Concrete(cp)),
+            Box::new(Scheme::Concrete(temperature)),
+        )
+        .resolve_with_evidence(&registry, &Substitution::new(), &StandardInvariantChecker)
+        .unwrap();
+        let formals = [("T0", temperature), ("T", temperature), ("c1", cp), ("c2", per_temperature)]
+            .map(|(path, quantity)| Formal {
+                path: path.into(),
+                quantity,
+            });
+        let body = compile(
+            "c1*log(T/T0) + c2*T*r where r = (T - T0)/T",
+            &formals,
+            DerivativeOrder::First,
+        )
+        .unwrap();
+        assert_eq!(
+            body.prepared.quantities,
+            [quantity("a9c45d0c2b764f4e87d1b95d5bc15da6")]
+        );
+        let jet = body
+            .worker()
+            .evaluate(
+                &[300.0, 400.0, 10.0, 0.5],
+                DerivativeOrder::First,
+                &mut BTreeMap::new(),
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        // 10·ln(4/3) + 0.5·100, and ∂/∂T = c1/T + c2.
+        assert!((jet.values[0] - 52.876_820_724_517_81).abs() < 1e-9, "{}", jet.values[0]);
+        assert!((jet.jacobian[1] - 0.525).abs() < 1e-12, "{}", jet.jacobian[1]);
+        // A heat-capacity increment is not an entropy difference.
+        let heat = compile("c2*(T - T0)", &formals, DerivativeOrder::First).unwrap();
+        assert_eq!(heat.prepared.quantities, [cp]);
+    }
     #[test]
     fn authored_power_literals_preserve_exact_facts_and_analytic_jets() {
         let formals = [Formal {

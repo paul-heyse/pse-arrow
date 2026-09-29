@@ -329,7 +329,7 @@ fn derived_kinds_are_admitted_acyclic_unique_and_derived() {
         ("quantity_kind.definition_cycle", vec![derived(60, vec![(61, 1)]), derived(61, vec![(60, 1), (A, 1)])]),
         ("quantity_kind.monomial_unique", vec![derived(60, vec![(B, 1), (A, 1)])]),
         ("quantity_kind.definition_alias", vec![derived(60, vec![(A, 1)])]),
-        ("quantity_kind.dimensionless_factor", vec![derived(60, vec![(A, 1), (NEUTRAL, 1)])]),
+        ("quantity_kind.pure_number_factor", vec![derived(60, vec![(A, 1), (NEUTRAL, 1)])]),
     ] {
         let mut b = builder();
         for kind in kinds {

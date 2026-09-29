@@ -713,6 +713,21 @@ impl QuantityRegistry {
                 id,
                 "two derived kinds declare one monomial",
             )?;
+            // A chain keeps dimensionless kinds such as a mole fraction in its monomial,
+            // but the neutral scalar and count or indicator factors are pure numbers
+            // outside it, so a definition over one could never resolve.
+            let neutral = self
+                .neutral
+                .map(|ty| self.quantity_type(ty).map(|ty| ty.key.kind))
+                .transpose()?;
+            for factor in &definition.monomial {
+                require(
+                    Some(factor.kind) != neutral && self.kind(factor.kind)?.category.is_none(),
+                    "quantity_kind.pure_number_factor",
+                    id,
+                    "a derived kind's factor is not a pure number",
+                )?;
+            }
             let unit = self.unit(definition.canonical_unit)?;
             require(
                 unit.dimension == kind.dimension
@@ -1122,7 +1137,7 @@ fn expand(
 }
 
 /// Expand each derived kind's monomial into canonical base-kind factors (ADR-0124),
-/// refusing cycles, dimensionless factors and aliases, and derive its dimension.
+/// refusing cycles and aliases, and derive its dimension.
 fn admit_derived_kinds(
     base: &BTreeMap<QuantityKindId, QuantityKind>,
     derived: Vec<DerivedKind>,
@@ -1180,15 +1195,7 @@ fn expand_kind(
     expanded: &mut BTreeMap<QuantityKindId, Vec<KindFactor>>,
     visiting: &mut BTreeSet<QuantityKindId>,
 ) -> Result<Vec<KindFactor>, QuantityError> {
-    if let Some(kind) = base.get(&id) {
-        // A pure number takes no part in a monomial (the chain drops the neutral
-        // scalar), so a definition over a dimensionless kind could never resolve.
-        require(
-            !kind.dimension.is_dimensionless(),
-            "quantity_kind.dimensionless_factor",
-            id.as_id(),
-            "a derived kind's factor has a dimension",
-        )?;
+    if base.contains_key(&id) {
         return Ok(vec![KindFactor {
             kind: id,
             exponent: crate::Ratio::ONE,

@@ -674,43 +674,28 @@
     {
       "quantity_kind_id": "faa6f95459144650ac414fd389e16e27",
       "name": "molar_entropy",
-      "dimension": [
-        {
-          "num": 2,
-          "den": 1
-        },
-        {
-          "num": 1,
-          "den": 1
-        },
-        {
-          "num": -2,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        }
-      ],
       "extensive": false,
       "addition_kind": "origin_sensitive",
-      "doc": "Declared stock physical meaning; equal dimensions do not imply this kind."
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "01a0ee03d43674589ac9f749f527cd8c",
+            "num": 1,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
+        "basis_id": null,
+        "reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
+        "scale_kind": "difference",
+        "subject_kind": null
+      },
+      "doc": "Derived kind (ADR-0124): a molar heat capacity taken over a logarithmic temperature increment is a molar entropy difference from the stock datum."
     },
     {
       "quantity_kind_id": "65af5b931e46425f8e5797144491640e",
@@ -1745,6 +1730,88 @@
         "subject_kind": null
       },
       "doc": "Derived kind (ADR-0124): Shomate E: molar heat capacity times squared temperature."
+    },
+    {
+      "quantity_kind_id": "01a0ee03d43674589ac9f7486163e121",
+      "name": "temperature_ratio",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "The ratio of two absolute temperatures; a pure number of its own meaning."
+    },
+    {
+      "quantity_kind_id": "01a0ee03d43674589ac9f749f527cd8c",
+      "name": "logarithmic_temperature_increment",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "An increment of the logarithm of absolute temperature: ln(T/T0), or a temperature difference over an absolute temperature."
     }
   ],
   "quantity_operations": [
@@ -3962,6 +4029,82 @@
         "93c405aa090d49f1a790797979cd2396",
         "2b130cfd13c64fa8872433460c301b25"
       ]
+    },
+    {
+      "operation_id": "01a0ee03d43674589ac9f74d4245871b",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "57a7ab92753b012231a543d3850b926c",
+        "57a7ab92753b012231a543d3850b926c"
+      ],
+      "result_kind_id": "01a0ee03d43674589ac9f7486163e121",
+      "basis_rule": "require_equal",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "01a0ee03d43674589ac9f74c240ac0d3"
+      ]
+    },
+    {
+      "operation_id": "01a0ee03d43674589ac9f7503651682b",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "57a7ab92753b012231a543d3850b926c",
+        "57a7ab92753b012231a543d3850b926c"
+      ],
+      "result_kind_id": "01a0ee03d43674589ac9f749f527cd8c",
+      "basis_rule": "require_equal",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "01a0ee03d43674589ac9f74eadf93661",
+        "01a0ee03d43674589ac9f74f5572b68a"
+      ]
+    },
+    {
+      "operation_id": "01a0ee03d43674589ac9f7519f08bc4d",
+      "opcode": "Log",
+      "input_kind_ids": [
+        "01a0ee03d43674589ac9f7486163e121"
+      ],
+      "result_kind_id": "01a0ee03d43674589ac9f749f527cd8c",
+      "basis_rule": "require_equal",
+      "reference_rule": "require_equal",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "require_equal",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": []
     }
   ],
   "quantity_types": [
@@ -10703,6 +10846,30 @@
       "canonical_unit_id": "b168ec7adeca3ebe2e6950a9e2c46223",
       "nominal_magnitude": null,
       "doc": "Correlation coefficient type of a derived kind (ADR-0124)."
+    },
+    {
+      "quantity_type_id": "01a0ee03d43674589ac9f74a31200230",
+      "quantity_kind_id": "01a0ee03d43674589ac9f7486163e121",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Ratio of two absolute temperatures."
+    },
+    {
+      "quantity_type_id": "01a0ee03d43674589ac9f74b1975e94e",
+      "quantity_kind_id": "01a0ee03d43674589ac9f749f527cd8c",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Logarithmic temperature increment."
     }
   ],
   "reference_states": [
@@ -13006,6 +13173,37 @@
       ],
       "required_basis_id": null,
       "required_quantity_type_id": "368c7ebb44ee45318fa572df5fe706b9",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "01a0ee03d43674589ac9f74c240ac0d3",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0,
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "01a0ee03d43674589ac9f74eadf93661",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "459a933fd00837bbc50372e31ac9801c",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "01a0ee03d43674589ac9f74f5572b68a",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
       "match_shape": false
     }
   ],
