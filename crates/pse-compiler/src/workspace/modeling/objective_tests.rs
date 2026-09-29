@@ -124,13 +124,53 @@ const LEXICOGRAPHIC: &str = "package p { def Root {
 #[test]
 fn objective_bounds_rows_generated_per_level() {
     let (mut workspace, root) = setup(LEXICOGRAPHIC);
-    // Without a selected level, three lexicographic levels need the native
-    // multi-objective case structure (Plan 22 C3 engine).
-    assert!(matches!(
-        prepare(&mut workspace, root, None).unwrap_err(),
-        CompileError::Modeling(ModelingError::Unsupported { .. })
-    ));
-    let mut keys = BTreeSet::new();
+    // Without a selected level, the structure keeps every level as its own objective, in
+    // optimization order, for a native lexicographic solve; every level but the last
+    // states its degradation, and no bound row is generated.
+    let all = prepare(&mut workspace, root, None).unwrap();
+    let case = &all.admitted.case;
+    assert!(case.lexicographic_levels());
+    assert_eq!(
+        case.objectives()
+            .iter()
+            .map(|o| o.sense)
+            .collect::<Vec<_>>(),
+        vec![
+            pse_math::binding::ObjectiveSense::Minimize,
+            pse_math::binding::ObjectiveSense::Minimize,
+            pse_math::binding::ObjectiveSense::Maximize
+        ]
+    );
+    assert_eq!(case.objectives()[2].quantity, power());
+    assert_eq!(
+        case.degradations(),
+        [
+            pse_math::binding::Degradation {
+                absolute: 0.5,
+                relative: 0.01
+            },
+            pse_math::binding::Degradation {
+                absolute: 0.0,
+                relative: 0.1
+            }
+        ]
+    );
+    assert!(all.model.objectives.levels.iter().all(|l| l.bound.is_none()));
+    // Each level's members contribute to that level's objective.
+    let targets = case
+        .instances()
+        .iter()
+        .flat_map(|i| i.contributions.iter())
+        .filter_map(|c| match c.target {
+            Target::Objective(level) => Some((level, c.scale.to_bits())),
+            Target::Row(_) => None,
+        })
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        targets.into_iter().collect::<Vec<_>>(),
+        vec![(0, 1.0f64.to_bits()), (1, 2.0f64.to_bits()), (2, 1.0f64.to_bits())]
+    );
+    let mut keys = BTreeSet::from([case.key()]);
     for level in 0..3 {
         let model = prepare(&mut workspace, root, Some(level)).unwrap();
         let objectives = &model.model.objectives;

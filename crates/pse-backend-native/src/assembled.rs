@@ -70,6 +70,11 @@ impl AlgebraicOracle {
     }
     fn over_columns(worker: CaseWorker, values: CaseValues) -> Result<Self, ProblemError> {
         let assembly = worker.assembly();
+        if assembly.structure().lexicographic_levels() {
+            return Err(ProblemError::Unsupported(
+                "NLP callbacks have one objective; select one lexicographic level".into(),
+            ));
+        }
         assembly.structure().validate_values(&values)?;
         let contract = contract(assembly);
         contract.validate(assembly.order())?;
@@ -348,12 +353,35 @@ impl CoefficientProblem {
                 "coefficient snapshot belongs to another structure".into(),
             ));
         }
+        let structure = assembly.structure();
+        let objectives = if structure.lexicographic_levels() {
+            if coefficients.lexicographic.len() + 1 != structure.objectives().len() {
+                return Err(ProblemError::Contract(
+                    "coefficient snapshot lacks a lexicographic objective".into(),
+                ));
+            }
+            std::iter::once((
+                coefficients.objective.clone(),
+                coefficients.objective_constant,
+            ))
+            .chain(coefficients.lexicographic.iter().cloned())
+            .zip(structure.objectives())
+            .enumerate()
+            .map(|(k, ((coefficients, constant), objective))| crate::LinearObjective {
+                coefficients,
+                constant,
+                sense: objective.sense,
+                degradation: structure.degradations().get(k).copied(),
+            })
+            .collect()
+        } else {
+            Vec::new()
+        };
         let problem = Self {
             contract: contract(assembly),
             objective: coefficients.objective,
             objective_constant: coefficients.objective_constant,
-            sense: assembly
-                .structure()
+            sense: structure
                 .objective()
                 .map_or(pse_math::binding::ObjectiveSense::Minimize, |o| o.sense),
             domains: assembly
@@ -383,6 +411,7 @@ impl CoefficientProblem {
                     Ok(shifted)
                 })
                 .collect::<Result<_, ProblemError>>()?,
+            objectives,
         };
         problem.validate()?;
         Ok(problem)

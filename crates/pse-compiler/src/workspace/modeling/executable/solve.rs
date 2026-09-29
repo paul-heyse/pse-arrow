@@ -489,19 +489,19 @@ impl PreparedModeling {
                 let mut i = i.clone();
                 i.contributions.retain(|c| match c.target {
                     Target::Row(id) => equations.contains(&id),
-                    Target::Objective => true,
+                    Target::Objective(_) => true,
                 });
                 (!i.contributions.is_empty()).then_some(i)
             })
             .collect::<Vec<_>>();
         Ok(BoundStructure {
             structure: Arc::new(
-                CaseStructure::new(
+                CaseStructure::like(
+                    &model.admitted.case,
                     variables,
                     model.admitted.case.parameters().to_vec(),
                     instances,
                     rows,
-                    model.admitted.case.objective().cloned(),
                     CaseLimits::default(),
                 )?
                 .with_native(model.admitted.case.native().to_vec())?

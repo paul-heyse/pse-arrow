@@ -23,6 +23,7 @@ static CAPABILITY: Capability = Capability {
     parallel: true,
     certifies: false,
     native_forms: &[],
+    lexicographic: &[],
     reuse: "native application and compatible starts; iteration factors are library-owned",
     cancellation: "TNLP intermediate/evaluation checkpoints",
     diagnostics: "complete SolveStatistics, phase timing, FERAL inertia/pivots/fill, restoration and crossover",

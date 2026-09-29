@@ -424,7 +424,7 @@ impl ModelingPackage {
         for instance in structure.instances() {
             for contribution in &instance.contributions {
                 let set = match contribution.target {
-                    pse_math::binding::Target::Objective => &mut objective_variables,
+                    pse_math::binding::Target::Objective(_) => &mut objective_variables,
                     pse_math::binding::Target::Row(id) => {
                         let row = structure
                             .rows()

@@ -139,13 +139,34 @@ pub struct Objective {
     /// Authored optimization orientation.
     pub sense: ObjectiveSense,
 }
-/// An output can contribute to a selected constraint or the objective.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// The degradation an earlier lexicographic objective admits while later ones are
+/// optimized (ADR-0111 item 3): its value stays within f* + max(absolute, relative·|f*|)
+/// of its optimum f*, sense-adjusted.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Degradation {
+    /// Absolute tolerance, in canonical units of the objective.
+    pub absolute: f64,
+    /// Dimensionless tolerance relative to the optimum.
+    pub relative: f64,
+}
+impl Degradation {
+    /// The admitted degradation at the optimum `optimum`: max(absolute, relative·|f*|).
+    pub fn at(self, optimum: f64) -> f64 {
+        self.absolute.max(self.relative * optimum.abs())
+    }
+}
+/// An output can contribute to a selected constraint or an objective.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Target {
     /// Contribute to a selected constraint row.
     Row(SemanticId),
-    /// Contribute to the selected objective.
-    Objective,
+    /// Contribute to the objective at this position: the only objective, or a
+    /// lexicographic level in optimization order (ADR-0111).
+    Objective(usize),
+}
+impl Target {
+    /// The primary objective: the only one, or the first lexicographic level.
+    pub const PRIMARY: Self = Self::Objective(0);
 }
 /// One nonzero, dimensionless entry of the row contribution map A.
 #[derive(Clone, Debug)]
@@ -282,7 +303,11 @@ pub struct CaseStructure {
     /// Canonical semantic instance order.
     instances: Vec<InstanceBinding>,
     rows: Vec<Row>,
-    objective: Option<Objective>,
+    /// No objective, one, or the lexicographic levels in optimization order (ADR-0111).
+    objectives: Vec<Objective>,
+    /// The degradation of every level but the last while later levels are optimized;
+    /// empty unless there are several objectives.
+    degradations: Vec<Degradation>,
     /// Constraint forms left to native handlers (ADR-0104); empty for linear lowerings.
     native: Vec<pse_model::forms::NativeConstraint>,
     /// Requirements the lowerings place on the solve route (ADR-0104 §5), in order.
@@ -293,11 +318,101 @@ impl CaseStructure {
     /// # Errors
     /// Duplicate variables/instances/rows, malformed bounds or exceeded budgets.
     pub fn new(
+        variables: Vec<Variable>,
+        parameters: Vec<Port>,
+        instances: Vec<InstanceBinding>,
+        rows: Vec<Row>,
+        objective: Option<Objective>,
+        limits: CaseLimits,
+    ) -> Result<Self, MathError> {
+        Self::build(
+            variables,
+            parameters,
+            instances,
+            rows,
+            objective.into_iter().collect(),
+            Vec::new(),
+            limits,
+        )
+    }
+    /// A structure with several objectives, optimized lexicographically in the given order
+    /// (ADR-0111): every level but the last states the degradation it admits while later
+    /// levels are optimized. Only a native lexicographic route solves it; every other
+    /// route optimizes one level at a time.
+    /// # Errors
+    /// Fewer than two levels, a degradation on the last level or missing on another, a
+    /// negative or nonfinite tolerance, and every refusal of [`Self::new`].
+    pub fn lexicographic(
+        variables: Vec<Variable>,
+        parameters: Vec<Port>,
+        instances: Vec<InstanceBinding>,
+        rows: Vec<Row>,
+        levels: Vec<(Objective, Option<Degradation>)>,
+        limits: CaseLimits,
+    ) -> Result<Self, MathError> {
+        let last = levels.len().checked_sub(1).filter(|last| *last > 0).ok_or_else(|| {
+            MathError::Contract("a lexicographic structure needs several objectives".into())
+        })?;
+        let mut objectives = Vec::with_capacity(levels.len());
+        let mut degradations = Vec::with_capacity(last);
+        for (position, (objective, degradation)) in levels.into_iter().enumerate() {
+            match (degradation, position == last) {
+                (None, true) => {}
+                (Some(d), false)
+                    if d.absolute.is_finite()
+                        && d.relative.is_finite()
+                        && d.absolute >= 0.0
+                        && d.relative >= 0.0 =>
+                {
+                    degradations.push(d);
+                }
+                _ => {
+                    return Err(MathError::Contract(
+                        "every earlier lexicographic level states a finite nonnegative degradation, and the last none".into(),
+                    ));
+                }
+            }
+            objectives.push(objective);
+        }
+        Self::build(
+            variables,
+            parameters,
+            instances,
+            rows,
+            objectives,
+            degradations,
+            limits,
+        )
+    }
+    /// A structure over other inventories with the objectives and lexicographic
+    /// degradations of `source`: the solver structure of a case bound from an admitted one.
+    /// # Errors
+    /// Every refusal of [`Self::new`].
+    pub fn like(
+        source: &Self,
+        variables: Vec<Variable>,
+        parameters: Vec<Port>,
+        instances: Vec<InstanceBinding>,
+        rows: Vec<Row>,
+        limits: CaseLimits,
+    ) -> Result<Self, MathError> {
+        Self::build(
+            variables,
+            parameters,
+            instances,
+            rows,
+            source.objectives.clone(),
+            source.degradations.clone(),
+            limits,
+        )
+    }
+    fn build(
         mut variables: Vec<Variable>,
         mut parameters: Vec<Port>,
         mut instances: Vec<InstanceBinding>,
         mut rows: Vec<Row>,
-        objective: Option<Objective>,
+        objectives: Vec<Objective>,
+        degradations: Vec<Degradation>,
         limits: CaseLimits,
     ) -> Result<Self, MathError> {
         if limits.instances == 0
@@ -402,7 +517,7 @@ impl CaseStructure {
                     || contribution.scale == 0.0
                     || match contribution.target {
                         Target::Row(id) => !row_ids.contains(&id),
-                        Target::Objective => objective.is_none(),
+                        Target::Objective(level) => level >= objectives.len(),
                     }
                 {
                     return Err(MathError::Contract("invalid output contribution".into()));
@@ -417,7 +532,8 @@ impl CaseStructure {
             parameters,
             instances,
             rows,
-            objective,
+            objectives,
+            degradations,
             native: Vec::new(),
             requirements: Vec::new(),
         })
@@ -470,7 +586,7 @@ impl CaseStructure {
     }
     /// Structural identity includes bindings, physical units, selected inventories and class declarations.
     pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new(pse_ids::Frame::MathCaseStructureV4);
+        let mut h = FramedHasher::new(pse_ids::Frame::MathCaseStructureV5);
         h.u64(self.variables.len() as u64);
         for v in &self.variables {
             h.id(&v.port.id)
@@ -496,9 +612,13 @@ impl CaseStructure {
                 .u64(pse_ids::canonical_f64_bits(r.lower))
                 .u64(pse_ids::canonical_f64_bits(r.upper));
         }
-        h.bool(self.objective.is_some());
-        if let Some(o) = &self.objective {
+        h.u64(self.objectives.len() as u64);
+        for o in &self.objectives {
             h.id(&o.quantity.as_id()).u64(o.sense as u64);
+        }
+        for d in &self.degradations {
+            h.u64(pse_ids::canonical_f64_bits(d.absolute))
+                .u64(pse_ids::canonical_f64_bits(d.relative));
         }
         h.u64(self.native.len() as u64);
         for constraint in &self.native {
@@ -524,8 +644,8 @@ impl CaseStructure {
                     Target::Row(r) => {
                         h.bool(false).id(&r);
                     }
-                    Target::Objective => {
-                        h.bool(true);
+                    Target::Objective(level) => {
+                        h.bool(true).u64(level as u64);
                     }
                 }
             }
@@ -536,9 +656,21 @@ impl CaseStructure {
     pub fn rows(&self) -> &[Row] {
         &self.rows
     }
-    /// Explicit objective, when selected.
+    /// The primary objective: the only one, or the first lexicographic level.
     pub fn objective(&self) -> Option<&Objective> {
-        self.objective.as_ref()
+        self.objectives.first()
+    }
+    /// Every objective in optimization order: none, one, or the lexicographic levels.
+    pub fn objectives(&self) -> &[Objective] {
+        &self.objectives
+    }
+    /// The degradation of each lexicographic level but the last (ADR-0111 item 3).
+    pub fn degradations(&self) -> &[Degradation] {
+        &self.degradations
+    }
+    /// Several objectives, which only a native lexicographic route optimizes together.
+    pub fn lexicographic_levels(&self) -> bool {
+        self.objectives.len() > 1
     }
     /// Declared source variables in semantic order.
     pub fn variables(&self) -> &[Variable] {

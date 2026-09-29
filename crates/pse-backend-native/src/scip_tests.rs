@@ -170,7 +170,7 @@ fn case_with(
     let mut contributions = Vec::new();
     for k in 0..body.output_count() {
         let target = if objective.is_some_and(|(o, _)| o == k) {
-            Target::Objective
+            Target::PRIMARY
         } else {
             row += 1;
             Target::Row(id(100 + u8::try_from(row).unwrap()))

@@ -59,6 +59,13 @@ pub enum Ineligible {
     },
     /// A Gauss–Newton Hessian needs a least-squares objective; only fits state one.
     LeastSquares,
+    /// Several objectives, in none of the classes the adapter optimizes lexicographically
+    /// in one native solve (ADR-0111 item 4); a staged sequence optimizes them one level
+    /// at a time instead.
+    Lexicographic {
+        /// Classes the facts and intent establish for this problem.
+        problem: Vec<ProblemClass>,
+    },
 }
 impl std::fmt::Display for Ineligible {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -103,6 +110,16 @@ impl std::fmt::Display for Ineligible {
             Self::LeastSquares => {
                 f.write_str("a Gauss–Newton Hessian requires a least-squares fit objective")
             }
+            Self::Lexicographic { problem } => {
+                f.write_str("several objectives in problem class ")?;
+                for (i, class) in problem.iter().enumerate() {
+                    if i > 0 {
+                        f.write_str(", ")?;
+                    }
+                    f.write_str(class.as_str())?;
+                }
+                f.write_str(" are not optimized lexicographically by this adapter")
+            }
         }
     }
 }
@@ -120,6 +137,7 @@ impl Ineligible {
             Self::Bounds { .. } => NativeIneligibility::Bounds,
             Self::NativeForms { .. } => NativeIneligibility::NativeForms,
             Self::LeastSquares => NativeIneligibility::LeastSquares,
+            Self::Lexicographic { .. } => NativeIneligibility::Lexicographic,
         }
     }
 }
@@ -178,6 +196,7 @@ pub fn oracle_facts(c: &crate::OracleContract, objective: bool, equalities: bool
         variables: c.variables.len(),
         rows: c.rows.len(),
         objective,
+        objectives: usize::from(objective),
         equalities,
         domains: vec![ModelingVariableDomain::Continuous; c.variables.len()],
         derivatives: c.derivatives.min(c.smoothness),
@@ -262,6 +281,11 @@ pub fn admit(capability: &Capability, linked: bool, r: &Requirements<'_>) -> Vec
         reasons.push(Ineligible::Certification);
     }
     let classes = problem_classes(f, r.intent, r.convex);
+    if f.objectives > 1 && !classes.iter().any(|c| capability.lexicographic.contains(c)) {
+        reasons.push(Ineligible::Lexicographic {
+            problem: classes.clone(),
+        });
+    }
     if !classes.iter().any(|c| capability.classes.contains(c)) {
         reasons.push(Ineligible::Class { problem: classes });
     }
@@ -467,6 +491,7 @@ mod tests {
             variables: 1,
             rows: 1,
             objective: false,
+            objectives: 0,
             equalities: true,
             domains: vec![ModelingVariableDomain::Continuous],
             derivatives: DerivativeOrder::Second,
@@ -598,6 +623,7 @@ mod tests {
             variables: 2,
             rows: 1,
             objective: true,
+            objectives: 1,
             equalities: true,
             domains: vec![ModelingVariableDomain::Integer; 2],
             derivatives: DerivativeOrder::Second,
@@ -666,6 +692,61 @@ mod tests {
         assert_eq!(
             select(&f, SolveIntent::Optimize, SolverSelection::Auto, true).unwrap(),
             Route::Constant
+        );
+    }
+    /// Several objectives are optimized in one native solve only by a record that states
+    /// the class lexicographic (ADR-0111 item 4): HiGHS for LP and MILP; every other class
+    /// and adapter is refused, and a staged sequence optimizes the levels instead.
+    #[test]
+    fn several_objectives_route_only_to_a_lexicographic_record() {
+        let mut f = miqp_facts();
+        f.quadratic = false;
+        f.objective_degree = Some(1);
+        f.objectives = 2;
+        let controls = crate::solve::Controls::default();
+        let route = |f: &ProblemFacts| {
+            let requirements = Requirements {
+                table: &LINKED,
+                facts: f,
+                intent: SolveIntent::Optimize,
+                convex: true,
+                least_squares: false,
+                controls: &controls,
+            };
+            (
+                requirements.eligibility(),
+                requirements.select(SolverSelection::Auto).ok(),
+            )
+        };
+        let lexicographic = |choice: &Eligibility| {
+            choice
+                .reasons
+                .iter()
+                .any(|r| matches!(r, Ineligible::Lexicographic { .. }))
+        };
+        let (choices, selected) = route(&f);
+        for choice in &choices {
+            assert_eq!(
+                lexicographic(choice),
+                choice.backend != Backend::Highs,
+                "{choice:?}"
+            );
+        }
+        assert_eq!(
+            selected,
+            adapter(Backend::Highs)
+                .linked()
+                .then_some(Route::Native(Backend::Highs))
+        );
+        // A quadratic level is no lexicographic class of any record.
+        f.quadratic = true;
+        f.domains.fill(ModelingVariableDomain::Continuous);
+        let (choices, selected) = route(&f);
+        assert!(choices.iter().all(lexicographic));
+        assert!(selected.is_none());
+        assert_eq!(
+            Ineligible::Lexicographic { problem: vec![] }.code(),
+            NativeIneligibility::Lexicographic
         );
     }
     #[test]

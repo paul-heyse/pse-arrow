@@ -233,6 +233,29 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         ],
         "Ordered immutable initialization attempts. Only an accepted original specification supplies committed values. Native result IDs link separately owned original-space result tables. `discrete_assignment` lists the free discrete variables every stage and homotopy attempt ran fixed at, under the `discrete` policy; it is empty under `refuse`, and the original specification always runs unfixed.",
     );
+    // ADR-0111 item 5: one row per lexicographic level of a multi-objective solve.
+    enumeration(b, "ModelingObjectiveRoute", ["native", "staged"]);
+    relation(
+        b,
+        N::Runtime,
+        "objective_levels",
+        S::Derived,
+        &["run_id", "level"],
+        vec![
+            run_id(),
+            column("level", count()),
+            column("priority", T::native(D::Int64)).optional(),
+            column("sense", T::enumeration("NativeObjectiveSense")),
+            column("quantity_id", T::id()),
+            column("route", T::enumeration("ModelingObjectiveRoute")),
+            column("attempt", count()),
+            column("result_id", T::id().with_identity("run")).optional(),
+            column("optimum", real()).optional(),
+            column("bound", real()).optional(),
+            column("value", real()).optional(),
+        ],
+        "The lexicographic levels of a multi-objective solve (ADR-0111), in optimization order. A level's value is the weighted sum of its members' terms, in canonical units of `quantity_id`. On the `native` route one HiGHS solve optimizes every level; on the `staged` route `attempt` is the step that optimized the level, seeded from the previous level's accepted step, with `optimum` its value there and `bound` the value every later step held it to: optimum plus max(absolute, relative·|optimum|) when minimized, minus when maximized. `value` is the level's value at the final candidate; absent values are not zero.",
+    );
     relation(
         b,
         N::Runtime,

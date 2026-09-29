@@ -11,6 +11,7 @@
         "derivatives": "[\"enum\",\"exact_hessian_or_limited_memory\"]",
         "diagnostics": "[\"text\",\"value-1\"]",
         "general_bounds": "[\"bool\",true]",
+        "lexicographic_classes": "[\"list\",[]]",
         "native_forms": "[\"list\",[]]",
         "parallel": "[\"bool\",true]",
         "reuse": "[\"text\",\"value-1\"]",

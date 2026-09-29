@@ -459,12 +459,12 @@ fn plan(
         }
         bodies.insert(b.key, b.body.clone());
     }
-    let structure = Arc::new(CaseStructure::new(
+    let structure = Arc::new(CaseStructure::like(
+        &c.structure,
         c.structure.variables().to_vec(),
         c.structure.parameters().to_vec(),
         instances,
         c.structure.rows().to_vec(),
-        c.structure.objective().cloned(),
         CaseLimits::default(),
     )?);
     let _span = tracing::info_span!("pse.case.sparse_plan").entered();

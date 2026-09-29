@@ -757,6 +757,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `homotopy` | `` | false |
 | `original` | `` | false |
 
+## `ModelingObjectiveRoute`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `native` | `` | false |
+| `staged` | `` | false |
+
 ## `ModelingRealValueKind`
 
 | Member | IDAES name | Deprecated |
@@ -961,6 +968,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `bounds` | `` | false |
 | `native_forms` | `` | false |
 | `least_squares` | `` | false |
+| `lexicographic` | `` | false |
 
 ## `NativeMetricKind`
 

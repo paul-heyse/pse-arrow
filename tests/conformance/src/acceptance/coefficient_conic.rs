@@ -66,6 +66,7 @@ fn coefficient_conic() {
                 .unwrap(),
             hessian: None,
             bounds: vec![(0., 2.5)],
+            objectives: Vec::new(),
         };
         let tolerances = Tolerances {
             variables: vec![1e-7],
@@ -181,6 +182,7 @@ fn coefficient_conic() {
         constraints: SparseColMat::try_new_from_triplets(0, 1, &[]).unwrap(),
         hessian: Some(q),
         bounds: vec![],
+        objectives: Vec::new(),
     };
     let mut r = highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs))
         .unwrap()

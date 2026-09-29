@@ -329,21 +329,65 @@ pub(super) fn admit(
         .iter()
         .any(|o| matches!(o, ModelingOutput::Penalty(_)));
     // The solved level's members contribute their scales to the objective, and every
-    // bounded level's members to its bound row (ADR-0111).
+    // bounded level's members to its bound row (ADR-0111). Several levels without a
+    // selected one are optimized together by a native lexicographic route: each level's
+    // members contribute to that level's objective.
+    let lexicographic = p.objectives.levels.len() > 1 && p.objectives.selected.is_none();
     let mut objective_scales = BTreeMap::<SemanticId, Vec<(Target, f64)>>::new();
     let solved = p.objectives.solved();
-    for level in &p.objectives.levels {
-        let solving = solved.is_some_and(|solved| std::ptr::eq(solved, level));
+    for (position, level) in p.objectives.levels.iter().enumerate() {
+        let target = if lexicographic {
+            Some(Target::Objective(position))
+        } else {
+            solved
+                .is_some_and(|solved| std::ptr::eq(solved, level))
+                .then_some(Target::PRIMARY)
+        };
         for member in p.objectives.members_of(level) {
             let targets = objective_scales.entry(member.term).or_default();
-            if solving {
-                targets.push((Target::Objective, member.scale));
+            if let Some(target) = target {
+                targets.push((target, member.scale));
             }
             if let Some(bound) = &level.bound {
                 targets.push((Target::Row(bound.row), member.scale));
             }
         }
     }
+    let levels = if lexicographic {
+        if penalty {
+            return Err(CompileError::Missing(
+                "elastic penalties need one objective; select a lexicographic level".into(),
+            ));
+        }
+        let last = p.objectives.levels.len() - 1;
+        p.objectives
+            .levels
+            .iter()
+            .enumerate()
+            .map(|(position, level)| {
+                let degradation = match (position < last, level.absolute_tolerance, level.relative_tolerance) {
+                    (false, _, _) => None,
+                    (true, Some(absolute), Some(relative)) => {
+                        Some(pse_math::binding::Degradation { absolute, relative })
+                    }
+                    (true, _, _) => {
+                        return Err(CompileError::Missing(
+                            "an earlier lexicographic level declares both tolerances".into(),
+                        ));
+                    }
+                };
+                Ok((
+                    pse_math::binding::Objective {
+                        quantity: level.quantity,
+                        sense: objective_sense(level.sense),
+                    },
+                    degradation,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        Vec::new()
+    };
     let objective = if let Some(level) = solved {
         let quantity = level.quantity;
         if penalty && Some(quantity) != registry.neutral_dimensionless() {
@@ -498,7 +542,7 @@ pub(super) fn admit(
         if matches!(output, ModelingOutput::Penalty(_)) {
             contributions.push(Contribution {
                 output: 0,
-                target: Target::Objective,
+                target: Target::PRIMARY,
                 scale: objective.as_ref().map_or(1.0, |o| o.sense.sign()),
             });
         }
@@ -530,7 +574,7 @@ pub(super) fn admit(
                 .push((output.row_id(), if *negative { -1.0 } else { 1.0 }));
         }
     }
-    let case = Arc::new(
+    let case = if levels.is_empty() {
         CaseStructure::new(
             variables,
             parameters,
@@ -539,7 +583,18 @@ pub(super) fn admit(
             objective,
             CaseLimits::default(),
         )?
-        .with_native(p.native.clone())?
+    } else {
+        CaseStructure::lexicographic(
+            variables,
+            parameters,
+            instances,
+            rows,
+            levels,
+            CaseLimits::default(),
+        )?
+    };
+    let case = Arc::new(
+        case.with_native(p.native.clone())?
         .with_requirements(p.requirements.iter().copied()),
     );
     Ok(Arc::new(AdmittedModeling {

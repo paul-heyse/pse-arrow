@@ -53,7 +53,7 @@ fn parameterized(
         .map(|k| Contribution {
             output: k,
             target: if k == rows.len() {
-                Target::Objective
+                Target::PRIMARY
             } else {
                 Target::Row(id(101 + u8::try_from(k).unwrap()))
             },

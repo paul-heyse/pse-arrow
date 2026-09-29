@@ -373,6 +373,11 @@ impl PreparedSolve {
     pub fn accuracy(&self) -> &ResolvedAccuracy {
         &self.accuracy
     }
+    /// The absolute accuracy of the objective value in original units: the continuous
+    /// absolute gap budget at the objective's coordinate scale.
+    pub fn objective_accuracy(&self) -> f64 {
+        self.accuracy.gap_absolute * self.normalization.objective
+    }
     /// Deterministic selected route, available for inspection before admission.
     pub fn route(&self) -> Route {
         self.route

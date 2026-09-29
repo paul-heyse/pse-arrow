@@ -156,6 +156,7 @@ impl Builder {
             constraints,
             hessian: None,
             bounds: self.bounds,
+            objectives: Vec::new(),
         };
         problem.validate()?;
         Ok(problem)

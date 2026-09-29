@@ -1005,6 +1005,23 @@ class RuntimeNativeDependenciesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeObjectiveLevelsRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    level: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    priority: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+    sense: e.NativeObjectiveSense = attrs.field(validator=attrs.validators.instance_of(e.NativeObjectiveSense))
+    quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    route: e.ModelingObjectiveRoute = attrs.field(validator=attrs.validators.instance_of(e.ModelingObjectiveRoute))
+    attempt: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    result_id: i.RunId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    optimum: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    bound: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeOperationalAttemptTransitionsRow:
     """Declared relation row or nested value."""
 
@@ -1659,6 +1676,7 @@ class RuntimeSolverCapabilitiesRow:
     parallel: b.bool = attrs.field(validator=v.exact_type(b.bool))
     certifies: b.bool = attrs.field(validator=v.exact_type(b.bool))
     native_forms: b.tuple[e.NativeConstraintForm, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeConstraintForm), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    lexicographic_classes: b.tuple[e.NativeProblemClass, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeProblemClass), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)

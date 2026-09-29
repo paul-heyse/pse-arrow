@@ -139,6 +139,9 @@ pse.cone.lowered-row.v1
 # its configuration key.
 pse.provider.configuration.v1
 # Plan 22 M5a (ADR-0104 §5): the case structure frames the structural requirements its
-# lowerings place on the route (l1_exact_penalty). math.case-structure.v4 replaces
-# math.case-structure.v3, which is no longer declared.
-pse.math.case-structure.v4
+# lowerings place on the route (l1_exact_penalty). math.case-structure.v4 replaced
+# math.case-structure.v3.
+# Plan 22 C3 engine (ADR-0111): the case structure frames its lexicographic objectives,
+# their degradations and the objective each contribution targets. math.case-structure.v5
+# replaces math.case-structure.v4, which is no longer declared.
+pse.math.case-structure.v5

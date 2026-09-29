@@ -102,7 +102,7 @@ fn case(
         .map(|k| Contribution {
             output: k,
             target: if objective.contains(&k) {
-                Target::Objective
+                Target::PRIMARY
             } else {
                 Target::Row(id(100 + u8::try_from(k).unwrap()))
             },

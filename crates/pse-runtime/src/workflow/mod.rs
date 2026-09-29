@@ -31,6 +31,8 @@ pub use study::{
     StudyPoint, StudyPointDefinition, StudyStatus,
 };
 pub(crate) mod numerics;
+mod objectives;
+pub use objectives::{ModelingLevelsReport, ModelingObjectiveLevel};
 mod staged;
 mod strategies;
 mod time;

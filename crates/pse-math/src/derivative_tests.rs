@@ -750,7 +750,7 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
                 contributions: vec![
                     Contribution {
                         output: 2,
-                        target: Target::Objective,
+                        target: Target::PRIMARY,
                         scale: 1.0,
                     },
                     Contribution {

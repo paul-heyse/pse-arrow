@@ -179,6 +179,8 @@ pub enum FactBatch {
     ),
     #[doc = stringify!(r#RuntimeNativeDependencies)]
     r#RuntimeNativeDependencies(Vec<super::r#runtime::r#native_dependencies::Row>),
+    #[doc = stringify!(r#RuntimeObjectiveLevels)]
+    r#RuntimeObjectiveLevels(Vec<super::r#runtime::r#objective_levels::Row>),
     #[doc = stringify!(r#RuntimeOperationalAttemptTransitions)]
     r#RuntimeOperationalAttemptTransitions(
         Vec<super::r#runtime::r#operational_attempt_transitions::Row>,
@@ -740,6 +742,12 @@ impl FactBatch {
                     14u8, 123u8, 67u8, 1u8, 244u8, 89u8,
                 ])
             }
+            Self::r#RuntimeObjectiveLevels(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    79u8, 69u8, 19u8, 117u8, 156u8, 58u8, 140u8, 227u8, 97u8, 225u8,
+                    14u8, 54u8, 211u8, 251u8, 183u8, 252u8,
+                ])
+            }
             Self::r#RuntimeOperationalAttemptTransitions(_) => {
                 pse_ids::SemanticId::from_bytes([
                     52u8, 138u8, 172u8, 97u8, 141u8, 128u8, 98u8, 83u8, 217u8, 168u8,
@@ -982,8 +990,8 @@ impl FactBatch {
             }
             Self::r#RuntimeSolverCapabilities(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    115u8, 109u8, 126u8, 171u8, 112u8, 182u8, 10u8, 175u8, 162u8, 151u8,
-                    107u8, 190u8, 100u8, 166u8, 142u8, 85u8,
+                    84u8, 77u8, 24u8, 247u8, 10u8, 33u8, 22u8, 151u8, 224u8, 120u8, 63u8,
+                    0u8, 186u8, 139u8, 212u8, 230u8,
                 ])
             }
             Self::r#RuntimeStudyOutcomes(_) => {
@@ -1076,6 +1084,7 @@ impl FactBatch {
             Self::r#RuntimeModelingStudies(rows) => rows.len(),
             Self::r#RuntimeModelingTrajectoryModes(rows) => rows.len(),
             Self::r#RuntimeNativeDependencies(rows) => rows.len(),
+            Self::r#RuntimeObjectiveLevels(rows) => rows.len(),
             Self::r#RuntimeOperationalAttemptTransitions(rows) => rows.len(),
             Self::r#RuntimeOperationalAttempts(rows) => rows.len(),
             Self::r#RuntimeOperationalIncumbents(rows) => rows.len(),
@@ -1492,6 +1501,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeNativeDependencies(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeObjectiveLevels(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2008,6 +2022,10 @@ impl FactBatch {
             Self::r#RuntimeNativeDependencies(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeNativeDependencies(vec![row.clone()]))
+            }
+            Self::r#RuntimeObjectiveLevels(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeObjectiveLevels(vec![row.clone()]))
             }
             Self::r#RuntimeOperationalAttemptTransitions(rows) => {
                 rows.get(index)
@@ -2939,6 +2957,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeNativeDependencies(left),
                 Self::r#RuntimeNativeDependencies(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeObjectiveLevels(left),
+                Self::r#RuntimeObjectiveLevels(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -3913,6 +3942,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeNativeDependencies(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeObjectiveLevels(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -5234,6 +5270,21 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeObjectiveLevels(left),
+                Self::r#RuntimeObjectiveLevels(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#level,
+                                &right.r#level,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeOperationalAttemptTransitions(left),
                 Self::r#RuntimeOperationalAttemptTransitions(right),
             ) => {
@@ -6304,6 +6355,11 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#scope, &mut hash);
                 crate::SemanticFrame::frame(&row.r#name, &mut hash);
             }
+            Self::r#RuntimeObjectiveLevels(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#level, &mut hash);
+            }
             Self::r#RuntimeOperationalAttemptTransitions(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#attempt_id, &mut hash);
@@ -7026,6 +7082,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeObjectiveLevels(left),
+                Self::r#RuntimeObjectiveLevels(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeOperationalAttemptTransitions(left),
                 Self::r#RuntimeOperationalAttemptTransitions(mut right),
             ) => {
@@ -7452,6 +7515,7 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeNativeDependencies(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeObjectiveLevels(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeOperationalAttemptTransitions(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }

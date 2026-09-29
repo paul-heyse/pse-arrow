@@ -86,6 +86,9 @@ pub struct Facts {
     pub objective_linear: Vec<bool>,
     /// Bound on polynomial objective degree under these assumptions; absence means unestablished.
     pub objective_degree: Option<u8>,
+    /// Bound on the polynomial degree of every later lexicographic objective (ADR-0111);
+    /// absence means unestablished. A coefficient model needs them linear.
+    pub lexicographic_degree: Option<u8>,
 }
 impl Facts {
     /// The outward-rounded FBBT enclosure of row `index` over a free-column box, from the
@@ -214,6 +217,7 @@ impl CasePlan {
             complete: Vec::with_capacity(rows.len()),
             objective_linear: vec![true; columns.len()],
             objective_degree: Some(0),
+            lexicographic_degree: Some(0),
             obligations: BTreeMap::new(),
             has_guards: false,
             signs: BTreeMap::new(),
@@ -367,8 +371,12 @@ impl CasePlan {
                     } else {
                         None
                     };
-                    facts.objective_degree =
-                        facts.objective_degree.zip(degree).map(|(a, b)| a.max(b));
+                    let bound = if c.target == Target::PRIMARY {
+                        &mut facts.objective_degree
+                    } else {
+                        &mut facts.lexicographic_degree
+                    };
+                    *bound = bound.zip(degree).map(|(a, b)| a.max(b));
                     for (formal, col, _, _) in &bindings {
                         if let Some(col) = col {
                             let proved = expression.as_ref().is_some_and(|a| {

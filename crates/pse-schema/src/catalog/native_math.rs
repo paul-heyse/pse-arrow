@@ -53,7 +53,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         b,
         N::Runtime,
         "solver_capabilities",
-        2,
+        3,
         S::Derived,
         &["backend"],
         vec![
@@ -76,8 +76,12 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
                 "native_forms",
                 T::list(T::enumeration("NativeConstraintForm")),
             ),
+            column(
+                "lexicographic_classes",
+                T::list(T::enumeration("NativeProblemClass")),
+            ),
         ],
-        "Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `automatic_classes` are the classes automatic routing may choose the adapter for; every other class in `classes` needs explicit selection. Automatic routing takes the problem's classes most specific first and selects among the eligible adapters automatic for the first class that has one. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104).",
+        "Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `automatic_classes` are the classes automatic routing may choose the adapter for; every other class in `classes` needs explicit selection. Automatic routing takes the problem's classes most specific first and selects among the eligible adapters automatic for the first class that has one. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104). `lexicographic_classes` lists the classes in which the adapter optimizes several objectives lexicographically in one native solve; a structure with several objectives in any other class is ineligible (ADR-0111).",
     );
     relation_version(
         b,
@@ -479,6 +483,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "bounds",
             "native_forms",
             "least_squares",
+            "lexicographic",
         ],
     );
     // Constraint handlers a native realization leaves to the backend (ADR-0104).

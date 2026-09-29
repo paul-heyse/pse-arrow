@@ -96,6 +96,10 @@ pub struct Capability {
     /// Constraint handlers the adapter consumes for forms a native realization leaves to
     /// the backend (ADR-0104). A structure requiring any other form is ineligible.
     pub native_forms: &'static [NativeConstraintForm],
+    /// The classes in which the adapter optimizes several objectives lexicographically in
+    /// one native solve (ADR-0111 item 4); a structure with several objectives in any other
+    /// class is ineligible.
+    pub lexicographic: &'static [ProblemClass],
     /// Native allocation/data reuse boundary.
     pub reuse: &'static str,
     /// Actual interrupt checkpoints.
@@ -120,6 +124,7 @@ impl Capability {
             parallel: self.parallel,
             certifies: self.certifies,
             native_forms: self.native_forms.to_vec(),
+            lexicographic_classes: self.lexicographic.to_vec(),
         }
     }
 }

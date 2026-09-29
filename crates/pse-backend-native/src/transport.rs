@@ -105,6 +105,33 @@ pub fn coefficients(
                 .zip(&n.rows)
                 .map(|((l, u), s)| Ok((bound(*l, *s)?, bound(*u, *s)?)))
                 .collect::<Result<_, ProblemError>>()?,
+            // Every lexicographic objective shares the objective scale; an absolute
+            // degradation is in objective units, a relative one is scale-free.
+            objectives: p
+                .objectives
+                .iter()
+                .map(|o| {
+                    Ok(crate::LinearObjective {
+                        coefficients: o
+                            .coefficients
+                            .iter()
+                            .zip(&n.variables)
+                            .map(|(v, s)| div(mul(*v, *s)?, n.objective))
+                            .collect::<Result<_, _>>()?,
+                        constant: div(o.constant, n.objective)?,
+                        sense: o.sense,
+                        degradation: o
+                            .degradation
+                            .map(|d| {
+                                Ok::<_, ProblemError>(pse_math::binding::Degradation {
+                                    absolute: div(d.absolute, n.objective)?,
+                                    relative: d.relative,
+                                })
+                            })
+                            .transpose()?,
+                    })
+                })
+                .collect::<Result<_, ProblemError>>()?,
         },
         proof,
     ))
@@ -649,6 +676,7 @@ mod tests {
             constraints: matrix(4.0),
             hessian: Some(matrix(2.0)),
             bounds: vec![(2.0, 20.0)],
+            objectives: Vec::new(),
         };
         let proof = crate::GramCertificate::new(
             p.hessian.as_ref().unwrap(),

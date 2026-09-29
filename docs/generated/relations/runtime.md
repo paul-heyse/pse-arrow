@@ -802,6 +802,26 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `kind, scope, name`.
 | `evidence.projection.columns` | `List` | false | `payload` | — | — |
 | `evidence.projection.columns.item` | `Utf8` | false | `payload` | — | — |
 
+## `objective_levels`
+
+The lexicographic levels of a multi-objective solve (ADR-0111), in optimization order. A level's value is the weighted sum of its members' terms, in canonical units of `quantity_id`. On the `native` route one HiGHS solve optimizes every level; on the `staged` route `attempt` is the step that optimized the level, seeded from the previous level's accepted step, with `optimum` its value there and `bound` the value every later step held it to: optimum plus max(absolute, relative·|optimum|) when minimized, minus when maximized. `value` is the level's value at the final candidate; absent values are not zero.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, level`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `level` | `Int64` | false | `key` | — | — |
+| `priority` | `Int64` | true | `payload` | — | — |
+| `sense` | `enum:NativeObjectiveSense` | false | `payload` | — | — |
+| `quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `route` | `enum:ModelingObjectiveRoute` | false | `payload` | — | — |
+| `attempt` | `Int64` | false | `payload` | — | — |
+| `result_id` | `semantic_id` | true | `payload` | — | — |
+| `optimum` | `Float64` | true | `payload` | — | — |
+| `bound` | `Float64` | true | `payload` | — | — |
+| `value` | `Float64` | true | `payload` | — | — |
+
 ## `operational_attempt_transitions`
 
 Append-only audit of every attempt state change, written with the change; sequence 0 records creation and has no previous state.
@@ -2019,9 +2039,9 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, step, symbol_id`.
 
 ## `solver_capabilities`
 
-Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `automatic_classes` are the classes automatic routing may choose the adapter for; every other class in `classes` needs explicit selection. Automatic routing takes the problem's classes most specific first and selects among the eligible adapters automatic for the first class that has one. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104).
+Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `automatic_classes` are the classes automatic routing may choose the adapter for; every other class in `classes` needs explicit selection. Automatic routing takes the problem's classes most specific first and selects among the eligible adapters automatic for the first class that has one. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104). `lexicographic_classes` lists the classes in which the adapter optimizes several objectives lexicographically in one native solve; a structure with several objectives in any other class is ineligible (ADR-0111).
 
-Version: 2. Snapshot class: `derived`. Primary key: `backend`.
+Version: 3. Snapshot class: `derived`. Primary key: `backend`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -2041,6 +2061,8 @@ Version: 2. Snapshot class: `derived`. Primary key: `backend`.
 | `certifies` | `Boolean` | false | `payload` | — | — |
 | `native_forms` | `List` | false | `payload` | — | — |
 | `native_forms.item` | `enum:NativeConstraintForm` | false | `payload` | — | — |
+| `lexicographic_classes` | `List` | false | `payload` | — | — |
+| `lexicographic_classes.item` | `enum:NativeProblemClass` | false | `payload` | — | — |
 
 ## `study_outcomes`
 

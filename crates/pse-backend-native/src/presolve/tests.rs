@@ -119,6 +119,7 @@ impl Mixed {
                 complete: vec![true, false],
                 row_sources: vec![vec![]; 2],
                 objective_degree: None,
+                lexicographic_degree: Some(0),
                 objective_linear: vec![false, false],
             },
             j: jacobian(2, &[(0, 0), (1, 0), (0, 1), (1, 1)]),

@@ -211,12 +211,7 @@ impl CasePlan {
         let mut target_counts = BTreeMap::new();
         for binding in structure.instances() {
             for c in &binding.contributions {
-                *target_counts
-                    .entry(match c.target {
-                        Target::Objective => None,
-                        Target::Row(r) => Some(r),
-                    })
-                    .or_insert(0usize) += 1;
+                *target_counts.entry(c.target).or_insert(0usize) += 1;
             }
         }
         for (index, binding) in structure.instances().iter().enumerate() {
@@ -241,19 +236,16 @@ impl CasePlan {
                     .ok_or_else(|| MathError::Contract("untyped or missing body output".into()))?;
                 let target = match c.target {
                     Target::Row(id) => structure.rows()[rows[&id].get()].quantity,
-                    Target::Objective => {
+                    Target::Objective(level) => {
                         structure
-                            .objective()
+                            .objectives()
+                            .get(level)
                             .ok_or_else(|| MathError::Contract("missing objective".into()))?
                             .quantity
                     }
                 };
                 pse_quantity::admission::require_same_contract(q, target, registry)?;
-                let key = match c.target {
-                    Target::Objective => None,
-                    Target::Row(r) => Some(r),
-                };
-                if target_counts[&key] > 1 || c.scale != 1.0 {
+                if target_counts[&c.target] > 1 || c.scale != 1.0 {
                     // Physical point values cannot be summed/scaled as residual differences.
                     let ty = registry.quantity_type(q)?;
                     if ty.key.scale_kind == pse_quantity::ScaleKind::Point
@@ -325,7 +317,7 @@ impl CasePlan {
                         }
                     }
                 }
-                if order >= DerivativeOrder::Second {
+                if order >= DerivativeOrder::Second && selected(c.target, Demand::All) {
                     for (i, &a) in coordinates.iter().enumerate() {
                         for (j, &b) in coordinates.iter().enumerate() {
                             let (a, b) = (a.get(), b.get());
@@ -584,7 +576,7 @@ impl CasePlan {
         let mut support = BTreeSet::new();
         for (b, i) in self.structure.instances().iter().zip(self.instances.iter()) {
             for c in &b.contributions {
-                if c.target == Target::Objective {
+                if c.target == Target::PRIMARY {
                     for (&slot, &col) in i.coordinates.iter().zip(&i.columns) {
                         if self.bodies[&b.body].support().first[c.output].contains(&slot.get()) {
                             support.insert(col);
@@ -801,7 +793,7 @@ impl CaseWorker {
         let mut value = 0.0;
         for (i, b) in self.assembly.structure.instances().iter().enumerate() {
             for c in &b.contributions {
-                if c.target == Target::Objective {
+                if c.target == Target::PRIMARY {
                     let (v, r) = self.result(i, c.output, Demand::Objective)?;
                     value += c.scale * v.values[r];
                 }
@@ -857,7 +849,7 @@ impl CaseWorker {
         for (i, b) in self.assembly.structure.instances().iter().enumerate() {
             let local = &self.assembly.instances[i];
             for c in &b.contributions {
-                if c.target == Target::Objective {
+                if c.target == Target::PRIMARY {
                     let (v, r) = self.result(i, c.output, Demand::Objective)?;
                     for (k, &formal) in local.coordinates.iter().enumerate() {
                         out[local.columns[k].get()] += self.objective_sign()
@@ -903,7 +895,7 @@ impl CaseWorker {
         self.hessian.clear();
         for (k, t) in self.assembly.hessian_terms.iter().enumerate() {
             let weight = match t.target {
-                Target::Objective => objective_weight * self.objective_sign(),
+                Target::Objective(_) => objective_weight * self.objective_sign(),
                 Target::Row(id) => multipliers[self.assembly.rows[&id].get()],
             };
             let (v, r) = self.result(t.instance, t.output, Demand::All)?;
@@ -926,9 +918,10 @@ impl CaseWorker {
 }
 fn selected(target: Target, demand: Demand) -> bool {
     match demand {
-        Demand::Objective => target == Target::Objective,
-        Demand::Constraints => target != Target::Objective,
-        Demand::All => true,
+        Demand::Objective => target == Target::PRIMARY,
+        Demand::Constraints => matches!(target, Target::Row(_)),
+        // A later lexicographic objective is projected to coefficients, never evaluated.
+        Demand::All => matches!(target, Target::Row(_)) || target == Target::PRIMARY,
     }
 }
 fn finite(value: f64) -> Result<f64, MathError> {

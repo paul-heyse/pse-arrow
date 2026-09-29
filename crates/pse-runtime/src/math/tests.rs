@@ -1179,7 +1179,7 @@ fn quartic_inputs(x_box: (Option<f64>, Option<f64>)) -> Inputs {
                 },
                 Contribution {
                     output: 1,
-                    target: Target::Objective,
+                    target: Target::PRIMARY,
                     scale: 1.,
                 },
             ],

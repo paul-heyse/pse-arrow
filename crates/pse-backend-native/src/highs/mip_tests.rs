@@ -40,6 +40,7 @@ fn problem(
             .unwrap(),
         hessian: None,
         bounds: rows.iter().map(|r| (r.1, r.2)).collect(),
+        objectives: Vec::new(),
     }
 }
 /// The coordinates of a problem that is its own original.

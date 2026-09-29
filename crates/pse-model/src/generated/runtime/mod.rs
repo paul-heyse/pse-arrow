@@ -61,6 +61,8 @@ pub mod r#modeling_trajectory_modes;
 ///Generated relation contract.
 pub mod r#native_dependencies;
 ///Generated relation contract.
+pub mod r#objective_levels;
+///Generated relation contract.
 pub mod r#operational_attempt_transitions;
 ///Generated relation contract.
 pub mod r#operational_attempts;

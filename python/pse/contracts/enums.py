@@ -757,6 +757,13 @@ class ModelingInitializationStep(StrEnum):
     ORIGINAL = "original"
 
 
+class ModelingObjectiveRoute(StrEnum):
+    """The declared ModelingObjectiveRoute enumeration."""
+
+    NATIVE = "native"
+    STAGED = "staged"
+
+
 class ModelingRealValueKind(StrEnum):
     """The declared ModelingRealValueKind enumeration."""
 
@@ -960,6 +967,7 @@ class NativeIneligibility(StrEnum):
     BOUNDS = "bounds"
     NATIVE_FORMS = "native_forms"
     LEAST_SQUARES = "least_squares"
+    LEXICOGRAPHIC = "lexicographic"
 
 
 class NativeMetricKind(StrEnum):
