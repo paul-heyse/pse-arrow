@@ -503,7 +503,9 @@ nor capability names alone make an implementation executable.
 
 > Decision: [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) — the
 > solver image's linear-solver inventory and determinism settings are recorded with
-> results (Plan 22 N1; not yet implemented).
+> results (Plan 22 N1, implemented: each Ipopt report's provenance, published in
+> `solve_metrics`, and the linked build in the profile identity;
+> [§18.3](numerical-execution.md#section-18-3)).
 
 The `runtime` namespace holds immutable result and control facts. Each group has its own
 owning section:

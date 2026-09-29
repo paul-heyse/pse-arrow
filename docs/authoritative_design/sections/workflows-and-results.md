@@ -336,17 +336,16 @@ package changed in memory (`with_declarations`, `with_fit_data`, `with_limits`) 
 
 ### 19.4 Parameter estimation
 
-> Decision: [ADR-0107](../../adr/0107-sensitivity-covariance-uncertainty.md) — covariance
-> and confidence intervals from a validated reduced Hessian, Gauss–Newton covariance for
-> transient fits; [ADR-0110](../../adr/0110-dynamics-profile-extensions.md) — Gauss–Newton
-> and exact transient Hessians (Plan 22 S3, Y4; not yet implemented).
->
-> Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — covariance by one rule:
-> exact from the fit's KKT analysis when the fit used the exact Hessian, otherwise
-> Gauss–Newton from the response SVD; profile-likelihood intervals as adaptive pin chains;
-> one `LocalValidity` relation (Plan 22 S3; not yet implemented). ADR-0118 supersedes
-> ADR-0107, so the transient-only Gauss–Newton rule cited above is replaced by that one
-> rule.
+> Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — covariance and
+> confidence intervals by one rule: exact from the fit's KKT analysis when the fit used the
+> exact Hessian, otherwise Gauss–Newton from the response SVD; profile-likelihood intervals
+> as adaptive pin chains; one `LocalValidity` relation (Plan 22 S3; not yet implemented).
+> ADR-0118 supersedes ADR-0107 and its transient-only Gauss–Newton rule;
+> [ADR-0110](../../adr/0110-dynamics-profile-extensions.md) — Gauss–Newton and exact
+> transient Hessians (Plan 22 Y4; not yet implemented).
+
+No covariance or confidence interval is computed today; a fit reports the response rank and
+conditioning below, which are not statistical claims.
 
 A fit (`authored.fit_cases`) declares shared parameters (fixed or free, value, optional
 bounds, positive scale), experiments (an authored case with an optional integrated analysis) and
@@ -477,9 +476,11 @@ solves when they are linear and SCIP when a quadratic objective or nonlinear row
 linear lowering of an indicator on HiGHS 1.15 matches an enumerated oracle, including a charge
 at which idling is optimal (`indicator_linear_lowering_matches_native`, the regression guard
 for the HiGHS 1.14.3 presolve defect). A native realization is eligible only on an adapter
-whose record consumes the handler, and no linked record does yet (SCIP's handlers arrive with
-Plan 22 G7), so a `native` or `indicator` realization is refused before any solve
-([§18.7](numerical-execution.md#section-18-7)). The seed GDP fixture
+whose record consumes the handler. SCIP's record consumes all seven, so a `native` or
+`indicator` realization routes to SCIP and is refused before any solve on every other route
+([§18.7](numerical-execution.md#section-18-7)). Automatic routing takes the GDP fixture's
+indicator realization to SCIP, which reaches the hull realization's optimum and the
+enumerated one at every tested demand (`gdp_indicator_matches_hull`). The seed GDP fixture
 ([§6.10](schema-and-relations.md#section-6-10)) reaches its enumerated optimum through the
 hull realization.
 
@@ -489,16 +490,12 @@ fixed-assignment initialization stage.
 
 ### 19.8 Uncertainty
 
-> Decision: [ADR-0107](../../adr/0107-sensitivity-covariance-uncertainty.md) — uncertainty
-> propagation and covariance with PS-12 validity enter the design target (Plan 22 S3–S4;
-> not yet implemented).
->
 > Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — uncertainty propagation
-> Σ_y = J·Σ_θ·Jᵀ, valid only where every upstream validity row holds (Plan 22 S4; not yet
-> implemented). ADR-0118 supersedes ADR-0107, which this section still cites.
+> Σ_y = J·Σ_θ·Jᵀ and covariance with PS-12 validity, valid only where every upstream
+> validity row holds (Plan 22 S3–S4; not yet implemented). ADR-0118 supersedes ADR-0107.
 
 Not yet implemented: no uncertainty propagation or covariance estimate; both are in
-the design target ([ADR-0107](../../adr/0107-sensitivity-covariance-uncertainty.md)). Robust
+the design target ([ADR-0118](../../adr/0118-one-kkt-point-analysis.md)). Robust
 optimization is not implemented. Local response sensitivities, rank and condition from fitting
 ([§19.4](#section-19-4)) are the only related results and are not statistical claims.
 
@@ -540,7 +537,11 @@ the store. `physical_from_documents` admits physical data;
 `modeling_from_documents` admits the explicit package closure. `ModelingPackage` exposes
 immutable declarations/limits/fit-data views, selected solve/simulation/fitting preparation,
 initialization, flow/recycle and block strategies, studies, diagnostics and conformance.
-`capabilities` reports linked libraries, not model eligibility. Owners are
+`capabilities` reports linked libraries, not model eligibility. A prepared operation
+exposes its selected route (`NativeRoute`) and one typed eligibility row per assessed
+adapter (`NativeEligibility`, whose reasons carry registry `NativeIneligibility` codes and
+typed detail), and a strategy result its ordered attempts (`NativeStrategyAttempt`), all in
+registry spellings ([§18.7](numerical-execution.md#section-18-7)). Owners are
 `crates/pse-py/src/workflow/`, `python/pse/_modeling.py`, `_runs.py` and `_strategies.py`.
 The removed model builders have no compatibility facade.
 
