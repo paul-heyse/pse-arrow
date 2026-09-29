@@ -13,6 +13,8 @@ mod error;
 pub(crate) mod lexer;
 mod parser;
 mod render;
+#[cfg(test)]
+mod unit_tests;
 mod walk;
 
 pub use ast::{

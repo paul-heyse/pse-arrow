@@ -222,6 +222,56 @@ pub enum QuantityError {
         actual: QuantityTypeId,
     },
 
+    /// A unit literal factor names no atomic unit (ADR-0124). A defined unit is spelled by
+    /// its composition, never by its row name.
+    #[error("`{symbol}` is not an atomic unit symbol")]
+    UnknownUnitSymbol {
+        /// The factor symbol as written.
+        symbol: String,
+    },
+
+    /// An affine or datum-restricted unit appears other than as the sole factor with
+    /// exponent one (ADR-0124).
+    #[error(
+        "the affine or datum-restricted unit `{symbol}` may appear only as the sole factor with exponent one"
+    )]
+    AffineUnitFactor {
+        /// The offending unit.
+        unit: UnitId,
+        /// Its symbol.
+        symbol: String,
+    },
+
+    /// A multiplicative chain has a point factor with a nonzero datum (ADR-0124). The chain
+    /// is never partly resolved.
+    #[error(
+        "chain factor `{factor}` is a point with a nonzero datum; a multiplicative chain takes differences, dimensionless factors and true-zero ratio points only"
+    )]
+    ChainLeafIneligible {
+        /// The ineligible factor's complete type.
+        factor: QuantityTypeId,
+    },
+
+    /// A multiplicative chain's canonical monomial names no declared quantity kind
+    /// (ADR-0124). Kinds are never synthesized.
+    #[error("no declared quantity kind has the monomial {}", monomial(.factors))]
+    UndeclaredMonomial {
+        /// The canonical base-kind factors and their exponents.
+        factors: Vec<crate::KindFactor>,
+    },
+
+    /// A registered stepwise rule and chain resolution both type an expression, and they
+    /// disagree (ADR-0124). Neither route takes precedence.
+    #[error(
+        "the registered rules type the expression `{registered}` but chain resolution types it `{chain}`"
+    )]
+    RouteDisagreement {
+        /// The stepwise result.
+        registered: QuantityTypeId,
+        /// The chain result.
+        chain: QuantityTypeId,
+    },
+
     /// An identity does not resolve in the quantity registry.
     #[error("unknown {kind} `{id}`")]
     UnknownId {
@@ -240,6 +290,12 @@ impl QuantityError {
                 detail.capacity()
             }
             Self::UnregisteredResultType { requested, .. } => requested.capacity(),
+            Self::UnknownUnitSymbol { symbol } | Self::AffineUnitFactor { symbol, .. } => {
+                symbol.capacity()
+            }
+            Self::UndeclaredMonomial { factors } => factors
+                .capacity()
+                .saturating_mul(size_of::<crate::KindFactor>()),
             Self::OperationUnsupported { input_kinds, .. } => input_kinds
                 .capacity()
                 .saturating_mul(size_of::<QuantityKindId>()),
@@ -256,10 +312,20 @@ impl QuantityError {
             | Self::UnitConvertMismatch { .. }
             | Self::StaticDomain { .. }
             | Self::ContractMismatch { .. }
+            | Self::ChainLeafIneligible { .. }
+            | Self::RouteDisagreement { .. }
             | Self::UnknownId { .. } => 0,
         };
         size_of::<Self>().saturating_add(heap)
     }
+}
+
+fn monomial(factors: &[crate::KindFactor]) -> String {
+    factors
+        .iter()
+        .map(|factor| format!("{}^{}", factor.kind, factor.exponent))
+        .collect::<Vec<_>>()
+        .join(" * ")
 }
 
 fn operand_contracts(operands: &[(QuantityTypeId, crate::IndexSet)]) -> String {
@@ -295,11 +361,11 @@ pse_diagnostics::impl_diagnostic! {
     QuantityError,
     code(this) { match this {
             Self::Registry { .. } | Self::Dimension(..) | Self::UnknownId { .. } => Some(pse_diagnostics::DiagnosticCode::ValidationInvariant),
-            Self::InferencePrecondition { .. } | Self::OperationUnsupported { .. } | Self::UnregisteredResultType { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathQuantityOperationUnsupported),
+            Self::InferencePrecondition { .. } | Self::OperationUnsupported { .. } | Self::UnregisteredResultType { .. } | Self::UndeclaredMonomial { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathQuantityOperationUnsupported),
 
 
 
-            Self::Incompatible { .. } | Self::AmbiguousLiteral { .. } | Self::UnitConvertMismatch { .. } | Self::ContractMismatch { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathUnitInconsistent),
+            Self::Incompatible { .. } | Self::AmbiguousLiteral { .. } | Self::UnitConvertMismatch { .. } | Self::ContractMismatch { .. } | Self::UnknownUnitSymbol { .. } | Self::AffineUnitFactor { .. } | Self::ChainLeafIneligible { .. } | Self::RouteDisagreement { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathUnitInconsistent),
 
 
             Self::StaticDomain { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathDomainViolationStatic),

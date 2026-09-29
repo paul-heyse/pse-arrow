@@ -170,15 +170,37 @@ class ReferenceMathContextRow:
 
 
 @attrs.frozen(kw_only=True)
+class ReferenceQuantityKindsFieldDefinitionMonomialItem:
+    """Declared relation row or nested value."""
+
+    quantity_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    num: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
+    den: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceQuantityKindsFieldDefinition:
+    """Declared relation row or nested value."""
+
+    monomial: b.tuple[ReferenceQuantityKindsFieldDefinitionMonomialItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceQuantityKindsFieldDefinitionMonomialItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    canonical_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    basis_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    reference_state_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    scale_kind: e.ScaleKind = attrs.field(validator=attrs.validators.instance_of(e.ScaleKind))
+    subject_kind: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+
+
+@attrs.frozen(kw_only=True)
 class ReferenceQuantityKindsRow:
     """Declared relation row or nested value."""
 
     quantity_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    dimension: b.tuple[v.DimensionVectorItem, ...] = attrs.field(validator=attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.DimensionVectorItem), iterable_validator=attrs.validators.instance_of(b.tuple)), attrs.validators.min_len(8), attrs.validators.max_len(8)))
+    dimension: b.tuple[v.DimensionVectorItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.DimensionVectorItem), iterable_validator=attrs.validators.instance_of(b.tuple)), attrs.validators.min_len(8), attrs.validators.max_len(8))))
     extensive: b.bool = attrs.field(validator=v.exact_type(b.bool))
     addition_kind: e.QuantityAdditionKind = attrs.field(validator=attrs.validators.instance_of(e.QuantityAdditionKind))
     category: e.QuantityKindCategory | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.QuantityKindCategory)))
+    definition: ReferenceQuantityKindsFieldDefinition | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ReferenceQuantityKindsFieldDefinition)))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 
@@ -448,16 +470,26 @@ class ReferenceUnitSetsRow:
 
 
 @attrs.frozen(kw_only=True)
+class ReferenceUnitsFieldDefinitionItem:
+    """Declared relation row or nested value."""
+
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    num: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
+    den: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
+
+
+@attrs.frozen(kw_only=True)
 class ReferenceUnitsRow:
     """Declared relation row or nested value."""
 
     unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     symbol: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    dimension: b.tuple[v.DimensionVectorItem, ...] = attrs.field(validator=attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.DimensionVectorItem), iterable_validator=attrs.validators.instance_of(b.tuple)), attrs.validators.min_len(8), attrs.validators.max_len(8)))
-    scale_to_canonical: b.float = attrs.field(validator=v.finite_float)
-    offset_to_canonical: b.float = attrs.field(validator=v.finite_float)
-    is_affine: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    dimension: b.tuple[v.DimensionVectorItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.DimensionVectorItem), iterable_validator=attrs.validators.instance_of(b.tuple)), attrs.validators.min_len(8), attrs.validators.max_len(8))))
+    scale_to_canonical: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    offset_to_canonical: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    is_affine: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
     reference_state_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    definition: b.tuple[ReferenceUnitsFieldDefinitionItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceUnitsFieldDefinitionItem), iterable_validator=attrs.validators.instance_of(b.tuple))))
     system: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))

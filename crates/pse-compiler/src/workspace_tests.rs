@@ -33,7 +33,6 @@ pub(super) fn inputs() -> Inputs {
         domains: vec![],
         groups: vec![],
         providers: vec![],
-        units: BTreeMap::from([("1".into(), unit)]),
         literals: BTreeMap::new(),
 
         limits: BodyLimits::default(),
@@ -312,9 +311,14 @@ fn fixedness_bounds_aliases_and_physical_edits_reprepare() {
     w.publish(i.clone()).unwrap();
     assert!(compare_clean(&mut w, &i).structure.matching.is_empty());
     let mut builder = i.quantities.to_builder();
-    let mut unit = i.quantities.units().next().unwrap().clone();
+    let mut unit = i
+        .quantities
+        .units()
+        .find(|unit| unit.definition.is_none())
+        .unwrap()
+        .clone();
     unit.symbol.push_str("_changed");
-    unit.id = UnitId::from_id(id(98));
+    unit.id = pse_quantity::UnitId::from_id(id(98));
     builder.unit(unit);
     i.quantities = Arc::new(builder.build().unwrap());
     w.publish(i.clone()).unwrap();

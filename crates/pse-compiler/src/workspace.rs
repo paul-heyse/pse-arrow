@@ -16,7 +16,7 @@ use pse_math::{
     typed::BodyLimits,
 };
 use pse_model::SemanticEq;
-use pse_quantity::{PhysicalPreconditions, QuantityRegistry, QuantityTypeId, UnitId};
+use pse_quantity::{PhysicalPreconditions, QuantityRegistry, QuantityTypeId};
 use pse_structural::{
     incidence::{CaseIncidence, Constraint, Incidence, StructuralAnalysis},
     projection::{GraphLimits, Scope},
@@ -43,8 +43,6 @@ pub struct Definition {
     pub groups: Vec<String>,
     /// Selected immutable provider descriptors.
     pub providers: Vec<String>,
-    /// Resolved unit spellings.
-    pub units: BTreeMap<String, UnitId>,
     /// Contextual source literal contracts.
     pub literals: BTreeMap<(u32, u32), QuantityTypeId>,
     /// Finite construction limits.
@@ -394,7 +392,6 @@ fn admitted(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Result<Arc<Adm
         domains: &domains,
         groups: &groups,
         providers: &providers,
-        units: &d.units,
         literals: &d.literals,
         physical: physical_key(db, i),
         structure: ContentHash::from_bytes([0; 32]),
@@ -1571,11 +1568,6 @@ fn validate(i: &Inputs, l: WorkspaceLimits) -> Result<()> {
                     .chain(&d.groups)
                     .chain(&d.providers)
                     .fold(0usize, |n, s| n.saturating_add(s.len() + 32)),
-            )
-            .saturating_add(
-                d.units
-                    .keys()
-                    .fold(0usize, |n, s| n.saturating_add(s.len() + 96)),
             )
             .saturating_add(d.literals.len().saturating_mul(128));
     }

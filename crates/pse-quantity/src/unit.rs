@@ -6,8 +6,109 @@
 //! Includes `Unit`, `convert_spec` and context-aware `convert_spec_for_type`.
 //! `convert_value` applies `(v * scale) + offset` at the physical binding boundary.
 //! The mathematical body receives canonical coordinates after this admission.
+//!
+//! A unit is atomic (symbol, dimension, scale and offset authored) or defined: its
+//! composition is authored and its dimension and scale are derived at admission
+//! (ADR-0124). A unit literal composes atomic units with rational exponents; its
+//! identity is [`unit_product_id`] over its canonical factors, so no spelling of a
+//! composite unit needs registering.
 
 use crate::ids::UnitId;
+use crate::Ratio;
+use crate::{DimensionVector as Dimension, QuantityError as Error};
+
+/// One canonical factor of a unit product: an atomic unit and its nonzero rational
+/// exponent (ADR-0124).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct UnitFactor {
+    /// The atomic unit, or, in an authored composition, any declared unit.
+    pub unit: UnitId,
+    /// The nonzero rational exponent.
+    pub exponent: Ratio,
+}
+
+/// A defined unit as authored: its composition only. Its dimension and scale are
+/// derived when the registry admits it, so they have one authority (ADR-0124).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DefinedUnit {
+    /// Registry identity; it must equal [`unit_product_id`] over the canonical factors.
+    pub id: UnitId,
+    /// The package's name for the row; a defined unit is never looked up by it.
+    pub symbol: String,
+    /// Authored factors, each naming an atomic or another defined unit.
+    pub composition: Vec<UnitFactor>,
+}
+
+/// The identity of a canonical unit product (ADR-0124): the sole atomic factor itself
+/// when the product is one unit with exponent one, otherwise a
+/// `pse.quantity.unit-product.v1` derivation over the canonical factors. The factors
+/// must be canonical (identity order, distinct units, nonzero exponents); spelling
+/// never enters.
+pub fn unit_product_id(factors: &[UnitFactor]) -> UnitId {
+    if let [only] = factors
+        && only.exponent == Ratio::ONE
+    {
+        return only.unit;
+    }
+    let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::QuantityUnitProductV1);
+    h.u64(factors.len() as u64);
+    for factor in factors {
+        h.id(&factor.unit.as_id())
+            .part(&factor.exponent.num().to_le_bytes())
+            .part(&factor.exponent.den().to_le_bytes());
+    }
+    UnitId::from_id(h.finish_id())
+}
+
+/// Merge factors of the same unit, drop zero exponents and order by identity.
+///
+/// # Errors
+/// An exponent sum that does not fit the canonical rational pair.
+pub fn canonical_factors(
+    factors: impl IntoIterator<Item = UnitFactor>,
+) -> Result<Vec<UnitFactor>, Error> {
+    let mut merged = std::collections::BTreeMap::<UnitId, Ratio>::new();
+    for factor in factors {
+        let slot = merged.entry(factor.unit).or_insert(Ratio::ZERO);
+        *slot = slot.checked_add(factor.exponent)?;
+    }
+    Ok(merged
+        .into_iter()
+        .filter(|(_, exponent)| !exponent.is_zero())
+        .map(|(unit, exponent)| UnitFactor { unit, exponent })
+        .collect())
+}
+
+/// The dimension and scale of a product of admitted atomic units.
+///
+/// # Errors
+/// Dimension overflow, or a scale that is not finite and positive.
+pub(crate) fn derived_measure<'a>(
+    factors: &[UnitFactor],
+    atomic: impl Fn(UnitId) -> Result<&'a Unit, Error>,
+) -> Result<(Dimension, f64), Error> {
+    let mut dimension = Dimension::DIMENSIONLESS;
+    let mut scale = 1.0_f64;
+    for factor in factors {
+        let unit = atomic(factor.unit)?;
+        dimension = dimension.mul(&unit.dimension.pow(factor.exponent)?)?;
+        let exponent = factor.exponent;
+        scale *= if exponent.is_integer() {
+            unit.scale_to_canonical.powi(i32::from(exponent.num()))
+        } else {
+            unit.scale_to_canonical
+                .powf(f64::from(exponent.num()) / f64::from(exponent.den()))
+        };
+    }
+    if !scale.is_finite() || scale <= 0.0 {
+        return Err(Error::Registry {
+            rule: "unit.derived_scale",
+            subject: unit_product_id(factors).as_id(),
+            detail: "unit product scale is not finite and positive".to_owned(),
+        });
+    }
+    Ok((dimension, scale))
+}
 
 /// A resolved unit-conversion edge: `to = (from * scale) + offset` (blueprint §7.2, §8.2).
 ///
@@ -64,6 +165,9 @@ pub struct Unit {
     pub is_affine: bool,
     /// Optional datum restriction of the spelling; representation conversion preserves it.
     pub reference_state: Option<crate::ReferenceStateId>,
+    /// `None` for an atomic unit; the canonical atomic factors of a defined or composed
+    /// unit, whose dimension and scale were derived from them.
+    pub definition: Option<Vec<UnitFactor>>,
 }
 impl Unit {
     /// Admit the numeric unit definition without guessing its physical kind.
@@ -73,6 +177,12 @@ impl Unit {
     pub fn validate(&self) -> Result<(), crate::QuantityError> {
         let detail = if self.symbol.is_empty() {
             Some("unit symbol is empty")
+        } else if self.definition.is_some()
+            && (self.is_affine
+                || self.offset_to_canonical != 0.0
+                || self.reference_state.is_some())
+        {
+            Some("a unit product has no offset or datum restriction")
         } else if !self.scale_to_canonical.is_finite() || self.scale_to_canonical <= 0.0 {
             Some("unit scale must be finite and positive")
         } else if !self.offset_to_canonical.is_finite() {
@@ -192,6 +302,7 @@ impl PartialEq for Unit {
             && self.dimension == other.dimension
             && self.is_affine == other.is_affine
             && self.reference_state == other.reference_state
+            && self.definition == other.definition
             && self.scale_to_canonical.to_bits() == other.scale_to_canonical.to_bits()
             && self.offset_to_canonical.to_bits() == other.offset_to_canonical.to_bits()
     }

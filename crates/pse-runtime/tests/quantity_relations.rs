@@ -404,9 +404,13 @@ async fn normalized_unit_union_requires_complete_exact_definitions() {
     let cancel = CancellationToken::new();
     let original = inputs(&registry);
     let unit_spec = reference::units::spec(&registry).unwrap();
+    // An atomic unit: a defined unit authors no scale to change (ADR-0124).
     let unit = reference::units::View::from_checked(&original[&unit_spec.key])
         .unwrap()
-        .row(0)
+        .rows()
+        .unwrap()
+        .into_iter()
+        .find(|unit| unit.definition.is_none())
         .unwrap();
     for changed in [false, true] {
         let mut rows = original.clone();
@@ -418,13 +422,14 @@ async fn normalized_unit_union_requires_complete_exact_definitions() {
                 name: unit.name.clone(),
                 dimension: unit.dimension.clone(),
                 scale_to_canonical: if changed {
-                    unit.scale_to_canonical * 2.
+                    unit.scale_to_canonical.map(|scale| scale * 2.)
                 } else {
                     unit.scale_to_canonical
                 },
                 offset_to_canonical: unit.offset_to_canonical,
                 is_affine: unit.is_affine,
                 reference_state_id: unit.reference_state_id,
+                definition: None,
                 system: unit.system.clone(),
                 doc: unit.doc.clone(),
                 package_id: SemanticId::NIL.into(),

@@ -36,7 +36,32 @@ pub(super) fn for_relation(namespace: Namespace, name: &str) -> BTreeMap<String,
             .collect::<Vec<_>>()
             .join(" OR "),
         ),
-        (Reference, "units") => ("positive_scale", "scale_to_canonical > 0".into()),
+        (Reference, "units") => {
+            // Version two: an atomic unit authors its measure, a defined unit only its
+            // composition (ADR-0124).
+            return BTreeMap::from([
+                (
+                    "positive_scale".into(),
+                    "scale_to_canonical IS NULL OR scale_to_canonical > 0".into(),
+                ),
+                (
+                    "atomic_or_defined".into(),
+                    "(definition IS NULL AND dimension IS NOT NULL \
+                     AND scale_to_canonical IS NOT NULL AND offset_to_canonical IS NOT NULL \
+                     AND is_affine IS NOT NULL) \
+                     OR (definition IS NOT NULL AND dimension IS NULL \
+                     AND scale_to_canonical IS NULL AND offset_to_canonical IS NULL \
+                     AND is_affine IS NULL AND reference_state_id IS NULL)"
+                        .into(),
+                ),
+            ]);
+        }
+        (Reference, "quantity_kinds") => (
+            "base_or_derived",
+            "(definition IS NULL) = (dimension IS NOT NULL) \
+             AND (definition IS NULL OR category IS NULL)"
+                .into(),
+        ),
         (Reference, "quantity_types") => (
             "positive_nominal",
             "nominal_magnitude IS NULL OR nominal_magnitude > 0".into(),

@@ -11,7 +11,7 @@ use crate::{
 use pse_authoring::dsl::{self, BinaryOp, Expr, ExprKind, Path, Predicate, PredicateKind};
 use pse_quantity::{
     IndexSet, Ratio,
-    infer::{Exponent, OpRequest, Operand},
+    infer::{Chain, Exponent, OpRequest, Operand},
     literal::LiteralContext,
     scheme::{Scheme, Substitution},
 };
@@ -175,14 +175,169 @@ fn physical_op(
             indices: &indices,
         })
         .collect::<Vec<_>>();
-    let inferred = pse_quantity::infer::infer_with_evidence(
-        &request,
-        &operands,
-        context.quantities,
-        context.preconditions,
-    )
+    // A product, quotient or exact power is a two-factor multiplicative chain (ADR-0124).
+    let chain = match (&request, operands.as_slice()) {
+        (OpRequest::Mul, [a, b]) => Some(Chain::Mul(
+            Box::new(Chain::Leaf(*a)),
+            Box::new(Chain::Leaf(*b)),
+        )),
+        (OpRequest::Div, [a, b]) => Some(Chain::Div(
+            Box::new(Chain::Leaf(*a)),
+            Box::new(Chain::Leaf(*b)),
+        )),
+        (
+            OpRequest::Pow {
+                exponent: Exponent::Rational(exponent),
+            },
+            [a, b],
+        ) => Some(Chain::Pow {
+            base: Box::new(Chain::Leaf(*a)),
+            exponent: *exponent,
+            power: *b,
+        }),
+        _ => None,
+    };
+    let inferred = match chain {
+        Some(chain) => {
+            pse_quantity::infer::infer_chain(&chain, context.quantities, context.preconditions)
+        }
+        None => pse_quantity::infer::infer_with_evidence(
+            &request,
+            &operands,
+            context.quantities,
+            context.preconditions,
+        ),
+    }
     .map_err(|e| invalid(at, e.to_string()))?;
     Ok(Some(Type::Quantity(Scheme::Concrete(inferred.result))))
+}
+/// One node of a maximal product, quotient and exact-power subtree (ADR-0124).
+enum Node {
+    Leaf(Type),
+    Mul(Box<Node>, Box<Node>),
+    Div(Box<Node>, Box<Node>),
+    Pow(Box<Node>, Ratio, Type),
+}
+/// A product, a quotient or an exact power belongs to a multiplicative chain.
+pub(crate) fn chain_operation(op: BinaryOp, rhs: &Expr) -> bool {
+    match op {
+        BinaryOp::Mul | BinaryOp::Div => true,
+        BinaryOp::Pow => rational(rhs).is_some(),
+        BinaryOp::Add | BinaryOp::Sub => false,
+    }
+}
+fn chain_node(
+    expr: &Expr,
+    env: &BTreeMap<String, Type>,
+    p: &CheckedPackage,
+    context: &TypeContext<'_>,
+    at: DeclarationId,
+) -> Result<Node> {
+    match &expr.kind {
+        ExprKind::Binary { op, lhs, rhs } if chain_operation(*op, rhs) => {
+            let left = Box::new(chain_node(lhs, env, p, context, at)?);
+            Ok(match op {
+                BinaryOp::Pow => Node::Pow(
+                    left,
+                    rational(rhs).ok_or_else(|| invalid(at, "exact exponent"))?,
+                    infer(rhs, env, p, context, at, None)?,
+                ),
+                BinaryOp::Div => Node::Div(left, Box::new(chain_node(rhs, env, p, context, at)?)),
+                _ => Node::Mul(left, Box::new(chain_node(rhs, env, p, context, at)?)),
+            })
+        }
+        _ => Ok(Node::Leaf(infer(expr, env, p, context, at, None)?)),
+    }
+}
+impl Node {
+    /// The factors, without the exponents of powers, and whether every exponent is whole.
+    fn factors<'a>(&'a self, out: &mut Vec<&'a Type>) -> bool {
+        match self {
+            Self::Leaf(ty) => {
+                out.push(ty);
+                true
+            }
+            Self::Mul(a, b) | Self::Div(a, b) => a.factors(out) & b.factors(out),
+            Self::Pow(a, exponent, _) => a.factors(out) && exponent.is_integer(),
+        }
+    }
+    /// The quantity chain when every factor has a concrete complete type.
+    fn concrete<'a>(
+        &self,
+        context: &TypeContext<'_>,
+        indices: &'a IndexSet,
+    ) -> Option<Chain<'a>> {
+        let operand = |ty: &Type| match ty {
+            Type::Quantity(s) => concrete(s, context).map(|quantity_type| Operand {
+                quantity_type,
+                indices,
+            }),
+            _ => None,
+        };
+        Some(match self {
+            Self::Leaf(ty) => Chain::Leaf(operand(ty)?),
+            Self::Mul(a, b) => Chain::Mul(
+                Box::new(a.concrete(context, indices)?),
+                Box::new(b.concrete(context, indices)?),
+            ),
+            Self::Div(a, b) => Chain::Div(
+                Box::new(a.concrete(context, indices)?),
+                Box::new(b.concrete(context, indices)?),
+            ),
+            Self::Pow(a, exponent, power) => Chain::Pow {
+                base: Box::new(a.concrete(context, indices)?),
+                exponent: *exponent,
+                power: operand(power)?,
+            },
+        })
+    }
+    /// A concrete subtree resolves as one chain; a polymorphic one keeps its scheme with
+    /// the generic simplifications of a single operation.
+    fn scheme(&self, context: &TypeContext<'_>, at: DeclarationId) -> Result<Scheme> {
+        let indices = IndexSet::new();
+        if let Some(chain) = self.concrete(context, &indices) {
+            let inferred =
+                pse_quantity::infer::infer_chain(&chain, context.quantities, context.preconditions)
+                    .map_err(|e| invalid(at, e.to_string()))?;
+            return Ok(Scheme::Concrete(inferred.result));
+        }
+        let neutral = context
+            .quantities
+            .neutral_dimensionless()
+            .map(Scheme::Concrete);
+        Ok(match self {
+            Self::Leaf(ty) => scheme(ty, at)?,
+            Self::Mul(a, b) => {
+                let (a, b) = (a.scheme(context, at)?, b.scheme(context, at)?);
+                if Some(&b) == neutral.as_ref() {
+                    a
+                } else if Some(&a) == neutral.as_ref() {
+                    b
+                } else if a == b {
+                    Scheme::Power(
+                        Box::new(a),
+                        Ratio::new(2, 1).map_err(|e| invalid(at, e.to_string()))?,
+                    )
+                } else {
+                    Scheme::Product(Box::new(a), Box::new(b))
+                }
+            }
+            Self::Div(a, b) => {
+                let (a, b) = (a.scheme(context, at)?, b.scheme(context, at)?);
+                if Some(&b) == neutral.as_ref() {
+                    a
+                } else if a == b {
+                    // A generic normalization constrains its eventual quotient to the
+                    // neutral type. Concrete calls still lower the original division
+                    // through the physical registry; this is not an operation rule.
+                    neutral.ok_or_else(|| invalid(at, "neutral normalization type absent"))?
+                } else {
+                    Scheme::Quotient(Box::new(a), Box::new(b))
+                }
+            }
+            Self::Pow(a, exponent, _) => Scheme::Power(Box::new(a.scheme(context, at)?), *exponent),
+        })
+    }
 }
 /// Check one expression with actual lexical variables and optional expected physical type.
 /// # Errors
@@ -202,10 +357,11 @@ pub fn infer(
                 return Ok(Type::Integer);
             }
             let id = if let Some(unit) = &n.unit {
+                // Composed from atomic factors; no composite spelling is looked up whole.
                 let unit = context
                     .quantities
-                    .unit_by_symbol(unit)
-                    .ok_or_else(|| invalid(at, format!("unknown unit {unit}")))?;
+                    .compose(unit)
+                    .map_err(|e| invalid(at, format!("unit {{{unit}}}: {e}")))?;
                 let literal_context = expected
                     .and_then(|t| {
                         if let Type::Quantity(s) = t {
@@ -217,7 +373,7 @@ pub fn infer(
                     .map_or(LiteralContext::Free, |quantity_type| {
                         LiteralContext::Explicit { quantity_type }
                     });
-                pse_quantity::literal::resolve_literal(unit.id, literal_context, context.quantities)
+                pse_quantity::literal::resolve_literal(&unit, literal_context, context.quantities)
                     .map_err(|e| invalid(at, e.to_string()))?
             } else {
                 context
@@ -235,6 +391,23 @@ pub fn infer(
             }
             let a = scheme(&ty, at)?;
             Ok(physical_op(OpRequest::Neg, std::slice::from_ref(&a), context, at)?.unwrap_or(q(a)))
+        }
+        ExprKind::Binary { op, lhs, rhs }
+            if chain_operation(*op, rhs) && expected != Some(&Type::Integer) =>
+        {
+            // A maximal product, quotient and exact-power subtree is typed as one
+            // multiplicative chain (ADR-0124). Its factors get no expected type.
+            let node = chain_node(expr, env, p, context, at)?;
+            let mut factors = Vec::new();
+            let whole = node.factors(&mut factors);
+            if factors.iter().any(|ty| **ty == Type::Integer) {
+                return if whole && factors.iter().all(|ty| **ty == Type::Integer) {
+                    Ok(Type::Integer)
+                } else {
+                    Err(invalid(at, "integer operand type"))
+                };
+            }
+            Ok(q(node.scheme(context, at)?))
         }
         ExprKind::Binary { op, lhs, rhs } => {
             // A product, quotient or power does not give either operand its

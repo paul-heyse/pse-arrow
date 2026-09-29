@@ -1745,13 +1745,13 @@ impl Engine<'_, '_> {
         let unit = self
             .c
             .quantities
-            .unit(q.canonical_unit)
+            .unit_product(q.canonical_unit)
             .map_err(|e| invalid(at, e.to_string()))?;
         Ok(Expr {
             kind: ExprKind::Number(Number {
                 exact_integer: None,
                 value: 0.0,
-                unit: Some(unit.symbol.clone()),
+                unit: Some(unit),
             }),
             span: Span::default(),
         })

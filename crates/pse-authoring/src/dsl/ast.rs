@@ -12,15 +12,16 @@ pub struct Span {
     pub end: u32,
 }
 
-/// A numeric token and its optional authored unit expression.
+/// A numeric token and its optional authored unit.
 #[derive(Clone)]
 pub struct Number {
     /// Finite numeric value. A syntactic minus is represented by `ExprKind::Neg`.
     pub value: f64,
     /// Exact integral token outside the consecutive IEEE-754 integer range.
     pub exact_integer: Option<i128>,
-    /// The unit syntax, before unit resolution.
-    pub unit: Option<String>,
+    /// The unit as a canonical product of unit symbols with rational exponents, before
+    /// the physical registry composes it (ADR-0124). Spellings of one product are equal.
+    pub unit: Option<pse_quantity::UnitProduct>,
 }
 
 impl PartialEq for Number {
@@ -47,7 +48,9 @@ impl std::fmt::Debug for Number {
         if let Some(exact) = self.exact_integer {
             d.field("exact_integer", &exact);
         }
-        d.field("unit", &self.unit).finish()
+        // The canonical spelling reads more plainly than the factor list.
+        d.field("unit", &self.unit.as_ref().map(ToString::to_string))
+            .finish()
     }
 }
 

@@ -27,6 +27,14 @@ Derived in: pse-ids, pse-schema, pse-columnar, pse-model.
 | `ProviderV4` | `pse.provider.v4` | A kernel provider's physical, algorithm and data identity. |
 | `ProviderConfigurationV1` | `pse.provider.configuration.v1` | A kernel provider's configuration key framed with its checked output envelope. |
 
+## Physical typing
+
+Derived in: pse-quantity.
+
+| Frame | Spelling | Meaning |
+|---|---|---|
+| `QuantityUnitProductV1` | `pse.quantity.unit-product.v1` | A unit product's identity over its canonical atomic factors and rational exponents, independent of how the product was spelled (ADR-0124). |
+
 ## Structure
 
 Derived in: pse-structural.
@@ -72,7 +80,7 @@ Derived in: pse-compiler.
 |---|---|---|
 | `MathArtifactV4` | `pse.math.artifact.v4` | A compiled mathematics artifact request. |
 | `MathLocalOccurrenceV2` | `pse.math.local-occurrence.v2` | A local expression occurrence. |
-| `MathPhysicalInventoryV3` | `pse.math.physical-inventory.v3` | A physical inventory. |
+| `MathPhysicalInventoryV4` | `pse.math.physical-inventory.v4` | A physical inventory, including unit compositions and derived-kind definitions (ADR-0124). |
 | `MathPhysicalPassV1` | `pse.math.physical-pass.v1` | A physical reduction pass. |
 | `MathTypedDefinitionV2` | `pse.math.typed-definition.v2` | A typed definition's admitted outputs. |
 | `CompilerModelingViewV2` | `pse.compiler.modeling-view.v2` | A prepared view of a compiled modeling structure. |

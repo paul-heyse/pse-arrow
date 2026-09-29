@@ -9,6 +9,7 @@ use super::ast::{
     Number, Path, PathSegment, Predicate, PredicateKind, ReduceKind, Span,
 };
 use super::lexer::{Kind, Token, syntax, tokenize};
+use pse_quantity::{Ratio, UnitProduct};
 
 struct Cursor<'a> {
     tokens: Vec<Token<'a>>,
@@ -430,48 +431,105 @@ impl<'a> Cursor<'a> {
         }
         Ok(Path { segments })
     }
-    fn unit(&mut self) -> Result<String, DslError> {
-        let mut text = String::new();
-        let mut depth = 0_u32;
-        let mut operand = true;
-        loop {
-            let token = self
-                .token()
-                .ok_or_else(|| self.error("unit expression followed by }"))?;
-            if token.text == "}" {
-                if operand || depth != 0 {
-                    return Err(self.error("complete unit expression"));
-                }
-                self.position += 1;
-                break;
-            }
-            match token.text {
-                "(" if operand => {
-                    depth += 1;
-                    if depth > 64 {
-                        return Err(DslError::Budget {
-                            limit: "unit depth",
-                            allowed: 64,
-                            needed: u64::from(depth),
-                        });
-                    }
-                }
-                ")" if !operand && depth > 0 => {
-                    depth -= 1;
-                }
-                "*" | "/" | "^" if !operand => {
-                    operand = true;
-                }
-                "-" | "+" if operand && text.ends_with('^') => {}
-                _ if operand && (token.kind == Kind::Identifier || token.kind == Kind::Number) => {
-                    operand = false;
-                }
-                _ => return Err(self.error("unit name, product, quotient or power")),
-            }
-            text.push_str(token.text);
-            self.position += 1;
+    /// A unit literal after `{`: products, quotients (left-associative), groups and
+    /// rational powers of unit symbols, flattened into one canonical product (ADR-0124).
+    /// The numeral `1` is the empty product.
+    fn unit(&mut self) -> Result<UnitProduct, DslError> {
+        let product = self.unit_product(0)?;
+        if !self.eat("}") {
+            return Err(self.error("complete unit expression followed by }"));
         }
-        Ok(text)
+        Ok(product)
+    }
+    fn unit_product(&mut self, depth: u32) -> Result<UnitProduct, DslError> {
+        let mut product = self.unit_power(depth)?;
+        loop {
+            let divide = if self.eat("*") {
+                false
+            } else if self.eat("/") {
+                true
+            } else {
+                return Ok(product);
+            };
+            let at = self.at();
+            let factor = self.unit_power(depth)?;
+            product = if divide {
+                product.div(&factor)
+            } else {
+                product.mul(&factor)
+            }
+            .map_err(|_| syntax(at, "representable unit exponent", "unit"))?;
+        }
+    }
+    fn unit_power(&mut self, depth: u32) -> Result<UnitProduct, DslError> {
+        let base = self.unit_factor(depth)?;
+        if !self.eat("^") {
+            return Ok(base);
+        }
+        let at = self.at();
+        let exponent = self.unit_exponent()?;
+        base.pow(exponent)
+            .map_err(|_| syntax(at, "representable unit exponent", "unit"))
+    }
+    fn unit_factor(&mut self, depth: u32) -> Result<UnitProduct, DslError> {
+        if self.eat("(") {
+            if depth >= 64 {
+                return Err(DslError::Budget {
+                    limit: "unit depth",
+                    allowed: 64,
+                    needed: u64::from(depth) + 1,
+                });
+            }
+            let inner = self.unit_product(depth + 1)?;
+            self.expect(")")?;
+            return Ok(inner);
+        }
+        let token = self
+            .token()
+            .ok_or_else(|| self.error("unit name, product, quotient or power"))?;
+        let product = match token.kind {
+            Kind::Identifier => UnitProduct::symbol(token.text),
+            Kind::Number if token.text == "1" => UnitProduct::one(),
+            _ => return Err(self.error("unit name, product, quotient or power")),
+        };
+        self.position += 1;
+        Ok(product)
+    }
+    /// `^n`, `^-n` or a parenthesized reduced or unreduced rational `^(p/q)`; a decimal is
+    /// never read as a rational exponent.
+    fn unit_exponent(&mut self) -> Result<Ratio, DslError> {
+        let grouped = self.eat("(");
+        let negative = if self.eat("-") {
+            true
+        } else {
+            self.eat("+");
+            false
+        };
+        let mut num = self.unit_integer()?;
+        if negative {
+            num = -num;
+        }
+        let den = if grouped && self.eat("/") {
+            self.unit_integer()?
+        } else {
+            1
+        };
+        if grouped {
+            self.expect(")")?;
+        }
+        Ratio::new(num, den).map_err(|_| self.error("rational unit exponent"))
+    }
+    fn unit_integer(&mut self) -> Result<i32, DslError> {
+        let token = self
+            .token()
+            .filter(|token| token.kind == Kind::Number)
+            .ok_or_else(|| self.error("integer unit exponent"))?;
+        let value = token
+            .text
+            .parse::<i32>()
+            .map_err(|_| self.error("integer unit exponent"))?;
+        self.position += 1;
+        Ok(value)
     }
     fn predicate(&mut self, min: u8) -> Result<Predicate, DslError> {
         self.enter()?;

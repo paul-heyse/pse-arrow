@@ -1037,7 +1037,6 @@ pub(super) fn admit(
 ) -> Result<Admitted> {
     let registry = inventory.quantities(db);
     let checker = inventory.preconditions(db);
-    let units = registry.units().map(|u| (u.symbol.clone(), u.id)).collect();
     let mut definitions = BTreeMap::new();
     let mut calls = BTreeMap::new();
     let mut external_calls = BTreeMap::new();
@@ -1072,7 +1071,6 @@ pub(super) fn admit(
                     domains: &BTreeMap::new(),
                     groups: &BTreeMap::new(),
                     providers: &available,
-                    units: &units,
                     literals: &BTreeMap::new(),
                     physical: physical_identity(registry, checker),
                     structure: implicit.spec.revision,

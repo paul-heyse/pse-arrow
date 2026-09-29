@@ -17,16 +17,17 @@ fn unit_row() -> units::Row {
         unit_id: SemanticId::from_bytes([7; 16]),
         symbol: "m".to_owned(),
         name: "metre".to_owned(),
-        dimension: std::array::from_fn(|index| {
+        dimension: Some(std::array::from_fn(|index| {
             pse_relations::generated::extension_values::ExtensionDimensionVectorItem {
                 num: i16::from(index == 0),
                 den: 1,
             }
-        }),
-        scale_to_canonical: 1.0,
-        offset_to_canonical: 0.0,
-        is_affine: false,
+        })),
+        scale_to_canonical: Some(1.0),
+        offset_to_canonical: Some(0.0),
+        is_affine: Some(false),
         reference_state_id: None,
+        definition: None,
         system: "SI".to_owned(),
         doc: String::new(),
     }
@@ -36,7 +37,7 @@ fn unit_row() -> units::Row {
 fn generated_builder_checks_actual_nested_values_and_view_checks_actual_fields() {
     pse_engine::validation::registry().unwrap();
     let mut invalid = unit_row();
-    invalid.dimension[2].den = 0;
+    invalid.dimension.as_mut().expect("atomic unit")[2].den = 0;
     let mut builder = units::Builder::new().expect("builder");
     builder.push(invalid).expect("representation append");
     assert!(builder.finish().is_err());
@@ -70,7 +71,7 @@ fn canonical_order_transfers_checked_values_and_retained_buffer_ownership() {
         Arc::new(pse_columnar::GreedyMemoryPool::new(32 * 1024 * 1024));
     let mut first = unit_row();
     first.unit_id = SemanticId::from_bytes([1; 16]);
-    first.offset_to_canonical = -0.0;
+    first.offset_to_canonical = Some(-0.0);
     let mut second = unit_row();
     second.unit_id = SemanticId::from_bytes([2; 16]);
     let mut builder = units::Builder::new().expect("builder");

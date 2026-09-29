@@ -9,6 +9,33 @@
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct ReferenceUnitsFieldDefinitionItem {
+    ///unit_id
+    pub r#unit_id: pse_ids::SemanticId,
+    ///num
+    pub r#num: i16,
+    ///den
+    pub r#den: i16,
+}
+impl crate::SemanticEq for ReferenceUnitsFieldDefinitionItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#unit_id, &other.r#unit_id)
+            && crate::SemanticEq::semantic_eq(&self.r#num, &other.r#num)
+            && crate::SemanticEq::semantic_eq(&self.r#den, &other.r#den)
+    }
+}
+impl PartialEq for ReferenceUnitsFieldDefinitionItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct ReferenceUnitsRow {
     ///unit_id
     pub r#unit_id: pse_ids::SemanticId,
@@ -17,15 +44,17 @@ pub struct ReferenceUnitsRow {
     ///name
     pub r#name: String,
     ///dimension
-    pub r#dimension: crate::generated::extension_values::DimensionVector,
+    pub r#dimension: Option<crate::generated::extension_values::DimensionVector>,
     ///scale_to_canonical
-    pub r#scale_to_canonical: f64,
+    pub r#scale_to_canonical: Option<f64>,
     ///offset_to_canonical
-    pub r#offset_to_canonical: f64,
+    pub r#offset_to_canonical: Option<f64>,
     ///is_affine
-    pub r#is_affine: bool,
+    pub r#is_affine: Option<bool>,
     ///reference_state_id
     pub r#reference_state_id: Option<pse_ids::SemanticId>,
+    ///definition
+    pub r#definition: Option<Vec<ReferenceUnitsFieldDefinitionItem>>,
     ///system
     pub r#system: String,
     ///doc
@@ -48,7 +77,8 @@ impl crate::SemanticEq for ReferenceUnitsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#reference_state_id,
                 &other.r#reference_state_id,
-            ) && crate::SemanticEq::semantic_eq(&self.r#system, &other.r#system)
+            ) && crate::SemanticEq::semantic_eq(&self.r#definition, &other.r#definition)
+            && crate::SemanticEq::semantic_eq(&self.r#system, &other.r#system)
             && crate::SemanticEq::semantic_eq(&self.r#doc, &other.r#doc)
     }
 }
@@ -59,6 +89,24 @@ impl PartialEq for ReferenceUnitsRow {
 }
 /// The concrete generated relation row.
 pub type Row = ReferenceUnitsRow;
+impl crate::SemanticFrame for ReferenceUnitsFieldDefinitionItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#unit_id));
+        crate::SemanticFrame::frame(&self.r#unit_id, hash);
+        hash.str(stringify!(r#num));
+        crate::SemanticFrame::frame(&self.r#num, hash);
+        hash.str(stringify!(r#den));
+        crate::SemanticFrame::frame(&self.r#den, hash);
+    }
+}
+impl crate::HeapUsage for ReferenceUnitsFieldDefinitionItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unit_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#num))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#den))
+    }
+}
 impl crate::SemanticFrame for ReferenceUnitsRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#unit_id));
@@ -77,6 +125,8 @@ impl crate::SemanticFrame for ReferenceUnitsRow {
         crate::SemanticFrame::frame(&self.r#is_affine, hash);
         hash.str(stringify!(r#reference_state_id));
         crate::SemanticFrame::frame(&self.r#reference_state_id, hash);
+        hash.str(stringify!(r#definition));
+        crate::SemanticFrame::frame(&self.r#definition, hash);
         hash.str(stringify!(r#system));
         crate::SemanticFrame::frame(&self.r#system, hash);
         hash.str(stringify!(r#doc));
@@ -94,6 +144,7 @@ impl crate::HeapUsage for ReferenceUnitsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#offset_to_canonical))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#is_affine))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reference_state_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#definition))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#system))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#doc))
     }

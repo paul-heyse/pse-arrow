@@ -36,7 +36,7 @@ const PHASE_STABILITY_FIXTURES: &str = "881a0e9fb03144108d64f181a79d1e9f";
 fn unstable_case(package: &ModelingPackage, header: &str) -> (ModelingPackage, SemanticId) {
     let name = "tpd_pr_two_phase";
     let source = format!(
-        "@id(\"{PHASE_STABILITY_FIXTURES}\") package phase_stability_fixtures {{ use peng_robinson @\"1.0.0\"; test {name} fixture {{dof 1; run steady; value root.temperature=368{{K}}; value root.pressure=101325{{Pa}}; value root.reference_upper=200{{mol/m3}}; value root.trial_upper=10500{{mol/m3}}; value root.reference.rho=34{{mol/m3}}; value root.trial.rho=9505.77{{mol/m3}}; {header}}} {{ child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=chem.aromatics,law=peng_robinson.potential,feed=bt_feed); }} }}"
+        "@id(\"{PHASE_STABILITY_FIXTURES}\") package phase_stability_fixtures {{ use peng_robinson @\"1.0.0\"; test {name} fixture {{dof 1; run steady; value root.temperature=368{{K}}; value root.pressure=101325{{Pa}}; value root.reference_upper=200{{mol/m^3}}; value root.trial_upper=10500{{mol/m^3}}; value root.reference.rho=34{{mol/m^3}}; value root.trial.rho=9505.77{{mol/m^3}}; {header}}} {{ child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=chem.aromatics,law=peng_robinson.potential,feed=bt_feed); }} }}"
     );
     let extra = pse_authoring::language::parse(
         &source,

@@ -10,13 +10,13 @@ use pse_math::{
     MathError,
     binding::BodySpec,
     guarded::Comparison,
-    typed::{Binary, BodyBuilder, BodyLimits, Guard, TypedValue},
+    typed::{Binary, BodyBuilder, BodyLimits, ChainTree, Guard, TypedValue},
 };
 #[cfg(test)]
 use pse_math::{guarded::CompiledBody, library::Optimization};
 use pse_modeling::DeclarationId;
 use pse_quantity::{
-    IndexSet, QuantityRegistry, QuantityTypeId, Ratio, UnitId, infer::InvariantChecker,
+    IndexSet, QuantityRegistry, QuantityTypeId, Ratio, infer::InvariantChecker,
     literal::LiteralContext,
 };
 use std::sync::Arc;
@@ -103,8 +103,6 @@ pub struct Request<'a> {
     pub groups: &'a BTreeMap<String, Group>,
     /// Executable provider output selections by authored kernel path.
     pub providers: &'a BTreeMap<String, ProviderCall>,
-    /// Resolved unit spellings, including the unitless spelling `1`.
-    pub units: &'a BTreeMap<String, UnitId>,
     /// Contextual literal contracts keyed by exact source range.
     pub literals: &'a BTreeMap<(u32, u32), QuantityTypeId>,
     /// Complete physical registry content identity.
@@ -254,7 +252,6 @@ impl Request<'_> {
             .map(|v| v.path.len())
             .chain(self.domains.keys().map(String::len))
             .chain(self.groups.keys().map(String::len))
-            .chain(self.units.keys().map(String::len))
             .try_fold(0usize, usize::checked_add)
             .ok_or(MathError::Limit("preparation text"))?;
         if entries > self.limits.occurrences
@@ -396,6 +393,48 @@ impl Lower<'_, '_> {
         });
         Ok(id)
     }
+    /// One node of a multiplicative chain, with the occurrence and hash bookkeeping of
+    /// [`Self::expression_expected`]; any other expression is a factor.
+    fn chain_node(
+        &mut self,
+        expr: &Expr,
+        builder: &mut BodyBuilder<'_>,
+        depth: usize,
+    ) -> Result<ChainTree, MathError> {
+        match &expr.kind {
+            ExprKind::Binary { op, lhs, rhs } if chain_operation(*op, rhs) => {
+                let source = self.source(expr, depth)?;
+                self.chain_children(*op, lhs, rhs, builder, depth, source)
+            }
+            _ => Ok(ChainTree::Leaf(
+                self.expression_expected(expr, builder, depth, None)?,
+            )),
+        }
+    }
+    fn chain_children(
+        &mut self,
+        op: BinaryOp,
+        lhs: &Expr,
+        rhs: &Expr,
+        builder: &mut BodyBuilder<'_>,
+        depth: usize,
+        source: SemanticId,
+    ) -> Result<ChainTree, MathError> {
+        self.hash.str(op.as_str());
+        let left = Box::new(self.chain_node(lhs, builder, depth + 1)?);
+        Ok(match (op, literal_exponent(rhs)) {
+            (BinaryOp::Pow, Some(exponent)) => ChainTree::Pow {
+                base: left,
+                exponent,
+                power: self.expression_expected(rhs, builder, depth + 1, None)?,
+                source,
+            },
+            (BinaryOp::Div, _) => {
+                ChainTree::Div(left, Box::new(self.chain_node(rhs, builder, depth + 1)?), source)
+            }
+            _ => ChainTree::Mul(left, Box::new(self.chain_node(rhs, builder, depth + 1)?), source),
+        })
+    }
     fn expression(
         &mut self,
         expr: &Expr,
@@ -417,20 +456,20 @@ impl Lower<'_, '_> {
                 self.hash
                     .str("literal")
                     .u64(pse_ids::canonical_f64_bits(number.value));
-                let unit =
-                    if let Some(spelling) = number.unit.as_deref() {
-                        *self.request.units.get(spelling).ok_or_else(|| {
-                            MathError::Contract(format!("unresolved unit {spelling}"))
-                        })?
-                    } else {
-                        // A bare scalar uses the physical registry's neutral unit;
-                        // its spelling need not be an authored alias named "1".
-                        let quantity = self.registry.neutral_dimensionless().ok_or_else(|| {
-                            MathError::Contract("no declared neutral literal type".into())
-                        })?;
-                        self.registry.quantity_type(quantity)?.canonical_unit
-                    };
-                self.hash.id(&unit.as_id());
+                let unit = if let Some(product) = &number.unit {
+                    // Composed from atomic factors; its identity is spelling-independent
+                    // (ADR-0124).
+                    self.registry.compose(product)?
+                } else {
+                    // A bare scalar uses the physical registry's neutral unit.
+                    let quantity = self.registry.neutral_dimensionless().ok_or_else(|| {
+                        MathError::Contract("no declared neutral literal type".into())
+                    })?;
+                    self.registry
+                        .unit(self.registry.quantity_type(quantity)?.canonical_unit)?
+                        .clone()
+                };
+                self.hash.id(&unit.id.as_id());
                 let context = if let Some(&quantity) =
                     self.request.literals.get(&(expr.span.start, expr.span.end))
                 {
@@ -451,7 +490,7 @@ impl Lower<'_, '_> {
                 } else {
                     LiteralContext::Free
                 };
-                builder.literal(number.value, unit, context, source)
+                builder.literal(number.value, &unit, context, source)
             }
             ExprKind::Path(path) => {
                 let name = path
@@ -485,6 +524,12 @@ impl Lower<'_, '_> {
                 self.hash.str("neg");
                 let value = self.expression_expected(value, builder, depth + 1, expected)?;
                 builder.negate(value, source)
+            }
+            ExprKind::Binary { op, lhs, rhs } if chain_operation(*op, rhs) => {
+                // A maximal product, quotient and exact-power subtree is typed as one
+                // multiplicative chain (ADR-0124); its factors lower as before.
+                let tree = self.chain_children(*op, lhs, rhs, builder, depth, source)?;
+                builder.chain(tree)
             }
             ExprKind::Binary { op, lhs, rhs } => {
                 self.hash.str(op.as_str());
@@ -1304,6 +1349,14 @@ impl Lower<'_, '_> {
         }
     }
 }
+/// A product, a quotient or an exact literal power belongs to a multiplicative chain.
+fn chain_operation(op: BinaryOp, rhs: &Expr) -> bool {
+    match op {
+        BinaryOp::Mul | BinaryOp::Div => true,
+        BinaryOp::Pow => literal_exponent(rhs).is_some(),
+        BinaryOp::Add | BinaryOp::Sub => false,
+    }
+}
 fn literal_exponent(expression: &Expr) -> Option<Ratio> {
     match &expression.kind {
         ExprKind::Number(number)
@@ -1363,8 +1416,6 @@ mod tests {
     ) -> Result<Body, MathError> {
         let expression = dsl::parse_expr(text).unwrap();
         let registry = standard_registry().unwrap();
-        // Bare literals must compile without a spelling alias for neutral units.
-        let units = BTreeMap::from([("K".into(), ids::unit("K"))]);
         let h = ContentHash::from_bytes([1; 32]);
         Request {
             definition: SemanticId::from_bytes([1; 16]),
@@ -1373,7 +1424,6 @@ mod tests {
             domains: &BTreeMap::new(),
             providers: &BTreeMap::new(),
             groups: &BTreeMap::new(),
-            units: &units,
             literals,
             physical: h,
             structure: h,
@@ -1387,6 +1437,103 @@ mod tests {
             Optimization::default(),
             &Arc::new(AtomicBool::new(false)),
         )
+    }
+    /// A maximal product lowers as one chain typed by its canonical monomial (ADR-0124):
+    /// c3·t³/3 is a declared enthalpy increment although t³ alone names no kind.
+    #[test]
+    fn multiplicative_chains_lower_by_monomial() {
+        use pse_quantity::scheme::{Scheme, Substitution};
+        let registry = standard_registry().unwrap();
+        let quantity = |hex| QuantityTypeId::from_id(SemanticId::parse_hex(hex).unwrap());
+        let temperature = quantity("c64b96975a4a59755f8711d3bf628bc9");
+        let coefficient = Scheme::Quotient(
+            Box::new(Scheme::Concrete(quantity("cd653ba98fa94d16b5d66b363f21c3d6"))),
+            Box::new(Scheme::Power(
+                Box::new(Scheme::Concrete(temperature)),
+                Ratio::new(2, 1).unwrap(),
+            )),
+        )
+        .resolve_with_evidence(&registry, &Substitution::new(), &StandardInvariantChecker)
+        .unwrap();
+        let formals = [
+            Formal {
+                path: "c".into(),
+                quantity: coefficient,
+            },
+            Formal {
+                path: "t".into(),
+                quantity: temperature,
+            },
+        ];
+        let body = compile("c*t^3/3", &formals, DerivativeOrder::First).unwrap();
+        assert_eq!(
+            body.prepared.quantities,
+            [quantity("d5bb3d48b9804f2f8d5a6f0a7cadaee8")]
+        );
+        let jet = body
+            .worker()
+            .evaluate(
+                &[3.0, 10.0],
+                DerivativeOrder::First,
+                &mut BTreeMap::new(),
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        assert!((jet.values[0] - 1000.0).abs() < 1e-9, "{}", jet.values[0]);
+        let error = compile("t^3", &formals, DerivativeOrder::First)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("no declared quantity kind has the monomial"),
+            "{error}"
+        );
+    }
+    /// The entropy increment lowers through the declared reinterpretation: ln(T/T0) and
+    /// (T − T0)/T are logarithmic temperature increments, and a molar heat capacity over
+    /// one is a molar entropy difference (ADR-0124).
+    #[test]
+    fn entropy_increment_lowers_to_its_closed_form() {
+        use pse_quantity::scheme::{Scheme, Substitution};
+        let registry = standard_registry().unwrap();
+        let quantity = |hex| QuantityTypeId::from_id(SemanticId::parse_hex(hex).unwrap());
+        let temperature = quantity("c64b96975a4a59755f8711d3bf628bc9");
+        let cp = quantity("cd653ba98fa94d16b5d66b363f21c3d6");
+        let per_temperature = Scheme::Quotient(
+            Box::new(Scheme::Concrete(cp)),
+            Box::new(Scheme::Concrete(temperature)),
+        )
+        .resolve_with_evidence(&registry, &Substitution::new(), &StandardInvariantChecker)
+        .unwrap();
+        let formals = [("T0", temperature), ("T", temperature), ("c1", cp), ("c2", per_temperature)]
+            .map(|(path, quantity)| Formal {
+                path: path.into(),
+                quantity,
+            });
+        let body = compile(
+            "c1*log(T/T0) + c2*T*r where r = (T - T0)/T",
+            &formals,
+            DerivativeOrder::First,
+        )
+        .unwrap();
+        assert_eq!(
+            body.prepared.quantities,
+            [quantity("a9c45d0c2b764f4e87d1b95d5bc15da6")]
+        );
+        let jet = body
+            .worker()
+            .evaluate(
+                &[300.0, 400.0, 10.0, 0.5],
+                DerivativeOrder::First,
+                &mut BTreeMap::new(),
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        // 10·ln(4/3) + 0.5·100, and ∂/∂T = c1/T + c2.
+        assert!((jet.values[0] - 52.876_820_724_517_81).abs() < 1e-9, "{}", jet.values[0]);
+        assert!((jet.jacobian[1] - 0.525).abs() < 1e-12, "{}", jet.jacobian[1]);
+        // A heat-capacity increment is not an entropy difference.
+        let heat = compile("c2*(T - T0)", &formals, DerivativeOrder::First).unwrap();
+        assert_eq!(heat.prepared.quantities, [cp]);
     }
     #[test]
     fn authored_power_literals_preserve_exact_facts_and_analytic_jets() {
@@ -1585,13 +1732,6 @@ mod tests {
             .collect();
         let expression = dsl::parse_expr(text).unwrap();
         let h = ContentHash::from_bytes([1; 32]);
-        let units = BTreeMap::from([(
-            "1".into(),
-            registry
-                .quantity_type(ids::quantity("neutral"))
-                .unwrap()
-                .canonical_unit,
-        )]);
         Request {
             definition: member(90),
             expressions: std::slice::from_ref(&expression),
@@ -1599,7 +1739,6 @@ mod tests {
             domains: &domains,
             providers: &BTreeMap::new(),
             groups: &groups,
-            units: &units,
             literals: &BTreeMap::new(),
             physical: h,
             structure: h,
@@ -1737,10 +1876,6 @@ mod tests {
             path: "x".into(),
             quantity,
         }];
-        let units = BTreeMap::from([(
-            "1".into(),
-            registry.quantity_type(quantity).unwrap().canonical_unit,
-        )]);
         let request = Request {
             definition: SemanticId::from_bytes([1; 16]),
             expressions: &expressions,
@@ -1748,7 +1883,6 @@ mod tests {
             domains: &BTreeMap::new(),
             groups: &BTreeMap::new(),
             providers: &BTreeMap::new(),
-            units: &units,
             literals: &BTreeMap::new(),
             physical: ContentHash::from_bytes([1; 32]),
             structure: ContentHash::from_bytes([2; 32]),
@@ -1881,7 +2015,6 @@ mod tests {
             path: "x".into(),
             quantity,
         }];
-        let units = BTreeMap::from([("1".into(), unit)]);
         let expr = dsl::parse_expr("kernel.square(x)+1").unwrap();
         let request = Request {
             definition: id,
@@ -1890,7 +2023,6 @@ mod tests {
             domains: &BTreeMap::new(),
             groups: &BTreeMap::new(),
             providers: &providers,
-            units: &units,
             literals: &BTreeMap::new(),
             physical: hash,
             structure: hash,

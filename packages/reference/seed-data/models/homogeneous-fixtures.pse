@@ -17,13 +17,13 @@
 @id("68ba8dc2d6b05d9a9fe1b1a3625d8015") test heater_recycle source "Plan14 independent teqp 0.23.1 homogeneous PC-SAFT plus DIPPR100 reference, T=350 K P=100000 Pa; analytic feed/recycle balance" revision "1" fixture {dof 0; run steady; fix root.duty=16204.445642740735{W};} {
 @id("0036670f422252b0b8bba9f4709d0cb3") child root:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=chem.alkanes,law=pcsaft.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction);
 @id("964b1c0ea202559c8488c703872008f2") expect root.phase.T==350{K} tolerance 0.00001{K};
-@id("73792f4040a15d0caf4a3bab8f0e6541") expect root.phase.rho==34.565566349336066{mol/m3} tolerance 0.00001{mol/m3};
+@id("73792f4040a15d0caf4a3bab8f0e6541") expect root.phase.rho==34.565566349336066{mol/m^3} tolerance 0.00001{mol/m^3};
 @id("23f779ec23815d84b4611b52f9b3d5f0") expect root.recycle==5{mol/s} tolerance 0.000001{mol/s};
 }
 @id("040af20814bc57abb565c3c7f680be05") test pcsaft_flash source "tests/fixtures/plan14/thermo-reference.json: teqp 0.23.1 / SciPy 1.18.1, T=280 K P=2 MPa z=(0.2,0.3,0.5), zero interactions; two locally mechanically stable homogeneous phases; no global stability certificate" revision "1" fixture {dof 0; run steady;} {
 @id("316d5055b07151bc9e81cd760e65d0f1") child root:homogeneous_units.HomogeneousFlash=homogeneous_units.HomogeneousFlash(selected=chem.alkanes,law=pcsaft.potential,feed=vessel_fixtures.fraction,liquid_initial=liquid_start,vapor_initial=vapor_start);
-@id("ef1ee24f0a72563a99e9c1103539f146") expect root.liquid.rho==12417.555686826916{mol/m3} tolerance 0.001{mol/m3};
-@id("02eb3c83eb2558b5adf8dd8f73a95f39") expect root.vapor.rho==1035.7196973606667{mol/m3} tolerance 0.0001{mol/m3};
+@id("ef1ee24f0a72563a99e9c1103539f146") expect root.liquid.rho==12417.555686826916{mol/m^3} tolerance 0.001{mol/m^3};
+@id("02eb3c83eb2558b5adf8dd8f73a95f39") expect root.vapor.rho==1035.7196973606667{mol/m^3} tolerance 0.0001{mol/m^3};
 @id("a9dde691978b579b8b4322a8471c9cbf") expect root.liquid.amount[chem.methane]==0.06344616613614536{mol} tolerance 0.000001{mol};
 @id("ad4c7dafd9505febb431ba4d34f66a1d") expect root.liquid.amount[chem.ethane]==0.27061756791016794{mol} tolerance 0.000001{mol};
 @id("ed1a314069fc5a8b9326a6fe20b865ea") expect root.liquid.amount[chem.propane]==0.6659362659536867{mol} tolerance 0.000001{mol};
@@ -37,7 +37,7 @@
 @id("de201fc5c15d451288ec3cd777e8dbb3") eq minimum_temperature:root.phase.T>=350{K};
 @id("b2770e183c0e4582ba2e5121c1f1b02f") annotation objective root.enthalpy(minimize);
 @id("8a0eb78ad0ba4567b85066be65a10c77") expect root.phase.T==350{K} tolerance 0.00001{K};
-@id("5d245e5012684108b260df7ac93b0568") expect root.phase.rho==34.565566349336066{mol/m3} tolerance 0.00001{mol/m3};
+@id("5d245e5012684108b260df7ac93b0568") expect root.phase.rho==34.565566349336066{mol/m^3} tolerance 0.00001{mol/m^3};
 @id("0efb8581a934401d8bb6abf547dc6dc2") expect root.duty==16204.445642740735{W} tolerance 0.001{W};
 }
 @id("e0d4fbe894134e60bb4e364dddae9c5f") test heater_optimization_certified source "heater_optimization certified globally over a declared vapor-branch box; independent teqp/DIPPR endpoint reference" revision "1" fixture {dof 1; run steady; intent certify; value root.phase.T=363.15{K};} {
@@ -45,11 +45,11 @@
 @id("de6c5a0b7b154e0682e178b6af998dd4") eq minimum_temperature:root.phase.T>=350{K};
 @id("8508d2aa12464631a2c7bc266b329c79") annotation objective root.enthalpy(minimize);
 @id("1270b08fbebf4f63b48da3244039488a") annotation bounds root.phase.T(350{K},450{K});
-@id("925029dc3d0446b7a4f15438f61f57bb") annotation bounds root.phase.rho(1{mol/m3},200{mol/m3});
+@id("925029dc3d0446b7a4f15438f61f57bb") annotation bounds root.phase.rho(1{mol/m^3},200{mol/m^3});
 @id("a0814a7f0ef946be80bfa28b912029b2") annotation bounds root.phase.amount(0.1{mol},1{mol});
 @id("6db504b4ebf748b68646b209ba68de6b") annotation bounds root.recycle(0{mol/s},20{mol/s});
 @id("adfca89eba1f4038945bdf060496ca12") expect root.phase.T==350{K} tolerance 0.00001{K};
-@id("ed180c9908ad42a9afd66ffab5144c58") expect root.phase.rho==34.565566349336066{mol/m3} tolerance 0.00001{mol/m3};
+@id("ed180c9908ad42a9afd66ffab5144c58") expect root.phase.rho==34.565566349336066{mol/m^3} tolerance 0.00001{mol/m^3};
 @id("8a2f5b3af4024fb58a25ae387f6b1639") expect root.duty==16204.445642740735{W} tolerance 0.001{W};
 }
 }

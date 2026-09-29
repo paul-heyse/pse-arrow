@@ -122,7 +122,9 @@ mod tests {
         let one = b
             .literal(
                 1.,
-                registry.quantity_type(q).unwrap().canonical_unit,
+                registry
+                    .unit(registry.quantity_type(q).unwrap().canonical_unit)
+                    .unwrap(),
                 pse_quantity::literal::LiteralContext::Explicit { quantity_type: q },
                 id,
             )

@@ -4,7 +4,7 @@
 @id("01a0ee04daa976149d39b4df4fca2f80") use chemistry @"1.0.0";
 @id("01a0e169482c760bbd985b8723f1c35d") use caloric @"1.0.0";
 @id("01a0e169482c760bbd985b8848e69141") use pure_properties @"1.0.0";
-@id("01a0e169482c760bbd985b8995b2e9f0") fn density_unit()->Density=1{mol/m3};
+@id("01a0e169482c760bbd985b8995b2e9f0") fn density_unit()->Density=1{mol/m^3};
 @id("01a0e169482c760bbd985b8aa49ee84e") fn amount_unit()->Amount=1{mol};
 @id("01a0e16f32a3739a874c126a54d4b1df") fn gas_constant_value()->MolarCp=8.31446261815324{J/(mol*K)};
 @id("01a0e16f32a3739a874c126bbea4fbfb") fn reduced_gas_constant()->Scalar=gas_constant_value()/caloric.cp_unit();

@@ -41,6 +41,7 @@ fn assert_quantities_equal(a: &QuantityRegistry, b: &QuantityRegistry) {
                     x.offset_to_canonical.to_bits(),
                     x.is_affine,
                     x.reference_state,
+                    x.definition.clone(),
                 )
             })
             .collect::<Vec<_>>()
@@ -48,7 +49,16 @@ fn assert_quantities_equal(a: &QuantityRegistry, b: &QuantityRegistry) {
     assert_eq!(units(a), units(b));
     let kinds = |r: &QuantityRegistry| {
         r.kinds()
-            .map(|x| (x.id, x.dimension, x.extensive, x.addition_kind))
+            .map(|x| {
+                (
+                    x.id,
+                    x.dimension,
+                    x.extensive,
+                    x.addition_kind,
+                    x.category,
+                    x.definition.clone(),
+                )
+            })
             .collect::<Vec<_>>()
     };
     assert_eq!(kinds(a), kinds(b));
@@ -183,22 +193,27 @@ fn reference_package_admission_scientific_units() {
     let source = load(root(), pse_schema::registry().expect("registry")).expect("package data");
     // BIPM SI bases and NIST SP 811 Appendix B.8; checked independently of generator.
     let units = source.quantities();
-    let kelvin = units.unit_by_symbol("K").expect("K");
+    let atomic = |symbol: &str| {
+        units
+            .compose(&pse_quantity::UnitProduct::symbol(symbol))
+            .expect(symbol)
+    };
+    let kelvin = atomic("K");
     assert_eq!(
         kelvin.dimension,
         pse_quantity::DimensionVector::base(BaseDimension::Temperature)
     );
-    let celsius = units.unit_by_symbol("degC").expect("degC");
+    let celsius = atomic("degC");
     assert_eq!(celsius.offset_to_canonical, 273.15);
-    let fahrenheit = units.unit_by_symbol("degF").expect("degF");
-    let point = pse_quantity::convert_spec(fahrenheit, kelvin, pse_quantity::ScaleKind::Point)
+    let fahrenheit = atomic("degF");
+    let point = pse_quantity::convert_spec(&fahrenheit, &kelvin, pse_quantity::ScaleKind::Point)
         .expect("point");
     assert!((pse_quantity::convert_value(&point, 32.0) - 273.15).abs() < 1e-12);
     let difference =
-        pse_quantity::convert_spec(fahrenheit, kelvin, pse_quantity::ScaleKind::Difference)
+        pse_quantity::convert_spec(&fahrenheit, &kelvin, pse_quantity::ScaleKind::Difference)
             .expect("difference");
     assert_eq!(pse_quantity::convert_value(&difference, 18.0), 10.0);
-    let psi = units.unit_by_symbol("psig").expect("psig");
+    let psi = atomic("psig");
     let exact_factor = 0.453_592_37 * 9.806_65 / (0.0254 * 0.0254);
     assert!((psi.scale_to_canonical - exact_factor).abs() < 1e-9);
     let reference = units
@@ -273,6 +288,20 @@ fn altered_physical_facts_are_admitted_from_values_or_refused() {
         let scratch = mutated_package("physical", |body| body[section][0][field] = value);
         assert!(load(scratch.path(), registry).is_err(), "{section}.{field}");
     }
+    // A defined unit's identity is its product identity; a changed exponent is refused.
+    let composition = mutated_package("physical", |body| {
+        let defined = body["units"]
+            .as_array_mut()
+            .expect("units")
+            .iter_mut()
+            .find(|unit| unit["definition"].as_array().is_some_and(|d| !d.is_empty()))
+            .expect("a defined unit");
+        defined["definition"][0]["num"] = serde_json::json!(5);
+    });
+    assert!(
+        load(composition.path(), registry).is_err(),
+        "defined unit composition disagrees with its identity"
+    );
     let dimensions = mutated_package("physical", |body| {
         body["quantity_kinds"][0]["dimension"][0]["num"] = serde_json::json!(7);
     });

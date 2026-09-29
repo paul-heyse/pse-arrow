@@ -22,8 +22,8 @@
 [water_rpp4_oracle]=[-7.76451,1.45838,-2.77580,-1.23303,647.3{K},22120000{Pa},298.15{K},373.15{K}];
 }
 @id("01a0e15d9eff71b98e7519ff51aff28f") test water_source_oracles fixture {dof 0; run pure;} {
-@id("01a0e15d9eff71b98e751a00a736373f") expect pure_properties.perry_density(273.16{K},pure_properties.liquid_density[water_perry_oracle])==55583{mol/m3} tolerance 0{mol/m3} relative 1e-4;
-@id("01a0e15d9eff71b98e751a012d6427b3") expect pure_properties.perry_density(333.15{K},pure_properties.liquid_density[water_perry_oracle])==54703{mol/m3} tolerance 0{mol/m3} relative 1e-4;
+@id("01a0e15d9eff71b98e751a00a736373f") expect pure_properties.perry_density(273.16{K},pure_properties.liquid_density[water_perry_oracle])==55583{mol/m^3} tolerance 0{mol/m^3} relative 1e-4;
+@id("01a0e15d9eff71b98e751a012d6427b3") expect pure_properties.perry_density(333.15{K},pure_properties.liquid_density[water_perry_oracle])==54703{mol/m^3} tolerance 0{mol/m^3} relative 1e-4;
 @id("01a0e15d9eff71b98e751a02cd650678") expect pure_properties.rpp4_pressure(298.15{K},pure_properties.vapor_pressure[water_rpp4_oracle])==3171.4391{Pa} tolerance 0.001{Pa};
 @id("01a0e15d9eff71b98e751a03fb0e887b") expect pure_properties.rpp4_pressure(373.15{K},pure_properties.vapor_pressure[water_rpp4_oracle])==101378{Pa} tolerance 0{Pa} relative 1e-4;
 }

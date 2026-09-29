@@ -33,7 +33,9 @@
 //!   and the [`closed_enum`] macro that gives each member one spelling.
 //! - [`index`] — [`BoundIndexRef`] and [`IndexSet`]: free-index identity.
 //! - [`error`] — every error enum with its §23.2 class.
-//! - [`mod@unit`] — [`UnitConvertSpec`], physically checked representation conversion.
+//! - [`mod@unit`] — [`UnitConvertSpec`], physically checked representation conversion,
+//!   atomic and defined units and the spelling-independent [`unit_product_id`].
+//! - [`unit_product`] — [`UnitProduct`], a unit literal as a canonical product.
 //!
 //! Registry admission and representation conversion live in [`registry`], [`unit_set`],
 //! [`conversion`], [`kind`], [`basis`], [`reference_state`] and [`quantity_type`].
@@ -72,6 +74,11 @@ pub mod smoothing;
 #[cfg(feature = "fixtures")]
 pub mod standard;
 pub mod unit;
+#[cfg(test)]
+mod chain_tests;
+#[cfg(test)]
+mod unit_algebra_tests;
+pub mod unit_product;
 pub mod unit_set;
 
 pub use crate::basis::Basis;
@@ -88,13 +95,17 @@ pub use crate::ids::{
     OperationId, QuantityKindId, QuantityTypeId, ReferenceStateId, UnitId, UnitSetId,
 };
 pub use crate::index::{BinderConflict, BoundIndexRef, IndexSet};
-pub use crate::kind::QuantityKind;
+pub use crate::kind::{DerivedKind, KindDefinition, KindFactor, QuantityKind};
 pub use crate::operation::{InputConversion, QuantityOperation};
 pub use crate::precondition::{PhysicalPrecondition, PhysicalRequirement};
 pub use crate::quantity_type::{QuantityType, QuantityTypeKey};
 pub use crate::reference_state::ReferenceState;
 pub use crate::registry::{QuantityRegistry, QuantityRegistryBuilder};
-pub use crate::unit::{Unit, UnitConvertSpec, convert_spec, convert_spec_for_type, convert_value};
+pub use crate::unit::{
+    DefinedUnit, Unit, UnitConvertSpec, UnitFactor, convert_spec, convert_spec_for_type,
+    convert_value, unit_product_id,
+};
+pub use crate::unit_product::UnitProduct;
 pub use crate::unit_set::{DerivedUnit, UnitSet};
 
 mod preconditions;

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Per-occurrence literal resolution (blueprint §8.3).
-use crate::{QuantityError, QuantityRegistry, QuantityTypeId, UnitId};
+use crate::{QuantityError, QuantityRegistry, QuantityTypeId, Unit};
 /// Context belongs to a literal occurrence, never its shared untyped node identity.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LiteralContext {
@@ -24,16 +24,17 @@ pub enum LiteralContext {
         quantity_type: QuantityTypeId,
     },
 }
-/// Resolve a literal using its expected complete type or a unique registered candidate.
+/// Resolve a literal in its composed unit (ADR-0124,
+/// [`QuantityRegistry::compose`]) using its expected complete type or a unique
+/// registered candidate.
 ///
 /// # Errors
-/// Rejects missing units/types, incompatible expected units, or ambiguous free literals.
+/// Rejects missing types, incompatible expected units, or ambiguous free literals.
 pub fn resolve_literal(
-    unit: UnitId,
+    source: &Unit,
     context: LiteralContext,
     registry: &QuantityRegistry,
 ) -> Result<QuantityTypeId, QuantityError> {
-    let source = registry.unit(unit)?;
     let expected = match context {
         LiteralContext::Free => None,
         LiteralContext::Additive { sibling } => Some(sibling),
@@ -64,5 +65,8 @@ pub fn resolve_literal(
     if let [only] = candidates.as_slice() {
         return Ok(*only);
     }
-    Err(QuantityError::AmbiguousLiteral { unit, candidates })
+    Err(QuantityError::AmbiguousLiteral {
+        unit: source.id,
+        candidates,
+    })
 }

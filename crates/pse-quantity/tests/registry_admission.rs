@@ -26,6 +26,7 @@ fn unit(n: u8, dimension: DimensionVector) -> Unit {
         offset_to_canonical: 0.0,
         is_affine: false,
         reference_state: None,
+        definition: None,
     }
 }
 fn kind(n: u8) -> QuantityKind {
@@ -35,6 +36,7 @@ fn kind(n: u8) -> QuantityKind {
         extensive: false,
         addition_kind: QuantityAdditionKind::Additive,
         category: None,
+        definition: None,
     }
 }
 fn ty(n: u8) -> QuantityType {
@@ -100,7 +102,7 @@ fn complete_key_lookup_and_neutral_designation_use_actual_components() {
     changed.subject_kind = Some(EntityKindId::from_id(raw(91)));
     assert!(reg.resolve_key(&changed).is_err());
     assert_eq!(
-        reg.unit_by_symbol("u1").expect("symbol").id,
+        reg.compose(&UnitProduct::symbol("u1")).expect("symbol").id,
         UnitId::from_id(raw(1))
     );
     assert!(reg.unit(UnitId::from_id(raw(99))).is_err());
@@ -325,6 +327,7 @@ fn affine_unit_conversions_work_in_both_directions_and_differences_ignore_offset
         offset_to_canonical: 273.15,
         is_affine: true,
         reference_state: None,
+        definition: None,
         ..kelvin.clone()
     };
     let c_to_k = convert_spec(&celsius, &kelvin, ScaleKind::Point).expect("C to K");
@@ -341,6 +344,7 @@ fn affine_unit_conversions_work_in_both_directions_and_differences_ignore_offset
         offset_to_canonical: 273.15 - 32.0 * (5.0 / 9.0),
         is_affine: true,
         reference_state: None,
+        definition: None,
         ..kelvin
     };
     assert!(

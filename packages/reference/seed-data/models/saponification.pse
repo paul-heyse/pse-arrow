@@ -10,7 +10,7 @@
 @id("01a0e1db89d8722baac398f4fa4d61b9") set reaction_set:Set<chemistry.reaction>={hydrolysis};
 @id("01a0e1db89d8722baac398f5f8e2ef0b") table liquid_data[j:chemistry.species]:{density:Density,cp:MolarCp,reference:Temperature,minimum:Temperature,maximum:Temperature};
 @id("01a0e1db89d8722baac398f6cb94d882") dataset dilute_water:liquid_data source "IDAES 2.13 saponification_thermo: solvent approximation, 298.15 K reference; 298.15-323.15 K seed envelope" {
-[chem.water]=[55388{mol/m3},75.327{J/(mol*K)},298.15{K},298.15{K},323.15{K}];
+[chem.water]=[55388{mol/m^3},75.327{J/(mol*K)},298.15{K},298.15{K},323.15{K}];
 }
 @id("01a0e1db89d8722baac398f71f5f62a9") table kinetics[r:chemistry.reaction]:{k0:SecondOrderRateConstant,E:ActivationEnergy,heat:ReactionHeat,first:chemistry.species,second:chemistry.species};
 @id("01a0e1db89d8722baac398f80032ee48") dataset saponification_kinetics:kinetics source "IDAES 2.13 saponification_reactions, supplied demonstration reaction parameters" {
@@ -46,22 +46,22 @@
 }
 @id("01a0e1db89d8722baac3990c10d5ac0d") test reaction_values source "IDAES 2.13 Arrhenius parameter oracle and neutral formula conservation" revision "2.13.0" fixture {dof 0; run pure;} {
 @id("01a0e1db89d8722baac3990de9758ee8") expect reactions.arrhenius(303.15{K},kinetics[hydrolysis].k0,kinetics[hydrolysis].E)==0.1221230445517785{m^3/(mol*s)} tolerance 1e-12{m^3/(mol*s)};
-@id("01a0e1db89d8722baac3990e291f8ed9") expect reactions.second_order(303.15{K},100{mol/m3},100{mol/m3},kinetics[hydrolysis].k0,kinetics[hydrolysis].E)==1221.230445517785{mol/(m^3*s)} tolerance 1e-8{mol/(m^3*s)};
+@id("01a0e1db89d8722baac3990e291f8ed9") expect reactions.second_order(303.15{K},100{mol/m^3},100{mol/m^3},kinetics[hydrolysis].k0,kinetics[hydrolysis].E)==1221.230445517785{mol/(m^3*s)} tolerance 1e-8{mol/(m^3*s)};
 @id("01a0e1db89d8722baac3990ffaa78786") expect sum(j in chem.saponification_species | stoichiometry[hydrolysis,j]*chem.atoms[j,chem.H])==0 tolerance 1e-12;
 @id("01a0e1db89d8722baac3991080427fc1") expect sum(j in chem.saponification_species | stoichiometry[hydrolysis,j]*chem.atoms[j,chem.C])==0 tolerance 1e-12;
 @id("01a0e1db89d8722baac3991186851a79") expect sum(j in chem.saponification_species | stoichiometry[hydrolysis,j]*chem.atoms[j,chem.N])==0 tolerance 1e-12;
 @id("01a0e1db89d8722baac399123881607b") expect sum(j in chem.saponification_species | stoichiometry[hydrolysis,j]*chem.atoms[j,chem.O])==0 tolerance 1e-12;
 @id("01a0e1db89d8722baac399132aa32f22") expect sum(j in chem.saponification_species | stoichiometry[hydrolysis,j]*chem.atoms[j,chem.Na])==0 tolerance 1e-12;
 }
-@id("01a0e1db89d8722baac39914571745c5") test liquid_state source "IDAES 2.13 dilute water energy and material flow definitions at 303.15 K" revision "2.13.0" fixture {dof 0; run steady; fix root.T=303.15{K}; fix root.pressure=101325{Pa}; fix root.volume_flow=0.001{m3/s}; fix root.concentration[chem.sodium_hydroxide]=100{mol/m3}; fix root.concentration[chem.ethyl_acetate]=100{mol/m3}; fix root.concentration[chem.sodium_acetate]=0{mol/m3}; fix root.concentration[chem.ethanol]=0{mol/m3};} {
+@id("01a0e1db89d8722baac39914571745c5") test liquid_state source "IDAES 2.13 dilute water energy and material flow definitions at 303.15 K" revision "2.13.0" fixture {dof 0; run steady; fix root.T=303.15{K}; fix root.pressure=101325{Pa}; fix root.volume_flow=0.001{m^3/s}; fix root.concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.concentration[chem.sodium_acetate]=0{mol/m^3}; fix root.concentration[chem.ethanol]=0{mol/m^3};} {
 @id("01a0e1db89d8722baac399154a22bbd3") child root:Saponification=Saponification;
-@id("01a0e1db89d8722baac39916130018ae") expect root.concentration[chem.water]==55388{mol/m3} tolerance 1e-5{mol/m3};
+@id("01a0e1db89d8722baac39916130018ae") expect root.concentration[chem.water]==55388{mol/m^3} tolerance 1e-5{mol/m^3};
 @id("01a0e1db89d8722baac39917df9dcea0") expect root.component_flow[chem.sodium_hydroxide]==0.1{mol/s} tolerance 1e-8{mol/s};
 @id("01a0e1db89d8722baac3991894ddfb02") expect root.flow==55.588{mol/s} tolerance 1e-6{mol/s};
 @id("01a0e1db89d8722baac39919d2f9e5ef") expect root.energy_flow==20861.05938{W} tolerance 0.002{W};
 @id("01a0e1db89d8722baac3991a4354e257") expect sum(j in chem.saponification_species | root.z[j]/equilibrium.fraction_unit())==1 tolerance 1e-8;
 }
-@id("dfa256484e8c4aa885ade4bfdae36927") test reaction_binding source "IDAES 2.13 saponification reaction block; same parameter data as reaction_values" revision "2.13.0" fixture {dof 0; run pure; fix root.T=303.15{K}; fix root.concentration[chem.sodium_hydroxide]=100{mol/m3}; fix root.concentration[chem.ethyl_acetate]=100{mol/m3}; fix root.concentration[chem.sodium_acetate]=0{mol/m3}; fix root.concentration[chem.ethanol]=0{mol/m3}; fix root.concentration[chem.water]=55388{mol/m3};} {
+@id("dfa256484e8c4aa885ade4bfdae36927") test reaction_binding source "IDAES 2.13 saponification reaction block; same parameter data as reaction_values" revision "2.13.0" fixture {dof 0; run pure; fix root.T=303.15{K}; fix root.concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.concentration[chem.sodium_acetate]=0{mol/m^3}; fix root.concentration[chem.ethanol]=0{mol/m^3}; fix root.concentration[chem.water]=55388{mol/m^3};} {
 @id("42714e7e77954abd973055ee40fbab5b") child root:reactions.RateLaw=SaponificationReactions;
 @id("3ba63ee235b04ab8a40593223c948073") expect root.rate[hydrolysis]==1221.230445517785{mol/(m^3*s)} tolerance 1e-8{mol/(m^3*s)};
 @id("f3536f006edc4d9a8954938a50d6eb99") expect root.heat[hydrolysis]==-49000{J/mol} tolerance 1e-8{J/mol};

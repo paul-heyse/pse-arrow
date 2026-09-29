@@ -11,7 +11,8 @@ use pse_quantity::{
     Basis, BasisId, ConversionId, ConversionRule, DimensionVector, EntityKind, EntityKindId,
     InputConversion, InvariantId, OperationId, QuantityKind, QuantityKindId, QuantityOperation,
     QuantityRegistry, QuantityRegistryBuilder, QuantityType, QuantityTypeId, QuantityTypeKey,
-    Ratio, ReferenceState, ReferenceStateId, Unit, UnitId, UnitSet, UnitSetId,
+    Ratio, ReferenceState, ReferenceStateId, Unit, UnitFactor, UnitId, UnitSet, UnitSetId,
+    DefinedUnit, DerivedKind, KindDefinition, KindFactor,
 };
 use pse_relations::{
     columnar::FieldCheckedBatch,
@@ -69,15 +70,50 @@ pub(super) fn inventory(
         }
     }
     rows!(units, row, {
-        builder.unit(Unit {
-            id: UnitId::from_id(row.unit_id),
-            symbol: row.symbol,
-            dimension: dimension(row.dimension)?,
-            scale_to_canonical: row.scale_to_canonical,
-            offset_to_canonical: row.offset_to_canonical,
-            is_affine: row.is_affine,
-            reference_state: row.reference_state_id.map(ReferenceStateId::from_id),
-        });
+        // Version two: an atomic unit authors its measure; a defined unit authors only its
+        // composition, and admission derives its dimension and scale (ADR-0124).
+        let id = UnitId::from_id(row.unit_id);
+        match (
+            row.definition,
+            row.dimension,
+            row.scale_to_canonical,
+            row.offset_to_canonical,
+            row.is_affine,
+        ) {
+            (None, Some(value), Some(scale_to_canonical), Some(offset_to_canonical), Some(is_affine)) => {
+                builder.unit(Unit {
+                    id,
+                    symbol: row.symbol,
+                    dimension: dimension(value)?,
+                    scale_to_canonical,
+                    offset_to_canonical,
+                    is_affine,
+                    reference_state: row.reference_state_id.map(ReferenceStateId::from_id),
+                    definition: None,
+                });
+            }
+            (Some(composition), None, None, None, None) if row.reference_state_id.is_none() => {
+                builder.defined_unit(DefinedUnit {
+                    id,
+                    symbol: row.symbol,
+                    composition: composition
+                        .into_iter()
+                        .map(|factor| {
+                            Ok(UnitFactor {
+                                unit: UnitId::from_id(factor.unit_id),
+                                exponent: Ratio::from_parts(factor.num, factor.den)
+                                    .map_err(pse_quantity::QuantityError::from)?,
+                            })
+                        })
+                        .collect::<Result<_, PhysicalError>>()?,
+                });
+            }
+            _ => {
+                return Err(invalid(format!(
+                    "unit {id} must author either its measure (atomic) or only its composition (defined)"
+                )));
+            }
+        }
     });
     rows!(unit_sets, row, {
         builder.unit_set(UnitSet {
@@ -114,13 +150,54 @@ pub(super) fn inventory(
         });
     });
     rows!(quantity_kinds, row, {
-        builder.kind(QuantityKind {
-            id: QuantityKindId::from_id(row.quantity_kind_id),
-            dimension: dimension(row.dimension)?,
-            extensive: row.extensive,
-            addition_kind: row.addition_kind,
-            category: row.category,
-        });
+        // Version three: a base kind authors its dimension; a derived kind authors its
+        // monomial, canonical unit and result policy, and admission derives its dimension
+        // (ADR-0124).
+        let id = QuantityKindId::from_id(row.quantity_kind_id);
+        match (row.definition, row.dimension) {
+            (None, Some(value)) => {
+                builder.kind(QuantityKind {
+                    id,
+                    dimension: dimension(value)?,
+                    extensive: row.extensive,
+                    addition_kind: row.addition_kind,
+                    category: row.category,
+                    definition: None,
+                });
+            }
+            (Some(definition), None) if row.category.is_none() => {
+                builder.derived_kind(DerivedKind {
+                    id,
+                    extensive: row.extensive,
+                    addition_kind: row.addition_kind,
+                    definition: KindDefinition {
+                        monomial: definition
+                            .monomial
+                            .into_iter()
+                            .map(|factor| {
+                                Ok(KindFactor {
+                                    kind: QuantityKindId::from_id(factor.quantity_kind_id),
+                                    exponent: Ratio::from_parts(factor.num, factor.den)
+                                        .map_err(pse_quantity::QuantityError::from)?,
+                                })
+                            })
+                            .collect::<Result<_, PhysicalError>>()?,
+                        canonical_unit: UnitId::from_id(definition.canonical_unit_id),
+                        basis: definition.basis_id.map(BasisId::from_id),
+                        reference_state: definition
+                            .reference_state_id
+                            .map(ReferenceStateId::from_id),
+                        scale_kind: definition.scale_kind,
+                        subject_kind: definition.subject_kind.map(EntityKindId::from_id),
+                    },
+                });
+            }
+            _ => {
+                return Err(invalid(format!(
+                    "quantity kind {id} must author either its dimension (base) or only its definition (derived)"
+                )));
+            }
+        }
     });
     rows!(bases, row, {
         builder.basis(Basis {

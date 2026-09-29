@@ -320,43 +320,28 @@
     {
       "quantity_kind_id": "99263c30741ca81f1c4c3d4b987d4085",
       "name": "molar_enthalpy",
-      "dimension": [
-        {
-          "num": 2,
-          "den": 1
-        },
-        {
-          "num": 1,
-          "den": 1
-        },
-        {
-          "num": -2,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        }
-      ],
       "extensive": false,
       "addition_kind": "origin_sensitive",
-      "doc": "Explicit complete physical kind; dimensions alone do not determine it."
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
+            "num": 1,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "b73f6834274def3690812937802e17da",
+        "basis_id": null,
+        "reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
+        "scale_kind": "difference",
+        "subject_kind": null
+      },
+      "doc": "Derived kind (ADR-0124): a chain of molar heat capacity and temperature is an enthalpy increment from the stock datum."
     },
     {
       "quantity_kind_id": "9ed4576374b1809385f72b1f33d17ee6",
@@ -689,43 +674,28 @@
     {
       "quantity_kind_id": "faa6f95459144650ac414fd389e16e27",
       "name": "molar_entropy",
-      "dimension": [
-        {
-          "num": 2,
-          "den": 1
-        },
-        {
-          "num": 1,
-          "den": 1
-        },
-        {
-          "num": -2,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        }
-      ],
       "extensive": false,
       "addition_kind": "origin_sensitive",
-      "doc": "Declared stock physical meaning; equal dimensions do not imply this kind."
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "01a0ee03d43674589ac9f749f527cd8c",
+            "num": 1,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
+        "basis_id": null,
+        "reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
+        "scale_kind": "difference",
+        "subject_kind": null
+      },
+      "doc": "Derived kind (ADR-0124): a molar heat capacity taken over a logarithmic temperature increment is a molar entropy difference from the stock datum."
     },
     {
       "quantity_kind_id": "65af5b931e46425f8e5797144491640e",
@@ -1630,6 +1600,218 @@
       "addition_kind": "additive",
       "category": "indicator",
       "doc": "A dimensionless zero-or-one state (on/off, selected); the kind of a binary decision (ADR-0103)."
+    },
+    {
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec327dd1aaa4",
+      "name": "molar_heat_capacity_per_temperature",
+      "extensive": false,
+      "addition_kind": "additive",
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
+            "num": -1,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "42a671644390a59b1fc2c76bb60193fa",
+        "basis_id": null,
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": null
+      },
+      "doc": "Derived kind (ADR-0124): DIPPR 100 and RPP4 c2: molar heat capacity per temperature."
+    },
+    {
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec3460d43db5",
+      "name": "molar_heat_capacity_per_temperature_squared",
+      "extensive": false,
+      "addition_kind": "additive",
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
+            "num": -2,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "0bc13e485d1417960c0b02632f5038c6",
+        "basis_id": null,
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": null
+      },
+      "doc": "Derived kind (ADR-0124): DIPPR 100 and RPP4 c3: molar heat capacity per squared temperature."
+    },
+    {
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec36239dba56",
+      "name": "molar_heat_capacity_per_temperature_cubed",
+      "extensive": false,
+      "addition_kind": "additive",
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
+            "num": -3,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "77aaf84f80594e4097bc87d5044d9814",
+        "basis_id": null,
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": null
+      },
+      "doc": "Derived kind (ADR-0124): DIPPR 100 and RPP4 c4: molar heat capacity per cubed temperature."
+    },
+    {
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec382896e473",
+      "name": "molar_heat_capacity_per_temperature_fourth",
+      "extensive": false,
+      "addition_kind": "additive",
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
+            "num": -4,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "0dd99049af4b0ad6d29a16b306ff4dc4",
+        "basis_id": null,
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": null
+      },
+      "doc": "Derived kind (ADR-0124): DIPPR 100 c5: molar heat capacity per fourth power of temperature."
+    },
+    {
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec3abb846fca",
+      "name": "molar_heat_capacity_times_temperature_squared",
+      "extensive": false,
+      "addition_kind": "additive",
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
+            "num": 2,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "b168ec7adeca3ebe2e6950a9e2c46223",
+        "basis_id": null,
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": null
+      },
+      "doc": "Derived kind (ADR-0124): Shomate E: molar heat capacity times squared temperature."
+    },
+    {
+      "quantity_kind_id": "01a0ee03d43674589ac9f7486163e121",
+      "name": "temperature_ratio",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "The ratio of two absolute temperatures; a pure number of its own meaning."
+    },
+    {
+      "quantity_kind_id": "01a0ee03d43674589ac9f749f527cd8c",
+      "name": "logarithmic_temperature_increment",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "An increment of the logarithm of absolute temperature: ln(T/T0), or a temperature difference over an absolute temperature."
     }
   ],
   "quantity_operations": [
@@ -3847,6 +4029,82 @@
         "93c405aa090d49f1a790797979cd2396",
         "2b130cfd13c64fa8872433460c301b25"
       ]
+    },
+    {
+      "operation_id": "01a0ee03d43674589ac9f74d4245871b",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "57a7ab92753b012231a543d3850b926c",
+        "57a7ab92753b012231a543d3850b926c"
+      ],
+      "result_kind_id": "01a0ee03d43674589ac9f7486163e121",
+      "basis_rule": "require_equal",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "01a0ee03d43674589ac9f74c240ac0d3"
+      ]
+    },
+    {
+      "operation_id": "01a0ee03d43674589ac9f7503651682b",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "57a7ab92753b012231a543d3850b926c",
+        "57a7ab92753b012231a543d3850b926c"
+      ],
+      "result_kind_id": "01a0ee03d43674589ac9f749f527cd8c",
+      "basis_rule": "require_equal",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "01a0ee03d43674589ac9f74eadf93661",
+        "01a0ee03d43674589ac9f74f5572b68a"
+      ]
+    },
+    {
+      "operation_id": "01a0ee03d43674589ac9f7519f08bc4d",
+      "opcode": "Log",
+      "input_kind_ids": [
+        "01a0ee03d43674589ac9f7486163e121"
+      ],
+      "result_kind_id": "01a0ee03d43674589ac9f749f527cd8c",
+      "basis_rule": "require_equal",
+      "reference_rule": "require_equal",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "require_equal",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": []
     }
   ],
   "quantity_types": [
@@ -3858,7 +4116,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit."
     },
@@ -3882,7 +4140,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit."
     },
@@ -3894,7 +4152,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit."
     },
@@ -3906,7 +4164,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit."
     },
@@ -3930,7 +4188,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "462e80f8128a7586583e9470658e1e0e",
+      "canonical_unit_id": "f983a5ea0ba73a9e6bca75cfeb30adf9",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit."
     },
@@ -3954,7 +4212,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "462e80f8128a7586583e9470658e1e0e",
+      "canonical_unit_id": "f983a5ea0ba73a9e6bca75cfeb30adf9",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit."
     },
@@ -3966,7 +4224,7 @@
       "scale_kind": "difference",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit."
     },
@@ -3990,7 +4248,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit."
     },
@@ -4002,7 +4260,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "ce1522e8ed1ba5b892b92dca5df11cf4",
+      "canonical_unit_id": "2ffab998657480c0ba30d041159fa794",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit."
     },
@@ -4026,7 +4284,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit."
     },
@@ -4038,7 +4296,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit."
     },
@@ -4062,7 +4320,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
       "doc": "Scalar Boolean guard result."
     },
@@ -4076,7 +4334,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
       "doc": "Explicit stock Boolean predicate mask over ordered domain kinds: port_set."
     },
@@ -4088,7 +4346,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_heat_capacity."
     },
@@ -4100,7 +4358,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.point."
     },
@@ -4112,7 +4370,7 @@
       "scale_kind": "difference",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.difference."
     },
@@ -4124,7 +4382,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "2c780c134b34424c8d9767669932f479",
+      "canonical_unit_id": "05a511ae90484a0fc0bcfc0f5bfbc538",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract energy_density."
     },
@@ -4136,7 +4394,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "24912d4659594198b801ca5402bf13b0",
+      "canonical_unit_id": "b9bfee780f948b8b0c2bf3f174cc7163",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract volume."
     },
@@ -4148,7 +4406,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "ea875cb5ed6b4c19baf80ff1295702cc",
+      "canonical_unit_id": "a90e7847b7e48ba7eda0d52b724b40a2",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract volume_flow."
     },
@@ -4160,7 +4418,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "ff1fc41f09ab42e0bcbda6bc92bdec25",
+      "canonical_unit_id": "75e3d037a47e3bb1e457bb9b5c2a1085",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_mass."
     },
@@ -4184,7 +4442,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_heat_capacity.component."
     },
@@ -4196,7 +4454,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.point.component."
     },
@@ -4208,7 +4466,7 @@
       "scale_kind": "difference",
       "shape": [],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.difference.component."
     },
@@ -4220,7 +4478,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_enthalpy.point.component."
     },
@@ -4232,7 +4490,7 @@
       "scale_kind": "difference",
       "shape": [],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_enthalpy.difference.component."
     },
@@ -4244,7 +4502,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "ce1522e8ed1ba5b892b92dca5df11cf4",
+      "canonical_unit_id": "2ffab998657480c0ba30d041159fa794",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_density.component."
     },
@@ -4258,7 +4516,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit. Ordered stock axes: port_set."
     },
@@ -4286,7 +4544,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit. Ordered stock axes: port_set."
     },
@@ -4300,7 +4558,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit. Ordered stock axes: port_set."
     },
@@ -4314,7 +4572,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit. Ordered stock axes: port_set."
     },
@@ -4342,7 +4600,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "462e80f8128a7586583e9470658e1e0e",
+      "canonical_unit_id": "f983a5ea0ba73a9e6bca75cfeb30adf9",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit. Ordered stock axes: port_set."
     },
@@ -4370,7 +4628,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "462e80f8128a7586583e9470658e1e0e",
+      "canonical_unit_id": "f983a5ea0ba73a9e6bca75cfeb30adf9",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit. Ordered stock axes: port_set."
     },
@@ -4384,7 +4642,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit. Ordered stock axes: port_set."
     },
@@ -4412,7 +4670,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit. Ordered stock axes: port_set."
     },
@@ -4426,7 +4684,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "ce1522e8ed1ba5b892b92dca5df11cf4",
+      "canonical_unit_id": "2ffab998657480c0ba30d041159fa794",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit. Ordered stock axes: port_set."
     },
@@ -4454,7 +4712,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit. Ordered stock axes: port_set."
     },
@@ -4468,7 +4726,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit. Ordered stock axes: port_set."
     },
@@ -4496,7 +4754,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_heat_capacity. Ordered stock axes: port_set."
     },
@@ -4510,7 +4768,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.point. Ordered stock axes: port_set."
     },
@@ -4524,7 +4782,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.difference. Ordered stock axes: port_set."
     },
@@ -4538,7 +4796,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "2c780c134b34424c8d9767669932f479",
+      "canonical_unit_id": "05a511ae90484a0fc0bcfc0f5bfbc538",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract energy_density. Ordered stock axes: port_set."
     },
@@ -4552,7 +4810,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "24912d4659594198b801ca5402bf13b0",
+      "canonical_unit_id": "b9bfee780f948b8b0c2bf3f174cc7163",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract volume. Ordered stock axes: port_set."
     },
@@ -4566,7 +4824,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "ea875cb5ed6b4c19baf80ff1295702cc",
+      "canonical_unit_id": "a90e7847b7e48ba7eda0d52b724b40a2",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract volume_flow. Ordered stock axes: port_set."
     },
@@ -4580,7 +4838,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "ff1fc41f09ab42e0bcbda6bc92bdec25",
+      "canonical_unit_id": "75e3d037a47e3bb1e457bb9b5c2a1085",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_mass. Ordered stock axes: port_set."
     },
@@ -4608,7 +4866,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_heat_capacity.component. Ordered stock axes: port_set."
     },
@@ -4622,7 +4880,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.point.component. Ordered stock axes: port_set."
     },
@@ -4636,7 +4894,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.difference.component. Ordered stock axes: port_set."
     },
@@ -4650,7 +4908,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_enthalpy.point.component. Ordered stock axes: port_set."
     },
@@ -4664,7 +4922,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_enthalpy.difference.component. Ordered stock axes: port_set."
     },
@@ -4678,7 +4936,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "ce1522e8ed1ba5b892b92dca5df11cf4",
+      "canonical_unit_id": "2ffab998657480c0ba30d041159fa794",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_density.component. Ordered stock axes: port_set."
     },
@@ -4690,7 +4948,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit. Stock 1 bar thermochemistry datum."
     },
@@ -4714,7 +4972,7 @@
       "scale_kind": "difference",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit. Stock 1 bar thermochemistry datum."
     },
@@ -4726,7 +4984,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.point. Stock 1 bar thermochemistry datum."
     },
@@ -4738,7 +4996,7 @@
       "scale_kind": "difference",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.difference. Stock 1 bar thermochemistry datum."
     },
@@ -4750,7 +5008,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "2c780c134b34424c8d9767669932f479",
+      "canonical_unit_id": "05a511ae90484a0fc0bcfc0f5bfbc538",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract energy_density. Stock 1 bar thermochemistry datum."
     },
@@ -4762,7 +5020,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.point.component. Stock 1 bar thermochemistry datum."
     },
@@ -4774,7 +5032,7 @@
       "scale_kind": "difference",
       "shape": [],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.difference.component. Stock 1 bar thermochemistry datum."
     },
@@ -4786,7 +5044,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_enthalpy.point.component. Stock 1 bar thermochemistry datum."
     },
@@ -4798,7 +5056,7 @@
       "scale_kind": "difference",
       "shape": [],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_enthalpy.difference.component. Stock 1 bar thermochemistry datum."
     },
@@ -4812,7 +5070,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit. Ordered stock axes: port_set. Stock 1 bar thermochemistry datum."
     },
@@ -4840,7 +5098,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Complete physical contract; origin, basis, subject and shape are explicit. Ordered stock axes: port_set. Stock 1 bar thermochemistry datum."
     },
@@ -4854,7 +5112,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.point. Ordered stock axes: port_set. Stock 1 bar thermochemistry datum."
     },
@@ -4868,7 +5126,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.difference. Ordered stock axes: port_set. Stock 1 bar thermochemistry datum."
     },
@@ -4882,7 +5140,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "2c780c134b34424c8d9767669932f479",
+      "canonical_unit_id": "05a511ae90484a0fc0bcfc0f5bfbc538",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract energy_density. Ordered stock axes: port_set. Stock 1 bar thermochemistry datum."
     },
@@ -4896,7 +5154,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.point.component. Ordered stock axes: port_set. Stock 1 bar thermochemistry datum."
     },
@@ -4910,7 +5168,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_entropy.difference.component. Ordered stock axes: port_set. Stock 1 bar thermochemistry datum."
     },
@@ -4924,7 +5182,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_enthalpy.point.component. Ordered stock axes: port_set. Stock 1 bar thermochemistry datum."
     },
@@ -4938,7 +5196,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Stock complete quantity contract molar_enthalpy.difference.component. Ordered stock axes: port_set. Stock 1 bar thermochemistry datum."
     },
@@ -4950,7 +5208,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "8dea058edc804e2882ae8ef6f1a67dd3",
+      "canonical_unit_id": "1404082cae27874bc68e432be49c0bd5",
       "nominal_magnitude": null,
       "doc": "Stock ideal-liquid volume, not a dimension-inferred inverse density."
     },
@@ -4964,7 +5222,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": null,
-      "canonical_unit_id": "8dea058edc804e2882ae8ef6f1a67dd3",
+      "canonical_unit_id": "1404082cae27874bc68e432be49c0bd5",
       "nominal_magnitude": null,
       "doc": "Stock ideal-liquid volume, not a dimension-inferred inverse density."
     },
@@ -5026,7 +5284,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": "1fe263f6a81d4a9fb4584520b4dd4a0b",
-      "canonical_unit_id": "462e80f8128a7586583e9470658e1e0e",
+      "canonical_unit_id": "f983a5ea0ba73a9e6bca75cfeb30adf9",
       "nominal_magnitude": null,
       "doc": "Explicit indexed Element projection; source count and kg/mol molecular weight are revalidated."
     },
@@ -5038,7 +5296,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "7108fe839f6c458294498186975f7c1d",
+      "canonical_unit_id": "a4cf5eee859eeacd65fce0e893dfd48f",
       "nominal_magnitude": null,
       "doc": "Explicit indexed Element projection; source count and kg/mol molecular weight are revalidated."
     },
@@ -5052,7 +5310,7 @@
         "fae6b3ed73204ee8a0828818614df3b4"
       ],
       "subject_kind": "1c998211e5d74955863f377662f56526",
-      "canonical_unit_id": "7108fe839f6c458294498186975f7c1d",
+      "canonical_unit_id": "a4cf5eee859eeacd65fce0e893dfd48f",
       "nominal_magnitude": null,
       "doc": "Explicit indexed Element projection; source count and kg/mol molecular weight are revalidated."
     },
@@ -5064,7 +5322,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": "1fe263f6a81d4a9fb4584520b4dd4a0b",
-      "canonical_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
       "doc": "Explicit indexed Element projection; source count and kg/mol molecular weight are revalidated."
     },
@@ -5076,7 +5334,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": "1fe263f6a81d4a9fb4584520b4dd4a0b",
-      "canonical_unit_id": "dc22c9bdabe244c6939c3225c84df577",
+      "canonical_unit_id": "74e44c51734c172317fc4a14097b0f10",
       "nominal_magnitude": null,
       "doc": "Explicit indexed Element projection; source count and kg/mol molecular weight are revalidated."
     },
@@ -5088,7 +5346,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "BTIdeal formation-inclusive oracle datum; no implicit conversion to the stock sensible reference."
     },
@@ -5100,7 +5358,7 @@
       "scale_kind": "difference",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "BTIdeal formation-inclusive oracle datum; no implicit conversion to the stock sensible reference."
     },
@@ -5112,7 +5370,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "BT_PR formation-inclusive oracle convention; no implicit datum conversion."
     },
@@ -5124,7 +5382,7 @@
       "scale_kind": "difference",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "BT_PR formation-inclusive oracle convention; no implicit datum conversion."
     },
@@ -5136,7 +5394,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "BT_PR formation-inclusive oracle convention; no implicit datum conversion."
     },
@@ -5148,7 +5406,7 @@
       "scale_kind": "difference",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "BT_PR formation-inclusive oracle convention; no implicit datum conversion."
     },
@@ -5160,7 +5418,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "01a0e1d9b0257478868a5b6f20366279",
+      "canonical_unit_id": "fd6e2a9bfb707b22883fd6d74b35c781",
       "nominal_magnitude": null,
       "doc": "Scalar reaction contract with explicit basis and subject."
     },
@@ -5172,7 +5430,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": "0d15cb60062d4ee79e10ae2aea8c397e",
-      "canonical_unit_id": "01a0e1d9b0257478868a5b72137b3270",
+      "canonical_unit_id": "f7bf22063f14628d7fdb600c082e2fbf",
       "nominal_magnitude": null,
       "doc": "Scalar reaction contract with explicit basis and subject."
     },
@@ -5184,7 +5442,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": "0d15cb60062d4ee79e10ae2aea8c397e",
-      "canonical_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
       "nominal_magnitude": null,
       "doc": "Signed energy per reaction extent with a natural zero; no affine species datum."
     },
@@ -5196,7 +5454,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "4d958c0282d5487a8c56779e76854f0a",
+      "canonical_unit_id": "ac0cb30454714ecc659dc883c7ca3a37",
       "nominal_magnitude": null,
       "doc": "Heat-transfer quantity with natural zero."
     },
@@ -5208,7 +5466,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "4e9207d3d4ed4461b526dd36bc7f59af",
+      "canonical_unit_id": "c0f2ebcc190986806a8cd887ad1b4df2",
       "nominal_magnitude": null,
       "doc": "Heat-transfer quantity with natural zero."
     },
@@ -5256,7 +5514,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "bd89c6bf5b514040a0d770e31ad0af0d",
+      "canonical_unit_id": "6c6f8deca198f4660f039d926c317b43",
       "nominal_magnitude": null,
       "doc": "Inverse elapsed time."
     },
@@ -5268,7 +5526,7 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
       "doc": "Complete physical contract of a count of discrete things."
     },
@@ -5280,9 +5538,93 @@
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
-      "canonical_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
       "doc": "Complete physical contract of a zero-or-one indicator."
+    },
+    {
+      "quantity_type_id": "01a0ede7d15f73b7a48eec330d1c9906",
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec327dd1aaa4",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "42a671644390a59b1fc2c76bb60193fa",
+      "nominal_magnitude": null,
+      "doc": "Correlation coefficient type of a derived kind (ADR-0124)."
+    },
+    {
+      "quantity_type_id": "01a0ede7d15f73b7a48eec355dd7f3f0",
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec3460d43db5",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "0bc13e485d1417960c0b02632f5038c6",
+      "nominal_magnitude": null,
+      "doc": "Correlation coefficient type of a derived kind (ADR-0124)."
+    },
+    {
+      "quantity_type_id": "01a0ede7d15f73b7a48eec3774be08a7",
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec36239dba56",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "77aaf84f80594e4097bc87d5044d9814",
+      "nominal_magnitude": null,
+      "doc": "Correlation coefficient type of a derived kind (ADR-0124)."
+    },
+    {
+      "quantity_type_id": "01a0ede7d15f73b7a48eec39a39397fd",
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec382896e473",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "0dd99049af4b0ad6d29a16b306ff4dc4",
+      "nominal_magnitude": null,
+      "doc": "Correlation coefficient type of a derived kind (ADR-0124)."
+    },
+    {
+      "quantity_type_id": "01a0ede7d15f73b7a48eec3b81e80346",
+      "quantity_kind_id": "01a0ede7d15f73b7a48eec3abb846fca",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "b168ec7adeca3ebe2e6950a9e2c46223",
+      "nominal_magnitude": null,
+      "doc": "Correlation coefficient type of a derived kind (ADR-0124)."
+    },
+    {
+      "quantity_type_id": "01a0ee03d43674589ac9f74a31200230",
+      "quantity_kind_id": "01a0ee03d43674589ac9f7486163e121",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Ratio of two absolute temperatures."
+    },
+    {
+      "quantity_type_id": "01a0ee03d43674589ac9f74b1975e94e",
+      "quantity_kind_id": "01a0ee03d43674589ac9f749f527cd8c",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Logarithmic temperature increment."
     }
   ],
   "reference_states": [
@@ -5339,49 +5681,24 @@
   ],
   "units": [
     {
-      "unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "unit_id": "b73f6834274def3690812937802e17da",
       "symbol": "J/mol",
       "name": "J/mol",
-      "dimension": [
+      "reference_state_id": null,
+      "definition": [
         {
-          "num": 2,
-          "den": 1
-        },
-        {
-          "num": 1,
-          "den": 1
-        },
-        {
-          "num": -2,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
           "num": -1,
           "den": 1
         },
         {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
+          "unit_id": "94e71aed4ef8d26cd686cf578884d940",
+          "num": 1,
           "den": 1
         }
       ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
       "system": "SI",
-      "doc": "See packages/reference/physical/sources.md for definition and datum conventions."
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     },
     {
       "unit_id": "251f95b98b987a2bc752342c7d386fea",
@@ -5474,49 +5791,24 @@
       "doc": "See packages/reference/physical/sources.md for definition and datum conventions."
     },
     {
-      "unit_id": "462e80f8128a7586583e9470658e1e0e",
+      "unit_id": "f983a5ea0ba73a9e6bca75cfeb30adf9",
       "symbol": "mol/s",
       "name": "mol/s",
-      "dimension": [
+      "reference_state_id": null,
+      "definition": [
         {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
           "num": 1,
           "den": 1
         },
         {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
+          "unit_id": "8603b85ce543b8a618530ae4e9153091",
+          "num": -1,
           "den": 1
         }
       ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
       "system": "SI",
-      "doc": "See packages/reference/physical/sources.md for definition and datum conventions."
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     },
     {
       "unit_id": "5322364702c4dd0cf550863c7c0cc121",
@@ -5654,49 +5946,29 @@
       "doc": "See packages/reference/physical/sources.md for definition and datum conventions."
     },
     {
-      "unit_id": "83bdd275debcdc2abe9438f72b864d8d",
-      "symbol": "J/(mol*K)",
+      "unit_id": "7f8505e26f9ca348b58b483a017de526",
+      "symbol": "J/(K*mol)",
       "name": "J/(mol*K)",
-      "dimension": [
+      "reference_state_id": null,
+      "definition": [
         {
-          "num": 2,
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
+          "num": -1,
           "den": 1
         },
         {
+          "unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+          "num": -1,
+          "den": 1
+        },
+        {
+          "unit_id": "94e71aed4ef8d26cd686cf578884d940",
           "num": 1,
-          "den": 1
-        },
-        {
-          "num": -2,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
           "den": 1
         }
       ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
       "system": "SI",
-      "doc": "See packages/reference/physical/sources.md for definition and datum conventions."
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     },
     {
       "unit_id": "8603b85ce543b8a618530ae4e9153091",
@@ -6014,94 +6286,33 @@
       "doc": "See packages/reference/physical/sources.md for definition and datum conventions."
     },
     {
-      "unit_id": "ce1522e8ed1ba5b892b92dca5df11cf4",
-      "symbol": "mol/m3",
+      "unit_id": "2ffab998657480c0ba30d041159fa794",
+      "symbol": "mol/m^3",
       "name": "mol/m3",
-      "dimension": [
+      "reference_state_id": null,
+      "definition": [
         {
-          "num": -3,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
           "num": 1,
           "den": 1
         },
         {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
+          "unit_id": "ca0a3e88d1228d3c1ea21d0b2e86b2d6",
+          "num": -3,
           "den": 1
         }
       ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
       "system": "SI",
-      "doc": "See packages/reference/physical/sources.md for definition and datum conventions."
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     },
     {
-      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "unit_id": "cd44727295e77c03f21ac3117e36df23",
       "symbol": "1",
       "name": "1",
-      "dimension": [
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        }
-      ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
       "reference_state_id": null,
+      "definition": [],
       "system": "SI",
-      "doc": "See packages/reference/physical/sources.md for definition and datum conventions."
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     },
     {
       "unit_id": "e2d8c8348ecf9f014790b4801a32c2db",
@@ -6149,679 +6360,229 @@
       "doc": "See packages/reference/physical/sources.md for definition and datum conventions."
     },
     {
-      "unit_id": "1dffd0841219487f9279afb4527a2abf",
-      "symbol": "kJ/mol",
-      "name": "kJ/mol",
-      "dimension": [
+      "unit_id": "05a511ae90484a0fc0bcfc0f5bfbc538",
+      "symbol": "J/m^3",
+      "name": "J/m3",
+      "reference_state_id": null,
+      "definition": [
         {
-          "num": 2,
-          "den": 1
-        },
-        {
+          "unit_id": "94e71aed4ef8d26cd686cf578884d940",
           "num": 1,
           "den": 1
         },
         {
-          "num": -2,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        }
-      ],
-      "scale_to_canonical": 1000.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
-      "system": "SI",
-      "doc": "Explicit coherent or SI-prefix coordinate for the shipped correlations; see sources.md."
-    },
-    {
-      "unit_id": "3a7832b6762748a3902c465b5ad20fd1",
-      "symbol": "J/kmol",
-      "name": "J/kmol",
-      "dimension": [
-        {
-          "num": 2,
-          "den": 1
-        },
-        {
-          "num": 1,
-          "den": 1
-        },
-        {
-          "num": -2,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        }
-      ],
-      "scale_to_canonical": 0.001,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
-      "system": "SI",
-      "doc": "Explicit coherent or SI-prefix coordinate for the shipped correlations; see sources.md."
-    },
-    {
-      "unit_id": "3372731050d84b66a198949196bad240",
-      "symbol": "J/(kmol*K)",
-      "name": "J/(kmol*K)",
-      "dimension": [
-        {
-          "num": 2,
-          "den": 1
-        },
-        {
-          "num": 1,
-          "den": 1
-        },
-        {
-          "num": -2,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        }
-      ],
-      "scale_to_canonical": 0.001,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
-      "system": "SI",
-      "doc": "Explicit coherent or SI-prefix coordinate for the shipped correlations; see sources.md."
-    },
-    {
-      "unit_id": "2fb603c740944f06b341f9d9f7ba03de",
-      "symbol": "kmol/m3",
-      "name": "kmol/m3",
-      "dimension": [
-        {
+          "unit_id": "ca0a3e88d1228d3c1ea21d0b2e86b2d6",
           "num": -3,
           "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
         }
       ],
-      "scale_to_canonical": 1000.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
       "system": "SI",
-      "doc": "Explicit coherent or SI-prefix coordinate for the shipped correlations; see sources.md."
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     },
     {
-      "unit_id": "2c780c134b34424c8d9767669932f479",
-      "symbol": "J/m3",
-      "name": "J/m3",
-      "dimension": [
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": 1,
-          "den": 1
-        },
-        {
-          "num": -2,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        }
-      ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
-      "system": "SI",
-      "doc": "Explicit coherent or SI-prefix coordinate for the shipped correlations; see sources.md."
-    },
-    {
-      "unit_id": "24912d4659594198b801ca5402bf13b0",
-      "symbol": "m3",
+      "unit_id": "b9bfee780f948b8b0c2bf3f174cc7163",
+      "symbol": "m^3",
       "name": "m3",
-      "dimension": [
+      "reference_state_id": null,
+      "definition": [
         {
+          "unit_id": "ca0a3e88d1228d3c1ea21d0b2e86b2d6",
           "num": 3,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
           "den": 1
         }
       ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
       "system": "SI",
-      "doc": "Explicit coherent or SI-prefix coordinate for the shipped correlations; see sources.md."
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     },
     {
-      "unit_id": "ea875cb5ed6b4c19baf80ff1295702cc",
-      "symbol": "m3/s",
+      "unit_id": "a90e7847b7e48ba7eda0d52b724b40a2",
+      "symbol": "m^3/s",
       "name": "m3/s",
-      "dimension": [
+      "reference_state_id": null,
+      "definition": [
         {
-          "num": 3,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
+          "unit_id": "8603b85ce543b8a618530ae4e9153091",
           "num": -1,
           "den": 1
         },
         {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
+          "unit_id": "ca0a3e88d1228d3c1ea21d0b2e86b2d6",
+          "num": 3,
           "den": 1
         }
       ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
       "system": "SI",
-      "doc": "Explicit coherent or SI-prefix coordinate for the shipped correlations; see sources.md."
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     },
     {
-      "unit_id": "ff1fc41f09ab42e0bcbda6bc92bdec25",
+      "unit_id": "75e3d037a47e3bb1e457bb9b5c2a1085",
       "symbol": "kg/mol",
       "name": "kg/mol",
-      "dimension": [
+      "reference_state_id": null,
+      "definition": [
         {
-          "num": 0,
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
+          "num": -1,
           "den": 1
         },
         {
+          "unit_id": "595bee9ed96fca9198f9cfbda2bd4e2a",
           "num": 1,
           "den": 1
-        },
+        }
+      ],
+      "system": "SI",
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
+    },
+    {
+      "unit_id": "1404082cae27874bc68e432be49c0bd5",
+      "symbol": "m^3/mol",
+      "name": "m3/mol",
+      "reference_state_id": null,
+      "definition": [
         {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
           "num": -1,
           "den": 1
         },
         {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        }
-      ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
-      "system": "SI",
-      "doc": "Explicit coherent or SI-prefix coordinate for the shipped correlations; see sources.md."
-    },
-    {
-      "unit_id": "8dea058edc804e2882ae8ef6f1a67dd3",
-      "symbol": "m3/mol",
-      "name": "m3/mol",
-      "dimension": [
-        {
+          "unit_id": "ca0a3e88d1228d3c1ea21d0b2e86b2d6",
           "num": 3,
           "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
         }
       ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
       "system": "SI",
-      "doc": "Coherent SI molar volume."
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     },
     {
-      "unit_id": "7108fe839f6c458294498186975f7c1d",
+      "unit_id": "a4cf5eee859eeacd65fce0e893dfd48f",
       "symbol": "kg/s",
       "name": "kg/s",
-      "dimension": [
+      "reference_state_id": null,
+      "definition": [
         {
-          "num": 0,
-          "den": 1
-        },
-        {
+          "unit_id": "595bee9ed96fca9198f9cfbda2bd4e2a",
           "num": 1,
           "den": 1
         },
         {
+          "unit_id": "8603b85ce543b8a618530ae4e9153091",
           "num": -1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
           "den": 1
         }
       ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
       "system": "SI",
-      "doc": "SI unit for explicitly declared Element projection coefficient or source flow."
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     },
     {
-      "unit_id": "dc22c9bdabe244c6939c3225c84df577",
+      "unit_id": "74e44c51734c172317fc4a14097b0f10",
       "symbol": "mol/kg",
       "name": "mol/kg",
-      "dimension": [
+      "reference_state_id": null,
+      "definition": [
         {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
           "num": 1,
           "den": 1
         },
         {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
+          "unit_id": "595bee9ed96fca9198f9cfbda2bd4e2a",
+          "num": -1,
           "den": 1
         }
       ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
       "system": "SI",
-      "doc": "SI unit for explicitly declared Element projection coefficient or source flow."
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     },
     {
-      "unit_id": "01a0e1d9b0257478868a5b6f20366279",
+      "unit_id": "fd6e2a9bfb707b22883fd6d74b35c781",
       "symbol": "m^3/(mol*s)",
       "name": "m^3/(mol*s)",
-      "dimension": [
+      "reference_state_id": null,
+      "definition": [
         {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
+          "num": -1,
+          "den": 1
+        },
+        {
+          "unit_id": "8603b85ce543b8a618530ae4e9153091",
+          "num": -1,
+          "den": 1
+        },
+        {
+          "unit_id": "ca0a3e88d1228d3c1ea21d0b2e86b2d6",
           "num": 3,
           "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
         }
       ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
       "system": "SI",
-      "doc": "Canonical SI unit for authored reaction models."
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     },
     {
-      "unit_id": "01a0e1d9b0257478868a5b72137b3270",
+      "unit_id": "f7bf22063f14628d7fdb600c082e2fbf",
       "symbol": "mol/(m^3*s)",
       "name": "mol/(m^3*s)",
-      "dimension": [
+      "reference_state_id": null,
+      "definition": [
         {
-          "num": -3,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": -1,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
           "num": 1,
           "den": 1
         },
         {
-          "num": 0,
+          "unit_id": "8603b85ce543b8a618530ae4e9153091",
+          "num": -1,
           "den": 1
         },
         {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
+          "unit_id": "ca0a3e88d1228d3c1ea21d0b2e86b2d6",
+          "num": -3,
           "den": 1
         }
       ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
       "system": "SI",
-      "doc": "Canonical SI unit for authored reaction models."
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     },
     {
-      "unit_id": "4d958c0282d5487a8c56779e76854f0a",
-      "symbol": "m2",
+      "unit_id": "ac0cb30454714ecc659dc883c7ca3a37",
+      "symbol": "m^2",
       "name": "m2",
-      "dimension": [
+      "reference_state_id": null,
+      "definition": [
         {
+          "unit_id": "ca0a3e88d1228d3c1ea21d0b2e86b2d6",
           "num": 2,
           "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
         }
       ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
       "system": "SI",
-      "doc": "See packages/reference/physical/sources.md for definition and datum conventions."
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     },
     {
-      "unit_id": "4e9207d3d4ed4461b526dd36bc7f59af",
-      "symbol": "W/(m2*K)",
+      "unit_id": "c0f2ebcc190986806a8cd887ad1b4df2",
+      "symbol": "W/(K*m^2)",
       "name": "W/(m2*K)",
-      "dimension": [
+      "reference_state_id": null,
+      "definition": [
         {
-          "num": 0,
-          "den": 1
-        },
-        {
+          "unit_id": "34207cdbb6fab2ee10002e057595c758",
           "num": 1,
           "den": 1
         },
         {
-          "num": -3,
-          "den": 1
-        },
-        {
+          "unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
           "num": -1,
           "den": 1
         },
         {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
-          "den": 1
-        },
-        {
-          "num": 0,
+          "unit_id": "ca0a3e88d1228d3c1ea21d0b2e86b2d6",
+          "num": -2,
           "den": 1
         }
       ],
-      "scale_to_canonical": 1.0,
-      "offset_to_canonical": 0.0,
-      "is_affine": false,
-      "reference_state_id": null,
       "system": "SI",
-      "doc": "See packages/reference/physical/sources.md for definition and datum conventions."
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     },
     {
       "unit_id": "5eeba1c1f9b34e5ea3894a882557517d",
@@ -6914,20 +6675,35 @@
       "doc": "US dollar at annual 2018 CEPCI 603.1; IDAES 2.13 currency reference."
     },
     {
-      "unit_id": "bd89c6bf5b514040a0d770e31ad0af0d",
+      "unit_id": "6c6f8deca198f4660f039d926c317b43",
       "symbol": "1/s",
       "name": "per second",
+      "reference_state_id": null,
+      "definition": [
+        {
+          "unit_id": "8603b85ce543b8a618530ae4e9153091",
+          "num": -1,
+          "den": 1
+        }
+      ],
+      "system": "SI",
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
+    },
+    {
+      "unit_id": "01a0edcf3ae7732fa11fa666e1f9a83f",
+      "symbol": "kJ",
+      "name": "kJ",
       "dimension": [
         {
-          "num": 0,
+          "num": 2,
           "den": 1
         },
         {
-          "num": 0,
+          "num": 1,
           "den": 1
         },
         {
-          "num": -1,
+          "num": -2,
           "den": 1
         },
         {
@@ -6951,12 +6727,182 @@
           "den": 1
         }
       ],
-      "scale_to_canonical": 1.0,
+      "scale_to_canonical": 1000.0,
       "offset_to_canonical": 0.0,
       "is_affine": false,
       "reference_state_id": null,
       "system": "SI",
       "doc": "See packages/reference/physical/sources.md for definition and datum conventions."
+    },
+    {
+      "unit_id": "01a0edcf3ae7732fa11fa66767fd0936",
+      "symbol": "kmol",
+      "name": "kmol",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1000.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "See packages/reference/physical/sources.md for definition and datum conventions."
+    },
+    {
+      "unit_id": "42a671644390a59b1fc2c76bb60193fa",
+      "symbol": "J/(K^2*mol)",
+      "name": "J/(K^2*mol)",
+      "reference_state_id": null,
+      "definition": [
+        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
+          "num": -1,
+          "den": 1
+        },
+        {
+          "unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+          "num": -2,
+          "den": 1
+        },
+        {
+          "unit_id": "94e71aed4ef8d26cd686cf578884d940",
+          "num": 1,
+          "den": 1
+        }
+      ],
+      "system": "SI",
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
+    },
+    {
+      "unit_id": "0bc13e485d1417960c0b02632f5038c6",
+      "symbol": "J/(K^3*mol)",
+      "name": "J/(K^3*mol)",
+      "reference_state_id": null,
+      "definition": [
+        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
+          "num": -1,
+          "den": 1
+        },
+        {
+          "unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+          "num": -3,
+          "den": 1
+        },
+        {
+          "unit_id": "94e71aed4ef8d26cd686cf578884d940",
+          "num": 1,
+          "den": 1
+        }
+      ],
+      "system": "SI",
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
+    },
+    {
+      "unit_id": "77aaf84f80594e4097bc87d5044d9814",
+      "symbol": "J/(K^4*mol)",
+      "name": "J/(K^4*mol)",
+      "reference_state_id": null,
+      "definition": [
+        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
+          "num": -1,
+          "den": 1
+        },
+        {
+          "unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+          "num": -4,
+          "den": 1
+        },
+        {
+          "unit_id": "94e71aed4ef8d26cd686cf578884d940",
+          "num": 1,
+          "den": 1
+        }
+      ],
+      "system": "SI",
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
+    },
+    {
+      "unit_id": "0dd99049af4b0ad6d29a16b306ff4dc4",
+      "symbol": "J/(K^5*mol)",
+      "name": "J/(K^5*mol)",
+      "reference_state_id": null,
+      "definition": [
+        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
+          "num": -1,
+          "den": 1
+        },
+        {
+          "unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+          "num": -5,
+          "den": 1
+        },
+        {
+          "unit_id": "94e71aed4ef8d26cd686cf578884d940",
+          "num": 1,
+          "den": 1
+        }
+      ],
+      "system": "SI",
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
+    },
+    {
+      "unit_id": "b168ec7adeca3ebe2e6950a9e2c46223",
+      "symbol": "J*K/mol",
+      "name": "J*K/mol",
+      "reference_state_id": null,
+      "definition": [
+        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
+          "num": -1,
+          "den": 1
+        },
+        {
+          "unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+          "num": 1,
+          "den": 1
+        },
+        {
+          "unit_id": "94e71aed4ef8d26cd686cf578884d940",
+          "num": 1,
+          "den": 1
+        }
+      ],
+      "system": "SI",
+      "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
     }
   ],
   "math_context": [
@@ -7982,6 +7928,37 @@
       ],
       "required_basis_id": null,
       "required_quantity_type_id": "368c7ebb44ee45318fa572df5fe706b9",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "01a0ee03d43674589ac9f74c240ac0d3",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0,
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "01a0ee03d43674589ac9f74eadf93661",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "459a933fd00837bbc50372e31ac9801c",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "01a0ee03d43674589ac9f74f5572b68a",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
       "match_shape": false
     }
   ],

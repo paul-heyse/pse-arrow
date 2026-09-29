@@ -26,7 +26,7 @@
 [costing.sixteen]=[1.05];
 [costing.twenty]=[1];
 }
-@id("84ba982413ba458c8bef4c42ad08ba3a") test upstream source "IDAES 2.13 test_SSLW.test_cost_heat_exchanger known Utube stainless 12ft case; explicitly extrapolated below 100 psig" revision "2.13.0" fixture {dof 0; run pure; fix root.area=1000{m2}; fix root.pressure=202650{Pa};} {
+@id("84ba982413ba458c8bef4c42ad08ba3a") test upstream source "IDAES 2.13 test_SSLW.test_cost_heat_exchanger known Utube stainless 12ft case; explicitly extrapolated below 100 psig" revision "2.13.0" fixture {dof 0; run pure; fix root.area=1000{m^2}; fix root.pressure=202650{Pa};} {
 @id("3a2d7f418c424332a83144aa455747d7") child root:costing.HeatExchangerCost=costing.HeatExchangerCost(pressure_extrapolation=true);
 @id("dc8261a0ac4a434c95368559f25918ad") expect costing.currency_unit()==1{USD_CE500} tolerance 1e-12{USD_CE500};
 @id("e25ce7df55d14f92bddf2f0b2de3c359") expect costing.base_amount(11840.3014583805,11.3852,0.9186,0.0979)==87704.5883652126 tolerance 1;
@@ -39,7 +39,7 @@
 @id("2c069811e94a49bf8c9db6d854100625") contribute flowsheet_capital role positive=root.capital_cost;
 @id("0f0acdf04e1542cfa1a9d7e3ca20b216") expect flowsheet_capital==root.capital_cost tolerance 1e-8{USD_CE500};
 }
-@id("be00dca04cd4497a8b78f7e5d7877279") test envelope source "SSLW analytic factors at 500 psig and CEPCI conversion" revision "2.13.0" fixture {dof 0; run pure; fix root.area=1000{m2}; fix root.pressure=3548703.6465841806{Pa};} {
+@id("be00dca04cd4497a8b78f7e5d7877279") test envelope source "SSLW analytic factors at 500 psig and CEPCI conversion" revision "2.13.0" fixture {dof 0; run pure; fix root.area=1000{m^2}; fix root.pressure=3548703.6465841806{Pa};} {
 @id("0721f71c07ab4f76a298b5a94d3a1ab4") child root:costing.HeatExchangerCost=costing.HeatExchangerCost(pressure_extrapolation=false);
 @id("bafd8d1597734d2cb4ebbcfafdbb5fe9") expect root.base_cost_per_unit==87704.6{USD_CE500} tolerance 1{USD_CE500};
 @id("ad0eaa8edc16491590a658099a9b5277") expect root.material_factor==4.08752 tolerance 0.00005;

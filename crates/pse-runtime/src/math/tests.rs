@@ -67,7 +67,6 @@ fn inputs() -> Inputs {
         domains: vec![],
         groups: vec![],
         providers: vec![],
-        units: BTreeMap::from([("1".into(), unit)]),
         literals: BTreeMap::new(),
         limits: BodyLimits::default(),
     };

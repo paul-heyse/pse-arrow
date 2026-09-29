@@ -40,10 +40,11 @@ fn declare_reference_dimensions(builder: &mut RegistryBuilder) {
 }
 
 fn declare_reference_units(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Reference,
         "units",
+        2,
         S::Model,
         &["unit_id"],
         vec![
@@ -53,23 +54,35 @@ fn declare_reference_units(builder: &mut RegistryBuilder) {
             column(
                 "dimension",
                 T::extended(crate::model::ExtensionUse::DimensionVector),
-            ),
+            )
+            .optional(),
             column(
                 "scale_to_canonical",
                 T::native(arrow_schema::DataType::Float64),
-            ),
+            )
+            .optional(),
             column(
                 "offset_to_canonical",
                 T::native(arrow_schema::DataType::Float64),
-            ),
-            column("is_affine", T::native(arrow_schema::DataType::Boolean)),
+            )
+            .optional(),
+            column("is_affine", T::native(arrow_schema::DataType::Boolean)).optional(),
             column("reference_state_id", T::id())
                 .optional()
                 .with_fk("reference.reference_states", "reference_state_id"),
+            column(
+                "definition",
+                T::list(structure(vec![
+                    ("unit_id", T::id()),
+                    ("num", T::native(arrow_schema::DataType::Int16)),
+                    ("den", T::native(arrow_schema::DataType::Int16)),
+                ])),
+            )
+            .optional(),
             column("system", T::native(arrow_schema::DataType::Utf8)),
             column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
-        "blueprint §6.2 physical type: units.",
+        "blueprint §6.2 physical type: units. Version two separates atomic from defined units (ADR-0124): an atomic unit authors its dimension, scale, offset, affinity and optional datum restriction; a defined unit authors only its composition, factors over declared units with reduced rational exponents, and admission derives its dimension and scale. A defined unit's identity is its unit-product identity, and literals spell it by its composition, never by its symbol.",
     );
 }
 
@@ -107,7 +120,7 @@ fn declare_reference_quantity_kinds(builder: &mut RegistryBuilder) {
         builder,
         N::Reference,
         "quantity_kinds",
-        2,
+        3,
         S::Model,
         &["quantity_kind_id"],
         vec![
@@ -116,13 +129,33 @@ fn declare_reference_quantity_kinds(builder: &mut RegistryBuilder) {
             column(
                 "dimension",
                 T::extended(crate::model::ExtensionUse::DimensionVector),
-            ),
+            )
+            .optional(),
             column("extensive", T::native(arrow_schema::DataType::Boolean)),
             column("addition_kind", T::enumeration("QuantityAdditionKind")),
             column("category", T::enumeration("QuantityKindCategory")).optional(),
+            column(
+                "definition",
+                structure(vec![
+                    (
+                        "monomial",
+                        T::list(structure(vec![
+                            ("quantity_kind_id", T::id()),
+                            ("num", T::native(arrow_schema::DataType::Int16)),
+                            ("den", T::native(arrow_schema::DataType::Int16)),
+                        ])),
+                    ),
+                    ("canonical_unit_id", T::id()),
+                    ("basis_id", T::id().optional()),
+                    ("reference_state_id", T::id().optional()),
+                    ("scale_kind", T::enumeration("ScaleKind")),
+                    ("subject_kind", T::id().optional()),
+                ]),
+            )
+            .optional(),
             column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
-        "blueprint §6.2 physical type: quantity_kinds. Version two adds the count or indicator category of a dimensionless pure-number kind (ADR-0103); measured kinds carry none.",
+        "blueprint §6.2 physical type: quantity_kinds. Version two adds the count or indicator category of a dimensionless pure-number kind (ADR-0103); measured kinds carry none. Version three adds derived kinds (ADR-0124): a derived kind authors a monomial over declared kinds with reduced rational exponents, its canonical unit and the complete result a multiplicative chain resolving to it takes (scale, optional datum and subject, and a basis when the factors' bases may differ); admission derives its dimension, so it authors none.",
     );
 }
 

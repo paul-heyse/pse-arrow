@@ -374,8 +374,8 @@ impl FactBatch {
             }
             Self::r#NormalizedUnits(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    32u8, 187u8, 24u8, 26u8, 145u8, 134u8, 174u8, 117u8, 62u8, 133u8,
-                    251u8, 194u8, 13u8, 30u8, 24u8, 111u8,
+                    66u8, 182u8, 117u8, 78u8, 247u8, 180u8, 55u8, 62u8, 199u8, 118u8,
+                    71u8, 20u8, 169u8, 194u8, 197u8, 111u8,
                 ])
             }
             Self::r#ProvenanceAssertions(_) => {
@@ -464,8 +464,8 @@ impl FactBatch {
             }
             Self::r#ReferenceQuantityKinds(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    237u8, 135u8, 148u8, 233u8, 20u8, 159u8, 174u8, 145u8, 123u8, 13u8,
-                    252u8, 172u8, 166u8, 107u8, 167u8, 197u8,
+                    218u8, 30u8, 248u8, 250u8, 144u8, 101u8, 57u8, 141u8, 174u8, 115u8,
+                    255u8, 216u8, 131u8, 148u8, 10u8, 147u8,
                 ])
             }
             Self::r#ReferenceQuantityOperationReductions(_) => {
@@ -566,8 +566,8 @@ impl FactBatch {
             }
             Self::r#ReferenceUnits(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    240u8, 103u8, 232u8, 20u8, 2u8, 102u8, 38u8, 222u8, 0u8, 183u8,
-                    106u8, 252u8, 164u8, 254u8, 176u8, 215u8,
+                    107u8, 103u8, 120u8, 145u8, 89u8, 158u8, 19u8, 39u8, 183u8, 145u8,
+                    183u8, 174u8, 173u8, 134u8, 41u8, 49u8,
                 ])
             }
             Self::r#RuntimeArtifactDescriptors(_) => {

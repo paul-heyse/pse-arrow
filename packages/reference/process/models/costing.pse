@@ -25,7 +25,7 @@
 @id("1fe0e59de7df4951bc1aced29b50d020") table design_coefficients[d:hx_design]:{constant:Scalar,linear:Scalar,quadratic:Scalar};
 @id("e1f183461bdb4f08b9dec444556478a8") table material_coefficients[m:hx_material]:{offset:Scalar,exponent:Scalar};
 @id("cda011e4a3f74dfd9b51d4dc32cd03a4") table length_factor[l:tube_length]:Scalar;
-@id("8f71dc0c02f84ddc8c7033d1fb607799") fn square_foot()->Area=0.09290304{m2};
+@id("8f71dc0c02f84ddc8c7033d1fb607799") fn square_foot()->Area=0.09290304{m^2};
 @id("97c5376022b34a2d95e9200d0e935fc7") fn atmospheric_pressure()->Pressure=101325{Pa};
 @id("63abf3f232a54b73a4087fc469dfc344") fn hundred_psi()->DeltaPressure=689475.7293168361{Pa};
 @id("3838198bd3b04d2ca0e313b7a6071b42") fn currency_unit()->CapitalCost=1{USD_CE500};
@@ -37,8 +37,8 @@
 @id("ca87aee5fa024564bf08647139341442") var area:Area;
 @id("aeaa377854134283b6220bc13cac79f6") var pressure:Pressure;
 @id("a4ff2fca53244c83accd0c89ab672a6c") param oversize:Scalar=1.1;
-@id("9472a2f6918545d79ea54b93933c9cca") annotation bounds area(1e-8{m2},1000000{m2});
-@id("db2113ca0bb74391ba5132f7c7c50f28") annotation start area(1000{m2});
+@id("9472a2f6918545d79ea54b93933c9cca") annotation bounds area(1e-8{m^2},1000000{m^2});
+@id("db2113ca0bb74391ba5132f7c7c50f28") annotation start area(1000{m^2});
 @id("87f3b2587c2a489d926410e2c8fc09aa") annotation start pressure(202650{Pa});
 @id("f9ba6722c6814f3590f1fc832b060195") annotation valid oversize(1.1,1.5,reject);
 @id("2f5889e48a434688a43e0ea17e2dd707") let area_per_unit:Scalar=area/square_foot();
