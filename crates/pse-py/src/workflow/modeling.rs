@@ -10,6 +10,21 @@ use std::collections::BTreeMap;
 fn declaration(py: Python<'_>, text: &str) -> PyResult<DeclarationId> {
     id(py, text).map(DeclarationId::from)
 }
+/// The fixtures a conformance run executes: every authored test, or the test declarations
+/// the caller names by identity.
+fn fixture_selection(
+    py: Python<'_>,
+    fixtures: Option<Vec<String>>,
+) -> PyResult<native::ModelingFixtureSelection> {
+    let Some(fixtures) = fixtures else {
+        return Ok(native::ModelingFixtureSelection::Package);
+    };
+    fixtures
+        .iter()
+        .map(|text| declaration(py, text))
+        .collect::<PyResult<_>>()
+        .map(native::ModelingFixtureSelection::Selected)
+}
 
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1147,7 +1162,7 @@ impl NativeModelingPackage {
         clippy::too_many_arguments,
         reason = "one parameter per argument of the Python method signature"
     )]
-    #[pyo3(signature=(settings, *, maximum_fixtures=1024, maximum_checks=16384, derivative_cells=100000, derivative_step=1e-6, derivative_tolerance=1e-4))]
+    #[pyo3(signature=(settings, *, maximum_fixtures=1024, maximum_checks=16384, derivative_cells=100000, derivative_step=1e-6, derivative_tolerance=1e-4, fixtures=None))]
     fn conform(
         &self,
         py: Python<'_>,
@@ -1157,8 +1172,10 @@ impl NativeModelingPackage {
         derivative_cells: usize,
         derivative_step: f64,
         derivative_tolerance: f64,
+        fixtures: Option<Vec<String>>,
     ) -> PyResult<NativeModelingConformance> {
         let settings = settings::solve_profile(py, settings)?;
+        let fixtures = fixture_selection(py, fixtures)?;
         let cancel = CancelSource::new();
         let policy = native::ModelingConformancePolicy {
             compiler: Default::default(),
@@ -1172,6 +1189,7 @@ impl NativeModelingPackage {
             },
             maximum_fixtures,
             maximum_checks,
+            fixtures,
         };
         let inner = blocking(py, &self.owner, self.inner.conform(policy, &cancel), || {
             cancel.cancel()
@@ -1750,7 +1768,11 @@ pub(crate) struct NativeModelingConformance {
 #[pymethods]
 impl NativeModelingConformance {
     #[staticmethod]
-    #[pyo3(signature=(documents, physical, settings, *, maximum_fixtures=1024, maximum_checks=16384, limits=None))]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one parameter per argument of the Python method signature"
+    )]
+    #[pyo3(signature=(documents, physical, settings, *, maximum_fixtures=1024, maximum_checks=16384, limits=None, fixtures=None))]
     fn pure(
         py: Python<'_>,
         documents: Vec<BTreeMap<String, String>>,
@@ -1759,7 +1781,9 @@ impl NativeModelingConformance {
         maximum_fixtures: usize,
         maximum_checks: usize,
         limits: Option<&ModelingLimits>,
+        fixtures: Option<Vec<String>>,
     ) -> PyResult<Self> {
+        let selection = fixture_selection(py, fixtures)?;
         let budget = settings.resource_budget().clone();
         let executor = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(budget.threads.pool_threads.get())
@@ -1775,6 +1799,7 @@ impl NativeModelingConformance {
                 physical,
                 budget,
                 Arc::new(pse_rules::invariants::RegistryRequirementPlanner),
+                selection,
                 maximum_fixtures,
                 maximum_checks,
                 limits.map_or_else(Default::default, |v| v.limits),
@@ -1793,6 +1818,14 @@ impl NativeModelingConformance {
     #[getter]
     fn complete(&self) -> bool {
         self.inner.complete
+    }
+    /// Whether the run executed a fixture selection, which assesses no package coverage.
+    #[getter]
+    fn selected(&self) -> bool {
+        matches!(
+            self.inner.selection,
+            native::ModelingFixtureSelection::Selected(_)
+        )
     }
     fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.table())

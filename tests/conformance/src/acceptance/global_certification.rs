@@ -194,29 +194,8 @@ async fn fixture_intent_selects_certify() {
     let owner = WorkflowRuntime::new().unwrap();
     let source = seed_package(&owner).await;
     let fixture = DeclarationId::from(SemanticId::parse_hex(TPD_IDEAL).unwrap());
-    // Only this fixture runs: every other test goes, with its declarations.
+    // Only this fixture runs.
     let rows = source.declarations().to_vec();
-    let mut removed: std::collections::BTreeSet<_> = rows
-        .iter()
-        .filter(|r| r.value.kind.as_str() == "test" && r.declaration_id != fixture)
-        .map(|r| r.declaration_id)
-        .collect();
-    loop {
-        let before = removed.len();
-        let descendants: Vec<_> = rows
-            .iter()
-            .filter(|r| r.parent_id.is_some_and(|p| removed.contains(&p)))
-            .map(|r| r.declaration_id)
-            .collect();
-        removed.extend(descendants);
-        if removed.len() == before {
-            break;
-        }
-    }
-    let kept: Vec<_> = rows
-        .into_iter()
-        .filter(|r| !removed.contains(&r.declaration_id))
-        .collect();
     let mut solver = profile(Backend::Ipopt, true);
     solver.selection = SolverSelection::Auto;
     solver.controls.time_limit = Duration::from_secs(300);
@@ -239,6 +218,9 @@ async fn fixture_intent_selects_certify() {
                         },
                         maximum_fixtures: 16,
                         maximum_checks: 10_000,
+                        fixtures: pse_runtime::workflow::ModelingFixtureSelection::Selected(
+                            [fixture].into(),
+                        ),
                     },
                     &CancelSource::new(),
                 )
@@ -246,7 +228,8 @@ async fn fixture_intent_selects_certify() {
                 .unwrap()
         }
     };
-    let report = conform(kept.clone()).await;
+    let report = conform(rows.clone()).await;
+    assert_eq!(report.fixtures(), [fixture].into());
     // The fixture's solve, its expectation and its checks pass (derivative sampling is
     // reported separately).
     use pse_model::generated::enums::ModelingConformanceKind as Kind;
@@ -279,7 +262,7 @@ async fn fixture_intent_selects_certify() {
     assert_eq!(check.basis, ModelingCheckBasis::GlobalBound);
     // Control: without the declared intent the run's automatic optimization takes a local
     // route, and the check is evaluated at the point.
-    let mut open = kept;
+    let mut open = rows;
     for row in &mut open {
         if row.declaration_id == fixture
             && let Some(scope) = row.value.scope.as_mut()

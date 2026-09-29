@@ -5,7 +5,9 @@
 One package runs ad hoc; ``--manifest`` runs every run a reference set declares (for
 example ``packages/reference/conformance.toml``) once, under the manifest's run settings.
 A fixture's execution policy is authored in the fixture itself; it is never
-command-line data.
+command-line data. Repeated ``--fixture <declaration-id>`` selects test declarations by
+identity: only those run, an identity that names no authored test is refused before any
+fixture runs, and the run reports ``coverage=selected`` rather than package coverage.
 """
 
 import argparse
@@ -30,6 +32,8 @@ from pse import (
     SolveSettings,
 )
 from pse.contracts.enums import NativeBackend, NativeSolveIntent, PresolvePolicyKind
+from pse.contracts.identities import DeclarationId
+from pse.contracts.values import SemanticId
 
 #: The command line's word for automatic backend selection (no explicit backend).
 AUTOMATIC = "auto"
@@ -81,11 +85,16 @@ class ConformanceManifest(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 
 
 class RunSummary(msgspec.Struct, frozen=True):
-    """The one-line verdict of one run and its fixture inventory by status."""
+    """The one-line verdict of one run and its fixture inventory by status.
+
+    ``coverage`` is ``package`` when every authored test ran and package coverage was
+    assessed, and ``selected`` when a fixture selection ran, which assesses none.
+    """
 
     name: str
     passed: bool
     complete: bool
+    coverage: Literal["package", "selected"]
     checks: int
     statuses: dict[str, int]
 
@@ -93,7 +102,8 @@ class RunSummary(msgspec.Struct, frozen=True):
         counts = ", ".join(f"{k} {v}" for k, v in sorted(self.statuses.items()))
         return (
             f"{self.name}: passed={self.passed} complete={self.complete} "
-            f"checks={self.checks} fixtures={sum(self.statuses.values())} ({counts})"
+            f"coverage={self.coverage} checks={self.checks} "
+            f"fixtures={sum(self.statuses.values())} ({counts})"
         )
 
 
@@ -114,6 +124,11 @@ def load_manifest(path: Path) -> ConformanceManifest:
                 message = f"{path}: run {run.name} names {root}, which has no package.toml"
                 raise ValueError(message)
     return manifest
+
+
+def fixture_id(text: str) -> DeclarationId:
+    """A fixture selection names a test declaration by its identity."""
+    return DeclarationId(SemanticId.from_hex(text))
 
 
 def _documents(root: Path) -> dict[str, str]:
@@ -150,8 +165,10 @@ def run_once(  # noqa: PLR0913 - one run's name, roots, execution, settings and 
     pure: bool,
     settings: RunSettings,
     report: Path | None,
+    fixtures: Sequence[DeclarationId] | None = None,
 ) -> RunSummary:
-    """Run every fixture of a package and its dependencies once and summarize it."""
+    """Run every fixture of a package and its dependencies once, or the selected
+    ``fixtures``, and summarize it."""
     limits = ModelingLimits(
         items=settings.expansion_items,
         members=settings.expansion_members,
@@ -177,6 +194,7 @@ def run_once(  # noqa: PLR0913 - one run's name, roots, execution, settings and 
                 maximum_fixtures=settings.maximum_fixtures,
                 maximum_checks=settings.maximum_checks,
                 limits=limits,
+                fixtures=fixtures,
             )
         else:
             runtime = Runtime(engine)
@@ -195,6 +213,7 @@ def run_once(  # noqa: PLR0913 - one run's name, roots, execution, settings and 
                 derivative_cells=settings.derivative_cells,
                 derivative_step=settings.derivative_step,
                 derivative_tolerance=settings.derivative_tolerance,
+                fixtures=fixtures,
             )
         if report is not None:
             _write(report, result)
@@ -203,14 +222,26 @@ def run_once(  # noqa: PLR0913 - one run's name, roots, execution, settings and 
             name=name,
             passed=result.passed,
             complete=result.complete,
+            coverage="selected" if result.selected else "package",
             checks=pa.table(result.table()).num_rows,
             statuses=dict(Counter(str(s) for s in statuses)),
         )
 
 
-def run_manifest(path: Path, report_dir: Path | None) -> tuple[RunSummary, ...]:
-    """Run every declared run once, in order, writing its reports as ``<name>.arrow``."""
+def run_manifest(
+    path: Path,
+    report_dir: Path | None,
+    fixtures: Sequence[DeclarationId] | None = None,
+) -> tuple[RunSummary, ...]:
+    """Run every declared run once, in order, writing its reports as ``<name>.arrow``.
+
+    A fixture selection needs a manifest of one run, so an identity outside that run is
+    refused before any fixture runs.
+    """
     manifest = load_manifest(path)
+    if fixtures is not None and len(manifest.runs) != 1:
+        message = f"{path}: a fixture selection needs a manifest that declares one run"
+        raise ValueError(message)
     if report_dir is not None:
         report_dir.mkdir(parents=True, exist_ok=True)
     summaries = []
@@ -223,6 +254,7 @@ def run_manifest(path: Path, report_dir: Path | None) -> tuple[RunSummary, ...]:
             pure=run.execution == "pure",
             settings=manifest.settings,
             report=None if report_dir is None else report_dir / f"{run.name}.arrow",
+            fixtures=fixtures,
         )
         # One verdict line per run is the command's standard output.
         sys.stdout.write(summary.line() + "\n")
@@ -267,11 +299,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--expansion-members", type=int)
     parser.add_argument("--expansion-depth", type=int)
     parser.add_argument("--report", type=Path)
+    parser.add_argument(
+        "--fixture",
+        type=fixture_id,
+        action="append",
+        help="run only this test declaration (hexadecimal identity); repeatable",
+    )
     args = parser.parse_args(argv)
+    fixtures: list[DeclarationId] | None = args.fixture
     if args.manifest is not None:
         if args.package is not None or args.report is not None:
             parser.error("--manifest runs its declared packages into --report-dir")
-        summaries = run_manifest(args.manifest, args.report_dir)
+        summaries = run_manifest(args.manifest, args.report_dir, fixtures)
         return 0 if all(s.passed and s.complete for s in summaries) else 1
     if args.package is None or args.physical is None or args.memory_limit_bytes is None:
         parser.error("a package run needs a package, --physical and --memory-limit-bytes")
@@ -301,6 +340,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         pure=args.pure,
         settings=settings,
         report=args.report,
+        fixtures=fixtures,
     )
     # The command's one-line verdict is its standard output.
     sys.stdout.write(summary.line() + "\n")

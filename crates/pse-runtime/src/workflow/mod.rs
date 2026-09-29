@@ -78,7 +78,7 @@ pub use modeling::{
     DiagnosticSampleStop, DiscreteInitialization, ElasticObservation, ModelingAnalysis,
     ModelingCheck, ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
     ModelingDiagnosticPolicy, ModelingDiagnosticPreparation, ModelingDiagnosticSamples,
-    ModelingDiagnostics, ModelingElasticAttempt,
+    ModelingDiagnostics, ModelingElasticAttempt, ModelingFixtureSelection,
     ModelingInfeasibilityCertificate, ModelingInitialization, ModelingInitializationAttempt,
     ModelingInitializationReport, ModelingInitializationStep, ModelingNonlinearExplanation,
     ModelingNonlinearPolicy, ModelingObservations, ModelingPackage, ModelingReport, ModelingResult,

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Standalone pure conformance shares admission and compiler semantics, without MathService.
-use super::conformance::{NO_FIXTURE, fixture_limits};
+use super::conformance::{ModelingFixtureSelection, NO_FIXTURE, fixture_limits};
 use super::*;
 use pse_columnar::{AllocationLease, MemoryConsumer};
 use pse_model::generated::enums::{
     ModelingConformanceKind as Kind, ModelingConformanceStatus as Status,
-    ModelingDeclarationKind as DeclarationKind, ModelingFixtureExecution as Execution,
+    ModelingFixtureExecution as Execution,
 };
 use std::{
     collections::BTreeSet,
@@ -20,13 +20,14 @@ use std::{
 /// Physical data still passes through its authoritative relational admission boundary.
 #[expect(
     clippy::too_many_arguments,
-    reason = "the documents, physical data, budget and planner accompany the fixture and check caps, limits and cancellation"
+    reason = "the documents, physical data, budget and planner accompany the fixture selection and caps, limits and cancellation"
 )]
 pub async fn conform_pure_documents(
     documents: Vec<BTreeMap<String, String>>,
     physical_documents: BTreeMap<String, String>,
     budget: crate::ResourceBudget,
     requirements: Arc<dyn pse_engine::session::policy::RequirementPlanner>,
+    selection: ModelingFixtureSelection,
     maximum_fixtures: usize,
     maximum_checks: usize,
     limits: Limits,
@@ -112,9 +113,10 @@ pub async fn conform_pure_documents(
             .checked_add(budget.math.worker_bytes)
             .ok_or_else(|| contract("compiler extent"))?,
     )?;
-    let fixture_ids = rows
-        .iter()
-        .filter(|r| r.value.kind == DeclarationKind::Test)
+    // An unknown selection is refused before the compiler workspace or any fixture runs.
+    let fixture_ids = selection
+        .tests(&rows)?
+        .into_iter()
         .map(|r| r.declaration_id)
         .collect::<Vec<_>>();
     let mut report = ModelingConformanceReport::new(
@@ -123,6 +125,7 @@ pub async fn conform_pure_documents(
         &fixture_ids,
         maximum_checks,
     )?;
+    report.selection = selection;
     let flag = Arc::new(AtomicBool::new(token.is_cancelled()));
     let worker_flag = flag.clone();
     let task = tokio::task::spawn_blocking(
@@ -141,11 +144,7 @@ pub async fn conform_pure_documents(
             let revision = compiler
                 .publish_modeling(rows, names)
                 .map_err(crate::math::MathRuntimeError::from)?;
-            let fixtures = revision
-                .declarations()
-                .iter()
-                .filter(|r| r.value.kind == DeclarationKind::Test)
-                .collect::<Vec<_>>();
+            let fixtures = report.selection.tests(revision.declarations())?;
             if fixtures.is_empty() {
                 report.record_fixture(
                     NO_FIXTURE,
@@ -231,30 +230,7 @@ pub async fn conform_pure_documents(
                     .map_err(WorkflowError::from);
                 report.pure_result(fixture, &model, checked, row, maximum_checks);
             }
-            for row in revision
-                .declarations()
-                .iter()
-                .filter(|r| r.value.kind == DeclarationKind::Definition)
-            {
-                report.record(
-                    NO_FIXTURE,
-                    row.declaration_id.as_id(),
-                    row.declaration_id,
-                    Kind::Coverage,
-                    if covered.contains(&row.declaration_id) {
-                        Status::Passed
-                    } else {
-                        Status::Failed
-                    },
-                    if covered.contains(&row.declaration_id) {
-                        "definition instantiated by an authored fixture"
-                    } else {
-                        "definition lacks a concrete authored fixture"
-                    },
-                    None,
-                    maximum_checks,
-                );
-            }
+            report.coverage(revision.declarations(), &covered, maximum_checks);
             Ok(report)
         },
     );

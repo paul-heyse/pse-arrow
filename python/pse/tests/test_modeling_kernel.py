@@ -70,7 +70,7 @@ execution = "pure"
     arguments = ["--manifest", str(manifest), "--report-dir", str(reports)]
     assert conformance_main(arguments) == 0
     (line,) = capsys.readouterr().out.splitlines()
-    assert line.startswith("tiny: passed=True complete=True checks=")
+    assert line.startswith("tiny: passed=True complete=True coverage=package checks=")
     assert line.endswith("fixtures=1 (passed 1)")
     for suffix in (".arrow", ".fixtures.arrow", ".findings.arrow"):
         assert (reports / f"tiny{suffix}").is_file()
@@ -89,6 +89,88 @@ execution = "pure"
             conformance_main(arguments)
     with pytest.raises(SystemExit):
         conformance_main([*arguments, "--report", str(tmp_path / "one.arrow")])
+
+
+@pytest.mark.unit
+def test_conformance_runs_only_selected_fixtures(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Repeated ``--fixture`` runs only those test declarations, selected by identity, in
+    the manifest and the single-package forms; unknown identities are refused."""
+    root = Path(__file__).resolve().parents[3]
+    physical_root = root / "tests/fixtures/packages/physical-primitives"
+    package = tmp_path / "pure"
+    (package / "models").mkdir(parents=True)
+    (package / "package.toml").write_text(
+        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
+        .read_text()
+        .replace('id_policy = "explicit"', 'id_policy = "named"')
+        .replace("dependencies = []", PRIMITIVES)
+    )
+    first, second, wrong = declaration(201), declaration(202), declaration(203)
+    (package / "models/pure.pse").write_text(
+        f"""package pure {{
+      fn square(x:Scalar)->Scalar=x*x;
+      @id("{first.to_hex()}") test first fixture {{dof 0; run pure;}} {{
+        expect square(2)==4 tolerance 1e-12;
+      }}
+      @id("{second.to_hex()}") test second fixture {{dof 0; run pure;}} {{
+        expect square(3)==9 tolerance 1e-12;
+      }}
+      @id("{wrong.to_hex()}") test wrong fixture {{dof 0; run pure;}} {{
+        expect square(1)==2 tolerance 1e-12;
+      }}
+    }}"""
+    )
+    manifest = tmp_path / "conformance.toml"
+    manifest.write_text(
+        f"""
+[settings]
+memory_limit_bytes = {8 << 30}
+maximum_checks = 32
+
+[[runs]]
+name = "tiny"
+package = "pure"
+physical = "{physical_root}"
+execution = "pure"
+"""
+    )
+    reports = tmp_path / "reports"
+    run = ["--manifest", str(manifest), "--report-dir", str(reports)]
+    # Control: the whole package runs its failing fixture.
+    assert conformance_main(run) == 1
+    assert "coverage=package" in capsys.readouterr().out
+    selected = ["--fixture", first.to_hex(), "--fixture", second.to_hex()]
+    assert conformance_main([*run, *selected]) == 0
+    (line,) = capsys.readouterr().out.splitlines()
+    assert line.startswith("tiny: passed=True complete=True coverage=selected checks=")
+    assert line.endswith("fixtures=2 (passed 2)")
+    with pa.ipc.open_file(reports / "tiny.fixtures.arrow") as reader:
+        inventory = reader.read_all().column("fixture_id").to_pylist()
+    assert sorted(inventory) == sorted([first, second])
+    # The single-package form takes the same selection.
+    single = [
+        str(package),
+        "--pure",
+        "--physical",
+        str(physical_root),
+        "--memory-limit-bytes",
+        str(8 << 30),
+        "--maximum-checks",
+        "32",
+    ]
+    assert conformance_main([*single, "--fixture", second.to_hex()]) == 0
+    assert "coverage=selected checks=" in capsys.readouterr().out
+    # An identity that names no authored test is refused before any fixture runs, in both
+    # forms; a malformed identity is refused by the command line.
+    unknown = declaration(204)
+    for form in (run, single):
+        with pytest.raises(pse.InspectionError, match=unknown.to_hex()):
+            conformance_main([*form, "--fixture", first.to_hex(), "--fixture", unknown.to_hex()])
+    with pytest.raises(SystemExit):
+        conformance_main([*single, "--fixture", "not-an-identity"])
+
 
 #: A manifest dependency on the physical primitives fixture, whose physical document names
 #: `Scalar` and `Time` (ADR-0123 Outcome 6).

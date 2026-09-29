@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Owned generic modeling operations over registry-generated source and result rows."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import TYPE_CHECKING, overload
 
 import attrs
@@ -186,6 +186,11 @@ class ModelingNonlinearExplanation:
         return tuple(ModelingElasticAttempt(v) for v in self._handle.attempts())
 
 
+def _selection(fixtures: Collection[DeclarationId] | None) -> list[str] | None:
+    """A fixture selection crosses the native boundary as declaration identities."""
+    return None if fixtures is None else [fixture.to_hex() for fixture in fixtures]
+
+
 @attrs.frozen
 class ModelingConformance:
     """Shared checks and completed fixture solves, including explicit coverage gaps."""
@@ -202,8 +207,12 @@ class ModelingConformance:
         maximum_fixtures: int = 1024,
         maximum_checks: int = 16384,
         limits: ModelingLimits | None = None,
+        fixtures: Collection[DeclarationId] | None = None,
     ) -> "ModelingConformance":
-        """Run explicit pure fixtures without creating a workflow Runtime."""
+        """Run explicit pure fixtures without creating a workflow Runtime.
+
+        ``fixtures`` selects test declarations by identity; see ``ModelingPackage.conform``.
+        """
         return cls(
             _NativeModelingConformance.pure(
                 [dict(bundle) for bundle in documents],
@@ -212,6 +221,7 @@ class ModelingConformance:
                 maximum_fixtures=maximum_fixtures,
                 maximum_checks=maximum_checks,
                 limits=limits,
+                fixtures=_selection(fixtures),
             )
         )
 
@@ -222,6 +232,11 @@ class ModelingConformance:
     @property
     def complete(self) -> bool:
         return self._handle.complete
+
+    @property
+    def selected(self) -> bool:
+        """Whether the run executed a fixture selection, which assesses no package coverage."""
+        return self._handle.selected
 
     def table(self) -> TableStream:
         return TableStream(self._handle.table())
@@ -942,11 +957,14 @@ class ModelingPackage:
         derivative_cells: int = 100000,
         derivative_step: float = 1e-6,
         derivative_tolerance: float = 1e-4,
+        fixtures: Collection[DeclarationId] | None = None,
     ) -> ModelingConformance:
         """Discover authored tests and run bounded shared checks without IDAES.
 
         The settings and derivative policy are the run's; a fixture's declared execution
-        policy replaces a setting for that fixture only.
+        policy replaces a setting for that fixture only. ``fixtures`` selects test
+        declarations by identity: only those run, an identity that names no authored test
+        is refused before any fixture runs, and the run assesses no package coverage.
         """
         return ModelingConformance(
             self._handle.conform(
@@ -956,5 +974,6 @@ class ModelingPackage:
                 derivative_cells=derivative_cells,
                 derivative_step=derivative_step,
                 derivative_tolerance=derivative_tolerance,
+                fixtures=_selection(fixtures),
             )
         )

@@ -115,10 +115,58 @@ fn fixture_policy(
         derivatives,
         maximum_fixtures: run.maximum_fixtures,
         maximum_checks: run.maximum_checks,
+        fixtures: run.fixtures.clone(),
     })
 }
 /// The fixture of package-level checks that belong to no authored fixture (coverage).
 pub(super) const NO_FIXTURE: DeclarationId = DeclarationId::from_id(SemanticId::NIL);
+/// The fixtures one conformance run executes: every authored test of the revision, or the
+/// tests a caller selects by declaration identity. A selected run executes and inventories
+/// only its selection, and assesses no package coverage.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum ModelingFixtureSelection {
+    /// Every authored test; coverage is assessed over every concrete definition.
+    #[default]
+    Package,
+    /// Exactly these test declarations.
+    Selected(BTreeSet<DeclarationId>),
+}
+impl ModelingFixtureSelection {
+    /// The selected tests of `declarations`, in declaration order. A selection that is empty
+    /// or names a declaration that is no authored test is refused before any fixture runs.
+    pub(super) fn tests<'a>(
+        &self,
+        declarations: &'a [Declaration],
+    ) -> Result<Vec<&'a Declaration>, WorkflowError> {
+        let tests = declarations
+            .iter()
+            .filter(|r| r.value.kind == DeclarationKind::Test);
+        let Self::Selected(selected) = self else {
+            return Ok(tests.collect());
+        };
+        if selected.is_empty() {
+            return Err(contract("a fixture selection names at least one test"));
+        }
+        let chosen = tests
+            .filter(|r| selected.contains(&r.declaration_id))
+            .collect::<Vec<_>>();
+        if chosen.len() != selected.len() {
+            let found = chosen
+                .iter()
+                .map(|r| r.declaration_id)
+                .collect::<BTreeSet<_>>();
+            let unknown = selected
+                .difference(&found)
+                .map(ToString::to_string)
+                .collect::<Vec<_>>();
+            return Err(contract(format!(
+                "fixture selection names no authored test: {}",
+                unknown.join(", ")
+            )));
+        }
+        Ok(chosen)
+    }
+}
 /// The run's execution policy, independent of scientific fixture and oracle data. A
 /// fixture's declared execution policy replaces a setting for that fixture only (ADR-0119).
 #[derive(Clone, Debug)]
@@ -137,6 +185,8 @@ pub struct ModelingConformancePolicy {
     pub maximum_fixtures: usize,
     /// Maximum checks recorded, at most 100 000; further checks make the report incomplete.
     pub maximum_checks: usize,
+    /// The fixtures the run executes.
+    pub fixtures: ModelingFixtureSelection,
 }
 /// Shared check outcomes retain their pool owner and original solver results.
 #[derive(Debug)]
@@ -157,6 +207,8 @@ pub struct ModelingConformanceReport {
     pub failures: Vec<pse_model::diagnostic::BoundaryDiagnostic>,
     /// Complete discovery inventory, independent of the detailed check cap.
     pub fixture_statuses: BTreeMap<DeclarationId, Status>,
+    /// The fixtures the run executed; a selected run assesses no package coverage.
+    pub selection: ModelingFixtureSelection,
     pub(super) registry: Arc<pse_schema::Registry>,
     pub(super) pool: Arc<dyn pse_columnar::MemoryPool>,
     _owner: pse_columnar::MemoryReservation,
@@ -203,6 +255,7 @@ impl ModelingConformanceReport {
                 .map(|id| (*id, Status::Unattempted))
                 .collect(),
             complete: true,
+            selection: ModelingFixtureSelection::Package,
             registry,
             pool,
             _owner: owner,
@@ -231,6 +284,55 @@ impl ModelingConformanceReport {
                 .checks
                 .iter()
                 .all(|r| matches!(r.status, Status::Passed | Status::NotApplicable))
+    }
+    /// Package coverage: whether an executed fixture instantiated each concrete definition
+    /// of `declarations`. A selected run records one row stating that it assessed none, so
+    /// it neither claims nor refutes whole-package coverage.
+    pub(super) fn coverage(
+        &mut self,
+        declarations: &[Declaration],
+        covered: &BTreeSet<DeclarationId>,
+        cap: usize,
+    ) {
+        if let ModelingFixtureSelection::Selected(selected) = &self.selection {
+            let message = format!(
+                "a run of {} selected fixtures does not assess package coverage",
+                selected.len()
+            );
+            self.record_fixture(
+                NO_FIXTURE,
+                Kind::Coverage,
+                Status::NotApplicable,
+                message,
+                None,
+                cap,
+            );
+            return;
+        }
+        for row in declarations
+            .iter()
+            .filter(|r| r.value.kind == DeclarationKind::Definition)
+        {
+            let instantiated = covered.contains(&row.declaration_id);
+            self.record(
+                NO_FIXTURE,
+                row.declaration_id.as_id(),
+                row.declaration_id,
+                Kind::Coverage,
+                if instantiated {
+                    Status::Passed
+                } else {
+                    Status::Failed
+                },
+                if instantiated {
+                    "definition instantiated by an authored fixture"
+                } else {
+                    "definition lacks a concrete authored fixture"
+                },
+                None,
+                cap,
+            );
+        }
     }
     /// A check of `fixture` about `target`, attributed to the authored `source`.
     #[expect(
@@ -638,12 +740,7 @@ impl ModelingPackage {
             .derivatives
             .allowance()
             .map_err(MathRuntimeError::from)?;
-        let fixtures = self
-            .revision
-            .declarations()
-            .iter()
-            .filter(|r| r.value.kind == DeclarationKind::Test)
-            .collect::<Vec<_>>();
+        let fixtures = policy.fixtures.tests(self.revision.declarations())?;
         // Every fixture's declared execution policy is resolved, and refused, before any
         // fixture runs.
         let policies = fixtures
@@ -659,6 +756,7 @@ impl ModelingPackage {
                 .collect::<Vec<_>>(),
             policy.maximum_checks,
         )?;
+        report.selection = policy.fixtures.clone();
         let mut covered = BTreeSet::new();
         let cap = policy.maximum_checks;
         if fixtures.is_empty() {
@@ -1327,31 +1425,7 @@ impl ModelingPackage {
                 ),
             }
         }
-        for row in self
-            .revision
-            .declarations()
-            .iter()
-            .filter(|r| r.value.kind == DeclarationKind::Definition)
-        {
-            report.record(
-                NO_FIXTURE,
-                row.declaration_id.as_id(),
-                row.declaration_id,
-                Kind::Coverage,
-                if covered.contains(&row.declaration_id) {
-                    Status::Passed
-                } else {
-                    Status::Failed
-                },
-                if covered.contains(&row.declaration_id) {
-                    "definition instantiated by an authored fixture"
-                } else {
-                    "definition lacks a concrete authored fixture"
-                },
-                None,
-                cap,
-            );
-        }
+        report.coverage(self.revision.declarations(), &covered, cap);
         if cancel.token().is_cancelled() {
             report.complete = false;
         }
@@ -1743,6 +1817,7 @@ mod tests {
             },
             maximum_fixtures: 10,
             maximum_checks: 50,
+            fixtures: Default::default(),
         }
     }
     /// Every check of a fixture that names an oracle carries the oracle's source entity
@@ -1807,6 +1882,78 @@ mod tests {
             .unwrap();
         assert!(!result.complete);
         assert!(!result.passed());
+    }
+    /// A typed selection runs only the named tests and inventories only them; it records
+    /// that it assessed no package coverage. Names that are no authored test are refused
+    /// before any fixture runs.
+    #[tokio::test]
+    async fn kernel_conformance_runs_only_selected_fixtures() {
+        let p = package(
+            "package p { fn cube(x:Scalar)->Scalar=x*x*x; test first { expect cube(2)==8 tolerance 1e-8; } test second { expect cube(3)==27 tolerance 1e-8; } test wrong { expect cube(1)==2 tolerance 1e-8; } def Missing { var x:Scalar; eq e:x==1; } }",
+        );
+        let id = |name: &str| {
+            p.declarations()
+                .iter()
+                .find(|r| r.name == name)
+                .unwrap()
+                .declaration_id
+        };
+        let selected = BTreeSet::from([id("first"), id("second")]);
+        let mut chosen = policy();
+        chosen.fixtures = ModelingFixtureSelection::Selected(selected.clone());
+        let report = p
+            .conform(chosen.clone(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        // The failing and the uncovered members of the package are outside the selection.
+        assert!(report.passed(), "{:?}", report.checks);
+        assert!(report.complete);
+        assert_eq!(report.fixtures(), selected);
+        assert_eq!(report.selection, chosen.fixtures);
+        assert!(
+            report
+                .checks
+                .iter()
+                .all(|c| c.fixture_id == NO_FIXTURE || selected.contains(&c.fixture_id))
+        );
+        let coverage = report
+            .checks
+            .iter()
+            .filter(|c| c.kind == Kind::Coverage)
+            .collect::<Vec<_>>();
+        assert_eq!(coverage.len(), 1, "{coverage:?}");
+        assert_eq!(coverage[0].status, Status::NotApplicable);
+        // Control: the whole package fails its wrong fixture and its uncovered definition.
+        let whole = p
+            .conform(policy(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert_eq!(whole.selection, ModelingFixtureSelection::Package);
+        assert_eq!(whole.fixtures().len(), 3);
+        assert!(!whole.passed());
+        assert!(
+            whole
+                .checks
+                .iter()
+                .any(|c| c.kind == Kind::Coverage && c.status == Status::Failed)
+        );
+        // A definition, an unknown identity or an empty selection is refused, naming it.
+        let unknown = DeclarationId::from_bytes([7; 16]);
+        for (selection, named) in [
+            (BTreeSet::from([id("first"), id("Missing")]), Some(id("Missing"))),
+            (BTreeSet::from([unknown]), Some(unknown)),
+            (BTreeSet::new(), None),
+        ] {
+            let mut refused = policy();
+            refused.fixtures = ModelingFixtureSelection::Selected(selection);
+            let error = p
+                .conform(refused, &crate::CancelSource::new())
+                .await
+                .unwrap_err();
+            if let Some(named) = named {
+                assert!(error.to_string().contains(&named.to_string()), "{error}");
+            }
+        }
     }
     /// A fixture's metadata or execution policy that disagrees with its route or states no
     /// allowance is refused at admission; a declared derivative policy outside its bounds
