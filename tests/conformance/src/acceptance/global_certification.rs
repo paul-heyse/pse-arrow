@@ -360,6 +360,44 @@ async fn heater_optimization_certified() {
     );
 }
 
+/// A small nonconvex regression certified globally (ADR-0102's named certify fixtures):
+/// the authored least-squares first-order decay `y = a·exp(−k·t)` through five
+/// observations, whose global optimum the fixture's expectations state.
+#[tokio::test]
+async fn small_regression_certified() {
+    let owner = WorkflowRuntime::new().unwrap();
+    let package = seed_package(&owner).await;
+    let case = SemanticId::parse_hex("f767847e54e547d396cf0190032aa9d4").unwrap();
+    let result = seed_prepare(&package, case, certify(5), &CancelSource::new())
+        .await
+        .unwrap()
+        .start()
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
+    let report = authored_success(&result);
+    let Outcome::Native(native) = &report.outcome else {
+        panic!("expected a native certification");
+    };
+    assert_eq!(native.backend, Backend::Scip);
+    assert_eq!(
+        native.qualification,
+        Qualification::GapQualified,
+        "{native:?}"
+    );
+    assert_eq!(native.termination.assurance, Assurance::GlobalBound);
+    // The certified lower bound meets the reference minimum within the recorded gap.
+    let g = native.evidence.global.unwrap();
+    let bound = g.dual_bound.unwrap();
+    let objective = native.observation.as_ref().unwrap().objective.unwrap();
+    assert!((objective - 0.001_262_75).abs() < 1e-7, "{objective}");
+    assert!(
+        (objective - bound).abs() <= g.gap_absolute + g.gap_relative * bound.abs(),
+        "{objective} {bound}"
+    );
+}
+
 /// The PC-SAFT tangent-plane case of the vessel mixture, added to the authored phase-stability
 /// fixtures at run time, prepared under `limits`.
 async fn pcsaft_tpd(

@@ -620,6 +620,102 @@ async fn gauss_newton_covariance_labelled() {
     }
 }
 
+/// Runs the transient fit of [`source`] to its report.
+#[cfg(feature = "solver-ipopt")]
+async fn transient_fit(
+    package: &crate::workflow::ModelingPackage,
+    profile: FitProfile,
+) -> Arc<crate::workflow::RunResult> {
+    package
+        .prepare_fit(
+            FitId::from(id(73)),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap()
+        .start()
+        .unwrap()
+        .wait()
+        .await
+        .unwrap()
+}
+/// S3 through Y4b: an exact-Hessian transient fit, whose Hessian comes from IDAS
+/// second-order adjoints, reads its covariance from its own KKT analysis and labels it
+/// exact. `y = 71 + p` is linear in `p`, so the exact Hessian carries no residual
+/// curvature and `Σ = 1`, as Gauss–Newton gives.
+#[cfg(all(feature = "solver-ipopt", feature = "solver-idas"))]
+#[tokio::test]
+async fn exact_transient_covariance_matches_gauss_newton() {
+    use pse_relations::{
+        columnar::RelationRow,
+        generated::{
+            enums::{CovarianceApproximation, DerivedQuantity},
+            runtime::local_validity,
+        },
+    };
+    let (package, mut profile) = source(false, 73.);
+    profile.solver.controls.hessian = HessianMode::Exact;
+    for simulation in profile.simulations.values_mut() {
+        simulation.method = native::dynamics::Method::Idas;
+    }
+    let result = transient_fit(&package, profile).await;
+    let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
+        panic!("missing fit")
+    };
+    assert!(
+        (report.candidate.as_ref().unwrap()[0] - 2.).abs() < 1e-5,
+        "{report:?}"
+    );
+    let covariance = report.covariance.as_ref().unwrap();
+    assert_eq!(covariance.approximation, CovarianceApproximation::Exact);
+    let values = covariance.values.as_ref().unwrap();
+    assert!((values[0] - 1.).abs() < 1e-6, "{values:?}");
+    let validity =
+        local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap();
+    assert_eq!(validity.len(), 1);
+    assert_eq!(validity[0].quantity, DerivedQuantity::ParameterCovariance);
+    assert!(validity[0].validity.certified);
+    // The exact covariance states the verdicts of the KKT point it was read from.
+    assert_eq!(validity[0].validity.second_order, Some(true));
+}
+/// A parameter held at its bound withholds the covariance: `y = 71 + p` observed at 71
+/// puts the unconstrained estimate `p = 0` below the bound 0.1, which holds it.
+#[cfg(feature = "solver-ipopt")]
+#[tokio::test]
+async fn covariance_withheld_at_bound() {
+    use pse_relations::{
+        columnar::RelationRow,
+        generated::{
+            enums::{DerivedQuantity, WithheldReason},
+            runtime::local_validity,
+        },
+    };
+    let (package, profile) = source(false, 71.);
+    let result = transient_fit(&package, profile).await;
+    let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
+        panic!("missing fit")
+    };
+    assert!(
+        (report.candidate.as_ref().unwrap()[0] - 0.1).abs() < 1e-6,
+        "{report:?}"
+    );
+    let covariance = report.covariance.as_ref().unwrap();
+    assert!(
+        matches!(&covariance.values, Err(FitWithheld::AtBound(held)) if *held == vec![id(3)]),
+        "{covariance:?}"
+    );
+    let validity =
+        local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap();
+    assert_eq!(validity.len(), 1);
+    assert_eq!(validity[0].quantity, DerivedQuantity::ParameterCovariance);
+    assert_eq!(
+        validity[0].validity.reason,
+        Some(WithheldReason::ParameterAtBound)
+    );
+}
 /// A curved transient fit: `x' = −z/1 s` with the algebraic closure `z = k·x²` from
 /// `x(0) = a`, observed through x at four times and z at one, with data from `k = 1.3`,
 /// `a = 1.8` (`x = a/(1 + a·k·t)`, t in seconds).

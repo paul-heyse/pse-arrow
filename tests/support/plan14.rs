@@ -162,6 +162,7 @@ pub(crate) async fn seed_package_on(
                             "efcd1d0ad288438daf6764b4ab25a2a6",
                             "8c22c4a4f87141b083bfc0d9442d382c",
                             "d84e844726e64a2c9b23d96a4039b4f9",
+                            "f767847e54e547d396cf0190032aa9d4",
                         ]
                         .map(|id| SemanticId::parse_hex(id).unwrap());
                         let mut removed = rows

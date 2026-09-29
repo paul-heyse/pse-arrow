@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("3149dc5d1cd14fc196ebb2999ac5bd6f") package regression_fixtures {
+@id("5c3a2abff6e64345b8adf84bd314276e") def FirstOrderDecay {
+@id("35b20e04c3454ca9b9995f4da79b02d4") var a:Scalar;
+@id("24108b6756cf4bfa93ebce89111edca4") var k:Scalar;
+@id("26decbfbca8847199af4c0e1dd836610") let sse:Scalar=(2.02-a)*(2.02-a)+(1.19-a*exp(-k))*(1.19-a*exp(-k))+(0.75-a*exp(-2*k))*(0.75-a*exp(-2*k))+(0.43-a*exp(-3*k))*(0.43-a*exp(-3*k))+(0.28-a*exp(-4*k))*(0.28-a*exp(-4*k));
+@id("4749b8151618498e95ba4605dadc42a9") annotation objective sse(minimize);
+@id("137f120d50fb4d2f85048f3762521829") annotation bounds a(0.1,10);
+@id("2973dcbc980045d3b7120907ef5d824b") annotation bounds k(0.01,5);
+@id("9032de80f4af446d9e95153318553872") annotation start a(1);
+@id("a7baad1fd4514523a14a678328a64b58") annotation start k(1);
+}
+@id("f767847e54e547d396cf0190032aa9d4") test first_order_decay_certified source "Least-squares first-order decay y = a exp(-k t) through five synthetic observations at t = 0..4; global optimum a = 2.012342, k = 0.506099, SSE = 0.00126275 (bounded multistart least squares, scipy 1.18.1)" revision "1" fixture {dof 2; run steady; intent certify;} {
+@id("2dcf2a69a94b49c1934a51678caa9e30") child root:FirstOrderDecay=FirstOrderDecay();
+@id("ae3e230d6cc44a7887e1f1450a453cb0") expect root.a==2.012342 tolerance 0.00001;
+@id("ad37e3947b1f4744bc7e27a190bba3f1") expect root.k==0.506099 tolerance 0.00001;
+}
+}

@@ -2737,6 +2737,80 @@ fn multidimensional_knapsack(registry: &QuantityRegistry, items: usize, dims: us
 /// (Plan 22 G7): the concurrent solvers' improving solutions map back to the program's
 /// columns by name, the stream stays monotone, every captured solution evaluates in the
 /// original model to its reported objective, and the last incumbent is the result.
+/// Raises the attempt's own cancellation flag at its first streamed incumbent.
+#[derive(Debug)]
+struct CancelOnIncumbent(Arc<AtomicBool>);
+impl crate::solve::ProgressTap for CancelOnIncumbent {
+    fn observe(&self, event: &crate::solve::Event) {
+        if event.incumbent.is_some() {
+            self.0.store(true, Ordering::Release);
+        }
+    }
+}
+
+/// Cancellation reaches SCIP's concurrent solvers (§18.8): the attempt's flag, raised at
+/// its first streamed incumbent, stops a two-thread solve of the knapsack before its
+/// proof, typed as a cancellation that claims no gap.
+#[test]
+fn scip_concurrent_solve_cancels() {
+    let registry = standard_registry().unwrap();
+    let case = multidimensional_knapsack(&registry, 40, 5);
+    let program = case.program(&FactorableRequest::default());
+    let n = program.variables.len();
+    let m = program.rows.len();
+    let accuracy = ResolvedAccuracy::nominal();
+    let tolerances = tolerances(n, m);
+    let normalization = Normalization::identity(n, m);
+    let initial = case.initial();
+    let controls = Controls {
+        threads: 2,
+        ..Controls::default()
+    };
+    let flag = Arc::new(AtomicBool::new(false));
+    let mut execution = execution(false);
+    execution.cancel = flag.clone();
+    execution.progress = Arc::new(crate::solve::Progress::tapped(
+        controls.history,
+        Arc::new(CancelOnIncumbent(flag.clone())),
+    ));
+    let mut original = Original(&case);
+    let report = execution::factorable(
+        Step {
+            adapter: execution::adapter(Backend::Scip),
+            settings: &BackendSettings::Scip(ScipSettings::default()),
+            controls: &controls,
+            accuracy: &accuracy,
+            execution,
+            tolerances: &tolerances,
+            normalization: &normalization,
+            compatibility: stamp(Backend::Scip),
+            warm: None,
+        },
+        &mut Retained::default(),
+        Factorable {
+            program: &program,
+            initial: &initial,
+            intent: SolveIntent::Optimize,
+            original: &mut original,
+            resolve: None,
+        },
+    )
+    .unwrap();
+    assert!(flag.load(Ordering::Acquire), "no incumbent was streamed");
+    assert!(matches!(
+        report.metrics["scip.threads"],
+        crate::solve::Metric::Integer(2)
+    ));
+    assert_eq!(
+        report.termination.category,
+        Termination::Cancelled,
+        "{:?}",
+        report.termination
+    );
+    assert_ne!(report.qualification, Qualification::GapQualified);
+    assert_ne!(report.termination.assurance, Assurance::GlobalBound);
+}
+
 #[test]
 fn scip_concurrent_streams_incumbents() {
     let registry = standard_registry().unwrap();

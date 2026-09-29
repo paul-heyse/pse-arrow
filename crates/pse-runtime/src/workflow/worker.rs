@@ -724,3 +724,60 @@ async fn start(
         .await?;
     Ok((seeded, applied(Some(solution), None)))
 }
+
+/// Payload decoding is pure: a claimed job's version column and its document decide the
+/// task, with no store, package or solver (Plan 22 S25).
+#[cfg(test)]
+mod decode_tests {
+    use super::*;
+
+    fn claimed(version: i32, payload: serde_json::Value) -> ClaimedJob {
+        ClaimedJob {
+            job_id: pse_operations::mint_id(),
+            attempt_id: pse_operations::mint_id(),
+            run_id: pse_operations::mint_id(),
+            parent_attempt: None,
+            payload_version: version,
+            payload,
+            try_number: 1,
+            lease_expires_at: chrono::Utc::now(),
+        }
+    }
+
+    #[test]
+    fn payload_decoding_is_pure() {
+        let study: StudyId = pse_operations::mint_id();
+        let payload = serde_json::to_value(JobPayload::new(JobTask::StudyFinalization(
+            StudyFinalization { study_id: study },
+        )))
+        .unwrap();
+        // The current version decodes its task.
+        let Ok(JobTask::StudyFinalization(task)) =
+            decode(&claimed(JOB_PAYLOAD_VERSION, payload.clone()))
+        else {
+            panic!("the current payload decodes")
+        };
+        assert_eq!(task.study_id, study);
+        // Another version column is refused by version, before its document is read.
+        let error = decode(&claimed(JOB_PAYLOAD_VERSION + 1, serde_json::json!({})));
+        assert!(
+            matches!(
+                error,
+                Err(WorkflowError::UnknownPayloadVersion { version, supported })
+                    if version == JOB_PAYLOAD_VERSION + 1 && supported == JOB_PAYLOAD_VERSION
+            ),
+            "{error:?}"
+        );
+        // The current column with a document of another version, or of another shape, is a
+        // contract error.
+        let mut restated = payload;
+        restated["version"] = serde_json::json!(JOB_PAYLOAD_VERSION + 1);
+        for document in [restated, serde_json::json!({ "from": "a newer build" })] {
+            let error = decode(&claimed(JOB_PAYLOAD_VERSION, document));
+            assert!(
+                matches!(error, Err(WorkflowError::Contract(_))),
+                "{error:?}"
+            );
+        }
+    }
+}

@@ -549,6 +549,29 @@ async fn native_only_realization_refused_on_highs() {
 }
 
 #[tokio::test]
+async fn indicator_realization_requires_native_backend() {
+    // The native realization keeps its rows for SCIP's indicator handler, which HiGHS
+    // lacks: an explicit HiGHS solve is refused before any native work.
+    let (native, root) = scip_package(&INDICATOR.replace(
+        "REALIZE",
+        "realize r1 on cap using indicator; realize r2 on off using indicator;",
+    ));
+    let error = prepare(
+        &native,
+        root,
+        case(&[]),
+        SolverSelection::Explicit(Backend::Highs),
+    )
+    .await
+    .err()
+    .unwrap();
+    assert!(
+        native_refusal(&error).contains("native indicator realization"),
+        "{error}"
+    );
+}
+
+#[tokio::test]
 async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
     use pse_model::generated::enums::ModelingConformanceStatus as Status;
     let text = include_str!("../../../../../packages/reference/seed-data/models/gdp.pse");

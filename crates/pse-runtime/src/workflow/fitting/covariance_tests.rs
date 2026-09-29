@@ -166,6 +166,51 @@ async fn covariance_withheld_with_nonunit_importance() {
     );
 }
 
+/// A fit whose dense response diagnostic exceeds its cell allowance keeps its candidate
+/// and withholds the covariance for want of responses: 4 observations over 2 parameters
+/// need 8 dense cells. The allowance also bounds preparation's sparse layout, so it drops
+/// to 7 only on the prepared fit.
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
+#[tokio::test]
+async fn covariance_withheld_without_responses() {
+    let mut prepared = package(declared(), [1.0; 4])
+        .prepare_fit(
+            id(32).into(),
+            profile(HessianMode::LimitedMemory, None),
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    Arc::get_mut(&mut prepared.problem)
+        .unwrap()
+        .profile
+        .max_cells = 7;
+    let result = prepared.start().unwrap().wait().await.unwrap();
+    let report = report(&result);
+    assert!(report.candidate.is_some(), "{report:?}");
+    let covariance = report.covariance.as_ref().unwrap();
+    assert!(
+        matches!(&covariance.values, Err(FitWithheld::Responses(Some(_)))),
+        "{covariance:?}"
+    );
+    let reasons: Vec<_> = validity(&result)
+        .iter()
+        .map(|r| (r.quantity, r.validity.reason))
+        .collect();
+    assert_eq!(
+        reasons,
+        vec![(
+            DerivedQuantity::ParameterCovariance,
+            Some(WithheldReason::ResponsesUnavailable)
+        )]
+    );
+}
+
 /// On a linear model the signed root `√(2(f − f*))` is linear in the pinned value, so the
 /// profile-likelihood ends are the Wald ends. Two chains run at once.
 #[cfg_attr(
