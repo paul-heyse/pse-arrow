@@ -290,7 +290,14 @@ The section identities below remain stable while the mechanisms they describe ch
 
 ### 6.1 Identity, packages and source edits
 
-`authored.packages` records manifest identity, version, policy and exact dependencies.
+> Decision: [ADR-0123](../../adr/0123-typed-package-schema.md) — package dependencies and
+> imports carry a typed version requirement and resolve by package identity (Outcome 7;
+> Plan 23 KR8, implemented).
+
+`authored.packages` (version 2) records manifest identity, version, policy and
+dependencies, each a package identity with a typed version requirement
+(`VersionRequirement`: a `ModelingVersionOperator` with major, minor and patch; `exact` is
+the only operator).
 `authored.documents` retains exact source bytes. `authored.entities` registers identities
 exposed by the remaining YAML physical and observation documents. Generic modeling
 entities and their kinds are declarations in the modeling IR, with explicit IDs and
@@ -298,27 +305,41 @@ parent identities; they do not extend the platform's closed `EntityKind` diction
 
 `normalized.package_graph` resolves the complete manifest closure in dependency order,
 including isolates. Missing dependencies, duplicate meanings and incompatible versions
-refuse admission. Source editing uses exact document before-images in the authoring driver;
-the retired template rename/binding request relations are gone. Explicit modeling IDs
-survive name edits; names and source byte ranges are separate from identity.
+refuse admission. An import carries the same typed requirement (`use lib @"1.0.0";`) and
+resolves by package identity: the importing manifest must depend, by identity, on the
+manifest package that declares the imported modeling package, with a requirement that
+admits its version, and a dependency on another package at the same version grants
+nothing. *Tested* by `import_requires_dependency_by_identity` (runtime units) and
+`import_requirement_is_typed` (`pse-authoring` units). Source editing uses exact document
+before-images in the authoring driver; the retired template rename/binding request
+relations are gone. Explicit modeling IDs survive name edits; names and source byte ranges
+are separate from identity.
 
 ### 6.2 Physical types
 
 The reference relations declare dimensions, units, unit sets, quantity kinds, bases,
 reference states, quantity types, conversions, quantity operations and constants.
-`quantity_kinds` (version 2) carries the optional count or indicator category of a
+`units` (version 2) separates atomic units, which author their measure, from defined
+units, which author only their composition ([§8.2](physical-semantics.md#section-8-2)).
+`quantity_kinds` (version 3) carries the optional count or indicator category of a
 dimensionless kind ([§8.1](physical-semantics.md#section-8-1)); quantity inference reads it
 for discrete scaling, which takes precedence over neutral scaling
-([§8.3](physical-semantics.md#section-8-3)).
+([§8.3](physical-semantics.md#section-8-3)). Version 3 adds derived kinds: a monomial over
+declared kinds, a canonical unit and the result a chain resolving to the kind takes.
+`quantity_types` and `reference_states` (version 2 each) carry the names packages address
+them by, and a reference state's temperature and pressure are typed quantity values
+([§8.4](physical-semantics.md#section-8-4)).
 `quantity_preconditions` and `quantity_operation_reductions` carry the prerequisites
 checked against actual operands. `math_context` explicitly names the neutral scalar
 and Boolean kind.
 
 Quantity axes and subjects name package-declared entity kinds. A reference state's
 optional datum subject points to an actual authored entity; a kind or arbitrary missing
-identity is refused by physical admission. `authored.package_quantity_aliases` scopes
-physical type spellings to manifest-owned modeling packages. These declarations enter
-one immutable physical inventory, retained by checked modeling products (§8).
+identity is refused by physical admission. The physical names are declared once, in the
+physical document; a package sees them exactly when its manifest depends on the declaring
+package, and a manifest declares none ([§8.1](physical-semantics.md#section-8-1)). These
+declarations enter one immutable physical inventory, retained by checked modeling products
+(§8).
 
 ### 6.3 Domains and index sets
 
@@ -330,9 +351,12 @@ continuous-domain relation families are removed.
 
 ### 6.4 Material systems and reactions
 
-Chemistry packages declare entity kinds, entities, attributes, sets, tables and datasets.
-Composition, molecular weights, allowed phases, stoichiometry and elemental closure are
-knowledge expressed through those contracts. The kernel contains no scientific species,
+The species, element, reaction and phase kinds and the canonical phases are declared once,
+in the `chemistry` modeling package of `pse.physical`
+([§9.1](physical-semantics.md#section-9-1)). Chemistry packages declare entities,
+attributes, sets, tables and datasets over them. Composition, molecular weights, allowed
+phases, stoichiometry and elemental closure are knowledge expressed through those
+contracts. The kernel contains no scientific species,
 phase, element or reaction type and no material-specific relational validator.
 The seed's chemistry and reaction fixtures exercise those declarations (§9).
 
@@ -395,7 +419,7 @@ keeps the member's domain; a different one is refused at checking.
 Integer and binary variables are dimensionless counts or indicators, while semi domains
 keep their physical quantity ([§8.1](physical-semantics.md#section-8-1)). The language's
 former built-in `Count` synonym of `Integer` is removed, so `Count` names the physical
-count type (the physical bundle's alias); `Integer` remains the built-in integer type.
+count type (named in the physical document); `Integer` remains the built-in integer type.
 
 **Admission and analysis modes.** After case binding, every free discrete variable needs
 finite bounds that admit a value of its domain; integer, binary and semiinteger bounds are
@@ -560,8 +584,8 @@ policy { backend <NativeBackend>; presolve auto|off;
 ```
 
 Every setting is a typed field of the fixture in `authored.modeling_declarations`
-version 8; none is text. `foreign_bytes` becomes the fixture solve's
-`SolveControls.foreign_bytes`
+(version 7 added the policy and version 8 `foreign_bytes`); none is text. `foreign_bytes`
+becomes the fixture solve's `SolveControls.foreign_bytes`
 ([§18.10.1](numerical-execution.md#section-18-10-1)). Unknown, repeated or malformed settings are refused where they
 are written. An empty policy, a non-positive allowance and a solver setting on a pure
 fixture are refused at admission. A fixture's limits apply to that fixture only.
@@ -678,12 +702,46 @@ specialization and numerical execution have separate owners and lifetimes.
 
 #### 6.15.1 Typed configuration and finite scopes
 
+> Decision: [ADR-0123](../../adr/0123-typed-package-schema.md) — the modeling IR is
+> structured: types are a post-order arena, and the missing-value policy, annotation kind,
+> analysis-fact namespace and version operator are registry enums (Outcome 1; Plan 23 KR3,
+> implemented); quantity types and reference states are named once, in the physical
+> document (Outcome 6), and imports resolve by package identity (Outcome 7; Plan 23 KR8,
+> implemented).
+
 Checking admits physical and polymorphic signatures, entity/set/table contracts, defaults,
 interface conformance and requirement predicates before instantiation. Visibility follows
-explicit imports, including aliases and generated function spellings. Runtime values cannot
-choose structural guards. Unresolved configuration refuses rather than selecting a default.
-Finite expansion and body construction have explicit resource policies; exhaustion never
-silently truncates a model.
+explicit imports, including import aliases and generated function spellings, and the
+physical names the manifest's dependencies grant
+([§8.1](physical-semantics.md#section-8-1)). Runtime values cannot choose structural
+guards. Unresolved configuration refuses rather than selecting a default. Finite expansion
+and body construction have explicit resource policies; exhaustion never silently truncates
+a model.
+
+**Structured IR.** `authored.modeling_declarations` version 9 stores every type as a
+post-order arena (`ModelingTypeArenaNode`): each node's children precede it, and the last
+node is the root. Parameter, argument, binding, return, table key, column and value,
+accumulator and continuous types all use it. The registry enum `ModelingTypeNode` names the
+nodes: the built-in `boolean`, `integer` and `text`; `named` paths and type `variable`s; the
+`optional`, `set`, `row`, `table`, `tuple`, `indexed`, `function` and `argument` forms;
+`delta`; the `product`, `quotient` and `power` of a physical type expression
+([§8.3](physical-semantics.md#section-8-3)); and the generic physical references
+`quantity_type` and `reference_state` ([§8.4](physical-semantics.md#section-8-4)). The enum
+also declares an `identifier` node, which resolution refuses. Names occur only as path
+segments, which checking resolves once. `pse-authoring` validates an arena once, parses a
+type with a recursive-descent grammar and renders its canonical spelling; no string type
+grammar remains. The vocabulary the kernel acts on is registry enums, never words or
+prefixes: a table's `ModelingMissingPolicy` (`required`, `optional`, `default`);
+`ModelingAnnotationKind`, whose typed members (a validity annotation's extrapolation
+policy, a scaling annotation's scheme, a connectivity annotation's maxima) one exhaustive
+shape function dispatches; and `ModelingFactNamespace` (`analysis`, `objective`, `stage`),
+which keys the typed facts of bindings, stage overlays and modes. An import carries its
+typed `VersionRequirement` ([§6.1](#section-6-1)). *Tested* by
+`type_arena_render_parse_roundtrip` (a property test), `type_arena_rejects_forward_child`,
+`type_spellings_parse_to_one_arena`, `missing_policy_is_enum`,
+`annotation_kinds_parse_typed_members` and `import_requirement_is_typed` (`pse-authoring`
+units), and `annotation_kind_dispatch_is_exhaustive` and
+`analysis_facts_are_typed_namespaces` (`pse-modeling` units).
 
 #### 6.15.3 Property demand and method selection
 
@@ -712,10 +770,19 @@ reconstruct topology from variable labels (§12, §17).
 
 #### 6.15.7 Shipped reference packages and generated physical fixtures
 
+> Decision: [ADR-0127](../../adr/0127-chemical-core-in-physical.md) — the chemical core
+> ships in the `chemistry` modeling package of `pse.physical` (Plan 23 SM0, implemented).
+
 The reference package guide (`packages/reference/README.md`) identifies current
 physical, method, thermodynamic, seed, process and diagnostic bundles. Their `sources.md`
 files distinguish published data, upstream comparison inputs and derived demonstrations.
 Authored fixtures live beside the knowledge and use the common conformance harness.
+The physical bundle's document (`materials/physical.yaml`) names the quantity types and
+reference states packages address ([§8.1](physical-semantics.md#section-8-1),
+[§8.4](physical-semantics.md#section-8-4)) and registers no quantity type shaped over a
+chemistry kind. Its `chemistry` modeling package declares the chemical core
+([§9.1](physical-semantics.md#section-9-1)), and its `kinds` package the mesh and
+structural kinds. Manifests declare no physical names.
 
 `fixture-projection.toml` selects the physical and synthetic-currency bundles for generated
 Arrow-free quantity fixtures. Code generation loads and admits those actual documents.

@@ -180,7 +180,9 @@ Python wrappers cannot mutate checked products or substitute a different physica
 ### 22.1 Package layout
 
 The registry owns document globs and section mappings. A bundle has a `package.toml`
-manifest with exact dependencies, identity policy and optional package-scoped physical aliases.
+manifest with its identity policy and its dependencies, each a package identity with a
+typed version requirement; a manifest declares no physical names, which the physical
+document owns ([§8.1](physical-semantics.md#section-8-1)).
 `models/*.pse` contains the generic modeling language, using the shared expression grammar.
 `materials/*.yaml` supplies physical relation rows; `cases/*.yaml` supplies measurement and
 fit declarations; `assertions/*.yaml` supplies expected evidence.
@@ -188,7 +190,9 @@ fit declarations; `assertions/*.yaml` supplies expected evidence.
 Loading retains exact source bytes and spans, rejects unknown shapes/fields and resolves IDs
 before typed interpretation. A caller supplies the manifest closure explicitly; no ambient
 package discovery or separately maintained alias merge changes its meaning. Imports govern
-which modeling names a package may reference.
+which modeling names a package may reference, and resolve by package identity
+([§6.1](schema-and-relations.md#section-6-1)); the physical names are visible exactly when
+the manifest depends on the declaring package.
 
 ### 22.2 Revisions and edits
 

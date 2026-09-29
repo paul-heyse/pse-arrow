@@ -38,8 +38,12 @@ install their own.
 **Engine observation.** `pse-engine::session::assurance::ObservationPolicy` is `Off` by
 default. `Contract` installs `datafusion-tracing` instrumentation once per session state
 (physical operators and optimizer phases, target `pse_engine::execution`) and records
-explicit operation completion. `Diagnostic` adds bounded plan text and rule names, never
-value previews. Captured plan observations are attempt-local, bounded and charged to a
+explicit operation completion, but no plan text: the instrumented state restores the
+caller's query planner, so the library's planner span, which would record the complete
+logical and physical plan text without bound, is installed under no policy
+(`native_unit_contract_capture_records_no_plan_text`, `pse-testkit` units). `Diagnostic`
+adds bounded plan text and rule names through its own charged recorder, never value
+previews. Captured plan observations are attempt-local, bounded and charged to a
 diagnostic reservation; they are diagnostics, not output authority.
 
 **Execution facts as data.** Completed runs project typed relations rather than log
@@ -359,13 +363,17 @@ maintainer requests it.
 ### 24.3 Benchmarks
 
 Criterion benchmarks live in `benches/` (`pse-benches`): `canonicalization`,
-`native_cache`, `native_consolidation` and `native_process` (complete-process cases).
+`native_cache`, `native_consolidation`, `native_process` (complete-process cases) and
+`modeling_preparation` (specialization, lowering and derivative programs of the seed
+PC-SAFT state at a stated number of components and of the Peng–Robinson density root
+under inline and nested realizations; nothing is solved, and workloads are registered in
+`.config/preparation-cases.json`).
 
 | Command | Purpose |
 |---|---|
 | `just bench-smoke` | runs every benchmark once as a test; no timing |
 | `just case-measure <output> --functional-from <qualification>` | fresh-process case measurements; requires completed functional qualification of the same source |
-| `just bench-production` | production-equivalent native measurements without force-validation, in an isolated target directory |
+| `just bench-production` | production-equivalent native measurements without force-validation, in an isolated target directory, memory-capped (`scripts/memory-cap.sh`), with receipts under the repository `build/` |
 
 Measurement rules:
 

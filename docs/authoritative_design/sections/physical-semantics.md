@@ -25,10 +25,22 @@ Physical checking comes before Symbolica normalization ([ADR-0082](../../adr/008
 Algebraic simplification must never be the step that finds or hides a physical error.
 No hash is part of validity, type selection or the proof that a conversion applies. The
 framed identity of the admitted physical inventory
-(`pse-compiler::physical_identity`) enters preparation keys, so editing a unit or type
-invalidates dependent artifacts ([§5](identity-and-publication.md#section-5)).
+(`pse-compiler::physical_identity`, frame `pse.math.physical-inventory.v5`) enters
+preparation keys, so editing a unit or type invalidates dependent artifacts
+([§5](identity-and-publication.md#section-5)). Besides every declared contract, it frames
+unit compositions, derived-kind definitions, and the names and typed conditions by which
+packages address quantity types and reference states. *Tested* by
+`physical_inventory_identity_frames_derived_definitions` (compiler units, with a frozen
+empty-inventory vector).
 
 ### 8.1 QuantityType
+
+> Decision: [ADR-0124](../../adr/0124-unit-algebra-and-derived-kinds.md) — a quantity kind
+> may be declared as a monomial of other kinds with its canonical unit and chain result
+> (Plan 23 KR2, implemented);
+> [ADR-0127](../../adr/0127-chemical-core-in-physical.md) — the species, element and
+> reaction kinds that quantity types name as subjects are declared in `pse.physical` itself
+> (Plan 23 SM0, implemented; [§9.1](#section-9-1)).
 
 A `QuantityTypeId` resolves to a complete key:
 
@@ -50,30 +62,77 @@ including signed zero.
 | absolute vs gauge pressure | both are points; the gauge type carries its datum as `reference_state` |
 | molar vs mass-specific enthalpy | `basis` |
 | enthalpies with different datums | `reference_state`; mixing them is a datum mismatch |
-| species vs phase composition | `shape` and `subject_kind` |
-| vector over species vs over cells | `shape` entity kinds, even when lengths match |
+| component vs element flow | `subject_kind` (species or element) |
+| vector over species vs over cells | the modeling type's index axes (package-declared entity kinds), even when lengths match |
 
 `admission::require_same_contract` compares every component and the canonical unit. It
 names the first component that differs. Ports, connections, instance slots and provider
 bindings all use this comparison; none of them uses dimensional compatibility.
 
+A sum over a package-declared axis needs no registered shaped type: the modeling path
+expands the reduction over the axis's admitted membership. The physical document therefore
+registers shapes only over its own axes (`port_set`) and none over a chemistry kind
+(*Tested* by `package_declared_axis_indexes_a_sum_without_a_registered_shaped_type`,
+compiler units).
+
 A dimensionless kind may carry a `QuantityKindCategory`: `count`, a number of discrete
 things (units in operation, trays, modules), or `indicator`, a zero-or-one state. The
-category is registry data (`reference.quantity_kinds` version 2), and registry admission
+category is registry data (`reference.quantity_kinds`, since version 2), and registry admission
 refuses it on a kind with a dimension. The category, not the dimension, admits an integer
 or binary variable domain ([§6.8](schema-and-relations.md#section-6-8)): the neutral
 scalar, mole fractions and other measured dimensionless kinds carry none, and an integer or
 binary variable of such a type is refused at preparation. A semicontinuous or semiinteger
 variable keeps its physical quantity. The physical bundle declares `count` and `indicator`
-kinds and types, aliased `Count` and `Indicator`. The category enters the physical
-inventory identity (`pse.math.physical-inventory.v3`).
+kinds and types, named `Count` and `Indicator`. The category enters the physical
+inventory identity (§8).
+
+**Derived kinds.** A quantity kind is base or derived (`reference.quantity_kinds` version
+3). A base kind authors its dimension. A derived kind authors a monomial over declared kinds
+with reduced rational exponents, its canonical unit, and the complete result a
+multiplicative chain resolving to it takes: scale, optional datum and subject, and a basis
+when its factors' bases may differ ([§8.3](#section-8-3)). Admission expands the monomial
+to canonical base-kind factors and derives the dimension. It refuses a cycle, a monomial
+that is empty or a single kind, two kinds with one monomial, a pure-number factor (the
+neutral scalar, a count or an indicator), a canonical unit that does not store the derived
+dimension, a type of the kind stored in another unit, and a kind with no registered type
+carrying its declared result; a difference result is reserved for origin-sensitive kinds.
+The physical document declares the DIPPR 100 and RPP4 coefficient kinds (molar heat
+capacity per temperature to the first through fourth power), the Shomate E kind (molar heat
+capacity times squared temperature), `molar_enthalpy` (molar heat capacity times
+temperature) and `molar_entropy` ([§8.3](#section-8-3)), each with a defined canonical
+unit. Kinds are declared, never synthesized. *Tested* by
+`derived_kinds_are_admitted_acyclic_unique_and_derived` (`pse-quantity` units).
+
+**Names.** A quantity type may carry the name packages address it by, and every reference
+state carries one ([§8.4](#section-8-4)). Both are declared once, in the physical document
+(`reference.quantity_types` and `reference.reference_states`, version 2 each), and share
+one namespace of unique identifiers. A package sees them unqualified and as
+`<package>.<name>` exactly when its manifest depends on the declaring package. A
+package-level declaration or import alias equal to one of them is refused as ambiguous,
+while a definition's own members shadow it lexically. A manifest declares no physical
+names. The reference inventory names 42 quantity types, `Scalar`, `Count` and `Indicator`
+among them. *Tested* by `quantity_names_declared_once_in_physical_document` and
+`quantity_name_requires_manifest_dependency` (runtime units),
+`ambiguous_quantity_name_refused` and `physical_names_are_scoped_by_document`
+(`pse-modeling` units) and `physical_names_are_unique_identifiers` (`pse-quantity` tests).
 
 ### 8.2 Units and unit sets
 
+> Decision: [ADR-0124](../../adr/0124-unit-algebra-and-derived-kinds.md) — unit literals
+> are canonical products of atomic units with rational exponents, and a product's identity
+> is independent of its spelling (Plan 23 KR1, implemented).
+
 A `Unit` is anchored to SI: a symbol, a dimension vector, a positive finite scale and an
-offset. Only an affine unit (°C, °F) may carry a nonzero offset. A unit may also restrict
-its datum. For example, `psig` has the psi scale, a zero representation offset and the
-declared gauge reference.
+offset. A unit is atomic or defined (`reference.units` version 2). An atomic unit authors
+its dimension, scale, offset, affinity and optional datum restriction. Only an affine unit
+(°C, °F) may carry a nonzero offset. A unit may also restrict its datum. For example,
+`psig` has the psi scale, a zero representation offset and the declared gauge reference. A
+defined unit authors only its composition: factors over declared units with reduced
+rational exponents. Admission expands it to canonical atomic factors and derives its
+dimension and scale. It refuses a cycle, a composition that aliases another unit, an
+affine or datum-restricted factor, and an identity other than the product identity below.
+The physical document defines its composite units this way (`J/(K*mol)` and `m^3` among
+them), and the dimensionless `1` is the empty product.
 
 - **Representation conversion.** `convert_spec_for_type` changes representation units
   inside a complete quantity context. A point applies the affine offset; a difference
@@ -98,10 +157,26 @@ declared gauge reference.
   units for length, mass, time, temperature and amount. Current, luminous intensity and
   currency are optional. Unit sets are validated package declarations; they do not
   override a type's canonical unit.
-- **Spellings.** An authored definition maps each unit spelling to an admitted unit ID.
-  The inventory reconciles `reference.units` with the derived `normalized.units`, and
-  duplicate identities are refused. No compound-unit parser runs at execution time: a
-  spelling must name an admitted unit.
+- **Unit literals.** The expression parser reads a unit literal as a canonical
+  `UnitProduct`: each symbol once, with a nonzero rational exponent, in symbol order.
+  `{J/(K*mol)}`, `{J/(mol*K)}` and `{J*mol^-1*K^-1}` are one value, `{m^(1/2)*m^(1/2)}` is
+  `{m}`, and the renderer writes the canonical spelling back.
+  `QuantityRegistry::compose` resolves each factor symbol to an atomic unit and derives the
+  product's dimension and scale. A composite literal therefore needs no registered whole
+  unit, and a defined unit is spelled by its composition, never looked up by its row
+  symbol. A product's identity is its sole atomic unit when it is one unit with exponent
+  one, and otherwise the `pse.quantity.unit-product.v1` derivation over its canonical
+  atomic factors. A defined unit takes that identity, so a report in a composite unit
+  carries it however the unit was written. An affine or datum-restricted unit may appear
+  only as the sole factor with exponent one. An unknown symbol (`UnknownUnitSymbol`) and an
+  affine factor (`AffineUnitFactor`) are `compile.math.unit_inconsistent`. There is no
+  per-definition spelling map. The inventory reconciles `reference.units` with the derived
+  `normalized.units`, and duplicate identities are refused. *Tested* by
+  `unit_product_is_order_independent` and `rational_unit_exponents_canonicalize`
+  (`pse-authoring` units), `composite_literal_needs_no_registered_whole_unit`,
+  `affine_unit_only_as_sole_factor` and `defined_unit_dimension_and_scale_are_derived`
+  (`pse-quantity` units), `report_in_a_composite_unit_carries_its_identity` (runtime units)
+  and `the_unit_product_identity_is_frozen` (`pse-ids` golden vectors).
 - **Currency.** Currency is an optional eighth base axis. A conversion between years is
   an ordinary registered scale. The synthetic `fixture-currency` package remains separate from the seed
   costing package's sourced CEPCI conversions
@@ -114,6 +189,11 @@ validity predicates are checked through the ordinary typed path. No smoothing fo
 is selected by a scientific name in production Rust.
 
 ### 8.3 Quantity inference
+
+> Decision: [ADR-0124](../../adr/0124-unit-algebra-and-derived-kinds.md) — a multiplicative
+> chain resolves by its canonical monomial against the declared kinds, with defined leaf
+> eligibility, basis rule and result policy, and must agree with the registered stepwise
+> rules (Plan 23 KR2, implemented).
 
 `pse_quantity::infer::infer_with_evidence` runs once for every operation while typed
 preparation builds a body. `pse-compiler::typed_math` lowers authored syntax, and
@@ -129,7 +209,7 @@ together with the selected rule and its operand order, never a dimension alone.
 | Origin-sensitive points | point ± difference → point. difference ± difference → difference. point − point → difference, only when the datums are the same. point + point and difference − point fail. |
 | Discrete scaling | Multiplying by a count or indicator on either side, or dividing by one, keeps the other operand's complete type, with the union of both operands' indices (`discrete_scaling`): units in operation times a per-unit capacity is a capacity, a power times an on/off indicator is a power, and a total over a count of units is a per-unit value. The rule precedes neutral scaling, so the neutral scalar switched by an indicator stays neutral, and an indicator times an indicator is an indicator. Dividing a count or indicator by another quantity is not covered by this rule. |
 | Neutral scaling | Otherwise, multiplying or dividing by the neutral scalar with no indices keeps the other operand's full type, including difference. A composition fraction is not neutral. |
-| Other Mul/Div, Pow, roots, functions | Exactly one registered `quantity_operations` rule must match the operand kinds, including a swapped order. It fixes the result kind and the basis, reference, scale, shape and subject policies (preserve, require-equal, registered-conversion, cancel, declared-result). No match or several matches fails; no rule is ever derived from dimensions. A variable exponent needs a dimensionless base. |
+| Other Mul/Div, Pow, roots, functions | Exactly one registered `quantity_operations` rule must match the operand kinds, including a swapped order. It fixes the result kind and the basis, reference, scale, shape and subject policies (preserve, require-equal, registered-conversion, cancel, declared-result). No match or several matches fails, unless chain resolution types the chain (below); no rule is ever derived from dimensions. A variable exponent needs a dimensionless base. |
 | WeightedMean | Values must share one complete type, and weights must be dimensionless. This is the only operation that averages origin-sensitive points. Certified unit-sum normalization needs its invariant proved against the actual operands. |
 | Reduction | Removes exactly its bound index. A sum of points fails; a product needs a dimensionless body. |
 | UnitConvert, KernelCall/provider, Gather, Broadcast, Conditional, Derivative, Integral | Declared input and output contracts are checked exactly. Conditional branches must have identical types. Derivative and integral combine with the domain unit through a registered rule. |
@@ -145,6 +225,60 @@ contracts. New physical compositions add explicit rules; adapters never infer th
 dimensions. Finite reductions retain their contracted kind and an empty-set prototype;
 disjoint rule contracts are selected by actual operand prerequisites.
 
+**Chain resolution** (`infer::infer_chain`). A maximal subtree of products, quotients and
+exact rational powers is typed by two routes. The registered rules type it node by node, as
+above. Chain resolution flattens its factors into one canonical monomial over base kinds,
+expanding each derived kind's definition, and looks the monomial up among the declared
+kinds (`QuantityRegistry::kind_by_monomial`); it never synthesizes a kind.
+
+- **Leaf eligibility.** A factor is eligible when it is a difference, dimensionless, or a
+  point without a datum, such as an absolute temperature or pressure (a true-zero ratio
+  point). A point with a nonzero datum, such as a gauge pressure or an enthalpy measured
+  from a datum, makes the chain ineligible (`ChainLeafIneligible` names that factor), and a
+  chain is never partly resolved. The neutral scalar and count or indicator factors are
+  pure numbers outside the monomial.
+- **Result.** A declared derived kind fixes the result's scale, datum and subject, and its
+  basis when it declares one; otherwise every basis-carrying factor must agree
+  (`basis_mismatch`). A monomial that is one additive base kind resolves to that kind's
+  point type with the factors' common basis and subject. The result must be a registered
+  type.
+- **Agreement.** When both routes type a chain, the results must agree: a disagreement is
+  refused naming both (`RouteDisagreement`), and neither route takes precedence. Where no
+  registered rule matches, chain resolution decides, and its refusal is the one reported:
+  an ineligible factor, an undeclared monomial named by its factors
+  (`UndeclaredMonomial`), disagreeing bases or an unregistered result. Where a rule matched
+  and refused, for example on an unestablished precondition, only an explicitly declared
+  derived kind overrides that refusal. A chain whose factors carry free indices, or that is
+  one factor scaled by pure numbers, is left to the registered rules and their neutral and
+  discrete scaling.
+
+Language type expressions such as `MolarCp/Temperature^2` resolve through the same route,
+so every spelling of one monomial is one type. The modeling checker, static evaluation and
+typed lowering (`BodyBuilder::chain`) share it. *Tested* by
+`eligible_leaves_are_exactly_true_zero_ratio_points_and_differences`,
+`nonzero_datum_leaf_is_refused_with_its_factor`, `basis_must_agree_or_be_declared`,
+`undeclared_monomial_is_refused_with_factors`, `rule_and_chain_disagreement_is_refused` and
+`registered_rules_and_chains_agree_on_the_caloric_product` (`pse-quantity` units);
+`seed_forms_type_without_intermediate_kinds` (DIPPR 100, Shomate and RPP4 `cp`, `dh` and
+`ds` without intermediate kinds) and `type_expression_resolves_by_monomial`
+(`pse-modeling` units); and `multiplicative_chains_lower_by_monomial` (compiler units).
+
+**Entropy increments.** A molar heat capacity and a molar entropy have one dimension, so the
+physical document separates them by kind, never by the type a context expects. It declares
+two dimensionless base kinds, `temperature_ratio` and `logarithmic_temperature_increment`,
+and three registered rules: two absolute temperatures divide to a temperature ratio; a
+temperature difference over an absolute temperature is a logarithmic temperature
+increment, with preconditions disjoint from the difference-over-difference rule; and the
+logarithm of a temperature ratio is a logarithmic temperature increment. `molar_entropy` is
+the derived kind molar heat capacity times logarithmic temperature increment, whose chain
+result is the stock-datum difference `DeltaS`, as `molar_enthalpy` (molar heat capacity
+times temperature) resolves to `DeltaH`. An entropy increment is therefore written with
+ordinary products, as `c1*log(T/T0) + (…)*r` with `r = (T - T0)/T` and heat-capacity terms
+in the parentheses, and a heat-capacity expression returned where an entropy is expected is
+refused. *Tested* by `ds_increment_types_as_entropy_difference` and
+`returning_heat_capacity_where_entropy_is_expected_is_refused` (`pse-modeling` units) and
+`entropy_increment_lowers_to_its_closed_form` (compiler units).
+
 Failures use the `compile.math` family ([§23.2](operations-and-validation.md#section-23-2)):
 
 - `unit_inconsistent`: incompatible contracts, an ambiguous literal or a mismatched edge.
@@ -158,18 +292,28 @@ Malformed registry declarations are validation invariants.
 
 A `Basis` states what a quantity is per: molar, mass, volume, energy, standard volume or
 dimensionless. It may add a composition or rate convention, and a standard-volume basis
-names its reference conditions. A `ReferenceState` records its kind, optional temperature
-and pressure, whether formation enthalpy is included, and an optional datum subject.
-The source boundary requires that subject to be an authored entity; its meaning belongs
-to the declaring package rather than a closed phase vocabulary.
-Enthalpy-like and entropy-like types carry their reference, and the additive rule refuses
-to combine different datums.
+names its reference conditions. A `ReferenceState` records its name, its kind, an optional
+typed temperature and pressure, whether formation enthalpy is included, and an optional
+datum subject. Each condition is a value in a declared unit of a declared quantity type
+(`ReferenceCondition`). Admission requires that type to be an absolute point of the
+temperature or pressure dimension, and the value to be finite and positive in the type's
+canonical unit. A package addresses a reference state by its name, as a `ReferenceState`
+value, and reads `.temperature` and `.pressure` as quantities of their declared types; a
+quantity type is not a reference state. The source boundary requires the datum subject to
+be an authored entity; its meaning belongs to the declaring package rather than a closed
+phase vocabulary. Enthalpy-like and entropy-like types carry their reference, and the
+additive rule refuses to combine different datums. *Tested* by
+`reference_state_conditions_are_typed` (`pse-quantity` tests) and
+`reference_state_attributes_are_typed` (`pse-modeling` units).
 
 The reference packages make these datums explicit choices, not universal standard
-conditions. The `physical` package's 298.15 K / 101325 Pa reference excludes formation
-enthalpy, and its gauge-pressure datum is a distinct reference. The stock ideal-gas
-thermochemistry datum is 298.15 K / 100000 Pa. A method that needs any other
-datum declares it. A change of basis or reference goes through a registered conversion
+conditions. The `physical` package's `package_datum` (298.15 K, 101325 Pa) excludes
+formation enthalpy and is also the gauge-pressure datum: the gauge-pressure type and `psig`
+carry it, which distinguishes them from absolute pressure. The stock ideal-gas
+thermochemistry datum `stock` is 298.15 K / 100000 Pa. The IDAES oracle conventions are
+named datums too, each including formation enthalpy: `bt_ideal_oracle` (300 K, 100000 Pa)
+and `bt_pr_oracle` (298.15 K, 101325 Pa). A method that needs any other datum declares
+it. A change of basis or reference goes through a registered conversion
 together with its parameter dependencies, applied by an explicit model operation (§8.2).
 Reaction definitions state their actual basis and heat convention (§9.7).
 
@@ -204,8 +348,20 @@ implementation or general IDAES equivalence (§6.14).
 
 ### 9.1 Material declarations
 
-The physical bundle declares generic kinds; seed packages supply chemical entities,
-attributes, composition and coefficient tables. IDs distinguish members independently of
+> Decision: [ADR-0127](../../adr/0127-chemical-core-in-physical.md) — the chemical core is
+> declared once, in `pse.physical`, beside the physical quantity types that name its kinds
+> as subjects (Plan 23 SM0, implemented).
+
+The physical bundle declares the generic kinds. Its `chemistry` modeling package
+(`packages/reference/physical/models/chemistry.pse`) declares the species, element,
+reaction and phase kinds and the canonical `liquid` and `vapor` phases, and is the single
+phase authority; references name them `chemistry.*`. The kinds live in `pse.physical`
+because the physical inventory, admitted from that package alone (§8), names them: 34
+quantity types take species, element or reaction as their subject, six operations name
+species or element as their result subject, and both finite reductions range over species.
+Its `kinds` package keeps the mesh and structural kinds (time, length, port set, stage,
+cell, face, node and custom). Seed packages supply chemical entities, attributes,
+composition and coefficient tables. IDs distinguish members independently of
 names or formula strings. All 21 previously shipped element masses are retained in authored
 chemistry data. Molecular-weight and element-closure checks consume those actual rows.
 Package requirements express valid memberships and stoichiometric constraints. There is

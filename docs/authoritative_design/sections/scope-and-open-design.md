@@ -221,6 +221,7 @@ Relation, enumeration and extension-type detail is generated from the registry; 
 | Completion | The immutable result projection of an attempt: assessments, diagnostics, outcomes and lineage; reading it performs no computation |
 | Contribution | A typed physical term that balance laws collect; one transfer has one identity and opposite signs |
 | Definition | A reusable typed definition: parameters, domains, guards, equations, ports, contributions and child instances |
+| Derived quantity kind | A quantity kind declared as a monomial of other kinds, with its canonical unit and the result a multiplicative chain resolving to it takes; declared, never synthesized |
 | Eligibility | Contextual admissibility of a native route for a prepared problem, distinct from static adapter inventory and the selected route |
 | Identity projection | A versioned, named selection of what a given scope's identity depends on |
 | Instance binding | Assignment of a definition's formals to a specific instance, its topology and its source slots |
@@ -251,4 +252,5 @@ Relation, enumeration and extension-type detail is generated from the registry; 
 | Staged sequence | Finite steps on one native session, each an overlay over the original specification with a typed start; initialization, homotopy, studies and authored runs use it |
 | Start | The numerical start actually used by an attempt, with its origin; distinct from reused allocation |
 | Tear | A connection occurrence cut to break a recycle, selected by an authored policy |
+| Unit product | A unit literal as a canonical product of atomic units with rational exponents; its identity does not depend on its spelling |
 | Usability | The final decision whether a candidate may be used, combining qualification, closure and explicit opt-ins |

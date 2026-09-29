@@ -444,6 +444,24 @@ Dynamic rebinding retains the same ownership contract. Runtime cache clearing re
 retained programs without invalidating active workers; historical campaign measurements do
 not qualify the new seed.
 
+**Preparation counts.** A study reports its own structural preparations and value rebinds
+(`ModelingStudyReport::preparations`, `PreparationCounts`): solver-view preparations
+(`views`: a case plan, structural analysis and artifact requests built from a bound
+structure), value-independent observation programs compiled (`observations`), and value
+rebinds that rebuilt value-dependent products because a consumed value changed
+(`rebuilt`) or shared every product (`shared`). The math service counts each in its runtime
+totals and in every enclosing counted operation, a task-local scope, so concurrent studies
+on one runtime each count only their own work. An in-process study takes per-point overlays
+(`PointOverlay`: case values by path and declared parameters), composed over the point's
+analysis as a durable worker composes them; a point with an overlay runs alone rather than
+joining a batch. The counts are a published boundary document (schema
+`preparation-counts`, [§21.5](#section-21-5)); Python reads them as
+`ModelingStudy.preparations`, and `ModelingPackage.study(..., overlays=)` passes overlays
+to an in-process study as it does to a durable one. *Tested* by `study_results_carry_preparation_counts` (two concurrent
+five-point overlay studies, one view and four rebuilds each, summing to the runtime counts;
+runtime units) and `test_flash_sweep_prepares_structure_once` (a BT ideal flash swept over
+366–369 K: one view, and every later point a rebind; Python integration).
+
 **Batched points** (Plan 22 N5). Consecutive independent points that explicitly select an
 adapter whose record declares `batch` ([§18.9](numerical-execution.md#section-18-9)) run as
 one batch: each is bound from its specification and assessed on its own
@@ -873,9 +891,10 @@ compiled extension's metadata.
 
 **Boundary documents.** The Rust serde type owns each Rust-owned document: the backend,
 solve, Diffsol and IDAS settings, the job payload, the termination detail, the source
-manifest and the study definition. schemars derives its JSON Schema (draft 2020-12) into
-`docs/generated/schema/`, and a closed emitter (`pse-codegen::codegen::documents`) turns
-the schemas into frozen msgspec `Struct` types in `python/pse/contracts/documents/`: every
+manifest, the study definition and a study's preparation counts. schemars derives its JSON
+Schema (draft 2020-12) into `docs/generated/schema/`, and a closed emitter
+(`pse-codegen::codegen::documents`) turns the schemas into frozen msgspec `Struct` types in
+`python/pse/contracts/documents/`: every
 enumeration is the registry's generated enum, every object refuses unknown fields, and a
 schema construct outside the mapping is a generation error. ADR-0116 Outcome 7 allowed
 datamodel-code-generator or this emitter; the emitter was chosen because the external

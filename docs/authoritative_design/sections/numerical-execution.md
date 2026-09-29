@@ -806,12 +806,26 @@ for all callback adapters:
 - work runs under `catch_unwind`; a Rust panic becomes a `Panic` termination and never
   unwinds across a C or library callback;
 - typed causes (never diagnostic strings) classify failures: domain violations and
-  provider trial, envelope or singular failures are recoverable trials; cancellation is
-  cancellation; everything else is fatal evaluation failure;
+  provider trial, envelope, singular and regime-crossing failures are recoverable trials
+  (`ProviderError::recoverable`); cancellation is cancellation; everything else is fatal
+  evaluation failure;
 - outputs are published only after a successful evaluation, so a failed trial cannot
   leave partial buffers or return the previous trial's values;
 - only terminal failures latch; later successful trials preserve native success;
 - per-demand call counts and wall time, including rejected trials, become metrics.
+
+**Regime crossings.** A nested regime selection binds its derivatives to the regime chosen
+at the first derivative request. A later trial that selects another regime is refused as
+the typed, recoverable `ProviderError::RegimeCrossing`, naming the selector, the bound
+regime and the selected one, so the outer method shortens or changes its step instead of
+continuing across the switch; runtime diagnostics classify it as a rejected trial and keep
+the three identities as its sources. The callback boundary counts these refusals. A solve
+report's `evidence.callback.regime_crossings` and its metric `callback.regime_crossings`
+hold the attempt's total, a subset of its trial rejections, and each Ipopt iteration event
+carries `regime.crossings` for that outer iteration, bounded by the progress history like
+every event. *Tested* by `nested_stage_reports_regime_crossings_per_outer_iteration`
+(native runtime units: Ipopt steps from the bound regime towards the other, with no
+crossing in iteration 0 and crossings from iteration 1, and never accepts).
 
 ### 18.3 In-process NLP: Ipopt C and POUNCE
 
@@ -1918,9 +1932,10 @@ acceptance conformance covers four cases:
   agrees with teqp 0.23.1's `canonical_PR` reference within 10⁻³ and with the authored
   reference within 10⁻⁸, and the stability check fails with a `point` basis;
 - `pcsaft_tpd_fits_the_formal_pool` prepares the three-component PC-SAFT distance, which
-  needs 5,510 of the 8,192 formal symbol slots (`pse_modeling::Limits::body_slots`, default
-  the pool's size, and
-  a smaller limit refuses it with a typed limit), and solves it locally with Ipopt.
+  needs 5,510 formal slots, within the default slot allowance of 8,192 (one pool chunk;
+  `pse_modeling::Limits::body_slots` unset,
+  [§7.1](mathematics-and-compilation.md#section-7-1)); an allowance of 4,096 refuses it
+  with `MathError::SlotLimit`, and it solves locally with Ipopt.
 
 Certification is established for the ideal feed only. SCIP does not close the gap of the
 Peng–Robinson instability case in bounded time (after 10 minutes and 42,413 nodes its dual

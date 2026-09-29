@@ -104,8 +104,9 @@ identities and lifecycles. Cases and results never mutate the model
 ([ADR-0114](../../adr/0114-typed-operational-store.md)).
 
 **Package revision.** Runtime modeling admission seals the exact package closure,
-visibility, aliases, declarations and physical context into an immutable compiler
-`ModelingRevision`. A checked revision is not interchangeable with arbitrary raw rows or
+visibility, declarations, physical context and the physical name bindings it resolved into
+an immutable compiler `ModelingRevision`, identified by its source revision
+([§5.3](#section-5-3)). A checked revision is not interchangeable with arbitrary raw rows or
 a caller-supplied physical context. Immutable edits re-admit the changed revision; failure
 leaves prior packages intact. Selected root/instance, bindings, analysis route and limits
 are explicit tracked requests. Proposed
@@ -150,6 +151,11 @@ the durable attempt of the run it publishes ([§20.2](#section-20-2)).
 > implemented). As built, settings identity no longer frames Rust type names, so six frames
 > moved to new versions; this refines ADR-0116's expectation that settings identity stays
 > unchanged (below).
+>
+> Decision: [ADR-0123](../../adr/0123-typed-package-schema.md) — a modeling source revision
+> is framed over its structured rows, its physical-inventory identity and its physical name
+> bindings, and every frame whose preimage changes takes a new variant (Outcome 8; Plan 23
+> KR3 and KR8, implemented).
 
 `pse-ids` defines two frozen framings, and the difference between them is contract:
 
@@ -180,6 +186,25 @@ moved six frames to new versions, each replacing its predecessor:
 durable job's request identity is framed from the typed job, never from the text of a
 JSON value whose key order depends on the build graph
 (`job_request_identity_independent_of_key_order`).
+
+**Modeling source identity.** A modeling source revision's identity
+(`pse-runtime::math::modeling::source_revision`, frame `pse.modeling.source-revision.v2`)
+frames the structured declaration rows in order, the identity of the physical inventory
+they are admitted against (`pse.math.physical-inventory.v5`,
+[§8](physical-semantics.md#section-8)) and the physical name bindings admission resolved
+them with, each name with the identity it denotes. Binding a name to another type, admitting
+the same rows against another inventory, or changing a row is another revision; unchanged
+inputs reproduce it. The frames whose preimages render canonical DSL spellings, whose unit
+literals became canonical unit products ([§8.2](physical-semantics.md#section-8-2)), moved
+to new variants, each replacing its predecessor: `pse.modeling.dispatch-body.v2`,
+`pse.modeling.finite-function.v2`, `pse.modeling.continuity.v2`,
+`pse.modeling.definite-integral.v2`, `pse.modeling.consumer-body.v2`,
+`pse.modeling.implicit-residual.v2` and `pse.math.typed-definition.v3` (DP-24). A unit
+product's identity is the new frame `pse.quantity.unit-product.v1`. *Tested* by
+`source_revision_changes_with_a_physical_name_binding` and
+`unchanged_inputs_reproduce_the_source_revision` (runtime units), and by the frozen vectors
+`the_structured_ir_frame_variants_are_frozen` and `the_unit_product_identity_is_frozen`
+(`pse-ids`).
 
 **Floating-point rule** ([ADR-0030](../../adr/0030-canonical-float-hashing-and-no-float-keys.md)).
 `canonical_f64_bits`/`canonical_f32_bits` map every NaN to the positive quiet NaN with
@@ -450,6 +475,20 @@ An **export** is a lease held by `export:<destination>` for a stated time:
 `export_publication` writes the record, the lease, its expiry, the epoch and the store
 fingerprint as a one-row `runtime.publication_manifests` Delta table, which `open_export`
 reads without the store, refusing an expired export or a former control table.
+
+**Reader caches.** A Delta scan's Parquet predicate-cache allowance (an active and a
+prefetched file per native reader, sized by `max_predicate_cache_size`) is admitted against
+the native cache service's aggregate allowance and the memory pool once per execution, for
+the actual reader partitions: the output partitions of the scan's leaf sources, however
+many output partitions the operators above them fan out to. The first executed partition
+admits it, the others share it until the last stream drops, and another execution admits
+its own. The resident cache reuses a decoded exact selection while its input is the one it
+was planned with, or an equivalent rebuild of it: the same native leaves and, above them,
+the same operators by name, one-line rendering and schema, as when the physical optimizer
+replaces a round-robin repartition with an identical one. A rebound source or an altered
+operator forfeits reuse. *Tested* by
+`reader_lease_admits_actual_reader_partitions_once_per_execution` (engine units) and
+`resident_reuse_survives_an_equivalent_rebuild_only` (catalog units).
 
 **Retention.** The catalog computes what stays reachable, in SQL, for three reasons
 (`RetentionReason`): the exact versions a live publication selects (`publication`), the

@@ -141,7 +141,7 @@ Limits are recorded in
 
 | Concern | Contract | Owner | Detail |
 |---|---|---|---|
-| Selected admission | Immutable package closures supply exact dependencies, visibility and physical aliases; selected definitions and cases specialize through one checked path. | `pse-runtime::workflow::modeling`, `pse-modeling`, compiler modeling queries | [§22](models-and-composition.md#section-22) |
+| Selected admission | Immutable package closures supply exact dependencies, visibility and physical names; selected definitions and cases specialize through one checked path. | `pse-runtime::workflow::modeling`, `pse-modeling`, compiler modeling queries | [§22](models-and-composition.md#section-22) |
 | Separate lifecycles | Package revisions, specialized models, case bindings, resolved numerical policy, prepared products, starts, results and publications have distinct ownership. | modeling runtime, `pse-compiler::workspace`, `pse-math::assembly` | [§5](identity-and-publication.md#section-5) |
 | Scientific binding | Entity kinds, sets, tables, interfaces, functions and definitions carry materials, states and property choices; branch-local closures refuse unproved crossings. | authored reference packages and generic modeling mechanisms | [§9](physical-semantics.md#section-9) |
 | Conservation and reactions | Generic accumulators consume signed contributions with explicit roles, transfer identities and closure checks; science chooses subjects and energy conventions. | `pse-modeling` and authored process/reaction definitions | [§10](models-and-composition.md#section-10) |

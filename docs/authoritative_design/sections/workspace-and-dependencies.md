@@ -157,7 +157,7 @@ register crates.
 | `pse-tests-lifecycle` | Publication object races and memory-budget behavior |
 | `pse-tests-structural` | Reserved for structural fixtures; it currently contains only a placeholder, and structural tests live with their crates |
 | `xtask` | Code generation and regeneration checks, family and ceiling checks, governance and inspection fixtures; the justfile is its surface |
-| `pse-benches` | Criterion groups for canonicalization, native cache, consolidation and process cases |
+| `pse-benches` | Criterion groups for canonicalization, native cache, consolidation, process cases and modeling preparation |
 
 Dependencies point one way. The semantic foundations (`pse-diagnostics`, `pse-ids`,
 `pse-quantity`, `pse-model`) sit below `pse-authoring`, `pse-modeling`, `pse-kernels`,

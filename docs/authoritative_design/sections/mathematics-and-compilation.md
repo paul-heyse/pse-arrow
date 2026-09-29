@@ -31,7 +31,7 @@ fallible provider calls and source attribution.
 | Library algebra starts at the typed definition | `pse-compiler::typed_math` lowers the authored AST through `pse-math::typed::BodyBuilder`; no intermediate IR is produced or stored. |
 | Specialization-local bodies | A body covers one definition and its consumed finite membership, never the whole model. Identical bodies are shared across instances; a changed shape can require new compilation. |
 | Libraries own mathematics | Symbolica/Numerica own arithmetic, normalization, derivative composition and evaluators; faer owns sparse patterns and products; native solvers own iteration ([§18](numerical-execution.md#section-18)). |
-| Explicit effects | Symbolic initialization, native compilation and evaluation are effects outside tracked Salsa queries ([§14.3](#section-14-3)). |
+| Explicit effects | Symbolic initialization, native compilation and evaluation are effects outside tracked Salsa queries ([§14.3](#section-14-3)); the one process-global effect a tracked query may cause is the append-only growth of the formal-symbol pool (below). |
 
 Unknowns are symbols bound to case variables, never nulls in a value column. Every scalar
 input and output carries a complete physical type ([§8](physical-semantics.md#section-8)),
@@ -39,12 +39,25 @@ and every expression occurrence keeps a source identity for diagnostics.
 
 `pse_math::initialize` is the single explicit entry. It supplies the optional
 `SYMBOLICA_LICENSE` environment value to the library once, disables library tracing and
-registers the bounded vocabulary (4,096 formal symbols and 4,096 provider-function symbols)
-in a fixed order, independent of model arrival order. It also captures the linked GMP/MPFR
-runtime versions, whose identity enters compiler inventories and artifact keys. Tracked
-queries only read this context. Fixed registration is a reproducibility control, not a
-claim of whole-program bitwise identity. No license secret enters an artifact, identity or
-diagnostic.
+registers the first chunk of the formal-symbol pool (8,192 formal symbols and 8,192
+function symbols for provider lifts) in a fixed order, independent of model arrival order.
+It also captures the linked GMP/MPFR runtime versions, whose identity enters compiler
+inventories and artifact keys.
+
+The pool then grows lazily. The first request for a slot beyond it registers whole chunks
+of 8,192 (`pse_math::library::FORMAL_CHUNK`) until the slot is covered. Growth is
+append-only and serialized: a chunk is appended only once all of its symbols registered,
+and chunk *k* registers its formals and then its functions, so the registration order of
+any two pool symbols is the same whenever, and from whichever query, a chunk registers, and
+a registered symbol never changes. The pool has no ceiling of its own. Each body's explicit
+slot allowance (`BodyLimits::slots`; by default one chunk) bounds it, and a body that needs
+more slots than its allowance is refused with `MathError::SlotLimit`, naming the required
+and available slots (`runtime.resource_limit`; [§14.3.2](#section-14-3-2)). A tracked query
+that builds a body may therefore extend the pool; otherwise tracked queries only read this
+context. Fixed registration is a reproducibility control, not a claim of whole-program
+bitwise identity. No license secret enters an artifact, identity or diagnostic. *Tested*
+by `formal_pool_extends_to_the_declared_limit_and_refuses_beyond` and
+`formal_symbols_are_stable_across_pool_extension` (`pse-math` units).
 
 **Source owners:** `crates/pse-math/src/{lib,typed,library}.rs`,
 `crates/pse-compiler/src/typed_math.rs`. Library profiles and their selected features are
@@ -386,10 +399,10 @@ lifetimes, and each has a distinct identity scope
 
 | Stage | Owner | Consumes | Produces | Effects |
 |---|---|---|---|---|
-| Package admission | runtime modeling admission ([§22](models-and-composition.md#section-22)) | exact package closure, generic declarations, physical inventory and aliases | immutable checked revision | source loading and bounded admission |
+| Package admission | runtime modeling admission ([§22](models-and-composition.md#section-22)) | exact package closure, generic declarations, physical inventory and its names | immutable checked revision | source loading and bounded admission |
 | Generic specialization | `pse-modeling`, tracked by compiler modeling queries | checked package, root/instance, bindings, analysis and limits | demanded members, equations, named lowerings of constraint forms, complementarity and disjunctions, objective levels with their level bounds, lineage, checks and reports | none |
 | Input publication | `CompilerWorkspace` | checked package/context and lowered case inputs | Salsa input revisions | validated before setters |
-| Definition admission | `admitted` query → `typed_math::Request::admit` | definition source, formals, domains, groups, providers, units, physical registry | `AdmittedBody`: `BodySpec`, types, occurrences, `PreparedBody` | none |
+| Definition admission | `admitted` query → `typed_math::Request::admit` | definition source, formals, domains, groups, providers, contextual literal types, physical registry | `AdmittedBody`: `BodySpec`, types, occurrences, `PreparedBody` | none |
 | Case planning | `plan` query → `CasePlan::prepare` | case structure, semantic bodies | immutable `CasePlan` with faer patterns and local demands | none; no evaluators |
 | Modeling view and rebind | `PreparedModeling::bound_structure`, `CompilerWorkspace::prepare_modeling_view`, `PreparedCase::rebind` | bound case structure, derivation rules, case values | a `PreparedCase` view identified by `view_key`, whose value products are rebound per values ([§14.4](#section-14-4)), and on a sensitivity request its parametric program (`pse.compiler.modeling-parametric.v1`, [§15.5.1](numerical-execution.md#section-15-5-1)) | none; no evaluators |
 | Structure and facts | `structure`, `coefficients`, `presolve_facts`, `problem_facts` queries | plan, consumed fixed/parameter values | `StructuralAnalysis`, coefficient/presolve/class facts | none |
@@ -439,8 +452,10 @@ recursive-inference consumer needs its own reviewed contract.
 `CompilerWorkspace` is a single-writer owner of one Salsa database. Callers serialize
 access; no database clone, Salsa handle or partial input batch escapes. Tracked queries are
 pure: they may read inputs, parse, admit and plan, but never construct native evaluators,
-touch caches, run solvers or write data. Cancellation is checked between steps, surfaces as
-`CompileError::Cancelled`, and is never memoized as a result. Errors are typed
+touch caches, run solvers or write data. The one process-global effect admission may cause
+is appending chunks to the formal-symbol pool, which is append-only and fixes the
+registration order of its symbols ([§7.1](#section-7-1)). Cancellation is checked between
+steps, surfaces as `CompileError::Cancelled`, and is never memoized as a result. Errors are typed
 (`Missing`, `Syntax`, `Math`, `Structure`, `Limit`, `Cancelled`) with diagnostic codes
 ([§23](operations-and-validation.md#section-23)).
 
@@ -487,9 +502,9 @@ they protect.
 | Scope | Default bounds |
 |---|---|
 | DSL text | 65,535 bytes; nesting and unit depth 64 |
-| Body construction (`BodyLimits`) | 4,096 formal slots; 16,384 construction occurrences; syntax, filter and conditional depth 128; integral power degree 1,024 |
+| Body construction (`BodyLimits`) | 8,192 formal slots by default (one pool chunk; the pool grows to an explicitly raised allowance); 16,384 construction occurrences; syntax, filter and conditional depth 128; integral power degree 1,024 |
 | Local evaluation (`EvaluationLimits`) | 4,096 derivative components; 1,000,000 scalar operations per demand; 64 MiB worker scratch; 4,096 provider calls |
-| Optimizer (`Optimization`) | cores 1–64 (default 1); Horner iterations up to 1,000 (default 10); common-pair rounds up to 32 (default 1) |
+| Optimizer (`Optimization`) | cores 1–64 (default 1); Horner iterations up to 1,000 (default 10); common-pair rounds up to 32 (default 1); a fixed Horner-scheme budget of 8,192 variables, an optimizer budget rather than a symbol bound |
 | Case (`CaseLimits`, `AssemblyLimits`) | 100,000 scalars, instances and rows; 1,024 bodies; 1,000,000 slots and contributions; native index within `i32`; 256 MiB aggregate worker scratch |
 | Workspace (`WorkspaceLimits`) | 4,096 input entries; 2 GiB input extent; 16,384 retained entries and 256 MiB known retained bytes; LRU of 64 values per expensive query |
 | Structural matching | 100,000 rows on a 32 MiB stack |
@@ -499,14 +514,21 @@ Derivative admission bounds the pinned Numerica Taylor convolution and primitive
 from the source operation counts before vectorization, then reconciles the actual built
 operations. Opaque or provider derivative support wider than 256 local coordinates is
 refused; this is not a global model-size limit. Shared bindings count once, preventing
-exponential growth from repeated substitution. `ModelingLimits.body_occurrences` may raise
-the default occurrence budget explicitly; the 4,096-slot body bound remains. Limits are
-tracked policy inputs and cannot authorize a differently typed or truncated model.
+exponential growth from repeated substitution. `ModelingLimits.body_occurrences` and
+`body_slots` (`pse_modeling::Limits`, also a fixture's execution policy) raise the
+occurrence and slot allowances explicitly; the formal-symbol pool extends to a raised slot
+allowance ([§7.1](#section-7-1)), and a body beyond its allowance is refused with
+`MathError::SlotLimit`. Limits are tracked policy inputs and cannot authorize a differently
+typed or truncated model.
 
 `MathPolicy` allowances draw from the deployment memory pool, never a second budget.
 Immutable prepared products, artifacts, active worker scratch, foreign allowances and
 completed results are charged separately at their actual ownership lifetimes; one shared
-CPU semaphore serves data and math work, and each optimizer reserves its cores once.
+CPU semaphore serves data and math work, and each optimizer reserves its cores once. A root
+query admits its target partitions of the deployment's workers at once and is refused
+(`runtime.resource_limit`), not queued, when they are taken; nested work borrows its root's
+admission (`roots_admit_partition_capacity_and_nested_work_borrows_the_owner`, engine
+units).
 `with_worker` constructs, uses and destroys providers and evaluators on the owning thread,
 and a join supervisor keeps permits through thread-local destruction after cancellation.
 Preparation owns the effective thread policy
