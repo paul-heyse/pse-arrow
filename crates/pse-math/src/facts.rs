@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Compiler-established mathematical facts, independent of any solver library.
-use crate::{MathError, assembly::CasePlan, coefficients::Coefficients};
+use crate::{
+    MathError, assembly::CasePlan, coefficients::Coefficients, convexity::Convexity,
+};
+use std::sync::atomic::AtomicBool;
 use pse_model::generated::enums::ModelingVariableDomain;
 /// Admitted interval shape; values remain owned by the original case structure.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -52,13 +55,23 @@ pub struct ProblemFacts {
     pub quadratic: bool,
     /// Native constraint handlers the structure requires (ADR-0104), sorted and unique.
     pub native: Vec<pse_model::generated::enums::NativeConstraintForm>,
+    /// Exact convexity established at preparation (ADR-0121): a coefficient program's
+    /// objective quadratic by an exact Gram certificate, any other program by the curvature
+    /// pass. It carries the identity of the values it consumed and rebinds with them.
+    pub convexity: Convexity,
 }
 impl ProblemFacts {
-    /// Derive facts from a plan and its optional, current coefficient snapshot.
+    /// Derive facts from a plan and its optional, current coefficient snapshot. A
+    /// coefficient snapshot's objective quadratic is certified here, in the objective's
+    /// minimization sense.
+    ///
+    /// # Errors
+    /// A snapshot of other values or structure, or cancellation.
     pub fn from_plan(
         plan: &CasePlan,
         coefficients: Option<&Coefficients>,
         facts: &crate::presolve::Facts,
+        cancel: &AtomicBool,
     ) -> Result<Self, MathError> {
         if facts.structure != plan.structure().key()
             || coefficients.is_some_and(|c| !c.matches_facts(facts))
@@ -67,6 +80,12 @@ impl ProblemFacts {
                 "class coefficients do not match plan".into(),
             ));
         }
+        let sign = plan.structure().objective().map_or(1.0, |o| o.sense.sign());
+        let convexity = match (coefficients, &facts.curvature) {
+            (Some(c), _) => Convexity::of_coefficients(c, sign, cancel)?,
+            (None, Some(fact)) => fact.clone(),
+            (None, None) => Convexity::not_assessed(facts.key),
+        };
         Ok(Self {
             variables: plan.columns().len(),
             rows: plan.structure().rows().len(),
@@ -118,6 +137,7 @@ impl ProblemFacts {
                 .collect::<std::collections::BTreeSet<_>>()
                 .into_iter()
                 .collect(),
+            convexity,
         })
     }
 }
@@ -161,6 +181,7 @@ mod tests {
             )]),
             objective_linear: vec![true],
             objective_degree: Some(2),
+            curvature: None,
         }
     }
     #[test]

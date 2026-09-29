@@ -86,6 +86,10 @@ pub struct Facts {
     pub objective_linear: Vec<bool>,
     /// Bound on polynomial objective degree under these assumptions; absence means unestablished.
     pub objective_degree: Option<u8>,
+    /// The curvature pass's convexity fact over the projected program (ADR-0121), for a
+    /// program that is not a coefficient program; `None` when it is one, whose class the
+    /// coefficient snapshot establishes.
+    pub curvature: Option<crate::convexity::Convexity>,
 }
 impl Facts {
     /// The outward-rounded FBBT enclosure of row `index` over a free-column box, from the
@@ -217,6 +221,7 @@ impl CasePlan {
             obligations: BTreeMap::new(),
             has_guards: false,
             signs: BTreeMap::new(),
+            curvature: None,
         };
         for b in self.structure().instances() {
             facts
@@ -392,9 +397,18 @@ impl CasePlan {
                 return Err(MathError::Contract("nonfinite affine projection".into()));
             }
         }
+        // The curvature pass reads the program built above (ADR-0121); a coefficient
+        // program's class belongs to its coefficient snapshot.
+        if !facts.coefficient_eligible() {
+            facts.curvature = Some(crate::curvature::fact(
+                &program,
+                crate::convexity::EXACT_OPERATIONS,
+                cancel,
+            )?);
+        }
         let mut h = FramedHasher::new(pse_ids::Frame::MathBoundFactsV2);
         h.hash(&facts.structure)
-            .str("pounce-nlp-0.12.0;projection-v3;stage-dag");
+            .str("pounce-nlp-0.12.0;projection-v3;stage-dag;curvature-v1");
         for (id, b) in &facts.values {
             h.str(&id.to_string()).u64(*b);
         }

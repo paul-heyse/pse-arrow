@@ -363,8 +363,6 @@ def test_solve_settings_backend_projection(
         "rhs": [-2.0],
         "cones": [{"kind": "nonnegative", "dimension": 1}],
         "objective_constant": 3.0,
-        "gram_factors": [],
-        "gram_weights": [],
     }
     (row,) = (
         runtime.prepare_conic(

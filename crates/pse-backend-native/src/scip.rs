@@ -1486,6 +1486,106 @@ fn expressions(
     }
     Ok(out)
 }
+/// SCIP's curvature verdict of one expression.
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ScipCurvature {
+    /// No curvature detected.
+    Unknown,
+    /// Convex.
+    Convex,
+    /// Concave.
+    Concave,
+    /// Linear.
+    Linear,
+}
+/// SCIP's own curvature detection over `program` (ADR-0121 Outcome 5): each column a SCIP
+/// variable with its box, and each requested node an expression that SCIP simplifies
+/// (`SCIPsimplifyExpr`, as its nonlinear presolve does) and whose activity and curvature it
+/// computes (`SCIPevalExprActivity`, `SCIPcomputeExprCurvature`). An expression SCIP
+/// recognizes as quadratic but whose curvature rules leave undecided is decided by SCIP's
+/// eigenvalue check (`SCIPcomputeExprQuadraticCurvature`). A differential test oracle for
+/// the curvature pass only; no production path consults it.
+#[cfg(test)]
+pub(crate) fn curvature(
+    program: &FactorableProgram,
+    roots: &[pse_math::factorable::NodeId],
+) -> Result<Vec<ScipCurvature>, ProblemError> {
+    let execution = Execution::new(
+        Arc::new(AtomicBool::new(false)),
+        &Controls::default(),
+    );
+    let mut instance = Instance::new(&execution, Modes::default())?;
+    let coordinates = program
+        .variables
+        .iter()
+        .enumerate()
+        .map(|(i, v)| {
+            instance.variable(&format!("x{i}"), (v.lower, v.upper), 0.0, vartype(v.domain))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut needed = vec![false; program.nodes.len()];
+    let mut stack = roots.to_vec();
+    while let Some(n) = stack.pop() {
+        if !std::mem::replace(&mut needed[n], true) {
+            stack.extend(crate::execution::factorable::children(&program.nodes[n]));
+        }
+    }
+    let exprs = expressions(&instance, program, &coordinates, &needed)?;
+    let s = instance.ptr();
+    let verdict = |c| match c {
+        ffi::SCIP_EXPRCURV_SCIP_EXPRCURV_CONVEX => ScipCurvature::Convex,
+        ffi::SCIP_EXPRCURV_SCIP_EXPRCURV_CONCAVE => ScipCurvature::Concave,
+        ffi::SCIP_EXPRCURV_SCIP_EXPRCURV_LINEAR => ScipCurvature::Linear,
+        _ => ScipCurvature::Unknown,
+    };
+    let mut out = Vec::with_capacity(roots.len());
+    for root in roots {
+        let mut simplified = ptr::null_mut();
+        let (mut changed, mut infeasible) = (0, 0);
+        native!(
+            "SCIPsimplifyExpr",
+            ffi::SCIPsimplifyExpr(
+                s,
+                exprs.nodes[*root],
+                &mut simplified,
+                &mut changed,
+                &mut infeasible,
+                None,
+                ptr::null_mut()
+            )
+        )?;
+        let guard = Expressions {
+            scip: s,
+            nodes: vec![simplified],
+        };
+        let e = guard.nodes[0];
+        native!("SCIPevalExprActivity", ffi::SCIPevalExprActivity(s, e))?;
+        native!(
+            "SCIPcomputeExprCurvature",
+            ffi::SCIPcomputeExprCurvature(s, e)
+        )?;
+        // SAFETY: a live expression of this instance whose curvature was just computed.
+        let mut result = verdict(unsafe { ffi::SCIPexprGetCurvature(e) });
+        if result == ScipCurvature::Unknown {
+            let mut quadratic = 0;
+            native!(
+                "SCIPcheckExprQuadratic",
+                ffi::SCIPcheckExprQuadratic(s, e, &mut quadratic)
+            )?;
+            if quadratic != 0 {
+                let mut c = ffi::SCIP_EXPRCURV_SCIP_EXPRCURV_UNKNOWN;
+                native!(
+                    "SCIPcomputeExprQuadraticCurvature",
+                    ffi::SCIPcomputeExprQuadraticCurvature(s, e, &mut c, ptr::null_mut(), 0)
+                )?;
+                result = verdict(c);
+            }
+        }
+        out.push(result);
+    }
+    Ok(out)
+}
 fn arity(n: usize) -> Result<i32, ProblemError> {
     i32::try_from(n).map_err(|_| ProblemError::Unsupported("SCIP constraint arity".into()))
 }

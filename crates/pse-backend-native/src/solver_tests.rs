@@ -23,6 +23,13 @@ pub(crate) fn contract() -> OracleContract {
 pub(crate) fn execution() -> Execution {
     Execution::new(Arc::new(AtomicBool::new(false)), &Controls::default())
 }
+/// The exact certificate of a PSD test matrix; panics when it is not certified.
+pub(crate) fn certify(q: &faer::sparse::SparseColMat<usize, f64>, sign: f64) -> GramCertificate {
+    match GramCertificate::certify(q, sign, 1 << 20, &AtomicBool::new(false)).unwrap() {
+        pse_math::convexity::Definiteness::Psd(c) => c,
+        other => panic!("test matrix is not PSD: {other:?}"),
+    }
+}
 pub(crate) fn stamp(backend: Backend) -> Compatibility {
     Compatibility {
         layout: ContentHash::from_bytes([2; 32]),

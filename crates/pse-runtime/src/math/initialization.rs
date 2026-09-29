@@ -51,7 +51,7 @@ impl PreparedInitialization {
                     table: &execution::LINKED,
                     facts: &facts,
                     intent: SolveIntent::Initialize,
-                    convex: false,
+                    numerical_psd: false,
                     least_squares: false,
                     controls,
                 }

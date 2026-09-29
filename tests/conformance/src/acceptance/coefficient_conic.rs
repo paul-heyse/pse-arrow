@@ -40,6 +40,13 @@ fn stamp(backend: Backend) -> Compatibility {
 fn accuracy() -> ResolvedAccuracy {
     ResolvedAccuracy::from_policy(&Default::default(), 1e-8).unwrap()
 }
+/// The exact certificate of a PSD matrix (ADR-0121 Outcome 2).
+fn certify(q: &faer::sparse::SparseColMat<usize, f64>) -> GramCertificate {
+    match GramCertificate::certify(q, 1.0, 1 << 20, &AtomicBool::new(false)).unwrap() {
+        pse_math::convexity::Definiteness::Psd(c) => c,
+        other => panic!("not PSD: {other:?}"),
+    }
+}
 fn execution(c: &Controls) -> Execution {
     Execution::new(Arc::new(AtomicBool::new(false)), c)
 }
@@ -135,8 +142,7 @@ fn coefficient_conic() {
             objective_constant: 0.,
         };
         let zero = SparseColMat::try_new_from_triplets(1, 1, &[]).unwrap();
-        let certificate =
-            GramCertificate::new(&zero, 1., &faer::Mat::zeros(0, 1), &[], 10).unwrap();
+        let certificate = certify(&zero);
         let mut session = conic::Session::new(
             &p,
             &certificate,
@@ -169,8 +175,7 @@ fn coefficient_conic() {
     }
     // convexity/integrality are semantic eligibility, never an inferred fallback.
     let q = SparseColMat::try_new_from_triplets(1, 1, &[Triplet::new(0, 0, 2.)]).unwrap();
-    let certificate =
-        GramCertificate::new(&q, 1., &faer::Mat::from_fn(1, 1, |_, _| 1.), &[2.], 10).unwrap();
+    let certificate = certify(&q);
     let mut p = CoefficientProblem {
         contract: contract(0),
         objective: vec![-4.],

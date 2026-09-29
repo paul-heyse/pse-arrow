@@ -92,6 +92,7 @@ impl Mixed {
                 obligations: BTreeMap::new(),
                 signs: BTreeMap::new(),
                 has_guards: false,
+                curvature: None,
                 key,
                 structure: key,
                 values: BTreeMap::new(),

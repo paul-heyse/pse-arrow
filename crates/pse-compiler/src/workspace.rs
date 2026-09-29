@@ -781,7 +781,12 @@ fn problem_facts(
     };
     math_result(
         db,
-        pse_math::facts::ProblemFacts::from_plan(&p, c.as_deref(), &presolve_facts(db, i, id)?.0),
+        pse_math::facts::ProblemFacts::from_plan(
+            &p,
+            c.as_deref(),
+            &presolve_facts(db, i, id)?.0,
+            db.cancel(),
+        ),
     )
 }
 #[derive(Clone, Debug)]
@@ -877,8 +882,14 @@ impl ValueProducts {
         } else {
             None
         };
-        let facts =
-            pse_math::facts::ProblemFacts::from_plan(plan, coefficients.as_deref(), &presolve)?;
+        // The convexity fact is established with the other value-dependent products, so a
+        // rebind re-establishes it under the new values (ADR-0121, A6).
+        let facts = pse_math::facts::ProblemFacts::from_plan(
+            plan,
+            coefficients.as_deref(),
+            &presolve,
+            cancel,
+        )?;
         Ok(Self {
             presolve,
             coefficients,

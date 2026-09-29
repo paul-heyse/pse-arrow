@@ -1732,7 +1732,7 @@ mod tests {
                 table: &LINKED,
                 facts: &facts,
                 intent: SolveIntent::Root,
-                convex: false,
+                numerical_psd: false,
                 least_squares: false,
                 controls: &Controls::default(),
             };

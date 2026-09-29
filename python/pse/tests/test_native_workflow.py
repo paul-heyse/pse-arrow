@@ -75,8 +75,6 @@ def test_explicit_cone_strategy_preserves_native_qualification(
         "rhs": [-2.0],
         "cones": [{"kind": "nonnegative", "dimension": 1}],
         "objective_constant": 3.0,
-        "gram_factors": [],
-        "gram_weights": [],
     }
     prepared = runtime.prepare_conic(
         request, physical, pse.SolveSettings(backend=NativeBackend.CLARABEL)

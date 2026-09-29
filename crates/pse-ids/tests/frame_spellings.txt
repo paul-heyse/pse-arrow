@@ -37,7 +37,6 @@ pse.math.coefficient-assumptions.v1
 pse.math.convexity.v1
 pse.math.environment.v1
 pse.math.factorable.v1
-pse.math.gram.v1
 pse.math.guarded-real.v1
 pse.math.local-occurrence.v2
 pse.math.normalization.v1
@@ -117,7 +116,6 @@ pse.ops.schema.v1
 pse.backend.settings.v4
 pse.cone.layout.v3
 pse.durable.job_request.v2
-pse.explicit-conic.v3
 pse.native.accuracy.v3
 pse.native.controls.v2
 # Plan 22 O7: a durable study's request identity and each point's binding hash.
@@ -142,3 +140,11 @@ pse.provider.configuration.v1
 # lowerings place on the route (l1_exact_penalty). math.case-structure.v4 replaces
 # math.case-structure.v3, which is no longer declared.
 pse.math.case-structure.v4
+# Plan 22 C5 (ADR-0121): convexity is a compiler fact. The exact rational LDLᵀ keeps its Gram
+# factors, so math.gram.v2 replaces math.gram.v1; the explicit conic request no longer
+# carries a Gram witness, so explicit-conic.v4 replaces explicit-conic.v3. Neither replaced
+# version is declared. The fact and a recognized program's cone form have their own frames.
+pse.math.gram.v2
+pse.explicit-conic.v4
+pse.math.convexity-fact.v1
+pse.cone.recognized.v1

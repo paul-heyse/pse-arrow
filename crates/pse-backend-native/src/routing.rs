@@ -163,8 +163,10 @@ pub struct Requirements<'a> {
     pub facts: &'a ProblemFacts,
     /// Selected analysis purpose.
     pub intent: SolveIntent,
-    /// Convexity qualified against this coefficient snapshot.
-    pub convex: bool,
+    /// This request's explicit numerical convexity policy qualified its coefficient
+    /// objective as positive semidefinite (ADR-0121 Outcome 4): `convex_quadratic` for this
+    /// request only. It is never a fact; without it only `facts.convexity` counts.
+    pub numerical_psd: bool,
     /// The objective is a weighted least-squares sum with a response Jacobian, the only
     /// objective whose Gauss–Newton Hessian is defined (a fit).
     pub least_squares: bool,
@@ -201,6 +203,7 @@ pub fn oracle_facts(c: &crate::OracleContract, objective: bool, equalities: bool
         bound_assumptions: c.identity,
         quadratic: false,
         native: vec![],
+        convexity: pse_math::convexity::Convexity::not_assessed(c.identity),
     }
 }
 fn continuous(f: &ProblemFacts) -> bool {
@@ -215,16 +218,24 @@ const fn root_intent(intent: SolveIntent) -> bool {
     matches!(intent, SolveIntent::Root | SolveIntent::Initialize)
 }
 /// The mathematical classes the facts and intent establish (ADR-0106 §7), most specific
-/// first: a square root system, then the coefficient or discrete class, then smooth NLP.
-/// Root intents make a square problem a root system; coefficient and discrete classes are
-/// optimization classes; a degree-two coefficient problem without a convexity certificate
-/// is nonconvex; an explicit cone or a trajectory is never inferred from algebraic facts.
-pub fn problem_classes(f: &ProblemFacts, intent: SolveIntent, convex: bool) -> Vec<ProblemClass> {
+/// first: a square root system, then the coefficient, cone or discrete class, then smooth
+/// NLP. Root intents make a square problem a root system; coefficient, cone and discrete
+/// classes are optimization classes. Convexity is the preparation's fact (ADR-0121): a
+/// degree-two coefficient problem is convex only with its exact certificate, or, for one
+/// request, its explicit numerical qualification (`numerical_psd`); a continuous nonlinear
+/// problem is a continuous cone problem when the curvature pass recognized it. A trajectory
+/// is never inferred from algebraic facts.
+pub fn problem_classes(
+    f: &ProblemFacts,
+    intent: SolveIntent,
+    numerical_psd: bool,
+) -> Vec<ProblemClass> {
     let mut classes = Vec::new();
     if root_intent(intent) && square_root(f) {
         classes.push(ProblemClass::SquareRoot);
     }
     if !root_intent(intent) {
+        let convex = f.convexity.convex_quadratic().is_some() || numerical_psd;
         match (f.coefficients, f.quadratic, continuous(f)) {
             (true, false, true) => classes.push(ProblemClass::Linear),
             (true, false, false) => classes.push(ProblemClass::MixedLinear),
@@ -232,6 +243,7 @@ pub fn problem_classes(f: &ProblemFacts, intent: SolveIntent, convex: bool) -> V
             (true, true, true) => classes.push(ProblemClass::NonconvexQuadratic),
             (true, true, false) => classes.push(ProblemClass::MixedIntegerQuadratic),
             (false, _, false) => classes.push(ProblemClass::MixedIntegerNonlinear),
+            (false, _, true) if f.convexity.cone() => classes.push(ProblemClass::ContinuousCone),
             (false, _, true) => {}
         }
     }
@@ -261,7 +273,7 @@ pub fn admit(capability: &Capability, linked: bool, r: &Requirements<'_>) -> Vec
     if r.intent == SolveIntent::Certify && !capability.certifies {
         reasons.push(Ineligible::Certification);
     }
-    let classes = problem_classes(f, r.intent, r.convex);
+    let classes = problem_classes(f, r.intent, r.numerical_psd);
     if !classes.iter().any(|c| capability.classes.contains(c)) {
         reasons.push(Ineligible::Class { problem: classes });
     }
@@ -365,7 +377,7 @@ impl Requirements<'_> {
             SolverSelection::Auto => {
                 // Classes most specific first; the first class with an eligible automatic
                 // owner decides, and its owners' preference orders them (ADR-0121).
-                problem_classes(self.facts, self.intent, self.convex)
+                problem_classes(self.facts, self.intent, self.numerical_psd)
                     .into_iter()
                     .find_map(|class| {
                         self.table
@@ -419,6 +431,41 @@ fn native_forms(forms: &[NativeConstraintForm]) -> String {
 mod tests {
     use super::*;
     use crate::execution::{LINKED, adapter};
+    use pse_math::convexity::{
+        ConeSummary, Convexity, ConvexityClass, Definiteness, GramCertificate, Unrecognized,
+    };
+    fn fact(class: ConvexityClass) -> Convexity {
+        Convexity {
+            key: pse_ids::ContentHash::from_bytes([3; 32]),
+            class,
+        }
+    }
+    /// The fact of a certified convex quadratic objective.
+    fn convex_quadratic() -> Convexity {
+        let q = faer::sparse::SparseColMat::try_new_from_triplets(
+            2,
+            2,
+            &[
+                faer::sparse::Triplet::new(0, 0, 2.0),
+                faer::sparse::Triplet::new(1, 1, 2.0),
+            ],
+        )
+        .unwrap();
+        let Definiteness::Psd(c) =
+            GramCertificate::certify(&q, 1.0, 100, &std::sync::atomic::AtomicBool::new(false))
+                .unwrap()
+        else {
+            panic!("a positive diagonal is PSD")
+        };
+        fact(ConvexityClass::ConvexQuadratic(std::sync::Arc::new(c)))
+    }
+    fn cone() -> Convexity {
+        fact(ConvexityClass::Cone(ConeSummary {
+            auxiliaries: 1,
+            exponential: 1,
+            ..ConeSummary::default()
+        }))
+    }
     #[test]
     fn caller_inventory_limits_automatic_selection() {
         let facts = root_facts();
@@ -426,7 +473,7 @@ mod tests {
             table: &Table::new(&[]),
             facts: &facts,
             intent: SolveIntent::Root,
-            convex: false,
+            numerical_psd: false,
             least_squares: false,
             controls: &crate::solve::Controls::default(),
         };
@@ -450,13 +497,13 @@ mod tests {
         f: &ProblemFacts,
         intent: SolveIntent,
         selection: SolverSelection,
-        convex: bool,
+        numerical_psd: bool,
     ) -> Result<Route, ProblemError> {
         Requirements {
             table: &LINKED,
             facts: f,
             intent,
-            convex,
+            numerical_psd,
             least_squares: false,
             controls: &crate::solve::Controls::default(),
         }
@@ -479,6 +526,7 @@ mod tests {
             bound_assumptions: pse_ids::ContentHash::from_bytes([0; 32]),
             quadratic: false,
             native: vec![],
+            convexity: Convexity::not_assessed(pse_ids::ContentHash::from_bytes([0; 32])),
         }
     }
     /// I8: a Gauss–Newton Hessian is admitted only for a least-squares objective; a
@@ -500,7 +548,7 @@ mod tests {
             table: &LINKED,
             facts: &f,
             intent: SolveIntent::Optimize,
-            convex: false,
+            numerical_psd: false,
             least_squares,
             controls: &controls,
         };
@@ -539,7 +587,7 @@ mod tests {
                 table: &LINKED,
                 facts: f,
                 intent: SolveIntent::Root,
-                convex: false,
+                numerical_psd: false,
                 least_squares: false,
                 controls: c,
             }
@@ -585,7 +633,7 @@ mod tests {
                 table: &LINKED,
                 facts: &f,
                 intent: SolveIntent::Optimize,
-                convex: false,
+                numerical_psd: false,
                 least_squares: false,
                 controls: &controls
             }
@@ -610,6 +658,7 @@ mod tests {
             objective_degree: Some(2),
             bound_assumptions: pse_ids::ContentHash::from_bytes([0; 32]),
             native: vec![],
+            convexity: Convexity::not_assessed(pse_ids::ContentHash::from_bytes([0; 32])),
         }
     }
     #[test]
@@ -625,7 +674,7 @@ mod tests {
             table: &LINKED,
             facts: &f,
             intent: SolveIntent::Optimize,
-            convex: true,
+            numerical_psd: true,
             least_squares: false,
             controls: &crate::solve::Controls::default(),
         };
@@ -735,7 +784,8 @@ mod tests {
             problem_classes(&f, SolveIntent::Optimize, false),
             [ProblemClass::Linear, ProblemClass::SmoothNlp]
         );
-        // Degree two over affine rows: nonconvex without a certificate.
+        // Degree two over affine rows: nonconvex without the exact fact, convex with it,
+        // and convex for one request under its explicit numerical qualification.
         f.quadratic = true;
         assert_eq!(
             problem_classes(&f, SolveIntent::Optimize, false),
@@ -745,10 +795,15 @@ mod tests {
             problem_classes(&f, SolveIntent::Optimize, true),
             [ProblemClass::ConvexQuadratic, ProblemClass::SmoothNlp]
         );
+        f.convexity = convex_quadratic();
+        assert_eq!(
+            problem_classes(&f, SolveIntent::Optimize, false),
+            [ProblemClass::ConvexQuadratic, ProblemClass::SmoothNlp]
+        );
         f.domains = vec![ModelingVariableDomain::Binary];
-        for convex in [false, true] {
+        for numerical_psd in [false, true] {
             assert_eq!(
-                problem_classes(&f, SolveIntent::Optimize, convex),
+                problem_classes(&f, SolveIntent::Optimize, numerical_psd),
                 [ProblemClass::MixedIntegerQuadratic]
             );
         }
@@ -765,8 +820,24 @@ mod tests {
         );
         // Discrete classes are optimization classes only.
         assert!(problem_classes(&f, SolveIntent::Root, false).is_empty());
+        // A recognized continuous nonlinear program is a cone program first (ADR-0121); a
+        // recognized program with a discrete column is not.
+        f.convexity = cone();
+        assert_eq!(
+            problem_classes(&f, SolveIntent::Optimize, false),
+            [ProblemClass::MixedIntegerNonlinear]
+        );
+        f.domains = vec![ModelingVariableDomain::Continuous];
+        assert_eq!(
+            problem_classes(&f, SolveIntent::Optimize, false),
+            [ProblemClass::ContinuousCone, ProblemClass::SmoothNlp]
+        );
+        assert_eq!(
+            problem_classes(&f, SolveIntent::Root, false),
+            [ProblemClass::SmoothNlp]
+        );
     }
-    /// Clarabel represents linear and convex quadratic programs but owns only explicit
+    /// Clarabel represents linear and convex quadratic programs but owns only continuous
     /// cones automatically (ADR-0121): explicit selection admits it, automatic routing never
     /// picks it for those classes, even when no other adapter is exposed. Every record's
     /// automatic classes are among its classes.
@@ -775,14 +846,19 @@ mod tests {
         let mut f = miqp_facts();
         f.domains.fill(ModelingVariableDomain::Continuous);
         static CLARABEL_ONLY: Table = Table::new(&[adapter(Backend::Clarabel)]);
-        for (quadratic, convex) in [(false, false), (true, true)] {
+        for quadratic in [false, true] {
             f.quadratic = quadratic;
             f.objective_degree = Some(if quadratic { 2 } else { 1 });
+            f.convexity = if quadratic {
+                convex_quadratic()
+            } else {
+                fact(ConvexityClass::Affine)
+            };
             let requirements = Requirements {
                 table: &CLARABEL_ONLY,
                 facts: &f,
                 intent: SolveIntent::Optimize,
-                convex,
+                numerical_psd: false,
                 least_squares: false,
                 controls: &crate::solve::Controls::default(),
             };
@@ -799,7 +875,7 @@ mod tests {
             // In the linked table, HiGHS keeps both classes automatically.
             if adapter(Backend::Highs).linked() {
                 assert_eq!(
-                    select(&f, SolveIntent::Optimize, SolverSelection::Auto, convex).unwrap(),
+                    select(&f, SolveIntent::Optimize, SolverSelection::Auto, false).unwrap(),
                     Route::Native(Backend::Highs)
                 );
             }
@@ -830,28 +906,71 @@ mod tests {
             );
         }
     }
+    /// ADR-0121 negative control: a continuous nonlinear program the curvature pass did not
+    /// recognize (or could not decide) has no cone class, so automatic routing never
+    /// reaches Clarabel and an explicit Clarabel selection is refused with the class
+    /// reason; a request's numerical qualification never adds a cone class. The same facts
+    /// with a recognized cone route to Clarabel automatically.
+    #[test]
+    fn unrecognized_problem_not_routed() {
+        let mut f = root_facts();
+        f.objective = true;
+        f.equalities = false;
+        for class in [
+            ConvexityClass::Unrecognized(Unrecognized::Curvature { row: Some(0) }),
+            ConvexityClass::Unrecognized(Unrecognized::Inexact),
+            ConvexityClass::Unrecognized(Unrecognized::Domain),
+            ConvexityClass::Inconclusive,
+        ] {
+            f.convexity = fact(class);
+            for numerical_psd in [false, true] {
+                assert_eq!(
+                    problem_classes(&f, SolveIntent::Optimize, numerical_psd),
+                    [ProblemClass::SmoothNlp]
+                );
+            }
+            let explicit = select(
+                &f,
+                SolveIntent::Optimize,
+                SolverSelection::Explicit(Backend::Clarabel),
+                false,
+            );
+            assert!(
+                matches!(&explicit, Err(ProblemError::Unsupported(m)) if m.contains("problem class")),
+                "{explicit:?}"
+            );
+            if let Ok(route) = select(&f, SolveIntent::Optimize, SolverSelection::Auto, false) {
+                assert_ne!(route, Route::Native(Backend::Clarabel));
+            }
+        }
+        f.convexity = cone();
+        assert_eq!(
+            select(&f, SolveIntent::Optimize, SolverSelection::Auto, false).unwrap(),
+            Route::Native(Backend::Clarabel)
+        );
+    }
     #[test]
     fn miqp_routes_to_scip() {
         let f = miqp_facts();
-        let assess = |convex| {
+        let assess = |numerical_psd| {
             Requirements {
                 table: &LINKED,
                 facts: &f,
                 intent: SolveIntent::Optimize,
-                convex,
+                numerical_psd,
                 least_squares: false,
                 controls: &crate::solve::Controls::default(),
             }
             .eligibility()
         };
-        for convex in [false, true] {
+        for numerical_psd in [false, true] {
             // Every admitted adapter represents the mixed-integer quadratic class.
-            for e in assess(convex) {
+            for e in assess(numerical_psd) {
                 if e.reasons.is_empty() {
                     assert_eq!(e.backend, Backend::Scip);
                 }
             }
-            let route = select(&f, SolveIntent::Optimize, SolverSelection::Auto, convex);
+            let route = select(&f, SolveIntent::Optimize, SolverSelection::Auto, numerical_psd);
             if adapter(Backend::Scip).linked() {
                 assert_eq!(route.unwrap(), Route::Native(Backend::Scip));
             } else {
@@ -936,7 +1055,7 @@ mod tests {
             table: &LINKED,
             facts: &root_facts(),
             intent: SolveIntent::Certify,
-            convex: false,
+            numerical_psd: false,
             least_squares: false,
             controls: &crate::solve::Controls::default(),
         };

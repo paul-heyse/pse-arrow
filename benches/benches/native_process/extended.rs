@@ -78,8 +78,6 @@ async fn cone(owner: &WorkflowRuntime) {
         rhs: vec![-2.],
         cones: vec![native::conic::Cone::Nonnegative { dimension: 1 }],
         objective_constant: 3.,
-        gram_factors: vec![],
-        gram_weights: vec![],
     };
     let prepared = runtime(owner)
         .prepare_conic(request, &physical, profile(Backend::Clarabel, true))

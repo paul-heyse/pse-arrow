@@ -148,7 +148,7 @@ fn stub_backend_routes_through_adapter_table() {
         table: &STUB_TABLE,
         facts: &facts,
         intent: SolveIntent::Root,
-        convex: false,
+        numerical_psd: false,
         least_squares: false,
         controls: &controls,
     };
@@ -348,6 +348,17 @@ fn grid() -> Vec<ProblemFacts> {
                             .into_iter()
                             .flat_map(|c| [(c, vec![]), (c, vec![NativeConstraintForm::Indicator])])
                     {
+                        for convexity in [
+                            pse_math::convexity::Convexity::not_assessed(ContentHash::from_bytes(
+                                [0; 32],
+                            )),
+                            pse_math::convexity::Convexity {
+                                key: ContentHash::from_bytes([1; 32]),
+                                class: pse_math::convexity::ConvexityClass::Cone(
+                                    pse_math::convexity::ConeSummary::default(),
+                                ),
+                            },
+                        ] {
                         out.push(ProblemFacts {
                             variables: 1,
                             rows,
@@ -363,8 +374,10 @@ fn grid() -> Vec<ProblemFacts> {
                             objective_degree: Some(if quadratic { 2 } else { 1 }),
                             bound_assumptions: ContentHash::from_bytes([0; 32]),
                             quadratic,
-                            native,
+                            native: native.clone(),
+                            convexity,
                         });
+                        }
                     }
                 }
             }
@@ -405,13 +418,13 @@ fn published_capabilities_equal_routing_rules() {
         };
         for f in &facts {
             for intent in intents {
-                for convex in [false, true] {
+                for numerical_psd in [false, true] {
                     for c in &controls {
                         let r = Requirements {
                             table: &LINKED,
                             facts: f,
                             intent,
-                            convex,
+                            numerical_psd,
                             least_squares: false,
                             controls: c,
                         };
@@ -435,7 +448,7 @@ fn published_capabilities_equal_routing_rules() {
             table: &LINKED,
             facts: f,
             intent: SolveIntent::Root,
-            convex: false,
+            numerical_psd: false,
             least_squares: false,
             controls: &parallel,
         };

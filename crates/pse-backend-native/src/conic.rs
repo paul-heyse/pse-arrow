@@ -21,7 +21,9 @@ use clarabel::{
 use std::collections::BTreeMap;
 
 pub(crate) mod lowering;
+pub(crate) mod recognized;
 pub use lowering::{Lowered, LoweredRow, RowSide};
+pub use recognized::{Recognized, lower};
 
 /// Compressed-sparse-column matrix of the conic boundary.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -1087,7 +1089,7 @@ mod tests {
             objective_constant: 3.0,
         };
         let q = faer::sparse::SparseColMat::try_new_from_triplets(1, 1, &[]).unwrap();
-        let certificate = GramCertificate::new(&q, 1.0, &faer::Mat::zeros(0, 1), &[], 10).unwrap();
+        let certificate = crate::solver_tests::certify(&q, 1.0);
         (p, certificate)
     }
     #[test]

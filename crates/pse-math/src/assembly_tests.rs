@@ -3,7 +3,7 @@
 use crate::{
     assembly::*,
     binding::*,
-    coefficients::GramCertificate,
+    convexity::{Definiteness, GramCertificate},
     guarded::PreparedBody,
     index::{Addend, GlobalCol, GlobalRow},
     jets::EvaluationLimits,
@@ -207,31 +207,33 @@ fn distinct_columns_keep_one_off_diagonal_and_coefficient_views() {
     assert_eq!(c.constraints.to_dense()[(0, 0)], 5.0);
     assert_eq!(c.constraints.to_dense()[(0, 1)], 5.0);
     assert_eq!(c.hessian.to_dense()[(0, 1)], 1.0);
-    let factors = faer::Mat::from_fn(1, 2, |_, _| 1.0);
-    assert!(GramCertificate::new(&c.hessian, 1.0, &factors, &[1.0], 100).is_err());
+    // The bilinear objective x·y is indefinite, exactly.
+    assert!(matches!(
+        GramCertificate::certify(&c.hessian, 1.0, 100, &AtomicBool::new(false)).unwrap(),
+        Definiteness::Indefinite
+    ));
 }
 
+/// ADR-0121 Outcome 4: numerical PSD evidence is a separate, explicitly requested
+/// assessment: it distinguishes numerical PSD, indefinite and inconclusive, is tied to the
+/// request's policy and coordinates, and never establishes exact convexity, which the
+/// exact certificate decides (here for the same nondiagonal matrix).
 #[test]
-fn convexity_distinguishes_exact_numerical_indefinite_and_inconclusive() {
+fn numerical_convexity_distinguishes_psd_indefinite_and_inconclusive() {
     use crate::convexity::*;
     let (a, values) = fixture(false, false);
     let cancel = Arc::new(AtomicBool::new(false));
     let mut c = a.coefficients(&values, 1000, &cancel).unwrap();
-    let limits = ConvexityLimits {
-        bytes: 1 << 20,
-        exact_operations: 1000,
+    let assess = |c: &crate::coefficients::Coefficients, bytes| {
+        c.numerical_convexity(1.0, &[1.0, 1.0], 1.0, 1e-12, 1e-12, bytes, &cancel)
+            .unwrap()
     };
-    let numerical = ConvexityPolicy::Numerical {
-        absolute: 1e-12,
-        relative: 1e-12,
-    };
-    let negative = c
-        .convexity(1.0, &[1.0, 1.0], 1.0, numerical, limits, &cancel)
-        .unwrap();
+    let negative = assess(&c, 1 << 20);
     assert!(matches!(
         negative.assessment(),
         ConvexityAssessment::Indefinite { .. }
     ));
+    assert!(!negative.accepted());
     let hessian = [(0, 0), (0, 1), (1, 0), (1, 1)]
         .map(|(i, j)| crate::index::Entry::new(GlobalCol::new(i), GlobalCol::new(j)));
     let mut q = crate::sparse::AssemblyMatrix::hessian(2, &hessian, 10).unwrap();
@@ -240,27 +242,21 @@ fn convexity_distinguishes_exact_numerical_indefinite_and_inconclusive() {
     }
     c.hessian = q.matrix().clone();
     assert!(negative.validate_matrix(&c.hessian, 1.0).is_err());
-    let exact = c
-        .convexity(
-            1.0,
-            &[1.0, 1.0],
-            1.0,
-            ConvexityPolicy::Exact,
-            limits,
-            &cancel,
-        )
-        .unwrap();
+    // The exact decision certifies the nondiagonal matrix; the numerical one is PSD.
     assert!(matches!(
-        exact.assessment(),
-        ConvexityAssessment::Inconclusive(InconclusiveReason::NoExactWitness)
+        GramCertificate::certify(&c.hessian, 1.0, 1000, &cancel).unwrap(),
+        Definiteness::Psd(_)
     ));
-    let approx = c
-        .convexity(1.0, &[1.0, 1.0], 1.0, numerical, limits, &cancel)
-        .unwrap();
+    let numerical = ConvexityPolicy::Numerical {
+        absolute: 1e-12,
+        relative: 1e-12,
+    };
+    let approx = assess(&c, 1 << 20);
     assert!(matches!(
         approx.assessment(),
         ConvexityAssessment::NumericalPsd { .. }
     ));
+    assert!(approx.accepted());
     assert!(approx.validate_policy(numerical, &[1.0, 1.0], 1.0).is_ok());
     assert!(
         approx
@@ -268,37 +264,24 @@ fn convexity_distinguishes_exact_numerical_indefinite_and_inconclusive() {
             .is_err()
     );
     assert!(approx.validate_policy(numerical, &[2.0, 1.0], 1.0).is_err());
-    let limited = c
-        .convexity(
-            1.0,
-            &[1.0, 1.0],
-            1.0,
-            numerical,
-            ConvexityLimits { bytes: 1, ..limits },
-            &cancel,
-        )
-        .unwrap();
+    let limited = assess(&c, 1);
     assert!(matches!(
         limited.assessment(),
         ConvexityAssessment::Inconclusive(InconclusiveReason::ResourceLimit)
     ));
     assert_ne!(limited.key(), approx.key());
+    // Tolerances are the request's: none is not a numerical request.
+    assert!(
+        c.numerical_convexity(1.0, &[1.0, 1.0], 1.0, 0.0, 0.0, 1 << 20, &cancel)
+            .is_err()
+    );
     q.clear();
     q.add(Addend::new(0), 2.0).unwrap();
     c.hessian = q.matrix().clone();
-    let rank_deficient = c
-        .convexity(
-            1.0,
-            &[1.0, 1.0],
-            1.0,
-            ConvexityPolicy::Exact,
-            limits,
-            &cancel,
-        )
-        .unwrap();
+    // A rank-deficient diagonal matrix is certified exactly.
     assert!(matches!(
-        rank_deficient.assessment(),
-        ConvexityAssessment::Exact(_)
+        GramCertificate::certify(&c.hessian, 1.0, 1000, &cancel).unwrap(),
+        Definiteness::Psd(p) if p.factors().rank() == 1
     ));
 }
 #[test]
@@ -324,11 +307,19 @@ fn gram_evidence_is_exact_nonnegative_and_current() {
     let mut c = a
         .coefficients(&x, 1000, &Arc::new(AtomicBool::new(false)))
         .unwrap();
-    let factors = faer::Mat::from_fn(1, 2, |_, j| if j == 0 { 1.0 } else { 0.0 });
-    let certificate = GramCertificate::new(&c.hessian, 1.0, &factors, &[2.0], 100).unwrap();
+    let never = AtomicBool::new(false);
+    let Definiteness::Psd(certificate) =
+        GramCertificate::certify(&c.hessian, 1.0, 100, &never).unwrap()
+    else {
+        panic!("x² is PSD")
+    };
     certificate.validate(&c.hessian, 1.0).unwrap();
     assert!(certificate.validate(&c.hessian, -1.0).is_err());
-    assert!(GramCertificate::new(&c.hessian, 1.0, &factors, &[-2.0], 100).is_err());
+    // Its maximization is not concave-certified.
+    assert!(matches!(
+        GramCertificate::certify(&c.hessian, -1.0, 100, &never).unwrap(),
+        Definiteness::Indefinite
+    ));
     c.hessian.val_mut()[0] = 3.0;
     assert!(certificate.validate(&c.hessian, 1.0).is_err());
 }
@@ -586,8 +577,11 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
     assert_eq!(c.objective_constant, 1.0);
     assert_eq!(c.objective, vec![6.0]);
     assert_eq!(c.hessian.val(), &[18.0]);
-    let factors = faer::Mat::from_fn(1, 1, |_, _| 3.0);
-    let proof = GramCertificate::new(&c.hessian, 1.0, &factors, &[2.0], 100).unwrap();
+    let Definiteness::Psd(proof) =
+        GramCertificate::certify(&c.hessian, 1.0, 100, &AtomicBool::new(false)).unwrap()
+    else {
+        panic!("18 is positive")
+    };
     values.scalars.insert(id(2), -1.0);
     let d = a.coefficients(&values, 100, &cancel).unwrap();
     assert_ne!(c.assumptions, d.assumptions);
@@ -614,7 +608,7 @@ fn mathematical_facts_are_independent_of_requested_artifacts() {
     )
     .unwrap();
     let bound = plan.presolve_facts(&values, 1000, &cancel).unwrap();
-    let facts = crate::facts::ProblemFacts::from_plan(&plan, None, &bound).unwrap();
+    let facts = crate::facts::ProblemFacts::from_plan(&plan, None, &bound, &cancel).unwrap();
     assert_eq!(facts.derivatives, DerivativeOrder::Second);
     assert_eq!(facts.prepared_derivatives, DerivativeOrder::First);
     assert_eq!(facts.objective_degree, Some(2));

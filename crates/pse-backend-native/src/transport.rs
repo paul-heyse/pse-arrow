@@ -638,14 +638,7 @@ mod tests {
             hessian: Some(matrix(2.0)),
             bounds: vec![(2.0, 20.0)],
         };
-        let proof = crate::GramCertificate::new(
-            p.hessian.as_ref().unwrap(),
-            1.0,
-            &faer::Mat::identity(1, 1),
-            &[2.0],
-            10,
-        )
-        .unwrap();
+        let proof = crate::solver_tests::certify(p.hessian.as_ref().unwrap(), 1.0);
         let n = Normalization {
             variables: vec![2.0],
             rows: vec![4.0],

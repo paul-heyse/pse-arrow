@@ -8,7 +8,7 @@ use crate::{
     conic::{Cone, SparseMatrix},
 };
 use crate::{
-    CoefficientProblem, GramCertificate, OracleContract, ProblemError, Variable,
+    CoefficientProblem, OracleContract, ProblemError, Variable,
     conic::{self, Direct},
     execution::{self, BackendSettings, Coefficients, Evaluation, OriginalModel, Retained, Step},
     quality::{self, Tolerances},
@@ -251,7 +251,7 @@ fn clarabel_qp_farkas_certificate() {
         &[Triplet::new(0, 0, 2.0), Triplet::new(1, 1, 2.0)],
     )
     .unwrap();
-    let proof = GramCertificate::new(&q, 1.0, &faer::Mat::identity(2, 2), &[2.0, 2.0], 10).unwrap();
+    let proof = crate::solver_tests::certify(&q, 1.0);
     p.hessian = Some(q);
     let t = budgets(&p, 1e-7);
     let r = run(
@@ -483,13 +483,8 @@ fn solve_both(direct: Direct, threads: usize) -> [SolveReport; 2] {
         ],
     )
     .unwrap();
-    // Q = Lᵀ D L with L = [[1, 1/2], [0, 1]] and D = (2, 3/2).
-    let factor = faer::Mat::from_fn(2, 2, |r, c| match (r, c) {
-        (0, 0) | (1, 1) => 1.0,
-        (0, 1) => 0.5,
-        _ => 0.0,
-    });
-    let proof = GramCertificate::new(&q, 1.0, &factor, &[2.0, 1.5], 10).unwrap();
+    // Q = Lᵀ D L with L = [[1, 1/2], [0, 1]] and D = (2, 3/2), found by the exact LDLᵀ.
+    let proof = crate::solver_tests::certify(&q, 1.0);
     qp.hessian = Some(q);
     let controls = Controls {
         threads,
@@ -626,7 +621,7 @@ fn clarabel_chordal_matches_undecomposed() {
         objective_constant: 0.0,
     };
     let zero = SparseColMat::try_new_from_triplets(7, 7, &[]).unwrap();
-    let proof = GramCertificate::new(&zero, 1.0, &faer::Mat::zeros(0, 7), &[], 100).unwrap();
+    let proof = crate::solver_tests::certify(&zero, 1.0);
     let controls = Controls::default();
     let accuracy = ResolvedAccuracy::nominal();
     let expected = 1.0;

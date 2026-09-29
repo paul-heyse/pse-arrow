@@ -155,7 +155,7 @@ impl ModelingPackage {
             table: &native::execution::LINKED,
             facts: &facts,
             intent: problem.profile.solver.intent,
-            convex: false,
+            numerical_psd: false,
             least_squares: true,
             controls: &problem.profile.solver.controls,
         }

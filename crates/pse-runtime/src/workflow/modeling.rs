@@ -15,6 +15,8 @@ pub use dynamics::{
 };
 #[cfg(test)]
 mod certificate_tests;
+#[cfg(all(test, feature = "solver-highs"))]
+mod convexity_tests;
 mod diagnostics;
 #[cfg(all(test, feature = "solver-highs"))]
 mod forms_tests;

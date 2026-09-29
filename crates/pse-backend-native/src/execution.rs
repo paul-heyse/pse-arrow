@@ -37,8 +37,8 @@ pub use factorable::{
     Factorable, FixedOracle, Refusal, Resolve, ResolveSensitivity, admit_program, factorable,
 };
 pub use runner::{
-    Analysis, Coefficients, Evaluation, Nlp, OriginalModel, Roots, Step, coefficients, cone, nlp,
-    roots,
+    Analysis, Coefficients, Evaluation, Nlp, OriginalModel, Recognized, Roots, Step, coefficients,
+    cone, nlp, recognized, roots,
 };
 pub use scip::Settings as ScipSettings;
 

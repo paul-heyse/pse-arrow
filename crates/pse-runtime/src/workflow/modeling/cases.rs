@@ -414,7 +414,6 @@ impl ModelingPackage {
                 model.values.clone(),
                 providers.clone(),
                 solver.clone(),
-                None,
                 numerical,
             )
             .await?;
