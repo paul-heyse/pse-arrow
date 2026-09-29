@@ -19,6 +19,19 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
+/// Call the HiGHS C API and classify its status with `check`.
+///
+/// Every use passes the pointer of a live `highs::Model` owned on the calling worker,
+/// while that worker's session holds the `LIFECYCLE` read gate that excludes the global
+/// scheduler reset, together with caller storage that outlives the call and is sized by the
+/// model's current dimensions wherever HiGHS reads or writes an array.
+macro_rules! native {
+    ($call:expr, $operation:expr $(,)?) => {{
+        // SAFETY: the macro's contract: a live model owned on this worker, no concurrent
+        // scheduler reset, and caller arrays of the model's dimensions.
+        check(unsafe { $call }, $operation)
+    }};
+}
 pub mod diagnostics;
 #[cfg(test)]
 mod mip_tests;
@@ -56,6 +69,8 @@ impl Drop for Session {
         let _exclusive = LIFECYCLE
             .write()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        // SAFETY: the write lock waits out every session's read gate, and this session's
+        // model is gone, so no HiGHS object is in use on any thread during the reset.
         unsafe { ffi::Highs_resetGlobalScheduler(1) };
         ACTIVE.with(|a| a.set(false));
     }
@@ -176,19 +191,17 @@ fn pass_objectives(ptr: *mut c_void, p: &CoefficientProblem) -> Result<(), Probl
     let priority = (0..count)
         .map(|k| index(count - 1 - k))
         .collect::<Result<Vec<_>, _>>()?;
-    check(
-        unsafe {
-            ffi::Highs_passLinearObjectives(
-                ptr,
-                index(count)?,
-                weight.as_ptr(),
-                offset.as_ptr(),
-                coefficients.as_ptr(),
-                absolute.as_ptr(),
-                relative.as_ptr(),
-                priority.as_ptr(),
-            )
-        },
+    native!(
+        ffi::Highs_passLinearObjectives(
+            ptr,
+            index(count)?,
+            weight.as_ptr(),
+            offset.as_ptr(),
+            coefficients.as_ptr(),
+            absolute.as_ptr(),
+            relative.as_ptr(),
+            priority.as_ptr(),
+        ),
         "lexicographic objectives",
     )
 }
@@ -196,34 +209,30 @@ fn pass_objectives(ptr: *mut c_void, p: &CoefficientProblem) -> Result<(), Probl
 /// model's costs cleared and the last level's sense and offset, so the native model equals
 /// the admitted problem again.
 fn restore_objective(ptr: *mut c_void, p: &CoefficientProblem) -> Result<(), ProblemError> {
-    check(
-        unsafe {
-            ffi::Highs_changeObjectiveSense(
-                ptr,
-                if p.sense == ObjectiveSense::Minimize {
-                    1
-                } else {
-                    -1
-                },
-            )
-        },
+    native!(
+        ffi::Highs_changeObjectiveSense(
+            ptr,
+            if p.sense == ObjectiveSense::Minimize {
+                1
+            } else {
+                -1
+            },
+        ),
         "restore objective sense",
     )?;
     if !p.objective.is_empty() {
-        check(
-            unsafe {
-                ffi::Highs_changeColsCostByRange(
-                    ptr,
-                    0,
-                    index(p.objective.len() - 1)?,
-                    p.objective.as_ptr(),
-                )
-            },
+        native!(
+            ffi::Highs_changeColsCostByRange(
+                ptr,
+                0,
+                index(p.objective.len() - 1)?,
+                p.objective.as_ptr(),
+            ),
             "restore costs",
         )?;
     }
-    check(
-        unsafe { ffi::Highs_changeObjectiveOffset(ptr, p.objective_constant) },
+    native!(
+        ffi::Highs_changeObjectiveOffset(ptr, p.objective_constant),
         "restore offset",
     )
 }
@@ -270,31 +279,29 @@ fn upload(p: &CoefficientProblem) -> Result<highs::Model, ProblemError> {
             ModelingVariableDomain::Semiinteger => 3,
         })
         .collect();
-    check(
-        unsafe {
-            ffi::Highs_passMip(
-                model.as_mut_ptr(),
-                index(lo.len())?,
-                index(rl.len())?,
-                index(rows.len())?,
-                1,
-                if p.sense == ObjectiveSense::Minimize {
-                    1
-                } else {
-                    -1
-                },
-                p.objective_constant,
-                p.objective.as_ptr(),
-                lo.as_ptr(),
-                hi.as_ptr(),
-                rl.as_ptr(),
-                ru.as_ptr(),
-                start.as_ptr(),
-                rows.as_ptr(),
-                p.constraints.val().as_ptr(),
-                domains.as_ptr(),
-            )
-        },
+    native!(
+        ffi::Highs_passMip(
+            model.as_mut_ptr(),
+            index(lo.len())?,
+            index(rl.len())?,
+            index(rows.len())?,
+            1,
+            if p.sense == ObjectiveSense::Minimize {
+                1
+            } else {
+                -1
+            },
+            p.objective_constant,
+            p.objective.as_ptr(),
+            lo.as_ptr(),
+            hi.as_ptr(),
+            rl.as_ptr(),
+            ru.as_ptr(),
+            start.as_ptr(),
+            rows.as_ptr(),
+            p.constraints.val().as_ptr(),
+            domains.as_ptr(),
+        ),
         "exact model upload",
     )?;
     hessian(&mut model, p)?;
@@ -318,18 +325,16 @@ fn hessian(model: &mut highs::Model, p: &CoefficientProblem) -> Result<(), Probl
     if p.hessian.is_none() {
         start.resize(p.contract.variables.len() + 1, 0);
     }
-    check(
-        unsafe {
-            ffi::Highs_passHessian(
-                model.as_mut_ptr(),
-                index(p.contract.variables.len())?,
-                index(rows.len())?,
-                1,
-                start.as_ptr(),
-                rows.as_ptr(),
-                values.as_ptr(),
-            )
-        },
+    native!(
+        ffi::Highs_passHessian(
+            model.as_mut_ptr(),
+            index(p.contract.variables.len())?,
+            index(rows.len())?,
+            1,
+            start.as_ptr(),
+            rows.as_ptr(),
+            values.as_ptr(),
+        ),
         "exact Hessian upload",
     )
 }
@@ -337,14 +342,14 @@ fn hessian(model: &mut highs::Model, p: &CoefficientProblem) -> Result<(), Probl
 // A feasible point alone cannot prove equivalence of the optimization problems.
 fn verify_upload(model: &highs::Model, p: &CoefficientProblem) -> Result<(), ProblemError> {
     let ptr = model.as_ptr();
-    let (mut nc, mut nr, mut nz, mut qz) = unsafe {
-        (
-            ffi::Highs_getNumCol(ptr),
-            ffi::Highs_getNumRow(ptr),
-            ffi::Highs_getNumNz(ptr),
-            ffi::Highs_getHessianNumNz(ptr),
-        )
-    };
+    // SAFETY: dimension queries of the live model under its session's lifecycle gate.
+    let mut nc = unsafe { ffi::Highs_getNumCol(ptr) };
+    // SAFETY: as above.
+    let mut nr = unsafe { ffi::Highs_getNumRow(ptr) };
+    // SAFETY: as above.
+    let mut nz = unsafe { ffi::Highs_getNumNz(ptr) };
+    // SAFETY: as above.
+    let mut qz = unsafe { ffi::Highs_getHessianNumNz(ptr) };
     // HiGHS completes a Hessian's diagonal with explicit zeros (`completeHessianDiagonal`),
     // so the readback holds up to one entry more per column; the entry comparison below
     // ignores explicit zeros.
@@ -370,32 +375,30 @@ fn verify_upload(model: &highs::Model, p: &CoefficientProblem) -> Result<(), Pro
     let mut domains = vec![0; n];
     let mut sense = 0;
     let mut offset = 0.0;
-    check(
-        unsafe {
-            ffi::Highs_getModel(
-                ptr,
-                1,
-                1,
-                &raw mut nc,
-                &raw mut nr,
-                &raw mut nz,
-                &raw mut qz,
-                &raw mut sense,
-                &raw mut offset,
-                cost.as_mut_ptr(),
-                lo.as_mut_ptr(),
-                hi.as_mut_ptr(),
-                rl.as_mut_ptr(),
-                ru.as_mut_ptr(),
-                ap.as_mut_ptr(),
-                ai.as_mut_ptr(),
-                av.as_mut_ptr(),
-                qp.as_mut_ptr(),
-                qi.as_mut_ptr(),
-                qv.as_mut_ptr(),
-                domains.as_mut_ptr(),
-            )
-        },
+    native!(
+        ffi::Highs_getModel(
+            ptr,
+            1,
+            1,
+            &raw mut nc,
+            &raw mut nr,
+            &raw mut nz,
+            &raw mut qz,
+            &raw mut sense,
+            &raw mut offset,
+            cost.as_mut_ptr(),
+            lo.as_mut_ptr(),
+            hi.as_mut_ptr(),
+            rl.as_mut_ptr(),
+            ru.as_mut_ptr(),
+            ap.as_mut_ptr(),
+            ai.as_mut_ptr(),
+            av.as_mut_ptr(),
+            qp.as_mut_ptr(),
+            qi.as_mut_ptr(),
+            qv.as_mut_ptr(),
+            domains.as_mut_ptr(),
+        ),
         "full model readback",
     )?;
     // The C API promises n starts; the queried nonzero count supplies the sentinel.
@@ -537,33 +540,29 @@ impl Session {
             ));
         }
         let ptr = self.model()?.as_mut_ptr();
-        check(
-            unsafe {
-                ffi::Highs_changeObjectiveSense(
-                    ptr,
-                    if p.sense == ObjectiveSense::Minimize {
-                        1
-                    } else {
-                        -1
-                    },
-                )
-            },
+        native!(
+            ffi::Highs_changeObjectiveSense(
+                ptr,
+                if p.sense == ObjectiveSense::Minimize {
+                    1
+                } else {
+                    -1
+                },
+            ),
             "update objective sense",
         )?;
         for c in 0..p.contract.variables.len() {
-            check(
-                unsafe { ffi::Highs_changeColCost(ptr, index(c)?, p.objective[c]) },
+            native!(
+                ffi::Highs_changeColCost(ptr, index(c)?, p.objective[c]),
                 "update cost",
             )?;
-            check(
-                unsafe {
-                    ffi::Highs_changeColBounds(
-                        ptr,
-                        index(c)?,
-                        domain_bounds(p, c).0,
-                        domain_bounds(p, c).1,
-                    )
-                },
+            native!(
+                ffi::Highs_changeColBounds(
+                    ptr,
+                    index(c)?,
+                    domain_bounds(p, c).0,
+                    domain_bounds(p, c).1,
+                ),
                 "update bound",
             )?;
             for (r, &value) in p
@@ -571,20 +570,20 @@ impl Session {
                 .row_idx_of_col(c)
                 .zip(p.constraints.val_of_col(c))
             {
-                check(
-                    unsafe { ffi::Highs_changeCoeff(ptr, index(r)?, index(c)?, value) },
+                native!(
+                    ffi::Highs_changeCoeff(ptr, index(r)?, index(c)?, value),
                     "update coefficient",
                 )?;
             }
         }
         for (r, &(l, u)) in p.bounds.iter().enumerate() {
-            check(
-                unsafe { ffi::Highs_changeRowBounds(ptr, index(r)?, l, u) },
+            native!(
+                ffi::Highs_changeRowBounds(ptr, index(r)?, l, u),
                 "update row bounds",
             )?;
         }
-        check(
-            unsafe { ffi::Highs_changeObjectiveOffset(ptr, p.objective_constant) },
+        native!(
+            ffi::Highs_changeObjectiveOffset(ptr, p.objective_constant),
             "update offset",
         )?;
         hessian(self.model()?, p)?;
@@ -774,8 +773,8 @@ impl Session {
         }
         let model = self.model()?;
         verify_upload(model, p)?;
-        check(
-            unsafe { ffi::Highs_clearSolver(model.as_mut_ptr()) },
+        native!(
+            ffi::Highs_clearSolver(model.as_mut_ptr()),
             "clear retained solution and basis",
         )?;
         for (key, value) in &options {
@@ -829,14 +828,12 @@ impl Session {
                         "HiGHS basis dimensions/status".into(),
                     ));
                 }
-                check(
-                    unsafe {
-                        ffi::Highs_setBasis(
-                            model.as_mut_ptr(),
-                            basis.columns.as_ptr(),
-                            basis.rows.as_ptr(),
-                        )
-                    },
+                native!(
+                    ffi::Highs_setBasis(
+                        model.as_mut_ptr(),
+                        basis.columns.as_ptr(),
+                        basis.rows.as_ptr(),
+                    ),
                     "basis seed",
                 )?;
             }
@@ -854,15 +851,13 @@ impl Session {
                 })
                 .collect::<Result<_, _>>()?;
             let values: Vec<_> = values.values().copied().collect();
-            check(
-                unsafe {
-                    ffi::Highs_setSparseSolution(
-                        model.as_mut_ptr(),
-                        index(indices.len())?,
-                        indices.as_ptr(),
-                        values.as_ptr(),
-                    )
-                },
+            native!(
+                ffi::Highs_setSparseSolution(
+                    model.as_mut_ptr(),
+                    index(indices.len())?,
+                    indices.as_ptr(),
+                    values.as_ptr(),
+                ),
                 "selected sparse seed",
             )?;
         }
@@ -871,8 +866,8 @@ impl Session {
         if lexicographic {
             pass_objectives(ptr, p)?;
         } else {
-            check(
-                unsafe { ffi::Highs_clearLinearObjectives(ptr) },
+            native!(
+                ffi::Highs_clearLinearObjectives(ptr),
                 "clear lexicographic objectives",
             )?;
         }
@@ -884,6 +879,8 @@ impl Session {
         let run = if execution.stopped().is_some() {
             0
         } else {
+            // SAFETY: the session's live model under its lifecycle gate; the callback
+            // context bound above outlives the run.
             unsafe { ffi::Highs_run(ptr) }
         };
         let panicked = callback_binding.context.panicked.load(Ordering::Acquire);
@@ -892,6 +889,7 @@ impl Session {
         self.cut_pool = cut_pool;
         let reused = self.solves > 0;
         self.solves += 1;
+        // SAFETY: a status query of the session's live model.
         let code = unsafe { ffi::Highs_getModelStatus(ptr) };
         let mut report =
             SolveReport::new(Backend::Highs, &p.contract, termination(code), &execution);
@@ -989,9 +987,12 @@ impl Session {
             primal_dual_objective_error: real("primal_dual_objective_error")?,
         };
         report.evidence.coefficient = Some(evidence);
+        // SAFETY: an argument-free query of the linked library's static version string.
+        let version = unsafe { ffi::Highs_version() };
         report.provenance.insert(
             "native".into(),
-            unsafe { std::ffi::CStr::from_ptr(ffi::Highs_version()) }
+            // SAFETY: the version string is NUL-terminated and static.
+            unsafe { std::ffi::CStr::from_ptr(version) }
                 .to_string_lossy()
                 .into_owned(),
         );
@@ -1007,16 +1008,14 @@ impl Session {
             let mut cd = vec![0.0; n];
             let mut rv = vec![0.0; m];
             let mut rd = vec![0.0; m];
-            check(
-                unsafe {
-                    ffi::Highs_getSolution(
-                        ptr,
-                        x.as_mut_ptr(),
-                        cd.as_mut_ptr(),
-                        rv.as_mut_ptr(),
-                        rd.as_mut_ptr(),
-                    )
-                },
+            native!(
+                ffi::Highs_getSolution(
+                    ptr,
+                    x.as_mut_ptr(),
+                    cd.as_mut_ptr(),
+                    rv.as_mut_ptr(),
+                    rd.as_mut_ptr(),
+                ),
                 "solution",
             )?;
             if x.iter().all(|v| v.is_finite()) {
@@ -1049,10 +1048,8 @@ impl Session {
                         columns: vec![0; n],
                         rows: vec![0; m],
                     };
-                    check(
-                        unsafe {
-                            ffi::Highs_getBasis(ptr, b.columns.as_mut_ptr(), b.rows.as_mut_ptr())
-                        },
+                    native!(
+                        ffi::Highs_getBasis(ptr, b.columns.as_mut_ptr(), b.rows.as_mut_ptr()),
                         "basis",
                     )?;
                     Some(b)
@@ -1091,10 +1088,13 @@ unsafe extern "C" {
 struct NativeName(*mut c_char);
 impl Drop for NativeName {
     fn drop(&mut self) {
+        // SAFETY: null or the C-allocated name `Highs_getOptionName` handed over, freed
+        // once with the matching allocator.
         unsafe { free(self.0.cast()) }
     }
 }
 fn option_snapshot(ptr: *const c_void) -> Result<(Options, Options), ProblemError> {
+    // SAFETY: an inventory query of the session's live model.
     let count = unsafe { ffi::Highs_getNumOptions(ptr) };
     if !(0..=4096).contains(&count) {
         return Err(ProblemError::Internal(
@@ -1105,81 +1105,69 @@ fn option_snapshot(ptr: *const c_void) -> Result<(Options, Options), ProblemErro
     let mut defaults = Options::new();
     for i in 0..count {
         let mut name = NativeName(std::ptr::null_mut());
-        check(
-            unsafe { ffi::Highs_getOptionName(ptr, i, &mut name.0) },
-            "option name",
-        )?;
+        native!(ffi::Highs_getOptionName(ptr, i, &mut name.0), "option name")?;
         if name.0.is_null() {
             return Err(ProblemError::Internal(
                 "native option name allocation".into(),
             ));
         }
+        // SAFETY: HiGHS returned a non-null, NUL-terminated name, owned by `name`.
         let key = unsafe { std::ffi::CStr::from_ptr(name.0) }
             .to_str()
             .map_err(|_| ProblemError::Internal("native option name UTF8".into()))?
             .to_owned();
         let mut kind = 0;
-        check(
-            unsafe { ffi::Highs_getOptionType(ptr, name.0, &mut kind) },
+        native!(
+            ffi::Highs_getOptionType(ptr, name.0, &mut kind),
             "option type",
         )?;
         let (c, d) = match kind {
             0 => {
                 let (mut c, mut d) = (0, 0);
-                check(
-                    unsafe { ffi::Highs_getBoolOptionValues(ptr, name.0, &mut c, &mut d) },
+                native!(
+                    ffi::Highs_getBoolOptionValues(ptr, name.0, &mut c, &mut d),
                     "bool option readback",
                 )?;
                 (OptionValue::Bool(c != 0), OptionValue::Bool(d != 0))
             }
             1 => {
                 let (mut c, mut d) = (0, 0);
-                check(
-                    unsafe {
-                        ffi::Highs_getIntOptionValues(
-                            ptr,
-                            name.0,
-                            &mut c,
-                            std::ptr::null_mut(),
-                            std::ptr::null_mut(),
-                            &mut d,
-                        )
-                    },
+                native!(
+                    ffi::Highs_getIntOptionValues(
+                        ptr,
+                        name.0,
+                        &mut c,
+                        std::ptr::null_mut(),
+                        std::ptr::null_mut(),
+                        &mut d,
+                    ),
                     "int option readback",
                 )?;
                 (OptionValue::Integer(c), OptionValue::Integer(d))
             }
             2 => {
                 let (mut c, mut d) = (0.0, 0.0);
-                check(
-                    unsafe {
-                        ffi::Highs_getDoubleOptionValues(
-                            ptr,
-                            name.0,
-                            &mut c,
-                            std::ptr::null_mut(),
-                            std::ptr::null_mut(),
-                            &mut d,
-                        )
-                    },
+                native!(
+                    ffi::Highs_getDoubleOptionValues(
+                        ptr,
+                        name.0,
+                        &mut c,
+                        std::ptr::null_mut(),
+                        std::ptr::null_mut(),
+                        &mut d,
+                    ),
                     "double option readback",
                 )?;
                 (OptionValue::Real(c), OptionValue::Real(d))
             }
             3 => {
                 let (mut c, mut d) = ([0i8; 512], [0i8; 512]);
-                check(
-                    unsafe {
-                        ffi::Highs_getStringOptionValues(
-                            ptr,
-                            name.0,
-                            c.as_mut_ptr(),
-                            d.as_mut_ptr(),
-                        )
-                    },
+                native!(
+                    ffi::Highs_getStringOptionValues(ptr, name.0, c.as_mut_ptr(), d.as_mut_ptr()),
                     "string option readback",
                 )?;
                 let read = |v: &[i8; 512]| {
+                    // SAFETY: HiGHS writes a NUL-terminated value within the buffer.
                     unsafe { std::ffi::CStr::from_ptr(v.as_ptr()) }
                         .to_string_lossy()
                         .into_owned()
@@ -1196,30 +1184,31 @@ fn option_snapshot(ptr: *const c_void) -> Result<(Options, Options), ProblemErro
 fn info(ptr: *const c_void, name: &str) -> Result<Option<Metric>, ProblemError> {
     let name = text(name)?;
     let mut kind = 0;
+    // SAFETY: a type query of the session's live model with a NUL-terminated name.
     if unsafe { ffi::Highs_getInfoType(ptr, name.as_ptr(), &mut kind) } != 0 {
         return Ok(None);
     }
     let value = match kind {
         1 => {
             let mut v = 0;
-            check(
-                unsafe { ffi::Highs_getIntInfoValue(ptr, name.as_ptr(), &mut v) },
+            native!(
+                ffi::Highs_getIntInfoValue(ptr, name.as_ptr(), &mut v),
                 "integer info",
             )?;
             Metric::Integer(i64::from(v))
         }
         -1 => {
             let mut v = 0;
-            check(
-                unsafe { ffi::Highs_getInt64InfoValue(ptr, name.as_ptr(), &mut v) },
+            native!(
+                ffi::Highs_getInt64InfoValue(ptr, name.as_ptr(), &mut v),
                 "int64 info",
             )?;
             Metric::Integer(v)
         }
         2 => {
             let mut v = 0.0;
-            check(
-                unsafe { ffi::Highs_getDoubleInfoValue(ptr, name.as_ptr(), &mut v) },
+            native!(
+                ffi::Highs_getDoubleInfoValue(ptr, name.as_ptr(), &mut v),
                 "real info",
             )?;
             Metric::Real(v)
@@ -1324,21 +1313,16 @@ impl CallbackBinding {
                 cut_pool: std::sync::Mutex::new(None),
             }),
         };
-        check(
-            unsafe {
-                ffi::Highs_setCallback(ptr, Some(callback), (&raw mut *binding.context).cast())
-            },
+        native!(
+            ffi::Highs_setCallback(ptr, Some(callback), (&raw mut *binding.context).cast()),
             "callback",
         )?;
         for kind in [1, 2, 3, 4, 5, 6] {
-            check(
-                unsafe { ffi::Highs_startCallback(ptr, kind) },
-                "callback kind",
-            )?;
+            native!(ffi::Highs_startCallback(ptr, kind), "callback kind")?;
         }
         if cut_pool {
-            check(
-                unsafe { ffi::Highs_startCallback(ptr, ffi::kHighsCallbackMipGetCutPool) },
+            native!(
+                ffi::Highs_startCallback(ptr, ffi::kHighsCallbackMipGetCutPool),
                 "cut pool callback",
             )?;
         }
@@ -1361,14 +1345,14 @@ impl CallbackBinding {
 }
 impl Drop for CallbackBinding {
     fn drop(&mut self) {
-        unsafe {
-            // A retained model must not keep kind 7 active for a later solve; HiGHS stops a
-            // kind only while a user callback is still set.
-            if self.context.capture.cut_pool {
-                ffi::Highs_stopCallback(self.ptr, ffi::kHighsCallbackMipGetCutPool);
-            }
-            ffi::Highs_setCallback(self.ptr, None, std::ptr::null_mut());
+        // A retained model must not keep kind 7 active for a later solve; HiGHS stops a
+        // kind only while a user callback is still set.
+        if self.context.capture.cut_pool {
+            // SAFETY: the bound model is live: the binding drops before its session.
+            unsafe { ffi::Highs_stopCallback(self.ptr, ffi::kHighsCallbackMipGetCutPool) };
         }
+        // SAFETY: as above; the model no longer refers to the context once cleared.
+        unsafe { ffi::Highs_setCallback(self.ptr, None, std::ptr::null_mut()) };
     }
 }
 struct Callback {
@@ -1393,6 +1377,7 @@ impl Callback {
         let Some(objective) = self.capture.original(out.objective_function_value) else {
             return;
         };
+        // SAFETY: a non-null solution of `mip_solution_size` values, live for the callback.
         let native = unsafe { std::slice::from_raw_parts(out.mip_solution, size) };
         let mut incumbent = IncumbentEvent {
             objective,
@@ -1462,10 +1447,13 @@ unsafe extern "C" fn callback(
     input: *mut ffi::HighsCallbackDataIn,
     data: *mut c_void,
 ) {
+    // SAFETY: `data` is null or the boxed `Callback` its binding registered, which outlives
+    // the run; callbacks only share it.
     let Some(c) = (unsafe { data.cast::<Callback>().as_ref() }) else {
         return;
     };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        // SAFETY: HiGHS passes null or its output record, live for the callback.
         if let Some(out) = unsafe { out.as_ref() } {
             if kind == ffi::kHighsCallbackMipImprovingSolution {
                 // The incumbent's objective and bounds travel with it, typed.
@@ -1525,6 +1513,7 @@ unsafe extern "C" fn callback(
     // HiGHS acts on `user_interrupt` only for the interrupt kinds and asserts that it
     // stays unset for every other kind, so it is written for those kinds alone.
     if interruptible(kind)
+        // SAFETY: HiGHS passes null or its input record for the callback, written only here.
         && let Some(input) = unsafe { input.as_mut() }
     {
         input.user_interrupt =
@@ -1616,7 +1605,7 @@ mod tests {
         assert_eq!(size_of::<ffi::HighsInt>(), 4);
         std::hint::black_box(ffi::Highs_resetGlobalScheduler);
         std::hint::black_box(ffi::Highs_setCallback);
-        let _ = std::ffi::CStr::from_bytes_with_nul(b"threads\0").unwrap();
+        let _: &std::ffi::CStr = c"threads";
     }
     fn problem() -> CoefficientProblem {
         let o = crate::solver_tests::Polynomial::new();
@@ -1941,35 +1930,29 @@ mod tests {
         let mut s = Session::new(&p, None, crate::solver_tests::stamp(Backend::Highs)).unwrap();
         let ptr = s.model().unwrap().as_mut_ptr();
         let (mut n, mut nnz, mut cost, mut lower, mut upper) = (0, 0, 0.0, 0.0, 0.0);
-        check(
-            unsafe {
-                ffi::Highs_getColsByRange(
-                    ptr,
-                    0,
-                    0,
-                    &mut n,
-                    &mut cost,
-                    &mut lower,
-                    &mut upper,
-                    &mut nnz,
-                    std::ptr::null_mut(),
-                    std::ptr::null_mut(),
-                    std::ptr::null_mut(),
-                )
-            },
+        native!(
+            ffi::Highs_getColsByRange(
+                ptr,
+                0,
+                0,
+                &mut n,
+                &mut cost,
+                &mut lower,
+                &mut upper,
+                &mut nnz,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            ),
             "test bounds",
         )
         .unwrap();
         assert_eq!((n, cost, lower, upper), (1, 2.0, 0.0, 1.0));
         let mut sense = 0;
         let mut offset = 0.0;
-        check(
-            unsafe { ffi::Highs_getObjectiveSense(ptr, &mut sense) },
-            "test sense",
-        )
-        .unwrap();
-        check(
-            unsafe { ffi::Highs_getObjectiveOffset(ptr, &mut offset) },
+        native!(ffi::Highs_getObjectiveSense(ptr, &mut sense), "test sense").unwrap();
+        native!(
+            ffi::Highs_getObjectiveOffset(ptr, &mut offset),
             "test offset",
         )
         .unwrap();
@@ -1993,14 +1976,12 @@ mod tests {
             backend: Backend::Highs,
         };
         let mut session = Session::new(&p, None, stamp).unwrap();
-        check(
-            unsafe {
-                ffi::Highs_changeColCost(
-                    session.model().unwrap().as_mut_ptr(),
-                    0,
-                    p.objective[0] + 1.0,
-                )
-            },
+        native!(
+            ffi::Highs_changeColCost(
+                session.model().unwrap().as_mut_ptr(),
+                0,
+                p.objective[0] + 1.0,
+            ),
             "intentional defective upload",
         )
         .unwrap();

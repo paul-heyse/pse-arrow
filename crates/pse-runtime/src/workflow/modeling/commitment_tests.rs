@@ -200,7 +200,7 @@ async fn duals_conditional_on_assignment() {
     )
     .await;
     let [y, total, cap] = ids[..] else {
-        unreachable!()
+        panic!("one identity per requested path")
     };
     assert_eq!(backend(&result), NativeBackend::Highs);
     assert_eq!(commitment(&result), Some(vec![(y, 3.0)]));

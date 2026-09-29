@@ -14,7 +14,11 @@ use crate::{
     quality::{Quality, Tolerances, Violation, interval},
     solve::*,
 };
-use std::{ffi::c_void, marker::PhantomData, rc::Rc};
+use std::{
+    ffi::{c_long, c_void},
+    marker::PhantomData,
+    rc::Rc,
+};
 use sundials_sys as ffi;
 // Retain native KLU/AMD/BTF linkage even though SUNDIALS owns all calls.
 use suitesparse_sys as _;
@@ -151,10 +155,10 @@ impl Settings {
             Function::FixedPoint(_) => Default::default(),
         };
         let constraints = self.validate_contract(c, representation, &guards)?;
-        if let Function::Picard { linear, .. } = function {
-            if linear.val().iter().any(|v| !v.is_finite()) {
-                return Err(ProblemError::Contract("nonfinite Picard splitting".into()));
-            }
+        if let Function::Picard { linear, .. } = function
+            && linear.val().iter().any(|v| !v.is_finite())
+        {
+            return Err(ProblemError::Contract("nonfinite Picard splitting".into()));
         }
         let original = match function {
             Function::Equations(o) => o.jacobian_pattern(),
@@ -248,7 +252,7 @@ impl Settings {
             || (m.anderson == 0
                 && (m.anderson_delay != 0
                     || m.orthogonalization != Orthogonalization::ModifiedGramSchmidt))
-            || std::ffi::c_long::try_from(m.anderson_delay).is_err()
+            || c_long::try_from(m.anderson_delay).is_err()
         {
             return Err(ProblemError::Contract(
                 "KINSOL Newton-step, forcing-term, preconditioner or Anderson control".into(),
@@ -344,24 +348,29 @@ impl std::fmt::Debug for Session {
 }
 impl Drop for Session {
     fn drop(&mut self) {
-        unsafe {
-            if !self.mem.is_null() {
-                ffi::KINFree(&raw mut self.mem)
+        // Every object below was created by this session and is freed exactly once, the
+        // solver memory first so nothing native refers to the rest afterwards.
+        if !self.mem.is_null() {
+            // SAFETY: the session's live KINSOL memory; `KINFree` nulls the pointer.
+            unsafe { ffi::KINFree(&raw mut self.mem) }
+        }
+        if !self.linear.is_null() {
+            // SAFETY: the session's linear solver, no longer attached to any memory.
+            unsafe { ffi::SUNLinSolFree(self.linear) };
+        }
+        if !self.matrix.is_null() {
+            // SAFETY: the session's matrix, freed after the solver that used it.
+            unsafe { ffi::SUNMatDestroy(self.matrix) }
+        }
+        for v in [self.signs, self.fs, self.us, self.x] {
+            if !v.is_null() {
+                // SAFETY: each of the session's serial vectors, listed once.
+                unsafe { ffi::N_VDestroy(v) }
             }
-            if !self.linear.is_null() {
-                ffi::SUNLinSolFree(self.linear);
-            }
-            if !self.matrix.is_null() {
-                ffi::SUNMatDestroy(self.matrix)
-            }
-            for v in [self.signs, self.fs, self.us, self.x] {
-                if !v.is_null() {
-                    ffi::N_VDestroy(v)
-                }
-            }
-            if !self.ctx.is_null() {
-                ffi::SUNContext_Free(&raw mut self.ctx);
-            }
+        }
+        if !self.ctx.is_null() {
+            // SAFETY: the session's context, freed last, after every object created in it.
+            unsafe { ffi::SUNContext_Free(&raw mut self.ctx) };
         }
     }
 }
@@ -372,28 +381,64 @@ fn check(code: i32, name: &str) -> Result<(), ProblemError> {
         Ok(())
     }
 }
+/// Call KINSOL or SUNDIALS and refuse a negative flag, as [`check`] does.
+///
+/// Every use passes live native objects of one session: its `SUNContext`, KINSOL memory,
+/// matrix, linear solver and serial vectors, all freed only when the session drops. Calls
+/// run on the session's owning thread, and out-parameters are caller storage that outlives
+/// the call.
+macro_rules! native {
+    ($call:expr, $operation:expr $(,)?) => {{
+        // SAFETY: the macro's contract: live session-owned native objects on the owning
+        // thread, with caller storage that outlives the call.
+        check(unsafe { $call }, $operation)
+    }};
+}
 fn index(n: usize) -> Result<ffi::sunindextype, ProblemError> {
     ffi::sunindextype::try_from(n)
         .map_err(|_| ProblemError::Unsupported("SUNDIALS index overflow".into()))
 }
+#[allow(
+    clippy::useless_conversion,
+    reason = "C long width differs between native ABIs"
+)]
+fn long(value: c_long) -> i64 {
+    i64::from(value)
+}
+/// The `n` values of a serial vector, checked against its native length.
+///
+/// # Safety
+/// `v` is null or a live serial vector whose data outlives `'a` unaliased by writers.
 unsafe fn values<'a>(v: ffi::N_Vector, n: usize) -> Result<&'a [f64], ProblemError> {
+    // SAFETY: `v` is non-null here, so live (the caller's contract).
     if v.is_null() || unsafe { ffi::N_VGetLength(v) } != index(n)? {
         return Err(ProblemError::Internal("SUNDIALS vector dimensions".into()));
     }
+    // SAFETY: as above.
     let p = unsafe { ffi::N_VGetArrayPointer(v) };
     if p.is_null() {
         return Err(ProblemError::Internal(
             "SUNDIALS null vector storage".into(),
         ));
     }
+    // SAFETY: the non-null data array of a serial vector of length `n`, live for `'a`.
     Ok(unsafe { std::slice::from_raw_parts(p, n) })
 }
+/// Overwrite a serial vector with finite values of its exact length.
+///
+/// # Safety
+/// `v` is null or a live serial vector, and no reference into its data is live.
 unsafe fn publish(v: ffi::N_Vector, from: &[f64]) -> Result<(), ProblemError> {
+    // SAFETY: the caller's contract; the length check is its only use.
     unsafe { values(v, from.len()) }?;
     if from.iter().any(|v| !v.is_finite()) {
         return Err(ProblemError::numerical("nonfinite root callback output"));
     }
-    unsafe { std::ptr::copy_nonoverlapping(from.as_ptr(), ffi::N_VGetArrayPointer(v), from.len()) };
+    // SAFETY: `v` is a live serial vector (checked above).
+    let data = unsafe { ffi::N_VGetArrayPointer(v) };
+    // SAFETY: its non-null data array holds exactly `from.len()` values and cannot
+    // overlap the Rust slice.
+    unsafe { std::ptr::copy_nonoverlapping(from.as_ptr(), data, from.len()) };
     Ok(())
 }
 fn result<T>(value: Option<T>, state: &CallbackState) -> i32 {
@@ -406,11 +451,15 @@ fn result<T>(value: Option<T>, state: &CallbackState) -> i32 {
     }
 }
 unsafe extern "C" fn residual(x: ffi::N_Vector, out: ffi::N_Vector, data: *mut c_void) -> i32 {
+    // SAFETY: `data` is null or this session's registered boxed `Context`, live and not
+    // otherwise borrowed while KINSOL calls back on the owning thread.
     let Some(c) = (unsafe { data.cast::<Context>().as_mut() }) else {
         return -1;
     };
     let n = c.n;
     let value = c.state.evaluate("residual", || {
+        // SAFETY: KINSOL passes null or live serial vectors for the callback, and
+        // `values` and `publish` check them against the `n` coordinates.
         let x = shifted(unsafe { values(x, n) }?, &c.offsets, 1.0);
         let mut v = vec![0.0; n];
         match &mut c.function {
@@ -418,6 +467,7 @@ unsafe extern "C" fn residual(x: ffi::N_Vector, out: ffi::N_Vector, data: *mut c
             Function::Picard { oracle, .. } => oracle.residual(&x, &mut v)?,
             Function::FixedPoint(o) => o.map(&x, &mut v)?,
         }
+        // SAFETY: as above.
         unsafe { publish(out, &v) }
     });
     result(value, &c.state)
@@ -430,6 +480,8 @@ unsafe extern "C" fn jacobian(
     _t1: ffi::N_Vector,
     _t2: ffi::N_Vector,
 ) -> i32 {
+    // SAFETY: `data` is null or this session's registered boxed `Context`, live and not
+    // otherwise borrowed while KINSOL calls back on the owning thread.
     let Some(c) = (unsafe { data.cast::<Context>().as_mut() }) else {
         return -1;
     };
@@ -437,6 +489,8 @@ unsafe extern "C" fn jacobian(
         let mut v = vec![0.0; c.rows.len()];
         match &mut c.function {
             Function::Equations(o) => o.jacobian(
+                // SAFETY: KINSOL passes null or a live serial vector for the callback, and `values`
+                // checks it against the `n` coordinates.
                 &shifted(unsafe { values(x, c.n) }?, &c.offsets, 1.0),
                 &mut v,
             )?,
@@ -450,32 +504,44 @@ unsafe extern "C" fn jacobian(
         if v.iter().any(|v| !v.is_finite()) || matrix.is_null() {
             return Err(ProblemError::numerical("invalid root Jacobian"));
         }
+        // KINSOL passes the session's own matrix: dense `n × n`, or the KLU matrix `new`
+        // created with `n + 1` index pointers and room for `c.rows.len()` nonzeros.
         if c.dense {
-            check(unsafe { ffi::SUNMatZero(matrix) }, "dense zero")?;
+            native!(ffi::SUNMatZero(matrix), "dense zero")?;
             for col in 0..c.n {
+                // SAFETY: a column `col < n` of the session's live dense matrix.
                 let p = unsafe { ffi::SUNDenseMatrix_Column(matrix, index(col)?) };
                 if p.is_null() {
                     return Err(ProblemError::Internal("null dense column".into()));
                 }
                 for k in c.columns[col] as usize..c.columns[col + 1] as usize {
-                    unsafe { *p.add(c.rows[k] as usize) = v[k] };
+                    // SAFETY: the canonical pattern's rows are below `n`, within the
+                    // column's `n` entries.
+                    let entry = unsafe { p.add(c.rows[k] as usize) };
+                    // SAFETY: as above.
+                    unsafe { *entry = v[k] };
                 }
             }
         } else {
+            // SAFETY: storage queries of the session's live KLU matrix.
             let p = unsafe { ffi::SUNSparseMatrix_Data(matrix) };
+            // SAFETY: as above.
             let columns = unsafe { ffi::SUNSparseMatrix_IndexPointers(matrix) };
+            // SAFETY: as above.
             let rows = unsafe { ffi::SUNSparseMatrix_IndexValues(matrix) };
             if columns.is_null() || (!v.is_empty() && (p.is_null() || rows.is_null())) {
                 return Err(ProblemError::Internal("null sparse values".into()));
             }
             // KINSOL zeros the matrix before each Jacobian callback. SUNDIALS
             // sparse zero clears both indices and values, including CSC pointers.
+            // SAFETY: the matrix holds the `n + 1 == c.columns.len()` index pointers, in
+            // native storage that cannot overlap the Rust vector.
             unsafe { std::ptr::copy_nonoverlapping(c.columns.as_ptr(), columns, c.columns.len()) };
             if !v.is_empty() {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(c.rows.as_ptr(), rows, c.rows.len());
-                    std::ptr::copy_nonoverlapping(v.as_ptr(), p, v.len());
-                }
+                // SAFETY: its nonzero capacity holds the `c.rows.len()` row indices.
+                unsafe { std::ptr::copy_nonoverlapping(c.rows.as_ptr(), rows, c.rows.len()) };
+                // SAFETY: and the `v.len() == c.rows.len()` values.
+                unsafe { std::ptr::copy_nonoverlapping(v.as_ptr(), p, v.len()) };
             }
         }
         Ok(())
@@ -489,6 +555,8 @@ unsafe extern "C" fn jvp(
     _new: *mut i32,
     data: *mut c_void,
 ) -> i32 {
+    // SAFETY: `data` is null or this session's registered boxed `Context`, live and not
+    // otherwise borrowed while KINSOL calls back on the owning thread.
     let Some(c) = (unsafe { data.cast::<Context>().as_mut() }) else {
         return -1;
     };
@@ -496,11 +564,15 @@ unsafe extern "C" fn jvp(
         let mut y = vec![0.0; c.n];
         match &mut c.function {
             Function::Equations(o) => o.jacobian_product(
+                // SAFETY: KINSOL passes null or a live serial vector for the callback, and `values`
+                // checks it against the `n` coordinates.
                 &shifted(unsafe { values(x, c.n) }?, &c.offsets, 1.0),
+                // SAFETY: as above.
                 unsafe { values(v, c.n) }?,
                 &mut y,
             )?,
             Function::Picard { linear, .. } => {
+                // SAFETY: as above.
                 let result = linear.as_ref() * faer::ColRef::from_slice(unsafe { values(v, c.n) }?);
                 for (i, v) in y.iter_mut().enumerate() {
                     *v = result[i];
@@ -510,6 +582,7 @@ unsafe extern "C" fn jvp(
                 return Err(ProblemError::Unsupported("map has no residual JVP".into()));
             }
         }
+        // SAFETY: as above.
         unsafe { publish(out, &y) }
     });
     result(value, &c.state)
@@ -522,6 +595,8 @@ unsafe extern "C" fn precondition_setup(
     _fs: ffi::N_Vector,
     data: *mut c_void,
 ) -> i32 {
+    // SAFETY: `data` is null or this session's registered boxed `Context`, live and not
+    // otherwise borrowed while KINSOL calls back on the owning thread.
     let Some(c) = (unsafe { data.cast::<Context>().as_mut() }) else {
         return -1;
     };
@@ -529,6 +604,8 @@ unsafe extern "C" fn precondition_setup(
         let mut v = vec![0.0; c.rows.len()];
         match &mut c.function {
             Function::Equations(o) => o.jacobian(
+                // SAFETY: KINSOL passes null or a live serial vector for the callback, and `values`
+                // checks it against the `n` coordinates.
                 &shifted(unsafe { values(x, c.n) }?, &c.offsets, 1.0),
                 &mut v,
             )?,
@@ -565,15 +642,20 @@ unsafe extern "C" fn precondition_solve(
     v: ffi::N_Vector,
     data: *mut c_void,
 ) -> i32 {
+    // SAFETY: `data` is null or this session's registered boxed `Context`, live and not
+    // otherwise borrowed while KINSOL calls back on the owning thread.
     let Some(c) = (unsafe { data.cast::<Context>().as_mut() }) else {
         return -1;
     };
     let value = c.state.evaluate("preconditioner.solve", || {
+        // SAFETY: KINSOL passes null or a live serial vector for the callback, and
+        // `values` checks it against the `n` coordinates.
         let z: Vec<f64> = unsafe { values(v, c.n) }?
             .iter()
             .zip(&c.inverse_diagonal)
             .map(|(r, d)| r * d)
             .collect();
+        // SAFETY: as above; the slice read above is no longer used.
         unsafe { publish(v, &z) }
     });
     result(value, &c.state)
@@ -601,34 +683,41 @@ impl Session {
                 + callback.inverse_diagonal.capacity())
             .saturating_mul(8),
         );
-        // SAFETY: every queried object is live and owned by this session; the queries only
-        // write the caller's counters, and KLU's common block is read between solves.
-        unsafe {
-            for v in [self.x, self.us, self.fs, self.signs] {
-                if !v.is_null() {
-                    let (mut r, mut i) = (0, 0);
-                    ffi::N_VSpace(v, &raw mut r, &raw mut i);
-                    bytes = bytes.saturating_add(words(r, i));
-                }
+        // Every queried object is live and owned by this session; the queries only write
+        // the caller's counters, and KLU's common block is read between solves.
+        for v in [self.x, self.us, self.fs, self.signs] {
+            if !v.is_null() {
+                let (mut r, mut i) = (0, 0);
+                // SAFETY: a size query of a live session vector into locals.
+                unsafe { ffi::N_VSpace(v, &raw mut r, &raw mut i) };
+                bytes = bytes.saturating_add(words(r, i));
             }
-            let (mut r, mut i) = (0, 0);
-            if !self.mem.is_null() && ffi::KINGetWorkSpace(self.mem, &raw mut r, &raw mut i) >= 0 {
-                bytes = bytes.saturating_add(words(r.into(), i.into()));
-            }
-            if !self.linear.is_null()
-                && ffi::KINGetLinWorkSpace(self.mem, &raw mut r, &raw mut i) >= 0
-            {
-                bytes = bytes.saturating_add(words(r.into(), i.into()));
-            }
-            if !self.matrix.is_null() && ffi::SUNMatSpace(self.matrix, &raw mut r, &raw mut i) >= 0
-            {
-                bytes = bytes.saturating_add(words(r.into(), i.into()));
-            }
-            if !self.linear.is_null() && self.settings.method.linear == Linear::Klu {
-                let common = ffi::SUNLinSol_KLUGetCommon(self.linear);
-                if !common.is_null() {
-                    bytes = bytes.saturating_add((*common).memusage);
-                }
+        }
+        let (mut r, mut i) = (0, 0);
+        if !self.mem.is_null()
+            // SAFETY: a workspace query of the session's live KINSOL memory into locals.
+            && unsafe { ffi::KINGetWorkSpace(self.mem, &raw mut r, &raw mut i) } >= 0
+        {
+            bytes = bytes.saturating_add(words(long(r), long(i)));
+        }
+        if !self.linear.is_null()
+            // SAFETY: as above, for its attached linear solver.
+            && unsafe { ffi::KINGetLinWorkSpace(self.mem, &raw mut r, &raw mut i) } >= 0
+        {
+            bytes = bytes.saturating_add(words(long(r), long(i)));
+        }
+        if !self.matrix.is_null()
+            // SAFETY: a size query of the session's live matrix into locals.
+            && unsafe { ffi::SUNMatSpace(self.matrix, &raw mut r, &raw mut i) } >= 0
+        {
+            bytes = bytes.saturating_add(words(long(r), long(i)));
+        }
+        if !self.linear.is_null() && self.settings.method.linear == Linear::Klu {
+            // SAFETY: the session's live KLU solver, queried between solves.
+            let common = unsafe { ffi::SUNLinSol_KLUGetCommon(self.linear) };
+            if !common.is_null() {
+                // SAFETY: KLU's common block, owned by that solver and not being written.
+                bytes = bytes.saturating_add(unsafe { (*common).memusage });
             }
         }
         bytes
@@ -676,42 +765,40 @@ impl Session {
                 "KINSOL replacement changes layout".into(),
             ));
         }
-        match function.pattern() {
-            Some(p) => {
-                let rows: Vec<_> = (0..p.ncols())
-                    .flat_map(|c| p.row_idx_of_col(c))
-                    .map(index)
-                    .collect::<Result<_, _>>()?;
-                let mut columns = vec![0];
-                let mut count = 0;
-                for c in 0..p.ncols() {
-                    count += p.row_idx_of_col(c).len();
-                    columns.push(index(count)?);
-                }
-                if rows != self.callback.rows || columns != self.callback.columns {
-                    return Err(ProblemError::Unsupported(
-                        "KINSOL replacement changes sparse layout".into(),
-                    ));
-                }
+        if let Some(p) = function.pattern() {
+            let rows: Vec<_> = (0..p.ncols())
+                .flat_map(|c| p.row_idx_of_col(c))
+                .map(index)
+                .collect::<Result<_, _>>()?;
+            let mut columns = vec![0];
+            let mut count = 0;
+            for c in 0..p.ncols() {
+                count += p.row_idx_of_col(c).len();
+                columns.push(index(count)?);
             }
-            None => {}
+            if rows != self.callback.rows || columns != self.callback.columns {
+                return Err(ProblemError::Unsupported(
+                    "KINSOL replacement changes sparse layout".into(),
+                ));
+            }
         }
-        unsafe {
-            if constraints.any() {
-                if self.signs.is_null() {
-                    self.signs = ffi::N_VNew_Serial(index(constraints.signs.len())?, self.ctx);
-                }
-                publish(self.signs, &constraints.signs)?;
-                check(
-                    ffi::KINSetConstraints(self.mem, self.signs),
-                    "updated sign constraints",
-                )?;
-            } else {
-                check(
-                    ffi::KINSetConstraints(self.mem, std::ptr::null_mut()),
-                    "clear sign constraints",
-                )?;
+        if constraints.any() {
+            if self.signs.is_null() {
+                // SAFETY: the session's live context; `Drop` frees the vector.
+                self.signs =
+                    unsafe { ffi::N_VNew_Serial(index(constraints.signs.len())?, self.ctx) };
             }
+            // SAFETY: null or the session's live sign vector, referenced nowhere else.
+            unsafe { publish(self.signs, &constraints.signs)? };
+            native!(
+                ffi::KINSetConstraints(self.mem, self.signs),
+                "updated sign constraints",
+            )?;
+        } else {
+            native!(
+                ffi::KINSetConstraints(self.mem, std::ptr::null_mut()),
+                "clear sign constraints",
+            )?;
         }
         self.callback.function = function;
         self.callback.offsets = constraints.offsets;
@@ -776,125 +863,147 @@ impl Session {
             compatibility,
             _local: PhantomData,
         };
-        unsafe {
-            check(ffi::SUNContext_Create(0, &raw mut s.ctx), "context")?;
-            s.x = ffi::N_VNew_Serial(index(n)?, s.ctx);
-            s.us = ffi::N_VNew_Serial(index(n)?, s.ctx);
-            s.fs = ffi::N_VNew_Serial(index(n)?, s.ctx);
-            if s.x.is_null() || s.us.is_null() || s.fs.is_null() {
-                return Err(ProblemError::memory("SUNDIALS vector allocation"));
-            }
-            publish(s.us, &s.settings.variable_scales)?;
-            publish(s.fs, &s.settings.residual_scales)?;
-            s.mem = ffi::KINCreate(s.ctx);
-            if s.mem.is_null() {
-                return Err(ProblemError::memory("KINSOL allocation"));
-            }
-            check(
-                ffi::KINSetMAA(s.mem, s.settings.method.anderson as _),
-                "Anderson history",
-            )?;
-            check(
-                ffi::KINSetOrthAA(
-                    s.mem,
-                    orthogonalization_code(s.settings.method.orthogonalization),
-                ),
-                "Anderson orthogonalization",
-            )?;
-            check(ffi::KINInit(s.mem, Some(residual), s.x), "initialization")?;
-            check(
-                ffi::KINSetUserData(s.mem, (&raw mut *s.callback).cast()),
-                "callback context",
-            )?;
-            let method = s.settings.method;
-            if method.strategy != Strategy::FixedPoint {
-                match method.linear {
-                    Linear::Klu => {
-                        s.matrix = ffi::SUNSparseMatrix(
+        native!(ffi::SUNContext_Create(0, &raw mut s.ctx), "context")?;
+        // SAFETY: the session's live context; `Drop` frees the vector.
+        s.x = unsafe { ffi::N_VNew_Serial(index(n)?, s.ctx) };
+        // SAFETY: as above.
+        s.us = unsafe { ffi::N_VNew_Serial(index(n)?, s.ctx) };
+        // SAFETY: as above.
+        s.fs = unsafe { ffi::N_VNew_Serial(index(n)?, s.ctx) };
+        if s.x.is_null() || s.us.is_null() || s.fs.is_null() {
+            return Err(ProblemError::memory("SUNDIALS vector allocation"));
+        }
+        // SAFETY: the new session's live scale vector, referenced nowhere else.
+        unsafe { publish(s.us, &s.settings.variable_scales)? };
+        // SAFETY: as above.
+        unsafe { publish(s.fs, &s.settings.residual_scales)? };
+        // SAFETY: the session's live context; `Drop` frees the memory.
+        s.mem = unsafe { ffi::KINCreate(s.ctx) };
+        if s.mem.is_null() {
+            return Err(ProblemError::memory("KINSOL allocation"));
+        }
+        native!(
+            ffi::KINSetMAA(s.mem, s.settings.method.anderson as _),
+            "Anderson history",
+        )?;
+        native!(
+            ffi::KINSetOrthAA(
+                s.mem,
+                orthogonalization_code(s.settings.method.orthogonalization),
+            ),
+            "Anderson orthogonalization",
+        )?;
+        native!(ffi::KINInit(s.mem, Some(residual), s.x), "initialization")?;
+        // The boxed context has a stable address for the session's lifetime.
+        native!(
+            ffi::KINSetUserData(s.mem, (&raw mut *s.callback).cast()),
+            "callback context",
+        )?;
+        let method = s.settings.method;
+        if method.strategy != Strategy::FixedPoint {
+            match method.linear {
+                Linear::Klu => {
+                    // SAFETY: the session's live context; `Drop` frees the matrix.
+                    s.matrix = unsafe {
+                        ffi::SUNSparseMatrix(
                             index(n)?,
                             index(n)?,
                             index(s.callback.rows.len())?,
                             0,
                             s.ctx,
-                        );
-                        if s.matrix.is_null() {
-                            return Err(ProblemError::memory("sparse matrix allocation"));
-                        }
-                        std::ptr::copy_nonoverlapping(
-                            s.callback.columns.as_ptr(),
-                            ffi::SUNSparseMatrix_IndexPointers(s.matrix),
-                            n + 1,
-                        );
-                        if !s.callback.rows.is_empty() {
+                        )
+                    };
+                    if s.matrix.is_null() {
+                        return Err(ProblemError::memory("sparse matrix allocation"));
+                    }
+                    // SAFETY: a storage query of the new live matrix.
+                    let pointers = unsafe { ffi::SUNSparseMatrix_IndexPointers(s.matrix) };
+                    // SAFETY: the matrix and the canonical pattern both hold `n + 1` index
+                    // pointers, in storage that cannot overlap.
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(s.callback.columns.as_ptr(), pointers, n + 1)
+                    };
+                    if !s.callback.rows.is_empty() {
+                        // SAFETY: as above.
+                        let indices = unsafe { ffi::SUNSparseMatrix_IndexValues(s.matrix) };
+                        // SAFETY: the matrix was created with room for the pattern's rows.
+                        unsafe {
                             std::ptr::copy_nonoverlapping(
                                 s.callback.rows.as_ptr(),
-                                ffi::SUNSparseMatrix_IndexValues(s.matrix),
+                                indices,
                                 s.callback.rows.len(),
-                            );
-                        }
-                        s.linear = ffi::SUNLinSol_KLU(s.x, s.matrix, s.ctx);
-                    }
-                    Linear::Dense { .. } => {
-                        s.matrix = ffi::SUNDenseMatrix(index(n)?, index(n)?, s.ctx);
-                        if s.matrix.is_null() {
-                            return Err(ProblemError::memory("dense matrix allocation"));
-                        }
-                        s.linear = ffi::SUNLinSol_Dense(s.x, s.matrix, s.ctx);
-                    }
-                    Linear::Spgmr { dimension }
-                    | Linear::Spfgmr { dimension }
-                    | Linear::Spbcgs { dimension }
-                    | Linear::Sptfqmr { dimension } => {
-                        let maxl = i32::try_from(dimension.into_inner()).map_err(|_| {
-                            ProblemError::Contract("KINSOL Krylov dimension".into())
-                        })?;
-                        let side = match method.preconditioner {
-                            Preconditioner::None => ffi::SUN_PREC_NONE,
-                            Preconditioner::Jacobi => ffi::SUN_PREC_RIGHT,
-                        } as i32;
-                        let krylov: unsafe extern "C" fn(
-                            ffi::N_Vector,
-                            i32,
-                            i32,
-                            ffi::SUNContext,
-                        )
-                            -> ffi::SUNLinearSolver = match method.linear {
-                            Linear::Spgmr { .. } => ffi::SUNLinSol_SPGMR,
-                            Linear::Spfgmr { .. } => ffi::SUNLinSol_SPFGMR,
-                            Linear::Spbcgs { .. } => ffi::SUNLinSol_SPBCGS,
-                            _ => ffi::SUNLinSol_SPTFQMR,
+                            )
                         };
-                        s.linear = krylov(s.x, side, maxl, s.ctx);
                     }
+                    // SAFETY: the session's live vector, matrix and context; `Drop` frees
+                    // the solver.
+                    s.linear = unsafe { ffi::SUNLinSol_KLU(s.x, s.matrix, s.ctx) };
                 }
-                if s.linear.is_null() {
-                    return Err(ProblemError::memory("native linear solver allocation"));
-                }
-                check(
-                    ffi::KINSetLinearSolver(s.mem, s.linear, s.matrix),
-                    "linear solver",
-                )?;
-                if method.linear.krylov().is_some() {
-                    check(ffi::KINSetJacTimesVecFn(s.mem, Some(jvp)), "analytic JVP")?;
-                    if method.preconditioner == Preconditioner::Jacobi {
-                        check(
-                            ffi::KINSetPreconditioner(
-                                s.mem,
-                                Some(precondition_setup),
-                                Some(precondition_solve),
-                            ),
-                            "Jacobi preconditioner",
-                        )?;
+                Linear::Dense { .. } => {
+                    // SAFETY: the session's live context; `Drop` frees the matrix.
+                    s.matrix = unsafe { ffi::SUNDenseMatrix(index(n)?, index(n)?, s.ctx) };
+                    if s.matrix.is_null() {
+                        return Err(ProblemError::memory("dense matrix allocation"));
                     }
-                } else {
-                    check(ffi::KINSetJacFn(s.mem, Some(jacobian)), "analytic Jacobian")?;
+                    // SAFETY: the session's live vector, matrix and context; `Drop` frees
+                    // the solver.
+                    s.linear = unsafe { ffi::SUNLinSol_Dense(s.x, s.matrix, s.ctx) };
+                }
+                Linear::Spgmr { dimension }
+                | Linear::Spfgmr { dimension }
+                | Linear::Spbcgs { dimension }
+                | Linear::Sptfqmr { dimension } => {
+                    let maxl = i32::try_from(dimension.into_inner())
+                        .map_err(|_| ProblemError::Contract("KINSOL Krylov dimension".into()))?;
+                    let side = match method.preconditioner {
+                        Preconditioner::None => ffi::SUN_PREC_NONE,
+                        Preconditioner::Jacobi => ffi::SUN_PREC_RIGHT,
+                    } as i32;
+                    let krylov: unsafe extern "C" fn(
+                        ffi::N_Vector,
+                        i32,
+                        i32,
+                        ffi::SUNContext,
+                    ) -> ffi::SUNLinearSolver = match method.linear {
+                        Linear::Spgmr { .. } => ffi::SUNLinSol_SPGMR,
+                        Linear::Spfgmr { .. } => ffi::SUNLinSol_SPFGMR,
+                        Linear::Spbcgs { .. } => ffi::SUNLinSol_SPBCGS,
+                        _ => ffi::SUNLinSol_SPTFQMR,
+                    };
+                    // SAFETY: a SUNDIALS Krylov constructor over the session's live vector
+                    // and context; `Drop` frees the solver.
+                    s.linear = unsafe { krylov(s.x, side, maxl, s.ctx) };
                 }
             }
-            if constraints.any() {
-                s.signs = ffi::N_VNew_Serial(index(n)?, s.ctx);
-                publish(s.signs, &constraints.signs)?;
-                check(ffi::KINSetConstraints(s.mem, s.signs), "sign constraints")?;
+            if s.linear.is_null() {
+                return Err(ProblemError::memory("native linear solver allocation"));
             }
+            native!(
+                ffi::KINSetLinearSolver(s.mem, s.linear, s.matrix),
+                "linear solver",
+            )?;
+            if method.linear.krylov().is_some() {
+                native!(ffi::KINSetJacTimesVecFn(s.mem, Some(jvp)), "analytic JVP")?;
+                if method.preconditioner == Preconditioner::Jacobi {
+                    native!(
+                        ffi::KINSetPreconditioner(
+                            s.mem,
+                            Some(precondition_setup),
+                            Some(precondition_solve),
+                        ),
+                        "Jacobi preconditioner",
+                    )?;
+                }
+            } else {
+                native!(ffi::KINSetJacFn(s.mem, Some(jacobian)), "analytic Jacobian")?;
+            }
+        }
+        if constraints.any() {
+            // SAFETY: the session's live context; `Drop` frees the vector.
+            s.signs = unsafe { ffi::N_VNew_Serial(index(n)?, s.ctx) };
+            // SAFETY: null or the new live sign vector, referenced nowhere else.
+            unsafe { publish(s.signs, &constraints.signs)? };
+            native!(ffi::KINSetConstraints(s.mem, s.signs), "sign constraints")?;
         }
         Ok(s)
     }
@@ -939,61 +1048,64 @@ impl Session {
             Eta::Choice2 { gamma, alpha } => (ffi::KIN_ETACHOICE2, 0.0, gamma.into_inner(), alpha),
             Eta::Constant { value } => (ffi::KIN_ETACONSTANT, value.into_inner(), 0.0, 0.0),
         };
-        let delay = std::ffi::c_long::try_from(method.anderson_delay)
+        let delay = c_long::try_from(method.anderson_delay)
             .map_err(|_| ProblemError::Contract("KINSOL Anderson delay".into()))?;
-        unsafe {
-            // KINSOL iterates the shifted coordinates of one-sided bounds.
-            publish(self.x, &shifted(start, &self.callback.offsets, -1.0))?;
-            publish(self.us, &self.settings.variable_scales)?;
-            publish(self.fs, &self.settings.residual_scales)?;
-            check(
-                ffi::KINSetNumMaxIters(self.mem, controls.iterations.into()),
-                "iteration limit",
-            )?;
-            check(
-                ffi::KINSetFuncNormTol(self.mem, accuracy.feasibility),
-                "residual tolerance",
-            )?;
-            check(
-                ffi::KINSetScaledStepTol(self.mem, self.settings.step_tolerance),
-                "step tolerance",
-            )?;
-            check(
-                ffi::KINSetDamping(self.mem, method.damping.into_inner()),
-                "damping",
-            )?;
-            check(
-                ffi::KINSetDampingAA(self.mem, method.damping.into_inner()),
-                "Anderson damping",
-            )?;
-            check(
-                ffi::KINSetMaxSetupCalls(self.mem, method.setup_interval.into()),
-                "setup interval",
-            )?;
-            check(ffi::KINSetNoInitSetup(self.mem, 0), "refresh numeric setup")?;
-            // Every refreshable option is set on every solve (zero selects KINSOL's
-            // default), so a reused session never inherits a previous request's value.
-            check(
-                ffi::KINSetMaxNewtonStep(self.mem, method.max_newton_step.unwrap_or(0.0)),
-                "maximum Newton step",
-            )?;
-            check(ffi::KINSetEtaForm(self.mem, eta), "forcing-term form")?;
-            check(
-                ffi::KINSetEtaConstValue(self.mem, eta_constant),
-                "constant forcing term",
-            )?;
-            check(
-                ffi::KINSetEtaParams(self.mem, eta_gamma, eta_alpha),
-                "forcing-term parameters",
-            )?;
-            check(ffi::KINSetDelayAA(self.mem, delay), "Anderson delay")?;
-        }
+        // KINSOL iterates the shifted coordinates of one-sided bounds.
+        // SAFETY: the session's live iterate vector, referenced nowhere else.
+        unsafe { publish(self.x, &shifted(start, &self.callback.offsets, -1.0))? };
+        // SAFETY: as above, for the variable scales.
+        unsafe { publish(self.us, &self.settings.variable_scales)? };
+        // SAFETY: as above, for the residual scales.
+        unsafe { publish(self.fs, &self.settings.residual_scales)? };
+        native!(
+            ffi::KINSetNumMaxIters(self.mem, controls.iterations.into()),
+            "iteration limit",
+        )?;
+        native!(
+            ffi::KINSetFuncNormTol(self.mem, accuracy.feasibility),
+            "residual tolerance",
+        )?;
+        native!(
+            ffi::KINSetScaledStepTol(self.mem, self.settings.step_tolerance),
+            "step tolerance",
+        )?;
+        native!(
+            ffi::KINSetDamping(self.mem, method.damping.into_inner()),
+            "damping",
+        )?;
+        native!(
+            ffi::KINSetDampingAA(self.mem, method.damping.into_inner()),
+            "Anderson damping",
+        )?;
+        native!(
+            ffi::KINSetMaxSetupCalls(self.mem, method.setup_interval.into()),
+            "setup interval",
+        )?;
+        native!(ffi::KINSetNoInitSetup(self.mem, 0), "refresh numeric setup")?;
+        // Every refreshable option is set on every solve (zero selects KINSOL's
+        // default), so a reused session never inherits a previous request's value.
+        native!(
+            ffi::KINSetMaxNewtonStep(self.mem, method.max_newton_step.unwrap_or(0.0)),
+            "maximum Newton step",
+        )?;
+        native!(ffi::KINSetEtaForm(self.mem, eta), "forcing-term form")?;
+        native!(
+            ffi::KINSetEtaConstValue(self.mem, eta_constant),
+            "constant forcing term",
+        )?;
+        native!(
+            ffi::KINSetEtaParams(self.mem, eta_gamma, eta_alpha),
+            "forcing-term parameters",
+        )?;
+        native!(ffi::KINSetDelayAA(self.mem, delay), "Anderson delay")?;
         let strategy = match method.strategy {
             Strategy::Picard => 2,
             Strategy::Newton => 0,
             Strategy::LineSearch => 1,
             Strategy::FixedPoint => 3,
         };
+        // SAFETY: the session's live KINSOL memory and vectors on its owning thread; the
+        // callbacks reach the context only through their user data.
         let code = unsafe { ffi::KINSol(self.mem, self.x, strategy, self.us, self.fs) };
         let mut report = SolveReport::new(
             Backend::Kinsol,
@@ -1001,7 +1113,15 @@ impl Session {
             termination(code),
             &execution,
         );
-        macro_rules! count{($($get:ident),*)=>{$(let mut v=0;if unsafe{ffi::$get(self.mem,&mut v)}==0{report.metrics.insert(stringify!($get).into(),Metric::Integer(v.into()));})*}}
+        macro_rules! count {
+            ($($get:ident),*) => {$(
+                let mut v = 0;
+                // SAFETY: a counter query of the session's live KINSOL memory into a local.
+                if unsafe { ffi::$get(self.mem, &mut v) } == 0 {
+                    report.metrics.insert(stringify!($get).into(), Metric::Integer(v.into()));
+                }
+            )*};
+        }
         count!(
             KINGetNumNonlinSolvIters,
             KINGetNumFuncEvals,
@@ -1020,7 +1140,15 @@ impl Session {
                 KINGetLastLinFlag
             );
         }
-        macro_rules! real{($($get:ident),*)=>{$(let mut v=0.0;if unsafe{ffi::$get(self.mem,&mut v)}==0{report.metrics.insert(stringify!($get).into(),Metric::Real(v));})*}}
+        macro_rules! real {
+            ($($get:ident),*) => {$(
+                let mut v = 0.0;
+                // SAFETY: a statistics query of the session's live KINSOL memory into a local.
+                if unsafe { ffi::$get(self.mem, &mut v) } == 0 {
+                    report.metrics.insert(stringify!($get).into(), Metric::Real(v));
+                }
+            )*};
+        }
         real!(KINGetFuncNorm, KINGetStepLength);
         report.evidence.start_submitted = warm.is_some();
         report
@@ -1034,6 +1162,7 @@ impl Session {
             report.provenance.insert("settings".into(), method);
         }
         self.callback.state.finish(&mut report);
+        // SAFETY: the session's live iterate vector of the `n` coordinates.
         let x = shifted(unsafe { values(self.x, n) }?, &self.callback.offsets, 1.0);
         if x.iter().all(|v| v.is_finite()) {
             let mut f = vec![0.0; n];

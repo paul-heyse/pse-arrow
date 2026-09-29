@@ -1120,7 +1120,8 @@ mod tests {
 
 /// Initialization of a mixed-integer model (ADR-0103 item 6): stage and homotopy steps fix
 /// the free discrete variables, and the original specification decides them.
-#[cfg(all(test, feature = "solver-scip", feature = "solver-ipopt"))]
+#[cfg(test)]
+#[cfg(all(feature = "solver-scip", feature = "solver-ipopt"))]
 mod discrete_tests {
     use super::*;
     use crate::math::solves::{NumericalInputs, Outcome};

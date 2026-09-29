@@ -38,8 +38,9 @@ pub(crate) fn object_of(address: *const c_void) -> Option<String> {
     };
     // SAFETY: `info` is caller-owned and `dladdr` only reads the address.
     let found = unsafe { dladdr(address, &mut info) } != 0 && !info.fname.is_null();
-    // SAFETY: a successful lookup returns a NUL-terminated loader-owned path.
     found.then(|| {
+        // SAFETY: a successful lookup returns a non-null, NUL-terminated path owned by
+        // the loader for as long as the object stays mapped; it is copied at once.
         unsafe { CStr::from_ptr(info.fname) }
             .to_string_lossy()
             .into_owned()
@@ -70,22 +71,22 @@ impl Threads {
             .ok()
             .filter(|n| *n > 0)
             .ok_or_else(|| ProblemError::Contract("native thread count".into()))?;
-        // SAFETY: per-thread ICV and MKL-local settings of the calling worker.
-        unsafe {
-            let omp = omp_get_max_threads();
-            omp_set_num_threads(n);
-            let mkl = MKL_Set_Num_Threads_Local(n);
-            Ok(Self { omp, mkl })
-        }
+        // SAFETY: a scalar query of the calling worker's OpenMP thread-count ICV.
+        let omp = unsafe { omp_get_max_threads() };
+        // SAFETY: sets the calling worker's own ICV to a positive count.
+        unsafe { omp_set_num_threads(n) };
+        // SAFETY: sets the calling thread's MKL-local count to a positive value and
+        // returns the previous one.
+        let mkl = unsafe { MKL_Set_Num_Threads_Local(n) };
+        Ok(Self { omp, mkl })
     }
 }
 impl Drop for Threads {
     fn drop(&mut self) {
-        // SAFETY: restores the calling worker's own previous settings.
-        unsafe {
-            omp_set_num_threads(self.omp);
-            MKL_Set_Num_Threads_Local(self.mkl);
-        }
+        // SAFETY: restores the calling worker's own previous OpenMP ICV.
+        unsafe { omp_set_num_threads(self.omp) };
+        // SAFETY: restores the calling thread's previous MKL-local count (0 clears it).
+        unsafe { MKL_Set_Num_Threads_Local(self.mkl) };
     }
 }
 
@@ -255,8 +256,10 @@ mod tests {
     use super::*;
     #[test]
     fn worker_threads_are_scoped_and_restored() {
-        // SAFETY: per-thread queries of this test's own worker.
-        let before = unsafe { (omp_get_max_threads(), MKL_Set_Num_Threads_Local(0)) };
+        // SAFETY: a scalar query of this test worker's own OpenMP ICV.
+        let omp = unsafe { omp_get_max_threads() };
+        // SAFETY: clears this test thread's MKL-local count and returns the previous one.
+        let before = (omp, unsafe { MKL_Set_Num_Threads_Local(0) });
         // SAFETY: restore the MKL-local value the probe above cleared.
         unsafe { MKL_Set_Num_Threads_Local(before.1) };
         {

@@ -152,7 +152,7 @@ impl NativeRuntime {
         )?;
         Ok(NativePreparedStrategy {
             owner: self.owner.clone(),
-            inner: strategies::Strategy::Cone(inner),
+            inner: strategies::Strategy::Cone(Box::new(inner)),
         })
     }
     /// A runtime over the shared deployment. With `store`, every run is a durable attempt

@@ -1110,7 +1110,7 @@ impl NativeModelingPackage {
             )?;
             Ok(NativePreparedStrategy {
                 owner: self.owner.clone(),
-                inner: strategies::Strategy::Recycle(inner),
+                inner: strategies::Strategy::Recycle(Box::new(inner)),
             })
         }
         #[cfg(not(feature = "native-solvers"))]
@@ -1164,7 +1164,7 @@ impl NativeModelingPackage {
             )?;
             Ok(NativePreparedStrategy {
                 owner: self.owner.clone(),
-                inner: strategies::Strategy::Initialization(inner),
+                inner: strategies::Strategy::Initialization(Box::new(inner)),
             })
         }
         #[cfg(not(feature = "native-solvers"))]

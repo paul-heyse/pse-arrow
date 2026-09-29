@@ -28,6 +28,8 @@ use std::cell::Ref;
 type Problem<'o> = OdeSolverProblem<Equation<'o>>;
 type Adjoint<'a, 'o, F> = AdjointEquations<'a, Equation<'o>, F>;
 type Common = diffsol::ode_solver::state::StateCommon<V>;
+/// The forward checkpoints of one segment over the Hermite point state `S`.
+type Recorded<'o, S> = Checkpointing<Equation<'o>, Point<S>>;
 
 /// Each forward scheme's statistics, an inherent method of each Diffsol solver.
 trait Counted {
@@ -511,7 +513,7 @@ impl<'o> Passes<'_, 'o> {
         k: usize,
         steps: &mut usize,
         count: &mut usize,
-    ) -> Result<Option<Checkpointing<Equation<'o>, Point<F::State>>>, ProblemError>
+    ) -> Result<Option<Recorded<'o, F::State>>, ProblemError>
     where
         F: OdeSolverMethod<'a, Equation<'o>>,
         'o: 'a,

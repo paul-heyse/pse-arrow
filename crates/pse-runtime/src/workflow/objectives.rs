@@ -449,7 +449,8 @@ fn failure(result: &Result<ModelingResult, Arc<WorkflowError>>) -> Option<Bounda
     }
 }
 
-#[cfg(all(test, feature = "solver-highs", feature = "solver-ipopt"))]
+#[cfg(test)]
+#[cfg(all(feature = "solver-highs", feature = "solver-ipopt"))]
 mod tests {
     use super::*;
     use crate::math::solves::{NumericalInputs, Outcome};

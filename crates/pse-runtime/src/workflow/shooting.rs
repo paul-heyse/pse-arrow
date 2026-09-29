@@ -1214,6 +1214,7 @@ impl ShootingProblem {
     }
 }
 
-#[cfg(all(test, feature = "solver-ipopt"))]
+#[cfg(test)]
+#[cfg(feature = "solver-ipopt")]
 #[path = "shooting_tests.rs"]
 mod tests;

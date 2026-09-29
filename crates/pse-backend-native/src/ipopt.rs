@@ -51,30 +51,39 @@ fn native_bound(x: f64) -> Result<f64, ProblemError> {
 struct Handle(NonNull<ffi::IpoptProblemInfo>);
 impl Drop for Handle {
     fn drop(&mut self) {
+        // SAFETY: the problem `CreateIpoptProblem` returned to this handle, freed once.
         unsafe { ffi::FreeIpoptProblem(self.0.as_ptr()) }
     }
 }
 impl Handle {
     fn option(&self, key: &str, value: &OptionValue) -> Result<(), ProblemError> {
         let key = cstring(key)?;
-        let ok = unsafe {
-            match value {
-                OptionValue::Real(v) => {
-                    ffi::AddIpoptNumOption(self.0.as_ptr(), key.as_ptr().cast_mut(), *v)
-                }
-                OptionValue::Integer(v) => {
-                    ffi::AddIpoptIntOption(self.0.as_ptr(), key.as_ptr().cast_mut(), *v)
-                }
-                OptionValue::Text(v) => {
-                    let value = cstring(v)?;
+        // Each call reaches this handle's live problem with NUL-terminated strings that
+        // outlive it; Ipopt copies them and never writes through the pointers.
+        let ok = match value {
+            OptionValue::Real(v) => {
+                // SAFETY: as above.
+                unsafe { ffi::AddIpoptNumOption(self.0.as_ptr(), key.as_ptr().cast_mut(), *v) }
+            }
+            OptionValue::Integer(v) => {
+                // SAFETY: as above.
+                unsafe { ffi::AddIpoptIntOption(self.0.as_ptr(), key.as_ptr().cast_mut(), *v) }
+            }
+            OptionValue::Text(v) => {
+                let value = cstring(v)?;
+                // SAFETY: as above.
+                unsafe {
                     ffi::AddIpoptStrOption(
                         self.0.as_ptr(),
                         key.as_ptr().cast_mut(),
                         value.as_ptr().cast_mut(),
                     )
                 }
-                OptionValue::Bool(v) => {
-                    let value = cstring(if *v { "yes" } else { "no" })?;
+            }
+            OptionValue::Bool(v) => {
+                let value = cstring(if *v { "yes" } else { "no" })?;
+                // SAFETY: as above.
+                unsafe {
                     ffi::AddIpoptStrOption(
                         self.0.as_ptr(),
                         key.as_ptr().cast_mut(),
@@ -105,6 +114,10 @@ struct Context<'a> {
 }
 // The native API calls sequentially with this worker-local context. Native dimensions
 // are checked before reading any pointer, and zero-length nullable inputs are allowed.
+/// A callback input of `n` values.
+///
+/// # Safety
+/// `p` is null or points to `n` initialized values that outlive `'a` unwritten.
 unsafe fn input<'a>(p: *const f64, n: usize) -> Result<&'a [f64], ProblemError> {
     if n == 0 {
         return Ok(&[]);
@@ -112,8 +125,13 @@ unsafe fn input<'a>(p: *const f64, n: usize) -> Result<&'a [f64], ProblemError> 
     if p.is_null() {
         return Err(ProblemError::Internal("null callback input".into()));
     }
+    // SAFETY: non-null and `n` initialized values (the caller's contract).
     Ok(unsafe { std::slice::from_raw_parts(p, n) })
 }
+/// Copy a callback output.
+///
+/// # Safety
+/// `p` is null or writable for `values.len()` elements and does not overlap `values`.
 unsafe fn publish<T: Copy>(p: *mut T, values: &[T]) -> Result<(), ProblemError> {
     if values.is_empty() {
         return Ok(());
@@ -121,10 +139,16 @@ unsafe fn publish<T: Copy>(p: *mut T, values: &[T]) -> Result<(), ProblemError> 
     if p.is_null() {
         return Err(ProblemError::Internal("null callback output".into()));
     }
+    // SAFETY: non-null, writable and disjoint for `values.len()` (the caller's contract).
     unsafe { std::ptr::copy_nonoverlapping(values.as_ptr(), p, values.len()) };
     Ok(())
 }
+/// The callback context behind Ipopt's user data.
+///
+/// # Safety
+/// `p` is null or a live `Context` that nothing else borrows for `'a`.
 unsafe fn context<'a>(p: *mut c_void) -> Option<&'a mut Context<'a>> {
+    // SAFETY: the caller's contract.
     unsafe { p.cast::<Context<'a>>().as_mut() }
 }
 fn dimensions(c: &Context<'_>, n: i32, m: Option<i32>) -> Result<(), ProblemError> {
@@ -145,6 +169,8 @@ unsafe extern "C" fn objective(
     out: *mut f64,
     data: *mut c_void,
 ) -> bool {
+    // SAFETY: `data` is null or the `Context` the running solve passed to `IpoptSolve`,
+    // live for that call and not otherwise borrowed while Ipopt calls back on this worker.
     let Some(c) = (unsafe { context(data) }) else {
         return false;
     };
@@ -152,12 +178,14 @@ unsafe extern "C" fn objective(
     c.state
         .evaluate("objective", || {
             valid?;
+            // SAFETY: Ipopt passes the `n` primal values, the extent `valid` checked.
             let value = c.oracle.objective(unsafe { input(x, c.n) }?)?;
             if !value.is_finite() {
                 return Err(ProblemError::numerical(
                     "nonfinite objective returned by oracle",
                 ));
             }
+            // SAFETY: Ipopt's objective output is one writable value.
             unsafe { publish(out, &[value]) }
         })
         .is_some()
@@ -169,6 +197,8 @@ unsafe extern "C" fn gradient(
     out: *mut f64,
     data: *mut c_void,
 ) -> bool {
+    // SAFETY: `data` is null or the `Context` the running solve passed to `IpoptSolve`,
+    // live for that call and not otherwise borrowed while Ipopt calls back on this worker.
     let Some(c) = (unsafe { context(data) }) else {
         return false;
     };
@@ -177,8 +207,10 @@ unsafe extern "C" fn gradient(
         .evaluate("gradient", || {
             valid?;
             let mut values = vec![0.0; c.n];
+            // SAFETY: Ipopt passes the `n` primal values, the extent `valid` checked.
             c.oracle.gradient(unsafe { input(x, c.n) }?, &mut values)?;
             finite(&values)?;
+            // SAFETY: Ipopt's gradient output holds the `n` entries.
             unsafe { publish(out, &values) }
         })
         .is_some()
@@ -191,6 +223,8 @@ unsafe extern "C" fn constraints(
     out: *mut f64,
     data: *mut c_void,
 ) -> bool {
+    // SAFETY: `data` is null or the `Context` the running solve passed to `IpoptSolve`,
+    // live for that call and not otherwise borrowed while Ipopt calls back on this worker.
     let Some(c) = (unsafe { context(data) }) else {
         return false;
     };
@@ -200,8 +234,10 @@ unsafe extern "C" fn constraints(
             valid?;
             let mut values = vec![0.0; c.m];
             c.oracle
+                // SAFETY: Ipopt passes the `n` primal values, the extent `valid` checked.
                 .constraints(unsafe { input(x, c.n) }?, &mut values)?;
             finite(&values)?;
+            // SAFETY: Ipopt's constraint output holds the `m` values `valid` checked.
             unsafe { publish(out, &values) }
         })
         .is_some()
@@ -217,6 +253,8 @@ unsafe extern "C" fn jacobian(
     out: *mut f64,
     data: *mut c_void,
 ) -> bool {
+    // SAFETY: `data` is null or the `Context` the running solve passed to `IpoptSolve`,
+    // live for that call and not otherwise borrowed while Ipopt calls back on this worker.
     let Some(c) = (unsafe { context(data) }) else {
         return false;
     };
@@ -233,14 +271,16 @@ unsafe extern "C" fn jacobian(
                         "null sparse structure output".into(),
                     ));
                 }
-                unsafe {
-                    publish(rows, &c.jac.rows)?;
-                    publish(cols, &c.jac.columns)
-                }
+                // SAFETY: Ipopt's structure outputs hold the `nnz` entries checked above.
+                unsafe { publish(rows, &c.jac.rows)? };
+                // SAFETY: as above.
+                unsafe { publish(cols, &c.jac.columns) }
             } else {
                 let mut values = vec![0.0; c.jac.rows.len()];
+                // SAFETY: Ipopt passes the `n` primal values, the extent `valid` checked.
                 c.oracle.jacobian(unsafe { input(x, c.n) }?, &mut values)?;
                 finite(&values)?;
+                // SAFETY: Ipopt's value output holds the `nnz` entries checked above.
                 unsafe { publish(out, &values) }
             }
         })
@@ -260,6 +300,8 @@ unsafe extern "C" fn hessian(
     out: *mut f64,
     data: *mut c_void,
 ) -> bool {
+    // SAFETY: `data` is null or the `Context` the running solve passed to `IpoptSolve`,
+    // live for that call and not otherwise borrowed while Ipopt calls back on this worker.
     let Some(c) = (unsafe { context(data) }) else {
         return false;
     };
@@ -276,19 +318,23 @@ unsafe extern "C" fn hessian(
                         "null sparse structure output".into(),
                     ));
                 }
-                unsafe {
-                    publish(rows, &c.hess.rows)?;
-                    publish(cols, &c.hess.columns)
-                }
+                // SAFETY: Ipopt's structure outputs hold the `nnz` entries checked above.
+                unsafe { publish(rows, &c.hess.rows)? };
+                // SAFETY: as above.
+                unsafe { publish(cols, &c.hess.columns) }
             } else {
                 let mut values = vec![0.0; c.hess.rows.len()];
                 c.oracle.hessian(
+                    // SAFETY: Ipopt passes the `n` primal and `m` multiplier values, the
+                    // extents `valid` checked.
                     unsafe { input(x, c.n) }?,
                     weight,
+                    // SAFETY: as above.
                     unsafe { input(lambda, c.m) }?,
                     &mut values,
                 )?;
                 finite(&values)?;
+                // SAFETY: Ipopt's value output holds the `nnz` entries checked above.
                 unsafe { publish(out, &values) }
             }
         })
@@ -315,6 +361,8 @@ unsafe extern "C" fn intermediate(
     trials: i32,
     data: *mut c_void,
 ) -> bool {
+    // SAFETY: `data` is null or the `Context` the running solve passed to `IpoptSolve`,
+    // live for that call and not otherwise borrowed while Ipopt calls back on this worker.
     let Some(c) = (unsafe { context(data) }) else {
         return false;
     };
@@ -341,6 +389,8 @@ unsafe extern "C" fn intermediate(
             ]);
             let mut lagrangian = vec![0.0; c.n];
             if !c.handle.is_null()
+                // SAFETY: `c.handle` is the live problem running this callback, which may
+                // query its current iterate; the one requested output holds `n` values.
                 && unsafe {
                     ffi::GetIpoptCurrentViolations(
                         c.handle,
@@ -364,6 +414,7 @@ unsafe extern "C" fn intermediate(
             }
             let mut x = vec![0.0; c.n];
             if !c.handle.is_null()
+                // SAFETY: as above.
                 && unsafe {
                     ffi::GetIpoptCurrentIterate(
                         c.handle,
@@ -543,6 +594,10 @@ impl Session {
     }
     /// Run an admitted minimization oracle. Its objective is already sense-normalized;
     /// `sense` is used only to recover authored output. No normalization is repeated.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the native entry takes the oracle, start, sense, controls, accuracy, settings, execution, tolerances, warm start and compatibility as independent inputs of one attempt"
+    )]
     pub fn solve(
         &mut self,
         oracle: &mut dyn NlpOracle,
@@ -801,6 +856,8 @@ impl Session {
             }
             self.handle.take();
             let created = Handle(
+                // SAFETY: Ipopt copies the `n` variable and `m` row bounds from arrays of
+                // those lengths; the returned problem is owned by the `Handle`.
                 NonNull::new(unsafe {
                     ffi::CreateIpoptProblem(
                         index(n)?,
@@ -831,6 +888,7 @@ impl Session {
         for (key, value) in &options {
             handle.option(key, value)?
         }
+        // SAFETY: the session's live problem.
         if !unsafe { ffi::SetIntermediateCallback(handle.0.as_ptr(), Some(intermediate)) } {
             return Err(ProblemError::Internal(
                 "Ipopt intermediate callback registration".into(),
@@ -849,6 +907,9 @@ impl Session {
         let mut g = vec![f64::NAN; m];
         let mut objective = f64::NAN;
         let threads = crate::mkl::Threads::enter(controls.threads)?;
+        // SAFETY: the session's live problem on its owning worker; `x`, `lower` and `upper`
+        // hold `n` values, `g` and `rows` hold `m`, and `context` is the callbacks' user
+        // data, live and otherwise unused for the whole call.
         let code = unsafe {
             ffi::IpoptSolve(
                 handle.0.as_ptr(),
@@ -984,19 +1045,24 @@ mod tests {
     }
     #[test]
     fn null_zero_slices_are_legal_but_nonempty_null_is_refused() {
-        unsafe {
-            assert!(input(std::ptr::null(), 0).unwrap().is_empty());
-            assert!(input(std::ptr::null(), 1).is_err());
-            assert!(publish::<f64>(std::ptr::null_mut(), &[]).is_ok());
-            assert!(publish(std::ptr::null_mut(), &[1.0]).is_err());
-            assert!(!objective(
+        // SAFETY: null pointers satisfy each contract; the helpers refuse them before use.
+        assert!(unsafe { input(std::ptr::null(), 0) }.unwrap().is_empty());
+        // SAFETY: as above.
+        assert!(unsafe { input(std::ptr::null(), 1) }.is_err());
+        // SAFETY: as above.
+        assert!(unsafe { publish::<f64>(std::ptr::null_mut(), &[]) }.is_ok());
+        // SAFETY: as above.
+        assert!(unsafe { publish(std::ptr::null_mut(), &[1.0]) }.is_err());
+        // SAFETY: as above; a null user data returns before any other pointer is read.
+        assert!(!unsafe {
+            objective(
                 0,
                 std::ptr::null_mut(),
                 false,
                 std::ptr::null_mut(),
-                std::ptr::null_mut()
-            ));
-        }
+                std::ptr::null_mut(),
+            )
+        });
     }
     fn context_for(o: &mut dyn NlpOracle) -> Context<'_> {
         Context {
@@ -1017,6 +1083,8 @@ mod tests {
         let mut c = context_for(&mut o);
         let mut x = [2.0];
         let mut out = [73.0];
+        // SAFETY: one-element buffers for the one-variable context, which lives across
+        // the call.
         assert!(!unsafe {
             gradient(
                 1,
@@ -1034,6 +1102,7 @@ mod tests {
         let mut o = crate::solver_tests::Polynomial::new();
         o.panic = true;
         let mut c = context_for(&mut o);
+        // SAFETY: as above.
         assert!(!unsafe {
             objective(
                 1,
@@ -1052,6 +1121,7 @@ mod tests {
         let mut c = context_for(&mut o);
         let mut rows = [77];
         let mut cols = [77];
+        // SAFETY: one-entry structure buffers for the one-entry pattern of the live context.
         assert!(unsafe {
             jacobian(
                 1,
@@ -1067,6 +1137,7 @@ mod tests {
         });
         assert_eq!((rows, cols), ([0], [0]));
         rows = [77];
+        // SAFETY: as above; the null column output is refused before any write.
         assert!(!unsafe {
             jacobian(
                 1,
@@ -1561,6 +1632,8 @@ mod tests {
         let mut x = [2.0];
         let mut lambda = [3.0];
         let mut out = [0.0];
+        // SAFETY: one-element buffers for the one-variable, one-row context and its
+        // one-entry Hessian, which live across the call.
         assert!(unsafe {
             hessian(
                 1,

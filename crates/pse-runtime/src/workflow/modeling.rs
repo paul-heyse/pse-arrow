@@ -13,29 +13,33 @@ pub(super) mod dynamics;
 pub use dynamics::{ModelingSimulation, ModelingTrajectory};
 #[cfg(test)]
 mod certificate_tests;
+#[cfg(test)]
 #[cfg(all(
-    test,
     feature = "solver-scip",
     feature = "solver-ipopt",
     feature = "solver-highs"
 ))]
 mod commitment_tests;
-#[cfg(all(test, feature = "solver-highs"))]
+#[cfg(test)]
+#[cfg(feature = "solver-highs")]
 mod convexity_tests;
 mod diagnostics;
-#[cfg(all(test, feature = "solver-highs"))]
+#[cfg(test)]
+#[cfg(feature = "solver-highs")]
 mod forms_tests;
-#[cfg(all(test, feature = "solver-scip", feature = "solver-ipopt"))]
+#[cfg(test)]
+#[cfg(all(feature = "solver-scip", feature = "solver-ipopt"))]
 mod global_tests;
 mod implicit;
+#[cfg(test)]
 #[cfg(all(
-    test,
     feature = "solver-ipopt",
     feature = "solver-highs",
     feature = "solver-pounce"
 ))]
 mod pounce_convex_tests;
-#[cfg(all(test, feature = "solver-ipopt", feature = "solver-highs"))]
+#[cfg(test)]
+#[cfg(all(feature = "solver-ipopt", feature = "solver-highs"))]
 pub(in crate::workflow) mod sensitivity_tests;
 pub use diagnostics::{
     DiagnosticSampleStop, ElasticObservation, ModelingDiagnosticPolicy,

@@ -243,6 +243,10 @@ impl IntegratedExperiment {
     }
 }
 
+/// The forward report, the gradient contributions and the row-major Hessian over the
+/// selected bindings of one second-order adjoint.
+#[cfg(feature = "solver-idas")]
+type SecondOrder = (native::dynamics::Report, Vec<(usize, f64)>, Vec<f64>);
 #[cfg(feature = "solver-idas")]
 impl IntegratedExperiment {
     /// One forward pass with state sensitivities and one second-order backward pass: the
@@ -257,7 +261,7 @@ impl IntegratedExperiment {
         execution: &Execution,
         selected: &[usize],
         cotangent: native::dynamics::Cotangent<'_>,
-    ) -> Result<(native::dynamics::Report, Vec<(usize, f64)>, Vec<f64>), ProblemError> {
+    ) -> Result<SecondOrder, ProblemError> {
         let memory = execution.memory.ok_or_else(|| {
             ProblemError::Contract(
                 "second-order adjoints need the worker's admitted foreign allowance".into(),

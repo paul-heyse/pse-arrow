@@ -148,22 +148,23 @@ impl CutPool {
         {
             return None;
         }
-        let (start, lower, upper) = unsafe {
-            (
-                std::slice::from_raw_parts(out.cutpool_start, cuts + 1),
-                std::slice::from_raw_parts(out.cutpool_lower, cuts),
-                std::slice::from_raw_parts(out.cutpool_upper, cuts),
-            )
-        };
+        // SAFETY: the callback record's non-null pool arrays (checked above) hold
+        // `num_cut + 1` starts, `num_cut` bounds and `num_nz` entries, live for the
+        // callback; the pool below copies what it keeps.
+        let start = unsafe { std::slice::from_raw_parts(out.cutpool_start, cuts + 1) };
+        // SAFETY: as above.
+        let lower = unsafe { std::slice::from_raw_parts(out.cutpool_lower, cuts) };
+        // SAFETY: as above.
+        let upper = unsafe { std::slice::from_raw_parts(out.cutpool_upper, cuts) };
         let (index, value): (&[i32], &[f64]) = if nonzeros == 0 {
             (&[], &[])
         } else {
-            unsafe {
-                (
-                    std::slice::from_raw_parts(out.cutpool_index, nonzeros),
-                    std::slice::from_raw_parts(out.cutpool_value, nonzeros),
-                )
-            }
+            (
+                // SAFETY: as above.
+                unsafe { std::slice::from_raw_parts(out.cutpool_index, nonzeros) },
+                // SAFETY: as above.
+                unsafe { std::slice::from_raw_parts(out.cutpool_value, nonzeros) },
+            )
         };
         let mut pool = Self {
             columns,
@@ -375,17 +376,15 @@ impl Session {
             return Ok(report);
         }
         let ptr = self.model()?.as_mut_ptr();
-        check(
-            unsafe {
-                ffi::Highs_setDoubleOptionValue(
-                    ptr,
-                    c"time_limit".as_ptr(),
-                    execution
-                        .time_limit
-                        .saturating_sub(execution.started.elapsed())
-                        .as_secs_f64(),
-                )
-            },
+        native!(
+            ffi::Highs_setDoubleOptionValue(
+                ptr,
+                c"time_limit".as_ptr(),
+                execution
+                    .time_limit
+                    .saturating_sub(execution.started.elapsed())
+                    .as_secs_f64(),
+            ),
             "remaining diagnostic time",
         )?;
         let _callbacks = CallbackBinding::new(ptr, execution.clone())?;
@@ -407,12 +406,13 @@ impl Session {
                 for (primal, len) in [(true, n), (false, m)] {
                     let mut has = 0;
                     let mut ray = vec![0.0; len];
-                    let status = unsafe {
-                        if primal {
-                            ffi::Highs_getPrimalRay(ptr, &mut has, ray.as_mut_ptr())
-                        } else {
-                            ffi::Highs_getDualRay(ptr, &mut has, ray.as_mut_ptr())
-                        }
+                    let status = if primal {
+                        // SAFETY: the session's live model under its lifecycle gate; the
+                        // primal ray has one entry per column.
+                        unsafe { ffi::Highs_getPrimalRay(ptr, &mut has, ray.as_mut_ptr()) }
+                    } else {
+                        // SAFETY: as above; the dual ray has one entry per row.
+                        unsafe { ffi::Highs_getDualRay(ptr, &mut has, ray.as_mut_ptr()) }
                     };
                     let key = if primal { "primal_ray" } else { "dual_ray" };
                     if status == 0 && has != 0 && ray.iter().all(|v| v.is_finite()) {
@@ -462,6 +462,7 @@ impl Session {
         if request.ranging {
             if discrete
                 || quadratic
+                // SAFETY: a status query of the session's live model.
                 || unsafe { ffi::Highs_getModelStatus(ptr) } != 7
                 || !matches!(info(ptr, "basis_validity")?, Some(Metric::Integer(1)))
             {
@@ -486,6 +487,8 @@ impl Session {
                     RangeFamily::RowBoundUp,
                     RangeFamily::RowBoundDown,
                 );
+                // SAFETY: the session's live model with a valid basis; every column
+                // family buffer holds `n` entries and every row family `m` (`Range::new`).
                 let status = unsafe {
                     ffi::Highs_getRanging(
                         ptr,
@@ -535,6 +538,7 @@ impl Session {
         if let Some(positions) = &request.basis_inverse {
             if discrete
                 || quadratic
+                // SAFETY: a status query of the session's live model.
                 || unsafe { ffi::Highs_getModelStatus(ptr) } != ffi::kHighsModelStatusOptimal
                 || !matches!(info(ptr, "basis_validity")?, Some(Metric::Integer(1)))
             {
@@ -593,17 +597,20 @@ impl Session {
                 // The copied diagnostic model minimizes weighted violations.
                 // HiGHS preserves the original objective offset through its elastic
                 // operation; carrying that offset would contaminate the penalty.
-                check(
-                    unsafe { ffi::Highs_changeObjectiveSense(ptr, ffi::kHighsObjSenseMinimize) },
+                native!(
+                    ffi::Highs_changeObjectiveSense(ptr, ffi::kHighsObjSenseMinimize),
                     "relaxation objective sense",
                 )?;
-                check(
-                    unsafe { ffi::Highs_changeObjectiveOffset(ptr, 0.) },
+                native!(
+                    ffi::Highs_changeObjectiveOffset(ptr, 0.),
                     "relaxation objective offset",
                 )?;
                 let binding = CallbackBinding::new(ptr, execution.clone())?;
                 let data =
                     |v: &Option<Vec<f64>>| v.as_ref().map_or(std::ptr::null(), |v| v.as_ptr());
+                // SAFETY: the copied model is live under the session's lifecycle gate;
+                // each weight array is null or holds the `n` column or `m` row entries
+                // `validate` checked.
                 let status = unsafe {
                     ffi::Highs_feasibilityRelaxation(
                         ptr,
@@ -616,6 +623,7 @@ impl Session {
                     )
                 };
                 drop(binding);
+                // SAFETY: a status query of the live copied model.
                 let restored_status = termination(unsafe { ffi::Highs_getModelStatus(ptr) });
                 let penalty = if status == 0 {
                     match info(ptr, "objective_function_value")? {
@@ -626,6 +634,8 @@ impl Session {
                     None
                 };
                 let mut x = vec![0.0; n];
+                // SAFETY: the copied model's solution has the problem's `n` columns; the
+                // other outputs are not requested.
                 let primal = if matches!(
                     info(ptr, "primal_solution_status")?,
                     Some(Metric::Integer(1 | 2))
@@ -713,6 +723,8 @@ fn scratch(execution: &Execution) -> Result<highs::Model, ProblemError> {
         .map_err(|_| ProblemError::Internal("diagnostic time limit".into()))?;
     Ok(model)
 }
+/// An optimal LP solution with feasible duals: `(x, column duals, row duals)`.
+type LpSolution = (Vec<f64>, Vec<f64>, Vec<f64>);
 /// Column-wise LP arrays as the C API passes them.
 struct Lp {
     sense: i32,
@@ -746,42 +758,36 @@ impl Lp {
     fn solve(
         &self,
         execution: &Execution,
-    ) -> Result<
-        (
-            NativeTermination,
-            Option<(Vec<f64>, Vec<f64>, Vec<f64>)>,
-            Option<f64>,
-        ),
-        ProblemError,
-    > {
+    ) -> Result<(NativeTermination, Option<LpSolution>, Option<f64>), ProblemError> {
         let (n, m) = (self.cost.len(), self.row_lower.len());
         let mut model = scratch(execution)?;
         let ptr = model.as_mut_ptr();
-        check(
-            unsafe {
-                ffi::Highs_passLp(
-                    ptr,
-                    index(n)?,
-                    index(m)?,
-                    index(self.value.len())?,
-                    ffi::kHighsMatrixFormatColwise,
-                    self.sense,
-                    self.offset,
-                    self.cost.as_ptr(),
-                    self.lower.as_ptr(),
-                    self.upper.as_ptr(),
-                    self.row_lower.as_ptr(),
-                    self.row_upper.as_ptr(),
-                    self.start.as_ptr(),
-                    self.index.as_ptr(),
-                    self.value.as_ptr(),
-                )
-            },
+        native!(
+            ffi::Highs_passLp(
+                ptr,
+                index(n)?,
+                index(m)?,
+                index(self.value.len())?,
+                ffi::kHighsMatrixFormatColwise,
+                self.sense,
+                self.offset,
+                self.cost.as_ptr(),
+                self.lower.as_ptr(),
+                self.upper.as_ptr(),
+                self.row_lower.as_ptr(),
+                self.row_upper.as_ptr(),
+                self.start.as_ptr(),
+                self.index.as_ptr(),
+                self.value.as_ptr(),
+            ),
             "diagnostic LP upload",
         )?;
         let binding = CallbackBinding::new(ptr, execution.clone())?;
+        // SAFETY: the scratch model is live under the session's lifecycle gate; the callback
+        // binding outlives the run.
         let run = unsafe { ffi::Highs_run(ptr) };
         drop(binding);
+        // SAFETY: a status query of the live scratch model.
         let status = unsafe { ffi::Highs_getModelStatus(ptr) };
         let solved = run == ffi::STATUS_OK
             && status == ffi::kHighsModelStatusOptimal
@@ -795,16 +801,14 @@ impl Lp {
         };
         let solution = if solved {
             let (mut x, mut cd, mut rd) = (vec![0.0; n], vec![0.0; n], vec![0.0; m]);
-            check(
-                unsafe {
-                    ffi::Highs_getSolution(
-                        ptr,
-                        x.as_mut_ptr(),
-                        cd.as_mut_ptr(),
-                        std::ptr::null_mut(),
-                        rd.as_mut_ptr(),
-                    )
-                },
+            native!(
+                ffi::Highs_getSolution(
+                    ptr,
+                    x.as_mut_ptr(),
+                    cd.as_mut_ptr(),
+                    std::ptr::null_mut(),
+                    rd.as_mut_ptr(),
+                ),
                 "diagnostic LP solution",
             )?;
             x.iter()
@@ -836,10 +840,13 @@ fn fixed_lp(
         return Err("no feasible MIP solution to commit to".into());
     }
     let (n, m) = (p.contract.variables.len(), p.contract.rows.len());
+    // SAFETY: a size query of the session's live model.
     let nonzeros = usize::try_from(unsafe { ffi::Highs_getNumNz(ptr) })
         .map_err(|_| "native nonzero count".to_string())?;
     let mut lp = Lp::new(n, m, nonzeros);
     let (mut nc, mut nr, mut nz) = (0, 0, 0);
+    // SAFETY: the session's live model, read back equal to `p` before its solve: its `n`
+    // columns, `m` rows and `nonzeros` entries size every array of `lp`.
     let status = unsafe {
         ffi::Highs_getFixedLp(
             ptr,
@@ -911,6 +918,7 @@ fn basis_inverse(
         return Err(format!("basis positions must be distinct and below {m}"));
     }
     let mut basic = vec![0; m];
+    // SAFETY: the session's live model with a valid basis of one variable per row.
     if unsafe { ffi::Highs_getBasicVariables(ptr, basic.as_mut_ptr()) } != ffi::STATUS_OK {
         return Err("native basic variables".into());
     }
@@ -934,6 +942,7 @@ fn basis_inverse(
     let mut rows = vec![];
     for &r in positions {
         let (mut values, mut indices, mut count) = (vec![0.0; m], vec![0; m], 0);
+        // SAFETY: as above; a basis-inverse row has `m` entries and `r < m`.
         if unsafe {
             ffi::Highs_getBasisInverseRow(
                 ptr,
@@ -977,6 +986,8 @@ fn presolve(
         .map_err(|_| ProblemError::Internal("diagnostic time limit".into()))?;
     let ptr = model.as_mut_ptr();
     let binding = CallbackBinding::new(ptr, execution.clone())?;
+    // SAFETY: the copied model is live under the session's lifecycle gate; the callback
+    // binding outlives the presolve.
     let status = unsafe { ffi::Highs_presolve(ptr) };
     drop(binding);
     if status != ffi::STATUS_OK {
@@ -984,37 +995,34 @@ fn presolve(
     }
     let count =
         |v: i32| usize::try_from(v).map_err(|_| ProblemError::Internal("presolved size".into()));
-    let (pc, pr, pz) = unsafe {
-        (
-            count(ffi::Highs_getPresolvedNumCol(ptr))?,
-            count(ffi::Highs_getPresolvedNumRow(ptr))?,
-            count(ffi::Highs_getPresolvedNumNz(ptr))?,
-        )
-    };
+    // SAFETY: presolved-size queries of the live copied model.
+    let pc = count(unsafe { ffi::Highs_getPresolvedNumCol(ptr) })?;
+    // SAFETY: as above.
+    let pr = count(unsafe { ffi::Highs_getPresolvedNumRow(ptr) })?;
+    // SAFETY: as above.
+    let pz = count(unsafe { ffi::Highs_getPresolvedNumNz(ptr) })?;
     let mut lp = Lp::new(pc, pr, pz);
     let mut integrality = vec![0; pc];
     let (mut nc, mut nr, mut nz) = (0, 0, 0);
-    check(
-        unsafe {
-            ffi::Highs_getPresolvedLp(
-                ptr,
-                ffi::kHighsMatrixFormatColwise,
-                &raw mut nc,
-                &raw mut nr,
-                &raw mut nz,
-                &raw mut lp.sense,
-                &raw mut lp.offset,
-                lp.cost.as_mut_ptr(),
-                lp.lower.as_mut_ptr(),
-                lp.upper.as_mut_ptr(),
-                lp.row_lower.as_mut_ptr(),
-                lp.row_upper.as_mut_ptr(),
-                lp.start.as_mut_ptr(),
-                lp.index.as_mut_ptr(),
-                lp.value.as_mut_ptr(),
-                integrality.as_mut_ptr(),
-            )
-        },
+    native!(
+        ffi::Highs_getPresolvedLp(
+            ptr,
+            ffi::kHighsMatrixFormatColwise,
+            &raw mut nc,
+            &raw mut nr,
+            &raw mut nz,
+            &raw mut lp.sense,
+            &raw mut lp.offset,
+            lp.cost.as_mut_ptr(),
+            lp.lower.as_mut_ptr(),
+            lp.upper.as_mut_ptr(),
+            lp.row_lower.as_mut_ptr(),
+            lp.row_upper.as_mut_ptr(),
+            lp.start.as_mut_ptr(),
+            lp.index.as_mut_ptr(),
+            lp.value.as_mut_ptr(),
+            integrality.as_mut_ptr(),
+        ),
         "presolved LP",
     )?;
     if (nc as usize, nr as usize, nz as usize) != (pc, pr, pz) {
@@ -1035,8 +1043,12 @@ fn presolve(
             Some((x, cd, rd)) => {
                 let n = p.contract.variables.len();
                 let mut original = vec![0.0; n];
+                // SAFETY: the copied model's presolved LP has the `pc` columns and `pr` rows
+                // that size `x`, `cd` and `rd`.
                 (unsafe { ffi::Highs_postsolve(ptr, x.as_ptr(), cd.as_ptr(), rd.as_ptr()) }
                     == ffi::STATUS_OK
+                    // SAFETY: the postsolved solution has the problem's `n` columns; the
+                    // other outputs are not requested.
                     && unsafe {
                         ffi::Highs_getSolution(
                             ptr,
@@ -1095,27 +1107,23 @@ fn collect_iis(
     let m = p.contract.rows.len();
     // The pinned default is only a light bound test. An IIS request needs
     // HiGHS' elastic-LP reduction and its dedicated remaining time allowance.
-    check(
-        unsafe {
-            ffi::Highs_setIntOptionValue(
-                ptr,
-                c"iis_strategy".as_ptr(),
-                ffi::kHighsIisStrategyFromLpRowPriority,
-            )
-        },
+    native!(
+        ffi::Highs_setIntOptionValue(
+            ptr,
+            c"iis_strategy".as_ptr(),
+            ffi::kHighsIisStrategyFromLpRowPriority,
+        ),
         "irreducible IIS strategy",
     )?;
-    check(
-        unsafe {
-            ffi::Highs_setDoubleOptionValue(
-                ptr,
-                c"iis_time_limit".as_ptr(),
-                execution
-                    .time_limit
-                    .saturating_sub(execution.started.elapsed())
-                    .as_secs_f64(),
-            )
-        },
+    native!(
+        ffi::Highs_setDoubleOptionValue(
+            ptr,
+            c"iis_time_limit".as_ptr(),
+            execution
+                .time_limit
+                .saturating_sub(execution.started.elapsed())
+                .as_secs_f64(),
+        ),
         "remaining IIS time",
     )?;
     let (mut nc, mut nr) = (0, 0);
@@ -1125,6 +1133,8 @@ fn collect_iis(
     let mut rb = vec![0; m];
     let mut cs = vec![0; n];
     let mut rs = vec![0; m];
+    // SAFETY: the live model has the problem's `n` columns and `m` rows, which size the
+    // column and row outputs.
     let status = unsafe {
         ffi::Highs_getIis(
             ptr,

@@ -449,6 +449,7 @@ impl<O: Oracle> Oracle for Anchored<O> {
     }
 }
 
-#[cfg(all(test, feature = "diffsol"))]
+#[cfg(test)]
+#[cfg(feature = "diffsol")]
 #[path = "anchored_tests.rs"]
 mod tests;

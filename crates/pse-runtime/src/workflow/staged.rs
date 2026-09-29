@@ -657,7 +657,8 @@ mod tests {
     }
 }
 
-#[cfg(all(test, feature = "solver-kinsol"))]
+#[cfg(test)]
+#[cfg(feature = "solver-kinsol")]
 mod native_tests {
     use super::*;
     use crate::math::solves::NumericalInputs;

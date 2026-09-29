@@ -7,11 +7,14 @@ use crate::solver_tests::{id, stamp};
 use faer::sparse::{SparseColMat, Triplet};
 use std::sync::Arc;
 
+/// One row: its `(column, coefficient)` terms and its lower and upper bounds.
+type Row = (Vec<(usize, f64)>, f64, f64);
+
 /// `min Σ cost·x` over `x ∈ [lower, upper]` with the given domains and rows.
 fn problem(
     cost: &[f64],
     columns: &[(f64, f64, ModelingVariableDomain)],
-    rows: &[(Vec<(usize, f64)>, f64, f64)],
+    rows: &[Row],
 ) -> CoefficientProblem {
     let mut contract = crate::solver_tests::contract();
     contract.variables = columns

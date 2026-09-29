@@ -1796,7 +1796,8 @@ fn contract_error(message: &str) -> WorkflowError {
     contract(message)
 }
 
-#[cfg(all(test, feature = "solver-diffsol"))]
+#[cfg(test)]
+#[cfg(feature = "solver-diffsol")]
 mod tests {
     use super::*;
     use pse_backend_native::dynamics::Oracle;

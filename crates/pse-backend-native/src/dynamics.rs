@@ -1607,5 +1607,6 @@ impl Default for Profile {
     }
 }
 
-#[cfg(all(test, feature = "diffsol"))]
+#[cfg(test)]
+#[cfg(feature = "diffsol")]
 mod tests;

@@ -207,7 +207,8 @@ pub use conditional::{
     CausalUnitRequest, PreparedInitializationStrategy, PreparedRecycle, RecycleRequest,
 };
 
-#[cfg(all(test, feature = "solver-kinsol"))]
+#[cfg(test)]
+#[cfg(feature = "solver-kinsol")]
 mod start_tests;
 #[cfg(test)]
 mod tests;

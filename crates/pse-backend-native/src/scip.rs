@@ -459,22 +459,21 @@ impl Objective {
         if best.is_null() {
             return;
         }
+        let primal = capture().then(|| {
+            self.columns
+                .iter()
+                // SAFETY: as above.
+                .map(|var| unsafe { ffi::SCIPgetSolVal(scip, best, *var) })
+                .collect::<Vec<f64>>()
+        });
         // SAFETY: as above.
-        let (dual_bound, gap, nodes, seconds, primal) = unsafe {
-            let primal = capture().then(|| {
-                self.columns
-                    .iter()
-                    .map(|var| ffi::SCIPgetSolVal(scip, best, *var))
-                    .collect::<Vec<f64>>()
-            });
-            (
-                ffi::SCIPgetDualbound(scip),
-                ffi::SCIPgetGap(scip),
-                ffi::SCIPgetNTotalNodes(scip),
-                ffi::SCIPgetSolvingTime(scip),
-                primal,
-            )
-        };
+        let dual_bound = unsafe { ffi::SCIPgetDualbound(scip) };
+        // SAFETY: as above.
+        let gap = unsafe { ffi::SCIPgetGap(scip) };
+        // SAFETY: as above.
+        let nodes = unsafe { ffi::SCIPgetNTotalNodes(scip) };
+        // SAFETY: as above.
+        let seconds = unsafe { ffi::SCIPgetSolvingTime(scip) };
         let Some(objective) =
             objective_value(scip, best, self.function, self.offset, self.infinity)
         else {
@@ -506,15 +505,14 @@ impl Objective {
         let Some(concurrent) = &self.concurrent else {
             return;
         };
-        // SAFETY: depth and stage queries of the live copy on its own thread. Concurrent
-        // solvers are the only copies at depth 0 (SCIPcreateConcurrent resets it).
-        let solving = unsafe {
-            ffi::SCIPgetSubscipDepth(scip) == 0
-                && matches!(
-                    ffi::SCIPgetStage(scip),
-                    ffi::SCIP_Stage_SCIP_STAGE_SOLVING | ffi::SCIP_Stage_SCIP_STAGE_SOLVED
-                )
-        };
+        // SAFETY: a depth query of the live copy on its own thread. Concurrent solvers are
+        // the only copies at depth 0 (SCIPcreateConcurrent resets it).
+        let solving = unsafe { ffi::SCIPgetSubscipDepth(scip) } == 0
+            && matches!(
+                // SAFETY: a stage query of the same live copy on its own thread.
+                unsafe { ffi::SCIPgetStage(scip) },
+                ffi::SCIP_Stage_SCIP_STAGE_SOLVING | ffi::SCIP_Stage_SCIP_STAGE_SOLVED
+            );
         if !solving {
             return;
         }
@@ -544,8 +542,9 @@ impl Objective {
             return;
         };
         // SAFETY: statistics queries of the live copy on its own thread.
-        let (nodes, seconds) =
-            unsafe { (ffi::SCIPgetNTotalNodes(scip), ffi::SCIPgetSolvingTime(scip)) };
+        let nodes = unsafe { ffi::SCIPgetNTotalNodes(scip) };
+        // SAFETY: as above.
+        let seconds = unsafe { ffi::SCIPgetSolvingTime(scip) };
         concurrent.improving(objective, || {
             let primal = self.throttle.admit().then(|| point.to_vec());
             watch.progress.push(Event {
@@ -568,14 +567,12 @@ impl Objective {
         if !self.admitted(scip) {
             return;
         }
-        // SAFETY: the stage admits the bound queries.
-        let (primal, dual, gap) = unsafe {
-            (
-                ffi::SCIPgetPrimalbound(scip),
-                ffi::SCIPgetDualbound(scip),
-                ffi::SCIPgetGap(scip),
-            )
-        };
+        // SAFETY: the stage admits the bound queries of the live owning SCIP.
+        let primal = unsafe { ffi::SCIPgetPrimalbound(scip) };
+        // SAFETY: as above.
+        let dual = unsafe { ffi::SCIPgetDualbound(scip) };
+        // SAFETY: as above.
+        let gap = unsafe { ffi::SCIPgetGap(scip) };
         let metric = |v: Option<f64>| {
             v.map_or(
                 Metric::Unavailable(UnavailableReason::NotApplicable),
@@ -1259,15 +1256,16 @@ impl Rational {
             return Err(ProblemError::memory("SCIPrationalCreate"));
         }
         let r = Self(raw);
-        // SAFETY: a live rational owned by `r`; infinities map to SCIP's infinite rationals.
-        unsafe {
-            if value == f64::INFINITY {
-                ffi::SCIPrationalSetInfinity(r.0);
-            } else if value == f64::NEG_INFINITY {
-                ffi::SCIPrationalSetNegInfinity(r.0);
-            } else {
-                ffi::SCIPrationalSetReal(r.0, value);
-            }
+        // Infinities map to SCIP's infinite rationals.
+        if value == f64::INFINITY {
+            // SAFETY: a live rational owned by `r`.
+            unsafe { ffi::SCIPrationalSetInfinity(r.0) };
+        } else if value == f64::NEG_INFINITY {
+            // SAFETY: as above.
+            unsafe { ffi::SCIPrationalSetNegInfinity(r.0) };
+        } else {
+            // SAFETY: as above.
+            unsafe { ffi::SCIPrationalSetReal(r.0, value) };
         }
         Ok(r)
     }
@@ -2271,88 +2269,99 @@ pub(crate) fn readback(
         // SAFETY: the constraint is a live nonlinear constraint held by the instance.
         let expr = unsafe { ffi::SCIPgetExprNonlinear(cons) };
         native!("SCIPevalExpr", ffi::SCIPevalExpr(s, expr, solution.sol, 0))?;
-        // SAFETY: reads the value SCIP just stored in the live expression; side queries
-        // of the same live constraint.
-        Ok(unsafe {
-            (
-                ffi::SCIPexprGetEvalValue(expr),
-                ffi::SCIPgetLhsNonlinear(cons),
-                ffi::SCIPgetRhsNonlinear(cons),
-            )
-        })
+        // SAFETY: reads the value SCIP just stored in the live expression.
+        let value = unsafe { ffi::SCIPexprGetEvalValue(expr) };
+        // SAFETY: a side query of the same live constraint.
+        let lhs = unsafe { ffi::SCIPgetLhsNonlinear(cons) };
+        // SAFETY: as above.
+        let rhs = unsafe { ffi::SCIPgetRhsNonlinear(cons) };
+        Ok((value, lhs, rhs))
     };
     let mut worst: f64 = 0.0;
     for c in &export.constraints {
         let neutral = plan.value(c.expression, &values, &coordinates);
         match c.kind {
             Kind::Linear { constant } => {
-                // SAFETY: a live linear constraint held by the instance; its arrays have
-                // the reported length.
-                let (a, lhs, rhs) = unsafe {
-                    let n = ffi::SCIPgetNVarsLinear(s, c.cons);
-                    let vals = ffi::SCIPgetValsLinear(s, c.cons);
-                    (
-                        activity(
-                            &at,
-                            ffi::SCIPgetVarsLinear(s, c.cons),
-                            |i| *vals.add(i),
-                            n,
-                            ptr::null_mut(),
-                        )?,
-                        ffi::SCIPgetLhsLinear(s, c.cons),
-                        ffi::SCIPgetRhsLinear(s, c.cons),
-                    )
+                // SAFETY: a live linear constraint held by the instance.
+                let n = unsafe { ffi::SCIPgetNVarsLinear(s, c.cons) };
+                // SAFETY: as above; the array has the reported length `n`.
+                let vals = unsafe { ffi::SCIPgetValsLinear(s, c.cons) };
+                // SAFETY: as above.
+                let vars = unsafe { ffi::SCIPgetVarsLinear(s, c.cons) };
+                let value = |i: usize| {
+                    // SAFETY: `activity` reads only indices below `n`, within the array.
+                    let entry = unsafe { vals.add(i) };
+                    // SAFETY: as above; the entry is initialized.
+                    unsafe { *entry }
                 };
+                // SAFETY: `vars` has the reported `n` entries while the constraint lives.
+                let a = unsafe { activity(&at, vars, value, n, ptr::null_mut()) }?;
+                // SAFETY: side queries of the same live constraint.
+                let lhs = unsafe { ffi::SCIPgetLhsLinear(s, c.cons) };
+                // SAFETY: as above.
+                let rhs = unsafe { ffi::SCIPgetRhsLinear(s, c.cons) };
                 worst = worst
                     .max(deviation(a + constant, neutral))
                     .max(side(lhs + constant, c.lower))
                     .max(side(rhs + constant, c.upper));
             }
             Kind::ExactLinear { constant } => {
-                // SAFETY: a live exact linear constraint held by the instance; its arrays
-                // have the reported length and its rationals stay live.
-                let (a, lhs, rhs) = unsafe {
-                    let n = ffi::SCIPgetNVarsExactLinear(s, c.cons);
-                    let vals = ffi::SCIPgetValsExactLinear(s, c.cons);
-                    (
-                        activity(
-                            &at,
-                            ffi::SCIPgetVarsExactLinear(s, c.cons),
-                            |i| ffi::SCIPrationalGetReal(*vals.add(i)),
-                            n,
-                            ptr::null_mut(),
-                        )?,
-                        ffi::SCIPrationalGetReal(ffi::SCIPgetLhsExactLinear(s, c.cons)),
-                        ffi::SCIPrationalGetReal(ffi::SCIPgetRhsExactLinear(s, c.cons)),
-                    )
+                // SAFETY: a live exact linear constraint held by the instance.
+                let n = unsafe { ffi::SCIPgetNVarsExactLinear(s, c.cons) };
+                // SAFETY: as above; the array has the reported length `n` and its
+                // rationals stay live with the constraint.
+                let vals = unsafe { ffi::SCIPgetValsExactLinear(s, c.cons) };
+                // SAFETY: as above.
+                let vars = unsafe { ffi::SCIPgetVarsExactLinear(s, c.cons) };
+                let value = |i: usize| {
+                    // SAFETY: `activity` reads only indices below `n`, within the array.
+                    let entry = unsafe { vals.add(i) };
+                    // SAFETY: as above; the entry is initialized.
+                    let rational = unsafe { *entry };
+                    // SAFETY: a live rational of the constraint.
+                    unsafe { ffi::SCIPrationalGetReal(rational) }
                 };
+                // SAFETY: `vars` has the reported `n` entries while the constraint lives.
+                let a = unsafe { activity(&at, vars, value, n, ptr::null_mut()) }?;
+                // SAFETY: side queries of the same live constraint; the returned rationals
+                // are owned by it.
+                let lhs = unsafe { ffi::SCIPgetLhsExactLinear(s, c.cons) };
+                // SAFETY: as above.
+                let lhs = unsafe { ffi::SCIPrationalGetReal(lhs) };
+                // SAFETY: as above.
+                let rhs = unsafe { ffi::SCIPgetRhsExactLinear(s, c.cons) };
+                // SAFETY: as above.
+                let rhs = unsafe { ffi::SCIPrationalGetReal(rhs) };
                 worst = worst
                     .max(deviation(a + constant, neutral))
                     .max(side(lhs + constant, c.lower))
                     .max(side(rhs + constant, c.upper));
             }
             Kind::Indicator { constant, sign } => {
-                // SAFETY: a live indicator constraint; its linear constraint and slack
-                // variable are owned by it, and their arrays have the reported length.
-                let (a, rhs) = unsafe {
-                    let lin = ffi::SCIPgetLinearConsIndicator(c.cons);
-                    if lin.is_null() {
-                        return Err(ProblemError::internal("SCIP indicator readback"));
-                    }
-                    let slack = ffi::SCIPgetSlackVarIndicator(c.cons);
-                    let n = ffi::SCIPgetNVarsLinear(s, lin);
-                    let vals = ffi::SCIPgetValsLinear(s, lin);
-                    (
-                        activity(
-                            &at,
-                            ffi::SCIPgetVarsLinear(s, lin),
-                            |i| *vals.add(i),
-                            n,
-                            slack,
-                        )?,
-                        ffi::SCIPgetRhsLinear(s, lin),
-                    )
+                // SAFETY: a live indicator constraint held by the instance; its linear
+                // constraint and slack variable are owned by it.
+                let lin = unsafe { ffi::SCIPgetLinearConsIndicator(c.cons) };
+                if lin.is_null() {
+                    return Err(ProblemError::internal("SCIP indicator readback"));
+                }
+                // SAFETY: as above.
+                let slack = unsafe { ffi::SCIPgetSlackVarIndicator(c.cons) };
+                // SAFETY: `lin` is the indicator's live linear constraint.
+                let n = unsafe { ffi::SCIPgetNVarsLinear(s, lin) };
+                // SAFETY: as above; the array has the reported length `n`.
+                let vals = unsafe { ffi::SCIPgetValsLinear(s, lin) };
+                // SAFETY: as above.
+                let vars = unsafe { ffi::SCIPgetVarsLinear(s, lin) };
+                let value = |i: usize| {
+                    // SAFETY: `activity` reads only indices below `n`, within the array.
+                    let entry = unsafe { vals.add(i) };
+                    // SAFETY: as above; the entry is initialized.
+                    unsafe { *entry }
                 };
+                // SAFETY: `vars` has the reported `n` entries while `lin` lives.
+                let a = unsafe { activity(&at, vars, value, n, slack) }?;
+                // SAFETY: a side query of the same live linear constraint.
+                let rhs = unsafe { ffi::SCIPgetRhsLinear(s, lin) };
                 let (bound, expected) = if sign > 0.0 {
                     (rhs + constant, c.upper)
                 } else {
@@ -2608,14 +2617,12 @@ fn iis(
     if storage.is_null() {
         return Ok(None);
     }
-    // SAFETY: flag and sub-problem queries of the live IIS storage.
-    let (infeasible, irreducible, sub) = unsafe {
-        (
-            ffi::SCIPiisIsSubscipInfeasible(storage) != 0,
-            ffi::SCIPiisIsSubscipIrreducible(storage) != 0,
-            ffi::SCIPiisGetSubscip(storage),
-        )
-    };
+    // SAFETY: a flag query of the live IIS storage.
+    let infeasible = unsafe { ffi::SCIPiisIsSubscipInfeasible(storage) } != 0;
+    // SAFETY: as above.
+    let irreducible = unsafe { ffi::SCIPiisIsSubscipIrreducible(storage) } != 0;
+    // SAFETY: a sub-problem query of the live IIS storage, which owns it.
+    let sub = unsafe { ffi::SCIPiisGetSubscip(storage) };
     if !infeasible || sub.is_null() {
         return Ok(None);
     }
@@ -2632,15 +2639,16 @@ fn iis(
         text.strip_prefix(prefix).and_then(|n| n.parse().ok())
     };
     let mut members = BTreeSet::new();
-    // SAFETY: the sub-problem's original constraints, with the reported count.
-    let conss = unsafe {
-        let n = usize::try_from(ffi::SCIPgetNOrigConss(sub)).unwrap_or(0);
-        let conss = ffi::SCIPgetOrigConss(sub);
-        if n == 0 || conss.is_null() {
-            &[][..]
-        } else {
-            std::slice::from_raw_parts(conss, n)
-        }
+    // SAFETY: a count query of the live sub-problem's original constraints.
+    let n = usize::try_from(unsafe { ffi::SCIPgetNOrigConss(sub) }).unwrap_or(0);
+    // SAFETY: as above.
+    let conss = unsafe { ffi::SCIPgetOrigConss(sub) };
+    let conss = if n == 0 || conss.is_null() {
+        &[][..]
+    } else {
+        // SAFETY: the sub-problem's array of `n` original constraints, which the IIS
+        // storage keeps live for the rest of this function.
+        unsafe { std::slice::from_raw_parts(conss, n) }
     };
     for cons in conss {
         // SAFETY: a live constraint of the sub-problem.
@@ -2678,28 +2686,27 @@ fn iis(
             members.insert(IisMember::Native(k));
         }
     }
-    // SAFETY: the sub-problem's original variables, with the reported count.
-    let vars = unsafe {
-        let n = usize::try_from(ffi::SCIPgetNOrigVars(sub)).unwrap_or(0);
-        let vars = ffi::SCIPgetOrigVars(sub);
-        if n == 0 || vars.is_null() {
-            &[][..]
-        } else {
-            std::slice::from_raw_parts(vars, n)
-        }
+    // SAFETY: a count query of the live sub-problem's original variables.
+    let n = usize::try_from(unsafe { ffi::SCIPgetNOrigVars(sub) }).unwrap_or(0);
+    // SAFETY: as above.
+    let vars = unsafe { ffi::SCIPgetOrigVars(sub) };
+    let vars = if n == 0 || vars.is_null() {
+        &[][..]
+    } else {
+        // SAFETY: the sub-problem's array of `n` original variables, which the IIS
+        // storage keeps live for the rest of this function.
+        unsafe { std::slice::from_raw_parts(vars, n) }
     };
     // SAFETY: an infinity query of the live sub-problem.
     let infinity = unsafe { ffi::SCIPinfinity(sub) };
     let columns = program.variables.len();
     for var in vars {
-        // SAFETY: name and original-bound queries of a live sub-problem variable.
-        let (text, lower, upper) = unsafe {
-            (
-                name(ffi::SCIPvarGetName(*var)),
-                ffi::SCIPvarGetLbOriginal(*var),
-                ffi::SCIPvarGetUbOriginal(*var),
-            )
-        };
+        // SAFETY: a name query of a live sub-problem variable.
+        let text = name(unsafe { ffi::SCIPvarGetName(*var) });
+        // SAFETY: original-bound queries of the same variable.
+        let lower = unsafe { ffi::SCIPvarGetLbOriginal(*var) };
+        // SAFETY: as above.
+        let upper = unsafe { ffi::SCIPvarGetUbOriginal(*var) };
         let (low, high) = if let Some(i) = ordinal(&text, 'x').filter(|i| *i < columns) {
             let id = program.variables[i].id;
             (IisMember::VariableLower(id), IisMember::VariableUpper(id))
@@ -2897,15 +2904,16 @@ pub(crate) fn solve(
         None
     };
     let pool = if r.settings.pool > 0 {
-        // SAFETY: the stored solutions, best first, with the reported count.
-        let stored = unsafe {
-            let n = usize::try_from(ffi::SCIPgetNSols(s)).unwrap_or(0);
-            let sols = ffi::SCIPgetSols(s);
-            if n == 0 || sols.is_null() {
-                &[][..]
-            } else {
-                std::slice::from_raw_parts(sols, n)
-            }
+        // SAFETY: a count query of the live instance's stored solutions.
+        let n = usize::try_from(unsafe { ffi::SCIPgetNSols(s) }).unwrap_or(0);
+        // SAFETY: as above; best first.
+        let sols = unsafe { ffi::SCIPgetSols(s) };
+        let stored = if n == 0 || sols.is_null() {
+            &[][..]
+        } else {
+            // SAFETY: SCIP's array of the `n` stored solutions, unchanged while the
+            // solved instance is only queried here.
+            unsafe { std::slice::from_raw_parts(sols, n) }
         };
         stored
             .iter()

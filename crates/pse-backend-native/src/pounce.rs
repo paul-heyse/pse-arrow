@@ -159,6 +159,10 @@ impl Session {
     }
     /// Execute native POUNCE over the already-preprocessed oracle. The oracle
     /// must be created on this worker; a parallel profile requires `with_threads`.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the native entry takes the oracle, start, sense, controls, accuracy, settings, execution, tolerances, warm start and compatibility as independent inputs of one attempt"
+    )]
     pub fn solve(
         &mut self,
         oracle: Box<dyn NlpOracle>,
@@ -618,49 +622,48 @@ impl Session {
             .provenance
             .insert("feral.effective".into(), effective.to_string());
         a.state.finish(&mut report);
-        if let Some(mut candidate) = a.solution.take() {
-            if candidate.primal.iter().all(|v| v.is_finite())
-                && candidate.objective.is_some_and(f64::is_finite)
-            {
-                candidate.objective = candidate.objective.map(|v| v * sense.sign());
-                match quality::contained(|| {
-                    quality::nlp(a.oracle.as_mut(), &candidate.primal, tolerances)
-                }) {
-                    Ok(q) => {
-                        if !q.feasible() {
-                            report.termination.assurance = Assurance::None
-                        }
-                        report.quality = Some(q)
-                    }
-                    Err(e) => {
-                        report.record_validation_failure(e);
+        if let Some(mut candidate) = a.solution.take()
+            && candidate.primal.iter().all(|v| v.is_finite())
+            && candidate.objective.is_some_and(f64::is_finite)
+        {
+            candidate.objective = candidate.objective.map(|v| v * sense.sign());
+            match quality::contained(|| {
+                quality::nlp(a.oracle.as_mut(), &candidate.primal, tolerances)
+            }) {
+                Ok(q) => {
+                    if !q.feasible() {
                         report.termination.assurance = Assurance::None
                     }
+                    report.quality = Some(q)
                 }
-                // The active-set working set is keyed by this attempt's native coordinates;
-                // an interior-point seed carries its final barrier value instead.
-                let working = (method == Method::ActiveSetSqp)
-                    .then(|| app.last_sqp_working_set().cloned())
-                    .flatten()
-                    .map(|active| WorkingSet {
-                        transformation: compatibility.layout,
-                        active,
-                    });
-                let complete = candidate.bound_dual.is_some() && candidate.row_dual.is_some();
-                let payload = WarmPayload::Nlp {
-                    primal: candidate.primal.clone(),
-                    bounds: candidate.bound_dual.clone(),
-                    rows: candidate.row_dual.clone(),
-                    barrier: final_barrier.filter(|_| complete),
-                    working,
-                };
-                report.warm_start = Some(WarmStart {
-                    origin: None,
-                    compatibility: compatibility.clone(),
-                    payload,
-                });
-                report.candidate = Some(candidate);
+                Err(e) => {
+                    report.record_validation_failure(e);
+                    report.termination.assurance = Assurance::None
+                }
             }
+            // The active-set working set is keyed by this attempt's native coordinates;
+            // an interior-point seed carries its final barrier value instead.
+            let working = (method == Method::ActiveSetSqp)
+                .then(|| app.last_sqp_working_set().cloned())
+                .flatten()
+                .map(|active| WorkingSet {
+                    transformation: compatibility.layout,
+                    active,
+                });
+            let complete = candidate.bound_dual.is_some() && candidate.row_dual.is_some();
+            let payload = WarmPayload::Nlp {
+                primal: candidate.primal.clone(),
+                bounds: candidate.bound_dual.clone(),
+                rows: candidate.row_dual.clone(),
+                barrier: final_barrier.filter(|_| complete),
+                working,
+            };
+            report.warm_start = Some(WarmStart {
+                origin: None,
+                compatibility: compatibility.clone(),
+                payload,
+            });
+            report.candidate = Some(candidate);
         }
         if report.candidate.is_none() {
             report.termination.assurance = Assurance::None

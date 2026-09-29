@@ -536,10 +536,11 @@ impl LinearOpTranspose for Mass<'_> {
     }
     fn transpose_inplace(&self, _t: f64, y: &mut M) {
         let target = y.inner_mut();
-        for c in 0..target.ncols() {
+        // The contract has one mass entry per state, so this spans every column.
+        for (c, &differential) in self.0.contract.differential.iter().enumerate() {
             for k in target.col_range(c) {
                 let r = target.symbolic().row_idx()[k];
-                target.val_mut()[k] = f64::from(r == c && self.0.contract.differential[c]);
+                target.val_mut()[k] = f64::from(r == c && differential);
             }
         }
     }

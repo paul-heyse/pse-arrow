@@ -2046,6 +2046,7 @@ mod tests {
     }
 }
 
-#[cfg(all(test, feature = "solver-diffsol"))]
+#[cfg(test)]
+#[cfg(feature = "solver-diffsol")]
 #[path = "p09_tests.rs"]
 mod p09_tests;

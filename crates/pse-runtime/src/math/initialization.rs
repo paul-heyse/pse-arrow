@@ -231,6 +231,10 @@ impl MathService {
     /// sweeps may use nested native unit calculations on this same admission; they
     /// must not recursively request CPU permits. Mutable oracles never enter Salsa.
     /// The factory charges each evaluator it builds to the job's worker budget.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "a declared root solve binds its contract, start, settings, controls, accuracy, tolerances and evaluator factory as independent inputs"
+    )]
     pub fn solve_declared_root(
         self: &Arc<Self>,
         contract: native::OracleContract,

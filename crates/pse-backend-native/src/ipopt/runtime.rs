@@ -64,15 +64,22 @@ pub struct Runtime {
 impl Runtime {
     /// Observe the linked library and process state now.
     pub fn observe() -> Self {
-        // SAFETY: argument-only queries of linked native runtimes; none retains state.
-        unsafe {
-            Self {
-                linked: pse_ipopt_sys::IpoptGetAvailableLinearSolvers(1),
-                cancellation: omp_get_cancellation() != 0,
-                proc_bind: omp_get_proc_bind(),
-                cbwr: MKL_CBWR_Get(MKL_CBWR_BRANCH) & !MKL_CBWR_STRICT,
-                mkl_dynamic: MKL_Get_Dynamic() != 0,
-            }
+        // SAFETY: an argument-only query of the linked Ipopt's build; it retains nothing.
+        let linked = unsafe { pse_ipopt_sys::IpoptGetAvailableLinearSolvers(1) };
+        // SAFETY: an argument-free query of the OpenMP runtime's fixed cancellation ICV.
+        let cancellation = unsafe { omp_get_cancellation() } != 0;
+        // SAFETY: an argument-free query of the calling thread's binding ICV.
+        let proc_bind = unsafe { omp_get_proc_bind() };
+        // SAFETY: a by-value query of oneMKL's process CBWR setting; it retains nothing.
+        let cbwr = unsafe { MKL_CBWR_Get(MKL_CBWR_BRANCH) } & !MKL_CBWR_STRICT;
+        // SAFETY: an argument-free query of oneMKL's dynamic-threads setting.
+        let mkl_dynamic = unsafe { MKL_Get_Dynamic() } != 0;
+        Self {
+            linked,
+            cancellation,
+            proc_bind,
+            cbwr,
+            mkl_dynamic,
         }
     }
 }
@@ -119,11 +126,10 @@ pub fn build() -> &'static Build {
     BUILD.get_or_init(|| {
         let (mut major, mut minor, mut release) = (0, 0, 0);
         let mut mkl: [c_char; 256] = [0; 256];
-        // SAFETY: each call writes only caller-owned storage of the stated length.
-        unsafe {
-            pse_ipopt_sys::GetIpoptVersion(&mut major, &mut minor, &mut release);
-            MKL_Get_Version_String(mkl.as_mut_ptr(), mkl.len() as c_int);
-        }
+        // SAFETY: writes only the three caller-owned integers passed by reference.
+        unsafe { pse_ipopt_sys::GetIpoptVersion(&mut major, &mut minor, &mut release) };
+        // SAFETY: writes at most `mkl.len()` bytes into the caller-owned buffer.
+        unsafe { MKL_Get_Version_String(mkl.as_mut_ptr(), mkl.len() as c_int) };
         mkl[mkl.len() - 1] = 0;
         // SAFETY: the buffer is NUL-terminated above.
         let mkl = unsafe { CStr::from_ptr(mkl.as_ptr()) }

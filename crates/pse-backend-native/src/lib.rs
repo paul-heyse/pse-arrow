@@ -894,15 +894,18 @@ mod assembled_tests;
 #[cfg(test)]
 mod solver_tests;
 
-#[cfg(all(test, any(feature = "ipopt", feature = "pounce")))]
+#[cfg(test)]
+#[cfg(any(feature = "ipopt", feature = "pounce"))]
 mod restart_tests;
 
 #[cfg(test)]
 mod clarabel_tests;
-#[cfg(all(test, feature = "pounce"))]
+#[cfg(test)]
+#[cfg(feature = "pounce")]
 mod l1_tests;
 #[cfg(test)]
 mod pounce_convex_tests;
 
-#[cfg(all(test, feature = "scip"))]
+#[cfg(test)]
+#[cfg(feature = "scip")]
 mod scip_tests;

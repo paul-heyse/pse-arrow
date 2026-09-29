@@ -231,6 +231,7 @@ pub struct HorizonReport {
     pub steps: Vec<HorizonStep>,
 }
 
-#[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
+#[cfg(test)]
+#[cfg(all(feature = "solver-ipopt", feature = "solver-diffsol"))]
 #[path = "horizon_tests.rs"]
 mod tests;

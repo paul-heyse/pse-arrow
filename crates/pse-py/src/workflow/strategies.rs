@@ -64,11 +64,11 @@ impl NativePreparedFlow {
 
 #[derive(Clone, Debug)]
 pub(super) enum Strategy {
-    Cone(native::PreparedConic),
+    Cone(Box<native::PreparedConic>),
     #[cfg(feature = "native-solvers")]
-    Recycle(native::PreparedRecycle),
+    Recycle(Box<native::PreparedRecycle>),
     #[cfg(feature = "native-solvers")]
-    Initialization(native::PreparedInitializationStrategy),
+    Initialization(Box<native::PreparedInitializationStrategy>),
 }
 /// Prepared explicit cone, causal map or conditional initialization.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]

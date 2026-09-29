@@ -168,6 +168,7 @@ impl super::Covariance {
     }
 }
 
-#[cfg(all(test, feature = "solver-ipopt", feature = "solver-highs"))]
+#[cfg(test)]
+#[cfg(all(feature = "solver-ipopt", feature = "solver-highs"))]
 #[path = "uncertainty_tests.rs"]
 mod tests;

@@ -414,7 +414,8 @@ impl ModelingPackage {
     }
 }
 
-#[cfg(all(test, feature = "solver-kinsol"))]
+#[cfg(test)]
+#[cfg(feature = "solver-kinsol")]
 mod tests {
     use super::*;
     use pse_compiler::workspace::ModelingOutput;

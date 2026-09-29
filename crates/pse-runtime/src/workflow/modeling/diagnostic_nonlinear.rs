@@ -430,7 +430,8 @@ fn classify(
     (observation, penalty)
 }
 
-#[cfg(all(test, feature = "solver-ipopt", feature = "solver-pounce"))]
+#[cfg(test)]
+#[cfg(all(feature = "solver-ipopt", feature = "solver-pounce"))]
 mod tests {
     use super::*;
     use pse_backend_native::solve::{Backend, SolverSelection};
