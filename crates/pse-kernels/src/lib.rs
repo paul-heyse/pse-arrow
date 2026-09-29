@@ -365,12 +365,77 @@ pub trait ProviderFactory: std::fmt::Debug + Send + Sync {
     ) -> Result<Box<dyn Provider>, ProviderError> {
         self.create()
     }
-    /// Closed output intervals every evaluation of this provider enforces, one per output
+    /// Closed output intervals every evaluation of this provider keeps, one per output
     /// in output order: a sound envelope a global export may relax the provider to
-    /// (ADR-0105 §1). `None` when evaluation enforces none. A factory that declares an
-    /// envelope includes it in [`Self::configuration_key`].
+    /// (ADR-0105 §1, ADR-0120). `None` when the provider promises none. The host checks
+    /// the declaration at registration, checks every evaluation against it and frames it
+    /// into [`Registration::configuration_key`]; a factory does not repeat it in
+    /// [`Self::configuration_key`].
     fn envelope(&self) -> Option<Vec<(f64, f64)>> {
         None
+    }
+}
+/// A provider's checked output envelope: one interval per output, each containing a real.
+type Envelope = std::sync::Arc<[(f64, f64)]>;
+/// Check a declared envelope against the admitted outputs (ADR-0120 items 2 and 5).
+fn checked_envelope(
+    factory: &dyn ProviderFactory,
+    spec: &ProviderSpec,
+) -> Result<Option<Envelope>, ProviderError> {
+    let Some(envelope) = factory.envelope() else {
+        return Ok(None);
+    };
+    // Each interval is closed, ordered and meets the reals: (+inf, +inf) and (-inf, -inf)
+    // are empty over the reals and would relax a provider to nothing.
+    let real = |&(lower, upper): &(f64, f64)| {
+        !lower.is_nan()
+            && !upper.is_nan()
+            && lower <= upper
+            && lower < f64::INFINITY
+            && upper > f64::NEG_INFINITY
+    };
+    if envelope.len() != spec.outputs.len() || !envelope.iter().all(real) {
+        return Err(ProviderError::Contract(
+            "provider envelope must hold one closed interval containing a real number per output"
+                .into(),
+        ));
+    }
+    Ok(Some(envelope.into()))
+}
+/// A worker whose every value is checked against its provider's declared envelope
+/// (ADR-0120 item 6). A value outside it shows the declaration is false, so it is a
+/// contract error, never a trial rejection. Nonfinite values stay the trial rejection
+/// [`ProviderValues::validate`] makes of them.
+#[derive(Debug)]
+struct Enveloped {
+    inner: Box<dyn Provider>,
+    envelope: Envelope,
+}
+impl Provider for Enveloped {
+    fn spec(&self) -> &ProviderSpec {
+        self.inner.spec()
+    }
+    fn evaluate(
+        &mut self,
+        inputs: &[f64],
+        request: &ProviderRequest,
+        context: &EvaluationContext<'_>,
+    ) -> Result<ProviderValues, ProviderError> {
+        let values = self.inner.evaluate(inputs, request, context)?;
+        for (&output, &value) in request.outputs.iter().zip(&values.values) {
+            let Some(&(lower, upper)) = self.envelope.get(output) else {
+                continue;
+            };
+            if value.is_finite() && !(lower <= value && value <= upper) {
+                let port = self.inner.spec().outputs.get(output).map(|p| p.id);
+                return Err(ProviderError::Contract(format!(
+                    "provider {} output {output} ({}) = {value} lies outside its declared envelope [{lower}, {upper}]",
+                    self.inner.spec().id,
+                    port.map_or_else(|| "unknown port".into(), |id| id.to_string()),
+                )));
+            }
+        }
+        Ok(values)
     }
 }
 /// Physically admitted registration backed by an executable factory.
@@ -378,6 +443,7 @@ pub trait ProviderFactory: std::fmt::Debug + Send + Sync {
 pub struct Registration {
     factory: std::sync::Arc<dyn ProviderFactory>,
     descriptor: AdmittedProvider,
+    envelope: Option<Envelope>,
 }
 /// Immutable physically admitted provider meaning; safe for compiler inputs.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -406,9 +472,11 @@ impl Registration {
                 "factory does not match the admitted descriptor".into(),
             ));
         }
+        let envelope = checked_envelope(factory.as_ref(), descriptor.spec())?;
         Ok(Self {
             factory,
             descriptor,
+            envelope,
         })
     }
     /// Validate physical contracts and the concrete factory product before admission.
@@ -419,9 +487,11 @@ impl Registration {
         registry: &QuantityRegistry,
     ) -> Result<Self, ProviderError> {
         let descriptor = AdmittedProvider::new(factory.spec().clone(), registry)?;
+        let envelope = checked_envelope(factory.as_ref(), descriptor.spec())?;
         let value = Self {
             factory,
             descriptor,
+            envelope,
         };
         value.worker()?;
         Ok(value)
@@ -431,27 +501,26 @@ impl Registration {
         self.descriptor.spec()
     }
     /// Identity of starts, bounds and controls carried by this executable capability.
+    ///
+    /// A declared envelope changes evaluation outcomes on every route, so the host frames
+    /// the checked envelope with the factory's key (ADR-0120 item 7). A provider without
+    /// one keeps its factory's key.
     pub fn configuration_key(&self) -> ContentHash {
-        self.factory.configuration_key()
-    }
-    /// The output envelope the factory declares, checked against the contract.
-    /// # Errors
-    /// An envelope whose length differs from the outputs, or an interval that is empty or
-    /// not a number.
-    pub fn envelope(&self) -> Result<Option<Vec<(f64, f64)>>, ProviderError> {
-        let Some(envelope) = self.factory.envelope() else {
-            return Ok(None);
+        let factory = self.factory.configuration_key();
+        let Some(envelope) = &self.envelope else {
+            return factory;
         };
-        if envelope.len() != self.spec().outputs.len()
-            || envelope
-                .iter()
-                .any(|(lower, upper)| lower.is_nan() || upper.is_nan() || lower > upper)
-        {
-            return Err(ProviderError::Contract(
-                "provider envelope must hold one closed, nonempty interval per output".into(),
-            ));
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::ProviderConfigurationV1);
+        h.hash(&factory).u64(envelope.len() as u64);
+        for &(lower, upper) in envelope.iter() {
+            h.u64(lower.to_bits()).u64(upper.to_bits());
         }
-        Ok(Some(envelope))
+        h.finish_hash()
+    }
+    /// The output envelope the factory declares, checked at registration: one interval
+    /// per output, each closed and containing a real number.
+    pub fn envelope(&self) -> Option<&[(f64, f64)]> {
+        self.envelope.as_deref()
     }
     /// Factory-free immutable compiler input.
     pub fn descriptor(&self) -> AdmittedProvider {
@@ -474,7 +543,13 @@ impl Registration {
                 "factory returned a different provider contract".into(),
             ));
         }
-        Ok(worker)
+        Ok(match &self.envelope {
+            Some(envelope) => Box::new(Enveloped {
+                inner: worker,
+                envelope: envelope.clone(),
+            }),
+            None => worker,
+        })
     }
 }
 

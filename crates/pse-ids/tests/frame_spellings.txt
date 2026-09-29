@@ -129,3 +129,6 @@ pse.durable.study_request.v1
 # its identity is framed anew. dynamic.profile.v4 replaces dynamic.profile.v3, which is no
 # longer declared.
 pse.dynamic.profile.v4
+# Plan 22 ENV (ADR-0120 item 7): the host frames a provider's checked output envelope into
+# its configuration key.
+pse.provider.configuration.v1

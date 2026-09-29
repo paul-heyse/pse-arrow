@@ -125,6 +125,8 @@ frames! {
         NumericalPolicyV1 => "pse.numerical.policy.v1",
         /// A kernel provider's physical, algorithm and data identity.
         ProviderV4 => "pse.provider.v4",
+        /// A kernel provider's configuration key framed with its checked output envelope.
+        ProviderConfigurationV1 => "pse.provider.configuration.v1",
     }
 
     "structure" ("pse-structural") {

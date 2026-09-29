@@ -25,6 +25,7 @@ Derived in: pse-ids, pse-schema, pse-columnar, pse-model.
 | `SchemaExecutionEncodingV1` | `pse.schema.execution-encoding.v1` | The exact observed native field layout. |
 | `NumericalPolicyV1` | `pse.numerical.policy.v1` | An effective numerical policy request. |
 | `ProviderV4` | `pse.provider.v4` | A kernel provider's physical, algorithm and data identity. |
+| `ProviderConfigurationV1` | `pse.provider.configuration.v1` | A kernel provider's configuration key framed with its checked output envelope. |
 
 ## Structure
 
