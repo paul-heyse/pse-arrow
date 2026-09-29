@@ -328,7 +328,7 @@
                 "rays": false,
                 "relaxation": null
               },
-              "description": "Opt-in native work, separate from the original candidate."
+              "description": "Opt-in native work, separate from the original candidate except the\nfixed-commitment LP, which prices it."
             },
             "method": {
               "$ref": "#/$defs/HighsMethod",
@@ -807,7 +807,7 @@
         },
         "fixed_lp": {
           "default": false,
-          "description": "Duals of the MIP's LP with its discrete columns fixed at the solution\n(`Highs_getFixedLp`), conditional on that commitment.",
+          "description": "Duals of the MIP's LP with its discrete columns fixed at the solution\n(`Highs_getFixedLp`), conditional on that commitment. When that LP reaches the MIP\ncandidate's objective they become the candidate's multipliers, and the candidate\nstates the commitment (ADR-0118 item 9).",
           "type": "boolean"
         },
         "iis": {

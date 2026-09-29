@@ -19,15 +19,16 @@ pub use pse_model::generated::r#enums::{
     ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingCheckBasis,
     ModelingCheckKind, ModelingConformanceKind, ModelingConformanceStatus,
     ModelingContributionRole, ModelingDeclarationKind, ModelingDiagnosticSampleStop,
-    ModelingElasticObservation, ModelingFixtureBinding, ModelingFixtureExecution,
-    ModelingInitializationStep, ModelingRealValueKind, ModelingRealizationPolicy,
-    ModelingStructuralRequirement, ModelingVariableDomain, MuStrategy, MumpsOrdering,
-    Namespace, NativeAssurance, NativeBackend, NativeBoundaryClass, NativeCandidateKind,
-    NativeCertificateAccuracy, NativeCertificateKind, NativeConstraintForm,
-    NativeDependencyEvidenceKind, NativeDependencyKind, NativeDerivativeCapability,
-    NativeIneligibility, NativeMetricKind, NativeObjectiveSense, NativeProblemClass,
-    NativeQualification, NativeRayCoordinate, NativeRunState, NativeSolveIntent,
-    NativeStartPolicy, NativeTermination, NativeWarmCapability, NumericalCoordinates,
+    ModelingDiscreteInitialization, ModelingElasticObservation, ModelingFixtureBinding,
+    ModelingFixtureExecution, ModelingInitializationStep, ModelingObjectiveRoute,
+    ModelingRealValueKind, ModelingRealizationPolicy, ModelingStructuralRequirement,
+    ModelingVariableDomain, MuStrategy, MumpsOrdering, Namespace, NativeAssurance,
+    NativeBackend, NativeBoundaryClass, NativeCandidateKind, NativeCertificateAccuracy,
+    NativeCertificateKind, NativeConstraintForm, NativeDependencyEvidenceKind,
+    NativeDependencyKind, NativeDerivativeCapability, NativeIneligibility,
+    NativeMetricKind, NativeObjectiveSense, NativeProblemClass, NativeQualification,
+    NativeRayCoordinate, NativeRunState, NativeSolveIntent, NativeStartPolicy,
+    NativeTermination, NativeWarmCapability, NumericalCoordinates,
     NumericalProvenanceField, NumericalSource, NumericalTarget, ObservationTimeBasis,
     Opcode, OperationEffect, PackageKind, PardisoMatching, PardisoOrdering, PounceMethod,
     Preconditioner, PresolvePass, PresolvePolicyKind, PublicationKind,
@@ -1360,6 +1361,25 @@ impl crate::columnar::ArrowValue for ModelingDiagnosticSampleStop {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for ModelingDiscreteInitialization {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for ModelingElasticObservation {
     fn append(
         &self,
@@ -1418,6 +1438,25 @@ impl crate::columnar::ArrowValue for ModelingFixtureExecution {
     }
 }
 impl crate::columnar::ArrowValue for ModelingInitializationStep {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for ModelingObjectiveRoute {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

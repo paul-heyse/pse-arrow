@@ -102,6 +102,16 @@ fn admit(
             "HiGHS MIQP is unsupported".into(),
         ));
     }
+    if !p.objectives.is_empty() {
+        // HiGHS refuses a non-trivial lexicographic QP.
+        if quadratic {
+            return Err(ProblemError::Unsupported(
+                "HiGHS optimizes several objectives lexicographically only for LP and MILP"
+                    .into(),
+            ));
+        }
+        lexicographic_tolerances(p)?;
+    }
     index(p.contract.variables.len())?;
     index(p.contract.rows.len())?;
     index(p.constraints.val().len())?;
@@ -128,6 +138,95 @@ fn admit(
         bounds(u)?;
     }
     Ok(())
+}
+/// The native absolute and relative tolerance of each lexicographic objective, `-1`
+/// disabling one (ADR-0111 items 3 and 4). HiGHS bounds an earlier objective by the tighter
+/// of `f* + abs` and `f* + rel·|f*|`, while ADR-0111 admits the looser,
+/// `f* + max(abs, rel·|f*|)`. The two agree exactly when one tolerance is zero, so only the
+/// other is passed; a level with both positive is refused here and optimized by a staged
+/// sequence instead. The last level bounds nothing.
+fn lexicographic_tolerances(p: &CoefficientProblem) -> Result<Vec<(f64, f64)>, ProblemError> {
+    p.objectives
+        .iter()
+        .map(|o| match o.degradation {
+            None => Ok((-1.0, -1.0)),
+            Some(d) if d.relative == 0.0 => Ok((d.absolute, -1.0)),
+            Some(d) if d.absolute == 0.0 => Ok((-1.0, d.relative)),
+            Some(_) => Err(ProblemError::Unsupported(
+                "HiGHS bounds an earlier objective by the tighter of its tolerances; a level declaring both positive is optimized by a staged sequence".into(),
+            )),
+        })
+        .collect()
+}
+/// Pass every lexicographic objective, each in its own sense and ordered by native
+/// priority: HiGHS optimizes the highest priority first, the authored order the lowest
+/// level first, so level k of K takes priority K − 1 − k. Several members of one level are
+/// already one weighted sum, so no two objectives share a priority and blending stays off.
+fn pass_objectives(ptr: *mut c_void, p: &CoefficientProblem) -> Result<(), ProblemError> {
+    let count = p.objectives.len();
+    let tolerances = lexicographic_tolerances(p)?;
+    let weight: Vec<f64> = p.objectives.iter().map(|o| o.sense.sign()).collect();
+    let offset: Vec<f64> = p.objectives.iter().map(|o| o.constant).collect();
+    let coefficients: Vec<f64> = p
+        .objectives
+        .iter()
+        .flat_map(|o| o.coefficients.iter().copied())
+        .collect();
+    let absolute: Vec<f64> = tolerances.iter().map(|t| t.0).collect();
+    let relative: Vec<f64> = tolerances.iter().map(|t| t.1).collect();
+    let priority = (0..count)
+        .map(|k| index(count - 1 - k))
+        .collect::<Result<Vec<_>, _>>()?;
+    check(
+        unsafe {
+            ffi::Highs_passLinearObjectives(
+                ptr,
+                index(count)?,
+                weight.as_ptr(),
+                offset.as_ptr(),
+                coefficients.as_ptr(),
+                absolute.as_ptr(),
+                relative.as_ptr(),
+                priority.as_ptr(),
+            )
+        },
+        "lexicographic objectives",
+    )
+}
+/// Restore the uploaded (first) objective after a lexicographic solve, which leaves the
+/// model's costs cleared and the last level's sense and offset, so the native model equals
+/// the admitted problem again.
+fn restore_objective(ptr: *mut c_void, p: &CoefficientProblem) -> Result<(), ProblemError> {
+    check(
+        unsafe {
+            ffi::Highs_changeObjectiveSense(
+                ptr,
+                if p.sense == ObjectiveSense::Minimize {
+                    1
+                } else {
+                    -1
+                },
+            )
+        },
+        "restore objective sense",
+    )?;
+    if !p.objective.is_empty() {
+        check(
+            unsafe {
+                ffi::Highs_changeColsCostByRange(
+                    ptr,
+                    0,
+                    index(p.objective.len() - 1)?,
+                    p.objective.as_ptr(),
+                )
+            },
+            "restore costs",
+        )?;
+    }
+    check(
+        unsafe { ffi::Highs_changeObjectiveOffset(ptr, p.objective_constant) },
+        "restore offset",
+    )
 }
 fn domain_bounds(p: &CoefficientProblem, c: usize) -> (f64, f64) {
     let v = &p.contract.variables[c];
@@ -247,12 +346,18 @@ fn verify_upload(model: &highs::Model, p: &CoefficientProblem) -> Result<(), Pro
             ffi::Highs_getHessianNumNz(ptr),
         )
     };
+    // HiGHS completes a Hessian's diagonal with explicit zeros (`completeHessianDiagonal`),
+    // so the readback holds up to one entry more per column; the entry comparison below
+    // ignores explicit zeros.
     if nc != index(p.objective.len())?
         || nr != index(p.bounds.len())?
         || nz < 0
         || qz < 0
         || nz as usize > p.constraints.val().len()
-        || qz as usize > p.hessian.as_ref().map_or(0, |q| q.val().len())
+        || qz as usize
+            > p.hessian
+                .as_ref()
+                .map_or(0, |q| q.val().len() + p.objective.len())
     {
         return Err(ProblemError::Internal(
             "HiGHS model readback dimensions differ from upload".into(),
@@ -545,6 +650,7 @@ impl Session {
                 "mip_rel_gap",
                 "simplex_scale_strategy",
                 "log_file",
+                "blend_multi_objectives",
             ],
         )?;
         if controls
@@ -584,6 +690,8 @@ impl Session {
             ),
             ("log_file".into(), OptionValue::Text(String::new())),
             ("output_flag".into(), OptionValue::Bool(false)),
+            // Several objectives are lexicographic, never blended (ADR-0111 item 4).
+            ("blend_multi_objectives".into(), OptionValue::Bool(false)),
         ]);
         // HiGHS 1.15 makes the active-set QP hot start opt-in; a submitted QP start would
         // otherwise be silently ignored (PS-11). An explicit native option still wins, and
@@ -760,6 +868,15 @@ impl Session {
             )?;
         }
         let ptr = model.as_mut_ptr();
+        let lexicographic = !p.objectives.is_empty();
+        if lexicographic {
+            pass_objectives(ptr, p)?;
+        } else {
+            check(
+                unsafe { ffi::Highs_clearLinearObjectives(ptr) },
+                "clear lexicographic objectives",
+            )?;
+        }
         let callback_binding = CallbackBinding::with_capture(
             ptr,
             execution.clone(),
@@ -858,7 +975,13 @@ impl Session {
         let evidence = CoefficientEvidence {
             upload_equivalent: true,
             discrete,
-            objective: real("objective_function_value")?,
+            // A lexicographic solve reports no objective value of its own: the gap belongs
+            // to its last level, and the candidate carries the first level's value.
+            objective: if lexicographic {
+                None
+            } else {
+                real("objective_function_value")?
+            },
             mip_gap: real("mip_gap")?,
             mip_dual_bound: real("mip_dual_bound")?,
             primal: status("primal_solution_status")?,
@@ -907,6 +1030,7 @@ impl Session {
                     bound_dual: None,
                     reduced_costs: dual.then(|| cd.clone()),
                     slacks: None,
+                    commitment: None,
                 });
                 let quality = p.quality(&x, tolerances)?;
                 if !quality.feasible() {
@@ -949,6 +1073,12 @@ impl Session {
         }
         if report.candidate.is_none() {
             report.termination.assurance = Assurance::None
+        }
+        if lexicographic {
+            report
+                .metrics
+                .insert("lexicographic.objectives".into(), Metric::Integer(p.objectives.len() as i64));
+            restore_objective(ptr, p)?;
         }
         Ok(report)
     }
@@ -1500,6 +1630,7 @@ mod tests {
             constraints: o.matrix,
             hessian: None,
             bounds: vec![(0.0, 3.0)],
+            objectives: Vec::new(),
         }
     }
     /// minimize (x-1)^2 + (y-2)^2 subject to x + y <= 1: optimum (0, 1).
@@ -1536,6 +1667,7 @@ mod tests {
             .unwrap(),
             hessian: Some(hessian),
             bounds: vec![(f64::NEG_INFINITY, 1.)],
+            objectives: Vec::new(),
         };
         (problem, certificate)
     }
@@ -1570,6 +1702,27 @@ mod tests {
             },
             warm,
         )
+    }
+    /// A column without a quadratic term leaves a gap on the Hessian diagonal, which HiGHS
+    /// fills with an explicit zero; the upload is still the admitted problem.
+    #[test]
+    fn highs_qp_with_linear_columns_verifies_its_upload() {
+        use faer::sparse::{SparseColMat, Triplet};
+        let (mut p, _) = quadratic();
+        // min (x − 1)² − 2y over y ≤ 1 − x: only x is quadratic.
+        let hessian =
+            SparseColMat::try_new_from_triplets(2, 2, &[Triplet::new(0, 0, 2.)]).unwrap();
+        let certificate = crate::solver_tests::certify(&hessian, 1.0);
+        p.hessian = Some(hessian);
+        p.objective = vec![-2., -2.];
+        let stamp = crate::solver_tests::stamp(Backend::Highs);
+        let mut session = Session::new(&p, Some(&certificate), stamp).unwrap();
+        let report =
+            solve_quadratic(&mut session, &p, Method::Choose, Options::new(), None).unwrap();
+        assert_eq!(report.termination.category, Termination::Success);
+        // With y = 1 − x the objective (x − 1)² − 2 + 2x is least at x = 0.
+        let x = &report.candidate.unwrap().primal;
+        assert!(x[0].abs() < 1e-6 && (x[1] - 1.).abs() < 1e-6, "{x:?}");
     }
     #[test]
     fn highs_qp_explicit_method_refused() {

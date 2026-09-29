@@ -26,9 +26,8 @@ pub struct AlgebraicOracle {
 impl AlgebraicOracle {
     /// Admit continuous NLP/NLE variables. All-fixed cases stay on constant evaluation.
     pub fn new(worker: CaseWorker, values: CaseValues) -> Result<Self, ProblemError> {
-        let assembly = worker.assembly();
-        assembly.structure().validate_values(&values)?;
-        if assembly
+        if worker
+            .assembly()
             .structure()
             .variables()
             .iter()
@@ -38,65 +37,46 @@ impl AlgebraicOracle {
                 "continuous oracle cannot admit integer variables".into(),
             ));
         }
-        let contract = contract(assembly);
-        contract.validate(assembly.order())?;
-        let bounds = assembly
-            .structure()
-            .rows()
-            .iter()
-            .map(|r| (r.lower, r.upper))
-            .collect();
-        Ok(Self {
-            worker,
-            values,
-            contract,
-            bounds,
-            facts: Default::default(),
-            normalization: None,
-            presolve: None,
-            structure: None,
-        })
+        Self::over_columns(worker, values)
     }
-    /// The continuous problem of a mixed-integer case with every free discrete column
-    /// committed to a branch (ADR-0105 §2): each committed column keeps its coordinate
-    /// with its committed closed box, so candidates, normalization and tolerances keep the
-    /// original column order. A degenerate box `[v, v]` fixes a discrete column at a value
-    /// of its domain (a semi column's zero branch is `[0, 0]`); a semicontinuous column on
-    /// its active branch keeps exactly its active interval. Only discrete columns may be
-    /// committed, and every free one must be.
-    pub fn with_fixed_assignment(
+    /// The callbacks of a mixed-integer case over every column, its discrete domains
+    /// relaxed to their declared boxes, for [`crate::transform::Pinned::discrete`] to pin
+    /// under a discrete assignment (ADR-0118 item 9). Candidates, normalization and
+    /// tolerances keep the case's column order.
+    pub fn relaxation(
         worker: CaseWorker,
-        mut values: CaseValues,
-        assignment: &std::collections::BTreeMap<pse_ids::SemanticId, (f64, f64)>,
-    ) -> Result<Self, ProblemError> {
+        values: CaseValues,
+        normalization: pse_math::normalization::Normalization,
+    ) -> Result<crate::transform::Relaxed, ProblemError> {
         let assembly = worker.assembly();
-        for v in assembly.structure().variables().iter().filter(|v| !v.fixed) {
-            let (lower, upper) = (
-                v.lower.unwrap_or(f64::NEG_INFINITY),
-                v.upper.unwrap_or(f64::INFINITY),
-            );
-            match (v.domain, assignment.get(&v.port.id)) {
-                (ModelingVariableDomain::Continuous, None) => {}
-                (d, Some(&(l, u))) if l == u && d.is_discrete() && d.contains(l, lower, upper) => {
-                    values.scalars.insert(v.port.id, l);
-                }
-                (ModelingVariableDomain::Semicontinuous, Some(&(l, u)))
-                    if l == lower && u == upper && l < u => {}
-                _ => {
-                    return Err(ProblemError::Unsupported(
-                        "a fixed assignment commits every free discrete column to one value of its domain, or a semicontinuous column to its active interval, and nothing else".into(),
-                    ));
-                }
-            }
+        let declared: std::collections::BTreeMap<_, _> = assembly
+            .structure()
+            .variables()
+            .iter()
+            .map(|v| (v.port.id, v.domain))
+            .collect();
+        let domains = assembly
+            .columns()
+            .iter()
+            .map(|id| {
+                declared
+                    .get(id)
+                    .copied()
+                    .unwrap_or(ModelingVariableDomain::Continuous)
+            })
+            .collect();
+        let oracle = Self::over_columns(worker, values)?.with_normalization(normalization)?;
+        crate::transform::Relaxed::new(Box::new(oracle), domains)
+    }
+    fn over_columns(worker: CaseWorker, values: CaseValues) -> Result<Self, ProblemError> {
+        let assembly = worker.assembly();
+        if assembly.structure().lexicographic_levels() {
+            return Err(ProblemError::Unsupported(
+                "NLP callbacks have one objective; select one lexicographic level".into(),
+            ));
         }
         assembly.structure().validate_values(&values)?;
-        let mut contract = contract(assembly);
-        for v in &mut contract.variables {
-            if let Some((lower, upper)) = assignment.get(&v.id) {
-                v.lower = *lower;
-                v.upper = *upper;
-            }
-        }
+        let contract = contract(assembly);
         contract.validate(assembly.order())?;
         let bounds = assembly
             .structure()
@@ -373,12 +353,35 @@ impl CoefficientProblem {
                 "coefficient snapshot belongs to another structure".into(),
             ));
         }
+        let structure = assembly.structure();
+        let objectives = if structure.lexicographic_levels() {
+            if coefficients.lexicographic.len() + 1 != structure.objectives().len() {
+                return Err(ProblemError::Contract(
+                    "coefficient snapshot lacks a lexicographic objective".into(),
+                ));
+            }
+            std::iter::once((
+                coefficients.objective.clone(),
+                coefficients.objective_constant,
+            ))
+            .chain(coefficients.lexicographic.iter().cloned())
+            .zip(structure.objectives())
+            .enumerate()
+            .map(|(k, ((coefficients, constant), objective))| crate::LinearObjective {
+                coefficients,
+                constant,
+                sense: objective.sense,
+                degradation: structure.degradations().get(k).copied(),
+            })
+            .collect()
+        } else {
+            Vec::new()
+        };
         let problem = Self {
             contract: contract(assembly),
             objective: coefficients.objective,
             objective_constant: coefficients.objective_constant,
-            sense: assembly
-                .structure()
+            sense: structure
                 .objective()
                 .map_or(pse_math::binding::ObjectiveSense::Minimize, |o| o.sense),
             domains: assembly
@@ -408,6 +411,7 @@ impl CoefficientProblem {
                     Ok(shifted)
                 })
                 .collect::<Result<_, ProblemError>>()?,
+            objectives,
         };
         problem.validate()?;
         Ok(problem)

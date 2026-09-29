@@ -5,27 +5,78 @@
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#runtime::r#modeling_initializations::{
     RuntimeModelingInitializationsFieldCommittedItem,
+    RuntimeModelingInitializationsFieldDiscreteAssignmentItem,
     RuntimeModelingInitializationsFieldAttemptsItem, RuntimeModelingInitializationsRow,
     Row,
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    55u8, 62u8, 60u8, 179u8, 145u8, 29u8, 42u8, 104u8, 166u8, 15u8, 146u8, 250u8, 144u8,
-    141u8, 112u8, 81u8,
+    45u8, 112u8, 52u8, 128u8, 82u8, 45u8, 89u8, 17u8, 127u8, 122u8, 223u8, 128u8, 126u8,
+    55u8, 200u8, 236u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_initializations";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    68u8, 91u8, 106u8, 146u8, 159u8, 24u8, 67u8, 139u8, 168u8, 210u8, 243u8, 217u8, 8u8,
-    252u8, 135u8, 33u8, 169u8, 29u8, 116u8, 225u8, 89u8, 255u8, 192u8, 170u8, 52u8, 32u8,
-    155u8, 100u8, 226u8, 184u8, 140u8, 186u8,
+    211u8, 52u8, 140u8, 170u8, 64u8, 211u8, 66u8, 197u8, 237u8, 48u8, 239u8, 219u8, 47u8,
+    52u8, 182u8, 248u8, 141u8, 187u8, 97u8, 45u8, 231u8, 105u8, 72u8, 120u8, 138u8, 84u8,
+    234u8, 43u8, 58u8, 63u8, 72u8, 97u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeModelingInitializationsFieldCommittedItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#source_id,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#value, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#source_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#value: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeModelingInitializationsFieldDiscreteAssignmentItem {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -232,8 +283,16 @@ impl crate::columnar::ArrowValue for RuntimeModelingInitializationsRow {
             children[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#attempts,
+            &self.r#discrete,
             children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#discrete_assignment,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#attempts,
+            children[7usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -258,9 +317,15 @@ impl crate::columnar::ArrowValue for RuntimeModelingInitializationsRow {
         <Option<
             Vec<RuntimeModelingInitializationsFieldCommittedItem>,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <crate::generated::enums::ModelingDiscreteInitialization as crate::columnar::ArrowValue>::append_null(
+            children[5usize].as_mut(),
+        )?;
+        <Vec<
+            RuntimeModelingInitializationsFieldDiscreteAssignmentItem,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Vec<
             RuntimeModelingInitializationsFieldAttemptsItem,
-        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -297,10 +362,20 @@ impl crate::columnar::ArrowValue for RuntimeModelingInitializationsRow {
                 input.column(4usize).as_ref(),
                 index,
             )?,
+            r#discrete: <crate::generated::enums::ModelingDiscreteInitialization as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#discrete_assignment: <Vec<
+                RuntimeModelingInitializationsFieldDiscreteAssignmentItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
             r#attempts: <Vec<
                 RuntimeModelingInitializationsFieldAttemptsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(7usize).as_ref(),
                 index,
             )?,
         })
@@ -362,7 +437,12 @@ impl crate::columnar::RelationRow for RuntimeModelingInitializationsRow {
             &self.r#committed,
             columns[4usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#attempts, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#discrete, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#discrete_assignment,
+            columns[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#attempts, columns[7usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -397,10 +477,10 @@ impl crate::columnar::RelationRow for RuntimeModelingInitializationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        37_888_usize + size_of::<Self::Builder>()
+        47_104_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        296usize
+        368usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -463,6 +543,33 @@ impl crate::columnar::RelationRow for RuntimeModelingInitializationsRow {
             } else {
                 Ok::<usize, crate::RelationError>(1)
             }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#discrete).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#discrete_assignment)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, _| crate::columnar::allocation_add(
+                        bytes,
+                        {
+                            let mut bytes = 1usize;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                Ok::<usize, crate::RelationError>(16usize)?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                Ok::<usize, crate::RelationError>(8usize)?,
+                            )?;
+                            Ok::<usize, crate::RelationError>(bytes)
+                        }?,
+                    ),
+                )?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -578,7 +685,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -606,8 +713,18 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "attempts",
+        name: "discrete",
         position: 5usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "discrete_assignment",
+        position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "attempts",
+        position: 7usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -622,8 +739,12 @@ pub mod columns {
     pub const FAILURE_ORDINAL: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///committed
     pub const COMMITTED: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    ///discrete
+    pub const DISCRETE: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///discrete_assignment
+    pub const DISCRETE_ASSIGNMENT: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///attempts
-    pub const ATTEMPTS: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const ATTEMPTS: crate::columnar::ColumnReference = super::COLUMNS[7usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -635,6 +756,8 @@ pub struct RuntimeModelingInitializationsView<'a> {
     failure_column: &'a arrow_array::StringArray,
     failure_ordinal_column: &'a arrow_array::Int64Array,
     committed_column: &'a arrow_array::ListArray,
+    discrete_column: &'a arrow_array::StringArray,
+    discrete_assignment_column: &'a arrow_array::ListArray,
     attempts_column: &'a arrow_array::ListArray,
 }
 impl<'a> RuntimeModelingInitializationsView<'a> {
@@ -690,9 +813,15 @@ impl<'a> RuntimeModelingInitializationsView<'a> {
             committed_column: crate::columnar::array::<
                 arrow_array::ListArray,
             >(batch.column(4usize).as_ref())?,
+            discrete_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(5usize).as_ref())?,
+            discrete_assignment_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(6usize).as_ref())?,
             attempts_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(5usize).as_ref())?,
+            >(batch.column(7usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -769,6 +898,34 @@ impl<'a> RuntimeModelingInitializationsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "discrete",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn discrete_column(&self) -> &'a arrow_array::StringArray {
+        self.discrete_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "discrete", "`.")]
+    pub fn discrete_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "discrete_assignment",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn discrete_assignment_column(&self) -> &'a arrow_array::ListArray {
+        self.discrete_assignment_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "discrete_assignment",
+        "`.",
+    )]
+    pub fn discrete_assignment_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "attempts",
         "`, including its offsets and validity bitmap.",
     )]
@@ -777,7 +934,7 @@ impl<'a> RuntimeModelingInitializationsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "attempts", "`.")]
     pub fn attempts_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -800,6 +957,11 @@ impl<'a> RuntimeModelingInitializationsView<'a> {
             )?,
             r#committed: crate::columnar::ArrowValue::read(
                 self.committed_column,
+                index,
+            )?,
+            r#discrete: crate::columnar::ArrowValue::read(self.discrete_column, index)?,
+            r#discrete_assignment: crate::columnar::ArrowValue::read(
+                self.discrete_assignment_column,
                 index,
             )?,
             r#attempts: crate::columnar::ArrowValue::read(self.attempts_column, index)?,

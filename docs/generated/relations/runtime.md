@@ -512,9 +512,9 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, fixture_id`.
 
 ## `modeling_initializations`
 
-Ordered immutable initialization attempts. Only an accepted original specification supplies committed values. Native result IDs link separately owned original-space result tables.
+Ordered immutable initialization attempts. Only an accepted original specification supplies committed values. Native result IDs link separately owned original-space result tables. `discrete_assignment` lists the free discrete variables every stage and homotopy attempt ran fixed at, under the `discrete` policy; it is empty under `refuse`, and the original specification always runs unfixed.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -526,6 +526,11 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
 | `committed.item` | `Struct` | false | `payload` | — | — |
 | `committed.item.source_id` | `semantic_id` | false | `payload` | — | — |
 | `committed.item.value` | `Float64` | false | `payload` | — | — |
+| `discrete` | `enum:ModelingDiscreteInitialization` | false | `payload` | — | — |
+| `discrete_assignment` | `List` | false | `payload` | — | — |
+| `discrete_assignment.item` | `Struct` | false | `payload` | — | — |
+| `discrete_assignment.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `discrete_assignment.item.value` | `Float64` | false | `payload` | — | — |
 | `attempts` | `List` | false | `payload` | — | — |
 | `attempts.item` | `Struct` | false | `payload` | — | — |
 | `attempts.item.kind` | `enum:ModelingInitializationStep` | false | `payload` | — | — |
@@ -816,6 +821,26 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `kind, scope, name`.
 | `evidence.projection.selection.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
 | `evidence.projection.columns` | `List` | false | `payload` | — | — |
 | `evidence.projection.columns.item` | `Utf8` | false | `payload` | — | — |
+
+## `objective_levels`
+
+The lexicographic levels of a multi-objective solve (ADR-0111), in optimization order. A level's value is the weighted sum of its members' terms, in canonical units of `quantity_id`. On the `native` route one HiGHS solve optimizes every level; on the `staged` route `attempt` is the step that optimized the level, seeded from the previous level's accepted step, with `optimum` its value there and `bound` the value every later step held it to: optimum plus max(absolute, relative·|optimum|) when minimized, minus when maximized. `value` is the level's value at the final candidate; absent values are not zero.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, level`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `level` | `Int64` | false | `key` | — | — |
+| `priority` | `Int64` | true | `payload` | — | — |
+| `sense` | `enum:NativeObjectiveSense` | false | `payload` | — | — |
+| `quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `route` | `enum:ModelingObjectiveRoute` | false | `payload` | — | — |
+| `attempt` | `Int64` | false | `payload` | — | — |
+| `result_id` | `semantic_id` | true | `payload` | — | — |
+| `optimum` | `Float64` | true | `payload` | — | — |
+| `bound` | `Float64` | true | `payload` | — | — |
+| `value` | `Float64` | true | `payload` | — | — |
 
 ## `operational_attempt_transitions`
 
@@ -1979,9 +2004,9 @@ Native row check `one_evidence_value` (must be true):
 
 ## `solve_runs`
 
-Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution.
+Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution. `commitment` states the discrete assignment that the step's multipliers and every quantity derived from them are conditional on (ADR-0118 item 9), from the SCIP fixed-assignment re-solve or the HiGHS fixed-commitment LP: each committed column with its closed box in original coordinates, degenerate for a fixed value (an integer value or a semi column's zero branch) and the active interval for a semicontinuous column on its active branch. It is absent when the multipliers are not conditional on an assignment.
 
-Version: 4. Snapshot class: `derived`. Primary key: `run_id, step`.
+Version: 5. Snapshot class: `derived`. Primary key: `run_id, step`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -2006,6 +2031,11 @@ Version: 4. Snapshot class: `derived`. Primary key: `run_id, step`.
 | `validation_error` | `Utf8` | true | `payload` | — | — |
 | `error` | `Utf8` | true | `payload` | — | — |
 | `transformation` | `content_hash` | true | `payload` | — | — |
+| `commitment` | `List` | true | `payload` | — | — |
+| `commitment.item` | `Struct` | false | `payload` | — | — |
+| `commitment.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `commitment.item.lower` | `Float64` | false | `payload` | — | — |
+| `commitment.item.upper` | `Float64` | false | `payload` | — | — |
 
 ## `solve_variables`
 
@@ -2037,7 +2067,7 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, step, symbol_id`.
 
 ## `solver_capabilities`
 
-Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `automatic_classes` are the classes automatic routing may choose the adapter for; every other class in `classes` needs explicit selection. Automatic routing takes the problem's classes most specific first and selects among the eligible adapters automatic for the first class that has one. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104). `requirements` lists the structural requirements of a formulation the adapter can honour with a method its settings select, such as the l1 exact penalty an authored `penalty(l1)` realization states; a structure stating any other is ineligible, as is a request whose settings select another method (ADR-0104 §5).
+Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `automatic_classes` are the classes automatic routing may choose the adapter for; every other class in `classes` needs explicit selection. Automatic routing takes the problem's classes most specific first and selects among the eligible adapters automatic for the first class that has one. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104). `requirements` lists the structural requirements of a formulation the adapter can honour with a method its settings select, such as the l1 exact penalty an authored `penalty(l1)` realization states; a structure stating any other is ineligible, as is a request whose settings select another method (ADR-0104 §5). `lexicographic_classes` lists the classes in which the adapter optimizes several objectives lexicographically in one native solve; a structure with several objectives in any other class is ineligible (ADR-0111).
 
 Version: 3. Snapshot class: `derived`. Primary key: `backend`.
 
@@ -2061,6 +2091,8 @@ Version: 3. Snapshot class: `derived`. Primary key: `backend`.
 | `native_forms.item` | `enum:NativeConstraintForm` | false | `payload` | — | — |
 | `requirements` | `List` | false | `payload` | — | — |
 | `requirements.item` | `enum:ModelingStructuralRequirement` | false | `payload` | — | — |
+| `lexicographic_classes` | `List` | false | `payload` | — | — |
+| `lexicographic_classes.item` | `enum:NativeProblemClass` | false | `payload` | — | — |
 
 ## `study_outcomes`
 

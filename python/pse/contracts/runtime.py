@@ -554,6 +554,14 @@ class RuntimeModelingInitializationsFieldCommittedItem:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeModelingInitializationsFieldDiscreteAssignmentItem:
+    """Declared relation row or nested value."""
+
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    value: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeModelingInitializationsFieldAttemptsItem:
     """Declared relation row or nested value."""
 
@@ -577,6 +585,8 @@ class RuntimeModelingInitializationsRow:
     failure: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     failure_ordinal: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     committed: b.tuple[RuntimeModelingInitializationsFieldCommittedItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingInitializationsFieldCommittedItem), iterable_validator=attrs.validators.instance_of(b.tuple))))
+    discrete: e.ModelingDiscreteInitialization = attrs.field(validator=attrs.validators.instance_of(e.ModelingDiscreteInitialization))
+    discrete_assignment: b.tuple[RuntimeModelingInitializationsFieldDiscreteAssignmentItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingInitializationsFieldDiscreteAssignmentItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     attempts: b.tuple[RuntimeModelingInitializationsFieldAttemptsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingInitializationsFieldAttemptsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
@@ -1009,6 +1019,23 @@ class RuntimeNativeDependenciesRow:
     scope: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     evidence: RuntimeNativeDependenciesFieldEvidence = attrs.field(validator=attrs.validators.instance_of(RuntimeNativeDependenciesFieldEvidence))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeObjectiveLevelsRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    level: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    priority: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+    sense: e.NativeObjectiveSense = attrs.field(validator=attrs.validators.instance_of(e.NativeObjectiveSense))
+    quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    route: e.ModelingObjectiveRoute = attrs.field(validator=attrs.validators.instance_of(e.ModelingObjectiveRoute))
+    attempt: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    result_id: i.RunId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    optimum: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    bound: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
 
 
 @attrs.frozen(kw_only=True)
@@ -1590,6 +1617,15 @@ class RuntimeSolveMetricsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeSolveRunsFieldCommitmentItem:
+    """Declared relation row or nested value."""
+
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    lower: b.float = attrs.field(validator=v.finite_float)
+    upper: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeSolveRunsRow:
     """Declared relation row or nested value."""
 
@@ -1614,6 +1650,7 @@ class RuntimeSolveRunsRow:
     validation_error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     transformation: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    commitment: b.tuple[RuntimeSolveRunsFieldCommitmentItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveRunsFieldCommitmentItem), iterable_validator=attrs.validators.instance_of(b.tuple))))
 
 
 @attrs.frozen(kw_only=True)
@@ -1659,6 +1696,7 @@ class RuntimeSolverCapabilitiesRow:
     certifies: b.bool = attrs.field(validator=v.exact_type(b.bool))
     native_forms: b.tuple[e.NativeConstraintForm, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeConstraintForm), iterable_validator=attrs.validators.instance_of(b.tuple)))
     requirements: b.tuple[e.ModelingStructuralRequirement, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.ModelingStructuralRequirement), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    lexicographic_classes: b.tuple[e.NativeProblemClass, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeProblemClass), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)

@@ -38,6 +38,8 @@ pub struct RuntimeSolverCapabilitiesRow {
     pub r#native_forms: Vec<crate::generated::enums::NativeConstraintForm>,
     ///requirements
     pub r#requirements: Vec<crate::generated::enums::ModelingStructuralRequirement>,
+    ///lexicographic_classes
+    pub r#lexicographic_classes: Vec<crate::generated::enums::NativeProblemClass>,
 }
 impl crate::SemanticEq for RuntimeSolverCapabilitiesRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -69,6 +71,10 @@ impl crate::SemanticEq for RuntimeSolverCapabilitiesRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#requirements,
                 &other.r#requirements,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#lexicographic_classes,
+                &other.r#lexicographic_classes,
             )
     }
 }
@@ -109,6 +115,8 @@ impl crate::SemanticFrame for RuntimeSolverCapabilitiesRow {
         crate::SemanticFrame::frame(&self.r#native_forms, hash);
         hash.str(stringify!(r#requirements));
         crate::SemanticFrame::frame(&self.r#requirements, hash);
+        hash.str(stringify!(r#lexicographic_classes));
+        crate::SemanticFrame::frame(&self.r#lexicographic_classes, hash);
     }
 }
 impl crate::HeapUsage for RuntimeSolverCapabilitiesRow {
@@ -128,5 +136,6 @@ impl crate::HeapUsage for RuntimeSolverCapabilitiesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#certifies))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#native_forms))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#requirements))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#lexicographic_classes))
     }
 }

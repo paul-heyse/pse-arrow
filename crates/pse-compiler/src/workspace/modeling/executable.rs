@@ -378,20 +378,6 @@ fn projection(
             }
         }
     }
-    // The case structure carries one objective: the solved level. Several levels without
-    // a selected one are optimized together only by a native lexicographic solve, whose
-    // multi-objective case structure is Plan 22 C3 engine work.
-    if model.objectives.levels.len() > 1 && model.objectives.selected.is_none() {
-        let lead = &model.objectives.members[0];
-        return Err(pse_modeling::ModelingError::Unsupported {
-            declaration: lead.lineage.declaration.as_id(),
-            capability: format!(
-                "a multi-objective case structure for {} lexicographic levels; select one level with the objective.level fact",
-                model.objectives.levels.len()
-            ),
-        }
-        .into());
-    }
     let mut p = Projection {
         objectives: model.objectives.clone(),
         body_limits: BodyLimits {

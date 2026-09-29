@@ -53,6 +53,20 @@ pub enum StartSource {
         /// The stored solution; the seed's content identity enters lineage (F25).
         solution: SemanticId,
     },
+    /// A temporary fix of one step, such as an initialization's discrete assignment
+    /// (ADR-0103 item 6).
+    Fixed,
+}
+/// What one step composes over its case by identity (A6): a predecessor's solved values,
+/// parameter replacements and temporary fixes. Nothing here outlives the step (PS-08).
+#[derive(Clone, Debug, Default)]
+pub(in crate::workflow) struct CaseOverrides {
+    /// Solved values of an earlier step, which start the free variables.
+    pub seed: BTreeMap<SemanticId, f64>,
+    /// Replacements of declared parameters, such as continuation values.
+    pub parameters: BTreeMap<SemanticId, f64>,
+    /// Variables the step holds fixed, at these values.
+    pub fixes: BTreeMap<SemanticId, f64>,
 }
 /// One immutable case plus the numerical declarations selected for this analysis.
 #[derive(Clone, Debug)]
@@ -159,16 +173,11 @@ impl ModelingPackage {
             .map(|r| (r.spec().key(), r.clone()))
             .collect()
     }
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "starts resolve from the model, case, seed and parameters under the compiler profile and cancellation"
-    )]
     pub(in crate::workflow) async fn resolve_starts(
         &self,
         model: &ModelingPreparation,
         case: &ModelingCaseBindings,
-        seed: BTreeMap<SemanticId, f64>,
-        parameters: BTreeMap<SemanticId, f64>,
+        overrides: &CaseOverrides,
         compiler: Profile,
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
@@ -192,18 +201,20 @@ impl ModelingPackage {
                 starts.insert(*id, StartSource::ModelDefault);
             }
         }
-        for (id, value) in seed {
-            let fixed = case.variables.iter().any(|(path, state)| {
-                state.fixed == Some(true) && product.model.paths.get(path) == Some(&id)
-            });
-            if !fixed
-                && product
-                    .admitted
-                    .case
-                    .variables()
-                    .iter()
-                    .any(|v| v.port.id == id)
-            {
+        let is_variable = |id: &SemanticId| {
+            product
+                .admitted
+                .case
+                .variables()
+                .iter()
+                .any(|v| v.port.id == *id)
+        };
+        for (&id, &value) in &overrides.seed {
+            let fixed = overrides.fixes.contains_key(&id)
+                || case.variables.iter().any(|(path, state)| {
+                    state.fixed == Some(true) && product.model.paths.get(path) == Some(&id)
+                });
+            if !fixed && is_variable(&id) {
                 if !value.is_finite() {
                     return Err(contract("nonfinite accepted predecessor seed"));
                 }
@@ -228,7 +239,7 @@ impl ModelingPackage {
             values.scalars.insert(id, *value);
             starts.insert(id, StartSource::Case { path: path.clone() });
         }
-        for (id, value) in parameters {
+        for (&id, &value) in &overrides.parameters {
             if !value.is_finite()
                 || !product
                     .admitted
@@ -243,6 +254,13 @@ impl ModelingPackage {
             }
             values.scalars.insert(id, value);
             starts.insert(id, StartSource::Continuation);
+        }
+        for (&id, &value) in &overrides.fixes {
+            if !value.is_finite() || !is_variable(&id) {
+                return Err(contract("a temporary fix must name a variable at a finite value"));
+            }
+            values.scalars.insert(id, value);
+            starts.insert(id, StartSource::Fixed);
         }
         let hints = product
             .admitted
@@ -329,6 +347,118 @@ impl ModelingPackage {
         }
         Ok((values, starts))
     }
+    /// The assignment an initialization's stage and homotopy steps fix (ADR-0103 item 6):
+    /// every discrete variable the case leaves free, at its specification start value or
+    /// at the value declared for its case path. Each value is refused before any attempt
+    /// unless it is a member of the variable's domain; the case bounds are checked again
+    /// when each step binds. Empty under [`DiscreteInitialization::Refuse`].
+    pub(in crate::workflow) async fn discrete_assignment(
+        &self,
+        analysis: &ModelingAnalysis,
+        policy: &DiscreteInitialization,
+        cancel: &crate::CancelSource,
+    ) -> Result<BTreeMap<SemanticId, f64>, WorkflowError> {
+        use DiscreteInitialization as Policy;
+        use pse_modeling::DomainRefusal;
+        let declared = match policy {
+            Policy::Refuse => return Ok(BTreeMap::new()),
+            Policy::FixAtStart => None,
+            Policy::FixAt(values) => Some(values),
+        };
+        let case = &analysis.case;
+        // The specialization a step resolves its case paths with (`resolve_case`), which
+        // also resolves the declared paths.
+        let mut bindings = analysis.bindings.clone();
+        bindings.demand.extend(
+            case.values
+                .keys()
+                .chain(case.variables.keys())
+                .chain(declared.into_iter().flat_map(BTreeMap::keys))
+                .cloned(),
+        );
+        bindings.demand.sort();
+        bindings.demand.dedup();
+        let model = self
+            .prepare(
+                analysis.root,
+                analysis.instance,
+                bindings,
+                analysis.limits,
+                cancel,
+            )
+            .await?;
+        let product = model.compiled();
+        let specialized = &product.model;
+        let inner = Inner::of(product);
+        let id = |path: &str| specialized.paths.get(path).copied();
+        let mut free = BTreeMap::new();
+        for declared in product.admitted.case.variables() {
+            if !declared.domain.is_discrete() || inner.contains(&declared.port.id) {
+                continue;
+            }
+            let mut variable = declared.clone();
+            for (path, state) in &case.variables {
+                if id(path) == Some(variable.port.id) {
+                    variable.fixed = state.fixed.unwrap_or(variable.fixed);
+                    variable.lower = state.lower.unwrap_or(variable.lower);
+                    variable.upper = state.upper.unwrap_or(variable.upper);
+                }
+            }
+            if !variable.fixed {
+                free.insert(variable.port.id, variable);
+            }
+        }
+        let values: BTreeMap<SemanticId, f64> = match declared {
+            None => {
+                self.resolve_starts(
+                    &model,
+                    case,
+                    &CaseOverrides::default(),
+                    analysis.compiler,
+                    true,
+                    cancel,
+                )
+                .await?
+                .0
+                .scalars
+            }
+            Some(declared) => declared
+                .iter()
+                .map(|(path, value)| {
+                    id(path)
+                        .filter(|id| free.contains_key(id))
+                        .map(|id| (id, *value))
+                        .ok_or_else(|| {
+                            contract(format!(
+                                "discrete initialization value {path} requires a free discrete variable"
+                            ))
+                        })
+                })
+                .collect::<Result<_, _>>()?,
+        };
+        free.values()
+            .map(|variable| {
+                let refuse = |reason| {
+                    crate::workflow::modeling_error(specialized.domain_refusal(
+                        variable.port.id,
+                        DomainAnalysis::Initialization,
+                        reason,
+                    ))
+                };
+                let value = *values
+                    .get(&variable.port.id)
+                    .ok_or_else(|| refuse(DomainRefusal::NoFixValue))?;
+                if !variable.domain.contains(
+                    value,
+                    variable.lower.unwrap_or(f64::NEG_INFINITY),
+                    variable.upper.unwrap_or(f64::INFINITY),
+                ) {
+                    return Err(refuse(DomainRefusal::NotMember));
+                }
+                Ok((variable.port.id, value))
+            })
+            .collect()
+    }
     /// Resolve starts in dependency order; explicit case values override every hint.
     /// No value is fabricated for a missing coordinate, and starts never fix variables.
     #[expect(
@@ -358,8 +488,7 @@ impl ModelingPackage {
             compiler,
             solver,
             numerical,
-            BTreeMap::new(),
-            BTreeMap::new(),
+            CaseOverrides::default(),
             cancel,
         )
         .await
@@ -379,14 +508,13 @@ impl ModelingPackage {
         compiler: Profile,
         solver: SolverProfile,
         numerical: NumericalInputs,
-        seed: BTreeMap<SemanticId, f64>,
-        parameters: BTreeMap<SemanticId, f64>,
+        overrides: CaseOverrides,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
         let resolution = self
             .resolve_case(
-                root, instance, bindings, limits, case, order, compiler, solver, numerical, seed,
-                parameters, false, cancel,
+                root, instance, bindings, limits, case, order, compiler, solver, numerical,
+                overrides, false, cancel,
             )
             .await?;
         self.finish_case(resolution).await
@@ -449,8 +577,7 @@ impl ModelingPackage {
         compiler: Profile,
         solver: SolverProfile,
         mut numerical: NumericalInputs,
-        seed: BTreeMap<SemanticId, f64>,
-        parameters: BTreeMap<SemanticId, f64>,
+        overrides: CaseOverrides,
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
@@ -467,8 +594,7 @@ impl ModelingPackage {
             .resolve_starts(
                 &model,
                 &case,
-                seed,
-                parameters,
+                &overrides,
                 compiler,
                 allow_missing_free,
                 cancel,
@@ -498,7 +624,7 @@ impl ModelingPackage {
             .numerics
             .requirements
             .retain(|r| !inner.contains(&r.target_id));
-        let states = self
+        let mut states = self
             .variable_states(
                 &model,
                 &inner,
@@ -510,6 +636,9 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
+        for id in overrides.fixes.keys() {
+            states.entry(*id).or_default().fixed = Some(true);
+        }
         let prepared = self
             .bound_case(&model, values.clone(), &states, order, compiler, cancel)
             .await?;

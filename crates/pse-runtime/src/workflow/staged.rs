@@ -21,7 +21,7 @@
 use super::{
     ModelingAnalysis, ModelingPackage, ModelingResult, ModelingSolvePreparation, Runtime,
     WorkflowError,
-    modeling::assessment::Obligations,
+    modeling::{assessment::Obligations, cases::CaseOverrides},
     numerics::{CandidateDecision, CandidateReason, refused},
 };
 use crate::math::{
@@ -59,6 +59,9 @@ pub(in crate::workflow) struct Overlay {
     pub variables: BTreeMap<String, ModelingVariableState>,
     /// Temporary case values, by path.
     pub values: BTreeMap<String, f64>,
+    /// Variables held fixed at these values, by identity: an initialization's discrete
+    /// assignment (ADR-0103 item 6).
+    pub fixes: BTreeMap<SemanticId, f64>,
 }
 impl Overlay {
     /// The step's specification. The original is only read (PS-08).
@@ -308,11 +311,15 @@ impl Staged {
                 .time_limit
                 .min(deadline.saturating_duration_since(Instant::now()));
         }
-        let parameters = overlay.parameters.clone();
+        let overrides = CaseOverrides {
+            seed,
+            parameters: overlay.parameters.clone(),
+            fixes: overlay.fixes.clone(),
+        };
         let this = &*self;
         let (result, interruption) = bounded(scope, deadline, cancel, |child| async move {
             let prepared = package
-                .prepare_analysis_attempt(&step, seed, parameters, &child)
+                .prepare_analysis_attempt(&step, overrides, &child)
                 .await?;
             this.execute(
                 prepared,
@@ -631,6 +638,7 @@ mod native_tests {
                     growth: 1.5,
                     maximum_attempts: 64,
                     time_limit: Duration::from_secs(60),
+                    discrete: Default::default(),
                 },
                 &crate::CancelSource::new(),
             )

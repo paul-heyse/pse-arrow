@@ -490,6 +490,7 @@ impl TNLP for Adapter {
                 bound_dual: Some((bounds(s.z_l)?, bounds(s.z_u)?)),
                 reduced_costs: None,
                 slacks: None,
+                commitment: None,
             })
         });
     }

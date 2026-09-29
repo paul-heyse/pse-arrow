@@ -80,8 +80,12 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
                 "requirements",
                 T::list(T::enumeration("ModelingStructuralRequirement")),
             ),
+            column(
+                "lexicographic_classes",
+                T::list(T::enumeration("NativeProblemClass")),
+            ),
         ],
-        "Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `automatic_classes` are the classes automatic routing may choose the adapter for; every other class in `classes` needs explicit selection. Automatic routing takes the problem's classes most specific first and selects among the eligible adapters automatic for the first class that has one. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104). `requirements` lists the structural requirements of a formulation the adapter can honour with a method its settings select, such as the l1 exact penalty an authored `penalty(l1)` realization states; a structure stating any other is ineligible, as is a request whose settings select another method (ADR-0104 §5).",
+        "Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `automatic_classes` are the classes automatic routing may choose the adapter for; every other class in `classes` needs explicit selection. Automatic routing takes the problem's classes most specific first and selects among the eligible adapters automatic for the first class that has one. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104). `requirements` lists the structural requirements of a formulation the adapter can honour with a method its settings select, such as the l1 exact penalty an authored `penalty(l1)` realization states; a structure stating any other is ineligible, as is a request whose settings select another method (ADR-0104 §5). `lexicographic_classes` lists the classes in which the adapter optimizes several objectives lexicographically in one native solve; a structure with several objectives in any other class is ineligible (ADR-0111).",
     );
     relation_version(
         b,
@@ -484,6 +488,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "native_forms",
             "least_squares",
             "method",
+            "lexicographic",
         ],
     );
     // Constraint handlers a native realization leaves to the backend (ADR-0104).
@@ -512,7 +517,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         b,
         N::Runtime,
         "solve_runs",
-        4,
+        5,
         S::Derived,
         &["run_id", "step"],
         vec![
@@ -542,8 +547,17 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("validation_error", text()).optional(),
             column("error", text()).optional(),
             column("transformation", T::hash()).optional(),
+            column(
+                "commitment",
+                T::list(record(vec![
+                    ("source_id", T::id()),
+                    ("lower", real()),
+                    ("upper", real()),
+                ])),
+            )
+            .optional(),
         ],
-        "Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution.",
+        "Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution. `commitment` states the discrete assignment that the step's multipliers and every quantity derived from them are conditional on (ADR-0118 item 9), from the SCIP fixed-assignment re-solve or the HiGHS fixed-commitment LP: each committed column with its closed box in original coordinates, degenerate for a fixed value (an integer value or a semi column's zero branch) and the active interval for a semicontinuous column on its active branch. It is absent when the multipliers are not conditional on an assignment.",
     );
     relation_version(
         b,

@@ -106,23 +106,15 @@ struct SensitivityProgram {
     reduced_hessian: bool,
 }
 impl SensitivityProgram {
-    /// The request for the backend: callbacks over `worker` with the columns of
-    /// `assignment` fixed, or the reason none could be built.
+    /// The request for the backend: callbacks over `worker`, or the reason none could be
+    /// built.
     fn request(
         &self,
         worker: pse_math::assembly::CaseWorker,
         values: &CaseValues,
-        assignment: Option<&BTreeMap<pse_ids::SemanticId, (f64, f64)>>,
     ) -> Result<native::kkt::Sensitivity, ProblemError> {
-        let oracle = match assignment {
-            Some(assignment) => native::assembled::AlgebraicOracle::with_fixed_assignment(
-                worker,
-                values.clone(),
-                assignment,
-            )?,
-            None => native::assembled::AlgebraicOracle::new(worker, values.clone())?,
-        }
-        .with_normalization(self.normalization.clone())?;
+        let oracle = native::assembled::AlgebraicOracle::new(worker, values.clone())?
+            .with_normalization(self.normalization.clone())?;
         Ok(native::kkt::Sensitivity {
             oracle: Box::new(oracle),
             parameters: self.parameters.clone(),
@@ -386,6 +378,11 @@ impl PreparedSolve {
     /// Native stopping budgets resolved from the numerical policy at preparation.
     pub fn accuracy(&self) -> &ResolvedAccuracy {
         &self.accuracy
+    }
+    /// The absolute accuracy of the objective value in original units: the continuous
+    /// absolute gap budget at the objective's coordinate scale.
+    pub fn objective_accuracy(&self) -> f64 {
+        self.accuracy.gap_absolute * self.normalization.objective
     }
     /// Deterministic selected route, available for inspection before admission.
     pub fn route(&self) -> Route {
@@ -1627,32 +1624,26 @@ impl MathService {
         let cancel = run.execution.cancel.clone();
         // Executable owners and their budget charges outlive every re-solve oracle.
         let mut owners = Vec::new();
-        let mut fixed = |assignment: &BTreeMap<usize, (f64, f64)>| {
-            (|| -> Result<Box<dyn native::NlpOracle>, MathRuntimeError> {
+        let mut relaxed = || {
+            (|| -> Result<native::transform::Relaxed, MathRuntimeError> {
                 let ExecutionWorker {
                     worker,
                     _case,
                     _charge,
                 } = self.case_worker(case.clone(), providers.clone(), &cancel, budget)?;
                 owners.push((_case, _charge));
-                let assignment = assignment
-                    .iter()
-                    .map(|(i, v)| (plan.columns()[*i], *v))
-                    .collect();
-                let oracle = native::assembled::AlgebraicOracle::with_fixed_assignment(
+                Ok(native::assembled::AlgebraicOracle::relaxation(
                     worker,
                     values.clone(),
-                    &assignment,
-                )?
-                .with_normalization(normalization.clone())?;
-                Ok(Box::new(oracle))
+                    normalization.clone(),
+                )?)
             })()
             .map_err(MathRuntimeError::into_problem)
         };
         // The re-solve's parametric callbacks under the same assignment (Plan 22 S1).
         let mut parametric_owners = Vec::new();
-        let mut parametric = |assignment: &BTreeMap<usize, (f64, f64)>| {
-            (|| -> Result<Box<dyn native::NlpOracle>, MathRuntimeError> {
+        let mut parametric = || {
+            (|| -> Result<native::transform::Relaxed, MathRuntimeError> {
                 let request = sensitivity.as_ref().ok_or_else(|| {
                     ProblemError::Internal("no sensitivity program to differentiate".into())
                 })?;
@@ -1662,11 +1653,11 @@ impl MathService {
                     _charge,
                 } = self.worker(request.program.clone(), &providers, cancel.clone(), budget)?;
                 parametric_owners.push((_case, _charge));
-                let assignment = assignment
-                    .iter()
-                    .map(|(i, v)| (plan.columns()[*i], *v))
-                    .collect();
-                Ok(request.request(worker, &values, Some(&assignment))?.oracle)
+                Ok(native::assembled::AlgebraicOracle::relaxation(
+                    worker,
+                    values.clone(),
+                    request.normalization.clone(),
+                )?)
             })()
             .map_err(MathRuntimeError::into_problem)
         };
@@ -1679,7 +1670,7 @@ impl MathService {
                 intent: profile.intent,
                 original: &mut original,
                 resolve: Some(execution::Resolve {
-                    oracle: &mut fixed,
+                    oracle: &mut relaxed,
                     presolve: &profile.presolve,
                     limit: self.policy.worker_bytes / 256,
                     sensitivity: sensitivity.as_ref().map(|request| {
@@ -1726,7 +1717,7 @@ impl MathService {
             )
             .map_err(MathRuntimeError::into_problem)
             .and_then(|ExecutionWorker { worker, _case, _charge }| {
-                Ok((program.request(worker, &values, None)?, (_case, _charge)))
+                Ok((program.request(worker, &values)?, (_case, _charge)))
             })
         });
         let ExecutionWorker {

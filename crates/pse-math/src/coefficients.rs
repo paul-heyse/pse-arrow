@@ -31,6 +31,10 @@ pub struct Coefficients {
     pub objective_constant: f64,
     /// Authored linear objective coefficients in free-variable order.
     pub objective: Vec<f64>,
+    /// The linear coefficients and constant of each later lexicographic objective, in
+    /// optimization order after the primary one (ADR-0111); empty with one objective. A
+    /// later objective with a quadratic term has no coefficient projection.
+    pub lexicographic: Vec<(Vec<f64>, f64)>,
     /// Full symmetric Hessian in the authored objective sense.
     pub hessian: faer::sparse::SparseColMat<usize, f64>,
     /// Affine constraint coefficients in canonical sparse order.
@@ -48,6 +52,11 @@ impl Coefficients {
             + sparse(&self.hessian)
             + sparse(&self.constraints)
             + (self.objective.capacity() + self.row_constants.capacity()) * size_of::<f64>()
+            + self
+                .lexicographic
+                .iter()
+                .map(|(c, _)| (c.capacity() + 1) * size_of::<f64>())
+                .sum::<usize>()
             + self.values.len() * size_of::<(pse_ids::SemanticId, u64)>()
     }
     /// Reject a shared classification established from different consumed values.
@@ -123,6 +132,10 @@ impl CasePlan {
         identity.hash(&self.structure().key());
         let mut objective = vec![0.0; n];
         let mut constant = 0.0;
+        let mut lexicographic = vec![
+            (vec![0.0; n], 0.0);
+            self.structure().objectives().len().saturating_sub(1)
+        ];
         let mut row_constants = Vec::with_capacity(m);
         let mut jp = Vec::<Entry<GlobalRow, GlobalCol>>::new();
         let mut jv = vec![];
@@ -172,9 +185,9 @@ impl CasePlan {
                 })
             };
             for c in &b.contributions {
-                if c.target != Target::Objective {
+                let Target::Objective(level) = c.target else {
                     continue;
-                }
+                };
                 let expression = replace(body.expression(c.output).ok_or_else(|| {
                     MathError::Contract(
                         "opaque or switching output is not a coefficient model".into(),
@@ -212,14 +225,21 @@ impl CasePlan {
                         .enumerate()
                         .flat_map(|(i, &e)| std::iter::repeat_n(local_columns[i], usize::from(e)))
                         .collect();
-                    match (c.target, factors.as_slice()) {
-                        (Target::Objective, []) => constant += v,
-                        (Target::Objective, [i]) => objective[i.get()] += v,
-                        (Target::Objective, [i, j]) => {
+                    match (level, factors.as_slice()) {
+                        (0, []) => constant += v,
+                        (0, [i]) => objective[i.get()] += v,
+                        (0, [i, j]) => {
                             hp.push(Entry::new(*i, *j));
                             hv.push(v);
                             hp.push(Entry::new(*j, *i));
                             hv.push(v);
+                        }
+                        (later, []) => lexicographic[later - 1].1 += v,
+                        (later, [i]) => lexicographic[later - 1].0[i.get()] += v,
+                        (_, [_, _]) => {
+                            return Err(MathError::Contract(
+                                "a later lexicographic objective is not linear".into(),
+                            ));
                         }
                         _ => return Err(MathError::Contract("coefficient degree mapping".into())),
                     }
@@ -246,6 +266,7 @@ impl CasePlan {
             || objective
                 .iter()
                 .chain(&row_constants)
+                .chain(lexicographic.iter().flat_map(|(c, k)| c.iter().chain([k])))
                 .any(|v| !v.is_finite())
         {
             return Err(MathError::Contract(
@@ -265,6 +286,7 @@ impl CasePlan {
             assumptions: identity.finish_hash(),
             objective_constant: constant,
             objective,
+            lexicographic,
             hessian: h.matrix().clone(),
             constraints: j.matrix().clone(),
             row_constants,

@@ -248,8 +248,7 @@ impl ModelingPackage {
                 compiler,
                 profile.clone(),
                 analysis.numerical.clone(),
-                BTreeMap::new(),
-                BTreeMap::new(),
+                Default::default(),
                 false,
                 cancel,
             )

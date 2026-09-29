@@ -475,6 +475,7 @@ mod tests {
             bound_dual: None,
             reduced_costs: None,
             slacks: None,
+            commitment: None,
         });
         report.quality = Some(native::quality::Quality::new(vec![], vec![], vec![]).unwrap());
         native::quality::qualify(

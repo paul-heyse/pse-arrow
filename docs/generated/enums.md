@@ -721,6 +721,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `time_limit` | `` | false |
 | `cancelled` | `` | false |
 
+## `ModelingDiscreteInitialization`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `refuse` | `` | false |
+| `fix_at_start` | `` | false |
+| `fix_at` | `` | false |
+
 ## `ModelingElasticObservation`
 
 | Member | IDAES name | Deprecated |
@@ -757,6 +765,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `stage` | `` | false |
 | `homotopy` | `` | false |
 | `original` | `` | false |
+
+## `ModelingObjectiveRoute`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `native` | `` | false |
+| `staged` | `` | false |
 
 ## `ModelingRealValueKind`
 
@@ -963,6 +978,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `native_forms` | `` | false |
 | `least_squares` | `` | false |
 | `method` | `` | false |
+| `lexicographic` | `` | false |
 
 ## `NativeMetricKind`
 

@@ -803,8 +803,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            55u8, 62u8, 60u8, 179u8, 145u8, 29u8, 42u8, 104u8, 166u8, 15u8, 146u8, 250u8,
-            144u8, 141u8, 112u8, 81u8,
+            45u8, 112u8, 52u8, 128u8, 82u8, 45u8, 89u8, 17u8, 127u8, 122u8, 223u8, 128u8,
+            126u8, 55u8, 200u8, 236u8,
         ])
     {
         return Ok(
@@ -894,6 +894,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeNativeDependencies(
                 super::r#runtime::r#native_dependencies::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            79u8, 69u8, 19u8, 117u8, 156u8, 58u8, 140u8, 227u8, 97u8, 225u8, 14u8, 54u8,
+            211u8, 251u8, 183u8, 252u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeObjectiveLevels(
+                super::r#runtime::r#objective_levels::Row::rows(batch)?,
             ),
         );
     }
@@ -1355,8 +1367,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            99u8, 233u8, 160u8, 112u8, 127u8, 7u8, 164u8, 244u8, 170u8, 38u8, 168u8,
-            48u8, 30u8, 21u8, 248u8, 36u8,
+            9u8, 192u8, 7u8, 103u8, 252u8, 91u8, 227u8, 73u8, 254u8, 250u8, 142u8, 98u8,
+            175u8, 184u8, 132u8, 181u8,
         ])
     {
         return Ok(
@@ -1647,6 +1659,9 @@ pub fn encode(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeNativeDependencies(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeObjectiveLevels(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalAttemptTransitions(

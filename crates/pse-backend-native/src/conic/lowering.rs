@@ -104,6 +104,11 @@ impl ConicProblem {
         evidence: Option<&dyn QuadraticEvidence>,
     ) -> Result<Lowered, ProblemError> {
         p.validate_convex(evidence)?;
+        if !p.objectives.is_empty() {
+            return Err(ProblemError::Unsupported(
+                "a cone model has one objective; several are optimized lexicographically by HiGHS or a staged sequence".into(),
+            ));
+        }
         let sign = p.sense.sign();
         let n = p.contract.variables.len();
         let zero;

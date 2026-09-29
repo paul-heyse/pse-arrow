@@ -9,6 +9,33 @@
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct RuntimeSolveRunsFieldCommitmentItem {
+    ///source_id
+    pub r#source_id: pse_ids::SemanticId,
+    ///lower
+    pub r#lower: f64,
+    ///upper
+    pub r#upper: f64,
+}
+impl crate::SemanticEq for RuntimeSolveRunsFieldCommitmentItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
+            && crate::SemanticEq::semantic_eq(&self.r#lower, &other.r#lower)
+            && crate::SemanticEq::semantic_eq(&self.r#upper, &other.r#upper)
+    }
+}
+impl PartialEq for RuntimeSolveRunsFieldCommitmentItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct RuntimeSolveRunsRow {
     ///The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
     pub r#run_id: crate::generated::identities::RunId,
@@ -52,6 +79,8 @@ pub struct RuntimeSolveRunsRow {
     pub r#error: Option<String>,
     ///transformation
     pub r#transformation: Option<pse_ids::ContentHash>,
+    ///commitment
+    pub r#commitment: Option<Vec<RuntimeSolveRunsFieldCommitmentItem>>,
 }
 impl crate::SemanticEq for RuntimeSolveRunsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -93,7 +122,7 @@ impl crate::SemanticEq for RuntimeSolveRunsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#transformation,
                 &other.r#transformation,
-            )
+            ) && crate::SemanticEq::semantic_eq(&self.r#commitment, &other.r#commitment)
     }
 }
 impl PartialEq for RuntimeSolveRunsRow {
@@ -103,6 +132,24 @@ impl PartialEq for RuntimeSolveRunsRow {
 }
 /// The concrete generated relation row.
 pub type Row = RuntimeSolveRunsRow;
+impl crate::SemanticFrame for RuntimeSolveRunsFieldCommitmentItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#source_id));
+        crate::SemanticFrame::frame(&self.r#source_id, hash);
+        hash.str(stringify!(r#lower));
+        crate::SemanticFrame::frame(&self.r#lower, hash);
+        hash.str(stringify!(r#upper));
+        crate::SemanticFrame::frame(&self.r#upper, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeSolveRunsFieldCommitmentItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#lower))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#upper))
+    }
+}
 impl crate::SemanticFrame for RuntimeSolveRunsRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#run_id));
@@ -147,6 +194,8 @@ impl crate::SemanticFrame for RuntimeSolveRunsRow {
         crate::SemanticFrame::frame(&self.r#error, hash);
         hash.str(stringify!(r#transformation));
         crate::SemanticFrame::frame(&self.r#transformation, hash);
+        hash.str(stringify!(r#commitment));
+        crate::SemanticFrame::frame(&self.r#commitment, hash);
     }
 }
 impl crate::HeapUsage for RuntimeSolveRunsRow {
@@ -173,5 +222,6 @@ impl crate::HeapUsage for RuntimeSolveRunsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#validation_error))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#error))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#transformation))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#commitment))
     }
 }

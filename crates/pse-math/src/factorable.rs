@@ -825,8 +825,10 @@ impl CasePlan {
                 match (c.target, term) {
                     (Target::Row(id), Some(t)) => terms[rows[&id]].push(t),
                     (Target::Row(id), None) => unavailable[rows[&id]] = true,
-                    (Target::Objective, Some(t)) => objective_terms.push(t),
-                    (Target::Objective, None) => objective_unavailable = true,
+                    (Target::Objective(0), Some(t)) => objective_terms.push(t),
+                    // A later lexicographic objective has no factorable projection; only
+                    // a native lexicographic route optimizes it with the first.
+                    (Target::Objective(_), _) => objective_unavailable = true,
                 }
             }
         }

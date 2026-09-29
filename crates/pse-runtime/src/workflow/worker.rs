@@ -543,8 +543,10 @@ impl Runtime {
         let prepared = package
             .prepare_analysis_attempt(
                 &analysis,
-                BTreeMap::new(),
-                binding.overlay.parameters.clone(),
+                super::modeling::cases::CaseOverrides {
+                    parameters: binding.overlay.parameters.clone(),
+                    ..Default::default()
+                },
                 cancel,
             )
             .await?;

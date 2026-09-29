@@ -31,6 +31,29 @@ impl PartialEq for RuntimeModelingInitializationsFieldCommittedItem {
     reason = "field names are the authoritative relation contract"
 )]
 #[derive(Clone, Debug)]
+pub struct RuntimeModelingInitializationsFieldDiscreteAssignmentItem {
+    ///source_id
+    pub r#source_id: pse_ids::SemanticId,
+    ///value
+    pub r#value: f64,
+}
+impl crate::SemanticEq for RuntimeModelingInitializationsFieldDiscreteAssignmentItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
+            && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+    }
+}
+impl PartialEq for RuntimeModelingInitializationsFieldDiscreteAssignmentItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
 pub struct RuntimeModelingInitializationsFieldAttemptsItem {
     ///kind
     pub r#kind: crate::generated::enums::ModelingInitializationStep,
@@ -95,6 +118,12 @@ pub struct RuntimeModelingInitializationsRow {
     pub r#failure_ordinal: Option<i64>,
     ///committed
     pub r#committed: Option<Vec<RuntimeModelingInitializationsFieldCommittedItem>>,
+    ///discrete
+    pub r#discrete: crate::generated::enums::ModelingDiscreteInitialization,
+    ///discrete_assignment
+    pub r#discrete_assignment: Vec<
+        RuntimeModelingInitializationsFieldDiscreteAssignmentItem,
+    >,
     ///attempts
     pub r#attempts: Vec<RuntimeModelingInitializationsFieldAttemptsItem>,
 }
@@ -107,7 +136,11 @@ impl crate::SemanticEq for RuntimeModelingInitializationsRow {
                 &self.r#failure_ordinal,
                 &other.r#failure_ordinal,
             ) && crate::SemanticEq::semantic_eq(&self.r#committed, &other.r#committed)
-            && crate::SemanticEq::semantic_eq(&self.r#attempts, &other.r#attempts)
+            && crate::SemanticEq::semantic_eq(&self.r#discrete, &other.r#discrete)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#discrete_assignment,
+                &other.r#discrete_assignment,
+            ) && crate::SemanticEq::semantic_eq(&self.r#attempts, &other.r#attempts)
     }
 }
 impl PartialEq for RuntimeModelingInitializationsRow {
@@ -126,6 +159,21 @@ impl crate::SemanticFrame for RuntimeModelingInitializationsFieldCommittedItem {
     }
 }
 impl crate::HeapUsage for RuntimeModelingInitializationsFieldCommittedItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+    }
+}
+impl crate::SemanticFrame for RuntimeModelingInitializationsFieldDiscreteAssignmentItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#source_id));
+        crate::SemanticFrame::frame(&self.r#source_id, hash);
+        hash.str(stringify!(r#value));
+        crate::SemanticFrame::frame(&self.r#value, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeModelingInitializationsFieldDiscreteAssignmentItem {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
@@ -180,6 +228,10 @@ impl crate::SemanticFrame for RuntimeModelingInitializationsRow {
         crate::SemanticFrame::frame(&self.r#failure_ordinal, hash);
         hash.str(stringify!(r#committed));
         crate::SemanticFrame::frame(&self.r#committed, hash);
+        hash.str(stringify!(r#discrete));
+        crate::SemanticFrame::frame(&self.r#discrete, hash);
+        hash.str(stringify!(r#discrete_assignment));
+        crate::SemanticFrame::frame(&self.r#discrete_assignment, hash);
         hash.str(stringify!(r#attempts));
         crate::SemanticFrame::frame(&self.r#attempts, hash);
     }
@@ -192,6 +244,8 @@ impl crate::HeapUsage for RuntimeModelingInitializationsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#failure))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#failure_ordinal))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#committed))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#discrete))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#discrete_assignment))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attempts))
     }
 }

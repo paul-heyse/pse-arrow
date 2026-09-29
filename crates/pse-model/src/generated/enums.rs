@@ -6474,6 +6474,106 @@ impl core::str::FromStr for ModelingDiagnosticSampleStop {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum ModelingDiscreteInitialization {
+    ///refuse
+    #[serde(rename = "refuse")]
+    Refuse,
+    ///fix_at_start
+    #[serde(rename = "fix_at_start")]
+    FixAtStart,
+    ///fix_at
+    #[serde(rename = "fix_at")]
+    FixAt,
+}
+impl crate::SemanticEq for ModelingDiscreteInitialization {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingDiscreteInitialization {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::Refuse, Self::FixAtStart, Self::FixAt];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Refuse => "refuse",
+            Self::FixAtStart => "fix_at_start",
+            Self::FixAt => "fix_at",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Refuse => 0usize,
+            Self::FixAtStart => 1usize,
+            Self::FixAt => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Refuse => None,
+            Self::FixAtStart => None,
+            Self::FixAt => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingDiscreteInitialization {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingDiscreteInitialization))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingDiscreteInitialization)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["refuse", "fix_at_start", "fix_at"] }
+        )
+    }
+}
+impl core::str::FromStr for ModelingDiscreteInitialization {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "refuse" => Ok(Self::Refuse),
+            "fix_at_start" => Ok(Self::FixAtStart),
+            "fix_at" => Ok(Self::FixAt),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingDiscreteInitialization).to_owned(),
+                    enumeration: stringify!(ModelingDiscreteInitialization).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum ModelingElasticObservation {
     ///feasible_witness
     #[serde(rename = "feasible_witness")]
@@ -6905,6 +7005,97 @@ impl core::str::FromStr for ModelingInitializationStep {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingInitializationStep).to_owned(),
                     enumeration: stringify!(ModelingInitializationStep).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum ModelingObjectiveRoute {
+    ///native
+    #[serde(rename = "native")]
+    Native,
+    ///staged
+    #[serde(rename = "staged")]
+    Staged,
+}
+impl crate::SemanticEq for ModelingObjectiveRoute {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingObjectiveRoute {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Native, Self::Staged];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Native => "native",
+            Self::Staged => "staged",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Native => 0usize,
+            Self::Staged => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Native => None,
+            Self::Staged => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingObjectiveRoute {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingObjectiveRoute))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingObjectiveRoute)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["native", "staged"] })
+    }
+}
+impl core::str::FromStr for ModelingObjectiveRoute {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "native" => Ok(Self::Native),
+            "staged" => Ok(Self::Staged),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingObjectiveRoute).to_owned(),
+                    enumeration: stringify!(ModelingObjectiveRoute).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -9034,6 +9225,9 @@ pub enum NativeIneligibility {
     ///method
     #[serde(rename = "method")]
     Method,
+    ///lexicographic
+    #[serde(rename = "lexicographic")]
+    Lexicographic,
 }
 impl crate::SemanticEq for NativeIneligibility {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -9042,7 +9236,7 @@ impl crate::SemanticEq for NativeIneligibility {
 }
 impl NativeIneligibility {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 11usize] = [
+    pub const ALL: [Self; 12usize] = [
         Self::NotLinked,
         Self::Serial,
         Self::NotSquareRoot,
@@ -9054,6 +9248,7 @@ impl NativeIneligibility {
         Self::NativeForms,
         Self::LeastSquares,
         Self::Method,
+        Self::Lexicographic,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -9069,6 +9264,7 @@ impl NativeIneligibility {
             Self::NativeForms => "native_forms",
             Self::LeastSquares => "least_squares",
             Self::Method => "method",
+            Self::Lexicographic => "lexicographic",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -9085,6 +9281,7 @@ impl NativeIneligibility {
             Self::NativeForms => 8usize,
             Self::LeastSquares => 9usize,
             Self::Method => 10usize,
+            Self::Lexicographic => 11usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -9106,6 +9303,7 @@ impl NativeIneligibility {
             Self::NativeForms => None,
             Self::LeastSquares => None,
             Self::Method => None,
+            Self::Lexicographic => None,
         }
     }
 }
@@ -9124,7 +9322,7 @@ impl schemars::JsonSchema for NativeIneligibility {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["not_linked", "serial", "not_square_root",
             "no_objective", "certification", "class", "derivatives", "bounds",
-            "native_forms", "least_squares", "method"] }
+            "native_forms", "least_squares", "method", "lexicographic"] }
         )
     }
 }
@@ -9143,6 +9341,7 @@ impl core::str::FromStr for NativeIneligibility {
             "native_forms" => Ok(Self::NativeForms),
             "least_squares" => Ok(Self::LeastSquares),
             "method" => Ok(Self::Method),
+            "lexicographic" => Ok(Self::Lexicographic),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(NativeIneligibility).to_owned(),
@@ -15300,6 +15499,16 @@ impl crate::SemanticFrame for ModelingDiagnosticSampleStop {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for ModelingDiscreteInitialization {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingDiscreteInitialization {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for ModelingElasticObservation {
     fn heap_bytes(&self) -> usize {
         0
@@ -15336,6 +15545,16 @@ impl crate::HeapUsage for ModelingInitializationStep {
     }
 }
 impl crate::SemanticFrame for ModelingInitializationStep {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ModelingObjectiveRoute {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingObjectiveRoute {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

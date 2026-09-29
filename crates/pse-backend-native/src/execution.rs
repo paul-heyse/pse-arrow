@@ -34,7 +34,7 @@ mod pounce;
 mod runner;
 mod scip;
 pub use factorable::{
-    Factorable, FixedOracle, Refusal, Resolve, ResolveSensitivity, admit_program, factorable,
+    Factorable, Refusal, RelaxedOracle, Resolve, ResolveSensitivity, admit_program, factorable,
 };
 pub use runner::{
     Analysis, Coefficients, Evaluation, Nlp, OriginalModel, Recognized, Roots, Step, coefficients,
@@ -100,6 +100,10 @@ pub struct Capability {
     /// settings select (ADR-0104 §5, [`BackendSettings::honours`]). A structure stating any
     /// other requirement is ineligible.
     pub requirements: &'static [ModelingStructuralRequirement],
+    /// The classes in which the adapter optimizes several objectives lexicographically in
+    /// one native solve (ADR-0111 item 4); a structure with several objectives in any other
+    /// class is ineligible.
+    pub lexicographic: &'static [ProblemClass],
     /// Native allocation/data reuse boundary.
     pub reuse: &'static str,
     /// Actual interrupt checkpoints.
@@ -125,6 +129,7 @@ impl Capability {
             certifies: self.certifies,
             native_forms: self.native_forms.to_vec(),
             requirements: self.requirements.to_vec(),
+            lexicographic_classes: self.lexicographic.to_vec(),
         }
     }
 }

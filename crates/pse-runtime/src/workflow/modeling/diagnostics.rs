@@ -270,8 +270,7 @@ impl ModelingPackage {
                 analysis.compiler,
                 analysis.solver.clone(),
                 analysis.numerical.clone(),
-                BTreeMap::new(),
-                BTreeMap::new(),
+                Default::default(),
                 true,
                 cancel,
             )
@@ -425,7 +424,7 @@ impl ModelingPackage {
         for instance in structure.instances() {
             for contribution in &instance.contributions {
                 let set = match contribution.target {
-                    pse_math::binding::Target::Objective => &mut objective_variables,
+                    pse_math::binding::Target::Objective(_) => &mut objective_variables,
                     pse_math::binding::Target::Row(id) => {
                         let row = structure
                             .rows()
@@ -987,7 +986,7 @@ mod tests {
         );
         assert!(
             package
-                .prepare_analysis_attempt(&analysis, BTreeMap::new(), BTreeMap::new(), &cancel)
+                .prepare_analysis_attempt(&analysis, Default::default(), &cancel)
                 .await
                 .is_err()
         );
@@ -1015,7 +1014,7 @@ mod tests {
         );
         assert!(
             package
-                .prepare_analysis_attempt(&analysis, BTreeMap::new(), BTreeMap::new(), &cancel)
+                .prepare_analysis_attempt(&analysis, Default::default(), &cancel)
                 .await
                 .is_err()
         );

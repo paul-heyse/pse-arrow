@@ -106,6 +106,7 @@ impl Pipeline {
                 bound_dual: None,
                 reduced_costs: None,
                 slacks: None,
+                commitment: None,
             });
         }
         Ok(Some(report))

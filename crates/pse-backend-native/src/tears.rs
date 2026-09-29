@@ -97,6 +97,7 @@ pub fn compile(graph: &FlowGraph) -> Result<TearProblem, ProblemError> {
         constraints,
         hessian: None,
         bounds: vec![(f64::NEG_INFINITY, -1.0); d.connections.len()],
+        objectives: Vec::new(),
     };
     problem.validate()?;
     Ok(TearProblem { problem, decisions })

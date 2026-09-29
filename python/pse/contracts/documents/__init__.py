@@ -208,7 +208,9 @@ class HighsDiagnostics(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     #: The MIP solver's cut pool after root cut generation (callback kind 7).
     cut_pool: bool = False
     #: Duals of the MIP's LP with its discrete columns fixed at the solution
-    #: (`Highs_getFixedLp`), conditional on that commitment.
+    #: (`Highs_getFixedLp`), conditional on that commitment. When that LP reaches the MIP
+    #: candidate's objective they become the candidate's multipliers, and the candidate
+    #: states the commitment (ADR-0118 item 9).
     fixed_lp: bool = False
     #: Native irreducible infeasible subsystem; MIP scope is its LP relaxation.
     iis: bool = False
@@ -240,7 +242,8 @@ class HighsPenalties(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 class HighsSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="highs"):
     """HiGHS method, opt-in diagnostics and partial MIP start."""
 
-    #: Opt-in native work, separate from the original candidate.
+    #: Opt-in native work, separate from the original candidate except the
+    #: fixed-commitment LP, which prices it.
     diagnostics: HighsDiagnostics = msgspec.field(default_factory=lambda: msgspec.convert({"basis_inverse": None, "cut_pool": False, "fixed_lp": False, "iis": False, "presolve": False, "ranging": False, "rays": False, "relaxation": None}, type=HighsDiagnostics))
     #: Eligible LP algorithm; mixed models retain native class routing.
     method: enums.HighsMethod = enums.HighsMethod.CHOOSE

@@ -44,7 +44,7 @@ Derived in: pse-math.
 | Frame | Spelling | Meaning |
 |---|---|---|
 | `MathBodyV1` | `pse.math.body.v1` | An expression body key, never over printed atoms or process-global identifiers. |
-| `MathCaseStructureV4` | `pse.math.case-structure.v4` | A bound case's structure: bindings, units, inventories, class declarations and the requirements its lowerings place on the route. |
+| `MathCaseStructureV5` | `pse.math.case-structure.v5` | A bound case's structure: bindings, units, inventories, class declarations, the requirements its lowerings place on the route, and its objectives with their lexicographic degradations. |
 | `MathCaseValuesV1` | `pse.math.case-values.v1` | A bound case's values, separate from structure and prepared arithmetic. |
 | `MathGuardedRealV1` | `pse.math.guarded-real.v1` | The compiler-owned guarded-real interpretation policy. |
 | `MathBoundFactsV2` | `pse.math.bound-facts.v2` | Shared bound facts of a presolve analysis. |

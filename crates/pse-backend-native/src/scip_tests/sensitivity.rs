@@ -8,6 +8,7 @@ use crate::{
     execution::ResolveSensitivity,
     kkt::{Parametric, Sensitivity, Withheld},
     presolve::Policy,
+    transform::Relaxed,
 };
 
 /// A compiled case with declared parameters: its solve plan and its parametric plan.
@@ -52,7 +53,7 @@ fn parameterized(
         .map(|k| Contribution {
             output: k,
             target: if k == rows.len() {
-                Target::Objective
+                Target::PRIMARY
             } else {
                 Target::Row(id(101 + u8::try_from(k).unwrap()))
             },
@@ -129,26 +130,19 @@ impl Parameterized {
     fn rows(&self) -> usize {
         self.solve.structure().rows().len()
     }
-    /// Callbacks over `assembly` with the columns of `assignment` fixed, identity
-    /// normalization, and the compiler's presolve facts for the solve plan on request.
+    /// Callbacks over `assembly` with identity normalization, and the compiler's presolve
+    /// facts for the solve plan on request.
     fn oracle(
         &self,
         assembly: &Arc<CaseAssembly>,
-        assignment: &BTreeMap<usize, (f64, f64)>,
         facts: bool,
     ) -> Result<Box<dyn NlpOracle>, ProblemError> {
         let worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
-        let columns = self.solve.columns();
-        let fixed = assignment.iter().map(|(i, v)| (columns[*i], *v)).collect();
-        let mut oracle = crate::assembled::AlgebraicOracle::with_fixed_assignment(
-            worker,
-            self.values.clone(),
-            &fixed,
-        )?
-        .with_normalization(Normalization::identity(
-            assembly.columns().len(),
-            self.rows(),
-        ))?;
+        let mut oracle = crate::assembled::AlgebraicOracle::new(worker, self.values.clone())?
+            .with_normalization(Normalization::identity(
+                assembly.columns().len(),
+                self.rows(),
+            ))?;
         if facts {
             let cancel = Arc::new(AtomicBool::new(false));
             oracle = oracle.with_presolve_facts(Arc::new(
@@ -157,9 +151,19 @@ impl Parameterized {
         }
         Ok(Box::new(oracle))
     }
-    fn request(&self, assignment: &BTreeMap<usize, (f64, f64)>) -> Sensitivity {
+    /// Callbacks over `assembly` with every column, discrete ones included, for a re-solve
+    /// to pin.
+    fn relaxed(&self, assembly: &Arc<CaseAssembly>) -> Result<Relaxed, ProblemError> {
+        let worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+        crate::assembled::AlgebraicOracle::relaxation(
+            worker,
+            self.values.clone(),
+            Normalization::identity(assembly.columns().len(), self.rows()),
+        )
+    }
+    fn request(&self) -> Sensitivity {
         Sensitivity {
-            oracle: self.oracle(&self.parametric, assignment, false).unwrap(),
+            oracle: self.oracle(&self.parametric, false).unwrap(),
             parameters: self.parameters.clone(),
             reduced_hessian: true,
         }
@@ -167,12 +171,7 @@ impl Parameterized {
 }
 
 /// One NLP solve through the one runner, with the request's sensitivities.
-fn nlp(
-    case: &Parameterized,
-    backend: Backend,
-    assignment: &BTreeMap<usize, (f64, f64)>,
-    presolve: &Policy,
-) -> SolveReport {
+fn nlp(case: &Parameterized, backend: Backend, presolve: &Policy) -> SolveReport {
     let (n, m) = (case.solve.columns().len(), case.rows());
     let controls = Controls::default();
     let accuracy = ResolvedAccuracy::from_policy(&Default::default(), 1e-9).unwrap();
@@ -193,7 +192,7 @@ fn nlp(
         &mut Retained::default(),
         execution::Nlp {
             oracle: case
-                .oracle(&case.solve, assignment, matches!(presolve, Policy::Auto))
+                .oracle(&case.solve, matches!(presolve, Policy::Auto))
                 .unwrap(),
             initial: &case.initial(),
             presolve,
@@ -202,7 +201,7 @@ fn nlp(
             limit: 100_000,
             analysis: execution::Analysis {
                 second_order: true,
-                sensitivity: Some(case.request(assignment)),
+                sensitivity: Some(case.request()),
                 inverse_reduced_hessian: None,
             },
         },
@@ -225,8 +224,8 @@ fn scip(case: &Parameterized) -> SolveReport {
     let tolerances = tolerances(n, m);
     let normalization = Normalization::identity(n, m);
     let mut original = Evaluated(case);
-    let mut fixed = |a: &BTreeMap<usize, (f64, f64)>| case.oracle(&case.solve, a, false);
-    let mut parametric = |a: &BTreeMap<usize, (f64, f64)>| case.oracle(&case.parametric, a, false);
+    let mut relaxed = || case.relaxed(&case.solve);
+    let mut parametric = || case.relaxed(&case.parametric);
     let initial = case.initial();
     execution::factorable(
         Step {
@@ -247,7 +246,7 @@ fn scip(case: &Parameterized) -> SolveReport {
             intent: SolveIntent::Optimize,
             original: &mut original,
             resolve: Some(Resolve {
-                oracle: &mut fixed,
+                oracle: &mut relaxed,
                 presolve: &Policy::Auto,
                 limit: 100_000,
                 sensitivity: Some(ResolveSensitivity {
@@ -380,7 +379,7 @@ fn sensitivity_backend_independent() {
     // The local routes differentiate the same continuous problem.
     let case = quadratic(&registry, false);
     for backend in [Backend::Ipopt, Backend::Pounce] {
-        let report = nlp(&case, backend, &BTreeMap::new(), &Policy::Off);
+        let report = nlp(&case, backend, &Policy::Off);
         assert_eq!(report.qualification, Qualification::Stationary, "{backend:?}");
         analytic(certified(&report));
     }
@@ -393,10 +392,9 @@ fn sensitivity_survives_presolve() {
     // removed.
     let registry = standard_registry().unwrap();
     let case = quadratic(&registry, false);
-    let none = BTreeMap::new();
     for backend in [Backend::Ipopt, Backend::Pounce] {
-        let off = nlp(&case, backend, &none, &Policy::Off);
-        let auto = nlp(&case, backend, &none, &Policy::Auto);
+        let off = nlp(&case, backend, &Policy::Off);
+        let auto = nlp(&case, backend, &Policy::Auto);
         let dimensions = &auto.preprocessing.as_ref().unwrap().dimensions;
         assert!(
             dimensions.presolved_rows < dimensions.original_rows,
@@ -458,8 +456,7 @@ fn presolve_lost_multiplier_withholds_sensitivity() {
     // d²f*/dp² = [[2/3, 1/3], [1/3, −1/3]].
     let registry = standard_registry().unwrap();
     let case = singleton(&registry);
-    let none = BTreeMap::new();
-    let off = nlp(&case, Backend::Ipopt, &none, &Policy::Off);
+    let off = nlp(&case, Backend::Ipopt, &Policy::Off);
     let certified = certified(&off);
     let s = certified.sensitivities.as_ref().unwrap();
     assert!((s.primal[0][2] - 1.0).abs() < 1e-6 && s.primal[1][2].abs() < 1e-6, "{s:?}");
@@ -470,7 +467,7 @@ fn presolve_lost_multiplier_withholds_sensitivity() {
     for (actual, expected) in h.values.iter().zip([2.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, -1.0 / 3.0]) {
         assert!((actual - expected).abs() < 1e-6, "{h:?}");
     }
-    let auto = nlp(&case, Backend::Ipopt, &none, &Policy::Auto);
+    let auto = nlp(&case, Backend::Ipopt, &Policy::Auto);
     assert_eq!(
         auto.preprocessing.as_ref().unwrap().dimensions.presolved_rows,
         0

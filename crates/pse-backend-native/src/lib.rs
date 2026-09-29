@@ -495,6 +495,20 @@ pub fn validate_nlp(oracle: &dyn NlpOracle, order: DerivativeOrder) -> Result<()
     Ok(())
 }
 
+/// One objective of a lexicographic coefficient problem (ADR-0111): its linear
+/// coefficients and constant in its own sense, and the degradation it admits while later
+/// objectives are optimized; the last admits none.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LinearObjective {
+    /// Linear coefficients in column order.
+    pub coefficients: Vec<f64>,
+    /// Constant term.
+    pub constant: f64,
+    /// Orientation of this objective.
+    pub sense: pse_math::binding::ObjectiveSense,
+    /// The degradation this objective admits while later ones are optimized.
+    pub degradation: Option<pse_math::binding::Degradation>,
+}
 /// Library-owned sparse coefficients for linear or quadratic programs.
 #[derive(Clone, Debug)]
 pub struct CoefficientProblem {
@@ -516,10 +530,32 @@ pub struct CoefficientProblem {
     pub hessian: Option<faer::sparse::SparseColMat<usize, f64>>,
     /// Row bounds.
     pub bounds: Vec<(f64, f64)>,
+    /// Every objective in lexicographic optimization order when the structure has several
+    /// (ADR-0111); empty otherwise. The first is `objective`, `objective_constant` and
+    /// `sense`.
+    pub objectives: Vec<LinearObjective>,
 }
 impl CoefficientProblem {
     /// Refuse malformed coefficient profiles before a native library sees them.
     pub fn validate(&self) -> Result<(), ProblemError> {
+        let last = self.objectives.len().saturating_sub(1);
+        if self.objectives.len() == 1
+            || self.objectives.iter().enumerate().any(|(k, o)| {
+                o.coefficients.len() != self.objective.len()
+                    || o.coefficients.iter().any(|v| !v.is_finite())
+                    || !o.constant.is_finite()
+                    || (k < last) != o.degradation.is_some()
+            })
+            || self.objectives.first().is_some_and(|o| {
+                o.coefficients != self.objective
+                    || o.constant.to_bits() != self.objective_constant.to_bits()
+                    || o.sense != self.sense
+            })
+        {
+            return Err(ProblemError::Contract(
+                "malformed lexicographic objectives".into(),
+            ));
+        }
         self.contract.validate(DerivativeOrder::Value)?;
         let n = self.contract.variables.len();
         let m = self.contract.rows.len();
@@ -832,6 +868,7 @@ mod tests {
             sense: pse_math::binding::ObjectiveSense::Minimize,
             domains: vec![pse_model::generated::enums::ModelingVariableDomain::Continuous],
             assumptions: ContentHash::from_bytes([1; 32]),
+            objectives: Vec::new(),
         };
         p.validate().unwrap();
         p.objective.clear();

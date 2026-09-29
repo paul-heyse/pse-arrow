@@ -702,6 +702,7 @@ impl Session {
                 bound_dual: Some((lower, upper)),
                 reduced_costs: None,
                 slacks: Some(solution.s[..self.rows].to_vec()),
+                commitment: None,
             });
             match crate::quality::contained(|| quality(p, &solution.x, tolerances)) {
                 Ok(q) => {

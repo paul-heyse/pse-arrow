@@ -21,7 +21,8 @@ pub struct Settings {
     /// MIP node budget, separate from the iteration budget (F10). `None` leaves the native
     /// default (no node limit), so the time limit alone bounds the search.
     pub nodes: Option<u32>,
-    /// Opt-in native work, separate from the original candidate.
+    /// Opt-in native work, separate from the original candidate except the
+    /// fixed-commitment LP, which prices it.
     pub diagnostics: Request,
     /// Partial source-attributed MIP start, with unspecified coordinates absent.
     pub sparse_start: Option<BTreeMap<SemanticId, f64>>,
@@ -52,7 +53,9 @@ pub struct Request {
     /// forbid violation, as in the native API; no penalty is inferred from units.
     pub relaxation: Option<Penalties>,
     /// Duals of the MIP's LP with its discrete columns fixed at the solution
-    /// (`Highs_getFixedLp`), conditional on that commitment.
+    /// (`Highs_getFixedLp`), conditional on that commitment. When that LP reaches the MIP
+    /// candidate's objective they become the candidate's multipliers, and the candidate
+    /// states the commitment (ADR-0118 item 9).
     pub fixed_lp: bool,
     /// Rows of the basis inverse `B⁻¹` at these basis positions, with the basic variables,
     /// for an optimal continuous LP with a valid basis.

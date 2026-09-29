@@ -88,6 +88,7 @@ fn problem(
         .unwrap(),
         hessian: None,
         bounds: rows.to_vec(),
+        objectives: Vec::new(),
     }
 }
 fn budgets(p: &CoefficientProblem, budget: f64) -> Tolerances {

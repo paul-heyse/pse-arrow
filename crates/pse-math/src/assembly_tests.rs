@@ -62,7 +62,7 @@ fn fixture(alias: bool, fixed: bool) -> (Arc<CaseAssembly>, CaseValues) {
     let contributions = vec![
         Contribution {
             output: 0,
-            target: Target::Objective,
+            target: Target::PRIMARY,
             scale: 1.0,
         },
         Contribution {
@@ -384,7 +384,7 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
                     slots: vec![SlotBinding::new(&port, &port, &registry).unwrap()],
                     contributions: vec![Contribution {
                         output: 0,
-                        target: Target::Objective,
+                        target: Target::PRIMARY,
                         scale: 1.0,
                     }],
                 }],
@@ -521,7 +521,7 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
                 contributions: vec![
                     Contribution {
                         output: 0,
-                        target: Target::Objective,
+                        target: Target::PRIMARY,
                         scale: 1.0,
                     },
                     Contribution {
@@ -814,7 +814,7 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
                 contributions: vec![
                     Contribution {
                         output: 0,
-                        target: Target::Objective,
+                        target: Target::PRIMARY,
                         scale: 1.0,
                     },
                     Contribution {
@@ -887,4 +887,167 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
     );
     let hessian = worker.hessian(&values, 1.0, &[0.0]).unwrap().to_dense();
     assert_eq!(hessian[(1, 0)], 1.0);
+}
+
+/// A structure with several objectives keeps them in lexicographic order (ADR-0111): the
+/// first is the primary objective every evaluation reads, and each later one is projected
+/// to linear coefficients for a native lexicographic route only.
+#[test]
+fn lexicographic_structure_projects_every_level() {
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let port = |n| Port {
+        id: id(n),
+        quantity,
+        unit: registry.quantity_type(quantity).unwrap().canonical_unit,
+    };
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        2,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let a = builder.input(0, quantity, IndexSet::new(), id(20)).unwrap();
+    let b = builder.input(1, quantity, IndexSet::new(), id(21)).unwrap();
+    let sum = builder
+        .binary(Binary::Add, a.clone(), b.clone(), None, id(22))
+        .unwrap();
+    let difference = builder
+        .binary(Binary::Sub, a.clone(), b.clone(), None, id(23))
+        .unwrap();
+    let product = builder.binary(Binary::Mul, a, b, None, id(24)).unwrap();
+    let body = Arc::new(builder.prepare(&[sum, difference, product]).unwrap());
+    let key = ContentHash::from_bytes([2; 32]);
+    let variable = |n| Variable {
+        port: port(n),
+        fixed: false,
+        domain: ModelingVariableDomain::Continuous,
+        lower: Some(0.0),
+        upper: Some(10.0),
+    };
+    let objective = |sense| Objective { quantity, sense };
+    let degradation = Degradation {
+        absolute: 0.5,
+        relative: 0.0,
+    };
+    // Sum first, then twice the difference (or the product), on a row sum ≤ 4.
+    let structure = |later: usize, levels: Vec<(Objective, Option<Degradation>)>| {
+        CaseStructure::lexicographic(
+            vec![variable(1), variable(2)],
+            vec![],
+            vec![InstanceBinding {
+                instance: id(9),
+                body: key,
+                slots: vec![
+                    SlotBinding::new(&port(1), &port(1), &registry).unwrap(),
+                    SlotBinding::new(&port(2), &port(2), &registry).unwrap(),
+                ],
+                contributions: vec![
+                    Contribution {
+                        output: 0,
+                        target: Target::PRIMARY,
+                        scale: 1.0,
+                    },
+                    Contribution {
+                        output: later,
+                        target: Target::Objective(1),
+                        scale: 2.0,
+                    },
+                    Contribution {
+                        output: 0,
+                        target: Target::Row(id(10)),
+                        scale: 1.0,
+                    },
+                ],
+            }],
+            vec![Row {
+                id: id(10),
+                quantity,
+                lower: f64::NEG_INFINITY,
+                upper: 4.0,
+            }],
+            levels,
+            CaseLimits::default(),
+        )
+    };
+    let levels = vec![
+        (objective(ObjectiveSense::Maximize), Some(degradation)),
+        (objective(ObjectiveSense::Minimize), None),
+    ];
+    let lexicographic = structure(1, levels.clone()).unwrap();
+    assert!(lexicographic.lexicographic_levels());
+    assert_eq!(lexicographic.degradations(), [degradation]);
+    assert_eq!(
+        lexicographic.objective().unwrap().sense,
+        ObjectiveSense::Maximize
+    );
+    // One level, a degradation on the last level, a missing or negative one are refused.
+    for levels in [
+        vec![levels[0].clone()],
+        vec![levels[0].clone(), (levels[1].0.clone(), Some(degradation))],
+        vec![(levels[0].0.clone(), None), levels[1].clone()],
+        vec![
+            (
+                levels[0].0.clone(),
+                Some(Degradation {
+                    absolute: -1.0,
+                    relative: 0.0,
+                }),
+            ),
+            levels[1].clone(),
+        ],
+    ] {
+        assert!(structure(1, levels).is_err());
+    }
+    // The objectives and their degradations are structure.
+    let tighter = structure(
+        1,
+        vec![
+            (
+                objective(ObjectiveSense::Maximize),
+                Some(Degradation {
+                    absolute: 0.25,
+                    relative: 0.0,
+                }),
+            ),
+            levels[1].clone(),
+        ],
+    )
+    .unwrap();
+    assert_ne!(tighter.key(), lexicographic.key());
+    let cancel = Arc::new(AtomicBool::new(false));
+    let plan = |structure: CaseStructure| {
+        CasePlan::prepare(
+            Arc::new(structure),
+            BTreeMap::from([(key, body.clone())]),
+            &registry,
+            DerivativeOrder::Second,
+            AssemblyLimits::default(),
+            &cancel,
+        )
+        .unwrap()
+    };
+    let values = CaseValues {
+        scalars: BTreeMap::from([(id(1), 3.0), (id(2), 1.0)]),
+    };
+    let linear = plan(lexicographic);
+    // Every evaluation reads the primary objective: −(a + b) in minimization orientation.
+    let assembly = Arc::new(
+        Arc::new(linear.clone())
+            .compile(Optimization::default(), EvaluationLimits::default(), &cancel)
+            .unwrap(),
+    );
+    let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
+    assert_eq!(worker.objective(&values).unwrap(), -4.0);
+    let coefficients = linear.coefficients(&values, 1000, &cancel).unwrap();
+    assert_eq!(coefficients.objective, vec![1.0, 1.0]);
+    assert_eq!(coefficients.lexicographic, vec![(vec![2.0, -2.0], 0.0)]);
+    // A later level must be linear to be a coefficient model.
+    let quadratic = plan(structure(2, levels).unwrap());
+    let facts = quadratic.presolve_facts(&values, 1000, &cancel).unwrap();
+    assert_eq!(facts.lexicographic_degree, Some(2));
+    assert!(!facts.coefficient_eligible());
+    assert!(quadratic.coefficients(&values, 1000, &cancel).is_err());
 }

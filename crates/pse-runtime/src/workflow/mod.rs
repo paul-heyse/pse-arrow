@@ -31,6 +31,8 @@ pub use study::{
     StudyPoint, StudyPointDefinition, StudyStatus,
 };
 pub(crate) mod numerics;
+mod objectives;
+pub use objectives::{ModelingLevelsReport, ModelingObjectiveLevel};
 mod staged;
 mod strategies;
 mod time;
@@ -68,7 +70,7 @@ pub mod uncertainty;
 mod modeling;
 pub use modeling::ModelingNativeAnalysis;
 pub use modeling::{
-    DiagnosticSampleStop, ElasticObservation, ModelingAnalysis, ModelingCheck,
+    DiagnosticSampleStop, DiscreteInitialization, ElasticObservation, ModelingAnalysis, ModelingCheck,
     ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
     ModelingDiagnosticPolicy, ModelingDiagnosticPreparation, ModelingDiagnosticSamples,
     ModelingDiagnostics, ModelingElasticAttempt,

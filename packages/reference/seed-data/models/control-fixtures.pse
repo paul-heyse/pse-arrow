@@ -88,4 +88,63 @@
 @id("ad7bac7b5fdd495a990a1bdcd920c35e") test cstr_simultaneous source "Independent reduced incompressible CSTR/controller ODE, SciPy 1.18.1 DOP853 and Radau agree with rtol=1e-11 atol=1e-12; sample comparisons only" revision "1" fixture {dof 0; value root.cell[0{s}].inlet.concentration[chem.water]=initial_feed[chem.water]; value root.cell[0{s}].inlet.concentration[chem.sodium_hydroxide]=initial_feed[chem.sodium_hydroxide]; value root.cell[0{s}].inlet.concentration[chem.ethyl_acetate]=initial_feed[chem.ethyl_acetate]; value root.cell[0{s}].inlet.concentration[chem.sodium_acetate]=initial_feed[chem.sodium_acetate]; value root.cell[0{s}].inlet.concentration[chem.ethanol]=initial_feed[chem.ethanol]; value root.cell[0{s}].outlet.concentration[chem.water]=initial_outlet[chem.water]; value root.cell[0{s}].outlet.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.cell[0{s}].outlet.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.cell[0{s}].outlet.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.cell[0{s}].outlet.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.cell[0{s}].reaction.concentration[chem.water]=initial_outlet[chem.water]; value root.cell[0{s}].reaction.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.cell[0{s}].reaction.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.cell[0{s}].reaction.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.cell[0{s}].reaction.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.cell[0{s}].inlet.T=303.15{K}; value root.cell[0{s}].outlet.T=304.0858373453369{K}; value root.cell[0{s}].reaction.T=304.0858373453369{K}; value root.cell[0{s}].volume=0.0015{m3}; run simultaneous;} {
 @id("c1949bf2ca80483389891e41ad1157df") child root:ControlledCSTR=ControlledCSTR();
 }
+@id("ff1ff4104ae9440b834057b61012d1f6") def SaturatedProcess {
+@id("45e9f911735f4a3aa57ba2cd808c08a9") domain t:Time from 0{s} to 2{s};
+@id("35a06a04bf1a48baa4aa63c266e518e2") when analysis.route==analysis.integrated {
+@id("e896c0dd463d4b72a2ed6350f5926b71") discretize grid on t using integrated(elements=1,order=1);
+}
+@id("595e769bd9c046ffaa90baca5b4d7ce0") when analysis.route==analysis.simultaneous {
+@id("2f984c9abf994107a18b2b280d54e9b6") discretize grid on t using distributed_volumes.radau(elements=8,order=3);
+@id("4a81feed2986484284a1a63b1d748ffd") annotation objective tracking(minimize);
+}
+@id("c9df0eee727a40aca1f89f9625eb0043") param lag:Time=1{s};
+@id("811ee150cc62420aa44c819d188caa5f") param target:Scalar=1;
+@id("29bc289614db4148939dae2c6a579278") var holdup[i in t]:Time;
+@id("e0172aa764b54790b42a497c14e72942") var u[i in t]:Scalar;
+@id("ce465cfc228b473c830b0c8b6c444f00") eq process[i in t]:d(holdup[i])/di==u[i]-holdup[i]/lag;
+@id("7f2d1673e1f245e49a99c102eb6e7493") eq initial:holdup[0{s}]==0{s};
+@id("66c058bc34a34d7f8631cc33d3564fd6") let x[i in t]:Scalar=holdup[i]/lag;
+@id("6a035cfff693482e9d7096ab1ae84e6f") let tracking:Time=integral(i in t|(x[i]-target)*(x[i]-target));
+@id("8fc2ace4397641d5bf4b2473cc929cd3") annotation bounds u(0,1);
+@id("43a639d8ddbc4c86954fa653f0c38f4f") annotation bounds holdup(0{s},2{s});
+@id("1248ad3744364edaaf7de3637ec5c738") annotation start u(1);
+@id("35a59dd6f22a43299d828126088fa803") annotation start holdup(0{s});
+@id("4b0cf7f8eaf04e7ea5ca9236407287c1") annotation nominal holdup(lag);
+@id("32ffcc652f534cd497c3cb873a0d8270") annotation report tracking("tracking");
+@id("fb3a169553524aafa5740d3d57cdd09e") annotation check x(x[i]>=-1e-9 and x[i]<=1+1e-9);
+}
+@id("f33e2cf83c7e4f1b8df6da7f66212bd5") test saturated_simultaneous source "Analytic first-order lag lag*dx/dt=u-x, x(0)=0, bounded input 0<=u<=1, minimizing the integral of (x-target)^2 over 2 s: u=1 while x<target (x=1-exp(-t)), then u=target; J=(1-exp(-4))/2 at target 1 and ln(2)/4-1/8 at target 0.5" revision "1" fixture {dof 24; run simultaneous; intent optimize; fix root.u[0{s}]=1;} {
+@id("2f03e7e6d0554d68a3d2d714256bd59b") child root:SaturatedProcess=SaturatedProcess();
+}
+@id("50b334c432114f34ade0f9e24ff460e5") test saturated_integrated source "Analytic first-order lag lag*dx/dt=u-x, x(0)=0, under the saturated input u=1: x=1-exp(-t), integral of (x-1)^2 over 2 s (1-exp(-4))/2" revision "1" fixture {dof 0; run integrated; fix root.u[0{s}]=1; integrate samples(0.5{s},1{s},2{s}) relative(1e-10) normalized_absolute(1e-12) step(1e-5{s}) quadrature_relative(1e-9) quadrature_absolute(root.tracking=1e-10{s});} {
+@id("894bf686a0b24a6c91436d76b9d01f13") child root:SaturatedProcess=SaturatedProcess();
+}
+@id("74ab6d08c152445c89f6da0afdd3af46") def SwitchedProcess {
+@id("56231c7ea4d347489e49374406cce036") domain t:Time from 0{s} to 2{s};
+@id("2c49062326004807b08caa144ba8740a") when analysis.route==analysis.simultaneous {
+@id("e9e7b56e519242b69f49b9bb859fb5bd") discretize grid on t using distributed_volumes.radau(elements=4,order=2);
+@id("06349edb4ec54c3498964050d4730c37") annotation objective tracking(minimize);
+}
+@id("fa011f73968b49a49499503388056f98") param lag:Time=1{s};
+@id("b8a6d2fca3094b99a02345523e1ad9a9") param target:Scalar=0.5;
+@id("802b30f5927d4cbbbf37fb93cac19dce") param level:Power=1{W};
+@id("0569af723f344966a6981930e9b52ea5") var holdup[i in t]:Time;
+@id("d9295e39a76a46e5835825891dd3a26d") var u[i in t]:Scalar;
+@id("0da1b32fa54c4830abea2c242c49d7f3") var on[i in t]:Indicator in binary;
+@id("311749ae08654a55a1d11fac06562a5d") eq process[i in t]:d(holdup[i])/di==u[i]-holdup[i]/lag;
+@id("032d1a2e30fc40deb960c515febaf7c8") eq switched[i in t]:level*u[i]==level*on[i];
+@id("70f8c2b7c4364b14ab9ff622b356a483") eq initial:holdup[0{s}]==0{s};
+@id("dfe67c7c45474adbb53570eaa9202060") let x[i in t]:Scalar=holdup[i]/lag;
+@id("1edc034abb3945be95d49fc0d3a98adc") let tracking:Time=integral(i in t|(x[i]-target)*(x[i]-target));
+@id("de80c649d39c4e65ac61e52a21088f87") annotation bounds u(0,1);
+@id("f93ef4a7de7a45238e29d927087062e7") annotation bounds holdup(0{s},2{s});
+@id("db959d56b16248249bb9a7a52980e578") annotation start u(0);
+@id("a697008200b74156881aa9cda478b5fc") annotation start on(0{1});
+@id("250af3c11b1a4b6990c7fced41152cfe") annotation start holdup(0{s});
+@id("d570581e840646888472e9961fb1444c") annotation report tracking("tracking");
+@id("e7073bce56c94ae38011dd36b5c507bb") annotation check x(x[i]>=-1e-9 and x[i]<=1+1e-9);
+}
+@id("bbf77b04ed344205a780917531a693f4") test switched_simultaneous source "Analytic first-order lag lag*dx/dt=u-x, x(0)=0, with an on/off input u in (0,1) at every collocation node, minimizing the integral of (x-0.5)^2 over 2 s; bounded below by the continuous optimum ln(2)/4-1/8 and above by the always-on input, (1-exp(-4))/2-(1-exp(-2))+1/2" revision "1" fixture {dof 8; run simultaneous; intent optimize; fix root.on[0{s}]=1{1};} {
+@id("38ed5401e3224133b7c15742b6b8035f") child root:SwitchedProcess=SwitchedProcess();
+}
 }

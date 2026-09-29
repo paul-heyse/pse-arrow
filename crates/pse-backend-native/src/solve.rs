@@ -622,6 +622,10 @@ pub struct Candidate {
     pub reduced_costs: Option<Vec<f64>>,
     /// Native slack vector, when meaningful.
     pub slacks: Option<Vec<f64>>,
+    /// The discrete assignment the multipliers are conditional on, when they are the
+    /// multipliers of a mixed-integer candidate's continuous problem under it (ADR-0118
+    /// item 9): the SCIP fixed-assignment re-solve or the HiGHS fixed-commitment LP.
+    pub commitment: Option<crate::transform::Commitment>,
 }
 /// Reuse compatibility separates seed coordinates, the native profile and numeric data
 /// (F24).

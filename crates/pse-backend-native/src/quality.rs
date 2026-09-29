@@ -704,6 +704,7 @@ mod qualification_tests {
             bound_dual: None,
             reduced_costs: None,
             slacks: None,
+            commitment: None,
         });
         r.quality = Some(Quality::new(vec![], vec![], vec![]).unwrap());
         r

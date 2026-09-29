@@ -1038,8 +1038,10 @@ impl ModelingPackage {
                     policy.compiler,
                     policy.solver.clone(),
                     policy.numerical.clone(),
-                    seed,
-                    BTreeMap::new(),
+                    cases::CaseOverrides {
+                        seed,
+                        ..Default::default()
+                    },
                     false,
                     cancel,
                 )

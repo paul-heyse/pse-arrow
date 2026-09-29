@@ -30,6 +30,7 @@ static STUB_CAPABILITY: Capability = Capability {
     certifies: false,
     native_forms: &[],
     requirements: &[],
+    lexicographic: &[],
     reuse: "test session counter",
     cancellation: "none",
     diagnostics: "none",
@@ -126,6 +127,7 @@ impl BackendExecution for Stub {
             bound_dual: None,
             reduced_costs: None,
             slacks: None,
+            commitment: None,
         });
         report
             .metrics
@@ -320,6 +322,7 @@ fn from_row(row: &pse_model::generated::runtime::solver_capabilities::Row) -> &'
         certifies: row.certifies,
         native_forms: Box::leak(row.native_forms.clone().into_boxed_slice()),
         requirements: Box::leak(row.requirements.clone().into_boxed_slice()),
+        lexicographic: Box::leak(row.lexicographic_classes.clone().into_boxed_slice()),
         reuse: "",
         cancellation: "",
         diagnostics: "",
@@ -366,6 +369,7 @@ fn grid() -> Vec<ProblemFacts> {
                             variables: 1,
                             rows,
                             objective,
+                            objectives: usize::from(objective),
                             equalities,
                             domains: vec![domain],
                             derivatives,

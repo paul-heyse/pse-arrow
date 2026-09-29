@@ -721,6 +721,14 @@ class ModelingDiagnosticSampleStop(StrEnum):
     CANCELLED = "cancelled"
 
 
+class ModelingDiscreteInitialization(StrEnum):
+    """The declared ModelingDiscreteInitialization enumeration."""
+
+    REFUSE = "refuse"
+    FIX_AT_START = "fix_at_start"
+    FIX_AT = "fix_at"
+
+
 class ModelingElasticObservation(StrEnum):
     """The declared ModelingElasticObservation enumeration."""
 
@@ -756,6 +764,13 @@ class ModelingInitializationStep(StrEnum):
     STAGE = "stage"
     HOMOTOPY = "homotopy"
     ORIGINAL = "original"
+
+
+class ModelingObjectiveRoute(StrEnum):
+    """The declared ModelingObjectiveRoute enumeration."""
+
+    NATIVE = "native"
+    STAGED = "staged"
 
 
 class ModelingRealValueKind(StrEnum):
@@ -962,6 +977,7 @@ class NativeIneligibility(StrEnum):
     NATIVE_FORMS = "native_forms"
     LEAST_SQUARES = "least_squares"
     METHOD = "method"
+    LEXICOGRAPHIC = "lexicographic"
 
 
 class NativeMetricKind(StrEnum):

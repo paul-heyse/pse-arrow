@@ -62,7 +62,7 @@ pub(super) fn inputs() -> Inputs {
                 },
                 Contribution {
                     output: 1,
-                    target: Target::Objective,
+                    target: Target::PRIMARY,
                     scale: 1.,
                 },
             ],

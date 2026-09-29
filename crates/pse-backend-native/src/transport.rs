@@ -105,6 +105,33 @@ pub fn coefficients(
                 .zip(&n.rows)
                 .map(|((l, u), s)| Ok((bound(*l, *s)?, bound(*u, *s)?)))
                 .collect::<Result<_, ProblemError>>()?,
+            // Every lexicographic objective shares the objective scale; an absolute
+            // degradation is in objective units, a relative one is scale-free.
+            objectives: p
+                .objectives
+                .iter()
+                .map(|o| {
+                    Ok(crate::LinearObjective {
+                        coefficients: o
+                            .coefficients
+                            .iter()
+                            .zip(&n.variables)
+                            .map(|(v, s)| div(mul(*v, *s)?, n.objective))
+                            .collect::<Result<_, _>>()?,
+                        constant: div(o.constant, n.objective)?,
+                        sense: o.sense,
+                        degradation: o
+                            .degradation
+                            .map(|d| {
+                                Ok::<_, ProblemError>(pse_math::binding::Degradation {
+                                    absolute: div(d.absolute, n.objective)?,
+                                    relative: d.relative,
+                                })
+                            })
+                            .transpose()?,
+                    })
+                })
+                .collect::<Result<_, ProblemError>>()?,
         },
         proof,
     ))
@@ -328,6 +355,9 @@ pub fn recover(
         if let Some(v) = &mut c.slacks {
             values(v, &n.rows, false)?;
         }
+        if let Some(commitment) = &mut c.commitment {
+            commitment_values(commitment, n, contract)?;
+        }
     }
     if let Some(o) = &mut report.observation {
         if let Some(f) = &mut o.objective {
@@ -494,6 +524,23 @@ pub fn diagnostic_request(
     }
     Ok(out)
 }
+/// Committed column boxes in original coordinates.
+fn commitment_values(
+    commitment: &mut crate::transform::Commitment,
+    n: &Normalization,
+    contract: &OracleContract,
+) -> Result<(), ProblemError> {
+    for (id, (lower, upper)) in &mut commitment.columns {
+        let j = contract
+            .variables
+            .iter()
+            .position(|v| v.id == *id)
+            .ok_or_else(|| ProblemError::Internal("commitment column absent".into()))?;
+        *lower = mul(*lower, n.variables[j])?;
+        *upper = mul(*upper, n.variables[j])?;
+    }
+    Ok(())
+}
 /// Restore original diagnostic directions, bounds, costs and relaxed points; IIS identities persist.
 #[cfg(feature = "highs")]
 pub fn recover_diagnostics(
@@ -515,14 +562,7 @@ pub fn recover_diagnostics(
         *v = mul(*v, n.objective)?;
     }
     if let Some(fixed) = &mut r.fixed_lp {
-        for (id, value) in &mut fixed.commitment {
-            let j = contract
-                .variables
-                .iter()
-                .position(|v| v.id == *id)
-                .ok_or_else(|| ProblemError::Internal("commitment column absent".into()))?;
-            *value = mul(*value, n.variables[j])?;
-        }
+        commitment_values(&mut fixed.commitment, n, contract)?;
         if let Some(v) = &mut fixed.objective {
             *v = mul(*v, n.objective)?;
         }
@@ -637,6 +677,7 @@ mod tests {
             constraints: matrix(4.0),
             hessian: Some(matrix(2.0)),
             bounds: vec![(2.0, 20.0)],
+            objectives: Vec::new(),
         };
         let proof = crate::solver_tests::certify(p.hessian.as_ref().unwrap(), 1.0);
         let n = Normalization {

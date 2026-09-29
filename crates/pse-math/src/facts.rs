@@ -31,6 +31,9 @@ pub struct ProblemFacts {
     pub rows: usize,
     /// Has an authored optimization objective.
     pub objective: bool,
+    /// Objectives optimized together: none, one, or the lexicographic levels (ADR-0111),
+    /// which only a native lexicographic route optimizes at once.
+    pub objectives: usize,
     /// Every row is a finite equality.
     pub equalities: bool,
     /// One source-declared domain per free variable.
@@ -93,6 +96,7 @@ impl ProblemFacts {
             variables: plan.columns().len(),
             rows: plan.structure().rows().len(),
             objective: plan.structure().objective().is_some(),
+            objectives: plan.structure().objectives().len(),
             equalities: plan
                 .structure()
                 .rows()
@@ -153,6 +157,7 @@ impl crate::presolve::Facts {
     pub fn coefficient_eligible(&self) -> bool {
         self.affine.iter().all(Option::is_some)
             && self.objective_degree.is_some_and(|d| d <= 2)
+            && self.lexicographic_degree.is_some_and(|d| d <= 1)
             && self
                 .obligations
                 .values()
@@ -186,6 +191,7 @@ mod tests {
             objective_linear: vec![true],
             objective_degree: Some(2),
             curvature: None,
+            lexicographic_degree: Some(0),
         }
     }
     #[test]

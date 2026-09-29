@@ -40,6 +40,7 @@ fn problem(
             .unwrap(),
         hessian: None,
         bounds: rows.iter().map(|r| (r.1, r.2)).collect(),
+        objectives: Vec::new(),
     }
 }
 /// The coordinates of a problem that is its own original.
@@ -173,7 +174,10 @@ fn fixed_lp_duals_conditional_on_commitment() {
         .fixed_lp
         .unwrap_or_else(|| panic!("{:?}", evidence.unavailable));
     // The duals are conditional on the recorded commitment y = 3.
-    assert_eq!(fixed.commitment, vec![(p.contract.variables[1].id, 3.0)]);
+    assert_eq!(
+        fixed.commitment.columns,
+        vec![(p.contract.variables[1].id, (3.0, 3.0))]
+    );
     assert_eq!(fixed.termination.category, Termination::Success);
     let (rows, reduced) = (fixed.row_dual.unwrap(), fixed.reduced_costs.unwrap());
     // They equal the duals of the LP with y fixed by hand at that commitment.
