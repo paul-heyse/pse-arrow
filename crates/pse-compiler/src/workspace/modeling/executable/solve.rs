@@ -470,13 +470,7 @@ impl PreparedModeling {
             .admitted
             .outputs
             .iter()
-            .filter_map(|o| {
-                if let ModelingOutput::Equation { id, .. } = o {
-                    Some(*id)
-                } else {
-                    None
-                }
-            })
+            .filter_map(|o| o.constraint().map(|(id, _)| id))
             .collect::<BTreeSet<_>>();
         let rows = model
             .admitted

@@ -1252,6 +1252,19 @@ impl CheckedPackage {
             if let Some(v) = &row.value.annotation {
                 texts.push(&v.target);
                 texts.extend(v.arguments.iter().map(String::as_str));
+                if let Some(o) = &v.objective {
+                    texts.extend(
+                        [
+                            &o.weight,
+                            &o.normalization,
+                            &o.absolute_tolerance,
+                            &o.relative_tolerance,
+                        ]
+                        .into_iter()
+                        .flatten()
+                        .map(String::as_str),
+                    );
+                }
             }
             if let Some(v) = &row.value.continuous {
                 texts.extend([v.type_name.as_str(), v.lower.as_str(), v.upper.as_str()]);

@@ -358,6 +358,21 @@ impl SpecializedModel {
             + map(&self.connections, |_, v| lineage(&v.lineage))
             + map(&self.connectivity, |_, v| lineage(&v.lineage))
             + map(&self.functions, |n, v| n.capacity() + function(v))
+            + self.objectives.members.capacity()
+                * size_of::<crate::specialize::ObjectiveMember>()
+            + self
+                .objectives
+                .members
+                .iter()
+                .map(|m| lineage(&m.lineage))
+                .sum::<usize>()
+            + self.objectives.levels.capacity() * size_of::<crate::specialize::ObjectiveLevel>()
+            + self
+                .objectives
+                .levels
+                .iter()
+                .map(|l| l.members.capacity() * size_of::<usize>())
+                .sum::<usize>()
             + self.annotations.capacity() * size_of::<crate::annotation::Annotation>()
             + self
                 .annotations

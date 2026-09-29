@@ -394,12 +394,31 @@ fn print_block(
                     .collect::<Vec<_>>()
                     .join(" ")
             ),
-            Selected::Annotation(v) => format!(
-                "annotation {} {}({});",
-                crate::grammar::render_name(&v.annotation_type),
-                v.target,
-                v.arguments.join(", ")
-            ),
+            Selected::Annotation(v) => {
+                let arguments = match &v.objective {
+                    // ADR-0111: the sense, then the declared members in one canonical order.
+                    Some(o) if v.annotation_type == "objective" && v.arguments.is_empty() => {
+                        let mut members = vec![o.sense.as_str().to_owned()];
+                        members.extend(o.priority.map(|p| format!("priority = {p}")));
+                        for (name, value) in [
+                            ("weight", &o.weight),
+                            ("normalization", &o.normalization),
+                            ("absolute_tolerance", &o.absolute_tolerance),
+                            ("relative_tolerance", &o.relative_tolerance),
+                        ] {
+                            members.extend(value.as_ref().map(|v| format!("{name} = {v}")));
+                        }
+                        members.join(", ")
+                    }
+                    None if v.annotation_type != "objective" => v.arguments.join(", "),
+                    _ => return Err(bad("an objective annotation carries exactly its typed members")),
+                };
+                format!(
+                    "annotation {} {}({arguments});",
+                    crate::grammar::render_name(&v.annotation_type),
+                    v.target,
+                )
+            }
             Selected::Expectation(v) => format!(
                 "expect {} == {} tolerance {}{};",
                 v.actual, v.expected, v.tolerance,

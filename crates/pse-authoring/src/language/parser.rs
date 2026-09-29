@@ -376,6 +376,57 @@ impl Cursor<'_> {
         }
         Ok(result)
     }
+    /// The members of an objective annotation after its opening parenthesis, through the
+    /// closing one: the sense, then each named member at most once, in any order.
+    fn objective_members(
+        &mut self,
+    ) -> Result<AuthoredModelingDeclarationsFieldValueAnnotationObjective> {
+        let sense = self
+            .word()?
+            .parse()
+            .map_err(|_| self.error("objective sense minimize or maximize"))?;
+        let mut objective = AuthoredModelingDeclarationsFieldValueAnnotationObjective {
+            sense,
+            priority: None,
+            weight: None,
+            normalization: None,
+            absolute_tolerance: None,
+            relative_tolerance: None,
+        };
+        while self.eat(",") {
+            let member = self.word()?;
+            self.expect("=")?;
+            let value = self.until(&[",", ")"])?;
+            let slot = match member.as_str() {
+                "priority" => {
+                    if objective.priority.is_some() {
+                        return Err(self.error("one objective priority"));
+                    }
+                    objective.priority = Some(
+                        value
+                            .replace(' ', "")
+                            .parse()
+                            .map_err(|_| self.error("integer objective priority"))?,
+                    );
+                    continue;
+                }
+                "weight" => &mut objective.weight,
+                "normalization" => &mut objective.normalization,
+                "absolute_tolerance" => &mut objective.absolute_tolerance,
+                "relative_tolerance" => &mut objective.relative_tolerance,
+                _ => {
+                    return Err(self.error(
+                        "objective member priority, weight, normalization, absolute_tolerance or relative_tolerance",
+                    ));
+                }
+            };
+            if slot.replace(value).is_some() {
+                return Err(self.error("each objective member at most once"));
+            }
+        }
+        self.expect(")")?;
+        Ok(objective)
+    }
     fn block(&mut self, parent: Option<DeclarationId>, depth: u32, braced: bool) -> Result<()> {
         if depth > self.budget.max_depth {
             return Err(AuthoringError::Budget {
@@ -1377,7 +1428,14 @@ impl Cursor<'_> {
                 let target = self.until(&["("])?;
                 self.expect("(")?;
                 let mut arguments = Vec::new();
-                if !self.eat(")") {
+                // ADR-0111: `annotation objective t(sense, member = value, ...)` carries
+                // typed members, not positional arguments.
+                let objective = if annotation_type == "objective" {
+                    Some(self.objective_members()?)
+                } else {
+                    None
+                };
+                if objective.is_none() && !self.eat(")") {
                     loop {
                         arguments.push(self.until(&[",", ")"])?);
                         if self.eat(")") {
@@ -1391,6 +1449,7 @@ impl Cursor<'_> {
                     annotation_type,
                     target,
                     arguments,
+                    objective,
                 })
             }
             "expect" => {

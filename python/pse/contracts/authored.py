@@ -497,12 +497,25 @@ class AuthoredModelingDeclarationsFieldValueConnection:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueAnnotationObjective:
+    """Declared relation row or nested value."""
+
+    sense: e.NativeObjectiveSense = attrs.field(validator=attrs.validators.instance_of(e.NativeObjectiveSense))
+    priority: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+    weight: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    normalization: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    absolute_tolerance: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    relative_tolerance: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueAnnotation:
     """Declared relation row or nested value."""
 
     annotation_type: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     arguments: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    objective: AuthoredModelingDeclarationsFieldValueAnnotationObjective | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueAnnotationObjective)))
 
 
 @attrs.frozen(kw_only=True)

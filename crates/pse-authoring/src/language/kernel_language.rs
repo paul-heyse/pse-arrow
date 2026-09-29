@@ -452,3 +452,76 @@ fn constraint_forms_and_disjunctions_parse_and_render() {
         );
     }
 }
+
+#[test]
+fn objective_members_parse_and_render() {
+    use pse_model::generated::enums::NativeObjectiveSense as Sense;
+    let source = r#"package p {
+ def D {
+ var cost: Money; var co2: Mass; var yield_: Scalar;
+ annotation objective cost(minimize, relative_tolerance = 1e-3, priority = -1, weight = 0.7, normalization = 1e6{USD}, absolute_tolerance = 0.01);
+ annotation objective co2(minimize, priority = -1, weight = 0.3, normalization = 1{t});
+ annotation objective yield_(maximize, priority = 2);
+ annotation start co2(1{t});
+ }
+}"#;
+    let annotation = |rows: &[Declaration], kind: &str, target: &str| {
+        rows.iter()
+            .filter_map(|r| r.value.annotation.clone())
+            .find(|a| a.annotation_type == kind && a.target == target)
+            .unwrap()
+    };
+    let rows = parse_named(source);
+    let cost = annotation(&rows, "objective", "cost");
+    assert!(cost.arguments.is_empty());
+    let members = cost.objective.unwrap();
+    assert_eq!(members.sense, Sense::Minimize);
+    assert_eq!(members.priority, Some(-1));
+    assert_eq!(members.weight.as_deref(), Some("0.7"));
+    assert_eq!(members.normalization.as_deref(), Some("1e6{USD}"));
+    assert_eq!(members.absolute_tolerance.as_deref(), Some("0.01"));
+    assert_eq!(members.relative_tolerance.as_deref(), Some("1e-3"));
+    let yield_ = annotation(&rows, "objective", "yield_").objective.unwrap();
+    assert_eq!((yield_.sense, yield_.priority), (Sense::Maximize, Some(2)));
+    assert_eq!(yield_.weight, None);
+    // Other annotations keep positional arguments and carry no objective members.
+    let start = annotation(&rows, "start", "co2");
+    assert_eq!((start.arguments, start.objective), (vec!["1{t}".into()], None));
+    // The canonical rendering lists the sense, then the members in declared order, and
+    // parses back to the same declarations.
+    let printed = render(&rows).unwrap();
+    assert!(printed.contains(
+        "annotation objective cost(minimize, priority = -1, weight = 0.7, normalization = 1e6{USD}, absolute_tolerance = 0.01, relative_tolerance = 1e-3);"
+    ), "{printed}");
+    assert!(printed.contains("annotation objective yield_(maximize, priority = 2);"));
+    let again = parse(
+        &printed,
+        SemanticId::NIL,
+        IdentityPolicy::Explicit,
+        ParseBudget::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
+        again.iter().map(|r| &r.value).collect::<Vec<_>>()
+    );
+    for invalid in [
+        "package p { def D { annotation objective x(least); } }",
+        "package p { def D { annotation objective x(minimize, priority = 1.5); } }",
+        "package p { def D { annotation objective x(minimize, priority = 1, priority = 2); } }",
+        "package p { def D { annotation objective x(minimize, weight = 1, weight = 2); } }",
+        "package p { def D { annotation objective x(minimize, scale = 2); } }",
+        "package p { def D { annotation objective x(minimize, 2); } }",
+    ] {
+        assert!(
+            parse(
+                invalid,
+                SemanticId::NIL,
+                IdentityPolicy::Named,
+                ParseBudget::default()
+            )
+            .is_err(),
+            "{invalid}"
+        );
+    }
+}

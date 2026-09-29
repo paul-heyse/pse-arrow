@@ -362,4 +362,6 @@ mod domain_tests;
 #[cfg(test)]
 mod forms_tests;
 #[cfg(test)]
+mod objective_tests;
+#[cfg(test)]
 mod tests;

@@ -91,6 +91,14 @@ pub enum ModelingError {
         /// Violated precondition.
         reason: RealizationRefusal,
     },
+    /// Objective members the multi-objective contract cannot admit (ADR-0111).
+    #[error("objective {declaration}: {}", .reason.as_str())]
+    Objective {
+        /// The objective annotation, or the first member of the refused level.
+        declaration: SemanticId,
+        /// Violated rule.
+        reason: ObjectiveRefusal,
+    },
     /// The caller withdrew this computation; never a cached semantic diagnostic.
     #[error("modeling cancelled")]
     Cancelled,
@@ -109,6 +117,11 @@ pse_diagnostics::impl_diagnostic! {
             pse_diagnostics::DiagnosticCode::ValidationInvariant
         },
         ModelingError::Realization { .. } => pse_diagnostics::DiagnosticCode::CapabilityBackend,
+        ModelingError::Objective { reason, .. } => if reason.is_unsupported() {
+            pse_diagnostics::DiagnosticCode::CapabilityBackend
+        } else {
+            pse_diagnostics::DiagnosticCode::ValidationInvariant
+        },
         ModelingError::Cancelled => pse_diagnostics::DiagnosticCode::RuntimeCancelled,
         ModelingError::Budget(_) => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
     }) },
@@ -120,7 +133,8 @@ impl ModelingError {
             Self::Contract { declaration, .. }
             | Self::Unsupported { declaration, .. }
             | Self::Domain { declaration, .. }
-            | Self::Realization { declaration, .. } => *declaration,
+            | Self::Realization { declaration, .. }
+            | Self::Objective { declaration, .. } => *declaration,
             _ => return self,
         };
         let mut matches = rows.iter().filter(|row| row.declaration_id.as_id() == id);
@@ -234,6 +248,25 @@ impl ModelingError {
                         .observations
                         .insert(name.into(), Observation::Text(value.into()));
                 }
+                return diagnostic;
+            }
+            Self::Objective {
+                declaration,
+                reason,
+            } => {
+                let mut diagnostic = BoundaryDiagnostic::new(
+                    if reason.is_unsupported() {
+                        Class::Unsupported
+                    } else {
+                        Class::InvalidModel
+                    },
+                    "modeling",
+                    [*declaration],
+                    "modeling.objective",
+                );
+                diagnostic
+                    .observations
+                    .insert("reason".into(), Observation::Text(reason.as_str().into()));
                 return diagnostic;
             }
             Self::Cancelled => (Class::Cancelled, "modeling.cancelled", None, None),
@@ -381,6 +414,60 @@ impl RealizationRefusal {
             Self::UnboundedInterval => "row interval is not finite over the case box",
             Self::Nonlinear => "a nonlinear disjunct row requires hull(epsilon)",
         }
+    }
+}
+/// The multi-objective rule an objective declaration or level violated (ADR-0111).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ObjectiveRefusal {
+    /// Several objectives, without a priority on each, nor one shared level with weights.
+    CompetingWithoutPriority,
+    /// A member of a level with several members declares no weight.
+    MissingWeight,
+    /// A weighted sum member is neither dimensionless nor normalized (PS-01).
+    DimensionalSum,
+    /// A weight is not a positive finite number.
+    InvalidWeight,
+    /// A normalization is not a positive finite value.
+    InvalidNormalization,
+    /// A tolerance is negative or not finite.
+    InvalidTolerance,
+    /// Members of one level declare different tolerances.
+    ConflictingTolerance,
+    /// A level that bounds a later level declares no absolute and relative tolerance.
+    MissingTolerance,
+    /// A staged level is bounded with zero tolerance, which only the native LP and MILP
+    /// route admits: an exactly active objective bound breaks constraint qualification.
+    ZeroTolerance,
+    /// The selected objective level does not exist.
+    UnknownLevel,
+}
+impl ObjectiveRefusal {
+    /// Stable diagnostic spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::CompetingWithoutPriority => {
+                "competing objectives need a priority on each, or one level with weights"
+            }
+            Self::MissingWeight => "a member of a weighted level needs a weight",
+            Self::DimensionalSum => {
+                "a weighted sum member must be dimensionless or declare a normalization"
+            }
+            Self::InvalidWeight => "a weight must be a positive finite number",
+            Self::InvalidNormalization => "a normalization must be a positive finite value",
+            Self::InvalidTolerance => "a tolerance must be a nonnegative finite value",
+            Self::ConflictingTolerance => "members of one level declare different tolerances",
+            Self::MissingTolerance => {
+                "a level bounding a later level declares an absolute and a relative tolerance"
+            }
+            Self::ZeroTolerance => {
+                "a staged level needs a positive tolerance; zero is native LP and MILP only"
+            }
+            Self::UnknownLevel => "the selected objective level does not exist",
+        }
+    }
+    /// A missing capability of the route, as opposed to an invalid model.
+    pub const fn is_unsupported(self) -> bool {
+        matches!(self, Self::ZeroTolerance)
     }
 }
 pub(crate) type Result<T> = std::result::Result<T, ModelingError>;

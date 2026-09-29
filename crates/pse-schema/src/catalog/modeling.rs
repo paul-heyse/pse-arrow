@@ -271,6 +271,20 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 text("annotation_type"),
                 text("target"),
                 strings("arguments"),
+                // ADR-0111: the typed members of `annotation objective`, present exactly on
+                // an objective, whose arguments are then empty. Priority orders levels
+                // (lower first); weight and normalization compose a level's weighted sum;
+                // the tolerances bound the level's degradation for later levels.
+                T::structure(vec![
+                    T::enumeration("NativeObjectiveSense").with_name("sense"),
+                    T::native(D::Int64).with_name("priority").optional(),
+                    text("weight").optional(),
+                    text("normalization").optional(),
+                    text("absolute_tolerance").optional(),
+                    text("relative_tolerance").optional(),
+                ])
+                .with_name("objective")
+                .optional(),
             ],
         ),
         (
@@ -435,7 +449,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         builder,
         N::Authored,
         "modeling_declarations",
-        4,
+        5,
         S::Model,
         &["declaration_id"],
         vec![
@@ -454,7 +468,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 T::structure(payload).with_alternative(&alternative),
             ),
         ],
-        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119).",
+        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111).",
     );
     enumeration(
         builder,
