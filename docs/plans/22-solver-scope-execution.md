@@ -144,6 +144,7 @@ Each packet does four things:
   - `sensitivity_backend_independent` (Ipopt, POUNCE and the SCIP re-solve);
   - `sensitivity_survives_presolve`;
   - `reduced_hessian_sign_pinned` (gh#937);
+  - `sensitivity_withheld_when_multiplier_fails_complementarity`, a negative control for a postsolved multiplier that fails original-coordinate complementarity (review finding F01, ADR-0118 Outcome 7);
   - `sensitivity_agrees_with_ipopt_sens` runs in Q1, in the parity container.
 - **Packet-start checks:** postsolve recovers the multipliers of rows that presolve removed; each parameter's scale has a known source.
 
@@ -160,7 +161,7 @@ Each packet does four things:
   - `profile_likelihood_matches_wald_on_linear_model`;
   - `profile_chain_seeds_from_predecessor`;
   - `covariance_withheld_without_declared_sigma`.
-- **Packet-start check:** how importance weights other than 1 fit the declared statistical model.
+- **Statistical model** (review finding F02, ADR-0118 Outcome 2): covariance requires unit importance for every included observation, and is withheld otherwise. Test: `covariance_withheld_with_nonunit_importance`.
 
 **S4 — uncertainty propagation** (after S3).
 - New `workflow/uncertainty.rs` computes Σ_y = J·Σ_θ·Jᵀ, taking J from S1 or from `FitReport.responses`.
@@ -352,10 +353,16 @@ This track owns `parser.rs`, `catalog/modeling.rs`, `pse-modeling/src/specialize
   - `disjunctive_complementarity_refused_on_highs`;
   - `flash_phase_disappearance_agrees_across_realizations` (3 feeds × 3 realizations).
 
+**ENV — provider envelope enforcement** (ADR-0120 items 5–7, review finding F04; `pse-kernels`).
+- Each envelope interval must contain a real number: (+∞, +∞) and (−∞, −∞) are refused.
+- The host checks every provider evaluation against the declared envelope; a violation is a typed `Contract` error.
+- The host includes the envelope in the provider's configuration key.
+- **Tests:** `envelope_rejects_empty_interval`, `envelope_violation_is_typed_contract_error`, `envelope_in_provider_key`.
+
 **Y0c kernel and Y0d** (ADR-0119).
 - **Schedules** as in Y0c.
 - **Events.** The registry `EventDirection` replaces `Crossing`. Fixture clauses `mode …` and `event guard direction tolerance reset(...) next(...)`.
-- **Sign constraints.** IDAS sign constraints come from constant-zero bound annotations; the guard stays the validity authority.
+- **Sign constraints.** IDAS sign constraints come from constant-zero bound annotations; the guard stays the validity authority. Authored bounds are the only source: the per-state `IdasSettings.constraints` vector is derived and is deleted as a runtime and Python setting (review finding F03, ADR-0119).
 - **Deletes:**
   - `ModelingDynamicMode`/`ModelingDynamicEvent` as inputs;
   - `FitProfile.modes` and `declared_simulation_modes`;
@@ -453,7 +460,7 @@ The coordinator:
 | Wave | Track 1 | Track 2 | Track 3 | Track 4 | Coordinator |
 |---|---|---|---|---|---|
 | W7 | T-N: R82874 → S0 | T-Y: Y0a → Y0b → Y4a → Y0c backend | T-C: C4, with the image check first | T-L: M2a → G6r kernel | ADR-0118–ADR-0121 (and ADR-0122 if needed); DOCS-a |
-| W8 | T-N: S1 | T-Y: Y3a → Y3b | T-G: G-semi → epigraph → G4r → G8f | T-L: C3 authoring → M5a | docs step |
+| W8 | T-N: S1 | T-Y: Y3a → Y3b | T-G: G-semi → epigraph → G4r → G8f | T-L: ENV → C3 authoring → M5a | docs step |
 | W9 | T-N: S3 → S4 | T-Y: Y4b → Y5b | T-C: C5 → M5b → N5 | T-M: M2b → M2c → C3 engine | docs step |
 | W10 | T-G: G6r tests, PC-SAFT slots, SCIP concurrency | T-L: Y0c kernel and Y0d | T-M: Y5a | — | docs step |
 | W11 | T-M: Y5c1 → Y5c2 | — | — | — | docs step |
@@ -511,8 +518,8 @@ baseline with its command and conditions.
 
 | Step | Packets | State |
 |---|---|---|
-| W7 | ADR-0118–ADR-0121; DOCS-a; R82874 → S0; Y0a → Y0b → Y4a → Y0c backend; C4; M2a → G6r kernel | running (2026-09-28): tracks T-D, T-N, T-Y, T-C, T-L in worktrees under `../pse-arrow-wt/` |
-| W8 | S1; Y3a → Y3b; G-semi → epigraph → G4r → G8f; C3 authoring → M5a | not started |
+| W7 | ADR-0118–ADR-0121; DOCS-a; R82874 → S0; Y0a → Y0b → Y4a → Y0c backend; C4; M2a → G6r kernel | running: ADR-0118–ADR-0121 accepted and merged (`68f4ea6d`); DOCS-a and T-N, T-Y, T-C, T-L running |
+| W8 | S1; Y3a → Y3b; G-semi → epigraph → G4r → G8f; ENV → C3 authoring → M5a | not started |
 | W9 | S3 → S4; Y4b → Y5b; C5 → M5b → N5; M2b → M2c → C3 engine | not started |
 | W10 | G6r tests, PC-SAFT, SCIP concurrency; Y0c kernel and Y0d; Y5a | not started |
 | W11 | Y5c1 → Y5c2 | not started |
@@ -531,6 +538,15 @@ decision records.
 
 Each worktree has its own target directory and dependency venv. The shared agent brief sits
 beside the worktrees; it is coordination scaffolding and is not tracked.
+
+**Decision records landed (merge `68f4ea6d`).** ADR-0118–ADR-0121 were accepted after the [change-tier review](../design_review/reviews/design_review_solver-scope-decisions_2026-09-28.md) returned Accept. Its findings F01–F05 were corrected in the records before acceptance and fed into these packets:
+- F01 → an S1 negative control;
+- F02 → an S3 test, replacing that packet's start check;
+- F03 → a Y0d deletion;
+- F04 → the new ENV packet;
+- F05 is settled in ADR-0121 itself: an explicit numerical-convexity request stays a per-request routing input.
+
+Blueprint revision 69. `just adr-lint` exits 0 on `main`.
 
 **Next:** in dependency order:
 1. the decision records;
