@@ -27,7 +27,7 @@ dispositions stay in the plan.
    - The pre-Plan-22 state is checkpointed at `85619285`.
 7. **Warnings.** The workspace had 503 `cargo check` warnings on entry (the remaining K8 static-quality findings). A packet must not add warnings in files it touches, and removes those it can in passing.
 
-8. **Local solver image until publication.** Native recipes need `PSE_SOLVER_IMAGE=sha256:0d685e7e7b22e6241e448995c645b9be597ef1d9e0007bb55a33a19e6491ae15` (`pse-solvers:dev-local`) until the rebuilt image is published to GHCR and pinned (`RECIPE_TAG` → `ipopt3.14.20-mumps5.9.1-metis5.1.0-spral2025.09.18-onemkl2026.1.0-scip10.0.2-r1`, then `just solver-pin-update`). Publication is an outward action the coordinator confirms with the maintainer.
+8. **Local solver image until publication.** Native recipes need `PSE_SOLVER_IMAGE=sha256:0d685e7e7b22e6241e448995c645b9be597ef1d9e0007bb55a33a19e6491ae15` (`pse-solvers:dev-local`) until the rebuilt image is published to GHCR and pinned (`RECIPE_TAG` → `ipopt3.14.20-mumps5.9.1-metis5.1.0-spral2025.09.18-onemkl2026.1.0-scip10.0.2-r1`, then `just solver-pin-update`). Publication is an outward action the coordinator confirms with the maintainer. **Done 2026-09-28:** published as `ci-ccfd084f7324`/`dev-ccfd084f7324` and pinned in `b0aed3ef`, so the override is no longer needed (the [solver scope packet](22-solver-scope-execution.md), maintainer decision 2).
 9. **Image run-time environment.** It refines ADR-0108 without changing its decision:
    - `OMP_PLACES=sockets` is set, because `OMP_PROC_BIND=TRUE` alone pins every process to CPU 0. The pse-worker sets its own places.
    - `HWLOC_COMPONENTS` excludes device scans; SPRAL's hwloc GPU scan cost about 8 s per solve.

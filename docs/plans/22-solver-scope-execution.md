@@ -43,10 +43,14 @@ are observations on `main` at `f87c0b5b`, not contracts.
    merge into `main` at packet boundaries (AGENTS.md *Personal-project checkout workflow*: genuine
    concurrent editing). Each agent sets `CARGO_TARGET_DIR=<worktree>/target`, and each worktree
    agent uses its own Python environment, never the main `.venv`.
-2. **Solver image.** The rebuilt image is published to GHCR and pinned
-   (`just --yes solver-image`, then `just solver-pin-update`) before Q1. That happens once C4's
-   image check has settled the final composition. Until then, native recipes need
-   `PSE_SOLVER_IMAGE` set to the immutable local image id.
+2. **Solver image.** The maintainer confirmed that the solver files are final, so the image
+   was published ahead of W7 rather than before Q1: `solvers-image.yml` run 36500279506
+   pushed `ci-ccfd084f7324` and `dev-ccfd084f7324`, pinned in `b0aed3ef`. Native recipes
+   need no `PSE_SOLVER_IMAGE` override any more. Its solver prefix matches the local
+   image the earlier Plan 22 work was tested against: 21 of 22 shared libraries are
+   byte-identical, and `libscip` differs only in an embedded build-host string. If C4's
+   image check needs `libmkl_rt`, the image is rebuilt, re-published and re-pinned with
+   ADR-0122.
 3. **Improve the target where the principles or library use allow** (the request for this
    plan). Improvements I1–I16 below are adopted with this packet. The ones that change an
    accepted decision are written as ADRs before their dependent packets start.
@@ -453,12 +457,13 @@ The coordinator:
 | W9 | T-N: S3 → S4 | T-Y: Y4b → Y5b | T-C: C5 → M5b → N5 | T-M: M2b → M2c → C3 engine | docs step |
 | W10 | T-G: G6r tests, PC-SAFT slots, SCIP concurrency | T-L: Y0c kernel and Y0d | T-M: Y5a | — | docs step |
 | W11 | T-M: Y5c1 → Y5c2 | — | — | — | docs step |
-| W12 | — | — | — | — | DOCS-z; publish and pin the solver image |
+| W12 | — | — | — | — | DOCS-z; re-publish and re-pin the image only if C4 changed it |
 | W13 | Q1 | | | | |
 
 **Environment at the start of W7:**
-- `just py-sync-native`: the doctor reported the environment outdated and an MKL import error;
-- `docker image inspect pse-solvers:dev-local`, then export `PSE_SOLVER_IMAGE` with its id;
+- the doctor passes on the native build (fixed in `9cab2ca2`); rerun `just py-sync-native`
+  if a plain `uv sync` has replaced the native extension;
+- the pinned images are pulled (`just bootstrap-solvers`), so no override is needed;
 - `just db-status`.
 
 **Agents** run as `general-purpose` with the skills they need and Context7:
@@ -511,13 +516,14 @@ baseline with its command and conditions.
 | W9 | S3 → S4; Y4b → Y5b; C5 → M5b → N5; M2b → M2c → C3 engine | not started |
 | W10 | G6r tests, PC-SAFT, SCIP concurrency; Y0c kernel and Y0d; Y5a | not started |
 | W11 | Y5c1 → Y5c2 | not started |
-| W12 | DOCS-z; image publication | not started |
+| W12 | DOCS-z; re-publication only if C4 changed the image | not started |
 | W13 | Q1 | not started |
 
 ## Current checkpoint (2026-09-28)
 
-**State.** Planned; nothing implemented. W7 starts with the decision records and the
-environment refresh listed under *Waves and coordination*.
+**State.** Planned; nothing implemented. The solver image is published and pinned
+(`b0aed3ef`), and the doctor recognizes the native build (`9cab2ca2`). W7 starts with the
+decision records.
 
 **Next:** in dependency order:
 1. the decision records;
