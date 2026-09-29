@@ -884,3 +884,49 @@ fn annotation_kinds_parse_typed_members() {
         );
     }
 }
+/// ADR-0123 Outcome 2: an enumeration member receives an identity at source creation and
+/// keeps it when renamed; the explicit policy requires one.
+#[test]
+fn enum_member_identity_survives_rename() {
+    let mut serial = 0_u8;
+    let source = assign_ids_with(
+        "package p { enum Phase { liquid, vapor } }",
+        SemanticId::NIL,
+        ParseBudget::default(),
+        &mut || {
+            serial += 1;
+            SemanticId::from_bytes([serial; 16])
+        },
+    )
+    .unwrap();
+    let members = |text: &str| {
+        parse(
+            text,
+            SemanticId::NIL,
+            IdentityPolicy::Explicit,
+            ParseBudget::default(),
+        )
+        .unwrap()
+        .into_iter()
+        .find_map(|row| row.value.enumeration)
+        .unwrap()
+        .members
+    };
+    let before = members(&source);
+    assert_eq!(before[0].member_id, SemanticId::from_bytes([3; 16]));
+    let after = members(&source.replace(") liquid", ") fluid"));
+    assert_eq!(after[0].name, "fluid");
+    assert_eq!(
+        before.iter().map(|m| m.member_id).collect::<Vec<_>>(),
+        after.iter().map(|m| m.member_id).collect::<Vec<_>>()
+    );
+    assert!(matches!(
+        parse(
+            "@id(\"00000000000000000000000000000001\") package p { @id(\"00000000000000000000000000000002\") enum E { a } }",
+            SemanticId::NIL,
+            IdentityPolicy::Explicit,
+            ParseBudget::default(),
+        ),
+        Err(crate::AuthoringError::MissingId { .. })
+    ));
+}

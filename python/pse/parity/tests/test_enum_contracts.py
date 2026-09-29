@@ -39,7 +39,7 @@ def admitted_names(
     physical = runtime.physical_from_documents(documents)
     package = runtime.modeling_from_documents([documents], physical)
     declared = {
-        row.name: row.value.enumeration.members
+        row.name: tuple(member.name for member in row.value.enumeration.members)
         for row in package.declarations()
         if row.value.enumeration is not None
     }

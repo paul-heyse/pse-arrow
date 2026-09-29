@@ -167,6 +167,31 @@ pub fn assign_ids_with(
             remap.insert(row.declaration_id, id);
         }
     }
+    // An enumeration member written without `@id` carries its named derivation; it
+    // receives a supplied identity as a declaration does (ADR-0123 Outcome 2).
+    let mut members = BTreeSet::new();
+    for row in &mut rows {
+        let owner = row.declaration_id.as_id();
+        let span = SourceSpan::new(document, row.source_start as u32, row.source_end as u32);
+        for member in row
+            .value
+            .enumeration
+            .as_mut()
+            .into_iter()
+            .flat_map(|e| e.members.iter_mut())
+        {
+            if member.member_id == pse_ids::named_id(owner, &format!("member:{}", member.name)) {
+                let id = next();
+                if id == SemanticId::NIL || !members.insert(id) {
+                    return Err(AuthoringError::Contract {
+                        at: Some(span),
+                        reason: "ID supplier returned a nil or duplicate member identity".into(),
+                    });
+                }
+                member.member_id = id;
+            }
+        }
+    }
     for row in &mut rows {
         row.declaration_id = remap
             .get(&row.declaration_id)
