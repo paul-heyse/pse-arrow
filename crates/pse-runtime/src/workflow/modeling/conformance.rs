@@ -245,7 +245,7 @@ impl ModelingConformanceReport {
         kind: Kind,
         status: Status,
         message: impl AsRef<str>,
-        oracle:Option<&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeOracle>,
+        oracle: Option<DeclarationId>,
         cap: usize,
     ) {
         if self.checks.len() >= cap {
@@ -260,11 +260,11 @@ impl ModelingConformanceReport {
             );
             return;
         }
-        let bytes =
-            message.as_ref().len().max(128).checked_add(
-                oracle.map_or(0, |o| o.reference.len().saturating_add(o.revision.len())),
-            );
-        if bytes.is_none_or(|bytes| self._owner.try_grow(bytes).is_err()) {
+        if self
+            ._owner
+            .try_grow(message.as_ref().len().max(128))
+            .is_err()
+        {
             self.complete = false;
             self.note_status(
                 fixture,
@@ -288,8 +288,7 @@ impl ModelingConformanceReport {
             status,
             message: message.as_ref().to_owned(),
             failure_ordinal: None,
-            oracle_reference: oracle.map(|o| o.reference.clone()),
-            oracle_revision: oracle.map(|o| o.revision.clone()),
+            oracle_source_id: oracle,
         });
     }
     /// A check about the fixture as a whole: it is its own target and source.
@@ -299,7 +298,7 @@ impl ModelingConformanceReport {
         kind: Kind,
         status: Status,
         message: impl AsRef<str>,
-        oracle:Option<&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeOracle>,
+        oracle: Option<DeclarationId>,
         cap: usize,
     ) {
         self.record(
@@ -393,7 +392,7 @@ impl ModelingConformanceReport {
         kind: Kind,
         error: &WorkflowError,
         expected: Option<&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure>,
-        oracle: Option<&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeOracle>,
+        oracle: Option<DeclarationId>,
         cap: usize,
     ) {
         use pse_model::diagnostic::BoundaryClass as C;
@@ -420,7 +419,7 @@ impl ModelingConformanceReport {
         &mut self,
         fixture: DeclarationId,
         checks: &[ModelingCheck],
-        oracle: Option<&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeOracle>,
+        oracle: Option<DeclarationId>,
         cap: usize,
     ) {
         let mut closure = false;
@@ -498,7 +497,7 @@ impl ModelingConformanceReport {
             .as_ref()
             .and_then(|s| s.fixture.as_ref())
             .and_then(|f| f.expected_failure.as_ref());
-        let oracle = row.value.scope.as_ref().and_then(|s| s.oracle.as_ref());
+        let oracle = data.and_then(|f| f.oracle);
         match checked {
             Ok(checks) => {
                 self.record_fixture(
@@ -695,7 +694,7 @@ impl ModelingPackage {
                 | pse_backend_native::solve::HessianMode::GaussNewton => DerivativeOrder::Second,
             };
 
-            let oracle = row.value.scope.as_ref().and_then(|s| s.oracle.as_ref());
+            let oracle = self.revision.oracle(fixture);
             let authored = row.value.scope.as_ref().and_then(|s| s.fixture.as_ref());
             let expected_failure = authored.and_then(|f| f.expected_failure.as_ref());
             let execution = authored
@@ -1626,24 +1625,19 @@ mod tests {
         )
         .unwrap();
         let base = pool.reserved();
-        let oracle = pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeOracle {
-            reference: "source".repeat(10000), revision: "revision".into(),
-        };
+        let oracle = DeclarationId::from_bytes([3; 16]);
         let message = "derivative comparison\n".repeat(500);
         report.record_fixture(
             ids[0],
             Kind::Preparation,
             Status::Failed,
             &message,
-            Some(&oracle),
+            Some(oracle),
             1,
         );
-        assert!(pool.reserved() >= base + oracle.reference.len() + message.len());
+        assert!(pool.reserved() >= base + message.len());
         assert_eq!(report.checks[0].message, message);
-        assert_eq!(
-            report.checks[0].oracle_reference.as_deref(),
-            Some(oracle.reference.as_str())
-        );
+        assert_eq!(report.checks[0].oracle_source_id, Some(oracle));
         let mut failure = BoundaryDiagnostic::new(
             BoundaryClass::InvalidModel,
             "test",
@@ -1751,10 +1745,38 @@ mod tests {
             maximum_checks: 50,
         }
     }
+    /// Every check of a fixture that names an oracle carries the oracle's source entity
+    /// identity, and the published relation keeps it (ADR-0123 Outcome 5).
+    #[tokio::test]
+    async fn conformance_publishes_oracle_source_id() {
+        let p = package(
+            "package p { entity kind source provenance { attribute title: Text; } entity kind release extends source { attribute version: Text; } entity release upstream { title = \"Upstream\", version = \"2.13.0\" } fn cube(x:Scalar)->Scalar=x*x*x; test compared oracle upstream { expect cube(2)==8 tolerance 1e-8; } test analytic { expect cube(3)==27 tolerance 1e-8; } }",
+        );
+        let id = |name: &str| {
+            p.declarations()
+                .iter()
+                .find(|r| r.name == name)
+                .unwrap()
+                .declaration_id
+        };
+        let report = p
+            .conform(policy(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let (compared, analytic) = (id("compared"), id("analytic"));
+        let checks = |fixture| report.checks.iter().filter(move |c| c.fixture_id == fixture);
+        assert!(checks(compared).count() > 0 && checks(analytic).count() > 0);
+        assert!(checks(compared).all(|c| c.oracle_source_id == Some(id("upstream"))));
+        assert!(checks(analytic).all(|c| c.oracle_source_id.is_none()));
+        let table = report.table().unwrap();
+        let rows = ModelingConformanceCheck::rows(&table).unwrap();
+        assert_eq!(rows, report.checks);
+        assert!(rows.iter().any(|c| c.oracle_source_id == Some(id("upstream"))));
+    }
     #[tokio::test]
     async fn kernel_conformance_discovers_pure_tests_and_reports_uncovered_definitions() {
         let p = package(
-            "package p { fn cube(x:Scalar)->Scalar=x*x*x; test pure source \"analytic:cube\" revision \"v1\" { expect cube(2)==8 tolerance 1e-8; } def Missing { var x:Scalar; eq e:x==1; } }",
+            "package p { fn cube(x:Scalar)->Scalar=x*x*x; test pure { expect cube(2)==8 tolerance 1e-8; } def Missing { var x:Scalar; eq e:x==1; } }",
         );
         let report = p
             .conform(policy(), &crate::CancelSource::new())
@@ -1764,7 +1786,7 @@ mod tests {
         assert!(report.complete);
         assert!(report.checks.iter().any(|c| c.kind == Kind::Expectation
             && c.status == Status::Passed
-            && c.oracle_reference.as_deref() == Some("analytic:cube")));
+            && c.oracle_source_id.is_none()));
         assert!(
             report
                 .checks
@@ -2074,7 +2096,9 @@ mod tests {
  def D { var x:Scalar; accumulate balance:Scalar conservation tolerance 1e-6;
    contribute balance role inflow = x*x; contribute balance role outflow = 4;
    annotation start x(1); annotation valid x(0,10,reject); }
- test fixture source "idaes-oracle:synthetic-fixture::0" revision "source-v1" fixture { dof 0; lower root.x = 0; } {
+ entity kind source provenance { attribute title: Text; }
+ entity source synthetic { title = "synthetic fixture" }
+ test fixture oracle synthetic fixture { dof 0; lower root.x = 0; } {
    child root:D=D(); expect root.x==2 tolerance 1e-6;
  }
  }"#,

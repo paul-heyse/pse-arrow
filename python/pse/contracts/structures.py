@@ -210,6 +210,23 @@ class ModelingCompleteness:
 
 
 @attrs.frozen(kw_only=True)
+class ModelingLineageEntry:
+    """Declared relation row or nested value."""
+
+    kind: e.ModelingLineageKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingLineageKind))
+    path: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingProvenance:
+    """Declared relation row or nested value."""
+
+    source: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    role: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    lineage: b.tuple[ModelingLineageEntry, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ModelingLineageEntry), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class ModelingTypeArenaNodeExponent:
     """Declared relation row or nested value."""
 

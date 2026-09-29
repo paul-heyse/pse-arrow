@@ -79,6 +79,12 @@ pub struct CheckedPackage {
     pub(crate) identifiers: crate::entity::ModelingIdentifierScope,
     /// Typed constants.
     pub(crate) constants: BTreeMap<DeclarationId, crate::entity::Typed>,
+    /// The checked provenance of every dataset and constant (ADR-0123 Outcome 5).
+    pub(crate) provenance: BTreeMap<DeclarationId, crate::provenance::Provenance>,
+    /// The source entity each test names as its oracle.
+    pub(crate) oracles: BTreeMap<DeclarationId, DeclarationId>,
+    /// Test-only entities, keyed rows and constants; table rows carry their own taint.
+    pub(crate) test_only: BTreeSet<DeclarationId>,
 }
 impl CheckedPackage {
     /// The immutable physical environment used to admit this package.
@@ -422,6 +428,9 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
         entities: BTreeMap::new(),
         identifiers: crate::entity::ModelingIdentifierScope::default(),
         constants: BTreeMap::new(),
+        provenance: BTreeMap::new(),
+        oracles: BTreeMap::new(),
+        test_only: BTreeSet::new(),
     };
     for row in rows {
         if row.declaration_id.as_id() == SemanticId::NIL {
@@ -521,6 +530,12 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                     row.declaration_id,
                     "regimes are alternatives over their implicit owner's shared unknowns",
                 ));
+            }
+            // ADR-0123 Outcome 5: facets belong to entity kinds.
+            if !scope.facets.is_empty()
+                && row.value.kind != pse_model::generated::enums::ModelingDeclarationKind::EntityKind
+            {
+                return Err(invalid(row.declaration_id, "facets belong to entity kinds"));
             }
             if (scope.fixture.is_some() || scope.oracle.is_some())
                 && !matches!(
@@ -722,19 +737,6 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                             .map_err(|e| invalid(row.declaration_id, e.to_string()))?;
                     }
                 }
-            }
-            if scope.oracle.as_ref().is_some_and(|o| {
-                o.reference.trim().is_empty()
-                    || o.revision.trim().is_empty()
-                    || o.reference.len() > 1024
-                    || o.revision.len() > 1024
-                    || o.reference.starts_with('/')
-                    || o.reference.contains("skill://")
-            }) {
-                return Err(invalid(
-                    row.declaration_id,
-                    "oracle requires a portable reference and immutable source revision",
-                ));
             }
         }
         if !siblings.insert((row.parent_id, row.name.clone())) {
@@ -1400,6 +1402,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
         }
     }
     crate::entity::admit(&mut p, context)?;
+    crate::provenance::admit(&mut p)?;
     crate::data::admit(&mut p, context)?;
     crate::expression::check_all(&p, context)?;
     Ok(p)
@@ -1448,6 +1451,8 @@ impl CheckedPackage {
             let mut cells: Vec<&pse_authoring::language::Cell> = Vec::new();
             // Completeness names declared sets and enumerations by path (Outcome 3).
             let mut sets: Vec<&Vec<String>> = Vec::new();
+            // Provenance and oracles name sources, roles and lineage by path (Outcome 5).
+            let mut paths: Vec<&Vec<String>> = Vec::new();
             if row.value.import.is_some()
                 && let Some(target) = self.names.get(&row.name)
             {
@@ -1460,6 +1465,8 @@ impl CheckedPackage {
                     texts.push(&selection.tolerance);
                 }
                 texts.extend(v.eligibility.as_deref());
+                // A test depends on its oracle source (ADR-0123 Outcome 5).
+                paths.extend(v.oracle.iter());
                 if let Some(fixture) = &v.fixture {
                     if let Some(integration) = &fixture.integration {
                         texts.extend(integration.samples.iter().map(String::as_str));
@@ -1541,6 +1548,7 @@ impl CheckedPackage {
             }
             if let Some(v) = &row.value.dataset {
                 texts.push(&v.target);
+                paths.extend(provenance_paths(&v.provenance));
                 sets.extend(v.complete_over.iter().filter_map(|e| e.set.as_ref()));
                 cells.extend(v.bindings.iter().map(|b| &b.value));
                 for r in &v.rows {
@@ -1558,6 +1566,7 @@ impl CheckedPackage {
             if let Some(v) = &row.value.constant {
                 types.push(&v.r#type);
                 cells.push(&v.value);
+                paths.extend(provenance_paths(&v.provenance));
             }
             if let Some(v) = &row.value.equation {
                 texts.push(&v.expression);
@@ -1660,6 +1669,15 @@ impl CheckedPackage {
             for set in sets {
                 pending.extend(self.resolve(id, &set.join(".")));
             }
+            // A role depends on its enumeration.
+            for path in paths {
+                pending.extend(self.resolve(id, &path.join(".")));
+                if let Some((_, owner)) = path.split_last()
+                    && !owner.is_empty()
+                {
+                    pending.extend(self.resolve(id, &owner.join(".")));
+                }
+            }
             for path in cells.into_iter().flat_map(cell_paths) {
                 pending.extend(self.resolve(id, &path));
                 // A qualified enumeration member depends on its enumeration.
@@ -1714,13 +1732,25 @@ impl CheckedPackage {
         }
         p.kinds.retain(|id, _| selected.contains(id));
         p.constants.retain(|id, _| selected.contains(id));
+        p.provenance.retain(|id, _| selected.contains(id));
+        p.oracles.retain(|id, _| selected.contains(id));
         // A record stays with the declaration that admitted it: its entity or its dataset.
         p.entities
             .retain(|_, record| selected.contains(&record.origin));
         let entities = p.entities.keys().copied().collect::<BTreeSet<_>>();
         p.identifiers.retain(|entity| entities.contains(&entity));
+        p.test_only
+            .retain(|id| entities.contains(id) || p.constants.contains_key(id));
         Ok(p)
     }
+}
+/// The paths a provenance names: its source, its role and its lineage entries.
+fn provenance_paths(
+    provenance: &pse_authoring::language::ModelingProvenance,
+) -> impl Iterator<Item = &Vec<String>> {
+    [&provenance.source, &provenance.role]
+        .into_iter()
+        .chain(provenance.lineage.iter().map(|entry| &entry.path))
 }
 /// The paths a cell names: its reference, its set's references, an identifier's scheme,
 /// and a keyed-row reference's target with the paths of its key cells.

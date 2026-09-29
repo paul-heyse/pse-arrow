@@ -197,6 +197,9 @@ pub(crate) struct Evaluator<'a, 'b> {
     pub env: &'a Environment,
     pub limit: usize,
     pub stack: Vec<DeclarationId>,
+    /// Who reads admitted data: admission, a test fixture or a production root, which
+    /// reads no test-only data (ADR-0123 Outcome 5).
+    pub reader: crate::provenance::Reader<'a>,
 }
 impl Evaluator<'_, '_> {
     pub(crate) fn text(&mut self, text: &str, expected: Option<&Type>) -> Result<Value> {
@@ -283,6 +286,7 @@ impl Evaluator<'_, '_> {
                             env: &env,
                             limit: self.limit,
                             stack: self.stack.clone(),
+                            reader: self.reader,
                         };
                         let Value::Set(values) = evaluator.syntax(source, None, depth + 1)? else {
                             return Err(invalid(
@@ -316,6 +320,7 @@ impl Evaluator<'_, '_> {
                         env: &env,
                         limit: self.limit,
                         stack: self.stack.clone(),
+                        reader: self.reader,
                     };
                     if let Some(filter) = filter
                         && !evaluator.predicate(filter)?
@@ -403,17 +408,34 @@ impl Evaluator<'_, '_> {
             .map_err(|e| invalid(id, e.to_string()))?
         {
             crate::Selected::Function(_) => Ok(Value::Function(id)),
+            // ADR-0123 Outcome 5: an entity or a constant that references test-only data is
+            // test-only, and a root outside a test fixture reads none.
             crate::Selected::Entity(_) => match self.package.types.get(&id) {
-                Some(Type::Entity(kind)) => Ok(Value::Entity { id, kind: *kind }),
+                Some(Type::Entity(kind)) => self
+                    .reader
+                    .read(self.package, saved_at, self.package.is_test_only(id), || {
+                        format!("entity {} referencing test-only data", row.name)
+                    })
+                    .map(|()| Value::Entity { id, kind: *kind }),
                 _ => Err(invalid(id, "entity kind")),
             },
             // ADR-0123 Outcome 2: a typed constant is admitted data.
             crate::Selected::Constant(_) => self
-                .package
-                .constants
-                .get(&id)
-                .map(|typed| typed.value.clone())
-                .ok_or_else(|| invalid(id, "constant not admitted")),
+                .reader
+                .read(self.package, saved_at, self.package.is_test_only(id), || {
+                    format!(
+                        "constant {} {}",
+                        row.name,
+                        crate::provenance::supplied_by(self.package, id)
+                    )
+                })
+                .and_then(|()| {
+                    self.package
+                        .constants
+                        .get(&id)
+                        .map(|typed| typed.value.clone())
+                        .ok_or_else(|| invalid(id, "constant not admitted"))
+                }),
             crate::Selected::Definition(_)
             | crate::Selected::Interface(_)
             | crate::Selected::Preset(_) => Ok(Value::Definition {
@@ -503,9 +525,25 @@ impl Evaluator<'_, '_> {
                 None => default.clone().ok_or_else(|| invalid(self.at, "key default"))?,
             });
         }
-        self.package
+        let row = self
+            .package
             .keyed_row(kind, &values)
-            .ok_or_else(|| invalid(self.at, format!("no {} row has these keys", name())))
+            .ok_or_else(|| invalid(self.at, format!("no {} row has these keys", name())))?;
+        // ADR-0123 Outcome 5: a root outside a test fixture reads no test-only row.
+        if let Value::Entity { id, .. } = &row {
+            let origin = self.package.record(*id).map(|r| r.origin);
+            self.reader
+                .read(self.package, self.at, self.package.is_test_only(*id), || {
+                    format!(
+                        "{} {}",
+                        crate::data::display(self.package, &row),
+                        origin.map_or_else(String::new, |origin| {
+                            crate::provenance::supplied_by(self.package, origin)
+                        })
+                    )
+                })?;
+        }
+        Ok(row)
     }
     /// A reference state's typed condition, in its quantity type's canonical unit
     /// (ADR-0123 Outcome 6).
@@ -677,7 +715,7 @@ impl Evaluator<'_, '_> {
                             .collect::<Result<Vec<_>>>()?;
                         // ADR-0123 Outcome 3: a required table refuses a key outside its
                         // completeness before reading a row.
-                        table.lookup(self.package, id, self.at, keys)?
+                        table.lookup(self.package, id, self.at, keys, self.reader)?
                     };
                     let mut value = value;
                     for segment in &path.segments[position + 1..] {
@@ -987,6 +1025,7 @@ impl Evaluator<'_, '_> {
                         env: &env,
                         limit: nested_limit,
                         stack: self.stack.clone(),
+                        reader: self.reader,
                     };
                     if let Some(filter) = &binder.filter
                         && !evaluator.predicate(filter)?
@@ -1066,6 +1105,7 @@ impl Evaluator<'_, '_> {
                         env: &env,
                         limit,
                         stack: self.stack.clone(),
+                        reader: self.reader,
                     };
                     if let Some(filter) = &binder.filter
                         && !evaluator.predicate(filter)?
@@ -1083,6 +1123,7 @@ impl Evaluator<'_, '_> {
                             env: &env,
                             limit,
                             stack: self.stack.clone(),
+                            reader: self.reader,
                         }
                         .expr(step, Some(&ty), depth + 1)?
                     } else {
@@ -1101,6 +1142,7 @@ impl Evaluator<'_, '_> {
                         env: &env,
                         limit: self.limit,
                         stack: self.stack.clone(),
+                        reader: self.reader,
                     }
                     .expr(value, None, depth + 1)?;
                     env.insert(name.clone(), value);
@@ -1112,6 +1154,7 @@ impl Evaluator<'_, '_> {
                     env: &env,
                     limit: self.limit,
                     stack: self.stack.clone(),
+                    reader: self.reader,
                 }
                 .expr(body, expected, depth + 1)
             }

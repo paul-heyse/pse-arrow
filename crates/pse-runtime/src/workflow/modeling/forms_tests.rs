@@ -469,11 +469,11 @@ async fn indicator_linear_lowering_matches_native() {
     }
 }
 
-const PIECEWISE: &str = "package p {
+const PIECEWISE: &str = "package p { entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = \"synthetic test data\" }
     entity kind knot {} entity knot k0 {} entity knot k1 {} entity knot k2 {} entity knot k3 {}
     set knots: Set<knot> = {k0, k1, k2, k3};
     table points[k: knot]: {x: Power, y: Power} complete_over(k in knots);
-    dataset curve_data: points source \"synthetic nonconvex curve\" {
+    dataset curve_data: points provenance(s, role.given) {
       [k0] = [0{W}, 0{W}]; [k1] = [10{W}, 20{W}]; [k2] = [20{W}, 5{W}]; [k3] = [30{W}, 25{W}]; }
     def Root { param at: Power = 20{W}; var x: Power; var y: Power;
       piecewise curve[k in knots]: y == x at (points[k].x, points[k].y);
@@ -506,11 +506,11 @@ async fn piecewise_sos2_matches_incremental() {
     }
 }
 
-const SOS: &str = "package p {
+const SOS: &str = "package p { entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = \"synthetic test data\" }
     entity kind item {} entity item a {} entity item b {} entity item c {}
     set items: Set<item> = {a, b, c};
     table order[i: item]: Scalar complete_over(i in items);
-    dataset ranks: order source \"synthetic\" { [a] = [1]; [b] = [2]; [c] = [3]; }
+    dataset ranks: order provenance(s, role.given) { [a] = [1]; [b] = [2]; [c] = [3]; }
     def Root { var flow[i in items]: Power;
       sos1 pick[i in items]: flow[i] weight order[i];
       REALIZE

@@ -6169,6 +6169,97 @@ impl core::str::FromStr for ModelingContributionRole {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum ModelingDataFacet {
+    ///test_only
+    #[serde(rename = "test_only")]
+    TestOnly,
+    ///requires_lineage
+    #[serde(rename = "requires_lineage")]
+    RequiresLineage,
+}
+impl crate::SemanticEq for ModelingDataFacet {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingDataFacet {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::TestOnly, Self::RequiresLineage];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::TestOnly => "test_only",
+            Self::RequiresLineage => "requires_lineage",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::TestOnly => 0usize,
+            Self::RequiresLineage => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::TestOnly => None,
+            Self::RequiresLineage => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingDataFacet {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingDataFacet))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ModelingDataFacet)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["test_only", "requires_lineage"] }
+        )
+    }
+}
+impl core::str::FromStr for ModelingDataFacet {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "test_only" => Ok(Self::TestOnly),
+            "requires_lineage" => Ok(Self::RequiresLineage),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingDataFacet).to_owned(),
+                    enumeration: stringify!(ModelingDataFacet).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum ModelingDeclarationKind {
     ///relaxation
     #[serde(rename = "relaxation")]
@@ -7646,6 +7737,179 @@ impl core::str::FromStr for ModelingKeyCellKind {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingKeyCellKind).to_owned(),
                     enumeration: stringify!(ModelingKeyCellKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum ModelingKindFacet {
+    ///provenance
+    #[serde(rename = "provenance")]
+    Provenance,
+}
+impl crate::SemanticEq for ModelingKindFacet {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingKindFacet {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 1usize] = [Self::Provenance];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Provenance => "provenance",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Provenance => 0usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Provenance => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingKindFacet {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingKindFacet))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ModelingKindFacet)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["provenance"] })
+    }
+}
+impl core::str::FromStr for ModelingKindFacet {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "provenance" => Ok(Self::Provenance),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingKindFacet).to_owned(),
+                    enumeration: stringify!(ModelingKindFacet).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum ModelingLineageKind {
+    ///dataset
+    #[serde(rename = "dataset")]
+    Dataset,
+    ///source
+    #[serde(rename = "source")]
+    Source,
+}
+impl crate::SemanticEq for ModelingLineageKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingLineageKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Dataset, Self::Source];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Dataset => "dataset",
+            Self::Source => "source",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Dataset => 0usize,
+            Self::Source => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Dataset => None,
+            Self::Source => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingLineageKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingLineageKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingLineageKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["dataset", "source"] })
+    }
+}
+impl core::str::FromStr for ModelingLineageKind {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "dataset" => Ok(Self::Dataset),
+            "source" => Ok(Self::Source),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingLineageKind).to_owned(),
+                    enumeration: stringify!(ModelingLineageKind).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -16685,6 +16949,16 @@ impl crate::SemanticFrame for ModelingContributionRole {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for ModelingDataFacet {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingDataFacet {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for ModelingDeclarationKind {
     fn heap_bytes(&self) -> usize {
         0
@@ -16781,6 +17055,26 @@ impl crate::HeapUsage for ModelingKeyCellKind {
     }
 }
 impl crate::SemanticFrame for ModelingKeyCellKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ModelingKindFacet {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingKindFacet {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ModelingLineageKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingLineageKind {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

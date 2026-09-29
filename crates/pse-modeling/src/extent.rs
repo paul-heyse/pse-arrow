@@ -302,7 +302,6 @@ impl SpecializedModel {
                         .sum::<usize>()
                     + f.expected_failure.as_ref().map_or(0, HeapUsage::heap_bytes)
                     + map(&f.specifications, |p, _| p.capacity())
-                    + f.oracle.as_ref().map_or(0, HeapUsage::heap_bytes)
             })
             + self.initial_equations.len() * 64
             + map(&self.integrated, |_, _| 0)

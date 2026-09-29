@@ -114,30 +114,6 @@ impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeSelection {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
-pub struct AuthoredModelingDeclarationsFieldValueScopeOracle {
-    ///reference
-    pub r#reference: String,
-    ///revision
-    pub r#revision: String,
-}
-impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeOracle {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(&self.r#reference, &other.r#reference)
-            && crate::SemanticEq::semantic_eq(&self.r#revision, &other.r#revision)
-    }
-}
-impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeOracle {
-    fn eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(self, other)
-    }
-}
-/// A row or nested value projected from the registry declaration.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-#[allow(
-    clippy::struct_field_names,
-    reason = "field names are the authoritative relation contract"
-)]
 pub struct AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
     ///backend
     pub r#backend: Option<crate::generated::enums::NativeBackend>,
@@ -648,7 +624,9 @@ pub struct AuthoredModelingDeclarationsFieldValueScope {
     ///eligibility
     pub r#eligibility: Option<String>,
     ///oracle
-    pub r#oracle: Option<AuthoredModelingDeclarationsFieldValueScopeOracle>,
+    pub r#oracle: Option<Vec<String>>,
+    ///facets
+    pub r#facets: Vec<crate::generated::enums::ModelingKindFacet>,
     ///fixture
     pub r#fixture: Option<AuthoredModelingDeclarationsFieldValueScopeFixture>,
 }
@@ -662,6 +640,7 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScope {
             ) && crate::SemanticEq::semantic_eq(&self.r#selection, &other.r#selection)
             && crate::SemanticEq::semantic_eq(&self.r#eligibility, &other.r#eligibility)
             && crate::SemanticEq::semantic_eq(&self.r#oracle, &other.r#oracle)
+            && crate::SemanticEq::semantic_eq(&self.r#facets, &other.r#facets)
             && crate::SemanticEq::semantic_eq(&self.r#fixture, &other.r#fixture)
     }
 }
@@ -1415,8 +1394,8 @@ impl PartialEq for AuthoredModelingDeclarationsFieldValueDatasetRowsItem {
 pub struct AuthoredModelingDeclarationsFieldValueDataset {
     ///target
     pub r#target: String,
-    ///source
-    pub r#source: String,
+    ///provenance
+    pub r#provenance: crate::generated::structures::ModelingProvenance,
     ///bindings
     pub r#bindings: Vec<AuthoredModelingDeclarationsFieldValueDatasetBindingsItem>,
     ///complete_over
@@ -1427,7 +1406,7 @@ pub struct AuthoredModelingDeclarationsFieldValueDataset {
 impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueDataset {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#target, &other.r#target)
-            && crate::SemanticEq::semantic_eq(&self.r#source, &other.r#source)
+            && crate::SemanticEq::semantic_eq(&self.r#provenance, &other.r#provenance)
             && crate::SemanticEq::semantic_eq(&self.r#bindings, &other.r#bindings)
             && crate::SemanticEq::semantic_eq(
                 &self.r#complete_over,
@@ -1500,11 +1479,14 @@ pub struct AuthoredModelingDeclarationsFieldValueEnumerationMembersItem {
     pub r#member_id: pse_ids::SemanticId,
     ///name
     pub r#name: String,
+    ///facets
+    pub r#facets: Vec<crate::generated::enums::ModelingDataFacet>,
 }
 impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueEnumerationMembersItem {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#member_id, &other.r#member_id)
             && crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#facets, &other.r#facets)
     }
 }
 impl PartialEq for AuthoredModelingDeclarationsFieldValueEnumerationMembersItem {
@@ -1545,11 +1527,14 @@ pub struct AuthoredModelingDeclarationsFieldValueConstant {
     pub r#type: Vec<crate::generated::structures::ModelingTypeArenaNode>,
     ///value
     pub r#value: crate::generated::structures::ModelingCell,
+    ///provenance
+    pub r#provenance: crate::generated::structures::ModelingProvenance,
 }
 impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueConstant {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#type, &other.r#type)
             && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+            && crate::SemanticEq::semantic_eq(&self.r#provenance, &other.r#provenance)
     }
 }
 impl PartialEq for AuthoredModelingDeclarationsFieldValueConstant {
@@ -6170,21 +6155,6 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeSelection {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#tolerance))
     }
 }
-impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueScopeOracle {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(stringify!(r#reference));
-        crate::SemanticFrame::frame(&self.r#reference, hash);
-        hash.str(stringify!(r#revision));
-        crate::SemanticFrame::frame(&self.r#revision, hash);
-    }
-}
-impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeOracle {
-    fn heap_bytes(&self) -> usize {
-        0usize
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reference))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#revision))
-    }
-}
 impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#backend));
@@ -6522,6 +6492,8 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueScope {
         crate::SemanticFrame::frame(&self.r#eligibility, hash);
         hash.str(stringify!(r#oracle));
         crate::SemanticFrame::frame(&self.r#oracle, hash);
+        hash.str(stringify!(r#facets));
+        crate::SemanticFrame::frame(&self.r#facets, hash);
         hash.str(stringify!(r#fixture));
         crate::SemanticFrame::frame(&self.r#fixture, hash);
     }
@@ -6535,6 +6507,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScope {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#selection))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#eligibility))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#oracle))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#facets))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#fixture))
     }
 }
@@ -7030,8 +7003,8 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueDataset {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#target));
         crate::SemanticFrame::frame(&self.r#target, hash);
-        hash.str(stringify!(r#source));
-        crate::SemanticFrame::frame(&self.r#source, hash);
+        hash.str(stringify!(r#provenance));
+        crate::SemanticFrame::frame(&self.r#provenance, hash);
         hash.str(stringify!(r#bindings));
         crate::SemanticFrame::frame(&self.r#bindings, hash);
         hash.str(stringify!(r#complete_over));
@@ -7044,7 +7017,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueDataset {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#provenance))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#bindings))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#complete_over))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#rows))
@@ -7088,6 +7061,8 @@ for AuthoredModelingDeclarationsFieldValueEnumerationMembersItem {
         crate::SemanticFrame::frame(&self.r#member_id, hash);
         hash.str(stringify!(r#name));
         crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#facets));
+        crate::SemanticFrame::frame(&self.r#facets, hash);
     }
 }
 impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueEnumerationMembersItem {
@@ -7095,6 +7070,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueEnumerationMembe
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#member_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#facets))
     }
 }
 impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueEnumeration {
@@ -7114,6 +7090,8 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueConstant {
         crate::SemanticFrame::frame(&self.r#type, hash);
         hash.str(stringify!(r#value));
         crate::SemanticFrame::frame(&self.r#value, hash);
+        hash.str(stringify!(r#provenance));
+        crate::SemanticFrame::frame(&self.r#provenance, hash);
     }
 }
 impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueConstant {
@@ -7121,6 +7099,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueConstant {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#type))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#provenance))
     }
 }
 impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueImport {

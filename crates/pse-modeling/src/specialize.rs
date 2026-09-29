@@ -373,6 +373,9 @@ pub(crate) struct Engine<'a, 'b> {
     objective_level: Option<usize>,
     cancel: &'a dyn Fn() -> bool,
     discretizer: &'a dyn crate::continuous::Discretizer,
+    /// The root's reader: a test fixture reads any admitted data; any other root reads no
+    /// test-only data (ADR-0123 Outcome 5).
+    reader: crate::provenance::Reader<'static>,
 }
 
 /// The identity a declared analysis gives its root instance: the root declaration's own.
@@ -482,6 +485,7 @@ pub fn specialize_with_discretizer(
         objective_level: crate::analysis::objective_level(&bindings.facts)?,
         discretizer,
         cancel,
+        reader: crate::provenance::Reader::of(package, root),
     };
     engine.checkpoint()?;
     let mut args = bindings.arguments.clone();
@@ -663,6 +667,7 @@ impl Engine<'_, '_> {
             env,
             limit: self.limits.members,
             stack: Vec::new(),
+            reader: self.reader,
         }
         .text(text, expected)
     }
@@ -675,6 +680,7 @@ impl Engine<'_, '_> {
             env,
             limit: self.limits.members,
             stack: Vec::new(),
+            reader: self.reader,
         }
         .predicate(&p)
     }
@@ -788,6 +794,7 @@ impl Engine<'_, '_> {
             env: &env,
             limit: self.limits.members,
             stack: Vec::new(),
+            reader: self.reader,
         }
         .definition_environment(definition, &arguments, env.clone())?;
         let mut members = self.p.members.get(&definition).cloned().unwrap_or_default();
@@ -1287,7 +1294,7 @@ impl Engine<'_, '_> {
             }
         }
         if let Some(fixture) = &contract.fixture {
-            self.fixture(id, &row, fixture, contract.oracle.clone(), &env)?;
+            self.fixture(id, &row, fixture, self.p.oracle(row.declaration_id), &env)?;
         }
         self.regimes(id, &row, &members, &env)?;
         self.stack.pop();

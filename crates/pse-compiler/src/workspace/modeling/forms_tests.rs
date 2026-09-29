@@ -435,7 +435,7 @@ fn cardinality_and_ordered_sets_lower_exactly() {
     }
     // SOS1 over bounded flows: one nonzero member, selected by its binary.
     let (mut w, root) = setup(
-        "package p { entity kind k {} entity k a {} entity k b {} set ks: Set<k> = {a, b}; table rank[i: k]: Scalar complete_over(i in ks); dataset r: rank source \"synthetic\" { [a] = [1]; [b] = [2]; } def Root { var f[i in ks]: Power; sos1 one[i in ks]: f[i] weight rank[i]; } }",
+        "package p { entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = \"synthetic test data\" } entity kind k {} entity k a {} entity k b {} set ks: Set<k> = {a, b}; table rank[i: k]: Scalar complete_over(i in ks); dataset r: rank provenance(s, role.given) { [a] = [1]; [b] = [2]; } def Root { var f[i in ks]: Power; sos1 one[i in ks]: f[i] weight rank[i]; } }",
     );
     let bounds = [
         ("f[a]", Some(0.0), Some(4.0)),

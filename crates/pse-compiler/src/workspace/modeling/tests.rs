@@ -683,13 +683,13 @@ fn kernel_empty_indexed_polymorphic_sum_retains_physical_type() {
 #[test]
 fn kernel_table_function_references_dispatch_and_share_specializations() {
     let (mut workspace, _, _, root) = setup(
-        r#"package p {
+        r#"package p { entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = "synthetic test data" }
  entity kind item {} entity item a {} entity item b {} entity item c {}
  set items: Set<item> = {a,b,c};
  fn double(x: Scalar)->Scalar=x*2; fn triple(x: Scalar)->Scalar=x*3;
  fn apply(method: Fn(x: Scalar)->Scalar, x: Scalar)->Scalar=method(x);
  table methods[j: item]: Fn(x: Scalar)->Scalar complete_over(j in items);
- dataset choices: methods source "synthetic" { [a]=[double]; [b]=[triple]; [c]=[double]; }
+ dataset choices: methods provenance(s, role.given) { [a]=[double]; [b]=[triple]; [c]=[double]; }
  def Root { var x[j in items]: Scalar; eq e[j in items]: apply(methods[j],x[j]) == 0; }
  }"#,
     );
@@ -733,7 +733,7 @@ fn kernel_table_function_references_dispatch_and_share_specializations() {
 #[test]
 fn ref_calls_dispatch_one_body_per_concrete_kind() {
     let (mut workspace, rows, _, root) = setup(
-        r#"package p {
+        r#"package p { entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = "synthetic test data" }
  entity kind item {} entity item a {} entity item b {} entity item c {} entity item d {}
  set items: Set<item> = {a,b,c,d};
  entity kind form { key subject: item; attribute cp: Fn(x: Scalar) -> Scalar; }
@@ -741,9 +741,9 @@ fn ref_calls_dispatch_one_body_per_concrete_kind() {
  entity kind tripling extends form { cp = triple; }
  entity kind steep extends doubling { override cp = quadruple; }
  fn double(x: Scalar)->Scalar=x*2; fn triple(x: Scalar)->Scalar=x*3; fn quadruple(x: Scalar)->Scalar=x*4;
- dataset twice: doubling source "synthetic" { [a] = []; [c] = []; }
- dataset thrice: tripling source "synthetic" { [b] = []; }
- dataset steeply: steep source "synthetic" { [d] = []; }
+ dataset twice: doubling provenance(s, role.given) { [a] = []; [c] = []; }
+ dataset thrice: tripling provenance(s, role.given) { [b] = []; }
+ dataset steeply: steep provenance(s, role.given) { [d] = []; }
  def Root { var x[j in items]: Scalar; eq e[j in items]: 0 == s.cp(x[j]) where s = form[j]; }
  }"#,
     );
@@ -2772,11 +2772,11 @@ fn kernel_fixture_paths_bind_the_selected_implementation_physical_contract() {
 
 #[test]
 fn kernel_immutable_function_data_is_visible_differentiable_and_invalidated() {
-    let text = r#"package data {
+    let text = r#"package data { entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = "synthetic test data" }
       entity kind item {} entity item a {} entity item b {}
       set items:Set<item>={a,b};
       table coefficients[j:item]:{value:Scalar} complete_over(j in items);
-      dataset values:coefficients source "synthetic" {[a]=[3];[b]=[4];}
+      dataset values:coefficients provenance(s, role.given) {[a]=[3];[b]=[4];}
       fn energy(x:Scalar,n:Scalar[item])->Scalar=sum(j in items | coefficients[j].value*x*n[j]);
     }
     package p {
@@ -2838,11 +2838,11 @@ fn kernel_immutable_function_data_is_visible_differentiable_and_invalidated() {
 
 #[test]
 fn kernel_imported_table_paths_preserve_rows_columns_and_visibility() {
-    let text = r#"package data {
+    let text = r#"package data { entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = "synthetic test data" }
         entity kind item {} entity item a {}
         set items:Set<item>={a};
         table coefficients[j:item]:{value:Scalar} complete_over(j in items);
-        dataset values:coefficients source "synthetic" {[a]=[7];}
+        dataset values:coefficients provenance(s, role.given) {[a]=[7];}
         fn read(row:Row<coefficients>)->Scalar=row.value;
     }
     package p {
@@ -2962,14 +2962,14 @@ fn kernel_explicit_primitive_functions_preserve_references_and_derivative_checks
 
 #[test]
 fn kernel_function_slots_select_overrides_indexed_methods_and_forward_arguments() {
-    let text = r#"package p {
+    let text = r#"package p { entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = "synthetic test data" }
       entity kind item {} entity item a {} entity item b {}
       set items:Set<item>={a,b};
       fn double(x:Scalar)->Scalar=2*x;
       fn triple(x:Scalar)->Scalar=3*x;
       fn apply(method:Fn(x:Scalar)->Scalar,x:Scalar)->Scalar=method(x);
       table methods[j:item]:Fn(x:Scalar)->Scalar complete_over(j in items);
-      dataset choices:methods source "synthetic" {[a]=[double];[b]=[triple];}
+      dataset choices:methods provenance(s, role.given) {[a]=[double];[b]=[triple];}
       interface Port {
         param method:Fn(x:Scalar)->Scalar=double;
         param alias:Fn(x:Scalar)->Scalar=method;
@@ -3307,7 +3307,7 @@ fn kernel_finite_reductions_retain_domains_prototypes_and_derivatives() {
         .replace("{mol/s}", "{K}");
     let mut other = CompilerWorkspace::new(inputs, WorkspaceLimits::default()).unwrap();
     assert!(other.publish_modeling(source(&invalid), names.clone()).is_err());
-    let static_source = text.replace("def Root {", "table flow_data[j:species]:ComponentFlow complete_over(j in species_set); dataset values_data:flow_data source \"synthetic component values\" {[a]=[2{mol/s}];[b]=[2{mol/s}];} def Root {param total_static:Flow=sum(j in species_set | flow_data[j]); param empty_static:Flow=sum(j in empty | flow_data[j]);");
+    let static_source = text.replace("def Root {", "entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = \"synthetic component values\" } table flow_data[j:species]:ComponentFlow complete_over(j in species_set); dataset values_data:flow_data provenance(s, role.given) {[a]=[2{mol/s}];[b]=[2{mol/s}];} def Root {param total_static:Flow=sum(j in species_set | flow_data[j]); param empty_static:Flow=sum(j in empty | flow_data[j]);");
     workspace
         .publish_modeling(
             source(&static_source),
@@ -3480,10 +3480,10 @@ fn kernel_qualified_enumeration_arguments_select_structure() {
 
 #[test]
 fn kernel_pure_function_names_do_not_capture_caller_members() {
-    let text = r#"package p {
+    let text = r#"package p { entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = "synthetic test data" }
       entity kind item {} entity item a {} entity item b {}
       set items:Set<item>={a,b};
-      table data[j:item]:Scalar complete_over(j in items); dataset values:data source "synthetic" {[a]=[5];[b]=[7];}
+      table data[j:item]:Scalar complete_over(j in items); dataset values:data provenance(s, role.given) {[a]=[5];[b]=[7];}
       fn helper(x:Scalar)->Scalar=3*x;
       fn read(x:Scalar,j:item)->Scalar=data[j]+helper(x);
       interface Port {

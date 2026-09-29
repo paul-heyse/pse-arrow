@@ -312,6 +312,7 @@ impl Engine<'_, '_> {
                     env,
                     limit: self.limits.members,
                     stack: vec![],
+                    reader: self.reader,
                 }
                 .predicate(guard)?;
                 return self.initial_equation(

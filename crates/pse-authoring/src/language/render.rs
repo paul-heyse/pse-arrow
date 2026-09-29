@@ -62,6 +62,31 @@ fn completeness(entries: &[super::ModelingCompleteness]) -> Result<String, Autho
         .collect::<Result<Vec<_>, AuthoringError>>()?;
     Ok(format!("complete_over({})", entries.join(", ")))
 }
+/// A path as its segments, each a plain identifier when it is one.
+fn path(segments: &[String]) -> String {
+    segments.iter().map(|s| name(s)).collect::<Vec<_>>().join(".")
+}
+/// ADR-0123 Outcome 5: `provenance(source, role[, lineage(dataset d, source s)])`.
+fn provenance(value: &super::ModelingProvenance) -> String {
+    let lineage = if value.lineage.is_empty() {
+        String::new()
+    } else {
+        format!(
+            ", lineage({})",
+            value
+                .lineage
+                .iter()
+                .map(|entry| format!("{} {}", entry.kind.as_str(), path(&entry.path)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    };
+    format!(
+        "provenance({}, {}{lineage})",
+        path(&value.source),
+        path(&value.role)
+    )
+}
 /// The canonical spelling of a declared type (ADR-0123 Outcome 1).
 fn ty(nodes: &[super::TypeNode]) -> Result<String, AuthoringError> {
     Ok(super::render_type(nodes)?)
@@ -292,7 +317,7 @@ fn print_block(
                     _ => "implicit",
                 };
                 format!(
-                    "{keyword} {n}{}{}{}{}{}{}{} {{",
+                    "{keyword} {n}{}{}{}{}{}{}{}{} {{",
                     list(&v.type_parameters, "<", ">"),
                     parameters(v.parameters.iter().map(|p| (
                         p.name.as_str(),
@@ -304,9 +329,10 @@ fn print_block(
                     } else {
                         format!(" : {}", v.bases.join(", "))
                     },
+                    v.facets.iter().map(|f| format!(" {}", f.as_str())).collect::<String>(),
                     v.selection.as_ref().map_or_else(String::new,|s|format!(" select minimum({}, {})",s.criterion,s.tolerance)),
                     v.eligibility.as_ref().map_or_else(String::new,|e|format!(" eligible({e})")),
-                    v.oracle.as_ref().map_or_else(String::new,|o|format!(" source {} revision {}",quoted(&o.reference),quoted(&o.revision))),
+                    v.oracle.as_ref().map_or_else(String::new,|o|format!(" oracle {}",path(o))),
                     v.fixture.as_ref().map_or_else(String::new, |f| {
                         let mut statements = vec![format!("dof {};", f.degrees_of_freedom)];
                         if let Some(execution) = f.execution { statements.push(format!("run {};", execution.as_str())); }
@@ -433,7 +459,19 @@ fn print_block(
                 "enum {n} {{ {} }}",
                 v.members
                     .iter()
-                    .map(|m| format!("@id({}) {}", quoted(&m.member_id.to_string()), name(&m.name)))
+                    .map(|m| format!(
+                        "@id({}) {}{}",
+                        quoted(&m.member_id.to_string()),
+                        name(&m.name),
+                        if m.facets.is_empty() {
+                            String::new()
+                        } else {
+                            format!(
+                                " facets({})",
+                                m.facets.iter().map(|f| f.as_str()).collect::<Vec<_>>().join(", ")
+                            )
+                        }
+                    ))
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
@@ -463,9 +501,10 @@ fn print_block(
             },
             Selected::IdentifierScheme => format!("identifier scheme {n};"),
             Selected::Constant(v) => format!(
-                "constant {n}: {} = {};",
+                "constant {n}: {} = {} {};",
                 super::render_type(&v.r#type)?,
-                super::render_cell(&v.value)?
+                super::render_cell(&v.value)?,
+                provenance(&v.provenance)
             ),
             Selected::Equation(v) => format!(
                 "eq {n}{}{}: {};",
@@ -592,7 +631,7 @@ fn print_block(
                         .join(", "))
                 };
                 format!(
-                    "dataset {n}: {}{}{} source {} {{ {} }}",
+                    "dataset {n}: {}{}{} {} {{ {} }}",
                     v.target,
                     if v.bindings.is_empty() {
                         String::new()
@@ -611,7 +650,7 @@ fn print_block(
                     } else {
                         format!(" {}", completeness(&v.complete_over)?)
                     },
-                    quoted(&v.source),
+                    provenance(&v.provenance),
                     v.rows
                         .iter()
                         .map(|r| Ok(format!("[{}] = [{}];", cells(&r.keys)?, cells(&r.values)?)))

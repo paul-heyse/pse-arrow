@@ -165,7 +165,7 @@ pub async fn conform_pure_documents(
             let mut covered = BTreeSet::new();
             for (index, (row, limits)) in fixtures.iter().zip(fixture_limits).enumerate() {
                 let fixture = row.declaration_id;
-                let oracle = row.value.scope.as_ref().and_then(|s| s.oracle.as_ref());
+                let oracle = revision.oracle(fixture);
                 let data = row.value.scope.as_ref().and_then(|s| s.fixture.as_ref());
                 if index >= maximum_fixtures
                     || worker_flag.load(Ordering::Acquire)

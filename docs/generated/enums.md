@@ -684,6 +684,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `positive` | `` | false |
 | `negative` | `` | false |
 
+## `ModelingDataFacet`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `test_only` | `` | false |
+| `requires_lineage` | `` | false |
+
 ## `ModelingDeclarationKind`
 
 | Member | IDAES name | Deprecated |
@@ -821,6 +828,19 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `text` | `` | false |
 | `identifier` | `` | false |
 | `reference` | `` | false |
+
+## `ModelingKindFacet`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `provenance` | `` | false |
+
+## `ModelingLineageKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `dataset` | `` | false |
+| `source` | `` | false |
 
 ## `ModelingMissingPolicy`
 

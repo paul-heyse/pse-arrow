@@ -106,6 +106,7 @@ impl Engine<'_, '_> {
                     env,
                     limit: self.limits.members,
                     stack: Vec::new(),
+                    reader: self.reader,
                 }
                 .expr(e, None, 0)
             })
@@ -330,6 +331,7 @@ impl Engine<'_, '_> {
                             env: &local,
                             limit: self.limits.members,
                             stack: Vec::new(),
+                            reader: self.reader,
                         })
                         .predicate(filter)?
                     {
@@ -499,6 +501,7 @@ impl Engine<'_, '_> {
                     env: &env,
                     limit: self.limits.members,
                     stack: Vec::new(),
+                    reader: self.reader,
                 }
                 .predicate(guard);
                 if let Ok(selected) = static_guard {
@@ -595,6 +598,7 @@ impl Engine<'_, '_> {
                     env,
                     limit: self.limits.members,
                     stack: Vec::new(),
+                    reader: self.reader,
                 }
                 .predicate(guard)?;
                 return self.rewrite_equation(

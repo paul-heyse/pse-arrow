@@ -8,20 +8,20 @@ pub use pse_model::generated::r#runtime::r#modeling_conformance::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    84u8, 238u8, 35u8, 87u8, 246u8, 179u8, 107u8, 72u8, 193u8, 87u8, 51u8, 108u8, 0u8,
-    253u8, 184u8, 44u8,
+    218u8, 97u8, 74u8, 141u8, 243u8, 141u8, 97u8, 120u8, 208u8, 215u8, 19u8, 115u8,
+    190u8, 152u8, 6u8, 70u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_conformance";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    168u8, 120u8, 228u8, 169u8, 10u8, 129u8, 223u8, 75u8, 55u8, 53u8, 14u8, 241u8, 152u8,
-    245u8, 33u8, 234u8, 224u8, 214u8, 83u8, 146u8, 188u8, 197u8, 128u8, 27u8, 129u8,
-    27u8, 110u8, 146u8, 90u8, 174u8, 113u8, 175u8,
+    143u8, 131u8, 137u8, 245u8, 103u8, 95u8, 170u8, 130u8, 52u8, 233u8, 52u8, 115u8,
+    40u8, 85u8, 144u8, 239u8, 248u8, 0u8, 50u8, 228u8, 251u8, 239u8, 228u8, 27u8, 142u8,
+    201u8, 103u8, 31u8, 74u8, 149u8, 224u8, 5u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeModelingConformanceRow {
     fn append(
@@ -58,12 +58,8 @@ impl crate::columnar::ArrowValue for RuntimeModelingConformanceRow {
             children[9usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#oracle_reference,
+            &self.r#oracle_source_id,
             children[10usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#oracle_revision,
-            children[11usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -102,11 +98,8 @@ impl crate::columnar::ArrowValue for RuntimeModelingConformanceRow {
             i64,
         > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         <Option<
-            String,
+            crate::generated::identities::DeclarationId,
         > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
-        <Option<
-            String,
-        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -161,16 +154,10 @@ impl crate::columnar::ArrowValue for RuntimeModelingConformanceRow {
                 input.column(9usize).as_ref(),
                 index,
             )?,
-            r#oracle_reference: <Option<
-                String,
+            r#oracle_source_id: <Option<
+                crate::generated::identities::DeclarationId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(10usize).as_ref(),
-                index,
-            )?,
-            r#oracle_revision: <Option<
-                String,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
                 index,
             )?,
         })
@@ -247,12 +234,8 @@ impl crate::columnar::RelationRow for RuntimeModelingConformanceRow {
             columns[9usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#oracle_reference,
+            &self.r#oracle_source_id,
             columns[10usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#oracle_revision,
-            columns[11usize].as_mut(),
         )?;
         Ok(())
     }
@@ -288,10 +271,10 @@ impl crate::columnar::RelationRow for RuntimeModelingConformanceRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        28_672_usize + size_of::<Self::Builder>()
+        27_648_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        224usize
+        216usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -351,21 +334,10 @@ impl crate::columnar::RelationRow for RuntimeModelingConformanceRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            if let Some(value) = (self.r#oracle_reference).as_ref() {
+            if (self.r#oracle_source_id).is_some() {
                 crate::columnar::allocation_add(
                     1,
-                    crate::columnar::allocation_add(8, (value).len())?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if let Some(value) = (self.r#oracle_revision).as_ref() {
-                crate::columnar::allocation_add(
-                    1,
-                    crate::columnar::allocation_add(8, (value).len())?,
+                    Ok::<usize, crate::RelationError>(16usize)?,
                 )
             } else {
                 Ok::<usize, crate::RelationError>(1)
@@ -381,7 +353,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 11usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -434,13 +406,8 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "oracle_reference",
+        name: "oracle_source_id",
         position: 10usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "oracle_revision",
-        position: 11usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -465,10 +432,8 @@ pub mod columns {
     pub const MESSAGE: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///failure_ordinal
     pub const FAILURE_ORDINAL: crate::columnar::ColumnReference = super::COLUMNS[9usize];
-    ///oracle_reference
-    pub const ORACLE_REFERENCE: crate::columnar::ColumnReference = super::COLUMNS[10usize];
-    ///oracle_revision
-    pub const ORACLE_REVISION: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    ///oracle_source_id
+    pub const ORACLE_SOURCE_ID: crate::columnar::ColumnReference = super::COLUMNS[10usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -485,8 +450,7 @@ pub struct RuntimeModelingConformanceView<'a> {
     status_column: &'a arrow_array::StringArray,
     message_column: &'a arrow_array::StringArray,
     failure_ordinal_column: &'a arrow_array::Int64Array,
-    oracle_reference_column: &'a arrow_array::StringArray,
-    oracle_revision_column: &'a arrow_array::StringArray,
+    oracle_source_id_column: &'a arrow_array::FixedSizeBinaryArray,
 }
 impl<'a> RuntimeModelingConformanceView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -556,12 +520,9 @@ impl<'a> RuntimeModelingConformanceView<'a> {
             failure_ordinal_column: crate::columnar::array::<
                 arrow_array::Int64Array,
             >(batch.column(9usize).as_ref())?,
-            oracle_reference_column: crate::columnar::array::<
-                arrow_array::StringArray,
+            oracle_source_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
             >(batch.column(10usize).as_ref())?,
-            oracle_revision_column: crate::columnar::array::<
-                arrow_array::StringArray,
-            >(batch.column(11usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -698,27 +659,17 @@ impl<'a> RuntimeModelingConformanceView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "oracle_reference",
+        "oracle_source_id",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn oracle_reference_column(&self) -> &'a arrow_array::StringArray {
-        self.oracle_reference_column
+    pub const fn oracle_source_id_column(
+        &self,
+    ) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.oracle_source_id_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "oracle_reference", "`.")]
-    pub fn oracle_reference_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!("Borrows the exact declared field for `", "oracle_source_id", "`.")]
+    pub fn oracle_source_id_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[10usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "oracle_revision",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn oracle_revision_column(&self) -> &'a arrow_array::StringArray {
-        self.oracle_revision_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "oracle_revision", "`.")]
-    pub fn oracle_revision_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -757,12 +708,8 @@ impl<'a> RuntimeModelingConformanceView<'a> {
                 self.failure_ordinal_column,
                 index,
             )?,
-            r#oracle_reference: crate::columnar::ArrowValue::read(
-                self.oracle_reference_column,
-                index,
-            )?,
-            r#oracle_revision: crate::columnar::ArrowValue::read(
-                self.oracle_revision_column,
+            r#oracle_source_id: crate::columnar::ArrowValue::read(
+                self.oracle_source_id_column,
                 index,
             )?,
         })

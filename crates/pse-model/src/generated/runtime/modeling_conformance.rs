@@ -29,10 +29,8 @@ pub struct RuntimeModelingConformanceRow {
     pub r#message: String,
     ///failure_ordinal
     pub r#failure_ordinal: Option<i64>,
-    ///oracle_reference
-    pub r#oracle_reference: Option<String>,
-    ///oracle_revision
-    pub r#oracle_revision: Option<String>,
+    ///oracle_source_id
+    pub r#oracle_source_id: Option<crate::generated::identities::DeclarationId>,
 }
 impl crate::SemanticEq for RuntimeModelingConformanceRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -52,12 +50,8 @@ impl crate::SemanticEq for RuntimeModelingConformanceRow {
                 &other.r#failure_ordinal,
             )
             && crate::SemanticEq::semantic_eq(
-                &self.r#oracle_reference,
-                &other.r#oracle_reference,
-            )
-            && crate::SemanticEq::semantic_eq(
-                &self.r#oracle_revision,
-                &other.r#oracle_revision,
+                &self.r#oracle_source_id,
+                &other.r#oracle_source_id,
             )
     }
 }
@@ -90,10 +84,8 @@ impl crate::SemanticFrame for RuntimeModelingConformanceRow {
         crate::SemanticFrame::frame(&self.r#message, hash);
         hash.str(stringify!(r#failure_ordinal));
         crate::SemanticFrame::frame(&self.r#failure_ordinal, hash);
-        hash.str(stringify!(r#oracle_reference));
-        crate::SemanticFrame::frame(&self.r#oracle_reference, hash);
-        hash.str(stringify!(r#oracle_revision));
-        crate::SemanticFrame::frame(&self.r#oracle_revision, hash);
+        hash.str(stringify!(r#oracle_source_id));
+        crate::SemanticFrame::frame(&self.r#oracle_source_id, hash);
     }
 }
 impl crate::HeapUsage for RuntimeModelingConformanceRow {
@@ -109,7 +101,6 @@ impl crate::HeapUsage for RuntimeModelingConformanceRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#status))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#message))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#failure_ordinal))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#oracle_reference))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#oracle_revision))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#oracle_source_id))
     }
 }

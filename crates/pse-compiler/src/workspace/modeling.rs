@@ -43,6 +43,11 @@ impl ModelingRevision {
     pub fn physical_scope(&self) -> &PhysicalScope {
         &self.scope
     }
+    /// The source entity a test names as the source of its expected values (ADR-0123
+    /// Outcome 5).
+    pub fn oracle(&self, test: DeclarationId) -> Option<DeclarationId> {
+        self.checked.oracle(test)
+    }
     /// The physical name bindings the admitted source resolves with (ADR-0123 Outcome 8).
     pub fn physical_bindings(&self) -> BTreeMap<String, SemanticId> {
         self.checked.physical_bindings()

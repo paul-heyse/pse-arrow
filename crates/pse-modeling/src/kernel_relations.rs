@@ -54,9 +54,9 @@ fn row_reference_requires_existing_target_row() {
     let text = format!(
         r#"package p {{ {ITEMS}
  table link[j: item]: {{target: Row<base>, label: Text}} complete_over(j in items);
- dataset l: link source "s" {{ [a] = [base[b], "first"]; [b] = [base[a], "second"]; }}
+ dataset l: link provenance(s, role.given) {{ [a] = [base[b], "first"]; [b] = [base[a], "second"]; }}
  table base[j: item]: {{x: Scalar}} complete_over(j in items);
- dataset d: base source "s" {{ [a] = [1.0]; [b] = [2.0]; }}
+ dataset d: base provenance(s, role.given) {{ [a] = [1.0]; [b] = [2.0]; }}
  def Root {{ require link[a].target.x == 2 : "resolved through the reference"; }}
 }}"#
     );
@@ -81,10 +81,10 @@ fn row_reference_requires_existing_target_row() {
     // A keyed-row reference names an admitted keyed row.
     let keyed = r#"package p { entity kind item {} entity item a {}
  entity kind form { key subject: item; key variant: Integer = 1; }
- dataset f: form source "s" { [a] = []; }
+ dataset f: form provenance(s, role.given) { [a] = []; }
  set items: Set<item> = {a};
  table choice[j: item]: form complete_over(j in items);
- dataset d: choice source "s" { [a] = [form[a, 2]]; }
+ dataset d: choice provenance(s, role.given) { [a] = [form[a, 2]]; }
 }"#;
     let error = refusal(keyed);
     assert!(error.contains("no form row has the keys [a, 2]"), "{error}");
@@ -98,7 +98,7 @@ fn row_reference_requires_existing_target_row() {
 fn self_referential_lineage_admits_and_cycles_are_refused() {
     let lineage = r#"package p {
  entity kind parameter_set { key name: Text; attribute lineage: parameter_set?; attribute value: Scalar; }
- dataset sets: parameter_set source "s" {
+ dataset sets: parameter_set provenance(s, role.given) {
   ["refit"] = [parameter_set["fitted"], 3.0];
   ["fitted"] = [parameter_set["base"], 2.0];
   ["base"] = [missing, 1.0];
@@ -129,7 +129,7 @@ fn self_referential_lineage_admits_and_cycles_are_refused() {
         r#"package p {{ {ITEMS}
  set all: Set<item> = {{a, b, c}};
  table tree[j: item]: {{parent: Row<tree>?, derived depth: Integer = if present(parent) then parent.depth + 1 else 0}} complete_over(j in all);
- dataset t: tree source "s" {{ [c] = [tree[b]]; [b] = [tree[a]]; [a] = [missing]; }}
+ dataset t: tree provenance(s, role.given) {{ [c] = [tree[b]]; [b] = [tree[a]]; [a] = [missing]; }}
 }}"#
     );
     let p = admitted(&tree).unwrap();
@@ -155,7 +155,7 @@ fn completeness_over_declared_sets_checked_at_admission() {
         r#"package p {{ {ITEMS}
  enum Phase {{ liquid, vapor }}
  table t[j: item, q: Phase, k: 0..1]: Scalar complete_over(j in items, q in Phase, k in 0..1);
- dataset d: t source "s" {{
+ dataset d: t provenance(s, role.given) {{
   [a, liquid, 0] = [1.0]; [a, liquid, 1] = [1.0]; [a, vapor, 0] = [1.0]; [a, vapor, 1] = [1.0];
   [b, liquid, 0] = [1.0]; [b, liquid, 1] = [1.0]; [b, vapor, 0] = [1.0]; [b, vapor, 1] = [1.0];
   [c, liquid, 0] = [9.0];
@@ -174,8 +174,8 @@ fn completeness_over_declared_sets_checked_at_admission() {
         r#"package p {{ {ITEMS}
  set first: Set<item> = {{a}};
  table u[j: item]: Scalar complete_over(j);
- dataset e: u complete_over(j in items) source "s" {{ [a] = [1.0]; [b] = [2.0]; }}
- dataset f: u complete_over(j in first) source "s" {{ [c] = [3.0]; }}
+ dataset e: u complete_over(j in items) provenance(s, role.given) {{ [a] = [1.0]; [b] = [2.0]; }}
+ dataset f: u complete_over(j in first) provenance(s, role.given) {{ [c] = [3.0]; }}
 }}"#
     );
     let error = refusal(&open);
@@ -194,7 +194,7 @@ fn completeness_over_declared_sets_checked_at_admission() {
     };
     assert_eq!(claims.len(), 2);
     // A dataset claims only open keys, and names each of them.
-    assert!(refusal(&text.replace("dataset d: t source", "dataset d: t complete_over(j in items) source")).contains("claims only open keys"));
+    assert!(refusal(&text.replace("dataset d: t provenance", "dataset d: t complete_over(j in items) provenance")).contains("claims only open keys"));
     assert!(refusal(&open.replace("complete_over(j in first)", "complete_over(k in first)")).contains("not an open key"));
     // A completeness set's members are keys of the key's type.
     assert!(refusal(&text.replace("q in Phase", "q in items")).contains("is not a key q"));
@@ -233,7 +233,7 @@ fn symmetric_pair_answers_both_orientations() {
     let text = format!(
         r#"package p {{ {ITEMS}
  table kij[i: item, j: item]: Scalar symmetric(i, j) diagonal excluded missing default 0.0;
- dataset d: kij source "s" {{ [b, a] = [0.5]; [c, b] = [0.25]; }}
+ dataset d: kij provenance(s, role.given) {{ [b, a] = [0.5]; [c, b] = [0.25]; }}
  def Root {{
   require kij[a, b] == 0.5 : "canonical";
   require kij[b, a] == 0.5 : "reversed";
@@ -249,7 +249,7 @@ fn symmetric_pair_answers_both_orientations() {
     let required = format!(
         r#"package p {{ {ITEMS}
  table pair[i: item, j: item]: Scalar symmetric(i, j) diagonal excluded complete_over(i in items, j in items);
- dataset d: pair source "s" {{ [b, a] = [0.5]; }}
+ dataset d: pair provenance(s, role.given) {{ [b, a] = [0.5]; }}
  def Root {{ require pair[a, b] == pair[b, a] : "both orders"; }}
 }}"#
     );
@@ -275,8 +275,8 @@ fn symmetric_pair_with_both_orientations_refused() {
     let text = format!(
         r#"package p {{ {ITEMS}
  table kij[i: item, j: item]: Scalar symmetric(i, j) diagonal excluded missing default 0.0;
- dataset d: kij source "s" {{ [a, b] = [0.5]; }}
- dataset e: kij source "s" {{ [c, a] = [0.1]; }}
+ dataset d: kij provenance(s, role.given) {{ [a, b] = [0.5]; }}
+ dataset e: kij provenance(s, role.given) {{ [c, a] = [0.1]; }}
 }}"#
     );
     admitted(&text).unwrap();
@@ -302,7 +302,7 @@ fn unique_constraint_rejects_duplicate_tuple() {
         r#"package p {{ {ITEMS}
  set all: Set<item> = {{a, b, c}};
  table code[j: item]: {{cas: Text?, rank: Integer}} unique(cas) unique(rank, j) complete_over(j in all);
- dataset d: code source "s" {{ [a] = ["71-43-2", 1]; [b] = ["108-88-3", 1]; [c] = [missing, 2]; }}
+ dataset d: code provenance(s, role.given) {{ [a] = ["71-43-2", 1]; [b] = ["108-88-3", 1]; [c] = [missing, 2]; }}
 }}"#
     );
     admitted(&text).unwrap();
@@ -323,9 +323,9 @@ fn derived_column_evaluated_once_per_row() {
     let text = format!(
         r#"package p {{ {ITEMS}
  table total[j: item]: {{n: Integer, derived doubled: Integer = scaled * 2, derived scaled: Integer = n * factor[j].k}} complete_over(j in items);
- dataset d: total source "s" {{ [a] = [1]; [b] = [2]; }}
+ dataset d: total provenance(s, role.given) {{ [a] = [1]; [b] = [2]; }}
  table factor[j: item]: {{base: Integer, derived k: Integer = base + 1}} complete_over(j in items);
- dataset f: factor source "s" {{ [a] = [2]; [b] = [3]; }}
+ dataset f: factor provenance(s, role.given) {{ [a] = [2]; [b] = [3]; }}
  def Root {{ require total[b].doubled == 16 : "derived once, read by lookup"; }}
 }}"#
     );
@@ -356,7 +356,7 @@ fn row_requirement_names_row_and_clause() {
     let text = format!(
         r#"package p {{ {ITEMS}
  table limits[j: item]: {{lower: Scalar, upper: Scalar}} complete_over(j in items) require lower <= upper require j in items;
- dataset d: limits source "s" {{ [a] = [1.0, 2.0]; [b] = [2.0, 3.0]; }}
+ dataset d: limits provenance(s, role.given) {{ [a] = [1.0, 2.0]; [b] = [2.0, 3.0]; }}
 }}"#
     );
     admitted(&text).unwrap();
@@ -374,7 +374,7 @@ fn row_requirement_names_row_and_clause() {
  table component_role[j: species]: ComponentType complete_over(j in members)
   require not (value == ComponentType.cation) or j.charge > 0
   require not (value == ComponentType.anion) or j.charge < 0;
- dataset roles: component_role source "s" { [water] = [solvent]; [sodium] = [cation]; [chloride] = [anion]; }
+ dataset roles: component_role provenance(s, role.given) { [water] = [solvent]; [sodium] = [cation]; [chloride] = [anion]; }
 }"#;
     admitted(roles).unwrap();
     let error = refusal(&roles.replace("[chloride] = [anion]", "[chloride] = [cation]"));
@@ -391,7 +391,7 @@ fn lookup_outside_completeness_set_refused_before_evaluation() {
         r#"package p {{ {ITEMS}
  set more: Set<item> = {{a, c}};
  table w[j: item]: Scalar complete_over(j in items);
- dataset d: w source "s" {{ [a] = [1.0]; [b] = [2.0]; [c] = [3.0]; }}
+ dataset d: w provenance(s, role.given) {{ [a] = [1.0]; [b] = [2.0]; [c] = [3.0]; }}
  def Root {{ var x[j in DOMAIN]: Scalar; eq e[j in DOMAIN]: x[j] == w[j]; }}
 }}"#
     );
@@ -418,7 +418,7 @@ fn lookup_outside_completeness_set_refused_before_evaluation() {
     let optional = format!(
         r#"package p {{ {ITEMS}
  table o[j: item]: {{v: Scalar}} missing optional;
- dataset d: o source "s" {{ [a] = [1.0]; }}
+ dataset d: o provenance(s, role.given) {{ [a] = [1.0]; }}
  def Root {{ require o[a].v == 1 : "unguarded"; }}
 }}"#
     );
@@ -435,11 +435,11 @@ fn keyed_row_reference_cell_resolves_by_key() {
  enum PhaseType { liquid, vapor }
  entity kind parameter_set { key subject: species; key phase: PhaseType; key variant: Integer = 1; }
  entity kind constant_cp extends parameter_set { attribute c: Scalar; }
- dataset forms: constant_cp source "s" { [benzene, liquid] = [2.0]; [toluene, liquid, 2] = [3.0]; }
+ dataset forms: constant_cp provenance(s, role.given) { [benzene, liquid] = [2.0]; [toluene, liquid, 2] = [3.0]; }
  set components: Set<species> = {benzene, toluene};
  table selection[j: species]: parameter_set complete_over(j in components)
   require value.subject == j;
- dataset chosen: selection source "s" { [benzene] = [constant_cp[benzene, liquid]]; [toluene] = [parameter_set[toluene, liquid, 2]]; }
+ dataset chosen: selection provenance(s, role.given) { [benzene] = [constant_cp[benzene, liquid]]; [toluene] = [parameter_set[toluene, liquid, 2]]; }
  def Root { require selection[toluene].variant == 2 : "the selected row"; }
 }"#;
     let p = admitted(text).unwrap();
@@ -485,7 +485,7 @@ fn integer_range_key_admits_declared_range_only() {
  entity kind cubic_family {} entity cubic_family pr {} entity cubic_family srk {}
  set peng_robinson: Set<cubic_family> = {pr};
  table kappa[f: cubic_family, k: 0..2]: Scalar complete_over(f, k in 0..2);
- dataset pr_kappa: kappa complete_over(f in peng_robinson) source "Peng and Robinson 1976" { [pr, 0] = [0.37464]; [pr, 1] = [1.54226]; [pr, 2] = [-0.26992]; }
+ dataset pr_kappa: kappa complete_over(f in peng_robinson) provenance(s, role.given) { [pr, 0] = [0.37464]; [pr, 1] = [1.54226]; [pr, 2] = [-0.26992]; }
  def Root { require kappa[pr, INDEX] < 0 : "the quadratic coefficient"; }
 }"#;
     let p = admitted(&text.replace("INDEX", "2")).unwrap();

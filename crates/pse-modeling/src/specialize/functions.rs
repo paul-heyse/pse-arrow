@@ -511,6 +511,7 @@ impl Engine<'_, '_> {
                 env: &statics,
                 limit: self.limits.members,
                 stack: vec![],
+                reader: self.reader,
             }
             .text(&dsl::render_expr(&external.output), Some(&Type::Integer))?;
             let Value::Integer(output) = output else {

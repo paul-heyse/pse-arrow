@@ -136,14 +136,6 @@ class AuthoredModelingDeclarationsFieldValueScopeSelection:
 
 
 @attrs.frozen(kw_only=True)
-class AuthoredModelingDeclarationsFieldValueScopeOracle:
-    """Declared relation row or nested value."""
-
-    reference: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    revision: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-
-@attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixturePolicy:
     """Declared relation row or nested value."""
 
@@ -291,7 +283,8 @@ class AuthoredModelingDeclarationsFieldValueScope:
     type_parameters: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     selection: AuthoredModelingDeclarationsFieldValueScopeSelection | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeSelection)))
     eligibility: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    oracle: AuthoredModelingDeclarationsFieldValueScopeOracle | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeOracle)))
+    oracle: b.tuple[b.str, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple))))
+    facets: b.tuple[e.ModelingKindFacet, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.ModelingKindFacet), iterable_validator=attrs.validators.instance_of(b.tuple)))
     fixture: AuthoredModelingDeclarationsFieldValueScopeFixture | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixture)))
 
 
@@ -539,7 +532,7 @@ class AuthoredModelingDeclarationsFieldValueDataset:
     """Declared relation row or nested value."""
 
     target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    source: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    provenance: s.ModelingProvenance = attrs.field(validator=attrs.validators.instance_of(s.ModelingProvenance))
     bindings: b.tuple[AuthoredModelingDeclarationsFieldValueDatasetBindingsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueDatasetBindingsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     complete_over: b.tuple[s.ModelingCompleteness, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingCompleteness), iterable_validator=attrs.validators.instance_of(b.tuple)))
     rows: b.tuple[AuthoredModelingDeclarationsFieldValueDatasetRowsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueDatasetRowsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
@@ -567,6 +560,7 @@ class AuthoredModelingDeclarationsFieldValueEnumerationMembersItem:
 
     member_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    facets: b.tuple[e.ModelingDataFacet, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.ModelingDataFacet), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)
@@ -582,6 +576,7 @@ class AuthoredModelingDeclarationsFieldValueConstant:
 
     type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     value: s.ModelingCell = attrs.field(validator=attrs.validators.instance_of(s.ModelingCell))
+    provenance: s.ModelingProvenance = attrs.field(validator=attrs.validators.instance_of(s.ModelingProvenance))
 
 
 @attrs.frozen(kw_only=True)

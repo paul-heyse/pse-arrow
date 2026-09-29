@@ -83,9 +83,9 @@ Version: 3. Snapshot class: `case`. Primary key: `fit_id`.
 
 ## `modeling_declarations`
 
-Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119). Version eight adds the policy's foreign-library allowance in bytes, which the fixture's solves reserve and a native library that enforces its own memory limit receives, in place of the deployment's (ADR-0119). Version nine is structured (ADR-0123 Outcome 1): every type is a post-order type arena whose children precede their parent and whose last node is the root; table absence, annotation kinds and fact namespaces are registry enums, a validity annotation carries its typed extrapolation policy, a scaling annotation its scheme and a connectivity annotation its typed maxima; an import carries its typed version requirement (Outcome 7). Version ten makes entities typed records (ADR-0123 Outcome 2): data cells are typed tagged values (boolean, integer, quantity as magnitude and unit product, text, identifier, reference, references or missing, each with an optional uncertainty), parsed once and never expressions; entity attribute values, attribute defaults, kind-level bindings of inherited attributes, dataset rows and typed constants are cells; an attribute declares whether it is a key; a dataset names its target table or keyed kind and binds the keys it supplies for every row; enumeration members carry identities; and identifier schemes are declared. Version eleven gives relations constraints (ADR-0123 Outcome 3): a table key may declare an inclusive integer range; a column may be derived by an expression evaluated once per row; the default of the default policy is a typed cell; a required table declares its completeness, one entry per key over a declared set, an enumeration or an integer range, or open for datasets to claim; a symmetric key pair declares its diagonal policy; uniqueness constraints name keys and supplied columns; row requirements are predicates; a dataset may claim completeness over declared sets for its table's open keys; and a cell may reference a keyed row or a table row by its target and key cells.
+Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119). Version eight adds the policy's foreign-library allowance in bytes, which the fixture's solves reserve and a native library that enforces its own memory limit receives, in place of the deployment's (ADR-0119). Version nine is structured (ADR-0123 Outcome 1): every type is a post-order type arena whose children precede their parent and whose last node is the root; table absence, annotation kinds and fact namespaces are registry enums, a validity annotation carries its typed extrapolation policy, a scaling annotation its scheme and a connectivity annotation its typed maxima; an import carries its typed version requirement (Outcome 7). Version ten makes entities typed records (ADR-0123 Outcome 2): data cells are typed tagged values (boolean, integer, quantity as magnitude and unit product, text, identifier, reference, references or missing, each with an optional uncertainty), parsed once and never expressions; entity attribute values, attribute defaults, kind-level bindings of inherited attributes, dataset rows and typed constants are cells; an attribute declares whether it is a key; a dataset names its target table or keyed kind and binds the keys it supplies for every row; enumeration members carry identities; and identifier schemes are declared. Version eleven gives relations constraints (ADR-0123 Outcome 3): a table key may declare an inclusive integer range; a column may be derived by an expression evaluated once per row; the default of the default policy is a typed cell; a required table declares its completeness, one entry per key over a declared set, an enumeration or an integer range, or open for datasets to claim; a symmetric key pair declares its diagonal policy; uniqueness constraints name keys and supplied columns; row requirements are predicates; a dataset may claim completeness over declared sets for its table's open keys; and a cell may reference a keyed row or a table row by its target and key cells. Version twelve types provenance (ADR-0123 Outcome 5): every dataset and constant names its source entity, its role and its lineage by path, in place of a source text; an entity kind declares its facets, and an entity is a source exactly when its kind or an ancestor kind carries the provenance facet; an enumeration member declares the data facets the kernel acts on when it is named as a role, test-only or requiring lineage; a lineage entry names a dataset or a source; and a test names the source entity of its expected values as its oracle, in place of a reference and revision text.
 
-Version: 11. Snapshot class: `model`. Primary key: `declaration_id`.
+Version: 12. Snapshot class: `model`. Primary key: `declaration_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -130,9 +130,10 @@ Version: 11. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.scope.selection.criterion` | `Utf8` | false | `payload` | — | — |
 | `value.scope.selection.tolerance` | `Utf8` | false | `payload` | — | — |
 | `value.scope.eligibility` | `Utf8` | true | `payload` | — | — |
-| `value.scope.oracle` | `Struct` | true | `payload` | — | — |
-| `value.scope.oracle.reference` | `Utf8` | false | `payload` | — | — |
-| `value.scope.oracle.revision` | `Utf8` | false | `payload` | — | — |
+| `value.scope.oracle` | `List` | true | `payload` | — | — |
+| `value.scope.oracle.item` | `Utf8` | false | `payload` | — | — |
+| `value.scope.facets` | `List` | false | `payload` | — | — |
+| `value.scope.facets.item` | `enum:ModelingKindFacet` | false | `payload` | — | — |
 | `value.scope.fixture` | `Struct` | true | `payload` | — | — |
 | `value.scope.fixture.degrees_of_freedom` | `Int64` | false | `payload` | — | — |
 | `value.scope.fixture.execution` | `enum:ModelingFixtureExecution` | true | `payload` | — | — |
@@ -503,7 +504,16 @@ Version: 11. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.attribute.value.uncertainty.magnitude` | `Float64` | false | `payload` | — | — |
 | `value.dataset` | `Struct` | true | `payload` | — | — |
 | `value.dataset.target` | `Utf8` | false | `payload` | — | — |
-| `value.dataset.source` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.provenance` | `Struct ModelingProvenance` | false | `payload` | — | — |
+| `value.dataset.provenance.source` | `List` | false | `payload` | — | — |
+| `value.dataset.provenance.source.item` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.provenance.role` | `List` | false | `payload` | — | — |
+| `value.dataset.provenance.role.item` | `Utf8` | false | `payload` | — | — |
+| `value.dataset.provenance.lineage` | `List` | false | `payload` | — | — |
+| `value.dataset.provenance.lineage.item` | `Struct ModelingLineageEntry` | false | `payload` | — | — |
+| `value.dataset.provenance.lineage.item.kind` | `enum:ModelingLineageKind` | false | `payload` | — | — |
+| `value.dataset.provenance.lineage.item.path` | `List` | false | `payload` | — | — |
+| `value.dataset.provenance.lineage.item.path.item` | `Utf8` | false | `payload` | — | — |
 | `value.dataset.bindings` | `List` | false | `payload` | — | — |
 | `value.dataset.bindings.item` | `Struct` | false | `payload` | — | — |
 | `value.dataset.bindings.item.name` | `Utf8` | false | `payload` | — | — |
@@ -757,6 +767,8 @@ Version: 11. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.enumeration.members.item` | `Struct` | false | `payload` | — | — |
 | `value.enumeration.members.item.member_id` | `semantic_id` | false | `payload` | — | — |
 | `value.enumeration.members.item.name` | `Utf8` | false | `payload` | — | — |
+| `value.enumeration.members.item.facets` | `List` | false | `payload` | — | — |
+| `value.enumeration.members.item.facets.item` | `enum:ModelingDataFacet` | false | `payload` | — | — |
 | `value.constant` | `Struct` | true | `payload` | — | — |
 | `value.constant.type` | `List` | false | `payload` | — | — |
 | `value.constant.type.item` | `Struct ModelingTypeArenaNode` | false | `payload` | — | — |
@@ -826,6 +838,16 @@ Version: 11. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.constant.value.uncertainty` | `Struct` | true | `payload` | — | — |
 | `value.constant.value.uncertainty.kind` | `enum:ModelingUncertaintyKind` | false | `payload` | — | — |
 | `value.constant.value.uncertainty.magnitude` | `Float64` | false | `payload` | — | — |
+| `value.constant.provenance` | `Struct ModelingProvenance` | false | `payload` | — | — |
+| `value.constant.provenance.source` | `List` | false | `payload` | — | — |
+| `value.constant.provenance.source.item` | `Utf8` | false | `payload` | — | — |
+| `value.constant.provenance.role` | `List` | false | `payload` | — | — |
+| `value.constant.provenance.role.item` | `Utf8` | false | `payload` | — | — |
+| `value.constant.provenance.lineage` | `List` | false | `payload` | — | — |
+| `value.constant.provenance.lineage.item` | `Struct ModelingLineageEntry` | false | `payload` | — | — |
+| `value.constant.provenance.lineage.item.kind` | `enum:ModelingLineageKind` | false | `payload` | — | — |
+| `value.constant.provenance.lineage.item.path` | `List` | false | `payload` | — | — |
+| `value.constant.provenance.lineage.item.path.item` | `Utf8` | false | `payload` | — | — |
 | `value.import` | `Struct` | true | `payload` | — | — |
 | `value.import.version` | `Struct VersionRequirement` | false | `payload` | — | — |
 | `value.import.version.operator` | `enum:ModelingVersionOperator` | false | `payload` | — | — |

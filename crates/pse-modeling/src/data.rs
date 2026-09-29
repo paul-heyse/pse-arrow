@@ -19,7 +19,12 @@
 //! A required table admits a lookup only inside its completeness, which admission has
 //! verified, so a lookup outside it is refused before any row is read. Rows are positional
 //! cells; a row value carries its column names for member access and framing.
+//!
+//! Each row carries its test-only taint (ADR-0123 Outcome 5): its dataset's role is
+//! test-only, or it references a test-only entity or row, or a derived column read
+//! test-only data. A lookup by a root outside a test fixture refuses a test-only row.
 use crate::entity::{Rows, typed};
+use crate::provenance::Reader;
 use crate::specialize::value::{Environment, Evaluator, Value, conforms};
 use crate::{CheckedPackage, DeclarationId, Result, Type, TypeContext, invalid};
 use petgraph::algo::{kosaraju_scc, toposort};
@@ -128,8 +133,10 @@ pub struct Symmetry {
 pub struct Row {
     /// Values in column order.
     pub cells: Arc<[Value]>,
-    /// The dataset that supplied the row.
+    /// The dataset that supplied the row; its role is the row's origin role.
     pub origin: DeclarationId,
+    /// Whether the row is test-only: its origin role is, or it references test-only data.
+    pub test_only: bool,
 }
 
 /// An admitted relation. Authored declarations remain the durable authority.
@@ -206,14 +213,16 @@ impl Table {
             }
         }
     }
-    /// The value at `keys`, looked up at `at`. A symmetric pair answers both orders. A
-    /// required table refuses a key outside its completeness before reading any row.
+    /// The value at `keys`, looked up at `at` by `reader`. A symmetric pair answers both
+    /// orders. A required table refuses a key outside its completeness before reading any
+    /// row; a root outside a test fixture refuses a test-only row (ADR-0123 Outcome 5).
     pub(crate) fn lookup(
         &self,
         p: &CheckedPackage,
         table: DeclarationId,
         at: DeclarationId,
         keys: Vec<Value>,
+        reader: Reader<'_>,
     ) -> Result<Value> {
         let name = || p.declarations[&table].name.clone();
         if !self.complete {
@@ -244,6 +253,16 @@ impl Table {
         }
         let (keys, _) = self.canonical(keys);
         let row = self.rows.get(&keys);
+        if let Some(row) = row {
+            reader.read(p, at, row.test_only, || {
+                format!(
+                    "row {}[{}] {}",
+                    name(),
+                    display_keys(p, &keys),
+                    crate::provenance::supplied_by(p, row.origin)
+                )
+            })?;
+        }
         match &self.absence {
             Absence::Required(claims) => {
                 if !self.completes(claims, &keys) {
@@ -470,9 +489,6 @@ pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                     "only a dataset of a keyed kind binds keys",
                 ));
             }
-            if dataset.source.is_empty() {
-                return Err(invalid(row.declaration_id, "dataset provenance is empty"));
-            }
             datasets.entry(target).or_default().push(row.declaration_id);
         } else if !p.kinds.contains_key(&target) {
             return Err(invalid(
@@ -532,12 +548,13 @@ pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
         let rows_of = staged.get(&id).unwrap_or(&empty);
         for keys in row_order(p, table, rows_of)? {
             let row = &rows_of[&keys];
-            let cells = derive(p, table, &keys, row, &result)?;
+            let (cells, test_only) = derive(p, table, &keys, row, &result)?;
             result.rows.insert(
                 keys,
                 Row {
                     cells: cells.into(),
                     origin: row.origin,
+                    test_only,
                 },
             );
         }
@@ -1172,6 +1189,7 @@ fn domain(
                     env: &env,
                     limit: CLAIM_LIMIT,
                     stack: Vec::new(),
+                    reader: Reader::Admission(None),
                 };
                 let Value::Set(members) = evaluator.text(&name, None)? else {
                     return Err(invalid(at, format!("{name} is not a finite set")));
@@ -1515,14 +1533,20 @@ fn row_order(
 }
 
 /// Phase 3 for one row: reference columns take the referenced row, then each derived
-/// column is evaluated once, with the row's keys and columns bound.
+/// column is evaluated once, with the row's keys and columns bound. The row is test-only
+/// when its origin role is, or it references or derives from test-only data.
 fn derive(
     p: &CheckedPackage,
     table: &Declared,
     keys: &[Value],
     row: &Staged,
     partial: &Table,
-) -> Result<Vec<Value>> {
+) -> Result<(Vec<Value>, bool)> {
+    let tainted = std::cell::Cell::new(
+        p.provenance(row.origin)
+            .is_some_and(crate::provenance::Provenance::test_only)
+            || keys.iter().any(|key| p.references_test_only(key)),
+    );
     let mut cells = row
         .cells
         .iter()
@@ -1541,13 +1565,19 @@ fn derive(
                     .rows
                     .get(keys)
                     .ok_or_else(|| invalid(table.id, "referenced row is not admitted"))?;
+                if referenced.test_only {
+                    tainted.set(true);
+                }
                 Ok(source.value(*target, referenced))
             }
             Pending::Derived => Ok(Value::Missing),
         })
         .collect::<Result<Vec<_>>>()?;
+    if cells.iter().any(|cell| p.references_test_only(cell)) {
+        tainted.set(true);
+    }
     if table.derived.is_empty() {
-        return Ok(cells);
+        return Ok((cells, tainted.get()));
     }
     let mut env = Environment::new();
     for (key, value) in table.table.keys.iter().zip(keys) {
@@ -1568,6 +1598,7 @@ fn derive(
             env: &env,
             limit: EVALUATION_LIMIT,
             stack: Vec::new(),
+            reader: Reader::Admission(Some(&tainted)),
         }
         .expr(expression, Some(&column.ty), 0)?;
         if !conforms(&value, &column.ty, p) {
@@ -1585,7 +1616,7 @@ fn derive(
         env.insert(column.name.clone(), value.clone());
         cells[*position] = value;
     }
-    Ok(cells)
+    Ok((cells, tainted.get()))
 }
 
 /// Every row satisfies every requirement of its table; a refusal names the row, its
@@ -1615,6 +1646,7 @@ fn requirements(p: &CheckedPackage, table: &Declared) -> Result<()> {
                 env: &env,
                 limit: EVALUATION_LIMIT,
                 stack: Vec::new(),
+                reader: Reader::Admission(None),
             }
             .predicate(predicate)?;
             if !holds {

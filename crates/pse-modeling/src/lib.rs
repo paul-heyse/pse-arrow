@@ -13,6 +13,7 @@ pub mod expression;
 mod extent;
 pub mod external;
 pub mod logic;
+pub mod provenance;
 pub mod specialize;
 pub mod types;
 
@@ -100,6 +101,16 @@ pub enum ModelingError {
         /// Violated rule.
         reason: ObjectiveRefusal,
     },
+    /// A root outside a test fixture read test-only data (ADR-0123 Outcome 5).
+    #[error("test-only data is read outside a test fixture: {data}")]
+    TestOnly {
+        /// The declaration whose evaluation read the data.
+        declaration: SemanticId,
+        /// The specialization root.
+        root: SemanticId,
+        /// The row, entity or constant read, its supplier and role, and the root.
+        data: String,
+    },
     /// The caller withdrew this computation; never a cached semantic diagnostic.
     #[error("modeling cancelled")]
     Cancelled,
@@ -123,6 +134,7 @@ pse_diagnostics::impl_diagnostic! {
         } else {
             pse_diagnostics::DiagnosticCode::ValidationInvariant
         },
+        ModelingError::TestOnly { .. } => pse_diagnostics::DiagnosticCode::ValidationInvariant,
         ModelingError::Cancelled => pse_diagnostics::DiagnosticCode::RuntimeCancelled,
         ModelingError::Budget(_) => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
     }) },
@@ -135,7 +147,8 @@ impl ModelingError {
             | Self::Unsupported { declaration, .. }
             | Self::Domain { declaration, .. }
             | Self::Realization { declaration, .. }
-            | Self::Objective { declaration, .. } => *declaration,
+            | Self::Objective { declaration, .. }
+            | Self::TestOnly { declaration, .. } => *declaration,
             _ => return self,
         };
         let mut matches = rows.iter().filter(|row| row.declaration_id.as_id() == id);
@@ -268,6 +281,22 @@ impl ModelingError {
                 diagnostic
                     .observations
                     .insert("reason".into(), Observation::Text(reason.as_str().into()));
+                return diagnostic;
+            }
+            Self::TestOnly {
+                declaration,
+                root,
+                data,
+            } => {
+                let mut diagnostic = BoundaryDiagnostic::new(
+                    Class::InvalidModel,
+                    "modeling",
+                    [*declaration, *root],
+                    "modeling.provenance",
+                );
+                diagnostic
+                    .observations
+                    .insert("data".into(), Observation::Text(data.clone()));
                 return diagnostic;
             }
             Self::Cancelled => (Class::Cancelled, "modeling.cancelled", None, None),
@@ -525,3 +554,5 @@ mod kernel_specialization;
 mod kernel_entities;
 #[cfg(test)]
 mod kernel_relations;
+#[cfg(test)]
+mod kernel_provenance;

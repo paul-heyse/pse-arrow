@@ -360,9 +360,9 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, sample_index,
 
 ## `modeling_conformance`
 
-Bounded shared checks over authored fixtures. Oracle links identify asserted source values; they do not claim an upstream run. Uncovered concrete definitions and incomplete samples are explicit.
+Bounded shared checks over authored fixtures. The oracle source is the entity a fixture names as the source of its expected values; it identifies asserted source values and does not claim an upstream run. Uncovered concrete definitions and incomplete samples are explicit. Version two replaces the verbatim oracle reference and revision text with the oracle's source entity identity (ADR-0123 Outcome 5).
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, fixture_id, sample_index, target_id, source_id, kind`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, fixture_id, sample_index, target_id, source_id, kind`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -376,8 +376,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, fixture_id, sample_
 | `status` | `enum:ModelingConformanceStatus` | false | `payload` | — | — |
 | `message` | `Utf8` | false | `payload` | — | — |
 | `failure_ordinal` | `Int64` | true | `payload` | — | — |
-| `oracle_reference` | `Utf8` | true | `payload` | — | — |
-| `oracle_revision` | `Utf8` | true | `payload` | — | — |
+| `oracle_source_id` | `semantic_id` | true | `payload` | — | — |
 
 ## `modeling_diagnostic_samples`
 

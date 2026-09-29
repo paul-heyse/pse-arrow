@@ -156,7 +156,7 @@ package app {
     // Keyed rows share the scope.
     let error = refusal(&text.replace(
         "entity species benzene",
-        "entity kind named { key id: Id<cas>; } dataset rows: named source \"s\" { [Id<cas>(\"71-43-2\")] = []; } entity species benzene",
+        "entity kind named { key id: Id<cas>; } dataset rows: named provenance(s, role.given) { [Id<cas>(\"71-43-2\")] = []; } entity species benzene",
     ));
     assert!(error.contains("is held by"), "{error}");
 }
@@ -291,7 +291,7 @@ fn missing_required_attribute_refused_at_admission() {
     let keyed = r#"package p {
  entity kind item {} entity item a {}
  entity kind form { key subject: item; attribute m: Energy; attribute n: Energy?; }
- dataset rows: form source "s" { [a] = [1{J}]; }
+ dataset rows: form provenance(s, role.given) { [a] = [1{J}]; }
 }"#;
     admitted(keyed).unwrap();
     let error = refusal(&keyed.replace("[1{J}]", "[]"));
@@ -303,7 +303,7 @@ const KEYED: &str = r#"package p {
  enum Phase { @id("0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") liquid, vapor }
  entity kind parameter_set { key subject: species; key phase: Phase; key variant: Integer = 1; }
  entity kind constant_cp extends parameter_set { attribute c: Scalar; }
- dataset d: constant_cp source "s" { [benzene, liquid] = [2.0]; [benzene, vapor, 2] = [3.0]; }
+ dataset d: constant_cp provenance(s, role.given) { [benzene, liquid] = [2.0]; [benzene, vapor, 2] = [3.0]; }
  def Root { require constant_cp[benzene, Phase.liquid].c == 2 : "by keys"; require parameter_set[benzene, Phase.vapor, 2].variant == 2 : "through the key-declaring kind"; }
 }"#;
 
@@ -372,8 +372,8 @@ const FORMS: &str = r#"package p {
  entity kind item {} entity item a {} entity item b {}
  entity kind form { key subject: item; key source: Text; }
  entity kind doubling extends form {} entity kind tripling extends form {}
- dataset d: doubling bind(source = "bank") source "s" { [a] = []; }
- dataset t: tripling bind(source = "bank") source "s" { [b] = []; }
+ dataset d: doubling bind(source = "bank") provenance(s, role.given) { [a] = []; }
+ dataset t: tripling bind(source = "bank") provenance(s, role.given) { [b] = []; }
 }"#;
 
 /// Key uniqueness holds at the key-declaring kind across every refinement.
@@ -389,13 +389,13 @@ fn same_key_in_two_forms_is_refused() {
     assert!(error.contains("supplies one key of kind form twice"), "{error}");
     // A dataset-supplied key is a declared binding of a key.
     assert!(
-        refusal(&FORMS.replace("bind(source = \"bank\") source \"s\" { [a]", "bind(label = \"x\") source \"s\" { [a]"))
+        refusal(&FORMS.replace("bind(source = \"bank\") provenance(s, role.given) { [a]", "bind(label = \"x\") provenance(s, role.given) { [a]"))
             .contains("binding label names no key of kind form")
     );
     // The binding is part of the key: another source is another row.
     admitted(&FORMS.replace(
         "{ [b] = []; }",
-        "{ [b] = []; } dataset e: tripling bind(source = \"other\") source \"s\" { [a] = []; }",
+        "{ [b] = []; } dataset e: tripling bind(source = \"other\") provenance(s, role.given) { [a] = []; }",
     ))
     .unwrap();
 }
@@ -430,7 +430,7 @@ const BINDINGS: &str = r#"package p {
  entity kind form { key subject: item; attribute cp: Fn(x: Scalar, s: form) -> Scalar; }
  entity kind linear extends form { attribute slope: Scalar; cp = linear_cp; }
  fn linear_cp(x: Scalar, s: linear) -> Scalar = s.slope * x;
- dataset rows: linear source "s" { [a] = [2.0]; }
+ dataset rows: linear provenance(s, role.given) { [a] = [2.0]; }
 }"#;
 
 /// A refinement binds an inherited function attribute for itself and its refinements;
@@ -476,7 +476,7 @@ const DISPATCH: &str = r#"package p {
  entity kind form { key subject: item; attribute cp: Fn(x: Scalar) -> Scalar; }
  entity kind doubling extends form { cp = double; }
  fn double(x: Scalar) -> Scalar = x*2;
- dataset d: doubling source "s" { [a] = []; [b] = []; }
+ dataset d: doubling provenance(s, role.given) { [a] = []; [b] = []; }
  fn through(s: form, x: Scalar) -> Scalar = s.cp(x);
  def Root { var x: Scalar; eq e: 0 == STATIC; }
 }"#;
@@ -513,7 +513,7 @@ fn non_static_ref_is_refused() {
 #[test]
 fn constants_are_typed_declarations() {
     let text = r#"package p {
- constant m0: Energy = 2{kJ} ± standard(1);
+ constant m0: Energy = 2{kJ} ± standard(1) provenance(s, role.given);
  fn shifted(y: Energy) -> Energy = y + m0;
  def Root { var x: Energy; eq e: x == shifted(m0); }
 }"#;

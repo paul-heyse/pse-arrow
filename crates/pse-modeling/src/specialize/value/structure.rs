@@ -30,6 +30,7 @@ impl Evaluator<'_, '_> {
                 env,
                 limit: self.limit,
                 stack: stack.clone(),
+                reader: self.reader,
             }
             .text(source, expected)
         };
@@ -53,6 +54,7 @@ impl Evaluator<'_, '_> {
                 env: &env,
                 limit: self.limit,
                 stack,
+                reader: self.reader,
             }
             .definition_environment(id, &bindings, env.clone());
         }

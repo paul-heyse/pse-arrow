@@ -684,6 +684,13 @@ class ModelingContributionRole(StrEnum):
     NEGATIVE = "negative"
 
 
+class ModelingDataFacet(StrEnum):
+    """The declared ModelingDataFacet enumeration."""
+
+    TEST_ONLY = "test_only"
+    REQUIRES_LINEAGE = "requires_lineage"
+
+
 class ModelingDeclarationKind(StrEnum):
     """The declared ModelingDeclarationKind enumeration."""
 
@@ -820,6 +827,19 @@ class ModelingKeyCellKind(StrEnum):
     TEXT = "text"
     IDENTIFIER = "identifier"
     REFERENCE = "reference"
+
+
+class ModelingKindFacet(StrEnum):
+    """The declared ModelingKindFacet enumeration."""
+
+    PROVENANCE = "provenance"
+
+
+class ModelingLineageKind(StrEnum):
+    """The declared ModelingLineageKind enumeration."""
+
+    DATASET = "dataset"
+    SOURCE = "source"
 
 
 class ModelingMissingPolicy(StrEnum):

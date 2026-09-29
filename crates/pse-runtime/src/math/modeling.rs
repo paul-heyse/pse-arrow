@@ -42,6 +42,11 @@ impl ModelingRevision {
     pub(crate) fn declarations(&self) -> &[Declaration] {
         self.admitted.declarations()
     }
+    /// The source entity a test names as the source of its expected values (ADR-0123
+    /// Outcome 5).
+    pub(crate) fn oracle(&self, test: DeclarationId) -> Option<DeclarationId> {
+        self.admitted.oracle(test)
+    }
 }
 /// The identity of a modeling source revision (ADR-0123 Outcome 8): the structured
 /// declaration rows in order, the identity of the physical inventory they are admitted

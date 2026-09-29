@@ -3,10 +3,7 @@
 //! Case/test data binds existing symbols; it never adds equations or changes model fixedness.
 use super::*;
 use pse_model::generated::{
-    authored::modeling_declarations::{
-        AuthoredModelingDeclarationsFieldValueScopeFixture as Contract,
-        AuthoredModelingDeclarationsFieldValueScopeOracle as Oracle,
-    },
+    authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixture as Contract,
     enums::ModelingFixtureBinding as Binding,
 };
 /// Bindings of one independent symbol, in canonical units; unset parts keep the model's.
@@ -32,8 +29,8 @@ pub struct Fixture {
     pub expected_degrees_of_freedom: i64,
     /// Bindings keyed by their model path.
     pub specifications: BTreeMap<String, FixtureValue>,
-    /// Reference oracle the fixture's results are compared with.
-    pub oracle: Option<Oracle>,
+    /// The source entity the fixture's expected values come from (ADR-0123 Outcome 5).
+    pub oracle: Option<DeclarationId>,
     /// Analysis route the fixture runs under; steady when unauthored.
     pub execution: pse_model::generated::enums::ModelingFixtureExecution,
     /// Declared solve intent (ADR-0119 Outcome 1); `None` leaves it to the runtime policy.
@@ -229,7 +226,7 @@ impl Engine<'_, '_> {
         instance: InstanceId,
         row: &Declaration,
         contract: &Contract,
-        oracle: Option<Oracle>,
+        oracle: Option<DeclarationId>,
         env: &Environment,
     ) -> Result<()> {
         let at = row.declaration_id;

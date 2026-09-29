@@ -60,6 +60,9 @@ pub struct Kind {
     pub key_kind: Option<DeclarationId>,
     /// The key attributes, in declaration order.
     pub keys: Vec<String>,
+    /// Whether the kind or an ancestor carries the provenance facet, so its entities may be
+    /// sources (ADR-0123 Outcome 5).
+    pub provenance: bool,
 }
 
 /// An admitted entity: a declared entity or a row of a keyed kind.
@@ -727,6 +730,12 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
         let base = p.kinds[&id].base;
         let mut kind = base.map(|b| p.kinds[&b].clone()).unwrap_or_default();
         kind.base = base;
+        // ADR-0123 Outcome 5: a refinement inherits the provenance facet.
+        kind.provenance |= p.declarations[&id].value.scope.as_ref().is_some_and(|scope| {
+            scope
+                .facets
+                .contains(&pse_model::generated::enums::ModelingKindFacet::Provenance)
+        });
         let mut own_keys = Vec::new();
         for child in p.children.get(&id).cloned().unwrap_or_default() {
             let row = &p.declarations[&child];

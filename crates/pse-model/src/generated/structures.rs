@@ -906,6 +906,57 @@ impl ModelingKeyCell {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct ModelingLineageEntry {
+    ///kind
+    pub r#kind: crate::generated::enums::ModelingLineageKind,
+    ///path
+    pub r#path: Vec<String>,
+}
+impl crate::SemanticEq for ModelingLineageEntry {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
+    }
+}
+impl PartialEq for ModelingLineageEntry {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ModelingProvenance {
+    ///source
+    pub r#source: Vec<String>,
+    ///role
+    pub r#role: Vec<String>,
+    ///lineage
+    pub r#lineage: Vec<ModelingLineageEntry>,
+}
+impl crate::SemanticEq for ModelingProvenance {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#source, &other.r#source)
+            && crate::SemanticEq::semantic_eq(&self.r#role, &other.r#role)
+            && crate::SemanticEq::semantic_eq(&self.r#lineage, &other.r#lineage)
+    }
+}
+impl PartialEq for ModelingProvenance {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct ModelingTypeArenaNodeExponent {
     ///num
     pub r#num: i16,
@@ -1389,6 +1440,39 @@ impl crate::HeapUsage for ModelingKeyCell {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#text))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#identifier))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reference))
+    }
+}
+impl crate::SemanticFrame for ModelingLineageEntry {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#path));
+        crate::SemanticFrame::frame(&self.r#path, hash);
+    }
+}
+impl crate::HeapUsage for ModelingLineageEntry {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
+    }
+}
+impl crate::SemanticFrame for ModelingProvenance {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#source));
+        crate::SemanticFrame::frame(&self.r#source, hash);
+        hash.str(stringify!(r#role));
+        crate::SemanticFrame::frame(&self.r#role, hash);
+        hash.str(stringify!(r#lineage));
+        crate::SemanticFrame::frame(&self.r#lineage, hash);
+    }
+}
+impl crate::HeapUsage for ModelingProvenance {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#role))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#lineage))
     }
 }
 impl crate::SemanticFrame for ModelingTypeArenaNodeExponent {

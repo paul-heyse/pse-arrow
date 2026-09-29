@@ -23,14 +23,18 @@ fn roundtrip_all_declarations_and_explicit_identity() {
  entity kind linear extends parameter_set { attribute slope: Scalar = 0.5 ± relative(0.01); cp = identity; }
  entity component a { mass = 2{kg}, cas = Id<cas>("71-43-2") }
  enum Choice { first, @id("0123456789abcdef0123456789abcdef") second }
- constant gas: Mass = 8.314{kg} ± standard(0.001);
+ entity kind source provenance { attribute title: Text; }
+ entity kind release extends source { attribute version: Text; }
+ enum Role { published, fitted facets(requires_lineage), oracle_input facets(test_only, requires_lineage) }
+ entity release upstream { title = "upstream", version = "1.0" }
+ constant gas: Mass = 8.314{kg} ± standard(0.001) provenance(upstream, Role.published);
  set members: Set<component> = {a};
  table coefficient[j: component]: Mass complete_over(j in members) missing required;
  table pairing[i: component, j: component, k: 0..2]: {v: Mass, derived w: Mass = 2*v, set: parameter_set} symmetric(i, j) diagonal excluded unique(v, k) complete_over(i, j in members, k in 0..2) missing required require v > 0{kg} require w >= v;
  table fallback[j: component]: Scalar missing default 0.5 ± relative(0.1);
- dataset values: coefficient source "synthetic" { [a] = [2{kg}]; }
- dataset pairs: pairing complete_over(i in members) source "synthetic" { [a, a, 0] = [1{kg}, linear[a, 2]]; }
- dataset lines: linear bind(variant = 2) source "synthetic" { [a] = [-1.5]; [b] = []; }
+ dataset values: coefficient provenance(upstream, Role.published) { [a] = [2{kg}]; }
+ dataset pairs: pairing complete_over(i in members) provenance(synthetic.upstream, Role.fitted, lineage(dataset values, source upstream)) { [a, a, 0] = [1{kg}, linear[a, 2]]; }
+ dataset lines: linear bind(variant = 2) provenance(upstream, Role.oracle_input, lineage(dataset pairs)) { [a] = [-1.5]; [b] = []; }
  fn square<Q>(x: Q) -> Q^2 = x*x;
  interface I { fn f(x: Mass) -> Mass; let doubled: Mass = x+x; }
  def D(enabled: Boolean = true) : I {
@@ -62,6 +66,7 @@ fn roundtrip_all_declarations_and_explicit_identity() {
  preset Small = D(enabled=true);
  case run { child root = Small(); }
  test check { expect square(2) == 4 tolerance 1e-9; }
+ test compared oracle synthetic.upstream fixture { dof 0; run pure; } { expect square(2) == 4 tolerance 1e-9; }
  }"#;
     let rows = parse_named(source);
     let printed = render(&rows).unwrap();

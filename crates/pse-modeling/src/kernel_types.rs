@@ -27,10 +27,20 @@ pub(crate) fn physical() -> (
 pub(crate) fn source(text: &str) -> Vec<Declaration> {
     try_source(text).unwrap()
 }
+/// The provenance every kernel-test dataset names unless its test is about provenance
+/// (ADR-0123 Outcome 5): a source kind carrying the provenance facet, a role enumeration
+/// whose `given` member declares no facet, and one source `s`. [`try_source`] declares it in
+/// package `p` when the text names `provenance(s, role.given)` and declares no roles itself.
+pub(crate) const PROVENANCE: &str = "entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = \"kernel test data\" }";
 /// A source the parser refuses is a refusal of the run under test, not a panic.
 pub(crate) fn try_source(text: &str) -> Result<Vec<Declaration>> {
+    let text = if text.contains("provenance(s, role.given)") && !text.contains("enum role") {
+        text.replacen("package p {", &format!("package p {{ {PROVENANCE}"), 1)
+    } else {
+        text.to_owned()
+    };
     pse_authoring::language::parse(
-        text,
+        &text,
         SemanticId::NIL,
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
@@ -157,7 +167,7 @@ fn every_dataset_row_is_checked_before_instantiation() {
         quantities: &registry,
         scope: &PhysicalScope::default(),
     };
-    let text = r#"package p { entity kind item {} entity item a {} set items: Set<item> = {a}; table coeff[j: item]: { flow: Flow, count: Integer } complete_over(j in items); dataset data: coeff source "synthetic" { [a] = [2{mol/s}, 9007199254740993]; } }"#;
+    let text = r#"package p { entity kind item {} entity item a {} set items: Set<item> = {a}; table coeff[j: item]: { flow: Flow, count: Integer } complete_over(j in items); dataset data: coeff provenance(s, role.given) { [a] = [2{mol/s}, 9007199254740993]; } }"#;
     let p = check(&source(text), &c).unwrap();
     let table = &p.tables[&p.names["p.coeff"]];
     // Rows are positional cells in column order.
@@ -181,7 +191,7 @@ fn every_dataset_row_is_checked_before_instantiation() {
 }
 #[test]
 fn requirements_can_read_typed_rows_and_exact_integer_counts() {
-    let text = r#"package p { entity kind item {} entity item a {} set items: Set<item> = {a}; table coeff[j: item]: { flow: Flow, count: Integer, next: Integer } complete_over(j in items); dataset data: coeff source "synthetic" { [a] = [2{mol/s}, 9007199254740993, 9007199254740994]; } def Root { require coeff[a].count + 1 == coeff[a].next : "exact"; } }"#;
+    let text = r#"package p { entity kind item {} entity item a {} set items: Set<item> = {a}; table coeff[j: item]: { flow: Flow, count: Integer, next: Integer } complete_over(j in items); dataset data: coeff provenance(s, role.given) { [a] = [2{mol/s}, 9007199254740993, 9007199254740994]; } def Root { require coeff[a].count + 1 == coeff[a].next : "exact"; } }"#;
     let (registry, _) = physical();
     let c = TypeContext {
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
@@ -271,7 +281,7 @@ fn indirect_function_calls_use_only_visible_immutable_package_tables() {
     };
     let text = r#"package p { entity kind item {} entity item a {} fn double(x:Scalar)->Scalar=x*2;
  set items: Set<item> = {a};
- table methods[j:item]: Fn(x:Scalar)->Scalar complete_over(j in items); dataset choices: methods source "test" {[a]=[double];}
+ table methods[j:item]: Fn(x:Scalar)->Scalar complete_over(j in items); dataset choices: methods provenance(s, role.given) {[a]=[double];}
  fn captured(x:Scalar,j:item)->Scalar=methods[j](x); }"#;
     assert!(check(&source(text), &c).is_ok());
     let hidden = text.replace(

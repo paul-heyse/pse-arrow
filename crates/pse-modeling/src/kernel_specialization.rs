@@ -324,7 +324,7 @@ fn indexed_dispatch_groups_implementations() {
  interface I { var x: Scalar; }
  def A : I { var x: Scalar; } def B : I { var x: Scalar; }
  table method[j: thing]: I complete_over(j in things);
- dataset choices: method source "synthetic" { [a] = [A]; [b] = [B]; [c] = [A]; }
+ dataset choices: method provenance(s, role.given) { [a] = [A]; [b] = [B]; [c] = [A]; }
  def Root { child items[j in things]: I = method[j]; }
  }"#,
         "p.Root",
@@ -451,7 +451,7 @@ fn indexed_attributes_rows_enums_and_optional_guards() {
  set items: Set<item> = {a,b};
  enum Choice { small, large }
  table coeff[j:item]: {count: Integer, value: Scalar} missing optional;
- dataset data: coeff source "synthetic" { [a] = [2,4]; }
+ dataset data: coeff provenance(s, role.given) { [a] = [2,4]; }
  def Root(choice: Choice = Choice.small) {
   var x[j in items]: Scalar;
   eq e[j in items]: x[j] == x[j];
@@ -521,7 +521,7 @@ fn finite_set_projection_filter_product_and_relation_image() {
  set pairs: Set<Tuple<item,item>> = product(left,right);
  set selected: Set<item> = {j for j in all where j != c};
  table edge[from:item,to:item]: Scalar missing optional;
- dataset graph: edge source "synthetic" { [a,b] = [1]; [a,c] = [1]; [b,c] = [1]; }
+ dataset graph: edge provenance(s, role.given) { [a,b] = [1]; [a,c] = [1]; [b,c] = [1]; }
  set image: Set<item> = {at(pair,1) for pair in keys(edge) where at(pair,0) == a};
  def Root {
   require size(all) == 3 : "union";
@@ -690,7 +690,7 @@ fn presets_preserve_the_bound_definition_contract() {
 #[test]
 fn requirements_reduce_typed_tables_and_reject_bad_data() {
     let text = r#"package p { entity kind item {} entity item a {} entity item b {} set items: Set<item>={a,b};
- table amount[j:item]: Scalar complete_over(j in items); dataset rows: amount source "synthetic" {[a]=[2];[b]=[3];}
+ table amount[j:item]: Scalar complete_over(j in items); dataset rows: amount provenance(s, role.given) {[a]=[2];[b]=[3];}
  def Root { require abs(sum(j in items | amount[j])-5) < 0.01 : "table closure"; }
  }"#;
     assert!(
@@ -744,10 +744,16 @@ fn expression_expansion_spends_the_shared_item_budget() {
     );
 }
 
+/// Fixture specifications are physical data, and a fixture's oracle is the source entity
+/// its expected values come from, carried by identity (ADR-0123 Outcome 5).
 #[test]
-fn kernel_fixture_specs_are_physical_data_and_oracle_links_are_portable() {
+fn kernel_fixture_specs_are_physical_data_and_oracles_are_sources() {
     let text = r#"package p { def D { var t: Temperature; eq e: t == 300{K}; }
- test sample source "idaes-oracle:example::0" revision "2.13.0@source-sha" fixture {
+ entity kind source provenance { attribute title: Text; }
+ entity kind note { attribute title: Text; }
+ entity source example { title = "example oracle" }
+ entity note remark { title = "not a source" }
+ test sample oracle example fixture {
    dof 0; value root.t = 26.85{degC}; lower root.t = 250{K}; upper root.t = 400{K}; free root.t;
  } { child root: D = D(); expect root.t == 300{K} tolerance 0.001{K}; } }"#;
     let rows = source(text);
@@ -763,14 +769,13 @@ fn kernel_fixture_specs_are_physical_data_and_oracle_links_are_portable() {
     assert!((v.value.unwrap() - 300.).abs() < 1e-12);
     assert_eq!(v.lower, Some(250.));
     assert_eq!(v.fixed, Some(false));
-    assert_eq!(
-        f.oracle.as_ref().unwrap().reference,
-        "idaes-oracle:example::0"
-    );
+    let example = rows.iter().find(|r| r.name == "example").unwrap();
+    assert_eq!(f.oracle, Some(example.declaration_id));
     for bad in [
         text.replace("free root.t;", "fix root.t; free root.t;"),
         text.replace("26.85{degC}", "1{mol/s}"),
-        text.replace("idaes-oracle:example::0", "skill://local/oracle"),
+        text.replace("oracle example", "oracle remark"),
+        text.replace("oracle example", "oracle missing"),
     ] {
         assert!(run(&bad, "p.sample", Bindings::default()).is_err());
     }

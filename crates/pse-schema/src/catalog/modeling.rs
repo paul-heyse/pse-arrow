@@ -182,6 +182,26 @@ fn completeness(name: &str) -> T {
     )
     .with_name(name)
 }
+/// ADR-0123 Outcome 5: the provenance of a dataset or a constant, each part by path. The
+/// source names an entity whose kind, or an ancestor kind, carries the provenance facet;
+/// the role names a member of a package enumeration, whose declared data facets the kernel
+/// acts on; the lineage names the datasets and sources the data derive from, acyclic.
+fn provenance(name: &str) -> T {
+    T::structure(vec![
+        strings("source"),
+        strings("role"),
+        T::list(
+            T::structure(vec![
+                T::enumeration("ModelingLineageKind").with_name("kind"),
+                strings("path"),
+            ])
+            .named("ModelingLineageEntry"),
+        )
+        .with_name("lineage"),
+    ])
+    .named("ModelingProvenance")
+    .with_name(name)
+}
 fn parameters(name: &str) -> T {
     T::list(T::structure(vec![
         text("name"),
@@ -228,9 +248,12 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                     .with_name("selection")
                     .optional(),
                 text("eligibility").optional(),
-                T::structure(vec![text("reference"), text("revision")])
-                    .with_name("oracle")
-                    .optional(),
+                // ADR-0123 Outcome 5: a test names the source entity its expected values
+                // come from, by path; the entity's kind carries the provenance facet.
+                strings("oracle").optional(),
+                // ADR-0123 Outcome 5: an entity kind's facets; `provenance` marks the kinds
+                // whose entities may be sources, refinements included.
+                T::list(T::enumeration("ModelingKindFacet")).with_name("facets"),
                 T::structure(vec![
                     T::native(D::Int64).with_name("degrees_of_freedom"),
                     T::enumeration("ModelingFixtureExecution")
@@ -504,13 +527,14 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         // Rows of a table or of a keyed entity kind: positional cells. A keyed kind's key
         // the dataset supplies for every row (for example its source) is a declared binding.
         // A dataset of a table with open completeness keys may claim that its rows cover a
-        // declared set for each open key (ADR-0123 Outcome 3).
+        // declared set for each open key (ADR-0123 Outcome 3). Every dataset names its
+        // provenance (Outcome 5).
         (
             "dataset",
             vec!["dataset"],
             vec![
                 text("target"),
-                text("source"),
+                provenance("provenance"),
                 T::list(T::structure(vec![text("name"), cell("value")])).with_name("bindings"),
                 completeness("complete_over"),
                 T::list(T::structure(vec![
@@ -529,15 +553,25 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             ],
         ),
         // Members have identities, so renaming a member re-keys nothing (ADR-0123 Outcome 2).
+        // A member may declare the data facets the kernel acts on when a dataset or a
+        // constant names it as its role (Outcome 5).
         (
             "enumeration",
             vec!["enum"],
             vec![
-                T::list(T::structure(vec![T::id().with_name("member_id"), text("name")]))
-                    .with_name("members"),
+                T::list(T::structure(vec![
+                    T::id().with_name("member_id"),
+                    text("name"),
+                    T::list(T::enumeration("ModelingDataFacet")).with_name("facets"),
+                ]))
+                .with_name("members"),
             ],
         ),
-        ("constant", vec!["constant"], vec![type_arena("type"), cell("value")]),
+        (
+            "constant",
+            vec!["constant"],
+            vec![type_arena("type"), cell("value"), provenance("provenance")],
+        ),
         (
             "import",
             vec!["import"],
@@ -780,6 +814,19 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     );
     // Phase 0 and 1 admit exact version requirements only (§6.1).
     enumeration(builder, "ModelingVersionOperator", ["exact"]);
+    // ADR-0123 Outcome 5: the data facets a role declares. Test-only data may be read only
+    // by test fixtures; data requiring lineage names what it derives from. Roles themselves
+    // are package enumeration members.
+    enumeration(
+        builder,
+        "ModelingDataFacet",
+        ["test_only", "requires_lineage"],
+    );
+    // ADR-0123 Outcome 5: the facets of an entity kind. An entity is a source exactly when
+    // its kind or an ancestor kind carries `provenance`.
+    enumeration(builder, "ModelingKindFacet", ["provenance"]);
+    // ADR-0123 Outcome 5: what a lineage entry names: a dataset or a source entity.
+    enumeration(builder, "ModelingLineageKind", ["dataset", "source"]);
     enumeration(
         builder,
         "ModelingVariableDomain",
@@ -890,7 +937,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         builder,
         N::Authored,
         "modeling_declarations",
-        11,
+        12,
         S::Model,
         &["declaration_id"],
         vec![
@@ -909,7 +956,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 T::structure(payload).with_alternative(&alternative),
             ),
         ],
-        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119). Version eight adds the policy's foreign-library allowance in bytes, which the fixture's solves reserve and a native library that enforces its own memory limit receives, in place of the deployment's (ADR-0119). Version nine is structured (ADR-0123 Outcome 1): every type is a post-order type arena whose children precede their parent and whose last node is the root; table absence, annotation kinds and fact namespaces are registry enums, a validity annotation carries its typed extrapolation policy, a scaling annotation its scheme and a connectivity annotation its typed maxima; an import carries its typed version requirement (Outcome 7). Version ten makes entities typed records (ADR-0123 Outcome 2): data cells are typed tagged values (boolean, integer, quantity as magnitude and unit product, text, identifier, reference, references or missing, each with an optional uncertainty), parsed once and never expressions; entity attribute values, attribute defaults, kind-level bindings of inherited attributes, dataset rows and typed constants are cells; an attribute declares whether it is a key; a dataset names its target table or keyed kind and binds the keys it supplies for every row; enumeration members carry identities; and identifier schemes are declared. Version eleven gives relations constraints (ADR-0123 Outcome 3): a table key may declare an inclusive integer range; a column may be derived by an expression evaluated once per row; the default of the default policy is a typed cell; a required table declares its completeness, one entry per key over a declared set, an enumeration or an integer range, or open for datasets to claim; a symmetric key pair declares its diagonal policy; uniqueness constraints name keys and supplied columns; row requirements are predicates; a dataset may claim completeness over declared sets for its table's open keys; and a cell may reference a keyed row or a table row by its target and key cells.",
+        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119). Version eight adds the policy's foreign-library allowance in bytes, which the fixture's solves reserve and a native library that enforces its own memory limit receives, in place of the deployment's (ADR-0119). Version nine is structured (ADR-0123 Outcome 1): every type is a post-order type arena whose children precede their parent and whose last node is the root; table absence, annotation kinds and fact namespaces are registry enums, a validity annotation carries its typed extrapolation policy, a scaling annotation its scheme and a connectivity annotation its typed maxima; an import carries its typed version requirement (Outcome 7). Version ten makes entities typed records (ADR-0123 Outcome 2): data cells are typed tagged values (boolean, integer, quantity as magnitude and unit product, text, identifier, reference, references or missing, each with an optional uncertainty), parsed once and never expressions; entity attribute values, attribute defaults, kind-level bindings of inherited attributes, dataset rows and typed constants are cells; an attribute declares whether it is a key; a dataset names its target table or keyed kind and binds the keys it supplies for every row; enumeration members carry identities; and identifier schemes are declared. Version eleven gives relations constraints (ADR-0123 Outcome 3): a table key may declare an inclusive integer range; a column may be derived by an expression evaluated once per row; the default of the default policy is a typed cell; a required table declares its completeness, one entry per key over a declared set, an enumeration or an integer range, or open for datasets to claim; a symmetric key pair declares its diagonal policy; uniqueness constraints name keys and supplied columns; row requirements are predicates; a dataset may claim completeness over declared sets for its table's open keys; and a cell may reference a keyed row or a table row by its target and key cells. Version twelve types provenance (ADR-0123 Outcome 5): every dataset and constant names its source entity, its role and its lineage by path, in place of a source text; an entity kind declares its facets, and an entity is a source exactly when its kind or an ancestor kind carries the provenance facet; an enumeration member declares the data facets the kernel acts on when it is named as a role, test-only or requiring lineage; a lineage entry names a dataset or a source; and a test names the source entity of its expected values as its oracle, in place of a reference and revision text.",
     );
     enumeration(
         builder,
@@ -1003,10 +1050,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "unattempted",
         ],
     );
-    relation(
+    relation_version(
         builder,
         N::Runtime,
         "modeling_conformance",
+        2,
         S::Derived,
         &[
             "run_id",
@@ -1027,10 +1075,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("status", T::enumeration("ModelingConformanceStatus")),
             column("message", T::native(D::Utf8)),
             column("failure_ordinal", T::nonnegative(i64::MAX)).optional(),
-            column("oracle_reference", T::native(D::Utf8)).optional(),
-            column("oracle_revision", T::native(D::Utf8)).optional(),
+            column("oracle_source_id", T::id())
+                .with_identity("declaration")
+                .optional(),
         ],
-        "Bounded shared checks over authored fixtures. Oracle links identify asserted source values; they do not claim an upstream run. Uncovered concrete definitions and incomplete samples are explicit.",
+        "Bounded shared checks over authored fixtures. The oracle source is the entity a fixture names as the source of its expected values; it identifies asserted source values and does not claim an upstream run. Uncovered concrete definitions and incomplete samples are explicit. Version two replaces the verbatim oracle reference and revision text with the oracle's source entity identity (ADR-0123 Outcome 5).",
     );
     relation(
         builder,
@@ -1095,6 +1144,7 @@ mod tests {
             ("reference.reference_states", "subject_id", "declaration"),
             ("runtime.modeling_checks", "source_id", "declaration"),
             ("runtime.modeling_conformance", "fixture_id", "declaration"),
+            ("runtime.modeling_conformance", "oracle_source_id", "declaration"),
             ("authored.numerical_requirements", "model_id", "declaration"),
             ("authored.numerical_requirements", "case_id", "declaration"),
             ("authored.numerical_requirements", "instance_id", "instance"),

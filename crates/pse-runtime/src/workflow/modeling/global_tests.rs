@@ -73,11 +73,11 @@ fn report(result: &ModelingResult, label: &str) -> f64 {
 /// commitments, only h3 is worth running: its interior optimum x = 1.2/0.01 = 120 W earns
 /// 144 − 72 − 50 = 22 W. Running h2 alone loses 18 W and h2 with h3 shares the 150 W
 /// budget at 55 W and 95 W for −2.25 W.
-const PRICE_TAKER: &str = "package p {
+const PRICE_TAKER: &str = "package p { entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = \"synthetic test data\" }
     entity kind period {} entity period h1 {} entity period h2 {} entity period h3 {}
     set periods: Set<period> = {h1, h2, h3};
     table price[t: period]: Scalar complete_over(t in periods);
-    dataset signal: price source \"synthetic price signal\" { [h1] = [-0.5]; [h2] = [0.8]; [h3] = [1.2]; }
+    dataset signal: price provenance(s, role.given) { [h1] = [-0.5]; [h2] = [0.8]; [h3] = [1.2]; }
     def Root {
       param capacity: Power = 150{W}; param minimum: Power = 40{W};
       param standby: Power = 50{W}; param budget: Power = 150{W};

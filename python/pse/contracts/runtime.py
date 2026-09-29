@@ -349,8 +349,7 @@ class RuntimeModelingConformanceRow:
     status: e.ModelingConformanceStatus = attrs.field(validator=attrs.validators.instance_of(e.ModelingConformanceStatus))
     message: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     failure_ordinal: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
-    oracle_reference: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    oracle_revision: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    oracle_source_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
 
 
 @attrs.frozen(kw_only=True)

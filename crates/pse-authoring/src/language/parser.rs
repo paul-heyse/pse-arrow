@@ -329,6 +329,39 @@ impl Cursor<'_> {
         }
         Ok(segments)
     }
+    /// ADR-0123 Outcome 5: `provenance(source, role[, lineage(kind path, …)])`, each a
+    /// path; a lineage entry names a dataset or a source.
+    fn provenance(&mut self) -> Result<ModelingProvenance> {
+        self.expect("provenance")?;
+        self.expect("(")?;
+        let source = self.segments()?;
+        self.expect(",")?;
+        let role = self.segments()?;
+        let mut lineage = Vec::new();
+        if self.eat(",") {
+            self.expect("lineage")?;
+            self.expect("(")?;
+            loop {
+                let kind = self.vocabulary::<pse_model::generated::enums::ModelingLineageKind>(
+                    "lineage kind dataset or source",
+                )?;
+                lineage.push(ModelingLineageEntry {
+                    kind,
+                    path: self.segments()?,
+                });
+                if self.eat(")") {
+                    break;
+                }
+                self.expect(",")?;
+            }
+        }
+        self.expect(")")?;
+        Ok(ModelingProvenance {
+            source,
+            role,
+            lineage,
+        })
+    }
     /// ADR-0123 Outcome 1: one type expression as a post-order arena.
     ///
     /// ```text
@@ -1535,14 +1568,21 @@ impl Cursor<'_> {
                     return Err(self
                         .error("selection belongs to implicit blocks and eligibility to regimes"));
                 }
-                let oracle = if self.eat("source") {
-                    let reference = self.word()?;
-                    self.expect("revision")?;
-                    let revision = self.word()?;
-                    Some(AuthoredModelingDeclarationsFieldValueScopeOracle {
-                        reference,
-                        revision,
-                    })
+                // ADR-0123 Outcome 5: an entity kind's facets, then a test's oracle source.
+                let mut facets = Vec::new();
+                while keyword == "entity_kind"
+                    && let Ok(facet) = self
+                        .peek()
+                        .parse::<pse_model::generated::enums::ModelingKindFacet>()
+                {
+                    self.pos += 1;
+                    if facets.contains(&facet) {
+                        return Err(self.error("distinct kind facets"));
+                    }
+                    facets.push(facet);
+                }
+                let oracle = if self.eat("oracle") {
+                    Some(self.segments()?)
                 } else {
                     None
                 };
@@ -1911,6 +1951,7 @@ impl Cursor<'_> {
                     selection,
                     eligibility,
                     oracle,
+                    facets,
                     fixture,
                 };
                 self.expect("{")?;
@@ -1946,9 +1987,10 @@ impl Cursor<'_> {
                 self.expect(";")?;
                 Value::from_import(AuthoredModelingDeclarationsFieldValueImport { version, alias })
             }
-            // ADR-0123 Outcome 2: `enum E { [@id("…")] member, … }`. A member's identity is
-            // explicit under the explicit policy and derived from the enumeration and its
-            // name under the named one; renaming an explicit member keeps its identity.
+            // ADR-0123 Outcome 2: `enum E { [@id("…")] member [facets(f, …)], … }`. A member's
+            // identity is explicit under the explicit policy and derived from the enumeration
+            // and its name under the named one; renaming an explicit member keeps its
+            // identity. A member declares the data facets of a role (Outcome 5).
             "enum" => {
                 self.expect("{")?;
                 let mut members = Vec::new();
@@ -1977,9 +2019,29 @@ impl Cursor<'_> {
                             }
                             None => pse_ids::named_id(id.as_id(), &format!("member:{member}")),
                         };
+                        let mut facets = Vec::new();
+                        if self.eat("facets") {
+                            self.expect("(")?;
+                            if !self.eat(")") {
+                                loop {
+                                    let facet = self.vocabulary::<pse_model::generated::enums::ModelingDataFacet>(
+                                        "data facet test_only or requires_lineage",
+                                    )?;
+                                    if facets.contains(&facet) {
+                                        return Err(self.error("distinct data facets"));
+                                    }
+                                    facets.push(facet);
+                                    if self.eat(")") {
+                                        break;
+                                    }
+                                    self.expect(",")?;
+                                }
+                            }
+                        }
                         members.push(AuthoredModelingDeclarationsFieldValueEnumerationMembersItem {
                             member_id,
                             name: member,
+                            facets,
                         });
                         if self.eat("}") {
                             break;
@@ -2048,16 +2110,20 @@ impl Cursor<'_> {
                 self.expect(";")?;
                 Value::from_identifier_scheme()
             }
-            // `constant name: T = cell;`: a typed declaration, not a zero-argument function.
+            // `constant name: T = cell provenance(source, role[, lineage(…)]);`: a typed
+            // declaration, not a zero-argument function, with its provenance (ADR-0123
+            // Outcome 5).
             "constant" => {
                 self.expect(":")?;
                 let r#type = self.type_expr()?;
                 self.expect("=")?;
                 let value = self.cell()?;
+                let provenance = self.provenance()?;
                 self.expect(";")?;
                 Value::from_constant(AuthoredModelingDeclarationsFieldValueConstant {
                     r#type,
                     value,
+                    provenance,
                 })
             }
             "fn" => {
@@ -2440,9 +2506,10 @@ impl Cursor<'_> {
                     requirements,
                 })
             }
-            // `dataset name: target [bind(key = cell, …)] source "…" { [keys] = [values]; … }`:
-            // positional cells for a table or a keyed kind; a key the dataset supplies for
-            // every row is a declared binding (ADR-0123 Outcome 2).
+            // `dataset name: target [bind(key = cell, …)] [complete_over(…)]
+            // provenance(source, role[, lineage(…)]) { [keys] = [values]; … }`: positional
+            // cells for a table or a keyed kind; a key the dataset supplies for every row is a
+            // declared binding (ADR-0123 Outcome 2); the provenance is typed (Outcome 5).
             "dataset" => {
                 self.expect(":")?;
                 let target = self.path()?;
@@ -2468,8 +2535,7 @@ impl Cursor<'_> {
                 } else {
                     Vec::new()
                 };
-                self.expect("source")?;
-                let source = self.word()?;
+                let provenance = self.provenance()?;
                 self.expect("{")?;
                 let mut rows = Vec::new();
                 while !self.eat("}") {
@@ -2489,7 +2555,7 @@ impl Cursor<'_> {
                 self.eat(";");
                 Value::from_dataset(AuthoredModelingDeclarationsFieldValueDataset {
                     target,
-                    source,
+                    provenance,
                     bindings,
                     complete_over,
                     rows,
