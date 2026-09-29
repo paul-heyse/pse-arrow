@@ -281,8 +281,10 @@ pub enum DomainRefusal {
     QuantityKind,
     /// Integer and semi domains require finite case bounds.
     InfiniteBound,
-    /// The bounds leave no admissible value: binary outside [0, 1], an empty integer
-    /// range, or a semi interval that is not positive.
+    /// A binary decision's case bound lies outside the unit box the domain implies.
+    ConflictingBound,
+    /// The bounds leave no admissible value: an integer range (a binary box included)
+    /// with no integer, or a semi interval that is not positive.
     EmptyDomain,
     /// The analysis admits a discrete variable only when the case fixes it.
     Free,
@@ -293,6 +295,7 @@ impl DomainRefusal {
         match self {
             Self::QuantityKind => "requires a dimensionless count or indicator quantity",
             Self::InfiniteBound => "requires finite case bounds",
+            Self::ConflictingBound => "bounds conflict with the unit box of the domain",
             Self::EmptyDomain => "bounds admit no value of the domain",
             Self::Free => "must be fixed by the case",
         }
@@ -300,6 +303,61 @@ impl DomainRefusal {
     /// A missing capability of the analysis, as opposed to an invalid model.
     pub const fn is_unsupported(self) -> bool {
         matches!(self, Self::InfiniteBound | Self::Free)
+    }
+}
+/// The recorded inward tightening of a free integer-valued variable's case bounds at
+/// preparation (ADR-0103 item 4): the ceiling of the lower bound and the floor of the
+/// upper, both exact. The prepared structure carries `tightened`; this record keeps what the
+/// case specified.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DomainTightening {
+    /// Instantiated variable identity.
+    pub variable: SemanticId,
+    /// Declaring source identity.
+    pub declaration: SemanticId,
+    /// Authored instance path of the variable.
+    pub path: String,
+    /// Declared domain: integer, binary or semiinteger.
+    pub domain: pse_model::generated::enums::ModelingVariableDomain,
+    /// Case bounds `[lower, upper]` as specified, in canonical units.
+    pub specified: [f64; 2],
+    /// Bounds the prepared structure carries: `[ceil(lower), floor(upper)]`.
+    pub tightened: [f64; 2],
+}
+impl DomainTightening {
+    /// Boundary rule of the informational finding.
+    pub const RULE: &'static str = "modeling.domain.tightened";
+    /// The informational finding that reports this tightening: rule
+    /// `modeling.domain.tightened`, severity `info`, with the variable's path and domain
+    /// and both bound pairs as observations. It never makes the model invalid.
+    pub fn boundary_diagnostic(&self) -> pse_model::diagnostic::BoundaryDiagnostic {
+        use pse_model::diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation, Severity};
+        let mut diagnostic = BoundaryDiagnostic::new(
+            BoundaryClass::InvalidModel,
+            "modeling",
+            [self.declaration, self.variable],
+            Self::RULE,
+        )
+        .with_severity(Severity::Info);
+        for (name, value) in [
+            ("variable", self.path.as_str()),
+            ("domain", self.domain.as_str()),
+        ] {
+            diagnostic
+                .observations
+                .insert(name.into(), Observation::Text(value.into()));
+        }
+        for (name, value) in [
+            ("specified_lower", self.specified[0]),
+            ("specified_upper", self.specified[1]),
+            ("lower", self.tightened[0]),
+            ("upper", self.tightened[1]),
+        ] {
+            diagnostic
+                .observations
+                .insert(name.into(), Observation::Real(value));
+        }
+        diagnostic
     }
 }
 /// The precondition a realization found unmet at preparation (ADR-0104 §3).

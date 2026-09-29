@@ -149,6 +149,8 @@ impl ModelingSimulation {
                     } else {
                         mode.sample_scope.as_ref()
                     },
+                    // An integrated sample has no certified objective bound.
+                    None,
                 )?;
                 result.reports.extend(reports);
                 for target in mode
@@ -180,6 +182,7 @@ impl ModelingSimulation {
                         satisfied: value.abs() <= target.budget,
                         within_validity: None,
                         extrapolation_allowed: None,
+                        basis: pse_model::generated::enums::ModelingCheckBasis::Point,
                     });
                 }
                 for check in &mut sample_checks {

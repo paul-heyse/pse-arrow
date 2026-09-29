@@ -211,6 +211,7 @@ fn print_block(
                     v.fixture.as_ref().map_or_else(String::new, |f| {
                         let mut statements = vec![format!("dof {};", f.degrees_of_freedom)];
                         if let Some(execution) = f.execution { statements.push(format!("run {};", execution.as_str())); }
+                        if let Some(intent) = f.intent { statements.push(format!("intent {};", intent.as_str())); }
                         if !f.stages.is_empty() { statements.push(format!("stages({});", f.stages.iter().map(|s| quoted(s)).collect::<Vec<_>>().join(", "))); }
                         if let Some(policy) = &f.initialization { statements.push(format!("initialize homotopy({}) step({}) minimum({}) growth({}) attempts({}) seconds({});", policy.homotopy, policy.initial_step, policy.minimum_step, policy.growth, policy.maximum_attempts, policy.time_limit_seconds)); }
                         if let Some(integration) = &f.integration {

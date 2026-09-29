@@ -405,6 +405,7 @@ mod tests {
             satisfied,
             within_validity: None,
             extrapolation_allowed: None,
+            basis: pse_model::generated::enums::ModelingCheckBasis::Point,
         }
     }
     #[test]

@@ -537,6 +537,13 @@ class ModelingAnalysisRoute(StrEnum):
     SIMULTANEOUS = "simultaneous"
 
 
+class ModelingCheckBasis(StrEnum):
+    """The declared ModelingCheckBasis enumeration."""
+
+    POINT = "point"
+    GLOBAL_BOUND = "global_bound"
+
+
 class ModelingCheckKind(StrEnum):
     """The declared ModelingCheckKind enumeration."""
 

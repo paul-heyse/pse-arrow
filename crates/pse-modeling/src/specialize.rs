@@ -1848,6 +1848,23 @@ impl SpecializedModel {
             reason,
         }
     }
+    /// The record of an inward bound tightening of a variable, naming it (ADR-0103 item 4).
+    pub fn domain_tightening(
+        &self,
+        variable: SemanticId,
+        specified: [f64; 2],
+        tightened: [f64; 2],
+    ) -> crate::DomainTightening {
+        let symbol = self.symbols.get(&variable);
+        crate::DomainTightening {
+            variable,
+            declaration: symbol.map_or(variable, |s| s.lineage.declaration.as_id()),
+            path: symbol.map_or_else(|| variable.to_string(), |s| s.lineage.path.clone()),
+            domain: symbol.map_or(Domain::Continuous, |s| s.domain),
+            specified,
+            tightened,
+        }
+    }
     /// An analysis that cannot decide discrete variables admits them only when the case
     /// fixes them (ADR-0103 item 6). Refuses the first free discrete variable.
     /// # Errors

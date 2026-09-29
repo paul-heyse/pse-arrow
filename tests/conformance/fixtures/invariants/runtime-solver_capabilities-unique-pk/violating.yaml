@@ -3,6 +3,7 @@
   "rows": {
     "runtime.solver_capabilities": [
       {
+        "automatic_classes": "[\"list\",[]]",
         "backend": "[\"enum\",\"ipopt\"]",
         "cancellation": "[\"text\",\"value-1\"]",
         "certifies": "[\"bool\",true]",
@@ -17,6 +18,7 @@
         "warm": "[\"enum\",\"none\"]"
       },
       {
+        "automatic_classes": "[\"list\",[]]",
         "backend": "[\"enum\",\"ipopt\"]",
         "cancellation": "[\"text\",\"value-1\"]",
         "certifies": "[\"bool\",true]",

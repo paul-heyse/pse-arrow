@@ -810,7 +810,7 @@ pub(super) fn project(
             for (target, source, kind, expression, quantity) in &residual.hints {
                 h.id(target)
                     .id(&source.as_id())
-                    .u64(*kind as u64)
+                    .u64(kind.code())
                     .id(&quantity.as_id())
                     .str(&dsl::render_expr(expression));
             }

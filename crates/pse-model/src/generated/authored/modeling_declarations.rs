@@ -324,6 +324,8 @@ pub struct AuthoredModelingDeclarationsFieldValueScopeFixture {
     pub r#degrees_of_freedom: i64,
     ///execution
     pub r#execution: Option<crate::generated::enums::ModelingFixtureExecution>,
+    ///intent
+    pub r#intent: Option<crate::generated::enums::NativeSolveIntent>,
     ///stages
     pub r#stages: Vec<String>,
     ///initialization
@@ -349,6 +351,7 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeFixture {
             &self.r#degrees_of_freedom,
             &other.r#degrees_of_freedom,
         ) && crate::SemanticEq::semantic_eq(&self.r#execution, &other.r#execution)
+            && crate::SemanticEq::semantic_eq(&self.r#intent, &other.r#intent)
             && crate::SemanticEq::semantic_eq(&self.r#stages, &other.r#stages)
             && crate::SemanticEq::semantic_eq(
                 &self.r#initialization,
@@ -5200,6 +5203,8 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueScopeFixture
         crate::SemanticFrame::frame(&self.r#degrees_of_freedom, hash);
         hash.str(stringify!(r#execution));
         crate::SemanticFrame::frame(&self.r#execution, hash);
+        hash.str(stringify!(r#intent));
+        crate::SemanticFrame::frame(&self.r#intent, hash);
         hash.str(stringify!(r#stages));
         crate::SemanticFrame::frame(&self.r#stages, hash);
         hash.str(stringify!(r#initialization));
@@ -5217,6 +5222,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixture {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#degrees_of_freedom))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#execution))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#intent))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#stages))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#initialization))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#integration))

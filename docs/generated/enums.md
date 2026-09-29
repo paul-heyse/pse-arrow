@@ -537,6 +537,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `integrated` | `` | false |
 | `simultaneous` | `` | false |
 
+## `ModelingCheckBasis`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `point` | `` | false |
+| `global_bound` | `` | false |
+
 ## `ModelingCheckKind`
 
 | Member | IDAES name | Deprecated |

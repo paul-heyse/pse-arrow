@@ -310,8 +310,8 @@ impl FactBatch {
             }
             Self::r#AuthoredModelingDeclarations(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    176u8, 155u8, 229u8, 90u8, 87u8, 58u8, 59u8, 241u8, 71u8, 137u8,
-                    20u8, 63u8, 104u8, 83u8, 175u8, 80u8,
+                    109u8, 188u8, 23u8, 147u8, 243u8, 139u8, 106u8, 23u8, 214u8, 81u8,
+                    245u8, 111u8, 23u8, 48u8, 191u8, 152u8,
                 ])
             }
             Self::r#AuthoredNumericalRequirements(_) => {
@@ -634,8 +634,8 @@ impl FactBatch {
             }
             Self::r#RuntimeModelingChecks(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    184u8, 36u8, 78u8, 109u8, 81u8, 91u8, 181u8, 9u8, 120u8, 245u8, 1u8,
-                    177u8, 172u8, 146u8, 205u8, 120u8,
+                    19u8, 16u8, 18u8, 253u8, 38u8, 71u8, 159u8, 126u8, 14u8, 106u8,
+                    184u8, 208u8, 39u8, 220u8, 82u8, 53u8,
                 ])
             }
             Self::r#RuntimeModelingConformance(_) => {

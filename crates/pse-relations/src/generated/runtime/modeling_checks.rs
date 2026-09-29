@@ -8,20 +8,20 @@ pub use pse_model::generated::r#runtime::r#modeling_checks::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    184u8, 36u8, 78u8, 109u8, 81u8, 91u8, 181u8, 9u8, 120u8, 245u8, 1u8, 177u8, 172u8,
-    146u8, 205u8, 120u8,
+    19u8, 16u8, 18u8, 253u8, 38u8, 71u8, 159u8, 126u8, 14u8, 106u8, 184u8, 208u8, 39u8,
+    220u8, 82u8, 53u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_checks";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    83u8, 27u8, 224u8, 157u8, 94u8, 66u8, 116u8, 81u8, 116u8, 201u8, 3u8, 42u8, 232u8,
-    76u8, 196u8, 237u8, 128u8, 216u8, 22u8, 247u8, 46u8, 32u8, 105u8, 172u8, 31u8, 237u8,
-    241u8, 207u8, 180u8, 200u8, 83u8, 35u8,
+    152u8, 165u8, 46u8, 74u8, 140u8, 79u8, 135u8, 97u8, 0u8, 29u8, 50u8, 150u8, 105u8,
+    29u8, 201u8, 131u8, 25u8, 124u8, 187u8, 119u8, 44u8, 68u8, 102u8, 243u8, 252u8,
+    110u8, 44u8, 101u8, 55u8, 73u8, 9u8, 41u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeModelingChecksRow {
     fn append(
@@ -65,6 +65,7 @@ impl crate::columnar::ArrowValue for RuntimeModelingChecksRow {
             &self.r#extrapolation_allowed,
             children[11usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#basis, children[12usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -103,6 +104,9 @@ impl crate::columnar::ArrowValue for RuntimeModelingChecksRow {
         <Option<
             bool,
         > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        <crate::generated::enums::ModelingCheckBasis as crate::columnar::ArrowValue>::append_null(
+            children[12usize].as_mut(),
+        )?;
         output.append(false);
         Ok(())
     }
@@ -167,6 +171,10 @@ impl crate::columnar::ArrowValue for RuntimeModelingChecksRow {
                 bool,
             > as crate::columnar::ArrowValue>::read(
                 input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#basis: <crate::generated::enums::ModelingCheckBasis as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
                 index,
             )?,
         })
@@ -250,6 +258,7 @@ impl crate::columnar::RelationRow for RuntimeModelingChecksRow {
             &self.r#extrapolation_allowed,
             columns[11usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#basis, columns[12usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -284,10 +293,10 @@ impl crate::columnar::RelationRow for RuntimeModelingChecksRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        27_648_usize + size_of::<Self::Builder>()
+        29_696_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        216usize
+        232usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -367,6 +376,10 @@ impl crate::columnar::RelationRow for RuntimeModelingChecksRow {
                 Ok::<usize, crate::RelationError>(1)
             }?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#basis).as_str().len())?,
+        )?;
         Ok(bytes)
     }
 }
@@ -377,7 +390,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -438,6 +451,11 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
         name: "extrapolation_allowed",
         position: 11usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "basis",
+        position: 12usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -465,6 +483,8 @@ pub mod columns {
     pub const WITHIN_VALIDITY: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///extrapolation_allowed
     pub const EXTRAPOLATION_ALLOWED: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    ///basis
+    pub const BASIS: crate::columnar::ColumnReference = super::COLUMNS[12usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -483,6 +503,7 @@ pub struct RuntimeModelingChecksView<'a> {
     satisfied_column: &'a arrow_array::BooleanArray,
     within_validity_column: &'a arrow_array::BooleanArray,
     extrapolation_allowed_column: &'a arrow_array::BooleanArray,
+    basis_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeModelingChecksView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -558,6 +579,9 @@ impl<'a> RuntimeModelingChecksView<'a> {
             extrapolation_allowed_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
             >(batch.column(11usize).as_ref())?,
+            basis_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(12usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -720,6 +744,18 @@ impl<'a> RuntimeModelingChecksView<'a> {
     pub fn extrapolation_allowed_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[11usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "basis",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn basis_column(&self) -> &'a arrow_array::StringArray {
+        self.basis_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "basis", "`.")]
+    pub fn basis_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[12usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -765,6 +801,7 @@ impl<'a> RuntimeModelingChecksView<'a> {
                 self.extrapolation_allowed_column,
                 index,
             )?,
+            r#basis: crate::columnar::ArrowValue::read(self.basis_column, index)?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.

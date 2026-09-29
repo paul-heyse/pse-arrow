@@ -1,0 +1,17 @@
+{
+  "invariant": "runtime.infeasibility_certificates:unique:pk",
+  "rows": {
+    "runtime.infeasibility_certificates": [
+      {
+        "accuracy": "[\"enum\",\"full\"]",
+        "backend": "[\"enum\",\"ipopt\"]",
+        "kind": "[\"enum\",\"primal_infeasible\"]",
+        "ray": "[\"list\",[]]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "step": "[\"i64\",1]",
+        "verification": "[\"struct\",[[\"f64\",\"3ff0000000000000\"],[\"f64\",\"3ff0000000000000\"],[\"f64\",\"3ff0000000000000\"],[\"f64\",\"3ff0000000000000\"],[\"f64\",\"3ff0000000000000\"],[\"bool\",true]]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

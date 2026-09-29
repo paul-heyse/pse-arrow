@@ -4,13 +4,15 @@
 use super::cases::ModelingSolvePreparation;
 use super::*;
 use crate::math::solves::Outcome;
-use pse_compiler::workspace::{ModelingHint, ModelingOutput, Profile};
+use pse_compiler::workspace::{ModelingHint, ModelingOutput, ObjectiveBound, Profile};
 use pse_math::binding::CaseValues;
 use pse_model::generated::identities::RunId;
 use pse_modeling::annotation::AnnotationValue;
 use std::{collections::BTreeSet, sync::Arc};
 
-use pse_model::generated::enums::{ExtrapolationPolicy, ModelingCheckKind as CheckKind};
+use pse_model::generated::enums::{
+    ExtrapolationPolicy, ModelingCheckBasis as Basis, ModelingCheckKind as CheckKind,
+};
 /// Registry-owned check and report rows are also the public Rust values.
 pub use pse_model::generated::runtime::modeling_checks::Row as ModelingCheck;
 pub use pse_model::generated::runtime::modeling_reports::Row as ModelingReport;
@@ -233,6 +235,66 @@ impl ModelingPackage {
         }
     }
 }
+/// A step's certified dual bound on its authored objective (ADR-0119 Outcome 5): a bound
+/// the backend established over the declared box, in the objective's orientation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(in crate::workflow) struct CertifiedBound {
+    /// The dual bound, in the objective's canonical units.
+    pub value: f64,
+    /// The authored orientation it bounds: a lower bound when minimizing.
+    pub sense: pse_math::binding::ObjectiveSense,
+}
+impl CertifiedBound {
+    /// The certified bound of a step, present only when its assurance is `global_bound` or
+    /// `exact_certificate` and the native dual bound is finite. A check never starts a solve
+    /// to obtain one.
+    pub(in crate::workflow) fn of(outcome: &Outcome) -> Option<Self> {
+        use pse_backend_native::solve::Assurance;
+        let Outcome::Native(native) = outcome else {
+            return None;
+        };
+        if !matches!(
+            native.termination.assurance,
+            Assurance::GlobalBound | Assurance::ExactCertificate
+        ) {
+            return None;
+        }
+        let global = native.evidence.global.as_ref()?;
+        Some(Self {
+            value: global.dual_bound.filter(|v| v.is_finite())?,
+            sense: global.sense,
+        })
+    }
+    /// Whether this bound can establish `check`: it bounds the objective on the side the
+    /// check constrains.
+    fn establishes(self, check: ObjectiveBound) -> bool {
+        use pse_math::binding::ObjectiveSense as Sense;
+        matches!(
+            (check, self.sense),
+            (ObjectiveBound::Lower { .. }, Sense::Minimize)
+                | (ObjectiveBound::Upper { .. }, Sense::Maximize)
+        )
+    }
+}
+/// One `annotation check` at a step: at the point, or, for an objective-bound check with a
+/// certified bound, against that bound. Returns the indicator value and its basis.
+fn check_value(
+    point: f64,
+    objective_bound: Option<(ObjectiveBound, f64)>,
+    certified: Option<CertifiedBound>,
+) -> (f64, Basis) {
+    match (objective_bound, certified) {
+        (Some((check, compared)), Some(bound)) if bound.establishes(check) => (
+            if check.holds(bound.value, compared) {
+                1.
+            } else {
+                0.
+            },
+            Basis::GlobalBound,
+        ),
+        _ => (point, Basis::Point),
+    }
+}
 /// Shared demand and interpretation for steady candidates and trajectory samples.
 pub(in crate::workflow) type AssessmentScope = BTreeSet<(SemanticId, DeclarationId)>;
 /// Each obligation is indivisible even when its value, bounds or tolerance depend
@@ -249,7 +311,11 @@ pub(in crate::workflow) fn assessment_units(
             ModelingOutput::Hint {
                 target,
                 declaration,
-                kind: ModelingHint::Check | ModelingHint::ValidLower | ModelingHint::ValidUpper,
+                kind:
+                    ModelingHint::Check
+                    | ModelingHint::ObjectiveBound(_)
+                    | ModelingHint::ValidLower
+                    | ModelingHint::ValidUpper,
             } => Some((*target, *declaration)),
             ModelingOutput::OriginalEquation(id) => {
                 Some((*id, product.model.elastic[id].original.lineage.declaration))
@@ -283,9 +349,11 @@ pub(in crate::workflow) fn observation_rows(
 ) -> Result<BTreeSet<SemanticId>, WorkflowError> {
     Ok(assessment_units(product).into_values().flatten().collect())
 }
+/// Assess the observed point. An objective-bound check reads `certified`, the step's
+/// certified dual bound, when the step has one (ADR-0119 Outcome 5).
 #[expect(
     clippy::too_many_arguments,
-    reason = "assessment reads the run, product, values and observations under the numerical policy, registry, report selection and scope"
+    reason = "assessment reads the run, product, values and observations under the numerical policy, registry, report selection, scope and the step's certified bound"
 )]
 pub(in crate::workflow) fn assess_observations(
     run_id: RunId,
@@ -296,6 +364,7 @@ pub(in crate::workflow) fn assess_observations(
     quantities: &pse_quantity::QuantityRegistry,
     include_reports: bool,
     scope: Option<&AssessmentScope>,
+    certified: Option<CertifiedBound>,
 ) -> Result<(Vec<ModelingCheck>, Vec<ModelingReport>), WorkflowError> {
     let selected = |target, source| scope.is_none_or(|ids| ids.contains(&(target, source)));
     let expected = product
@@ -322,8 +391,29 @@ pub(in crate::workflow) fn assess_observations(
             satisfied: t.passed,
             within_validity: None,
             extrapolation_allowed: None,
+            basis: Basis::Point,
         })
         .collect::<Vec<_>>();
+    // The compiler's typed classification of objective-bound checks, with the compared
+    // side observed at this point (it depends on no decision).
+    let objective_bounds = product
+        .admitted
+        .outputs
+        .iter()
+        .filter_map(|output| match output {
+            ModelingOutput::Hint {
+                target,
+                declaration,
+                kind: ModelingHint::ObjectiveBound(check),
+            } if selected(*target, *declaration) => Some(
+                observed
+                    .get(&output.row_id())
+                    .map(|compared| ((*target, *declaration), (*check, *compared)))
+                    .ok_or_else(|| contract("objective-bound check side absent")),
+            ),
+            _ => None,
+        })
+        .collect::<Result<BTreeMap<_, _>, _>>()?;
     let mut magnitudes = BTreeMap::new();
     for output in &product.admitted.outputs {
         match output {
@@ -332,7 +422,11 @@ pub(in crate::workflow) fn assess_observations(
                 declaration,
                 kind: ModelingHint::Check,
             } if selected(*target, *declaration) => {
-                let value = observed[&output.row_id()];
+                let (value, basis) = check_value(
+                    observed[&output.row_id()],
+                    objective_bounds.get(&(*target, *declaration)).copied(),
+                    certified,
+                );
                 checks.push(ModelingCheck {
                     step: 0,
                     run_id,
@@ -346,6 +440,7 @@ pub(in crate::workflow) fn assess_observations(
                     satisfied: value == 1.,
                     within_validity: None,
                     extrapolation_allowed: None,
+                    basis,
                 });
             }
             ModelingOutput::Contribution {
@@ -394,6 +489,7 @@ pub(in crate::workflow) fn assess_observations(
                     satisfied: residual <= tolerance,
                     within_validity: None,
                     extrapolation_allowed: None,
+                    basis: Basis::Point,
                 });
             }
             _ => {}
@@ -427,6 +523,7 @@ pub(in crate::workflow) fn assess_observations(
                 satisfied,
                 within_validity: None,
                 extrapolation_allowed: None,
+                basis: Basis::Point,
             });
         }
     }
@@ -508,6 +605,7 @@ pub(in crate::workflow) fn assess_observations(
                     satisfied: inside || extrapolate,
                     within_validity: Some(inside),
                     extrapolation_allowed: Some(extrapolate),
+                    basis: Basis::Point,
                 });
             }
             _ => {}
@@ -542,9 +640,20 @@ impl ModelingResult {
         columns
             .ensure::<pse_model::generated::runtime::modeling_findings::Row>()
             .map_err(relation)?;
-        if let Some(failure) = self.diagnostic() {
+        // The failure first, then the informational bound tightenings (ADR-0103 item 4).
+        let tightenings = self
+            .prepared
+            .model
+            .tightenings
+            .iter()
+            .map(pse_modeling::DomainTightening::boundary_diagnostic);
+        for (ordinal, finding) in self.diagnostic().into_iter().chain(tightenings).enumerate() {
             columns
-                .push(analysis_tables::finding_row(self.run_id, 0, &failure))
+                .push(analysis_tables::finding_row(
+                    self.run_id,
+                    ordinal as i64,
+                    &finding,
+                ))
                 .map_err(relation)?;
         }
         for row in &self.checks {
@@ -664,5 +773,173 @@ mod tests {
                 .iter()
                 .all(|c| c.within_validity == Some(false))
         );
+    }
+    /// A native step with the given assurance and, when present, a global dual bound on a
+    /// minimized objective: a synthetic stand-in for a certifying solve.
+    fn step(
+        assurance: pse_backend_native::solve::Assurance,
+        dual_bound: Option<f64>,
+    ) -> Outcome {
+        use pse_backend_native::{self as native, solve::*};
+        let id = SemanticId::from_bytes([1; 16]);
+        let contract = native::OracleContract {
+            identity: pse_ids::ContentHash::from_bytes([1; 32]),
+            variables: vec![native::Variable {
+                id,
+                lower: -2.0,
+                upper: 2.0,
+            }],
+            rows: vec![],
+            derivatives: pse_kernels::DerivativeOrder::First,
+            smoothness: pse_kernels::DerivativeOrder::First,
+        };
+        let mut report = SolveReport::new(
+            Backend::Scip,
+            &contract,
+            NativeTermination {
+                code: 0,
+                name: "fixture".into(),
+                message: None,
+                category: Termination::Success,
+                assurance,
+            },
+            &Execution::new(Arc::default(), &Controls::default()),
+        );
+        report.evidence.global = Some(GlobalEvidence {
+            fidelity: pse_math::factorable::Fidelity::Exact,
+            domain: pse_ids::ContentHash::from_bytes([2; 32]),
+            sense: pse_math::binding::ObjectiveSense::Minimize,
+            feasibility: 1e-9,
+            gap_relative: 1e-6,
+            gap_absolute: 1e-9,
+            dual_bound,
+            primal_bound: Some(0.0),
+            gap: Some(0.0),
+            nodes: 1,
+            readback: true,
+            dual: BoundSource::ExactExport,
+            primal: PrimalSource::Backend,
+            infeasible: false,
+            exact: assurance == Assurance::ExactCertificate,
+        });
+        Outcome::Native(Box::new(report))
+    }
+    #[tokio::test]
+    async fn objective_bound_check_uses_certified_bound() {
+        use pse_backend_native::solve::Assurance;
+        let runtime = super::super::super::tests::runtime();
+        let physical = super::super::super::tests::physical();
+        let names = BTreeMap::from([(
+            "Scalar".into(),
+            physical.quantities.neutral_dimensionless().unwrap(),
+        )]);
+        // A tangent-plane-style stability check: the minimized objective stays above -c.
+        let source = "package p { def Root { param c: Scalar = 0.5; var x: Scalar; let f: Scalar = x*x; eq g: x <= 2; annotation bounds x(-2, 2); annotation start x(1); annotation objective f(minimize); annotation check f(f > -c); } }";
+        let rows = pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let cancel = crate::CancelSource::new();
+        let prepared = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                pse_kernels::DerivativeOrder::First,
+                super::super::super::tests::compiler_profile(),
+                crate::math::solves::SolverProfile {
+                    intent: pse_backend_native::solve::SolveIntent::Optimize,
+                    ..super::super::super::tests::profile()
+                },
+                crate::math::solves::NumericalInputs::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let product = prepared.model.model.compiled();
+        let row = |wanted: fn(&ModelingHint) -> bool| {
+            product
+                .admitted
+                .outputs
+                .iter()
+                .find(|o| matches!(o, ModelingOutput::Hint { kind, .. } if wanted(kind)))
+                .map(ModelingOutput::row_id)
+                .unwrap()
+        };
+        let check = row(|k| *k == ModelingHint::Check);
+        let side = row(|k| matches!(k, ModelingHint::ObjectiveBound(_)));
+        // The point indicator and the compared side, as the step's observation program
+        // would report them.
+        let assess = |point: f64, outcome: &Outcome| {
+            let observed = BTreeMap::from([(check, point), (side, -0.5)]);
+            let (checks, _) = assess_observations(
+                RunId::from_bytes([7; 16]),
+                product,
+                &prepared.model.values,
+                &observed,
+                prepared.solve.numerics(),
+                &prepared.source.quantities,
+                false,
+                None,
+                CertifiedBound::of(outcome),
+            )
+            .unwrap();
+            let [check] = checks.as_slice() else {
+                panic!("one check expected, got {checks:?}");
+            };
+            (check.satisfied, check.value, check.basis)
+        };
+        // A certified dual bound below -c: the global minimum may violate the check, so it
+        // fails although the local point satisfies it.
+        assert_eq!(
+            assess(1.0, &step(Assurance::GlobalBound, Some(-0.75))),
+            (false, 0.0, Basis::GlobalBound)
+        );
+        // A certified bound above -c establishes it over the box, whatever the point says.
+        assert_eq!(
+            assess(0.0, &step(Assurance::GlobalBound, Some(1e-9))),
+            (true, 1.0, Basis::GlobalBound)
+        );
+        assert_eq!(
+            assess(0.0, &step(Assurance::ExactCertificate, Some(0.0))),
+            (true, 1.0, Basis::GlobalBound)
+        );
+        // Without a certified bound the check is evaluated at the point, and says so.
+        for outcome in [
+            step(Assurance::LocalStationary, Some(1e-9)),
+            step(Assurance::NativeOptimal, Some(1e-9)),
+            step(Assurance::GlobalBound, None),
+            step(Assurance::GlobalBound, Some(f64::NEG_INFINITY)),
+        ] {
+            assert_eq!(assess(1.0, &outcome), (true, 1.0, Basis::Point));
+            assert_eq!(assess(0.0, &outcome), (false, 0.0, Basis::Point));
+        }
+        // The bound establishes only a check on the side it bounds.
+        let lower = ObjectiveBound::Lower { strict: true };
+        let upper = ObjectiveBound::Upper { strict: true };
+        let minimum = CertifiedBound {
+            value: 1.0,
+            sense: pse_math::binding::ObjectiveSense::Minimize,
+        };
+        assert_eq!(
+            check_value(0.0, Some((lower, 0.5)), Some(minimum)),
+            (1.0, Basis::GlobalBound)
+        );
+        assert_eq!(
+            check_value(0.0, Some((upper, 2.0)), Some(minimum)),
+            (0.0, Basis::Point)
+        );
+        assert_eq!(check_value(1.0, None, Some(minimum)), (1.0, Basis::Point));
     }
 }

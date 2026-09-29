@@ -71,6 +71,9 @@ pub struct ModelingCasePreparation {
     pub case: super::Preparation,
     /// The case's resolved input values.
     pub values: pse_math::binding::CaseValues,
+    /// Inward bound tightenings admission applied to this case's specifications
+    /// (ADR-0103 item 4); the solver projection carries the tightened bounds.
+    pub tightenings: Vec<pse_modeling::DomainTightening>,
 }
 /// Bounded original-term evidence retains the scheduler's allocation allowance.
 #[derive(Clone, Debug)]
@@ -565,19 +568,20 @@ impl MathService {
                     MathRuntimeError::Infrastructure("compiler lock poisoned".into())
                 })?;
                 compiler.publish_modeling_revision(revision.admitted.clone())?;
-                let (model, case, values) = compiler.prepare_modeling_case_cancellable(
-                    root, instance, bindings, limits, &case, order, profile, flag,
-                )?;
+                let (model, case, values, tightenings) = compiler
+                    .prepare_modeling_case_cancellable(
+                        root, instance, bindings, limits, &case, order, profile, flag,
+                    )?;
                 let bytes = model
                     .retained_bytes()
                     .checked_add(case.retained_bytes())
                     .and_then(|n| n.checked_add(foreign))
                     .ok_or(MathRuntimeError::Limit("modeling case product extent"))?;
-                Ok(((model, case, values), bytes))
+                Ok(((model, case, values, tightenings), bytes))
             },
         );
         tokio::pin!(operation);
-        let ((model, case, values), lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        let ((model, case, values, tightenings), lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         let solved = lineage.solved(root, instance)?;
         Ok(ModelingCasePreparation {
             model: ModelingPreparation {
@@ -587,6 +591,7 @@ impl MathService {
             },
             case: self.own_preparation((case, lease))?,
             values,
+            tightenings,
         })
     }
     /// Own immutable generated declarations under the deployment pool.

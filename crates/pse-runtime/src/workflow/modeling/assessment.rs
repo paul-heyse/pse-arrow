@@ -3,7 +3,7 @@
 //! Original-model assessment of a step's candidate: prepared once per structure, then
 //! evaluated on the step's own worker, so every step of a staged sequence is qualified the
 //! same way without a nested job (A6).
-use super::results::{AssessmentScope, assess_observations, assessment_units};
+use super::results::{AssessmentScope, CertifiedBound, assess_observations, assessment_units};
 use super::*;
 use crate::math::{ExecutableCase, WorkerBudget, solves::Outcome};
 use pse_math::binding::CaseValues;
@@ -132,7 +132,16 @@ impl Assessment {
             Outcome::Rejected(_) => return point,
         }
         point.complete = true;
-        match self.evaluate(prepared, run_id, attempt, &point.values, flag, budget) {
+        let certified = CertifiedBound::of(outcome);
+        match self.evaluate(
+            prepared,
+            run_id,
+            attempt,
+            &point.values,
+            certified,
+            flag,
+            budget,
+        ) {
             Ok((checks, reports)) => {
                 point.checks = checks;
                 point.reports = reports;
@@ -141,12 +150,17 @@ impl Assessment {
         }
         point
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the step supplies its identity, point, certified bound, stop flag and worker share"
+    )]
     fn evaluate(
         &self,
         prepared: &ModelingSolvePreparation,
         run_id: RunId,
         attempt: usize,
         values: &CaseValues,
+        certified: Option<CertifiedBound>,
         flag: &Arc<AtomicBool>,
         budget: &Arc<WorkerBudget>,
     ) -> Result<(Vec<ModelingCheck>, Vec<ModelingReport>), WorkflowError> {
@@ -174,6 +188,7 @@ impl Assessment {
             &prepared.source.quantities,
             true,
             Some(&self.scope),
+            certified,
         )?;
         for row in &mut checks {
             row.step = attempt as i64;

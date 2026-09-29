@@ -4434,6 +4434,97 @@ impl core::str::FromStr for ModelingAnalysisRoute {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum ModelingCheckBasis {
+    ///point
+    #[serde(rename = "point")]
+    Point,
+    ///global_bound
+    #[serde(rename = "global_bound")]
+    GlobalBound,
+}
+impl crate::SemanticEq for ModelingCheckBasis {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingCheckBasis {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Point, Self::GlobalBound];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Point => "point",
+            Self::GlobalBound => "global_bound",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Point => 0usize,
+            Self::GlobalBound => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Point => None,
+            Self::GlobalBound => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingCheckBasis {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingCheckBasis))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingCheckBasis)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["point", "global_bound"] })
+    }
+}
+impl core::str::FromStr for ModelingCheckBasis {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "point" => Ok(Self::Point),
+            "global_bound" => Ok(Self::GlobalBound),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingCheckBasis).to_owned(),
+                    enumeration: stringify!(ModelingCheckBasis).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum ModelingCheckKind {
     ///expectation
     #[serde(rename = "expectation")]
@@ -13747,6 +13838,16 @@ impl crate::HeapUsage for ModelingAnalysisRoute {
     }
 }
 impl crate::SemanticFrame for ModelingAnalysisRoute {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ModelingCheckBasis {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingCheckBasis {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

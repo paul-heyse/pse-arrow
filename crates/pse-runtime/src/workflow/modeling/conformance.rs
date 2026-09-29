@@ -28,6 +28,39 @@ pub struct ModelingFixturePolicy {
     pub derivatives: Option<pse_backend_native::derivative_diagnostics::Policy>,
 }
 
+/// The solve intent an authored test fixture declares, if any (ADR-0119 Outcome 1).
+fn authored_intent(row: &Declaration) -> Option<pse_backend_native::solve::SolveIntent> {
+    row.value
+        .scope
+        .as_ref()
+        .and_then(|s| s.fixture.as_ref())
+        .and_then(|f| f.intent)
+}
+/// The solver profile one fixture runs under (ADR-0119 Outcome 1): its runtime fixture
+/// policy's, else the run's, with the intent the fixture declares. A runtime fixture policy
+/// that names a different intent is refused; neither takes precedence. A fixture without an
+/// intent leaves it to the runtime policy.
+fn fixture_solver(
+    fixture: DeclarationId,
+    authored: Option<pse_backend_native::solve::SolveIntent>,
+    local: Option<&SolverProfile>,
+    run: &SolverProfile,
+) -> Result<SolverProfile, WorkflowError> {
+    if let (Some(authored), Some(local)) = (authored, local)
+        && local.intent != authored
+    {
+        return Err(WorkflowError::FixtureIntentConflict {
+            fixture,
+            authored,
+            policy: local.intent,
+        });
+    }
+    let mut solver = local.unwrap_or(run).clone();
+    if let Some(intent) = authored {
+        solver.intent = intent;
+    }
+    Ok(solver)
+}
 /// The fixture of package-level checks that belong to no authored fixture (coverage).
 pub(super) const NO_FIXTURE: DeclarationId = DeclarationId::from_id(SemanticId::NIL);
 /// Execution policy is supplied independently of scientific fixture and oracle data.
@@ -558,9 +591,16 @@ impl ModelingPackage {
             .filter(|r| r.value.kind == DeclarationKind::Test)
             .collect::<Vec<_>>();
         for (fixture, local) in &policy.fixture_policies {
-            if !fixtures.iter().any(|row| row.declaration_id == *fixture) {
+            let Some(row) = fixtures.iter().find(|row| row.declaration_id == *fixture) else {
                 return Err(contract("conformance policy names an unknown fixture"));
-            }
+            };
+            // A conflicting intent is refused before any fixture runs.
+            fixture_solver(
+                *fixture,
+                authored_intent(row),
+                local.solver.as_ref(),
+                &policy.solver,
+            )?;
             if let Some(derivatives) = local.derivatives {
                 derivatives.allowance().map_err(MathRuntimeError::from)?;
             }
@@ -606,10 +646,12 @@ impl ModelingPackage {
             let local = policy.fixture_policies.get(&fixture);
             let policy = ModelingConformancePolicy {
                 compiler: policy.compiler,
-                solver: local
-                    .and_then(|p| p.solver.as_ref())
-                    .unwrap_or(&policy.solver)
-                    .clone(),
+                solver: fixture_solver(
+                    fixture,
+                    authored_intent(row),
+                    local.and_then(|p| p.solver.as_ref()),
+                    &policy.solver,
+                )?,
                 numerical: policy.numerical.clone(),
                 limits: policy.limits,
                 derivatives: local
@@ -1691,6 +1733,89 @@ mod tests {
         assert_eq!(initialization.attempts.len(), 2);
         assert!(initialization.attempts[0].accepted());
         assert!(!initialization.attempts[1].accepted());
+    }
+    #[tokio::test]
+    async fn fixture_policy_intent_conflict_refused() {
+        use pse_backend_native::solve::SolveIntent as Intent;
+        use pse_model::diagnostic::{BoundaryClass, Observation};
+        let p = package(
+            "package p { def D { var x:Scalar; eq e:x==1; } test certified fixture {dof 0; run steady; intent certify;} {child root:D=D();} test open fixture {dof 0; run steady;} {child root:D=D();} }",
+        );
+        let fixture = |name: &str| {
+            p.declarations()
+                .iter()
+                .find(|r| r.name == name)
+                .unwrap()
+                .declaration_id
+        };
+        let (certified, open) = (fixture("certified"), fixture("open"));
+        let rows = p.declarations();
+        let row = |id| rows.iter().find(|r| r.declaration_id == id).unwrap();
+        assert_eq!(authored_intent(row(certified)), Some(Intent::Certify));
+        assert_eq!(authored_intent(row(open)), None);
+        // The specialized kernel fixture carries the declared intent.
+        let cancel = crate::CancelSource::new();
+        for (id, expected) in [(certified, Some(Intent::Certify)), (open, None)] {
+            let instance = pse_modeling::specialize::root_instance(id);
+            let model = p
+                .prepare(id, instance, Bindings::default(), Limits::default(), &cancel)
+                .await
+                .unwrap();
+            assert_eq!(model.compiled().model.fixtures[&instance].intent, expected);
+        }
+        let run = policy().solver;
+        let with = |intent| {
+            let mut solver = run.clone();
+            solver.intent = intent;
+            solver
+        };
+        let intent = |authored, local: Option<&SolverProfile>| {
+            fixture_solver(certified, authored, local, &run).map(|s| s.intent)
+        };
+        // The declared intent replaces the run's; a runtime fixture policy may repeat it.
+        assert_eq!(intent(Some(Intent::Certify), None).unwrap(), Intent::Certify);
+        assert_eq!(
+            intent(Some(Intent::Certify), Some(&with(Intent::Certify))).unwrap(),
+            Intent::Certify
+        );
+        // Without a declared intent the runtime policy decides.
+        assert_eq!(
+            intent(None, Some(&with(Intent::Optimize))).unwrap(),
+            Intent::Optimize
+        );
+        assert_eq!(intent(None, None).unwrap(), run.intent);
+        // A runtime fixture policy that names another intent is refused, naming both,
+        // before any fixture runs: neither takes precedence.
+        let mut conflicting = policy();
+        conflicting.fixture_policies.insert(
+            certified,
+            ModelingFixturePolicy {
+                solver: Some(with(Intent::Optimize)),
+                derivatives: None,
+            },
+        );
+        let error = p.conform(conflicting, &cancel).await.unwrap_err();
+        assert!(
+            matches!(
+                error,
+                WorkflowError::FixtureIntentConflict {
+                    fixture,
+                    authored: Intent::Certify,
+                    policy: Intent::Optimize,
+                } if fixture == certified
+            ),
+            "{error}"
+        );
+        let diagnostic = error.boundary_diagnostic();
+        assert_eq!(diagnostic.class, BoundaryClass::Conflict);
+        assert_eq!(diagnostic.rule, "workflow.fixture_intent_conflict");
+        assert_eq!(diagnostic.sources, vec![certified.as_id()]);
+        for (name, spelling) in [("authored", "certify"), ("policy", "optimize")] {
+            assert!(
+                matches!(diagnostic.observations.get(name), Some(Observation::Text(t)) if t == spelling),
+                "{diagnostic:?}"
+            );
+        }
     }
     #[tokio::test]
     async fn kernel_conformance_refuses_unused_or_invalid_fixture_policy() {
