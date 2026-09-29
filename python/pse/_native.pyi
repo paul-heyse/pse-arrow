@@ -378,6 +378,8 @@ class NativeIneligible:
     @property
     def problem_classes(self, /) -> list[str]: ...
     @property
+    def requirements(self, /) -> list[str]: ...
+    @property
     def sign_bounds(self, /) -> bool | None: ...
 
 @final
@@ -571,6 +573,8 @@ class NativeModelingPackage:
         growth: float = 1.5,
         maximum_attempts: int = 128,
         time_limit: float = 60.0,
+        discrete: str = "refuse",
+        discrete_values: dict[str, float] = ...,
     ) -> NativeModelingInitialization: ...
     def inspect(self, /, case_id: str, settings: bytes) -> bytes: ...
     def prepare_block_initialization(
