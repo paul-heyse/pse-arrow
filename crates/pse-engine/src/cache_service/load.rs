@@ -40,7 +40,7 @@ impl super::NativeCacheService {
             .acquire()
             .await
             .map_err(|error| datafusion::common::DataFusionError::External(Box::new(error)))?;
-        let bytes = self.policy.inflight_bytes / self.policy.concurrent_loads.get();
+        let bytes = self.policy.inflight_bytes / self.policy.concurrent_loads;
         let reservation = MemoryConsumer::new("pse.cache.load_staging").register(&self.pool);
         reservation.try_grow(bytes)?;
         counters.active.fetch_add(1, Ordering::AcqRel);

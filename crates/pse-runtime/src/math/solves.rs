@@ -835,7 +835,8 @@ impl MathService {
         let mut certificate: Option<Arc<dyn QuadraticEvidence>> = f
             .convexity
             .convex_quadratic()
-            .map(|c| -> Arc<dyn QuadraticEvidence> { c.clone() });
+            .cloned()
+            .map(|c| -> Arc<dyn QuadraticEvidence> { c });
         let mut numerical_psd = false;
         if let Some(c) = &prepared.prepared.coefficients {
             if prepared

@@ -74,15 +74,14 @@ fn prepare(
 ) -> Result<(Domain, Option<f64>, Option<f64>)> {
     prepare_recorded(workspace, root, case).map(|(bounds, _)| bounds)
 }
+/// A variable's prepared domain and bounds.
+type Prepared = (Domain, Option<f64>, Option<f64>);
 /// The prepared bounds of `n` with the tightenings admission recorded.
 fn prepare_recorded(
     workspace: &mut CompilerWorkspace,
     root: DeclarationId,
     case: &ModelingCaseBindings,
-) -> Result<(
-    (Domain, Option<f64>, Option<f64>),
-    Vec<pse_modeling::DomainTightening>,
-)> {
+) -> Result<(Prepared, Vec<pse_modeling::DomainTightening>)> {
     let (_, prepared, _, tightenings) = workspace.prepare_modeling_case_cancellable(
         root,
         InstanceId::from_id(SemanticId::NIL),

@@ -143,10 +143,6 @@ async fn small_input_admission_fits_64_kib_but_expansion_exhausts_the_engine() {
     assert!(report.pool_peak_bytes >= held);
 }
 
-#[expect(
-    clippy::expect_used,
-    reason = "test-only helper asserts the retained cancellation diagnostic"
-)]
 async fn assert_cancelled(
     session: &EngineSession,
     runtime: &pse_runtime::SharedRuntime,
@@ -169,10 +165,6 @@ async fn assert_cancelled(
     );
 }
 
-#[expect(
-    clippy::panic,
-    reason = "test-only helper asserts the retained native resource diagnostic"
-)]
 fn assert_resource_limit(error: &EngineError) {
     assert_eq!(
         pse_diagnostics::TypedDiagnostic::diagnostic_code(error),
@@ -192,10 +184,6 @@ fn assert_resource_limit(error: &EngineError) {
     )));
 }
 
-#[expect(
-    clippy::expect_used,
-    reason = "test-only accounting helper requires a valid runtime report"
-)]
 fn observation_bytes(runtime: &pse_runtime::SharedRuntime) -> usize {
     runtime
         .report()

@@ -556,10 +556,17 @@ impl<'a> Pass<'a> {
             .as_ref()
             .ok_or_else(|| MathError::Contract("curvature node order".into()))
     }
+    /// A classified node. Children precede their parents, so every child is classified;
+    /// a node that were not would read as unknown over the entire line, which certifies
+    /// nothing.
     fn get(&self, n: NodeId) -> &Info {
-        self.info[n]
-            .as_ref()
-            .unwrap_or_else(|| unreachable!("children are classified before their parents"))
+        const UNCLASSIFIED: Info = Info {
+            interval: Interval::ENTIRE,
+            curvature: Curvature::Unknown,
+            shape: Shape::Unknown,
+            value: None,
+        };
+        self.info[n].as_ref().unwrap_or(&UNCLASSIFIED)
     }
     #[expect(
         clippy::too_many_lines,

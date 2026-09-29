@@ -449,10 +449,7 @@ mod tests {
             )
             .await
             .unwrap();
-        #[expect(
-            clippy::used_underscore_binding,
-            reason = "test compares the actual cache value owner without interpreting the fake table"
-        )]
+        // The test compares the actual cache value owner without interpreting the fake table.
         let actual_owner = &hit._owner.0;
         assert!(Arc::ptr_eq(actual_owner, &expected));
         assert_eq!(store.gets.load(Ordering::SeqCst), 0);

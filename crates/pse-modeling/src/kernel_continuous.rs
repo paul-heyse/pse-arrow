@@ -118,8 +118,8 @@ fn continuous_schemes_are_visible_data_and_lattice_offsets_cross_elements() {
     assert_eq!(mesh.derivative.len(), 5);
     assert!(mesh.derivative[0].is_empty());
     assert!(mesh.derivative[4].is_empty());
-    for i in 1..4 {
-        let value = mesh.derivative[i]
+    for (i, derivative) in mesh.derivative.iter().enumerate().take(4).skip(1) {
+        let value = derivative
             .iter()
             .map(|(j, w)| w * (0.5 * *j as f64).powi(2))
             .sum::<f64>();

@@ -355,7 +355,9 @@ fn curvature_refuses_unsupported_directions() {
     let registry = standard_registry().unwrap();
     let inf = f64::INFINITY;
     type Build = fn(&mut BodyBuilder<'_>, &[TypedValue]) -> TypedValue;
-    let cases: Vec<(&str, Build, (f64, f64), (f64, f64), Unrecognized)> = vec![
+    /// A case: its label, body, variable box, row bounds and the expected refusal.
+    type Case = (&'static str, Build, (f64, f64), (f64, f64), Unrecognized);
+    let cases: Vec<Case> = vec![
         (
             "exp(x) ≥ 1",
             |b, v| unary(b, Function::Exp, &v[0]),

@@ -25,10 +25,6 @@ use pse_schema::{
     },
 };
 
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture helper requires valid declared setup"
-)]
 async fn fixture(
     value: &str,
 ) -> (
@@ -81,10 +77,6 @@ async fn fixture(
         native_publication::publish(reg, BTreeMap::from([(key, batch)])).await;
     (publication.into_session(), budget, directory)
 }
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture helper requires valid declared setup"
-)]
 fn scan(session: &EngineSession) -> LogicalPlan {
     let spec = session
         .registry()
@@ -101,10 +93,6 @@ fn scan(session: &EngineSession) -> LogicalPlan {
         .expect("scan"),
     )
 }
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture helper requires valid declared setup"
-)]
 fn encode_proto(proto: &LogicalPlanNode) -> Vec<u8> {
     let mut bytes = Vec::new();
     proto.try_encode(&mut bytes).expect("protobuf");

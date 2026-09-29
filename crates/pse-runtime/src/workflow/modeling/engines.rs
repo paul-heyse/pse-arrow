@@ -786,6 +786,23 @@ fn continuation_values(
         .collect()
 }
 
+/// The batching adapter an independent study point explicitly selects (Plan 22 N5): the
+/// point joins a batch with its neighbours that select the same one.
+fn batching(point: &ModelingStudyPoint) -> Option<pse_backend_native::solve::Backend> {
+    let analysis = point.analysis.as_ref().ok()?;
+    match analysis.solver.selection {
+        pse_backend_native::solve::SolverSelection::Explicit(backend)
+            if point.predecessor.is_none()
+                && pse_backend_native::execution::adapter(backend)
+                    .capability()
+                    .batch =>
+        {
+            Some(backend)
+        }
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1354,22 +1371,5 @@ mod discrete_tests {
             report.discrete_assignment.values().collect::<Vec<_>>(),
             [&2.]
         );
-    }
-}
-
-/// The batching adapter an independent study point explicitly selects (Plan 22 N5): the
-/// point joins a batch with its neighbours that select the same one.
-fn batching(point: &ModelingStudyPoint) -> Option<pse_backend_native::solve::Backend> {
-    let analysis = point.analysis.as_ref().ok()?;
-    match analysis.solver.selection {
-        pse_backend_native::solve::SolverSelection::Explicit(backend)
-            if point.predecessor.is_none()
-                && pse_backend_native::execution::adapter(backend)
-                    .capability()
-                    .batch =>
-        {
-            Some(backend)
-        }
-        _ => None,
     }
 }

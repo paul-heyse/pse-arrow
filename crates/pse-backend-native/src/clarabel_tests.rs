@@ -32,13 +32,13 @@ impl OriginalModel for Affine<'_> {
     fn evaluate(&mut self, primal: &[f64]) -> Result<Evaluation, ProblemError> {
         let p = self.0;
         let mut constraints = vec![0.0; p.bounds.len()];
-        for c in 0..p.constraints.ncols() {
+        for (c, x) in primal.iter().enumerate().take(p.constraints.ncols()) {
             for (r, v) in p
                 .constraints
                 .row_idx_of_col(c)
                 .zip(p.constraints.val_of_col(c))
             {
-                constraints[r] += v * primal[c];
+                constraints[r] += v * x;
             }
         }
         Ok(Evaluation {

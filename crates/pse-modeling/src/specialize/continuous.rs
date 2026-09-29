@@ -250,7 +250,7 @@ impl Engine<'_, '_> {
             }
             if let Some(weights) = &stencil.lattice {
                 let spacing = width / stride as f64;
-                for i in 0..extent {
+                for (i, derivative) in mesh.derivative.iter_mut().enumerate().take(extent) {
                     let row = weights
                         .iter()
                         .map(|(offset, weight)| {
@@ -258,7 +258,7 @@ impl Engine<'_, '_> {
                             (j < extent).then_some((j, *weight / spacing))
                         })
                         .collect::<Option<Vec<_>>>();
-                    mesh.derivative[i] = row.unwrap_or_default();
+                    *derivative = row.unwrap_or_default();
                 }
             }
             env.insert(row.name.clone(), Value::Set(mesh.points.clone()));

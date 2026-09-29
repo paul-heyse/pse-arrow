@@ -381,7 +381,10 @@ impl ModelingPackage {
             .at(optimum);
             // A degradation within the accuracy the optimum is known to is an exactly
             // active bound (ADR-0111 item 3).
-            if !(degradation > result.prepared.solve.objective_accuracy()) {
+            // An incomparable (NaN) degradation is refused like a zero one.
+            if degradation.partial_cmp(&result.prepared.solve.objective_accuracy())
+                != Some(std::cmp::Ordering::Greater)
+            {
                 return Err(levels.zero_tolerance(position));
             }
             let beta = match level.sense {

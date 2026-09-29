@@ -453,7 +453,7 @@ fn uncertainty(
         // The exact covariance is read from the fit's KKT point, whose verdicts it states.
         let point = (covariance.approximation
             == pse_relations::generated::enums::CovarianceApproximation::Exact)
-            .then(|| report.solve.as_ref())
+            .then_some(report.solve.as_ref())
             .flatten()
             .and_then(|s| s.evidence.local.as_ref())
             .and_then(|l| l.as_ref().ok());
