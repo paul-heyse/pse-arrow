@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("65b0847b7e4a4f718b25f1871dc1daf2") package distributed_volumes {
-@id("eb054c27bc964cc89693e03cd732e518") use kinds @"1.0.0";
+@id("01a0ee04daa57017b6dc5b43d5dac6b3") use chemistry @"1.0.0";
 @id("2be2dd6d85b44d3fa97711f0d43d763a") use equilibrium @"1.0.0";
 @id("608e3fbb5ca3431aacc26a64a438600a") difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0,1);
 @id("3a8e7b8e081448779241319f1b9ba066") collocation radau alpha(1) beta(0) right(true);
 @id("5acf960bd71843ec8ba37d39fbd4807e") interface ControlVolume1D {
 @id("77061ca6a0cc44688789ad1790deec9d") param inlet_package:equilibrium.ThermoPackage;
 @id("9b694694fbc54518884f33b77a9b52d9") param outlet_package:equilibrium.ThermoPackage;
-@id("5ec1d971de2a4a349f4a61ddc1e10cc8") param components:Set<kinds.species>=outlet_package.components;
+@id("5ec1d971de2a4a349f4a61ddc1e10cc8") param components:Set<chemistry.species>=outlet_package.components;
 @id("7b82ccacace9472f9cd3f13e899894dd") param finite_elements:Integer=20;
 @id("d10963832f4b4e78a1ec386c7a66e43c") param radau_scheme:Boolean=false;
 @id("27ba899d84604ea2afaa6736bab42786") param interpolation_order:Integer=3;

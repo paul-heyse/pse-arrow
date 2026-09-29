@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("35967416f406452a98e2d8798bc7c3eb") package control_volumes {
-@id("fad0df45a05043aab47fa86fb46a06fa") use kinds @"1.0.0";
+@id("01a0ede58eca75b18609170950fe7e0d") use chemistry @"1.0.0";
 @id("06e61a91f30f4151873a54209bd83190") use equilibrium @"1.0.0";
 @id("bee5ac9c31614333966f869cce24e75a") enum MaterialBalance {componentPhase,componentTotal,elementTotal,total}
 @id("38ac5f84712546f29f7e027a8741d512") fn element_flow_unit()->ElementFlow=1{mol/s};
@@ -26,13 +26,13 @@
 }
 }
 @id("4fee7b020ea94caaae04d6d470202852") param material_basis:MaterialBalance=MaterialBalance.componentTotal;
-@id("9b5e8a73656444e1b1db2b41a049c162") param phases:Set<kinds.phase>=outlet_package.phases;
-@id("0fecf4a5ef1b476e9d7e154dc118c3bb") param elements:Set<kinds.element>={};
-@id("eb6a112a2c7c426b99ce4d5f023bf714") param atoms:Fn(j:kinds.species,e:kinds.element)->Scalar;
+@id("9b5e8a73656444e1b1db2b41a049c162") param phases:Set<chemistry.phase>=outlet_package.phases;
+@id("0fecf4a5ef1b476e9d7e154dc118c3bb") param elements:Set<chemistry.element>={};
+@id("eb6a112a2c7c426b99ce4d5f023bf714") param atoms:Fn(j:chemistry.species,e:chemistry.element)->Scalar;
 
 @id("106bd81f5f93497884ab1374afebc60e") param inlet_package:equilibrium.ThermoPackage;
 @id("c3d86eece83048a186ad684765daed71") param outlet_package:equilibrium.ThermoPackage;
-@id("07be8fcd4a814d7d944468c3057ab7a3") param components:Set<kinds.species>=outlet_package.components;
+@id("07be8fcd4a814d7d944468c3057ab7a3") param components:Set<chemistry.species>=outlet_package.components;
 @id("c6bb619d7e3841e491b89d2573e15323") require inlet_package.components==components : "control-volume states must have identical component membership";
 @id("8a5fc0115d4a45628b40a3c09d63064c") require inlet_package.defined and not outlet_package.defined : "the inlet is specified and the outlet supplies its state normalization";
 @id("ab5f966e34534f86a829c7b70c8aaaf1") require not analysis.dynamic or has_holdup : "dynamic balances require explicit material and energy holdup";

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("575166cc6a2b47a199768431593b942c") package phase_stability {
-@id("c2cf160adeeb4c868f8572fb3fd2d107") use kinds @"1.0.0";
+@id("01a0ee04daaa77568ef4eee5865a5e3f") use chemistry @"1.0.0";
 @id("9979e313cae34cf0bab68ec561f382f4") use helmholtz @"1.0.0";
-@id("043576baf0f247acb82a7a9fddfc1bc1") def TangentPlaneStability(selected:Set<kinds.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar,feed:Fn(j:kinds.species)->Scalar) {
-@id("8f58dc3850ee403b9646d7c019781a20") param components:Set<kinds.species>=selected;
+@id("043576baf0f247acb82a7a9fddfc1bc1") def TangentPlaneStability(selected:Set<chemistry.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar,feed:Fn(j:chemistry.species)->Scalar) {
+@id("8f58dc3850ee403b9646d7c019781a20") param components:Set<chemistry.species>=selected;
 @id("a67be3743a7244fbb8eb026de3132be9") param temperature:Temperature=280{K};
 @id("6ec429f1ebbc4919a869ee8eef86885e") param pressure:Pressure=2000000{Pa};
 @id("a76eb51930f54b29a61afc5e8b2314c6") param reference_lower:Density=1{mol/m3};

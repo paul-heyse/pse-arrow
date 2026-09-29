@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e18b78db742e8fd36e3f9f5d6ffb") package bt_ideal {
-@id("01a0e18b78db742e8fd36e4082051d07") use kinds @"1.0.0";
+@id("01a0ede58ecb740c9dfc7a1da528aaf5") use chemistry @"1.0.0";
 @id("01a0e18b78db742e8fd36e41a2cd297a") use chem @"1.0.0";
 @id("01a0e18b78db742e8fd36e42afda5a53") use caloric @"1.0.0";
 @id("01a0e18b78db742e8fd36e43b3bfb495") use phase_data @"1.0.0";
 @id("01a0e18b78db742e8fd36e44ff510651") use pure_properties @"1.0.0";
 @id("01a0e18b78db742e8fd36e45c9fe20a5") use equilibrium @"1.0.0";
-@id("01a0e18b78db742e8fd36e469ec20bc1") table vapor_pressure_fit[j:kinds.species]:caloric.fit;
+@id("01a0e18b78db742e8fd36e469ec20bc1") table vapor_pressure_fit[j:chemistry.species]:caloric.fit;
 @id("01a0e18b78db742e8fd36e47fc093508") dataset pressure_bindings:vapor_pressure_fit source "BT_ideal RPP4 vapor pressure method selection" {
 [chem.benzene]=[phase_data.benzene_rpp4_oracle];
 [chem.toluene]=[phase_data.toluene_rpp4_oracle];
 }
-@id("01a0e18b78db742e8fd36e48fdb7529e") fn psat(T:Temperature,j:kinds.species)->Pressure=pure_properties.rpp4_pressure(T,pure_properties.vapor_pressure[vapor_pressure_fit[j]]);
+@id("01a0e18b78db742e8fd36e48fdb7529e") fn psat(T:Temperature,j:chemistry.species)->Pressure=pure_properties.rpp4_pressure(T,pure_properties.vapor_pressure[vapor_pressure_fit[j]]);
 @id("01a0e18b78db742e8fd36e49b3320d06") test flash_368 source "IDAES 2.13 test_BTIdeal TestStateBlockLegacyScaling.test_solution" revision "2.13.0" fixture {dof 0; run steady; fix root.flow=1{mol/s}; value root.minimum_temperature=300{K}; value root.maximum_temperature=450{K}; value root.bubble_start=365{K}; value root.dew_start=370{K}; fix root.T=368{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
 @id("01a0e18b78db742e8fd36e4a7116bd44") child root:equilibrium.SmoothVLE=equilibrium.FTPx(selected=chem.aromatics,vapor_pressure=psat);
 @id("01a0e18b78db742e8fd36e4b5faa0fa8") expect root.x[chem.benzene]==0.4121{1} tolerance 0.0001{1};
@@ -21,24 +21,24 @@
 @id("01a0e18b78db742e8fd36e4e09303570") expect root.component_flow[chem.benzene]==0.5{mol/s} tolerance 1e-10{mol/s};
 }
 @id("01a0e1971f9075519925981c914a70d4") use caloric_data @"1.0.0";
-@id("01a0e1971f9075519925981d137cc1a1") table caloric_binding[j:kinds.species]:{liquid_fit:caloric.fit,vapor_fit:caloric.fit,liquid_reference:BtOracleEnthalpy,vapor_reference:BtOracleEnthalpy,reference_temperature:Temperature};
+@id("01a0e1971f9075519925981d137cc1a1") table caloric_binding[j:chemistry.species]:{liquid_fit:caloric.fit,vapor_fit:caloric.fit,liquid_reference:BtOracleEnthalpy,vapor_reference:BtOracleEnthalpy,reference_temperature:Temperature};
 @id("01a0e1971f9075519925981efae47b98") dataset caloric_selection:caloric_binding source "IDAES 2.13 BT_ideal caloric inputs; component reference enthalpies at 300 K" {
 [chem.benzene]=[caloric_data.benzene_liquid_idaes_oracle,caloric_data.benzene_gas_rpp4_oracle,49000{J/mol},82900{J/mol},300{K}];
 [chem.toluene]=[caloric_data.toluene_liquid_idaes_oracle,caloric_data.toluene_gas_rpp4_oracle,12000{J/mol},50100{J/mol},300{K}];
 }
-@id("01a0e1971f9075519925981f0b0c0f89") fn liquid_h(T:Temperature,j:kinds.species)->MolarEnthalpy=equilibrium.enthalpy_datum()+caloric.h_unit()*((caloric_binding[j].liquid_reference-oracle_h_zero())/oracle_h_unit()-reference_shift(j))+caloric.polynomial_h_primitive(T,caloric.polynomial[caloric_binding[j].liquid_fit])-caloric.polynomial_h_primitive(caloric_binding[j].reference_temperature,caloric.polynomial[caloric_binding[j].liquid_fit]);
-@id("01a0e1971f90755199259820a9ad3ea5") fn vapor_h(T:Temperature,j:kinds.species)->MolarEnthalpy=equilibrium.enthalpy_datum()+caloric.polynomial_h_primitive(T,caloric.polynomial[caloric_binding[j].vapor_fit])-caloric.polynomial_h_primitive(stock_reference_temperature(),caloric.polynomial[caloric_binding[j].vapor_fit]);
-@id("40f35b70edac42b583ad3cc6d4e71a79") fn component_enthalpy(T:Temperature,p:kinds.phase,j:kinds.species)->MolarEnthalpy=if p==equilibrium.liquid then liquid_h(T,j) else vapor_h(T,j);
+@id("01a0e1971f9075519925981f0b0c0f89") fn liquid_h(T:Temperature,j:chemistry.species)->MolarEnthalpy=equilibrium.enthalpy_datum()+caloric.h_unit()*((caloric_binding[j].liquid_reference-oracle_h_zero())/oracle_h_unit()-reference_shift(j))+caloric.polynomial_h_primitive(T,caloric.polynomial[caloric_binding[j].liquid_fit])-caloric.polynomial_h_primitive(caloric_binding[j].reference_temperature,caloric.polynomial[caloric_binding[j].liquid_fit]);
+@id("01a0e1971f90755199259820a9ad3ea5") fn vapor_h(T:Temperature,j:chemistry.species)->MolarEnthalpy=equilibrium.enthalpy_datum()+caloric.polynomial_h_primitive(T,caloric.polynomial[caloric_binding[j].vapor_fit])-caloric.polynomial_h_primitive(stock_reference_temperature(),caloric.polynomial[caloric_binding[j].vapor_fit]);
+@id("40f35b70edac42b583ad3cc6d4e71a79") fn component_enthalpy(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy=if p==chemistry.liquid then liquid_h(T,j) else vapor_h(T,j);
 @id("01a0e1a32b1f76e89afdfd93cd6f99bd") fn oracle_h_zero()->BtOracleEnthalpy=0{J/mol};
 @id("01a0e1a32b1f76e89afdfd94c4084f91") fn oracle_h_unit()->BtOracleDeltaH=1{J/mol};
 @id("01a0e1a32b1f76e89afdfd95bb217bb1") fn stock_reference_temperature()->Temperature=298.15{K};
-@id("01a0e1a32b1f76e89afdfd96f63adbbd") fn reference_shift(j:kinds.species)->Scalar=(caloric_binding[j].vapor_reference-oracle_h_zero())/oracle_h_unit()-(caloric.polynomial_h_primitive(caloric_binding[j].reference_temperature,caloric.polynomial[caloric_binding[j].vapor_fit])-caloric.polynomial_h_primitive(stock_reference_temperature(),caloric.polynomial[caloric_binding[j].vapor_fit]))/caloric.h_unit();
+@id("01a0e1a32b1f76e89afdfd96f63adbbd") fn reference_shift(j:chemistry.species)->Scalar=(caloric_binding[j].vapor_reference-oracle_h_zero())/oracle_h_unit()-(caloric.polynomial_h_primitive(caloric_binding[j].reference_temperature,caloric.polynomial[caloric_binding[j].vapor_fit])-caloric.polynomial_h_primitive(stock_reference_temperature(),caloric.polynomial[caloric_binding[j].vapor_fit]))/caloric.h_unit();
 @id("01a0e1a936d074a8ae57c32cb3c24bb8") interface BTIdealBinding extends equilibrium.EquilibriumThermoPackage {
 
-@id("01a0e1971f90755199259822137a64c1") override param components:Set<kinds.species>=chem.aromatics;
-@id("01a0e1971f9075519925982384e3bfd0") override param psat:Fn(T:Temperature,j:kinds.species)->Pressure=bt_ideal.psat;
-@id("01a0e1971f90755199259824636559bd") override param liquid_enthalpy:Fn(T:Temperature,j:kinds.species)->MolarEnthalpy=liquid_h;
-@id("01a0e1971f9075519925982564351de3") override param vapor_enthalpy:Fn(T:Temperature,j:kinds.species)->MolarEnthalpy=vapor_h;
+@id("01a0e1971f90755199259822137a64c1") override param components:Set<chemistry.species>=chem.aromatics;
+@id("01a0e1971f9075519925982384e3bfd0") override param psat:Fn(T:Temperature,j:chemistry.species)->Pressure=bt_ideal.psat;
+@id("01a0e1971f90755199259824636559bd") override param liquid_enthalpy:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=liquid_h;
+@id("01a0e1971f9075519925982564351de3") override param vapor_enthalpy:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=vapor_h;
 @id("01a0e1971f9075519925982680c79d22") override param minimum_temperature:Temperature=300{K};
 @id("01a0e1971f9075519925982726e14bf3") override param maximum_temperature:Temperature=450{K};
 @id("01a0e1971f907551992598283e0d21a6") override param bubble_start:Temperature=365{K};

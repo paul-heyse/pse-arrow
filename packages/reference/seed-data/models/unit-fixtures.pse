@@ -3,6 +3,7 @@
 @id("a1b1595e38404adbb092d6057acb585d") package unit_fixtures {
 @id("d5ce0a3bd28d4860956f050686036169") use mixing @"1.0.0";
 @id("c9889c9339fb4830a9a62f53ce545cf8") use kinds @"1.0.0";
+@id("01a0ede58ece70f380fb0a53dbc0c6b6") use chemistry @"1.0.0";
 @id("548bcd39a2a2457e819ef49f20077cf5") entity kinds.port_set first {}
 @id("eefb6d11b2b8486a849e7bef4eefc169") entity kinds.port_set second {}
 @id("f73e44af73174cbdba81aa7e87ff0746") set ports:Set<kinds.port_set>={first,second};
@@ -81,13 +82,13 @@
 @id("939aeff7952e43bcafe4d1c80e5307f9") expect root.outlet_component_flow[first,chem.sodium_hydroxide]==0.08{mol/s} tolerance 1e-9{mol/s};
 @id("734478b859ad48b58d632849187b950e") expect root.outlet_energy_flow[first]==6258.317814{W} tolerance 0.001{W};
 }
-@id("8c22c4a4f87141b083bfc0d9442d382c") test separator_phaseComponentFlow source "phase-component material partition and additive caloric identity" revision "1" fixture {dof 0; run steady; fix root.inlet.volume_flow=0.001{m3/s}; fix root.inlet.T=303.15{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.concentration[chem.water]=55388{mol/m3}; fix root.inlet.concentration[chem.sodium_hydroxide]=100{mol/m3}; fix root.inlet.concentration[chem.ethyl_acetate]=100{mol/m3}; fix root.inlet.concentration[chem.sodium_acetate]=1e-8{mol/m3}; fix root.inlet.concentration[chem.ethanol]=1e-8{mol/m3}; fix root.split_phase_component[first,equilibrium.liquid,chem.water]=0.3; fix root.split_phase_component[first,equilibrium.liquid,chem.sodium_hydroxide]=0.8; fix root.split_phase_component[first,equilibrium.liquid,chem.ethyl_acetate]=0.2; fix root.split_phase_component[first,equilibrium.liquid,chem.sodium_acetate]=0.5; fix root.split_phase_component[first,equilibrium.liquid,chem.ethanol]=0.5; } {
+@id("8c22c4a4f87141b083bfc0d9442d382c") test separator_phaseComponentFlow source "phase-component material partition and additive caloric identity" revision "1" fixture {dof 0; run steady; fix root.inlet.volume_flow=0.001{m3/s}; fix root.inlet.T=303.15{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.concentration[chem.water]=55388{mol/m3}; fix root.inlet.concentration[chem.sodium_hydroxide]=100{mol/m3}; fix root.inlet.concentration[chem.ethyl_acetate]=100{mol/m3}; fix root.inlet.concentration[chem.sodium_acetate]=1e-8{mol/m3}; fix root.inlet.concentration[chem.ethanol]=1e-8{mol/m3}; fix root.split_phase_component[first,chemistry.liquid,chem.water]=0.3; fix root.split_phase_component[first,chemistry.liquid,chem.sodium_hydroxide]=0.8; fix root.split_phase_component[first,chemistry.liquid,chem.ethyl_acetate]=0.2; fix root.split_phase_component[first,chemistry.liquid,chem.sodium_acetate]=0.5; fix root.split_phase_component[first,chemistry.liquid,chem.ethanol]=0.5; } {
 @id("c99c9f8cf3484a42a003ac00ebb86ff6") child root:separation.Separator=separation.Separator(pkg=saponification.Saponification(defined_state=true),outlets=ports,component_enthalpy=saponification.component_enthalpy,basis=separation.SplitBasis.phaseComponentFlow);
 @id("9f29490c42ee44f6b16e0087ac783b32") expect root.outlet_flow[first]==16.7164{mol/s} tolerance 1e-7{mol/s};
 @id("08b7e745271845528247551f1847aaf8") expect root.outlet_component_flow[first,chem.sodium_hydroxide]==0.08{mol/s} tolerance 1e-9{mol/s};
 @id("7a85ff4e895d485d8d3eb217eea95a3d") expect root.outlet_energy_flow[first]==6258.317814{W} tolerance 0.001{W};
 }
-@id("d84e844726e64a2c9b23d96a4039b4f9") test separator_phaseFlow source "phase-component material partition and additive caloric identity" revision "1" fixture {dof 0; run steady; fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.split_phase[first,equilibrium.liquid]=0.8; fix root.split_phase[first,equilibrium.vapor]=0.2;} {
+@id("d84e844726e64a2c9b23d96a4039b4f9") test separator_phaseFlow source "phase-component material partition and additive caloric identity" revision "1" fixture {dof 0; run steady; fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.split_phase[first,chemistry.liquid]=0.8; fix root.split_phase[first,chemistry.vapor]=0.2;} {
 @id("deccb59a5b794439a8d88443e7e961dc") child root:separation.Separator=separation.Separator(pkg=bt_ideal.BTIdeal(defined_state=true),outlets=ports,component_enthalpy=bt_ideal.component_enthalpy,basis=separation.SplitBasis.phaseFlow);
 @id("16f9b6bb0a2d4ec0b8890678ab270a53") expect root.outlet_flow[first]==0.562{mol/s} tolerance 0.001{mol/s};
 @id("d54358a7c02e4db6b5dda9f536c24bb4") expect root.outlet_flow[second]==0.438{mol/s} tolerance 0.001{mol/s};
@@ -128,15 +129,15 @@
 @id("77fc3b81f304427f936e67fd285ca1b5") expect root.control.work_fluid==-20{W} tolerance 0.01{W};
 }
 @id("5cedb8e3a37b463ab20d70386e91472f") use control_volumes @"1.0.0";
-@id("9adfd09aa49a40458c859d84fcf040ae") fn element_atoms(j:kinds.species,e:kinds.element)->Scalar=chem.atoms[j,e];
+@id("9adfd09aa49a40458c859d84fcf040ae") fn element_atoms(j:chemistry.species,e:chemistry.element)->Scalar=chem.atoms[j,e];
 @id("dd9727cad00941acbac7c618b1789736") def WaterVolume(basis:control_volumes.MaterialBalance):control_volumes.ControlVolume0D {
 @id("6fa71b72e81a4d71a92809b7c672e7e0") override child inlet:aqueous.DiluteLiquid=saponification.Saponification(defined_state=true,selected={chem.water});
 @id("04d8fd6181db4178bab96fa0ea6ee7e7") override child outlet:aqueous.DiluteLiquid=saponification.Saponification(defined_state=false,selected={chem.water});
 @id("a0674b9bc4e24ccd93a90a9ffb7886c8") override param inlet_package:equilibrium.ThermoPackage=saponification.Saponification(defined_state=true,selected={chem.water});
 @id("88073401e9a045b1b221b3e27ff27330") override param outlet_package:equilibrium.ThermoPackage=saponification.Saponification(defined_state=false,selected={chem.water});
 @id("e1a2b0f6972a4b0ba96cba5c3e79f80d") override param material_basis:control_volumes.MaterialBalance=basis;
-@id("6f622f45041549e28fc7c480b3667dd2") override param elements:Set<kinds.element>={chem.O};
-@id("3b1e193103fb4e50ac4b01948cc24af6") override param atoms:Fn(j:kinds.species,e:kinds.element)->Scalar=element_atoms;
+@id("6f622f45041549e28fc7c480b3667dd2") override param elements:Set<chemistry.element>={chem.O};
+@id("3b1e193103fb4e50ac4b01948cc24af6") override param atoms:Fn(j:chemistry.species,e:chemistry.element)->Scalar=element_atoms;
 @id("64b6e00d894141abb1b2e772987ac900") eq no_heat:heat==0{W};
 @id("2afda9d04c2b46adb64960ed55a9064b") eq no_work:work==0{W};
 }

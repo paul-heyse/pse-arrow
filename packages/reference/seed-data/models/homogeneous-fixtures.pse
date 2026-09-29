@@ -2,18 +2,18 @@
 // Copyright (c) 2026 Paul Heyse
 @id("b70ab2554b57594e8d2b75288e80da8e") package homogeneous_fixtures {
 @id("c20a7be84295574ab0f3dc6a01d23dd6") use homogeneous_units @"1.0.0";
-@id("e0e78ea23ce25407878a1065acbf4ff0") use kinds @"1.0.0";
+@id("01a0ee04daa874fc916738147ff19be4") use chemistry @"1.0.0";
 @id("51ba5bfff6125fe19fa1d61672957286") use chem @"1.0.0";
 @id("7d61ec65c0dc57a7a0d329e08d7336cb") use pcsaft @"1.0.0";
 @id("3de3c2c4a1e056d0a6e7bda53153e94a") use vessel_fixtures @"1.0.0";
-@id("1ed20825f84a5ba8a90bb89b0fc0cfba") table guesses[j:kinds.species]:{liquid:Scalar,vapor:Scalar};
+@id("1ed20825f84a5ba8a90bb89b0fc0cfba") table guesses[j:chemistry.species]:{liquid:Scalar,vapor:Scalar};
 @id("3d4ac79ad5df593b8f5ca829e6b87fa1") dataset phase_starts:guesses source "Rounded nearby liquid and vapor composition starts; not reference answers" {
 [chem.methane]=[0.06,0.4];
 [chem.ethane]=[0.27,0.34];
 [chem.propane]=[0.67,0.26];
 }
-@id("71747aed2c285d6e89870567c438e0f4") fn liquid_start(j:kinds.species)->Scalar=guesses[j].liquid;
-@id("cc890829eff55918a0539029d375e2c6") fn vapor_start(j:kinds.species)->Scalar=guesses[j].vapor;
+@id("71747aed2c285d6e89870567c438e0f4") fn liquid_start(j:chemistry.species)->Scalar=guesses[j].liquid;
+@id("cc890829eff55918a0539029d375e2c6") fn vapor_start(j:chemistry.species)->Scalar=guesses[j].vapor;
 @id("68ba8dc2d6b05d9a9fe1b1a3625d8015") test heater_recycle source "Plan14 independent teqp 0.23.1 homogeneous PC-SAFT plus DIPPR100 reference, T=350 K P=100000 Pa; analytic feed/recycle balance" revision "1" fixture {dof 0; run steady; fix root.duty=16204.445642740735{W};} {
 @id("0036670f422252b0b8bba9f4709d0cb3") child root:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=chem.alkanes,law=pcsaft.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction);
 @id("964b1c0ea202559c8488c703872008f2") expect root.phase.T==350{K} tolerance 0.00001{K};

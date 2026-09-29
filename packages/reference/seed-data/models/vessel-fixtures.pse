@@ -2,25 +2,25 @@
 // Copyright (c) 2026 Paul Heyse
 @id("89837d2e9ca3439893c87ae741492475") package vessel_fixtures {
 @id("44f1572df81741779295e1cda75e2c54") use vessels @"1.0.0";
-@id("24863f65f5484e398f4a0d07754d2eeb") use kinds @"1.0.0";
+@id("01a0ee04daa976149d39b4de2429f79e") use chemistry @"1.0.0";
 @id("3808d66a0acd4b1d8a06568c94d9211c") use chem @"1.0.0";
 @id("d9921838db16489fa7d4b21c00ae2a08") use caloric @"1.0.0";
 @id("ea83845b0990496ba5ad63238faddd97") use caloric_data @"1.0.0";
 @id("8e4d49d3158445cba3ca90614cf32535") use pcsaft @"1.0.0";
-@id("a90fb79d99024f04b9956318b9ad1cf5") table caloric_fit[j:kinds.species]:caloric.fit;
+@id("a90fb79d99024f04b9956318b9ad1cf5") table caloric_fit[j:chemistry.species]:caloric.fit;
 @id("c10a486fb2d74ed294b696ca85fbbe93") dataset fits:caloric_fit source "Fixed-composition vessel DIPPR100 selection; coefficients owned by caloric_data.vessel_caloric" {
 [chem.methane]=[caloric_data.methane_dippr100];
 [chem.ethane]=[caloric_data.ethane_dippr100];
 [chem.propane]=[caloric_data.propane_dippr100];
 }
-@id("860da3de40824b0cb95af4c86956cbdb") table fractions[j:kinds.species]:Scalar;
+@id("860da3de40824b0cb95af4c86956cbdb") table fractions[j:chemistry.species]:Scalar;
 @id("2f611fe7b34d400b8207691771f41a16") dataset composition:fractions source "Plan14 frozen homogeneous vessel mixture, methane/ethane/propane mole fractions" {
 [chem.methane]=[0.2];
 [chem.ethane]=[0.3];
 [chem.propane]=[0.5];
 }
-@id("79967b3d84164edd99567645e9cfb1e3") fn fraction(j:kinds.species)->Scalar=fractions[j];
-@id("1c3e6e4cba9a409ab582f6971e1ac4c7") fn ideal_enthalpy(T:Temperature,j:kinds.species)->DeltaH=caloric.polynomial_h_primitive(T,caloric.polynomial[caloric_fit[j]])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[caloric_fit[j]]);
+@id("79967b3d84164edd99567645e9cfb1e3") fn fraction(j:chemistry.species)->Scalar=fractions[j];
+@id("1c3e6e4cba9a409ab582f6971e1ac4c7") fn ideal_enthalpy(T:Temperature,j:chemistry.species)->DeltaH=caloric.polynomial_h_primitive(T,caloric.polynomial[caloric_fit[j]])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[caloric_fit[j]]);
 @id("29dd6a1a3e444acfbf14992087f9d32c") test closed_integrated source "Plan14 fixed-composition PC-SAFT/DIPPR vessel: closed amount and analytic energy U(t)=U0+10 W*t; stock sensible 298.15 K datum" revision "1" fixture {dof 0; run integrated; integrate samples(1{s}) relative(1e-10) normalized_absolute(1e-12) step(1e-5{s}) quadrature_relative(1e-8) quadrature_absolute(root.accumulated_amount=1e-9{mol},root.accumulated_energy=1e-5{J});} {
 @id("1ea989776648448da69fb9cfb9caa177") child root:vessels.Vessel=vessels.Vessel(selected=chem.alkanes,law=pcsaft.potential,ideal_h=ideal_enthalpy,composition=fraction);
 @id("416b2018a4454df484169ed73291fccd") expect root.accumulated_amount==0{mol} tolerance 1e-6{mol};

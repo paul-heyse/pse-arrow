@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("c1150e2758234b8cb0e0646e278c5dd0") package units {
-@id("85bc1b4525114d7a899269f39fc90f79") use kinds @"1.0.0";
+@id("01a0ee04daa670cda7ed74b2c54c5e69") use chemistry @"1.0.0";
 @id("c612db9b42fd452785497fd913f591fc") use equilibrium @"1.0.0";
 @id("cca6cbcefee1460e91f59bccc8907f03") use control_volumes @"1.0.0";
 @id("f9ec315980014bbdb2449aeecf62e792") interface Boundary {
 @id("96ee34023dc94bbd8fed955663185725") param state_package:equilibrium.ThermoPackage;
-@id("85422bef68f04a9ca810408143b5d142") param components:Set<kinds.species>=state_package.components;
+@id("85422bef68f04a9ca810408143b5d142") param components:Set<chemistry.species>=state_package.components;
 @id("4721af98ae2b47fabee646c85d9ff56d") child state:equilibrium.ThermoPackage=state_package;
 @id("7f62d15f44cc4466a7475151dc6a1812") port flow:Flow=state.flow;
 @id("9ec3e03c890f42eda31649aaf6438b67") port temperature:Temperature=state.T;

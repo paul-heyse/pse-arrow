@@ -725,6 +725,71 @@ fn kernel_table_function_references_dispatch_and_share_specializations() {
     assert_eq!(values, vec![4., 4., 6.]);
 }
 
+/// An axis declared only by a package, unknown to the physical registry, indexes a
+/// dimensioned variable family that a finite reduction sums. The modeling path expands
+/// the reduction over the set's members, so no quantity type shaped over the axis is
+/// registered, looked up or needed (Plan 23 SM0; ADR-0126).
+#[test]
+fn package_declared_axis_indexes_a_sum_without_a_registered_shaped_type() {
+    let inputs = super::super::tests::inputs();
+    let flow = QuantityTypeId::from_id(
+        SemanticId::parse_hex("6df479e3be3bda77c5938727311f1063").unwrap(),
+    );
+    let names = BTreeMap::from([
+        (
+            "Scalar".into(),
+            inputs.quantities.neutral_dimensionless().unwrap(),
+        ),
+        ("Flow".into(), flow),
+    ]);
+    let rows = source(
+        r#"package p {
+      entity kind stream {} entity stream a {} entity stream b {} entity stream c {}
+      set streams: Set<stream> = {a,b,c};
+      def Root { var x[j in streams]: Flow; eq total: sum(j in streams | x[j]) == 6{mol/s}; }
+    }"#,
+    );
+    let axis = rows
+        .iter()
+        .find(|r| r.name == "stream")
+        .unwrap()
+        .declaration_id
+        .as_id();
+    let root = rows
+        .iter()
+        .find(|r| r.name == "Root")
+        .unwrap()
+        .declaration_id;
+    assert!(inputs.quantities.entity_kinds().all(|k| k.id.as_id() != axis));
+    assert!(
+        inputs
+            .quantities
+            .quantity_types()
+            .all(|t| t.key.shape.iter().all(|k| k.as_id() != axis))
+    );
+    let mut workspace = CompilerWorkspace::new(inputs, WorkspaceLimits::default()).unwrap();
+    workspace.publish_modeling(rows, names).unwrap();
+    let admitted = admit(&mut workspace, root);
+    assert_eq!(admitted.inputs.len(), 3);
+    let cancel = Arc::new(AtomicBool::new(false));
+    let compiled = fixture(
+        &admitted,
+        workspace.inputs.quantities.clone(),
+        DerivativeOrder::Value,
+        &cancel,
+    )
+    .unwrap();
+    let mut worker = compiled.worker();
+    let mut residual = |values: &[f64]| {
+        worker
+            .evaluate(values, DerivativeOrder::Value, &mut BTreeMap::new(), &cancel)
+            .unwrap()
+            .equations(&admitted)
+    };
+    assert_eq!(residual(&[1., 2., 3.]), vec![0.]);
+    assert_eq!(residual(&[1., 1., 1.])[0].abs(), 3.);
+}
+
 #[test]
 fn kernel_import_alias_resolves_functions_in_selected_package() {
     let (mut workspace, _, _, root) = setup(

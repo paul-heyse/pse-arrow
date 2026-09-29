@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("a8cbfb3fbe6241c7bbaa0b1d534a9fac") package ideal_caloric_state {
-@id("681a749c67e0476c98ca3bff7c0b0618") use kinds @"1.0.0";
+@id("01a0ede58ecf75039afc4717275205b3") use chemistry @"1.0.0";
 @id("f21929aacb324034b3385a220dd1ba81") use equilibrium @"1.0.0";
 @id("0fa5555ad5e9425487ce121716721238") use caloric @"1.0.0";
 @id("98e4077edd1e48ec811f435d314348b8") use helmholtz @"1.0.0";
 @id("0fb5bfea78084dad8cf6d2688e180c3d") interface IdealGasState extends equilibrium.EntropyThermoPackage {
-@id("ab324a958c5e4d3a93acea3c16318088") param component_h:Fn(T:Temperature,j:kinds.species)->MolarEnthalpy;
-@id("1c69744112bc458baf91647a7ccb4207") param component_s:Fn(T:Temperature,j:kinds.species)->MolarEntropy;
+@id("ab324a958c5e4d3a93acea3c16318088") param component_h:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy;
+@id("1c69744112bc458baf91647a7ccb4207") param component_s:Fn(T:Temperature,j:chemistry.species)->MolarEntropy;
 @id("bfc22f31704c4c7a9b164a7bbb9c00cf") param reference_pressure:Pressure;
 @id("48b7742347a04348bff88245ce309554") param minimum_temperature:Temperature;
 @id("306f9ed8081f49c6920df5f98f39958c") param maximum_temperature:Temperature;
-@id("2d2937d6880f42e89a10d3224824b0de") override param phases:Set<kinds.phase>={equilibrium.vapor};
+@id("2d2937d6880f42e89a10d3224824b0de") override param phases:Set<chemistry.phase>={chemistry.vapor};
 @id("577ef7dbf6b44a53b57b11af94ec6b53") let phase_enthalpy[p in phases]:MolarEnthalpy=h;
 @id("0c2d3c34495f49a5ad3abdac2a3dbaac") let phase_flow[p in phases]:Flow=flow;
 @id("5b0a96313d054d74ae0e57efe086ff2b") let phase_component_flow[p in phases,j in components]:ComponentFlow=component_flow[j];

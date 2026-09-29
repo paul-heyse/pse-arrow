@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e17fb4307404bb456179a6be3f89") package pr_oracle {
-@id("01a0e17fb4307404bb45617aa286e41e") use kinds @"1.0.0";
+@id("01a0ee04daa874fc91673816f8d77a80") use chemistry @"1.0.0";
 @id("01a0e17fb4307404bb45617bbe4feaa3") use peng_robinson @"1.0.0";
-@id("01a0e17fb4307404bb45617c4361a096") entity kinds.species a {}
-@id("01a0e17fb4307404bb45617d29331305") entity kinds.species b {}
-@id("01a0e17fb4307404bb45617e1e6ad9dc") entity kinds.species c {}
-@id("01a0e17fb4307404bb45617fd533221c") set members:Set<kinds.species>={a,b,c};
+@id("01a0e17fb4307404bb45617c4361a096") entity chemistry.species a {}
+@id("01a0e17fb4307404bb45617d29331305") entity chemistry.species b {}
+@id("01a0e17fb4307404bb45617e1e6ad9dc") entity chemistry.species c {}
+@id("01a0e17fb4307404bb45617fd533221c") set members:Set<chemistry.species>={a,b,c};
 @id("01a0e17fb4307404bb45618032a2b567") dataset critical:peng_robinson.critical source "IDAES 2.13 test_ceos_PR fictitious component parameters; oracle inputs only" {
 [a]=[100{K},100000{Pa},0.1];
 [b]=[200{K},200000{Pa},0.2];
@@ -38,9 +38,9 @@
 @id("01a0e17fb4307404bb45618d79f4fa47") expect root.pressure==101325{Pa} tolerance 0.02{Pa} relative 1e-6;
 }
 @id("01a0e1c189be77f58aa2fc8fbfffec1d") use helmholtz @"1.0.0";
-@id("01a0e1c189bf70b9a2a6f0aa14b05fc1") entity kinds.species asym_a {}
-@id("01a0e1c189bf70b9a2a6f0ab9cac816a") entity kinds.species asym_b {}
-@id("01a0e1c189bf70b9a2a6f0acc8277469") set asym_members:Set<kinds.species>={asym_a,asym_b};
+@id("01a0e1c189bf70b9a2a6f0aa14b05fc1") entity chemistry.species asym_a {}
+@id("01a0e1c189bf70b9a2a6f0ab9cac816a") entity chemistry.species asym_b {}
+@id("01a0e1c189bf70b9a2a6f0acc8277469") set asym_members:Set<chemistry.species>={asym_a,asym_b};
 @id("01a0e1c189bf70b9a2a6f0ad74541655") dataset asym_critical:peng_robinson.critical source "Synthetic PR convention control, not physical component data" {
 [asym_a]=[300{K},5000000{Pa},0.1];
 [asym_b]=[400{K},4000000{Pa},0.2];

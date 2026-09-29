@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1b4f60e71eab3418872d0908139") package pr_equilibrium {
-@id("01a0e1b4f60e71eab3418873fd61412b") use kinds @"1.0.0";
+@id("01a0ee04daaa77568ef4eee61460448c") use chemistry @"1.0.0";
 @id("01a0e1b4f60e71eab3418874249719e8") use equilibrium @"1.0.0";
 @id("01a0e1b4f60e71eab341887593cd8c35") use peng_robinson @"1.0.0";
 @id("01a0e1b4f60e71eab341887694f214e0") use helmholtz @"1.0.0";
@@ -9,7 +9,7 @@
 @id("01a0e1b4f60e71eab34188786b191015") use pure_properties @"1.0.0";
 @id("01a0e1b4f60e71eab341887ae9752485") interface SmoothPR extends equilibrium.EquilibriumThermoPackage,equilibrium.EntropyThermoPackage {
 @id("03aaa07a0d15470295eebcad71a4c31d") let s:MolarEntropy=equilibrium.entropy_datum()+(1-beta)*(s_liquid-equilibrium.entropy_datum())+beta*(s_vapor-equilibrium.entropy_datum());
-@id("01a0e1b4f60e71eab341887bd38ad2af") param ideal_entropy:Fn(T:Temperature,j:kinds.species)->MolarEntropy;
+@id("01a0e1b4f60e71eab341887bd38ad2af") param ideal_entropy:Fn(T:Temperature,j:chemistry.species)->MolarEntropy;
 @id("01a0e1b4f60e71eab341887cd93e968e") var bubble_vapor[j in components]:MoleFraction;
 @id("01a0e1b4f60e71eab341887de648cd50") annotation start bubble_vapor(z[j]);
 @id("01a0e1b4f60e71eab341887ebeb67cd9") annotation bounds bubble_vapor(1e-10{1},1{1});
