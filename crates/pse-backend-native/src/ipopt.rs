@@ -12,7 +12,7 @@ pub use crate::settings::ipopt::{
     SpralPivot, SpralScaling,
 };
 use crate::{
-    NlpOracle, ProblemError,
+    NlpOracle, ProblemError, ReuseRefusal,
     callback::CallbackState,
     quality::{self, Tolerances},
     solve::*,
@@ -769,18 +769,30 @@ impl Session {
             ),
             options.keys().cloned().collect(),
         );
-        let reused = self.signature.as_ref().is_some_and(|(retained, keys)| {
-            *retained == signature.0 && keys.iter().all(|key| options.contains_key(key))
-        }) && self.handle.is_some()
-            && controls.reuse != ReusePolicy::Fresh;
+        // The retained problem serves this step when its structure is unchanged and the step
+        // sets every key ever set on it; the loop below then re-applies all of its values.
+        let refusal = match &self.signature {
+            Some((retained, keys)) if *retained == signature.0 => {
+                let dropped: Vec<String> = keys
+                    .iter()
+                    .filter(|key| !options.contains_key(*key))
+                    .cloned()
+                    .collect();
+                (!dropped.is_empty()).then_some(ReuseRefusal::DroppedOptions(dropped))
+            }
+            _ => Some(ReuseRefusal::Structure),
+        };
+        let reused =
+            refusal.is_none() && self.handle.is_some() && controls.reuse != ReusePolicy::Fresh;
         if reused {
             // The retained keys are a subset of this step's, which it now sets.
             self.signature = Some(signature);
         } else {
             if controls.reuse == ReusePolicy::RequireReuse && self.handle.is_some() {
-                return Err(ProblemError::Unsupported(
-                    "Ipopt C problem bounds or layout changed and require rebuilding".into(),
-                ));
+                return Err(ProblemError::Reuse {
+                    backend: Backend::Ipopt,
+                    refusal: refusal.unwrap_or(ReuseRefusal::Structure),
+                });
             }
             self.handle.take();
             let created = Handle(
@@ -1132,6 +1144,121 @@ mod tests {
         );
         let fifth = run(&mut session, Options::new());
         assert_eq!(fifth.metrics["reuse.native_model"], Metric::Bool(false));
+    }
+    fn solve_under(
+        session: &mut Session,
+        oracle: &mut crate::solver_tests::Polynomial,
+        iterations: u32,
+        reuse: ReusePolicy,
+        options: Options,
+    ) -> Result<SolveReport, ProblemError> {
+        let controls = Controls {
+            options,
+            iterations,
+            reuse,
+            ..Controls::default()
+        };
+        session.solve(
+            oracle,
+            &[2.0],
+            ObjectiveSense::Minimize,
+            &controls,
+            &ResolvedAccuracy::nominal(),
+            &Settings::default(),
+            crate::solver_tests::execution(),
+            &Tolerances {
+                variables: vec![1e-8],
+                rows: vec![1e-8],
+                integrality: 1e-8,
+            },
+            None,
+            crate::solver_tests::stamp(Backend::Ipopt),
+        )
+    }
+    #[test]
+    fn reused_problem_reapplies_changed_values() {
+        let mut session = Session::new();
+        let mut oracle = crate::solver_tests::Polynomial::new();
+        // One iteration cannot reach x³ = 1 from x = 2.
+        let first = solve_under(
+            &mut session,
+            &mut oracle,
+            1,
+            ReusePolicy::AllowRebuild,
+            Options::new(),
+        )
+        .unwrap();
+        assert_eq!(first.termination.category, Termination::IterationLimit);
+        assert_eq!(first.options["max_iter"], OptionValue::Integer(1));
+        // The retained problem still holds max_iter = 1; the reused step sets its own value.
+        let second = solve_under(
+            &mut session,
+            &mut oracle,
+            100,
+            ReusePolicy::RequireReuse,
+            Options::new(),
+        )
+        .unwrap();
+        assert!(second.evidence.reused_native_state);
+        assert_eq!(second.metrics["reuse.native_model"], Metric::Bool(true));
+        assert_eq!(second.options["max_iter"], OptionValue::Integer(100));
+        assert!(solved(&second), "{:?}", second.termination);
+    }
+    #[test]
+    fn required_reuse_names_its_refusal() {
+        let mut session = Session::new();
+        let mut oracle = crate::solver_tests::Polynomial::new();
+        let adaptive = Options::from([
+            ("mu_linear_decrease_factor".into(), OptionValue::Real(0.3)),
+            ("mu_superlinear_decrease_power".into(), OptionValue::Real(1.4)),
+        ]);
+        solve_under(
+            &mut session,
+            &mut oracle,
+            100,
+            ReusePolicy::AllowRebuild,
+            adaptive.clone(),
+        )
+        .unwrap();
+        // The step sets neither retained option key, which the C problem cannot unset.
+        let error = solve_under(
+            &mut session,
+            &mut oracle,
+            100,
+            ReusePolicy::RequireReuse,
+            Options::new(),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(
+                &error,
+                ProblemError::Reuse {
+                    backend: Backend::Ipopt,
+                    refusal: ReuseRefusal::DroppedOptions(keys),
+                } if keys == &["mu_linear_decrease_factor", "mu_superlinear_decrease_power"]
+            ),
+            "{error:?}"
+        );
+        // Changed bounds are a structural refusal, whatever the options.
+        oracle.bounds = vec![(0.5, 0.5)];
+        let error = solve_under(
+            &mut session,
+            &mut oracle,
+            100,
+            ReusePolicy::RequireReuse,
+            adaptive,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(
+                error,
+                ProblemError::Reuse {
+                    backend: Backend::Ipopt,
+                    refusal: ReuseRefusal::Structure,
+                }
+            ),
+            "{error:?}"
+        );
     }
     fn solved(report: &SolveReport) -> bool {
         report.termination.category == Termination::Success

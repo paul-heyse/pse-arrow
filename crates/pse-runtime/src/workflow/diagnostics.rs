@@ -371,6 +371,32 @@ fn problem(error: &pse_backend_native::ProblemError, result: &mut BoundaryDiagno
             (Class::Unsupported, "native.unavailable")
         }
         E::Unsupported(_) => (Class::Unsupported, "native.unsupported"),
+        // Retained state that cannot serve a step requiring its reuse: the request is
+        // valid, and the state it names is incompatible with it.
+        E::Reuse { backend, refusal } => {
+            result
+                .observations
+                .insert("backend".into(), Observation::Text(backend.as_str().into()));
+            let reason = match refusal {
+                pse_backend_native::ReuseRefusal::Foreign(held) => {
+                    result
+                        .observations
+                        .insert("held_backend".into(), Observation::Text(held.as_str().into()));
+                    "foreign"
+                }
+                pse_backend_native::ReuseRefusal::Structure => "structure",
+                pse_backend_native::ReuseRefusal::DroppedOptions(keys) => {
+                    result
+                        .observations
+                        .insert("dropped_options".into(), Observation::Text(keys.join(",")));
+                    "dropped_options"
+                }
+            };
+            result
+                .observations
+                .insert("reuse_refusal".into(), Observation::Text(reason.into()));
+            (Class::Incompatible, "native.reuse")
+        }
         E::Contract(_) => (Class::InvalidModel, "native.contract"),
         E::Structural { rows, columns, .. } => {
             result.sources.extend(rows);
@@ -525,12 +551,37 @@ mod tests {
             ),
             (ProblemError::numerical("factorization"), Class::Numerical),
             (
+                ProblemError::Reuse {
+                    backend: Backend::Ipopt,
+                    refusal: pse_backend_native::ReuseRefusal::DroppedOptions(vec![
+                        "mu_init".into(),
+                    ]),
+                },
+                Class::Incompatible,
+            ),
+            (
                 ProblemError::Provider(pse_kernels::ProviderError::Terminal("native".into())),
                 Class::Infrastructure,
             ),
         ] {
             assert_eq!(observed(&error, "native").class, class, "{error:?}");
         }
+        // A refused reuse names the option keys the step drops (PS-10).
+        let refused = observed(
+            &ProblemError::Reuse {
+                backend: Backend::Ipopt,
+                refusal: pse_backend_native::ReuseRefusal::DroppedOptions(vec![
+                    "mu_init".into(),
+                    "warm_start_bound_push".into(),
+                ]),
+            },
+            "native",
+        );
+        assert_eq!(refused.rule, "native.reuse");
+        assert!(matches!(
+            &refused.observations["dropped_options"],
+            Observation::Text(keys) if keys == "mu_init,warm_start_bound_push"
+        ));
     }
     #[test]
     fn structural_failure_keeps_rows_and_columns() {

@@ -162,6 +162,7 @@ fn run_with(
             intent: SolveIntent::FeasiblePoint,
             sense: ObjectiveSense::Minimize,
             limit: 1 << 20,
+            analysis: execution::Analysis::NONE,
         },
     )
 }

@@ -1110,44 +1110,6 @@ pub struct CallbackEvidence {
     /// A terminal failure latched and ended the attempt.
     pub terminal_failure: bool,
 }
-/// Post-solve curvature at an NLP candidate (L-N6, PS-12): the certified inertia of the
-/// normalized KKT matrix over the free variables and the active constraints of the decisive
-/// test, what it decides, and its 1-norm condition estimate.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SecondOrder {
-    /// Variables not held at a bound by the tested constraint set.
-    pub free: usize,
-    /// Active rows and bounds in the tested set.
-    pub active: usize,
-    /// Active rows or bounds whose normalized multiplier is within the dual budget of zero;
-    /// strict complementarity fails for them.
-    pub weakly_active: usize,
-    /// Certified inertia (positive, negative, zero) of the tested KKT matrix.
-    pub inertia: (usize, usize, usize),
-    /// Hager–Higham estimate of its 1-norm condition number, a lower bound.
-    pub condition_1norm: Option<f64>,
-    /// What the inertia decides.
-    pub curvature: Curvature,
-}
-/// The verdict of the post-solve second-order check, in the minimization convention.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Curvature {
-    /// The reduced Hessian is positive definite on the null space of the strongly active
-    /// constraints, which contains the critical cone: with independent active gradients the
-    /// candidate is a strict local minimizer (second-order sufficient conditions).
-    Sufficient,
-    /// A direction satisfying every active constraint has negative curvature: the candidate
-    /// is not a local minimizer.
-    #[serde(rename = "negative_curvature")]
-    Negative,
-    /// A zero eigenvalue: the reduced Hessian is singular or the active gradients are
-    /// dependent.
-    Singular,
-    /// Weakly active constraints leave the critical cone between the two subspaces tested,
-    /// and neither test decides.
-    Undecided,
-}
 /// Original-coordinate KKT checks; `None` means the measure was unavailable.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct KktEvidence {
@@ -1328,7 +1290,7 @@ pub enum IisMember {
 }
 /// Typed adapter evidence. Qualification, retry and start receipts read only this;
 /// metrics remain observations and are never an input to a decision.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default)]
 pub struct Evidence {
     /// Callback trial history.
     pub callback: CallbackEvidence,
@@ -1346,8 +1308,9 @@ pub struct Evidence {
     pub coefficient: Option<CoefficientEvidence>,
     /// Conic residual evidence.
     pub conic: Option<ConicEvidence>,
-    /// Post-solve second-order check of an optimizing NLP candidate.
-    pub second_order: Option<SecondOrder>,
+    /// The requested KKT-point analysis of an NLP candidate (L-N6, PS-12), or why it
+    /// produced none; `None` when none was requested or no candidate was observed.
+    pub local: Option<crate::kkt::Local>,
     /// Global bound evidence of a certifying adapter.
     pub global: Option<GlobalEvidence>,
 }

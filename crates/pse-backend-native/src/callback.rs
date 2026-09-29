@@ -60,6 +60,7 @@ pub fn classify(error: &ProblemError) -> Failure {
         | ProblemError::Contract(_)
         | ProblemError::Structural { .. }
         | ProblemError::Unsupported(_)
+        | ProblemError::Reuse { .. }
         | ProblemError::Numerical { .. }
         | ProblemError::Limit { .. }
         | ProblemError::Internal(_) => Failure::Fatal,

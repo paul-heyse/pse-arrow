@@ -223,7 +223,8 @@ fn stub_backend_routes_through_adapter_table() {
         );
     }
     assert_eq!(retained.backend(), Some(Backend::Idas));
-    // A fresh-only policy with foreign retained state refuses instead of rebuilding.
+    // A reuse-only policy with foreign retained state refuses instead of rebuilding, and
+    // names the backend that holds it.
     let mut foreign_state = Retained::default();
     foreign_state
         .session(
@@ -239,7 +240,27 @@ fn stub_backend_routes_through_adapter_table() {
         |_: &mut i64| Ok(true),
         || Ok(0_i64),
     );
-    assert!(matches!(refused, Err(ProblemError::Unsupported(_))));
+    assert!(matches!(
+        refused,
+        Err(ProblemError::Reuse {
+            backend: Backend::Idas,
+            refusal: crate::ReuseRefusal::Foreign(Backend::Kinsol),
+        })
+    ));
+    // The same backend with state its step cannot refresh is a structural refusal.
+    let refused = foreign_state.session(
+        Backend::Kinsol,
+        ReusePolicy::RequireReuse,
+        |_: &mut u8| Ok(false),
+        || Ok(0_u8),
+    );
+    assert!(matches!(
+        refused,
+        Err(ProblemError::Reuse {
+            backend: Backend::Kinsol,
+            refusal: crate::ReuseRefusal::Structure,
+        })
+    ));
     // The production table maps that registry value to its own, trajectory-only adapter.
     assert_eq!(
         LINKED.get(Backend::Idas).unwrap().representation(),

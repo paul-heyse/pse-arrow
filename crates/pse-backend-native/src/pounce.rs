@@ -409,9 +409,10 @@ impl Session {
                 .is_some_and(|s| s.same_session(&compatibility))
             && controls.reuse != ReusePolicy::Fresh;
         if self.app.is_some() && !reused && controls.reuse == ReusePolicy::RequireReuse {
-            return Err(ProblemError::Unsupported(
-                "POUNCE application reuse changes layout/profile".into(),
-            ));
+            return Err(ProblemError::Reuse {
+                backend: Backend::Pounce,
+                refusal: crate::ReuseRefusal::Structure,
+            });
         }
         let mut app = if reused {
             let mut app = self

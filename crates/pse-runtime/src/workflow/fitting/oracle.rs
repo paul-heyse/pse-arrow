@@ -529,6 +529,9 @@ impl FitProblem {
                     intent: self.profile.solver.intent,
                     sense: pse_math::binding::ObjectiveSense::Minimize,
                     limit: self.profile.max_cells,
+                    analysis: native::execution::Analysis::for_intent(
+                        self.profile.solver.intent,
+                    ),
                 },
             )?;
             let candidate = report.candidate.as_ref().map(|c| c.primal.clone());

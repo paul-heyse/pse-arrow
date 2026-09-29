@@ -649,13 +649,16 @@ impl Pipeline {
             .take()
             .ok_or_else(|| ProblemError::Internal("presolve transport already consumed".into()))
     }
-    /// Full recovery traverses the library stack exactly once, then independently observes the original model.
-    pub fn finish(
+    /// Full recovery traverses the library stack exactly once, then independently observes
+    /// the original model and runs the requested local analysis against it, whatever
+    /// presolve removed.
+    pub(crate) fn finish(
         mut self,
         mut report: SolveReport,
         tolerance: &Tolerances,
         sense: ObjectiveSense,
-        second_order: Option<crate::conditioning::Check>,
+        analysis: &crate::kkt::Analysis,
+        budget: crate::kkt::Budget,
     ) -> SolveReport {
         report.variables = self
             .original
@@ -735,16 +738,15 @@ impl Pipeline {
             match original.state.execution.stopped() {
                 None => {
                     quality::attach_nlp(&mut report, original.oracle.as_mut(), tolerance, sense);
-                    if let Some(check) = second_order {
-                        let original = &mut *original;
-                        crate::conditioning::attach_second_order(
-                            &mut report,
-                            original.oracle.as_mut(),
-                            &original.normalization,
-                            tolerance,
-                            check,
-                        );
-                    }
+                    let original = &mut *original;
+                    crate::kkt::attach(
+                        &mut report,
+                        original.oracle.as_mut(),
+                        &original.normalization,
+                        tolerance,
+                        analysis,
+                        budget,
+                    );
                 }
                 Some(stop) => {
                     report.quality = None;

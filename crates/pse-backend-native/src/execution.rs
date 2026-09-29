@@ -35,7 +35,8 @@ mod runner;
 mod scip;
 pub use factorable::{Factorable, FixedOracle, Refusal, Resolve, admit_program, factorable};
 pub use runner::{
-    Coefficients, Evaluation, Nlp, OriginalModel, Roots, Step, coefficients, cone, nlp, roots,
+    Analysis, Coefficients, Evaluation, Nlp, OriginalModel, Roots, Step, coefficients, cone, nlp,
+    roots,
 };
 pub use scip::Settings as ScipSettings;
 
@@ -513,19 +514,18 @@ impl Retained {
         reuse: impl FnOnce(&mut S) -> Result<bool, ProblemError>,
         build: impl FnOnce() -> Result<S, ProblemError>,
     ) -> Result<(&mut S, bool), ProblemError> {
-        let reused = match &mut self.session {
+        let refusal = match &mut self.session {
             Some((held, state)) if *held == backend => match state.downcast_mut::<S>() {
-                Some(session) => reuse(session)?,
-                None => false,
+                Some(session) => (!reuse(session)?).then_some(crate::ReuseRefusal::Structure),
+                None => Some(crate::ReuseRefusal::Structure),
             },
-            _ => false,
+            Some((held, _)) => Some(crate::ReuseRefusal::Foreign(*held)),
+            None => Some(crate::ReuseRefusal::Structure),
         };
-        if !reused {
+        let reused = refusal.is_none();
+        if let Some(refusal) = refusal {
             if policy == crate::solve::ReusePolicy::RequireReuse && self.session.is_some() {
-                return Err(ProblemError::Unsupported(format!(
-                    "required {} reuse unavailable",
-                    backend.as_str()
-                )));
+                return Err(ProblemError::Reuse { backend, refusal });
             }
             // Native teardown precedes construction of the replacement.
             self.session = None;

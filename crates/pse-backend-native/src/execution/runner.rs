@@ -5,6 +5,7 @@
 //! coordinates and qualifies the report. Workflows choose a runner by representation and
 //! the adapter by table lookup; neither step names a backend.
 use super::{BackendExecution, BackendSettings, Budgets, Input, Problem, Retained};
+pub use crate::kkt::Analysis;
 use crate::{
     CoefficientProblem, ConicProblem, NleOracle, NlpOracle, ProblemError,
     assembled::FeasibilityOracle,
@@ -64,18 +65,29 @@ pub struct Nlp<'a> {
     pub sense: ObjectiveSense,
     /// Presolve dimension ceiling.
     pub limit: usize,
+    /// The local analysis the caller requests at the candidate.
+    pub analysis: Analysis,
 }
 /// The one NLP runner (F28): presolve pipeline, native solve (or the pipeline's terminal
-/// report), library recovery with independent original observation, KKT evidence and
-/// qualification. Solve sequences, initialization and fitting all run through it.
+/// report), library recovery with independent original observation, the requested local
+/// analysis, KKT evidence and qualification. Solve sequences, initialization and fitting all
+/// run through it.
 ///
 /// # Errors
-/// Pipeline admission or native execution failed before a report existed.
+/// A second-order analysis requested for a feasibility purpose, pipeline admission, or
+/// native execution failed before a report existed.
 pub fn nlp(
     step: Step<'_>,
     retained: &mut Retained,
     run: Nlp<'_>,
 ) -> Result<SolveReport, ProblemError> {
+    // Feasibility purposes solve a constant objective, whose curvature says nothing.
+    if run.analysis.second_order && run.intent != SolveIntent::Optimize {
+        return Err(ProblemError::Contract(format!(
+            "a second-order analysis needs an optimizing intent, not {}",
+            run.intent.as_str()
+        )));
+    }
     // Presolve tightens bounds and removes rows on the premise that every row holds; a
     // method that relaxes the rows would then minimize violation over a domain those rows
     // already restricted. `Auto` lets the system choose, and it chooses no pass, recorded
@@ -139,14 +151,13 @@ pub fn nlp(
             )?
         }
     };
-    // An optimizing candidate gets the post-solve second-order check (L-N6); feasibility
-    // purposes solve a constant objective, whose curvature says nothing.
-    let second_order =
-        (run.intent == SolveIntent::Optimize).then_some(crate::conditioning::Check {
-            dual_budget: step.accuracy.stationarity,
-            limit: run.limit,
-        });
-    let mut report = pipeline.finish(report, step.tolerances, run.sense, second_order);
+    // The requested local analysis (L-N6) runs at the recovered candidate: multipliers
+    // within the dual stationarity budget are weak, and the run's ceiling bounds the KKT.
+    let budget = crate::kkt::Budget {
+        dual: step.accuracy.stationarity,
+        limit: run.limit,
+    };
+    let mut report = pipeline.finish(report, step.tolerances, run.sense, &run.analysis, budget);
     quality::record_kkt(&mut report, step.normalization, step.accuracy);
     quality::qualify(&mut report, step.accuracy);
     report.least_infeasible = quality::least_infeasible(&report);
@@ -167,6 +178,7 @@ impl std::fmt::Debug for Nlp<'_> {
         f.debug_struct("Nlp")
             .field("intent", &self.intent)
             .field("sense", &self.sense)
+            .field("analysis", &self.analysis)
             .finish_non_exhaustive()
     }
 }

@@ -5381,6 +5381,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pounce-sens-core"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79932a064eb74a067cadbaa07480ff438a606062d01dd55cbd763a2c535a8d4a"
+dependencies = [
+ "pounce-common",
+ "pounce-linalg",
+]
+
+[[package]]
 name = "pounce-solve-report"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5562,6 +5572,7 @@ dependencies = [
  "pounce-nlp",
  "pounce-presolve",
  "pounce-rs",
+ "pounce-sens-core",
  "pse-diagnostics",
  "pse-ids",
  "pse-ipopt-sys",
