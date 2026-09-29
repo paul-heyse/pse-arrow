@@ -65,7 +65,7 @@ pub(in crate::workflow) struct Overlay {
 }
 impl Overlay {
     /// The step's specification. The original is only read (PS-08).
-    fn compose(&self, original: &ModelingAnalysis) -> ModelingAnalysis {
+    pub(in crate::workflow) fn compose(&self, original: &ModelingAnalysis) -> ModelingAnalysis {
         let mut step = original.clone();
         step.bindings
             .facts
@@ -163,11 +163,17 @@ impl Staged {
     /// The native output seed of the last step when its candidate is a result: what a
     /// `PreviousAccepted` start policy consumes (§17.6).
     pub(in crate::workflow) fn predecessor(&self) -> Option<Predecessor> {
-        let attempt = self.records.len().checked_sub(1)?;
-        let last = &self.records[attempt];
-        last.decision
+        self.predecessor_at(self.records.len().checked_sub(1)?)
+    }
+    /// The native output seed of step `attempt` when its candidate is a result: what the
+    /// next step of the same role in an interleaved sequence consumes (a rolling horizon's
+    /// controller, Plan 22 Y5c).
+    pub(in crate::workflow) fn predecessor_at(&self, attempt: usize) -> Option<Predecessor> {
+        let record = self.records.get(attempt)?;
+        record
+            .decision
             .permits_use()
-            .then(|| last.warm.clone().map(|seed| Predecessor { attempt, seed }))?
+            .then(|| record.warm.clone().map(|seed| Predecessor { attempt, seed }))?
     }
     /// Record a step that ended before a native attempt. It seeds nothing.
     pub(in crate::workflow) fn refuse(&mut self) -> usize {
@@ -338,6 +344,29 @@ impl Staged {
             result,
             interruption,
         }
+    }
+    /// Run native work that is not a solve beside the sequence's retained native state (a
+    /// rolling horizon's plant integration, Plan 22 Y5c): on the session thread, under its
+    /// own admission of `cores` CPU permits and outside any adapter's scope, so the state a
+    /// later solve reuses survives when `cores` equals that solve's threads. It records no
+    /// step.
+    ///
+    /// # Errors
+    /// Admission, cancellation before admission, a lost session or the work's own error.
+    #[cfg(feature = "solver-diffsol")]
+    pub(in crate::workflow) async fn native<T: Send + 'static>(
+        &self,
+        cores: usize,
+        cancel: &crate::CancelSource,
+        work: impl FnOnce(
+            &mut pse_backend_native::execution::Retained,
+            &Arc<std::sync::atomic::AtomicBool>,
+            &Arc<crate::math::WorkerBudget>,
+        ) -> Result<T, crate::math::MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<T, crate::math::MathRuntimeError> {
+        self.session.run(cores, None, cancel, work).await
     }
     /// Close the native session and wait for its thread to join.
     pub(in crate::workflow) async fn close(self) {

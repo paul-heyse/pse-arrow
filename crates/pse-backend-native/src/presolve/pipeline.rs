@@ -430,14 +430,23 @@ impl Pipeline {
                 records::projection(&p.borrow().starting_point_projection_report()),
             );
         }
-        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::PresolveTransformationV2);
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::PresolveTransformationV3);
         h.hash(&original.borrow().normalization.key());
         h.hash(&compatibility.layout)
             .hash(&policy.key())
             .u64(nr as u64)
             .u64(mr as u64);
-        if let Some(f) = report.facts {
-            h.hash(&f);
+        // The source facts' identity covers the values their projection consumed, which
+        // shape native coordinates only through a pass that applied. Without one only the
+        // tape's structure is part of the transformation, so a value-only rebind keeps it,
+        // and with it a retained native problem and an SQP working set (a rolling
+        // horizon's steps, Plan 22 Y5c).
+        if report.passes.values().any(|p| p.applied) {
+            if let Some(f) = report.facts {
+                h.hash(&f);
+            }
+        } else if let Some(f) = original.borrow().oracle.presolve_facts() {
+            h.hash(&f.structure);
         }
         for i in report.columns.iter().map(|c| c.get()) {
             h.u64(i as u64);

@@ -505,7 +505,7 @@ fn qualification_declines_tiny_support_and_narrow_intervals() {
     );
 }
 #[test]
-fn off_is_identity_and_tape_edits_invalidate_native_reuse() {
+fn off_is_identity_and_only_tape_edits_invalidate_native_reuse() {
     let mut a = Pipeline::new(
         Box::new(Mixed::new()),
         &[1.0, 3.0],
@@ -521,23 +521,32 @@ fn off_is_identity_and_tape_edits_invalidate_native_reuse() {
     let mut g = vec![0.0; 2];
     oracle.constraints(&[1.0, 3.0], &mut g).unwrap();
     assert_eq!(g, vec![7.0, 10.0]);
+    let off = |oracle: Mixed| {
+        Pipeline::new(
+            Box::new(oracle),
+            &[1.0, 3.0],
+            &Policy::Off,
+            &tolerances(),
+            execution(),
+            None,
+            stamp(),
+            1000,
+        )
+        .unwrap()
+        .native_compatibility()
+        .layout
+    };
+    // A tape edit changes the facts' structure and invalidates native reuse.
     let mut edited = Mixed::new();
     edited.facts.key = ContentHash::from_bytes([7; 32]);
-    let b = Pipeline::new(
-        Box::new(edited),
-        &[1.0, 3.0],
-        &Policy::Off,
-        &tolerances(),
-        execution(),
-        None,
-        stamp(),
-        1000,
-    )
-    .unwrap();
-    assert_ne!(
-        a.native_compatibility().layout,
-        b.native_compatibility().layout
-    );
+    edited.facts.structure = ContentHash::from_bytes([7; 32]);
+    assert_ne!(a.native_compatibility().layout, off(edited));
+    // Values the facts consumed change their identity, but without an applied pass they
+    // shape no native coordinate: a value-only rebind keeps native reuse (Plan 22 Y5c).
+    let mut rebound = Mixed::new();
+    rebound.facts.key = ContentHash::from_bytes([8; 32]);
+    rebound.facts.values = BTreeMap::from([(id(9), 2.0f64.to_bits())]);
+    assert_eq!(a.native_compatibility().layout, off(rebound));
 }
 #[test]
 fn failed_observation_preserves_native_status_and_candidate() {

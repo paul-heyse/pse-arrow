@@ -83,6 +83,23 @@ impl RunHandle {
     pub const fn attempt_id(&self) -> Option<pse_operations::attempts::AttemptId> {
         self.attempt_id
     }
+    /// The handle of a run supervised as a staged sequence: cancelling it cancels `checks`,
+    /// which stops the step in progress and joins its native teardown.
+    pub(super) fn staged(
+        checks: crate::CancelSource,
+        receiver: tokio::sync::watch::Receiver<Option<Arc<RunResult>>>,
+        progress: Arc<Progress>,
+        run_id: RunId,
+        attempt_id: Option<pse_operations::attempts::AttemptId>,
+    ) -> Self {
+        Self {
+            lease: Arc::new(Lease(FlightCancellation::default(), Some(checks))),
+            receiver,
+            progress,
+            run_id,
+            attempt_id,
+        }
+    }
 }
 /// Which stored seed a preparation starts from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -132,10 +149,12 @@ pub struct RunResult {
     >,
     /// What the run recorded durably; ephemeral runs record nothing.
     pub(crate) durability: RunDurability,
+    /// What a rolling horizon did at each sample (Plan 22 Y5c); `None` for any other run.
+    pub(crate) horizon: Option<Arc<super::HorizonReport>>,
 }
 impl RunResult {
     /// A joined result before completion capture and durable recording.
-    fn joined(
+    pub(super) fn joined(
         run_id: RunId,
         runtime: Runtime,
         request: RunRequest,
@@ -152,6 +171,7 @@ impl RunResult {
             completion: Err(Arc::new(contract("completion has not been captured"))),
             batches: OnceLock::new(),
             durability: RunDurability::Ephemeral,
+            horizon: None,
         }
     }
     /// Final completion-owned scientific assessments; exporting tables cannot change them.
@@ -184,7 +204,7 @@ impl RunResult {
         self
     }
     /// Capture completion, then record the attempt's end durably when the run is durable.
-    async fn finished(self, durable: Option<DurableAttempt>, cancelled: bool) -> Self {
+    pub(super) async fn finished(self, durable: Option<DurableAttempt>, cancelled: bool) -> Self {
         let mut result = self.completed();
         if let Some(attempt) = durable {
             result.durability =
@@ -193,7 +213,7 @@ impl RunResult {
         result
     }
     /// A durable run that failed before it ran: record why, and publish the failure.
-    async fn refused(mut self, durable: Option<DurableAttempt>) -> Self {
+    pub(super) async fn refused(mut self, durable: Option<DurableAttempt>) -> Self {
         self = self.completed();
         if let (Some(attempt), Err(error)) = (durable, &self.report) {
             let error = error.clone();
@@ -215,11 +235,17 @@ impl RunResult {
     pub const fn durability(&self) -> &RunDurability {
         &self.durability
     }
+    /// What a rolling horizon did at each sample: its measurements, the steps that acted
+    /// and the inputs it applied (Plan 22 Y5c); `None` for any other run. Its estimator and
+    /// controller steps are the run's modeling steps.
+    pub fn horizon(&self) -> Option<&super::HorizonReport> {
+        self.horizon.as_deref()
+    }
 }
 
 /// The durable attempt of a run under `runtime`'s class, or none when ephemeral. A worker
 /// passes the attempt it claimed with its job, already under its lease.
-fn attempt_for(
+pub(super) fn attempt_for(
     runtime: &Runtime,
     given: Option<DurableAttempt>,
 ) -> Result<Option<DurableAttempt>, WorkflowError> {
@@ -234,7 +260,7 @@ fn attempt_for(
 }
 /// The run's event stream: bounded in memory and, for a durable run, tapped by its store
 /// stream, which keeps every event.
-fn progress_for(history: usize, durable: Option<&DurableAttempt>) -> Arc<Progress> {
+pub(super) fn progress_for(history: usize, durable: Option<&DurableAttempt>) -> Arc<Progress> {
     Arc::new(match durable {
         Some(attempt) => Progress::tapped(history, attempt.tap()),
         None => Progress::new(history),
@@ -602,7 +628,7 @@ impl Runtime {
             Some(_) => None,
         };
         let cancel = crate::CancelSource::new();
-        let lease = Arc::new(Lease(FlightCancellation::default(), Some(cancel.clone())));
+        let checks = cancel.clone();
         let (sender, receiver) = tokio::sync::watch::channel(None);
         let runtime = self.clone();
         // A claimed try runs as the run its job's attempts share; a new run is minted.
@@ -697,12 +723,12 @@ impl Runtime {
                 .await;
             sender.send_replace(Some(Arc::new(result)));
         });
-        Ok(RunHandle {
-            lease,
+        Ok(RunHandle::staged(
+            checks,
             receiver,
             progress,
             run_id,
             attempt_id,
-        })
+        ))
     }
 }
