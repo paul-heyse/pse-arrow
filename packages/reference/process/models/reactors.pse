@@ -73,6 +73,7 @@
 @id("0ebcdd27f1544627aa7572acd5b5b0d4") let reaction_extent[i in x,r in reaction_set]:Scalar=(volume/volume_unit())*(reaction[i].rate[r]/reactions.rate_unit());
 @id("4a54526c0701428b8e50134e16308634") contribute [i in x,r in reaction_set,j in components] material_source[i,j] role positive=equilibrium.component_flow_unit()*reaction_extent[i,r]*reaction[i].stoich[r,j];
 @id("6c859f627f434a3a86917b0251b4cb93") contribute [i in x,r in reaction_set] energy_source[i] role positive=-power_unit()*reaction_extent[i,r]*(reaction[i].heat[r]/reaction_heat_unit());
+@id("01a0ee4526767673ae25bd155abea012") let heat_of_reaction:Power=integral(i in x | -power_unit()*sum(r in reaction_set | reaction_extent[i,r]*(reaction[i].heat[r]/reaction_heat_unit())));
 @id("16913b65237d40508baef2f64ebd3ecd") port outlet_temperature:Temperature=state[1].T;
 @id("7d6ba7238ab54574b592568d2932ab62") port outlet_pressure:Pressure=state[1].pressure;
 @id("577ef29f5d1c4668a1dc9acc4d89d584") port outlet_concentration[j in components]:MolarDensity=state[1].concentration[j];
