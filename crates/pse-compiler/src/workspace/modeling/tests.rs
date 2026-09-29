@@ -83,8 +83,8 @@ fn kernel_body_construction_limits_are_tracked_without_changing_mathematics() {
             .is_err()
     );
     assert_eq!(original.case.key(), admit(&mut workspace, root).case.key());
-    // The formal-slot allowance is overridable below the process-global pool and capped
-    // by it; the mathematics does not depend on it.
+    // The formal-slot allowance is overridable in both directions: the process-global
+    // formal pool extends up to it, and the mathematics does not depend on it.
     let mut slots = |body_slots| {
         workspace.admit_modeling(
             root,
@@ -96,10 +96,17 @@ fn kernel_body_construction_limits_are_tracked_without_changing_mathematics() {
             },
         )
     };
-    let pool = pse_math::library::MAX_FORMAL_SYMBOLS;
-    assert_eq!(slots(pool).unwrap().case.key(), original.case.key());
-    assert!(slots(1).is_err());
-    assert!(slots(pool + 1).is_err());
+    let chunk = pse_math::library::FORMAL_CHUNK;
+    assert_eq!(slots(chunk).unwrap().case.key(), original.case.key());
+    assert_eq!(slots(4 * chunk).unwrap().case.key(), original.case.key());
+    // Beyond the allowance the refusal is typed, names the required and available slots
+    // and stays attributed to its instance.
+    let refused = slots(1).unwrap_err();
+    assert!(
+        matches!(&refused, CompileError::Math(e) if matches!(&**e, MathError::Instance { cause, .. }
+            if matches!(**cause, MathError::SlotLimit { required: 2, available: 1 }))),
+        "{refused:?}"
+    );
 }
 
 #[test]

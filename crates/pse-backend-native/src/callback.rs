@@ -44,6 +44,7 @@ pub fn classify(error: &ProblemError) -> Failure {
             | E::Library(_)
             | E::Evaluation { .. }
             | E::Limit(_)
+            | E::SlotLimit { .. }
             | E::WorkLimit { .. }
             | E::Quantity(_) => Failure::Fatal,
         }

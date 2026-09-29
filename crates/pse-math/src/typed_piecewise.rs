@@ -368,7 +368,10 @@ pub(super) fn partial_paths(
                     .cloned()
                     .unwrap_or(library::formal(*right)?);
                 if next_slot.saturating_add(2) > slot_limit {
-                    return Err(MathError::Limit("piecewise partial guard slots"));
+                    return Err(MathError::SlotLimit {
+                        required: next_slot.saturating_add(2),
+                        available: slot_limit,
+                    });
                 }
                 let left = *next_slot;
                 let right = left + 1;

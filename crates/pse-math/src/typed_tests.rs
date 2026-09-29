@@ -409,7 +409,124 @@ fn symbolic_context_registers_complete_vocabulary_before_concurrent_jobs() {
     let results: Vec<_> = jobs.into_iter().map(|job| job.join().unwrap()).collect();
     assert_eq!(results[0], results[1]);
     assert_eq!(identity, crate::context().unwrap().environment.identity());
-    assert!(crate::library::formal(crate::library::MAX_FORMAL_SYMBOLS).is_err());
+}
+
+/// The symbol of a registered pool slot and its Symbolica registration rank.
+fn formal_symbol(slot: usize) -> symbolica::atom::Symbol {
+    match crate::library::formal(slot).unwrap().as_view() {
+        symbolica::atom::AtomView::Var(v) => v.get_symbol(),
+        _ => panic!("a formal is a variable"),
+    }
+}
+
+#[test]
+fn formal_pool_extends_to_the_declared_limit_and_refuses_beyond() {
+    use crate::{MathError, library::FORMAL_CHUNK};
+    let context = crate::initialize().unwrap();
+    let registry = standard_registry().unwrap();
+    // A declared allowance beyond the first two chunks: every slot but the last is a formal
+    // input, and preparation materializes the output into the last one.
+    let declared = 2 * FORMAL_CHUNK + 3;
+    let inputs = declared - 1;
+    let prepare = |slots| {
+        let mut builder = BodyBuilder::new(
+            context,
+            &registry,
+            &StandardInvariantChecker,
+            inputs,
+            BodyLimits {
+                slots,
+                occurrences: 16384,
+            },
+        )?;
+        let x = builder.input(inputs - 1, ids::quantity("neutral"), IndexSet::new(), source())?;
+        builder.prepare(&[x])
+    };
+    assert!(matches!(
+        prepare(declared - 1),
+        Err(MathError::SlotLimit { required, available }) if required == declared && available == declared - 1
+    ));
+    assert!(matches!(
+        prepare(inputs - 1),
+        Err(MathError::SlotLimit { required, available }) if required == inputs && available == inputs - 1
+    ));
+    let error = prepare(declared - 1).unwrap_err();
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit)
+    );
+    assert!(error.to_string().contains("body slots"), "{error}");
+    let body = prepare(declared).unwrap();
+    // The pool grew in whole chunks to cover the declared allowance.
+    let pool = crate::library::formal_pool_len().unwrap();
+    assert!(pool >= declared && pool % FORMAL_CHUNK == 0, "{pool}");
+    let mut values = vec![0.0; inputs];
+    values[inputs - 1] = 2.5;
+    let jet = body
+        .compile(
+            &[0],
+            &[inputs - 1],
+            DerivativeOrder::First,
+            Optimization::default(),
+            Default::default(),
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap()
+        .worker()
+        .evaluate(
+            &values,
+            DerivativeOrder::First,
+            &mut BTreeMap::new(),
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    assert_eq!(jet.values, vec![2.5]);
+    assert_eq!(jet.jacobian, vec![1.0]);
+}
+
+#[test]
+fn formal_symbols_are_stable_across_pool_extension() {
+    use crate::library::FORMAL_CHUNK;
+    crate::initialize().unwrap();
+    let first = [0, 1, FORMAL_CHUNK - 1];
+    let before = first.map(formal_symbol);
+    let function = |slot| crate::context().unwrap().pool.function(slot).unwrap();
+    let last_function = function(FORMAL_CHUNK - 1);
+    // Concurrent first requests beyond the pool extend it once, in its fixed order.
+    let far = 3 * FORMAL_CHUNK + 7;
+    let jobs: Vec<_> = (0..4)
+        .map(|i| std::thread::spawn(move || (formal_symbol(far - i), formal_symbol(FORMAL_CHUNK + i))))
+        .collect();
+    let extended: Vec<_> = jobs.into_iter().map(|job| job.join().unwrap()).collect();
+    for (i, (far_symbol, next_symbol)) in extended.into_iter().enumerate() {
+        assert_eq!(far_symbol, formal_symbol(far - i));
+        assert_eq!(next_symbol, formal_symbol(FORMAL_CHUNK + i));
+    }
+    // The same slot is the same symbol before and after growth, and registration by name
+    // returns it.
+    assert_eq!(first.map(formal_symbol), before);
+    assert_eq!(function(FORMAL_CHUNK - 1), last_function);
+    for slot in [0, FORMAL_CHUNK - 1, FORMAL_CHUNK, far] {
+        let named = symbolica::atom::SymbolBuilder::new(
+            symbolica::atom::NamespacedSymbol::try_from(format!("pse_math::slot_{slot}").as_str())
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
+        assert_eq!(named, formal_symbol(slot));
+    }
+    // Registration order, Symbolica's canonical term order, is fixed: slot order within a
+    // family, and each chunk's formals, then its functions, before the next chunk.
+    for chunk in 0..4 {
+        let start = chunk * FORMAL_CHUNK;
+        let end = start + FORMAL_CHUNK - 1;
+        assert!(formal_symbol(start) < formal_symbol(end));
+        assert!(formal_symbol(end) < function(start));
+        assert!(function(start) < function(end));
+        if chunk > 0 {
+            assert!(function(start - 1) < formal_symbol(start));
+        }
+    }
 }
 
 #[test]

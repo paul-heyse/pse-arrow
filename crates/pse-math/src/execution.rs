@@ -165,7 +165,6 @@ impl PreparedBody {
     ) -> Result<Self, MathError> {
         if slots == 0
             || inputs > slots
-            || slots > library::MAX_FORMAL_SYMBOLS
             || outputs.is_empty()
             || outputs.iter().any(|&i| i >= slots)
         {

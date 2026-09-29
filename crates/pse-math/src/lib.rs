@@ -38,17 +38,17 @@ mod guarded_tests;
 mod typed_tests;
 
 /// Initialized process-global symbol vocabulary. Construction is an explicit effect;
-/// every mathematical helper only reads this immutable context.
+/// mathematical helpers read it, and only a slot beyond the registered formal pool
+/// extends that pool, in its fixed registration order.
 #[derive(Debug)]
 pub struct SymbolicContext {
     /// Actual linked native math environment captured at initialization.
     pub environment: MathEnvironment,
-    pub(crate) formals: Vec<symbolica::atom::Atom>,
-    pub(crate) functions: Vec<symbolica::atom::Symbol>,
+    pub(crate) pool: library::Pool,
 }
 static CONTEXT: std::sync::OnceLock<Result<SymbolicContext, String>> = std::sync::OnceLock::new();
 
-/// Initialize Symbolica and register the bounded vocabulary in stable order before
+/// Initialize Symbolica and register the first formal chunk in stable order before
 /// admitting any model. The existing optional license configuration is unchanged.
 /// Secrets never enter artifacts, identities or diagnostics.
 /// # Errors
