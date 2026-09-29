@@ -332,6 +332,14 @@ class DualQualification(StrEnum):
     SENSITIVITY_CERTIFIED = "sensitivity_certified"
 
 
+class DynamicSensitivity(StrEnum):
+    """The declared DynamicSensitivity enumeration."""
+
+    NONE = "none"
+    FORWARD = "forward"
+    ADJOINT = "adjoint"
+
+
 class DynamicsMethod(StrEnum):
     """The declared DynamicsMethod enumeration."""
 
@@ -435,6 +443,13 @@ class FindingSeverity(StrEnum):
 
     ERROR = "error"
     WARNING = "warning"
+
+
+class FitDerivatives(StrEnum):
+    """The declared FitDerivatives enumeration."""
+
+    RESPONSES = "responses"
+    GRADIENT = "gradient"
 
 
 class HessianMode(StrEnum):

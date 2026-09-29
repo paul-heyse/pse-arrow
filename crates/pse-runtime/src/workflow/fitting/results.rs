@@ -235,11 +235,16 @@ impl RunResult {
             if let Some(rank) = r.rank {
                 metric("local_response", "rank", Metric::Integer(rank as i64))?;
             }
-            // The derivative source of the native Hessian (PS-07).
+            // The derivative sources of the native gradient and Hessian (PS-07).
             metric(
                 "derivatives",
                 "hessian",
                 Metric::Text(r.hessian.as_str().into()),
+            )?;
+            metric(
+                "derivatives",
+                "gradient",
+                Metric::Text(r.derivatives.as_str().into()),
             )?;
             metric(
                 "estimate",

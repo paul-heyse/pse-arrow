@@ -1719,7 +1719,7 @@ mod tests {
             end: 2.,
             samples: vec![0., 0.25, 0.75, 2.],
             parameter_scales: vec![1.],
-            sensitivities: true,
+            sensitivity: native::DynamicSensitivity::Forward,
             ..Default::default()
         };
         let compiler = super::super::super::tests::compiler_profile();
@@ -1798,7 +1798,7 @@ mod tests {
             }],
         }];
         let mut terminal_profile = profile;
-        terminal_profile.sensitivities = false;
+        terminal_profile.sensitivity = native::DynamicSensitivity::None;
         let stopped = package
             .prepare_simulation_modes(
                 root,
@@ -1952,7 +1952,7 @@ mod tests {
                     .contains("complete domain")
             );
             let mut derivatives = profile;
-            derivatives.sensitivities = true;
+            derivatives.sensitivity = native::DynamicSensitivity::Forward;
             let sensitive = package
                 .prepare_simulation(
                     root,
@@ -2101,7 +2101,7 @@ mod tests {
                         samples: vec![0., 1., 2.],
                         atol: vec![1e-8; 2],
                         parameter_scales: vec![1.],
-                        sensitivities: true,
+                        sensitivity: native::DynamicSensitivity::Forward,
                         ..Default::default()
                     },
                     &cancel,
@@ -2261,7 +2261,7 @@ mod tests {
             end: 2.,
             samples: vec![0., 0.5, 1., 2.],
             parameter_scales: vec![1., 1.],
-            sensitivities: true,
+            sensitivity: native::DynamicSensitivity::Forward,
             ..Default::default()
         };
         let prepared = package
@@ -2418,7 +2418,7 @@ mod tests {
                 rtol: 1e-8,
                 atol: vec![1e-10; 2],
                 parameter_scales: vec![1.; 2],
-                sensitivities: true,
+                sensitivity: native::DynamicSensitivity::Forward,
                 out_rtol: Some(1e-8),
                 out_atol: vec![1e-9],
                 ..Default::default()
@@ -2516,7 +2516,7 @@ mod tests {
             samples: vec![0., 0.1, 0.5, 1.],
             atol: vec![1e-8; 2],
             parameter_scales: vec![1., 1.],
-            sensitivities: true,
+            sensitivity: native::DynamicSensitivity::Forward,
             ..Default::default()
         };
         let prepared = package

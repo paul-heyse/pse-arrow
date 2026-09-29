@@ -100,6 +100,7 @@ from pse._workflow import (
 )
 from pse.contracts import extension_types
 from pse.contracts.documents import (
+    AdjointSettings,
     BackendSettings,
     ClarabelSettings,
     DiffsolSettings,
@@ -114,6 +115,7 @@ from pse.contracts.documents import (
 )
 
 __all__ = [
+    "AdjointSettings",
     "BackendSettings",
     "BuildInfo",
     "CacheReport",

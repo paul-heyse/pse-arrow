@@ -169,7 +169,7 @@ def test_public_dynamic_and_transient_fit(
         atol=[1e-10],
         rtol=1e-9,
         parameter_scales=[1.0],
-        sensitivities=True,
+        sensitivity="forward",
     )
     simulation = package.simulate(case, settings)
     assert simulation.accepted

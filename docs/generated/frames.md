@@ -134,11 +134,11 @@ Derived in: pse-runtime.
 | `DurableModelingRequestV1` | `pse.durable.modeling_request.v1` | A durable modeling request. |
 | `DurableStudyRequestV1` | `pse.durable.study_request.v1` | A durable study's request: its definition (Plan 22 O7). |
 | `DurableStudyPointBindingV1` | `pse.durable.study_point_binding.v1` | The value bindings of one durable study point (Plan 22 O7). |
-| `DynamicProfileV4` | `pse.dynamic.profile.v4` | A dynamic simulation profile, with its scheduled inputs. |
+| `DynamicProfileV5` | `pse.dynamic.profile.v5` | A dynamic simulation profile, with its scheduled inputs and typed sensitivity. |
 | `ExplicitConicV3` | `pse.explicit-conic.v3` | An explicit conic request. |
 | `FitCoordinateV1` | `pse.fit.coordinate.v1` | A fitting coordinate alias of an experiment and source. |
 | `FitPreparedV1` | `pse.fit.prepared.v1` | A prepared fit. |
-| `FitProfileV2` | `pse.fit.profile.v2` | A fit profile. |
+| `FitProfileV3` | `pse.fit.profile.v3` | A fit profile, with its derivative source. |
 | `FitSourceV1` | `pse.fit.source.v1` | A fit source. |
 | `ModelingDynamicModesV1` | `pse.modeling.dynamic-modes.v1` | Compiled simulation modes. |
 | `ModelingDynamicV1` | `pse.modeling.dynamic.v1` | A modeling dynamic simulation. |

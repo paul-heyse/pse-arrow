@@ -51,7 +51,7 @@ fn idas_scheduled_inputs_with_recoverable_trials() {
         p.samples = vec![0.0, 0.25, 0.5, 0.75, 1.0];
         p.method = Method::Auto;
         p.trial_failures = TrialPolicy::Recoverable;
-        p.sensitivities = true;
+        p.sensitivity = DynamicSensitivity::Forward;
         p.schedule = vec![ScheduledInput {
             parameter: 0,
             times: vec![0.5],
@@ -278,7 +278,7 @@ fn idas_events_with_sensitivities_refused() {
         let mut p = profile(false);
         p.method = method;
         p.trial_failures = trials;
-        p.sensitivities = true;
+        p.sensitivity = DynamicSensitivity::Forward;
         if !cfg!(feature = "idas") {
             assert!(p.validate(&toy.c, &[2.0]).is_err());
             continue;
@@ -290,11 +290,11 @@ fn idas_events_with_sensitivities_refused() {
             reason.contains("Diffsol owns reset sensitivities"),
             "{reason}"
         );
-        p.sensitivities = false;
+        p.sensitivity = DynamicSensitivity::None;
         assert!(p.validate(&toy.c, &[2.0]).is_ok());
     }
     let mut p = profile(false);
-    p.sensitivities = true;
+    p.sensitivity = DynamicSensitivity::Forward;
     p.method = Method::Diffsol;
     assert!(p.validate(&toy.c, &[2.0]).is_ok());
 }
@@ -408,7 +408,7 @@ fn idas_staggered_matches_simultaneous() {
     for dae in [false, true] {
         let mut p = profile(dae);
         p.method = Method::Idas;
-        p.sensitivities = true;
+        p.sensitivity = DynamicSensitivity::Forward;
         let simultaneous = run(&mut Toy::new(dae, false), &p);
         p.idas.sensitivity = SensitivityCorrector::Staggered;
         let staggered = run(&mut Toy::new(dae, false), &p);
@@ -555,7 +555,7 @@ fn idas_sensitivity_sparse_products() {
         rtol: 1e-9,
         atol: vec![1e-11; n],
         parameter_scales: vec![1.0; 3],
-        sensitivities: true,
+        sensitivity: DynamicSensitivity::Forward,
         ..Default::default()
     };
     let parameters = [0.4, 0.3, 1.5];
@@ -593,7 +593,7 @@ fn idas_sensitivity_sparse_products() {
     let mut outside = Chain::new(n);
     outside.outside = true;
     let mut direct = idas.clone();
-    direct.sensitivities = false;
+    direct.sensitivity = DynamicSensitivity::None;
     let r = integrate(&mut outside, &direct, &parameters, Arc::default()).unwrap();
     assert_eq!(r.termination, Termination::Failed);
     assert!(
@@ -611,7 +611,7 @@ fn idas_krylov_matches_klu() {
     for dae in [false, true] {
         let mut p = profile(dae);
         p.method = Method::Idas;
-        p.sensitivities = true;
+        p.sensitivity = DynamicSensitivity::Forward;
         let klu = run(&mut Toy::new(dae, false), &p);
         for preconditioner in [Preconditioner::None, Preconditioner::Jacobi] {
             for linear in [

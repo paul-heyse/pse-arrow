@@ -247,6 +247,14 @@ impl ModelingPackage {
                 "transient fitting requires Gauss–Newton or limited-memory Hessians",
             ));
         }
+        // An adjoint gradient carries no response Jacobian, so no supplied Hessian can be
+        // formed from it (ADR-0110 item 3).
+        if profile.derivatives == FitDerivatives::Gradient && hessian != HessianMode::LimitedMemory
+        {
+            return Err(contract(
+                "gradient-only fitting requires the limited-memory Hessian",
+            ));
+        }
         let order = if hessian != HessianMode::LimitedMemory {
             DerivativeOrder::Second
         } else {
@@ -454,7 +462,16 @@ impl ModelingPackage {
                 );
                 integration.samples.sort_by(f64::total_cmp);
                 integration.samples.dedup();
-                integration.sensitivities = local.keys().any(|p| parameter_columns[*p].is_some());
+                // Fitted parameters need forward sensitivities for the response Jacobian,
+                // or the adjoint route for the gradient alone.
+                integration.sensitivity = if local.keys().any(|p| parameter_columns[*p].is_some()) {
+                    match profile.derivatives {
+                        FitDerivatives::Responses => native::dynamics::DynamicSensitivity::Forward,
+                        FitDerivatives::Gradient => native::dynamics::DynamicSensitivity::Adjoint,
+                    }
+                } else {
+                    native::dynamics::DynamicSensitivity::None
+                };
                 let simulation = if let Some(modes) = profile.modes.get(&e.experiment_id) {
                     self.prepare_simulation_modes(
                         e.case_id,
@@ -502,7 +519,7 @@ impl ModelingPackage {
                             .ok_or_else(|| {
                                 contract("fitted dynamic member is not a sensitivity parameter")
                             })?;
-                        Ok(ParameterBinding {
+                        Ok(Binding {
                             local: start[position],
                             parameter: *parameter,
                             conversion: pse_quantity::UnitConvertSpec {
@@ -545,7 +562,7 @@ impl ModelingPackage {
                             .ok_or_else(|| contract("fit check extent"))?,
                     )
                     .ok_or_else(|| contract("fit check extent"))?;
-                let result = Experiment::Transient(Box::new(Transient {
+                let result = Experiment::Transient(Box::new(IntegratedExperiment {
                     program: simulation.program(),
                     profile: simulation.profile().clone(),
                     parameters: simulation.parameters.clone(),

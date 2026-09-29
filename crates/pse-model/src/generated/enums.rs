@@ -2386,6 +2386,106 @@ impl core::str::FromStr for DualQualification {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum DynamicSensitivity {
+    ///No parameter derivatives.
+    #[serde(rename = "none")]
+    None,
+    ///Forward sensitivities of every sampled state and output to every integration parameter.
+    #[serde(rename = "forward")]
+    Forward,
+    ///Checkpointed adjoint gradients of one scalar functional of the sampled outputs; no response Jacobian.
+    #[serde(rename = "adjoint")]
+    Adjoint,
+}
+impl crate::SemanticEq for DynamicSensitivity {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl DynamicSensitivity {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::None, Self::Forward, Self::Adjoint];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Forward => "forward",
+            Self::Adjoint => "adjoint",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::None => 0usize,
+            Self::Forward => 1usize,
+            Self::Adjoint => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::None => None,
+            Self::Forward => None,
+            Self::Adjoint => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for DynamicSensitivity {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(DynamicSensitivity))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(DynamicSensitivity)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["none", "forward", "adjoint"] }
+        )
+    }
+}
+impl core::str::FromStr for DynamicSensitivity {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "none" => Ok(Self::None),
+            "forward" => Ok(Self::Forward),
+            "adjoint" => Ok(Self::Adjoint),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(DynamicSensitivity).to_owned(),
+                    enumeration: stringify!(DynamicSensitivity).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum DynamicsMethod {
     ///Diffsol normally; IDAS when native trial recovery is required.
     #[serde(rename = "auto")]
@@ -3289,6 +3389,95 @@ impl core::str::FromStr for FindingSeverity {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(FindingSeverity).to_owned(),
                     enumeration: stringify!(FindingSeverity).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum FitDerivatives {
+    ///The response Jacobian from forward sensitivities; every Hessian mode is available.
+    #[serde(rename = "responses")]
+    Responses,
+    ///The objective gradient alone, from adjoint sensitivities of transient experiments; needs the limited-memory Hessian.
+    #[serde(rename = "gradient")]
+    Gradient,
+}
+impl crate::SemanticEq for FitDerivatives {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl FitDerivatives {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Responses, Self::Gradient];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Responses => "responses",
+            Self::Gradient => "gradient",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Responses => 0usize,
+            Self::Gradient => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Responses => None,
+            Self::Gradient => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for FitDerivatives {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(FitDerivatives))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(FitDerivatives)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["responses", "gradient"] })
+    }
+}
+impl core::str::FromStr for FitDerivatives {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "responses" => Ok(Self::Responses),
+            "gradient" => Ok(Self::Gradient),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(FitDerivatives).to_owned(),
+                    enumeration: stringify!(FitDerivatives).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -14245,6 +14434,16 @@ impl crate::SemanticFrame for DualQualification {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for DynamicSensitivity {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for DynamicSensitivity {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for DynamicsMethod {
     fn heap_bytes(&self) -> usize {
         0
@@ -14321,6 +14520,16 @@ impl crate::HeapUsage for FindingSeverity {
     }
 }
 impl crate::SemanticFrame for FindingSeverity {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for FitDerivatives {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for FitDerivatives {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

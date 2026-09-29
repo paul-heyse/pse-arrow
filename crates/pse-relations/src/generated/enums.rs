@@ -10,23 +10,24 @@ pub use pse_model::generated::r#enums::{
     ColumnRole, CompositionBasis, ComputationKind, ConstraintScalingScheme,
     ConversionKind, CovarianceApproximation, DerivationGranularity, DerivedQuantity,
     Determinism, DiagnosticCode, DiagnosticSeverity, DiffsolLinear, DiffsolMethod,
-    DualQualification, DynamicsMethod, EntityKind, EvidenceUnavailableReason,
-    ExternalDerivativeSource, ExtrapolationPolicy, FailureClass, FeralOrdering,
-    FeralScaling, FindingSeverity, HessianMode, HighsMethod, IdPolicy,
-    IdasInitialization, InputConsumptionKind, IntervalEnd, IntervalMethod, InvariantKind,
-    IpoptLinearSolver, JobState, KinsolOrthogonalization, KinsolStrategy,
-    MemberSelectionKind, MigrationOp, ModelingAccumulatorMode, ModelingAnalysisRoute,
-    ModelingCheckBasis, ModelingCheckKind, ModelingConformanceKind,
-    ModelingConformanceStatus, ModelingContributionRole, ModelingDeclarationKind,
-    ModelingDiagnosticSampleStop, ModelingElasticObservation, ModelingFixtureBinding,
-    ModelingFixtureExecution, ModelingInitializationStep, ModelingRealValueKind,
-    ModelingRealizationPolicy, ModelingVariableDomain, MuStrategy, MumpsOrdering,
-    Namespace, NativeAssurance, NativeBackend, NativeBoundaryClass, NativeCandidateKind,
-    NativeCertificateAccuracy, NativeCertificateKind, NativeConstraintForm,
-    NativeDependencyEvidenceKind, NativeDependencyKind, NativeDerivativeCapability,
-    NativeIneligibility, NativeMetricKind, NativeObjectiveSense, NativeProblemClass,
-    NativeQualification, NativeRayCoordinate, NativeRunState, NativeSolveIntent,
-    NativeStartPolicy, NativeTermination, NativeWarmCapability, NumericalCoordinates,
+    DualQualification, DynamicSensitivity, DynamicsMethod, EntityKind,
+    EvidenceUnavailableReason, ExternalDerivativeSource, ExtrapolationPolicy,
+    FailureClass, FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives,
+    HessianMode, HighsMethod, IdPolicy, IdasInitialization, InputConsumptionKind,
+    IntervalEnd, IntervalMethod, InvariantKind, IpoptLinearSolver, JobState,
+    KinsolOrthogonalization, KinsolStrategy, MemberSelectionKind, MigrationOp,
+    ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingCheckBasis,
+    ModelingCheckKind, ModelingConformanceKind, ModelingConformanceStatus,
+    ModelingContributionRole, ModelingDeclarationKind, ModelingDiagnosticSampleStop,
+    ModelingElasticObservation, ModelingFixtureBinding, ModelingFixtureExecution,
+    ModelingInitializationStep, ModelingRealValueKind, ModelingRealizationPolicy,
+    ModelingVariableDomain, MuStrategy, MumpsOrdering, Namespace, NativeAssurance,
+    NativeBackend, NativeBoundaryClass, NativeCandidateKind, NativeCertificateAccuracy,
+    NativeCertificateKind, NativeConstraintForm, NativeDependencyEvidenceKind,
+    NativeDependencyKind, NativeDerivativeCapability, NativeIneligibility,
+    NativeMetricKind, NativeObjectiveSense, NativeProblemClass, NativeQualification,
+    NativeRayCoordinate, NativeRunState, NativeSolveIntent, NativeStartPolicy,
+    NativeTermination, NativeWarmCapability, NumericalCoordinates,
     NumericalProvenanceField, NumericalSource, NumericalTarget, ObservationTimeBasis,
     Opcode, OperationEffect, PackageKind, PardisoMatching, PardisoOrdering, PounceMethod,
     Preconditioner, PresolvePass, PresolvePolicyKind, PublicationKind,
@@ -663,6 +664,25 @@ impl crate::columnar::ArrowValue for DualQualification {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for DynamicSensitivity {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for DynamicsMethod {
     fn append(
         &self,
@@ -822,6 +842,25 @@ impl crate::columnar::ArrowValue for FeralScaling {
     }
 }
 impl crate::columnar::ArrowValue for FindingSeverity {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for FitDerivatives {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

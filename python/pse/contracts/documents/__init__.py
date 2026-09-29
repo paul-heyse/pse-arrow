@@ -26,6 +26,24 @@ PositiveCount = Annotated[int, msgspec.Meta(ge=1)]
 Tolerance = Annotated[float, msgspec.Meta(gt=0.0)]
 
 
+class AdjointSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Forward checkpoints of the adjoint backward pass (ADR-0110 item 3), a versioned boundary
+    document (ADR-0116 Outcome 6): the version is required, and absent fields take these
+    defaults. The backward pass replays at most `steps_between_checkpoints` native steps
+    from a stored checkpoint, and at most `max_checkpoints` are held at once, at least two
+    per scheduled segment; a forward pass that needs more stops with a typed memory limit.
+    Their estimated bytes are charged against the caller's memory allowance before any
+    native work.
+    """
+
+    #: Document version.
+    version: Literal[1] = 1
+    #: Largest number of forward checkpoints held at once.
+    max_checkpoints: PositiveCount = 400
+    #: Native forward steps between stored checkpoints (IDAS `IDAAdjInit`'s `Nd`).
+    steps_between_checkpoints: PositiveCount = 250
+
+
 class AuthoredNumericalRequirementsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A row or nested value projected from the registry declaration."""
 
@@ -753,6 +771,7 @@ RestartBarrier = RestartBarrierSeed | RestartBarrierValue
 TerminationCause = TerminationCauseError | TerminationCauseInfrastructure | TerminationCauseAssessment
 
 __all__ = [
+    "AdjointSettings",
     "AuthoredNumericalRequirementsRow",
     "BackendSettings",
     "ClarabelSettings",

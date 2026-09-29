@@ -138,7 +138,7 @@ fn run(t: &mut Toy, p: &Profile) -> Report {
 fn smooth_forward_includes_initial_and_direct_output_parameter_terms() {
     let mut t = Toy::new(false, false);
     let mut p = profile(false);
-    p.sensitivities = true;
+    p.sensitivity = DynamicSensitivity::Forward;
     let r = run(&mut t, &p);
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
     assert_eq!(r.samples.len(), 4);
@@ -217,12 +217,12 @@ fn cancellation_and_step_budget_are_distinct() {
 fn unsupported_recovery_and_invalid_native_controls_are_refused() {
     let t = Toy::new(false, true);
     let mut p = profile(false);
-    p.sensitivities = true;
+    p.sensitivity = DynamicSensitivity::Forward;
     p.method = Method::Diffsol;
     p.trial_failures = TrialPolicy::Recoverable;
     assert!(p.validate(&t.c, &[2.0]).is_err());
     p.trial_failures = TrialPolicy::Terminal;
-    p.sensitivities = false;
+    p.sensitivity = DynamicSensitivity::None;
     Arc::get_mut(&mut p.native).unwrap().min_timestep = f64::NAN;
     assert!(p.validate(&t.c, &[2.0]).is_err());
 }
@@ -230,7 +230,7 @@ fn unsupported_recovery_and_invalid_native_controls_are_refused() {
 fn unsupported_hybrid_sensitivity_profiles_fail_before_native_entry() {
     let mut t = Toy::new(false, true);
     let mut p = profile(false);
-    p.sensitivities = true;
+    p.sensitivity = DynamicSensitivity::Forward;
     t.c.events[0][0].terminal = true;
     assert!(
         p.validate(&t.c, &[2.0])
@@ -257,8 +257,10 @@ fn perturbations(
     path: &mut Vec<String>,
     out: &mut Vec<(String, serde_json::Value)>,
 ) {
-    const SPELLINGS: [&str; 16] = [
+    const SPELLINGS: [&str; 18] = [
         "auto",
+        "forward",
+        "adjoint",
         "diffsol",
         "idas",
         "terminal",
@@ -345,7 +347,8 @@ fn dynamics_identity_covers_every_option_field() {
         "max_events",
         "time_limit",
         "max_cells",
-        "sensitivities",
+        "sensitivity",
+        "adjoint",
         "parameter_scales",
         "schedule",
         "idas",
@@ -397,7 +400,7 @@ fn dynamics_identity_covers_every_option_field() {
 #[test]
 fn algebraic_initial_sensitivities_follow_native_consistency() {
     let mut p = profile(true);
-    p.sensitivities = true;
+    p.sensitivity = DynamicSensitivity::Forward;
     let r = run(&mut Toy::new(true, false), &p);
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
     for s in &r.samples {
@@ -525,7 +528,7 @@ fn idas_consistent_dae_and_analytic_forward_sensitivities() {
         let mut toy = Toy::new(dae, false);
         let mut p = profile(dae);
         p.method = Method::Idas;
-        p.sensitivities = true;
+        p.sensitivity = DynamicSensitivity::Forward;
         let r = run(&mut toy, &p);
         assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
         assert_eq!(r.samples.len(), p.samples.len());
@@ -586,11 +589,11 @@ fn scheduled_input_sensitivities_cross_changes() {
                 );
                 r
             };
-            p.sensitivities = true;
+            p.sensitivity = DynamicSensitivity::Forward;
             let r = outputs(&p, &values);
             // One transition record and one statistics record per change.
             assert_eq!(r.events.len(), 2, "{method:?}");
-            p.sensitivities = false;
+            p.sensitivity = DynamicSensitivity::None;
             let np = values.len();
             for (k, step) in (0..np).map(|k| (k, FD_STEP * (1.0 + values[k].abs()))) {
                 let shifted = |sign: f64| {
@@ -689,7 +692,7 @@ impl Oracle for ResetToy {
 fn state_triggered_reset_sensitivity_includes_moving_event_and_dae_consistency() {
     for dae in [false, true] {
         let mut p = profile(dae);
-        p.sensitivities = true;
+        p.sensitivity = DynamicSensitivity::Forward;
         p.samples = vec![0.0, 1.0];
         let mut toy = ResetToy(Toy::new(dae, true));
         let r = integrate(&mut toy, &p, &[2.0], Arc::default()).unwrap();
@@ -787,7 +790,7 @@ fn quadratures_coexist_with_consistent_dae_forward_sensitivities() {
             oracle.c.quadratures = vec![id(9)];
             let mut p = profile(dae);
             p.method = method;
-            p.sensitivities = true;
+            p.sensitivity = DynamicSensitivity::Forward;
             p.out_rtol = Some(1e-8);
             p.out_atol = vec![1e-9];
             let r = run(&mut oracle, &p);
@@ -916,3 +919,5 @@ fn idas_conv_fail_is_numerical() {
 mod extension;
 #[path = "process_tests.rs"]
 mod process;
+#[path = "adjoint_tests.rs"]
+mod adjoint;

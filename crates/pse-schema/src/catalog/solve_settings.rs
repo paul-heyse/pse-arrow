@@ -418,6 +418,35 @@ fn declare_dynamics(builder: &mut RegistryBuilder) {
     );
     vocabulary(
         builder,
+        "DynamicSensitivity",
+        &[
+            ("none", "No parameter derivatives."),
+            (
+                "forward",
+                "Forward sensitivities of every sampled state and output to every integration parameter.",
+            ),
+            (
+                "adjoint",
+                "Checkpointed adjoint gradients of one scalar functional of the sampled outputs; no response Jacobian.",
+            ),
+        ],
+    );
+    vocabulary(
+        builder,
+        "FitDerivatives",
+        &[
+            (
+                "responses",
+                "The response Jacobian from forward sensitivities; every Hessian mode is available.",
+            ),
+            (
+                "gradient",
+                "The objective gradient alone, from adjoint sensitivities of transient experiments; needs the limited-memory Hessian.",
+            ),
+        ],
+    );
+    vocabulary(
+        builder,
         "SensitivityCorrector",
         &[
             (

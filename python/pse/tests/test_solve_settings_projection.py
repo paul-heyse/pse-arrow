@@ -14,6 +14,7 @@ from pse.contracts import documents
 from pse.contracts.enums import (
     ClarabelMode,
     DiffsolMethod,
+    DynamicSensitivity,
     HessianMode,
     HighsMethod,
     KinsolStrategy,
@@ -220,6 +221,20 @@ def test_solve_settings_backend_projection(
     assert msgspec.json.decode(simulation.idas, type=pse.IdasSettings) == idas
     assert msgspec.json.decode(simulation.diffsol, type=pse.DiffsolSettings) == diffsol
     assert json.loads(simulation.to_json())["idas"]["sensitivity"] == "staggered"
+    # The adjoint route's checkpoints are a document; the sensitivity is a registry name.
+    adjoint = pse.AdjointSettings(steps_between_checkpoints=50)
+    assert adjoint.max_checkpoints == pse.AdjointSettings().max_checkpoints
+    gradient = pse.SimulationSettings(
+        start=0.0,
+        end=1.0,
+        samples=[0.0, 1.0],
+        atol=[1e-8],
+        parameter_scales=[1.0],
+        sensitivity=DynamicSensitivity.ADJOINT.value,
+        adjoint=codec.encode_json(adjoint),
+    )
+    assert msgspec.json.decode(gradient.adjoint, type=pse.AdjointSettings) == adjoint
+    assert json.loads(gradient.to_json())["sensitivity"] == "adjoint"
     # An unknown field or version is refused natively as well.
     with pytest.raises(pse.InspectionError, match="unknown field"):
         pse.SimulationSettings(

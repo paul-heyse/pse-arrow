@@ -302,6 +302,7 @@ pub(crate) async fn heat_fit(
             modes: BTreeMap::new(),
             rank_tolerance: 1e-8,
             max_cells: 1 << 20,
+            derivatives: pse_runtime::workflow::FitDerivatives::Responses,
         },
     )
 }

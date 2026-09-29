@@ -23,12 +23,17 @@ struct Point {
     jacobian: AssemblyMatrix,
     blocks: Vec<Option<SparseColMat<usize, f64>>>,
     trajectories: BTreeMap<InstanceId, Arc<native::dynamics::Report>>,
+    /// The transient experiments' adjoint part of the objective gradient, once computed.
+    adjoint: Option<Vec<f64>>,
 }
 #[derive(Debug)]
 struct FitOracle {
     prepared: Arc<FitProblem>,
     workers: Vec<Option<CaseWorker>>,
     execution: Execution,
+    /// The derivative source: the prepared profile's, until the final assessment reruns
+    /// the forward sensitivities for rank.
+    derivatives: FitDerivatives,
     hessian: Option<AssemblyMatrix>,
     gram: Option<sparse::GramWorker>,
     point: Option<Point>,
@@ -73,6 +78,7 @@ impl FitOracle {
             .map(|g| sparse::GramWorker::new(g.clone(), &p.layout.responses, p.bytes))
             .transpose()?;
         Ok(Self {
+            derivatives: p.profile.derivatives,
             prepared: p,
             workers,
             execution,
@@ -109,6 +115,7 @@ impl FitOracle {
             jacobian: p.layout.constraints.clone(),
             blocks: Vec::new(),
             trajectories: BTreeMap::new(),
+            adjoint: None,
         };
         for (ei, e) in p.experiments.iter().enumerate() {
             match e {
@@ -156,49 +163,19 @@ impl FitOracle {
                     }
                     #[cfg(feature = "solver-diffsol")]
                     {
-                        let mut params = s.parameters.clone();
-                        for binding in &s.bindings {
-                            let k = binding.parameter;
-                            let v = p.parameter_columns[k]
-                                .map_or(p.declaration.parameters[k].value, |c| x[c.get()]);
-                            params[binding.local] =
-                                v * binding.conversion.scale + binding.conversion.offset;
-                        }
-                        // Integrations borrow the admitted outer worker; never enqueue nested native jobs.
-                        let mut profile = s.profile.clone();
-                        profile.time_limit = profile.time_limit.min(
-                            self.execution
-                                .time_limit
-                                .saturating_sub(self.execution.started.elapsed()),
-                        );
-                        let mut worker = s.program.worker(self.execution.cancel.clone())?;
-                        let report = native::dynamics::integrate(
-                            &mut worker,
-                            &profile,
-                            &params,
-                            self.execution.cancel.clone(),
+                        // A gradient-only fit integrates without sensitivities here; its
+                        // gradient is the adjoint product of `FitOracle::adjoint`.
+                        let forward = self.derivatives == FitDerivatives::Responses
+                            && s.profile.sensitivity != native::dynamics::DynamicSensitivity::None;
+                        let report = s.integrate(
+                            &|k| Self::value(p, x, k),
+                            &self.execution,
+                            if forward {
+                                native::dynamics::DynamicSensitivity::Forward
+                            } else {
+                                native::dynamics::DynamicSensitivity::None
+                            },
                         )?;
-                        // A stopped integration keeps its stop; it is never an evaluation failure.
-                        match report.termination {
-                            native::dynamics::Termination::Completed => {}
-                            native::dynamics::Termination::Cancelled => {
-                                return Err(ProblemError::Cancelled);
-                            }
-                            native::dynamics::Termination::TimeLimit => {
-                                return Err(ProblemError::Limit {
-                                    kind: native::LimitKind::Time,
-                                    detail: "fit transient integration deadline".into(),
-                                });
-                            }
-                            termination => {
-                                return Err(report.error.unwrap_or_else(|| {
-                                    ProblemError::internal(format!(
-                                        "incomplete fit integration without a typed cause: {}",
-                                        termination.as_str()
-                                    ))
-                                }));
-                            }
-                        }
                         for (i, o) in p
                             .measurements
                             .iter()
@@ -212,12 +189,15 @@ impl FitOracle {
                                     ProblemError::internal("missing prepared transient sample")
                                 })?;
                             point.predictions[i] = sample.outputs[o.row];
+                            if !forward {
+                                continue;
+                            }
                             for term in p.layout.mappings[ei]
                                 .responses
                                 .iter()
                                 .filter(|t| t.observation == i)
                             {
-                                let scale = s
+                                let binding = s
                                     .bindings
                                     .iter()
                                     .find(|b| b.local == term.local)
@@ -225,14 +205,10 @@ impl FitOracle {
                                         ProblemError::internal(
                                             "transient response parameter binding",
                                         )
-                                    })?
-                                    .conversion
-                                    .scale;
-                                point.responses.add(
-                                    term.contribution,
-                                    sample.output_sensitivities[o.row * params.len() + term.local]
-                                        * scale,
-                                )?;
+                                    })?;
+                                point
+                                    .responses
+                                    .add(term.contribution, s.response(sample, o.row, binding)?)?;
                             }
                         }
                         point.trajectories.insert(
@@ -276,6 +252,92 @@ impl FitOracle {
         self.point
             .as_ref()
             .ok_or_else(|| ProblemError::internal("fit point publication"))
+    }
+    /// A fit parameter's value: the trial coordinate when free, the declared value when
+    /// fixed.
+    #[cfg(feature = "solver-diffsol")]
+    fn value(p: &FitProblem, x: &[f64], parameter: usize) -> f64 {
+        p.parameter_columns[parameter].map_or(p.declaration.parameters[parameter].value, |c| {
+            x[c.get()]
+        })
+    }
+    /// The transient experiments' part of the objective gradient by adjoint sensitivities
+    /// (ADR-0110 item 3), once per trial point.
+    fn adjoint(&mut self, x: &[f64]) -> Result<Vec<f64>, ProblemError> {
+        if let Some(gradient) = self.point.as_ref().and_then(|p| p.adjoint.clone()) {
+            return Ok(gradient);
+        }
+        let p = self.prepared.clone();
+        let mut total = vec![0.0; x.len()];
+        for (ei, e) in p.experiments.iter().enumerate() {
+            let Experiment::Transient(s) = e else {
+                continue;
+            };
+            if !p
+                .measurements
+                .iter()
+                .any(|o| o.experiment == ei && o.included)
+                || !s
+                    .bindings
+                    .iter()
+                    .any(|b| p.parameter_columns[b.parameter].is_some())
+            {
+                continue;
+            }
+            for (parameter, value) in self.transient_gradient(&p, ei, s, x)? {
+                if let Some(column) = p.parameter_columns[parameter] {
+                    total[column.get()] += value;
+                }
+            }
+        }
+        if let Some(point) = self.point.as_mut() {
+            point.adjoint = Some(total.clone());
+        }
+        Ok(total)
+    }
+    /// One transient experiment's gradient contributions from one forward and one backward
+    /// pass, whose cotangent is the weighted residual of each included observation.
+    #[cfg(feature = "solver-diffsol")]
+    fn transient_gradient(
+        &self,
+        p: &FitProblem,
+        ei: usize,
+        s: &IntegratedExperiment,
+        x: &[f64],
+    ) -> Result<Vec<(usize, f64)>, ProblemError> {
+        let outputs = s.program.contract.outputs.len();
+        let mut cotangent = |report: &native::dynamics::Report| {
+            let mut weights = vec![0.0; report.samples.len() * outputs];
+            for o in p
+                .measurements
+                .iter()
+                .filter(|o| o.experiment == ei && o.included)
+            {
+                let index = o
+                    .sample_index
+                    .ok_or_else(|| ProblemError::internal("missing prepared transient sample"))?;
+                let prediction = report
+                    .samples
+                    .get(index)
+                    .and_then(|sample| sample.outputs.get(o.row))
+                    .ok_or_else(|| ProblemError::internal("missing adjoint transient sample"))?;
+                let (r, w) = Self::residual(o, *prediction)?;
+                weights[index * outputs + o.row] += r * w;
+            }
+            Ok(weights)
+        };
+        s.gradient(&|k| Self::value(p, x, k), &self.execution, &mut cotangent)
+            .map(|(_, contributions)| contributions)
+    }
+    #[cfg(not(feature = "solver-diffsol"))]
+    fn transient_gradient(
+        &self,
+        _: &FitProblem,
+        _: usize,
+        _: &IntegratedExperiment,
+        _: &[f64],
+    ) -> Result<Vec<(usize, f64)>, ProblemError> {
+        Err(ProblemError::unsupported("Diffsol not linked"))
     }
     fn residual(o: &Measurement, pred: f64) -> Result<(f64, f64), ProblemError> {
         let sigma = o.sigma.ok_or_else(|| error("missing standard deviation"))?;
@@ -361,8 +423,15 @@ impl NlpOracle for FitOracle {
             1.0,
             faer::Par::Seq,
         );
+        // A gradient-only fit's transient rows carry no responses; their part is the
+        // adjoint product.
+        let adjoint = if self.derivatives == FitDerivatives::Gradient {
+            self.adjoint(x)?
+        } else {
+            vec![0.0; x.len()]
+        };
         for (j, v) in out.iter_mut().enumerate() {
-            let value = result[(j, 0)];
+            let value = result[(j, 0)] + adjoint[j];
             if !value.is_finite() {
                 return Err(ProblemError::numerical("nonfinite loss gradient"));
             }
@@ -513,7 +582,8 @@ impl FitProblem {
             started: Instant::now(),
             time_limit: self.profile.solver.controls.time_limit,
             progress,
-            memory: None,
+            // Adjoint checkpoints are foreign allocations charged to the job's allowance.
+            memory: Some(self.runtime.shared.budget().math.foreign_bytes),
         };
         let mut oracle = FitOracle::new(self.clone(), execution.clone())?;
         let (solve, candidate) = if self.initial.is_empty() {
@@ -564,6 +634,7 @@ impl FitProblem {
             validation_error: None,
             solve,
             hessian: self.profile.solver.controls.hessian,
+            derivatives: self.profile.derivatives,
             candidate,
             quality: None,
             constraint_values: vec![],
@@ -747,6 +818,12 @@ fn check_response(a: &Mat<f64>, x: &Mat<f64>, b: &Mat<f64>) -> Result<(), Proble
 }
 impl FitOracle {
     fn response_rank(&mut self, x: &[f64]) -> Result<RankDiagnostic, ProblemError> {
+        // Rank and responses need the response Jacobian: a gradient-only fit reruns the
+        // forward sensitivities once, at the candidate (PS-12).
+        if self.derivatives != FitDerivatives::Responses {
+            self.derivatives = FitDerivatives::Responses;
+            self.point = None;
+        }
         self.evaluate(x)?;
         let p = &self.prepared;
         let point = self
@@ -1010,6 +1087,7 @@ mod tests {
             modes: BTreeMap::new(),
             rank_tolerance: 1e-8,
             max_cells: 100000,
+            derivatives: FitDerivatives::Responses,
         }
     }
     #[tokio::test]

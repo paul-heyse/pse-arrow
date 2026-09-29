@@ -9,6 +9,7 @@ mod results;
 mod sparse;
 /// Exact fitting declaration from the schema registry.
 pub type FitDeclaration = pse_relations::generated::authored::fit_cases::Row;
+use super::integrated::{Binding, IntegratedExperiment};
 use super::{WorkflowError, contract, math};
 use crate::math::{ExecutableCase, solves::SolverProfile};
 use preparation::PreparedExperiments;
@@ -35,6 +36,10 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
+/// Registry vocabulary of a fit's derivative source (ADR-0110 item 3): the response
+/// Jacobian from forward sensitivities, or the objective gradient alone from adjoint
+/// sensitivities of the transient experiments.
+pub use pse_model::generated::enums::FitDerivatives;
 /// Controls for the ordinary NLP and explicit dynamic experiment profiles.
 #[derive(Clone, Debug)]
 pub struct FitProfile {
@@ -49,6 +54,10 @@ pub struct FitProfile {
     pub rank_tolerance: f64,
     /// Separate cap for sparse derivative contributions and optional dense rank cells.
     pub max_cells: usize,
+    /// The derivative source of the NLP: the response Jacobian, or the objective gradient
+    /// alone (with the limited-memory Hessian), whose final assessment reruns the forward
+    /// sensitivities once for rank (PS-12).
+    pub derivatives: FitDerivatives,
 }
 #[derive(Clone, Debug)]
 struct Measurement {
@@ -83,25 +92,10 @@ struct Steady {
     local_states: usize,
     providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
 }
-/// A fit coordinate and an experiment coordinate need not have the same semantic ID.
-#[derive(Clone, Debug)]
-struct ParameterBinding {
-    local: usize,
-    parameter: usize,
-    conversion: pse_quantity::UnitConvertSpec,
-}
-#[derive(Clone, Debug)]
-struct Transient {
-    program: super::dynamics::DynamicProgram,
-    profile: super::SimulationProfile,
-    parameters: Vec<f64>,
-    output_ports: Vec<Port>,
-    bindings: Vec<ParameterBinding>,
-}
 #[derive(Clone, Debug)]
 enum Experiment {
     Steady(Steady),
-    Transient(Box<Transient>),
+    Transient(Box<IntegratedExperiment>),
 }
 /// Immutable fitting product; mutable evaluators and native sessions are attempt-owned.
 #[derive(Debug)]
@@ -157,6 +151,9 @@ pub struct FitReport {
     /// Gauss–Newton Gram with constraint curvature, or the library's quasi-Newton
     /// approximation.
     pub hessian: HessianMode,
+    /// The gradient source of the native solve (PS-07): the response Jacobian, or adjoint
+    /// gradients of the transient experiments.
+    pub derivatives: FitDerivatives,
     /// Independent original constraint and bound quality, including all-fixed evaluation.
     pub quality: Option<native::quality::Quality>,
     /// Independently evaluated steady physical constraints in admitted order.

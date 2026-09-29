@@ -48,9 +48,11 @@ pub use strategies::{
 )]
 mod dynamics;
 mod fitting;
+mod integrated;
 pub use dynamics::SimulationProfile;
 pub use fitting::{
-    FitData, FitDeclaration, FitDiagnostic, FitProfile, FitReport, FitRule, PreparedFit,
+    FitData, FitDeclaration, FitDerivatives, FitDiagnostic, FitProfile, FitReport, FitRule,
+    PreparedFit,
 };
 mod physical;
 pub use physical::PhysicalContext;

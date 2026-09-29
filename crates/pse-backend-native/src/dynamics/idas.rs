@@ -9,7 +9,9 @@
 //! ADR-0110 item 1). Each scheduled change or reset restarts the same native memory with
 //! `IDAReInit`, `IDASensReInit`, `IDAQuadReInit` and `IDACalcIC`; nothing is integrated by
 //! project code. Sensitivities are taken with respect to the integration parameters, one
-//! per scheduled-input interval, so they cross every scheduled change (I6).
+//! per scheduled-input interval, so they cross every scheduled change (I6). The adjoint
+//! route (ADR-0110 item 3) records the forward pass with `IDAAdjInit`/`IDASolveF` and
+//! integrates one backward problem with `IDASolveB` and its gradient quadrature.
 use super::*;
 use crate::{
     NativeStatus,
@@ -43,6 +45,9 @@ struct Context<'a> {
     /// the diagonal, sorted by row within each column.
     columns: Vec<ffi::sunindextype>,
     rows: Vec<ffi::sunindextype>,
+    /// CSC pattern of the adjoint Newton matrix `cjB·M + ∂f/∂yᵀ`: the transposed pattern.
+    columns_b: Vec<ffi::sunindextype>,
+    rows_b: Vec<ffi::sunindextype>,
     /// Inverse Jacobi diagonal of the current Newton matrix (Krylov preconditioner).
     inverse_diagonal: Vec<f64>,
 }
@@ -274,6 +279,47 @@ fn chained(j: &Jacobian, columns: &[Vec<f64>], n: usize, map: &[usize]) -> faer:
         faer::Par::Seq,
     );
     result
+}
+/// `Jᵀv` over the state followed by the contract parameters: one faer transpose product.
+fn transposed(j: &Jacobian, v: &[f64]) -> Vec<f64> {
+    let mut out = vec![0.0; j.ncols()];
+    faer::sparse::linalg::matmul::sparse_dense_matmul(
+        faer::MatMut::from_column_major_slice_mut(&mut out, j.ncols(), 1),
+        faer::Accum::Replace,
+        j.as_ref().transpose(),
+        faer::MatRef::from_column_major_slice(v, v.len(), 1),
+        1.0,
+        faer::Par::Seq,
+    );
+    out
+}
+/// CSC index arrays of `n` columns from sorted `(column, row)` pairs.
+#[allow(
+    clippy::type_complexity,
+    reason = "the two SUNDIALS CSC index arrays, returned together"
+)]
+fn csc(
+    n: usize,
+    pairs: &[(usize, usize)],
+) -> Result<(Vec<ffi::sunindextype>, Vec<ffi::sunindextype>), ProblemError> {
+    let mut columns = vec![0];
+    let mut rows = Vec::with_capacity(pairs.len());
+    let mut next = pairs.iter().peekable();
+    for col in 0..n {
+        while let Some(&(_, row)) = next.next_if(|(c, _)| *c == col) {
+            rows.push(index(row)?);
+        }
+        columns.push(index(rows.len())?);
+    }
+    Ok((columns, rows))
+}
+/// The position of `row` in CSC column `col`.
+fn slot(columns: &[ffi::sunindextype], rows: &[ffi::sunindextype], col: usize, row: usize) -> Option<usize> {
+    let range = columns[col] as usize..columns[col + 1] as usize;
+    rows[range.clone()]
+        .binary_search(&(row as ffi::sunindextype))
+        .ok()
+        .map(|k| range.start + k)
 }
 fn finish_callback(c: &mut Context<'_>, result: std::thread::Result<i32>) -> i32 {
     match result {
@@ -591,6 +637,165 @@ unsafe extern "C" fn roots(
     }));
     finish_callback(c, result)
 }
+/// The adjoint residual `M·λ' + ∂f/∂yᵀλ` of the backward problem (ADR-0110 item 3): the
+/// forward residual is `M·y' − f`, so its adjoint in IDAS's form `(λᵀF_ẏ)' − λᵀF_y` needs
+/// only the transposed state partials, one faer product.
+unsafe extern "C" fn residual_b(
+    t: f64,
+    yy: ffi::N_Vector,
+    _yp: ffi::N_Vector,
+    yb: ffi::N_Vector,
+    ypb: ffi::N_Vector,
+    rr: ffi::N_Vector,
+    data: *mut c_void,
+) -> i32 {
+    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let n = c.contract.states.len();
+        let x = unsafe { read(yy, n) };
+        let Some(j) = c.partials(t, &x) else {
+            return c.failure();
+        };
+        let lambda = unsafe { read(yb, n) };
+        let rate = unsafe { read(ypb, n) };
+        let product = transposed(&j, &lambda);
+        let out: Vec<_> = (0..n)
+            .map(|i| {
+                let mass = if c.contract.differential[i] {
+                    rate[i]
+                } else {
+                    0.0
+                };
+                mass + product[i]
+            })
+            .collect();
+        unsafe {
+            write(rr, &out);
+        }
+        0
+    }));
+    finish_callback(c, result)
+}
+/// Adjoint Newton matrix `∂f/∂yᵀ + cjB·M` on the transposed pattern.
+unsafe extern "C" fn jacobian_b(
+    t: f64,
+    cj: f64,
+    yy: ffi::N_Vector,
+    _yp: ffi::N_Vector,
+    _yb: ffi::N_Vector,
+    _ypb: ffi::N_Vector,
+    _rr: ffi::N_Vector,
+    matrix: ffi::SUNMatrix,
+    data: *mut c_void,
+    _a: ffi::N_Vector,
+    _b: ffi::N_Vector,
+    _d: ffi::N_Vector,
+) -> i32 {
+    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let n = c.contract.states.len();
+        let x = unsafe { read(yy, n) };
+        let Some(j) = c.partials(t, &x) else {
+            return c.failure();
+        };
+        let mut values = vec![0.0; c.rows_b.len()];
+        let symbolic = j.symbolic();
+        for col in 0..n {
+            if c.contract.differential[col]
+                && let Some(k) = slot(&c.columns_b, &c.rows_b, col, col)
+            {
+                values[k] += cj;
+            }
+            // Forward entry (row, col) is adjoint entry (col, row).
+            for k in symbolic.col_range(col) {
+                let Some(target) = slot(&c.columns_b, &c.rows_b, symbolic.row_idx()[k], col)
+                else {
+                    c.callback.terminal = Some((
+                        crate::solve::Termination::Evaluation,
+                        "IDAS residual partial outside its declared support".into(),
+                    ));
+                    return -1;
+                };
+                values[target] += j.val()[k];
+            }
+        }
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                c.columns_b.as_ptr(),
+                ffi::SUNSparseMatrix_IndexPointers(matrix),
+                c.columns_b.len(),
+            );
+            std::ptr::copy_nonoverlapping(
+                c.rows_b.as_ptr(),
+                ffi::SUNSparseMatrix_IndexValues(matrix),
+                c.rows_b.len(),
+            );
+            std::ptr::copy_nonoverlapping(
+                values.as_ptr(),
+                ffi::SUNSparseMatrix_Data(matrix),
+                values.len(),
+            );
+        }
+        0
+    }));
+    finish_callback(c, result)
+}
+/// The gradient integrand `−∂f/∂pᵀλ` over the segment's integration columns; IDAS
+/// integrates it from the backward problem's start toward the segment's start, so the
+/// quadrature at the start is `∫ ∂f/∂pᵀλ dt` over the segment.
+unsafe extern "C" fn quadrature_b(
+    t: f64,
+    yy: ffi::N_Vector,
+    _yp: ffi::N_Vector,
+    yb: ffi::N_Vector,
+    _ypb: ffi::N_Vector,
+    out: ffi::N_Vector,
+    data: *mut c_void,
+) -> i32 {
+    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let n = c.contract.states.len();
+        let x = unsafe { read(yy, n) };
+        let Some(j) = c.partials(t, &x) else {
+            return c.failure();
+        };
+        let product = transposed(&j, &unsafe { read(yb, n) });
+        let mut rate = vec![0.0; c.integration.len()];
+        for (q, column) in c.map.iter().enumerate() {
+            rate[*column] = -product[n + q];
+        }
+        unsafe {
+            write(out, &rate);
+        }
+        0
+    }));
+    finish_callback(c, result)
+}
+/// The segment a backward pass restarts at: its start time and consistent forward state.
+struct Start {
+    time: f64,
+    y: Vec<f64>,
+    dy: Vec<f64>,
+}
+/// The IDAS adjoint of one attempt: `IDAAdjInit` checkpoints and one backward problem,
+/// reinitialized at every segment and every observed sample.
+struct Backward {
+    /// The backward problem, once created.
+    which: Option<i32>,
+    matrix: ffi::SUNMatrix,
+    linear: ffi::SUNLinearSolver,
+    lambda: ffi::N_Vector,
+    rate: ffi::N_Vector,
+    quadrature: ffi::N_Vector,
+    /// Forward state and rates at a restart time, for `IDACalcICB`.
+    forward: ffi::N_Vector,
+    forward_rate: ffi::N_Vector,
+    /// Every segment's consistent start, from the forward pass.
+    starts: Vec<Start>,
+    /// Most checkpoints held at once, and the allowance.
+    checkpoints: usize,
+    limit: usize,
+}
 struct Session<'a> {
     ctx: ffi::SUNContext,
     mem: *mut c_void,
@@ -605,12 +810,15 @@ struct Session<'a> {
     /// Output quadratures of finished segments; IDAS restarts its quadrature at each
     /// reinitialization.
     totals: Vec<f64>,
+    /// The adjoint route's checkpoints and backward problem.
+    adjoint: Option<Backward>,
     callback: Box<Context<'a>>,
     _local: PhantomData<Rc<()>>,
 }
 impl Drop for Session<'_> {
     fn drop(&mut self) {
         unsafe {
+            // `IDAFree` also frees the adjoint memory and every backward problem.
             if !self.mem.is_null() {
                 ffi::IDAFree(&raw mut self.mem);
             }
@@ -619,6 +827,14 @@ impl Drop for Session<'_> {
             }
             if !self.matrix.is_null() {
                 ffi::SUNMatDestroy(self.matrix);
+            }
+            if let Some(b) = &self.adjoint {
+                if !b.linear.is_null() {
+                    ffi::SUNLinSolFree(b.linear);
+                }
+                if !b.matrix.is_null() {
+                    ffi::SUNMatDestroy(b.matrix);
+                }
             }
             for v in self.vectors.drain(..) {
                 ffi::N_VDestroy(v);
@@ -670,15 +886,10 @@ impl<'a> Session<'a> {
         }
         pattern.sort_unstable();
         pattern.dedup();
-        let mut columns = vec![0];
-        let mut rows = Vec::with_capacity(pattern.len());
-        let mut next = pattern.iter().peekable();
-        for col in 0..n {
-            while let Some(&(_, row)) = next.next_if(|(c, _)| *c == col) {
-                rows.push(index(row)?);
-            }
-            columns.push(index(rows.len())?);
-        }
+        let (columns, rows) = csc(n, &pattern)?;
+        let mut transposed: Vec<_> = pattern.iter().map(|&(col, row)| (row, col)).collect();
+        transposed.sort_unstable();
+        let (columns_b, rows_b) = csc(n, &transposed)?;
         let mut s = Self {
             ctx: std::ptr::null_mut(),
             mem: std::ptr::null_mut(),
@@ -691,6 +902,7 @@ impl<'a> Session<'a> {
             sens: vec![],
             dsens: vec![],
             totals: vec![0.0; c.quadratures.len()],
+            adjoint: None,
             callback: Box::new(Context {
                 oracle,
                 contract: c,
@@ -702,6 +914,8 @@ impl<'a> Session<'a> {
                 callback: CallbackState::new(execution),
                 columns,
                 rows,
+                columns_b,
+                rows_b,
                 inverse_diagonal: vec![1.0; n],
             }),
             _local: PhantomData,
@@ -711,7 +925,7 @@ impl<'a> Session<'a> {
         }
         let Some(initial) =
             s.callback
-                .evaluate(Function::Initial, p.start, &vec![0.0; n], p.sensitivities)
+                .evaluate(Function::Initial, p.start, &vec![0.0; n], p.forward())
         else {
             return Err(s.callback.failed("initial function"));
         };
@@ -762,7 +976,7 @@ impl<'a> Session<'a> {
                 )?;
             }
         }
-        if p.sensitivities {
+        if p.forward() {
             let j = initial
                 .jacobian
                 .ok_or_else(|| ProblemError::internal("IDAS initial sensitivity missing"))?;
@@ -828,9 +1042,45 @@ impl<'a> Session<'a> {
                 check(ffi::IDASetQuadErrCon(s.mem, 1), "quadrature error control")?;
             }
         }
+        if p.sensitivity == DynamicSensitivity::Adjoint {
+            s.adjoint_init(p)?;
+        }
         s.initialize_roots()?;
         s.consistent(p.start, p, initialization_option(p.idas.initialization))?;
         Ok(s)
+    }
+    /// `IDAAdjInit` with Hermite interpolation and `steps_between_checkpoints` steps
+    /// between checkpoints; the forward pass then runs through `IDASolveF`.
+    fn adjoint_init(&mut self, p: &Profile) -> Result<(), ProblemError> {
+        let n = self.callback.contract.states.len();
+        let width = self.callback.integration.len();
+        let steps: c_long = p
+            .adjoint
+            .steps_between_checkpoints
+            .into_inner()
+            .try_into()
+            .map_err(|_| ProblemError::unsupported("IDAS checkpoint interval extent"))?;
+        unsafe {
+            check(
+                ffi::IDAAdjInit(self.mem, steps, ffi::IDA_HERMITE),
+                "adjoint initialization",
+            )?;
+        }
+        let zeros = vec![0.0; n];
+        self.adjoint = Some(Backward {
+            which: None,
+            matrix: std::ptr::null_mut(),
+            linear: std::ptr::null_mut(),
+            lambda: self.vector(&zeros)?,
+            rate: self.vector(&zeros)?,
+            quadrature: self.vector(&vec![0.0; width])?,
+            forward: self.vector(&zeros)?,
+            forward_rate: self.vector(&zeros)?,
+            starts: Vec::new(),
+            checkpoints: 0,
+            limit: p.adjoint.max_checkpoints.into_inner(),
+        });
+        Ok(())
     }
     /// Direct KLU over the compiled Jacobian, or matrix-free SPGMR/SPFGMR over analytic
     /// products with an optional Jacobi left preconditioner (IDAS supports left only).
@@ -950,7 +1200,7 @@ impl<'a> Session<'a> {
                 ffi::IDAGetConsistentIC(self.mem, self.y, self.dy),
                 "consistent state retrieval",
             )?;
-            if p.sensitivities {
+            if p.forward() {
                 check(
                     ffi::IDAGetSensConsistentIC(
                         self.mem,
@@ -974,7 +1224,7 @@ impl<'a> Session<'a> {
         mode_changed: bool,
     ) -> Result<(), ProblemError> {
         unsafe {
-            if p.sensitivities {
+            if p.forward() {
                 // The carried sensitivities and their rates (the rates are only guesses
                 // for `IDACalcIC`).
                 let mut time = t;
@@ -1003,7 +1253,11 @@ impl<'a> Session<'a> {
                 ffi::IDAReInit(self.mem, t, self.y, self.dy),
                 "reinitialization",
             )?;
-            if p.sensitivities {
+            // The adjoint route keeps one segment's checkpoints at a time.
+            if self.adjoint.is_some() {
+                check(ffi::IDAAdjReInit(self.mem), "adjoint reinitialization")?;
+            }
+            if p.forward() {
                 check(
                     ffi::IDASensReInit(
                         self.mem,
@@ -1032,13 +1286,13 @@ impl<'a> Session<'a> {
         let x = unsafe { read(self.y, n) };
         let Some(e) = self
             .callback
-            .evaluate(Function::Output, t, &x, p.sensitivities)
+            .evaluate(Function::Output, t, &x, p.forward())
         else {
             return Err(self.callback.failed("output"));
         };
         let mut state_sensitivities = Vec::new();
         let mut output_sensitivities = Vec::new();
-        if p.sensitivities {
+        if p.forward() {
             let mut time = t;
             if stepped {
                 unsafe {
@@ -1089,6 +1343,36 @@ impl<'a> Session<'a> {
             output_sensitivities,
             integrals,
         })
+    }
+    /// One forward `IDASolve` call, or `IDASolveF` on the adjoint route, which stores
+    /// checkpoints: more than `max_checkpoints` at once is a typed memory limit.
+    fn solve(&mut self, target: f64, time: &mut f64) -> Result<i32, ProblemError> {
+        let Some(b) = self.adjoint.as_mut() else {
+            return Ok(unsafe {
+                ffi::IDASolve(self.mem, target, time, self.y, self.dy, ffi::IDA_NORMAL)
+            });
+        };
+        let mut stored = 0;
+        let flag = unsafe {
+            ffi::IDASolveF(
+                self.mem,
+                target,
+                time,
+                self.y,
+                self.dy,
+                ffi::IDA_NORMAL,
+                &raw mut stored,
+            )
+        };
+        // IDAS counts the checkpoints it adds after the segment's first.
+        let held = usize::try_from(stored).unwrap_or(0) + 1;
+        b.checkpoints = b.checkpoints.max(held);
+        if held > b.limit {
+            return Err(ProblemError::memory(
+                "the adjoint forward pass needs more than max_checkpoints checkpoints",
+            ));
+        }
+        Ok(flag)
     }
     /// Native counters of the current segment; IDAS resets them at each reinitialization.
     fn statistics(&self, flag: i32, p: &Profile) -> serde_json::Value {
@@ -1153,16 +1437,7 @@ impl<'a> Session<'a> {
                     "remaining steps",
                 )?;
             }
-            let flag = unsafe {
-                ffi::IDASolve(
-                    self.mem,
-                    target,
-                    &raw mut time,
-                    self.y,
-                    self.dy,
-                    ffi::IDA_NORMAL,
-                )
-            };
+            let flag = self.solve(target, &mut time)?;
             unsafe {
                 check(ffi::IDAGetNumSteps(self.mem, &raw mut steps), "step count")?;
             }
@@ -1255,6 +1530,13 @@ impl<'a> Session<'a> {
                 r.termination = Termination::Completed;
                 return Ok(());
             }
+            if let Some(b) = self.adjoint.as_mut() {
+                b.starts.push(Start {
+                    time,
+                    y: state,
+                    dy: unsafe { read(self.dy, n) },
+                });
+            }
             let stop = boundaries.get(segment).copied().unwrap_or(p.end);
             let changing = segment < boundaries.len();
             let (root, steps) = self.segment(p, r, stop, changing, max_steps - used)?;
@@ -1326,6 +1608,336 @@ impl<'a> Session<'a> {
         }
     }
 }
+impl Session<'_> {
+    fn backward_mut(&mut self) -> Result<&mut Backward, ProblemError> {
+        self.adjoint
+            .as_mut()
+            .ok_or_else(|| ProblemError::internal("IDAS adjoint not initialized"))
+    }
+    /// The backward pass over every segment from the last (ADR-0110 item 3). Each segment
+    /// before the last reruns its forward pass from its stored start with `IDAReInit` +
+    /// `IDAAdjReInit` + `IDASolveF`, because reinitialization frees the checkpoints; the
+    /// backward problem restarts with `IDAReInitB` at the segment's end and at every
+    /// observed sample, after the jump of [`sample_jump`], with `IDACalcICB` recomputing
+    /// the algebraic adjoint. The quadrature of `−∂f/∂pᵀλ` accumulates the gradient; the
+    /// first segment adds its initial values' partials, and the differential adjoint
+    /// carries across scheduled changes.
+    fn backward(
+        &mut self,
+        p: &Profile,
+        r: &Report,
+        weights: &[f64],
+    ) -> Result<Vec<f64>, ProblemError> {
+        let n = self.callback.contract.states.len();
+        let np = self.callback.contract.parameters.len();
+        let width = self.callback.integration.len();
+        let boundaries = p.boundaries();
+        let starts = std::mem::take(&mut self.backward_mut()?.starts);
+        let mut carried: Option<Vec<f64>> = None;
+        let mut total = vec![0.0; width];
+        for (k, start) in starts.iter().enumerate().rev() {
+            let stop = boundaries.get(k).copied().unwrap_or(p.end);
+            self.callback.map = p.columns_at(np, start.time);
+            self.callback.parameters = p.parameters_at(&self.callback.integration, start.time);
+            let last = k + 1 == starts.len();
+            if !last {
+                self.replay(start, stop, p)?;
+            }
+            // The segment's samples, latest first; a sample at a change time observes the
+            // later segment.
+            let mut observed = (0..r.samples.len())
+                .rev()
+                .filter(|i| {
+                    let t = r.samples[*i].time;
+                    t >= start.time && (t < stop || (last && t <= stop))
+                })
+                .peekable();
+            let mut lambda = carried.take().unwrap_or_else(|| vec![0.0; n]);
+            let mut gradient = vec![0.0; width];
+            if let Some(i) = observed.next_if(|i| r.samples[*i].time >= stop) {
+                self.jump(r, i, weights, &mut lambda, &mut gradient)?;
+            }
+            // The forward pass ended at the segment's stop.
+            let forward = (unsafe { read(self.y, n) }, unsafe { read(self.dy, n) });
+            self.restart_backward(stop, start.time, &lambda, &gradient, &forward, p)?;
+            let mut first = None;
+            for i in observed {
+                let t = r.samples[i].time;
+                if t <= start.time {
+                    first = Some(i);
+                    break;
+                }
+                (lambda, gradient) = self.solve_backward(t)?;
+                self.jump(r, i, weights, &mut lambda, &mut gradient)?;
+                let forward = self.forward_at(t)?;
+                self.restart_backward(t, start.time, &lambda, &gradient, &forward, p)?;
+            }
+            (lambda, gradient) = self.solve_backward(start.time)?;
+            if let Some(i) = first {
+                self.jump(r, i, weights, &mut lambda, &mut gradient)?;
+            }
+            if k == 0 {
+                self.initial_values(start.time, &lambda, &mut gradient)?;
+            }
+            for (sum, value) in total.iter_mut().zip(&gradient) {
+                *sum += value;
+            }
+            carried = Some(lambda);
+            let execution = &self.callback.callback.execution;
+            execution.progress.push(crate::solve::Event {
+                phase: "idas.adjoint".into(),
+                elapsed: execution.started.elapsed(),
+                values: std::collections::BTreeMap::from([
+                    ("time".into(), crate::solve::Metric::Real(start.time)),
+                    ("segment".into(), crate::solve::Metric::Integer(k as i64)),
+                ]),
+                incumbent: None,
+            });
+        }
+        if total.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical("nonfinite adjoint gradient"));
+        }
+        Ok(total)
+    }
+    /// Rerun one segment's forward pass from its stored consistent start, storing its
+    /// checkpoints again.
+    fn replay(&mut self, start: &Start, stop: f64, p: &Profile) -> Result<(), ProblemError> {
+        let steps: c_long = p
+            .max_steps
+            .try_into()
+            .map_err(|_| ProblemError::unsupported("IDAS step allowance extent"))?;
+        unsafe {
+            write(self.y, &start.y);
+            write(self.dy, &start.dy);
+            check(
+                ffi::IDAReInit(self.mem, start.time, self.y, self.dy),
+                "adjoint forward reinitialization",
+            )?;
+            check(ffi::IDAAdjReInit(self.mem), "adjoint reinitialization")?;
+            check(ffi::IDASetStopTime(self.mem, stop), "stop time")?;
+            check(ffi::IDASetMaxNumSteps(self.mem, steps), "adjoint forward steps")?;
+        }
+        let mut time = start.time;
+        let flag = self.solve(stop, &mut time)?;
+        if flag < 0 {
+            return Err(self.callback.native_failure(flag, "adjoint forward pass"));
+        }
+        Ok(())
+    }
+    /// The forward state and rates at `t`, interpolated from the checkpoints.
+    fn forward_at(&mut self, t: f64) -> Result<(Vec<f64>, Vec<f64>), ProblemError> {
+        let n = self.callback.contract.states.len();
+        let b = self.backward_mut()?;
+        let (forward, rate) = (b.forward, b.forward_rate);
+        unsafe {
+            check(
+                ffi::IDAGetAdjY(self.mem, t, forward, rate),
+                "adjoint forward interpolation",
+            )?;
+            Ok((read(forward, n), read(rate, n)))
+        }
+    }
+    /// Start the backward problem at `t` with the adjoint `lambda` and gradient
+    /// `gradient`: `IDAInitB` and its settings once, `IDAReInitB` afterwards, then
+    /// `IDACalcICB` for the algebraic adjoint and every rate.
+    fn restart_backward(
+        &mut self,
+        t: f64,
+        start: f64,
+        lambda: &[f64],
+        gradient: &[f64],
+        forward: &(Vec<f64>, Vec<f64>),
+        p: &Profile,
+    ) -> Result<(), ProblemError> {
+        let n = self.callback.contract.states.len();
+        let mem = self.mem;
+        let data: *mut c_void = (&raw mut *self.callback).cast();
+        let created = self.backward_mut()?.which;
+        let b = self.adjoint.as_ref().ok_or_else(|| ProblemError::internal("IDAS adjoint"))?;
+        let (yb, ypb, qb, fy, fyp) = (b.lambda, b.rate, b.quadrature, b.forward, b.forward_rate);
+        unsafe {
+            write(yb, lambda);
+            write(ypb, &vec![0.0; n]);
+            write(qb, gradient);
+            write(fy, &forward.0);
+            write(fyp, &forward.1);
+        }
+        let which = match created {
+            Some(which) => {
+                unsafe {
+                    check(ffi::IDAReInitB(mem, which, t, yb, ypb), "adjoint reinitialization")?;
+                    check(ffi::IDAQuadReInitB(mem, which, qb), "adjoint quadrature reinitialization")?;
+                }
+                which
+            }
+            None => self.create_backward(t, p, data)?,
+        };
+        // `tout1` only orients and scales the initialization step toward the start.
+        let toward = t - (t - start).min(p.initial_step);
+        let flag = unsafe { ffi::IDACalcICB(mem, which, toward, fy, fyp) };
+        if flag < 0 {
+            return Err(self
+                .callback
+                .native_failure(flag, "consistent adjoint initial conditions"));
+        }
+        Ok(())
+    }
+    /// The backward problem, its KLU solver over the transposed pattern and its gradient
+    /// quadrature.
+    fn create_backward(&mut self, t: f64, p: &Profile, data: *mut c_void) -> Result<i32, ProblemError> {
+        let n = self.callback.contract.states.len();
+        let nnz = index(self.callback.rows_b.len())?;
+        let ids: Vec<_> = self
+            .callback
+            .contract
+            .differential
+            .iter()
+            .map(|v| f64::from(*v))
+            .collect();
+        let id = self.vector(&ids)?;
+        let atol = self.vector(&p.atol)?;
+        let smallest = p.atol.iter().copied().fold(f64::INFINITY, f64::min);
+        let steps: c_long = p
+            .max_steps
+            .try_into()
+            .map_err(|_| ProblemError::unsupported("IDAS step allowance extent"))?;
+        let (mem, ctx) = (self.mem, self.ctx);
+        let b = self.backward_mut()?;
+        let mut which = 0;
+        unsafe {
+            check(ffi::IDACreateB(mem, &raw mut which), "backward problem")?;
+            check(
+                ffi::IDAInitB(mem, which, Some(residual_b), t, b.lambda, b.rate),
+                "backward initialization",
+            )?;
+            check(ffi::IDASetUserDataB(mem, which, data), "backward user data")?;
+            check(ffi::IDASetIdB(mem, which, id), "backward differential identities")?;
+            check(ffi::IDASVtolerancesB(mem, which, p.rtol, atol), "backward tolerances")?;
+            check(ffi::IDASetMaxNumStepsB(mem, which, steps), "backward steps")?;
+            b.matrix = ffi::SUNSparseMatrix(index(n)?, index(n)?, nnz, 0, ctx);
+            if b.matrix.is_null() {
+                return Err(ProblemError::memory("IDAS adjoint matrix allocation"));
+            }
+            b.linear = ffi::SUNLinSol_KLU(b.lambda, b.matrix, ctx);
+            if b.linear.is_null() {
+                return Err(ProblemError::memory("IDAS adjoint KLU allocation"));
+            }
+            check(
+                ffi::IDASetLinearSolverB(mem, which, b.linear, b.matrix),
+                "backward KLU",
+            )?;
+            check(
+                ffi::IDASetJacFnB(mem, which, Some(jacobian_b)),
+                "backward analytic Jacobian",
+            )?;
+            check(
+                ffi::IDAQuadInitB(mem, which, Some(quadrature_b), b.quadrature),
+                "backward quadrature",
+            )?;
+            check(
+                ffi::IDAQuadSStolerancesB(mem, which, p.rtol, smallest),
+                "backward quadrature tolerances",
+            )?;
+            check(
+                ffi::IDASetQuadErrConB(mem, which, 1),
+                "backward quadrature error control",
+            )?;
+        }
+        b.which = Some(which);
+        Ok(which)
+    }
+    /// Integrate the backward problem to `t`; the adjoint and gradient there.
+    fn solve_backward(&mut self, t: f64) -> Result<(Vec<f64>, Vec<f64>), ProblemError> {
+        let n = self.callback.contract.states.len();
+        let width = self.callback.integration.len();
+        let mem = self.mem;
+        let b = self.backward_mut()?;
+        let which = b
+            .which
+            .ok_or_else(|| ProblemError::internal("IDAS backward problem"))?;
+        let (yb, ypb, qb) = (b.lambda, b.rate, b.quadrature);
+        let flag = unsafe { ffi::IDASolveB(mem, t, ffi::IDA_NORMAL) };
+        if flag < 0 {
+            return Err(self.callback.native_failure(flag, "adjoint step"));
+        }
+        let mut time = t;
+        unsafe {
+            check(ffi::IDAGetB(mem, which, &raw mut time, yb, ypb), "adjoint state")?;
+            check(ffi::IDAGetQuadB(mem, which, &raw mut time, qb), "adjoint gradient")?;
+            Ok((read(yb, n), read(qb, width)))
+        }
+    }
+    /// Add the jump at sample `i` ([`sample_jump`]) to the adjoint and to the gradient, in
+    /// the segment's integration columns. The forward state is the sample's own.
+    fn jump(
+        &mut self,
+        r: &Report,
+        i: usize,
+        weights: &[f64],
+        lambda: &mut [f64],
+        gradient: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        let sample = &r.samples[i];
+        let m = self.callback.contract.outputs.len();
+        let Some(output) = self
+            .callback
+            .evaluate(Function::Output, sample.time, &sample.state, true)
+            .and_then(|e| e.jacobian)
+        else {
+            return Err(self.callback.failed("adjoint output partials"));
+        };
+        let rhs = if self.callback.contract.differential.contains(&false) {
+            let Some(j) = self.callback.partials(sample.time, &sample.state) else {
+                return Err(self.callback.failed("adjoint constraint partials"));
+            };
+            Some(j)
+        } else {
+            None
+        };
+        let (jump, parameters) = sample_jump(
+            &self.callback.contract.differential,
+            output.as_ref(),
+            rhs.as_ref().map(|j| j.as_ref()),
+            &weights[i * m..(i + 1) * m],
+        )?;
+        for (a, d) in lambda.iter_mut().zip(&jump) {
+            *a += d;
+        }
+        for (q, d) in parameters.iter().enumerate() {
+            *gradient
+                .get_mut(self.callback.map[q])
+                .ok_or_else(|| ProblemError::internal("adjoint jump columns"))? += d;
+        }
+        Ok(())
+    }
+    /// The first segment's initial differential values depend on the parameters:
+    /// `(∂x₀/∂p)ᵀλ_d` joins the gradient. `IDACalcIC` recomputes the algebraic ones.
+    fn initial_values(
+        &mut self,
+        t: f64,
+        lambda: &[f64],
+        gradient: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        let n = self.callback.contract.states.len();
+        let Some(j) = self
+            .callback
+            .evaluate(Function::Initial, t, &vec![0.0; n], true)
+            .and_then(|e| e.jacobian)
+        else {
+            return Err(self.callback.failed("initial partials"));
+        };
+        let differential: Vec<_> = lambda
+            .iter()
+            .zip(&self.callback.contract.differential)
+            .map(|(l, d)| if *d { *l } else { 0.0 })
+            .collect();
+        let product = transposed(&j, &differential);
+        for (q, column) in self.callback.map.iter().enumerate() {
+            gradient[*column] += product[n + q];
+        }
+        Ok(())
+    }
+}
 /// The native sensitivity corrector.
 fn corrector(method: SensitivityCorrector) -> i32 {
     match method {
@@ -1342,6 +1954,56 @@ pub(super) fn integrate_with_progress(
     cancel: Cancellation,
     progress: Arc<Progress>,
 ) -> Result<Report, ProblemError> {
+    let (report, _, _) = attempt(oracle, p, integration, cancel, progress, |_, _| Ok(()));
+    Ok(report)
+}
+/// The gradient of the cotangent's functional over the integration parameters, on the
+/// IDAS adjoint (ADR-0110 item 3). The caller validated the profile and charged the
+/// checkpoint estimate.
+pub(super) fn gradient(
+    oracle: &mut dyn Oracle,
+    p: &Profile,
+    integration: &[f64],
+    cotangent: Cotangent<'_>,
+    cancel: Cancellation,
+    progress: Arc<Progress>,
+) -> Result<Gradient, ProblemError> {
+    let (mut report, gradient, checkpoints) =
+        attempt(oracle, p, integration, cancel, progress, |s, r| {
+            let weights = cotangent(r)?;
+            if weights.len() != r.samples.len().saturating_mul(s.callback.contract.outputs.len())
+                || weights.iter().any(|w| !w.is_finite())
+            {
+                return Err(contract("adjoint cotangent extent or value"));
+            }
+            s.backward(p, r, &weights)
+        });
+    if gradient.is_some() {
+        report.statistics.push(serde_json::json!({
+            "adjoint": {
+                "checkpoints": checkpoints,
+                "steps_between_checkpoints": p.adjoint.steps_between_checkpoints.into_inner(),
+                "segments": p.boundaries().len() + 1,
+            }
+        }));
+    }
+    Ok(Gradient {
+        gradient: gradient.filter(|_| report.termination == Termination::Completed),
+        report,
+        checkpoints,
+        reserved_bytes: 0,
+    })
+}
+/// One IDAS attempt: the forward pass, then `after` once it completed, with every failure
+/// and stop kept in the report.
+fn attempt<T>(
+    oracle: &mut dyn Oracle,
+    p: &Profile,
+    integration: &[f64],
+    cancel: Cancellation,
+    progress: Arc<Progress>,
+    after: impl FnOnce(&mut Session<'_>, &Report) -> Result<T, ProblemError>,
+) -> (Report, Option<T>, usize) {
     let execution = Execution {
         cancel,
         started: Instant::now(),
@@ -1369,17 +2031,25 @@ pub(super) fn integrate_with_progress(
     });
     let initial = match initial {
         Ok(initial) => initial,
-        Err(error) => return Ok(failure(r, error)),
+        Err(error) => return (failure(r, error), None, 0),
     };
     r.requested_initial = initial.values;
     let mut s = match Session::new(oracle, integration, p, execution.clone()) {
         Ok(session) => session,
-        Err(error) => return Ok(failure(r, error)),
+        Err(error) => return (failure(r, error), None, 0),
     };
     r.consistent_initial = unsafe { read(s.y, n) };
-    if let Err(e) = s.run(p, &mut r) {
+    let mut outcome = None;
+    let result = s.run(p, &mut r).and_then(|()| {
+        if r.termination == Termination::Completed {
+            outcome = Some(after(&mut s, &r)?);
+        }
+        Ok(())
+    });
+    if let Err(e) = result {
         r.termination = stopped(&e, &s.callback.callback.execution);
         r.error = Some(e);
+        outcome = None;
     }
     // Terminal-policy and checkpoint stops keep their typed status and cause.
     if let Some((status, _)) = &s.callback.callback.terminal {
@@ -1392,9 +2062,11 @@ pub(super) fn integrate_with_progress(
         if r.error.is_none() {
             r.error = s.callback.callback.terminal_error();
         }
+        outcome = None;
     }
     (r.progress, r.dropped_progress) = s.callback.callback.execution.progress.snapshot();
-    Ok(r)
+    let checkpoints = s.adjoint.as_ref().map_or(0, |b| b.checkpoints);
+    (r, outcome, checkpoints)
 }
 
 #[allow(
