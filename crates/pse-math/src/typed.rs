@@ -18,7 +18,7 @@ pub(crate) use piecewise::proven_branch_order;
 use pse_ids::SemanticId;
 use pse_kernels::DerivativeOrder;
 use pse_quantity::{
-    IndexSet, Opcode, QuantityRegistry, QuantityTypeId, Ratio, UnitId,
+    IndexSet, Opcode, QuantityRegistry, QuantityTypeId, Ratio,
     infer::{self, Exponent, InvariantChecker, OpRequest, Operand},
     literal::LiteralContext,
 };
@@ -260,13 +260,14 @@ impl<'a> BodyBuilder<'a> {
             source,
         })
     }
-    /// Contextual literal with checked representation conversion.
+    /// Contextual literal in its composed unit (ADR-0124) with checked representation
+    /// conversion.
     /// # Errors
     /// Nonfinite literal, ambiguous physical meaning or invalid unit conversion.
     pub fn literal(
         &mut self,
         value: f64,
-        unit: UnitId,
+        unit: &pse_quantity::Unit,
         context: LiteralContext,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
@@ -276,7 +277,7 @@ impl<'a> BodyBuilder<'a> {
         let (quantity, indices) = self.result(OpRequest::Literal { unit, context }, &[])?;
         let ty = self.registry.quantity_type(quantity)?;
         let conversion = pse_quantity::convert_spec_for_type(
-            self.registry.unit(unit)?,
+            unit,
             self.registry.unit(ty.canonical_unit)?,
             &ty.key,
         )?;

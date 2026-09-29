@@ -255,7 +255,8 @@ async fn native_physical_predicates_keep_positive_and_optional_rules() {
             "reference.units",
             "positive_scale",
             "scale_to_canonical",
-            [true, false, false, false],
+            // A defined unit authors no scale (ADR-0124).
+            [true, false, false, true],
         ),
         (
             "reference.quantity_types",

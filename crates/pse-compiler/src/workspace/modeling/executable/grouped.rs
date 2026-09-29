@@ -294,7 +294,6 @@ pub(super) fn admit(
     }
     let registry = inventory.quantities(db);
     let checker = inventory.preconditions(db);
-    let units = registry.units().map(|u| (u.symbol.clone(), u.id)).collect();
     let mut ports = BTreeMap::new();
     let mut variables = vec![];
     let mut parameters = vec![];
@@ -469,7 +468,6 @@ pub(super) fn admit(
                     domains: &BTreeMap::new(),
                     groups: &BTreeMap::new(),
                     providers: &providers,
-                    units: &units,
                     literals: &BTreeMap::new(),
                     physical: physical_identity(registry, checker),
                     structure: identity,

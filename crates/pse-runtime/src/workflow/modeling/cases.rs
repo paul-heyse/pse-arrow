@@ -1305,6 +1305,104 @@ mod tests {
             .unwrap();
         assert_eq!(prepared.model.case.compiled().facts.variables, 0);
     }
+    /// A report in a composite unit carries the unit's spelling-independent product
+    /// identity (ADR-0124): the composed literal, the canonical unit and the report agree.
+    #[tokio::test]
+    async fn report_in_a_composite_unit_carries_its_identity() {
+        use super::super::super::tests as fixture;
+        let physical = fixture::physical();
+        let quantities = std::sync::Arc::clone(&physical.quantities);
+        let molar_cp = QuantityTypeId::from_id(
+            SemanticId::parse_hex("cd653ba98fa94d16b5d66b363f21c3d6").unwrap(),
+        );
+        let names = BTreeMap::from([("MolarCp".into(), molar_cp)]);
+        let rows = pse_authoring::language::parse(
+            "package p { def Root { param cp: MolarCp = 75.3{J/(K*mol)}; var y: MolarCp; eq e: y == cp; annotation start y(cp); annotation report y(\"cp\"); } }",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = fixture::runtime()
+            .modeling_package(rows, physical, names)
+            .unwrap();
+        let fixed = ModelingCaseBindings {
+            values: BTreeMap::new(),
+            variables: BTreeMap::from([(
+                "y".into(),
+                ModelingVariableState {
+                    fixed: Some(true),
+                    ..Default::default()
+                },
+            )]),
+        };
+        let prepared = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                fixed,
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                fixture::profile(),
+                NumericalInputs::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let result = package
+            .solve_case(prepared, fixture::compiler_profile(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let report = result.reports.iter().find(|r| r.label == "cp").unwrap();
+        assert_eq!(report.value, 75.3);
+        assert_eq!(report.quantity_id, molar_cp.as_id());
+        let spelled = |text: &str| {
+            let pse_authoring::dsl::ExprKind::Number(number) =
+                pse_authoring::dsl::parse_expr(text).unwrap().kind
+            else {
+                panic!("{text}");
+            };
+            quantities.compose(&number.unit.unwrap()).unwrap().id.as_id()
+        };
+        let canonical = quantities.quantity_type(molar_cp).unwrap().canonical_unit;
+        assert_eq!(report.unit_id, canonical.as_id());
+        for text in ["1{J/(mol*K)}", "1{J/(K*mol)}", "1{J*K^-1*mol^-1}"] {
+            assert_eq!(report.unit_id, spelled(text), "{text}");
+        }
+        let atomic = |symbol: &str| {
+            quantities
+                .compose(&pse_quantity::UnitProduct::symbol(symbol))
+                .unwrap()
+                .id
+        };
+        let minus_one = pse_quantity::Ratio::new(-1, 1).unwrap();
+        let factors = pse_quantity::unit::canonical_factors([
+            pse_quantity::UnitFactor {
+                unit: atomic("J"),
+                exponent: pse_quantity::Ratio::ONE,
+            },
+            pse_quantity::UnitFactor {
+                unit: atomic("K"),
+                exponent: minus_one,
+            },
+            pse_quantity::UnitFactor {
+                unit: atomic("mol"),
+                exponent: minus_one,
+            },
+        ])
+        .unwrap();
+        assert_eq!(
+            report.unit_id,
+            pse_quantity::unit_product_id(&factors).as_id()
+        );
+    }
 }
 
 #[cfg(test)]

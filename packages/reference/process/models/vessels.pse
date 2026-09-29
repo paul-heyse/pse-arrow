@@ -9,7 +9,7 @@
 @id("fb3524e88c784b649eb2ec69c8759454") use math @"1.0.0";
 @id("5ae4821f97574d13a6ccf312208799be") use distributed_volumes @"1.0.0";
 @id("3c3cac1f8d9f48d89043c3665983f067") fn amount_unit()->TotalAmount=1{mol};
-@id("dc2feadd3d654595974ade2ced45cc87") def HomogeneousInventory(selected:Set<kinds.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar,ideal_h:Fn(T:Temperature,j:kinds.species)->DeltaH,composition:Fn(j:kinds.species)->Scalar,V:Volume=0.1{m3}) {
+@id("dc2feadd3d654595974ade2ced45cc87") def HomogeneousInventory(selected:Set<kinds.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar,ideal_h:Fn(T:Temperature,j:kinds.species)->DeltaH,composition:Fn(j:kinds.species)->Scalar,V:Volume=0.1{m^3}) {
 @id("1f30d2fff1dc4bcaa50eec59dc02c1bb") param components:Set<kinds.species>=selected;
 @id("6ff9152d6ade4e98af547589b315da58") param volume:Volume=V;
 @id("c2430aba81344a0fa7af49930b3fb097") var amount:TotalAmount;
@@ -18,20 +18,20 @@
 @id("914319bb395943818a2d41088e35c17c") eq composition_binding[j in components]:phase.amount[j]==helmholtz.amount_unit()*composition(j);
 @id("92a6ea6bcdcd405cafabd829c2d6cfad") let enthalpy:MolarEnthalpy=equilibrium.enthalpy_datum()+sum(j in components | composition(j)*ideal_h(phase.T,j))+phase.h_residual;
 @id("2453286052414d4a85a522d821531e43") let pressure:Pressure=phase.pressure;
-@id("437a2a4ce3c94cb282675cb8e608c37f") eq amount_closure:amount==amount_unit()*(phase.rho/helmholtz.density_unit())*(volume/1{m3});
-@id("037b6ad5c3254eb58ae2f433dc57240a") eq energy_closure:energy==1{J}*((amount/amount_unit())*((enthalpy-equilibrium.enthalpy_datum())/caloric.h_unit())-(volume/1{m3})*(pressure/pure_properties.pressure_unit()));
+@id("437a2a4ce3c94cb282675cb8e608c37f") eq amount_closure:amount==amount_unit()*(phase.rho/helmholtz.density_unit())*(volume/1{m^3});
+@id("037b6ad5c3254eb58ae2f433dc57240a") eq energy_closure:energy==1{J}*((amount/amount_unit())*((enthalpy-equilibrium.enthalpy_datum())/caloric.h_unit())-(volume/1{m^3})*(pressure/pure_properties.pressure_unit()));
 @id("bc0c80f5c44743fe9dd86b7ff0d36a74") annotation start amount(3.456556634933607{mol});
 @id("578177226844485faf741607c680b6e9") annotation nominal amount(3.456556634933607{mol});
 @id("c9575836d3034fab9e9347590517db71") annotation start energy(1202.3168203660216{J});
 @id("60df3bbedefb4e9d97b89c737ab78aaa") annotation nominal energy(1202.3168203660216{J});
 @id("f493bacf930648ec8d38568cc8e84a2c") annotation start phase.T(350{K});
 @id("3b66bb73ddbe41dfb421a543b3aa0cd2") annotation nominal phase.T(350{K});
-@id("f5c226033cae4a3bb078ab58428927e8") annotation start phase.rho(34.565566349336066{mol/m3});
-@id("5b19acd34c194c43ad7243309da6ee5f") annotation nominal phase.rho(34.565566349336066{mol/m3});
+@id("f5c226033cae4a3bb078ab58428927e8") annotation start phase.rho(34.565566349336066{mol/m^3});
+@id("5b19acd34c194c43ad7243309da6ee5f") annotation nominal phase.rho(34.565566349336066{mol/m^3});
 @id("81513b0242bc40e288b72395063fcbc3") annotation start phase.amount(helmholtz.amount_unit()*composition(j));
 @id("2d9f85195bdb476faa1edf78303746be") annotation nominal phase.amount(1{mol});
 @id("b04fe4f2fc36494bb01afd7a763fe0f8") annotation bounds amount(1e-10{mol},1000000{mol});
-@id("9038641c61cf48e79d9e4adc3be39e93") annotation bounds phase.rho(1e-8{mol/m3},25000{mol/m3});
+@id("9038641c61cf48e79d9e4adc3be39e93") annotation bounds phase.rho(1e-8{mol/m^3},25000{mol/m^3});
 @id("2b3fd2f02f6244b5b62c6f301f7cd058") annotation check pressure(pressure>0{Pa} and pressure<100000000{Pa});
 @id("df83b8dcf2e14e98ad03e3700fdaafed") annotation scale amount_closure(inverseSum);
 @id("872c7dc0f7354d3aba6c19cacad0373a") annotation scale energy_closure(inverseSum);
@@ -40,7 +40,7 @@
 @id("aa384bd8d0df470e949ddf0c13d747ca") annotation report pressure("vessel pressure");
 @id("bec538d266344adc9f042bfb541208ec") annotation report phase.T("vessel temperature");
 }
-@id("1349887846a543049eaab457f8887a99") def Vessel(selected:Set<kinds.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar,ideal_h:Fn(T:Temperature,j:kinds.species)->DeltaH,composition:Fn(j:kinds.species)->Scalar,horizon:Time=1{s},valve:Boolean=false,V:Volume=0.1{m3},time_elements:Integer=1) {
+@id("1349887846a543049eaab457f8887a99") def Vessel(selected:Set<kinds.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar,ideal_h:Fn(T:Temperature,j:kinds.species)->DeltaH,composition:Fn(j:kinds.species)->Scalar,horizon:Time=1{s},valve:Boolean=false,V:Volume=0.1{m^3},time_elements:Integer=1) {
 @id("334a0cce8ef14f08873530eeb1dbc60a") require analysis.dynamic : "vessel trajectories require dynamic analysis";
 @id("7ed9cf5934764a4f849fc109e2bdb5c8") domain t:Time from 0{s} to horizon;
 @id("886e5d17145c43c0becb9b2a687a9482") when analysis.route==analysis.integrated {

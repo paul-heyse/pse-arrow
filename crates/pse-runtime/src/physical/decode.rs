@@ -11,7 +11,8 @@ use pse_quantity::{
     Basis, BasisId, ConversionId, ConversionRule, DimensionVector, EntityKind, EntityKindId,
     InputConversion, InvariantId, OperationId, QuantityKind, QuantityKindId, QuantityOperation,
     QuantityRegistry, QuantityRegistryBuilder, QuantityType, QuantityTypeId, QuantityTypeKey,
-    Ratio, ReferenceState, ReferenceStateId, Unit, UnitId, UnitSet, UnitSetId,
+    Ratio, ReferenceState, ReferenceStateId, Unit, UnitFactor, UnitId, UnitSet, UnitSetId,
+    DefinedUnit,
 };
 use pse_relations::{
     columnar::FieldCheckedBatch,
@@ -69,15 +70,50 @@ pub(super) fn inventory(
         }
     }
     rows!(units, row, {
-        builder.unit(Unit {
-            id: UnitId::from_id(row.unit_id),
-            symbol: row.symbol,
-            dimension: dimension(row.dimension)?,
-            scale_to_canonical: row.scale_to_canonical,
-            offset_to_canonical: row.offset_to_canonical,
-            is_affine: row.is_affine,
-            reference_state: row.reference_state_id.map(ReferenceStateId::from_id),
-        });
+        // Version two: an atomic unit authors its measure; a defined unit authors only its
+        // composition, and admission derives its dimension and scale (ADR-0124).
+        let id = UnitId::from_id(row.unit_id);
+        match (
+            row.definition,
+            row.dimension,
+            row.scale_to_canonical,
+            row.offset_to_canonical,
+            row.is_affine,
+        ) {
+            (None, Some(value), Some(scale_to_canonical), Some(offset_to_canonical), Some(is_affine)) => {
+                builder.unit(Unit {
+                    id,
+                    symbol: row.symbol,
+                    dimension: dimension(value)?,
+                    scale_to_canonical,
+                    offset_to_canonical,
+                    is_affine,
+                    reference_state: row.reference_state_id.map(ReferenceStateId::from_id),
+                    definition: None,
+                });
+            }
+            (Some(composition), None, None, None, None) if row.reference_state_id.is_none() => {
+                builder.defined_unit(DefinedUnit {
+                    id,
+                    symbol: row.symbol,
+                    composition: composition
+                        .into_iter()
+                        .map(|factor| {
+                            Ok(UnitFactor {
+                                unit: UnitId::from_id(factor.unit_id),
+                                exponent: Ratio::from_parts(factor.num, factor.den)
+                                    .map_err(pse_quantity::QuantityError::from)?,
+                            })
+                        })
+                        .collect::<Result<_, PhysicalError>>()?,
+                });
+            }
+            _ => {
+                return Err(invalid(format!(
+                    "unit {id} must author either its measure (atomic) or only its composition (defined)"
+                )));
+            }
+        }
     });
     rows!(unit_sets, row, {
         builder.unit_set(UnitSet {

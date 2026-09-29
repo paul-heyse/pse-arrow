@@ -465,6 +465,8 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
     scaled.id = unit;
     scaled.symbol = "triple-neutral".into();
     scaled.scale_to_canonical = 3.0;
+    // An atomic representation unit: its own authored scale, not a composition.
+    scaled.definition = None;
     registry_builder.unit(scaled);
     let registry = registry_builder.build().unwrap();
     let port = Port {

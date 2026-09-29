@@ -4,7 +4,7 @@
 @id("01a0e1db89d8722baac398db95708ed7") use kinds @"1.0.0";
 @id("01a0e1db89d8722baac398dc283f9e89") use equilibrium @"1.0.0";
 @id("01a0e1db89d8722baac398dd3ce60598") use helmholtz @"1.0.0";
-@id("01a0e1db89d8722baac398b7943e4b30") fn concentration_unit()->MolarDensity=1{mol/m3};
+@id("01a0e1db89d8722baac398b7943e4b30") fn concentration_unit()->MolarDensity=1{mol/m^3};
 @id("01a0e1db89d8722baac398b849aaf90f") interface DiluteLiquid extends equilibrium.ThermoPackage {
 @id("9381ae6d45054233b6d89f641f8f47d1") let phase_enthalpy[p in phases]:MolarEnthalpy=h;
 @id("e79a4c09af7949adb56bdc03fe6e8239") override param phases:Set<kinds.phase>={equilibrium.liquid};
@@ -26,11 +26,11 @@
 @id("01a0e1db89d8722baac398c7627f5f04") when not defined {
 @id("01a0e1db89d8722baac398c8f8bbe9d9") eq solvent_concentration:concentration[solvent]==concentration_unit()*(solvent_density/helmholtz.density_unit());
 }
-@id("01a0e1db89d8722baac398c9a449c86d") annotation bounds concentration(0{mol/m3},100000{mol/m3});
-@id("01a0e1db89d8722baac398cabd7cb5cd") annotation start concentration(100{mol/m3});
-@id("01a0e1db89d8722baac398cb1a73c790") annotation nominal concentration(100{mol/m3});
-@id("01a0e1db89d8722baac398cc2e2f563c") annotation start volume_flow(0.001{m3/s});
-@id("01a0e1db89d8722baac398cd67f39e87") annotation nominal volume_flow(0.001{m3/s});
+@id("01a0e1db89d8722baac398c9a449c86d") annotation bounds concentration(0{mol/m^3},100000{mol/m^3});
+@id("01a0e1db89d8722baac398cabd7cb5cd") annotation start concentration(100{mol/m^3});
+@id("01a0e1db89d8722baac398cb1a73c790") annotation nominal concentration(100{mol/m^3});
+@id("01a0e1db89d8722baac398cc2e2f563c") annotation start volume_flow(0.001{m^3/s});
+@id("01a0e1db89d8722baac398cd67f39e87") annotation nominal volume_flow(0.001{m^3/s});
 @id("01a0e1db89d8722baac398ceb08a102a") annotation start flow(55{mol/s});
 @id("01a0e1db89d8722baac398cfd7e10968") annotation nominal flow(55{mol/s});
 @id("01a0e1db89d8722baac398d0a061b577") annotation start z(0.2{1});
@@ -42,6 +42,6 @@
 @id("01a0e1db89d8722baac398d67918e7aa") annotation nominal pressure(101325{Pa});
 @id("01a0e1db89d8722baac398d78a1d3ca6") annotation start h(0{J/mol});
 @id("01a0e1db89d8722baac398d8cc3204d1") annotation nominal h(1000{J/mol});
-@id("01a0e1db89d8722baac398d91690a3db") annotation check total_density(total_density>0{mol/m3});
+@id("01a0e1db89d8722baac398d91690a3db") annotation check total_density(total_density>0{mol/m^3});
 }
 }

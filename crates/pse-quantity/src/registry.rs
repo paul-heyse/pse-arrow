@@ -11,7 +11,8 @@ use crate::kind::QuantityKind;
 use crate::operation::QuantityOperation;
 use crate::quantity_type::{QuantityType, QuantityTypeKey};
 use crate::reference_state::ReferenceState;
-use crate::unit::Unit;
+use crate::unit::{DefinedUnit, Unit, UnitFactor, canonical_factors, unit_product_id};
+use crate::unit_product::UnitProduct;
 use crate::unit_set::UnitSet;
 use crate::{
     BasisId, BasisKind, BasisRule, ConversionId, ConversionKind, DimensionVector, EntityKind,
@@ -27,6 +28,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub struct QuantityRegistryBuilder {
     entity_kinds: Vec<EntityKind>,
     units: Vec<Unit>,
+    defined_units: Vec<DefinedUnit>,
     kinds: Vec<QuantityKind>,
     bases: Vec<Basis>,
     reference_states: Vec<ReferenceState>,
@@ -53,6 +55,7 @@ impl QuantityRegistryBuilder {
     }
     add_declaration!(entity_kind, entity_kinds, EntityKind);
     add_declaration!(unit, units, Unit);
+    add_declaration!(defined_unit, defined_units, DefinedUnit);
     add_declaration!(kind, kinds, QuantityKind);
     add_declaration!(basis, bases, Basis);
     add_declaration!(reference_state, reference_states, ReferenceState);
@@ -87,9 +90,21 @@ impl QuantityRegistryBuilder {
                 ));
             }
         };
+        let mut units = index(self.units, |x| x.id, "unit")?;
+        for unit in units.values() {
+            require(
+                unit.definition.is_none(),
+                "unit.atomic_declaration",
+                unit.id.as_id(),
+                "a unit with a composition is declared as a defined unit",
+            )?;
+        }
+        for unit in admit_defined(&units, self.defined_units)? {
+            units.insert(unit.id, unit);
+        }
         let mut registry = QuantityRegistry {
             entity_kinds: index(self.entity_kinds, |x| x.id, "entity_kind")?,
-            units: index(self.units, |x| x.id, "unit")?,
+            units,
             kinds: index(self.kinds, |x| x.id, "quantity_kind")?,
             bases: index(self.bases, |x| x.id, "basis")?,
             reference_states: index(self.reference_states, |x| x.id, "reference_state")?,
@@ -117,9 +132,12 @@ impl QuantityRegistryBuilder {
             .values()
             .map(|v| (v.key.clone(), v.id))
             .collect();
+        // Literal factors name atomic units only; a defined unit is spelled by its
+        // composition (ADR-0124).
         registry.by_symbol = registry
             .units
             .values()
+            .filter(|v| v.definition.is_none())
             .map(|v| (v.symbol.clone(), v.id))
             .collect();
         for v in registry.operations.values() {
@@ -196,7 +214,11 @@ impl QuantityRegistry {
             bytes = bytes.saturating_add(kind.name.capacity());
         }
         for unit in self.units.values() {
-            bytes = bytes.saturating_add(unit.symbol.capacity());
+            bytes = bytes.saturating_add(unit.symbol.capacity()).saturating_add(
+                unit.definition
+                    .as_ref()
+                    .map_or(0, |d| d.capacity().saturating_mul(size_of::<UnitFactor>())),
+            );
         }
         for symbol in self.by_symbol.keys() {
             bytes = bytes.saturating_add(symbol.capacity());
@@ -243,7 +265,23 @@ impl QuantityRegistry {
     pub fn to_builder(&self) -> QuantityRegistryBuilder {
         QuantityRegistryBuilder {
             entity_kinds: self.entity_kinds.values().cloned().collect(),
-            units: self.units.values().cloned().collect(),
+            units: self
+                .units
+                .values()
+                .filter(|unit| unit.definition.is_none())
+                .cloned()
+                .collect(),
+            defined_units: self
+                .units
+                .values()
+                .filter_map(|unit| {
+                    Some(DefinedUnit {
+                        id: unit.id,
+                        symbol: unit.symbol.clone(),
+                        composition: unit.definition.clone()?,
+                    })
+                })
+                .collect(),
             kinds: self.kinds.values().cloned().collect(),
             bases: self.bases.values().cloned().collect(),
             reference_states: self.reference_states.values().cloned().collect(),
@@ -297,9 +335,79 @@ impl QuantityRegistry {
         self.reduction_domains.iter().map(|(id, kind)| (*id, *kind))
     }
     lookup!(unit_set, unit_sets, UnitSetId, UnitSet);
-    /// Lookup by the unique resolved unit symbol.
-    pub fn unit_by_symbol(&self, symbol: &str) -> Option<&Unit> {
-        self.by_symbol.get(symbol).and_then(|id| self.units.get(id))
+    /// Compose a unit literal (ADR-0124). Each factor symbol names an atomic unit; the
+    /// result's identity, dimension and scale follow from the canonical atomic factors, so
+    /// a composite literal needs no registered whole unit. A product that is one atomic
+    /// unit with exponent one is that unit, including an affine or datum-restricted one.
+    ///
+    /// # Errors
+    /// An unknown atomic symbol, an affine or datum-restricted unit that is not the sole
+    /// factor with exponent one, or a product whose exponents or scale overflow.
+    pub fn compose(&self, product: &UnitProduct) -> Result<Unit, QuantityError> {
+        let factors = canonical_factors(
+            product
+                .factors()
+                .iter()
+                .map(|(symbol, exponent)| {
+                    let unit = self.by_symbol.get(symbol).copied().ok_or_else(|| {
+                        QuantityError::UnknownUnitSymbol {
+                            symbol: symbol.clone(),
+                        }
+                    })?;
+                    Ok(UnitFactor {
+                        unit,
+                        exponent: *exponent,
+                    })
+                })
+                .collect::<Result<Vec<_>, QuantityError>>()?,
+        )?;
+        if let [only] = factors.as_slice()
+            && only.exponent == crate::Ratio::ONE
+        {
+            return self.unit(only.unit).cloned();
+        }
+        for factor in &factors {
+            let unit = self.unit(factor.unit)?;
+            if unit.is_affine || unit.reference_state.is_some() {
+                return Err(QuantityError::AffineUnitFactor {
+                    unit: unit.id,
+                    symbol: unit.symbol.clone(),
+                });
+            }
+        }
+        let id = unit_product_id(&factors);
+        if let Some(defined) = self.units.get(&id) {
+            return Ok(defined.clone());
+        }
+        let (dimension, scale_to_canonical) =
+            crate::unit::derived_measure(&factors, |id| self.unit(id))?;
+        Ok(Unit {
+            id,
+            symbol: product.to_string(),
+            dimension,
+            scale_to_canonical,
+            offset_to_canonical: 0.0,
+            is_affine: false,
+            reference_state: None,
+            definition: Some(factors),
+        })
+    }
+    /// The canonical literal spelling of an admitted unit: its own symbol when atomic,
+    /// otherwise its canonical atomic factors. Composing it returns the same unit.
+    ///
+    /// # Errors
+    /// An identity absent from this admitted registry.
+    pub fn unit_product(&self, id: UnitId) -> Result<UnitProduct, QuantityError> {
+        let unit = self.unit(id)?;
+        let Some(factors) = &unit.definition else {
+            return Ok(UnitProduct::symbol(unit.symbol.clone()));
+        };
+        Ok(UnitProduct::from_factors(
+            factors
+                .iter()
+                .map(|factor| Ok((self.unit(factor.unit)?.symbol.clone(), factor.exponent)))
+                .collect::<Result<Vec<_>, QuantityError>>()?,
+        )?)
     }
     /// All quantity types in stable identity order.
     pub fn quantity_types(&self) -> impl Iterator<Item = &QuantityType> {
@@ -414,6 +522,12 @@ impl QuantityRegistry {
                 "unit.unique_symbol",
                 unit.id.as_id(),
                 "duplicate resolved unit symbol",
+            )?;
+            require(
+                unit.definition.is_some() || unit.symbol != "1",
+                "unit.symbol",
+                unit.id.as_id(),
+                "the numeral 1 spells the empty product; declare it as a defined unit",
             )?;
         }
         for reference in self.reference_states.values() {
@@ -755,6 +869,111 @@ fn validate_sources(rule: &QuantityOperation) -> Result<(), QuantityError> {
     Ok(())
 }
 
+/// Derive each defined unit from its composition (ADR-0124): expand defined factors into
+/// canonical atomic factors, refuse cycles, aliases and affine or datum-restricted
+/// factors, require the declared identity to be the product identity, and derive the
+/// dimension and scale.
+fn admit_defined(
+    atomic: &BTreeMap<UnitId, Unit>,
+    defined: Vec<DefinedUnit>,
+) -> Result<Vec<Unit>, QuantityError> {
+    let declared = index(defined, |x| x.id, "unit")?;
+    for id in declared.keys() {
+        require(
+            !atomic.contains_key(id),
+            "registry.unique_id",
+            id.as_id(),
+            "duplicate unit identity",
+        )?;
+    }
+    let mut expanded = BTreeMap::new();
+    for id in declared.keys() {
+        expand(*id, atomic, &declared, &mut expanded, &mut BTreeSet::new())?;
+    }
+    declared
+        .into_values()
+        .map(|unit| {
+            let factors = expanded.remove(&unit.id).unwrap_or_default();
+            require(
+                !matches!(factors.as_slice(), [only] if only.exponent == crate::Ratio::ONE),
+                "unit.defined_alias",
+                unit.id.as_id(),
+                "a defined unit is not another unit's alias",
+            )?;
+            let derived = unit_product_id(&factors);
+            require(
+                derived == unit.id,
+                "unit.defined_identity",
+                unit.id.as_id(),
+                &format!("a defined unit's identity is its product identity {derived}"),
+            )?;
+            let (dimension, scale_to_canonical) =
+                crate::unit::derived_measure(&factors, |id| {
+                    atomic.get(&id).ok_or(QuantityError::UnknownId {
+                        kind: "unit",
+                        id: id.as_id(),
+                    })
+                })?;
+            Ok(Unit {
+                id: unit.id,
+                symbol: unit.symbol,
+                dimension,
+                scale_to_canonical,
+                offset_to_canonical: 0.0,
+                is_affine: false,
+                reference_state: None,
+                definition: Some(factors),
+            })
+        })
+        .collect()
+}
+fn expand(
+    id: UnitId,
+    atomic: &BTreeMap<UnitId, Unit>,
+    declared: &BTreeMap<UnitId, DefinedUnit>,
+    expanded: &mut BTreeMap<UnitId, Vec<UnitFactor>>,
+    visiting: &mut BTreeSet<UnitId>,
+) -> Result<Vec<UnitFactor>, QuantityError> {
+    if let Some(unit) = atomic.get(&id) {
+        require(
+            !unit.is_affine && unit.reference_state.is_none(),
+            "unit.affine_factor",
+            id.as_id(),
+            "an affine or datum-restricted unit cannot be a defined unit's factor",
+        )?;
+        return Ok(vec![UnitFactor {
+            unit: id,
+            exponent: crate::Ratio::ONE,
+        }]);
+    }
+    if let Some(done) = expanded.get(&id) {
+        return Ok(done.clone());
+    }
+    let unit = declared.get(&id).ok_or(QuantityError::UnknownId {
+        kind: "unit",
+        id: id.as_id(),
+    })?;
+    require(
+        visiting.insert(id),
+        "unit.defined_cycle",
+        id.as_id(),
+        "a defined unit's composition refers back to itself",
+    )?;
+    let mut factors = Vec::new();
+    for factor in &unit.composition {
+        for inner in expand(factor.unit, atomic, declared, expanded, visiting)? {
+            factors.push(UnitFactor {
+                unit: inner.unit,
+                exponent: inner.exponent.checked_mul(factor.exponent)?,
+            });
+        }
+    }
+    let factors = canonical_factors(factors)?;
+    visiting.remove(&id);
+    expanded.insert(id, factors.clone());
+    Ok(factors)
+}
+
 fn index<K: Ord + Copy + Into<SemanticId>, V>(
     values: Vec<V>,
     key: impl Fn(&V) -> K,
@@ -804,12 +1023,13 @@ mod generic_kind_tests {
         let mut seed = QuantityRegistryBuilder::new();
         seed.unit(Unit {
             id: raw.into(),
-            symbol: "1".into(),
+            symbol: "one".into(),
             dimension: DimensionVector::DIMENSIONLESS,
             scale_to_canonical: 1.0,
             offset_to_canonical: 0.0,
             is_affine: false,
             reference_state: None,
+            definition: None,
         });
         seed.kind(QuantityKind {
             id: raw.into(),

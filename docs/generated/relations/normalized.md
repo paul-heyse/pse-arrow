@@ -20,27 +20,38 @@ Version: 1. Snapshot class: `derived`. Primary key: `package_id`.
 
 ## `units`
 
-blueprint §6.2 physical type: units.
+blueprint §6.2 physical type: units. Version two separates atomic from defined units (ADR-0124): an atomic unit authors its dimension, scale, offset, affinity and optional datum restriction; a defined unit authors only its composition, factors over declared units with reduced rational exponents, and admission derives its dimension and scale. A defined unit's identity is its unit-product identity, and literals spell it by its composition, never by its symbol.
 
-Version: 1. Snapshot class: `derived`. Primary key: `unit_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `unit_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `unit_id` | `semantic_id` | false | `key` | — | — |
 | `symbol` | `Utf8` | false | `payload` | — | — |
 | `name` | `Utf8` | false | `payload` | — | — |
-| `dimension` | `dimension_vector` | false | `payload` | — | — |
-| `scale_to_canonical` | `Float64` | false | `payload` | — | — |
-| `offset_to_canonical` | `Float64` | false | `payload` | — | — |
-| `is_affine` | `Boolean` | false | `payload` | — | — |
+| `dimension` | `dimension_vector` | true | `payload` | — | — |
+| `scale_to_canonical` | `Float64` | true | `payload` | — | — |
+| `offset_to_canonical` | `Float64` | true | `payload` | — | — |
+| `is_affine` | `Boolean` | true | `payload` | — | — |
 | `reference_state_id` | `semantic_id` | true | `payload` | `reference.reference_states.reference_state_id` | — |
+| `definition` | `List` | true | `payload` | — | — |
+| `definition.item` | `Struct` | false | `payload` | — | — |
+| `definition.item.unit_id` | `semantic_id` | false | `payload` | — | — |
+| `definition.item.num` | `Int16` | false | `payload` | — | — |
+| `definition.item.den` | `Int16` | false | `payload` | — | — |
 | `system` | `Utf8` | false | `payload` | — | — |
 | `doc` | `Utf8` | false | `payload` | — | — |
 | `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` | — |
 | `unit_set_id` | `semantic_id` | false | `payload` | `reference.unit_sets.unit_set_id` | — |
 
+Native row check `atomic_or_defined` (must be true):
+
+```sql
+(definition IS NULL AND dimension IS NOT NULL AND scale_to_canonical IS NOT NULL AND offset_to_canonical IS NOT NULL AND is_affine IS NOT NULL) OR (definition IS NOT NULL AND dimension IS NULL AND scale_to_canonical IS NULL AND offset_to_canonical IS NULL AND is_affine IS NULL AND reference_state_id IS NULL)
+```
+
 Native row check `positive_scale` (must be true):
 
 ```sql
-scale_to_canonical > 0
+scale_to_canonical IS NULL OR scale_to_canonical > 0
 ```

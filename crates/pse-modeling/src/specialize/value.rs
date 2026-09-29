@@ -432,15 +432,15 @@ impl Evaluator<'_, '_> {
                     let source = self
                         .physical
                         .quantities
-                        .unit_by_symbol(unit)
-                        .ok_or_else(|| invalid(self.at, "literal unit"))?;
+                        .compose(unit)
+                        .map_err(|e| invalid(self.at, e.to_string()))?;
                     let target = self
                         .physical
                         .quantities
                         .quantity_type(quantity)
                         .map_err(|e| invalid(self.at, e.to_string()))?;
                     let conversion = pse_quantity::convert_spec_for_type(
-                        source,
+                        &source,
                         self.physical
                             .quantities
                             .unit(target.canonical_unit)

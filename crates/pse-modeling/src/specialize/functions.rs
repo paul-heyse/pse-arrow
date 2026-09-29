@@ -135,13 +135,13 @@ impl Engine<'_, '_> {
             .c
             .quantities
             .quantity_type(quantity)
-            .and_then(|q| self.c.quantities.unit(q.canonical_unit))
+            .and_then(|q| self.c.quantities.unit_product(q.canonical_unit))
             .map_err(|e| invalid(at, e.to_string()))?;
         let body = Expr {
             kind: ExprKind::Number(Number {
                 value,
                 exact_integer: None,
-                unit: Some(unit.symbol.clone()),
+                unit: Some(unit),
             }),
             span: Span::default(),
         };

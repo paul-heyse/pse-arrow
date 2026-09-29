@@ -13,6 +13,7 @@ pub fn render_expr(expr: &Expr) -> String {
             number
                 .exact_integer
                 .map_or_else(|| number.value.to_string(), |v| v.to_string()),
+            // The canonical product spelling reads back to the same product.
             number
                 .unit
                 .as_ref()

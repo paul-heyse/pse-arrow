@@ -202,10 +202,11 @@ pub fn infer(
                 return Ok(Type::Integer);
             }
             let id = if let Some(unit) = &n.unit {
+                // Composed from atomic factors; no composite spelling is looked up whole.
                 let unit = context
                     .quantities
-                    .unit_by_symbol(unit)
-                    .ok_or_else(|| invalid(at, format!("unknown unit {unit}")))?;
+                    .compose(unit)
+                    .map_err(|e| invalid(at, format!("unit {{{unit}}}: {e}")))?;
                 let literal_context = expected
                     .and_then(|t| {
                         if let Type::Quantity(s) = t {
@@ -217,7 +218,7 @@ pub fn infer(
                     .map_or(LiteralContext::Free, |quantity_type| {
                         LiteralContext::Explicit { quantity_type }
                     });
-                pse_quantity::literal::resolve_literal(unit.id, literal_context, context.quantities)
+                pse_quantity::literal::resolve_literal(&unit, literal_context, context.quantities)
                     .map_err(|e| invalid(at, e.to_string()))?
             } else {
                 context

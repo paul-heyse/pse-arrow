@@ -16,7 +16,7 @@ use pse_math::{
 use pse_math::{guarded::CompiledBody, library::Optimization};
 use pse_modeling::DeclarationId;
 use pse_quantity::{
-    IndexSet, QuantityRegistry, QuantityTypeId, Ratio, UnitId, infer::InvariantChecker,
+    IndexSet, QuantityRegistry, QuantityTypeId, Ratio, infer::InvariantChecker,
     literal::LiteralContext,
 };
 use std::sync::Arc;
@@ -103,8 +103,6 @@ pub struct Request<'a> {
     pub groups: &'a BTreeMap<String, Group>,
     /// Executable provider output selections by authored kernel path.
     pub providers: &'a BTreeMap<String, ProviderCall>,
-    /// Resolved unit spellings, including the unitless spelling `1`.
-    pub units: &'a BTreeMap<String, UnitId>,
     /// Contextual literal contracts keyed by exact source range.
     pub literals: &'a BTreeMap<(u32, u32), QuantityTypeId>,
     /// Complete physical registry content identity.
@@ -254,7 +252,6 @@ impl Request<'_> {
             .map(|v| v.path.len())
             .chain(self.domains.keys().map(String::len))
             .chain(self.groups.keys().map(String::len))
-            .chain(self.units.keys().map(String::len))
             .try_fold(0usize, usize::checked_add)
             .ok_or(MathError::Limit("preparation text"))?;
         if entries > self.limits.occurrences
@@ -417,20 +414,20 @@ impl Lower<'_, '_> {
                 self.hash
                     .str("literal")
                     .u64(pse_ids::canonical_f64_bits(number.value));
-                let unit =
-                    if let Some(spelling) = number.unit.as_deref() {
-                        *self.request.units.get(spelling).ok_or_else(|| {
-                            MathError::Contract(format!("unresolved unit {spelling}"))
-                        })?
-                    } else {
-                        // A bare scalar uses the physical registry's neutral unit;
-                        // its spelling need not be an authored alias named "1".
-                        let quantity = self.registry.neutral_dimensionless().ok_or_else(|| {
-                            MathError::Contract("no declared neutral literal type".into())
-                        })?;
-                        self.registry.quantity_type(quantity)?.canonical_unit
-                    };
-                self.hash.id(&unit.as_id());
+                let unit = if let Some(product) = &number.unit {
+                    // Composed from atomic factors; its identity is spelling-independent
+                    // (ADR-0124).
+                    self.registry.compose(product)?
+                } else {
+                    // A bare scalar uses the physical registry's neutral unit.
+                    let quantity = self.registry.neutral_dimensionless().ok_or_else(|| {
+                        MathError::Contract("no declared neutral literal type".into())
+                    })?;
+                    self.registry
+                        .unit(self.registry.quantity_type(quantity)?.canonical_unit)?
+                        .clone()
+                };
+                self.hash.id(&unit.id.as_id());
                 let context = if let Some(&quantity) =
                     self.request.literals.get(&(expr.span.start, expr.span.end))
                 {
@@ -451,7 +448,7 @@ impl Lower<'_, '_> {
                 } else {
                     LiteralContext::Free
                 };
-                builder.literal(number.value, unit, context, source)
+                builder.literal(number.value, &unit, context, source)
             }
             ExprKind::Path(path) => {
                 let name = path
@@ -1363,8 +1360,6 @@ mod tests {
     ) -> Result<Body, MathError> {
         let expression = dsl::parse_expr(text).unwrap();
         let registry = standard_registry().unwrap();
-        // Bare literals must compile without a spelling alias for neutral units.
-        let units = BTreeMap::from([("K".into(), ids::unit("K"))]);
         let h = ContentHash::from_bytes([1; 32]);
         Request {
             definition: SemanticId::from_bytes([1; 16]),
@@ -1373,7 +1368,6 @@ mod tests {
             domains: &BTreeMap::new(),
             providers: &BTreeMap::new(),
             groups: &BTreeMap::new(),
-            units: &units,
             literals,
             physical: h,
             structure: h,
@@ -1585,13 +1579,6 @@ mod tests {
             .collect();
         let expression = dsl::parse_expr(text).unwrap();
         let h = ContentHash::from_bytes([1; 32]);
-        let units = BTreeMap::from([(
-            "1".into(),
-            registry
-                .quantity_type(ids::quantity("neutral"))
-                .unwrap()
-                .canonical_unit,
-        )]);
         Request {
             definition: member(90),
             expressions: std::slice::from_ref(&expression),
@@ -1599,7 +1586,6 @@ mod tests {
             domains: &domains,
             providers: &BTreeMap::new(),
             groups: &groups,
-            units: &units,
             literals: &BTreeMap::new(),
             physical: h,
             structure: h,
@@ -1737,10 +1723,6 @@ mod tests {
             path: "x".into(),
             quantity,
         }];
-        let units = BTreeMap::from([(
-            "1".into(),
-            registry.quantity_type(quantity).unwrap().canonical_unit,
-        )]);
         let request = Request {
             definition: SemanticId::from_bytes([1; 16]),
             expressions: &expressions,
@@ -1748,7 +1730,6 @@ mod tests {
             domains: &BTreeMap::new(),
             groups: &BTreeMap::new(),
             providers: &BTreeMap::new(),
-            units: &units,
             literals: &BTreeMap::new(),
             physical: ContentHash::from_bytes([1; 32]),
             structure: ContentHash::from_bytes([2; 32]),
@@ -1881,7 +1862,6 @@ mod tests {
             path: "x".into(),
             quantity,
         }];
-        let units = BTreeMap::from([("1".into(), unit)]);
         let expr = dsl::parse_expr("kernel.square(x)+1").unwrap();
         let request = Request {
             definition: id,
@@ -1890,7 +1870,6 @@ mod tests {
             domains: &BTreeMap::new(),
             groups: &BTreeMap::new(),
             providers: &providers,
-            units: &units,
             literals: &BTreeMap::new(),
             physical: hash,
             structure: hash,

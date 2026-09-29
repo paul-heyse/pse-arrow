@@ -88,10 +88,23 @@ fn incompatible(
                 .is_null()
                 .or(column("actual_unit").is_null())
                 .or(column("canonical_id").is_null())
+                // A defined unit's dimension is derived at physical admission, not stored
+                // (ADR-0124), so a relational value in a defined unit must use the
+                // canonical unit itself; atomic units compare their stored dimensions.
                 .or(binary_expr(
-                    column("actual_dimension"),
+                    column("actual_unit"),
                     Operator::IsDistinctFrom,
-                    column("canonical_dimension"),
+                    column("canonical_id"),
+                )
+                .and(
+                    column("actual_dimension")
+                        .is_null()
+                        .or(column("canonical_dimension").is_null())
+                        .or(binary_expr(
+                            column("actual_dimension"),
+                            Operator::IsDistinctFrom,
+                            column("canonical_dimension"),
+                        )),
                 ))
                 .or(array_length(column("quantity_shape")).not_eq(lit(0_i64)))
                 .or(incompatible_reference("actual_reference"))

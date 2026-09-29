@@ -7,7 +7,10 @@ use super::*;
 use crate::generated::{
     enums::ScaleKind,
     extension_values::{ExtensionDimensionVectorItem, QuantityValue},
-    reference::{quantity_types, units},
+    reference::{
+        quantity_types,
+        units::{self, ReferenceUnitsFieldDefinitionItem},
+    },
 };
 use crate::native::{
     arrow::array::RecordBatch, execution::context::SessionContext, physical_plan::collect,
@@ -27,16 +30,34 @@ fn unit(identity: u8, length: bool, reference: Option<u8>) -> units::Row {
         unit_id: id(identity),
         symbol: "test".into(),
         name: "test".into(),
-        dimension: std::array::from_fn(|ordinal| ExtensionDimensionVectorItem {
-            num: i16::from(length && ordinal == 0),
-            den: 1,
-        }),
-        scale_to_canonical: 1.0,
-        offset_to_canonical: 0.0,
-        is_affine: false,
+        dimension: Some(std::array::from_fn(|ordinal| {
+            ExtensionDimensionVectorItem {
+                num: i16::from(length && ordinal == 0),
+                den: 1,
+            }
+        })),
+        scale_to_canonical: Some(1.0),
+        offset_to_canonical: Some(0.0),
+        is_affine: Some(false),
         reference_state_id: reference.map(id),
+        definition: None,
         system: "test".into(),
         doc: "fixture".into(),
+    }
+}
+/// A defined unit: its composition only; its dimension is derived at physical admission.
+fn defined(identity: u8, factor: u8) -> units::Row {
+    units::Row {
+        dimension: None,
+        scale_to_canonical: None,
+        offset_to_canonical: None,
+        is_affine: None,
+        definition: Some(vec![ReferenceUnitsFieldDefinitionItem {
+            unit_id: id(factor),
+            num: 2,
+            den: 1,
+        }]),
+        ..unit(identity, false, None)
     }
 }
 fn quantity(
@@ -83,6 +104,7 @@ fn definitions(context: &SessionContext) -> super::super::RelationInputs {
         unit(10, false, None),
         unit(11, true, None),
         unit(12, false, Some(60)),
+        defined(13, 11),
     ] {
         units.push(row).unwrap();
     }
@@ -100,6 +122,7 @@ fn definitions(context: &SessionContext) -> super::super::RelationInputs {
         quantity(23, 99, None, false),
         quantity(24, 10, None, true),
         quantity(25, 12, Some(61), false),
+        quantity(26, 13, None, false),
     ] {
         types.push(row).unwrap();
     }
@@ -178,6 +201,9 @@ async fn nested_quantities_resolve_exact_types_units_dimensions_and_reference_st
         (23, 10, false),
         (24, 10, false),
         (25, 10, false),
+        (26, 13, true),
+        (26, 10, false),
+        (20, 13, false),
     ] {
         let input = input(
             &context,

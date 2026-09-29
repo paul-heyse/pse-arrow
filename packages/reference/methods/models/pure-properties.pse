@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e15d9eff71b98e7519e7bacb2a92") package pure_properties {
 @id("01a0e15d9eff71b98e7519e83b8efeb3") use caloric @"1.0.0";
-@id("01a0e15d9eff71b98e7519e9e5e8ca27") fn density_unit()->MolarDensity=1{mol/m3};
+@id("01a0e15d9eff71b98e7519e9e5e8ca27") fn density_unit()->MolarDensity=1{mol/m^3};
 @id("01a0e15d9eff71b98e7519ead7a657a5") fn pressure_unit()->Pressure=1{Pa};
 @id("01a0e15d9eff71b98e7519eb95586157") table liquid_density[j:caloric.fit]:{a:Scalar,b:Scalar,c:TemperatureScale,d:Scalar,minimum:Temperature,maximum:Temperature};
 @id("01a0e15d9eff71b98e7519ec07e63356") fn perry_density(T:Temperature,p:Row<liquid_density>)->MolarDensity valid(T>=p.minimum and T<=p.maximum and T/p.c<1 and p.b>0) = 1000*density_unit()*p.a*exp(-(1+exp(p.d*log(1-T/p.c)))*log(p.b));

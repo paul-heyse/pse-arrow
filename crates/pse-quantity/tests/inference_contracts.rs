@@ -42,15 +42,17 @@ fn fixture(extra_rules: usize) -> QuantityRegistry {
         offset_to_canonical: 0.0,
         is_affine: false,
         reference_state: None,
+        definition: None,
     });
     b.unit(Unit {
         id: UnitId::from_id(raw(2)),
-        symbol: "1".into(),
+        symbol: "one".into(),
         dimension: DimensionVector::DIMENSIONLESS,
         scale_to_canonical: 1.0,
         offset_to_canonical: 0.0,
         is_affine: false,
         reference_state: None,
+        definition: None,
     });
     b.kind(QuantityKind {
         id: QuantityKindId::from_id(raw(1)),
@@ -81,6 +83,7 @@ fn fixture(extra_rules: usize) -> QuantityRegistry {
         offset_to_canonical: 0.0,
         is_affine: false,
         reference_state: None,
+        definition: None,
     });
     let key = QuantityTypeKey {
         kind: QuantityKindId::from_id(raw(1)),
@@ -253,7 +256,7 @@ fn missing_and_ambiguous_compositions_never_use_dimension_only_fallback() {
 #[test]
 fn literal_occurrences_resolve_point_and_difference_independently() {
     let registry = fixture(0);
-    let kelvin = UnitId::from_id(raw(1));
+    let kelvin = registry.unit(UnitId::from_id(raw(1))).expect("kelvin");
     assert!(matches!(
         resolve_literal(kelvin, LiteralContext::Free, &registry),
         Err(QuantityError::AmbiguousLiteral { .. })

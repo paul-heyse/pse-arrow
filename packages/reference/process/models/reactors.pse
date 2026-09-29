@@ -8,7 +8,7 @@
 @id("c6f7b655191549fb8f4819344cabafd8") use aqueous @"1.0.0";
 @id("fa1a7c1344694910a9a4d8e8e4cd347a") use reactions @"1.0.0";
 @id("1d34bc92921f4656bfb3c19c980f17ce") use control_volumes @"1.0.0";
-@id("6ba1eaf7ae4042aeb81dc761ce52e574") fn volume_unit()->Volume=1{m3};
+@id("6ba1eaf7ae4042aeb81dc761ce52e574") fn volume_unit()->Volume=1{m^3};
 @id("73d2637eb9c74b6585ae042562d66d14") fn power_unit()->Power=1{W};
 @id("4b6effccc1a64c338c4915767a4288b6") fn reaction_heat_unit()->ReactionHeat=1{J/mol};
 @id("ecb3aec4215b4aed87fb9f5bd8c81f71") fn stored_energy(volume:Volume,density:Density,enthalpy:MolarEnthalpy,pressure:Pressure)->Energy=1{J}*(volume/volume_unit())*((density/helmholtz.density_unit())*((enthalpy-equilibrium.enthalpy_datum())/caloric.h_unit())-(pressure-100000{Pa})/equilibrium.pressure_difference_unit());
@@ -23,9 +23,9 @@
 @id("f17710cf241c478b807cd5c237f69084") param reaction_set:Set<kinds.reaction>=reaction_pkg.reactions;
 @id("0839c88a4a90484ca4ed59bfaaabc446") require reaction_pkg.components==components : "reaction and material state component sets must agree";
 @id("24152de1d8284af8b0d1045aa8ee3d47") var volume:Volume;
-@id("2e9d9e6619b9449bb6a32f386e7529fb") annotation bounds volume(1e-12{m3},1000000{m3});
-@id("070735ac141e42339543408b766e9506") annotation start volume(0.001{m3});
-@id("e6952598afe746079441d014bdc63685") annotation nominal volume(0.001{m3});
+@id("2e9d9e6619b9449bb6a32f386e7529fb") annotation bounds volume(1e-12{m^3},1000000{m^3});
+@id("070735ac141e42339543408b766e9506") annotation start volume(0.001{m^3});
+@id("e6952598afe746079441d014bdc63685") annotation nominal volume(0.001{m^3});
 @id("74b5b1ab7850440aa06bc96702b4ff53") eq no_work:work==0{W};
 @id("890eeb5934e44ebfaba2d7dc69323a7a") eq reaction_temperature:reaction.T==outlet.T;
 @id("0e9713dada6a412d90dd6973920bcb77") eq reaction_concentration[j in components]:reaction.concentration[j]==outlet.concentration[j];
@@ -41,7 +41,7 @@
 }
 @id("e839c4490b804072b5a2737fce4ddf69") use distributed_volumes @"1.0.0";
 @id("6dd82d02107547baadd19fcebeee925c") fn length_unit()->Length=1{m};
-@id("7f429ddba89f43cf8e2d1043e5ccab8f") fn area_unit()->Area=1{m2};
+@id("7f429ddba89f43cf8e2d1043e5ccab8f") fn area_unit()->Area=1{m^2};
 @id("df9e4db62215402abcda00bd2606e0c8") def PFR(inlet_pkg:aqueous.DiluteLiquid,outlet_pkg:aqueous.DiluteLiquid,reaction_pkg:reactions.RateLaw,elements:Integer=20,use_radau:Boolean=false,order:Integer=3):distributed_volumes.ControlVolume1D {
 @id("f06c2a96812044ed95f4e91faa7025dd") override param inlet_package:equilibrium.ThermoPackage=inlet_pkg;
 @id("aceb8506234242e899c56c999495b976") override param outlet_package:equilibrium.ThermoPackage=outlet_pkg;
@@ -58,9 +58,9 @@
 @id("11357196c98e4c26b51dda40885f226f") var delta_pressure:DeltaPressure;
 @id("8b11a8c2c6344ebbabdc25632e4d7027") let volume:Volume=volume_unit()*(length/length_unit())*(area/area_unit());
 @id("b7eeff8e152c4bab95db2dd926c13c89") annotation bounds length(1e-10{m},100000{m});
-@id("2b375228c6924f2cb6a4fe5b58221eb7") annotation bounds area(1e-10{m2},100000{m2});
+@id("2b375228c6924f2cb6a4fe5b58221eb7") annotation bounds area(1e-10{m^2},100000{m^2});
 @id("a21c73bc81fe4901b1742390be1723d2") annotation start length(0.5{m});
-@id("735d697a36634561b9d138fff4798017") annotation start area(0.1{m2});
+@id("735d697a36634561b9d138fff4798017") annotation start area(0.1{m^2});
 @id("cbcddbe7589d4ba3a8ce1c4b70cd5046") annotation start heat_duty(0{W});
 @id("4cd35163338a41a6a0b22db26ced3f7b") annotation start delta_pressure(0{Pa});
 @id("3b0353b9b78a4227aa2ba9d1242798ad") eq heat_distribution[i in x]:heat[i]==heat_duty;

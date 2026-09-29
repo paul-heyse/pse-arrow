@@ -218,7 +218,10 @@ mod tests {
     fn selection(eligibility: [bool; 2]) -> RegimeSelection {
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let q = registry.neutral_dimensionless().unwrap();
-        let unit = registry.quantity_type(q).unwrap().canonical_unit;
+        let unit = registry
+            .unit(registry.quantity_type(q).unwrap().canonical_unit)
+            .unwrap()
+            .clone();
         let cancel = Arc::new(AtomicBool::new(false));
         let unknown = pse_ids::named_id(SemanticId::NIL, "unknown");
         let alternatives = [-1., 1.]
@@ -240,7 +243,7 @@ mod tests {
                     let literal = |b: &mut BodyBuilder<'_>, v| {
                         b.literal(
                             v,
-                            unit,
+                            &unit,
                             pse_quantity::literal::LiteralContext::Explicit { quantity_type: q },
                             id,
                         )

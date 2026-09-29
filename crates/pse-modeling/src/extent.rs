@@ -69,7 +69,10 @@ fn predicate(value: &Predicate) -> usize {
 pub(crate) fn expression(value: &Expr) -> usize {
     size_of::<Expr>()
         + match &value.kind {
-            ExprKind::Number(n) => n.unit.as_ref().map_or(0, String::capacity),
+            ExprKind::Number(n) => n
+                .unit
+                .as_ref()
+                .map_or(0, pse_quantity::UnitProduct::retained_bytes),
             ExprKind::Path(p) => path(p),
             ExprKind::Neg(e) => expression(e),
             ExprKind::Binary { lhs, rhs, .. } => expression(lhs) + expression(rhs),

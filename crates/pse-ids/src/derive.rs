@@ -129,6 +129,12 @@ frames! {
         ProviderConfigurationV1 => "pse.provider.configuration.v1",
     }
 
+    "physical typing" ("pse-quantity") {
+        /// A unit product's identity over its canonical atomic factors and rational
+        /// exponents, independent of how the product was spelled (ADR-0124).
+        QuantityUnitProductV1 => "pse.quantity.unit-product.v1",
+    }
+
     "structure" ("pse-structural") {
         /// A flowsheet projection over canonicalized inventories.
         FlowProjectionV1 => "pse.flow.projection.v1",

@@ -119,12 +119,13 @@ pub fn append_quantity_fixture(
     for (index, records) in records.chunks(64).enumerate() {
         let name = format_ident!("append_{index}");
         helpers.push(quote! {
-            fn #name(b: &mut crate::QuantityRegistryBuilder, dimensions: &[crate::DimensionVector]) {
+            fn #name(b: &mut crate::QuantityRegistryBuilder, dimensions: &[crate::DimensionVector]) -> Result<(), crate::QuantityError> {
                 let _ = dimensions;
                 #(#records)*
+                Ok(())
             }
         });
-        calls.push(quote! { #name(&mut b, &dimensions); });
+        calls.push(quote! { #name(&mut b, &dimensions)?; });
     }
     super::emit(
         tree,
@@ -239,6 +240,20 @@ impl FixtureValues {
     fn unit(&mut self, value: &pse_quantity::Unit) -> TokenStream {
         let id = self.typed_id("UnitId", value.id.as_id());
         let symbol = &value.symbol;
+        // A defined unit projects its composition only; admission derives the rest.
+        if let Some(factors) = &value.definition {
+            let factors = factors
+                .iter()
+                .map(|factor| {
+                    let unit = self.typed_id("UnitId", factor.unit.as_id());
+                    let num = i32::from(factor.exponent.num());
+                    let den = i32::from(factor.exponent.den());
+                    quote! { crate::UnitFactor { unit: #unit, exponent: crate::Ratio::new(#num, #den)? } }
+                })
+                .collect::<Vec<_>>();
+            return quote! { b.defined_unit(crate::DefinedUnit { id: #id, symbol: #symbol.to_owned(),
+            composition: vec![#(#factors),*] }); };
+        }
         let dimension = self.dimension(value.dimension);
         let scale = number(value.scale_to_canonical);
         let offset = number(value.offset_to_canonical);
@@ -251,7 +266,7 @@ impl FixtureValues {
         );
         quote! { b.unit(crate::Unit { id: #id, symbol: #symbol.to_owned(), dimension: #dimension,
         scale_to_canonical: #scale, offset_to_canonical: #offset, is_affine: #affine,
-        reference_state: #reference }); }
+        reference_state: #reference, definition: None }); }
     }
     fn basis(&mut self, value: &pse_quantity::Basis) -> TokenStream {
         let id = self.typed_id("BasisId", value.id.as_id());

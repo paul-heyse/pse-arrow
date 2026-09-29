@@ -172,3 +172,6 @@ pse.durable.horizon_request.v1
 # presolve.transformation.v3 replaces presolve.transformation.v2, which is no longer
 # declared.
 pse.presolve.transformation.v3
+# Plan 23 KR1 (ADR-0124 Units): a unit product's identity over its canonical atomic
+# factors, so a composite literal needs no registered whole unit.
+pse.quantity.unit-product.v1

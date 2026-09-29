@@ -7,7 +7,7 @@
 @id("5488e742a20444799876441900c8aa28") use aqueous @"1.0.0";
 @id("ce3dea7fa2dc4397ad2036386917ae02") use control_volumes @"1.0.0";
 @id("821a0d63a22c4642b0eb6d8f6d6ad2c4") fn power_unit()->Power=1{W};
-@id("27bd19270ba44e1481e4e992c4cf2db1") fn volume_flow_unit()->VolumeFlow=1{m3/s};
+@id("27bd19270ba44e1481e4e992c4cf2db1") fn volume_flow_unit()->VolumeFlow=1{m^3/s};
 @id("2c09ee2b9c904938895d17c7197dbe32") interface PressureAssumption extends control_volumes.ControlVolume0D {
 @id("0c350401b1b24a72af8ab8d6b691d299") param compressor:Boolean;
 @id("62cd8c82e75c42cbb2aab860a3349217") var efficiency:Scalar;

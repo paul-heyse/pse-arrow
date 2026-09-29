@@ -24,17 +24,27 @@ class NormalizedPackageGraphRow:
 
 
 @attrs.frozen(kw_only=True)
+class NormalizedUnitsFieldDefinitionItem:
+    """Declared relation row or nested value."""
+
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    num: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
+    den: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
+
+
+@attrs.frozen(kw_only=True)
 class NormalizedUnitsRow:
     """Declared relation row or nested value."""
 
     unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     symbol: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    dimension: b.tuple[v.DimensionVectorItem, ...] = attrs.field(validator=attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.DimensionVectorItem), iterable_validator=attrs.validators.instance_of(b.tuple)), attrs.validators.min_len(8), attrs.validators.max_len(8)))
-    scale_to_canonical: b.float = attrs.field(validator=v.finite_float)
-    offset_to_canonical: b.float = attrs.field(validator=v.finite_float)
-    is_affine: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    dimension: b.tuple[v.DimensionVectorItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.DimensionVectorItem), iterable_validator=attrs.validators.instance_of(b.tuple)), attrs.validators.min_len(8), attrs.validators.max_len(8))))
+    scale_to_canonical: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    offset_to_canonical: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    is_affine: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
     reference_state_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    definition: b.tuple[NormalizedUnitsFieldDefinitionItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(NormalizedUnitsFieldDefinitionItem), iterable_validator=attrs.validators.instance_of(b.tuple))))
     system: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))

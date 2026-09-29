@@ -33,8 +33,8 @@ pub enum Exponent {
 pub enum OpRequest<'a> {
     /// Per-occurrence literal typing.
     Literal {
-        /// Authored unit.
-        unit: UnitId,
+        /// The literal's composed unit (ADR-0124).
+        unit: &'a crate::Unit,
         /// Expected complete contract.
         context: LiteralContext,
     },
@@ -301,7 +301,7 @@ pub fn infer_with_evidence(
         OpRequest::Literal { unit, context } => {
             count(operands, 0)?;
             Ok(built(
-                resolve_literal(*unit, *context, registry)?,
+                resolve_literal(unit, *context, registry)?,
                 IndexSet::new(),
                 BuiltInRule::Literal,
             ))

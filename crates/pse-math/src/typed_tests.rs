@@ -719,9 +719,13 @@ fn exponential_of_nested_logarithms_preserves_values_and_derivatives() {
             b.literal(
                 value,
                 registry
-                    .quantity_type(ids::quantity("neutral"))
-                    .unwrap()
-                    .canonical_unit,
+                    .unit(
+                        registry
+                            .quantity_type(ids::quantity("neutral"))
+                            .unwrap()
+                            .canonical_unit,
+                    )
+                    .unwrap(),
                 pse_quantity::literal::LiteralContext::Explicit {
                     quantity_type: ids::quantity("neutral"),
                 },

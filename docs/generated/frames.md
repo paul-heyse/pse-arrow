@@ -27,6 +27,14 @@ Derived in: pse-ids, pse-schema, pse-columnar, pse-model.
 | `ProviderV4` | `pse.provider.v4` | A kernel provider's physical, algorithm and data identity. |
 | `ProviderConfigurationV1` | `pse.provider.configuration.v1` | A kernel provider's configuration key framed with its checked output envelope. |
 
+## Physical typing
+
+Derived in: pse-quantity.
+
+| Frame | Spelling | Meaning |
+|---|---|---|
+| `QuantityUnitProductV1` | `pse.quantity.unit-product.v1` | A unit product's identity over its canonical atomic factors and rational exponents, independent of how the product was spelled (ADR-0124). |
+
 ## Structure
 
 Derived in: pse-structural.

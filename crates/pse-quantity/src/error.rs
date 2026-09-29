@@ -222,6 +222,26 @@ pub enum QuantityError {
         actual: QuantityTypeId,
     },
 
+    /// A unit literal factor names no atomic unit (ADR-0124). A defined unit is spelled by
+    /// its composition, never by its row name.
+    #[error("`{symbol}` is not an atomic unit symbol")]
+    UnknownUnitSymbol {
+        /// The factor symbol as written.
+        symbol: String,
+    },
+
+    /// An affine or datum-restricted unit appears other than as the sole factor with
+    /// exponent one (ADR-0124).
+    #[error(
+        "the affine or datum-restricted unit `{symbol}` may appear only as the sole factor with exponent one"
+    )]
+    AffineUnitFactor {
+        /// The offending unit.
+        unit: UnitId,
+        /// Its symbol.
+        symbol: String,
+    },
+
     /// An identity does not resolve in the quantity registry.
     #[error("unknown {kind} `{id}`")]
     UnknownId {
@@ -240,6 +260,9 @@ impl QuantityError {
                 detail.capacity()
             }
             Self::UnregisteredResultType { requested, .. } => requested.capacity(),
+            Self::UnknownUnitSymbol { symbol } | Self::AffineUnitFactor { symbol, .. } => {
+                symbol.capacity()
+            }
             Self::OperationUnsupported { input_kinds, .. } => input_kinds
                 .capacity()
                 .saturating_mul(size_of::<QuantityKindId>()),
@@ -299,7 +322,7 @@ pse_diagnostics::impl_diagnostic! {
 
 
 
-            Self::Incompatible { .. } | Self::AmbiguousLiteral { .. } | Self::UnitConvertMismatch { .. } | Self::ContractMismatch { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathUnitInconsistent),
+            Self::Incompatible { .. } | Self::AmbiguousLiteral { .. } | Self::UnitConvertMismatch { .. } | Self::ContractMismatch { .. } | Self::UnknownUnitSymbol { .. } | Self::AffineUnitFactor { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathUnitInconsistent),
 
 
             Self::StaticDomain { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathDomainViolationStatic),

@@ -32,6 +32,12 @@ const STOICHIOMETRY_RELATION_ID: &str = "4af05b3e65e854a58198776b3cddaa8d";
 /// `derive_hash("pse:registry:v1", [b"a", b"bc"])`.
 const REGISTRY_HASH_A_BC: &str = "e1745e73a5c5b0a583f4cf13428c2e7696e97101b6a4abb64a8ddfb83969a8b6";
 
+/// `derive_id("pse.quantity.unit-product.v1", [2u64 LE, [0x01; 16], 1i16 LE, 1i16 LE,
+/// [0x02; 16], -1i16 LE, 1i16 LE])`: the product of unit `0x01…` and the inverse of
+/// unit `0x02…` (ADR-0124). `pse_quantity::unit::unit_product_id` frames exactly these
+/// parts.
+const UNIT_PRODUCT_ID: &str = "b65b26cc780fb634de036e1195b0af54";
+
 /// `encoding_checksum(b"pse")`: plain, unkeyed BLAKE3 over three bytes.
 const ENCODING_CHECKSUM_PSE: &str =
     "b183159a276933fcc7170f73b6e21ff751344a2769b9669736ff4ffa47c689ee";
@@ -66,6 +72,27 @@ fn the_registry_digest_is_frozen() {
     assert_ne!(
         derive_hash(Frame::RegistryV1, &[b"ab", b"c"]).to_hex(),
         REGISTRY_HASH_A_BC
+    );
+}
+
+#[test]
+fn the_unit_product_identity_is_frozen() {
+    let parts: &[&[u8]] = &[
+        &2_u64.to_le_bytes(),
+        &[0x01; 16],
+        &1_i16.to_le_bytes(),
+        &1_i16.to_le_bytes(),
+        &[0x02; 16],
+        &(-1_i16).to_le_bytes(),
+        &1_i16.to_le_bytes(),
+    ];
+    assert_eq!(
+        derive_id(Frame::QuantityUnitProductV1, parts).to_hex(),
+        UNIT_PRODUCT_ID
+    );
+    assert_eq!(
+        Frame::QuantityUnitProductV1.as_str(),
+        "pse.quantity.unit-product.v1"
     );
 }
 
