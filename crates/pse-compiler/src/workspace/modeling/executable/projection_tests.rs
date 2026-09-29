@@ -25,12 +25,10 @@ fn projected(cells: usize) -> Arc<Projection> {
     .unwrap();
     let root = rows.iter().find(|r| r.name == "Root").unwrap().declaration_id;
     let input = crate::workspace::tests::inputs();
-    let names = BTreeMap::from([(
-        "Scalar".into(),
-        input.quantities.neutral_dimensionless().unwrap(),
-    )]);
     let mut workspace = CompilerWorkspace::new(input, WorkspaceLimits::default()).unwrap();
-    workspace.publish_modeling(rows, names).unwrap();
+    workspace
+        .publish_modeling(rows, pse_modeling::PhysicalScope::default())
+        .unwrap();
     let (catalog, request) = workspace
         .modeling_request(
             root,
