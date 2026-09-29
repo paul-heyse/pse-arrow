@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
+// The inspection fixture instantiates the catalog publication futures, which prove `Send`
+// through deep async nesting: the crate needs pse-catalog's own recursion limit.
+#![recursion_limit = "256"]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
