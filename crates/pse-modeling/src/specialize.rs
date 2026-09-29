@@ -109,8 +109,9 @@ pub struct Bindings {
     pub arguments: Environment,
     /// Explicitly published ancestor scope values.
     pub scope: Environment,
-    /// Mode, stage and other declared compile-time facts.
-    pub facts: Environment,
+    /// Reserved compile-time facts: the analysis route, the objective level and the
+    /// selected stages (ADR-0123 Outcome 1).
+    pub facts: BTreeMap<crate::analysis::Fact, Value>,
     /// Additional member paths requested by the caller.
     pub demand: Vec<String>,
 }
@@ -449,21 +450,16 @@ pub fn specialize_with_discretizer(
     if bindings
         .arguments
         .keys()
-        .any(|k| k.starts_with("analysis."))
+        .any(|k| crate::analysis::Fact::namespace_of(k).is_some())
     {
         return Err(invalid(
             root,
-            "analysis selection belongs to typed facts, not definition arguments",
+            "analysis, objective and stage selections belong to typed facts, not definition arguments",
         ));
     }
     // The objective level selects a transformation after instantiation; it is not an
     // ambient fact any definition reads.
-    let ambient = bindings
-        .facts
-        .iter()
-        .filter(|(name, _)| !name.starts_with("objective."))
-        .map(|(name, value)| (name.clone(), value.clone()))
-        .collect::<Environment>();
+    let ambient = crate::analysis::facts(&bindings.facts)?;
     let context = package.context();
     let mut engine = Engine {
         p: package,
@@ -482,7 +478,7 @@ pub fn specialize_with_discretizer(
         continuity_done: BTreeSet::new(),
         relaxations: BTreeMap::new(),
         form_realizations: BTreeMap::new(),
-        facts: crate::analysis::facts(&ambient)?,
+        facts: ambient.clone(),
         objective_level: crate::analysis::objective_level(&bindings.facts)?,
         discretizer,
         cancel,
@@ -804,7 +800,7 @@ impl Engine<'_, '_> {
             .values()
             .filter(|id| {
                 self.p.declarations[id].value.kind == Kind::Stage
-                    && env.get(&format!("stage.{}", self.p.declarations[id].name))
+                    && env.get(&crate::analysis::Fact::Stage(self.p.declarations[id].name.clone()).path())
                         == Some(&Value::Boolean(true))
             })
             .count();
@@ -1308,7 +1304,8 @@ impl Engine<'_, '_> {
             let active = if let Some(guard) = &row.value.guard {
                 self.predicate(id, env, &guard.predicate)?
             } else {
-                env.get(&format!("stage.{}", row.name)) == Some(&Value::Boolean(true))
+                env.get(&crate::analysis::Fact::Stage(row.name.clone()).path())
+                    == Some(&Value::Boolean(true))
             };
             if active {
                 for child in self.p.children.get(&id).into_iter().flatten() {

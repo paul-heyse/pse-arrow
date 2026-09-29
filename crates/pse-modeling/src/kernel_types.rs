@@ -33,13 +33,17 @@ pub(crate) fn physical() -> (
     (registry, names)
 }
 pub(crate) fn source(text: &str) -> Vec<Declaration> {
+    try_source(text).unwrap()
+}
+/// A source the parser refuses is a refusal of the run under test, not a panic.
+pub(crate) fn try_source(text: &str) -> Result<Vec<Declaration>> {
     pse_authoring::language::parse(
         text,
         SemanticId::NIL,
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     )
-    .unwrap()
+    .map_err(|e| invalid(DeclarationId::from(SemanticId::NIL), e.to_string()))
 }
 #[test]
 fn polymorphic_smoothing_and_complete_substitution() {

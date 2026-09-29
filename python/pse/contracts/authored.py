@@ -10,6 +10,7 @@ import attrs
 
 from pse.contracts import enums as e
 from pse.contracts import identities as i
+from pse.contracts import structures as s
 from pse.contracts import values as v
 
 
@@ -122,7 +123,7 @@ class AuthoredModelingDeclarationsFieldValueScopeParametersItem:
     """Declared relation row or nested value."""
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    type_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     default_value: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
 
@@ -206,6 +207,7 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration:
 class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem:
     """Declared relation row or nested value."""
 
+    namespace: e.ModelingFactNamespace = attrs.field(validator=attrs.validators.instance_of(e.ModelingFactNamespace))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     value: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
@@ -305,7 +307,7 @@ class AuthoredModelingDeclarationsFieldValueBindingIndicesItem:
 class AuthoredModelingDeclarationsFieldValueBinding:
     """Declared relation row or nested value."""
 
-    type_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    type: b.tuple[s.ModelingTypeArenaNode, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple))))
     indices: b.tuple[AuthoredModelingDeclarationsFieldValueBindingIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueBindingIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     expression: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     defined_by: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
@@ -317,7 +319,7 @@ class AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem:
     """Declared relation row or nested value."""
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    type_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     default_value: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
 
@@ -340,7 +342,7 @@ class AuthoredModelingDeclarationsFieldValueFunction:
 
     type_parameters: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     arguments: b.tuple[AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    return_type: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    return_type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     body: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     validity: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     continuity: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 2)))
@@ -463,7 +465,7 @@ class AuthoredModelingDeclarationsFieldValueTableKeysItem:
     """Declared relation row or nested value."""
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    type_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     default_value: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
 
@@ -472,7 +474,7 @@ class AuthoredModelingDeclarationsFieldValueTableColumnsItem:
     """Declared relation row or nested value."""
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    type_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     default_value: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
 
@@ -482,8 +484,8 @@ class AuthoredModelingDeclarationsFieldValueTable:
 
     keys: b.tuple[AuthoredModelingDeclarationsFieldValueTableKeysItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueTableKeysItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     columns: b.tuple[AuthoredModelingDeclarationsFieldValueTableColumnsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueTableColumnsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    value_type: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    missing_policy: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    value_type: b.tuple[s.ModelingTypeArenaNode, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple))))
+    missing_policy: e.ModelingMissingPolicy = attrs.field(validator=attrs.validators.instance_of(e.ModelingMissingPolicy))
     default_value: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
 
@@ -531,7 +533,7 @@ class AuthoredModelingDeclarationsFieldValueEnumeration:
 class AuthoredModelingDeclarationsFieldValueImport:
     """Declared relation row or nested value."""
 
-    version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    version: s.VersionRequirement = attrs.field(validator=attrs.validators.instance_of(s.VersionRequirement))
     alias: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
 
@@ -555,7 +557,7 @@ class AuthoredModelingDeclarationsFieldValueAccumulator:
     """Declared relation row or nested value."""
 
     indices: b.tuple[AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    type_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     mode: e.ModelingAccumulatorMode = attrs.field(validator=attrs.validators.instance_of(e.ModelingAccumulatorMode))
     tolerance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
@@ -589,6 +591,14 @@ class AuthoredModelingDeclarationsFieldValueConnection:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueAnnotationConnectivity:
+    """Declared relation row or nested value."""
+
+    incoming: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 4294967295)))
+    outgoing: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 4294967295)))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueAnnotationObjective:
     """Declared relation row or nested value."""
 
@@ -604,9 +614,12 @@ class AuthoredModelingDeclarationsFieldValueAnnotationObjective:
 class AuthoredModelingDeclarationsFieldValueAnnotation:
     """Declared relation row or nested value."""
 
-    annotation_type: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    kind: e.ModelingAnnotationKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingAnnotationKind))
     target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     arguments: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    extrapolation: e.ExtrapolationPolicy | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ExtrapolationPolicy)))
+    scheme: e.ConstraintScalingScheme | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ConstraintScalingScheme)))
+    connectivity: AuthoredModelingDeclarationsFieldValueAnnotationConnectivity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueAnnotationConnectivity)))
     objective: AuthoredModelingDeclarationsFieldValueAnnotationObjective | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueAnnotationObjective)))
 
 
@@ -632,7 +645,7 @@ class AuthoredModelingDeclarationsFieldValueExpectation:
 class AuthoredModelingDeclarationsFieldValueContinuous:
     """Declared relation row or nested value."""
 
-    type_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     lower: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     upper: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 

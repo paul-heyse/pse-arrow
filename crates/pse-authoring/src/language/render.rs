@@ -37,14 +37,26 @@ fn indices<'a>(pairs: impl Iterator<Item = (&'a str, &'a str)>) -> String {
         "]",
     )
 }
-fn parameters<'a>(items: impl Iterator<Item = (&'a str, &'a str, Option<&'a str>)>) -> String {
-    list(
+/// The canonical spelling of a declared type (ADR-0123 Outcome 1).
+fn ty(nodes: &[super::TypeNode]) -> Result<String, AuthoringError> {
+    Ok(super::render_type(nodes)?)
+}
+fn parameters<'a>(
+    items: impl Iterator<Item = (&'a str, &'a [super::TypeNode], Option<&'a str>)>,
+) -> Result<String, AuthoringError> {
+    Ok(list(
         &items
-            .map(|(n, t, d)| format!("{n}: {t}{}", d.map_or(String::new(), |d| format!(" = {d}"))))
-            .collect::<Vec<_>>(),
+            .map(|(n, t, d)| {
+                Ok(format!(
+                    "{n}: {}{}",
+                    ty(t)?,
+                    d.map_or(String::new(), |d| format!(" = {d}"))
+                ))
+            })
+            .collect::<Result<Vec<_>, AuthoringError>>()?,
         "(",
         ")",
-    )
+    ))
 }
 /// A fixture's execution policy clause, settings and options in their canonical order.
 fn fixture_policy(
@@ -151,7 +163,7 @@ fn print_block(
             ),
             Selected::Continuous(v) => format!(
                 "domain {n}: {} from {} to {};",
-                v.type_name, v.lower, v.upper
+                ty(&v.r#type)?, v.lower, v.upper
             ),
             Selected::DifferenceScheme(v) => {
                 let list = |values: Vec<String>| values.join(", ");
@@ -259,9 +271,9 @@ fn print_block(
                     list(&v.type_parameters, "<", ">"),
                     parameters(v.parameters.iter().map(|p| (
                         p.name.as_str(),
-                        p.type_name.as_str(),
+                        p.r#type.as_slice(),
                         p.default_value.as_deref()
-                    ))),
+                    )))?,
                     if v.bases.is_empty() {
                         String::new()
                     } else {
@@ -298,7 +310,7 @@ fn print_block(
                             ));
                         }
                         for mode in &f.modes {
-                            let facts = mode.facts.iter().map(|f| format!("{} = {}", f.name, f.value)).collect::<Vec<_>>();
+                            let facts = mode.facts.iter().map(|f| format!("{}.{} = {}", f.namespace.as_str(), f.name, f.value)).collect::<Vec<_>>();
                             statements.push(format!("mode {}{};", name(&mode.name), if facts.is_empty() { String::new() } else { format!(" facts({})", facts.join(", ")) }));
                             for e in &mode.events {
                                 let reset = e.reset.iter().map(|r| format!("{} = {}", r.target, r.expression)).collect::<Vec<_>>();
@@ -347,11 +359,11 @@ fn print_block(
                             .iter()
                             .map(|i| (i.name.as_str(), i.domain.as_str()))
                     ),
-                    if v.type_name.is_empty() {
-                        String::new()
-                    } else {
-                        format!(": {}", v.type_name)
-                    },
+                    v.r#type
+                        .as_deref()
+                        .map(ty)
+                        .transpose()?
+                        .map_or(String::new(), |t| format!(": {t}")),
                     // Continuous is the default and prints without a facet.
                     v.domain
                         .filter(|d| d.is_discrete())
@@ -373,12 +385,12 @@ fn print_block(
                     parameters(v.arguments.iter().map(|p| {
                         (
                             p.name.as_str(),
-                            p.type_name.as_str(),
+                            p.r#type.as_slice(),
                             p.default_value.as_deref(),
                         )
-                    }))
+                    }))?
                 },
-                v.return_type,
+                ty(&v.return_type)?,
                 v.validity.as_ref().map_or(String::new(),|p|format!(" valid({p})")),
                 v.continuity
                     .map_or(String::new(), |order| format!(" piecewise {order}")),
@@ -387,7 +399,8 @@ fn print_block(
             ),
             Selected::Import(v) => format!(
                 "use {n} @ {}{};",
-                quoted(&v.version),
+                // Exact is the only admitted operator (§6.1); it prints unprefixed.
+                quoted(&super::requirement_version(&v.version)),
                 v.alias
                     .as_ref()
                     .map_or(String::new(), |a| format!(" as {a}"))
@@ -431,7 +444,7 @@ fn print_block(
                         .iter()
                         .map(|i| (i.name.as_str(), i.domain.as_str()))
                 ),
-                v.type_name,
+                ty(&v.r#type)?,
                 v.mode.as_str(),
                 v.tolerance
             ),
@@ -456,24 +469,24 @@ fn print_block(
                 list(
                     &v.keys
                         .iter()
-                        .map(|k| format!("{}: {}", k.name, k.type_name))
-                        .collect::<Vec<_>>(),
+                        .map(|k| Ok(format!("{}: {}", k.name, ty(&k.r#type)?)))
+                        .collect::<Result<Vec<_>, AuthoringError>>()?,
                     "[",
                     "]"
                 ),
-                if v.columns.is_empty() {
-                    v.value_type.clone()
-                } else {
-                    format!(
+                match (&v.value_type, v.columns.is_empty()) {
+                    (Some(value), true) => ty(value)?,
+                    (None, false) => format!(
                         "{{{}}}",
                         v.columns
                             .iter()
-                            .map(|c| format!("{}: {}", c.name, c.type_name))
-                            .collect::<Vec<_>>()
+                            .map(|c| Ok(format!("{}: {}", c.name, ty(&c.r#type)?)))
+                            .collect::<Result<Vec<_>, AuthoringError>>()?
                             .join(", ")
-                    )
+                    ),
+                    _ => return Err(bad("a table declares a value type exactly when it has no columns")),
                 },
-                v.missing_policy,
+                v.missing_policy.as_str(),
                 v.default_value
                     .as_ref()
                     .map_or(String::new(), |d| format!(" {d}"))
@@ -489,9 +502,27 @@ fn print_block(
                     .join(" ")
             ),
             Selected::Annotation(v) => {
-                let arguments = match &v.objective {
+                use pse_model::generated::enums::ModelingAnnotationKind as A;
+                let typed = (
+                    v.objective.is_some(),
+                    v.extrapolation.is_some(),
+                    v.scheme.is_some(),
+                    v.connectivity.is_some(),
+                );
+                let expected = (
+                    v.kind == A::Objective,
+                    v.kind == A::Valid,
+                    v.kind == A::Scale,
+                    v.kind == A::Connectivity,
+                );
+                if typed != expected {
+                    return Err(bad("an annotation carries exactly the typed members of its kind"));
+                }
+                let maximum = |m: Option<i64>| m.map_or_else(|| "many".to_owned(), |m| m.to_string());
+                let arguments = match (v.kind, v.arguments.as_slice()) {
                     // ADR-0111: the sense, then the declared members in one canonical order.
-                    Some(o) if v.annotation_type == "objective" && v.arguments.is_empty() => {
+                    (A::Objective, []) => {
+                        let o = v.objective.as_ref().ok_or_else(|| bad("objective members"))?;
                         let mut members = vec![o.sense.as_str().to_owned()];
                         members.extend(o.priority.map(|p| format!("priority = {p}")));
                         for (name, value) in [
@@ -504,12 +535,23 @@ fn print_block(
                         }
                         members.join(", ")
                     }
-                    None if v.annotation_type != "objective" => v.arguments.join(", "),
-                    _ => return Err(bad("an objective annotation carries exactly its typed members")),
+                    (A::Valid, [lower, upper]) => format!(
+                        "{lower}, {upper}, {}",
+                        v.extrapolation.map_or("", |p| p.as_str())
+                    ),
+                    (A::Scale, []) => v.scheme.map_or("", |s| s.as_str()).to_owned(),
+                    (A::Connectivity, []) => {
+                        let c = v.connectivity.as_ref().ok_or_else(|| bad("connectivity maxima"))?;
+                        format!("{}, {}", maximum(c.incoming), maximum(c.outgoing))
+                    }
+                    (A::Start | A::Nominal | A::Bounds | A::Report | A::Check, arguments) => {
+                        arguments.join(", ")
+                    }
+                    _ => return Err(bad("an annotation's arguments disagree with its kind")),
                 };
                 format!(
                     "annotation {} {}({arguments});",
-                    crate::grammar::render_name(&v.annotation_type),
+                    v.kind.as_str(),
                     v.target,
                 )
             }

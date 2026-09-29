@@ -986,7 +986,7 @@ fn declaration_environment(
             for a in &scope.parameters {
                 env.insert(
                     a.name.clone(),
-                    context.resolve(&a.type_name, &vars, &env, id)?,
+                    context.resolve(&a.r#type, &vars, &env, id)?,
                 );
             }
         }
@@ -1470,57 +1470,44 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                 }
             }
             let target = crate::annotation::target_type(p, context, *id, &a.target, &env)?;
-            if a.annotation_type == "scale" {
-                if a.arguments.len() != 1 {
-                    return Err(invalid(*id, "scale needs one scheme"));
-                }
-                let label = crate::annotation::label(&a.arguments[0], *id)?;
-                label
-                    .parse::<pse_model::generated::enums::ConstraintScalingScheme>()
-                    .map_err(|e| invalid(*id, e.to_string()))?;
-                if !target_declaration
-                    .is_some_and(|target| p.declarations[&target].value.equation.is_some())
-                {
+            use crate::annotation::{AnnotationKind as Kind, Shape};
+            let shape = crate::annotation::shape(a, *id)?;
+            let equation_target = target_declaration
+                .is_some_and(|target| p.declarations[&target].value.equation.is_some());
+            match a.kind {
+                Kind::Scale if !equation_target => {
                     return Err(invalid(*id, "term scaling requires an equation target"));
                 }
-            }
-            if matches!(
-                a.annotation_type.as_str(),
-                "start" | "bounds" | "valid" | "objective"
-            ) && target_declaration
-                .is_some_and(|target| p.declarations[&target].value.equation.is_some())
-            {
-                return Err(invalid(*id, "this annotation requires a value target"));
+                Kind::Start | Kind::Bounds | Kind::Valid | Kind::Objective if equation_target => {
+                    return Err(invalid(*id, "this annotation requires a value target"));
+                }
+                _ => {}
             }
             if !matches!(target, Type::Quantity(_)) {
                 return Err(invalid(*id, "annotation requires a physical member"));
             }
-            if a.annotation_type == "connectivity" {
-                crate::annotation::connectivity_limits(&a.arguments, *id)?;
-                if target_declaration.is_some_and(|target| {
-                    p.declarations[&target].value.kind
-                        != pse_model::generated::enums::ModelingDeclarationKind::Port
-                }) {
-                    return Err(invalid(*id, "connectivity target must be a declared port"));
+            let numeric = match shape {
+                Shape::Connectivity => {
+                    crate::annotation::connectivity_limits(a, *id)?;
+                    if target_declaration.is_some_and(|target| {
+                        p.declarations[&target].value.kind
+                            != pse_model::generated::enums::ModelingDeclarationKind::Port
+                    }) {
+                        return Err(invalid(*id, "connectivity target must be a declared port"));
+                    }
+                    continue;
                 }
-                continue;
-            }
-            if a.annotation_type == "objective" {
-                objective_members(a, &target, &env, p, context, *id)?;
-                continue;
-            }
-            if a.objective.is_some() {
-                return Err(invalid(
-                    *id,
-                    "objective members belong to an objective annotation",
-                ));
-            }
-            let numeric = match (a.annotation_type.as_str(), a.arguments.len()) {
-                ("start" | "nominal", 1) => 1,
-                ("bounds", 2) => 2,
-                ("valid", 3) => 2,
-                ("report" | "scale", 1) => 0,
-                ("check", 1) => {
+                Shape::Objective => {
+                    objective_members(a, &target, &env, p, context, *id)?;
+                    continue;
+                }
+                Shape::Expressions(count) => count,
+                Shape::Label => {
+                    crate::annotation::label(&a.arguments[0], *id)?;
+                    0
+                }
+                Shape::Scheme => 0,
+                Shape::Predicate => {
                     predicate(
                         &dsl::parse_predicate(&a.arguments[0])
                             .map_err(|e| invalid(*id, e.to_string()))?,
@@ -1531,7 +1518,6 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                     )?;
                     0
                 }
-                _ => return Err(invalid(*id, "unknown annotation or invalid argument count")),
             };
             for argument in &a.arguments[..numeric] {
                 let expression =

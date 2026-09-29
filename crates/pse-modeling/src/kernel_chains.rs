@@ -161,7 +161,10 @@ fn type_expression_resolves_by_monomial() {
         names: &names,
     };
     let at = DeclarationId::from(SemanticId::NIL);
-    let resolve = |text: &str| context.resolve(text, &BTreeSet::new(), &BTreeMap::new(), at);
+    let resolve = |text: &str| {
+        let nodes = pse_authoring::language::parse_type(text, &[]).unwrap();
+        context.resolve(&nodes, &BTreeSet::new(), &BTreeMap::new(), at)
+    };
     let squared = resolve("MolarCp/Temperature^2").unwrap();
     assert_eq!(
         monomial(&registry, &squared),

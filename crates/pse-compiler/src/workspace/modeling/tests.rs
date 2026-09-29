@@ -1275,7 +1275,7 @@ fn kernel_stage_variants_preserve_variables_and_restore_final_structure() {
     let normal = admit(&mut workspace, root);
     let bindings = Bindings {
         facts: BTreeMap::from([(
-            "stage.linear".into(),
+            pse_modeling::analysis::Fact::Stage("linear".into()),
             pse_modeling::specialize::Value::Boolean(true),
         )]),
         ..Bindings::default()
@@ -2353,7 +2353,7 @@ fn kernel_analysis_facts_are_typed_and_select_source_guards() {
     let mut invalid = Bindings::default().with_analysis(Route::Steady);
     invalid
         .facts
-        .insert("analysis.dynamic".into(), Value::Boolean(true));
+        .insert(pse_modeling::analysis::Fact::Dynamic, Value::Boolean(true));
     assert!(
         workspace
             .specialize_modeling(root, root_instance(root), invalid, Limits::default())

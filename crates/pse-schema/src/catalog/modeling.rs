@@ -16,10 +16,30 @@ fn strings(name: &str) -> T {
 fn flag(name: &str) -> T {
     T::native(D::Boolean).with_name(name)
 }
+/// ADR-0123 Outcome 1: a type expression is a post-order arena. Every node's children
+/// precede it and the last node is the root; names occur only as path segments.
+fn type_arena(name: &str) -> T {
+    T::list(
+        T::structure(vec![
+            T::enumeration("ModelingTypeNode").with_name("kind"),
+            strings("path").optional(),
+            text("name").optional(),
+            T::structure(vec![
+                T::native(D::Int16).with_name("num"),
+                T::native(D::Int16).with_name("den"),
+            ])
+            .with_name("exponent")
+            .optional(),
+            T::list(T::native(D::UInt32)).with_name("children"),
+        ])
+        .named("ModelingTypeArenaNode"),
+    )
+    .with_name(name)
+}
 fn parameters(name: &str) -> T {
     T::list(T::structure(vec![
         text("name"),
-        text("type_name"),
+        type_arena("type"),
         text("default_value").optional(),
     ]))
     .with_name(name)
@@ -158,7 +178,13 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                     // without a successor mode is terminal.
                     T::list(T::structure(vec![
                         text("name"),
-                        T::list(T::structure(vec![text("name"), flag("value")])).with_name("facts"),
+                        // ADR-0123 Outcome 1: a fact is named in its registry namespace.
+                        T::list(T::structure(vec![
+                            T::enumeration("ModelingFactNamespace").with_name("namespace"),
+                            text("name"),
+                            flag("value"),
+                        ]))
+                        .with_name("facts"),
                         T::list(T::structure(vec![
                             text("guard"),
                             T::enumeration("EventDirection").with_name("direction"),
@@ -210,7 +236,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 "scope_value",
             ],
             vec![
-                text("type_name"),
+                type_arena("type").optional(),
                 indices(),
                 text("expression").optional(),
                 text("defined_by").optional(),
@@ -226,7 +252,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             vec![
                 strings("type_parameters"),
                 parameters("arguments"),
-                text("return_type"),
+                type_arena("return_type"),
                 text("body").optional(),
                 text("validity").optional(),
                 T::nonnegative(2).with_name("continuity").optional(),
@@ -290,8 +316,9 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             vec![
                 parameters("keys"),
                 parameters("columns"),
-                text("value_type"),
-                text("missing_policy"),
+                // Present exactly when the table declares no columns.
+                type_arena("value_type").optional(),
+                T::enumeration("ModelingMissingPolicy").with_name("missing_policy"),
                 text("default_value").optional(),
             ],
         ),
@@ -313,7 +340,18 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         (
             "import",
             vec!["import"],
-            vec![text("version"), text("alias").optional()],
+            vec![
+                // ADR-0123 Outcome 7: the typed requirement on the imported package's version.
+                T::structure(vec![
+                    T::enumeration("ModelingVersionOperator").with_name("operator"),
+                    T::nonnegative(i64::MAX).with_name("major"),
+                    T::nonnegative(i64::MAX).with_name("minor"),
+                    T::nonnegative(i64::MAX).with_name("patch"),
+                ])
+                .named("VersionRequirement")
+                .with_name("version"),
+                text("alias").optional(),
+            ],
         ),
         ("guard", vec!["when"], vec![text("predicate")]),
         (
@@ -321,7 +359,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             vec!["accumulator"],
             vec![
                 indices(),
-                text("type_name"),
+                type_arena("type"),
                 T::enumeration("ModelingAccumulatorMode").with_name("mode"),
                 text("tolerance"),
             ],
@@ -347,9 +385,30 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "annotation",
             vec!["annotation"],
             vec![
-                text("annotation_type"),
+                T::enumeration("ModelingAnnotationKind").with_name("kind"),
                 text("target"),
                 strings("arguments"),
+                // ADR-0115 Outcome 3: present exactly on `valid`, whose arguments are then
+                // its lower and upper endpoints.
+                T::enumeration("ExtrapolationPolicy")
+                    .with_name("extrapolation")
+                    .optional(),
+                // Present exactly on `scale`, whose arguments are then empty.
+                T::enumeration("ConstraintScalingScheme")
+                    .with_name("scheme")
+                    .optional(),
+                // Present exactly on `connectivity`, whose arguments are then empty; an
+                // absent maximum admits any number of connections.
+                T::structure(vec![
+                    T::nonnegative(i64::from(u32::MAX))
+                        .with_name("incoming")
+                        .optional(),
+                    T::nonnegative(i64::from(u32::MAX))
+                        .with_name("outgoing")
+                        .optional(),
+                ])
+                .with_name("connectivity")
+                .optional(),
                 // ADR-0111: the typed members of `annotation objective`, present exactly on
                 // an objective, whose arguments are then empty. Priority orders levels
                 // (lower first); weight and normalization compose a level's weighted sum;
@@ -384,7 +443,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         (
             "continuous",
             vec!["continuous"],
-            vec![text("type_name"), text("lower"), text("upper")],
+            vec![type_arena("type"), text("lower"), text("upper")],
         ),
         (
             "difference_scheme",
@@ -436,6 +495,65 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         "ModelingDeclarationKind",
         arms.iter().flat_map(|(_, tags, _)| tags.iter().copied()),
     );
+    // ADR-0123 Outcome 1: the node kinds of a type arena.
+    enumeration(
+        builder,
+        "ModelingTypeNode",
+        [
+            "boolean",
+            "integer",
+            "text",
+            "named",
+            "variable",
+            "optional",
+            "set",
+            "row",
+            "table",
+            "tuple",
+            "indexed",
+            "function",
+            "argument",
+            "delta",
+            "product",
+            "quotient",
+            "power",
+            "identifier",
+            // Generic physical references: a named quantity type or reference state of
+            // the physical document (ADR-0123 Outcome 6).
+            "quantity_type",
+            "reference_state",
+        ],
+    );
+    // ADR-0123 Outcome 1: the vocabulary the kernel acts on is registry enums.
+    enumeration(
+        builder,
+        "ModelingMissingPolicy",
+        ["required", "optional", "default"],
+    );
+    enumeration(
+        builder,
+        "ModelingAnnotationKind",
+        [
+            "start",
+            "nominal",
+            "bounds",
+            "scale",
+            "report",
+            "valid",
+            "check",
+            "objective",
+            "connectivity",
+        ],
+    );
+    // The reserved fact namespaces: the analysis route and its derived dynamic flag, the
+    // selected objective level and the selected initialization stages.
+    enumeration(
+        builder,
+        "ModelingFactNamespace",
+        ["analysis", "objective", "stage"],
+    );
+    // Phase 0 and 1 admit exact version requirements only (§6.1).
+    enumeration(builder, "ModelingVersionOperator", ["exact"]);
     enumeration(
         builder,
         "ModelingVariableDomain",
@@ -543,7 +661,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         builder,
         N::Authored,
         "modeling_declarations",
-        8,
+        9,
         S::Model,
         &["declaration_id"],
         vec![
@@ -562,7 +680,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 T::structure(payload).with_alternative(&alternative),
             ),
         ],
-        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119). Version eight adds the policy's foreign-library allowance in bytes, which the fixture's solves reserve and a native library that enforces its own memory limit receives, in place of the deployment's (ADR-0119).",
+        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119). Version eight adds the policy's foreign-library allowance in bytes, which the fixture's solves reserve and a native library that enforces its own memory limit receives, in place of the deployment's (ADR-0119). Version nine is structured (ADR-0123 Outcome 1): every type is a post-order type arena whose children precede their parent and whose last node is the root; table absence, annotation kinds and fact namespaces are registry enums, a validity annotation carries its typed extrapolation policy, a scaling annotation its scheme and a connectivity annotation its typed maxima; an import carries its typed version requirement (Outcome 7).",
     );
     enumeration(
         builder,

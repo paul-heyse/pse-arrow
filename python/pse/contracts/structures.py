@@ -64,6 +64,35 @@ class MemberDescriptor:
 
 
 @attrs.frozen(kw_only=True)
+class ModelingTypeArenaNodeExponent:
+    """Declared relation row or nested value."""
+
+    num: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
+    den: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingTypeArenaNode:
+    """Declared relation row or nested value."""
+
+    kind: e.ModelingTypeNode = attrs.field(validator=attrs.validators.instance_of(e.ModelingTypeNode))
+    path: b.tuple[b.str, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple))))
+    name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    exponent: ModelingTypeArenaNodeExponent | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingTypeArenaNodeExponent)))
+    children: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 4294967295), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class VersionRequirement:
+    """Declared relation row or nested value."""
+
+    operator: e.ModelingVersionOperator = attrs.field(validator=attrs.validators.instance_of(e.ModelingVersionOperator))
+    major: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    minor: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    patch: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
 class VersionWindow:
     """Declared relation row or nested value."""
 

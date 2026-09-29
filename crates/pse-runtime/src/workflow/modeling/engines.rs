@@ -495,7 +495,7 @@ impl ModelingPackage {
             .bindings
             .facts
             .keys()
-            .any(|k| k.starts_with("stage."))
+            .any(|k| matches!(k, pse_modeling::analysis::Fact::Stage(_)))
         {
             return Err(contract(
                 "initialization owns stage selection; the final analysis must name the original specification",
@@ -684,7 +684,10 @@ impl Initializer<'_> {
     async fn stages(&mut self) -> bool {
         for stage in &self.policy.stages {
             let overlay = self.fixed(Overlay {
-                facts: BTreeMap::from([(format!("stage.{stage}"), Value::Boolean(true))]),
+                facts: BTreeMap::from([(
+                    pse_modeling::analysis::Fact::Stage(stage.clone()),
+                    Value::Boolean(true),
+                )]),
                 ..Overlay::default()
             });
             match self

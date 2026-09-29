@@ -302,8 +302,13 @@ impl CompilerWorkspace {
             .arguments
             .iter()
             .chain(&bindings.scope)
-            .chain(&bindings.facts)
             .map(|(n, v)| n.capacity() + v.retained_bytes() + 128)
+            .chain(
+                bindings
+                    .facts
+                    .iter()
+                    .map(|(f, v)| f.member().len() + v.retained_bytes() + 128),
+            )
             .sum::<usize>()
             .saturating_add(
                 bindings

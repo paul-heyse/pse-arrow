@@ -120,7 +120,7 @@ impl Engine<'_, '_> {
                 rename_equation(&mut equation, &names)?;
                 body.equations.push(equation);
             }
-            let mut h = FramedHasher::new(pse_ids::Frame::ModelingDispatchBodyV1);
+            let mut h = FramedHasher::new(pse_ids::Frame::ModelingDispatchBodyV2);
             h.id(&state.definition.as_id())
                 .u64(body.coordinates.len() as u64);
             for (ty, role) in &body.coordinates {

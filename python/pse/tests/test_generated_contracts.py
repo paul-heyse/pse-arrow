@@ -220,7 +220,15 @@ def test_modeling_declaration_tag_has_one_typed_payload() -> None:
     }
     payload["kind"] = "variable"
     payload["binding"] = {
-        "type_name": "Flow",
+        "type": [
+            {
+                "kind": "named",
+                "path": ["Flow"],
+                "name": None,
+                "exponent": None,
+                "children": [],
+            }
+        ],
         "indices": [],
         "expression": None,
         "defined_by": None,
@@ -228,7 +236,8 @@ def test_modeling_declaration_tag_has_one_typed_payload() -> None:
     }
     value = converter().structure(payload, AuthoredModelingDeclarationsFieldValue)
     assert value.binding is not None
-    assert value.binding.type_name == "Flow"
+    assert value.binding.type is not None
+    assert value.binding.type[0].path == ("Flow",)
     assert value.binding.indices == ()
     assert value.binding.domain is ModelingVariableDomain.BINARY
     for invalid in (

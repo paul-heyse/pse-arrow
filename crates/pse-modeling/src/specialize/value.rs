@@ -316,7 +316,7 @@ impl Evaluator<'_, '_> {
                         .and_then(|s| s.parameters.iter().find(|p| p.name == *n))
                         .ok_or_else(|| invalid(self.at, format!("unknown argument {n}")))?;
                     let ty = self.physical.resolve(
-                        &parameter.type_name,
+                        &parameter.r#type,
                         &BTreeSet::new(),
                         &self.package.named_types(*id),
                         *id,

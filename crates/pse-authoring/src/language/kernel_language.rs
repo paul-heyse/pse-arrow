@@ -253,7 +253,10 @@ fn var_domain_parses_and_renders() {
         };
         assert_eq!(binding("x").domain, Some(domain));
         assert_eq!(binding("x").indices[0].domain, "units");
-        assert_eq!(binding("x").type_name, "Count");
+        assert_eq!(
+            render_type(binding("x").r#type.as_deref().unwrap()).unwrap(),
+            "Count"
+        );
         // Continuous is the default: the omitted and explicit spellings are one declaration.
         assert_eq!(binding("y").domain, Some(Domain::Continuous));
         assert_eq!(binding("z").domain, Some(Domain::Continuous));
@@ -571,7 +574,7 @@ fn objective_members_parse_and_render() {
     let annotation = |rows: &[Declaration], kind: &str, target: &str| {
         rows.iter()
             .filter_map(|r| r.value.annotation.clone())
-            .find(|a| a.annotation_type == kind && a.target == target)
+            .find(|a| a.kind.as_str() == kind && a.target == target)
             .unwrap()
     };
     let rows = parse_named(source);
@@ -710,6 +713,159 @@ fn complements_parses_and_renders() {
         "package p { def D { realize r on c using smooth; } }",
         "package p { def D { realize r on c using penalty(l2); } }",
         "package p { def D { realize r on c using penalty_l1; } }",
+    ] {
+        assert!(
+            parse(
+                invalid,
+                SemanticId::NIL,
+                IdentityPolicy::Named,
+                ParseBudget::default()
+            )
+            .is_err(),
+            "{invalid}"
+        );
+    }
+}
+
+/// ADR-0123 Outcome 1: absence is the registry missing policy; a word outside it is
+/// refused where it is written, and the default policy carries its value.
+#[test]
+fn missing_policy_is_enum() {
+    use pse_model::generated::enums::ModelingMissingPolicy as Missing;
+    let table = |policy: &str| {
+        let rows = parse_named(&format!(
+            "package p {{ entity kind k {{}} table t[j: k]: Mass{policy}; }}"
+        ));
+        let table = rows
+            .iter()
+            .find(|r| r.name == "t")
+            .and_then(|r| r.value.table.clone())
+            .unwrap();
+        assert_eq!(render(&rows).map(|_| ()).ok(), Some(()));
+        (table.missing_policy, table.default_value)
+    };
+    assert_eq!(table(""), (Missing::Required, None));
+    assert_eq!(table(" missing optional"), (Missing::Optional, None));
+    assert_eq!(
+        table(" missing default 1{kg}"),
+        (Missing::Default, Some("1{kg}".into()))
+    );
+    assert_eq!(
+        Missing::ALL.map(Missing::as_str),
+        ["required", "optional", "default"]
+    );
+    let error = parse(
+        "package p { entity kind k {} table t[j: k]: Mass missing sometimes; }",
+        SemanticId::NIL,
+        IdentityPolicy::Named,
+        ParseBudget::default(),
+    )
+    .unwrap_err();
+    assert!(
+        matches!(&error, crate::AuthoringError::Syntax { expected, found, .. }
+            if expected == "required, optional or default" && found == "sometimes"),
+        "{error}"
+    );
+}
+
+/// ADR-0123 Outcome 7: an import carries a typed exact requirement; ranges, prereleases
+/// and words are refused where they are written.
+#[test]
+fn import_requirement_is_typed() {
+    use pse_model::generated::enums::ModelingVersionOperator as Operator;
+    for written in ["\"1.2.3\"", "\"=1.2.3\""] {
+        let rows = parse_named(&format!("package p {{ use other @{written} as o; }}"));
+        let import = rows
+            .iter()
+            .find_map(|r| r.value.import.clone())
+            .unwrap();
+        assert_eq!(
+            (
+                import.version.operator,
+                import.version.major,
+                import.version.minor,
+                import.version.patch,
+                import.alias.as_deref()
+            ),
+            (Operator::Exact, 1, 2, 3, Some("o"))
+        );
+        assert!(render(&rows).unwrap().contains("use other @ \"1.2.3\" as o;"));
+    }
+    assert_eq!(Operator::ALL.map(Operator::as_str), ["exact"]);
+    for refused in ["\"^1.0\"", "\"1.0.0-rc.1\"", "\"latest\"", "\">=1.0.0\""] {
+        let text = format!("package p {{ use other @{refused}; }}");
+        let error = parse(
+            &text,
+            SemanticId::NIL,
+            IdentityPolicy::Named,
+            ParseBudget::default(),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&error, crate::AuthoringError::Syntax { expected, offset, .. }
+                if expected == "exact package version" && *offset as usize == text.find(refused).unwrap()),
+            "{refused}: {error}"
+        );
+    }
+}
+
+/// ADR-0123 Outcome 1: every annotation kind parses to its registry member, and the
+/// typed members of `valid`, `scale` and `connectivity` replace their words.
+#[test]
+fn annotation_kinds_parse_typed_members() {
+    use pse_model::generated::enums::{
+        ConstraintScalingScheme, ExtrapolationPolicy, ModelingAnnotationKind as A,
+    };
+    let source = r#"package p {
+ def D {
+ var x: Mass; port o: Mass = x; eq e: x == 1{kg};
+ annotation start x(1{kg});
+ annotation nominal x(1{kg});
+ annotation bounds x(0{kg}, 2{kg});
+ annotation scale e(inverseSum);
+ annotation report x(label);
+ annotation valid x(0{kg}, 5{kg}, extrapolate);
+ annotation check x(x > 0{kg});
+ annotation objective x(minimize);
+ annotation connectivity o(1, many);
+ }
+}"#;
+    let rows = parse_named(source);
+    let annotations = rows
+        .iter()
+        .filter_map(|r| r.value.annotation.clone())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        annotations.iter().map(|a| a.kind).collect::<Vec<_>>(),
+        A::ALL.to_vec()
+    );
+    let of = |kind| annotations.iter().find(|a| a.kind == kind).unwrap();
+    assert_eq!(of(A::Valid).arguments, ["0{kg}", "5{kg}"]);
+    assert_eq!(of(A::Valid).extrapolation, Some(ExtrapolationPolicy::Extrapolate));
+    assert_eq!(
+        (of(A::Scale).arguments.len(), of(A::Scale).scheme),
+        (0, Some(ConstraintScalingScheme::InverseSum))
+    );
+    let limits = of(A::Connectivity).connectivity.clone().unwrap();
+    assert_eq!((limits.incoming, limits.outgoing), (Some(1), None));
+    let printed = render(&rows).unwrap();
+    for spelled in [
+        "annotation valid x(0{kg}, 5{kg}, extrapolate);",
+        "annotation scale e(inverseSum);",
+        "annotation connectivity o(1, many);",
+    ] {
+        assert!(printed.contains(spelled), "{spelled}\n{printed}");
+    }
+    assert_eq!(
+        rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
+        parse_named(&printed).iter().map(|r| &r.value).collect::<Vec<_>>()
+    );
+    for invalid in [
+        "package p { def D { annotation clamp x(1); } }",
+        "package p { def D { annotation valid x(0, 1, clamp); } }",
+        "package p { def D { annotation scale x(unknown); } }",
+        "package p { def D { annotation connectivity x(1, some); } }",
+        "package p { def D { annotation connectivity x(-1, many); } }",
     ] {
         assert!(
             parse(

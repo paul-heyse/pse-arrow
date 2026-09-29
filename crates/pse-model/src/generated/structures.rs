@@ -206,6 +206,93 @@ impl PartialEq for MemberDescriptor {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct ModelingTypeArenaNodeExponent {
+    ///num
+    pub r#num: i16,
+    ///den
+    pub r#den: i16,
+}
+impl crate::SemanticEq for ModelingTypeArenaNodeExponent {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#num, &other.r#num)
+            && crate::SemanticEq::semantic_eq(&self.r#den, &other.r#den)
+    }
+}
+impl PartialEq for ModelingTypeArenaNodeExponent {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ModelingTypeArenaNode {
+    ///kind
+    pub r#kind: crate::generated::enums::ModelingTypeNode,
+    ///path
+    pub r#path: Option<Vec<String>>,
+    ///name
+    pub r#name: Option<String>,
+    ///exponent
+    pub r#exponent: Option<ModelingTypeArenaNodeExponent>,
+    ///children
+    pub r#children: Vec<u32>,
+}
+impl crate::SemanticEq for ModelingTypeArenaNode {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
+            && crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#exponent, &other.r#exponent)
+            && crate::SemanticEq::semantic_eq(&self.r#children, &other.r#children)
+    }
+}
+impl PartialEq for ModelingTypeArenaNode {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct VersionRequirement {
+    ///operator
+    pub r#operator: crate::generated::enums::ModelingVersionOperator,
+    ///major
+    pub r#major: i64,
+    ///minor
+    pub r#minor: i64,
+    ///patch
+    pub r#patch: i64,
+}
+impl crate::SemanticEq for VersionRequirement {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#operator, &other.r#operator)
+            && crate::SemanticEq::semantic_eq(&self.r#major, &other.r#major)
+            && crate::SemanticEq::semantic_eq(&self.r#minor, &other.r#minor)
+            && crate::SemanticEq::semantic_eq(&self.r#patch, &other.r#patch)
+    }
+}
+impl PartialEq for VersionRequirement {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct VersionWindow {
     ///table_uri
     pub r#table_uri: String,
@@ -335,6 +422,66 @@ impl crate::HeapUsage for MemberDescriptor {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#table_uri))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#delta_version))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#selection))
+    }
+}
+impl crate::SemanticFrame for ModelingTypeArenaNodeExponent {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#num));
+        crate::SemanticFrame::frame(&self.r#num, hash);
+        hash.str(stringify!(r#den));
+        crate::SemanticFrame::frame(&self.r#den, hash);
+    }
+}
+impl crate::HeapUsage for ModelingTypeArenaNodeExponent {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#num))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#den))
+    }
+}
+impl crate::SemanticFrame for ModelingTypeArenaNode {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#path));
+        crate::SemanticFrame::frame(&self.r#path, hash);
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#exponent));
+        crate::SemanticFrame::frame(&self.r#exponent, hash);
+        hash.str(stringify!(r#children));
+        crate::SemanticFrame::frame(&self.r#children, hash);
+    }
+}
+impl crate::HeapUsage for ModelingTypeArenaNode {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#exponent))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#children))
+    }
+}
+impl crate::SemanticFrame for VersionRequirement {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#operator));
+        crate::SemanticFrame::frame(&self.r#operator, hash);
+        hash.str(stringify!(r#major));
+        crate::SemanticFrame::frame(&self.r#major, hash);
+        hash.str(stringify!(r#minor));
+        crate::SemanticFrame::frame(&self.r#minor, hash);
+        hash.str(stringify!(r#patch));
+        crate::SemanticFrame::frame(&self.r#patch, hash);
+    }
+}
+impl crate::HeapUsage for VersionRequirement {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#operator))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#major))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#minor))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#patch))
     }
 }
 impl crate::SemanticFrame for VersionWindow {

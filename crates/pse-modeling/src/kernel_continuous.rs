@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-use crate::kernel_types::{physical, source};
+use crate::kernel_types::physical;
 use crate::*;
 use pse_ids::SemanticId;
 
@@ -11,7 +11,7 @@ fn run(text: &str) -> Result<SpecializedModel> {
         quantities: &registry,
         names: &names,
     };
-    let package = check(&source(text), &context)?;
+    let package = check(&kernel_types::try_source(text)?, &context)?;
     specialize(
         &package,
         package.names["p.D"],

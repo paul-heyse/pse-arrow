@@ -44,6 +44,29 @@ impl ModelingRevision {
         self.admitted.declarations()
     }
 }
+/// The identity of a modeling source revision (ADR-0123 Outcome 8): the structured
+/// declaration rows in order, the identity of the physical inventory they are admitted
+/// against, and the physical name bindings admission resolves them with. Package data
+/// documents (Plan 23 KR9) add each document's identity and byte-level content hash to
+/// this preimage as a further frame variant.
+pub(crate) fn source_revision(
+    rows: &[Declaration],
+    physical: &pse_ids::ContentHash,
+    names: &BTreeMap<String, QuantityTypeId>,
+) -> pse_ids::ContentHash {
+    use pse_model::SemanticFrame;
+    let mut source = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingSourceRevisionV2);
+    source.u64(rows.len() as u64);
+    for row in rows {
+        row.frame(&mut source);
+    }
+    source.hash(physical);
+    source.u64(names.len() as u64);
+    for (name, quantity) in names {
+        source.str(name).id(&quantity.as_id());
+    }
+    source.finish_hash()
+}
 /// Kernel products retain memory after the workspace generation rotates.
 #[derive(Clone, Debug)]
 pub struct ModelingPreparation {
@@ -558,6 +581,7 @@ impl MathService {
         workspace: &Workspace,
         rows: Vec<Declaration>,
         names: BTreeMap<String, QuantityTypeId>,
+        physical: &pse_ids::ContentHash,
     ) -> Result<ModelingRevision, MathRuntimeError> {
         let bytes = rows
             .owned_bytes()
@@ -570,16 +594,7 @@ impl MathService {
         let reservation =
             pse_columnar::MemoryConsumer::new("modeling:source-revision").register(&self.pool);
         reservation.try_grow(bytes)?;
-        use pse_model::SemanticFrame;
-        let mut source = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingSourceRevisionV1);
-        source.u64(rows.len() as u64);
-        for row in &rows {
-            row.frame(&mut source);
-        }
-        source.u64(names.len() as u64);
-        for (name, quantity) in &names {
-            source.str(name).id(&quantity.as_id());
-        }
+        let identity = source_revision(&rows, physical, &names);
         let admitted = workspace
             .compiler
             .lock()
@@ -590,7 +605,7 @@ impl MathService {
         }
         reservation.try_resize(admitted.retained_bytes())?;
         Ok(ModelingRevision {
-            identity: source.finish_hash(),
+            identity,
             admitted,
             _lease: AllocationLease::new(reservation),
         })
@@ -639,5 +654,59 @@ impl MathService {
             solved,
             _lease: lease,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::source_revision;
+    use pse_ids::{ContentHash, SemanticId};
+    use pse_quantity::QuantityTypeId;
+    use std::collections::BTreeMap;
+
+    fn rows() -> Vec<pse_authoring::language::Declaration> {
+        pse_authoring::language::parse(
+            "package p { entity kind item {} table t[j: item]: Temperature missing optional; fn f(x: Temperature)->Temperature^2 = x*x; }",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap()
+    }
+    fn names(id: u8) -> BTreeMap<String, QuantityTypeId> {
+        BTreeMap::from([(
+            "p.Temperature".to_owned(),
+            QuantityTypeId::from_id(SemanticId::from_bytes([id; 16])),
+        )])
+    }
+
+    /// ADR-0123 Outcome 8: the same rows, physical inventory and name bindings reproduce
+    /// the identity; the frozen vector pins the preimage layout of
+    /// `pse.modeling.source-revision.v2` over no rows, a zero inventory and no names.
+    #[test]
+    fn unchanged_inputs_reproduce_the_source_revision() {
+        let physical = ContentHash::from_bytes([3; 32]);
+        assert_eq!(
+            source_revision(&rows(), &physical, &names(1)),
+            source_revision(&rows(), &physical, &names(1))
+        );
+        assert_eq!(
+            source_revision(&[], &ContentHash::from_bytes([0; 32]), &BTreeMap::new()).to_hex(),
+            "9d8e81c6012945c5912c4d74c0c310c1e4cbade43da48b11819aa0d45a356804"
+        );
+    }
+
+    /// Binding one physical name to another quantity type, or admitting the same rows
+    /// against another physical inventory, is another source revision.
+    #[test]
+    fn source_revision_changes_with_a_physical_name_binding() {
+        let physical = ContentHash::from_bytes([3; 32]);
+        let base = source_revision(&rows(), &physical, &names(1));
+        assert_ne!(base, source_revision(&rows(), &physical, &names(2)));
+        assert_ne!(
+            base,
+            source_revision(&rows(), &ContentHash::from_bytes([4; 32]), &names(1))
+        );
+        assert_ne!(base, source_revision(&rows()[..1], &physical, &names(1)));
     }
 }

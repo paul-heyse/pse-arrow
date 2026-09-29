@@ -52,7 +52,7 @@ pub(in crate::workflow) enum Start {
 #[derive(Clone, Debug, Default)]
 pub(in crate::workflow) struct Overlay {
     /// Specialization facts, such as a selected initialization stage.
-    pub facts: BTreeMap<String, Value>,
+    pub facts: BTreeMap<pse_modeling::analysis::Fact, Value>,
     /// Replacements of declared parameters, such as continuation values.
     pub parameters: BTreeMap<SemanticId, f64>,
     /// Temporary fixes and relaxations, by case path; set fields replace the original's.

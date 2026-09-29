@@ -199,29 +199,35 @@ frames! {
         MathPhysicalInventoryV4 => "pse.math.physical-inventory.v4",
         /// A physical reduction pass.
         MathPhysicalPassV1 => "pse.math.physical-pass.v1",
-        /// A typed definition's admitted outputs.
-        MathTypedDefinitionV2 => "pse.math.typed-definition.v2",
+        /// A typed definition's admitted outputs; function validity predicates are framed
+        /// in their canonical spelling, unit literals by their canonical products
+        /// (ADR-0123 Outcome 8).
+        MathTypedDefinitionV3 => "pse.math.typed-definition.v3",
         /// A prepared view of a compiled modeling structure.
         CompilerModelingViewV2 => "pse.compiler.modeling-view.v2",
         /// The parametric projection of a prepared modeling view over requested parameters.
         CompilerModelingParametricV1 => "pse.compiler.modeling-parametric.v1",
-        /// A grouped consumer body.
-        ModelingConsumerBodyV1 => "pse.modeling.consumer-body.v1",
-        /// An implicit residual.
-        ModelingImplicitResidualV1 => "pse.modeling.implicit-residual.v1",
+        /// A grouped consumer body, its expressions and validity ranges in canonical spelling
+        /// (ADR-0123 Outcome 8).
+        ModelingConsumerBodyV2 => "pse.modeling.consumer-body.v2",
+        /// An implicit residual, its terms, hints and guards in canonical spelling (ADR-0123
+        /// Outcome 8).
+        ModelingImplicitResidualV2 => "pse.modeling.implicit-residual.v2",
     }
 
     "modeling specialization" ("pse-modeling") {
-        /// A continuity derivative.
-        ModelingContinuityV1 => "pse.modeling.continuity.v1",
+        /// A continuity derivative, its body in canonical spelling (ADR-0123 Outcome 8).
+        ModelingContinuityV2 => "pse.modeling.continuity.v2",
         /// A coordinate, preserving compound-key identity.
         ModelingCoordinateV1 => "pse.modeling.coordinate.v1",
-        /// A definite integral.
-        ModelingDefiniteIntegralV1 => "pse.modeling.definite-integral.v1",
-        /// A dispatch group body.
-        ModelingDispatchBodyV1 => "pse.modeling.dispatch-body.v1",
-        /// A finite function instantiation.
-        ModelingFiniteFunctionV1 => "pse.modeling.finite-function.v1",
+        /// A definite integral, its integrand in canonical spelling (ADR-0123 Outcome 8).
+        ModelingDefiniteIntegralV2 => "pse.modeling.definite-integral.v2",
+        /// A dispatch group body, its expressions and equations in canonical spelling
+        /// (ADR-0123 Outcome 8).
+        ModelingDispatchBodyV2 => "pse.modeling.dispatch-body.v2",
+        /// A finite function specialization, its validity and body in canonical spelling
+        /// (ADR-0123 Outcome 8).
+        ModelingFiniteFunctionV2 => "pse.modeling.finite-function.v2",
         /// A finite reduction rewrite.
         ModelingFiniteReductionV1 => "pse.modeling.finite-reduction.v1",
         /// A specialized member.
@@ -324,8 +330,9 @@ frames! {
         ModelingFitSourceV1 => "pse.modeling.fit-source.v1",
         /// Implicit trial hints.
         ModelingImplicitTrialHintsV1 => "pse.modeling.implicit-trial-hints.v1",
-        /// A modeling source revision.
-        ModelingSourceRevisionV1 => "pse.modeling.source-revision.v1",
+        /// A modeling source revision: the structured declaration rows, the physical
+        /// inventory identity and the admitted physical name bindings (ADR-0123 Outcome 8).
+        ModelingSourceRevisionV2 => "pse.modeling.source-revision.v2",
         /// A prepared numerical cone request.
         NumericalConeV1 => "pse.numerical.cone.v1",
         /// A publication request's algorithms.

@@ -5227,6 +5227,159 @@ impl core::str::FromStr for ModelingAnalysisRoute {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum ModelingAnnotationKind {
+    ///start
+    #[serde(rename = "start")]
+    Start,
+    ///nominal
+    #[serde(rename = "nominal")]
+    Nominal,
+    ///bounds
+    #[serde(rename = "bounds")]
+    Bounds,
+    ///scale
+    #[serde(rename = "scale")]
+    Scale,
+    ///report
+    #[serde(rename = "report")]
+    Report,
+    ///valid
+    #[serde(rename = "valid")]
+    Valid,
+    ///check
+    #[serde(rename = "check")]
+    Check,
+    ///objective
+    #[serde(rename = "objective")]
+    Objective,
+    ///connectivity
+    #[serde(rename = "connectivity")]
+    Connectivity,
+}
+impl crate::SemanticEq for ModelingAnnotationKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingAnnotationKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 9usize] = [
+        Self::Start,
+        Self::Nominal,
+        Self::Bounds,
+        Self::Scale,
+        Self::Report,
+        Self::Valid,
+        Self::Check,
+        Self::Objective,
+        Self::Connectivity,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Start => "start",
+            Self::Nominal => "nominal",
+            Self::Bounds => "bounds",
+            Self::Scale => "scale",
+            Self::Report => "report",
+            Self::Valid => "valid",
+            Self::Check => "check",
+            Self::Objective => "objective",
+            Self::Connectivity => "connectivity",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Start => 0usize,
+            Self::Nominal => 1usize,
+            Self::Bounds => 2usize,
+            Self::Scale => 3usize,
+            Self::Report => 4usize,
+            Self::Valid => 5usize,
+            Self::Check => 6usize,
+            Self::Objective => 7usize,
+            Self::Connectivity => 8usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Start => None,
+            Self::Nominal => None,
+            Self::Bounds => None,
+            Self::Scale => None,
+            Self::Report => None,
+            Self::Valid => None,
+            Self::Check => None,
+            Self::Objective => None,
+            Self::Connectivity => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingAnnotationKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingAnnotationKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingAnnotationKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["start", "nominal", "bounds", "scale",
+            "report", "valid", "check", "objective", "connectivity"] }
+        )
+    }
+}
+impl core::str::FromStr for ModelingAnnotationKind {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "start" => Ok(Self::Start),
+            "nominal" => Ok(Self::Nominal),
+            "bounds" => Ok(Self::Bounds),
+            "scale" => Ok(Self::Scale),
+            "report" => Ok(Self::Report),
+            "valid" => Ok(Self::Valid),
+            "check" => Ok(Self::Check),
+            "objective" => Ok(Self::Objective),
+            "connectivity" => Ok(Self::Connectivity),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingAnnotationKind).to_owned(),
+                    enumeration: stringify!(ModelingAnnotationKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum ModelingCheckBasis {
     ///point
     #[serde(rename = "point")]
@@ -6679,6 +6832,106 @@ impl core::str::FromStr for ModelingElasticObservation {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum ModelingFactNamespace {
+    ///analysis
+    #[serde(rename = "analysis")]
+    Analysis,
+    ///objective
+    #[serde(rename = "objective")]
+    Objective,
+    ///stage
+    #[serde(rename = "stage")]
+    Stage,
+}
+impl crate::SemanticEq for ModelingFactNamespace {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingFactNamespace {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::Analysis, Self::Objective, Self::Stage];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Analysis => "analysis",
+            Self::Objective => "objective",
+            Self::Stage => "stage",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Analysis => 0usize,
+            Self::Objective => 1usize,
+            Self::Stage => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Analysis => None,
+            Self::Objective => None,
+            Self::Stage => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingFactNamespace {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingFactNamespace))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingFactNamespace)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["analysis", "objective", "stage"] }
+        )
+    }
+}
+impl core::str::FromStr for ModelingFactNamespace {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "analysis" => Ok(Self::Analysis),
+            "objective" => Ok(Self::Objective),
+            "stage" => Ok(Self::Stage),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingFactNamespace).to_owned(),
+                    enumeration: stringify!(ModelingFactNamespace).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum ModelingFixtureBinding {
     ///value
     #[serde(rename = "value")]
@@ -7005,6 +7258,106 @@ impl core::str::FromStr for ModelingInitializationStep {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingInitializationStep).to_owned(),
                     enumeration: stringify!(ModelingInitializationStep).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum ModelingMissingPolicy {
+    ///required
+    #[serde(rename = "required")]
+    Required,
+    ///optional
+    #[serde(rename = "optional")]
+    Optional,
+    ///default
+    #[serde(rename = "default")]
+    Default,
+}
+impl crate::SemanticEq for ModelingMissingPolicy {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingMissingPolicy {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::Required, Self::Optional, Self::Default];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Required => "required",
+            Self::Optional => "optional",
+            Self::Default => "default",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Required => 0usize,
+            Self::Optional => 1usize,
+            Self::Default => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Required => None,
+            Self::Optional => None,
+            Self::Default => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingMissingPolicy {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingMissingPolicy))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingMissingPolicy)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["required", "optional", "default"] }
+        )
+    }
+}
+impl core::str::FromStr for ModelingMissingPolicy {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "required" => Ok(Self::Required),
+            "optional" => Ok(Self::Optional),
+            "default" => Ok(Self::Default),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingMissingPolicy).to_owned(),
+                    enumeration: stringify!(ModelingMissingPolicy).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -7510,6 +7863,247 @@ impl core::str::FromStr for ModelingStructuralRequirement {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum ModelingTypeNode {
+    ///boolean
+    #[serde(rename = "boolean")]
+    Boolean,
+    ///integer
+    #[serde(rename = "integer")]
+    Integer,
+    ///text
+    #[serde(rename = "text")]
+    Text,
+    ///named
+    #[serde(rename = "named")]
+    Named,
+    ///variable
+    #[serde(rename = "variable")]
+    Variable,
+    ///optional
+    #[serde(rename = "optional")]
+    Optional,
+    ///set
+    #[serde(rename = "set")]
+    Set,
+    ///row
+    #[serde(rename = "row")]
+    Row,
+    ///table
+    #[serde(rename = "table")]
+    Table,
+    ///tuple
+    #[serde(rename = "tuple")]
+    Tuple,
+    ///indexed
+    #[serde(rename = "indexed")]
+    Indexed,
+    ///function
+    #[serde(rename = "function")]
+    Function,
+    ///argument
+    #[serde(rename = "argument")]
+    Argument,
+    ///delta
+    #[serde(rename = "delta")]
+    Delta,
+    ///product
+    #[serde(rename = "product")]
+    Product,
+    ///quotient
+    #[serde(rename = "quotient")]
+    Quotient,
+    ///power
+    #[serde(rename = "power")]
+    Power,
+    ///identifier
+    #[serde(rename = "identifier")]
+    Identifier,
+    ///quantity_type
+    #[serde(rename = "quantity_type")]
+    QuantityType,
+    ///reference_state
+    #[serde(rename = "reference_state")]
+    ReferenceState,
+}
+impl crate::SemanticEq for ModelingTypeNode {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingTypeNode {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 20usize] = [
+        Self::Boolean,
+        Self::Integer,
+        Self::Text,
+        Self::Named,
+        Self::Variable,
+        Self::Optional,
+        Self::Set,
+        Self::Row,
+        Self::Table,
+        Self::Tuple,
+        Self::Indexed,
+        Self::Function,
+        Self::Argument,
+        Self::Delta,
+        Self::Product,
+        Self::Quotient,
+        Self::Power,
+        Self::Identifier,
+        Self::QuantityType,
+        Self::ReferenceState,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Boolean => "boolean",
+            Self::Integer => "integer",
+            Self::Text => "text",
+            Self::Named => "named",
+            Self::Variable => "variable",
+            Self::Optional => "optional",
+            Self::Set => "set",
+            Self::Row => "row",
+            Self::Table => "table",
+            Self::Tuple => "tuple",
+            Self::Indexed => "indexed",
+            Self::Function => "function",
+            Self::Argument => "argument",
+            Self::Delta => "delta",
+            Self::Product => "product",
+            Self::Quotient => "quotient",
+            Self::Power => "power",
+            Self::Identifier => "identifier",
+            Self::QuantityType => "quantity_type",
+            Self::ReferenceState => "reference_state",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Boolean => 0usize,
+            Self::Integer => 1usize,
+            Self::Text => 2usize,
+            Self::Named => 3usize,
+            Self::Variable => 4usize,
+            Self::Optional => 5usize,
+            Self::Set => 6usize,
+            Self::Row => 7usize,
+            Self::Table => 8usize,
+            Self::Tuple => 9usize,
+            Self::Indexed => 10usize,
+            Self::Function => 11usize,
+            Self::Argument => 12usize,
+            Self::Delta => 13usize,
+            Self::Product => 14usize,
+            Self::Quotient => 15usize,
+            Self::Power => 16usize,
+            Self::Identifier => 17usize,
+            Self::QuantityType => 18usize,
+            Self::ReferenceState => 19usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Boolean => None,
+            Self::Integer => None,
+            Self::Text => None,
+            Self::Named => None,
+            Self::Variable => None,
+            Self::Optional => None,
+            Self::Set => None,
+            Self::Row => None,
+            Self::Table => None,
+            Self::Tuple => None,
+            Self::Indexed => None,
+            Self::Function => None,
+            Self::Argument => None,
+            Self::Delta => None,
+            Self::Product => None,
+            Self::Quotient => None,
+            Self::Power => None,
+            Self::Identifier => None,
+            Self::QuantityType => None,
+            Self::ReferenceState => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingTypeNode {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingTypeNode))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ModelingTypeNode)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["boolean", "integer", "text", "named",
+            "variable", "optional", "set", "row", "table", "tuple", "indexed",
+            "function", "argument", "delta", "product", "quotient", "power",
+            "identifier", "quantity_type", "reference_state"] }
+        )
+    }
+}
+impl core::str::FromStr for ModelingTypeNode {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "boolean" => Ok(Self::Boolean),
+            "integer" => Ok(Self::Integer),
+            "text" => Ok(Self::Text),
+            "named" => Ok(Self::Named),
+            "variable" => Ok(Self::Variable),
+            "optional" => Ok(Self::Optional),
+            "set" => Ok(Self::Set),
+            "row" => Ok(Self::Row),
+            "table" => Ok(Self::Table),
+            "tuple" => Ok(Self::Tuple),
+            "indexed" => Ok(Self::Indexed),
+            "function" => Ok(Self::Function),
+            "argument" => Ok(Self::Argument),
+            "delta" => Ok(Self::Delta),
+            "product" => Ok(Self::Product),
+            "quotient" => Ok(Self::Quotient),
+            "power" => Ok(Self::Power),
+            "identifier" => Ok(Self::Identifier),
+            "quantity_type" => Ok(Self::QuantityType),
+            "reference_state" => Ok(Self::ReferenceState),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingTypeNode).to_owned(),
+                    enumeration: stringify!(ModelingTypeNode).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum ModelingVariableDomain {
     ///continuous
     #[serde(rename = "continuous")]
@@ -7608,6 +8202,90 @@ impl core::str::FromStr for ModelingVariableDomain {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingVariableDomain).to_owned(),
                     enumeration: stringify!(ModelingVariableDomain).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum ModelingVersionOperator {
+    ///exact
+    #[serde(rename = "exact")]
+    Exact,
+}
+impl crate::SemanticEq for ModelingVersionOperator {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingVersionOperator {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 1usize] = [Self::Exact];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Exact => "exact",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Exact => 0usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Exact => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingVersionOperator {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingVersionOperator))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingVersionOperator)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["exact"] })
+    }
+}
+impl core::str::FromStr for ModelingVersionOperator {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "exact" => Ok(Self::Exact),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingVersionOperator).to_owned(),
+                    enumeration: stringify!(ModelingVersionOperator).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -15449,6 +16127,16 @@ impl crate::SemanticFrame for ModelingAnalysisRoute {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for ModelingAnnotationKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingAnnotationKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for ModelingCheckBasis {
     fn heap_bytes(&self) -> usize {
         0
@@ -15539,6 +16227,16 @@ impl crate::SemanticFrame for ModelingElasticObservation {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for ModelingFactNamespace {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingFactNamespace {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for ModelingFixtureBinding {
     fn heap_bytes(&self) -> usize {
         0
@@ -15565,6 +16263,16 @@ impl crate::HeapUsage for ModelingInitializationStep {
     }
 }
 impl crate::SemanticFrame for ModelingInitializationStep {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ModelingMissingPolicy {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingMissingPolicy {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -15609,12 +16317,32 @@ impl crate::SemanticFrame for ModelingStructuralRequirement {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for ModelingTypeNode {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingTypeNode {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for ModelingVariableDomain {
     fn heap_bytes(&self) -> usize {
         0
     }
 }
 impl crate::SemanticFrame for ModelingVariableDomain {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ModelingVersionOperator {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingVersionOperator {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

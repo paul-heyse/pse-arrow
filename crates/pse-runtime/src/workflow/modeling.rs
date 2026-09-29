@@ -215,7 +215,7 @@ impl Runtime {
         let service = self.shared.math();
         let inputs = compiler_inputs(&physical, &providers);
         let workspace = service.workspace(inputs, WorkspaceLimits::default())?;
-        let revision = service.modeling_revision(&workspace, rows, names)?;
+        let revision = service.modeling_revision(&workspace, rows, names, &physical.key)?;
         Ok(ModelingPackage {
             runtime: self.clone(),
             workspace,
@@ -316,7 +316,7 @@ fn validate_import_versions(
             let target = owners
                 .get(&target.document_id)
                 .ok_or_else(|| contract("import target document absent"))?;
-            if import.version.trim_start_matches('=') != target.version {
+            if !pse_authoring::language::requirement_admits(&import.version, &target.version) {
                 return Err(contract(
                     "modeling import differs from admitted package version",
                 ));
@@ -613,7 +613,7 @@ impl ModelingPackage {
             self.runtime
                 .shared
                 .math()
-                .modeling_revision(&self.workspace, rows, names)?;
+                .modeling_revision(&self.workspace, rows, names, &self.physical.key)?;
         Ok(Self {
             // Direct IR edits provide no replacement document bytes. Preserve no
             // stale source text as the declaration of the new revision.

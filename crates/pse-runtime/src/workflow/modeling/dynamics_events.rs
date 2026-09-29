@@ -28,7 +28,10 @@ impl ModelingPackage {
         derivatives: DerivativeOrder,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        if bindings.facts.keys().any(|k| k.starts_with("analysis."))
+        if bindings
+            .facts
+            .keys()
+            .any(|k| k.namespace() == pse_modeling::analysis::FactNamespace::Analysis)
             && bindings
                 .analysis_route()
                 .map_err(|e| contract(e.to_string()))?

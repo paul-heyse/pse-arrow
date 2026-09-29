@@ -268,7 +268,7 @@ impl Request<'_> {
             self.limits,
         )?;
         let mut paths = BTreeMap::new();
-        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV2);
+        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV3);
         hash.u64(self.formals.len() as u64);
         for (slot, formal) in self.formals.iter().enumerate() {
             if paths.insert(formal.path.clone(), slot).is_some() {

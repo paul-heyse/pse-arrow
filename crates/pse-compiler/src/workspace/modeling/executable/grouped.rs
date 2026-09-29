@@ -440,7 +440,7 @@ pub(super) fn admit(
             &p.validity,
         )?;
         let declaration = p.declarations[index];
-        let mut h = FramedHasher::new(pse_ids::Frame::ModelingConsumerBodyV1);
+        let mut h = FramedHasher::new(pse_ids::Frame::ModelingConsumerBodyV2);
         h.id(&declaration.as_id())
             .str(&dsl::render_expr(&expression))
             .id(&p.quantities[index].as_id());

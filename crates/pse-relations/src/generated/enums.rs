@@ -16,13 +16,15 @@ pub use pse_model::generated::r#enums::{
     HessianMode, HighsMethod, IdPolicy, IdasInitialization, InputConsumptionKind,
     IntervalEnd, IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
     JobState, KinsolOrthogonalization, KinsolStrategy, MemberSelectionKind, MigrationOp,
-    ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingCheckBasis,
-    ModelingCheckKind, ModelingConformanceKind, ModelingConformanceStatus,
-    ModelingContributionRole, ModelingDeclarationKind, ModelingDiagnosticSampleStop,
-    ModelingDiscreteInitialization, ModelingElasticObservation, ModelingFixtureBinding,
-    ModelingFixtureExecution, ModelingInitializationStep, ModelingObjectiveRoute,
-    ModelingRealValueKind, ModelingRealizationPolicy, ModelingStructuralRequirement,
-    ModelingVariableDomain, MuStrategy, MumpsOrdering, Namespace, NativeAssurance,
+    ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingAnnotationKind,
+    ModelingCheckBasis, ModelingCheckKind, ModelingConformanceKind,
+    ModelingConformanceStatus, ModelingContributionRole, ModelingDeclarationKind,
+    ModelingDiagnosticSampleStop, ModelingDiscreteInitialization,
+    ModelingElasticObservation, ModelingFactNamespace, ModelingFixtureBinding,
+    ModelingFixtureExecution, ModelingInitializationStep, ModelingMissingPolicy,
+    ModelingObjectiveRoute, ModelingRealValueKind, ModelingRealizationPolicy,
+    ModelingStructuralRequirement, ModelingTypeNode, ModelingVariableDomain,
+    ModelingVersionOperator, MuStrategy, MumpsOrdering, Namespace, NativeAssurance,
     NativeBackend, NativeBoundaryClass, NativeCandidateKind, NativeCertificateAccuracy,
     NativeCertificateKind, NativeConstraintForm, NativeDependencyEvidenceKind,
     NativeDependencyKind, NativeDerivativeCapability, NativeIneligibility,
@@ -1228,6 +1230,25 @@ impl crate::columnar::ArrowValue for ModelingAnalysisRoute {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for ModelingAnnotationKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for ModelingCheckBasis {
     fn append(
         &self,
@@ -1399,6 +1420,25 @@ impl crate::columnar::ArrowValue for ModelingElasticObservation {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for ModelingFactNamespace {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for ModelingFixtureBinding {
     fn append(
         &self,
@@ -1438,6 +1478,25 @@ impl crate::columnar::ArrowValue for ModelingFixtureExecution {
     }
 }
 impl crate::columnar::ArrowValue for ModelingInitializationStep {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for ModelingMissingPolicy {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -1532,7 +1591,45 @@ impl crate::columnar::ArrowValue for ModelingStructuralRequirement {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for ModelingTypeNode {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for ModelingVariableDomain {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for ModelingVersionOperator {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

@@ -511,7 +511,7 @@ impl Engine<'_, '_> {
             Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(axis))),
         ));
         let baseline = self.rewrite(instance, body, env, chain)?;
-        let mut hash = FramedHasher::new(pse_ids::Frame::ModelingContinuityV1);
+        let mut hash = FramedHasher::new(pse_ids::Frame::ModelingContinuityV2);
         hash.id(&instance.as_id())
             .id(&at.as_id())
             .id(&mesh_id)
@@ -640,7 +640,7 @@ impl Engine<'_, '_> {
             )
             .resolve_with_evidence(self.c.quantities, &BTreeMap::new(), self.c.preconditions)
             .map_err(|e| invalid(at, e.to_string()))?;
-            let mut identity = FramedHasher::new(pse_ids::Frame::ModelingDefiniteIntegralV1);
+            let mut identity = FramedHasher::new(pse_ids::Frame::ModelingDefiniteIntegralV2);
             identity
                 .id(&instance.as_id())
                 .id(&at.as_id())

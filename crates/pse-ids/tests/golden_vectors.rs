@@ -38,6 +38,54 @@ const REGISTRY_HASH_A_BC: &str = "e1745e73a5c5b0a583f4cf13428c2e7696e97101b6a4ab
 /// parts.
 const UNIT_PRODUCT_ID: &str = "b65b26cc780fb634de036e1195b0af54";
 
+/// `derive_hash(frame, [b"pse"])` for each frame variant Plan 23 KR3 added because its
+/// preimage changed (ADR-0123 Outcome 8, DP-24): the structured source revision, and every
+/// frame over canonical DSL spellings, whose unit literals print as canonical products
+/// since ADR-0124. The source revision's preimage layout is pinned beside its derivation
+/// (`pse_runtime::math::modeling::source_revision`).
+const STRUCTURED_IR_FRAMES: [(Frame, &str, &str); 8] = [
+    (
+        Frame::ModelingSourceRevisionV2,
+        "pse.modeling.source-revision.v2",
+        "c3010bcfb34611415f9c0ae3ab5c73f613b662b487166178438e733c4ff2653e",
+    ),
+    (
+        Frame::ModelingDispatchBodyV2,
+        "pse.modeling.dispatch-body.v2",
+        "c66db81d5fbbd304c0d42959b432acd177062882366c6c2a9caf3ff22cadac20",
+    ),
+    (
+        Frame::ModelingFiniteFunctionV2,
+        "pse.modeling.finite-function.v2",
+        "ddd3522c9bbef2ac3826016fa883f2d1250397c4938b370b3208da3b2c8996a9",
+    ),
+    (
+        Frame::ModelingContinuityV2,
+        "pse.modeling.continuity.v2",
+        "b0ca5cab65746987fcd342b5324b658ade81aab12a3afde94b8de3d10788045d",
+    ),
+    (
+        Frame::ModelingDefiniteIntegralV2,
+        "pse.modeling.definite-integral.v2",
+        "8d13406a0ebb9964552fd1f913071fdad985a16898132ef4ec350db304c0f335",
+    ),
+    (
+        Frame::ModelingConsumerBodyV2,
+        "pse.modeling.consumer-body.v2",
+        "5610f7db50b756a20b7a5253db954773c1028e8d1506b0a035138b0d5b179e59",
+    ),
+    (
+        Frame::ModelingImplicitResidualV2,
+        "pse.modeling.implicit-residual.v2",
+        "b60062d9ef33991edb88ead0ccd261a0e13316aeeeba1a6262d8943c83a5abd8",
+    ),
+    (
+        Frame::MathTypedDefinitionV3,
+        "pse.math.typed-definition.v3",
+        "ab5d37e55b80a098e63ea38db0d0106cd5d1dba776b1d088482abfe924d1aaa7",
+    ),
+];
+
 /// `encoding_checksum(b"pse")`: plain, unkeyed BLAKE3 over three bytes.
 const ENCODING_CHECKSUM_PSE: &str =
     "b183159a276933fcc7170f73b6e21ff751344a2769b9669736ff4ffa47c689ee";
@@ -94,6 +142,18 @@ fn the_unit_product_identity_is_frozen() {
         Frame::QuantityUnitProductV1.as_str(),
         "pse.quantity.unit-product.v1"
     );
+}
+
+#[test]
+fn the_structured_ir_frame_variants_are_frozen() {
+    for (frame, spelling, vector) in STRUCTURED_IR_FRAMES {
+        assert_eq!(frame.as_str(), spelling);
+        assert_eq!(
+            derive_hash(frame, &[b"pse"]).to_hex(),
+            vector,
+            "{spelling}"
+        );
+    }
 }
 
 #[test]

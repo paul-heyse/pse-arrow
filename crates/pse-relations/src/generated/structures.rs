@@ -5,7 +5,8 @@
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#structures::{
     LocalValidity, MemberDescriptorSelectionRevision, MemberDescriptorSelection,
-    MemberDescriptorSelectionSelected, MemberDescriptor, VersionWindow,
+    MemberDescriptorSelectionSelected, MemberDescriptor, ModelingTypeArenaNodeExponent,
+    ModelingTypeArenaNode, VersionRequirement, VersionWindow,
 };
 impl crate::columnar::ArrowValue for LocalValidity {
     fn append(
@@ -368,6 +369,197 @@ impl crate::columnar::ArrowValue for MemberDescriptor {
             )?,
             r#selection: <MemberDescriptorSelection as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for ModelingTypeArenaNodeExponent {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#num, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#den, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <i16 as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <i16 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#num: <i16 as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#den: <i16 as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for ModelingTypeArenaNode {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#kind, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#path, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#name, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#exponent,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#children,
+            children[4usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::ModelingTypeNode as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            Vec<String>,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            ModelingTypeArenaNodeExponent,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Vec<
+            u32,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#kind: <crate::generated::enums::ModelingTypeNode as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#path: <Option<
+                Vec<String>,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#name: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#exponent: <Option<
+                ModelingTypeArenaNodeExponent,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#children: <Vec<
+                u32,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for VersionRequirement {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#operator,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#major, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#minor, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#patch, children[3usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::ModelingVersionOperator as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#operator: <crate::generated::enums::ModelingVersionOperator as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#major: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#minor: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#patch: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
                 index,
             )?,
         })

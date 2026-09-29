@@ -601,6 +601,20 @@ class ModelingAnalysisRoute(StrEnum):
     SIMULTANEOUS = "simultaneous"
 
 
+class ModelingAnnotationKind(StrEnum):
+    """The declared ModelingAnnotationKind enumeration."""
+
+    START = "start"
+    NOMINAL = "nominal"
+    BOUNDS = "bounds"
+    SCALE = "scale"
+    REPORT = "report"
+    VALID = "valid"
+    CHECK = "check"
+    OBJECTIVE = "objective"
+    CONNECTIVITY = "connectivity"
+
+
 class ModelingCheckBasis(StrEnum):
     """The declared ModelingCheckBasis enumeration."""
 
@@ -737,6 +751,14 @@ class ModelingElasticObservation(StrEnum):
     INCONCLUSIVE = "inconclusive"
 
 
+class ModelingFactNamespace(StrEnum):
+    """The declared ModelingFactNamespace enumeration."""
+
+    ANALYSIS = "analysis"
+    OBJECTIVE = "objective"
+    STAGE = "stage"
+
+
 class ModelingFixtureBinding(StrEnum):
     """The declared ModelingFixtureBinding enumeration."""
 
@@ -764,6 +786,14 @@ class ModelingInitializationStep(StrEnum):
     STAGE = "stage"
     HOMOTOPY = "homotopy"
     ORIGINAL = "original"
+
+
+class ModelingMissingPolicy(StrEnum):
+    """The declared ModelingMissingPolicy enumeration."""
+
+    REQUIRED = "required"
+    OPTIONAL = "optional"
+    DEFAULT = "default"
 
 
 class ModelingObjectiveRoute(StrEnum):
@@ -807,6 +837,31 @@ class ModelingStructuralRequirement(StrEnum):
     L1_EXACT_PENALTY = "l1_exact_penalty"
 
 
+class ModelingTypeNode(StrEnum):
+    """The declared ModelingTypeNode enumeration."""
+
+    BOOLEAN = "boolean"
+    INTEGER = "integer"
+    TEXT = "text"
+    NAMED = "named"
+    VARIABLE = "variable"
+    OPTIONAL = "optional"
+    SET = "set"
+    ROW = "row"
+    TABLE = "table"
+    TUPLE = "tuple"
+    INDEXED = "indexed"
+    FUNCTION = "function"
+    ARGUMENT = "argument"
+    DELTA = "delta"
+    PRODUCT = "product"
+    QUOTIENT = "quotient"
+    POWER = "power"
+    IDENTIFIER = "identifier"
+    QUANTITY_TYPE = "quantity_type"
+    REFERENCE_STATE = "reference_state"
+
+
 class ModelingVariableDomain(StrEnum):
     """The declared ModelingVariableDomain enumeration."""
 
@@ -815,6 +870,12 @@ class ModelingVariableDomain(StrEnum):
     BINARY = "binary"
     SEMICONTINUOUS = "semicontinuous"
     SEMIINTEGER = "semiinteger"
+
+
+class ModelingVersionOperator(StrEnum):
+    """The declared ModelingVersionOperator enumeration."""
+
+    EXACT = "exact"
 
 
 class MuStrategy(StrEnum):

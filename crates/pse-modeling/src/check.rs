@@ -511,12 +511,13 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                     || fixture.modes.iter().any(|m| {
                         m.facts
                             .iter()
-                            .map(|f| f.name.as_str())
+                            .map(|f| (f.namespace, f.name.as_str()))
                             .collect::<BTreeSet<_>>()
                             .len()
                             != m.facts.len()
                             || m.facts.iter().any(|f| {
-                                f.name.starts_with("analysis.") || f.name.starts_with("objective.")
+                                crate::analysis::Fact::new(f.namespace, &f.name)
+                                    .is_none_or(|fact| !fact.is_structural())
                             })
                             || m.events.iter().any(|e| match &e.next {
                                 Some(next) => !mode_names.contains(next.as_str()),
@@ -754,7 +755,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
     for row in rows {
         if let Some(v) = &row.value.continuous {
             let ty = context.resolve(
-                &v.type_name,
+                &v.r#type,
                 &BTreeSet::new(),
                 &p.named_types(row.declaration_id),
                 row.declaration_id,
@@ -816,7 +817,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
             if let Some(scope) = &p.declarations[&at].value.scope {
                 variables.extend(scope.type_parameters.iter().cloned());
                 for arg in &scope.parameters {
-                    let ty = context.resolve(&arg.type_name, &variables, &names, at)?;
+                    let ty = context.resolve(&arg.r#type, &variables, &names, at)?;
                     names.insert(arg.name.clone(), ty);
                 }
             }
@@ -828,9 +829,9 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                 .insert(id, crate::indicator_type(context.quantities, id)?);
         }
         if let Some(v) = &row.value.binding {
-            if !v.type_name.is_empty() {
+            if let Some(ty) = &v.r#type {
                 p.types
-                    .insert(id, context.resolve(&v.type_name, &variables, &names, id)?);
+                    .insert(id, context.resolve(ty, &variables, &names, id)?);
             }
             // ADR-0103: exactly a variable declares a domain, and a discrete one is physical.
             let variable =
@@ -854,10 +855,10 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
         }
         if let Some(v) = &row.value.accumulator {
             p.types
-                .insert(id, context.resolve(&v.type_name, &variables, &names, id)?);
+                .insert(id, context.resolve(&v.r#type, &variables, &names, id)?);
         }
         if let Some(v) = &row.value.continuous {
-            let ty = context.resolve(&v.type_name, &variables, &names, id)?;
+            let ty = context.resolve(&v.r#type, &variables, &names, id)?;
             if !matches!(ty, Type::Quantity(_)) {
                 return Err(invalid(id, "continuous axis requires a physical type"));
             }
@@ -884,7 +885,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                     }
                     Ok((
                         a.name.clone(),
-                        context.resolve(&a.type_name, &variables, &names, id)?,
+                        context.resolve(&a.r#type, &variables, &names, id)?,
                     ))
                 })
                 .collect::<Result<_>>()?;
@@ -940,21 +941,30 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
             return Err(invalid(id, "enumeration requires distinct named members"));
         }
         if let Some(table) = &row.value.table {
-            if !matches!(
-                table.missing_policy.as_str(),
-                "required" | "optional" | "default"
-            ) || (table.missing_policy == "default") != table.default_value.is_some()
+            // ADR-0123 Outcome 1: the default policy exactly carries its value, and a
+            // value type is declared exactly when the table has no columns.
+            if (table.missing_policy == pse_model::generated::enums::ModelingMissingPolicy::Default)
+                != table.default_value.is_some()
             {
                 return Err(invalid(id, "invalid table absence policy"));
             }
-            if table.columns.is_empty() {
-                context.resolve(&table.value_type, &variables, &names, id)?;
+            match (&table.value_type, table.columns.is_empty()) {
+                (Some(value), true) => {
+                    context.resolve(value, &variables, &names, id)?;
+                }
+                (None, false) => {}
+                _ => {
+                    return Err(invalid(
+                        id,
+                        "a table declares a value type exactly when it has no columns",
+                    ));
+                }
             }
             for column in &table.columns {
-                context.resolve(&column.type_name, &variables, &names, id)?;
+                context.resolve(&column.r#type, &variables, &names, id)?;
             }
             for key in &table.keys {
-                context.resolve(&key.type_name, &variables, &names, id)?;
+                context.resolve(&key.r#type, &variables, &names, id)?;
             }
         }
     }
@@ -1250,6 +1260,7 @@ impl CheckedPackage {
                 );
             }
             let mut texts = Vec::new();
+            let mut types: Vec<&Vec<pse_authoring::language::TypeNode>> = Vec::new();
             if row.value.import.is_some()
                 && let Some(target) = self.names.get(&row.name)
             {
@@ -1298,12 +1309,12 @@ impl CheckedPackage {
                     }
                 }
                 for p in &v.parameters {
-                    texts.push(&p.type_name);
+                    types.push(&p.r#type);
                     texts.extend(p.default_value.as_deref());
                 }
             }
             if let Some(v) = &row.value.binding {
-                texts.push(&v.type_name);
+                types.extend(v.r#type.as_ref());
                 texts.extend(v.expression.as_deref());
                 texts.extend(v.defined_by.as_deref());
                 texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
@@ -1314,13 +1325,14 @@ impl CheckedPackage {
                 }
                 texts.extend(v.body.as_deref());
                 texts.extend(v.validity.as_deref());
-                texts.push(&v.return_type);
-                texts.extend(v.arguments.iter().map(|a| a.type_name.as_str()));
+                types.push(&v.return_type);
+                types.extend(v.arguments.iter().map(|a| &a.r#type));
             }
             if let Some(v) = &row.value.table {
-                texts.push(&v.value_type);
+                types.extend(v.value_type.as_ref());
                 texts.extend(v.default_value.as_deref());
-                texts.extend(v.keys.iter().map(|k| k.type_name.as_str()));
+                types.extend(v.keys.iter().map(|k| &k.r#type));
+                types.extend(v.columns.iter().map(|c| &c.r#type));
                 for dataset in self.declarations.values() {
                     if dataset
                         .value
@@ -1382,7 +1394,7 @@ impl CheckedPackage {
                 texts.push(&v.predicate);
             }
             if let Some(v) = &row.value.accumulator {
-                texts.push(&v.type_name);
+                types.push(&v.r#type);
                 texts.push(&v.tolerance);
                 texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
             }
@@ -1413,7 +1425,8 @@ impl CheckedPackage {
                 }
             }
             if let Some(v) = &row.value.continuous {
-                texts.extend([v.type_name.as_str(), v.lower.as_str(), v.upper.as_str()]);
+                types.push(&v.r#type);
+                texts.extend([v.lower.as_str(), v.upper.as_str()]);
             }
             if let Some(v) = &row.value.discretization {
                 texts.extend([
@@ -1438,6 +1451,14 @@ impl CheckedPackage {
             }
             for text in texts {
                 pending.extend(dependency_paths(self, id, text));
+            }
+            // A declared type depends on the declarations its paths name (ADR-0123
+            // Outcome 1): each joined path is resolved once, never re-parsed.
+            for path in types
+                .into_iter()
+                .flat_map(|nodes| pse_authoring::language::type_paths(nodes))
+            {
+                pending.extend(self.resolve(id, &path));
             }
             if let Some(ty) = self.types.get(&id) {
                 type_dependencies(ty, &mut pending);

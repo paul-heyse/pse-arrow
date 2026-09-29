@@ -144,7 +144,7 @@ fn table(
             if !key_names.insert(&key.name) {
                 return Err(invalid(id, "duplicate table key name"));
             }
-            c.resolve(&key.type_name, &variables, &names, id)
+            c.resolve(&key.r#type, &variables, &names, id)
         })
         .collect::<Result<Vec<_>>>()?;
     let mut column_names = BTreeSet::new();
@@ -157,14 +157,19 @@ fn table(
             }
             Ok((
                 column.name.clone(),
-                c.resolve(&column.type_name, &variables, &names, id)?,
+                c.resolve(&column.r#type, &variables, &names, id)?,
             ))
         })
         .collect::<Result<Vec<_>>>()?;
-    let result = if columns.is_empty() {
-        c.resolve(&contract.value_type, &variables, &names, id)?
-    } else {
-        Type::Row(id)
+    let result = match &contract.value_type {
+        Some(value) if columns.is_empty() => c.resolve(value, &variables, &names, id)?,
+        None if !columns.is_empty() => Type::Row(id),
+        _ => {
+            return Err(invalid(
+                id,
+                "a table declares a value type exactly when it has no columns",
+            ));
+        }
     };
     let default = contract
         .default_value
@@ -178,7 +183,8 @@ fn table(
         rows: BTreeMap::new(),
         origins: BTreeMap::new(),
         default,
-        optional: contract.missing_policy == "optional",
+        optional: contract.missing_policy
+            == pse_model::generated::enums::ModelingMissingPolicy::Optional,
     };
     for row in p.declarations.values() {
         let Some(data) = &row.value.dataset else {

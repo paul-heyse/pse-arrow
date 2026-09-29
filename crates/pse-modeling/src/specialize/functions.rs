@@ -107,7 +107,7 @@ impl Engine<'_, '_> {
                 for arg in &scope.parameters {
                     types.insert(
                         arg.name.clone(),
-                        self.c.resolve(&arg.type_name, &variables, &types, at)?,
+                        self.c.resolve(&arg.r#type, &variables, &types, at)?,
                     );
                 }
             }
@@ -349,7 +349,7 @@ impl Engine<'_, '_> {
         let mut indexed = BTreeMap::new();
         let mut statics = Environment::new();
         let mut selectors = BTreeMap::new();
-        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV1);
+        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV2);
         identity.id(&function.as_id());
         for quantity in substitution.values() {
             identity.id(&quantity.as_id());

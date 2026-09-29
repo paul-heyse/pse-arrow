@@ -4,6 +4,7 @@
     "authored.entities": [],
     "reference.units": [
       {
+        "definition": "[\"list\",[]]",
         "dimension": "[\"list\",[[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]]]]",
         "doc": "[\"text\",\"value-1\"]",
         "is_affine": "[\"bool\",true]",

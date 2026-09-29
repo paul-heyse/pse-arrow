@@ -191,7 +191,7 @@ impl ModelingPackage {
         if analysis
             .bindings
             .facts
-            .contains_key(pse_modeling::analysis::OBJECTIVE_LEVEL)
+            .contains_key(&pse_modeling::analysis::Fact::ObjectiveLevel)
         {
             return Err(contract(
                 "a lexicographic solve owns level selection; the analysis names no objective level",
@@ -328,7 +328,7 @@ impl ModelingPackage {
                     BTreeMap::new()
                 } else {
                     BTreeMap::from([(
-                        pse_modeling::analysis::OBJECTIVE_LEVEL.to_owned(),
+                        pse_modeling::analysis::Fact::ObjectiveLevel,
                         Value::Integer(
                             i64::try_from(position).map_err(|_| contract("objective level"))?,
                         ),

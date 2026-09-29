@@ -28,17 +28,62 @@ pub struct ObjectiveDeclaration {
     /// Nonnegative dimensionless level degradation tolerance relative to the level optimum.
     pub relative_tolerance: Option<f64>,
 }
-/// The declared extrapolation policy of an `annotation valid` range (ADR-0115 Outcome 3).
-pub(crate) fn extrapolation_policy(
-    source: &str,
-    at: DeclarationId,
-) -> Result<pse_model::generated::enums::ExtrapolationPolicy> {
-    label(source, at)?.parse().map_err(|e| {
-        invalid(
+/// The registry annotation kinds (ADR-0123 Outcome 1).
+pub use pse_model::generated::enums::ModelingAnnotationKind as AnnotationKind;
+type Declared = pse_authoring::language::AuthoredModelingDeclarationsFieldValueAnnotation;
+/// What an annotation's arguments are, by kind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Shape {
+    /// This many expressions of the target's physical type.
+    Expressions(usize),
+    /// One presentation label.
+    Label,
+    /// One predicate over the model.
+    Predicate,
+    /// The typed members of an objective (ADR-0111).
+    Objective,
+    /// The typed scaling scheme.
+    Scheme,
+    /// The typed connection maxima of a port.
+    Connectivity,
+}
+/// The shape of a declared annotation. The match over the registry kinds is exhaustive:
+/// every kind states its argument count and exactly which typed members it carries.
+/// # Errors
+/// Arguments or typed members that disagree with the kind.
+pub(crate) fn shape(a: &Declared, at: DeclarationId) -> Result<Shape> {
+    // (arguments, objective, extrapolation, scheme, connectivity)
+    let (shape, expected) = match a.kind {
+        AnnotationKind::Start | AnnotationKind::Nominal => {
+            (Shape::Expressions(1), (1, false, false, false, false))
+        }
+        AnnotationKind::Bounds => (Shape::Expressions(2), (2, false, false, false, false)),
+        // ADR-0115 Outcome 3: the endpoints, and the typed extrapolation policy.
+        AnnotationKind::Valid => (Shape::Expressions(2), (2, false, true, false, false)),
+        AnnotationKind::Report => (Shape::Label, (1, false, false, false, false)),
+        AnnotationKind::Check => (Shape::Predicate, (1, false, false, false, false)),
+        AnnotationKind::Objective => (Shape::Objective, (0, true, false, false, false)),
+        AnnotationKind::Scale => (Shape::Scheme, (0, false, false, true, false)),
+        AnnotationKind::Connectivity => (Shape::Connectivity, (0, false, false, false, true)),
+    };
+    let actual = (
+        a.arguments.len(),
+        a.objective.is_some(),
+        a.extrapolation.is_some(),
+        a.scheme.is_some(),
+        a.connectivity.is_some(),
+    );
+    if actual != expected {
+        return Err(invalid(
             at,
-            format!("validity policy must be reject or explicitly selected extrapolate: {e}"),
-        )
-    })
+            format!(
+                "annotation {} takes {} argument(s) and exactly its typed members",
+                a.kind.as_str(),
+                expected.0
+            ),
+        ));
+    }
+    Ok(shape)
 }
 /// Checked annotation meaning. A start never fixes a variable and a bound is not a start.
 #[derive(Clone, Debug, PartialEq)]
@@ -77,29 +122,24 @@ pub struct Connectivity {
     /// Original annotation and owning instance.
     pub lineage: Lineage,
 }
+/// The typed connection maxima of a connectivity annotation; `None` admits any number.
 pub(crate) fn connectivity_limits(
-    arguments: &[String],
+    a: &Declared,
     at: DeclarationId,
 ) -> Result<(Option<usize>, Option<usize>)> {
-    let [incoming, outgoing] = arguments else {
-        return Err(invalid(
-            at,
-            "connectivity requires incoming and outgoing maxima",
-        ));
-    };
-    let limit = |text: &str| {
-        if text == "many" {
-            Ok(None)
-        } else {
-            text.parse::<usize>().map(Some).map_err(|_| {
-                invalid(
-                    at,
-                    "connection maximum must be a nonnegative integer or many",
-                )
+    let limits = a
+        .connectivity
+        .as_ref()
+        .ok_or_else(|| invalid(at, "connectivity requires incoming and outgoing maxima"))?;
+    let limit = |value: Option<i64>| {
+        value
+            .map(|v| {
+                usize::try_from(v)
+                    .map_err(|_| invalid(at, "connection maximum must be nonnegative"))
             })
-        }
+            .transpose()
     };
-    Ok((limit(incoming)?, limit(outgoing)?))
+    Ok((limit(limits.incoming)?, limit(limits.outgoing)?))
 }
 /// Instantiated target and original source for a typed downstream hint.
 #[derive(Clone, Debug, PartialEq)]
@@ -171,10 +211,11 @@ impl Engine<'_, '_> {
             .annotation
             .as_ref()
             .ok_or_else(|| invalid(at, "annotation payload"))?;
-        let ports = a.annotation_type == "connectivity";
+        let kind = shape(a, at)?;
+        let ports = kind == Shape::Connectivity;
         let targets = self.annotation_targets(instance, &a.target, env, at, ports)?;
         if ports {
-            let (incoming, outgoing) = connectivity_limits(&a.arguments, at)?;
+            let (incoming, outgoing) = connectivity_limits(a, at)?;
             for (target, _, _) in targets {
                 self.reserve(1)?;
                 let policy = Connectivity {
@@ -190,13 +231,7 @@ impl Engine<'_, '_> {
         }
         for (target, ty, env) in targets {
             let env = &env;
-            if let Some(members) = &a.objective {
-                if a.annotation_type != "objective" || !a.arguments.is_empty() {
-                    return Err(invalid(
-                        at,
-                        "objective members belong to an objective annotation",
-                    ));
-                }
+            if let Some(members) = a.objective.as_ref().filter(|_| kind == Shape::Objective) {
                 if !self.model.symbols.contains_key(&target) {
                     return Err(invalid(at, "objective requires a scalar value member"));
                 }
@@ -244,27 +279,25 @@ impl Engine<'_, '_> {
                 }
                 Ok(value)
             };
-            let value = match (a.annotation_type.as_str(), a.arguments.len()) {
-                ("start", 1) => AnnotationValue::Start(expression(self, 0)?),
-                ("nominal", 1) => AnnotationValue::Nominal(expression(self, 0)?),
-                ("bounds", 2) => {
+            let value = match a.kind {
+                AnnotationKind::Start => AnnotationValue::Start(expression(self, 0)?),
+                AnnotationKind::Nominal => AnnotationValue::Nominal(expression(self, 0)?),
+                AnnotationKind::Bounds => {
                     AnnotationValue::Bounds(expression(self, 0)?, expression(self, 1)?)
                 }
-                ("scale", 1) => AnnotationValue::Scale(
-                    label(&a.arguments[0], at)?
-                        .parse()
-                        .map_err(|e| invalid(at, format!("scaling scheme: {e}")))?,
+                AnnotationKind::Scale => AnnotationValue::Scale(
+                    a.scheme
+                        .ok_or_else(|| invalid(at, "scaling scheme"))?,
                 ),
-                ("report", 1) => AnnotationValue::Report(label(&a.arguments[0], at)?),
-                ("valid", 3) => {
-                    let policy = extrapolation_policy(&a.arguments[2], at)?;
-                    AnnotationValue::Valid {
-                        lower: expression(self, 0)?,
-                        upper: expression(self, 1)?,
-                        policy,
-                    }
-                }
-                ("check", 1) => {
+                AnnotationKind::Report => AnnotationValue::Report(label(&a.arguments[0], at)?),
+                AnnotationKind::Valid => AnnotationValue::Valid {
+                    lower: expression(self, 0)?,
+                    upper: expression(self, 1)?,
+                    policy: a
+                        .extrapolation
+                        .ok_or_else(|| invalid(at, "validity extrapolation policy"))?,
+                },
+                AnnotationKind::Check => {
                     let predicate = dsl::parse_predicate(&a.arguments[0])
                         .map_err(|e| invalid(at, e.to_string()))?;
                     let predicate = self.rewrite_predicate(instance, &predicate, env, &[at])?;
@@ -283,7 +316,9 @@ impl Engine<'_, '_> {
                     )?;
                     AnnotationValue::Check(predicate)
                 }
-                _ => return Err(invalid(at, "unknown annotation or invalid argument count")),
+                AnnotationKind::Objective | AnnotationKind::Connectivity => {
+                    return Err(invalid(at, "annotation kind handled above"));
+                }
             };
             if !matches!(ty, Type::Quantity(_)) {
                 return Err(invalid(
@@ -484,34 +519,4 @@ pub(crate) fn target_type(
     }
     let expression = dsl::parse_expr(source).map_err(|e| invalid(at, e.to_string()))?;
     crate::expression::infer(&expression, env, p, c, at, None)
-}
-
-#[cfg(test)]
-mod tests {
-    use pse_model::generated::enums::ExtrapolationPolicy;
-
-    /// The policy of `annotation valid` is the registry enumeration; any other label is
-    /// refused at parse, so no consumer compares its spelling (ADR-0115 Outcome 3).
-    #[test]
-    fn extrapolation_policy_typed() {
-        let at = crate::DeclarationId::from(pse_ids::SemanticId::NIL);
-        assert_eq!(
-            super::extrapolation_policy("reject", at).ok(),
-            Some(ExtrapolationPolicy::Reject)
-        );
-        assert_eq!(
-            super::extrapolation_policy("extrapolate", at).ok(),
-            Some(ExtrapolationPolicy::Extrapolate)
-        );
-        for refused in ["clamp", "Reject", "\"extrapolate \""] {
-            assert!(
-                super::extrapolation_policy(refused, at).is_err(),
-                "{refused}"
-            );
-        }
-        assert_eq!(
-            ExtrapolationPolicy::ALL.map(ExtrapolationPolicy::as_str),
-            ["reject", "extrapolate"]
-        );
-    }
 }

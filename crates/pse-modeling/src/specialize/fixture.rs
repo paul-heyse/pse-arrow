@@ -108,8 +108,8 @@ pub struct ShootingFixture {
 pub struct FixtureMode {
     /// Name, unique within the fixture.
     pub name: String,
-    /// Facts bound while the mode is active.
-    pub facts: BTreeMap<String, bool>,
+    /// Structural facts bound while the mode is active.
+    pub facts: BTreeMap<crate::analysis::Fact, bool>,
     /// Events active in the mode, in declaration order.
     pub events: Vec<FixtureEvent>,
 }
@@ -212,8 +212,13 @@ impl Engine<'_, '_> {
                 facts: mode
                     .facts
                     .iter()
-                    .map(|f| (f.name.clone(), f.value))
-                    .collect(),
+                    .map(|f| {
+                        crate::analysis::Fact::new(f.namespace, &f.name)
+                            .filter(crate::analysis::Fact::is_structural)
+                            .map(|fact| (fact, f.value))
+                            .ok_or_else(|| invalid(at, "a mode binds stage facts only"))
+                    })
+                    .collect::<Result<_>>()?,
                 events,
             });
         }

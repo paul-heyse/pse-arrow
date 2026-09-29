@@ -12,7 +12,7 @@ fn run(text: &str, root: &str, bindings: Bindings) -> Result<SpecializedModel> {
         quantities: &registry,
         names: &names,
     };
-    let p = check(&source(text), &c)?;
+    let p = check(&kernel_types::try_source(text)?, &c)?;
     specialize(
         &p,
         p.names[root],
@@ -874,4 +874,71 @@ fn kernel_connectivity_limits_keep_direction_multiplicity_and_indexed_port_ident
             .len(),
         6
     );
+}
+
+/// ADR-0123 Outcome 1: the checker and specialization dispatch on the registry annotation
+/// kind. Every kind reaches its typed value, and a declaration whose arguments or typed
+/// members disagree with its kind is refused before either reads it.
+#[test]
+fn annotation_kind_dispatch_is_exhaustive() {
+    use crate::annotation::{AnnotationKind as Kind, AnnotationValue as V, Shape, shape};
+    let text = r#"package p {
+        def Root {
+            var x: Scalar; eq e: x == 1; port o: Scalar = x;
+            annotation start x(1); annotation nominal x(1); annotation bounds x(0, 2);
+            annotation scale e(inverseSum); annotation report x(label);
+            annotation valid x(0, 5, extrapolate); annotation check x(x > 0);
+            annotation objective x(minimize); annotation connectivity o(1, many);
+        }
+    }"#;
+    let model = run(text, "p.Root", Bindings::default()).unwrap();
+    let values = model
+        .annotations
+        .iter()
+        .map(|a| match &a.value {
+            V::Start(_) => Kind::Start,
+            V::Nominal(_) => Kind::Nominal,
+            V::Bounds(..) => Kind::Bounds,
+            V::Scale(_) => Kind::Scale,
+            V::Report(_) => Kind::Report,
+            V::Valid { .. } => Kind::Valid,
+            V::Check(_) => Kind::Check,
+            V::Objective(_) => Kind::Objective,
+        })
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut expected = Kind::ALL.into_iter().collect::<std::collections::BTreeSet<_>>();
+    expected.remove(&Kind::Connectivity);
+    assert_eq!(values, expected);
+    assert_eq!(model.connectivity.len(), 1);
+    let (_, limits) = model.connectivity.first_key_value().unwrap();
+    assert_eq!((limits.incoming, limits.outgoing), (Some(1), None));
+    // The shape of every kind is stated once; a typed member of another kind or a
+    // further argument is refused.
+    let at = DeclarationId::from(SemanticId::NIL);
+    let rows = source(text);
+    for row in rows.iter().filter_map(|r| r.value.annotation.as_ref()) {
+        let admitted = shape(row, at).unwrap();
+        assert_eq!(
+            admitted,
+            match row.kind {
+                Kind::Start | Kind::Nominal => Shape::Expressions(1),
+                Kind::Bounds | Kind::Valid => Shape::Expressions(2),
+                Kind::Report => Shape::Label,
+                Kind::Check => Shape::Predicate,
+                Kind::Objective => Shape::Objective,
+                Kind::Scale => Shape::Scheme,
+                Kind::Connectivity => Shape::Connectivity,
+            }
+        );
+        let mut extra = row.clone();
+        extra.arguments.push("1".into());
+        assert!(shape(&extra, at).is_err(), "{:?}", row.kind);
+        let mut foreign = row.clone();
+        if row.kind == Kind::Valid {
+            foreign.scheme = Some(pse_model::generated::enums::ConstraintScalingScheme::InverseSum);
+        } else {
+            foreign.extrapolation = Some(pse_model::generated::enums::ExtrapolationPolicy::Reject);
+        }
+        assert!(shape(&foreign, at).is_err(), "{:?}", row.kind);
+    }
 }

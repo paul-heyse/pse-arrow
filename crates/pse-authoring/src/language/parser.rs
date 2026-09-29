@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
+use super::types::{TypeExponent, TypeNode, TypeNodeKind, node, push};
 use super::*;
 use crate::dsl::lexer::{Kind, Token, tokenize};
 use crate::{AuthoringError, ParseBudget, SourceSpan};
@@ -35,7 +36,24 @@ pub fn parse(
             needed: text.len() as u64,
         });
     }
-    let tokens = tokenize(text).map_err(|e| match e {
+    let tokens = tokenize(text).map_err(|e| syntax_error(document, e))?;
+    let mut parser = Cursor {
+        tokens,
+        text,
+        pos: 0,
+        document,
+        policy,
+        budget,
+        rows: Vec::new(),
+        ids: BTreeSet::new(),
+        type_variables: Vec::new(),
+    };
+    parser.block(None, 0, false)?;
+    Ok(parser.rows)
+}
+
+fn syntax_error(document: SemanticId, error: crate::dsl::DslError) -> AuthoringError {
+    match error {
         crate::dsl::DslError::Syntax {
             offset,
             span,
@@ -60,19 +78,28 @@ pub fn parse(
             at: Some(SourceSpan::head(document)),
             reason: other.to_string(),
         },
-    })?;
+    }
+}
+
+/// One standalone type expression, with `variables` the type parameters in scope.
+pub(super) fn parse_type(text: &str, variables: &[&str]) -> Result<Vec<TypeNode>> {
+    let tokens = tokenize(text).map_err(|e| syntax_error(SemanticId::NIL, e))?;
     let mut parser = Cursor {
         tokens,
         text,
         pos: 0,
-        document,
-        policy,
-        budget,
+        document: SemanticId::NIL,
+        policy: IdentityPolicy::Named,
+        budget: ParseBudget::default(),
         rows: Vec::new(),
         ids: BTreeSet::new(),
+        type_variables: variables.iter().map(|v| (*v).to_owned()).collect(),
     };
-    parser.block(None, 0, false)?;
-    Ok(parser.rows)
+    let nodes = parser.type_expr()?;
+    if parser.pos != parser.tokens.len() {
+        return Err(parser.error("end of type"));
+    }
+    Ok(nodes)
 }
 
 /// Explicit source-creation operation. Existing IDs are retained; missing ones receive UUIDv7.
@@ -137,6 +164,9 @@ struct Cursor<'a> {
     budget: ParseBudget,
     rows: Vec<Declaration>,
     ids: BTreeSet<DeclarationId>,
+    /// The type parameters of the enclosing scopes and function, innermost last: a
+    /// type expression names them as `variable` nodes.
+    type_variables: Vec<String>,
 }
 impl Cursor<'_> {
     fn peek(&self) -> &str {
@@ -231,61 +261,263 @@ impl Cursor<'_> {
         let end = self.tokens[self.pos - 1].span.end as usize;
         Ok(self.text[start..end].trim().into())
     }
-    fn type_name(&mut self, stops: &[&str]) -> Result<String> {
-        let begin = self.pos;
-        let mut angle = 0;
-        let mut square = 0;
-        let mut paren = 0;
-        while self.pos < self.tokens.len() {
-            // In a type, `Set<T>=value` closes the generic before assignment.
-            if angle > 0 && self.peek() == ">=" {
-                let token = self.tokens[self.pos];
-                let split = token.span.start + 1;
-                self.tokens[self.pos] = Token {
-                    text: &self.text[token.span.start as usize..split as usize],
-                    span: crate::dsl::Span {
-                        start: token.span.start,
-                        end: split,
-                    },
-                    kind: token.kind,
-                };
-                self.tokens.insert(
-                    self.pos + 1,
-                    Token {
-                        text: &self.text[split as usize..token.span.end as usize],
-                        span: crate::dsl::Span {
-                            start: split,
-                            end: token.span.end,
+    fn peek_at(&self, ahead: usize) -> &str {
+        self.tokens.get(self.pos + ahead).map_or("", |t| t.text)
+    }
+    /// Path segments of a name, kept apart so a quoted segment may contain a dot.
+    fn segments(&mut self) -> Result<Vec<String>> {
+        let mut segments = vec![self.word()?];
+        while self.eat(".") {
+            segments.push(self.word()?);
+        }
+        Ok(segments)
+    }
+    /// ADR-0123 Outcome 1: one type expression as a post-order arena.
+    ///
+    /// ```text
+    /// type    := 'Fn' '(' [name ':' type {',' name ':' type}] ')' '->' type
+    ///          | indexed ['?']
+    /// indexed := product ['[' path {',' path} ']']
+    /// product := power {('*' | '/') power}
+    /// power   := primary ['^' (['-'] integer | '(' ['-'] integer ['/' integer] ')')]
+    /// primary := 'Boolean' | 'Integer' | 'Text' | '(' type ')'
+    ///          | ('Set' | 'Row' | 'Table' | 'Delta' | 'Δ') '<' type '>'
+    ///          | 'Tuple' '<' type {',' type} '>' | 'Id' '<' path '>'
+    ///          | 'QuantityType' | 'ReferenceState' | path
+    /// ```
+    ///
+    /// A single-segment path naming a type parameter in scope is a `variable` node.
+    fn type_expr(&mut self) -> Result<Vec<TypeNode>> {
+        let mut nodes = Vec::new();
+        self.type_node(&mut nodes, 0)?;
+        Ok(nodes)
+    }
+    fn type_node(&mut self, nodes: &mut Vec<TypeNode>, depth: u32) -> Result<u32> {
+        if depth > self.budget.max_depth {
+            return Err(self.error("bounded type"));
+        }
+        if self.peek() == "Fn" && self.peek_at(1) == "(" {
+            self.pos += 2;
+            let mut children = Vec::new();
+            let mut names = BTreeSet::new();
+            if !self.eat(")") {
+                loop {
+                    let at = self.pos;
+                    let name = self.word()?;
+                    if !names.insert(name.clone()) {
+                        self.pos = at;
+                        return Err(self.error("distinct function argument name"));
+                    }
+                    self.expect(":")?;
+                    let ty = self.type_node(nodes, depth + 1)?;
+                    children.push(push(
+                        nodes,
+                        TypeNode {
+                            name: Some(name),
+                            ..node(TypeNodeKind::Argument, vec![ty])
                         },
-                        kind: token.kind,
-                    },
-                );
+                    ));
+                    if self.eat(")") {
+                        break;
+                    }
+                    self.expect(",")?;
+                }
             }
-            let t = self.peek();
-            if angle == 0 && square == 0 && paren == 0 && stops.contains(&t) {
+            self.expect("->")?;
+            children.push(self.type_node(nodes, depth + 1)?);
+            return Ok(push(nodes, node(TypeNodeKind::Function, children)));
+        }
+        let ty = self.type_indexed(nodes, depth)?;
+        Ok(if self.eat("?") {
+            push(nodes, node(TypeNodeKind::Optional, vec![ty]))
+        } else {
+            ty
+        })
+    }
+    fn type_indexed(&mut self, nodes: &mut Vec<TypeNode>, depth: u32) -> Result<u32> {
+        let element = self.type_product(nodes, depth)?;
+        if !self.eat("[") {
+            return Ok(element);
+        }
+        let mut children = vec![element];
+        loop {
+            let path = self.segments()?;
+            children.push(push(
+                nodes,
+                TypeNode {
+                    path: Some(path),
+                    ..node(TypeNodeKind::Named, vec![])
+                },
+            ));
+            if self.eat("]") {
                 break;
             }
-            match t {
-                "<" => angle += 1,
-                ">" => angle -= 1,
-                "[" => square += 1,
-                "]" => square -= 1,
-                "(" => paren += 1,
-                ")" => paren -= 1,
-                _ => {}
-            }
-            if angle < 0 || square < 0 || paren < 0 {
-                return Err(self.error("balanced type"));
-            }
-            self.pos += 1;
+            self.expect(",")?;
         }
-        if begin == self.pos || angle != 0 || square != 0 || paren != 0 {
+        Ok(push(nodes, node(TypeNodeKind::Indexed, children)))
+    }
+    fn type_product(&mut self, nodes: &mut Vec<TypeNode>, depth: u32) -> Result<u32> {
+        let mut left = self.type_power(nodes, depth)?;
+        loop {
+            let kind = match self.peek() {
+                "*" => TypeNodeKind::Product,
+                "/" => TypeNodeKind::Quotient,
+                _ => return Ok(left),
+            };
+            self.pos += 1;
+            let right = self.type_power(nodes, depth)?;
+            left = push(nodes, node(kind, vec![left, right]));
+        }
+    }
+    fn type_integer(&mut self) -> Result<i32> {
+        let at = self.pos;
+        let negative = self.eat("-");
+        let value = self
+            .tokens
+            .get(self.pos)
+            .filter(|t| t.kind == Kind::Number)
+            .and_then(|t| t.text.parse::<i32>().ok());
+        let Some(value) = value else {
+            self.pos = at;
+            return Err(self.error("integer exponent"));
+        };
+        self.pos += 1;
+        Ok(if negative { -value } else { value })
+    }
+    fn type_power(&mut self, nodes: &mut Vec<TypeNode>, depth: u32) -> Result<u32> {
+        let base = self.type_primary(nodes, depth)?;
+        if !self.eat("^") {
+            return Ok(base);
+        }
+        let at = self.pos;
+        let (num, den) = if self.eat("(") {
+            let num = self.type_integer()?;
+            let den = if self.eat("/") {
+                self.type_integer()?
+            } else {
+                1
+            };
+            self.expect(")")?;
+            (num, den)
+        } else {
+            (self.type_integer()?, 1)
+        };
+        let exponent = pse_quantity::Ratio::new(num, den).map_err(|_| {
+            self.pos = at;
+            self.error("rational exponent")
+        })?;
+        Ok(push(
+            nodes,
+            TypeNode {
+                exponent: Some(TypeExponent {
+                    num: exponent.num(),
+                    den: exponent.den(),
+                }),
+                ..node(TypeNodeKind::Power, vec![base])
+            },
+        ))
+    }
+    /// Close a generic; in a type, `Set<T>=value` closes it before the assignment.
+    fn close_generic(&mut self) -> Result<()> {
+        if self.peek() == ">=" {
+            let token = self.tokens[self.pos];
+            let split = token.span.start + 1;
+            self.tokens[self.pos] = Token {
+                text: &self.text[token.span.start as usize..split as usize],
+                span: crate::dsl::Span {
+                    start: token.span.start,
+                    end: split,
+                },
+                kind: token.kind,
+            };
+            self.tokens.insert(
+                self.pos + 1,
+                Token {
+                    text: &self.text[split as usize..token.span.end as usize],
+                    span: crate::dsl::Span {
+                        start: split,
+                        end: token.span.end,
+                    },
+                    kind: token.kind,
+                },
+            );
+        }
+        self.expect(">")
+    }
+    fn type_primary(&mut self, nodes: &mut Vec<TypeNode>, depth: u32) -> Result<u32> {
+        use TypeNodeKind as K;
+        if self.eat("(") {
+            let ty = self.type_node(nodes, depth + 1)?;
+            self.expect(")")?;
+            return Ok(ty);
+        }
+        if self.peek_at(1) == "<" {
+            let kind = match self.peek() {
+                "Set" => Some(K::Set),
+                "Row" => Some(K::Row),
+                "Table" => Some(K::Table),
+                "Delta" | "Δ" => Some(K::Delta),
+                "Tuple" => Some(K::Tuple),
+                "Id" => Some(K::Identifier),
+                _ => None,
+            };
+            if let Some(kind) = kind {
+                self.pos += 2;
+                if kind == K::Identifier {
+                    let path = self.segments()?;
+                    self.close_generic()?;
+                    return Ok(push(
+                        nodes,
+                        TypeNode {
+                            path: Some(path),
+                            ..node(kind, vec![])
+                        },
+                    ));
+                }
+                let mut children = vec![self.type_node(nodes, depth + 1)?];
+                while kind == K::Tuple && self.eat(",") {
+                    children.push(self.type_node(nodes, depth + 1)?);
+                }
+                self.close_generic()?;
+                return Ok(push(nodes, node(kind, children)));
+            }
+        }
+        if !matches!(
+            self.tokens.get(self.pos).map(|t| t.kind),
+            Some(Kind::Identifier | Kind::Quoted)
+        ) {
             return Err(self.error("type"));
         }
-        Ok(self.text
-            [self.tokens[begin].span.start as usize..self.tokens[self.pos - 1].span.end as usize]
-            .trim()
-            .into())
+        let path = self.segments()?;
+        if let [single] = path.as_slice() {
+            let leaf = match single.as_str() {
+                "Boolean" => Some(K::Boolean),
+                "Integer" => Some(K::Integer),
+                "Text" => Some(K::Text),
+                "QuantityType" => Some(K::QuantityType),
+                "ReferenceState" => Some(K::ReferenceState),
+                _ => None,
+            };
+            if let Some(kind) = leaf {
+                return Ok(push(nodes, node(kind, vec![])));
+            }
+            if self.type_variables.iter().any(|v| v == single) {
+                return Ok(push(
+                    nodes,
+                    TypeNode {
+                        name: Some(single.clone()),
+                        ..node(K::Variable, vec![])
+                    },
+                ));
+            }
+        }
+        Ok(push(
+            nodes,
+            TypeNode {
+                path: Some(path),
+                ..node(K::Named, vec![])
+            },
+        ))
     }
     fn fixture_literal<T: std::str::FromStr>(&mut self) -> Result<T> {
         self.expect("(")?;
@@ -484,7 +716,7 @@ impl Cursor<'_> {
         }
         Ok(names)
     }
-    fn parameters(&mut self) -> Result<Vec<(String, String, Option<String>)>> {
+    fn parameters(&mut self) -> Result<Vec<(String, Vec<TypeNode>, Option<String>)>> {
         if !self.eat("(") {
             return Ok(Vec::new());
         }
@@ -493,7 +725,7 @@ impl Cursor<'_> {
             loop {
                 let name = self.word()?;
                 self.expect(":")?;
-                let ty = self.type_name(&["=", ",", ")"])?;
+                let ty = self.type_expr()?;
                 let default = if self.eat("=") {
                     Some(self.until(&[",", ")"])?)
                 } else {
@@ -585,6 +817,20 @@ impl Cursor<'_> {
             _ => Err(self.error("complementarity member >= 0")),
         }
     }
+    /// A connection maximum: a nonnegative count, or `many` for none.
+    fn connection_maximum(&mut self) -> Result<Option<i64>> {
+        if self.eat("many") {
+            return Ok(None);
+        }
+        let value = self
+            .tokens
+            .get(self.pos)
+            .filter(|t| t.kind == Kind::Number)
+            .and_then(|t| t.text.parse::<u32>().ok());
+        let value = value.ok_or_else(|| self.error("nonnegative connection maximum or many"))?;
+        self.pos += 1;
+        Ok(Some(i64::from(value)))
+    }
     fn block(&mut self, parent: Option<DeclarationId>, depth: u32, braced: bool) -> Result<()> {
         if depth > self.budget.max_depth {
             return Err(AuthoringError::Budget {
@@ -606,6 +852,7 @@ impl Cursor<'_> {
     }
     fn item(&mut self, parent: Option<DeclarationId>, depth: u32, ordinal: i64) -> Result<()> {
         let start = self.at();
+        let variables = self.type_variables.len();
         let explicit = if self.eat("@") {
             self.expect("id")?;
             self.expect("(")?;
@@ -687,14 +934,14 @@ impl Cursor<'_> {
             }
             "domain" => {
                 self.expect(":")?;
-                let type_name = self.type_name(&["from"])?;
+                let r#type = self.type_expr()?;
                 self.expect("from")?;
                 let lower = self.until(&["to"])?;
                 self.expect("to")?;
                 let upper = self.until(&[";"])?;
                 self.expect(";")?;
                 Value::from_continuous(AuthoredModelingDeclarationsFieldValueContinuous {
-                    type_name,
+                    r#type,
                     lower,
                     upper,
                 })
@@ -946,13 +1193,15 @@ impl Cursor<'_> {
             "package" | "entity_kind" | "interface" | "def" | "case" | "test" | "stage"
             | "implicit" | "regime" | "disjunction" | "alternative" => {
                 let type_parameters = self.names("<", ">")?;
+                // A scope's type parameters are in scope for its parameters and members.
+                self.type_variables.extend(type_parameters.iter().cloned());
                 let parameters = self
                     .parameters()?
                     .into_iter()
-                    .map(|(name, type_name, default_value)| {
+                    .map(|(name, r#type, default_value)| {
                         AuthoredModelingDeclarationsFieldValueScopeParametersItem {
                             name,
-                            type_name,
+                            r#type,
                             default_value,
                         }
                     })
@@ -1034,7 +1283,11 @@ impl Cursor<'_> {
                             if self.eat("facts") {
                                 self.expect("(")?;
                                 while !self.eat(")") {
-                                    let name = self.path()?;
+                                    // `<namespace>.<name> = <bool>`: a fact in its registry
+                                    // namespace (ADR-0123 Outcome 1).
+                                    let namespace = self.vocabulary::<pse_model::generated::enums::ModelingFactNamespace>("fact namespace analysis, objective or stage")?;
+                                    self.expect(".")?;
+                                    let name = self.segments()?.join(".");
                                     self.expect("=")?;
                                     let value = match self.word()?.as_str() {
                                         "true" => true,
@@ -1043,6 +1296,7 @@ impl Cursor<'_> {
                                     };
                                     facts.push(
                                         AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem {
+                                            namespace,
                                             name,
                                             value,
                                         },
@@ -1385,9 +1639,13 @@ impl Cursor<'_> {
             }
             "use" => {
                 self.expect("@")?;
-                let version = self.word()?;
-                semver::Version::parse(version.trim_start_matches('='))
-                    .map_err(|_| self.error("exact package version"))?;
+                // ADR-0123 Outcome 7: an exact requirement, written `"1.2.3"` or `"=1.2.3"`.
+                let at = self.pos;
+                let written = self.word()?;
+                let version = exact_requirement(&written).ok_or_else(|| {
+                        self.pos = at;
+                        self.error("exact package version")
+                    })?;
                 let alias = if self.eat("as") {
                     Some(self.word()?)
                 } else {
@@ -1428,19 +1686,20 @@ impl Cursor<'_> {
             }
             "fn" => {
                 let type_parameters = self.names("<", ">")?;
+                self.type_variables.extend(type_parameters.iter().cloned());
                 let arguments = self
                     .parameters()?
                     .into_iter()
-                    .map(|(name, type_name, default_value)| {
+                    .map(|(name, r#type, default_value)| {
                         AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem {
                             name,
-                            type_name,
+                            r#type,
                             default_value,
                         }
                     })
                     .collect();
                 self.expect("->")?;
-                let return_type = self.type_name(&["=", ";", "valid", "piecewise", "external"])?;
+                let return_type = self.type_expr()?;
                 let validity = if self.eat("valid") {
                     self.expect("(")?;
                     let predicate = self.until(&[")"])?;
@@ -1521,10 +1780,10 @@ impl Cursor<'_> {
                         AuthoredModelingDeclarationsFieldValueBindingIndicesItem { name, domain }
                     })
                     .collect();
-                let type_name = if self.eat(":") {
-                    self.type_name(&["=", ";", "defined", "in"])?
+                let r#type = if self.eat(":") {
+                    Some(self.type_expr()?)
                 } else {
-                    String::new()
+                    None
                 };
                 // ADR-0103: a variable always carries its declared domain; continuous is the
                 // default spelling. No other binding declares one.
@@ -1558,7 +1817,7 @@ impl Cursor<'_> {
                 };
                 self.expect(";")?;
                 let b = AuthoredModelingDeclarationsFieldValueBinding {
-                    type_name,
+                    r#type,
                     indices,
                     expression,
                     defined_by,
@@ -1643,7 +1902,7 @@ impl Cursor<'_> {
                     })
                     .collect();
                 self.expect(":")?;
-                let type_name = self.type_name(&["conservation", "accounting"])?;
+                let r#type = self.type_expr()?;
                 let mode = self
                     .word()?
                     .parse()
@@ -1653,7 +1912,7 @@ impl Cursor<'_> {
                 self.expect(";")?;
                 Value::from_accumulator(AuthoredModelingDeclarationsFieldValueAccumulator {
                     indices,
-                    type_name,
+                    r#type,
                     mode,
                     tolerance,
                 })
@@ -1700,10 +1959,10 @@ impl Cursor<'_> {
                     loop {
                         let name = self.word()?;
                         self.expect(":")?;
-                        let type_name = self.type_name(&[",", "]"])?;
+                        let r#type = self.type_expr()?;
                         keys.push(AuthoredModelingDeclarationsFieldValueTableKeysItem {
                             name,
-                            type_name,
+                            r#type,
                             default_value: None,
                         });
                         if self.eat("]") {
@@ -1718,10 +1977,10 @@ impl Cursor<'_> {
                     while !self.eat("}") {
                         let name = self.word()?;
                         self.expect(":")?;
-                        let type_name = self.type_name(&[",", "}"])?;
+                        let r#type = self.type_expr()?;
                         columns.push(AuthoredModelingDeclarationsFieldValueTableColumnsItem {
                             name,
-                            type_name,
+                            r#type,
                             default_value: None,
                         });
                         if self.eat("}") {
@@ -1729,16 +1988,17 @@ impl Cursor<'_> {
                         }
                         self.expect(",")?;
                     }
-                    String::new()
+                    None
                 } else {
-                    self.type_name(&["missing", ";"])?
+                    Some(self.type_expr()?)
                 };
+                use pse_model::generated::enums::ModelingMissingPolicy as Missing;
                 let missing_policy = if self.eat("missing") {
-                    self.word()?
+                    self.vocabulary::<Missing>("required, optional or default")?
                 } else {
-                    "required".into()
+                    Missing::Required
                 };
-                let default_value = if missing_policy == "default" {
+                let default_value = if missing_policy == Missing::Default {
                     Some(self.until(&[";"])?)
                 } else {
                     None
@@ -1797,33 +2057,66 @@ impl Cursor<'_> {
                 })
             }
             "annotation" => {
-                let annotation_type = self.word()?;
+                use pse_model::generated::enums::ModelingAnnotationKind as A;
+                let kind = self.vocabulary::<A>("annotation kind")?;
                 let target = self.until(&["("])?;
                 self.expect("(")?;
-                let mut arguments = Vec::new();
-                // ADR-0111: `annotation objective t(sense, member = value, ...)` carries
-                // typed members, not positional arguments.
-                let objective = if annotation_type == "objective" {
-                    Some(self.objective_members()?)
-                } else {
-                    None
+                let mut annotation = AuthoredModelingDeclarationsFieldValueAnnotation {
+                    kind,
+                    target,
+                    arguments: Vec::new(),
+                    extrapolation: None,
+                    scheme: None,
+                    connectivity: None,
+                    objective: None,
                 };
-                if objective.is_none() && !self.eat(")") {
-                    loop {
-                        arguments.push(self.until(&[",", ")"])?);
-                        if self.eat(")") {
-                            break;
+                match kind {
+                    // ADR-0111: `annotation objective t(sense, member = value, ...)` carries
+                    // typed members, not positional arguments.
+                    A::Objective => annotation.objective = Some(self.objective_members()?),
+                    // `annotation valid t(lower, upper, policy)`: the endpoints stay
+                    // expressions and the policy is the registry enumeration.
+                    A::Valid => {
+                        for _ in 0..2 {
+                            annotation.arguments.push(self.until(&[",", ")"])?);
+                            self.expect(",")?;
                         }
+                        annotation.extrapolation =
+                            Some(self.vocabulary("validity policy reject or extrapolate")?);
+                        self.expect(")")?;
+                    }
+                    A::Scale => {
+                        annotation.scheme = Some(self.vocabulary("constraint scaling scheme")?);
+                        self.expect(")")?;
+                    }
+                    // `annotation connectivity port(incoming, outgoing)`, each a
+                    // nonnegative maximum or `many`.
+                    A::Connectivity => {
+                        let incoming = self.connection_maximum()?;
                         self.expect(",")?;
+                        let outgoing = self.connection_maximum()?;
+                        self.expect(")")?;
+                        annotation.connectivity = Some(
+                            AuthoredModelingDeclarationsFieldValueAnnotationConnectivity {
+                                incoming,
+                                outgoing,
+                            },
+                        );
+                    }
+                    A::Start | A::Nominal | A::Bounds | A::Report | A::Check => {
+                        if !self.eat(")") {
+                            loop {
+                                annotation.arguments.push(self.until(&[",", ")"])?);
+                                if self.eat(")") {
+                                    break;
+                                }
+                                self.expect(",")?;
+                            }
+                        }
                     }
                 }
                 self.expect(";")?;
-                Value::from_annotation(AuthoredModelingDeclarationsFieldValueAnnotation {
-                    annotation_type,
-                    target,
-                    arguments,
-                    objective,
-                })
+                Value::from_annotation(annotation)
             }
             "expect" => {
                 let actual = self.until(&["=="])?;
@@ -1861,6 +2154,7 @@ impl Cursor<'_> {
         if child_block {
             self.block(Some(id), depth + 1, true)?;
         }
+        self.type_variables.truncate(variables);
         self.rows[position].source_end = i64::from(
             self.tokens
                 .get(self.pos.saturating_sub(1))

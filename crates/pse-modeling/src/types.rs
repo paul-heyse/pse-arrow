@@ -3,6 +3,7 @@
 
 //! Physical and declaration-reference types; scientific names are admitted data.
 use crate::{Result, invalid};
+use pse_authoring::language::{TypeNode, TypeNodeKind, TypeRef, TypeTree};
 use pse_model::generated::identities::DeclarationId;
 use pse_quantity::{QuantityRegistry, QuantityTypeId, Ratio, scheme::Scheme};
 use std::collections::{BTreeMap, BTreeSet};
@@ -16,6 +17,11 @@ pub enum Type {
     Integer,
     /// Text or label.
     Text,
+    /// A named quantity type of the physical document (ADR-0123 Outcome 6).
+    QuantityType,
+    /// A named reference state of the physical document, with its typed conditions
+    /// (ADR-0123 Outcome 6).
+    ReferenceState,
     /// Complete physical type scheme.
     Quantity(Scheme),
     /// Member of a declared entity kind.
@@ -64,145 +70,111 @@ pub struct TypeContext<'a> {
     pub names: &'a BTreeMap<String, QuantityTypeId>,
 }
 impl TypeContext<'_> {
-    /// Resolve a type against the current lexical declaration and quantity environment.
+    /// Resolve a declared type arena against the current lexical declaration and quantity
+    /// environment (ADR-0123 Outcome 1). Every node is walked once; names are joined path
+    /// segments looked up in `names` and the physical names.
     /// # Errors
-    /// Unknown types, malformed schemes or invalid axes.
+    /// A malformed arena, unknown names, undeclared variables, malformed schemes or axes.
     pub fn resolve(
         &self,
-        text: &str,
+        nodes: &[TypeNode],
         variables: &BTreeSet<String>,
         names: &BTreeMap<String, Type>,
         at: DeclarationId,
     ) -> Result<Type> {
-        let text = text.trim();
-        if let Some(signature) = text.strip_prefix("Fn(") {
-            let mut depth = 1;
-            let mut close = None;
-            for (i, ch) in signature.char_indices() {
-                match ch {
-                    '(' => depth += 1,
-                    ')' => {
-                        depth -= 1;
-                        if depth == 0 {
-                            close = Some(i);
-                            break;
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            let close = close.ok_or_else(|| invalid(at, "unterminated function type"))?;
-            let result = signature[close + 1..]
-                .trim()
-                .strip_prefix("->")
-                .ok_or_else(|| invalid(at, "function type needs a result"))?;
-            let raw = &signature[..close];
-            let mut parts = Vec::new();
-            let mut begin = 0;
-            let mut depth = 0;
-            for (i, ch) in raw.char_indices() {
-                match ch {
-                    '<' | '[' | '(' => depth += 1,
-                    '>' | ']' | ')' => depth -= 1,
-                    ',' if depth == 0 => {
-                        parts.push(&raw[begin..i]);
-                        begin = i + 1;
-                    }
-                    _ => {}
-                }
-            }
-            if !raw.trim().is_empty() {
-                parts.push(&raw[begin..]);
-            }
-            let mut seen = BTreeSet::new();
-            let arguments = parts
-                .into_iter()
-                .map(|part| {
-                    let (name, ty) = part.split_once(':').ok_or_else(|| {
-                        invalid(at, "function type argument requires name and type")
-                    })?;
-                    let name = name.trim();
-                    if name.is_empty() || !seen.insert(name) {
-                        return Err(invalid(at, "duplicate or empty function argument"));
-                    }
-                    Ok((name.into(), self.resolve(ty, variables, names, at)?))
-                })
-                .collect::<Result<_>>()?;
-            return Ok(Type::Function {
-                arguments,
-                result: Box::new(self.resolve(result, variables, names, at)?),
-            });
-        }
-        if let Some(inner) = text.strip_suffix('?') {
-            return Ok(Type::Optional(Box::new(
-                self.resolve(inner, variables, names, at)?,
-            )));
-        }
-        for (prefix, kind) in [("Set<", 0), ("Row<", 1), ("Table<", 2)] {
-            if let Some(inner) = text.strip_prefix(prefix).and_then(|s| s.strip_suffix('>')) {
-                let value = self.resolve(inner, variables, names, at)?;
-                return match (kind, value) {
-                    (0, value) => Ok(Type::Set(Box::new(value))),
-                    (1, Type::Table(id)) => Ok(Type::Row(id)),
-                    (2, Type::Table(id)) => Ok(Type::Table(id)),
-                    _ => Err(invalid(at, "table reference required")),
-                };
-            }
-        }
-        if let Some(inner) = text
-            .strip_prefix("Tuple<")
-            .and_then(|s| s.strip_suffix('>'))
-        {
-            let mut parts = Vec::new();
-            let mut depth = 0;
-            let mut begin = 0;
-            for (i, ch) in inner.char_indices() {
-                match ch {
-                    '<' | '[' | '(' => depth += 1,
-                    '>' | ']' | ')' => depth -= 1,
-                    ',' if depth == 0 => {
-                        parts.push(&inner[begin..i]);
-                        begin = i + 1;
-                    }
-                    _ => {}
-                }
-            }
-            parts.push(&inner[begin..]);
-            return Ok(Type::Tuple(
-                parts
-                    .into_iter()
-                    .map(|p| self.resolve(p, variables, names, at))
-                    .collect::<Result<_>>()?,
-            ));
-        }
-        if let Some(open) = text.find('[') {
-            if !text.ends_with(']') {
-                return Err(invalid(at, "unterminated indexed type"));
-            }
-            let element = self.resolve(&text[..open], variables, names, at)?;
-            let axes = text[open + 1..text.len() - 1]
-                .split(',')
-                .map(|name| match names.get(name.trim()) {
-                    Some(Type::Entity(id) | Type::Enum(id) | Type::Definition(id)) => Ok(*id),
-                    _ => Err(invalid(at, format!("unknown index domain {}", name.trim()))),
-                })
-                .collect::<Result<_>>()?;
-            return Ok(Type::Indexed {
-                element: Box::new(element),
-                axes,
-            });
-        }
-        match text {
-            "Boolean" => return Ok(Type::Boolean),
+        let tree = TypeTree::new(nodes).map_err(|e| invalid(at, e.to_string()))?;
+        self.node(tree.root(), variables, names, at)
+    }
+    fn node<'a>(
+        &self,
+        node: TypeRef<'a>,
+        variables: &BTreeSet<String>,
+        names: &BTreeMap<String, Type>,
+        at: DeclarationId,
+    ) -> Result<Type> {
+        use TypeNodeKind as K;
+        let only = |node: TypeRef<'a>| node.child(0).ok_or_else(|| invalid(at, "type child"));
+        Ok(match node.kind() {
+            K::Boolean => Type::Boolean,
             // `Count` names the physical count kind of an integer decision (ADR-0103).
-            "Integer" => return Ok(Type::Integer),
-            "Text" => return Ok(Type::Text),
-            _ => {}
-        }
-        if let Some(value) = names.get(text) {
-            return Ok(value.clone());
-        }
-        let scheme = self.scheme(text, variables, names, at)?;
+            K::Integer => Type::Integer,
+            K::Text => Type::Text,
+            K::QuantityType => Type::QuantityType,
+            K::ReferenceState => Type::ReferenceState,
+            K::Function => {
+                let children = node.children().collect::<Vec<_>>();
+                let (result, arguments) = children
+                    .split_last()
+                    .ok_or_else(|| invalid(at, "function type needs a result"))?;
+                Type::Function {
+                    arguments: arguments
+                        .iter()
+                        .map(|argument| {
+                            Ok((
+                                argument.name().to_owned(),
+                                self.node(only(*argument)?, variables, names, at)?,
+                            ))
+                        })
+                        .collect::<Result<_>>()?,
+                    result: Box::new(self.node(*result, variables, names, at)?),
+                }
+            }
+            K::Argument => return Err(invalid(at, "an argument is not a type")),
+            K::Optional => Type::Optional(Box::new(self.node(only(node)?, variables, names, at)?)),
+            K::Set => Type::Set(Box::new(self.node(only(node)?, variables, names, at)?)),
+            K::Row | K::Table => match self.node(only(node)?, variables, names, at)? {
+                Type::Table(id) if node.kind() == K::Row => Type::Row(id),
+                Type::Table(id) => Type::Table(id),
+                _ => return Err(invalid(at, "table reference required")),
+            },
+            K::Tuple => Type::Tuple(
+                node.children()
+                    .map(|child| self.node(child, variables, names, at))
+                    .collect::<Result<_>>()?,
+            ),
+            K::Indexed => {
+                let mut children = node.children();
+                let element = children
+                    .next()
+                    .ok_or_else(|| invalid(at, "indexed element"))?;
+                Type::Indexed {
+                    element: Box::new(self.node(element, variables, names, at)?),
+                    axes: children
+                        .map(|axis| {
+                            let name = axis.path().join(".");
+                            match names.get(&name) {
+                                Some(Type::Entity(id) | Type::Enum(id) | Type::Definition(id)) => {
+                                    Ok(*id)
+                                }
+                                _ => Err(invalid(at, format!("unknown index domain {name}"))),
+                            }
+                        })
+                        .collect::<Result<_>>()?,
+                }
+            }
+            K::Identifier => {
+                return Err(invalid(
+                    at,
+                    format!(
+                        "identifier scheme {} is not declared",
+                        node.path().join(".")
+                    ),
+                ));
+            }
+            K::Named => {
+                let name = node.path().join(".");
+                if let Some(value) = names.get(&name) {
+                    return Ok(value.clone());
+                }
+                self.quantity(self.scheme(node, variables, names, at)?, at)?
+            }
+            K::Variable | K::Delta | K::Product | K::Quotient | K::Power => {
+                self.quantity(self.scheme(node, variables, names, at)?, at)?
+            }
+        })
+    }
+    /// A closed scheme resolves to its concrete quantity type; an open one stays a scheme.
+    fn quantity(&self, scheme: Scheme, at: DeclarationId) -> Result<Type> {
         fn closed(scheme: &Scheme) -> bool {
             match scheme {
                 Scheme::Concrete(_) => true,
@@ -223,62 +195,60 @@ impl TypeContext<'_> {
     }
     fn scheme(
         &self,
-        text: &str,
+        node: TypeRef<'_>,
         variables: &BTreeSet<String>,
         names: &BTreeMap<String, Type>,
         at: DeclarationId,
     ) -> Result<Scheme> {
-        let text = text.trim();
-        let mut depth = 0;
-        for (i, c) in text.char_indices().rev() {
-            match c {
-                '>' | ')' => depth += 1,
-                '<' | '(' => depth -= 1,
-                '*' | '/' if depth == 0 => {
-                    let a = Box::new(self.scheme(&text[..i], variables, names, at)?);
-                    let b = Box::new(self.scheme(&text[i + 1..], variables, names, at)?);
-                    return Ok(if c == '*' {
-                        Scheme::Product(a, b)
-                    } else {
-                        Scheme::Quotient(a, b)
-                    });
-                }
-                _ => {}
+        use TypeNodeKind as K;
+        let operand = |position: usize| {
+            node.child(position)
+                .ok_or_else(|| invalid(at, "physical type operand"))
+                .and_then(|child| self.scheme(child, variables, names, at))
+                .map(Box::new)
+        };
+        Ok(match node.kind() {
+            K::Product => Scheme::Product(operand(0)?, operand(1)?),
+            K::Quotient => Scheme::Quotient(operand(0)?, operand(1)?),
+            K::Delta => Scheme::Delta(operand(0)?),
+            K::Power => {
+                let (num, den) = node
+                    .exponent()
+                    .ok_or_else(|| invalid(at, "rational exponent"))?;
+                Scheme::Power(
+                    operand(0)?,
+                    Ratio::from_parts(num, den).map_err(|e| invalid(at, e.to_string()))?,
+                )
             }
-        }
-        if let Some((base, exponent)) = text.rsplit_once('^') {
-            let exponent = exponent.trim().trim_matches(['(', ')']);
-            let (num, den) = exponent.split_once('/').unwrap_or((exponent, "1"));
-            let exponent = Ratio::new(
-                num.parse().map_err(|_| invalid(at, "rational exponent"))?,
-                den.parse().map_err(|_| invalid(at, "rational exponent"))?,
-            )
-            .map_err(|e| invalid(at, e.to_string()))?;
-            return Ok(Scheme::Power(
-                Box::new(self.scheme(base, variables, names, at)?),
-                exponent,
-            ));
-        }
-        if let Some(inner) = text
-            .strip_prefix("Delta<")
-            .or_else(|| text.strip_prefix("Δ<"))
-            .and_then(|s| s.strip_suffix('>'))
-        {
-            return Ok(Scheme::Delta(Box::new(
-                self.scheme(inner, variables, names, at)?,
-            )));
-        }
-        if variables.contains(text) {
-            return Ok(Scheme::Variable(text.into()));
-        }
-        if let Some(Type::Quantity(scheme)) = names.get(text) {
-            return Ok(scheme.clone());
-        }
-        self.names
-            .get(text)
-            .filter(|_| !text.contains('.'))
-            .copied()
-            .map(Scheme::Concrete)
-            .ok_or_else(|| invalid(at, format!("unknown type {text}")))
+            K::Variable => {
+                if !variables.contains(node.name()) {
+                    return Err(invalid(
+                        at,
+                        format!("type variable {} is not in scope", node.name()),
+                    ));
+                }
+                Scheme::Variable(node.name().to_owned())
+            }
+            K::Named => {
+                let name = node.path().join(".");
+                match names.get(&name) {
+                    Some(Type::Quantity(scheme)) => scheme.clone(),
+                    Some(_) => return Err(invalid(at, format!("{name} is not a physical type"))),
+                    None => self
+                        .names
+                        .get(&name)
+                        .filter(|_| node.path().len() == 1)
+                        .copied()
+                        .map(Scheme::Concrete)
+                        .ok_or_else(|| invalid(at, format!("unknown type {name}")))?,
+                }
+            }
+            _ => {
+                return Err(invalid(
+                    at,
+                    format!("{} is not a physical type operand", node.kind().as_str()),
+                ));
+            }
+        })
     }
 }

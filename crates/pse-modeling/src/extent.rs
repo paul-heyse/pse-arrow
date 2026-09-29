@@ -288,7 +288,7 @@ impl SpecializedModel {
                         .iter()
                         .map(|m| {
                             m.name.capacity()
-                                + map(&m.facts, |n, _| n.capacity())
+                                + map(&m.facts, |n, _| n.member().len())
                                 + m.events.capacity() * size_of::<crate::specialize::FixtureEvent>()
                                 + m.events
                                     .iter()

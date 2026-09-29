@@ -6,8 +6,10 @@
 //! The AST is transient syntax for the authored text. P3 resolves it into declared
 //! relations; neither tree hashes nor rendered bytes substitute for validation.
 
-#[cfg(feature = "arbitrary")]
+#[cfg(any(test, feature = "arbitrary"))]
 mod arbitrary;
+#[cfg(any(test, feature = "arbitrary"))]
+pub use arbitrary::{TYPE_VARIABLES, type_arenas};
 mod ast;
 mod error;
 pub(crate) mod lexer;

@@ -601,6 +601,20 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `integrated` | `` | false |
 | `simultaneous` | `` | false |
 
+## `ModelingAnnotationKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `start` | `` | false |
+| `nominal` | `` | false |
+| `bounds` | `` | false |
+| `scale` | `` | false |
+| `report` | `` | false |
+| `valid` | `` | false |
+| `check` | `` | false |
+| `objective` | `` | false |
+| `connectivity` | `` | false |
+
 ## `ModelingCheckBasis`
 
 | Member | IDAES name | Deprecated |
@@ -737,6 +751,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `local_obstruction` | `` | false |
 | `inconclusive` | `` | false |
 
+## `ModelingFactNamespace`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `analysis` | `` | false |
+| `objective` | `` | false |
+| `stage` | `` | false |
+
 ## `ModelingFixtureBinding`
 
 | Member | IDAES name | Deprecated |
@@ -765,6 +787,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `stage` | `` | false |
 | `homotopy` | `` | false |
 | `original` | `` | false |
+
+## `ModelingMissingPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `required` | `` | false |
+| `optional` | `` | false |
+| `default` | `` | false |
 
 ## `ModelingObjectiveRoute`
 
@@ -807,6 +837,31 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `l1_exact_penalty` | `` | false |
 
+## `ModelingTypeNode`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `boolean` | `` | false |
+| `integer` | `` | false |
+| `text` | `` | false |
+| `named` | `` | false |
+| `variable` | `` | false |
+| `optional` | `` | false |
+| `set` | `` | false |
+| `row` | `` | false |
+| `table` | `` | false |
+| `tuple` | `` | false |
+| `indexed` | `` | false |
+| `function` | `` | false |
+| `argument` | `` | false |
+| `delta` | `` | false |
+| `product` | `` | false |
+| `quotient` | `` | false |
+| `power` | `` | false |
+| `identifier` | `` | false |
+| `quantity_type` | `` | false |
+| `reference_state` | `` | false |
+
 ## `ModelingVariableDomain`
 
 | Member | IDAES name | Deprecated |
@@ -816,6 +871,12 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `binary` | `` | false |
 | `semicontinuous` | `` | false |
 | `semiinteger` | `` | false |
+
+## `ModelingVersionOperator`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `exact` | `` | false |
 
 ## `MuStrategy`
 

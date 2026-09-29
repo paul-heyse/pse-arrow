@@ -82,11 +82,11 @@ Derived in: pse-compiler.
 | `MathLocalOccurrenceV2` | `pse.math.local-occurrence.v2` | A local expression occurrence. |
 | `MathPhysicalInventoryV4` | `pse.math.physical-inventory.v4` | A physical inventory, including unit compositions and derived-kind definitions (ADR-0124). |
 | `MathPhysicalPassV1` | `pse.math.physical-pass.v1` | A physical reduction pass. |
-| `MathTypedDefinitionV2` | `pse.math.typed-definition.v2` | A typed definition's admitted outputs. |
+| `MathTypedDefinitionV3` | `pse.math.typed-definition.v3` | A typed definition's admitted outputs; function validity predicates are framed in their canonical spelling, unit literals by their canonical products (ADR-0123 Outcome 8). |
 | `CompilerModelingViewV2` | `pse.compiler.modeling-view.v2` | A prepared view of a compiled modeling structure. |
 | `CompilerModelingParametricV1` | `pse.compiler.modeling-parametric.v1` | The parametric projection of a prepared modeling view over requested parameters. |
-| `ModelingConsumerBodyV1` | `pse.modeling.consumer-body.v1` | A grouped consumer body. |
-| `ModelingImplicitResidualV1` | `pse.modeling.implicit-residual.v1` | An implicit residual. |
+| `ModelingConsumerBodyV2` | `pse.modeling.consumer-body.v2` | A grouped consumer body, its expressions and validity ranges in canonical spelling (ADR-0123 Outcome 8). |
+| `ModelingImplicitResidualV2` | `pse.modeling.implicit-residual.v2` | An implicit residual, its terms, hints and guards in canonical spelling (ADR-0123 Outcome 8). |
 
 ## Modeling specialization
 
@@ -94,11 +94,11 @@ Derived in: pse-modeling.
 
 | Frame | Spelling | Meaning |
 |---|---|---|
-| `ModelingContinuityV1` | `pse.modeling.continuity.v1` | A continuity derivative. |
+| `ModelingContinuityV2` | `pse.modeling.continuity.v2` | A continuity derivative, its body in canonical spelling (ADR-0123 Outcome 8). |
 | `ModelingCoordinateV1` | `pse.modeling.coordinate.v1` | A coordinate, preserving compound-key identity. |
-| `ModelingDefiniteIntegralV1` | `pse.modeling.definite-integral.v1` | A definite integral. |
-| `ModelingDispatchBodyV1` | `pse.modeling.dispatch-body.v1` | A dispatch group body. |
-| `ModelingFiniteFunctionV1` | `pse.modeling.finite-function.v1` | A finite function instantiation. |
+| `ModelingDefiniteIntegralV2` | `pse.modeling.definite-integral.v2` | A definite integral, its integrand in canonical spelling (ADR-0123 Outcome 8). |
+| `ModelingDispatchBodyV2` | `pse.modeling.dispatch-body.v2` | A dispatch group body, its expressions and equations in canonical spelling (ADR-0123 Outcome 8). |
+| `ModelingFiniteFunctionV2` | `pse.modeling.finite-function.v2` | A finite function specialization, its validity and body in canonical spelling (ADR-0123 Outcome 8). |
 | `ModelingFiniteReductionV1` | `pse.modeling.finite-reduction.v1` | A finite reduction rewrite. |
 | `ModelingMemberV1` | `pse.modeling.member.v1` | A specialized member. |
 | `ModelingMeshCoordinateV1` | `pse.modeling.mesh-coordinate.v1` | A realized mesh coordinate. |
@@ -158,7 +158,7 @@ Derived in: pse-runtime.
 | `ModelingFitExecutionV1` | `pse.modeling.fit-execution.v1` | A modeling fit's execution. |
 | `ModelingFitSourceV1` | `pse.modeling.fit-source.v1` | A modeling fit's source. |
 | `ModelingImplicitTrialHintsV1` | `pse.modeling.implicit-trial-hints.v1` | Implicit trial hints. |
-| `ModelingSourceRevisionV1` | `pse.modeling.source-revision.v1` | A modeling source revision. |
+| `ModelingSourceRevisionV2` | `pse.modeling.source-revision.v2` | A modeling source revision: the structured declaration rows, the physical inventory identity and the admitted physical name bindings (ADR-0123 Outcome 8). |
 | `NumericalConeV1` | `pse.numerical.cone.v1` | A prepared numerical cone request. |
 | `RunAlgorithmsV1` | `pse.run.algorithms.v1` | A publication request's algorithms. |
 | `RunSourceV1` | `pse.run.source.v1` | A publication request's source. |

@@ -74,7 +74,7 @@ impl Evaluator<'_, '_> {
         }
         let facts = env
             .iter()
-            .filter(|(n, _)| n.starts_with("analysis.") || n.starts_with("stage."))
+            .filter(|(n, _)| crate::analysis::Fact::namespace_of(n).is_some())
             .map(|(n, v)| (n.clone(), v.clone()))
             .collect::<Environment>();
         let names = self.package.named_types(definition);
@@ -86,8 +86,7 @@ impl Evaluator<'_, '_> {
             .collect::<BTreeSet<_>>();
         for (name, value) in arguments {
             if !declared.contains(name.as_str())
-                && !name.starts_with("analysis.")
-                && !name.starts_with("stage.")
+                && crate::analysis::Fact::namespace_of(name).is_none()
             {
                 return Err(invalid(definition, format!("unknown parameter {name}")));
             }
@@ -105,7 +104,7 @@ impl Evaluator<'_, '_> {
             for parameter in pending {
                 let ty = self
                     .physical
-                    .resolve(&parameter.type_name, &vars, &names, definition)?;
+                    .resolve(&parameter.r#type, &vars, &names, definition)?;
                 let source = parameter.default_value.as_deref().ok_or_else(|| {
                     invalid(definition, format!("missing argument {}", parameter.name))
                 })?;
@@ -129,7 +128,7 @@ impl Evaluator<'_, '_> {
         for parameter in &contract.parameters {
             let ty = self
                 .physical
-                .resolve(&parameter.type_name, &vars, &names, definition)?;
+                .resolve(&parameter.r#type, &vars, &names, definition)?;
             if !conforms(&env[&parameter.name], &ty, self.package) {
                 return Err(invalid(definition, "binding complete type differs"));
             }
@@ -204,7 +203,7 @@ impl Evaluator<'_, '_> {
             .env
             .iter()
             .filter(|(n, _)| {
-                n.starts_with("analysis.") || n.starts_with("stage.") || n.starts_with("scope.")
+                crate::analysis::Fact::namespace_of(n).is_some() || n.starts_with("scope.")
             })
             .map(|(n, v)| (n.clone(), v.clone()))
             .collect();
