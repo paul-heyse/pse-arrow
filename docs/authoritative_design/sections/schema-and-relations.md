@@ -364,12 +364,15 @@ The old instance/composition/connection relation families have no remaining prod
 
 > Decision: [ADR-0103](../../adr/0103-variable-domain-facet.md) — variables gain a
 > declared domain facet (`continuous`, `integer`, `binary`, `semicontinuous`,
-> `semiinteger`) with per-mode semantics (Plan 22 M1 and the M2 refusals, implemented;
-> the M2 fixed-assignment stage is not yet implemented);
+> `semiinteger`) with per-mode semantics (Plan 22 M1, the M2 refusals and the M2a inward
+> tightening, implemented; the M2 fixed-assignment stage, M2b, is not yet implemented);
 > [ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md) — indicator,
 > SOS, cardinality, piecewise-linear, logic and disjunction declarations with named
-> realizations (Plan 22 M3 and M4, implemented; complementarity, M5, is not yet
-> implemented).
+> realizations (Plan 22 M3 and M4, implemented), and complementarity declarations (M5a,
+> implemented; executing the penalty realization, M5b, is not yet implemented);
+> [ADR-0111](../../adr/0111-multi-objective-optimization.md) — objective members with
+> priority, weight, normalization and level tolerances (Plan 22 C3 authoring, implemented;
+> the C3 engine is not yet implemented).
 
 Variables, parameters and value members are tagged modeling declarations. Specialized
 scalar identities derive from declaration, instance and admitted membership, never display
@@ -395,29 +398,34 @@ former built-in `Count` synonym of `Integer` is removed, so `Count` names the ph
 count type (the physical bundle's alias); `Integer` remains the built-in integer type.
 
 **Admission and analysis modes.** After case binding, every free discrete variable needs
-finite bounds that admit a value of its domain
+finite bounds that admit a value of its domain; integer, binary and semiinteger bounds are
+tightened inward to integers and the tightening is recorded
 ([§7.5](mathematics-and-compilation.md#section-7-5)). A free discrete variable is an
 ordinary free column in structure and degrees of freedom. Each analysis states what it does
 with one:
 
 | Analysis | Free discrete variable |
 |---|---|
-| Steady optimization | A decision: an authored MILP routes to HiGHS, and MIQP and MINLP route to SCIP ([§18.1](numerical-execution.md#section-18-1)); a semicontinuous or semiinteger variable has no SCIP export yet |
+| Steady optimization | A decision: an authored MILP routes to HiGHS, and MIQP and MINLP route to SCIP ([§18.1](numerical-execution.md#section-18-1)), whose export lowers semicontinuous and semiinteger variables by `semi(indicator)` |
 | Root solve | Refused; when the case fixes every discrete variable, the solve is continuous |
 | Initialization | Refused; the stage that fixes discrete variables as a scoped overlay (Plan 22 M2) is not yet implemented |
 | Fitting | Refused unless the experiment's case fixes it |
-| Integrated dynamics | Refused unless the case fixes it; a fixed one is a parameter of integration, piecewise constant through profile changes ([§13.5](workflows-and-results.md#section-13-5)) |
+| Integrated dynamics | Refused unless the case fixes it; a fixed one is a parameter of integration, piecewise constant through scheduled inputs ([§13.5](workflows-and-results.md#section-13-5)) |
 | Nested implicit root | A discrete unknown is refused (analysis `root`) |
 
-Duals and sensitivities stated conditional on a fixed assignment (Plan 22 M2) are not yet
-implemented. Each refusal is a typed `pse_modeling::ModelingError::Domain` naming the
-variable (identity, declaration and instance path), its domain, the analysis
+The factorable runner's fixed-assignment re-solve states its duals, local analysis and
+sensitivities conditional on the assignment
+([§18.10.1](numerical-execution.md#section-18-10-1)); one commitment shared by that re-solve
+and HiGHS's fixed-commitment LP (Plan 22 M2c) is not yet implemented. Each refusal is a
+typed `pse_modeling::ModelingError::Domain` naming the variable (identity, declaration and
+instance path), its domain, the analysis
 (`preparation`, `root`, `initialization`, `fitting` or `integrated_dynamics`) and the
 violated rule; its diagnostic rule is `modeling.domain`
 ([§23.2](operations-and-validation.md#section-23-2)).
 
 **Constraint forms and disjunctions.** Version 3 of `authored.modeling_declarations` adds the
-declarations of ADR-0104. Each is lowered at specialization by a named realization
+declarations of ADR-0104, and version 5 adds complementarity declarations and a realization's
+smoothing function. Each is lowered at specialization by a named realization
 ([§19.7](workflows-and-results.md#section-19-7)):
 
 | Declaration | Syntax | Default realization | Admitted realizations |
@@ -428,12 +436,14 @@ declarations of ADR-0104. Each is lowered at specialization by a named realizati
 | Piecewise-linear function | `piecewise name[k in s]: y == x at (X[k], Y[k]);` | `sos2` | `sos2`, `incremental`, `native` |
 | Logic proposition | `logic name[i in s]: a implies (b or not c);` | `linear` | `linear`, `native` |
 | Disjunction | `disjunction name { alternative a { … } alternative b { … } }` | none; a realization is required | `bigm(M)`, `bigm(derived[, margin])`, `hull`, `hull(epsilon)`, `indicator` |
+| Complementarity | `complements name[i in s]: (a >= 0, b >= 0);`, the pair `0 ≤ a ⊥ b ≥ 0`; a zero may carry a unit | none; a realization is required | `smooth(f, width)` with a smoothing function path and a width, `disjunctive`, `penalty(l1)` |
 
 A realization is declared as `realize r on target using policy;`, at most one per target;
 competing realizations are refused. The target is an implicit block, a constraint form or a
 disjunction. The policy is the registry enum `ModelingRealizationPolicy` (`big_m`,
-`derived_big_m`, `hull`, `indicator`, `linear`, `native`, `sos2` and `incremental`, beside the
-implicit-block policies), and its argument is stored as text (`value.realization.argument`).
+`derived_big_m`, `hull`, `indicator`, `linear`, `native`, `sos2`, `incremental`, `smooth`,
+`disjunctive` and `penalty_l1`, beside the implicit-block policies), and its argument is
+stored as text (`value.realization.argument`).
 Authors write `bigm(M)`, where `M` is an expression with the row's physical type, and
 `bigm(derived)` or `bigm(derived, margin)` with a finite nonnegative relative margin (default
 10⁻⁶); the registry spellings `big_m` and `derived_big_m` are refused in source. `hull(epsilon)`
@@ -461,12 +471,39 @@ unique indicator quantity and referenced by its disjunction path (for example
 bound case cannot admit is `ModelingError::Realization` (`modeling.realization`,
 [§23.2](operations-and-validation.md#section-23-2)).
 
+**Objectives.** `annotation objective t(sense, name = value, …);` declares the scalar member
+`t` an objective. The sense (`minimize` or `maximize`) comes first; the optional named
+members `priority` (an integer), `weight` (a positive finite number), `normalization` (an
+expression evaluated to a positive finite value of the member's type, such as `1e6{USD}`),
+`absolute_tolerance` and `relative_tolerance` follow in any order, each at most once, and a
+positional member is refused; rendering orders them as listed. Version 5 of
+`authored.modeling_declarations` stores these typed members. Specialization
+(`pse-modeling::specialize::objectives`) groups the objectives into lexicographic levels by
+ascending priority. A level's value is the weighted sum of its members' terms, each member
+divided by its normalization when one is declared and negated when its sense opposes the
+level's, and every term of a sum of several must be dimensionless (PS-01). Several
+objectives need a priority on each, or one shared level with weights; a typed
+`ObjectiveRefusal` names a missing or invalid weight, a dimensional sum, an invalid
+normalization or tolerance, conflicting tolerances within a level, a bounding level without
+a tolerance, a zero tolerance on a staged level (only the native LP and MILP route admits
+one) or an unknown selected level. A step selects one level with the `objective.level`
+fact; the named transformation `objective_bounds` then bounds every earlier level by a
+generated parameter β, a `LevelBound` row `value − β ≤ 0` for a minimized level and `≥ 0`
+for a maximized one. The row is structure and β a value without a default, which the C3
+engine binds from the earlier level's optimum and its tolerances. The case structure carries
+one objective, the solved level, so several levels without a selection are refused
+(`modeling.capability`) until the native lexicographic route and the staged driver of the
+C3 engine land. *Tested* by `objective_members_parse_and_render` (authoring units) and
+`objective_bounds_rows_generated_per_level`, `competing_objectives_without_priority_refused`,
+`dimensional_weighted_sum_refused` and `zero_tolerance_refused_on_staged_level` (compiler
+units).
+
 ### 6.10 Cases, observations, dynamics and fitting
 
 > Decision: [ADR-0119](../../adr/0119-fixture-analysis-selections.md) — a fixture declares
 > its solve intent (`intent certify;`; a conflict with the runtime fixture policy is a typed
-> refusal), integration schedules, events with a direction, and modes (Plan 22 G6r kernel,
-> Y0c and Y0d; not yet implemented).
+> refusal; Plan 22 G6r kernel, implemented), integration schedules, events with a direction,
+> and modes (Plan 22 Y0c kernel and Y0d; not yet implemented).
 
 Case and test scopes in the modeling IR carry root bindings, values, fixed/free state,
 bounds and analysis choices. Initialized, steady, integrated and simultaneous fixture routes
@@ -479,6 +516,19 @@ relaxation exceeds its optimum, so it shows that integrality is enforced. The se
 (`packages/reference/seed-data/models/gdp.pse`) chooses one of three supply alternatives
 through a disjunction realized by `hull`; its optimum follows by enumerating the
 alternatives.
+
+A fixture may declare its solve intent with the clause `intent <solve intent>;`, at most one
+per fixture, naming any `NativeSolveIntent` (version 4 of `authored.modeling_declarations`
+stores it). Conformance runs a fixture under its declared intent, which replaces the intent
+of the solver profile the fixture would otherwise use (its runtime fixture policy's, else the
+run's). A runtime fixture policy (`ModelingFixturePolicy.solver`) that names a different
+intent is refused (`WorkflowError::FixtureIntentConflict`, rule
+`workflow.fixture_intent_conflict`, class `conflict`, with the authored and policy intents
+observed); neither takes precedence. Without a declared intent the runtime policy decides.
+`intent certify;` is how a fixture reaches global certification
+([§18.10.1](numerical-execution.md#section-18-10-1)). *Tested* by
+`fixture_policy_intent_conflict_refused` (runtime units) and `fixture_intent_selects_certify`
+(native acceptance conformance).
 
 `authored.datasets` and `authored.observations` supply measurements. `authored.fit_cases`
 binds authored modeling experiments and source paths to the existing sparse fitting engine.
@@ -513,6 +563,8 @@ owning section:
 | Group | Relations | Owner |
 |---|---|---|
 | Runs and results | `computation_runs`, `solve_runs`, `solve_variables`, `solve_constraints`, `solve_metrics`, `candidate_assessments`, `modeling_checks`, `modeling_reports`, `modeling_conformance`, `modeling_fixture_status`, `modeling_findings`, `simulation_samples`, `simulation_events`, `fit_*`, `response_sensitivities`, `run_lineage`, `resolved_numerics`, `study_outcomes` | [§19](workflows-and-results.md#section-19) |
+| Native evidence | `infeasibility_certificates`, `solution_pool`, `incumbents` (durable runs) | [§18](numerical-execution.md#section-18) |
+| Local analysis and uncertainty | `local_validity`, `parametric_sensitivities`, `reduced_hessians`, `parameter_covariances`, `parameter_intervals`, `profile_points`, `response_directions`, `propagated_covariances` | [§15.5.1](numerical-execution.md#section-15-5-1), [§19.4](workflows-and-results.md#section-19-4), [§19.8](workflows-and-results.md#section-19-8) |
 | Capability inventory | `solver_capabilities` | [§18](numerical-execution.md#section-18) |
 | Publication and retention | `publication_manifests`, `artifact_descriptors`, `native_dependencies`, `change_events`, `maintenance_outcomes`, `retained_versions`; `reference.artifact_profiles` | [§20](identity-and-publication.md#section-20) |
 | Operational store | `operational_*`: one sidecar relation per `pse_ops` table (attempts, transitions, jobs, streams, solutions, sources, studies and the publication catalog) | [§20.6](identity-and-publication.md#section-20-6) |
@@ -523,6 +575,8 @@ Several facts that could be conflated are kept apart:
 - native termination, numerical acceptance, physical closure and final usability;
 - a missing observation and a zero;
 - a missing multiplier and a zero multiplier;
+- a withheld derived quantity, which has a validity row and no data rows, and a certified
+  one;
 - an absent later state (for example after a failed transition) and a recorded one.
 
 Observation relations are volatile evidence, never model or dependency authority.

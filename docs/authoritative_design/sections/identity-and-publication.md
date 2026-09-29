@@ -522,7 +522,8 @@ detail is in the [generated runtime reference](../../generated/relations/runtime
 > `pse-operations-queries` on tokio-postgres (Plan 22 B1, B2, implemented); the lifecycle,
 > queue, cancellation, streams, solutions and durability classes it restates from ADR-0112
 > (Plan 22 O3–O6, G8, implemented); studies across workers (O7) and read-only query
-> providers (O9), implemented. [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md)
+> providers (O9), implemented; solution origins, pruned captures and published incumbents
+> (G8f), implemented. [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md)
 > — identity domains and typed ids. As built, attempt legality has two pure tables and a
 > termination is a class with typed per-class columns, refining ADR-0114 Outcomes 12 and 22
 > (below).
@@ -646,14 +647,26 @@ coordinates (the first at once, then at most one per second, the last always kep
 nonfinite values are absent). Each captured primal is stored as a seed of its step in the
 transaction that stores its incumbent row, which keeps the step, phase and elapsed time of
 the event that reported it. Streams of attempts that finished longer ago than the retention
-policy (seven days by default) are removed by the start-up recovery; captured solutions are
-not pruned (register R-36).
+policy (seven days by default) are removed by the start-up recovery, except the attempt
+chain above an unfinished retry, and the captured solutions go with them: a capture is
+deleted unless an incumbent row, the start of an unfinished job or a waiting study point's
+predecessor still names it. Output seeds are never pruned; automatic retention of anything
+else remains register R-36. A durable run publishes its incumbent stream as the store holds
+it when the attempt ends, in `runtime.incumbents` (one row per incumbent with its step,
+phase, elapsed time, objective, bound, gap, nodes and the captured solution's identity, which
+the published row outlives); an ephemeral run keeps its incumbents in
+`runtime.solve_metrics`. *Tested* by `captured_solutions_pruned_with_streams` (store units)
+and `published_incumbents_equal_stream_snapshot` (runtime units).
 
 **Solutions and resumption.** Reusable seeds (`solutions`) are stored in original
 coordinates, keyed by the coordinate-compatibility stamp and the preparation identity, with
-the vectors their kind allows. `with_stored_start` starts a step from the newest compatible
-seed or a named one (`StartSource::Stored`, [§17.4](numerical-execution.md#section-17-4));
-the seed's content identity enters lineage. A job's `JobStart::ResumeFromParent` starts
+the vectors their kind allows. Each records its origin (`StoredSolutionOrigin`): `output`
+for a step's accepted output seed, and `incumbent` for a point captured from an attempt's
+incumbent stream, which must name that attempt (row check `capture_has_attempt`).
+`with_stored_start` starts a step from the newest compatible output seed, never from an
+incumbent capture, or from a named seed (`StartSource::Stored`,
+[§17.4](numerical-execution.md#section-17-4)); the seed's content identity enters lineage
+(`latest_start_skips_incumbent_captures`). A job's `JobStart::ResumeFromParent` starts
 from the latest incumbent in its parent attempt chain, injected into SCIP or given to HiGHS
 as a start, so a killed worker's successor resumes the search; `StoredSolution` names one
 seed. Studies across workers are [§19.3](workflows-and-results.md#section-19-3).
