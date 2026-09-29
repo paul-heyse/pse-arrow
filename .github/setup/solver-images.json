@@ -1,4 +1,4 @@
 {
-  "ci": "ghcr.io/paul-heyse/pse-solvers:ci-ccfd084f7324@sha256:835ef07219c6a2699fad52900778fc39c8ae2e77ca529e32740f3a6b2f2ba2dd",
-  "dev": "ghcr.io/paul-heyse/pse-solvers:dev-ccfd084f7324@sha256:ebd800b8f128d09d1a1e4e52fc3eb50fed6262908739a4bf198b8f6c5b5656f0"
+  "ci": "ghcr.io/paul-heyse/pse-solvers:ci-2893f027e09f@sha256:cf6a21efa0728a9dfae55ac453445196bc2c0f4cb6775e62dafe1b0a688f5b95",
+  "dev": "ghcr.io/paul-heyse/pse-solvers:dev-2893f027e09f@sha256:f71a9056870d0fe607538efb913fc6bb571196a9510a1216bce0baa6fadb5d33"
 }

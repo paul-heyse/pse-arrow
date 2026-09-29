@@ -11,7 +11,7 @@
   // from /rust-toolchain.toml. The immutable image is projected from
   // .github/setup/solver-images.json by `just solver-pin-update`.
   // Build it yourself with `just solver-image` and swap in `pse-solvers:dev-local`.
-  "image": "ghcr.io/paul-heyse/pse-solvers:dev-ccfd084f7324@sha256:ebd800b8f128d09d1a1e4e52fc3eb50fed6262908739a4bf198b8f6c5b5656f0",
+  "image": "ghcr.io/paul-heyse/pse-solvers:dev-2893f027e09f@sha256:f71a9056870d0fe607538efb913fc6bb571196a9510a1216bce0baa6fadb5d33",
 
   "containerEnv": {
     // Keep the venv inside the workspace so it survives container rebuilds and
