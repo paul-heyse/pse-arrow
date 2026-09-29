@@ -399,6 +399,23 @@ impl DurableAttempt {
             return Ok(());
         }
         let (kind, request_identity, preparation_identity) = identities(request)?;
+        self.register_as(run_id, kind, request_identity, preparation_identity)
+            .await
+    }
+
+    /// Register a new attempt under identities its caller derived, for a run whose steps are
+    /// decided while it runs (a rolling horizon, Plan 22 Y5c): planned, then queued for
+    /// admission. A claimed attempt is already registered and running.
+    pub(super) async fn register_as(
+        &self,
+        run_id: RunId,
+        kind: AttemptKind,
+        request_identity: ContentHash,
+        preparation_identity: Option<ContentHash>,
+    ) -> Result<(), WorkflowError> {
+        if self.claim.is_some() {
+            return Ok(());
+        }
         let attempts = self.operations.store.attempts();
         attempts
             .create(

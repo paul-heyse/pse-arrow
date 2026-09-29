@@ -117,7 +117,7 @@ Derived in: pse-backend-native.
 | `NativeSeedV2` | `pse.native.seed.v2` | A seed's content, without its execution origin. |
 | `NativeStructuralScopeV1` | `pse.native.structural-scope.v1` | A structural analysis scope over a residual Jacobian. |
 | `PresolvePolicyV1` | `pse.presolve.policy.v1` | Presolve options. |
-| `PresolveTransformationV2` | `pse.presolve.transformation.v2` | A presolve transformation. |
+| `PresolveTransformationV3` | `pse.presolve.transformation.v3` | A presolve transformation. |
 | `ScipReoptimizationSystemV1` | `pse.scip.reoptimization.system.v1` | The constraint system a SCIP reoptimization session was built for. |
 | `ShootingWindowV1` | `pse.shooting.window.v1` | A shooting window's oracle: its anchored starts and observed quadratures. |
 | `TearDecisionV1` | `pse.tear.decision.v1` | A tear-selection decision column. |
@@ -132,6 +132,7 @@ Derived in: pse-runtime.
 | `CausalMapV2` | `pse.causal-map.v2` | A conditional strategy's causal map. |
 | `CompletedEnvironmentV1` | `pse.completed.environment.v1` | The environment a completed step actually ran in. |
 | `CompletedRequestV2` | `pse.completed.request.v2` | A completed step's request lineage. |
+| `DurableHorizonRequestV1` | `pse.durable.horizon_request.v1` | A durable rolling horizon's request: its plant, loop and stage templates (Plan 22 Y5c). |
 | `DurableJobRequestV2` | `pse.durable.job_request.v2` | A durable job request. |
 | `DurableModelingRequestV1` | `pse.durable.modeling_request.v1` | A durable modeling request. |
 | `DurableStudyRequestV1` | `pse.durable.study_request.v1` | A durable study's request: its definition (Plan 22 O7). |

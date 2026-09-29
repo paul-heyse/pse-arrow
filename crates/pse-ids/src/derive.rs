@@ -256,7 +256,7 @@ frames! {
         /// Presolve options.
         PresolvePolicyV1 => "pse.presolve.policy.v1",
         /// A presolve transformation.
-        PresolveTransformationV2 => "pse.presolve.transformation.v2",
+        PresolveTransformationV3 => "pse.presolve.transformation.v3",
         /// The constraint system a SCIP reoptimization session was built for.
         ScipReoptimizationSystemV1 => "pse.scip.reoptimization.system.v1",
         /// A shooting window's oracle: its anchored starts and observed quadratures.
@@ -274,6 +274,9 @@ frames! {
         CompletedEnvironmentV1 => "pse.completed.environment.v1",
         /// A completed step's request lineage.
         CompletedRequestV2 => "pse.completed.request.v2",
+        /// A durable rolling horizon's request: its plant, loop and stage templates (Plan 22
+        /// Y5c).
+        DurableHorizonRequestV1 => "pse.durable.horizon_request.v1",
         /// A durable job request.
         DurableJobRequestV2 => "pse.durable.job_request.v2",
         /// A durable modeling request.

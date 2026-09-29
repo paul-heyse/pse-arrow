@@ -70,7 +70,6 @@ pse.numerical.policy.v1
 pse.numerical.projection.v1
 pse.numerical.resolved.v1
 pse.presolve.policy.v1
-pse.presolve.transformation.v2
 pse.provider.v4
 pse.run.algorithms.v1
 pse.run.source.v1
@@ -156,3 +155,11 @@ pse.shooting.window.v1
 # authored bounds, so the profile's IDAS settings (document version 2) no longer carry
 # them. dynamic.profile.v6 replaces dynamic.profile.v5, which is no longer declared.
 pse.dynamic.profile.v6
+# Plan 22 Y5c1 (ADR-0110 Outcome 5, I16): a durable rolling horizon's request identity, its
+# plant, loop and stage templates, registered before its steps are decided.
+pse.durable.horizon_request.v1
+# Plan 22 Y5c1 (N2 across value-only rebinds): a presolve transformation frames the
+# value-dependent source facts only when an applied pass consumed them.
+# presolve.transformation.v3 replaces presolve.transformation.v2, which is no longer
+# declared.
+pse.presolve.transformation.v3
