@@ -608,3 +608,43 @@ impl Coefficients {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::coefficients::GramCertificate;
+    use faer::sparse::{SparseColMat, Triplet};
+
+    fn matrix(entries: &[(usize, usize, f64)]) -> SparseColMat<usize, f64> {
+        let triplets: Vec<_> = entries
+            .iter()
+            .map(|(r, c, v)| Triplet::new(*r, *c, *v))
+            .collect();
+        SparseColMat::try_new_from_triplets(2, 2, &triplets).unwrap()
+    }
+    /// The minimization form negates a maximized concave quadratic exactly, carries its
+    /// evidence to exactly the returned matrix under orientation one, and refuses stale
+    /// evidence and a nonzero matrix without evidence.
+    #[test]
+    fn minimization_form_negates_and_retargets_evidence() {
+        // Maximize -(2x² + 2xy + 2y²)/2: Q = -[[2, 1], [1, 2]] is certified with sign -1.
+        let q = matrix(&[(0, 0, -2.0), (0, 1, -1.0), (1, 0, -1.0), (1, 1, -2.0)]);
+        let factor = faer::Mat::from_fn(2, 2, |r, c| match (r, c) {
+            (0, 0) | (1, 1) => 1.0,
+            (0, 1) => 0.5,
+            _ => 0.0,
+        });
+        let proof = GramCertificate::new(&q, -1.0, &factor, &[2.0, 1.5], 10).unwrap();
+        let (p, evidence) = minimization_form(&q, -1.0, Some(&proof)).unwrap();
+        assert_eq!(p.to_dense(), faer::mat![[2.0, 1.0], [1.0, 2.0]]);
+        evidence.validate(&p, 1.0).unwrap();
+        assert!(evidence.validate(&q, -1.0).is_err());
+        // Evidence of another orientation, and a nonzero matrix without evidence.
+        assert!(minimization_form(&q, 1.0, Some(&proof)).is_err());
+        assert!(minimization_form(&q, -1.0, None).is_err());
+        // The zero quadratic of a linear program needs none.
+        let (zero, evidence) = minimization_form(&matrix(&[]), -1.0, None).unwrap();
+        assert!(zero.val().is_empty());
+        evidence.validate(&zero, 1.0).unwrap();
+    }
+}
