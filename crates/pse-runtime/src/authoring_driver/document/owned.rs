@@ -385,7 +385,7 @@ mod tests {
         let texts = BTreeMap::from([
             ("package.toml".to_owned(), include_str!("../../../../../tests/fixtures/packages/minimal_explicit/package.toml").to_owned()),
             ("materials/constants.yaml".to_owned(), include_str!("../../../../../tests/fixtures/packages/minimal_explicit/materials/constants.yaml").to_owned()),
-            ("models/library.pse".to_owned(), "@id(\"00000000000000000000000000000031\") package library { @id(\"00000000000000000000000000000032\") enum Choice { one, two } }".to_owned()),
+            ("models/library.pse".to_owned(), "@id(\"00000000000000000000000000000031\") package library { @id(\"00000000000000000000000000000032\") enum Choice { @id(\"00000000000000000000000000000033\") one, @id(\"00000000000000000000000000000034\") two } }".to_owned()),
         ]);
         let part =
             load_package_texts_owned(&texts, registry, ParseBudget::default(), &budget, &cancel)?;

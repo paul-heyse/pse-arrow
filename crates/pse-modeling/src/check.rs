@@ -70,6 +70,15 @@ pub struct CheckedPackage {
     pub(crate) tables: BTreeMap<DeclarationId, crate::data::Table>,
     /// Full interface extension/implementation closure.
     pub(crate) interfaces: BTreeMap<DeclarationId, BTreeSet<DeclarationId>>,
+    /// Checked entity kinds: refinement, attribute schema, keys and bindings (ADR-0123
+    /// Outcome 2).
+    pub(crate) kinds: BTreeMap<DeclarationId, crate::entity::Kind>,
+    /// Admitted entity records by identity: declared entities and keyed rows.
+    pub(crate) entities: BTreeMap<DeclarationId, crate::entity::Record>,
+    /// Identifier values, each held by one entity of the admitted closure.
+    pub(crate) identifiers: crate::entity::ModelingIdentifierScope,
+    /// Typed constants.
+    pub(crate) constants: BTreeMap<DeclarationId, crate::entity::Typed>,
 }
 impl CheckedPackage {
     /// The immutable physical environment used to admit this package.
@@ -409,6 +418,10 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
         members: BTreeMap::new(),
         tables: BTreeMap::new(),
         interfaces: BTreeMap::new(),
+        kinds: BTreeMap::new(),
+        entities: BTreeMap::new(),
+        identifiers: crate::entity::ModelingIdentifierScope::default(),
+        constants: BTreeMap::new(),
     };
     for row in rows {
         if row.declaration_id.as_id() == SemanticId::NIL {
@@ -763,6 +776,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
         {
             Selected::EntityKind(_) => Some(Type::Entity(id)),
             Selected::Enum(_) => Some(Type::Enum(id)),
+            Selected::IdentifierScheme => Some(Type::Identifier(id)),
             Selected::Table(_) => Some(Type::Table(id)),
             Selected::Definition(_)
             | Selected::Case(_)
@@ -867,14 +881,50 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
         .keys()
         .map(|id| (*id, inheritance.add_node(*id)))
         .collect::<BTreeMap<_, _>>();
+    // ADR-0123 Outcome 2: an entity kind refines at most one entity kind, and only a kind is
+    // the base of a kind; interfaces and definitions extend interfaces. One graph and one
+    // cycle check serve both.
+    use pse_model::generated::enums::ModelingDeclarationKind as DeclarationKind;
+    for row in rows {
+        if row.value.kind == DeclarationKind::EntityKind {
+            p.kinds.insert(row.declaration_id, crate::entity::Kind::default());
+        }
+    }
     for row in rows {
         if let Some(scope) = &row.value.scope {
+            let kind = row.value.kind == DeclarationKind::EntityKind;
+            if kind && scope.bases.len() > 1 {
+                return Err(invalid(
+                    row.declaration_id,
+                    "an entity kind refines at most one kind",
+                ));
+            }
             for name in &scope.bases {
                 let base = p.resolve(row.declaration_id, name).ok_or_else(|| {
-                    invalid(row.declaration_id, format!("unknown interface {name}"))
+                    invalid(row.declaration_id, format!("unknown base {name}"))
                 })?;
-                if !matches!(p.types.get(&base), Some(Type::Interface(_))) {
-                    return Err(invalid(row.declaration_id, "base must be an interface"));
+                match (kind, p.kinds.contains_key(&base)) {
+                    (true, true) => {
+                        if let Some(record) = p.kinds.get_mut(&row.declaration_id) {
+                            record.base = Some(base);
+                        }
+                    }
+                    (true, false) => {
+                        return Err(invalid(
+                            row.declaration_id,
+                            format!("only an entity kind is the base of an entity kind; {name} is not one"),
+                        ));
+                    }
+                    (false, true) => {
+                        return Err(invalid(
+                            row.declaration_id,
+                            format!("entity kind {name} is the base of entity kinds only"),
+                        ));
+                    }
+                    (false, false) if !matches!(p.types.get(&base), Some(Type::Interface(_))) => {
+                        return Err(invalid(row.declaration_id, "base must be an interface"));
+                    }
+                    (false, false) => {}
                 }
                 inheritance.add_edge(inode[&base], inode[&row.declaration_id], ());
             }
@@ -884,10 +934,18 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
         .into_iter()
         .find(|c| c.len() > 1 || c.first().is_some_and(|n| inheritance.contains_edge(*n, *n)))
     {
+        let kinds = cycle
+            .iter()
+            .all(|n| p.kinds.contains_key(&inheritance[*n]));
         return Err(invalid(
             inheritance[cycle[0]],
             format!(
-                "recursive interface extension: {}",
+                "recursive {}: {}",
+                if kinds {
+                    "kind refinement"
+                } else {
+                    "interface extension"
+                },
                 cycle
                     .iter()
                     .map(|n| p.declarations[&inheritance[*n]].name.clone())
@@ -945,6 +1003,24 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
             p.types
                 .insert(id, context.resolve(&v.r#type, &variables, &names, id)?);
         }
+        // ADR-0123 Outcome 2: attributes belong to entity kinds; a binding takes its
+        // inherited attribute's type when the kind's members are known.
+        if let Some(v) = &row.value.attribute {
+            if !row
+                .parent_id
+                .is_some_and(|parent| p.kinds.contains_key(&parent))
+            {
+                return Err(invalid(id, "an attribute belongs to an entity kind"));
+            }
+            if let Some(ty) = &v.r#type {
+                p.types
+                    .insert(id, context.resolve(ty, &variables, &names, id)?);
+            }
+        }
+        if let Some(v) = &row.value.constant {
+            p.types
+                .insert(id, context.resolve(&v.r#type, &variables, &names, id)?);
+        }
         if let Some(v) = &row.value.continuous {
             let ty = context.resolve(&v.r#type, &variables, &names, id)?;
             if !matches!(ty, Type::Quantity(_)) {
@@ -956,7 +1032,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
             let kind = p
                 .resolve(id, &v.kind_name)
                 .ok_or_else(|| invalid(id, "unknown entity kind"))?;
-            if !matches!(p.types.get(&kind), Some(Type::Entity(_))) {
+            if !p.kinds.contains_key(&kind) {
                 return Err(invalid(id, "entity requires a declared kind"));
             }
             p.types.insert(id, Type::Entity(kind));
@@ -1023,10 +1099,29 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
         }
         if let Some(values) = &row.value.enumeration
             && (values.members.is_empty()
-                || values.members.iter().any(String::is_empty)
-                || values.members.iter().collect::<BTreeSet<_>>().len() != values.members.len())
+                || values
+                    .members
+                    .iter()
+                    .any(|m| m.name.is_empty() || m.member_id == SemanticId::NIL)
+                || values
+                    .members
+                    .iter()
+                    .map(|m| m.name.as_str())
+                    .collect::<BTreeSet<_>>()
+                    .len()
+                    != values.members.len()
+                || values
+                    .members
+                    .iter()
+                    .map(|m| m.member_id)
+                    .collect::<BTreeSet<_>>()
+                    .len()
+                    != values.members.len())
         {
-            return Err(invalid(id, "enumeration requires distinct named members"));
+            return Err(invalid(
+                id,
+                "enumeration requires distinct named members with distinct identities",
+            ));
         }
         if let Some(table) = &row.value.table {
             // ADR-0123 Outcome 1: the default policy exactly carries its value, and a
@@ -1064,6 +1159,32 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
         let Some(scope) = &row.value.scope else {
             continue;
         };
+        // A kind's members are its refined kind's and its own; a binding names an inherited
+        // attribute and has its type (ADR-0123 Outcome 2). `entity::admit` checks the rest.
+        if row.value.kind == DeclarationKind::EntityKind {
+            let mut members = p
+                .kinds
+                .get(&id)
+                .and_then(|k| k.base)
+                .and_then(|base| p.members.get(&base))
+                .cloned()
+                .unwrap_or_default();
+            for child in p.children.get(&id).cloned().unwrap_or_default() {
+                let name = p.declarations[&child].name.clone();
+                if p.declarations[&child]
+                    .value
+                    .attribute
+                    .as_ref()
+                    .is_some_and(|a| a.r#type.is_none())
+                    && let Some(ty) = members.get(&name).and_then(|m| p.types.get(m)).cloned()
+                {
+                    p.types.insert(child, ty);
+                }
+                members.insert(name, child);
+            }
+            p.members.insert(id, members);
+            continue;
+        }
         let own = p
             .children
             .get(&id)
@@ -1305,6 +1426,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
             }
         }
     }
+    crate::entity::admit(&mut p, context)?;
     crate::data::admit(&mut p, context)?;
     crate::expression::check_all(&p, context)?;
     Ok(p)
@@ -1349,6 +1471,8 @@ impl CheckedPackage {
             }
             let mut texts = Vec::new();
             let mut types: Vec<&Vec<pse_authoring::language::TypeNode>> = Vec::new();
+            // Cells name declarations only as reference paths (ADR-0123 Outcome 1).
+            let mut cells: Vec<&pse_authoring::language::Cell> = Vec::new();
             if row.value.import.is_some()
                 && let Some(target) = self.names.get(&row.name)
             {
@@ -1421,26 +1545,40 @@ impl CheckedPackage {
                 texts.extend(v.default_value.as_deref());
                 types.extend(v.keys.iter().map(|k| &k.r#type));
                 types.extend(v.columns.iter().map(|c| &c.r#type));
+            }
+            // A table or a kind depends on the datasets that supply its rows, a kind also on
+            // those of its refinements.
+            if row.value.table.is_some() || self.kinds.contains_key(&id) {
                 for dataset in self.declarations.values() {
-                    if dataset
-                        .value
-                        .dataset
-                        .as_ref()
-                        .is_some_and(|v| self.resolve(dataset.declaration_id, &v.table) == Some(id))
-                    {
+                    if dataset.value.dataset.as_ref().is_some_and(|v| {
+                        self.resolve(dataset.declaration_id, &v.target)
+                            .is_some_and(|target| target == id || self.refines(target, id))
+                    }) {
                         pending.push(dataset.declaration_id);
                     }
                 }
             }
+            if let Some(kind) = self.kinds.get(&id) {
+                pending.extend(kind.base);
+            }
             if let Some(v) = &row.value.dataset {
-                texts.push(&v.table);
+                texts.push(&v.target);
+                cells.extend(v.bindings.iter().map(|b| &b.value));
                 for r in &v.rows {
-                    texts.extend(r.keys.iter().chain(&r.values).map(String::as_str));
+                    cells.extend(r.keys.iter().chain(&r.values));
                 }
             }
             if let Some(v) = &row.value.entity {
                 texts.push(&v.kind_name);
-                texts.extend(v.attributes.iter().map(|a| a.expression.as_str()));
+                cells.extend(v.attributes.iter().map(|a| &a.value));
+            }
+            if let Some(v) = &row.value.attribute {
+                types.extend(v.r#type.as_ref());
+                cells.extend(v.value.as_ref());
+            }
+            if let Some(v) = &row.value.constant {
+                types.push(&v.r#type);
+                cells.push(&v.value);
             }
             if let Some(v) = &row.value.equation {
                 texts.push(&v.expression);
@@ -1540,6 +1678,13 @@ impl CheckedPackage {
             for text in texts {
                 pending.extend(dependency_paths(self, id, text));
             }
+            for path in cells.into_iter().flat_map(cell_paths) {
+                pending.extend(self.resolve(id, &path));
+                // A qualified enumeration member depends on its enumeration.
+                if let Some((owner, _)) = path.rsplit_once('.') {
+                    pending.extend(self.resolve(id, owner));
+                }
+            }
             // A declared type depends on the declarations its paths name (ADR-0123
             // Outcome 1): each joined path is resolved once, never re-parsed.
             for path in types
@@ -1585,7 +1730,24 @@ impl CheckedPackage {
         for interfaces in p.interfaces.values_mut() {
             interfaces.retain(|id| selected.contains(id));
         }
+        p.kinds.retain(|id, _| selected.contains(id));
+        p.constants.retain(|id, _| selected.contains(id));
+        // A record stays with the declaration that admitted it: its entity or its dataset.
+        p.entities
+            .retain(|_, record| selected.contains(&record.origin));
+        let entities = p.entities.keys().copied().collect::<BTreeSet<_>>();
+        p.identifiers.retain(|entity| entities.contains(&entity));
         Ok(p)
+    }
+}
+/// The paths a cell names: its reference, its set's references and an identifier's scheme.
+fn cell_paths(cell: &pse_authoring::language::Cell) -> Vec<String> {
+    use pse_authoring::language::CellSelected;
+    match cell.value.selected() {
+        Ok(CellSelected::Reference(v)) => vec![v.path.join(".")],
+        Ok(CellSelected::References(v)) => v.paths.iter().map(|p| p.path.join(".")).collect(),
+        Ok(CellSelected::Identifier(v)) => vec![v.scheme.join(".")],
+        _ => Vec::new(),
     }
 }
 
@@ -1735,6 +1897,7 @@ fn type_dependencies(ty: &Type, out: &mut Vec<DeclarationId>) {
     match ty {
         Type::Entity(id)
         | Type::Enum(id)
+        | Type::Identifier(id)
         | Type::Table(id)
         | Type::Row(id)
         | Type::Definition(id)

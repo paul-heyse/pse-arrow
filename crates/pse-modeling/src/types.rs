@@ -28,6 +28,9 @@ pub enum Type {
     Entity(DeclarationId),
     /// Member of a package enumeration.
     Enum(DeclarationId),
+    /// An opaque value of a declared identifier scheme, compared byte-exactly and never
+    /// parsed (ADR-0123 Outcome 2).
+    Identifier(DeclarationId),
     /// Finite ordered membership.
     Set(Box<Type>),
     /// A continuous coordinate axis, realized before finite expansion.
@@ -171,18 +174,29 @@ impl TypeContext<'_> {
                         .collect::<Result<_>>()?,
                 }
             }
+            // ADR-0123 Outcome 2: `Id<scheme>` names a declared identifier scheme.
             K::Identifier => {
-                return Err(invalid(
-                    at,
-                    format!(
-                        "identifier scheme {} is not declared",
-                        node.path().join(".")
-                    ),
-                ));
+                let name = node.path().join(".");
+                match names.get(&name) {
+                    Some(Type::Identifier(scheme)) => Type::Identifier(*scheme),
+                    _ => {
+                        return Err(invalid(
+                            at,
+                            format!("identifier scheme {name} is not declared"),
+                        ));
+                    }
+                }
             }
             K::Named => {
                 let name = node.path().join(".");
                 if let Some(value) = names.get(&name) {
+                    // A scheme is a type only as `Id<scheme>`: one spelling per type.
+                    if matches!(value, Type::Identifier(_)) {
+                        return Err(invalid(
+                            at,
+                            format!("identifier scheme {name} is written Id<{name}>"),
+                        ));
+                    }
                     return Ok(value.clone());
                 }
                 self.quantity(self.scheme(node, variables, names, at)?, at)?

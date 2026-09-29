@@ -175,7 +175,7 @@ impl Value {
         size_of::<Self>()
             + match self {
                 Self::Text(s) => s.capacity(),
-                Self::Enum { member, .. } => member.capacity(),
+                Self::Identifier { value, .. } => value.capacity(),
                 Self::Definition { bindings, .. } => {
                     map(bindings, |n, v| n.capacity() + v.retained_bytes())
                 }
@@ -240,6 +240,20 @@ impl CheckedPackage {
                             + k.iter().map(Value::retained_bytes).sum::<usize>()
                     })
             })
+            + map(&self.kinds, |_, k| {
+                k.attributes
+                    .iter()
+                    .map(|(n, _)| n.capacity() + size_of::<(String, pse_ids::SemanticId)>())
+                    .sum::<usize>()
+                    + map(&k.defaults, |n, t| n.capacity() + t.value.retained_bytes())
+                    + map(&k.bound, |n, (t, _)| n.capacity() + t.value.retained_bytes())
+                    + k.keys.iter().map(String::capacity).sum::<usize>()
+            })
+            + map(&self.entities, |_, r| {
+                map(&r.values, |n, v| n.capacity() + v.retained_bytes())
+                    + map(&r.uncertainties, |n, _| n.capacity() + 16)
+            })
+            + map(&self.constants, |_, t| t.value.retained_bytes())
     }
 }
 impl SpecializedModel {

@@ -43,7 +43,8 @@ const UNIT_PRODUCT_ID: &str = "b65b26cc780fb634de036e1195b0af54";
 /// frame over canonical DSL spellings, whose unit literals print as canonical products
 /// since ADR-0124. The source revision's preimage layout is pinned beside its derivation
 /// (`pse_runtime::math::modeling::source_revision`).
-const STRUCTURED_IR_FRAMES: [(Frame, &str, &str); 8] = [
+/// `ModelingFiniteFunctionV2` was one of them until KR4 replaced it (below).
+const STRUCTURED_IR_FRAMES: [(Frame, &str, &str); 7] = [
     (
         Frame::ModelingSourceRevisionV2,
         "pse.modeling.source-revision.v2",
@@ -53,11 +54,6 @@ const STRUCTURED_IR_FRAMES: [(Frame, &str, &str); 8] = [
         Frame::ModelingDispatchBodyV2,
         "pse.modeling.dispatch-body.v2",
         "c66db81d5fbbd304c0d42959b432acd177062882366c6c2a9caf3ff22cadac20",
-    ),
-    (
-        Frame::ModelingFiniteFunctionV2,
-        "pse.modeling.finite-function.v2",
-        "ddd3522c9bbef2ac3826016fa883f2d1250397c4938b370b3208da3b2c8996a9",
     ),
     (
         Frame::ModelingContinuityV2,
@@ -85,6 +81,33 @@ const STRUCTURED_IR_FRAMES: [(Frame, &str, &str); 8] = [
         "ab5d37e55b80a098e63ea38db0d0106cd5d1dba776b1d088482abfe924d1aaa7",
     ),
 ];
+
+/// `derive_hash(frame, [b"pse"])` for each frame variant Plan 23 KR4 added (ADR-0123
+/// Outcome 2, DP-24): the keyed entity identity, and the coordinate and function
+/// specialization frames, whose preimages now frame an enumeration member by identity.
+const ENTITY_RECORD_FRAMES: [(Frame, &str, &str); 3] = [
+    (
+        Frame::ModelingKeyedEntityV1,
+        "pse.modeling.keyed-entity.v1",
+        "f3d2e7de042febbb62d1c903e4e85b3b50bfe077afc12dee8fe59183d7490307",
+    ),
+    (
+        Frame::ModelingCoordinateV2,
+        "pse.modeling.coordinate.v2",
+        "efff8910923a963ad18268dc4dfb8ba9238d08a9c32dbcfdc183e441ff22495f",
+    ),
+    (
+        Frame::ModelingFiniteFunctionV3,
+        "pse.modeling.finite-function.v3",
+        "3ddbbe58c760b5d63816de0e66aeea4ec8968bb59d1e5a52b2a067109821ef6f",
+    ),
+];
+
+/// `derive_id("pse.modeling.keyed-entity.v1", [[0x01; 16], 2u64 LE, "entity", [0x02; 16],
+/// "int", 1i64 LE])`: the identity of a row whose key-declaring kind is `0x01…` and whose
+/// two keys are the entity `0x02…` and the integer 1. `pse_modeling` frames exactly these
+/// parts (`entity::keyed_identity`).
+const KEYED_ENTITY_ID: &str = "fc6aa818a9891d4188e2058bca760892";
 
 /// `encoding_checksum(b"pse")`: plain, unkeyed BLAKE3 over three bytes.
 const ENCODING_CHECKSUM_PSE: &str =
@@ -154,6 +177,39 @@ fn the_structured_ir_frame_variants_are_frozen() {
             "{spelling}"
         );
     }
+}
+
+#[test]
+fn the_entity_record_frame_variants_are_frozen() {
+    for (frame, spelling, vector) in ENTITY_RECORD_FRAMES {
+        assert_eq!(frame.as_str(), spelling);
+        assert_eq!(
+            derive_hash(frame, &[b"pse"]).to_hex(),
+            vector,
+            "{spelling}"
+        );
+    }
+    let parts: &[&[u8]] = &[
+        &[0x01; 16],
+        &2_u64.to_le_bytes(),
+        b"entity",
+        &[0x02; 16],
+        b"int",
+        &1_i64.to_le_bytes(),
+    ];
+    assert_eq!(
+        derive_id(Frame::ModelingKeyedEntityV1, parts).to_hex(),
+        KEYED_ENTITY_ID
+    );
+    // The framed hasher writes the same parts.
+    let mut h = FramedHasher::new(Frame::ModelingKeyedEntityV1);
+    h.id(&SemanticId::from_bytes([0x01; 16]))
+        .u64(2)
+        .str("entity")
+        .id(&SemanticId::from_bytes([0x02; 16]))
+        .str("int")
+        .part(&1_i64.to_le_bytes());
+    assert_eq!(h.finish_id().to_hex(), KEYED_ENTITY_ID);
 }
 
 #[test]

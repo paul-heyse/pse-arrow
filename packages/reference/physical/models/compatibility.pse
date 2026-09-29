@@ -2,49 +2,49 @@
 // Copyright (c) 2026 Paul Heyse
 // Sanctioned compatibility names; numerical algorithms do not dispatch on these enums.
 @id("6fd64d1df0894dbbadd325c6fdf579c1") package compatibility {
-    @id("cce87b2dfba84402b55c7c17124b799b") enum BlowerMaterial {CarbonSteel, Aluminum, Fiberglass, StainlessSteel, NickelAlloy}
-    @id("a9646d20486f446fb61b500daf846707") enum BlowerType {Centrifugal, Rotary}
-    @id("20fc3b921d7c47f49a46e1dd248fe827") enum ComponentType {Component, Solute, Solvent, Ion, Anion, Cation, Apparent}
-    @id("973b5cd502674a30ab47acf1404437e7") enum CompressorDriveType {ElectricMotor, SteamTurbine, gasTurbine}
-    @id("3cb672370ac94cabb5ed13be6ff95d1b") enum CompressorMaterial {CarbonSteel, StainlessSteel, NickelAlloy}
-    @id("b601d9efb1e64ce3a32d4cdb6da9c9b0") enum CompressorType {Centrifugal, Reciprocating, Screw}
-    @id("f918c0154ca545ed844c45a4b898ce49") enum ConcentrationForm {molarity, activity, molality, moleFraction, massFraction, partialPressure}
-    @id("98d59a58758a4f44808714314b76b6f3") enum ControllerAntiwindupType {NONE, CONDITIONAL_INTEGRATION, BACK_CALCULATION}
-    @id("4052882992ad4a5faea02c997a9f8825") enum ControllerMVBoundType {NONE, SMOOTH_BOUND, LOGISTIC}
-    @id("9ba6a5f23d8e455982a95a61c40afe30") enum ControllerType {P, PI, PD, PID}
-    @id("bd0cf113def7439398be5c8950709c2f") enum CubicType {PR, SRK}
-    @id("c0bb4960736c490d892c70315574eac8") enum DaeVarTypes {ALGEBRAIC, DIFFERENTIAL, DERIVATIVE, TIME}
-    @id("818a639606db4cca8e534ac3b6e14773") enum DefaultScalingRecommendation {userInputRecommended, userInputRequired, userSetManually}
-    @id("6e5f65c6fb9445c69061b82e04b428d7") enum DiscretizationScheme {BACKWARD, FORWARD, CENTRAL, LAGRANGE_RADAU, LAGRANGE_LEGENDRE}
-    @id("255d4b78aa0e475e9f21db76e1ca0e6f") enum DistributedVars {variant, uniform}
-    @id("ab6045d82b3b4637a79106532c52b14f") enum EnergyBalanceType {useDefault, none, enthalpyPhase, enthalpyTotal, energyPhase, energyTotal, isothermal}
-    @id("55c43362aa8c4172a41cb0fc817745e4") enum EnergySplittingType {none, equal_temperature, equal_molar_enthalpy, enthalpy_split}
-    @id("adc6fdec53bf43ddb7ec902be035416a") enum FanMaterial {CarbonSteel, Fiberglass, StainlessSteel, NickelAlloy}
-    @id("19c5a39f04974cba92919c3699e95629") enum FanType {CentrifugalBackward, CentrifugalStraight, VaneAxial, TubeAxial}
-    @id("7ab1798adcb446daa0b13dcd0e4502f6") enum FlashType {isothermal, isenthalpic}
-    @id("fe538bfac7b748998ae0b259383433f9") enum FlowDirection {notSet, forward, backward}
-    @id("d84207108a564b379f26e04374c23a56") enum HXMaterial {CarbonSteelCarbonSteel, CarbonSteelBrass, CarbonSteelStainlessSteel, CarbonSteelMonel, CarbonSteelTitanium, CarbonSteelCrMoSteel, CrMoSteelCrMoSteel, StainlessSteelStainlessSteel, MonelMonel, TitaniumTitanium}
-    @id("1acac6cbbd6649bf8b99042b0422e603") enum HXTubeLength {EightFoot, TwelveFoot, SixteenFoot, TwentyFoot}
-    @id("0e621c933939422f82f76ad2f49d3a65") enum HXType {floating_head, fixed_head, Utube, kettle_vap}
-    @id("ab2c0784bc9b4a51abd186ad100385d7") enum HeatExchangerFlowPattern {countercurrent, cocurrent, crossflow}
-    @id("1a00433147bd4076b06a58c5592dcb5c") enum HeaterMaterial {CarbonSteel, CrMoSteel, StainlessSteel}
-    @id("6fe3d8d9c2704f9bb94bb0c1876a1048") enum HeaterSource {Fuel, Reformer, Pyrolysis, HotWater, Salts, DowthermA, steamBoiler}
-    @id("bacc88d81e91493c9a62d2c7aa7a3918") enum HenryType {Hcp, Hxp, Kpc, Kpx}
-    @id("25381f72c3cd412da6d968ed7179fffa") enum InitializationStatus {Ok, none, Failed, DoF, PrecheckFailed, Error}
-    @id("68ba94f5ed074ce7a949cf29d9a67d86") enum MaterialBalanceType {useDefault, none, componentPhase, componentTotal, elementTotal, total}
-    @id("77a4fbb8960444e8849b63fccbfa2d4d") enum MaterialFlowBasis {molar, mass, other}
-    @id("293871e8f55647e7ae4d48345569adb4") enum MixingType {none, extensive}
-    @id("3ca8e77e3f814cf1b360b4f3daf9e2a0") enum MomentumBalanceType {none, pressureTotal, pressurePhase, momentumTotal, momentumPhase}
-    @id("3bd0aea27ce34cd585f570d7732374e3") enum MomentumMixingType {none, minimize, equality, minimize_and_equality}
-    @id("4c71f127fd274d9c938224796b73634f") enum PhaseType {undefined, liquidPhase, vaporPhase, solidPhase, aqueousPhase}
-    @id("0ba581ed91124e9ab59844380e0fc17a") enum PumpMaterial {CastIron, DuctileIron, CastSteel, Bronze, StainlessSteel, HastelloyC, Monel, Nickel, Titanium, NiAlBronze, CarbonSteel}
-    @id("bee8922867ce46a19d58d0fcbb6748ee") enum PumpMotorType {Open, Enclosed, ExplosionProof}
-    @id("5734c1f7283d46abae9f6fa95c303d8b") enum PumpType {Centrifugal, ExternalGear, Reciprocating}
-    @id("41d74aca8d554639a913963996389785") enum SplittingType {totalFlow, phaseFlow, componentFlow, phaseComponentFlow}
-    @id("3b3f5f5a6ec5415a88f363966fc03bb4") enum StateIndex {true, apparent}
-    @id("e67edea3188c4fe4ba5c37fb9fc3fb03") enum ThermodynamicAssumption {isothermal, isentropic, pump, adiabatic}
-    @id("486ac967b62e43eeac8bff2e05a18050") enum TrayMaterial {CarbonSteel, StainlessSteel303, StainlessSteel316, Carpenter20CB3, Monel}
-    @id("cb1d53f56611436baeafbc7f0f7167d8") enum TrayType {Sieve, Valve, BubbleCap}
-    @id("f7730f9a82b24860a771f3cfbcaa97e0") enum ValveFunctionType {linear, quick_opening, equal_percentage}
-    @id("11ffe32671e54512a48be6e2bf517929") enum VesselMaterial {CarbonSteel, LowAlloySteel, StainlessSteel304, StainlessSteel316, Carpenter20CB3, Nickel200, Monel400, Inconel600, Incoloy825, Titanium}
+    @id("cce87b2dfba84402b55c7c17124b799b") enum BlowerMaterial {@id("01a0eec94a7f71fb8cde1b0aab4721e6") CarbonSteel, @id("01a0eec94a7f71fb8cde1b0bc601db88") Aluminum, @id("01a0eec94a7f71fb8cde1b0c7335ecda") Fiberglass, @id("01a0eec94a7f71fb8cde1b0dcc72802e") StainlessSteel, @id("01a0eec94a7f71fb8cde1b0ead46f429") NickelAlloy}
+    @id("a9646d20486f446fb61b500daf846707") enum BlowerType {@id("01a0eec94a7f71fb8cde1b0fda7336ab") Centrifugal, @id("01a0eec94a7f71fb8cde1b10a6299905") Rotary}
+    @id("20fc3b921d7c47f49a46e1dd248fe827") enum ComponentType {@id("01a0eec94a7f71fb8cde1b117e099f31") Component, @id("01a0eec94a7f71fb8cde1b120d54dd03") Solute, @id("01a0eec94a7f71fb8cde1b13ed917247") Solvent, @id("01a0eec94a7f71fb8cde1b1425dad575") Ion, @id("01a0eec94a7f71fb8cde1b1514405b73") Anion, @id("01a0eec94a7f71fb8cde1b1646d596ca") Cation, @id("01a0eec94a7f71fb8cde1b174738d42c") Apparent}
+    @id("973b5cd502674a30ab47acf1404437e7") enum CompressorDriveType {@id("01a0eec94a7f71fb8cde1b184493144a") ElectricMotor, @id("01a0eec94a7f71fb8cde1b19bb08fa1f") SteamTurbine, @id("01a0eec94a7f71fb8cde1b1a92a444fd") gasTurbine}
+    @id("3cb672370ac94cabb5ed13be6ff95d1b") enum CompressorMaterial {@id("01a0eec94a7f71fb8cde1b1b1a0eaa0b") CarbonSteel, @id("01a0eec94a7f71fb8cde1b1cb5a7f513") StainlessSteel, @id("01a0eec94a7f71fb8cde1b1db9b85ef9") NickelAlloy}
+    @id("b601d9efb1e64ce3a32d4cdb6da9c9b0") enum CompressorType {@id("01a0eec94a7f71fb8cde1b1ee38a1b36") Centrifugal, @id("01a0eec94a7f71fb8cde1b1fc4a03ce8") Reciprocating, @id("01a0eec94a7f71fb8cde1b2014b712c9") Screw}
+    @id("f918c0154ca545ed844c45a4b898ce49") enum ConcentrationForm {@id("01a0eec94a7f71fb8cde1b2117fb0263") molarity, @id("01a0eec94a7f71fb8cde1b2211f87ebf") activity, @id("01a0eec94a7f71fb8cde1b230682d95b") molality, @id("01a0eec94a7f71fb8cde1b24698ce51e") moleFraction, @id("01a0eec94a7f71fb8cde1b25a24db059") massFraction, @id("01a0eec94a7f71fb8cde1b26fa1c7137") partialPressure}
+    @id("98d59a58758a4f44808714314b76b6f3") enum ControllerAntiwindupType {@id("01a0eec94a7f71fb8cde1b27241b1207") NONE, @id("01a0eec94a7f71fb8cde1b28f42df39b") CONDITIONAL_INTEGRATION, @id("01a0eec94a7f71fb8cde1b295fba0515") BACK_CALCULATION}
+    @id("4052882992ad4a5faea02c997a9f8825") enum ControllerMVBoundType {@id("01a0eec94a7f71fb8cde1b2a184eddd1") NONE, @id("01a0eec94a7f71fb8cde1b2b7e5f201f") SMOOTH_BOUND, @id("01a0eec94a7f71fb8cde1b2c9ccbbf46") LOGISTIC}
+    @id("9ba6a5f23d8e455982a95a61c40afe30") enum ControllerType {@id("01a0eec94a7f71fb8cde1b2dc964e381") P, @id("01a0eec94a7f71fb8cde1b2e569a2315") PI, @id("01a0eec94a7f71fb8cde1b2f2a1d85a9") PD, @id("01a0eec94a7f71fb8cde1b30cea9edbc") PID}
+    @id("bd0cf113def7439398be5c8950709c2f") enum CubicType {@id("01a0eec94a7f71fb8cde1b31d7235f81") PR, @id("01a0eec94a7f71fb8cde1b324a83ca54") SRK}
+    @id("c0bb4960736c490d892c70315574eac8") enum DaeVarTypes {@id("01a0eec94a7f71fb8cde1b33d9a850e0") ALGEBRAIC, @id("01a0eec94a7f71fb8cde1b34fdcea70f") DIFFERENTIAL, @id("01a0eec94a7f71fb8cde1b35fb496c3b") DERIVATIVE, @id("01a0eec94a7f71fb8cde1b36d2499fce") TIME}
+    @id("818a639606db4cca8e534ac3b6e14773") enum DefaultScalingRecommendation {@id("01a0eec94a7f71fb8cde1b3720750cf8") userInputRecommended, @id("01a0eec94a7f71fb8cde1b38b386c83c") userInputRequired, @id("01a0eec94a7f71fb8cde1b398a553652") userSetManually}
+    @id("6e5f65c6fb9445c69061b82e04b428d7") enum DiscretizationScheme {@id("01a0eec94a7f71fb8cde1b3af4fbfb8d") BACKWARD, @id("01a0eec94a7f71fb8cde1b3b84c4c190") FORWARD, @id("01a0eec94a7f71fb8cde1b3c0f658595") CENTRAL, @id("01a0eec94a7f71fb8cde1b3dc7ee1fae") LAGRANGE_RADAU, @id("01a0eec94a7f71fb8cde1b3e15b46d9d") LAGRANGE_LEGENDRE}
+    @id("255d4b78aa0e475e9f21db76e1ca0e6f") enum DistributedVars {@id("01a0eec94a7f71fb8cde1b3f58e1e118") variant, @id("01a0eec94a7f71fb8cde1b406aa389ff") uniform}
+    @id("ab6045d82b3b4637a79106532c52b14f") enum EnergyBalanceType {@id("01a0eec94a7f71fb8cde1b414e2c4f03") useDefault, @id("01a0eec94a7f71fb8cde1b42ed1e851d") none, @id("01a0eec94a7f71fb8cde1b4304c7d1ec") enthalpyPhase, @id("01a0eec94a7f71fb8cde1b44214fa6a4") enthalpyTotal, @id("01a0eec94a7f71fb8cde1b45cf07cbbc") energyPhase, @id("01a0eec94a7f71fb8cde1b460e8b7ca0") energyTotal, @id("01a0eec94a7f71fb8cde1b47b5a912f6") isothermal}
+    @id("55c43362aa8c4172a41cb0fc817745e4") enum EnergySplittingType {@id("01a0eec94a7f71fb8cde1b482e0fd5ee") none, @id("01a0eec94a7f71fb8cde1b49443191e3") equal_temperature, @id("01a0eec94a7f71fb8cde1b4a3cdb0878") equal_molar_enthalpy, @id("01a0eec94a7f71fb8cde1b4beb70d0d6") enthalpy_split}
+    @id("adc6fdec53bf43ddb7ec902be035416a") enum FanMaterial {@id("01a0eec94a7f71fb8cde1b4c1cbb72dc") CarbonSteel, @id("01a0eec94a7f71fb8cde1b4daad80ea6") Fiberglass, @id("01a0eec94a7f71fb8cde1b4e2246ab70") StainlessSteel, @id("01a0eec94a7f71fb8cde1b4f0eec15ed") NickelAlloy}
+    @id("19c5a39f04974cba92919c3699e95629") enum FanType {@id("01a0eec94a7f71fb8cde1b50124bb851") CentrifugalBackward, @id("01a0eec94a7f71fb8cde1b51cac9a5f6") CentrifugalStraight, @id("01a0eec94a7f71fb8cde1b526dd511f1") VaneAxial, @id("01a0eec94a7f71fb8cde1b53c04056bb") TubeAxial}
+    @id("7ab1798adcb446daa0b13dcd0e4502f6") enum FlashType {@id("01a0eec94a7f71fb8cde1b547a0147d5") isothermal, @id("01a0eec94a7f71fb8cde1b5552b723f6") isenthalpic}
+    @id("fe538bfac7b748998ae0b259383433f9") enum FlowDirection {@id("01a0eec94a7f71fb8cde1b56264fdd40") notSet, @id("01a0eec94a7f71fb8cde1b576426ba61") forward, @id("01a0eec94a7f71fb8cde1b587e78bc41") backward}
+    @id("d84207108a564b379f26e04374c23a56") enum HXMaterial {@id("01a0eec94a7f71fb8cde1b5949010ee4") CarbonSteelCarbonSteel, @id("01a0eec94a7f71fb8cde1b5a24f929f5") CarbonSteelBrass, @id("01a0eec94a7f71fb8cde1b5b56070f51") CarbonSteelStainlessSteel, @id("01a0eec94a7f71fb8cde1b5cb95fb42c") CarbonSteelMonel, @id("01a0eec94a7f71fb8cde1b5d8909279b") CarbonSteelTitanium, @id("01a0eec94a7f71fb8cde1b5eea9b8672") CarbonSteelCrMoSteel, @id("01a0eec94a7f71fb8cde1b5fc1fdd080") CrMoSteelCrMoSteel, @id("01a0eec94a7f71fb8cde1b60adfd6272") StainlessSteelStainlessSteel, @id("01a0eec94a7f71fb8cde1b614f34e606") MonelMonel, @id("01a0eec94a7f71fb8cde1b62ef925cc4") TitaniumTitanium}
+    @id("1acac6cbbd6649bf8b99042b0422e603") enum HXTubeLength {@id("01a0eec94a7f71fb8cde1b63bdc52151") EightFoot, @id("01a0eec94a7f71fb8cde1b64446ab5d4") TwelveFoot, @id("01a0eec94a7f71fb8cde1b65d7639b91") SixteenFoot, @id("01a0eec94a7f71fb8cde1b66070e9c70") TwentyFoot}
+    @id("0e621c933939422f82f76ad2f49d3a65") enum HXType {@id("01a0eec94a7f71fb8cde1b67c1f8cee6") floating_head, @id("01a0eec94a7f71fb8cde1b688c20d5ae") fixed_head, @id("01a0eec94a7f71fb8cde1b69e44712a3") Utube, @id("01a0eec94a7f71fb8cde1b6a0d081d4b") kettle_vap}
+    @id("ab2c0784bc9b4a51abd186ad100385d7") enum HeatExchangerFlowPattern {@id("01a0eec94a7f71fb8cde1b6b2448b43b") countercurrent, @id("01a0eec94a7f71fb8cde1b6c1397021e") cocurrent, @id("01a0eec94a7f71fb8cde1b6d5a50cfb8") crossflow}
+    @id("1a00433147bd4076b06a58c5592dcb5c") enum HeaterMaterial {@id("01a0eec94a7f71fb8cde1b6e5c799b7e") CarbonSteel, @id("01a0eec94a7f71fb8cde1b6f7bf0ed14") CrMoSteel, @id("01a0eec94a7f71fb8cde1b7094ac4b1f") StainlessSteel}
+    @id("6fe3d8d9c2704f9bb94bb0c1876a1048") enum HeaterSource {@id("01a0eec94a7f71fb8cde1b71d23394fb") Fuel, @id("01a0eec94a7f71fb8cde1b727d2d31f8") Reformer, @id("01a0eec94a7f71fb8cde1b7396742b79") Pyrolysis, @id("01a0eec94a7f71fb8cde1b744aae8f43") HotWater, @id("01a0eec94a7f71fb8cde1b75154e8e19") Salts, @id("01a0eec94a7f71fb8cde1b76feb6c3ae") DowthermA, @id("01a0eec94a7f71fb8cde1b77611a5329") steamBoiler}
+    @id("bacc88d81e91493c9a62d2c7aa7a3918") enum HenryType {@id("01a0eec94a7f71fb8cde1b783b75d88e") Hcp, @id("01a0eec94a7f71fb8cde1b79659de6c6") Hxp, @id("01a0eec94a7f71fb8cde1b7ae504e873") Kpc, @id("01a0eec94a7f71fb8cde1b7b88d39118") Kpx}
+    @id("25381f72c3cd412da6d968ed7179fffa") enum InitializationStatus {@id("01a0eec94a7f71fb8cde1b7cf90731e0") Ok, @id("01a0eec94a7f71fb8cde1b7d88acedf0") none, @id("01a0eec94a7f71fb8cde1b7ebb7bc3a3") Failed, @id("01a0eec94a7f71fb8cde1b7f2f13aa73") DoF, @id("01a0eec94a7f71fb8cde1b8018fbee3d") PrecheckFailed, @id("01a0eec94a7f71fb8cde1b8130f7ae03") Error}
+    @id("68ba94f5ed074ce7a949cf29d9a67d86") enum MaterialBalanceType {@id("01a0eec94a7f71fb8cde1b820954d4b8") useDefault, @id("01a0eec94a7f71fb8cde1b83f8bff6c9") none, @id("01a0eec94a7f71fb8cde1b8412dcc2df") componentPhase, @id("01a0eec94a7f71fb8cde1b857eb734d8") componentTotal, @id("01a0eec94a7f71fb8cde1b866d378ba7") elementTotal, @id("01a0eec94a7f71fb8cde1b87056278aa") total}
+    @id("77a4fbb8960444e8849b63fccbfa2d4d") enum MaterialFlowBasis {@id("01a0eec94a7f71fb8cde1b88e0ab3f31") molar, @id("01a0eec94a7f71fb8cde1b89d7241c2d") mass, @id("01a0eec94a7f71fb8cde1b8a5f264be8") other}
+    @id("293871e8f55647e7ae4d48345569adb4") enum MixingType {@id("01a0eec94a7f71fb8cde1b8b2eee883d") none, @id("01a0eec94a7f71fb8cde1b8c5102dba3") extensive}
+    @id("3ca8e77e3f814cf1b360b4f3daf9e2a0") enum MomentumBalanceType {@id("01a0eec94a7f71fb8cde1b8d5e455519") none, @id("01a0eec94a7f71fb8cde1b8eefb1dab1") pressureTotal, @id("01a0eec94a7f71fb8cde1b8fb878c4b5") pressurePhase, @id("01a0eec94a7f71fb8cde1b904bab173d") momentumTotal, @id("01a0eec94a7f71fb8cde1b91339c04cf") momentumPhase}
+    @id("3bd0aea27ce34cd585f570d7732374e3") enum MomentumMixingType {@id("01a0eec94a7f71fb8cde1b92fe12351e") none, @id("01a0eec94a7f71fb8cde1b93dfeb2b58") minimize, @id("01a0eec94a7f71fb8cde1b94d5a1ef56") equality, @id("01a0eec94a7f71fb8cde1b95a202b965") minimize_and_equality}
+    @id("4c71f127fd274d9c938224796b73634f") enum PhaseType {@id("01a0eec94a7f71fb8cde1b96dd7d6c14") undefined, @id("01a0eec94a7f71fb8cde1b974108c9fb") liquidPhase, @id("01a0eec94a7f71fb8cde1b982aeb4943") vaporPhase, @id("01a0eec94a7f71fb8cde1b99690588e9") solidPhase, @id("01a0eec94a7f71fb8cde1b9a1093ba7f") aqueousPhase}
+    @id("0ba581ed91124e9ab59844380e0fc17a") enum PumpMaterial {@id("01a0eec94a7f71fb8cde1b9b8d445249") CastIron, @id("01a0eec94a7f71fb8cde1b9c2cd22d81") DuctileIron, @id("01a0eec94a7f71fb8cde1b9d101a2e4d") CastSteel, @id("01a0eec94a7f71fb8cde1b9e24ace9b4") Bronze, @id("01a0eec94a7f71fb8cde1b9f12a18a30") StainlessSteel, @id("01a0eec94a7f71fb8cde1ba01b341baa") HastelloyC, @id("01a0eec94a7f71fb8cde1ba123306da0") Monel, @id("01a0eec94a7f71fb8cde1ba29ae39b55") Nickel, @id("01a0eec94a7f71fb8cde1ba36a9fdd5c") Titanium, @id("01a0eec94a7f71fb8cde1ba471594061") NiAlBronze, @id("01a0eec94a7f71fb8cde1ba54fe4d74d") CarbonSteel}
+    @id("bee8922867ce46a19d58d0fcbb6748ee") enum PumpMotorType {@id("01a0eec94a7f71fb8cde1ba6a892d9c9") Open, @id("01a0eec94a7f71fb8cde1ba7d0448361") Enclosed, @id("01a0eec94a7f71fb8cde1ba85580e45e") ExplosionProof}
+    @id("5734c1f7283d46abae9f6fa95c303d8b") enum PumpType {@id("01a0eec94a7f71fb8cde1ba99279f3ad") Centrifugal, @id("01a0eec94a7f71fb8cde1baa89289f05") ExternalGear, @id("01a0eec94a7f71fb8cde1bab1a314608") Reciprocating}
+    @id("41d74aca8d554639a913963996389785") enum SplittingType {@id("01a0eec94a7f71fb8cde1bac4a77b4e9") totalFlow, @id("01a0eec94a7f71fb8cde1badf37ae1c0") phaseFlow, @id("01a0eec94a7f71fb8cde1bae2a018d72") componentFlow, @id("01a0eec94a7f71fb8cde1bafd718eae4") phaseComponentFlow}
+    @id("3b3f5f5a6ec5415a88f363966fc03bb4") enum StateIndex {@id("01a0eec94a7f71fb8cde1bb06ee4ba03") true, @id("01a0eec94a7f71fb8cde1bb11620e256") apparent}
+    @id("e67edea3188c4fe4ba5c37fb9fc3fb03") enum ThermodynamicAssumption {@id("01a0eec94a7f71fb8cde1bb270061a5a") isothermal, @id("01a0eec94a7f71fb8cde1bb3abc25e97") isentropic, @id("01a0eec94a7f71fb8cde1bb482925ddc") pump, @id("01a0eec94a7f71fb8cde1bb551569933") adiabatic}
+    @id("486ac967b62e43eeac8bff2e05a18050") enum TrayMaterial {@id("01a0eec94a7f71fb8cde1bb62a72561e") CarbonSteel, @id("01a0eec94a7f71fb8cde1bb7966d0217") StainlessSteel303, @id("01a0eec94a7f71fb8cde1bb8b5c4f953") StainlessSteel316, @id("01a0eec94a7f71fb8cde1bb9c77452e8") Carpenter20CB3, @id("01a0eec94a7f71fb8cde1bbac7a598ba") Monel}
+    @id("cb1d53f56611436baeafbc7f0f7167d8") enum TrayType {@id("01a0eec94a7f71fb8cde1bbb2f9a1f85") Sieve, @id("01a0eec94a7f71fb8cde1bbc53ce7495") Valve, @id("01a0eec94a7f71fb8cde1bbdb5a5d56f") BubbleCap}
+    @id("f7730f9a82b24860a771f3cfbcaa97e0") enum ValveFunctionType {@id("01a0eec94a7f71fb8cde1bbedf52f889") linear, @id("01a0eec94a7f71fb8cde1bbfe6f54537") quick_opening, @id("01a0eec94a7f71fb8cde1bc0d96dfb57") equal_percentage}
+    @id("11ffe32671e54512a48be6e2bf517929") enum VesselMaterial {@id("01a0eec94a7f71fb8cde1bc1118e477f") CarbonSteel, @id("01a0eec94a7f71fb8cde1bc2c84bd6a6") LowAlloySteel, @id("01a0eec94a7f71fb8cde1bc3737a0ce3") StainlessSteel304, @id("01a0eec94a7f71fb8cde1bc4b45c6b30") StainlessSteel316, @id("01a0eec94a7f71fb8cde1bc583c49c75") Carpenter20CB3, @id("01a0eec94a7f71fb8cde1bc68ce2c2ba") Nickel200, @id("01a0eec94a7f71fb8cde1bc7c0acfeac") Monel400, @id("01a0eec94a7f71fb8cde1bc85b9b28a1") Inconel600, @id("01a0eec94a7f71fb8cde1bc98eacca56") Incoloy825, @id("01a0eec94a7f71fb8cde1bcae4653134") Titanium}
 }

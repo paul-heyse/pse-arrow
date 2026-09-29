@@ -84,11 +84,20 @@ fn route_id() -> DeclarationId {
         "pse.modeling.analysis.route",
     ))
 }
+/// A route member's identity, derived from the built-in enumeration and the member name
+/// as the named policy derives a package member's (ADR-0123 Outcome 2).
+fn route_member(route: Route) -> SemanticId {
+    pse_ids::named_id(route_id().as_id(), &format!("member:{}", route.as_str()))
+}
 fn value(route: Route) -> Value {
     Value::Enum {
         enumeration: route_id(),
-        member: route.as_str().into(),
+        member: route_member(route),
     }
+}
+/// The route a member identity denotes.
+fn route_of(member: SemanticId) -> Option<Route> {
+    Route::ALL.into_iter().find(|route| route_member(*route) == member)
 }
 /// A route member read as `analysis.<route>`.
 fn route_constant(path: &str) -> Option<Route> {
@@ -129,9 +138,8 @@ pub(crate) fn facts(input: &BTreeMap<Fact, Value>) -> Result<Environment> {
         Some(Value::Enum {
             enumeration,
             member,
-        }) if *enumeration == route_id() => member
-            .parse::<Route>()
-            .map_err(|_| invalid(SemanticId::NIL, "unknown analysis route"))?,
+        }) if *enumeration == route_id() => route_of(*member)
+            .ok_or_else(|| invalid(SemanticId::NIL, "unknown analysis route"))?,
         _ => {
             return Err(invalid(
                 SemanticId::NIL,
@@ -188,9 +196,7 @@ pub(crate) fn route(facts: &Environment) -> Result<Route> {
     let Some(Value::Enum { member, .. }) = facts.get(&Fact::Route.path()) else {
         return Err(invalid(SemanticId::NIL, "analysis route missing"));
     };
-    member
-        .parse()
-        .map_err(|_| invalid(SemanticId::NIL, "analysis route missing"))
+    route_of(*member).ok_or_else(|| invalid(SemanticId::NIL, "analysis route missing"))
 }
 
 #[cfg(test)]

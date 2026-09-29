@@ -352,37 +352,7 @@ pub fn infer(
 ) -> Result<Type> {
     let q = |s| Type::Quantity(s);
     match &expr.kind {
-        ExprKind::Number(n) => {
-            if n.unit.is_none() && expected == Some(&Type::Integer) && n.value.fract() == 0.0 {
-                return Ok(Type::Integer);
-            }
-            let id = if let Some(unit) = &n.unit {
-                // Composed from atomic factors; no composite spelling is looked up whole.
-                let unit = context
-                    .quantities
-                    .compose(unit)
-                    .map_err(|e| invalid(at, format!("unit {{{unit}}}: {e}")))?;
-                let literal_context = expected
-                    .and_then(|t| {
-                        if let Type::Quantity(s) = t {
-                            concrete(s, context)
-                        } else {
-                            None
-                        }
-                    })
-                    .map_or(LiteralContext::Free, |quantity_type| {
-                        LiteralContext::Explicit { quantity_type }
-                    });
-                pse_quantity::literal::resolve_literal(&unit, literal_context, context.quantities)
-                    .map_err(|e| invalid(at, e.to_string()))?
-            } else {
-                context
-                    .quantities
-                    .neutral_dimensionless()
-                    .ok_or_else(|| invalid(at, "no neutral physical type"))?
-            };
-            Ok(q(Scheme::Concrete(id)))
-        }
+        ExprKind::Number(n) => number_type(n, context, at, expected),
         ExprKind::Path(path) => path_type(path, env, p, context, at),
         ExprKind::Neg(e) => {
             let ty = infer(e, env, p, context, at, expected)?;
@@ -758,6 +728,45 @@ pub fn infer(
         )),
     }
 }
+/// The type of a number literal: an exact integer where one is expected, otherwise the
+/// quantity type its unit resolves to in the expected context, or the neutral dimensionless
+/// type without a unit. Expressions and data cells read literals through this one rule.
+pub(crate) fn number_type(
+    n: &dsl::Number,
+    context: &TypeContext<'_>,
+    at: DeclarationId,
+    expected: Option<&Type>,
+) -> Result<Type> {
+    if n.unit.is_none() && expected == Some(&Type::Integer) && n.value.fract() == 0.0 {
+        return Ok(Type::Integer);
+    }
+    let id = if let Some(unit) = &n.unit {
+        // Composed from atomic factors; no composite spelling is looked up whole.
+        let unit = context
+            .quantities
+            .compose(unit)
+            .map_err(|e| invalid(at, format!("unit {{{unit}}}: {e}")))?;
+        let literal_context = expected
+            .and_then(|t| {
+                if let Type::Quantity(s) = t {
+                    concrete(s, context)
+                } else {
+                    None
+                }
+            })
+            .map_or(LiteralContext::Free, |quantity_type| {
+                LiteralContext::Explicit { quantity_type }
+            });
+        pse_quantity::literal::resolve_literal(&unit, literal_context, context.quantities)
+            .map_err(|e| invalid(at, e.to_string()))?
+    } else {
+        context
+            .quantities
+            .neutral_dimensionless()
+            .ok_or_else(|| invalid(at, "no neutral physical type"))?
+    };
+    Ok(Type::Quantity(Scheme::Concrete(id)))
+}
 pub(crate) fn finite_reduction(
     kind: dsl::ReduceKind,
     element: &Type,
@@ -885,7 +894,8 @@ fn call(
                     ));
                 }
             }
-            (formal, actual) if formal == actual => {}
+            // An entity of a refined kind is an argument of every kind it refines.
+            (formal, actual) if p.subsumes(formal, actual) => {}
             _ => return Err(invalid(at, "function argument type")),
         }
     }
@@ -909,8 +919,7 @@ fn call(
                     return Err(invalid(at, "partial coordinate arity"));
                 }
                 for (index, kind) in first.indices.iter().zip(axes) {
-                    if !matches!(infer(index,env,p,context,at,None)?,Type::Entity(id)|Type::Enum(id) if id==*kind)
-                    {
+                    if !coordinate_of(&infer(index, env, p, context, at, None)?, *kind, p) {
                         return Err(invalid(at, "partial coordinate kind"));
                     }
                 }
@@ -1385,7 +1394,12 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                             let declaration = &p.declarations[&value];
                             matches!(
                                 declaration.value.kind,
-                                K::Entity | K::Set | K::Table | K::Enum
+                                K::Entity
+                                    | K::Set
+                                    | K::Table
+                                    | K::Enum
+                                    | K::EntityKind
+                                    | K::Constant
                             ) && declaration.parent_id.is_some_and(|parent| {
                                 p.declarations[&parent].value.kind == K::Package
                             })
@@ -1716,7 +1730,7 @@ fn path_type(
                 return Err(invalid(at, "table key arity"));
             }
             for (index, expected) in segment.indices.iter().zip(&table.keys) {
-                if infer(index, env, p, c, at, Some(expected))? != *expected {
+                if !p.subsumes(expected, &infer(index, env, p, c, at, Some(expected))?) {
                     return Err(invalid(at, "table key type"));
                 }
             }
@@ -1734,12 +1748,33 @@ fn path_type(
                 return Err(invalid(at, "indexed member arity"));
             }
             for (index, kind) in segment.indices.iter().zip(axes) {
-                let actual = infer(index, env, p, c, at, None)?;
-                if !matches!(actual,Type::Entity(id)|Type::Enum(id) if id==*kind) {
+                if !coordinate_of(&infer(index, env, p, c, at, None)?, *kind, p) {
                     return Err(invalid(at, "index kind differs"));
                 }
             }
             ty = *element.clone();
+            declaration = None;
+        } else if let Some(kind) = declaration.filter(|id| p.kinds.contains_key(id))
+            && !segment.indices.is_empty()
+        {
+            // ADR-0123 Outcome 2: `kind[keys]` names a row of a keyed kind by the
+            // key-declaring kind's keys in order; trailing keys with a default may be omitted.
+            let (_, keys) = p
+                .keys(kind)
+                .ok_or_else(|| invalid(at, format!("kind {} has no keys", segment.name)))?;
+            if segment.indices.len() > keys.len()
+                || keys[segment.indices.len()..].iter().any(|k| k.2.is_none())
+            {
+                return Err(invalid(
+                    at,
+                    format!("a {} row is looked up by its keys", segment.name),
+                ));
+            }
+            for (index, (_, expected, _)) in segment.indices.iter().zip(&keys) {
+                if !p.subsumes(expected, &infer(index, env, p, c, at, Some(expected))?) {
+                    return Err(invalid(at, format!("{} key type", segment.name)));
+                }
+            }
             declaration = None;
         } else if let Some(id) = declaration {
             let indices = p.declarations[&id]
@@ -1799,7 +1834,7 @@ fn path_type(
                 else {
                     return Err(invalid(id, "index domain must be a set"));
                 };
-                if infer(index, env, p, c, at, Some(&element))? != *element {
+                if !p.subsumes(&element, &infer(index, env, p, c, at, Some(&element))?) {
                     return Err(invalid(at, "index member kind differs"));
                 }
                 local.insert(name.clone(), *element);
@@ -1809,6 +1844,15 @@ fn path_type(
         }
     }
     Ok(ty)
+}
+/// Whether a value of type `actual` indexes an axis of `kind`: an enumeration member, or
+/// an entity of the kind or a refinement.
+fn coordinate_of(actual: &Type, kind: DeclarationId, p: &CheckedPackage) -> bool {
+    match actual {
+        Type::Enum(id) => *id == kind,
+        Type::Entity(id) => p.refines(*id, kind),
+        _ => false,
+    }
 }
 fn member_type(
     ty: &Type,
@@ -1822,7 +1866,7 @@ fn member_type(
                 .value
                 .enumeration
                 .as_ref()
-                .is_some_and(|e| e.members.iter().any(|m| m == name)) =>
+                .is_some_and(|e| e.members.iter().any(|m| m.name == name)) =>
         {
             Ok((Type::Enum(*id), None))
         }

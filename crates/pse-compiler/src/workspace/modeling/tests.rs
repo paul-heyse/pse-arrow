@@ -726,6 +726,74 @@ fn kernel_table_function_references_dispatch_and_share_specializations() {
     assert_eq!(values, vec![4., 4., 6.]);
 }
 
+/// ADR-0123 Outcome 2: a call through a static `Ref` resolves the most-derived kind's bound
+/// function and specializes per resolved function, on the same path as a function-typed
+/// table column: rows of one concrete kind share one body. Each form binds `cp` once;
+/// the steep form refines the doubling one and rebinds it.
+#[test]
+fn ref_calls_dispatch_one_body_per_concrete_kind() {
+    let (mut workspace, rows, _, root) = setup(
+        r#"package p {
+ entity kind item {} entity item a {} entity item b {} entity item c {} entity item d {}
+ set items: Set<item> = {a,b,c,d};
+ entity kind form { key subject: item; attribute cp: Fn(x: Scalar) -> Scalar; }
+ entity kind doubling extends form { cp = double; }
+ entity kind tripling extends form { cp = triple; }
+ entity kind steep extends doubling { override cp = quadruple; }
+ fn double(x: Scalar)->Scalar=x*2; fn triple(x: Scalar)->Scalar=x*3; fn quadruple(x: Scalar)->Scalar=x*4;
+ dataset twice: doubling source "synthetic" { [a] = []; [c] = []; }
+ dataset thrice: tripling source "synthetic" { [b] = []; }
+ dataset steeply: steep source "synthetic" { [d] = []; }
+ def Root { var x[j in items]: Scalar; eq e[j in items]: 0 == s.cp(x[j]) where s = form[j]; }
+ }"#,
+    );
+    let prepared = workspace
+        .prepare_modeling_cancellable(
+            root,
+            InstanceId::from_id(SemanticId::NIL),
+            Bindings::default(),
+            Limits::default(),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    let id = |name: &str| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
+    let bodies = |name: &str| {
+        prepared
+            .model
+            .functions
+            .values()
+            .filter(|f| f.id == id(name))
+            .count()
+    };
+    // One specialization per resolved function, shared by the rows of its kind.
+    assert_eq!(
+        [bodies("double"), bodies("triple"), bodies("quadruple")],
+        [1, 1, 1]
+    );
+    assert_eq!(prepared.model.functions.len(), 3);
+    let body = prepared.admitted;
+    let cancel = Arc::new(AtomicBool::new(false));
+    let artifact = fixture(
+        &body,
+        workspace.inputs.quantities.clone(),
+        DerivativeOrder::Value,
+        &cancel,
+    )
+    .unwrap();
+    let mut values = artifact
+        .worker()
+        .evaluate(
+            &[2., 2., 2., 2.],
+            DerivativeOrder::Value,
+            &mut BTreeMap::new(),
+            &cancel,
+        )
+        .unwrap()
+        .equations(&body);
+    values.sort_by(f64::total_cmp);
+    assert_eq!(values, vec![-8., -6., -4., -4.]);
+}
+
 /// An axis declared only by a package, unknown to the physical registry, indexes a
 /// dimensioned variable family that a finite reduction sums. The modeling path expands
 /// the reduction over the set's members, so no quantity type shaped over the axis is
@@ -2748,7 +2816,7 @@ fn kernel_immutable_function_data_is_visible_differentiable_and_invalidated() {
         .as_mut()
         .unwrap()
         .rows[0]
-        .values[0] = "5".into();
+        .values[0] = pse_authoring::language::parse_cell("5").unwrap();
     workspace
         .publish_modeling(rows.clone(), names.clone())
         .unwrap();

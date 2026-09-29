@@ -615,6 +615,19 @@ class ModelingAnnotationKind(StrEnum):
     CONNECTIVITY = "connectivity"
 
 
+class ModelingCellKind(StrEnum):
+    """The declared ModelingCellKind enumeration."""
+
+    BOOLEAN = "boolean"
+    INTEGER = "integer"
+    QUANTITY = "quantity"
+    TEXT = "text"
+    IDENTIFIER = "identifier"
+    REFERENCE = "reference"
+    REFERENCES = "references"
+    MISSING = "missing"
+
+
 class ModelingCheckBasis(StrEnum):
     """The declared ModelingCheckBasis enumeration."""
 
@@ -690,7 +703,6 @@ class ModelingDeclarationKind(StrEnum):
     VARIABLE = "variable"
     LET = "let"
     ALIAS = "alias"
-    ATTRIBUTE = "attribute"
     SET = "set"
     CHILD = "child"
     PORT = "port"
@@ -707,9 +719,11 @@ class ModelingDeclarationKind(StrEnum):
     LOGIC = "logic"
     COMPLEMENTARITY = "complementarity"
     TABLE = "table"
+    ATTRIBUTE = "attribute"
     DATASET = "dataset"
     ENTITY = "entity"
     ENUM = "enum"
+    CONSTANT = "constant"
     IMPORT = "import"
     WHEN = "when"
     ACCUMULATOR = "accumulator"
@@ -723,6 +737,7 @@ class ModelingDeclarationKind(StrEnum):
     COLLOCATION_SCHEME = "collocation_scheme"
     DISCRETIZATION = "discretization"
     REALIZATION = "realization"
+    IDENTIFIER_SCHEME = "identifier_scheme"
 
 
 class ModelingDiagnosticSampleStop(StrEnum):
@@ -860,6 +875,14 @@ class ModelingTypeNode(StrEnum):
     IDENTIFIER = "identifier"
     QUANTITY_TYPE = "quantity_type"
     REFERENCE_STATE = "reference_state"
+
+
+class ModelingUncertaintyKind(StrEnum):
+    """The declared ModelingUncertaintyKind enumeration."""
+
+    STANDARD = "standard"
+    RELATIVE = "relative"
+    BOUND = "bound"
 
 
 class ModelingVariableDomain(StrEnum):

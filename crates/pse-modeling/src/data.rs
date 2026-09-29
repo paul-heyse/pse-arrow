@@ -48,61 +48,25 @@ pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
             return Err(failure.unwrap_or_else(|| invalid(SemanticId::NIL, "cyclic table data")));
         }
     }
+    // A dataset supplies a table's rows here or a keyed kind's in `entity::admit`; only a
+    // keyed kind's dataset binds keys (ADR-0123 Outcome 2).
     for row in p.declarations.values() {
         if let Some(dataset) = &row.value.dataset {
             let target = p
-                .resolve(row.declaration_id, &dataset.table)
-                .ok_or_else(|| invalid(row.declaration_id, "unknown dataset table"))?;
-            if !p.tables.contains_key(&target) {
-                return Err(invalid(row.declaration_id, "dataset target is not a table"));
-            }
-        }
-        if let Some(entity) = &row.value.entity {
-            let kind = p
-                .resolve(row.declaration_id, &entity.kind_name)
-                .ok_or_else(|| invalid(row.declaration_id, "entity kind"))?;
-            let members = p
-                .members
-                .get(&kind)
-                .ok_or_else(|| invalid(kind, "entity kind members"))?;
-            let mut supplied = BTreeSet::new();
-            for attribute in &entity.attributes {
-                if !supplied.insert(&attribute.name) {
-                    return Err(invalid(row.declaration_id, "duplicate entity attribute"));
-                }
-                let member = members
-                    .get(&attribute.name)
-                    .ok_or_else(|| invalid(row.declaration_id, "unknown entity attribute"))?;
-                let ty = p
-                    .types
-                    .get(member)
-                    .ok_or_else(|| invalid(*member, "attribute type absent"))?;
-                evaluator(p, c, &env, row.declaration_id).text(&attribute.expression, Some(ty))?;
-            }
-            for (name, member) in members {
-                if !supplied.contains(name)
-                    && let Some(source) = p.declarations[member]
-                        .value
-                        .binding
-                        .as_ref()
-                        .and_then(|b| b.expression.as_deref())
-                {
-                    evaluator(p, c, &env, *member).text(source, p.types.get(member))?;
-                }
-                if p.declarations[member].value.kind
-                    == pse_model::generated::enums::ModelingDeclarationKind::Attribute
-                    && !supplied.contains(name)
-                    && p.declarations[member]
-                        .value
-                        .binding
-                        .as_ref()
-                        .is_none_or(|b| b.expression.is_none())
-                {
+                .resolve(row.declaration_id, &dataset.target)
+                .ok_or_else(|| invalid(row.declaration_id, "unknown dataset target"))?;
+            if p.tables.contains_key(&target) {
+                if !dataset.bindings.is_empty() {
                     return Err(invalid(
                         row.declaration_id,
-                        format!("missing attribute {name}"),
+                        "only a dataset of a keyed kind binds keys",
                     ));
                 }
+            } else if !p.kinds.contains_key(&target) {
+                return Err(invalid(
+                    row.declaration_id,
+                    "dataset target is neither a table nor a keyed entity kind",
+                ));
             }
         }
     }
@@ -190,7 +154,7 @@ fn table(
         let Some(data) = &row.value.dataset else {
             continue;
         };
-        if p.resolve(row.declaration_id, &data.table) != Some(id) {
+        if p.resolve(row.declaration_id, &data.target) != Some(id) {
             continue;
         }
         if data.source.is_empty() {
@@ -200,11 +164,22 @@ fn table(
             if entry.keys.len() != table.keys.len() {
                 return Err(invalid(row.declaration_id, "dataset key arity"));
             }
+            // Cells are typed once, never evaluated (ADR-0123 Outcome 1).
+            let cell = |cell: &pse_authoring::language::Cell, ty: &Type| -> Result<Value> {
+                let typed = crate::entity::typed(p, c, row.declaration_id, cell, ty)?;
+                if typed.uncertainty.is_some() {
+                    return Err(invalid(
+                        row.declaration_id,
+                        "a table row carries no uncertainty",
+                    ));
+                }
+                Ok(typed.value)
+            };
             let keys = entry
                 .keys
                 .iter()
                 .zip(&table.keys)
-                .map(|(source, ty)| evaluator(p, c, env, row.declaration_id).text(source, Some(ty)))
+                .map(|(source, ty)| cell(source, ty))
                 .collect::<Result<Vec<_>>>()?;
             if table.rows.contains_key(&keys) {
                 return Err(invalid(row.declaration_id, "duplicate dataset key"));
@@ -213,8 +188,7 @@ fn table(
                 if entry.values.len() != 1 {
                     return Err(invalid(row.declaration_id, "scalar table row arity"));
                 }
-                evaluator(p, c, env, row.declaration_id)
-                    .text(&entry.values[0], Some(&table.result))?
+                cell(&entry.values[0], &table.result)?
             } else {
                 if entry.values.len() != table.columns.len() {
                     return Err(invalid(row.declaration_id, "heterogeneous table row arity"));
@@ -225,12 +199,7 @@ fn table(
                         .values
                         .iter()
                         .zip(&table.columns)
-                        .map(|(source, (name, ty))| {
-                            Ok((
-                                name.clone(),
-                                evaluator(p, c, env, row.declaration_id).text(source, Some(ty))?,
-                            ))
-                        })
+                        .map(|(source, (name, ty))| Ok((name.clone(), cell(source, ty)?)))
                         .collect::<Result<_>>()?,
                 }
             };

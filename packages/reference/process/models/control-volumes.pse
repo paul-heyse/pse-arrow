@@ -3,7 +3,7 @@
 @id("35967416f406452a98e2d8798bc7c3eb") package control_volumes {
 @id("01a0ede58eca75b18609170950fe7e0d") use chemistry @"1.0.0";
 @id("06e61a91f30f4151873a54209bd83190") use equilibrium @"1.0.0";
-@id("bee5ac9c31614333966f869cce24e75a") enum MaterialBalance {componentPhase,componentTotal,elementTotal,total}
+@id("bee5ac9c31614333966f869cce24e75a") enum MaterialBalance {@id("01a0eec94a7e70229fdabc155f05ce35") componentPhase, @id("01a0eec94a7e70229fdabc1624f82bfd") componentTotal, @id("01a0eec94a7e70229fdabc17007c4779") elementTotal, @id("01a0eec94a7e70229fdabc181f583a21") total}
 @id("38ac5f84712546f29f7e027a8741d512") fn element_flow_unit()->ElementFlow=1{mol/s};
 @id("40f0b54ac58945819315b96a5663bb71") interface ControlVolume0D {
 @id("ed28654dfc04469eb777c6393db2ff5d") param has_holdup:Boolean=false;

@@ -95,11 +95,12 @@ Derived in: pse-modeling.
 | Frame | Spelling | Meaning |
 |---|---|---|
 | `ModelingContinuityV2` | `pse.modeling.continuity.v2` | A continuity derivative, its body in canonical spelling (ADR-0123 Outcome 8). |
-| `ModelingCoordinateV1` | `pse.modeling.coordinate.v1` | A coordinate, preserving compound-key identity. |
+| `ModelingCoordinateV2` | `pse.modeling.coordinate.v2` | A coordinate, preserving compound-key identity; an enumeration member is framed by its identity, not its name (ADR-0123 Outcome 2). |
 | `ModelingDefiniteIntegralV2` | `pse.modeling.definite-integral.v2` | A definite integral, its integrand in canonical spelling (ADR-0123 Outcome 8). |
 | `ModelingDispatchBodyV2` | `pse.modeling.dispatch-body.v2` | A dispatch group body, its expressions and equations in canonical spelling (ADR-0123 Outcome 8). |
-| `ModelingFiniteFunctionV2` | `pse.modeling.finite-function.v2` | A finite function specialization, its validity and body in canonical spelling (ADR-0123 Outcome 8). |
+| `ModelingFiniteFunctionV3` | `pse.modeling.finite-function.v3` | A finite function specialization, its validity and body in canonical spelling and its static arguments, enumeration members by identity (ADR-0123 Outcomes 2 and 8). |
 | `ModelingFiniteReductionV1` | `pse.modeling.finite-reduction.v1` | A finite reduction rewrite. |
+| `ModelingKeyedEntityV1` | `pse.modeling.keyed-entity.v1` | A keyed entity's identity: its key-declaring kind and its ordered, typed key values, defaults included. The concrete refinement is content, not identity (ADR-0123 Outcome 2). |
 | `ModelingMemberV1` | `pse.modeling.member.v1` | A specialized member. |
 | `ModelingMeshCoordinateV1` | `pse.modeling.mesh-coordinate.v1` | A realized mesh coordinate. |
 | `ModelingTypedConstantV1` | `pse.modeling.typed-constant.v1` | A typed constant. |

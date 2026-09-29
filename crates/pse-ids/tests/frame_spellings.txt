@@ -45,11 +45,9 @@ pse.math.physical-pass.v1
 pse.math.typed-definition.v3
 pse.modeling.consumer-body.v2
 pse.modeling.continuity.v2
-pse.modeling.coordinate.v1
 pse.modeling.definite-integral.v2
 pse.modeling.dispatch-body.v2
 pse.modeling.dynamic-modes.v1
-pse.modeling.finite-function.v2
 pse.modeling.finite-reduction.v1
 pse.modeling.fit-execution.v1
 pse.modeling.fit-source.v1
@@ -178,3 +176,10 @@ pse.quantity.unit-product.v1
 # derived-kind definitions. physical-inventory.v4 replaces physical-inventory.v3, which is no
 # longer declared.
 pse.math.physical-inventory.v5
+# Plan 23 KR4 (ADR-0123 Outcome 2): a keyed entity's identity over its key-declaring kind and
+# typed key values; enumeration members have identities, so coordinates and function
+# specializations frame a member by identity. coordinate.v2 replaces coordinate.v1 and
+# finite-function.v3 replaces finite-function.v2, neither of which is declared any longer.
+pse.modeling.keyed-entity.v1
+pse.modeling.coordinate.v2
+pse.modeling.finite-function.v3

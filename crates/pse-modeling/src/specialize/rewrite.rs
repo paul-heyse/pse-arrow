@@ -430,6 +430,7 @@ impl Engine<'_, '_> {
                 let saved = self.lexical.clone();
                 let saved_types = self.function_types.clone();
                 let mut output = Vec::new();
+                let mut env = env.clone();
                 for (name, value) in bindings {
                     let ty = crate::expression::infer(
                         value,
@@ -439,6 +440,24 @@ impl Engine<'_, '_> {
                         at,
                         None,
                     )?;
+                    // A structural binding, a `Ref` above all, is a static value: a call
+                    // through it selects its body at specialization (ADR-0123 Outcome 2).
+                    if !matches!(
+                        ty,
+                        Type::Quantity(_) | Type::Integer | Type::Indexed { .. }
+                    ) {
+                        let value = self
+                            .eval(at, &env, &dsl::render_expr(value), Some(&ty))
+                            .map_err(|e| {
+                                invalid(
+                                    at,
+                                    format!("{name} must be static at specialization: {e}"),
+                                )
+                            })?;
+                        self.lexical.remove(name);
+                        env.insert(name.clone(), value);
+                        continue;
+                    }
                     let value = self.rewrite(instance, value, &env, chain)?;
                     self.function_types.insert(name.clone(), ty);
                     self.local_serial += 1;
@@ -460,6 +479,9 @@ impl Engine<'_, '_> {
                 let result = self.rewrite(instance, body, &env, chain);
                 self.lexical = saved;
                 self.function_types = saved_types;
+                if output.is_empty() {
+                    return result;
+                }
                 ExprKind::Let {
                     bindings: output,
                     body: Box::new(result?),

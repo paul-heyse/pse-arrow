@@ -17,12 +17,17 @@ fn parse_named(s: &str) -> Vec<Declaration> {
 fn roundtrip_all_declarations_and_explicit_identity() {
     let source = r#"package synthetic {
  use other @ "1.0.0";
- entity kind component { attribute mass: Mass; }
- entity component a { mass = 2{kg} }
- enum Choice { first, second }
+ identifier scheme cas;
+ entity kind component { attribute mass: Mass; attribute cas: Id<cas>? = missing; attribute tags: Set<Choice> = {first}; }
+ entity kind parameter_set { key subject: component; key variant: Integer = 1; attribute cp: Fn(x: Mass)->Mass; }
+ entity kind linear extends parameter_set { attribute slope: Scalar = 0.5 ± relative(0.01); cp = identity; }
+ entity component a { mass = 2{kg}, cas = Id<cas>("71-43-2") }
+ enum Choice { first, @id("0123456789abcdef0123456789abcdef") second }
+ constant gas: Mass = 8.314{kg} ± standard(0.001);
  set members: Set<component> = {a};
  table coefficient[j: component]: Mass missing required;
  dataset values: coefficient source "synthetic" { [a] = [2{kg}]; }
+ dataset lines: linear bind(variant = 2) source "synthetic" { [a] = [-1.5]; [b] = []; }
  fn square<Q>(x: Q) -> Q^2 = x*x;
  interface I { fn f(x: Mass) -> Mass; let doubled: Mass = x+x; }
  def D(enabled: Boolean = true) : I {

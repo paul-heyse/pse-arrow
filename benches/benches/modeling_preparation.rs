@@ -109,12 +109,12 @@ fn seed_segments(registry: &pse_schema::Registry) -> Vec<(String, Vec<String>)> 
         .unwrap()
         .into_iter()
         .filter_map(|row| row.value.dataset)
-        .filter(|dataset| dataset.table == "pcsaft.segments")
+        .filter(|dataset| dataset.target == "pcsaft.segments")
         .flat_map(|dataset| {
-            dataset
-                .rows
-                .into_iter()
-                .map(|row| (row.keys[0].clone(), row.values))
+            dataset.rows.into_iter().map(|row| {
+                let cell = |cell| pse_authoring::language::render_cell(cell).unwrap();
+                (cell(&row.keys[0]), row.values.iter().map(cell).collect())
+            })
         })
         .collect()
 }

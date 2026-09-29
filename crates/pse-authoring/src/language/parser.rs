@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
+use super::cells::Cell;
 use super::types::{TypeExponent, TypeNode, TypeNodeKind, node, push};
 use super::*;
 use crate::dsl::lexer::{Kind, Token, tokenize};
@@ -11,6 +12,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use winnow::stream::LocatingSlice;
 
 type Result<T> = std::result::Result<T, AuthoringError>;
+/// The internal keyword of a kind-level binding `name = cell;`; no source spells it.
+const BIND: &str = "=bind";
 /// Identity policy is selected by admitted package metadata, never inferred from a path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum IdentityPolicy {
@@ -100,6 +103,27 @@ pub(super) fn parse_type(text: &str, variables: &[&str]) -> Result<Vec<TypeNode>
         return Err(parser.error("end of type"));
     }
     Ok(nodes)
+}
+
+/// One standalone data cell (ADR-0123 Outcome 1).
+pub(super) fn parse_cell(text: &str) -> Result<Cell> {
+    let tokens = tokenize(text).map_err(|e| syntax_error(SemanticId::NIL, e))?;
+    let mut parser = Cursor {
+        tokens,
+        text,
+        pos: 0,
+        document: SemanticId::NIL,
+        policy: IdentityPolicy::Named,
+        budget: ParseBudget::default(),
+        rows: Vec::new(),
+        ids: BTreeSet::new(),
+        type_variables: Vec::new(),
+    };
+    let cell = parser.cell()?;
+    if parser.pos != parser.tokens.len() {
+        return Err(parser.error("end of cell"));
+    }
+    Ok(cell)
 }
 
 /// Explicit source-creation operation. Existing IDs are retained; missing ones receive UUIDv7.
@@ -263,6 +287,14 @@ impl Cursor<'_> {
     }
     fn peek_at(&self, ahead: usize) -> &str {
         self.tokens.get(self.pos + ahead).map_or("", |t| t.text)
+    }
+    /// Whether `parent` is an entity kind whose block is being read.
+    fn in_kind(&self, parent: Option<DeclarationId>) -> bool {
+        parent
+            .and_then(|parent| self.rows.iter().rev().find(|r| r.declaration_id == parent))
+            .is_some_and(|row| {
+                row.value.kind == pse_model::generated::enums::ModelingDeclarationKind::EntityKind
+            })
     }
     /// Path segments of a name, kept apart so a quoted segment may contain a dot.
     fn segments(&mut self) -> Result<Vec<String>> {
@@ -518,6 +550,159 @@ impl Cursor<'_> {
                 ..node(K::Named, vec![])
             },
         ))
+    }
+    /// A cell path: a plain identifier, then further segments that may be quoted.
+    fn cell_path(&mut self) -> Result<Vec<String>> {
+        if self.tokens.get(self.pos).map(|t| t.kind) != Some(Kind::Identifier) {
+            return Err(self.error("cell path"));
+        }
+        self.segments()
+    }
+    /// A finite number token with an optional leading minus sign.
+    fn cell_number(&mut self, expected: &str) -> Result<(f64, bool)> {
+        let at = self.pos;
+        let negative = self.eat("-");
+        let Some(token) = self.tokens.get(self.pos).filter(|t| t.kind == Kind::Number) else {
+            self.pos = at;
+            return Err(self.error(expected));
+        };
+        let value = token
+            .text
+            .parse::<f64>()
+            .ok()
+            .filter(|v| v.is_finite())
+            .ok_or_else(|| self.error(expected))?;
+        let integral = token.text.bytes().all(|b| b.is_ascii_digit());
+        self.pos += 1;
+        Ok((if negative { -value } else { value }, integral))
+    }
+    /// ADR-0123 Outcome 1: one data cell, parsed once where it is written; see
+    /// [`super::cells`] for the grammar.
+    fn cell(&mut self) -> Result<Cell> {
+        use super::cells::*;
+        let start = self.pos;
+        let value = match self.peek() {
+            "missing" | "true" | "false" if self.peek_at(1) != "." => {
+                let word = self.word()?;
+                match word.as_str() {
+                    "missing" => CellValue::from_missing(),
+                    other => CellValue::from_boolean(CellBoolean {
+                        value: other == "true",
+                    }),
+                }
+            }
+            "Id" if self.peek_at(1) == "<" => {
+                self.pos += 2;
+                let scheme = self.segments()?;
+                self.close_generic()?;
+                self.expect("(")?;
+                let at = self.pos;
+                if self.tokens.get(self.pos).map(|t| t.kind) != Some(Kind::Quoted) {
+                    return Err(self.error("quoted identifier value"));
+                }
+                let value = self.word().inspect_err(|_| self.pos = at)?;
+                self.expect(")")?;
+                CellValue::from_identifier(CellIdentifier { scheme, value })
+            }
+            "{" => {
+                self.pos += 1;
+                let mut paths = Vec::new();
+                if !self.eat("}") {
+                    loop {
+                        paths.push(CellPath {
+                            path: self.cell_path()?,
+                        });
+                        if self.eat("}") {
+                            break;
+                        }
+                        self.expect(",")?;
+                    }
+                }
+                CellValue::from_references(CellReferences { paths })
+            }
+            _ if self.tokens.get(self.pos).map(|t| t.kind) == Some(Kind::Quoted) => {
+                CellValue::from_text(CellText { value: self.word()? })
+            }
+            _ if self.peek() == "-"
+                || self.tokens.get(self.pos).map(|t| t.kind) == Some(Kind::Number) =>
+            {
+                let (magnitude, integral) = self.cell_number("number")?;
+                if self.peek() == "{" {
+                    // The unit literal is the expression language's own, flattened into
+                    // one canonical product (ADR-0124).
+                    let first = self.tokens[start].span.start as usize;
+                    self.pos += 1;
+                    self.until(&["}"])?;
+                    self.expect("}")?;
+                    let end = self.tokens[self.pos - 1].span.end as usize;
+                    use crate::dsl::ExprKind;
+                    let unit = crate::dsl::parse_expr(&self.text[first..end])
+                        .ok()
+                        .and_then(|expression| {
+                            let literal = match expression.kind {
+                                ExprKind::Neg(inner) => inner.kind,
+                                other => other,
+                            };
+                            match literal {
+                                ExprKind::Number(number) => number.unit,
+                                _ => None,
+                            }
+                        })
+                        .ok_or_else(|| {
+                        self.pos = start;
+                        self.error("number with a unit literal")
+                    })?;
+                    CellValue::from_quantity(CellQuantity {
+                        magnitude,
+                        unit: Some(unit_factors(&unit)),
+                    })
+                } else if integral {
+                    let value = self.tokens[self.pos - 1]
+                        .text
+                        .parse::<i64>()
+                        .ok()
+                        .and_then(|v| if magnitude < 0. { v.checked_neg() } else { Some(v) })
+                        .ok_or_else(|| {
+                            self.pos = start;
+                            self.error("64-bit integer")
+                        })?;
+                    CellValue::from_integer(CellInteger { value })
+                } else {
+                    CellValue::from_quantity(CellQuantity {
+                        magnitude,
+                        unit: None,
+                    })
+                }
+            }
+            _ => CellValue::from_reference(CellReference {
+                path: self.cell_path()?,
+            }),
+        };
+        let uncertainty = if self.eat("±") {
+            let kind = self.vocabulary::<ModelingUncertaintyKind>("standard, relative or bound")?;
+            self.expect("(")?;
+            let (magnitude, _) = self.cell_number("uncertainty magnitude")?;
+            self.expect(")")?;
+            Some(CellUncertainty { kind, magnitude })
+        } else {
+            None
+        };
+        Ok(Cell { value, uncertainty })
+    }
+    /// A bracketed list of cells, `[` and `]` included; `[]` is empty.
+    fn cells(&mut self) -> Result<Vec<Cell>> {
+        self.expect("[")?;
+        let mut cells = Vec::new();
+        if self.eat("]") {
+            return Ok(cells);
+        }
+        loop {
+            cells.push(self.cell()?);
+            if self.eat("]") {
+                return Ok(cells);
+            }
+            self.expect(",")?;
+        }
     }
     fn fixture_literal<T: std::str::FromStr>(&mut self) -> Result<T> {
         self.expect("(")?;
@@ -864,8 +1049,14 @@ impl Cursor<'_> {
         };
         let is_override = self.eat("override");
         let mut keyword = self.word()?;
+        // ADR-0123 Outcome 2: in an entity kind, `name = cell;` binds an inherited attribute.
+        let bound = (self.peek() == "=" && self.in_kind(parent))
+            .then(|| std::mem::replace(&mut keyword, BIND.into()));
         if keyword == "entity" && self.eat("kind") {
             keyword = "entity_kind".into();
+        }
+        if keyword == "identifier" && self.eat("scheme") {
+            keyword = "identifier_scheme".into();
         }
         let anonymous = matches!(
             keyword.as_str(),
@@ -878,21 +1069,28 @@ impl Cursor<'_> {
         };
         let name = if anonymous {
             format!("{keyword}#{ordinal}")
+        } else if let Some(name) = bound {
+            name
         } else {
             self.path()?
+        };
+        // A key, an attribute and a binding are one declaration kind.
+        let role = match keyword.as_str() {
+            "key" | BIND => "attribute",
+            other => other,
         };
         let id = match explicit {
             Some(id) => id,
             None if self.policy == IdentityPolicy::Explicit => {
                 return Err(AuthoringError::MissingId {
                     at: SourceSpan::new(self.document, start, self.at()),
-                    kind: keyword,
+                    kind: role.to_owned(),
                     name,
                 });
             }
             None => DeclarationId::from(pse_ids::named_id(
                 parent.map_or(self.document, DeclarationId::as_id),
-                &format!("{keyword}:{name}"),
+                &format!("{role}:{name}"),
             )),
         };
         if !self.ids.insert(id) {
@@ -1654,11 +1852,51 @@ impl Cursor<'_> {
                 self.expect(";")?;
                 Value::from_import(AuthoredModelingDeclarationsFieldValueImport { version, alias })
             }
+            // ADR-0123 Outcome 2: `enum E { [@id("…")] member, … }`. A member's identity is
+            // explicit under the explicit policy and derived from the enumeration and its
+            // name under the named one; renaming an explicit member keeps its identity.
             "enum" => {
-                let members = self.names("{", "}")?;
+                self.expect("{")?;
+                let mut members = Vec::new();
+                if !self.eat("}") {
+                    loop {
+                        let member_start = self.at();
+                        let explicit = if self.eat("@") {
+                            self.expect("id")?;
+                            self.expect("(")?;
+                            let id = SemanticId::parse_hex(&self.word()?)
+                                .map_err(|_| self.error("semantic ID"))?;
+                            self.expect(")")?;
+                            Some(id)
+                        } else {
+                            None
+                        };
+                        let member = self.word()?;
+                        let member_id = match explicit {
+                            Some(id) => id,
+                            None if self.policy == IdentityPolicy::Explicit => {
+                                return Err(AuthoringError::MissingId {
+                                    at: SourceSpan::new(self.document, member_start, self.at()),
+                                    kind: "enum member".into(),
+                                    name: format!("{name}.{member}"),
+                                });
+                            }
+                            None => pse_ids::named_id(id.as_id(), &format!("member:{member}")),
+                        };
+                        members.push(AuthoredModelingDeclarationsFieldValueEnumerationMembersItem {
+                            member_id,
+                            name: member,
+                        });
+                        if self.eat("}") {
+                            break;
+                        }
+                        self.expect(",")?;
+                    }
+                }
                 self.eat(";");
                 Value::from_enum(AuthoredModelingDeclarationsFieldValueEnumeration { members })
             }
+            // ADR-0123 Outcome 2: attribute values are cells, typed at admission.
             "entity" => {
                 let kind_name = entity_kind.ok_or_else(|| self.error("entity kind"))?;
                 self.expect("{")?;
@@ -1666,10 +1904,10 @@ impl Cursor<'_> {
                 while !self.eat("}") {
                     let name = self.word()?;
                     self.expect("=")?;
-                    let expression = self.until(&[",", ";", "}"])?;
+                    let value = self.cell()?;
                     attributes.push(AuthoredModelingDeclarationsFieldValueEntityAttributesItem {
                         name,
-                        expression,
+                        value,
                     });
                     if self.eat("}") {
                         break;
@@ -1682,6 +1920,50 @@ impl Cursor<'_> {
                 Value::from_entity(AuthoredModelingDeclarationsFieldValueEntity {
                     kind_name,
                     attributes,
+                })
+            }
+            // `attribute name: T [= cell];` or `key name: T [= cell];` declares an attribute
+            // of an entity kind; `name = cell;` binds an inherited one (ADR-0123 Outcome 2).
+            "attribute" | "key" => {
+                self.expect(":")?;
+                let r#type = Some(self.type_expr()?);
+                let value = if self.eat("=") {
+                    Some(self.cell()?)
+                } else {
+                    None
+                };
+                self.expect(";")?;
+                Value::from_attribute(AuthoredModelingDeclarationsFieldValueAttribute {
+                    r#type,
+                    key: keyword == "key",
+                    value,
+                })
+            }
+            BIND => {
+                self.expect("=")?;
+                let value = Some(self.cell()?);
+                self.expect(";")?;
+                Value::from_attribute(AuthoredModelingDeclarationsFieldValueAttribute {
+                    r#type: None,
+                    key: false,
+                    value,
+                })
+            }
+            // `identifier scheme name;`: values of the scheme are opaque (ADR-0123 Outcome 2).
+            "identifier_scheme" => {
+                self.expect(";")?;
+                Value::from_identifier_scheme()
+            }
+            // `constant name: T = cell;`: a typed declaration, not a zero-argument function.
+            "constant" => {
+                self.expect(":")?;
+                let r#type = self.type_expr()?;
+                self.expect("=")?;
+                let value = self.cell()?;
+                self.expect(";")?;
+                Value::from_constant(AuthoredModelingDeclarationsFieldValueConstant {
+                    r#type,
+                    value,
                 })
             }
             "fn" => {
@@ -1771,8 +2053,7 @@ impl Cursor<'_> {
                     body,
                 })
             }
-            "param" | "var" | "let" | "alias" | "attribute" | "set" | "child" | "port"
-            | "preset" | "scope" => {
+            "param" | "var" | "let" | "alias" | "set" | "child" | "port" | "preset" | "scope" => {
                 let indices = self
                     .indices()?
                     .into_iter()
@@ -1828,7 +2109,6 @@ impl Cursor<'_> {
                     "var" => Value::from_variable(b),
                     "let" => Value::from_let(b),
                     "alias" => Value::from_alias(b),
-                    "attribute" => Value::from_attribute(b),
                     "set" => Value::from_set(b),
                     "child" => Value::from_child(b),
                     "port" => Value::from_port(b),
@@ -2012,36 +2292,40 @@ impl Cursor<'_> {
                     default_value,
                 })
             }
+            // `dataset name: target [bind(key = cell, …)] source "…" { [keys] = [values]; … }`:
+            // positional cells for a table or a keyed kind; a key the dataset supplies for
+            // every row is a declared binding (ADR-0123 Outcome 2).
             "dataset" => {
                 self.expect(":")?;
-                let table = self.path()?;
+                let target = self.path()?;
+                let mut bindings = Vec::new();
+                if self.eat("bind") {
+                    self.expect("(")?;
+                    loop {
+                        let name = self.word()?;
+                        self.expect("=")?;
+                        let value = self.cell()?;
+                        bindings.push(AuthoredModelingDeclarationsFieldValueDatasetBindingsItem {
+                            name,
+                            value,
+                        });
+                        if self.eat(")") {
+                            break;
+                        }
+                        self.expect(",")?;
+                    }
+                }
                 self.expect("source")?;
                 let source = self.word()?;
                 self.expect("{")?;
                 let mut rows = Vec::new();
                 while !self.eat("}") {
-                    self.expect("[")?;
-                    let mut keys = Vec::new();
-                    loop {
-                        keys.push(self.until(&[",", "]"])?);
-                        if self.eat("]") {
-                            break;
-                        }
-                        self.expect(",")?;
-                    }
+                    let keys = self.cells()?;
                     self.expect("=")?;
-                    let values = if self.eat("[") {
-                        let mut values = Vec::new();
-                        loop {
-                            values.push(self.until(&[",", "]"])?);
-                            if self.eat("]") {
-                                break;
-                            }
-                            self.expect(",")?;
-                        }
-                        values
+                    let values = if self.peek() == "[" {
+                        self.cells()?
                     } else {
-                        vec![self.until(&[";"])?]
+                        vec![self.cell()?]
                     };
                     self.expect(";")?;
                     rows.push(AuthoredModelingDeclarationsFieldValueDatasetRowsItem {
@@ -2051,8 +2335,9 @@ impl Cursor<'_> {
                 }
                 self.eat(";");
                 Value::from_dataset(AuthoredModelingDeclarationsFieldValueDataset {
-                    table,
+                    target,
                     source,
+                    bindings,
                     rows,
                 })
             }

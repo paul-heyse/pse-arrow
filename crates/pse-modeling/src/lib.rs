@@ -8,6 +8,7 @@ pub mod annotation;
 pub mod check;
 pub mod continuous;
 pub mod data;
+pub mod entity;
 pub mod expression;
 mod extent;
 pub mod external;
@@ -520,3 +521,5 @@ mod kernel_chains;
 mod kernel_continuous;
 #[cfg(test)]
 mod kernel_specialization;
+#[cfg(test)]
+mod kernel_entities;

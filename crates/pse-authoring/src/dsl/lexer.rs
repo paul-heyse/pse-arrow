@@ -83,7 +83,7 @@ pub(crate) fn tokenize(text: &str) -> Result<Vec<Token<'_>>, DslError> {
                 .any(|value| input.as_ref().starts_with(value))
             {
                 2
-            } else if "+-*/^()[]{},.|=<>:;@?∂".contains(first) {
+            } else if "+-*/^()[]{},.|=<>:;@?∂±".contains(first) {
                 first.len_utf8()
             } else {
                 return Err(syntax(start, "expression token", &first.to_string()));

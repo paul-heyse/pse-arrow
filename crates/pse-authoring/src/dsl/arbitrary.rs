@@ -276,3 +276,64 @@ pub fn type_arenas() -> impl Strategy<Value = Vec<crate::language::TypeNode>> {
         nodes
     })
 }
+
+/// Cell path segments: plain identifiers first, then segments that need quoting.
+fn cell_path() -> impl Strategy<Value = Vec<String>> {
+    (
+        prop::sample::select(vec!["benzene", "chem", "a_b", "liquidPhase", "x1"]),
+        prop::collection::vec(
+            prop::sample::select(vec!["species", "two words", "°C", "dotted.segment", "q"]),
+            0..3,
+        ),
+    )
+        .prop_map(|(first, rest)| {
+            std::iter::once(first)
+                .chain(rest)
+                .map(str::to_owned)
+                .collect()
+        })
+}
+
+/// Well-formed cells over every variant, with and without an uncertainty (ADR-0123
+/// Outcome 1): integers across the 64-bit range, finite magnitudes including negative
+/// zero and exponents, canonical unit products, escaped text and quoted path segments.
+pub fn cells() -> impl Strategy<Value = crate::language::Cell> {
+    use crate::language::{
+        Cell, CellBoolean, CellIdentifier, CellInteger, CellPath, CellQuantity, CellReference,
+        CellReferences, CellText, CellUncertainty, CellValue, ModelingUncertaintyKind,
+        unit_factors,
+    };
+    let magnitude = prop_oneof![
+        prop::num::f64::NORMAL | prop::num::f64::SUBNORMAL | prop::num::f64::ZERO,
+        (-1000_i32..1000).prop_map(f64::from),
+    ];
+    let value = prop_oneof![
+        Just(CellValue::from_missing()),
+        any::<bool>().prop_map(|value| CellValue::from_boolean(CellBoolean { value })),
+        (i64::MIN + 1..=i64::MAX).prop_map(|value| CellValue::from_integer(CellInteger { value })),
+        (magnitude.clone(), prop::option::of(unit_product())).prop_map(|(magnitude, unit)| {
+            CellValue::from_quantity(CellQuantity {
+                magnitude,
+                unit: unit.as_ref().map(unit_factors),
+            })
+        }),
+        "[a-z \\\\\"\n\t\u{b5}]{0,12}".prop_map(|value| CellValue::from_text(CellText { value })),
+        (cell_path(), "[0-9A-Za-z\\-\" ]{0,12}").prop_map(|(scheme, value)| {
+            CellValue::from_identifier(CellIdentifier { scheme, value })
+        }),
+        cell_path().prop_map(|path| CellValue::from_reference(CellReference { path })),
+        prop::collection::vec(cell_path(), 0..3).prop_map(|paths| {
+            CellValue::from_references(CellReferences {
+                paths: paths.into_iter().map(|path| CellPath { path }).collect(),
+            })
+        }),
+    ];
+    let uncertainty = prop::option::of(
+        (
+            prop::sample::select(ModelingUncertaintyKind::ALL.to_vec()),
+            prop::num::f64::POSITIVE | prop::num::f64::NORMAL | prop::num::f64::ZERO,
+        )
+            .prop_map(|(kind, magnitude)| CellUncertainty { kind, magnitude }),
+    );
+    (value, uncertainty).prop_map(|(value, uncertainty)| Cell { value, uncertainty })
+}

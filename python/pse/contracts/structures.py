@@ -64,6 +64,108 @@ class MemberDescriptor:
 
 
 @attrs.frozen(kw_only=True)
+class ModelingCellValueBoolean:
+    """Declared relation row or nested value."""
+
+    value: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingCellValueInteger:
+    """Declared relation row or nested value."""
+
+    value: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingCellValueQuantityUnitItem:
+    """Declared relation row or nested value."""
+
+    symbol: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    num: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
+    den: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingCellValueQuantity:
+    """Declared relation row or nested value."""
+
+    magnitude: b.float = attrs.field(validator=v.finite_float)
+    unit: b.tuple[ModelingCellValueQuantityUnitItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ModelingCellValueQuantityUnitItem), iterable_validator=attrs.validators.instance_of(b.tuple))))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingCellValueText:
+    """Declared relation row or nested value."""
+
+    value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingCellValueIdentifier:
+    """Declared relation row or nested value."""
+
+    scheme: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingCellValueReference:
+    """Declared relation row or nested value."""
+
+    path: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingCellValueReferencesPathsItem:
+    """Declared relation row or nested value."""
+
+    path: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingCellValueReferences:
+    """Declared relation row or nested value."""
+
+    paths: b.tuple[ModelingCellValueReferencesPathsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ModelingCellValueReferencesPathsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingCellValue:
+    """Declared relation row or nested value."""
+
+    kind: e.ModelingCellKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingCellKind))
+    boolean: ModelingCellValueBoolean | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueBoolean)))
+    integer: ModelingCellValueInteger | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueInteger)))
+    quantity: ModelingCellValueQuantity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueQuantity)))
+    text: ModelingCellValueText | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueText)))
+    identifier: ModelingCellValueIdentifier | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueIdentifier)))
+    reference: ModelingCellValueReference | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueReference)))
+    references: ModelingCellValueReferences | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellValueReferences)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "boolean" and self.boolean is not None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is None and self.references is None and self.text is None) or (self.kind == "identifier" and self.boolean is None and self.identifier is not None and self.integer is None and self.quantity is None and self.reference is None and self.references is None and self.text is None) or (self.kind == "integer" and self.boolean is None and self.identifier is None and self.integer is not None and self.quantity is None and self.reference is None and self.references is None and self.text is None) or (self.kind == "missing" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is None and self.references is None and self.text is None) or (self.kind == "quantity" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is not None and self.reference is None and self.references is None and self.text is None) or (self.kind == "reference" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is not None and self.references is None and self.text is None) or (self.kind == "references" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is None and self.references is not None and self.text is None) or (self.kind == "text" and self.boolean is None and self.identifier is None and self.integer is None and self.quantity is None and self.reference is None and self.references is None and self.text is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class ModelingCellUncertainty:
+    """Declared relation row or nested value."""
+
+    kind: e.ModelingUncertaintyKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingUncertaintyKind))
+    magnitude: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
+class ModelingCell:
+    """Declared relation row or nested value."""
+
+    value: ModelingCellValue = attrs.field(validator=attrs.validators.instance_of(ModelingCellValue))
+    uncertainty: ModelingCellUncertainty | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingCellUncertainty)))
+
+
+@attrs.frozen(kw_only=True)
 class ModelingTypeArenaNodeExponent:
     """Declared relation row or nested value."""
 

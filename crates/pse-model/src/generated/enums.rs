@@ -5380,6 +5380,149 @@ impl core::str::FromStr for ModelingAnnotationKind {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum ModelingCellKind {
+    ///boolean
+    #[serde(rename = "boolean")]
+    Boolean,
+    ///integer
+    #[serde(rename = "integer")]
+    Integer,
+    ///quantity
+    #[serde(rename = "quantity")]
+    Quantity,
+    ///text
+    #[serde(rename = "text")]
+    Text,
+    ///identifier
+    #[serde(rename = "identifier")]
+    Identifier,
+    ///reference
+    #[serde(rename = "reference")]
+    Reference,
+    ///references
+    #[serde(rename = "references")]
+    References,
+    ///missing
+    #[serde(rename = "missing")]
+    Missing,
+}
+impl crate::SemanticEq for ModelingCellKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingCellKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 8usize] = [
+        Self::Boolean,
+        Self::Integer,
+        Self::Quantity,
+        Self::Text,
+        Self::Identifier,
+        Self::Reference,
+        Self::References,
+        Self::Missing,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Boolean => "boolean",
+            Self::Integer => "integer",
+            Self::Quantity => "quantity",
+            Self::Text => "text",
+            Self::Identifier => "identifier",
+            Self::Reference => "reference",
+            Self::References => "references",
+            Self::Missing => "missing",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Boolean => 0usize,
+            Self::Integer => 1usize,
+            Self::Quantity => 2usize,
+            Self::Text => 3usize,
+            Self::Identifier => 4usize,
+            Self::Reference => 5usize,
+            Self::References => 6usize,
+            Self::Missing => 7usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Boolean => None,
+            Self::Integer => None,
+            Self::Quantity => None,
+            Self::Text => None,
+            Self::Identifier => None,
+            Self::Reference => None,
+            Self::References => None,
+            Self::Missing => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingCellKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingCellKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ModelingCellKind)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["boolean", "integer", "quantity", "text",
+            "identifier", "reference", "references", "missing"] }
+        )
+    }
+}
+impl core::str::FromStr for ModelingCellKind {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "boolean" => Ok(Self::Boolean),
+            "integer" => Ok(Self::Integer),
+            "quantity" => Ok(Self::Quantity),
+            "text" => Ok(Self::Text),
+            "identifier" => Ok(Self::Identifier),
+            "reference" => Ok(Self::Reference),
+            "references" => Ok(Self::References),
+            "missing" => Ok(Self::Missing),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingCellKind).to_owned(),
+                    enumeration: stringify!(ModelingCellKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum ModelingCheckBasis {
     ///point
     #[serde(rename = "point")]
@@ -6070,9 +6213,6 @@ pub enum ModelingDeclarationKind {
     ///alias
     #[serde(rename = "alias")]
     Alias,
-    ///attribute
-    #[serde(rename = "attribute")]
-    Attribute,
     ///set
     #[serde(rename = "set")]
     Set,
@@ -6121,6 +6261,9 @@ pub enum ModelingDeclarationKind {
     ///table
     #[serde(rename = "table")]
     Table,
+    ///attribute
+    #[serde(rename = "attribute")]
+    Attribute,
     ///dataset
     #[serde(rename = "dataset")]
     Dataset,
@@ -6130,6 +6273,9 @@ pub enum ModelingDeclarationKind {
     ///enum
     #[serde(rename = "enum")]
     Enum,
+    ///constant
+    #[serde(rename = "constant")]
+    Constant,
     ///import
     #[serde(rename = "import")]
     Import,
@@ -6169,6 +6315,9 @@ pub enum ModelingDeclarationKind {
     ///realization
     #[serde(rename = "realization")]
     Realization,
+    ///identifier_scheme
+    #[serde(rename = "identifier_scheme")]
+    IdentifierScheme,
 }
 impl crate::SemanticEq for ModelingDeclarationKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -6177,7 +6326,7 @@ impl crate::SemanticEq for ModelingDeclarationKind {
 }
 impl ModelingDeclarationKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 50usize] = [
+    pub const ALL: [Self; 52usize] = [
         Self::Relaxation,
         Self::Continuation,
         Self::Package,
@@ -6195,7 +6344,6 @@ impl ModelingDeclarationKind {
         Self::Variable,
         Self::Let,
         Self::Alias,
-        Self::Attribute,
         Self::Set,
         Self::Child,
         Self::Port,
@@ -6212,9 +6360,11 @@ impl ModelingDeclarationKind {
         Self::Logic,
         Self::Complementarity,
         Self::Table,
+        Self::Attribute,
         Self::Dataset,
         Self::Entity,
         Self::Enum,
+        Self::Constant,
         Self::Import,
         Self::When,
         Self::Accumulator,
@@ -6228,6 +6378,7 @@ impl ModelingDeclarationKind {
         Self::CollocationScheme,
         Self::Discretization,
         Self::Realization,
+        Self::IdentifierScheme,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -6249,7 +6400,6 @@ impl ModelingDeclarationKind {
             Self::Variable => "variable",
             Self::Let => "let",
             Self::Alias => "alias",
-            Self::Attribute => "attribute",
             Self::Set => "set",
             Self::Child => "child",
             Self::Port => "port",
@@ -6266,9 +6416,11 @@ impl ModelingDeclarationKind {
             Self::Logic => "logic",
             Self::Complementarity => "complementarity",
             Self::Table => "table",
+            Self::Attribute => "attribute",
             Self::Dataset => "dataset",
             Self::Entity => "entity",
             Self::Enum => "enum",
+            Self::Constant => "constant",
             Self::Import => "import",
             Self::When => "when",
             Self::Accumulator => "accumulator",
@@ -6282,6 +6434,7 @@ impl ModelingDeclarationKind {
             Self::CollocationScheme => "collocation_scheme",
             Self::Discretization => "discretization",
             Self::Realization => "realization",
+            Self::IdentifierScheme => "identifier_scheme",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -6304,39 +6457,41 @@ impl ModelingDeclarationKind {
             Self::Variable => 14usize,
             Self::Let => 15usize,
             Self::Alias => 16usize,
-            Self::Attribute => 17usize,
-            Self::Set => 18usize,
-            Self::Child => 19usize,
-            Self::Port => 20usize,
-            Self::Preset => 21usize,
-            Self::ScopeValue => 22usize,
-            Self::Function => 23usize,
-            Self::Equation => 24usize,
-            Self::Sos1 => 25usize,
-            Self::Sos2 => 26usize,
-            Self::Atmost => 27usize,
-            Self::Atleast => 28usize,
-            Self::Exactly => 29usize,
-            Self::Piecewise => 30usize,
-            Self::Logic => 31usize,
-            Self::Complementarity => 32usize,
-            Self::Table => 33usize,
+            Self::Set => 17usize,
+            Self::Child => 18usize,
+            Self::Port => 19usize,
+            Self::Preset => 20usize,
+            Self::ScopeValue => 21usize,
+            Self::Function => 22usize,
+            Self::Equation => 23usize,
+            Self::Sos1 => 24usize,
+            Self::Sos2 => 25usize,
+            Self::Atmost => 26usize,
+            Self::Atleast => 27usize,
+            Self::Exactly => 28usize,
+            Self::Piecewise => 29usize,
+            Self::Logic => 30usize,
+            Self::Complementarity => 31usize,
+            Self::Table => 32usize,
+            Self::Attribute => 33usize,
             Self::Dataset => 34usize,
             Self::Entity => 35usize,
             Self::Enum => 36usize,
-            Self::Import => 37usize,
-            Self::When => 38usize,
-            Self::Accumulator => 39usize,
-            Self::Contribution => 40usize,
-            Self::Connection => 41usize,
-            Self::Annotation => 42usize,
-            Self::Requirement => 43usize,
-            Self::Expectation => 44usize,
-            Self::Continuous => 45usize,
-            Self::DifferenceScheme => 46usize,
-            Self::CollocationScheme => 47usize,
-            Self::Discretization => 48usize,
-            Self::Realization => 49usize,
+            Self::Constant => 37usize,
+            Self::Import => 38usize,
+            Self::When => 39usize,
+            Self::Accumulator => 40usize,
+            Self::Contribution => 41usize,
+            Self::Connection => 42usize,
+            Self::Annotation => 43usize,
+            Self::Requirement => 44usize,
+            Self::Expectation => 45usize,
+            Self::Continuous => 46usize,
+            Self::DifferenceScheme => 47usize,
+            Self::CollocationScheme => 48usize,
+            Self::Discretization => 49usize,
+            Self::Realization => 50usize,
+            Self::IdentifierScheme => 51usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -6364,7 +6519,6 @@ impl ModelingDeclarationKind {
             Self::Variable => None,
             Self::Let => None,
             Self::Alias => None,
-            Self::Attribute => None,
             Self::Set => None,
             Self::Child => None,
             Self::Port => None,
@@ -6381,9 +6535,11 @@ impl ModelingDeclarationKind {
             Self::Logic => None,
             Self::Complementarity => None,
             Self::Table => None,
+            Self::Attribute => None,
             Self::Dataset => None,
             Self::Entity => None,
             Self::Enum => None,
+            Self::Constant => None,
             Self::Import => None,
             Self::When => None,
             Self::Accumulator => None,
@@ -6397,6 +6553,7 @@ impl ModelingDeclarationKind {
             Self::CollocationScheme => None,
             Self::Discretization => None,
             Self::Realization => None,
+            Self::IdentifierScheme => None,
         }
     }
 }
@@ -6416,12 +6573,13 @@ impl schemars::JsonSchema for ModelingDeclarationKind {
             { "type" : "string", "enum" : ["relaxation", "continuation", "package",
             "entity_kind", "interface", "definition", "case", "test", "stage",
             "implicit", "regime", "disjunction", "alternative", "parameter", "variable",
-            "let", "alias", "attribute", "set", "child", "port", "preset", "scope_value",
-            "function", "equation", "sos1", "sos2", "atmost", "atleast", "exactly",
-            "piecewise", "logic", "complementarity", "table", "dataset", "entity",
-            "enum", "import", "when", "accumulator", "contribution", "connection",
-            "annotation", "requirement", "expectation", "continuous",
-            "difference_scheme", "collocation_scheme", "discretization", "realization"] }
+            "let", "alias", "set", "child", "port", "preset", "scope_value", "function",
+            "equation", "sos1", "sos2", "atmost", "atleast", "exactly", "piecewise",
+            "logic", "complementarity", "table", "attribute", "dataset", "entity",
+            "enum", "constant", "import", "when", "accumulator", "contribution",
+            "connection", "annotation", "requirement", "expectation", "continuous",
+            "difference_scheme", "collocation_scheme", "discretization", "realization",
+            "identifier_scheme"] }
         )
     }
 }
@@ -6446,7 +6604,6 @@ impl core::str::FromStr for ModelingDeclarationKind {
             "variable" => Ok(Self::Variable),
             "let" => Ok(Self::Let),
             "alias" => Ok(Self::Alias),
-            "attribute" => Ok(Self::Attribute),
             "set" => Ok(Self::Set),
             "child" => Ok(Self::Child),
             "port" => Ok(Self::Port),
@@ -6463,9 +6620,11 @@ impl core::str::FromStr for ModelingDeclarationKind {
             "logic" => Ok(Self::Logic),
             "complementarity" => Ok(Self::Complementarity),
             "table" => Ok(Self::Table),
+            "attribute" => Ok(Self::Attribute),
             "dataset" => Ok(Self::Dataset),
             "entity" => Ok(Self::Entity),
             "enum" => Ok(Self::Enum),
+            "constant" => Ok(Self::Constant),
             "import" => Ok(Self::Import),
             "when" => Ok(Self::When),
             "accumulator" => Ok(Self::Accumulator),
@@ -6479,6 +6638,7 @@ impl core::str::FromStr for ModelingDeclarationKind {
             "collocation_scheme" => Ok(Self::CollocationScheme),
             "discretization" => Ok(Self::Discretization),
             "realization" => Ok(Self::Realization),
+            "identifier_scheme" => Ok(Self::IdentifierScheme),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingDeclarationKind).to_owned(),
@@ -8081,6 +8241,106 @@ impl core::str::FromStr for ModelingTypeNode {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingTypeNode).to_owned(),
                     enumeration: stringify!(ModelingTypeNode).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum ModelingUncertaintyKind {
+    ///standard
+    #[serde(rename = "standard")]
+    Standard,
+    ///relative
+    #[serde(rename = "relative")]
+    Relative,
+    ///bound
+    #[serde(rename = "bound")]
+    Bound,
+}
+impl crate::SemanticEq for ModelingUncertaintyKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingUncertaintyKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::Standard, Self::Relative, Self::Bound];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Standard => "standard",
+            Self::Relative => "relative",
+            Self::Bound => "bound",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Standard => 0usize,
+            Self::Relative => 1usize,
+            Self::Bound => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Standard => None,
+            Self::Relative => None,
+            Self::Bound => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingUncertaintyKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingUncertaintyKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingUncertaintyKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["standard", "relative", "bound"] }
+        )
+    }
+}
+impl core::str::FromStr for ModelingUncertaintyKind {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "standard" => Ok(Self::Standard),
+            "relative" => Ok(Self::Relative),
+            "bound" => Ok(Self::Bound),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingUncertaintyKind).to_owned(),
+                    enumeration: stringify!(ModelingUncertaintyKind).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -16137,6 +16397,16 @@ impl crate::SemanticFrame for ModelingAnnotationKind {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for ModelingCellKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingCellKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for ModelingCheckBasis {
     fn heap_bytes(&self) -> usize {
         0
@@ -16323,6 +16593,16 @@ impl crate::HeapUsage for ModelingTypeNode {
     }
 }
 impl crate::SemanticFrame for ModelingTypeNode {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ModelingUncertaintyKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingUncertaintyKind {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

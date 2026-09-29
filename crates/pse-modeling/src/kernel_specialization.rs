@@ -324,7 +324,7 @@ fn indexed_dispatch_groups_implementations() {
  interface I { var x: Scalar; }
  def A : I { var x: Scalar; } def B : I { var x: Scalar; }
  table method[j: thing]: I;
- dataset choices: method source "synthetic" { [a] = [A()]; [b] = [B()]; [c] = [A()]; }
+ dataset choices: method source "synthetic" { [a] = [A]; [b] = [B]; [c] = [A]; }
  def Root { child items[j in things]: I = method[j]; }
  }"#,
         "p.Root",

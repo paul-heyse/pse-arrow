@@ -312,6 +312,9 @@ impl Engine<'_, '_> {
                     },
                 ) if x == y => bind(a, b, c, bindings, at),
                 (a, b) if a == b => Ok(()),
+                // A static entity argument is checked on its value below: a call through a
+                // `Ref` may pass a refinement of the declared kind (ADR-0123 Outcome 2).
+                (Type::Entity(_), Type::Entity(_)) => Ok(()),
                 _ => Err(invalid(at, "function actual type differs")),
             }
         }
@@ -349,7 +352,7 @@ impl Engine<'_, '_> {
         let mut indexed = BTreeMap::new();
         let mut statics = Environment::new();
         let mut selectors = BTreeMap::new();
-        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV2);
+        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV3);
         identity.id(&function.as_id());
         for quantity in substitution.values() {
             identity.id(&quantity.as_id());
@@ -432,12 +435,27 @@ impl Engine<'_, '_> {
                     statics.insert(name.clone(), value);
                 }
                 _ => {
-                    let value = self.eval(
-                        chain.last().copied().unwrap_or(function),
-                        env,
-                        &dsl::render_expr(expr),
-                        Some(ty),
-                    )?;
+                    let value = self
+                        .eval(
+                            chain.last().copied().unwrap_or(function),
+                            env,
+                            &dsl::render_expr(expr),
+                            Some(ty),
+                        )
+                        .map_err(|e| match ty {
+                            // ADR-0123 Outcome 2: a `Ref` is static at specialization.
+                            Type::Entity(_) => invalid(
+                                at,
+                                format!(
+                                    "Ref argument {name} of {} must be static at specialization: {e}",
+                                    self.p
+                                        .declarations
+                                        .get(&function)
+                                        .map_or("a function", |row| row.name.as_str())
+                                ),
+                            ),
+                            _ => e,
+                        })?;
                     value.frame(&mut identity);
                     statics.insert(name.clone(), value);
                 }

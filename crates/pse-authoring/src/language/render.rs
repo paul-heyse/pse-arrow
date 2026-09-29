@@ -334,7 +334,6 @@ fn print_block(
             | Selected::Variable(v)
             | Selected::Let(v)
             | Selected::Alias(v)
-            | Selected::Attribute(v)
             | Selected::Set(v)
             | Selected::Child(v)
             | Selected::Port(v)
@@ -345,7 +344,6 @@ fn print_block(
                     Selected::Variable(_) => "var",
                     Selected::Let(_) => "let",
                     Selected::Alias(_) => "alias",
-                    Selected::Attribute(_) => "attribute",
                     Selected::Set(_) => "set",
                     Selected::Child(_) => "child",
                     Selected::Port(_) => "port",
@@ -405,15 +403,44 @@ fn print_block(
                     .as_ref()
                     .map_or(String::new(), |a| format!(" as {a}"))
             ),
-            Selected::Enum(v) => format!("enum {n} {{ {} }}", v.members.join(", ")),
+            // Members print their identities, so a renamed member keeps its own.
+            Selected::Enum(v) => format!(
+                "enum {n} {{ {} }}",
+                v.members
+                    .iter()
+                    .map(|m| format!("@id({}) {}", quoted(&m.member_id.to_string()), name(&m.name)))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
             Selected::Entity(v) => format!(
                 "entity {} {n} {{ {} }}",
                 v.kind_name,
                 v.attributes
                     .iter()
-                    .map(|a| format!("{} = {}", a.name, a.expression))
-                    .collect::<Vec<_>>()
+                    .map(|a| Ok(format!("{} = {}", name(&a.name), super::render_cell(&a.value)?)))
+                    .collect::<Result<Vec<_>, AuthoringError>>()?
                     .join(", ")
+            ),
+            // ADR-0123 Outcome 2: a declaration, a key or a kind-level binding.
+            Selected::Attribute(v) => match (&v.r#type, v.key, &v.value) {
+                (Some(ty), key, value) => format!(
+                    "{} {n}: {}{};",
+                    if key { "key" } else { "attribute" },
+                    super::render_type(ty)?,
+                    value
+                        .as_ref()
+                        .map(super::render_cell)
+                        .transpose()?
+                        .map_or_else(String::new, |cell| format!(" = {cell}"))
+                ),
+                (None, false, Some(value)) => format!("{n} = {};", super::render_cell(value)?),
+                _ => return Err(bad("a binding carries a value and no key or type")),
+            },
+            Selected::IdentifierScheme => format!("identifier scheme {n};"),
+            Selected::Constant(v) => format!(
+                "constant {n}: {} = {};",
+                super::render_type(&v.r#type)?,
+                super::render_cell(&v.value)?
             ),
             Selected::Equation(v) => format!(
                 "eq {n}{}{}: {};",
@@ -491,16 +518,37 @@ fn print_block(
                     .as_ref()
                     .map_or(String::new(), |d| format!(" {d}"))
             ),
-            Selected::Dataset(v) => format!(
-                "dataset {n}: {} source {} {{ {} }}",
-                v.table,
-                quoted(&v.source),
-                v.rows
-                    .iter()
-                    .map(|r| format!("[{}] = [{}];", r.keys.join(", "), r.values.join(", ")))
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            ),
+            Selected::Dataset(v) => {
+                let cells = |cells: &[super::Cell]| -> Result<String, AuthoringError> {
+                    Ok(cells
+                        .iter()
+                        .map(super::render_cell)
+                        .collect::<Result<Vec<_>, _>>()?
+                        .join(", "))
+                };
+                format!(
+                    "dataset {n}: {}{} source {} {{ {} }}",
+                    v.target,
+                    if v.bindings.is_empty() {
+                        String::new()
+                    } else {
+                        format!(
+                            " bind({})",
+                            v.bindings
+                                .iter()
+                                .map(|b| Ok(format!("{} = {}", name(&b.name), super::render_cell(&b.value)?)))
+                                .collect::<Result<Vec<_>, AuthoringError>>()?
+                                .join(", ")
+                        )
+                    },
+                    quoted(&v.source),
+                    v.rows
+                        .iter()
+                        .map(|r| Ok(format!("[{}] = [{}];", cells(&r.keys)?, cells(&r.values)?)))
+                        .collect::<Result<Vec<_>, AuthoringError>>()?
+                        .join(" ")
+                )
+            }
             Selected::Annotation(v) => {
                 use pse_model::generated::enums::ModelingAnnotationKind as A;
                 let typed = (

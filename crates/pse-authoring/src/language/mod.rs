@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Version-one modeling language over registry-generated semantic declarations.
+mod cells;
 mod parser;
 mod render;
 mod static_value;
@@ -18,6 +19,12 @@ pub use pse_model::generated::authored::modeling_declarations::{
     AuthoredModelingDeclarationsFieldValueSelected as Selected, Row as Declaration,
 };
 pub use pse_model::generated::structures::VersionRequirement;
+pub use cells::{
+    Cell, CellBoolean, CellIdentifier, CellInteger, CellKind, CellPath, CellQuantity,
+    CellReference, CellReferences, CellSelected, CellText, CellUncertainty, CellUnitFactor,
+    CellValue, ModelingUncertaintyKind, cell, parse_cell, render_cell, unit_factors,
+    unit_product,
+};
 pub use render::render;
 pub use version::{exact_requirement, requirement_admits, requirement_version};
 pub use types::{

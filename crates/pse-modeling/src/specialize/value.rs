@@ -38,19 +38,28 @@ pub enum Value {
     },
     /// Textual label.
     Text(String),
-    /// Entity identity and kind identity.
+    /// Entity identity and its concrete kind; the kind is content, not identity
+    /// (ADR-0123 Outcome 2).
     Entity {
-        /// Entity declaration.
+        /// The entity declaration, or a keyed row's derived identity.
         id: DeclarationId,
-        /// Entity kind declaration.
+        /// The most-derived kind of the entity.
         kind: DeclarationId,
     },
     /// Value of an authored closed enumeration.
     Enum {
         /// Enumeration declaration.
         enumeration: DeclarationId,
-        /// Member name.
-        member: String,
+        /// Member identity: renaming a member keeps it (ADR-0123 Outcome 2).
+        member: SemanticId,
+    },
+    /// An opaque value of a declared identifier scheme, compared byte-exactly and never
+    /// parsed (ADR-0123 Outcome 2).
+    Identifier {
+        /// Identifier scheme declaration.
+        scheme: DeclarationId,
+        /// The value as written.
+        value: String,
     },
     /// Definition identity with named partial bindings.
     Definition {
@@ -108,7 +117,10 @@ impl Value {
                 enumeration,
                 member,
             } => {
-                h.str("enum").id(&enumeration.as_id()).str(member);
+                h.str("enum").id(&enumeration.as_id()).id(member);
+            }
+            Self::Identifier { scheme, value } => {
+                h.str("identifier").id(&scheme.as_id()).str(value);
             }
             Self::Definition { id, bindings } => {
                 h.str("definition").id(&id.as_id());
@@ -154,7 +166,7 @@ impl Value {
         if let Self::Coordinate { id, .. } = self {
             return *id;
         }
-        let mut h = FramedHasher::new(pse_ids::Frame::ModelingCoordinateV1);
+        let mut h = FramedHasher::new(pse_ids::Frame::ModelingCoordinateV2);
         self.frame(&mut h);
         h.finish_id()
     }
@@ -382,13 +394,17 @@ impl Evaluator<'_, '_> {
             .map_err(|e| invalid(id, e.to_string()))?
         {
             crate::Selected::Function(_) => Ok(Value::Function(id)),
-            crate::Selected::Entity(e) => {
-                let kind = self
-                    .package
-                    .resolve(id, &e.kind_name)
-                    .ok_or_else(|| invalid(id, "entity kind"))?;
-                Ok(Value::Entity { id, kind })
-            }
+            crate::Selected::Entity(_) => match self.package.types.get(&id) {
+                Some(Type::Entity(kind)) => Ok(Value::Entity { id, kind: *kind }),
+                _ => Err(invalid(id, "entity kind")),
+            },
+            // ADR-0123 Outcome 2: a typed constant is admitted data.
+            crate::Selected::Constant(_) => self
+                .package
+                .constants
+                .get(&id)
+                .map(|typed| typed.value.clone())
+                .ok_or_else(|| invalid(id, "constant not admitted")),
             crate::Selected::Definition(_)
             | crate::Selected::Interface(_)
             | crate::Selected::Preset(_) => Ok(Value::Definition {
@@ -413,6 +429,72 @@ impl Evaluator<'_, '_> {
         self.at = saved_at;
         self.stack.pop();
         value
+    }
+    /// A named member of a static value: a definition's member, a row's column, an
+    /// entity's attribute or a reference state's condition. An entity's attributes are
+    /// read from its record, typed once at admission (ADR-0123 Outcome 2).
+    fn member(&mut self, value: Value, name: &str) -> Result<Value> {
+        Ok(match value {
+            Value::Definition { id, bindings } => self.definition_member(id, &bindings, name)?,
+            Value::Row { fields, .. } => fields
+                .get(name)
+                .cloned()
+                .ok_or_else(|| invalid(self.at, "unknown table column"))?,
+            Value::Entity { id, kind } => self
+                .package
+                .record(id)
+                .and_then(|record| record.values.get(name))
+                .cloned()
+                .ok_or_else(|| {
+                    invalid(
+                        id,
+                        format!(
+                            "unknown attribute {name} of kind {}",
+                            self.package.declarations[&kind].name
+                        ),
+                    )
+                })?,
+            Value::ReferenceState(id) => self.reference_condition(id, name)?,
+            Value::Missing => {
+                return Err(invalid(self.at, "missing optional row must be guarded"));
+            }
+            _ => return Err(invalid(self.at, "static value has no named member")),
+        })
+    }
+    /// The row of a keyed kind with the given key values: the key-declaring kind's keys in
+    /// order, trailing keys with a default omitted (ADR-0123 Outcome 2).
+    fn keyed(&mut self, kind: DeclarationId, indices: &[Expr], depth: usize) -> Result<Value> {
+        let name = || self.package.declarations[&kind].name.clone();
+        let (_, keys) = self
+            .package
+            .keys(kind)
+            .ok_or_else(|| invalid(self.at, format!("kind {} has no keys", name())))?;
+        if indices.len() > keys.len() || keys[indices.len()..].iter().any(|k| k.2.is_none()) {
+            return Err(invalid(
+                self.at,
+                format!(
+                    "a {} row is looked up by its keys {:?}",
+                    name(),
+                    keys.iter().map(|k| &k.0).collect::<Vec<_>>()
+                ),
+            ));
+        }
+        let mut values = Vec::new();
+        for (index, (_, ty, default)) in keys.iter().enumerate() {
+            values.push(match indices.get(index) {
+                Some(e) => {
+                    let v = self.expr(e, Some(ty), depth + 1)?;
+                    if !conforms(&v, ty, self.package) {
+                        return Err(invalid(self.at, format!("{} key type", name())));
+                    }
+                    v
+                }
+                None => default.clone().ok_or_else(|| invalid(self.at, "key default"))?,
+            });
+        }
+        self.package
+            .keyed_row(kind, &values)
+            .ok_or_else(|| invalid(self.at, format!("no {} row has these keys", name())))
     }
     /// A reference state's typed condition, in its quantity type's canonical unit
     /// (ADR-0123 Outcome 6).
@@ -525,53 +607,7 @@ impl Evaluator<'_, '_> {
             return Err(invalid(self.at, "static expression depth"));
         }
         match &e.kind {
-            ExprKind::Number(n) => {
-                if n.unit.is_none() && matches!(expected, Some(Type::Integer)) {
-                    return n
-                        .integer()
-                        .and_then(|v| i64::try_from(v).ok())
-                        .map(Value::Integer)
-                        .ok_or_else(|| invalid(self.at, "exact bounded integer required"));
-                }
-                let ty = crate::expression::infer(
-                    e,
-                    &BTreeMap::new(),
-                    self.package,
-                    self.physical,
-                    self.at,
-                    expected,
-                )?;
-                let Type::Quantity(Scheme::Concrete(quantity)) = ty else {
-                    return Err(invalid(self.at, "concrete literal type required"));
-                };
-                let mut value = n.value;
-                if let Some(unit) = &n.unit {
-                    let source = self
-                        .physical
-                        .quantities
-                        .compose(unit)
-                        .map_err(|e| invalid(self.at, e.to_string()))?;
-                    let target = self
-                        .physical
-                        .quantities
-                        .quantity_type(quantity)
-                        .map_err(|e| invalid(self.at, e.to_string()))?;
-                    let conversion = pse_quantity::convert_spec_for_type(
-                        &source,
-                        self.physical
-                            .quantities
-                            .unit(target.canonical_unit)
-                            .map_err(|e| invalid(self.at, e.to_string()))?,
-                        &target.key,
-                    )
-                    .map_err(|e| invalid(self.at, e.to_string()))?;
-                    value = pse_quantity::convert_value(&conversion, value);
-                }
-                Ok(Value::Number {
-                    bits: value.to_bits(),
-                    quantity,
-                })
-            }
+            ExprKind::Number(n) => Ok(number(self.physical, self.at, n, expected)?.0),
             ExprKind::Path(path) => {
                 let name = dsl::render_path(path);
                 if name == "true" {
@@ -605,46 +641,45 @@ impl Evaluator<'_, '_> {
                         .package
                         .resolve(self.at, &table_name)
                         .ok_or_else(|| invalid(self.at, "unknown table"))?;
-                    let table = self
-                        .package
-                        .tables
-                        .get(&id)
-                        .ok_or_else(|| invalid(id, "table data not admitted"))?;
-                    if selected.indices.len() != table.keys.len() {
-                        return Err(invalid(id, "table key arity"));
-                    }
-                    let keys = selected
-                        .indices
-                        .iter()
-                        .zip(&table.keys)
-                        .map(|(e, ty)| {
-                            let v = self.expr(e, Some(ty), depth + 1)?;
-                            if !conforms(&v, ty, self.package) {
-                                return Err(invalid(id, "table key type"));
-                            }
-                            Ok(v)
-                        })
-                        .collect::<Result<Vec<_>>>()?;
-                    let value = table
-                        .rows
-                        .get(&keys)
-                        .cloned()
-                        .or_else(|| table.default.clone())
-                        .or_else(|| table.optional.then_some(Value::Missing))
-                        .ok_or_else(|| invalid(id, "required table value absent"))?;
-                    if path.segments.len() == position + 1 {
-                        return Ok(value);
-                    }
-                    if path.segments.len() == position + 2
-                        && path.segments[position + 1].indices.is_empty()
-                        && let Value::Row { fields, .. } = value
-                    {
-                        return fields
-                            .get(&path.segments[position + 1].name)
+                    let value = if self.package.kinds.contains_key(&id) {
+                        self.keyed(id, &selected.indices, depth)?
+                    } else {
+                        let table = self
+                            .package
+                            .tables
+                            .get(&id)
+                            .ok_or_else(|| invalid(id, "table data not admitted"))?;
+                        if selected.indices.len() != table.keys.len() {
+                            return Err(invalid(id, "table key arity"));
+                        }
+                        let keys = selected
+                            .indices
+                            .iter()
+                            .zip(&table.keys)
+                            .map(|(e, ty)| {
+                                let v = self.expr(e, Some(ty), depth + 1)?;
+                                if !conforms(&v, ty, self.package) {
+                                    return Err(invalid(id, "table key type"));
+                                }
+                                Ok(v)
+                            })
+                            .collect::<Result<Vec<_>>>()?;
+                        table
+                            .rows
+                            .get(&keys)
                             .cloned()
-                            .ok_or_else(|| invalid(id, "unknown table column"));
+                            .or_else(|| table.default.clone())
+                            .or_else(|| table.optional.then_some(Value::Missing))
+                            .ok_or_else(|| invalid(id, "required table value absent"))?
+                    };
+                    let mut value = value;
+                    for segment in &path.segments[position + 1..] {
+                        if !segment.indices.is_empty() {
+                            return Err(invalid(id, "invalid table row member access"));
+                        }
+                        value = self.member(value, &segment.name)?;
                     }
-                    return Err(invalid(id, "invalid table row member access"));
+                    return Ok(value);
                 }
                 if path.segments.len() > 1 {
                     let definition_prefix = (1..path.segments.len()).rev().find_map(|count| {
@@ -679,16 +714,10 @@ impl Evaluator<'_, '_> {
                         .collect::<Vec<_>>()
                         .join(".");
                     if let Some(id) = self.package.resolve(self.at, &enum_name)
-                        && let Some(values) = &self.package.declarations[&id].value.enumeration
+                        && self.package.declarations[&id].value.enumeration.is_some()
                     {
                         let member = &path.segments[path.segments.len() - 1].name;
-                        if values.members.contains(member) {
-                            return Ok(Value::Enum {
-                                enumeration: id,
-                                member: member.clone(),
-                            });
-                        }
-                        return Err(invalid(id, "unknown enumeration member"));
+                        return crate::entity::enum_member(self.package, id, member, id);
                     }
                     // A qualified physical name, `<package>.<Name>`, before its attributes.
                     let physical_prefix = (2..path.segments.len()).rev().find_map(|count| {
@@ -717,63 +746,7 @@ impl Evaluator<'_, '_> {
                                 "attribute values do not have coordinates",
                             ));
                         }
-                        value = match value {
-                            Value::Definition { id, bindings } => {
-                                self.definition_member(id, &bindings, &segment.name)?
-                            }
-                            Value::Row { fields, .. } => fields
-                                .get(&segment.name)
-                                .cloned()
-                                .ok_or_else(|| invalid(self.at, "unknown table column"))?,
-                            Value::Entity { id, kind } => {
-                                let member = self
-                                    .package
-                                    .members
-                                    .get(&kind)
-                                    .and_then(|m| m.get(&segment.name))
-                                    .copied()
-                                    .ok_or_else(|| invalid(id, "unknown entity attribute"))?;
-                                let entity = self.package.declarations[&id]
-                                    .value
-                                    .entity
-                                    .as_ref()
-                                    .ok_or_else(|| invalid(id, "entity payload"))?;
-                                let explicit = entity
-                                    .attributes
-                                    .iter()
-                                    .find(|a| a.name == segment.name)
-                                    .map(|a| a.expression.as_str());
-                                let source = explicit
-                                    .or_else(|| {
-                                        self.package.declarations[&member]
-                                            .value
-                                            .binding
-                                            .as_ref()
-                                            .and_then(|b| b.expression.as_deref())
-                                    })
-                                    .ok_or_else(|| invalid(id, "missing entity attribute"))?;
-                                if self.stack.contains(&member) {
-                                    return Err(invalid(member, "recursive entity attribute"));
-                                }
-                                self.stack.push(member);
-                                let saved = self.at;
-                                self.at = if explicit.is_some() { id } else { member };
-                                let result = self.text(source, self.package.types.get(&member));
-                                self.at = saved;
-                                self.stack.pop();
-                                result?
-                            }
-                            Value::ReferenceState(id) => {
-                                self.reference_condition(id, &segment.name)?
-                            }
-                            Value::Missing => {
-                                return Err(invalid(
-                                    self.at,
-                                    "missing optional row must be guarded",
-                                ));
-                            }
-                            _ => return Err(invalid(self.at, "static value has no named member")),
-                        };
+                        value = self.member(value, &segment.name)?;
                     }
                     return Ok(value);
                 }
@@ -1331,6 +1304,58 @@ impl Evaluator<'_, '_> {
         }
     }
 }
+/// A number literal typed against `expected` and converted to its type's canonical unit,
+/// with the scale that conversion applies to a difference: the one reading of a literal
+/// shared by static evaluation and data cells (ADR-0123 Outcome 1).
+pub(crate) fn number(
+    physical: &TypeContext<'_>,
+    at: DeclarationId,
+    n: &dsl::Number,
+    expected: Option<&Type>,
+) -> Result<(Value, f64)> {
+    if n.unit.is_none() && matches!(expected, Some(Type::Integer)) {
+        return n
+            .integer()
+            .and_then(|v| i64::try_from(v).ok())
+            .map(|v| (Value::Integer(v), 1.))
+            .ok_or_else(|| invalid(at, "exact bounded integer required"));
+    }
+    let Type::Quantity(Scheme::Concrete(quantity)) =
+        crate::expression::number_type(n, physical, at, expected)?
+    else {
+        return Err(invalid(at, "concrete literal type required"));
+    };
+    let mut value = n.value;
+    let mut scale = 1.;
+    if let Some(unit) = &n.unit {
+        let source = physical
+            .quantities
+            .compose(unit)
+            .map_err(|e| invalid(at, e.to_string()))?;
+        let target = physical
+            .quantities
+            .quantity_type(quantity)
+            .map_err(|e| invalid(at, e.to_string()))?;
+        let conversion = pse_quantity::convert_spec_for_type(
+            &source,
+            physical
+                .quantities
+                .unit(target.canonical_unit)
+                .map_err(|e| invalid(at, e.to_string()))?,
+            &target.key,
+        )
+        .map_err(|e| invalid(at, e.to_string()))?;
+        value = pse_quantity::convert_value(&conversion, value);
+        scale = conversion.scale;
+    }
+    Ok((
+        Value::Number {
+            bits: value.to_bits(),
+            quantity,
+        },
+        scale,
+    ))
+}
 /// A static chain value before its root is typed.
 #[derive(Clone, Copy)]
 enum Numeric {
@@ -1355,6 +1380,7 @@ pub(crate) fn value_type(value: &Value) -> Option<Type> {
         Value::Text(_) => Some(Type::Text),
         Value::Entity { kind, .. } => Some(Type::Entity(*kind)),
         Value::Enum { enumeration, .. } => Some(Type::Enum(*enumeration)),
+        Value::Identifier { scheme, .. } => Some(Type::Identifier(*scheme)),
         Value::Definition { id, .. } => Some(Type::Definition(*id)),
         Value::Set(v) => v
             .first()
@@ -1388,6 +1414,8 @@ pub(crate) fn conforms(value: &Value, ty: &Type, p: &CheckedPackage) -> bool {
             matches!((p.preset_definition(*id), p.preset_definition(*contract)),
                 (Ok(actual), Ok(expected)) if actual == expected)
         }
+        // A member of a refined kind is a member of every kind it refines.
+        (Value::Entity { kind, .. }, Type::Entity(expected)) => p.refines(*kind, *expected),
         _ => value_type(value).as_ref() == Some(ty),
     }
 }

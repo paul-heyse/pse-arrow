@@ -615,6 +615,19 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `objective` | `` | false |
 | `connectivity` | `` | false |
 
+## `ModelingCellKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `boolean` | `` | false |
+| `integer` | `` | false |
+| `quantity` | `` | false |
+| `text` | `` | false |
+| `identifier` | `` | false |
+| `reference` | `` | false |
+| `references` | `` | false |
+| `missing` | `` | false |
+
 ## `ModelingCheckBasis`
 
 | Member | IDAES name | Deprecated |
@@ -691,7 +704,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `variable` | `` | false |
 | `let` | `` | false |
 | `alias` | `` | false |
-| `attribute` | `` | false |
 | `set` | `` | false |
 | `child` | `` | false |
 | `port` | `` | false |
@@ -708,9 +720,11 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `logic` | `` | false |
 | `complementarity` | `` | false |
 | `table` | `` | false |
+| `attribute` | `` | false |
 | `dataset` | `` | false |
 | `entity` | `` | false |
 | `enum` | `` | false |
+| `constant` | `` | false |
 | `import` | `` | false |
 | `when` | `` | false |
 | `accumulator` | `` | false |
@@ -724,6 +738,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `collocation_scheme` | `` | false |
 | `discretization` | `` | false |
 | `realization` | `` | false |
+| `identifier_scheme` | `` | false |
 
 ## `ModelingDiagnosticSampleStop`
 
@@ -861,6 +876,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `identifier` | `` | false |
 | `quantity_type` | `` | false |
 | `reference_state` | `` | false |
+
+## `ModelingUncertaintyKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `standard` | `` | false |
+| `relative` | `` | false |
+| `bound` | `` | false |
 
 ## `ModelingVariableDomain`
 
