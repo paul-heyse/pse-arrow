@@ -212,6 +212,7 @@
 | `runtime.parameter_intervals` | `unique:pk` | `SELECT s."run_id", s."parameter_id", s."method", s."end" FROM "runtime"."parameter_intervals" s GROUP BY s."run_id", s."parameter_id", s."method", s."end" HAVING COUNT(*) > 1` |
 | `runtime.parametric_sensitivities` | `unique:pk` | `SELECT s."run_id", s."step", s."parameter_id", s."target_kind", s."target_id" FROM "runtime"."parametric_sensitivities" s GROUP BY s."run_id", s."step", s."parameter_id", s."target_kind", s."target_id" HAVING COUNT(*) > 1` |
 | `runtime.profile_points` | `unique:pk` | `SELECT s."run_id", s."parameter_id", s."end", s."point" FROM "runtime"."profile_points" s GROUP BY s."run_id", s."parameter_id", s."end", s."point" HAVING COUNT(*) > 1` |
+| `runtime.propagated_covariances` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."propagated_covariances" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
 | `runtime.publication_manifests` | `unique:pk` | `SELECT s."publication_id" FROM "runtime"."publication_manifests" s GROUP BY s."publication_id" HAVING COUNT(*) > 1` |
 | `runtime.reduced_hessians` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."reduced_hessians" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
 | `runtime.resolved_numerics` | `unique:pk` | `SELECT s."run_id", s."step", s."target_kind", s."target_id" FROM "runtime"."resolved_numerics" s GROUP BY s."run_id", s."step", s."target_kind", s."target_id" HAVING COUNT(*) > 1` |

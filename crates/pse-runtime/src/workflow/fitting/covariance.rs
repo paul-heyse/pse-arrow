@@ -249,6 +249,9 @@ impl FitProblem {
                     .as_ref()
                     .ok_or(FitWithheld::Local(Withheld::NoCandidate))?;
                 match &solve.evidence.inverse_reduced_hessian {
+                    Some(Ok(block)) if block.values.iter().any(|v| !v.is_finite()) => {
+                        Err(FitWithheld::Local(Withheld::Backsolve))
+                    }
                     Some(Ok(block)) if block.columns.len() == np => Ok(block.values.clone()),
                     Some(Ok(_)) | None => Err(FitWithheld::Local(Withheld::Analysis(
                         native::kkt::Unavailable::from(ProblemError::internal(

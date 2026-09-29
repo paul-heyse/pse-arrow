@@ -9,6 +9,8 @@ mod profile;
 pub use covariance::{Covariance, FitWithheld, Interval, IntervalBound};
 pub use modeling::FitData;
 pub use profile::{ProfileChain, ProfilePoint};
+#[cfg(test)]
+pub(in crate::workflow) mod regression;
 mod results;
 mod sparse;
 /// Exact fitting declaration from the schema registry.
@@ -71,6 +73,11 @@ pub struct FitUncertainty {
     /// intervals alone.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub profile: Option<ProfileControls>,
+    /// Also propagate the covariance to the included observations' predictions,
+    /// `Σ_y = R·Σ_θ·Rᵀ` over the fit's response derivatives (Plan 22 S4); their count
+    /// squared is bounded by the profile's `max_cells`.
+    #[serde(default)]
+    pub predictions: bool,
 }
 /// Controls of the profile-likelihood pin chains (ADR-0118 item 8).
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -110,6 +117,7 @@ impl FitUncertainty {
         Self {
             level,
             profile: None,
+            predictions: false,
         }
     }
     /// A confidence level below one: at one every interval is unbounded.

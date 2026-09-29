@@ -51,6 +51,11 @@
       "$ref": "#/$defs/Fraction",
       "description": "The confidence level of the intervals, below one."
     },
+    "predictions": {
+      "default": false,
+      "description": "Also propagate the covariance to the included observations' predictions,\n`Σ_y = R·Σ_θ·Rᵀ` over the fit's response derivatives (Plan 22 S4); their count\nsquared is bounded by the profile's `max_cells`.",
+      "type": "boolean"
+    },
     "profile": {
       "anyOf": [
         {

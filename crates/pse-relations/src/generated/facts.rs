@@ -1187,6 +1187,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            133u8, 37u8, 225u8, 93u8, 183u8, 139u8, 91u8, 104u8, 16u8, 43u8, 10u8, 137u8,
+            176u8, 52u8, 119u8, 61u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimePropagatedCovariances(
+                super::r#runtime::r#propagated_covariances::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             192u8, 131u8, 237u8, 62u8, 131u8, 132u8, 155u8, 254u8, 202u8, 14u8, 195u8,
             142u8, 129u8, 81u8, 74u8, 154u8,
         ])
@@ -1695,6 +1707,9 @@ pub fn encode(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeProfilePoints(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimePropagatedCovariances(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimePublicationManifests(rows) => {

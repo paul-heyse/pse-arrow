@@ -56,6 +56,7 @@ pub use fitting::{
 };
 mod physical;
 pub use physical::PhysicalContext;
+pub mod uncertainty;
 mod modeling;
 pub use modeling::ModelingNativeAnalysis;
 pub use modeling::{

@@ -1388,5 +1388,39 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
         ],
         "The right singular vectors of a fit's weighted, parameter-scaled response matrix at its candidate (ADR-0118 item 8): the identifiable directions span the locally identifiable subspace, and the others are the parameter combinations the observations do not determine.",
     );
+    relation(
+        b,
+        N::Runtime,
+        "propagated_covariances",
+        S::Derived,
+        &["run_id", "step"],
+        vec![
+            run_id(),
+            column("step", ordinal()),
+            documented(
+                "covariance_run_id",
+                T::id(),
+                "The fit run whose parameter covariance was propagated: this run for a fit's own predictions.",
+            )
+            .with_identity("run"),
+            documented(
+                "parameters",
+                T::list(T::id()),
+                "The fitted parameters propagated, in the covariance's order.",
+            ),
+            documented(
+                "outputs",
+                T::list(T::id()),
+                "The solved variables of a modeling step, or the included observations whose predictions a fit propagates: the order of every other output list.",
+            ),
+            column("output_units", T::list(T::id())),
+            documented(
+                "values",
+                T::list(real()),
+                "Σ_y row-major, in row-output unit × column-output unit.",
+            ),
+        ],
+        "A parameter covariance propagated to outputs, Σ_y = J·Σ_θ·Jᵀ (ADR-0118 items 1 and 11; the counterpart of IDAES sens.py): J is a modeling step's parametric sensitivities over the covariance's parameters, matched by identity, or a fit's response derivatives. A first-order statement valid while both its inputs are; its validity, the conjunction of theirs, is in local_validity.",
+    );
 }
 

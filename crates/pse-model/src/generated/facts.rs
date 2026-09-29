@@ -261,6 +261,8 @@ pub enum FactBatch {
     ),
     #[doc = stringify!(r#RuntimeProfilePoints)]
     r#RuntimeProfilePoints(Vec<super::r#runtime::r#profile_points::Row>),
+    #[doc = stringify!(r#RuntimePropagatedCovariances)]
+    r#RuntimePropagatedCovariances(Vec<super::r#runtime::r#propagated_covariances::Row>),
     #[doc = stringify!(r#RuntimePublicationManifests)]
     r#RuntimePublicationManifests(Vec<super::r#runtime::r#publication_manifests::Row>),
     #[doc = stringify!(r#RuntimeReducedHessians)]
@@ -888,6 +890,12 @@ impl FactBatch {
                     66u8, 89u8, 143u8, 73u8, 168u8, 63u8,
                 ])
             }
+            Self::r#RuntimePropagatedCovariances(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    133u8, 37u8, 225u8, 93u8, 183u8, 139u8, 91u8, 104u8, 16u8, 43u8,
+                    10u8, 137u8, 176u8, 52u8, 119u8, 61u8,
+                ])
+            }
             Self::r#RuntimePublicationManifests(_) => {
                 pse_ids::SemanticId::from_bytes([
                     192u8, 131u8, 237u8, 62u8, 131u8, 132u8, 155u8, 254u8, 202u8, 14u8,
@@ -1093,6 +1101,7 @@ impl FactBatch {
             Self::r#RuntimeParameterIntervals(rows) => rows.len(),
             Self::r#RuntimeParametricSensitivities(rows) => rows.len(),
             Self::r#RuntimeProfilePoints(rows) => rows.len(),
+            Self::r#RuntimePropagatedCovariances(rows) => rows.len(),
             Self::r#RuntimePublicationManifests(rows) => rows.len(),
             Self::r#RuntimeReducedHessians(rows) => rows.len(),
             Self::r#RuntimeResolvedNumerics(rows) => rows.len(),
@@ -1612,6 +1621,11 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimePropagatedCovariances(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimePublicationManifests(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -2116,6 +2130,10 @@ impl FactBatch {
             Self::r#RuntimeProfilePoints(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeProfilePoints(vec![row.clone()]))
+            }
+            Self::r#RuntimePropagatedCovariances(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimePropagatedCovariances(vec![row.clone()]))
             }
             Self::r#RuntimePublicationManifests(rows) => {
                 rows.get(index)
@@ -3202,6 +3220,17 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimePropagatedCovariances(left),
+                Self::r#RuntimePropagatedCovariances(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimePublicationManifests(left),
                 Self::r#RuntimePublicationManifests(right),
             ) => {
@@ -4059,6 +4088,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeProfilePoints(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimePropagatedCovariances(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -5608,6 +5644,21 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimePropagatedCovariances(left),
+                Self::r#RuntimePropagatedCovariances(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimePublicationManifests(left),
                 Self::r#RuntimePublicationManifests(right),
             ) => {
@@ -6380,6 +6431,11 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#end, &mut hash);
                 crate::SemanticFrame::frame(&row.r#point, &mut hash);
             }
+            Self::r#RuntimePropagatedCovariances(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+            }
             Self::r#RuntimePublicationManifests(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#publication_id, &mut hash);
@@ -7145,6 +7201,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimePropagatedCovariances(left),
+                Self::r#RuntimePropagatedCovariances(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimePublicationManifests(left),
                 Self::r#RuntimePublicationManifests(mut right),
             ) => {
@@ -7456,6 +7519,9 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeProfilePoints(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimePropagatedCovariances(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimePublicationManifests(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }

@@ -11,8 +11,8 @@ use pse_relations::{
         runtime::{
             computation_runs, fit_constraints, fit_observations, fit_parameters, fit_variables,
             infeasibility_certificates, local_validity, parameter_covariances,
-            parameter_intervals, profile_points, response_directions, response_sensitivities,
-            solve_metrics,
+            parameter_intervals, profile_points, propagated_covariances, response_directions,
+            response_sensitivities, solve_metrics,
         },
     },
 };
@@ -376,6 +376,9 @@ fn uncertainty(
     let mut points = profile_points::Builder::with_registry(registry, 0).map_err(relation)?;
     let mut directions =
         response_directions::Builder::with_registry(registry, 0).map_err(relation)?;
+    let mut propagated =
+        propagated_covariances::Builder::with_registry(registry, 0).map_err(relation)?;
+    let predictions = p.profile.uncertainty.as_ref().is_some_and(|u| u.predictions);
     let free: Vec<(usize, SemanticId)> = p
         .free()
         .map(|(k, _)| (k, p.declaration.parameters[k].symbol_id))
@@ -411,8 +414,19 @@ fn uncertainty(
                     row(DerivedQuantity::ProfileInterval, Err(&absent), None)?;
                 }
             }
+            if predictions {
+                let upstream = FitWithheld::Upstream(DerivedQuantity::ParameterCovariance);
+                row(DerivedQuantity::PropagatedCovariance, Err(&upstream), None)?;
+            }
         }
-        return finish(validity, covariances, intervals, points, directions);
+        return finish(
+            validity,
+            covariances,
+            intervals,
+            points,
+            directions,
+            propagated,
+        );
     };
     if let Some(covariance) = &report.covariance {
         // The exact covariance is read from the fit's KKT point, whose verdicts it states.
@@ -520,6 +534,63 @@ fn uncertainty(
             }
         }
     }
+    // The covariance propagated to the included predictions through the responses (S4).
+    if let Some(covariance) = report.covariance.as_ref().filter(|_| predictions) {
+        let included: Vec<(usize, &Measurement)> = p
+            .measurements
+            .iter()
+            .enumerate()
+            .filter(|(_, o)| o.included)
+            .collect();
+        let jacobian = report.responses.as_ref().map(|r| crate::workflow::uncertainty::Jacobian {
+            outputs: included.iter().map(|(_, o)| o.id).collect(),
+            parameters: covariance.parameters.clone(),
+            values: included
+                .iter()
+                .flat_map(|(i, _)| (0..r.ncols()).map(move |j| r[(*i, j)]))
+                .collect(),
+        });
+        let jacobian = jacobian.ok_or_else(|| crate::workflow::uncertainty::Upstream {
+            quantity: DerivedQuantity::ParameterCovariance,
+            reason: pse_relations::generated::enums::WithheldReason::ResponsesUnavailable,
+            detail: "the fit's responses are unavailable".into(),
+        });
+        let input = covariance.propagation_input(run_id);
+        let result = crate::workflow::uncertainty::propagate(
+            input.as_ref().map_err(Clone::clone),
+            jacobian.as_ref().map_err(Clone::clone),
+        )?;
+        validity
+            .push(local_validity::Row {
+                run_id,
+                step: 0,
+                quantity: DerivedQuantity::PropagatedCovariance,
+                validity: crate::workflow::local_analysis::record(
+                    result.as_ref().map_err(|u| {
+                        (
+                            pse_relations::generated::enums::WithheldReason::UpstreamWithheld,
+                            u.to_string(),
+                        )
+                    }),
+                    None,
+                    false,
+                ),
+            })
+            .map_err(relation)?;
+        if let Ok(result) = result {
+            propagated
+                .push(propagated_covariances::Row {
+                    run_id,
+                    step: 0,
+                    covariance_run_id: result.covariance_run,
+                    parameters: result.parameters,
+                    output_units: included.iter().map(|(_, o)| o.port.unit.as_id()).collect(),
+                    outputs: result.outputs,
+                    values: result.values,
+                })
+                .map_err(relation)?;
+        }
+    }
     if let (Some(basis), Some(rank)) = (&report.directions, report.rank) {
         for k in 0..basis.ncols() {
             for (j, (_, parameter)) in free.iter().enumerate() {
@@ -536,7 +607,14 @@ fn uncertainty(
             }
         }
     }
-    finish(validity, covariances, intervals, points, directions)
+    finish(
+        validity,
+        covariances,
+        intervals,
+        points,
+        directions,
+        propagated,
+    )
 }
 fn finish(
     validity: local_validity::Builder,
@@ -544,8 +622,13 @@ fn finish(
     intervals: parameter_intervals::Builder,
     points: profile_points::Builder,
     directions: response_directions::Builder,
+    propagated: propagated_covariances::Builder,
 ) -> Result<BTreeMap<SemanticId, FieldCheckedBatch>, WorkflowError> {
     Ok(BTreeMap::from([
+        (
+            propagated_covariances::RELATION_ID,
+            propagated.finish().map_err(relation)?,
+        ),
         (local_validity::RELATION_ID, validity.finish().map_err(relation)?),
         (
             parameter_covariances::RELATION_ID,

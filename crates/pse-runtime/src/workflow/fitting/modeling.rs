@@ -841,6 +841,17 @@ impl ModelingPackage {
             }
             experiments.push(experiment);
         }
+        // The predictions' propagated covariance is bounded like the dense diagnostics.
+        let included = measurements.iter().filter(|o| o.included).count();
+        if profile.uncertainty.as_ref().is_some_and(|u| u.predictions)
+            && included
+                .checked_mul(included)
+                .is_none_or(|cells| cells > profile.max_cells)
+        {
+            return Err(contract(
+                "the predictions' propagated covariance exceeds the fit's max_cells",
+            ));
+        }
         if measurements.len() != d.observations.len()
             || !measurements.iter().any(|o| o.included)
             || profile

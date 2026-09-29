@@ -521,6 +521,18 @@ impl ModelingPackage {
                 request
                     .admit(solver.intent)
                     .map_err(crate::math::MathRuntimeError::from)?;
+                // A propagation's outputs are columns the step solves (Plan 22 S4).
+                let columns = prepared.case.compiled().plan.columns();
+                if let Some(propagation) = &request.propagation
+                    && let Some(output) = propagation
+                        .outputs
+                        .iter()
+                        .find(|o| !columns.contains(o))
+                {
+                    return Err(contract(format!(
+                        "propagation output {output} is not a variable the case solves"
+                    )));
+                }
                 let program = self
                     .parametric_program(
                         &model,

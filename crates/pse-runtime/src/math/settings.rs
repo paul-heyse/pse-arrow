@@ -13,7 +13,7 @@ use pse_backend_native::{
     solve::{Backend, Controls, Options, SolveIntent, SolverSelection},
 };
 use pse_math::convexity::ConvexityPolicy;
-use pse_model::{document::Version, numerics::NumericalPolicy};
+use pse_model::{document::Version, numerics::NumericalPolicy, scalars::FiniteBound};
 use std::collections::BTreeSet;
 
 /// The settings of one solve. The version is required; every other field takes the
@@ -66,7 +66,7 @@ pub struct SolveSettings {
 /// KKT-point analysis at the qualified candidate, in original coordinates and physical
 /// units, and each is published with its validity: certified, or withheld with the
 /// condition that failed.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SensitivityRequest {
     /// Declared parameters of the solved case by identity, in the order results report
@@ -76,9 +76,68 @@ pub struct SensitivityRequest {
     /// optimal value.
     #[serde(default)]
     pub reduced_hessian: bool,
+    /// Also propagate a fit's parameter covariance through the sensitivities to named
+    /// variables (Plan 22 S4); absent propagates none and is not encoded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub propagation: Option<Propagation>,
+}
+/// Propagation of a parameter covariance to solved variables, `Σ_y = J·Σ_θ·Jᵀ` with `J` the
+/// step's parametric sensitivities (Plan 22 S4; ADR-0118 items 1 and 11). The result holds
+/// while the sensitivities do: its validity is theirs, and the covariance's, which a fit
+/// publishes only when certified.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Propagation {
+    /// The covariance to propagate, as a fit run published it.
+    pub covariance: ParameterCovariance,
+    /// Solved variables of the case by identity, in the order of the result; at least one,
+    /// none repeated.
+    pub outputs: Vec<pse_ids::SemanticId>,
+}
+/// A parameter covariance as `runtime.parameter_covariances` publishes it.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ParameterCovariance {
+    /// The fit run that derived it.
+    pub run_id: pse_model::generated::identities::RunId,
+    /// The fitted parameters by identity, in the order of `values`.
+    pub parameters: Vec<pse_ids::SemanticId>,
+    /// `Σ_θ` row-major, in the parameters' units.
+    pub values: Vec<FiniteBound>,
+}
+impl ParameterCovariance {
+    /// Distinct parameters and a square, symmetric `values` over them with a nonnegative
+    /// diagonal.
+    ///
+    /// # Errors
+    /// A contract error naming the violated rule.
+    pub fn admit(&self) -> Result<(), ProblemError> {
+        let n = self.parameters.len();
+        let distinct: BTreeSet<_> = self.parameters.iter().collect();
+        let value = |i: usize, j: usize| self.values[i * n + j].into_inner();
+        let scale = self
+            .values
+            .iter()
+            .fold(0.0_f64, |m, v| m.max(v.into_inner().abs()));
+        if n == 0
+            || distinct.len() != n
+            || self.values.len() != n * n
+            || (0..n).any(|i| {
+                value(i, i) < 0.0
+                    || (0..i).any(|j| (value(i, j) - value(j, i)).abs() > 1e-12 * scale)
+            })
+        {
+            return Err(ProblemError::Contract(
+                "a parameter covariance names distinct parameters and a symmetric square matrix over them with a nonnegative diagonal".into(),
+            ));
+        }
+        Ok(())
+    }
 }
 impl SensitivityRequest {
-    /// Admit the request for a solve of `intent`: an optimization, and distinct parameters.
+    /// Admit the request for a solve of `intent`: an optimization, distinct parameters,
+    /// and a propagation over a valid covariance of requested parameters to distinct
+    /// outputs.
     ///
     /// # Errors
     /// A contract error naming the violated rule.
@@ -94,6 +153,22 @@ impl SensitivityRequest {
             return Err(ProblemError::Contract(
                 "a sensitivity request names at least one parameter, none repeated".into(),
             ));
+        }
+        if let Some(propagation) = &self.propagation {
+            propagation.covariance.admit()?;
+            let outputs: BTreeSet<_> = propagation.outputs.iter().collect();
+            if propagation
+                .covariance
+                .parameters
+                .iter()
+                .any(|p| !distinct.contains(p))
+                || outputs.is_empty()
+                || outputs.len() != propagation.outputs.len()
+            {
+                return Err(ProblemError::Contract(
+                    "a propagation's covariance parameters are requested parameters, and its outputs are at least one, none repeated".into(),
+                ));
+            }
         }
         Ok(())
     }
@@ -228,6 +303,7 @@ mod tests {
         let request = SensitivityRequest {
             parameters: vec![a, b],
             reduced_hessian: true,
+            propagation: None,
         };
         assert_eq!(settings.sensitivity, Some(request.clone()));
         let profile = settings.profile().unwrap();
@@ -252,6 +328,34 @@ mod tests {
             }))
             .is_err()
         );
+        // A propagation (Plan 22 S4) names a covariance over requested parameters and at
+        // least one output; it enters the request identity.
+        let x = pse_ids::SemanticId::from_bytes([3; 16]);
+        let run = pse_ids::SemanticId::from_bytes([4; 16]);
+        let propagating = |parameters: serde_json::Value, values: serde_json::Value, outputs: serde_json::Value| {
+            serde_json::from_value::<SolveSettings>(json!({
+                "version": 1,
+                "sensitivity": {"parameters": [a, b], "propagation": {
+                    "covariance": {"run_id": run, "parameters": parameters, "values": values},
+                    "outputs": outputs,
+                }},
+            }))
+            .unwrap()
+            .profile()
+        };
+        let accepted = propagating(json!([b]), json!([2.0]), json!([x])).unwrap();
+        assert_ne!(
+            super::super::solves::profile_key(&accepted).unwrap(),
+            super::super::solves::profile_key(&profile).unwrap()
+        );
+        for (parameters, values, outputs) in [
+            (json!([x]), json!([2.0]), json!([x])),
+            (json!([a, b]), json!([1.0, 0.5, 0.0, 1.0]), json!([x])),
+            (json!([a]), json!([-1.0]), json!([x])),
+            (json!([a]), json!([1.0]), json!([])),
+        ] {
+            assert!(propagating(parameters.clone(), values, outputs).is_err(), "{parameters}");
+        }
     }
 
     /// A value outside its single-value domain is refused where the document is decoded,

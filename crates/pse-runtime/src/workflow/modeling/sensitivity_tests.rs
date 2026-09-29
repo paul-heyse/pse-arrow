@@ -27,7 +27,7 @@ use pse_relations::{
 /// `min ½x² + y² − b·x + ½z² + a·z  s.t.  x + y = a`, z ∈ [0, 10], at (a, b) = (1, 2):
 /// x = (b + 2a)/3, y = (a − b)/3, z = 0 with its bound multiplier a, and
 /// d²f*/d(a, b)² = [[2/3, −2/3], [−2/3, −1/3]].
-const QUADRATIC: &str = "package p {
+pub(in crate::workflow) const QUADRATIC: &str = "package p {
     def Root {
       param a: Scalar = 1; param b: Scalar = 2;
       var x: Scalar; var y: Scalar; var z: Scalar;
@@ -37,7 +37,7 @@ const QUADRATIC: &str = "package p {
       annotation bounds z(0, 10);
       annotation start x(0.5); annotation start y(0.5); annotation start z(0.5); } }";
 /// `min b·x  s.t.  x >= a`: a linear program the coefficient route solves.
-const LINEAR: &str = "package p {
+pub(in crate::workflow) const LINEAR: &str = "package p {
     def Root {
       param a: Scalar = 1; param b: Scalar = 2;
       var x: Scalar;
@@ -93,16 +93,37 @@ async fn solve(
     text: &str,
     selection: SolverSelection,
 ) -> (std::sync::Arc<crate::workflow::RunResult>, [SemanticId; 3]) {
+    let (result, ids) = solve_propagating(text, selection, &["x"], |_, _| None).await;
+    (result, [ids[0], ids[1], ids[2]])
+}
+/// Solve `text` with a sensitivity request over its parameters `a` and `b` and the
+/// propagation `propagation` builds from the identities of `a`, `b` and `outputs`;
+/// returns the result and those identities.
+pub(in crate::workflow) async fn solve_propagating(
+    text: &str,
+    selection: SolverSelection,
+    outputs: &[&str],
+    propagation: impl FnOnce(&[SemanticId], &[SemanticId]) -> Option<crate::math::settings::Propagation>,
+) -> (std::sync::Arc<crate::workflow::RunResult>, Vec<SemanticId>) {
     let (package, root) = package(text);
     let cancel = crate::CancelSource::new();
     let mut analysis = analysis(root, selection);
-    analysis.bindings.demand = vec!["a".into(), "b".into(), "x".into()];
+    analysis.bindings.demand = ["a", "b"]
+        .iter()
+        .chain(outputs)
+        .map(|p| (*p).into())
+        .collect();
     let plain = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     let paths = &plain.model.model.compiled().model.paths;
-    let ids = [paths["a"], paths["b"], paths["x"]];
+    let ids: Vec<SemanticId> = ["a", "b"]
+        .iter()
+        .chain(outputs)
+        .map(|p| paths[*p])
+        .collect();
     analysis.solver.sensitivity = Some(SensitivityRequest {
         parameters: vec![ids[0], ids[1]],
         reduced_hessian: true,
+        propagation: propagation(&ids[..2], &ids[2..]),
     });
     let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     let result = prepared.start().unwrap().wait().await.unwrap();

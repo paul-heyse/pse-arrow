@@ -1633,6 +1633,26 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, parameter_id, end, 
 | `accepted` | `Boolean` | false | `payload` | — | — |
 | `detail` | `Utf8` | true | `payload` | — | — |
 
+## `propagated_covariances`
+
+A parameter covariance propagated to outputs, Σ_y = J·Σ_θ·Jᵀ (ADR-0118 items 1 and 11; the counterpart of IDAES sens.py): J is a modeling step's parametric sensitivities over the covariance's parameters, matched by identity, or a fit's response derivatives. A first-order statement valid while both its inputs are; its validity, the conjunction of theirs, is in local_validity.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `covariance_run_id` | `semantic_id` | false | `payload` | — | — |
+| `parameters` | `List` | false | `payload` | — | — |
+| `parameters.item` | `semantic_id` | false | `payload` | — | — |
+| `outputs` | `List` | false | `payload` | — | — |
+| `outputs.item` | `semantic_id` | false | `payload` | — | — |
+| `output_units` | `List` | false | `payload` | — | — |
+| `output_units.item` | `semantic_id` | false | `payload` | — | — |
+| `values` | `List` | false | `payload` | — | — |
+| `values.item` | `Float64` | false | `payload` | — | — |
+
 ## `publication_manifests`
 
 One publication record: identity, workspace, parent, durable attempt, kind, the exact input and member vectors and the change windows read. The operational catalog is the authority for what is published; an export writes this row once as version 1 of a one-row Delta table together with the reader lease protecting its members, the workspace maintenance epoch and the operational store fingerprint, so an offline reader opens exactly those members.

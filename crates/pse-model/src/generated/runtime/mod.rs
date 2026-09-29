@@ -111,6 +111,8 @@ pub mod r#parametric_sensitivities;
 ///Generated relation contract.
 pub mod r#profile_points;
 ///Generated relation contract.
+pub mod r#propagated_covariances;
+///Generated relation contract.
 pub mod r#publication_manifests;
 ///Generated relation contract.
 pub mod r#reduced_hessians;

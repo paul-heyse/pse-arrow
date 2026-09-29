@@ -172,6 +172,10 @@ class FitUncertainty(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 
     #: The confidence level of the intervals, below one.
     level: Fraction
+    #: Also propagate the covariance to the included observations' predictions,
+    #: `Σ_y = R·Σ_θ·Rᵀ` over the fit's response derivatives (Plan 22 S4); their count
+    #: squared is bounded by the profile's `max_cells`.
+    predictions: bool = False
     #: Also derive profile-likelihood intervals under these controls; absent derives Wald
     #: intervals alone.
     profile: ProfileControls | None = None
@@ -492,6 +496,17 @@ class NumericalPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     strict_nominals: bool = False
 
 
+class ParameterCovariance(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A parameter covariance as `runtime.parameter_covariances` publishes it."""
+
+    #: The fitted parameters by identity, in the order of `values`.
+    parameters: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: The fit run that derived it.
+    run_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: `Σ_θ` row-major, in the parameters' units.
+    values: tuple[FiniteBound, ...]
+
+
 class PointOverlay(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Values a study point replaces in its authored case, composed over the original for the
     point only.
@@ -524,6 +539,20 @@ class ProfileControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Chains solved at once, each pinned fit on the fit's own threads; the fit's job admits
     #: the cores of all of them. Absent solves as many at once as one job's cores admit.
     workers: PositiveCount | None = None
+
+
+class Propagation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Propagation of a parameter covariance to solved variables, `Σ_y = J·Σ_θ·Jᵀ` with `J` the
+    step's parametric sensitivities (Plan 22 S4; ADR-0118 items 1 and 11). The result holds
+    while the sensitivities do: its validity is theirs, and the covariance's, which a fit
+    publishes only when certified.
+    """
+
+    #: The covariance to propagate, as a fit run published it.
+    covariance: ParameterCovariance
+    #: Solved variables of the case by identity, in the order of the result; at least one,
+    #: none repeated.
+    outputs: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
 
 
 class RestartBarrierSeed(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="seed"):
@@ -575,6 +604,9 @@ class SensitivityRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     #: Declared parameters of the solved case by identity, in the order results report
     #: them; at least one, none repeated.
     parameters: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Also propagate a fit's parameter covariance through the sensitivities to named
+    #: variables (Plan 22 S4); absent propagates none and is not encoded.
+    propagation: Propagation | None = None
     #: Also compute the reduced Hessian over the parameters: the second derivative of the
     #: optimal value.
     reduced_hessian: bool = False
@@ -821,10 +853,12 @@ __all__ = [
     "KktTolerances",
     "NumericalPolicy",
     "OptionValue",
+    "ParameterCovariance",
     "PointOverlay",
     "PositiveCount",
     "PounceSettings",
     "ProfileControls",
+    "Propagation",
     "RestartBarrier",
     "RestartBarrierSeed",
     "RestartBarrierValue",
