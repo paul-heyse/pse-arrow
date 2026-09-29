@@ -187,7 +187,8 @@ async fn main() {
         cache_journey::maintenance_child(&payload).await;
         return;
     }
-    let smoke = std::env::args().any(|argument| argument == "--test");
+    // `cargo bench` passes `--bench`; `cargo test --benches` passes no mode flag.
+    let smoke = !std::env::args().any(|argument| argument == "--bench");
     tracing_subscriber::fmt()
         .with_env_filter("pse_rules=debug")
         .with_target(true)
