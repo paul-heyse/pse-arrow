@@ -485,6 +485,12 @@ impl ModelingPackage {
                 bytes = bytes
                     .checked_add(simulation.bytes)
                     .ok_or_else(|| contract("fit transient extent"))?;
+                // A fit parameter binds the integration column in effect at the start: a
+                // scheduled input's first interval, whose later intervals keep their
+                // scheduled values (I6).
+                let start = simulation
+                    .profile()
+                    .columns_at(simulation.contract().parameters.len(), simulation.profile().start);
                 let bindings = local
                     .iter()
                     .map(|(parameter, id)| {
@@ -497,7 +503,7 @@ impl ModelingPackage {
                                 contract("fitted dynamic member is not a sensitivity parameter")
                             })?;
                         Ok(ParameterBinding {
-                            local: position,
+                            local: start[position],
                             parameter: *parameter,
                             conversion: pse_quantity::UnitConvertSpec {
                                 from: parameter_ports[*parameter].unit,

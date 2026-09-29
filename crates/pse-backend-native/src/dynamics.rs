@@ -181,7 +181,9 @@ impl Crossing {
     }
 }
 
-/// Dispatch only after checking the complete integration requirements.
+/// Dispatch only after checking the complete integration requirements. `parameters` is
+/// the integration vector of [`Profile::integration_width`] values: the unscheduled
+/// contract parameters, then every scheduled input's interval values.
 #[cfg(any(feature = "diffsol", feature = "idas"))]
 pub fn integrate(
     oracle: &mut dyn Oracle,
@@ -362,10 +364,13 @@ pub struct Profile {
     pub max_cells: usize,
     /// Integrate smooth forward sensitivities for every selected parameter.
     pub sensitivities: bool,
-    /// Positive characteristic parameter scales, also used for sensitivity tolerances.
+    /// Positive characteristic scales in the contract's parameter order, also used for
+    /// sensitivity tolerances; every interval of a scheduled input takes its parameter's.
     pub parameter_scales: Vec<f64>,
-    /// Fixed-time replacement of all parameters; carried-state sensitivities remain active.
-    pub changes: Vec<InputChange>,
+    /// Scheduled inputs: a contract parameter that takes one integration value per
+    /// schedule interval, each with its own live sensitivity (I6).
+    #[serde(default)]
+    pub schedule: Vec<ScheduledInput>,
     /// Typed Diffsol scheme and linear solver.
     #[serde(default)]
     pub diffsol: DiffsolSettings,
@@ -381,16 +386,118 @@ pub struct Profile {
     #[serde(with = "ode_options")]
     pub native: Arc<diffsol::OdeSolverOptions<f64>>,
 }
-/// A scheduled replacement of the complete selected parameter vector.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+/// One contract parameter held piecewise constant: it takes a new value at each change
+/// time. The integration parameter vector holds one value per interval, `times.len() + 1`
+/// of them, and a sensitivity column for each, so sensitivities cross every change
+/// (ADR-0119, I6).
+///
+/// ```
+/// use pse_backend_native::dynamics::{Profile, ScheduledInput};
+///
+/// // Two contract parameters; the second changes at t = 0.5.
+/// let profile = Profile {
+///     schedule: vec![ScheduledInput { parameter: 1, times: vec![0.5] }],
+///     ..Profile::default()
+/// };
+/// // The static parameter comes first, then one value per interval.
+/// assert_eq!(profile.integration_width(2), 3);
+/// assert_eq!(profile.integration_parameters(&[4.0, 7.0]), vec![4.0, 7.0, 7.0]);
+/// assert_eq!(profile.parameters_at(&[4.0, 7.0, 9.0], 0.25), vec![4.0, 7.0]);
+/// // A change takes effect at its time.
+/// assert_eq!(profile.parameters_at(&[4.0, 7.0, 9.0], 0.5), vec![4.0, 9.0]);
+/// ```
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct InputChange {
-    /// Exact physical time.
-    pub time: f64,
-    /// Values in declared parameter order.
-    pub parameters: Vec<f64>,
+pub struct ScheduledInput {
+    /// Position of the input in the contract's parameter order.
+    pub parameter: usize,
+    /// Strictly increasing change times after the start and up to the end; a change at
+    /// the end is observed by the final sample only.
+    pub times: Vec<f64>,
 }
 impl Profile {
+    /// The integration parameter vector's length for `parameters` contract parameters:
+    /// the unscheduled parameters, then every interval of every scheduled input.
+    pub fn integration_width(&self, parameters: usize) -> usize {
+        parameters.saturating_sub(self.schedule.len())
+            + self
+                .schedule
+                .iter()
+                .map(|s| s.times.len() + 1)
+                .sum::<usize>()
+    }
+    /// The integration column of every contract parameter while time `t` is in effect.
+    /// Unscheduled parameters take the leading columns in contract order; a scheduled
+    /// input's interval columns follow in schedule order, and a change applies from its
+    /// own time on.
+    pub fn columns_at(&self, parameters: usize, t: f64) -> Vec<usize> {
+        let mut columns = vec![0; parameters];
+        let mut next = 0;
+        for (k, column) in columns.iter_mut().enumerate() {
+            if !self.schedule.iter().any(|s| s.parameter == k) {
+                *column = next;
+                next += 1;
+            }
+        }
+        for s in &self.schedule {
+            if let Some(column) = columns.get_mut(s.parameter) {
+                *column = next + s.times.iter().filter(|c| **c <= t).count();
+            }
+            next += s.times.len() + 1;
+        }
+        columns
+    }
+    /// The contract parameter values in effect at `t`, from an integration vector.
+    pub fn parameters_at(&self, integration: &[f64], t: f64) -> Vec<f64> {
+        let np = self
+            .contract_width(integration.len())
+            .unwrap_or(integration.len());
+        self.columns_at(np, t)
+            .into_iter()
+            .map(|c| integration.get(c).copied().unwrap_or(f64::NAN))
+            .collect()
+    }
+    /// The integration vector that holds every scheduled input at its contract value in
+    /// each interval; callers then set the interval values they schedule.
+    pub fn integration_parameters(&self, contract: &[f64]) -> Vec<f64> {
+        let mut values = vec![0.0; self.integration_width(contract.len())];
+        let first = self.columns_at(contract.len(), self.start);
+        for (k, value) in contract.iter().enumerate() {
+            let first = first[k];
+            let intervals = self
+                .schedule
+                .iter()
+                .find(|s| s.parameter == k)
+                .map_or(1, |s| s.times.len() + 1);
+            if let Some(slots) = values.get_mut(first..first + intervals) {
+                slots.fill(*value);
+            }
+        }
+        values
+    }
+    /// The contract parameter count whose integration vector has `integration` values.
+    fn contract_width(&self, integration: usize) -> Option<usize> {
+        let intervals = self
+            .schedule
+            .iter()
+            .map(|s| s.times.len() + 1)
+            .sum::<usize>();
+        integration
+            .checked_sub(intervals)
+            .map(|n| n + self.schedule.len())
+    }
+    /// Every distinct change time in increasing order: the segment boundaries.
+    #[cfg(any(feature = "diffsol", feature = "idas"))]
+    pub(crate) fn boundaries(&self) -> Vec<f64> {
+        let mut times = self
+            .schedule
+            .iter()
+            .flat_map(|s| s.times.iter().copied())
+            .collect::<Vec<_>>();
+        times.sort_by(f64::total_cmp);
+        times.dedup();
+        times
+    }
     /// Resolve algorithm and trial semantics without acquiring a worker.
     pub fn resolved_method(&self) -> Result<Method, ProblemError> {
         let method = match self.method {
@@ -533,7 +640,22 @@ impl Profile {
             }
         }
         let m = c.outputs.len();
-        let np = c.parameters.len();
+        let np = self.integration_width(c.parameters.len());
+        let scheduled = self.schedule.iter().map(|s| s.parameter).collect::<BTreeSet<_>>();
+        if scheduled.len() != self.schedule.len()
+            || scheduled.iter().any(|k| *k >= c.parameters.len())
+            || self.schedule.iter().any(|s| {
+                s.times.is_empty()
+                    || s.times
+                        .iter()
+                        .any(|t| !t.is_finite() || *t <= self.start || *t > self.end)
+                    || s.times.windows(2).any(|w| w[0] >= w[1])
+            })
+        {
+            return Err(contract(
+                "a scheduled input names one contract parameter once, with increasing change times after the start and up to the end",
+            ));
+        }
         if !self.start.is_finite()
             || !self.end.is_finite()
             || self.start >= self.end
@@ -543,7 +665,7 @@ impl Profile {
             || self.atol.iter().any(|v| !positive(*v))
             || p.len() != np
             || p.iter().any(|v| !v.is_finite())
-            || self.parameter_scales.len() != np
+            || self.parameter_scales.len() != c.parameters.len()
             || self.parameter_scales.iter().any(|v| !positive(*v))
             || self.max_steps == 0
             || self.max_events == 0
@@ -554,14 +676,6 @@ impl Profile {
                 .iter()
                 .any(|t| !t.is_finite() || *t < self.start || *t > self.end)
             || self.samples.windows(2).any(|w| w[0] >= w[1])
-            || self.changes.iter().any(|x| {
-                !x.time.is_finite()
-                    || x.time <= self.start
-                    || x.time > self.end
-                    || x.parameters.len() != np
-                    || x.parameters.iter().any(|v| !v.is_finite())
-            })
-            || self.changes.windows(2).any(|w| w[0].time >= w[1].time)
             || (self.sensitivities && np == 0)
             || (self.sensitivities
                 && !c.quadratures.is_empty()
@@ -667,9 +781,11 @@ pub struct Sample {
     pub state: Vec<f64>,
     /// Ordered physical outputs.
     pub outputs: Vec<f64>,
-    /// State-major parameter derivatives, empty when not requested.
+    /// State-major derivatives with respect to the integration parameters, empty when
+    /// not requested.
     pub state_sensitivities: Vec<f64>,
-    /// Output-major parameter derivatives, empty when not requested.
+    /// Output-major derivatives with respect to the integration parameters, empty when
+    /// not requested.
     pub output_sensitivities: Vec<f64>,
 }
 /// An actual native root or scheduled input transition.
@@ -945,7 +1061,7 @@ impl Default for Profile {
             max_cells: 1_000_000,
             sensitivities: false,
             parameter_scales: vec![],
-            changes: vec![],
+            schedule: vec![],
             diffsol: DiffsolSettings::default(),
             idas: IdasSettings::default(),
             #[cfg(feature = "diffsol")]

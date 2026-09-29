@@ -176,11 +176,17 @@ fn coincident_root_samples_observe_reset_and_final_time_is_supported() {
 #[test]
 fn final_scheduled_change_is_reinitialized_and_observed() {
     let mut p = profile(false);
-    p.changes = vec![InputChange {
-        time: 1.0,
-        parameters: vec![3.0],
+    p.schedule = vec![ScheduledInput {
+        parameter: 0,
+        times: vec![1.0],
     }];
-    let r = run(&mut Toy::new(false, false), &p);
+    let r = integrate(
+        &mut Toy::new(false, false),
+        &p,
+        &[2.0, 3.0],
+        Arc::new(AtomicBool::new(false)),
+    )
+    .unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
     assert_eq!(r.samples.len(), 4);
     assert!((r.samples[3].outputs[0] - r.samples[3].state[0] - 3.0).abs() < 1e-10);
@@ -316,9 +322,9 @@ fn dynamics_identity_covers_every_option_field() {
     let mut base = profile(true);
     base.out_rtol = Some(1e-8);
     base.out_atol = vec![1e-9];
-    base.changes = vec![InputChange {
-        time: 0.5,
-        parameters: vec![3.0],
+    base.schedule = vec![ScheduledInput {
+        parameter: 0,
+        times: vec![0.5],
     }];
     base.idas.constraints = vec![StateSign::NonNegative, StateSign::Free];
     let encoded = serde_json::to_value(&base).unwrap();
@@ -341,7 +347,7 @@ fn dynamics_identity_covers_every_option_field() {
         "max_cells",
         "sensitivities",
         "parameter_scales",
-        "changes",
+        "schedule",
         "idas",
     ];
     let fields: BTreeSet<_> = encoded.as_object().unwrap().keys().cloned().collect();
@@ -464,16 +470,16 @@ fn integrated_balances_carry_segments_and_refuse_undeclared_jumps() {
         rtol: 1e-9,
         out_rtol: Some(1e-9),
         out_atol: vec![1e-10],
-        changes: vec![InputChange {
-            time: 0.4,
-            parameters: vec![2.0],
+        schedule: vec![ScheduledInput {
+            parameter: 0,
+            times: vec![0.4],
         }],
         ..Default::default()
     };
     let r = integrate(
         &mut oracle,
         &profile,
-        &[1.0],
+        &[1.0, 2.0],
         Arc::new(AtomicBool::new(false)),
     )
     .unwrap();
@@ -484,7 +490,7 @@ fn integrated_balances_carry_segments_and_refuse_undeclared_jumps() {
     let mut event = Toy::new(false, true);
     event.c.quadratures = oracle.c.quadratures.clone();
     event.c.balances = oracle.c.balances.clone();
-    profile.changes.clear();
+    profile.schedule.clear();
     let r = integrate(
         &mut event,
         &profile,
@@ -536,31 +542,92 @@ fn idas_consistent_dae_and_analytic_forward_sensitivities() {
     }
 }
 
+/// The declared agreement of forward sensitivities with central finite differences of
+/// the outputs (relative step `FD_STEP`; integration `rtol` 1e-10 on Diffsol and 1e-8 on
+/// IDAS, whose DAE sensitivities fail the first error test at tighter tolerances with or
+/// without a schedule): the truncation error is O(step²) and the integration noise
+/// O(rtol/step).
+const FD_TOLERANCE: f64 = 2e-5;
+const FD_STEP: f64 = 1e-4;
+/// I6: a scheduled input takes one integration parameter per interval, and every
+/// sensitivity crosses the changes, on Diffsol and on IDAS: the earlier intervals' columns
+/// carry through the state, the current interval's column adds its direct partials, and
+/// the later ones are zero. Each column equals central finite differences of the outputs.
 #[test]
-fn scheduled_changes_preserve_history_sensitivity_and_replace_direct_parameter_terms() {
-    let mut p = profile(false);
-    p.sensitivities = true;
-    p.changes = vec![InputChange {
-        time: 0.5,
-        parameters: vec![3.0],
-    }];
-    let r = run(&mut Toy::new(false, false), &p);
-    assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
-    for s in &r.samples {
-        let (y, dy, direct) = if s.time < 0.5 {
-            (
-                2.0 * (-2.0 * s.time).exp(),
-                (1.0 - 2.0 * s.time) * (-2.0 * s.time).exp(),
-                1.0,
-            )
-        } else {
-            (2.0 * (-1.0 - 3.0 * (s.time - 0.5)).exp(), 0.0, 0.0)
-        };
-        assert!((s.state[0] - y).abs() < 1e-6, "{s:?}");
-        assert!(
-            (s.output_sensitivities[0] - dy - direct).abs() < 1e-5,
-            "{s:?}"
-        );
+fn scheduled_input_sensitivities_cross_changes() {
+    let mut methods = vec![Method::Diffsol];
+    #[cfg(feature = "idas")]
+    methods.push(Method::Idas);
+    let values = [2.0, 3.0, 1.5];
+    for method in methods {
+        for dae in [false, true] {
+            let mut p = profile(dae);
+            p.method = method;
+            p.samples = vec![0.0, 0.2, 0.3, 0.45, 0.6, 0.8, 1.0];
+            p.rtol = if method == Method::Idas { 1e-8 } else { 1e-10 };
+            p.atol = vec![p.rtol * 1e-2; if dae { 2 } else { 1 }];
+            p.schedule = vec![ScheduledInput {
+                parameter: 0,
+                times: vec![0.3, 0.6],
+            }];
+            let outputs = |p: &Profile, v: &[f64]| {
+                let r = integrate(
+                    &mut Toy::new(dae, false),
+                    p,
+                    v,
+                    Arc::new(AtomicBool::new(false)),
+                )
+                .unwrap();
+                assert_eq!(
+                    r.termination,
+                    Termination::Completed,
+                    "{method:?} dae={dae} {v:?}: {:?}",
+                    r.error
+                );
+                r
+            };
+            p.sensitivities = true;
+            let r = outputs(&p, &values);
+            // One transition record and one statistics record per change.
+            assert_eq!(r.events.len(), 2, "{method:?}");
+            p.sensitivities = false;
+            let np = values.len();
+            for (k, step) in (0..np).map(|k| (k, FD_STEP * (1.0 + values[k].abs()))) {
+                let shifted = |sign: f64| {
+                    let mut v = values;
+                    v[k] += sign * step;
+                    outputs(&p, &v)
+                };
+                let (up, down) = (shifted(1.0), shifted(-1.0));
+                for (i, s) in r.samples.iter().enumerate() {
+                    let difference =
+                        (up.samples[i].outputs[0] - down.samples[i].outputs[0]) / (2.0 * step);
+                    let analytic = s.output_sensitivities[k];
+                    assert!(
+                        (analytic - difference).abs() <= FD_TOLERANCE * (1.0 + difference.abs()),
+                        "{method:?} dae={dae} column {k} at t={}: {analytic} vs {difference}",
+                        s.time
+                    );
+                    // A later interval has no effect yet; the state stays continuous.
+                    let interval = [0.3, 0.6].iter().filter(|c| **c <= s.time).count();
+                    if k > interval {
+                        assert!(analytic.abs() < 1e-12, "{method:?} {k} {s:?}");
+                    }
+                    let state = (up.samples[i].state[0] - down.samples[i].state[0]) / (2.0 * step);
+                    assert!(
+                        (s.state_sensitivities[k] - state).abs()
+                            <= FD_TOLERANCE * (1.0 + state.abs()),
+                        "{method:?} dae={dae} state column {k} at t={}",
+                        s.time
+                    );
+                }
+            }
+            // The earlier interval's column is carried by the state across the change:
+            // dx/dp₀ = (1 − p₀·0.3)·e^{−0.3·p₀}·e^{−p₁·(t − 0.3)} in the second interval.
+            let s = &r.samples[4];
+            let carried = (1.0 - 2.0 * 0.3) * (-0.6f64).exp() * (-3.0f64 * 0.3).exp();
+            assert!((s.state_sensitivities[0] - carried).abs() < 1e-6, "{s:?}");
+        }
     }
 }
 #[derive(Debug)]

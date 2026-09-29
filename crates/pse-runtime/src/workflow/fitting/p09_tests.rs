@@ -193,7 +193,9 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
     for mode in 0..3 {
         let expected = match mode {
             0 => 74.,
-            1 => 73.,
+            // p is a scheduled input from 160.5 s; its second interval keeps the model's
+            // value 2, so y = 72 + p/2 (I6).
+            1 => 73.5,
             _ => 83.,
         };
         let (package, mut profile) = source(false, expected);
@@ -202,10 +204,10 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
                 .simulations
                 .get_mut(&InstanceId::from(id(74)))
                 .unwrap()
-                .changes
-                .push(native::dynamics::InputChange {
-                    time: 160.5,
-                    parameters: vec![1.],
+                .schedule
+                .push(native::dynamics::ScheduledInput {
+                    parameter: 0,
+                    times: vec![160.5],
                 });
         }
         if mode == 2 {

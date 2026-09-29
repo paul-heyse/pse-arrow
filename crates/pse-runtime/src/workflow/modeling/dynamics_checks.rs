@@ -18,13 +18,7 @@ impl ModelingSimulation {
         parameters: &[f64],
         point: &mut CaseValues,
     ) -> Result<(), WorkflowError> {
-        let parameters = self
-            .profile
-            .changes
-            .iter()
-            .rev()
-            .find(|p| p.time <= sample.time)
-            .map_or(parameters, |p| p.parameters.as_slice());
+        let parameters = self.profile.parameters_at(parameters, sample.time);
         if sample.state.len() != self.coordinates.state.len()
             || parameters.len() != self.coordinates.parameters.len()
         {
@@ -39,7 +33,7 @@ impl ModelingSimulation {
             .state
             .iter()
             .zip(&sample.state)
-            .chain(self.coordinates.parameters.iter().zip(parameters))
+            .chain(self.coordinates.parameters.iter().zip(&parameters))
         {
             point
                 .scalars

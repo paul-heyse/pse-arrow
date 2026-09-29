@@ -492,12 +492,11 @@ impl Oracle for Tank {
 #[cfg(feature = "idas")]
 #[test]
 fn idas_pid_piecewise_inputs_match_petsc_example() {
-    let gains = [3e5, 1e-6, 1e-5, 0.0];
-    let segment = |base: f64, slope: f64| {
-        let mut values = vec![base, slope];
-        values.extend(gains);
-        values
-    };
+    // The inlet pressure offset and slope are scheduled inputs with one value per
+    // interval; setpoint, gains and bias are static (I6).
+    let mut values = vec![3e5, 1e-6, 1e-5, 0.0];
+    values.extend([5e5, 0.0, 6e5]);
+    values.extend([0.0, 5e4, 0.0]);
     let p = Profile {
         method: Method::Auto,
         trial_failures: TrialPolicy::Recoverable,
@@ -508,16 +507,12 @@ fn idas_pid_piecewise_inputs_match_petsc_example() {
         atol: vec![1e-10; 6],
         initial_step: 1e-3,
         parameter_scales: vec![1e5, 1e4, 1e5, 1e-6, 1e-5, 1.0],
-        changes: vec![
-            InputChange {
-                time: 10.0,
-                parameters: segment(0.0, 5e4),
-            },
-            InputChange {
-                time: 12.0,
-                parameters: segment(6e5, 0.0),
-            },
-        ],
+        schedule: [0, 1]
+            .map(|parameter| ScheduledInput {
+                parameter,
+                times: vec![10.0, 12.0],
+            })
+            .to_vec(),
         idas: IdasSettings {
             initialization: IdasInitialization::SteadyStates,
             ..Default::default()
@@ -525,7 +520,7 @@ fn idas_pid_piecewise_inputs_match_petsc_example() {
         ..Default::default()
     };
     assert_eq!(p.resolved_method().unwrap(), Method::Idas);
-    let r = integrate(&mut Tank::new(), &p, &segment(5e5, 0.0), Arc::default()).unwrap();
+    let r = integrate(&mut Tank::new(), &p, &values, Arc::default()).unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
     assert_eq!(r.samples.len(), 25);
     let at = |t: usize| &r.samples[t].outputs;

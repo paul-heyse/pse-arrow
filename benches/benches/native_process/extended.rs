@@ -406,10 +406,14 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
                 integration.method = native::dynamics::Method::Diffsol;
                 integration.rtol = 1e-6;
                 integration.atol.fill(1e-8);
-                integration.changes.push(native::dynamics::InputChange {
-                    time: 0.5,
-                    parameters: simulation.parameters().to_vec(),
-                });
+                // Every parameter is a scheduled input changing at 0.5 to its model value:
+                // one transition, with the fitted value in effect before it.
+                integration.schedule = (0..simulation.contract().parameters.len())
+                    .map(|parameter| native::dynamics::ScheduledInput {
+                        parameter,
+                        times: vec![0.5],
+                    })
+                    .collect();
                 let experiment = SemanticId::parse_hex("b39f24e05b7d5490904f6138b4d7e080").unwrap();
                 selected.simulations.insert(experiment, integration);
             }

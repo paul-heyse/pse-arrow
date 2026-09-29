@@ -40,8 +40,9 @@ impl Oracle for LateTrial {
         self.toy.evaluate(m, f, t, x, p, d)
     }
 }
-/// L-D1/S09: forward sensitivities cross a scheduled change on IDAS, which restarts with
-/// `IDAReInit`/`IDASensReInit`/`IDACalcIC` and recovers a rejected trial after it.
+/// L-D1/S09, I6: forward sensitivities cross a scheduled input change on IDAS, which
+/// restarts with `IDAReInit`/`IDASensReInit`/`IDACalcIC` and recovers a rejected trial
+/// after it. The input takes one integration parameter per interval.
 #[cfg(feature = "idas")]
 #[test]
 fn idas_scheduled_inputs_with_recoverable_trials() {
@@ -51,9 +52,9 @@ fn idas_scheduled_inputs_with_recoverable_trials() {
         p.method = Method::Auto;
         p.trial_failures = TrialPolicy::Recoverable;
         p.sensitivities = true;
-        p.changes = vec![InputChange {
-            time: 0.5,
-            parameters: vec![3.0],
+        p.schedule = vec![ScheduledInput {
+            parameter: 0,
+            times: vec![0.5],
         }];
         assert_eq!(p.resolved_method().unwrap(), Method::Idas);
         let mut oracle = LateTrial {
@@ -61,7 +62,7 @@ fn idas_scheduled_inputs_with_recoverable_trials() {
             after: 0.55,
             rejected: 0,
         };
-        let r = integrate(&mut oracle, &p, &[2.0], Arc::default()).unwrap();
+        let r = integrate(&mut oracle, &p, &[2.0, 3.0], Arc::default()).unwrap();
         assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
         assert_eq!(oracle.rejected, 1);
         assert_eq!(r.samples.len(), p.samples.len());
@@ -76,42 +77,58 @@ fn idas_scheduled_inputs_with_recoverable_trials() {
         }
         assert_eq!(r.statistics.len(), 2, "one statistics record per segment");
         for s in &r.samples {
-            let (y, dy, direct) = if s.time < 0.5 {
+            // Columns: the first interval's value p₀ = 2, then the second's p₁ = 3.
+            let (y, dy, direct, later) = if s.time < 0.5 {
                 (
                     2.0 * (-2.0 * s.time).exp(),
                     (1.0 - 2.0 * s.time) * (-2.0 * s.time).exp(),
                     1.0,
+                    (0.0, 0.0),
                 )
             } else {
-                // The change replaces the parameter: only the carried state's
-                // sensitivity remains, decaying at the new rate.
+                // The first interval's sensitivity is carried by the state and decays at
+                // the new rate; the second interval's own column starts at the change.
                 let carried = (1.0 - 2.0 * 0.5) * (-1.0f64).exp();
+                let y = 2.0 * (-1.0 - 3.0 * (s.time - 0.5)).exp();
                 (
-                    2.0 * (-1.0 - 3.0 * (s.time - 0.5)).exp(),
+                    y,
                     carried * (-3.0 * (s.time - 0.5)).exp(),
                     0.0,
+                    (-(s.time - 0.5) * y, 1.0),
                 )
             };
+            let columns = 2;
             assert!((s.state[0] - y).abs() < 1e-6, "{s:?}");
             assert!((s.state_sensitivities[0] - dy).abs() < 1e-5, "{s:?}");
+            assert!((s.state_sensitivities[1] - later.0).abs() < 1e-5, "{s:?}");
             assert!(
                 (s.output_sensitivities[0] - dy - direct).abs() < 1e-5,
                 "{s:?}"
             );
+            assert!(
+                (s.output_sensitivities[1] - later.0 - later.1).abs() < 1e-5,
+                "{s:?}"
+            );
             if dae {
                 assert!((s.state[1] - 2.0 * y).abs() < 1e-6, "{s:?}");
-                assert!((s.state_sensitivities[1] - 2.0 * dy).abs() < 1e-5, "{s:?}");
+                assert!(
+                    (s.state_sensitivities[columns] - 2.0 * dy).abs() < 1e-5,
+                    "{s:?}"
+                );
             }
         }
         // The Diffsol route reproduces the same trajectory without the rejected trial.
         let mut diffsol = p.clone();
         diffsol.method = Method::Diffsol;
         diffsol.trial_failures = TrialPolicy::Terminal;
-        let reference = run(&mut Toy::new(dae, false), &diffsol);
+        let reference =
+            integrate(&mut Toy::new(dae, false), &diffsol, &[2.0, 3.0], Arc::default()).unwrap();
         assert_eq!(reference.termination, Termination::Completed);
         for (a, b) in r.samples.iter().zip(&reference.samples) {
             assert!((a.state[0] - b.state[0]).abs() < 1e-6);
-            assert!((a.output_sensitivities[0] - b.output_sensitivities[0]).abs() < 1e-5);
+            for (u, v) in a.output_sensitivities.iter().zip(&b.output_sensitivities) {
+                assert!((u - v).abs() < 1e-5);
+            }
         }
     }
     // Output quadratures continue across the restart.
@@ -124,13 +141,13 @@ fn idas_scheduled_inputs_with_recoverable_trials() {
         rtol: 1e-9,
         out_rtol: Some(1e-9),
         out_atol: vec![1e-10],
-        changes: vec![InputChange {
-            time: 0.5,
-            parameters: vec![2.0],
+        schedule: vec![ScheduledInput {
+            parameter: 0,
+            times: vec![0.5],
         }],
         ..Default::default()
     };
-    let r = integrate(&mut oracle, &p, &[1.0], Arc::default()).unwrap();
+    let r = integrate(&mut oracle, &p, &[1.0, 2.0], Arc::default()).unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
     for s in &r.samples {
         assert!((s.state[0] - 1.0 - s.integrals[0]).abs() < 1e-6, "{s:?}");
@@ -242,11 +259,11 @@ fn idas_events_without_sensitivities() {
     }
     // Every recorded transition counts against the event allowance.
     p.max_events = 1;
-    p.changes = vec![InputChange {
-        time: 0.5,
-        parameters: vec![1.0],
+    p.schedule = vec![ScheduledInput {
+        parameter: 0,
+        times: vec![0.5],
     }];
-    let r = integrate(&mut event, &p, &[1.0], Arc::default()).unwrap();
+    let r = integrate(&mut event, &p, &[1.0, 1.0], Arc::default()).unwrap();
     assert_eq!(r.termination, Termination::EventLimit);
 }
 /// ADR-0110 item 1: events with sensitivities stay on Diffsol; IDAS refuses them with a

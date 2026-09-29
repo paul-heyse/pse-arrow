@@ -8,7 +8,8 @@
 //! scheduled reinitialization, sign constraints and forward sensitivities (ADR-0093,
 //! ADR-0110 item 1). Each scheduled change or reset restarts the same native memory with
 //! `IDAReInit`, `IDASensReInit`, `IDAQuadReInit` and `IDACalcIC`; nothing is integrated by
-//! project code.
+//! project code. Sensitivities are taken with respect to the integration parameters, one
+//! per scheduled-input interval, so they cross every scheduled change (I6).
 use super::*;
 use crate::{
     NativeStatus,
@@ -29,11 +30,12 @@ type Jacobian = faer::sparse::SparseColMat<usize, f64>;
 struct Context<'a> {
     oracle: &'a mut dyn Oracle,
     contract: Contract,
+    /// The contract parameter values of the current segment.
     parameters: Vec<f64>,
-    /// False after a scheduled change replaced the selected parameters: their direct
-    /// partials no longer depend on the original parameters, while carried-state
-    /// sensitivities remain active.
-    parameter_active: bool,
+    /// The integration parameter vector: the sensitivity parameters.
+    integration: Vec<f64>,
+    /// The integration column of each contract parameter in the current segment.
+    map: Vec<usize>,
     mode: usize,
     trial_policy: TrialPolicy,
     callback: CallbackState,
@@ -249,16 +251,17 @@ unsafe fn write(v: ffi::N_Vector, values: &[f64]) {
         std::ptr::copy_nonoverlapping(values.as_ptr(), ffi::N_VGetArrayPointer(v), values.len());
     }
 }
-/// `J · [S; I]`: every function row's derivative along each parameter direction, from the
-/// state sensitivities `columns` (one per parameter) and, while the original parameters
-/// are active, the direct parameter partials. One faer sparse × dense product (F12).
-fn chained(j: &Jacobian, columns: &[Vec<f64>], n: usize, active: bool) -> faer::Mat<f64> {
+/// `J · [S; P]`: every function row's derivative along each integration parameter, from
+/// the state sensitivities `columns` (one per integration parameter) and the direct
+/// partials, where `P` selects each contract parameter's integration column `map[k]` in the
+/// current segment. One faer sparse × dense product (F12).
+fn chained(j: &Jacobian, columns: &[Vec<f64>], n: usize, map: &[usize]) -> faer::Mat<f64> {
     let np = columns.len();
-    let chain = faer::Mat::from_fn(n + np, np, |i, k| {
+    let chain = faer::Mat::from_fn(n + map.len(), np, |i, k| {
         if i < n {
             columns[k][i]
         } else {
-            f64::from(active && i - n == k)
+            f64::from(map[i - n] == k)
         }
     });
     let mut result = faer::Mat::zeros(j.nrows(), np);
@@ -518,7 +521,7 @@ unsafe extern "C" fn sensitivities(
     let c = unsafe { &mut *data.cast::<Context<'_>>() };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let n = c.contract.states.len();
-        if np < 0 || np as usize != c.parameters.len() {
+        if np < 0 || np as usize != c.integration.len() {
             return -1;
         }
         let np = np as usize;
@@ -527,7 +530,7 @@ unsafe extern "C" fn sensitivities(
             return c.failure();
         };
         let columns: Vec<_> = (0..np).map(|p| unsafe { read(*ys.add(p), n) }).collect();
-        let product = chained(&j, &columns, n, c.parameter_active);
+        let product = chained(&j, &columns, n, &c.map);
         for p in 0..np {
             let ds = unsafe { read(*yps.add(p), n) };
             let residual: Vec<_> = (0..n)
@@ -647,12 +650,13 @@ impl<'a> Session<'a> {
     }
     fn new(
         oracle: &'a mut dyn Oracle,
-        parameters: &[f64],
+        integration: &[f64],
         p: &Profile,
         execution: Execution,
     ) -> Result<Self, ProblemError> {
         let c = oracle.contract().clone();
         let n = c.states.len();
+        let map = p.columns_at(c.parameters.len(), p.start);
         let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
         for mode in 0..c.events.len() {
             pattern.extend(
@@ -690,8 +694,9 @@ impl<'a> Session<'a> {
             callback: Box::new(Context {
                 oracle,
                 contract: c,
-                parameters: parameters.to_vec(),
-                parameter_active: true,
+                parameters: p.parameters_at(integration, p.start),
+                integration: integration.to_vec(),
+                map,
                 mode: 0,
                 trial_policy: p.trial_failures,
                 callback: CallbackState::new(execution),
@@ -762,10 +767,14 @@ impl<'a> Session<'a> {
                 .jacobian
                 .ok_or_else(|| ProblemError::internal("IDAS initial sensitivity missing"))?;
             let symbolic = j.symbolic();
-            for k in 0..parameters.len() {
+            // Each integration parameter starts from its contract parameter's initial
+            // partials when the first segment uses it, and from zero otherwise.
+            for k in 0..integration.len() {
                 let mut values = vec![0.0; n];
-                for e in symbolic.col_range(n + k) {
-                    values[symbolic.row_idx()[e]] = j.val()[e];
+                if let Some(contract) = s.callback.map.iter().position(|c| *c == k) {
+                    for e in symbolic.col_range(n + contract) {
+                        values[symbolic.row_idx()[e]] = j.val()[e];
+                    }
                 }
                 let v = s.vector(&values)?;
                 s.sens.push(v);
@@ -776,7 +785,7 @@ impl<'a> Session<'a> {
                 check(
                     ffi::IDASensInit(
                         s.mem,
-                        parameters
+                        integration
                             .len()
                             .try_into()
                             .map_err(|_| ProblemError::unsupported("IDAS parameter extent"))?,
@@ -788,7 +797,7 @@ impl<'a> Session<'a> {
                     "forward sensitivities",
                 )?;
                 let mut atol_s = Vec::new();
-                for scale in &p.parameter_scales {
+                for scale in &p.integration_parameters(&p.parameter_scales) {
                     let tolerances: Vec<_> = p.atol.iter().map(|v| v / scale).collect();
                     atol_s.push(s.vector(&tolerances)?);
                 }
@@ -1047,7 +1056,7 @@ impl<'a> Session<'a> {
                 .jacobian
                 .as_ref()
                 .ok_or_else(|| ProblemError::internal("IDAS output derivative missing"))?;
-            let product = chained(j, &columns, n, self.callback.parameter_active);
+            let product = chained(j, &columns, n, &self.callback.map);
             output_sensitivities = (0..e.values.len())
                 .flat_map(|row| (0..columns.len()).map(move |k| (row, k)))
                 .map(|(row, k)| product[(row, k)])
@@ -1216,7 +1225,11 @@ impl<'a> Session<'a> {
             .map_err(|_| ProblemError::unsupported("IDAS step allowance extent"))?;
         let mut used: c_long = 0;
         let mut time = p.start;
-        let mut change = 0;
+        // Scheduled-input changes bound the segments; each restart applies the next
+        // intervals' columns to the same integration parameters (I6).
+        let boundaries = p.boundaries();
+        let np = self.callback.contract.parameters.len();
+        let mut segment = 0;
         loop {
             let state = unsafe { read(self.y, n) };
             settle_transitions(&self.callback.contract, &mut r.events, time, &state)?;
@@ -1242,8 +1255,8 @@ impl<'a> Session<'a> {
                 r.termination = Termination::Completed;
                 return Ok(());
             }
-            let stop = p.changes.get(change).map_or(p.end, |c| c.time);
-            let changing = change < p.changes.len();
+            let stop = boundaries.get(segment).copied().unwrap_or(p.end);
+            let changing = segment < boundaries.len();
             let (root, steps) = self.segment(p, r, stop, changing, max_steps - used)?;
             used += steps;
             if r.termination == Termination::StepLimit {
@@ -1289,7 +1302,7 @@ impl<'a> Session<'a> {
                 self.callback.mode = event.next_mode;
             }
             // Roots precede a scheduled change at the same native stop time.
-            let changed = p.changes.get(change).is_some_and(|c| c.time == time);
+            let changed = boundaries.get(segment).is_some_and(|b| *b == time);
             if changed {
                 if r.events.len() >= p.max_events {
                     r.termination = Termination::EventLimit;
@@ -1301,11 +1314,9 @@ impl<'a> Session<'a> {
                     before: seed.clone(),
                     after: None,
                 });
-                self.callback
-                    .parameters
-                    .clone_from(&p.changes[change].parameters);
-                self.callback.parameter_active = false;
-                change += 1;
+                self.callback.map = p.columns_at(np, time);
+                self.callback.parameters = p.parameters_at(&self.callback.integration, time);
+                segment += 1;
             }
             if time >= p.end && root.is_none() && !changed {
                 r.termination = Termination::Completed;
@@ -1327,7 +1338,7 @@ fn corrector(method: SensitivityCorrector) -> i32 {
 pub(super) fn integrate_with_progress(
     oracle: &mut dyn Oracle,
     p: &Profile,
-    parameters: &[f64],
+    integration: &[f64],
     cancel: Cancellation,
     progress: Arc<Progress>,
 ) -> Result<Report, ProblemError> {
@@ -1352,7 +1363,7 @@ pub(super) fn integrate_with_progress(
             Function::Initial,
             p.start,
             &vec![0.0; n],
-            parameters,
+            &p.parameters_at(integration, p.start),
             false,
         )
     });
@@ -1361,7 +1372,7 @@ pub(super) fn integrate_with_progress(
         Err(error) => return Ok(failure(r, error)),
     };
     r.requested_initial = initial.values;
-    let mut s = match Session::new(oracle, parameters, p, execution.clone()) {
+    let mut s = match Session::new(oracle, integration, p, execution.clone()) {
         Ok(session) => session,
         Err(error) => return Ok(failure(r, error)),
     };
