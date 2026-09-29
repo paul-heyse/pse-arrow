@@ -16,7 +16,7 @@ mod solve;
 pub use conformance::ModelingExpectationResult;
 pub use derived::{Derivation, Derived};
 pub use implicit::{AdmittedImplicit, ImplicitAlgorithm, ImplicitScale};
-pub use solve::{ModelingCaseBindings, ModelingVariableState};
+pub use solve::{BoundStructure, ModelingCaseBindings, ModelingVariableState};
 
 /// Numerical observation purpose. These do not add equations or fix variables.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]

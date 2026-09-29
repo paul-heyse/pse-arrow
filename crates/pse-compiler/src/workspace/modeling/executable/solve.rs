@@ -52,7 +52,8 @@ impl From<&pse_modeling::specialize::Fixture> for ModelingCaseBindings {
 impl CompilerWorkspace {
     /// Prepare an immutable solver view, excluding observation rows and retaining all original model products.
     /// Physical inputs are canonical values. Parameters and fixed variables are required;
-    /// free starts are required separately by numerical solve admission.
+    /// free starts are required separately by numerical solve admission. The bound
+    /// tightenings admission applied are returned with the view ([`BoundStructure`]).
     #[expect(
         clippy::too_many_arguments,
         reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles and cancellation as independent inputs"
@@ -67,7 +68,12 @@ impl CompilerWorkspace {
         order: DerivativeOrder,
         profile: Profile,
         cancel: Arc<AtomicBool>,
-    ) -> Result<(PreparedModeling, PreparedCase, CaseValues)> {
+    ) -> Result<(
+        PreparedModeling,
+        PreparedCase,
+        CaseValues,
+        Vec<pse_modeling::DomainTightening>,
+    )> {
         bindings
             .demand
             .extend(case.values.keys().chain(case.variables.keys()).cloned());
@@ -89,10 +95,11 @@ impl CompilerWorkspace {
                     .ok_or_else(|| CompileError::Missing(format!("variable path {path}")))
             })
             .collect::<Result<BTreeMap<_, _>>>()?;
+        let bound = model.bound_structure(&states)?;
         let prepared =
-            self.prepare_modeling_bound_case(&model, &values, &states, order, profile, &cancel)?;
+            self.prepare_modeling_view(&model, bound.structure, &values, order, profile, &cancel)?;
         let values = prepared.complete(&values);
-        Ok((model, prepared, values))
+        Ok((model, prepared, values, bound.tightenings))
     }
 }
 
@@ -348,13 +355,31 @@ impl PreparedCase {
         Ok(rebound)
     }
 }
+/// A case structure admitted for preparation, with the transformations admission applied
+/// to the specified case. The transformations depend on the specifications, not only on
+/// the structure: two cases that tighten to the same bounds share one view
+/// ([`PreparedModeling::view_key`]) but keep their own records.
+#[derive(Clone, Debug)]
+pub struct BoundStructure {
+    /// The solver structure: variable states applied and discrete domains admitted.
+    pub structure: Arc<CaseStructure>,
+    /// Inward bound tightenings of free integer-valued variables, in variable order
+    /// (ADR-0103 item 4).
+    pub tightenings: Vec<pse_modeling::DomainTightening>,
+}
 /// Finite-bound admission of free discrete variables after case binding (ADR-0103 item 4).
-/// A binary decision narrows to the unit box; integer and semi domains need finite bounds,
-/// and a semi domain's active interval is positive. Fixed variables are checked for
-/// membership by the case structure instead.
-fn admit_domains(model: &PreparedModeling, variables: &mut [Variable]) -> Result<()> {
+/// A binary decision lives in the unit box, and a case bound outside it is refused;
+/// integer and semi domains need finite bounds, and a semi domain's active interval is
+/// positive. Integer-valued bounds are tightened inward exactly, to the ceiling of the lower
+/// and the floor of the upper, and each tightening is returned as a record. Fixed variables
+/// are checked for membership by the case structure instead.
+fn admit_domains(
+    model: &PreparedModeling,
+    variables: &mut [Variable],
+) -> Result<Vec<pse_modeling::DomainTightening>> {
     use pse_model::generated::enums::ModelingVariableDomain as Domain;
     use pse_modeling::{DomainAnalysis, DomainRefusal};
+    let mut tightenings = Vec::new();
     for v in variables
         .iter_mut()
         .filter(|v| !v.fixed && v.domain.is_discrete())
@@ -367,38 +392,53 @@ fn admit_domains(model: &PreparedModeling, variables: &mut [Variable]) -> Result
             ))
         };
         let (lower, upper) = if v.domain == Domain::Binary {
-            (
-                v.lower.unwrap_or(0.0).max(0.0),
-                v.upper.unwrap_or(1.0).min(1.0),
-            )
+            let (l, u) = (v.lower.unwrap_or(0.0), v.upper.unwrap_or(1.0));
+            if !(0.0..=1.0).contains(&l) || !(0.0..=1.0).contains(&u) {
+                return Err(refuse(DomainRefusal::ConflictingBound));
+            }
+            (l, u)
         } else {
             match (v.lower, v.upper) {
                 (Some(l), Some(u)) if l.is_finite() && u.is_finite() => (l, u),
                 _ => return Err(refuse(DomainRefusal::InfiniteBound)),
             }
         };
-        if lower > upper
-            || v.domain.is_integer() && lower.ceil() > upper.floor()
-            || v.domain.is_semi() && lower <= 0.0
-        {
+        if v.domain.is_semi() && lower <= 0.0 {
             return Err(refuse(DomainRefusal::EmptyDomain));
         }
-        v.lower = Some(lower);
-        v.upper = Some(upper);
+        // Exact in floating point; adding zero turns a ceiling of -0.5 into +0.
+        let tightened = if v.domain.is_integer() {
+            (lower.ceil() + 0.0, upper.floor() + 0.0)
+        } else {
+            (lower, upper)
+        };
+        if tightened.0 > tightened.1 {
+            return Err(refuse(DomainRefusal::EmptyDomain));
+        }
+        if tightened != (lower, upper) {
+            tightenings.push(model.model.domain_tightening(
+                v.port.id,
+                [lower, upper],
+                [tightened.0, tightened.1],
+            ));
+        }
+        v.lower = Some(tightened.0);
+        v.upper = Some(tightened.1);
     }
-    Ok(())
+    Ok(tightenings)
 }
 impl PreparedModeling {
     /// The solver structure of this model under case specifications: variable states
-    /// applied, discrete domains admitted and observation rows excluded. It depends on no
-    /// value and is cheap; [`Self::view_key`] identifies the view prepared from it (A6).
+    /// applied, discrete domains admitted and observation rows excluded, with the bound
+    /// tightenings admission recorded. It depends on no value and is cheap;
+    /// [`Self::view_key`] identifies the view prepared from the structure (A6).
     ///
     /// # Errors
     /// Integrated derivatives, unknown specification targets or refused discrete domains.
     pub fn bound_structure(
         &self,
         states: &BTreeMap<SemanticId, ModelingVariableState>,
-    ) -> Result<Arc<CaseStructure>> {
+    ) -> Result<BoundStructure> {
         let model = self;
         if !model.model.integrated.is_empty() {
             return Err(CompileError::Missing(
@@ -425,7 +465,7 @@ impl PreparedModeling {
                 variable.upper = upper;
             }
         }
-        admit_domains(model, &mut variables)?;
+        let tightenings = admit_domains(model, &mut variables)?;
         let equations = model
             .admitted
             .outputs
@@ -460,33 +500,23 @@ impl PreparedModeling {
                 (!i.contributions.is_empty()).then_some(i)
             })
             .collect::<Vec<_>>();
-        Ok(Arc::new(
-            CaseStructure::new(
-                variables,
-                model.admitted.case.parameters().to_vec(),
-                instances,
-                rows,
-                model.admitted.case.objective().cloned(),
-                CaseLimits::default(),
-            )?
-            .with_native(model.admitted.case.native().to_vec())?,
-        ))
+        Ok(BoundStructure {
+            structure: Arc::new(
+                CaseStructure::new(
+                    variables,
+                    model.admitted.case.parameters().to_vec(),
+                    instances,
+                    rows,
+                    model.admitted.case.objective().cloned(),
+                    CaseLimits::default(),
+                )?
+                .with_native(model.admitted.case.native().to_vec())?,
+            ),
+            tightenings,
+        })
     }
 }
 impl CompilerWorkspace {
-    /// Apply case specifications to an already resolved, immutable kernel revision.
-    pub fn prepare_modeling_bound_case(
-        &self,
-        model: &PreparedModeling,
-        values: &CaseValues,
-        states: &BTreeMap<SemanticId, ModelingVariableState>,
-        order: DerivativeOrder,
-        profile: Profile,
-        cancel: &Arc<AtomicBool>,
-    ) -> Result<PreparedCase> {
-        let structure = model.bound_structure(states)?;
-        self.prepare_modeling_view(model, structure, values, order, profile, cancel)
-    }
     /// Prepare the solver view of a bound structure ([`PreparedModeling::bound_structure`])
     /// and bind its first values. Later values rebind it ([`PreparedCase::rebind`]).
     pub fn prepare_modeling_view(

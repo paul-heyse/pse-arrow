@@ -211,8 +211,8 @@ impl From<MathError> for CompileError {
 type Result<T> = std::result::Result<T, CompileError>;
 mod modeling;
 pub use modeling::{
-    AdmittedImplicit, AdmittedModeling, Derivation, Derived, ImplicitAlgorithm, ImplicitScale,
-    ModelingCaseBindings, ModelingExpectationResult, ModelingFlowSelection, ModelingHint,
+    AdmittedImplicit, AdmittedModeling, BoundStructure, Derivation, Derived, ImplicitAlgorithm,
+    ImplicitScale, ModelingCaseBindings, ModelingExpectationResult, ModelingFlowSelection, ModelingHint,
     ModelingOutput, ModelingRevision, ModelingTestValue, ModelingVariableState, PreparedModeling,
 };
 #[salsa::db]

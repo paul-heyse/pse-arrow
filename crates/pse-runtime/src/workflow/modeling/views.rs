@@ -60,7 +60,8 @@ impl Views {
 impl ModelingPackage {
     /// The solver view of `model` under `states`, bound to `values`. The first request for a
     /// structure prepares it; every later one rebinds values onto it (A6). The returned
-    /// values are completed with the view's derived realization parameters (ADR-0104).
+    /// values are completed with the view's derived realization parameters (ADR-0104). The
+    /// bound tightenings belong to `states`, not to the shared view (ADR-0103 item 4).
     pub(in crate::workflow) async fn bound_case(
         &self,
         model: &ModelingPreparation,
@@ -71,10 +72,10 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCasePreparation, WorkflowError> {
         let product = model.compiled();
-        let structure = product
+        let bound = product
             .bound_structure(states)
             .map_err(crate::math::MathRuntimeError::from)?;
-        let key = product.view_key(&structure, order, compiler, &self.physical.key);
+        let key = product.view_key(&bound.structure, order, compiler, &self.physical.key);
         let service = self.runtime.shared.math();
         let cached = Views::lock(&self.views.solver)?.get(&key);
         let case = match cached {
@@ -84,7 +85,7 @@ impl ModelingPackage {
                     .prepare_modeling_view(
                         self.workspace.clone(),
                         model.clone(),
-                        structure,
+                        bound.structure,
                         values.clone(),
                         order,
                         compiler,
@@ -99,6 +100,7 @@ impl ModelingPackage {
             model: model.clone(),
             values: case.compiled().complete(&values),
             case,
+            tightenings: bound.tightenings,
         })
     }
     /// The value-independent program observing `rows` of `model`, compiled once per

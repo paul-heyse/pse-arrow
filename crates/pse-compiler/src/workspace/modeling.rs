@@ -351,8 +351,8 @@ impl CompilerWorkspace {
 mod executable;
 mod flow;
 pub use executable::{
-    AdmittedImplicit, AdmittedModeling, Derivation, Derived, ImplicitAlgorithm, ImplicitScale,
-    ModelingCaseBindings, ModelingExpectationResult, ModelingHint, ModelingOutput,
+    AdmittedImplicit, AdmittedModeling, BoundStructure, Derivation, Derived, ImplicitAlgorithm,
+    ImplicitScale, ModelingCaseBindings, ModelingExpectationResult, ModelingHint, ModelingOutput,
     ModelingTestValue, ModelingVariableState, PreparedModeling,
 };
 pub use flow::ModelingFlowSelection;

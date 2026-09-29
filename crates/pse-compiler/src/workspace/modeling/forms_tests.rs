@@ -34,7 +34,7 @@ impl Case {
                 })
                 .collect(),
         };
-        let (model, prepared, values) = workspace.prepare_modeling_case_cancellable(
+        let (model, prepared, values, _) = workspace.prepare_modeling_case_cancellable(
             root,
             InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
@@ -228,7 +228,8 @@ fn derived_parameters_rebind_with_the_values_they_consume() {
                 upper: Some(Some(10.0)),
             },
         )]))
-        .unwrap();
+        .unwrap()
+        .structure;
     let fresh = w
         .prepare_modeling_view(
             &case.model,

@@ -288,12 +288,26 @@ impl RunResult {
                 }
             }
         }
-        for (ordinal, error) in self.capture_diagnostics().iter().enumerate() {
+        // Failures first, then the informational bound tightenings admission recorded for
+        // each step's case (ADR-0103 item 4).
+        let tightenings = requests.iter().flat_map(|request| {
+            request
+                .model
+                .tightenings
+                .iter()
+                .map(pse_modeling::DomainTightening::boundary_diagnostic)
+        });
+        for (ordinal, finding) in self
+            .capture_diagnostics()
+            .into_iter()
+            .chain(tightenings)
+            .enumerate()
+        {
             collection
                 .push(super::modeling::analysis_tables::finding_row(
                     self.run_id,
                     ordinal as i64,
-                    error,
+                    &finding,
                 ))
                 .map_err(relation)?;
         }

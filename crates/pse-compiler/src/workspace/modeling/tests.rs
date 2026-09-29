@@ -1552,7 +1552,7 @@ fn kernel_case_projection_excludes_observations_and_preserves_specification() {
         demand: vec!["bad".into()],
         ..Bindings::default()
     };
-    let (model, solve, values) = w
+    let (model, solve, values, _) = w
         .prepare_modeling_case_cancellable(
             root,
             InstanceId::from_id(SemanticId::NIL),
@@ -1625,7 +1625,7 @@ fn value_rebind_shares_structure_and_rebuilds_only_consumed_values() {
     let values = |x_value: f64, p_value: f64| CaseValues {
         scalars: BTreeMap::from([(x, x_value), (p, p_value)]),
     };
-    let structure = model.bound_structure(&BTreeMap::new()).unwrap();
+    let structure = model.bound_structure(&BTreeMap::new()).unwrap().structure;
     let context = ContentHash::from_bytes([7; 32]);
     let key = model.view_key(
         &structure,
@@ -1681,11 +1681,12 @@ fn value_rebind_shares_structure_and_rebuilds_only_consumed_values() {
                 ..Default::default()
             },
         )]))
-        .unwrap();
+        .unwrap()
+        .structure;
     assert_eq!(
         key,
         model.view_key(
-            &model.bound_structure(&BTreeMap::new()).unwrap(),
+            &model.bound_structure(&BTreeMap::new()).unwrap().structure,
             DerivativeOrder::First,
             Profile::default(),
             &context
