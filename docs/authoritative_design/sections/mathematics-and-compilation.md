@@ -166,6 +166,14 @@ as constants, not model inputs.
 > [ADR-0111](../../adr/0111-multi-objective-optimization.md) — several
 > objectives with priority, weight and degradation tolerances (Plan 22 C3; not yet
 > implemented).
+>
+> Decision: [ADR-0120](../../adr/0120-provider-envelope-contract.md) — a provider output
+> becomes an auxiliary bounded by its factory's declared and checked output envelope, which
+> makes the dependent rows `Relaxed` (Plan 22 G4, implemented; the G4 status stated below
+> predates it); enforcement at evaluation is not yet implemented.
+> [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — `ProblemFacts.convexity` from a
+> DCP pass over `FactorableProgram` and exact rational LDLᵀ Gram certificates, rebound with
+> values (Plan 22 C5; not yet implemented).
 
 A selected case is a `pse_math::binding::CaseStructure`: variables with their declared
 registry domain (`ModelingVariableDomain`: `continuous`, `integer`, `binary`,

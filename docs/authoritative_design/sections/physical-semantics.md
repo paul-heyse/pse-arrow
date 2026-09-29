@@ -236,6 +236,12 @@ common conformance runner executes the formulas through the production mathemati
 
 ### 9.4 External-function contract
 
+> Decision: [ADR-0120](../../adr/0120-provider-envelope-contract.md) — a provider factory
+> may declare one closed output interval per output that every successful evaluation lies
+> in; the host checks the declaration against the contract (Plan 22 G4, implemented), and
+> will enforce it at evaluation and frame it into the provider's configuration identity (not
+> yet implemented).
+
 `pse-kernels` is the generic external-function host. `ProviderSpec` binds implementation
 identity and revision, parameter-data identity, ordered typed ports, logical array shapes,
 derivative source, available order and smoothness order. The host does not carry a species,

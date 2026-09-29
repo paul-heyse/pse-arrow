@@ -105,6 +105,12 @@ reason; it is never zero or a fabricated NaN.
 > validity; [ADR-0109](../../adr/0109-pounce-l1-and-convex-methods.md) — whole-model
 > infeasibility explanation through the explicit POUNCE ℓ1 route. Plan 22 S1–S4, N3; not
 > yet implemented.
+>
+> Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — one KKT-point analysis at
+> the qualified candidate, in original coordinates (a FERAL factor with inertia and
+> `pounce-sens-core`), serves every NLP and QP route (Plan 22 S0 and S1; not yet
+> implemented). ADR-0118 supersedes ADR-0107, whose two-route mechanism (POUNCE `SensSolve`
+> and an Ipopt barrier replica) and presolve restriction no longer apply.
 
 Each analysis is opt-in or bounded, and none replaces the original candidate:
 
@@ -694,6 +700,10 @@ requested objective gap.
 > never by backend (Plan 22 A2, implemented); new assurances, each with stated conditions:
 > `global_bound` and `proven_infeasible` (Plan 22 G3, implemented for SCIP), and
 > `exact_certificate` and `sos_bound_nonrigorous` (Plan 22 G7, N5; not yet implemented).
+>
+> Decision: [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — one typed
+> `InfeasibilityCertificate`, verified in original coordinates for Clarabel and HiGHS rays
+> alike, replaces the string-keyed certificate metrics (Plan 22 C4; not yet implemented).
 
 `pse-backend-native::solve::SolveReport` is one envelope per attempt, including attempts
 without a usable candidate. Its facts are independent:
@@ -769,6 +779,11 @@ use (§16.6) combines these facts with physical closure.
 > adapter consumes a handler before Plan 22 G7);
 > [ADR-0111](../../adr/0111-multi-objective-optimization.md) — lexicographic and weighted
 > multi-objective routes (Plan 22 C3; not yet implemented).
+>
+> Decision: [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — automatic ownership per
+> class (`Capability.automatic_classes`), convexity classes from the compiler fact, and a
+> numerical PSD qualification only for the request whose explicit policy asks for it (Plan
+> 22 C4 and C5; not yet implemented).
 
 Capability is five distinct facts:
 
@@ -942,6 +957,10 @@ qualification matters ([§24.2](operations-and-validation.md#section-24-2)).
 > Plan 22 A2 (implemented) each row is published from its adapter's capability record.
 > Implemented: SCIP (G1, G3), the IDAS and Diffsol extensions (Y1, Y2) and the KINSOL
 > extensions (Y6); not yet implemented: POUNCE-convex (N5) and Y3–Y5.
+>
+> Decision: [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — the records publish
+> `automatic_classes`; Clarabel serves `linear`, `convex_quadratic` and `continuous_cone`,
+> automatically only for cones (Plan 22 C4 and C5; not yet implemented).
 
 The linked inventory is the static adapter table `execution::LINKED`
 (`pse-backend-native/src/execution.rs`). `runtime.solver_capabilities` publishes one row
@@ -996,6 +1015,10 @@ the target.
 > [ADR-0083](../../adr/0083-class-specific-native-execution.md) — class-specific adapters.
 > Plan 22 Y6 (implemented) types the KINSOL method controls, shifts one-sided bounds to sign
 > constraints and caches nested sessions per worker.
+>
+> Decision: [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — Clarabel's direct
+> solver is QDLDL or MKL Pardiso, with `faer-sparse` excluded, and HiGHS's convex-QP
+> admission reads the compiler's convexity fact (Plan 22 C4 and C5; not yet implemented).
 
 **KINSOL** (`kinsol`) owns Newton, line search, Picard and fixed-point iteration with
 Anderson acceleration. Callers choose only the typed `kinsol::Method`, the adapter's

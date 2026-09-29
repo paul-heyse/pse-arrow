@@ -78,6 +78,11 @@ meshes explicitly; a small successful fixture does not qualify all mesh sizes.
 
 ### 13.5 Dynamic operations over immutable revisions
 
+> Decision: [ADR-0119](../../adr/0119-fixture-analysis-selections.md) — authored schedules,
+> whose interval values stay live parameters of the sensitivities, replace profile
+> `changes`; authored events and modes replace the runtime- and Python-only mode and event
+> inputs (Plan 22 Y0c and Y0d; not yet implemented).
+
 Operations that IDAES performs by mutating a model are either new immutable revisions or
 declared parts of the prepared profile:
 
@@ -99,6 +104,11 @@ between time points or deactivating a model at selected points have no counterpa
 > inputs with recoverable trials, events without sensitivities, constraints and Krylov;
 > Diffsol SDIRK, `tsit45` and KLU (Plan 22 Y1 and Y2, implemented); adjoint and
 > second-order sensitivities and shooting routes (Plan 22 Y3–Y5; not yet implemented).
+>
+> Decision: [ADR-0119](../../adr/0119-fixture-analysis-selections.md) — IDAS sign
+> constraints derive only from constant-zero bound annotations, and authored schedules and
+> directional events reach both integrators (Plan 22 Y0c and Y0d; not yet implemented). The
+> recorded follow-ups below close when they land.
 
 | Route | Admitted profile | Owner |
 |---|---|---|
@@ -208,6 +218,11 @@ mutates package declarations.
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
 > completion owns candidate use and records the actual request and start. Plan 22 A6
 > (implemented) runs every algebraic run as one staged sequence.
+>
+> Decision: [ADR-0119](../../adr/0119-fixture-analysis-selections.md) — an objective-bound
+> `annotation check` reads the step's certified dual bound when the step carries one, and
+> `runtime.modeling_checks.basis` records `point` or `global_bound`; a check never starts a
+> solve (Plan 22 G6r; not yet implemented).
 
 `RunResult` retains the authored outcome and the typed report, the original request (including unattempted steps)
 and a `Completion` computed once at join: candidate assessments, source-attributed
@@ -325,6 +340,13 @@ package changed in memory (`with_declarations`, `with_fit_data`, `with_limits`) 
 > and confidence intervals from a validated reduced Hessian, Gauss–Newton covariance for
 > transient fits; [ADR-0110](../../adr/0110-dynamics-profile-extensions.md) — Gauss–Newton
 > and exact transient Hessians (Plan 22 S3, Y4; not yet implemented).
+>
+> Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — covariance by one rule:
+> exact from the fit's KKT analysis when the fit used the exact Hessian, otherwise
+> Gauss–Newton from the response SVD; profile-likelihood intervals as adaptive pin chains;
+> one `LocalValidity` relation (Plan 22 S3; not yet implemented). ADR-0118 supersedes
+> ADR-0107, so the transient-only Gauss–Newton rule cited above is replaced by that one
+> rule.
 
 A fit (`authored.fit_cases`) declares shared parameters (fixed or free, value, optional
 bounds, positive scale), experiments (an authored case with an optional integrated analysis) and
@@ -470,6 +492,10 @@ fixed-assignment initialization stage.
 > Decision: [ADR-0107](../../adr/0107-sensitivity-covariance-uncertainty.md) — uncertainty
 > propagation and covariance with PS-12 validity enter the design target (Plan 22 S3–S4;
 > not yet implemented).
+>
+> Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — uncertainty propagation
+> Σ_y = J·Σ_θ·Jᵀ, valid only where every upstream validity row holds (Plan 22 S4; not yet
+> implemented). ADR-0118 supersedes ADR-0107, which this section still cites.
 
 Not yet implemented: no uncertainty propagation or covariance estimate; both are in
 the design target ([ADR-0107](../../adr/0107-sensitivity-covariance-uncertainty.md)). Robust
