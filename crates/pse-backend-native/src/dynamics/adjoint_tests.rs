@@ -314,6 +314,41 @@ fn idas_adjoint_gradient_equals_forward_and_differences() {
     adjoint_equals_forward_and_differences(Method::Idas);
 }
 
+/// A backward pass that starts where the forward state is nearly steady: Diffsol's own
+/// adjoint start state would probe a step of 0.01·|y|/|y'| back from the stop, far outside
+/// the segment's checkpoints (a Diffsol error found by shooting at an optimum). The feed
+/// holds the reactor at its steady state `u = k³` and moves it by one part in a million in
+/// the last interval; every scheme's adjoint gradient equals the forward sensitivities
+/// (declared relative tolerance of `tolerance`).
+#[test]
+fn diffsol_adjoint_starts_at_a_nearly_steady_stop() {
+    let steady = 0.8f64.powi(3);
+    let parameters = [0.8, steady, steady, steady * (1.0 + 1e-6)];
+    for (scheme, _) in cases(Method::Diffsol).into_iter().filter(|(_, dae)| !dae) {
+        let mut p = reactor_profile(Method::Diffsol, scheme, false, true);
+        let g = adjoint(&mut Reactor::new(false), &p, &parameters);
+        assert_eq!(g.report.termination, Termination::Completed, "{scheme:?}: {:?}", g.report.error);
+        let adjoint = g.gradient.unwrap();
+        p.sensitivity = DynamicSensitivity::Forward;
+        let forward = integrate(&mut Reactor::new(false), &p, &parameters, Arc::default()).unwrap();
+        let w = weights(forward.samples.len());
+        let np = parameters.len();
+        for (j, value) in adjoint.iter().enumerate() {
+            let contracted = forward
+                .samples
+                .iter()
+                .enumerate()
+                .flat_map(|(i, s)| (0..2).map(move |o| (i, o, s)))
+                .map(|(i, o, s)| w[i * 2 + o] * s.output_sensitivities[o * np + j])
+                .sum::<f64>();
+            assert!(
+                (value - contracted).abs() <= tolerance(Method::Diffsol).1 * (1.0 + contracted.abs()),
+                "{scheme:?}: column {j}: adjoint {value} forward {contracted}"
+            );
+        }
+    }
+}
+
 /// The checkpoints stay within `AdjointSettings` and are charged against the caller's
 /// memory before any native work.
 fn checkpoints_bounded(method: Method) {
