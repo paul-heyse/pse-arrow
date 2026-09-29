@@ -144,6 +144,86 @@ impl IntegratedExperiment {
     }
 }
 
+#[cfg(feature = "solver-idas")]
+impl IntegratedExperiment {
+    /// One forward pass with state sensitivities and one second-order backward pass: the
+    /// forward report, the gradient contributions as in [`Self::gradient`], and the Hessian
+    /// of the cotangent's functional with respect to the `selected` bindings' consumer
+    /// parameters, row-major over `selected` (ADR-0110 item 4). The checkpoints with their
+    /// sensitivities and the backward problems are charged against the attempt's foreign
+    /// allowance.
+    pub(crate) fn hessian(
+        &self,
+        value: &dyn Fn(usize) -> f64,
+        execution: &Execution,
+        selected: &[usize],
+        cotangent: native::dynamics::Cotangent<'_>,
+    ) -> Result<(native::dynamics::Report, Vec<(usize, f64)>, Vec<f64>), ProblemError> {
+        let memory = execution.memory.ok_or_else(|| {
+            ProblemError::Contract(
+                "second-order adjoints need the worker's admitted foreign allowance".into(),
+            )
+        })?;
+        let bindings = selected
+            .iter()
+            .map(|b| {
+                self.bindings
+                    .get(*b)
+                    .ok_or_else(|| ProblemError::internal("second-order binding extent"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut directions = bindings.iter().map(|b| b.local).collect::<Vec<_>>();
+        directions.sort_unstable();
+        directions.dedup();
+        let profile = self.attempt(execution, DynamicSensitivity::Adjoint);
+        let mut worker = self.program.worker(execution.cancel.clone())?;
+        let native::dynamics::Gradient {
+            report,
+            gradient,
+            hessian,
+            ..
+        } = native::dynamics::hessian(
+            &mut worker,
+            &profile,
+            &self.bind(value),
+            &directions,
+            cotangent,
+            execution.cancel.clone(),
+            memory,
+        )?;
+        let report = completed(report)?;
+        let (gradient, hessian) = gradient.zip(hessian).ok_or_else(|| {
+            ProblemError::internal("completed second-order adjoint without its derivatives")
+        })?;
+        let position = |local: usize| {
+            directions
+                .binary_search(&local)
+                .map_err(|_| ProblemError::internal("second-order direction"))
+        };
+        let contributions = self
+            .bindings
+            .iter()
+            .map(|b| {
+                gradient
+                    .get(b.local)
+                    .map(|g| (b.parameter, g * b.conversion.scale))
+                    .ok_or_else(|| ProblemError::internal("adjoint gradient extent"))
+            })
+            .collect::<Result<_, _>>()?;
+        let mut curvature = Vec::with_capacity(bindings.len() * bindings.len());
+        for a in &bindings {
+            for b in &bindings {
+                curvature.push(
+                    hessian[(position(a.local)?, position(b.local)?)]
+                        * a.conversion.scale
+                        * b.conversion.scale,
+                );
+            }
+        }
+        Ok((report, contributions, curvature))
+    }
+}
+
 /// A stopped integration keeps its stop; it is never an evaluation failure.
 #[cfg(feature = "solver-diffsol")]
 fn completed(

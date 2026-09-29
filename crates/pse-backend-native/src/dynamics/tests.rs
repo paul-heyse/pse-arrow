@@ -14,6 +14,7 @@ struct Toy {
 impl Toy {
     fn new(dae: bool, event: bool) -> Self {
         let mut c = Contract {
+            derivatives: pse_kernels::DerivativeOrder::First,
             quadratures: vec![],
             balances: vec![],
             identity: ContentHash::from_bytes([2; 32]),

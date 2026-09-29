@@ -79,12 +79,15 @@ impl ModelingPackage {
             case,
             compiler,
             profile,
+            DerivativeOrder::First,
             modes,
             cancel,
         )
         .await
     }
-    /// Prepare an integrated simulation of one instance under explicit bindings.
+    /// Prepare an integrated simulation of one instance under explicit bindings, with its
+    /// functions compiled to the `derivatives` order: first order for integration and
+    /// sensitivities, second order for exact transient Hessians (ADR-0110 item 4).
     #[expect(
         clippy::too_many_arguments,
         reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles and cancellation as independent inputs"
@@ -98,6 +101,7 @@ impl ModelingPackage {
         case: ModelingCaseBindings,
         compiler: Profile,
         profile: native::Profile,
+        derivatives: DerivativeOrder,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
         self.prepare_simulation_modes(
@@ -108,6 +112,7 @@ impl ModelingPackage {
             case,
             compiler,
             profile,
+            derivatives,
             vec![ModelingDynamicMode {
                 name: "initial".into(),
                 facts: BTreeMap::new(),
@@ -131,6 +136,7 @@ impl ModelingPackage {
         case: ModelingCaseBindings,
         compiler: Profile,
         profile: native::Profile,
+        derivatives: DerivativeOrder,
         modes: Vec<ModelingDynamicMode>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
@@ -160,6 +166,7 @@ impl ModelingPackage {
                     case.clone(),
                     compiler,
                     profile.clone(),
+                    derivatives,
                     mode,
                     &names,
                     cancel,

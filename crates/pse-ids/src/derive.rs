@@ -291,8 +291,8 @@ frames! {
         FitSourceV1 => "pse.fit.source.v1",
         /// Compiled simulation modes.
         ModelingDynamicModesV1 => "pse.modeling.dynamic-modes.v1",
-        /// A modeling dynamic simulation.
-        ModelingDynamicV1 => "pse.modeling.dynamic.v1",
+        /// A modeling dynamic simulation, with the derivative order of its functions.
+        ModelingDynamicV2 => "pse.modeling.dynamic.v2",
         /// A modeling fit's execution.
         ModelingFitExecutionV1 => "pse.modeling.fit-execution.v1",
         /// A modeling fit's source.

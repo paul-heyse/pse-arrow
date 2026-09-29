@@ -108,6 +108,7 @@ pub(in crate::dynamics) fn gradient(
     Ok(Gradient {
         report,
         gradient: outcome.gradient,
+        hessian: None,
         checkpoints: outcome.checkpoints,
         reserved_bytes: 0,
     })

@@ -19,10 +19,11 @@ impl Reactor {
         let n = if dae { 2 } else { 1 };
         Self {
             c: Contract {
+                derivatives: pse_kernels::DerivativeOrder::Second,
                 quadratures: vec![],
                 balances: vec![],
                 identity: ContentHash::from_bytes([60; 32]),
-                states: (0..n).map(|i| id(61 + i as u8)).collect(),
+                states: (61..).take(n).map(id).collect(),
                 differential: (0..n).map(|i| i == 0).collect(),
                 parameters: vec![id(64), id(65)],
                 outputs: vec![id(66), id(67)],
@@ -105,6 +106,38 @@ impl Oracle for Reactor {
             .unwrap()
         });
         Ok(Evaluation { values, jacobian })
+    }
+    /// The exact second derivatives: `−2k` in x·x and `−2x` in k·x of the ODE rate,
+    /// `−1` in z·x of the DAE rate and `1` in k·x of its constraint, `2` in k·k of the DAE's
+    /// initial `k²`, and `1` in u·x of the output `x·u`.
+    fn weighted_hessian(
+        &mut self,
+        _: usize,
+        f: Function,
+        _: f64,
+        x: &[f64],
+        p: &[f64],
+        w: &[f64],
+    ) -> Result<faer::sparse::SparseColMat<usize, f64>, ProblemError> {
+        self.evaluations.set(self.evaluations.get() + 1);
+        let n = self.c.states.len();
+        let (kc, uc) = (n, n + 1);
+        let entries = match (f, self.dae()) {
+            (Function::Initial, true) => vec![(kc, kc, 2.0 * w[1])],
+            (Function::Rhs, false) => vec![(0, 0, -2.0 * p[0] * w[0]), (kc, 0, -2.0 * x[0] * w[0])],
+            (Function::Rhs, true) => vec![(1, 0, -w[0]), (kc, 0, w[1])],
+            (Function::Output, _) => vec![(uc, 0, w[1])],
+            _ => vec![],
+        };
+        Ok(faer::sparse::SparseColMat::try_new_from_triplets(
+            n + 2,
+            n + 2,
+            &entries
+                .into_iter()
+                .map(|(r, c, v)| faer::sparse::Triplet::new(r, c, v))
+                .collect::<Vec<_>>(),
+        )
+        .unwrap())
     }
 }
 fn id(n: u8) -> SemanticId {
@@ -426,4 +459,149 @@ fn adjoint_profile_limits_are_typed_refusals() {
     .unwrap();
     assert_eq!(short.report.termination, Termination::Failed);
     assert!(short.gradient.is_none());
+}
+
+/// ADR-0110 item 4: the IDAS forward-over-adjoint Hessian of J = Σ wᵢₒ·yₒ(tᵢ) equals
+/// central differences of J's forward-sensitivity gradient (Diffsol BDF at a relative
+/// tolerance of 1e-10, steps of 1e-4 relative) within a declared relative tolerance of
+/// 1e-4, for the ODE and the DAE, with and without a scheduled feed whose intervals cross
+/// two changes. The Hessian over all directions is symmetric within integration error,
+/// its gradient is the first-order adjoint's, a subset of directions gives the matching
+/// block, and the backward problems' Newton counters are recorded.
+#[cfg(feature = "idas")]
+#[test]
+fn second_order_adjoint_matches_finite_difference() {
+    for dae in [false, true] {
+        for scheduled in [false, true] {
+            let case = format!("dae={dae} scheduled={scheduled}");
+            let p = reactor_profile(Method::Idas, DiffsolMethod::Bdf, dae, scheduled);
+            let parameters = reactor_parameters(scheduled);
+            let np = parameters.len();
+            let all = (0..np).collect::<Vec<_>>();
+            let second = |directions: &[usize]| {
+                hessian(
+                    &mut Reactor::new(dae),
+                    &p,
+                    &parameters,
+                    directions,
+                    &mut |report: &Report| Ok(weights(report.samples.len())),
+                    Arc::default(),
+                    256 << 20,
+                )
+                .unwrap()
+            };
+            let result = second(&all);
+            assert_eq!(result.report.termination, Termination::Completed, "{case}: {:?}", result.report.error);
+            let h = result.hessian.unwrap();
+            let g = result.gradient.unwrap();
+            let adjoint = adjoint(&mut Reactor::new(dae), &p, &parameters).gradient.unwrap();
+            for j in 0..np {
+                assert!(
+                    (g[j] - adjoint[j]).abs() <= 1e-6 * (1.0 + adjoint[j].abs()),
+                    "{case}: gradient {j}: {} vs {}",
+                    g[j],
+                    adjoint[j]
+                );
+            }
+            // The forward pass integrated the state sensitivities its tangents need.
+            assert!(result.report.samples.iter().all(|s| s.state_sensitivities.len() == np * p.atol.len()));
+            let statistics = result
+                .report
+                .statistics
+                .iter()
+                .find_map(|s| s.get("adjoint"))
+                .unwrap();
+            assert!(statistics["hessian_asymmetry"].as_f64().unwrap() < 1e-5, "{case}: {statistics}");
+            let backward = statistics["backward"].as_array().unwrap();
+            assert_eq!(backward.len(), np, "{case}");
+            eprintln!("{case}: backward Newton counters {backward:?}");
+            // Central differences of the forward-sensitivity gradient.
+            let mut reference = reactor_profile(Method::Diffsol, DiffsolMethod::Bdf, dae, scheduled);
+            reference.sensitivity = DynamicSensitivity::Forward;
+            let contracted = |q: &[f64]| -> Vec<f64> {
+                let r = integrate(&mut Reactor::new(dae), &reference, q, Arc::default()).unwrap();
+                assert_eq!(r.termination, Termination::Completed, "{case}: {:?}", r.error);
+                let w = weights(r.samples.len());
+                (0..np)
+                    .map(|j| {
+                        r.samples
+                            .iter()
+                            .enumerate()
+                            .flat_map(|(i, s)| (0..2).map(move |o| (i, o, s)))
+                            .map(|(i, o, s)| w[i * 2 + o] * s.output_sensitivities[o * np + j])
+                            .sum::<f64>()
+                    })
+                    .collect()
+            };
+            for j in 0..np {
+                let step = 1e-4 * (1.0 + parameters[j].abs());
+                let shifted = |delta: f64| {
+                    let mut q = parameters.clone();
+                    q[j] += delta;
+                    contracted(&q)
+                };
+                let (plus, minus) = (shifted(step), shifted(-step));
+                for i in 0..np {
+                    let difference = (plus[i] - minus[i]) / (2.0 * step);
+                    assert!(
+                        (h[(i, j)] - difference).abs() <= 1e-4 * (1.0 + difference.abs()),
+                        "{case}: H[{i},{j}] {} vs differences {difference}",
+                        h[(i, j)]
+                    );
+                }
+            }
+            // A subset of directions gives the same block.
+            let subset = [np - 1, 0];
+            let block = second(&subset).hessian.unwrap();
+            for (a, i) in subset.iter().enumerate() {
+                for (b, j) in subset.iter().enumerate() {
+                    assert!(
+                        (block[(a, b)] - h[(*i, *j)]).abs() <= 1e-6 * (1.0 + h[(*i, *j)].abs()),
+                        "{case}: block [{a},{b}]"
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// The second-order route is refused before native work outside its profile: on Diffsol,
+/// without declared second derivatives, with directions that are not distinct
+/// integration columns, and above the caller's allowance.
+#[cfg(feature = "idas")]
+#[test]
+fn second_order_route_limits_are_typed_refusals() {
+    let parameters = reactor_parameters(true);
+    let run = |oracle: &mut Reactor, p: &Profile, directions: &[usize], memory: usize| {
+        hessian(
+            oracle,
+            p,
+            &parameters,
+            directions,
+            &mut |r: &Report| Ok(weights(r.samples.len())),
+            Arc::default(),
+            memory,
+        )
+    };
+    let idas = reactor_profile(Method::Idas, DiffsolMethod::Bdf, true, true);
+    let diffsol = reactor_profile(Method::Diffsol, DiffsolMethod::Bdf, true, true);
+    let mut oracle = Reactor::new(true);
+    assert!(matches!(run(&mut oracle, &diffsol, &[0], 1 << 30), Err(ProblemError::Unsupported(_))));
+    let mut first = Reactor::new(true);
+    first.c.derivatives = pse_kernels::DerivativeOrder::First;
+    assert!(matches!(run(&mut first, &idas, &[0], 1 << 30), Err(ProblemError::Unsupported(_))));
+    for directions in [&[][..], &[0, 0], &[4]] {
+        assert!(matches!(run(&mut oracle, &idas, directions, 1 << 30), Err(ProblemError::Contract(_))));
+    }
+    let mut forward = idas.clone();
+    forward.sensitivity = DynamicSensitivity::Forward;
+    assert!(matches!(run(&mut oracle, &forward, &[0], 1 << 30), Err(ProblemError::Contract(_))));
+    let bytes = idas.admit_second_order(&oracle.c, &[0, 1]).unwrap();
+    assert!(bytes > idas.checkpoint_bytes(&oracle.c).unwrap());
+    let refused = run(&mut oracle, &idas, &[0, 1], bytes - 1).unwrap_err();
+    assert!(matches!(refused, ProblemError::Limit { kind: crate::LimitKind::Memory, .. }), "{refused:?}");
+    assert_eq!(oracle.evaluations.get(), 0);
+    let admitted = run(&mut oracle, &idas, &[0, 1], bytes).unwrap();
+    assert!(admitted.hessian.is_some());
+    assert_eq!(admitted.reserved_bytes, bytes);
 }

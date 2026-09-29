@@ -141,7 +141,7 @@ Derived in: pse-runtime.
 | `FitProfileV3` | `pse.fit.profile.v3` | A fit profile, with its derivative source. |
 | `FitSourceV1` | `pse.fit.source.v1` | A fit source. |
 | `ModelingDynamicModesV1` | `pse.modeling.dynamic-modes.v1` | Compiled simulation modes. |
-| `ModelingDynamicV1` | `pse.modeling.dynamic.v1` | A modeling dynamic simulation. |
+| `ModelingDynamicV2` | `pse.modeling.dynamic.v2` | A modeling dynamic simulation, with the derivative order of its functions. |
 | `ModelingFitExecutionV1` | `pse.modeling.fit-execution.v1` | A modeling fit's execution. |
 | `ModelingFitSourceV1` | `pse.modeling.fit-source.v1` | A modeling fit's source. |
 | `ModelingImplicitTrialHintsV1` | `pse.modeling.implicit-trial-hints.v1` | Implicit trial hints. |

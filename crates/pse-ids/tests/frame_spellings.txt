@@ -52,7 +52,6 @@ pse.modeling.coordinate.v1
 pse.modeling.definite-integral.v1
 pse.modeling.dispatch-body.v1
 pse.modeling.dynamic-modes.v1
-pse.modeling.dynamic.v1
 pse.modeling.finite-function.v1
 pse.modeling.finite-reduction.v1
 pse.modeling.fit-execution.v1
@@ -136,3 +135,8 @@ pse.fit.profile.v3
 pse.compiler.modeling-parametric.v1
 # Plan 22 C4 (ADR-0121): a coefficient-program row lowered to cone form for Clarabel.
 pse.cone.lowered-row.v1
+# Plan 22 Y4b (ADR-0110 item 4): a prepared dynamic simulation's identity includes the
+# derivative order its functions were compiled to, so the exact transient Hessian's
+# second-order preparation is a distinct simulation. modeling.dynamic.v2 replaces
+# modeling.dynamic.v1, which is not declared.
+pse.modeling.dynamic.v2
