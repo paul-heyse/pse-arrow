@@ -1889,13 +1889,14 @@ yet, so outside tests such a term is still refused. *Tested* by
 **Certified heater** (Plan 22 G4r). `heater_optimization_certified` (native acceptance
 conformance) certifies the authored PC-SAFT heater optimization, declared `intent certify;`
 over a vapor-branch box, with SCIP's optimal status, `GapQualified` and `global_bound` and a
-read-back-equivalent export. The search needs a declared foreign allowance of 2 GiB
-(`MathPolicy.foreign_bytes`, the runtime's `math_foreign_bytes`, which becomes SCIP's
-`limits/memory`): measured on 2026-09-28, 512 MiB and 1 GiB stop at the memory limit before
-the first node, and 2 GiB proves optimality in 91 nodes, the whole run taking 18 s. The
-default allowance is 64 MiB. The allowance is one number charged to every native job and
-retained program, so the test also raises the shared memory ceiling to 256 GiB of
-accounting; an allowance scoped to the search that needs it is register R-40 (DP-20).
+read-back-equivalent export. The search needs a foreign allowance of 2 GiB, which becomes
+SCIP's `limits/memory`. Measured on 2026-09-28, 512 MiB and 1 GiB stop at the memory limit
+before the first node, while 2 GiB proves optimality in 91 nodes and the whole run takes
+18 s. The allowance is declared on the solve that needs it: `SolveControls.foreign_bytes`,
+authored in the fixture as `policy { limits foreign_bytes(2147483648); }`. That solve's own
+reservation charges it (DP-20). An unset control keeps the deployment default
+(`MathPolicy.foreign_bytes`, 64 MiB) and leaves request identities unchanged. Shooting and
+fitting solves follow the same rule (Plan 23 H1f).
 
 **Phase stability** (Plan 22 G6, partial). The authored tangent-plane-distance model
 (`TangentPlaneStability` in the reference thermodynamics package) minimizes the

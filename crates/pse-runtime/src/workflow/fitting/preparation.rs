@@ -89,7 +89,7 @@ impl PreparedExperiments {
         .into_iter()
         .try_fold(0usize, |n, v| n.checked_add(v))
         .and_then(|n| n.checked_mul(1024))
-        .and_then(|n| n.checked_add(policy.foreign_bytes))
+        .and_then(|n| n.checked_add(policy.foreign_allowance(&profile.solver.controls)))
         .and_then(|n| n.checked_add(experiment_metadata))
         .ok_or_else(|| contract("fit preparation metadata allowance"))?;
         // Each contribution may coexist with pair/refill maps, canonical CSC,

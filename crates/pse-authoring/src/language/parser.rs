@@ -354,9 +354,10 @@ impl Cursor<'_> {
         Ok(())
     }
     /// ADR-0119: `policy { backend <b>; presolve <auto|off>; derivatives [step(x)]
-    /// [tolerance(x)] [cells(n)]; limits [items(n)] [body_occurrences(n)] [body_slots(n)]; }`
-    /// states the fixture's execution policy over the run's. Every setting is optional and
-    /// at most once; an unknown or repeated setting is refused where it is written.
+    /// [tolerance(x)] [cells(n)]; limits [items(n)] [body_occurrences(n)] [body_slots(n)]
+    /// [foreign_bytes(n)]; }` states the fixture's execution policy over the run's. Every
+    /// setting is optional and at most once; an unknown or repeated setting is refused where
+    /// it is written.
     fn fixture_policy(&mut self) -> Result<AuthoredModelingDeclarationsFieldValueScopeFixturePolicy> {
         use pse_model::generated::enums::{NativeBackend, PresolvePolicyKind};
         self.expect("{")?;
@@ -369,6 +370,7 @@ impl Cursor<'_> {
             items: None,
             body_occurrences: None,
             body_slots: None,
+            foreign_bytes: None,
         };
         let mut seen = BTreeSet::new();
         loop {
@@ -416,13 +418,14 @@ impl Cursor<'_> {
                 }
                 _ => {
                     self.policy_options(
-                        ["items", "body_occurrences", "body_slots"],
+                        ["items", "body_occurrences", "body_slots", "foreign_bytes"],
                         |cursor, index| {
                             let value = Some(cursor.policy_count()?);
                             match index {
                                 0 => policy.items = value,
                                 1 => policy.body_occurrences = value,
-                                _ => policy.body_slots = value,
+                                2 => policy.body_slots = value,
+                                _ => policy.foreign_bytes = value,
                             }
                             Ok(())
                         },

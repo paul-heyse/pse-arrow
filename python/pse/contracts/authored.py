@@ -154,6 +154,7 @@ class AuthoredModelingDeclarationsFieldValueScopeFixturePolicy:
     items: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     body_occurrences: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     body_slots: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    foreign_bytes: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
 
 @attrs.frozen(kw_only=True)

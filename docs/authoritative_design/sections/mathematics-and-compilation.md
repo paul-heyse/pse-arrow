@@ -299,7 +299,11 @@ output inside a nonlinear term is refused; no production provider declares an en
 **Presolve facts.** `CasePlan::presolve_facts` derives FBBT tapes and obligation admission
 from this projection, under the default request (no implicit definitions or envelopes;
 auxiliary branches). Affine proofs and the objective degree still use the optional
-flattened expressions. A large factorable body therefore keeps a complete tape, a
+flattened expressions. An affine row propagates from its affine proof, not from a separately
+built tape, so its constants agree exactly. When interval propagation leaves a nonlinear row
+with no free variable, automatic presolve declines only that propagation and keeps its other
+reductions (Plan 23 H1f; `automatic_presolve_propagates_an_affine_row_by_its_proof`,
+`automatic_presolve_declines_propagation_that_leaves_constant_nonlinear_rows`). A large factorable body therefore keeps a complete tape, a
 requirement is admitted through its exact condition on its argument, and a validity
 predicate through its closed conjunction, which must be complete, over the selected
 variable box. Admission follows the evaluator's obligations:

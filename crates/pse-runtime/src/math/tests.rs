@@ -1192,6 +1192,66 @@ async fn resolved_accuracy_not_user_input() {
     .unwrap();
     assert_eq!(default.accuracy(), &expected);
 }
+/// A solve's declared foreign allowance replaces the deployment's in its own reservation
+/// only; a solve without one keeps the deployment's, and a zero allowance is refused.
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
+#[tokio::test]
+async fn solve_reservation_charges_its_declared_foreign_allowance() {
+    use super::solves::*;
+    use pse_backend_native::{execution::BackendSettings, solve::*};
+    let s = service();
+    let deployment = s.policy.foreign_bytes;
+    let declared = 32 << 20;
+    let p = prepared(&s).await;
+    let prepare = |foreign_bytes| {
+        let (s, p) = (s.clone(), p.clone());
+        async move {
+            s.prepare_solve(
+                p,
+                CaseValues {
+                    scalars: BTreeMap::from([(id(1), 1.0)]),
+                },
+                BTreeMap::new(),
+                SolverProfile {
+                    intent: SolveIntent::Root,
+                    controls: Controls {
+                        foreign_bytes,
+                        ..Controls::default()
+                    },
+                    backend: BackendSettings::Default,
+                    ..SolverProfile::default()
+                },
+                NumericalInputs::default(),
+            )
+            .await
+        }
+    };
+    // Programs are assembled once per structure; later solves share them.
+    drop(prepare(None).await.unwrap());
+    let before = s.pool.reserved();
+    let open = prepare(None).await.unwrap();
+    let open_bytes = s.pool.reserved() - before;
+    let scoped = prepare(Some(declared)).await.unwrap();
+    let scoped_bytes = s.pool.reserved() - before - open_bytes;
+    assert_eq!(scoped_bytes - open_bytes, declared - deployment);
+    assert_eq!(s.policy.foreign_allowance(&Controls::default()), deployment);
+    // The allowance is a per-attempt budget: the request names it, and the retained native
+    // session a sequence may reuse does not.
+    assert_ne!(
+        open.preparation_identity().unwrap(),
+        scoped.preparation_identity().unwrap()
+    );
+    assert_eq!(
+        open.compatibility().map(|c| c.profile),
+        scoped.compatibility().map(|c| c.profile)
+    );
+    drop((open, scoped));
+    assert_eq!(s.pool.reserved(), before);
+    assert!(prepare(Some(0)).await.is_err());
+}
 /// min y*y - 3y + x  s.t.  y - x*x = 0, x in `x_box`, y in [0, 4]: the quartic
 /// x^4 - 3x^2 + x, whose global minimum is near x = -1.3008.
 #[cfg(all(feature = "solver-scip", feature = "solver-ipopt"))]

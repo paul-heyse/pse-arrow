@@ -556,11 +556,13 @@ intent in place of the run's. A fixture may also declare its execution policy, a
 ```
 policy { backend <NativeBackend>; presolve auto|off;
          derivatives [step(x)] [tolerance(x)] [cells(n)];
-         limits [items(n)] [body_occurrences(n)] [body_slots(n)]; }
+         limits [items(n)] [body_occurrences(n)] [body_slots(n)] [foreign_bytes(n)]; }
 ```
 
 Every setting is a typed field of the fixture in `authored.modeling_declarations`
-version 7; none is text. Unknown, repeated or malformed settings are refused where they
+version 8; none is text. `foreign_bytes` becomes the fixture solve's
+`SolveControls.foreign_bytes`
+([§18.10.1](numerical-execution.md#section-18-10-1)). Unknown, repeated or malformed settings are refused where they
 are written. An empty policy, a non-positive allowance and a solver setting on a pure
 fixture are refused at admission. A fixture's limits apply to that fixture only.
 Execution policy never changes scientific declarations or expectations. There is no

@@ -260,6 +260,12 @@ pub struct Controls {
     pub start: StartPolicy,
     /// Additional native options, admitted by the selected adapter.
     pub options: Options,
+    /// Positive foreign-library allowance of this solve, in bytes: its reservation charges
+    /// it, and a library that enforces its own memory limit receives it. Absent, the
+    /// deployment's allowance applies (`MathPolicy.foreign_bytes`); an absent allowance is
+    /// not encoded, so controls without one keep their identity.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub foreign_bytes: Option<usize>,
 }
 impl Default for Controls {
     fn default() -> Self {
@@ -272,6 +278,7 @@ impl Default for Controls {
             reuse: ReusePolicy::Fresh,
             start: StartPolicy::NoPriorStart,
             options: Options::new(),
+            foreign_bytes: None,
         }
     }
 }
@@ -333,6 +340,7 @@ impl Controls {
             || self.threads == 0
             || self.threads > i32::MAX as usize
             || self.history > 1_000_000
+            || self.foreign_bytes == Some(0)
             || self.options.len() > 4096
             || self.options.iter().any(|(k, v)| {
                 k.is_empty()
@@ -1622,6 +1630,7 @@ mod numerical_tests {
             reuse: _,
             start: _,
             options: _,
+            foreign_bytes: _,
         } = base.clone();
         let variants = [
             Controls {
@@ -1656,10 +1665,20 @@ mod numerical_tests {
                 options: Options::from([("mu_init".into(), OptionValue::Real(0.1))]),
                 ..base.clone()
             },
+            Controls {
+                foreign_bytes: Some(2 << 30),
+                ..base.clone()
+            },
         ];
         for variant in &variants {
             assert_ne!(variant.identity().unwrap(), key, "{variant:?}");
         }
+        // An absent allowance is not encoded: controls without one keep the identity they
+        // had before the control existed.
+        assert_eq!(
+            serde_json::to_value(&base).unwrap().get("foreign_bytes"),
+            None
+        );
         // Option values keep their native type and exact float bits.
         let option = |v| {
             Controls {

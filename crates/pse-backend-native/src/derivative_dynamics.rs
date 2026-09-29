@@ -23,6 +23,11 @@ pub struct DynamicSample {
     pub state: Vec<f64>,
     /// Parameters in the dynamic oracle's declared coordinates.
     pub parameters: Vec<f64>,
+    /// The box each coordinate, states then parameters, stays inside in the same
+    /// coordinates: the range the oracle's obligations admit, unbounded where none applies.
+    /// A difference step never leaves it, so at an active bound it is one-sided into the
+    /// box: backward at an upper bound, forward at a lower one.
+    pub bounds: Vec<(f64, f64)>,
 }
 /// Compare raw state/parameter partials and declared sparsity with POUNCE's checker.
 /// This is local numerical evidence; it does not establish smoothness across mode changes.
@@ -53,6 +58,11 @@ pub fn analyze_dynamic(
         || !sample.time.is_finite()
         || sample.state.len() != contract.states.len()
         || sample.parameters.len() != contract.parameters.len()
+        || sample.bounds.len() != n
+        || sample
+            .bounds
+            .iter()
+            .any(|(l, u)| l.is_nan() || u.is_nan() || l > u)
     {
         return Err(invalid("dynamic derivative sample dimensions"));
     }
@@ -73,10 +83,11 @@ pub fn analyze_dynamic(
             .states
             .iter()
             .chain(&contract.parameters)
-            .map(|id| Variable {
+            .zip(&sample.bounds)
+            .map(|(id, &(lower, upper))| Variable {
                 id: *id,
-                lower: f64::NEG_INFINITY,
-                upper: f64::INFINITY,
+                lower,
+                upper,
             })
             .collect(),
         rows,
@@ -200,6 +211,9 @@ mod tests {
         contract: dynamics::Contract,
         wrong: bool,
         missing: bool,
+        /// The parameter range outside which an evaluation is refused, as an authored
+        /// bound's guard refuses it.
+        domain: (f64, f64),
     }
     impl dynamics::Oracle for Polynomial {
         fn contract(&self) -> &dynamics::Contract {
@@ -221,6 +235,15 @@ mod tests {
             parameters: &[f64],
             derivatives: bool,
         ) -> Result<dynamics::Evaluation, ProblemError> {
+            if parameters[0] < self.domain.0 || parameters[0] > self.domain.1 {
+                return Err(ProblemError::Math(pse_math::MathError::OutsideRange {
+                    source_id: SemanticId::from_bytes([2; 16]),
+                    target: SemanticId::from_bytes([2; 16]),
+                    value: parameters[0],
+                    lower: Some(self.domain.0),
+                    upper: Some(self.domain.1),
+                }));
+            }
             Ok(dynamics::Evaluation {
                 values: vec![state[0] * state[0] * parameters[0]],
                 jacobian: derivatives.then(|| {
@@ -245,49 +268,102 @@ mod tests {
             })
         }
     }
+    fn polynomial(wrong: bool, missing: bool, domain: (f64, f64)) -> Polynomial {
+        let id = |n| SemanticId::from_bytes([n; 16]);
+        Polynomial {
+            contract: dynamics::Contract {
+                identity: ContentHash::from_bytes([8; 32]),
+                states: vec![id(1)],
+                differential: vec![true],
+                parameters: vec![id(2)],
+                outputs: vec![id(3)],
+                events: vec![vec![]],
+                signs: vec![],
+                quadratures: vec![],
+                balances: vec![],
+                derivatives: DerivativeOrder::First,
+            },
+            wrong,
+            missing,
+            domain,
+        }
+    }
+    /// Sample the output at state 2 and `parameter` within `bounds`.
+    fn sample(oracle: Polynomial, parameter: f64, bounds: Vec<(f64, f64)>) -> Report {
+        analyze_dynamic(
+            Box::new(oracle),
+            DynamicSample {
+                mode: 0,
+                function: Function::Output,
+                time: 0.5,
+                state: vec![2.],
+                parameters: vec![parameter],
+                bounds,
+            },
+            pse_math::normalization::Normalization::identity(2, 1),
+            Policy {
+                perturbation: 1e-6,
+                relative_tolerance: 1e-4,
+                maximum_cells: 100,
+            },
+            Execution::new(
+                Arc::new(AtomicBool::new(false)),
+                &crate::solve::Controls::default(),
+            ),
+        )
+        .unwrap()
+    }
+    const FREE: (f64, f64) = (f64::NEG_INFINITY, f64::INFINITY);
     #[test]
     fn dynamic_derivative_sampling_detects_wrong_partials_and_missing_support() {
         for (wrong, missing) in [(false, false), (true, false), (false, true)] {
-            let id = |n| SemanticId::from_bytes([n; 16]);
-            let oracle = Polynomial {
-                contract: dynamics::Contract {
-                    identity: ContentHash::from_bytes([8; 32]),
-                    states: vec![id(1)],
-                    differential: vec![true],
-                    parameters: vec![id(2)],
-                    outputs: vec![id(3)],
-                    events: vec![vec![]],
-                    signs: vec![],
-                    quadratures: vec![],
-                    balances: vec![],
-                    derivatives: DerivativeOrder::First,
-                },
-                wrong,
-                missing,
-            };
-            let report = analyze_dynamic(
-                Box::new(oracle),
-                DynamicSample {
-                    mode: 0,
-                    function: Function::Output,
-                    time: 0.5,
-                    state: vec![2.],
-                    parameters: vec![3.],
-                },
-                pse_math::normalization::Normalization::identity(2, 1),
-                Policy {
-                    perturbation: 1e-6,
-                    relative_tolerance: 1e-4,
-                    maximum_cells: 100,
-                },
-                Execution::new(
-                    Arc::new(AtomicBool::new(false)),
-                    &crate::solve::Controls::default(),
-                ),
-            )
-            .unwrap();
+            let report = sample(polynomial(wrong, missing, FREE), 3., vec![FREE; 2]);
             assert!(report.complete);
             assert_eq!(report.passed(), !wrong && !missing, "{:?}", report.sample);
         }
+    }
+    /// An input held at the edge of the range its guard admits is differenced into the
+    /// range: backward at its upper bound and forward at its lower one, never across it.
+    #[test]
+    fn derivative_sample_uses_one_sided_step_at_an_active_bound() {
+        let domain = (0., 1.);
+        for parameter in [1., 0.] {
+            let report = sample(
+                polynomial(false, false, domain),
+                parameter,
+                vec![FREE, domain],
+            );
+            assert_eq!(report.rejected_evaluations, 0, "{parameter}");
+            assert!(report.complete, "{parameter}: {:?}", report.sample);
+            assert!(report.passed(), "{parameter}: {:?}", report.sample);
+        }
+        // Control: without the box the step at the upper bound leaves the range, the
+        // guard refuses the trial, and the sample is incomplete.
+        let unbounded = sample(polynomial(false, false, domain), 1., vec![FREE; 2]);
+        assert!(unbounded.rejected_evaluations > 0);
+        assert!(!unbounded.complete);
+        // A box of the wrong extent is refused.
+        let refused = analyze_dynamic(
+            Box::new(polynomial(false, false, domain)),
+            DynamicSample {
+                mode: 0,
+                function: Function::Output,
+                time: 0.5,
+                state: vec![2.],
+                parameters: vec![1.],
+                bounds: vec![FREE],
+            },
+            pse_math::normalization::Normalization::identity(2, 1),
+            Policy {
+                perturbation: 1e-6,
+                relative_tolerance: 1e-4,
+                maximum_cells: 100,
+            },
+            Execution::new(
+                Arc::new(AtomicBool::new(false)),
+                &crate::solve::Controls::default(),
+            ),
+        );
+        assert!(matches!(refused, Err(ProblemError::Contract(_))));
     }
 }

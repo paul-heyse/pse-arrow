@@ -155,6 +155,8 @@ pub struct AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
     pub r#body_occurrences: Option<i64>,
     ///body_slots
     pub r#body_slots: Option<i64>,
+    ///foreign_bytes
+    pub r#foreign_bytes: Option<i64>,
 }
 impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -176,6 +178,10 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeFixturePol
                 &self.r#body_occurrences,
                 &other.r#body_occurrences,
             ) && crate::SemanticEq::semantic_eq(&self.r#body_slots, &other.r#body_slots)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#foreign_bytes,
+                &other.r#foreign_bytes,
+            )
     }
 }
 impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
@@ -5633,6 +5639,8 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueScopeFixture
         crate::SemanticFrame::frame(&self.r#body_occurrences, hash);
         hash.str(stringify!(r#body_slots));
         crate::SemanticFrame::frame(&self.r#body_slots, hash);
+        hash.str(stringify!(r#foreign_bytes));
+        crate::SemanticFrame::frame(&self.r#foreign_bytes, hash);
     }
 }
 impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
@@ -5646,6 +5654,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixturePoli
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#items))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#body_occurrences))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#body_slots))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#foreign_bytes))
     }
 }
 impl crate::SemanticFrame

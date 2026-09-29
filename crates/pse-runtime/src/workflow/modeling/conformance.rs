@@ -56,8 +56,9 @@ pub(super) fn fixture_limits(row: &Declaration, run: Limits) -> Result<Limits, W
     })
 }
 /// The policy one fixture runs under (ADR-0119): the run's, with the solve intent and each
-/// execution-policy setting its declaration states, for this fixture only. The time limit
-/// and every other control stay the run's. The fixture's derivative policy is validated
+/// execution-policy setting its declaration states, for this fixture only; a declared
+/// foreign allowance becomes its solves' control. The time limit and every other control
+/// stay the run's. The fixture's derivative policy is validated
 /// here, so a caller that resolves every fixture first refuses before any runs.
 fn fixture_policy(
     row: &Declaration,
@@ -93,6 +94,11 @@ fn fixture_policy(
             derivatives.maximum_cells = usize::try_from(cells).map_err(|_| {
                 contract(format!("fixture {fixture} policy derivative cell allowance"))
             })?;
+        }
+        if let Some(bytes) = declared.foreign_bytes {
+            solver.controls.foreign_bytes = Some(usize::try_from(bytes).map_err(|_| {
+                contract(format!("fixture {fixture} policy foreign allowance"))
+            })?);
         }
     }
     derivatives.allowance().map_err(|error| {
@@ -1399,17 +1405,22 @@ impl ModelingPackage {
             pse_modeling::specialize::root_instance(fixture),
             policy.solver.clone(),
         )?;
-        // Every window holds its own integration of the simulation's layout.
+        // Every window holds its own integration of the simulation's layout. The job holds
+        // the deployment's foreign allowance; a declared one is the solve's to reserve while
+        // it runs.
         let bytes = simulation
             .bytes
             .checked_mul(request.nodes.len() + 2)
+            .ok_or_else(|| contract("shooting extent"))?;
+        let admitted = bytes
+            .checked_add(policy.solver.controls.foreign_bytes.unwrap_or(0))
             .ok_or_else(|| contract("shooting extent"))?;
         let problem = Arc::new(simulation.shooting(request)?);
         let handle = self
             .runtime
             .shared
             .math()
-            .submit(1, bytes, move |flag, progress| {
+            .submit(1, admitted, move |flag, progress| {
                 let report = problem.solve(run_id, flag, progress, None)?;
                 Ok((report, bytes))
             })?;
@@ -1800,6 +1811,9 @@ mod tests {
             "run pure; policy { derivatives step(1e-7); }",
             "run steady; policy { limits items(0); }",
             "run steady; policy { derivatives cells(0); }",
+            // A foreign allowance is a solve's, and positive.
+            "run pure; policy { limits foreign_bytes(1048576); }",
+            "run steady; policy { limits foreign_bytes(0); }",
         ] {
             assert!(
                 rt.modeling_package(rows(metadata), physical.clone(), BTreeMap::new())
@@ -1907,7 +1921,7 @@ mod tests {
         use pse_backend_native::presolve::Policy as Presolve;
         use pse_backend_native::solve::{Backend, SolveIntent as Intent, SolverSelection};
         let p = package(
-            "package p { def D { var x:Scalar; eq e:x==1; } test declared fixture {dof 0; run steady; intent certify; policy { backend ipopt; presolve off; derivatives step(1e-7) cells(64); limits items(12) body_occurrences(4096); }} {child root:D=D();} test open fixture {dof 0; run steady;} {child root:D=D();} }",
+            "package p { def D { var x:Scalar; eq e:x==1; } test declared fixture {dof 0; run steady; intent certify; policy { backend ipopt; presolve off; derivatives step(1e-7) cells(64); limits items(12) body_occurrences(4096) foreign_bytes(2147483648); }} {child root:D=D();} test open fixture {dof 0; run steady;} {child root:D=D();} }",
         );
         let rows = p.declarations();
         let row = |name: &str| rows.iter().find(|r| r.name == name).unwrap();
@@ -1933,9 +1947,17 @@ mod tests {
                 ..run.limits
             }
         );
-        // The time limit and every other control stay the run's.
-        assert_eq!(declared.solver.controls, run.solver.controls);
+        // The declared foreign allowance becomes its solves' control; the time limit and
+        // every other control stay the run's.
+        assert_eq!(
+            declared.solver.controls,
+            pse_backend_native::solve::Controls {
+                foreign_bytes: Some(2 << 30),
+                ..run.solver.controls.clone()
+            }
+        );
         let open = fixture_policy(row("open"), &run).unwrap();
+        assert_eq!(open.solver.controls, run.solver.controls);
         assert_eq!(open.solver.intent, run.solver.intent);
         assert_eq!(open.solver.selection, run.solver.selection);
         assert!(matches!(open.solver.presolve, Presolve::Auto));

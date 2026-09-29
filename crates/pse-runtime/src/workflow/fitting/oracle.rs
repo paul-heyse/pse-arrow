@@ -672,8 +672,14 @@ impl FitProblem {
             started: Instant::now(),
             time_limit: self.profile.solver.controls.time_limit,
             progress,
-            // Adjoint checkpoints are foreign allocations charged to the job's allowance.
-            memory: Some(self.runtime.shared.budget().math.foreign_bytes),
+            // Adjoint checkpoints are foreign allocations charged to the fit's allowance.
+            memory: Some(
+                self.runtime
+                    .shared
+                    .budget()
+                    .math
+                    .foreign_allowance(&self.profile.solver.controls),
+            ),
         };
         let mut oracle = FitOracle::new(self.clone(), execution.clone())?;
         let (solve, candidate) = if self.initial.is_empty() {

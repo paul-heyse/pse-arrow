@@ -197,14 +197,14 @@ and after.
 |---|---|---|---|---|
 | P0 Decisions and plan transfer | ADR-0123–0126 accepted after review; Plan 21 Outcome, K9 and F01–F13 transfer, retirement of Plan 21 records; register rows; current-work indexes | `just adr-lint` | Plan 21, its execution packets, the K0–K3/K4–K7/through-K8 reviews (ADR-0096) | done (`0e725de2`, `41336c23`) |
 | H1 Whole-seed conformance | Typed fixture `policy { backend; presolve; derivatives; expansion; body slots; time limit }` (within ADR-0119); `packages/reference/conformance.toml`; `just seed-conformance` | `kernel_conformance_reads_fixture_policies_from_declarations`, `kernel_conformance_refuses_unknown_fixture_policy_setting`, `test_conformance_runs_the_declared_reference_set`; one complete run of every fixture | `--fixture-solver/--fixture-presolve/--fixture-derivatives` flags, the runtime `ModelingFixturePolicy` map and parameter, `WorkflowError::FixtureIntentConflict` (the declaration-ID fixture subset in `tests/support/plan14.rs` stays: it selects fixtures for targeted Rust tests) | done; first complete run 90 passed, 1 failed, 3 inconclusive of 94 (H1f) |
-| H1f Whole-seed findings; H1 | The first complete run's non-passing fixtures, each fixed at its cause: SCIP's native allowance is unreachable from a fixture (`heater_optimization_certified` fails; register R-40); derivative sampling perturbs an input fixed at its bound (`saturated_integrated` inconclusive); the tangent-plane check miscounts compared entries (`tpd_ideal` inconclusive); automatic selection now stops `pfr_radau` at a local infeasibility where K8 passed (a routing or Ipopt regression, not a fixture policy) | `just seed-conformance` 94/94 with no masking policy | Whatever each root cause replaces | pending |
-| SM0 Chemistry kinds and phase authority | Confirm the modeling path needs no registry-shaped chemistry types and delete the 354 unreferenced shaped types from `physical.yaml`; move the species, element, reaction and phase kinds (identities unchanged) and the canonical phases into a `chemistry` module of `pse.physical`; references move from `kinds.*` and `equilibrium.liquid/vapor` | `package_declared_axis_indexes_a_sum_without_a_registered_shaped_type`; H1 unchanged | 354 shaped quantity types, `kinds.phase_species`, the four kinds in `kinds.pse`, `equilibrium.liquid/vapor`, `chem.liquid/vapor/aqueous` | in rework on `plan23/sm` (ADR-0127) |
+| H1f Whole-seed findings; H1 | The first complete run's non-passing fixtures, each fixed at its cause: SCIP's native allowance is unreachable from a fixture (`heater_optimization_certified` fails; register R-40); derivative sampling perturbs an input fixed at its bound (`saturated_integrated` inconclusive); the tangent-plane check miscounts compared entries (`tpd_ideal` inconclusive); automatic selection now stops `pfr_radau` at a local infeasibility where K8 passed (a routing or Ipopt regression, not a fixture policy) | `just seed-conformance` 94/94 with no masking policy | Whatever each root cause replaces | done: `just seed-conformance` 94/94 (5 min 18 s, 128 GiB pool, memory-capped). SCIP's allowance is declared per solve (`limits foreign_bytes`, `SolveControls.foreign_bytes`; R-40 removed). The derivative sample steps one-sided at active bounds and does not expect comparisons along pinned coordinates. `pfr_radau` had passed K8 only by luck of MUMPS ordering; the fix is two presolve defects: affine rows now propagate from their proof, and automatic presolve declines only the offending propagation. `authored.modeling_declarations` is now version 8 |
+| SM0 Chemistry kinds and phase authority | Confirm the modeling path needs no registry-shaped chemistry types and delete the 354 unreferenced shaped types from `physical.yaml`; move the species, element, reaction and phase kinds (identities unchanged) and the canonical phases into a `chemistry` module of `pse.physical`; references move from `kinds.*` and `equilibrium.liquid/vapor` | `package_declared_axis_indexes_a_sum_without_a_registered_shaped_type`; H1 unchanged | 354 shaped quantity types, `kinds.phase_species`, the four kinds in `kinds.pse`, `equilibrium.liquid/vapor`, `chem.liquid/vapor/aqueous` | done on `plan23/sm` (`452a4953`, `bfa1dc99`); awaiting merge; seed run unchanged at 90/94 |
 
 ### Track K — kernel (sequential; owns `pse-schema`, the parser and `pse-modeling/data.rs`)
 
 | Packet | Responsibility / dependencies | Acceptance (targeted tests) | Deletion | Status |
 |---|---|---|---|---|
-| KR1 Unit algebra | `dsl` `Number.unit` → `UnitProduct`; `QuantityRegistry::compose`; atomic and defined units; affine only as sole factor; unit-product identity framed over canonical factors; `reference.units` v2 | `unit_product_is_order_independent` (identity equality), `composite_literal_needs_no_registered_whole_unit`, `affine_unit_only_as_sole_factor`, `defined_unit_dimension_and_scale_are_derived`, `rational_unit_exponents_canonicalize`, `report_in_a_composite_unit_carries_its_identity` | Token-joining `unit()`, exact-string `unit_by_symbol` call sites, authored scale of composite units | on `plan23/kr` (`d78fe6d0`); awaiting merge |
+| KR1 Unit algebra | `dsl` `Number.unit` → `UnitProduct`; `QuantityRegistry::compose`; atomic and defined units; affine only as sole factor; unit-product identity framed over canonical factors; `reference.units` v2 | `unit_product_is_order_independent` (identity equality), `composite_literal_needs_no_registered_whole_unit`, `affine_unit_only_as_sole_factor`, `defined_unit_dimension_and_scale_are_derived`, `rational_unit_exponents_canonicalize`, `report_in_a_composite_unit_carries_its_identity` | Token-joining `unit()`, exact-string `unit_by_symbol` call sites, authored scale of composite units | done on `plan23/kr` (`af0cade2`); awaiting merge |
 | KR2 Derived quantity kinds; KR1 | `QuantityKind.definition` with canonical unit, `by_monomial` index, chain flattening in `infer.rs` with the ADR-0124 leaf eligibility and result policy; language type expressions use the same lookup | `seed_forms_type_without_intermediate_kinds` (dippr100, Shomate, RPP4 `cp`, `dh`, `ds`), `eligible_leaves_are_exactly_true_zero_ratio_points_and_differences`, `nonzero_datum_leaf_is_refused_with_its_factor`, `basis_must_agree_or_be_declared`, `undeclared_monomial_is_refused_with_factors`, `rule_and_chain_disagreement_is_refused`, `type_expression_resolves_by_monomial` | — | on `plan23/kr` (`a8a3282a`); awaiting merge |
 | KR3 Structured IR core; KR2 | Type arena replaces every type-bearing Utf8 (relation version after H1's); `ModelingMissingPolicy`, `ModelingAnnotationKind`, fact-namespace enum, `ModelingVersionOperator`; frame `ModelingSourceRevisionV2` with the ADR-0123 Outcome 8 preimage, and new variants for every frame whose preimage changes (dispatch-body and function-specialization frames included), with golden vectors; no migration (§20.5) |  `type_arena_render_parse_roundtrip` (property test), `type_arena_rejects_forward_child`, `missing_policy_is_enum`, `annotation_kind_dispatch_is_exhaustive`, `analysis_facts_are_typed_namespaces`, `import_requirement_is_typed`, `source_revision_changes_with_a_physical_name_binding`, `unchanged_inputs_reproduce_the_source_revision` (the data-byte case lands with KR9: `source_revision_changes_with_one_data_byte`) | String type grammar in `types.rs`, policy-word check, annotation string dispatch, `analysis.rs` prefix parsing, `Frame::ModelingSourceRevisionV1` | pending |
 | KR4 Typed cells and entity records; KR3 | `ModelingCell`; attribute schemas; kind refinement (interface graph and SCC check reused); identifier schemes and closure uniqueness; keyed kinds from datasets (identity over the key-declaring kind and typed keys; enum members gain identities; dataset-supplied keys are declared bindings); kind-level bindings incl. functions; static `Ref` calls specialize per resolved most-derived function on the existing function-specialization path; `constant` declarations | `kind_extends_kind_and_subkind_members_conform`, `kind_refinement_cycle_refused`, `identifier_unique_within_closure`, `identifier_values_are_never_interpreted`, `attribute_cells_type_checked_at_admission`, `missing_required_attribute_refused_at_admission`, `keyed_identity_is_the_key_declaring_kind_and_typed_keys`, `same_key_in_two_forms_is_refused`, `moving_a_row_between_forms_keeps_its_identity`, `refined_kind_binds_inherited_function_attribute`, `ref_calls_dispatch_one_body_per_concrete_kind`, `non_static_ref_is_refused`, `constants_are_typed_declarations` | Per-access attribute re-evaluation; interface-only base rule for kinds | pending |
@@ -219,8 +219,10 @@ and after.
 | Packet | Responsibility / dependencies | Acceptance | Deletion | Status |
 |---|---|---|---|---|
 | H2 Formal-slot gap | `MAX_FORMAL_SYMBOLS` becomes a lazily extended pool up to the explicit `body_slots` limit with a typed refusal; M1 bench `modeling_preparation` (PC-SAFT 2/5/10/20 components; PR inline and nested) | `formal_pool_extends_to_the_declared_limit_and_refuses_beyond`, `formal_symbols_are_stable_across_pool_extension` | The fixed ceiling | done on `plan23/h` (`c97edece`, `d4cbe19e`); awaiting merge |
-| H3 Reuse counters (CT-S08) | `PreparationCounts` in study results, Rust and Python | `study_results_carry_preparation_counts`, `test_flash_sweep_prepares_structure_once` | — | pending |
-| H4 Regime-crossing counters (M3) | Nested stage reports regime changes per outer iteration | `nested_stage_reports_regime_crossings_per_outer_iteration` | — | pending |
+| H3 Reuse counters (CT-S08) | `PreparationCounts` in study results, Rust and Python | `study_results_carry_preparation_counts`, `test_flash_sweep_prepares_structure_once` | — | done on `plan23/h` (`ab1925d8`); awaiting merge |
+| H4 Regime-crossing counters (M3) | Nested stage reports regime changes per outer iteration | `nested_stage_reports_regime_crossings_per_outer_iteration` | — | done on `plan23/h` (`aa6faaa7`; crossings are a typed recoverable `ProviderError::RegimeCrossing`); awaiting merge |
+| H7 Benchmark defects found by H2; H2 | Existing bench failures, all present before Plan 23: `native_cache` reserves reader leases per planned output partition, not per actual Parquet reader partition, and at four partitions exceeds its 8 MiB aggregate limit; `native_consolidation` truncates its 1 MiB plan-text capture when DataFusion folds a 65,536-row `unnest(range)` into a literal, and its 4 workers × 4 queries case is refused by CPU admission, which rejects rather than queues. The smoke-matrix selection bug is already fixed (`1dd8c350`) | `just bench-smoke`, `just bench-cache` and `just bench-production` pass, with no limit raised to hide a defect | Whatever each root cause replaces | pending |
+| H8 Memory regression in a PFR refinement study | `pfr_order_radau` (four PFRs of 5, 10, 20 and 40 Radau elements, about 2,000 variables) grew to 156 GB resident under a 64 GiB engine pool, twice, and the OS killed it, taking the editor down with it (2026-09-29 13:55, systemd-oomd; 14:20, kernel OOM). A problem this size needs a few GB, so the growth is an aberration introduced by recent code, not a missing accounting mechanism. Suspects: the CT-S05 `pse-modeling` change, KR1/KR2 inference, or combinatorial Symbolica expansion. Localize it by growth curve and commit bisection under the cap, and fix it at the root | Small refinement cases prepare with near-linear memory; a regression test bounds the growth; the full study runs within a few GB under the cap | The regression's cause | in progress (track C); guard in place (`scripts/memory-cap.sh`, `5ac320ff`) |
 | H5 Typed expectations; KR6, KR7 | Expected failures match class plus lineage (parameter set, form, envelope layer, member) | `expected_envelope_failure_matches_set_layer_and_variable`, `expected_failure_with_wrong_lineage_fails_the_fixture` | Class-and-rule-only match | pending |
 | H6 Parity report (CT-S14); KR6 | Oracle fixtures grouped by definition and oracle test with release, tolerance and disposition | `parity_report_lists_every_oracle_fixture_with_release_and_tolerance` | — | pending |
 
@@ -371,9 +373,22 @@ H1 done: typed fixture `policy` clauses, `packages/reference/conformance.toml` a
 128 GiB pool with one thread, root intent, automatic backend, automatic presolve and a
 600 s limit. H1f owns the four that did not pass.
 
+The integration branch `plan23/int` (`0da986c3`) merges SM0, KR1–KR2 and H2–H4:
+- `physical.yaml` was merged row by row: the deleted shaped types stay deleted, and KR's
+  defined units and derived kinds are kept, with no dangling references;
+- `just codegen` and `just check` are clean;
+- the pse-quantity, pse-ids, pse-schema, pse-authoring, pse-modeling, pse-math and
+  pse-compiler library suites pass (416 tests, 0 failures).
+
+It fast-forwards to main after H1f lands and the native tests and a whole-seed run pass on
+it.
+
 In progress:
-- KR1 → KR2, in the worktree `/home/paul/pse-arrow-wt/kr` (branch `plan23/kr`).
-- H2, in the worktree `/home/paul/pse-arrow-wt/h` (branch `plan23/h`).
+- H1f, in the main checkout.
+- KR3 + KR8 (`plan23/kr2`). They are done together, so the source-revision frame changes
+  once.
+- Track C: CT-S05 → CT-S06 → CT-S07 (`plan23/c`), with a new `packages/reference/campaign`
+  distribution.
 
 H2 implemented on `plan23/h`. Its smoke run of `modeling_preparation`, first-order
 derivatives only, prepared PC-SAFT at 2 components in 3.5 s (1095 slots), at 5 components in
@@ -390,10 +405,16 @@ KR1 and KR2 are implemented on `plan23/kr`:
 - 17 composite units are now defined units;
 - 242 literals were rewritten mechanically, `m3` → `m^3` and `m2` → `m^2`.
 
-Open: the entropy increment `ds` has the monomial of `MolarCp`. The decision is to use no
-silent reinterpretation between same-monomial kinds: an explicit reinterpretation is
-declared once in the physical document and invoked in the form. The KR agent is
-implementing it, then running H1 on its rebased branch.
+Resolved: the entropy increment `ds`.
+- The physical document declares the dimensionless kinds `temperature_ratio` and
+  `logarithmic_temperature_increment`, with registered rules for T/T0, (T−T0)/T and
+  log(T/T0), and derives `molar_entropy` as molar heat capacity × logarithmic temperature
+  increment.
+- Forms write ds as c1·log(T/T0) plus heat-capacity terms × (T−T0)/T. This is an exact
+  factoring of ∫cp dT/T.
+- An expected type never selects among same-monomial kinds.
+- Derived-kind definitions may include dimensionless kinds.
+- The rebased branch still passes 90 of 94 in the whole-seed run, the same as main.
 
 Architecture text owed at wave end:
 - the 4096-slot figures in §7 (mathematics and compilation);

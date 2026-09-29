@@ -87,10 +87,9 @@ no silent fallback, approximate substitute or compatibility route.
 - Covariances and intervals assume the declared standard deviations are exact; no residual
   variance is estimated ([§19.4](workflows-and-results.md#section-19-4)).
 - Global certification of the Peng–Robinson instability case does not finish in bounded time
-  (SCIP left a gap after 10 minutes), so instability is established locally only; the
-  certified heater needs a 2 GiB foreign allowance, which is charged to every native job and
-  retained program alike ([§18.10.1](numerical-execution.md#section-18-10-1), register
-  R-40).
+  (SCIP left a gap after 10 minutes), so instability is established locally only. The
+  certified heater declares its 2 GiB foreign allowance on its own solve
+  ([§18.10.1](numerical-execution.md#section-18-10-1)).
 - Fixed Symbolica symbol registration gives semantic and numerical agreement across
   processes, not bitwise reproducibility.
 - Resource reservations are finite configurable policy with explicit allowances for

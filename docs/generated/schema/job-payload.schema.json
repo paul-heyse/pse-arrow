@@ -1799,6 +1799,15 @@
       "additionalProperties": false,
       "description": "Finite shared attempt controls chosen by the caller; solver-specific settings remain\nnative typed values. Accuracy is not among them: it is resolved from the numerical\npolicy ([`ResolvedAccuracy`]). A document states the time limit in seconds; absent\nfields take these defaults and unknown fields are refused.",
       "properties": {
+        "foreign_bytes": {
+          "description": "Positive foreign-library allowance of this solve, in bytes: its reservation charges\nit, and a library that enforces its own memory limit receives it. Absent, the\ndeployment's allowance applies (`MathPolicy.foreign_bytes`); an absent allowance is\nnot encoded, so controls without one keep their identity.",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "hessian": {
           "$ref": "#/$defs/HessianMode",
           "default": "exact",
