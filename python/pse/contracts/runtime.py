@@ -1697,6 +1697,8 @@ class RuntimeSolverCapabilitiesRow:
     native_forms: b.tuple[e.NativeConstraintForm, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeConstraintForm), iterable_validator=attrs.validators.instance_of(b.tuple)))
     requirements: b.tuple[e.ModelingStructuralRequirement, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.ModelingStructuralRequirement), iterable_validator=attrs.validators.instance_of(b.tuple)))
     lexicographic_classes: b.tuple[e.NativeProblemClass, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeProblemClass), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    batch: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    sensitivities: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
 
 @attrs.frozen(kw_only=True)

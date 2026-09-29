@@ -31,6 +31,8 @@ static CAPABILITY: Capability = Capability {
     native_forms: &[],
     requirements: &[],
     lexicographic: &[],
+    batch: false,
+    sensitivities: false,
     reuse: "same sparse layout: retained SUNDIALS/KLU allocations",
     cancellation: "evaluation checkpoints; native factorization completes before teardown",
     diagnostics: "native nonlinear/linear iterations, setups, failures, norms, Krylov and preconditioner counters and callback timing",

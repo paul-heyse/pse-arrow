@@ -899,6 +899,8 @@ mod restart_tests;
 
 #[cfg(test)]
 mod clarabel_tests;
+#[cfg(test)]
+mod pounce_convex_tests;
 #[cfg(all(test, feature = "pounce"))]
 mod l1_tests;
 

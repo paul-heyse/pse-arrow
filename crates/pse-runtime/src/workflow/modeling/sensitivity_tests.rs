@@ -47,7 +47,7 @@ pub(in crate::workflow) const LINEAR: &str = "package p {
       annotation bounds x(-10, 10);
       annotation start x(0); } }";
 
-fn package(text: &str) -> (ModelingPackage, DeclarationId) {
+pub(in crate::workflow) fn package(text: &str) -> (ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
     let mut names = fixture::discrete_names();
     names.insert(
@@ -71,7 +71,7 @@ fn package(text: &str) -> (ModelingPackage, DeclarationId) {
         .unwrap();
     (package, root)
 }
-fn analysis(root: DeclarationId, selection: SolverSelection) -> ModelingAnalysis {
+pub(in crate::workflow) fn analysis(root: DeclarationId, selection: SolverSelection) -> ModelingAnalysis {
     let mut solver: SolverProfile = fixture::profile();
     solver.intent = SolveIntent::Optimize;
     solver.selection = selection;
@@ -89,7 +89,7 @@ fn analysis(root: DeclarationId, selection: SolverSelection) -> ModelingAnalysis
 }
 /// Solve `text` with a sensitivity request over its parameters `a` and `b`; returns the
 /// result and the identities of `a`, `b` and `x`.
-async fn solve(
+pub(in crate::workflow) async fn solve(
     text: &str,
     selection: SolverSelection,
 ) -> (std::sync::Arc<crate::workflow::RunResult>, [SemanticId; 3]) {
@@ -129,7 +129,7 @@ pub(in crate::workflow) async fn solve_propagating(
     let result = prepared.start().unwrap().wait().await.unwrap();
     (result, ids)
 }
-fn rows<R: RelationRow>(result: &crate::workflow::RunResult, name: &str) -> Vec<R> {
+pub(in crate::workflow) fn rows<R: RelationRow>(result: &crate::workflow::RunResult, name: &str) -> Vec<R> {
     R::rows(&result.table(name).unwrap()).unwrap()
 }
 

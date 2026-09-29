@@ -871,6 +871,7 @@ class NativeBackend(StrEnum):
     DIFFSOL = "diffsol"
     IDAS = "idas"
     SCIP = "scip"
+    POUNCE_CONVEX = "pounce_convex"
 
 
 class NativeBoundaryClass(StrEnum):

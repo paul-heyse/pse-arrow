@@ -307,6 +307,53 @@ impl NativeSession {
         })
         .await
     }
+    /// Execute the independent steps of one batch on the retained native state under one
+    /// admission of the first step's threads (Plan 22 N5), and `assess` each outcome by its
+    /// position on the same worker. The retained state survives only when every member ends
+    /// with a usable, accepted candidate.
+    ///
+    /// # Errors
+    /// Admission, cancellation before admission or a lost session.
+    pub(crate) async fn batch<T: Send + 'static>(
+        &self,
+        members: Vec<super::solves::BatchMember>,
+        progress: Arc<Progress>,
+        cancel: &crate::CancelSource,
+        mut assess: impl FnMut(
+            usize,
+            &super::solves::Outcome,
+            &Arc<AtomicBool>,
+            &Arc<WorkerBudget>,
+        ) -> (T, bool)
+        + Send
+        + 'static,
+    ) -> Result<Vec<Result<(super::solves::Outcome, T), MathRuntimeError>>, MathRuntimeError> {
+        let Some(first) = members.first() else {
+            return Ok(Vec::new());
+        };
+        let service = self.service.clone();
+        let (threads, backend) = (first.step.threads(), first.step.backend());
+        self.run(threads, backend, cancel, move |retained, flag, budget| {
+            let outcomes = service.execute_batch(members, retained, flag, &progress, budget);
+            let mut kept = true;
+            let assessed = outcomes
+                .into_iter()
+                .enumerate()
+                .map(|(i, outcome)| {
+                    outcome.map(|outcome| {
+                        let (assessed, accepted) = assess(i, &outcome, flag, budget);
+                        kept &= accepted && outcome.candidate_use().permits_use();
+                        (outcome, assessed)
+                    })
+                })
+                .collect::<Vec<_>>();
+            if !kept {
+                retained.clear();
+            }
+            Ok(assessed)
+        })
+        .await
+    }
     /// Close the session and wait until its thread has joined.
     pub(crate) async fn close(mut self) {
         self.sender.take();

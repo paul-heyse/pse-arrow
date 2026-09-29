@@ -5,6 +5,7 @@
       {
         "automatic_classes": "[\"list\",[]]",
         "backend": "[\"enum\",\"ipopt\"]",
+        "batch": "[\"bool\",true]",
         "cancellation": "[\"text\",\"value-1\"]",
         "certifies": "[\"bool\",true]",
         "classes": "[\"list\",[]]",
@@ -16,12 +17,14 @@
         "parallel": "[\"bool\",true]",
         "requirements": "[\"list\",[]]",
         "reuse": "[\"text\",\"value-1\"]",
+        "sensitivities": "[\"bool\",true]",
         "sign_bounds": "[\"bool\",true]",
         "warm": "[\"enum\",\"none\"]"
       },
       {
         "automatic_classes": "[\"list\",[]]",
         "backend": "[\"enum\",\"ipopt\"]",
+        "batch": "[\"bool\",true]",
         "cancellation": "[\"text\",\"value-1\"]",
         "certifies": "[\"bool\",true]",
         "classes": "[\"list\",[]]",
@@ -33,6 +36,7 @@
         "parallel": "[\"bool\",true]",
         "requirements": "[\"list\",[]]",
         "reuse": "[\"text\",\"value-1\"]",
+        "sensitivities": "[\"bool\",true]",
         "sign_bounds": "[\"bool\",true]",
         "warm": "[\"enum\",\"none\"]"
       }

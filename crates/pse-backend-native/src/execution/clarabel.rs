@@ -37,6 +37,8 @@ static CAPABILITY: Capability = Capability {
     native_forms: &[],
     requirements: &[],
     lexicographic: &[],
+    batch: false,
+    sensitivities: false,
     reuse: "native data-update eligibility; reusable mode disables preprocessing",
     cancellation: "native iteration termination callback",
     diagnostics: "complete native info/settings, cone slacks/duals and certificates",

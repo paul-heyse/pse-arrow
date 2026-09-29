@@ -33,6 +33,8 @@ static CAPABILITY: Capability = Capability {
     native_forms: &[],
     requirements: &[],
     lexicographic: &[ProblemClass::Linear, ProblemClass::MixedLinear],
+    batch: false,
+    sensitivities: false,
     reuse: "native coefficient/bound updates with compatible layout",
     // PDLP never polls the interrupt callback (HiGHS `pdlp/*Wrapper.cpp`), so, like the
     // QP solver, it stops only at the native time limit (F08c).

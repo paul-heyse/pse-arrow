@@ -2067,7 +2067,7 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, step, symbol_id`.
 
 ## `solver_capabilities`
 
-Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `automatic_classes` are the classes automatic routing may choose the adapter for; every other class in `classes` needs explicit selection. Automatic routing takes the problem's classes most specific first and selects among the eligible adapters automatic for the first class that has one. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104). `requirements` lists the structural requirements of a formulation the adapter can honour with a method its settings select, such as the l1 exact penalty an authored `penalty(l1)` realization states; a structure stating any other is ineligible, as is a request whose settings select another method (ADR-0104 §5). `lexicographic_classes` lists the classes in which the adapter optimizes several objectives lexicographically in one native solve; a structure with several objectives in any other class is ineligible (ADR-0111).
+Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `automatic_classes` are the classes automatic routing may choose the adapter for; every other class in `classes` needs explicit selection. Automatic routing takes the problem's classes most specific first and selects among the eligible adapters automatic for the first class that has one. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104). `requirements` lists the structural requirements of a formulation the adapter can honour with a method its settings select, such as the l1 exact penalty an authored `penalty(l1)` realization states; a structure stating any other is ineligible, as is a request whose settings select another method (ADR-0104 §5). `lexicographic_classes` lists the classes in which the adapter optimizes several objectives lexicographically in one native solve; a structure with several objectives in any other class is ineligible (ADR-0111). `batch` marks an adapter that solves the independent points of a study sharing one prepared structure as one parallel batch on the admitted threads, each point still qualified on its own (Plan 22 N5). `sensitivities` marks an adapter whose candidate carries the original-coordinate multipliers the KKT-point analysis differentiates: automatic routing of a request for parametric sensitivities prefers one, and an explicit selection of any other solves with the quantities withheld and their reason recorded (ADR-0118).
 
 Version: 3. Snapshot class: `derived`. Primary key: `backend`.
 
@@ -2093,6 +2093,8 @@ Version: 3. Snapshot class: `derived`. Primary key: `backend`.
 | `requirements.item` | `enum:ModelingStructuralRequirement` | false | `payload` | — | — |
 | `lexicographic_classes` | `List` | false | `payload` | — | — |
 | `lexicographic_classes.item` | `enum:NativeProblemClass` | false | `payload` | — | — |
+| `batch` | `Boolean` | false | `payload` | — | — |
+| `sensitivities` | `Boolean` | false | `payload` | — | — |
 
 ## `study_outcomes`
 

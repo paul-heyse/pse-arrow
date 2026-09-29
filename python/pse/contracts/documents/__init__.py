@@ -539,6 +539,21 @@ class PointOverlay(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     values: dict[str, float] = msgspec.field(default_factory=dict)
 
 
+class PounceConvexSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="pounce_convex"):
+    """The POUNCE-convex interior-point method's choices and FERAL configuration."""
+
+    #: Cross over from the interior-point solution to a vertex of a linear program.
+    crossover: bool = False
+    #: Ruiz-equilibrate the data before the solve.
+    equilibrate: bool = True
+    #: Native linear settings. A batch factors each instance serially: its parallelism is
+    #: across instances.
+    linear: FeralSettings = msgspec.field(default_factory=lambda: msgspec.convert({"cascade_break": None, "fma": False, "increase_quality": True, "inertia_pivot_floor": None, "min_par_flops": None, "ordering": "auto", "parallel": None, "pivtol": 1e-8, "refine": True, "refine_max_steps": 10, "refine_target": 0.0, "scaling": "auto", "singular_pivot_floor": 1e-20, "static_pivoting": None}, type=FeralSettings))
+    #: Solve through the homogeneous self-dual embedding, which detects primal and dual
+    #: infeasibility from the iterates, instead of the direct infeasible-start method.
+    self_dual: bool = True
+
+
 class PounceSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="pounce"):
     """POUNCE method and complete native FERAL configuration."""
 
@@ -812,7 +827,7 @@ class WarmRestart(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     slack_bound_push: Tolerance = 1e-9
 
 
-BackendSettings = IpoptSettings | PounceSettings | KinsolSettings | HighsSettings | ClarabelSettings | ScipSettings
+BackendSettings = IpoptSettings | PounceSettings | KinsolSettings | HighsSettings | ClarabelSettings | ScipSettings | PounceConvexSettings
 
 IdasLinear = IdasLinearKlu | IdasLinearSpgmr | IdasLinearSpfgmr
 
@@ -879,6 +894,7 @@ __all__ = [
     "ParameterCovariance",
     "PointOverlay",
     "PositiveCount",
+    "PounceConvexSettings",
     "PounceSettings",
     "ProfileControls",
     "Propagation",

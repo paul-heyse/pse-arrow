@@ -5300,6 +5300,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pounce-convex"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5244c45adfece0d828f1bc9a7ced19f10d8a1aa67b43a49c52b48af1af25863"
+dependencies = [
+ "feral",
+ "pounce-common",
+ "pounce-linalg",
+ "pounce-linsol",
+ "pounce-presolve",
+ "pounce-qp",
+ "pounce-sens-core",
+ "rayon",
+ "tracing",
+]
+
+[[package]]
 name = "pounce-feral"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5411,6 +5428,7 @@ checksum = "99d5023b44e5927b4f3113f8cac7f113c61746efae49de8dffc2c7ef2af5c1d4"
 dependencies = [
  "pounce-algorithm",
  "pounce-common",
+ "pounce-convex",
  "pounce-feral",
  "pounce-linalg",
  "pounce-linsol",

@@ -55,6 +55,7 @@ impl PreparedInitialization {
                     least_squares: false,
                     controls,
                     settings: &execution::BackendSettings::Default,
+                    sensitivity: false,
                 }
                 .select(selection)
             })

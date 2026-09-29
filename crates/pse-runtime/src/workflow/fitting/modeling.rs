@@ -159,6 +159,7 @@ impl ModelingPackage {
             least_squares: true,
             controls: &problem.profile.solver.controls,
             settings: &problem.profile.solver.backend,
+            sensitivity: false,
         }
         .select(problem.profile.solver.selection)
         .map_err(crate::math::MathRuntimeError::from)?;

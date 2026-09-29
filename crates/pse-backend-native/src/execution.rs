@@ -31,14 +31,16 @@ mod highs;
 mod ipopt;
 mod kinsol;
 mod pounce;
+mod pounce_convex;
 mod runner;
+pub mod sos;
 mod scip;
 pub use factorable::{
     Factorable, Refusal, RelaxedOracle, Resolve, ResolveSensitivity, admit_program, factorable,
 };
 pub use runner::{
     Analysis, Coefficients, Evaluation, Nlp, OriginalModel, Recognized, Roots, Step, coefficients,
-    cone, nlp, recognized, roots,
+    coefficients_batch, cone, nlp, recognized, roots,
 };
 pub use scip::Settings as ScipSettings;
 
@@ -104,6 +106,13 @@ pub struct Capability {
     /// one native solve (ADR-0111 item 4); a structure with several objectives in any other
     /// class is ineligible.
     pub lexicographic: &'static [ProblemClass],
+    /// The adapter solves the independent points of a study that share one prepared
+    /// structure as one parallel batch on the admitted threads (Plan 22 N5).
+    pub batch: bool,
+    /// The adapter's candidate carries the original-coordinate multipliers the KKT-point
+    /// analysis differentiates: automatic routing of a parametric sensitivity request
+    /// prefers such an adapter (ADR-0118).
+    pub sensitivities: bool,
     /// Native allocation/data reuse boundary.
     pub reuse: &'static str,
     /// Actual interrupt checkpoints.
@@ -130,6 +139,8 @@ impl Capability {
             native_forms: self.native_forms.to_vec(),
             requirements: self.requirements.to_vec(),
             lexicographic_classes: self.lexicographic.to_vec(),
+            batch: self.batch,
+            sensitivities: self.sensitivities,
         }
     }
 }
@@ -343,6 +354,19 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
         retained: &mut Retained,
         input: Input<'_>,
     ) -> Result<SolveReport, ProblemError>;
+    /// Solve the independent inputs of one batch, one result per input in order (Plan 22
+    /// N5). An adapter whose record declares `batch` solves them in parallel on the
+    /// admitted threads; every other solves them in turn.
+    fn execute_batch(
+        &self,
+        retained: &mut Retained,
+        inputs: Vec<Input<'_>>,
+    ) -> Vec<Result<SolveReport, ProblemError>> {
+        inputs
+            .into_iter()
+            .map(|input| self.execute(retained, input))
+            .collect()
+    }
 }
 
 /// The adapter of every registry `Backend`: a static map with an exhaustive match, so a
@@ -357,6 +381,7 @@ pub const fn adapter(backend: Backend) -> &'static dyn BackendExecution {
         Backend::Diffsol => &dynamics::DIFFSOL,
         Backend::Idas => &dynamics::IDAS,
         Backend::Scip => &scip::ADAPTER,
+        Backend::PounceConvex => &pounce_convex::ADAPTER,
     }
 }
 static ADAPTERS: [&dyn BackendExecution; Backend::ALL.len()] = {
@@ -446,6 +471,9 @@ pub enum BackendSettings {
     /// SCIP's nested Ipopt linear solver, seed and node budget.
     #[schemars(title = "ScipSettings")]
     Scip(ScipSettings),
+    /// The POUNCE-convex interior-point method's choices and FERAL configuration.
+    #[schemars(title = "PounceConvexSettings")]
+    PounceConvex(crate::settings::pounce_convex::Settings),
 }
 impl BackendSettings {
     /// The backend these settings belong to; `None` for native defaults.
@@ -458,6 +486,7 @@ impl BackendSettings {
             Self::Highs(_) => Some(Backend::Highs),
             Self::Clarabel(_) => Some(Backend::Clarabel),
             Self::Scip(_) => Some(Backend::Scip),
+            Self::PounceConvex(_) => Some(Backend::PounceConvex),
         }
     }
     /// The document form of these settings: `None` for native defaults.

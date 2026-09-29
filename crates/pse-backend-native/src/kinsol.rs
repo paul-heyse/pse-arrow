@@ -1737,6 +1737,7 @@ mod tests {
                 least_squares: false,
                 controls: &Controls::default(),
                 settings: &crate::execution::BackendSettings::Default,
+                sensitivity: false,
             };
             let kinsol = requirements
                 .eligibility()

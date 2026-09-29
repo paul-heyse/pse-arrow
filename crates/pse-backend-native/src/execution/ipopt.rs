@@ -30,6 +30,8 @@ static CAPABILITY: Capability = Capability {
     native_forms: &[],
     requirements: &[],
     lexicographic: &[],
+    batch: false,
+    sensitivities: true,
     reuse: "same sparse layout and bounds: retained C problem",
     cancellation: "intermediate/evaluation checkpoints",
     diagnostics: "native current iterate, violations, callback counts and timing",

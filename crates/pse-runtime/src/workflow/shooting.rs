@@ -546,6 +546,7 @@ impl ShootingProblem {
                 least_squares: false,
                 controls: &problem.solver.controls,
                 settings: &problem.solver.backend,
+                sensitivity: false,
             }
             .select(problem.solver.selection)
             .map_err(crate::math::MathRuntimeError::from)?;

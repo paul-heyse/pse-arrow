@@ -832,6 +832,7 @@ impl MathService {
         let tolerances = Tolerances::from_policy(&numerics, plan.columns(), &rows)?;
         let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
 
+
         let mut certificate: Option<Arc<dyn QuadraticEvidence>> = f
             .convexity
             .convex_quadratic()
@@ -878,6 +879,7 @@ impl MathService {
             least_squares: false,
             controls: &profile.controls,
             settings: &profile.backend,
+            sensitivity: profile.sensitivity.is_some(),
         };
         let route = requirements.select(profile.selection)?;
         let eligibility = requirements.eligibility();
@@ -1353,6 +1355,114 @@ impl MathService {
         budget: &Arc<WorkerBudget>,
         owner: &Arc<pse_columnar::AllocationLease>,
     ) -> Result<Outcome, MathRuntimeError> {
+        let admitted = match self.admit_step(step, previous, retained, flag, progress) {
+            Ok(admitted) => admitted,
+            Err(refused) => return Ok(refused),
+        };
+        let Admitted {
+            step,
+            chosen,
+            execution,
+            receipt,
+            normalization,
+        } = admitted;
+        let outcome = self
+            .run_step(step, execution, chosen.as_ref(), retained, budget)
+            .unwrap_or_else(|e| Outcome::Rejected(Arc::new(e)));
+        self.conclude(outcome, receipt, normalization, attempt, owner)
+    }
+    /// The independent steps of one batch on the session's retained native state (Plan 22
+    /// N5): each is admitted as [`Self::execute`] admits it, those that share one batching
+    /// adapter over coefficient programs are solved together
+    /// ([`execution::coefficients_batch`]), and each outcome is concluded on its own. Steps
+    /// that cannot join the batch run in turn. One outcome per step, in order.
+    pub(crate) fn execute_batch(
+        &self,
+        members: Vec<BatchMember>,
+        retained: &mut Retained,
+        flag: &Arc<std::sync::atomic::AtomicBool>,
+        progress: &Arc<Progress>,
+        budget: &Arc<WorkerBudget>,
+    ) -> Vec<Result<Outcome, MathRuntimeError>> {
+        let mut outcomes: Vec<Option<Result<Outcome, MathRuntimeError>>> =
+            members.iter().map(|_| None).collect();
+        let mut admitted = Vec::new();
+        for (i, member) in members.into_iter().enumerate() {
+            match self.admit_step(member.step, None, retained, flag, progress) {
+                Ok(step) => admitted.push((i, member.attempt, member.owner, step)),
+                Err(refused) => outcomes[i] = Some(Ok(refused)),
+            }
+        }
+        let batching = |a: &Admitted| {
+            let Route::Native(backend) = a.step.route else {
+                return None;
+            };
+            let adapter = execution::adapter(backend);
+            let coefficients = matches!(
+                &a.step.representation,
+                Representation::Algebraic(case)
+                    if case.prepared.prepared.coefficients.is_some()
+                        && case.recognized.is_none()
+                        && case.sensitivity.is_none()
+            );
+            (adapter.capability().batch
+                && coefficients
+                && matches!(
+                    adapter.representation(),
+                    execution::Representation::Coefficients | execution::Representation::Cone
+                ))
+            .then_some(backend)
+        };
+        let shared = admitted
+            .first()
+            .and_then(|(_, _, _, a)| batching(a))
+            .filter(|backend| {
+                admitted
+                    .iter()
+                    .all(|(_, _, _, a)| batching(a) == Some(*backend))
+            });
+        if shared.is_some() && admitted.len() > 1 {
+            let concluded = self.coefficient_batch(admitted, retained, budget);
+            for (i, outcome) in concluded {
+                outcomes[i] = Some(outcome);
+            }
+        } else {
+            for (i, attempt, owner, a) in admitted {
+                let Admitted {
+                    step,
+                    chosen,
+                    execution,
+                    receipt,
+                    normalization,
+                } = a;
+                let outcome = self
+                    .run_step(step, execution, chosen.as_ref(), retained, budget)
+                    .unwrap_or_else(|e| Outcome::Rejected(Arc::new(e)));
+                outcomes[i] = Some(self.conclude(outcome, receipt, normalization, attempt, &owner));
+            }
+        }
+        outcomes
+            .into_iter()
+            .map(|o| {
+                o.unwrap_or_else(|| {
+                    Err(MathRuntimeError::Infrastructure(
+                        "batch member without an outcome".into(),
+                    ))
+                })
+            })
+            .collect()
+    }
+    /// Admit one step: its reuse policy, its seed by start policy, checked against its
+    /// coordinates, its execution controls and its start receipt; or the outcome that
+    /// refuses it.
+    fn admit_step(
+        &self,
+        step: PreparedSolve,
+        previous: Option<Predecessor>,
+        retained: &mut Retained,
+        flag: &Arc<std::sync::atomic::AtomicBool>,
+        progress: &Arc<Progress>,
+    ) -> Result<Admitted, Outcome> {
         let controls = step.profile.controls.clone();
         if controls.reuse == ReusePolicy::Fresh {
             retained.clear();
@@ -1362,7 +1472,7 @@ impl MathService {
             StartPolicy::Explicit => match step.explicit_start.clone() {
                 Some(seed) => (Some(seed), None),
                 None => {
-                    return Ok(Outcome::Rejected(Arc::new(
+                    return Err(Outcome::Rejected(Arc::new(
                         ProblemError::Contract("explicit start policy requires a seed".into())
                             .into(),
                     )));
@@ -1382,7 +1492,7 @@ impl MathService {
                 .and_then(|target| seed.validate(target));
             if let Err(error) = validation {
                 retained.clear();
-                return Ok(Outcome::Rejected(Arc::new(error.into())));
+                return Err(Outcome::Rejected(Arc::new(error.into())));
             }
         }
         let mut execution = Execution::new(flag.clone(), &controls);
@@ -1397,9 +1507,24 @@ impl MathService {
             submitted: chosen.is_some(),
         };
         let normalization = step.normalization.key();
-        let outcome = self
-            .run_step(step, execution, chosen.as_ref(), retained, budget)
-            .unwrap_or_else(|e| Outcome::Rejected(Arc::new(e)));
+        Ok(Admitted {
+            step,
+            chosen,
+            execution,
+            receipt,
+            normalization,
+        })
+    }
+    /// A step's outcome with its failure owner, its seed's origin, its start receipt and its
+    /// result owner.
+    fn conclude(
+        &self,
+        outcome: Outcome,
+        receipt: StartReceipt,
+        normalization: pse_ids::ContentHash,
+        attempt: usize,
+        owner: &Arc<pse_columnar::AllocationLease>,
+    ) -> Result<Outcome, MathRuntimeError> {
         Ok(match outcome {
             Outcome::Native(mut r) => {
                 if r.failure_bytes() > 0 {
@@ -1422,6 +1547,199 @@ impl MathService {
             }
             other => other,
         })
+    }
+    /// The sum-of-squares bound on a prepared polynomial program (Plan 22 N5; I5): its
+    /// factorable projection, expanded into monomials and bounded by the moment relaxation
+    /// on one admitted worker within the step's time limit. The bound is labelled
+    /// `sos_bound_nonrigorous` (never a certified global bound).
+    ///
+    /// # Errors
+    /// A step that is not an algebraic case, a program that is not polynomial or exceeds
+    /// the relaxation's bounds, admission, or a build without POUNCE-convex.
+    pub(crate) async fn sos_bound(
+        self: &Arc<Self>,
+        step: &PreparedSolve,
+        order: Option<usize>,
+    ) -> Result<execution::sos::SosBound, MathRuntimeError> {
+        let Representation::Algebraic(case) = &step.representation else {
+            return Err(ProblemError::Contract("an SOS bound needs an algebraic case".into()).into());
+        };
+        let plan = case.prepared.prepared.plan.clone();
+        let values = case.values.clone();
+        let limit = self.policy.worker_bytes / 256;
+        let tolerance = step.accuracy.stationarity.max(1e-9);
+        let time_limit = step.profile.controls.time_limit;
+        self.job(
+            1,
+            self.policy.worker_bytes,
+            FlightCancellation::default(),
+            move |flag| {
+                let program = plan
+                    .factorable_program(
+                        &values,
+                        &pse_math::factorable::FactorableRequest::default(),
+                        limit,
+                        &flag,
+                    )
+                    .map_err(|e| match e {
+                        pse_math::factorable::FactorableError::Math(e) => ProblemError::Math(e),
+                        other => ProblemError::Unsupported(other.to_string()),
+                    })?;
+                let problem = execution::sos::polynomial(&program)?;
+                Ok(execution::sos::bound(&problem, order, tolerance, time_limit)?)
+            },
+        )
+        .await
+    }
+    /// The coefficient programs of one batch on their shared batching adapter: each member's
+    /// case, projection and original model, solved together by the runner and concluded one
+    /// by one.
+    fn coefficient_batch(
+        &self,
+        admitted: Vec<(usize, usize, Arc<pse_columnar::AllocationLease>, Admitted)>,
+        retained: &mut Retained,
+        budget: &Arc<WorkerBudget>,
+    ) -> Vec<(usize, Result<Outcome, MathRuntimeError>)> {
+        /// One member's owned parts, which the runner's views borrow.
+        struct Part {
+            index: usize,
+            attempt: usize,
+            owner: Arc<pse_columnar::AllocationLease>,
+            receipt: StartReceipt,
+            key: pse_ids::ContentHash,
+            chosen: Option<WarmStart>,
+            execution: Execution,
+            profile: SolverProfile,
+            normalization: Normalization,
+            tolerances: Tolerances,
+            accuracy: ResolvedAccuracy,
+            compatibility: Compatibility,
+            backend: Backend,
+            case: AlgebraicCase,
+            problem: native::CoefficientProblem,
+        }
+        let mut concluded = Vec::new();
+        let mut parts = Vec::new();
+        for (index, attempt, owner, a) in admitted {
+            let Admitted {
+                step,
+                chosen,
+                execution,
+                receipt,
+                normalization: key,
+            } = a;
+            let PreparedSolve {
+                representation,
+                profile,
+                normalization,
+                tolerances,
+                accuracy,
+                route,
+                compatibility,
+                ..
+            } = step;
+            let part = (|| -> Result<Part, MathRuntimeError> {
+                let (Representation::Algebraic(case), Route::Native(backend)) =
+                    (representation, route)
+                else {
+                    return Err(ProblemError::Internal("a batch member is a native coefficient step".into()).into());
+                };
+                let coefficients = case
+                    .prepared
+                    .prepared
+                    .coefficients
+                    .as_ref()
+                    .ok_or_else(|| ProblemError::Internal("missing coefficient product".into()))?;
+                let problem = native::CoefficientProblem::from_plan(
+                    &case.prepared.prepared.plan,
+                    coefficients.as_ref().clone(),
+                )?;
+                let compatibility = compatibility.ok_or_else(|| {
+                    ProblemError::Internal("missing native compatibility stamp".into())
+                })?;
+                Ok(Part {
+                    index,
+                    attempt,
+                    owner: owner.clone(),
+                    receipt: receipt.clone(),
+                    key,
+                    chosen: chosen.clone(),
+                    execution: execution.clone(),
+                    profile,
+                    normalization,
+                    tolerances,
+                    accuracy,
+                    compatibility,
+                    backend,
+                    case,
+                    problem,
+                })
+            })();
+            match part {
+                Ok(part) => parts.push(part),
+                Err(error) => {
+                    let outcome = Outcome::Rejected(Arc::new(error));
+                    concluded.push((index, self.conclude(outcome, receipt, key, attempt, &owner)));
+                }
+            }
+        }
+        let mut originals: Vec<OriginalCase<'_>> = parts
+            .iter()
+            .map(|p| OriginalCase {
+                service: self,
+                case: p.case.case.clone(),
+                providers: &p.case.providers,
+                values: &p.case.values,
+                plan: &p.case.prepared.prepared.plan,
+                cancel: p.execution.cancel.clone(),
+                budget,
+            })
+            .collect();
+        let mut steps = Vec::with_capacity(parts.len());
+        for (p, original) in parts.iter().zip(originals.iter_mut()) {
+            let Some(coefficients) = p.case.prepared.prepared.coefficients.as_ref() else {
+                continue;
+            };
+            let plan = &p.case.prepared.prepared.plan;
+            steps.push((
+                execution::Step {
+                    adapter: execution::adapter(p.backend),
+                    settings: &p.profile.backend,
+                    controls: &p.profile.controls,
+                    accuracy: &p.accuracy,
+                    execution: p.execution.clone(),
+                    tolerances: &p.tolerances,
+                    normalization: &p.normalization,
+                    compatibility: p.compatibility.clone(),
+                    warm: p.chosen.as_ref(),
+                },
+                execution::Coefficients {
+                    problem: &p.problem,
+                    certificate: p.case.certificate.as_deref(),
+                    row_constants: &coefficients.row_constants,
+                    row_bounds: plan
+                        .structure()
+                        .rows()
+                        .iter()
+                        .map(|r| (r.lower, r.upper))
+                        .collect(),
+                    original,
+                },
+            ));
+        }
+        let reports = execution::coefficients_batch(retained, steps);
+        drop(originals);
+        for (p, report) in parts.into_iter().zip(reports) {
+            let outcome = match report {
+                Ok(report) => Outcome::Native(Box::new(report)),
+                Err(error) => Outcome::Rejected(Arc::new(error.into())),
+            };
+            concluded.push((
+                p.index,
+                self.conclude(outcome, p.receipt, p.key, p.attempt, &p.owner),
+            ));
+        }
+        concluded
     }
     /// One prepared step: constant evaluation, or the selected adapter's representation
     /// runner. No backend is named; the adapter declares its representation.
@@ -1894,6 +2212,24 @@ impl MathService {
             quality: Quality::new(rows, vec![], vec![])?,
         })))
     }
+}
+/// A step admitted for native work: its seed, execution controls and start receipt.
+struct Admitted {
+    step: PreparedSolve,
+    chosen: Option<WarmStart>,
+    execution: Execution,
+    receipt: StartReceipt,
+    normalization: pse_ids::ContentHash,
+}
+/// One independent step of a batch (Plan 22 N5), with its attempt and result owner.
+#[derive(Debug)]
+pub(crate) struct BatchMember {
+    /// The bound step.
+    pub step: PreparedSolve,
+    /// Its attempt in the run.
+    pub attempt: usize,
+    /// The owner of its result.
+    pub owner: Arc<pse_columnar::AllocationLease>,
 }
 /// The original compiled case, evaluated fresh at a coefficient candidate.
 struct OriginalCase<'a> {

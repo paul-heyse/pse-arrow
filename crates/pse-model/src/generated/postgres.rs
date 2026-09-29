@@ -159,6 +159,7 @@ impl ToSql for crate::generated::enums::NativeBackend {
                 "diffsol",
                 "idas",
                 "scip",
+                "pounce_convex",
             ],
         )
     }

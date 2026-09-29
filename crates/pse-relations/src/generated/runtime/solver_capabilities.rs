@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 3u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    96u8, 134u8, 71u8, 193u8, 143u8, 101u8, 39u8, 93u8, 208u8, 78u8, 100u8, 188u8, 215u8,
-    153u8, 155u8, 75u8, 101u8, 62u8, 147u8, 184u8, 187u8, 125u8, 226u8, 47u8, 18u8, 27u8,
-    50u8, 29u8, 226u8, 208u8, 137u8, 213u8,
+    39u8, 83u8, 128u8, 72u8, 21u8, 233u8, 207u8, 132u8, 213u8, 55u8, 59u8, 5u8, 6u8,
+    160u8, 49u8, 154u8, 46u8, 40u8, 128u8, 126u8, 43u8, 59u8, 188u8, 63u8, 41u8, 93u8,
+    132u8, 108u8, 36u8, 128u8, 132u8, 26u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
     fn append(
@@ -80,6 +80,11 @@ impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
             &self.r#lexicographic_classes,
             children[14usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#batch, children[15usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#sensitivities,
+            children[16usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -121,6 +126,8 @@ impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
         <Vec<
             crate::generated::enums::NativeProblemClass,
         > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -199,6 +206,14 @@ impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
                 crate::generated::enums::NativeProblemClass,
             > as crate::columnar::ArrowValue>::read(
                 input.column(14usize).as_ref(),
+                index,
+            )?,
+            r#batch: <bool as crate::columnar::ArrowValue>::read(
+                input.column(15usize).as_ref(),
+                index,
+            )?,
+            r#sensitivities: <bool as crate::columnar::ArrowValue>::read(
+                input.column(16usize).as_ref(),
                 index,
             )?,
         })
@@ -297,6 +312,11 @@ impl crate::columnar::RelationRow for RuntimeSolverCapabilitiesRow {
             &self.r#lexicographic_classes,
             columns[14usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#batch, columns[15usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#sensitivities,
+            columns[16usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -331,10 +351,10 @@ impl crate::columnar::RelationRow for RuntimeSolverCapabilitiesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        35_840_usize + size_of::<Self::Builder>()
+        39_936_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        280usize
+        312usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -438,6 +458,14 @@ impl crate::columnar::RelationRow for RuntimeSolverCapabilitiesRow {
                     ),
                 )?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
         Ok(bytes)
     }
 }
@@ -448,7 +476,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 15usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 17usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "backend",
@@ -524,6 +552,16 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 15usize] = [
         name: "lexicographic_classes",
         position: 14usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "batch",
+        position: 15usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "sensitivities",
+        position: 16usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -557,6 +595,10 @@ pub mod columns {
     pub const REQUIREMENTS: crate::columnar::ColumnReference = super::COLUMNS[13usize];
     ///lexicographic_classes
     pub const LEXICOGRAPHIC_CLASSES: crate::columnar::ColumnReference = super::COLUMNS[14usize];
+    ///batch
+    pub const BATCH: crate::columnar::ColumnReference = super::COLUMNS[15usize];
+    ///sensitivities
+    pub const SENSITIVITIES: crate::columnar::ColumnReference = super::COLUMNS[16usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -578,6 +620,8 @@ pub struct RuntimeSolverCapabilitiesView<'a> {
     native_forms_column: &'a arrow_array::ListArray,
     requirements_column: &'a arrow_array::ListArray,
     lexicographic_classes_column: &'a arrow_array::ListArray,
+    batch_column: &'a arrow_array::BooleanArray,
+    sensitivities_column: &'a arrow_array::BooleanArray,
 }
 impl<'a> RuntimeSolverCapabilitiesView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -662,6 +706,12 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
             lexicographic_classes_column: crate::columnar::array::<
                 arrow_array::ListArray,
             >(batch.column(14usize).as_ref())?,
+            batch_column: crate::columnar::array::<
+                arrow_array::BooleanArray,
+            >(batch.column(15usize).as_ref())?,
+            sensitivities_column: crate::columnar::array::<
+                arrow_array::BooleanArray,
+            >(batch.column(16usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -860,6 +910,30 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
     pub fn lexicographic_classes_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[14usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "batch",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn batch_column(&self) -> &'a arrow_array::BooleanArray {
+        self.batch_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "batch", "`.")]
+    pub fn batch_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[15usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "sensitivities",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn sensitivities_column(&self) -> &'a arrow_array::BooleanArray {
+        self.sensitivities_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "sensitivities", "`.")]
+    pub fn sensitivities_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[16usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -915,6 +989,11 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
             )?,
             r#lexicographic_classes: crate::columnar::ArrowValue::read(
                 self.lexicographic_classes_column,
+                index,
+            )?,
+            r#batch: crate::columnar::ArrowValue::read(self.batch_column, index)?,
+            r#sensitivities: crate::columnar::ArrowValue::read(
+                self.sensitivities_column,
                 index,
             )?,
         })

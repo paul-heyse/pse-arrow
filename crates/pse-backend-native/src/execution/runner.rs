@@ -317,79 +317,166 @@ impl std::fmt::Debug for Coefficients<'_> {
 pub fn coefficients(
     step: Step<'_>,
     retained: &mut Retained,
-    run: Coefficients<'_>,
+    mut run: Coefficients<'_>,
 ) -> Result<SolveReport, ProblemError> {
-    let (problem, transported) =
-        transport::coefficients(run.problem, step.normalization, run.certificate)?;
-    let certificate = transported
-        .as_ref()
-        .map(|p| -> &dyn QuadraticEvidence { p });
-    let tolerances = step.tolerances.normalized(step.normalization)?;
-    let warm = step
-        .warm
-        .map(|w| transport::warm(w, step.normalization, true))
-        .transpose()?;
-    let mut report = if step.adapter.representation() == Representation::Cone {
-        let lowered = ConicProblem::from_coefficients(&problem, certificate)?;
-        let mut report = step.adapter.execute(
-            retained,
-            Input {
-                problem: Problem::Cone {
-                    problem: &lowered.problem,
-                    certificate: &lowered.evidence,
-                },
-                controls: step.controls,
-                accuracy: step.accuracy,
-                settings: step.settings,
-                execution: step.execution.clone(),
-                tolerances: &lowered.tolerances(&tolerances),
-                warm: warm.as_ref(),
-                compatibility: step.compatibility.clone(),
-            },
-        )?;
-        lowered.raise(&mut report, &problem, &tolerances)?;
-        report
-    } else {
-        step.adapter.execute(
-            retained,
-            Input {
-                problem: Problem::Coefficients {
-                    problem: &problem,
-                    certificate,
-                    normalization: step.normalization,
-                    row_constants: run.row_constants,
-                },
-                controls: step.controls,
-                accuracy: step.accuracy,
-                settings: step.settings,
-                execution: step.execution.clone(),
-                tolerances: &tolerances,
-                warm: warm.as_ref(),
-                compatibility: step.compatibility.clone(),
-            },
-        )?
+    let transported = Transported::new(&step, &run)?;
+    let report = step
+        .adapter
+        .execute(retained, transported.input(&step, run.row_constants))?;
+    transported.finish(&step, &mut run, report)
+}
+/// The independent coefficient steps of one batch on one adapter (Plan 22 N5): each is
+/// transported and lowered as [`coefficients`] does, the adapter solves them as one batch
+/// ([`BackendExecution::execute_batch`]), and each report is recovered, re-checked against
+/// its original model and qualified on its own. One result per step, in order.
+///
+/// # Errors
+/// Per step, as [`coefficients`]; steps on different adapters are refused.
+pub fn coefficients_batch(
+    retained: &mut Retained,
+    mut steps: Vec<(Step<'_>, Coefficients<'_>)>,
+) -> Vec<Result<SolveReport, ProblemError>> {
+    let Some(adapter) = steps.first().map(|(step, _)| step.adapter) else {
+        return Vec::new();
     };
-    transport::recover(&mut report, step.normalization, &run.problem.contract)?;
-    if let Some(c) = &mut report.certificate {
-        crate::certificate::verify_coefficients(
-            c,
-            run.problem,
-            step.tolerances,
-            step.accuracy.feasibility,
-        );
+    if steps
+        .iter()
+        .any(|(step, _)| step.adapter.backend() != adapter.backend())
+    {
+        return steps
+            .iter()
+            .map(|_| {
+                Err(ProblemError::Contract(
+                    "a batch runs on one adapter".into(),
+                ))
+            })
+            .collect();
     }
-    if let Some(candidate) = &report.candidate {
-        match run
-            .problem
-            .observation(&candidate.primal, run.row_constants, run.row_bounds)
-        {
-            Ok(o) => report.observation = Some(o),
-            Err(e) => report.record_validation_failure(e),
+    let transported: Vec<Result<Transported, ProblemError>> = steps
+        .iter()
+        .map(|(step, run)| Transported::new(step, run))
+        .collect();
+    let inputs: Vec<Input<'_>> = transported
+        .iter()
+        .zip(&steps)
+        .filter_map(|(t, (step, run))| {
+            t.as_ref().ok().map(|t| t.input(step, run.row_constants))
+        })
+        .collect();
+    let mut reports = adapter.execute_batch(retained, inputs).into_iter();
+    transported
+        .into_iter()
+        .zip(&mut steps)
+        .map(|(t, (step, run))| {
+            let t = t?;
+            let report = reports.next().unwrap_or_else(|| {
+                Err(ProblemError::Internal("batch report missing".into()))
+            })?;
+            t.finish(step, run, report)
+        })
+        .collect()
+}
+/// One coefficient step's normalized transport: the problem, its evidence and budgets, the
+/// warm start, and for a cone adapter the lowered cone form with its row budgets.
+struct Transported {
+    problem: CoefficientProblem,
+    evidence: Option<pse_math::convexity::TransportedEvidence>,
+    tolerances: Tolerances,
+    warm: Option<WarmStart>,
+    lowered: Option<(crate::conic::Lowered, Tolerances)>,
+}
+impl Transported {
+    fn new(step: &Step<'_>, run: &Coefficients<'_>) -> Result<Self, ProblemError> {
+        let (problem, evidence) =
+            transport::coefficients(run.problem, step.normalization, run.certificate)?;
+        let tolerances = step.tolerances.normalized(step.normalization)?;
+        let warm = step
+            .warm
+            .map(|w| transport::warm(w, step.normalization, true))
+            .transpose()?;
+        let lowered = if step.adapter.representation() == Representation::Cone {
+            let certificate = evidence.as_ref().map(|p| -> &dyn QuadraticEvidence { p });
+            let lowered = ConicProblem::from_coefficients(&problem, certificate)?;
+            let budgets = lowered.tolerances(&tolerances);
+            Some((lowered, budgets))
+        } else {
+            None
+        };
+        Ok(Self {
+            problem,
+            evidence,
+            tolerances,
+            warm,
+            lowered,
+        })
+    }
+    /// The adapter input: the lowered cone form for a cone adapter, the coefficients
+    /// otherwise.
+    fn input<'a>(&'a self, step: &'a Step<'_>, row_constants: &'a [f64]) -> Input<'a> {
+        let problem = match &self.lowered {
+            Some((lowered, _)) => Problem::Cone {
+                problem: &lowered.problem,
+                certificate: &lowered.evidence,
+            },
+            None => Problem::Coefficients {
+                problem: &self.problem,
+                certificate: self
+                    .evidence
+                    .as_ref()
+                    .map(|p| -> &dyn QuadraticEvidence { p }),
+                normalization: step.normalization,
+                row_constants,
+            },
+        };
+        Input {
+            problem,
+            controls: step.controls,
+            accuracy: step.accuracy,
+            settings: step.settings,
+            execution: step.execution.clone(),
+            tolerances: match &self.lowered {
+                Some((_, budgets)) => budgets,
+                None => &self.tolerances,
+            },
+            warm: self.warm.as_ref(),
+            compatibility: step.compatibility.clone(),
         }
     }
-    reobserve(&mut report, run.problem, run.original, &step)?;
-    quality::qualify(&mut report, step.accuracy);
-    Ok(report)
+    /// Raise a cone adapter's report to the coefficient rows, recover original coordinates,
+    /// verify a certificate against the original coefficients, re-check the candidate
+    /// against the original model and qualify.
+    fn finish(
+        &self,
+        step: &Step<'_>,
+        run: &mut Coefficients<'_>,
+        mut report: SolveReport,
+    ) -> Result<SolveReport, ProblemError> {
+        if let Some((lowered, _)) = &self.lowered {
+            lowered.raise(&mut report, &self.problem, &self.tolerances)?;
+        }
+        transport::recover(&mut report, step.normalization, &run.problem.contract)?;
+        if let Some(c) = &mut report.certificate {
+            crate::certificate::verify_coefficients(
+                c,
+                run.problem,
+                step.tolerances,
+                step.accuracy.feasibility,
+            );
+        }
+        if let Some(candidate) = &report.candidate {
+            match run.problem.observation(
+                &candidate.primal,
+                run.row_constants,
+                run.row_bounds.clone(),
+            ) {
+                Ok(o) => report.observation = Some(o),
+                Err(e) => report.record_validation_failure(e),
+            }
+        }
+        reobserve(&mut report, run.problem, run.original, step)?;
+        quality::qualify(&mut report, step.accuracy);
+        Ok(report)
+    }
 }
 /// The coefficient projection must reproduce the original model's rows and objective at
 /// the candidate; the fresh original values then replace the projected observation.

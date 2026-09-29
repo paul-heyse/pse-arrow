@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    214u8, 142u8, 98u8, 35u8, 138u8, 78u8, 170u8, 233u8, 175u8, 122u8, 109u8, 160u8,
-    40u8, 50u8, 203u8, 220u8, 74u8, 105u8, 6u8, 219u8, 50u8, 221u8, 73u8, 232u8, 119u8,
-    33u8, 154u8, 116u8, 167u8, 123u8, 240u8, 120u8,
+    104u8, 64u8, 146u8, 73u8, 44u8, 148u8, 176u8, 116u8, 190u8, 82u8, 103u8, 3u8, 224u8,
+    142u8, 171u8, 118u8, 20u8, 18u8, 159u8, 252u8, 212u8, 9u8, 190u8, 9u8, 83u8, 243u8,
+    138u8, 107u8, 17u8, 68u8, 214u8, 23u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeInfeasibilityCertificatesFieldRayItem {
     fn append(

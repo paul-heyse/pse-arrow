@@ -53,7 +53,7 @@ impl Default for Settings {
     deny_unknown_fields
 )]
 #[schemars(rename = "FeralSettings")]
-struct FeralIdentity {
+pub(super) struct FeralIdentity {
     cascade_break: Option<bool>,
     fma: bool,
     refine: bool,

@@ -1184,6 +1184,7 @@ fn fixed_assignment(
         least_squares: false,
         controls: &controls,
         settings: &BackendSettings::Default,
+        sensitivity: false,
     })
     .select(SolverSelection::Auto)?
     else {

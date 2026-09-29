@@ -31,7 +31,7 @@ CREATE TYPE pse_ops.job_state AS ENUM ('waiting', 'queued', 'running', 'complete
 CREATE TYPE pse_ops.member_selection_kind AS ENUM ('full', 'revision');
 
 -- Registry enumeration NativeBackend.
-CREATE TYPE pse_ops.native_backend AS ENUM ('ipopt', 'pounce', 'kinsol', 'highs', 'clarabel', 'diffsol', 'idas', 'scip');
+CREATE TYPE pse_ops.native_backend AS ENUM ('ipopt', 'pounce', 'kinsol', 'highs', 'clarabel', 'diffsol', 'idas', 'scip', 'pounce_convex');
 
 -- Registry enumeration NativeMetricKind.
 CREATE TYPE pse_ops.native_metric_kind AS ENUM ('real', 'integer', 'boolean', 'text', 'unavailable');

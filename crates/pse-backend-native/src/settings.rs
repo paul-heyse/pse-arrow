@@ -16,3 +16,4 @@ pub mod highs;
 pub mod ipopt;
 pub mod kinsol;
 pub mod pounce;
+pub mod pounce_convex;

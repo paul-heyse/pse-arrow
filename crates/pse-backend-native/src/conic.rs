@@ -972,7 +972,11 @@ fn power_violation(alpha: &[f64], x: &[f64], norm: f64) -> f64 {
     };
     (norm - product).max(negative)
 }
-fn quality(p: &ConicProblem, x: &[f64], t: &Tolerances) -> Result<Quality, ProblemError> {
+pub(crate) fn quality(
+    p: &ConicProblem,
+    x: &[f64],
+    t: &Tolerances,
+) -> Result<Quality, ProblemError> {
     let mut s = p.rhs.clone();
     for (c, &x) in x.iter().enumerate() {
         for k in p.constraints.column(c) {

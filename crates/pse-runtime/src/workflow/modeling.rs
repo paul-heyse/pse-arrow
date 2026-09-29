@@ -24,6 +24,13 @@ mod global_tests;
 pub(in crate::workflow) mod sensitivity_tests;
 #[cfg(all(
     test,
+    feature = "solver-ipopt",
+    feature = "solver-highs",
+    feature = "solver-pounce"
+))]
+mod pounce_convex_tests;
+#[cfg(all(
+    test,
     feature = "solver-scip",
     feature = "solver-ipopt",
     feature = "solver-highs"

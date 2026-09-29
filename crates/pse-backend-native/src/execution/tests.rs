@@ -31,6 +31,8 @@ static STUB_CAPABILITY: Capability = Capability {
     native_forms: &[],
     requirements: &[],
     lexicographic: &[],
+    batch: false,
+    sensitivities: false,
     reuse: "test session counter",
     cancellation: "none",
     diagnostics: "none",
@@ -155,6 +157,7 @@ fn stub_backend_routes_through_adapter_table() {
         least_squares: false,
         controls: &controls,
         settings: &BackendSettings::Default,
+        sensitivity: false,
     };
     // Routing reads the stub's capability record through the table.
     let backend = Backend::Idas;
@@ -323,6 +326,8 @@ fn from_row(row: &pse_model::generated::runtime::solver_capabilities::Row) -> &'
         native_forms: Box::leak(row.native_forms.clone().into_boxed_slice()),
         requirements: Box::leak(row.requirements.clone().into_boxed_slice()),
         lexicographic: Box::leak(row.lexicographic_classes.clone().into_boxed_slice()),
+        batch: row.batch,
+        sensitivities: row.sensitivities,
         reuse: "",
         cancellation: "",
         diagnostics: "",
@@ -436,6 +441,7 @@ fn published_capabilities_equal_routing_rules() {
                             least_squares: false,
                             controls: c,
                             settings: &BackendSettings::Default,
+                            sensitivity: false,
                         };
                         assert_eq!(
                             adapter.admit(&r),
@@ -461,6 +467,7 @@ fn published_capabilities_equal_routing_rules() {
             least_squares: false,
             controls: &parallel,
             settings: &BackendSettings::Default,
+            sensitivity: false,
         };
         assert_eq!(
             adapter.admit(&r).contains(&Ineligible::Serial),

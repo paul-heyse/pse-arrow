@@ -345,6 +345,134 @@ impl Staged {
             interruption,
         }
     }
+    /// Bind and execute the independent points of one batch (Plan 22 N5): each is bound
+    /// from its specification without a seed and assessed against `obligations` on its own,
+    /// and the session solves the bound points together on a batching adapter
+    /// ([`crate::math::solves::BatchMember`]), or in turn on any other. Every point is
+    /// recorded as its own step, in order; a point that does not bind is refused alone.
+    pub(in crate::workflow) async fn batch(
+        &mut self,
+        package: &ModelingPackage,
+        analyses: &[ModelingAnalysis],
+        obligations: Obligations,
+        cancel: &crate::CancelSource,
+    ) -> Vec<Result<ModelingResult, Arc<WorkflowError>>> {
+        /// What a point's result keeps: its binding, result owner and run.
+        type Kept = (
+            ModelingSolvePreparation,
+            Arc<pse_columnar::AllocationLease>,
+            RunId,
+        );
+        /// What the session assesses a point with.
+        type Assessing = (
+            ModelingSolvePreparation,
+            RunId,
+            super::modeling::assessment::Assessment,
+            Arc<pse_columnar::AllocationLease>,
+        );
+        let service = self.runtime.native();
+        let mut bound: Vec<Result<Kept, WorkflowError>> = Vec::with_capacity(analyses.len());
+        let mut states: Vec<Option<Assessing>> = Vec::new();
+        let mut members = Vec::new();
+        for analysis in analyses {
+            let point = async {
+                let prepared = package
+                    .prepare_analysis_attempt(analysis, CaseOverrides::default(), cancel)
+                    .await?;
+                let assessment = prepared
+                    .source
+                    .assessment(&prepared, obligations, cancel)
+                    .await?;
+                let owner = service.reserve("math:solve-results", prepared.solve.result_bytes()?)?;
+                let point_owner = service.reserve(
+                    "modeling:qualified-result",
+                    super::modeling::results::result_bytes(&prepared)?,
+                )?;
+                Ok::<_, WorkflowError>((prepared, assessment, owner, point_owner))
+            }
+            .await;
+            bound.push(point.map(|(prepared, assessment, owner, point_owner)| {
+                let run_id = pse_operations::mint_id();
+                members.push(crate::math::solves::BatchMember {
+                    step: prepared.solve.clone(),
+                    attempt: 0,
+                    owner: owner.clone(),
+                });
+                states.push(Some((prepared.clone(), run_id, assessment, point_owner)));
+                (prepared, owner, run_id)
+            }));
+        }
+        let history = bound
+            .iter()
+            .filter_map(|b| b.as_ref().ok())
+            .map(|(prepared, ..)| prepared.profile.controls.history)
+            .max()
+            .unwrap_or(0);
+        let progress = self
+            .progress
+            .clone()
+            .unwrap_or_else(|| Arc::new(Progress::new(history)));
+        let solved = self
+            .session
+            .batch(members, progress, cancel, move |i, outcome, flag, budget| {
+                match states.get_mut(i).and_then(Option::take) {
+                    Some((prepared, run_id, assessment, point_owner)) => {
+                        let point = assessment.assess(
+                            &prepared,
+                            run_id,
+                            0,
+                            outcome,
+                            flag,
+                            budget,
+                            point_owner,
+                        );
+                        let accepted = point.accepted();
+                        (Some(point), accepted)
+                    }
+                    None => (None, false),
+                }
+            })
+            .await;
+        let mut solved = match solved {
+            Ok(solved) => solved.into_iter().map(Some).collect::<Vec<_>>(),
+            Err(error) => {
+                let error = Arc::new(WorkflowError::from(error));
+                let results = bound
+                    .into_iter()
+                    .map(|b| match b {
+                        Ok(_) => Err(error.clone()),
+                        Err(e) => Err(Arc::new(e)),
+                    })
+                    .collect::<Vec<_>>();
+                for result in &results {
+                    self.record(result);
+                }
+                return results;
+            }
+        }
+        .into_iter();
+        let results = bound
+            .into_iter()
+            .map(|b| {
+                let (prepared, owner, run_id) = b.map_err(Arc::new)?;
+                match solved.next().flatten() {
+                    Some(Ok((outcome, Some(point)))) => Ok(ModelingResult::from_assessment(
+                        prepared, run_id, 0, outcome, point, owner,
+                    )),
+                    Some(Err(error)) => Err(Arc::new(WorkflowError::from(error))),
+                    _ => Err(Arc::new(WorkflowError::from(
+                        crate::math::MathRuntimeError::Infrastructure(
+                            "batch point without its assessment".into(),
+                        ),
+                    ))),
+                }
+            })
+            .collect::<Vec<_>>();
+        for result in &results {
+            self.record(result);
+        }
+        results
+    }
     /// Run native work that is not a solve beside the sequence's retained native state (a
     /// rolling horizon's plant integration, Plan 22 Y5c): on the session thread, under its
     /// own admission of `cores` CPU permits and outside any adapter's scope, so the state a

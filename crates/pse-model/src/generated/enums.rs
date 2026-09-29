@@ -8032,6 +8032,9 @@ pub enum NativeBackend {
     ///scip
     #[serde(rename = "scip")]
     Scip,
+    ///pounce_convex
+    #[serde(rename = "pounce_convex")]
+    PounceConvex,
 }
 impl crate::SemanticEq for NativeBackend {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -8040,7 +8043,7 @@ impl crate::SemanticEq for NativeBackend {
 }
 impl NativeBackend {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 8usize] = [
+    pub const ALL: [Self; 9usize] = [
         Self::Ipopt,
         Self::Pounce,
         Self::Kinsol,
@@ -8049,6 +8052,7 @@ impl NativeBackend {
         Self::Diffsol,
         Self::Idas,
         Self::Scip,
+        Self::PounceConvex,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -8061,6 +8065,7 @@ impl NativeBackend {
             Self::Diffsol => "diffsol",
             Self::Idas => "idas",
             Self::Scip => "scip",
+            Self::PounceConvex => "pounce_convex",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -8074,6 +8079,7 @@ impl NativeBackend {
             Self::Diffsol => 5usize,
             Self::Idas => 6usize,
             Self::Scip => 7usize,
+            Self::PounceConvex => 8usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -8092,6 +8098,7 @@ impl NativeBackend {
             Self::Diffsol => None,
             Self::Idas => None,
             Self::Scip => None,
+            Self::PounceConvex => None,
         }
     }
 }
@@ -8107,7 +8114,7 @@ impl schemars::JsonSchema for NativeBackend {
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["ipopt", "pounce", "kinsol", "highs",
-            "clarabel", "diffsol", "idas", "scip"] }
+            "clarabel", "diffsol", "idas", "scip", "pounce_convex"] }
         )
     }
 }
@@ -8123,6 +8130,7 @@ impl core::str::FromStr for NativeBackend {
             "diffsol" => Ok(Self::Diffsol),
             "idas" => Ok(Self::Idas),
             "scip" => Ok(Self::Scip),
+            "pounce_convex" => Ok(Self::PounceConvex),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(NativeBackend).to_owned(),

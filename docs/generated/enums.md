@@ -872,6 +872,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `diffsol` | `` | false |
 | `idas` | `` | false |
 | `scip` | `` | false |
+| `pounce_convex` | `` | false |
 
 ## `NativeBoundaryClass`
 

@@ -625,6 +625,56 @@
           ],
           "title": "ScipSettings",
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The POUNCE-convex interior-point method's choices and FERAL configuration.",
+          "properties": {
+            "backend": {
+              "const": "pounce_convex",
+              "type": "string"
+            },
+            "crossover": {
+              "default": false,
+              "description": "Cross over from the interior-point solution to a vertex of a linear program.",
+              "type": "boolean"
+            },
+            "equilibrate": {
+              "default": true,
+              "description": "Ruiz-equilibrate the data before the solve.",
+              "type": "boolean"
+            },
+            "linear": {
+              "$ref": "#/$defs/FeralSettings",
+              "default": {
+                "cascade_break": null,
+                "fma": false,
+                "increase_quality": true,
+                "inertia_pivot_floor": null,
+                "min_par_flops": null,
+                "ordering": "auto",
+                "parallel": null,
+                "pivtol": 1e-8,
+                "refine": true,
+                "refine_max_steps": 10,
+                "refine_target": 0.0,
+                "scaling": "auto",
+                "singular_pivot_floor": 1e-20,
+                "static_pivoting": null
+              },
+              "description": "Native linear settings. A batch factors each instance serially: its parallelism is\nacross instances."
+            },
+            "self_dual": {
+              "default": true,
+              "description": "Solve through the homogeneous self-dual embedding, which detects primal and dual\ninfeasibility from the iterates, instead of the direct infeasible-start method.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "backend"
+          ],
+          "title": "PounceConvexSettings",
+          "type": "object"
         }
       ]
     },
@@ -1241,7 +1291,8 @@
         "clarabel",
         "diffsol",
         "idas",
-        "scip"
+        "scip",
+        "pounce_convex"
       ],
       "type": "string"
     },

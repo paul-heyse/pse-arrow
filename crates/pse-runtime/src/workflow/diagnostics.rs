@@ -542,6 +542,7 @@ mod tests {
             least_squares: false,
             controls: &controls,
             settings: &pse_backend_native::execution::BackendSettings::Default,
+            sensitivity: false,
         };
         let error = refused.select(SolverSelection::Auto).unwrap_err();
         assert!(matches!(error, ProblemError::Unsupported(_)), "{error:?}");

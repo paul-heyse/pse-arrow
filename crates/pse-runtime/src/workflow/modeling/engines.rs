@@ -352,11 +352,33 @@ impl ModelingPackage {
             .collect();
         let mut staged = Staged::open(&self.runtime, None)?;
         let mut outcomes: Vec<Result<ModelingResult, BoundaryDiagnostic>> = vec![];
-        for p in points {
+        let mut points = std::collections::VecDeque::from(points);
+        while let Some(p) = points.pop_front() {
             if cancel.token().is_cancelled() {
                 break;
             }
-            outcomes.push(self.study_point(&mut staged, p, cancel).await);
+            // Consecutive independent points that select one batching adapter run as one
+            // parallel batch (Plan 22 N5); each is still bound, assessed and recorded alone.
+            let Some(backend) = batching(&p) else {
+                outcomes.push(self.study_point(&mut staged, p, cancel).await);
+                continue;
+            };
+            let mut analyses = Vec::new();
+            if let Ok(analysis) = p.analysis {
+                analyses.push(analysis);
+            }
+            while let Some(next) = points.front()
+                && batching(next) == Some(backend)
+                && let Some(Ok(analysis)) = points.pop_front().map(|p| p.analysis)
+            {
+                analyses.push(analysis);
+            }
+            for result in staged
+                .batch(self, &analyses, Obligations::Final, cancel)
+                .await
+            {
+                outcomes.push(result.map_err(|error| error.boundary_diagnostic()));
+            }
         }
         staged.close().await;
         Ok(ModelingStudyReport {
@@ -367,6 +389,28 @@ impl ModelingPackage {
             outcomes,
             _owner: owner,
         })
+    }
+    /// A sum-of-squares bound on the optimum of `analysis`'s polynomial program (Plan 22 N5;
+    /// I5): a lower bound on a minimization, an upper bound on a maximization, from the
+    /// moment relaxation of `order` (or the least its degree admits). It is labelled
+    /// `sos_bound_nonrigorous`: a floating-point SDP value, never a certified global bound
+    /// and never the basis of an objective-bound check.
+    ///
+    /// # Errors
+    /// Preparation, a program that is not polynomial, or a relaxation beyond its bounds.
+    pub async fn sos_bound(
+        &self,
+        analysis: &ModelingAnalysis,
+        order: Option<usize>,
+        cancel: &crate::CancelSource,
+    ) -> Result<pse_backend_native::execution::sos::SosBound, WorkflowError> {
+        let prepared = self.prepare_analysis(analysis, cancel).await?;
+        Ok(self
+            .runtime
+            .shared
+            .math()
+            .sos_bound(&prepared.solve, order)
+            .await?)
     }
     /// One study point. A failed point is recorded and isolated: it seeds nothing, and only
     /// points that name it as their predecessor are refused.
@@ -1302,5 +1346,22 @@ mod discrete_tests {
             .unwrap();
         assert!(report.completed, "{:?}", report.failure);
         assert_eq!(report.discrete_assignment.values().collect::<Vec<_>>(), [&2.]);
+    }
+}
+
+/// The batching adapter an independent study point explicitly selects (Plan 22 N5): the
+/// point joins a batch with its neighbours that select the same one.
+fn batching(point: &ModelingStudyPoint) -> Option<pse_backend_native::solve::Backend> {
+    let analysis = point.analysis.as_ref().ok()?;
+    match analysis.solver.selection {
+        pse_backend_native::solve::SolverSelection::Explicit(backend)
+            if point.predecessor.is_none()
+                && pse_backend_native::execution::adapter(backend)
+                    .capability()
+                    .batch =>
+        {
+            Some(backend)
+        }
+        _ => None,
     }
 }

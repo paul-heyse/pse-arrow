@@ -136,6 +136,7 @@ impl std::fmt::Display for Ineligible {
                 }
                 f.write_str(" are not optimized lexicographically by this adapter")
             }
+
         }
     }
 }
@@ -155,6 +156,7 @@ impl Ineligible {
             Self::LeastSquares => NativeIneligibility::LeastSquares,
             Self::Method { .. } => NativeIneligibility::Method,
             Self::Lexicographic { .. } => NativeIneligibility::Lexicographic,
+
         }
     }
 }
@@ -209,6 +211,11 @@ pub struct Requirements<'a> {
     pub controls: &'a crate::solve::Controls,
     /// The request's typed backend settings, which select a method.
     pub settings: &'a crate::execution::BackendSettings,
+    /// The request asks for parametric sensitivities at its candidate (ADR-0118): automatic
+    /// routing prefers an adapter whose candidate carries the multipliers the KKT-point
+    /// analysis differentiates. An explicit selection of any other adapter still solves,
+    /// and the quantities are withheld with their reason.
+    pub sensitivity: bool,
 }
 /// Project an already admitted native oracle into the same contextual selector.
 /// Callers supply the represented objective/equality meaning, not a backend preference.
@@ -439,18 +446,27 @@ impl Requirements<'_> {
             SolverSelection::Explicit(b) => b,
             SolverSelection::Auto => {
                 // Classes most specific first; the first class with an eligible automatic
-                // owner decides, and its owners' preference orders them (ADR-0121).
-                problem_classes(self.facts, self.intent, self.numerical_psd)
-                    .into_iter()
-                    .find_map(|class| {
-                        self.table
-                            .adapters()
-                            .filter(|a| a.capability().automatic_classes.contains(&class))
-                            .filter_map(|a| a.automatic().map(|rank| (rank, a.backend())))
-                            .filter(|(_, b)| admitted(*b))
-                            .min_by_key(|(rank, _)| *rank)
-                            .map(|(_, b)| b)
-                    })
+                // owner decides, and its owners' preference orders them (ADR-0121). A
+                // sensitivity request first looks only among the adapters whose candidate
+                // the KKT-point analysis differentiates (ADR-0118).
+                let pick = |sensitivities: bool| {
+                    problem_classes(self.facts, self.intent, self.numerical_psd)
+                        .into_iter()
+                        .find_map(|class| {
+                            self.table
+                                .adapters()
+                                .filter(|a| a.capability().automatic_classes.contains(&class))
+                                .filter(|a| !sensitivities || a.capability().sensitivities)
+                                .filter_map(|a| a.automatic().map(|rank| (rank, a.backend())))
+                                .filter(|(_, b)| admitted(*b))
+                                .min_by_key(|(rank, _)| *rank)
+                                .map(|(_, b)| b)
+                        })
+                };
+                self.sensitivity
+                    .then(|| pick(true))
+                    .flatten()
+                    .or_else(|| pick(false))
                     .ok_or_else(|| {
                         ProblemError::Unsupported(format!(
                             "no eligible native route: {}",
@@ -540,6 +556,7 @@ mod tests {
             least_squares: false,
             controls: &crate::solve::Controls::default(),
             settings: &BackendSettings::Default,
+            sensitivity: false,
         };
         assert!(matches!(
             requirements.select(SolverSelection::Auto),
@@ -571,6 +588,7 @@ mod tests {
             least_squares: false,
             controls: &crate::solve::Controls::default(),
             settings: &BackendSettings::Default,
+            sensitivity: false,
         }
         .select(selection)
     }
@@ -619,6 +637,7 @@ mod tests {
             least_squares,
             controls: &controls,
             settings: &BackendSettings::Default,
+            sensitivity: false,
         };
         let steady = requirements(false).eligibility();
         assert!(!steady.is_empty());
@@ -659,6 +678,7 @@ mod tests {
                 least_squares: false,
                 controls: c,
                 settings: &BackendSettings::Default,
+                sensitivity: false,
             }
             .eligibility()
         };
@@ -706,6 +726,7 @@ mod tests {
                 least_squares: false,
                 controls: &controls,
                 settings: &BackendSettings::Default,
+                sensitivity: false,
             }
             .select(SolverSelection::Auto)
             .is_err()
@@ -750,6 +771,7 @@ mod tests {
             least_squares: false,
             controls: &crate::solve::Controls::default(),
             settings: &BackendSettings::Default,
+            sensitivity: false,
         };
         let missing = Ineligible::NativeForms {
             missing: vec![NativeConstraintForm::Indicator],
@@ -809,6 +831,7 @@ mod tests {
                 least_squares: false,
                 controls: &controls,
                 settings: &BackendSettings::Default,
+                sensitivity: false,
             };
             (
                 requirements.eligibility(),
@@ -991,6 +1014,7 @@ mod tests {
                 least_squares: false,
                 controls: &crate::solve::Controls::default(),
                 settings: &BackendSettings::Default,
+                sensitivity: false,
             };
             assert_eq!(
                 requirements
@@ -1035,6 +1059,87 @@ mod tests {
                 "{class:?}"
             );
         }
+    }
+    /// POUNCE-convex (Plan 22 N5) is explicit only: automatic routing never selects it for
+    /// a linear, convex quadratic or cone program, and an explicit selection is eligible
+    /// wherever the adapter is linked.
+    #[test]
+    fn pounce_convex_never_automatic() {
+        let record = adapter(Backend::PounceConvex).capability();
+        assert!(record.automatic_classes.is_empty());
+        assert!(adapter(Backend::PounceConvex).automatic().is_none());
+        assert!(record.batch && !record.sensitivities);
+        let mut f = miqp_facts();
+        f.domains.fill(ModelingVariableDomain::Continuous);
+        for (quadratic, convexity) in [
+            (false, fact(ConvexityClass::Affine)),
+            (true, convex_quadratic()),
+        ] {
+            f.quadratic = quadratic;
+            f.objective_degree = Some(if quadratic { 2 } else { 1 });
+            f.convexity = convexity;
+            let automatic = select(&f, SolveIntent::Optimize, SolverSelection::Auto, false);
+            assert_ne!(automatic.ok(), Some(Route::Native(Backend::PounceConvex)));
+            let explicit = select(
+                &f,
+                SolveIntent::Optimize,
+                SolverSelection::Explicit(Backend::PounceConvex),
+                false,
+            );
+            if adapter(Backend::PounceConvex).linked() {
+                assert_eq!(explicit.unwrap(), Route::Native(Backend::PounceConvex));
+            } else {
+                assert!(explicit.is_err());
+            }
+        }
+    }
+    /// Automatic routing of a parametric sensitivity request (ADR-0118) prefers an adapter
+    /// whose candidate carries the multipliers the KKT-point analysis differentiates: a
+    /// convex quadratic program with one routes past HiGHS to an NLP adapter. Eligibility
+    /// is unchanged, so an explicit coefficient adapter still solves it and the quantities
+    /// are withheld with their reason.
+    #[test]
+    fn sensitivity_requests_route_to_multiplier_adapters() {
+        let mut f = miqp_facts();
+        f.domains.fill(ModelingVariableDomain::Continuous);
+        f.quadratic = true;
+        f.objective_degree = Some(2);
+        f.convexity = convex_quadratic();
+        let controls = crate::solve::Controls::default();
+        let requirements = Requirements {
+            table: &LINKED,
+            facts: &f,
+            intent: SolveIntent::Optimize,
+            numerical_psd: false,
+            least_squares: false,
+            controls: &controls,
+            settings: &BackendSettings::Default,
+            sensitivity: true,
+        };
+        let plain = Requirements {
+            sensitivity: false,
+            ..requirements
+        };
+        if adapter(Backend::Highs).linked() {
+            assert_eq!(
+                plain.select(SolverSelection::Auto).unwrap(),
+                Route::Native(Backend::Highs)
+            );
+            assert_eq!(
+                requirements
+                    .select(SolverSelection::Explicit(Backend::Highs))
+                    .unwrap(),
+                Route::Native(Backend::Highs)
+            );
+        }
+        let Route::Native(backend) = requirements.select(SolverSelection::Auto).unwrap() else {
+            panic!("a native route");
+        };
+        assert!(adapter(backend).capability().sensitivities, "{backend:?}");
+        assert_eq!(
+            adapter(backend).representation(),
+            crate::execution::Representation::Nlp
+        );
     }
     /// ADR-0121 negative control: a continuous nonlinear program the curvature pass did not
     /// recognize (or could not decide) has no cone class, so automatic routing never
@@ -1110,6 +1215,7 @@ mod tests {
             least_squares: false,
             controls: &controls,
             settings,
+            sensitivity: false,
         };
         for settings in [&BackendSettings::Default, &interior, &l1] {
             for e in requirements(settings).eligibility() {
@@ -1173,6 +1279,7 @@ mod tests {
                 least_squares: false,
                 controls: &crate::solve::Controls::default(),
                 settings: &BackendSettings::Default,
+                sensitivity: false,
             }
             .eligibility()
         };
@@ -1272,6 +1379,7 @@ mod tests {
             least_squares: false,
             controls: &crate::solve::Controls::default(),
             settings: &BackendSettings::Default,
+            sensitivity: false,
         };
         // Only a certifying record is eligible; the rule reads the record, not the backend.
         for e in requirements.eligibility() {

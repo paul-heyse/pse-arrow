@@ -23,11 +23,11 @@ use pse_math::{
 use pse_model::generated::enums::ModelingVariableDomain;
 use std::sync::{Arc, atomic::AtomicBool};
 
-fn id(n: u8) -> SemanticId {
+pub(crate) fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
 /// The coefficient data is its own original model.
-struct Affine<'p>(&'p CoefficientProblem);
+pub(crate) struct Affine<'p>(pub(crate) &'p CoefficientProblem);
 impl OriginalModel for Affine<'_> {
     fn evaluate(&mut self, primal: &[f64]) -> Result<Evaluation, ProblemError> {
         let p = self.0;
@@ -48,7 +48,7 @@ impl OriginalModel for Affine<'_> {
         })
     }
 }
-fn problem(
+pub(crate) fn problem(
     bounds: &[(f64, f64)],
     rows: &[(f64, f64)],
     entries: &[(usize, usize, f64)],
@@ -91,7 +91,7 @@ fn problem(
         objectives: Vec::new(),
     }
 }
-fn budgets(p: &CoefficientProblem, budget: f64) -> Tolerances {
+pub(crate) fn budgets(p: &CoefficientProblem, budget: f64) -> Tolerances {
     Tolerances {
         variables: vec![budget; p.contract.variables.len()],
         rows: vec![budget; p.bounds.len()],
@@ -99,7 +99,7 @@ fn budgets(p: &CoefficientProblem, budget: f64) -> Tolerances {
     }
 }
 /// The coefficient runner on one backend, in the given coordinates.
-fn run(
+pub(crate) fn run(
     p: &CoefficientProblem,
     evidence: Option<&dyn QuadraticEvidence>,
     backend: Backend,
@@ -140,7 +140,7 @@ fn clarabel(direct: Direct) -> BackendSettings {
 }
 /// max 3x + 2y + z + 4 over an equality, a ranged, an upper and a lower row and bounds:
 /// the unique vertex x = 6, y = 3, z = -5 with objective 23.
-fn mixed_lp() -> CoefficientProblem {
+pub(crate) fn mixed_lp() -> CoefficientProblem {
     problem(
         &[(0.0, 10.0), (0.0, f64::INFINITY), (-5.0, 5.0)],
         &[
@@ -164,7 +164,7 @@ fn mixed_lp() -> CoefficientProblem {
     )
 }
 /// Distinct positive scales, so native and original coordinates differ.
-fn scaled(p: &CoefficientProblem) -> Normalization {
+pub(crate) fn scaled(p: &CoefficientProblem) -> Normalization {
     let n = p.contract.variables.len();
     let m = p.bounds.len();
     Normalization {
@@ -173,7 +173,7 @@ fn scaled(p: &CoefficientProblem) -> Normalization {
         objective: 10.0,
     }
 }
-fn near(a: f64, b: f64, tolerance: f64) {
+pub(crate) fn near(a: f64, b: f64, tolerance: f64) {
     assert!((a - b).abs() <= tolerance, "{a} vs {b}");
 }
 
