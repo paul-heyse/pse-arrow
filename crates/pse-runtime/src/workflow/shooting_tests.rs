@@ -318,11 +318,11 @@ async fn shooting_path_bounds_hold_at_samples() {
     }
 }
 
-/// `run shooting` is a fixture execution with integration controls (the kernel refuses it
-/// without them); until fixtures declare scheduled inputs held free, conformance refuses
-/// a shooting fixture before any integration with a typed preparation failure.
-#[tokio::test]
-async fn shooting_fixture_needs_authored_controls() {
+/// The physical context of the authored shooting fixtures: Scalar and Time.
+fn physical() -> (
+    crate::workflow::PhysicalContext,
+    BTreeMap<String, pse_quantity::QuantityTypeId>,
+) {
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -339,27 +339,140 @@ async fn shooting_fixture_needs_authored_controls() {
             ),
         ),
     ]);
-    let text = "package p { def Root {domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param u:Scalar=1; var x[i in t]:Scalar; eq rate[i in t]:d(x[i])/di==(u-x[i])/1{s}; eq initial:x[0{s}]==0;} test shot fixture {dof 0; run shooting; integrate samples(0{s},1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s});} {child root:Root=Root();} }";
-    let parse = |text: &str| {
-        pse_authoring::language::parse(
-            text,
-            SemanticId::NIL,
-            pse_authoring::language::IdentityPolicy::Named,
-            pse_authoring::ParseBudget::default(),
+    (physical, names)
+}
+fn parse(text: &str) -> Result<Vec<pse_authoring::language::Declaration>, pse_authoring::AuthoringError> {
+    pse_authoring::language::parse(
+        text,
+        SemanticId::NIL,
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    )
+}
+/// A `run shooting` fixture declares its method, its controls (schedules held free) and
+/// its integration controls; the package admission refuses each incomplete or misplaced
+/// declaration before any integration.
+#[tokio::test]
+async fn shooting_fixture_needs_authored_controls() {
+    let (physical, names) = physical();
+    let runtime = crate::workflow::tests::runtime();
+    let def = "def Root {domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param u:Scalar=1; var x[i in t]:Scalar; eq rate[i in t]:d(x[i])/di==(u-x[i])/1{s}; eq initial:x[0{s}]==0;}";
+    let integrate = "integrate samples(0{s},1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s});";
+    let free = "schedule root.u at(0.5{s}) values(1, 1) free lower(0) upper(2);";
+    let fixed = "schedule root.u at(0.5{s}) values(1, 1);";
+    for (fixture, refusal) in [
+        // No integration controls.
+        (
+            "run shooting; shoot single;".to_owned(),
+            "fixture execution metadata disagrees with its route",
+        ),
+        // No controls, or no method.
+        (
+            format!("run shooting; {integrate} shoot single;"),
+            "a shooting fixture declares its method",
+        ),
+        (
+            format!("run shooting; {integrate} shoot single; {fixed}"),
+            "a shooting fixture declares its method",
+        ),
+        (
+            format!("run shooting; {integrate} {free}"),
+            "a shooting fixture declares its method",
+        ),
+        // Multiple shooting needs its inner nodes; single shooting has none.
+        (
+            format!("run shooting; {integrate} shoot multiple; {free}"),
+            "a shooting fixture declares its method",
+        ),
+        (
+            format!("run shooting; {integrate} shoot single nodes(0.5{{s}}); {free}"),
+            "a shooting fixture declares its method",
+        ),
+        // Only a shooting fixture holds a schedule free.
+        (
+            format!("run integrated; {integrate} {free}"),
+            "only a shooting fixture holds a schedule free",
+        ),
+    ] {
+        let text = format!(
+            "package p {{ {def} test shot fixture {{dof 0; {fixture}}} {{child root:Root=Root();}} }}"
+        );
+        let Err(error) =
+            runtime.modeling_package(parse(&text).unwrap(), physical.clone(), names.clone())
+        else {
+            panic!("admitted: {fixture}");
+        };
+        assert!(error.to_string().contains(refusal), "{fixture}: {error}");
+    }
+}
+
+/// ADR-0110 Outcome 5 from authored data (ADR-0119): a `run shooting` fixture declares the
+/// method and nodes and holds the control schedule free within its bounds; the model's
+/// objective annotations name the integral cost and the terminal miss. The declared
+/// shooting problem reaches the tracking problem's analytic optimum by single and multiple
+/// shooting (declared tolerances: 1e-5 on the controls, 1e-6 relative on the objective),
+/// and conformance solves the fixture and passes its model checks.
+#[tokio::test]
+async fn authored_shooting_fixture_solves() {
+    let (physical, names) = physical();
+    let def = "def Tracking { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param u: Scalar = 0.5; var x[i in t]: Scalar; var y[i in t]: Scalar; eq rate[i in t]: d(x[i])/di == (u - x[i])/1{s}; eq square[i in t]: y[i] == x[i]*x[i]; eq initial: x[0{s}] == 0; annotation start x(0); annotation start y(0); let cost: Scalar = integral(i in t | (x[i]-1)*(x[i]-1)/1{s}); annotation check cost(cost >= 0); let miss[i in t]: Scalar = (x[i]-1.5)*(x[i]-1.5); annotation report miss(\"terminal miss\"); annotation objective cost(minimize, weight = 1); annotation objective miss(minimize, weight = 1); }";
+    let fixture = |name: &str, shoot: &str| {
+        format!(
+            "test {name} fixture {{ dof 0; run shooting; integrate samples(0{{s}}, 0.5{{s}}, 1{{s}}, 1.5{{s}}, 2{{s}}) relative(1e-10) normalized_absolute(1e-12) step(1e-6{{s}}) quadrature_relative(1e-10) quadrature_absolute(root.cost = 1e-12); schedule root.u at(1{{s}}) values(0.5, 0.5) free lower(0) upper(5); {shoot} }} {{ child root: Tracking = Tracking(); }}"
         )
     };
-    let rows = parse(text).unwrap();
-    let reparsed = parse(&pse_authoring::language::render(&rows).unwrap()).unwrap();
+    let text = format!(
+        "package p {{ {def} {} {} }}",
+        fixture("single", "shoot single;"),
+        fixture("multiple", "shoot multiple nodes(0.5{s}, 1{s}, 1.5{s});")
+    );
+    let rows = parse(&text).unwrap();
+    let rendered = pse_authoring::language::render(&rows).unwrap();
+    assert!(
+        rendered.contains("schedule root.u at(1{s}) values(0.5, 0.5) free lower(0) upper(5);")
+            && rendered.contains("shoot multiple nodes(0.5{s}, 1{s}, 1.5{s});"),
+        "{rendered}"
+    );
     assert_eq!(
         rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
-        reparsed.iter().map(|r| &r.value).collect::<Vec<_>>()
+        parse(&rendered).unwrap().iter().map(|r| &r.value).collect::<Vec<_>>()
     );
-    let runtime = crate::workflow::tests::runtime();
-    let package = runtime.modeling_package(rows, physical.clone(), names.clone()).unwrap();
+    let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
+    let fixtures = [root("single"), root("multiple")];
+    let package = crate::workflow::tests::runtime_with_workspace(32 << 20)
+        .modeling_package(rows, physical, names)
+        .unwrap();
+    let cancel = crate::CancelSource::new();
+    let (optimum, value) = analytic();
+    for (fixture, nodes) in fixtures.into_iter().zip([0, 3]) {
+        let problem = package
+            .declared_shooting(
+                fixture,
+                compiler_profile(),
+                None,
+                solver(),
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert_eq!(problem.controls(), 2);
+        assert_eq!(problem.contract().variables.len(), 2 + nodes);
+        let report = solve(problem, None);
+        let solve = report.solve.as_ref().unwrap();
+        assert_eq!(solve.termination.category, native::solve::Termination::Success, "{:?}", solve.termination);
+        let controls = report.controls.values().next().unwrap();
+        for (u, expected) in controls.iter().zip(optimum) {
+            assert!((u - expected).abs() < 1e-5, "{controls:?} vs {optimum:?}");
+        }
+        let objective = report.objective.unwrap();
+        assert!((objective - value).abs() <= 1e-6 * value, "{objective} vs {value}");
+        assert!(report.checks_complete && report.checks.iter().all(|c| c.satisfied));
+    }
     let policy = crate::workflow::ModelingConformancePolicy {
         fixture_policies: BTreeMap::new(),
         compiler: compiler_profile(),
-        solver: crate::workflow::tests::profile(),
+        solver: solver(),
         numerical: Default::default(),
         limits: Limits::default(),
         maximum_fixtures: 4,
@@ -370,33 +483,14 @@ async fn shooting_fixture_needs_authored_controls() {
             maximum_cells: 100,
         },
     };
-    let report = package
-        .conform(policy, &crate::CancelSource::new())
-        .await
-        .unwrap();
-    assert!(report.trajectories.is_empty());
-    assert!(!report.passed());
-    assert!(
-        report.checks.iter().any(|c| {
-            c.kind == pse_model::generated::enums::ModelingConformanceKind::Preparation
-                && c.status == pse_model::generated::enums::ModelingConformanceStatus::Failed
-                && c.message.contains("scheduled inputs held free")
-        }),
-        "{:?}",
-        report.checks
-    );
-    // Without integration controls the kernel refuses the fixture itself.
-    let bare = text.replace(
-        " integrate samples(0{s},1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s});",
-        "",
-    );
-    let Err(refusal) = runtime.modeling_package(parse(&bare).unwrap(), physical, names) else {
-        panic!("a shooting fixture without integration controls was admitted");
-    };
-    assert!(
-        refusal
-            .to_string()
-            .contains("fixture execution metadata disagrees with its route"),
-        "{refusal}"
+    let report = package.conform(policy, &cancel).await.unwrap();
+    assert!(report.passed(), "{:?}", report.checks);
+    assert_eq!(
+        report
+            .checks
+            .iter()
+            .filter(|c| c.kind == pse_model::generated::enums::ModelingConformanceKind::StartToSolve)
+            .count(),
+        2
     );
 }

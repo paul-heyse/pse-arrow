@@ -163,6 +163,18 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesIt
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem:
+    """Declared relation row or nested value."""
+
+    target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    times: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    values: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    free: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    lower: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    upper: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration:
     """Declared relation row or nested value."""
 
@@ -172,6 +184,51 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration:
     initial_step: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     quadrature_relative_tolerance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     quadratures: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    schedules: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    value: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem:
+    """Declared relation row or nested value."""
+
+    target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    expression: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem:
+    """Declared relation row or nested value."""
+
+    guard: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    direction: e.EventDirection = attrs.field(validator=attrs.validators.instance_of(e.EventDirection))
+    tolerance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    reset: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    next: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    facts: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    events: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueScopeFixtureShooting:
+    """Declared relation row or nested value."""
+
+    method: e.ShootingMethod = attrs.field(validator=attrs.validators.instance_of(e.ShootingMethod))
+    nodes: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)
@@ -201,6 +258,8 @@ class AuthoredModelingDeclarationsFieldValueScopeFixture:
     stages: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     initialization: AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization)))
     integration: AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration)))
+    modes: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    shooting: AuthoredModelingDeclarationsFieldValueScopeFixtureShooting | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureShooting)))
     expected_failure: AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure)))
     specifications: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 

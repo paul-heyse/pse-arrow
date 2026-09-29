@@ -22,6 +22,7 @@ impl Tank {
             parameters: vec![id(94), id(95)],
             outputs: vec![id(92), id(93)],
             events: vec![vec![]],
+            signs: vec![],
             derivatives: pse_kernels::DerivativeOrder::First,
         })
     }

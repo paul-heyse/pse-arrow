@@ -1224,7 +1224,6 @@ mod tests {
                 sensitivity: None,
             },
             simulations: BTreeMap::new(),
-            modes: BTreeMap::new(),
             rank_tolerance: 1e-8,
             max_cells: 100000,
             derivatives: FitDerivatives::Responses,

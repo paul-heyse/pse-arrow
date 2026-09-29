@@ -157,6 +157,29 @@ pub struct ShootingReport {
     pub validation_error: Option<pse_model::diagnostic::BoundaryDiagnostic>,
 }
 
+impl super::ModelingPackage {
+    /// Prepare the shooting problem an authored `run shooting` case declares (ADR-0110
+    /// Outcome 5, ADR-0119): the case's simulation, its schedules held free as the controls
+    /// from their authored values, its shooting method and nodes, and the model's objective
+    /// level, minimized. A given `profile` replaces the fixture's integration controls.
+    pub async fn declared_shooting(
+        &self,
+        root: pse_modeling::DeclarationId,
+        compiler: pse_compiler::workspace::Profile,
+        profile: Option<native::dynamics::Profile>,
+        solver: SolverProfile,
+        limits: pse_modeling::Limits,
+        cancel: &crate::CancelSource,
+    ) -> Result<ShootingProblem, WorkflowError> {
+        let simulation = self
+            .declared_simulation(root, compiler, profile, limits, cancel)
+            .await?;
+        let request = simulation
+            .authored_shooting(pse_modeling::specialize::root_instance(root), solver)?;
+        simulation.shooting(request)
+    }
+}
+
 impl super::ModelingSimulation {
     /// Prepare single or multiple shooting over this simulation (ADR-0110 Outcome 5). The
     /// controls are scheduled inputs of the simulation's profile; path bounds and terminal

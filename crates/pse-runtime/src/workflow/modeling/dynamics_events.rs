@@ -1,93 +1,17 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Event bindings select authored expressions and structural facts, never new equations.
+//! Authored modes and events select source expressions and structural facts, never new
+//! equations (ADR-0119 Outcome 3).
 use super::*;
+use pse_modeling::specialize::FixtureMode;
 
-/// Zero crossing of an authored scalar member. Tolerance uses its canonical unit.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ModelingDynamicEvent {
-    /// Path of the authored scalar member whose zero crossing triggers the event.
-    pub guard: String,
-    /// Each entry maps a state path to an authored expression with the same quantity type.
-    #[serde(default)]
-    pub reset: BTreeMap<String, String>,
-    /// Stop the integration at the event instead of resetting.
-    pub terminal: bool,
-    /// Required for resets; terminal events have no successor.
-    pub next_mode: Option<String>,
-    /// Absolute guard tolerance for ambiguity detection, in the guard's canonical unit.
-    pub tolerance: f64,
-}
-/// One same-layout specialization. The first mode supplies the initial condition.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ModelingDynamicMode {
-    /// Mode name; the first declared mode starts the integration.
-    pub name: String,
-    /// Boolean facts read by source `when` variants and named `stage` overrides.
-    #[serde(default)]
-    pub facts: BTreeMap<String, bool>,
-    /// Events active in this mode.
-    #[serde(default)]
-    pub events: Vec<ModelingDynamicEvent>,
-}
-impl ModelingDynamicMode {
-    pub(super) fn extend_bindings(&self, bindings: &mut Bindings) -> Result<(), WorkflowError> {
-        for (name, value) in &self.facts {
-            if name.starts_with("analysis.") {
-                return Err(contract("event modes cannot change the analysis route"));
-            }
-            bindings.facts.insert(
-                name.clone(),
-                pse_modeling::specialize::Value::Boolean(*value),
-            );
-        }
-        for event in &self.events {
-            bindings.demand.push(event.guard.clone());
-            bindings
-                .demand
-                .extend(event.reset.keys().chain(event.reset.values()).cloned());
-        }
-        Ok(())
-    }
-}
 impl ModelingPackage {
-    /// Bind an authored case to the integrated route with declared same-layout modes.
-    pub async fn declared_simulation_modes(
-        &self,
-        root: DeclarationId,
-        compiler: Profile,
-        profile: native::Profile,
-        limits: Limits,
-        modes: Vec<ModelingDynamicMode>,
-        cancel: &crate::CancelSource,
-    ) -> Result<ModelingSimulation, WorkflowError> {
-        let (bindings, case) = self
-            .declared_case(
-                root,
-                pse_model::generated::enums::ModelingAnalysisRoute::Integrated,
-                limits,
-                cancel,
-            )
-            .await?;
-        self.prepare_simulation_modes(
-            root,
-            pse_modeling::specialize::root_instance(root),
-            bindings,
-            limits,
-            case,
-            compiler,
-            profile,
-            DerivativeOrder::First,
-            modes,
-            cancel,
-        )
-        .await
-    }
     /// Prepare an integrated simulation of one instance under explicit bindings, with its
     /// functions compiled to the `derivatives` order: first order for integration and
-    /// sensitivities, second order for exact transient Hessians (ADR-0110 item 4).
+    /// sensitivities, second order for exact transient Hessians (ADR-0110 item 4). The
+    /// instance's fixture declares its modes and events (ADR-0119 Outcome 3): the first mode
+    /// starts the integration, and without any one smooth mode integrates. Every mode is
+    /// compiled before native admission; layout, units and state scaling stay fixed.
     #[expect(
         clippy::too_many_arguments,
         reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles and cancellation as independent inputs"
@@ -100,10 +24,54 @@ impl ModelingPackage {
         limits: Limits,
         case: ModelingCaseBindings,
         compiler: Profile,
-        profile: native::Profile,
+        mut profile: native::Profile,
         derivatives: DerivativeOrder,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        if bindings.facts.keys().any(|k| k.starts_with("analysis."))
+            && bindings
+                .analysis_route()
+                .map_err(|e| contract(e.to_string()))?
+                != pse_modeling::analysis::Route::Integrated
+        {
+            return Err(contract(
+                "simulation requires the integrated analysis route",
+            ));
+        }
+        let mut bindings = bindings.with_analysis(pse_modeling::analysis::Route::Integrated);
+        bindings
+            .demand
+            .extend(case.values.keys().chain(case.variables.keys()).cloned());
+        bindings.demand.sort();
+        bindings.demand.dedup();
+        let authored = self
+            .prepare(root, instance, bindings.clone(), limits, cancel)
+            .await?
+            .compiled()
+            .model
+            .fixtures
+            .get(&instance)
+            .map(|f| f.modes.clone())
+            .unwrap_or_default();
+        let modes = if authored.is_empty() {
+            vec![FixtureMode {
+                name: "initial".into(),
+                facts: BTreeMap::new(),
+                events: vec![],
+            }]
+        } else {
+            authored
+        };
+        // Routes keep their ADR-0110 limits: Diffsol detects every guard sign change, so a
+        // directional event selects IDAS when the method is automatic.
+        if profile.method == native::Method::Auto
+            && modes
+                .iter()
+                .flat_map(|m| &m.events)
+                .any(|e| e.direction != native::EventDirection::Either)
+        {
+            profile.method = native::Method::Idas;
+        }
         self.prepare_simulation_modes(
             root,
             instance,
@@ -113,11 +81,7 @@ impl ModelingPackage {
             compiler,
             profile,
             derivatives,
-            vec![ModelingDynamicMode {
-                name: "initial".into(),
-                facts: BTreeMap::new(),
-                events: vec![],
-            }],
+            &modes,
             cancel,
         )
         .await
@@ -125,9 +89,9 @@ impl ModelingPackage {
     /// Compile all modes before native admission. Layout, units and state scaling stay fixed.
     #[expect(
         clippy::too_many_arguments,
-        reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles and cancellation as independent inputs"
+        reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles, modes and cancellation as independent inputs"
     )]
-    pub async fn prepare_simulation_modes(
+    async fn prepare_simulation_modes(
         &self,
         root: DeclarationId,
         instance: InstanceId,
@@ -137,37 +101,41 @@ impl ModelingPackage {
         compiler: Profile,
         profile: native::Profile,
         derivatives: DerivativeOrder,
-        modes: Vec<ModelingDynamicMode>,
+        modes: &[FixtureMode],
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
         if modes.is_empty()
             || modes.len() > limits.items
-            || modes.iter().any(|m| m.name.is_empty())
-            || modes.iter().map(|m| &m.name).collect::<BTreeSet<_>>().len() != modes.len()
             || modes
                 .iter()
                 .try_fold(0usize, |n, m| n.checked_add(m.events.len()))
                 .is_none_or(|n| n > limits.items)
         {
-            return Err(contract(
-                "dynamic modes require unique names and bounded nonempty extent",
-            ));
+            return Err(contract("dynamic modes require bounded nonempty extent"));
         }
         let names = modes.iter().map(|m| m.name.clone()).collect::<Vec<_>>();
         let mut prepared = None::<ModelingSimulation>;
         let mut identity = FramedHasher::new(pse_ids::Frame::ModelingDynamicModesV1);
         for (index, mode) in modes.iter().enumerate() {
+            // A mode's facts select its `when` variants and stage overrides.
+            let mut bindings = bindings.clone();
+            for (name, value) in &mode.facts {
+                bindings.facts.insert(
+                    name.clone(),
+                    pse_modeling::specialize::Value::Boolean(*value),
+                );
+            }
             let mut next = self
                 .prepare_simulation_mode(
                     root,
                     instance,
-                    bindings.clone(),
+                    bindings,
                     limits,
                     case.clone(),
                     compiler,
                     profile.clone(),
                     derivatives,
-                    mode,
+                    index,
                     &names,
                     cancel,
                 )
@@ -218,12 +186,13 @@ impl ModelingPackage {
                                 .map(|r| r.quantity)
                     })
                     || result.contract.differential != next.contract.differential
+                    || result.contract.signs != next.contract.signs
                     || result.contract.quadratures != next.contract.quadratures
                     || result.coordinates != next.coordinates
                     || result.parameters != next.parameters
                 {
                     return Err(contract(
-                        "dynamic modes require identical state, parameter, output, quadrature and coordinate layouts",
+                        "dynamic modes require identical state, sign, parameter, output, quadrature and coordinate layouts",
                     ));
                 }
                 result.bytes = result
@@ -258,90 +227,45 @@ impl ModelingPackage {
 }
 
 type Role = (Function, Vec<SemanticId>, BTreeMap<usize, f64>);
+/// The native events and reset functions of the mode at `index`, from the fixture of that
+/// mode's own specialization; a case without authored modes has none.
 pub(super) fn resolve_events(
-    mode: &ModelingDynamicMode,
-    names: &[String],
     product: &pse_compiler::workspace::PreparedModeling,
+    instance: InstanceId,
+    index: usize,
     states: &[SemanticId],
 ) -> Result<(Vec<native::Event>, Vec<Role>), WorkflowError> {
-    let member = |path: &str| -> Result<SemanticId, WorkflowError> {
-        if let Some(id) = product.model.paths.get(path) {
-            return Ok(*id);
-        }
-        // An integrated family has one dynamic coordinate. Unindexed family selection
-        // is valid only when it resolves to exactly one scalar; never pick a member.
-        let prefix = format!("{path}[");
-        let mut matches = product
-            .model
-            .paths
-            .iter()
-            .filter(|(p, _)| p.starts_with(&prefix))
-            .map(|(_, id)| *id);
-        let id = matches
-            .next()
-            .ok_or_else(|| contract(format!("event member path absent: {path}")))?;
-        if matches.next().is_some() {
-            return Err(contract("event member path is not scalar"));
-        }
-        Ok(id)
+    let Some(mode) = product
+        .model
+        .fixtures
+        .get(&instance)
+        .and_then(|f| f.modes.get(index))
+    else {
+        return Ok((Vec::new(), Vec::new()));
     };
     let mut events = Vec::new();
     let mut roles = Vec::new();
     let mut roots = Vec::new();
     for (index, event) in mode.events.iter().enumerate() {
-        let guard = member(&event.guard)?;
-        if !event.tolerance.is_finite()
-            || event.tolerance <= 0.
-            || !matches!(
-                product.model.symbols.get(&guard).map(|s| &s.ty),
-                Some(pse_modeling::Type::Quantity(_))
-            )
-        {
-            return Err(contract(
-                "event requires a physical scalar guard and positive finite tolerance",
-            ));
-        }
-        if event.terminal && (!event.reset.is_empty() || event.next_mode.is_some()) {
-            return Err(contract("terminal events cannot reset or change mode"));
-        }
-        let next_mode = if event.terminal {
-            0
-        } else {
-            names
-                .iter()
-                .position(|n| Some(n) == event.next_mode.as_ref())
-                .ok_or_else(|| contract("event successor mode absent"))?
-        };
-        roots.push(ModelingOutput::Member(guard).row_id());
+        roots.push(ModelingOutput::Member(event.guard).row_id());
         events.push(native::Event {
-            id: guard,
-            terminal: event.terminal,
-            next_mode,
+            id: event.guard,
+            terminal: event.next.is_none(),
+            next_mode: event.next.unwrap_or(0),
             tolerance: event.tolerance,
-            // Authored events are zero crossings in either direction.
-            direction: native::Crossing::Either,
+            direction: event.direction,
         });
-        if !event.terminal {
+        if event.next.is_some() {
             let mut rows = states
                 .iter()
                 .map(|id| ModelingOutput::Member(*id).row_id())
                 .collect::<Vec<_>>();
-            let mut assigned = BTreeSet::new();
-            for (state, expression) in &event.reset {
-                let state = member(state)?;
-                let expression = member(expression)?;
+            for (state, value) in &event.reset {
                 let at = states
                     .iter()
-                    .position(|id| *id == state)
+                    .position(|id| id == state)
                     .ok_or_else(|| contract("event reset target is not a state"))?;
-                if !assigned.insert(state)
-                    || product.model.symbols[&state].ty != product.model.symbols[&expression].ty
-                {
-                    return Err(contract(
-                        "event reset requires unique targets with exactly matching physical types",
-                    ));
-                }
-                rows[at] = ModelingOutput::Member(expression).row_id();
+                rows[at] = ModelingOutput::Member(*value).row_id();
             }
             roles.push((Function::Reset(index), rows, BTreeMap::new()));
         }

@@ -2720,6 +2720,104 @@ impl core::str::FromStr for EntityKind {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum EventDirection {
+    ///Every sign change of the guard.
+    #[serde(rename = "either")]
+    Either,
+    ///Only the guard increasing through zero; needs IDAS.
+    #[serde(rename = "rising")]
+    Rising,
+    ///Only the guard decreasing through zero; needs IDAS.
+    #[serde(rename = "falling")]
+    Falling,
+}
+impl crate::SemanticEq for EventDirection {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl EventDirection {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::Either, Self::Rising, Self::Falling];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Either => "either",
+            Self::Rising => "rising",
+            Self::Falling => "falling",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Either => 0usize,
+            Self::Rising => 1usize,
+            Self::Falling => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Either => None,
+            Self::Rising => None,
+            Self::Falling => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for EventDirection {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(EventDirection))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(EventDirection)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["either", "rising", "falling"] }
+        )
+    }
+}
+impl core::str::FromStr for EventDirection {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "either" => Ok(Self::Either),
+            "rising" => Ok(Self::Rising),
+            "falling" => Ok(Self::Falling),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(EventDirection).to_owned(),
+                    enumeration: stringify!(EventDirection).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum EvidenceUnavailableReason {
     ///not_requested
     #[serde(rename = "not_requested")]
@@ -14880,6 +14978,16 @@ impl crate::HeapUsage for EntityKind {
     }
 }
 impl crate::SemanticFrame for EntityKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for EventDirection {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for EventDirection {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

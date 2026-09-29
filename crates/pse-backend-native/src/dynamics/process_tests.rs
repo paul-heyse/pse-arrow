@@ -57,6 +57,7 @@ impl Vessel {
                 parameters: ids(42, 1),
                 outputs: ids(43, 1),
                 events: vec![vec![]],
+                signs: vec![],
             },
         }
     }
@@ -248,6 +249,7 @@ impl Degenerate {
                 parameters: vec![],
                 outputs: ids(46, 1),
                 events: vec![vec![]],
+                signs: vec![],
             },
         }
     }
@@ -377,6 +379,7 @@ impl Tank {
                 parameters: ids(52, 6),
                 outputs: ids(53, 4),
                 events: vec![vec![]],
+                signs: vec![],
             },
         }
     }

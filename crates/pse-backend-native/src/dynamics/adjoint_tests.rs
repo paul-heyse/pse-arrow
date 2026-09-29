@@ -28,6 +28,7 @@ impl Reactor {
                 parameters: vec![id(64), id(65)],
                 outputs: vec![id(66), id(67)],
                 events: vec![vec![]],
+                signs: vec![],
             },
             evaluations: Cell::new(0),
         }
@@ -450,7 +451,7 @@ fn adjoint_profile_limits_are_typed_refusals() {
             terminal: false,
             next_mode: 0,
             tolerance: 1e-8,
-            direction: Crossing::Either,
+            direction: EventDirection::Either,
         }],
     ];
     assert!(matches!(

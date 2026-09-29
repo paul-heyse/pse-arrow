@@ -9,6 +9,15 @@ use native::{
 };
 use std::sync::atomic::AtomicBool;
 fn source(mixed: bool, expected: f64) -> (crate::workflow::ModelingPackage, FitProfile) {
+    source_case(mixed, expected, "Dynamic")
+}
+/// The fit over the transient experiment `case`: `Dynamic`, or `DynamicReset`, whose
+/// fixture declares a reset event between two modes (ADR-0119 Outcome 3).
+fn source_case(
+    mixed: bool,
+    expected: f64,
+    case: &str,
+) -> (crate::workflow::ModelingPackage, FitProfile) {
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -20,14 +29,17 @@ fn source(mixed: bool, expected: f64) -> (crate::workflow::ModelingPackage, FitP
     let time = pse_quantity::QuantityTypeId::from_id(
         SemanticId::parse_hex("e2ccf6d0a394403db967f4f35b83cb7c").unwrap(),
     );
-    let rows=pse_authoring::language::parse("package p { test Dynamic source \"analytic time integral\" revision \"1\" fixture {dof 0; run integrated; integrate samples(160{s},161{s}) relative(1e-8) normalized_absolute(1e-8) step(1e-5{s});} { domain t: Time from 160{s} to 161{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == p; eq initial: x[160{s}] == 10{s}; let y[i in t]: Time = x[i]+i-100{s}; let hit[i in t]: Time = x[i]-11{s}; let jump[i in t]: Time = 20{s}; annotation report y(\"measurement\"); annotation check x(x[i] >= 10{s}); } def Steady { param p: Scalar = 2; let y: Scalar = p; annotation check p(p > 0); } }",id(20),pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
+    let body = "{ domain t: Time from 160{s} to 161{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == p; eq initial: x[160{s}] == 10{s}; let y[i in t]: Time = x[i]+i-100{s}; let hit[i in t]: Time = x[i]-11{s}; let jump[i in t]: Time = 20{s}; annotation report y(\"measurement\"); annotation check x(x[i] >= 10{s}); }";
+    let integrate = "integrate samples(160{s},161{s}) relative(1e-8) normalized_absolute(1e-8) step(1e-5{s});";
+    let text = format!("package p {{ test Dynamic source \"analytic time integral\" revision \"1\" fixture {{dof 0; run integrated; {integrate}}} {body} test DynamicReset fixture {{dof 0; run integrated; {integrate} mode before; event hit[160{{s}}] direction(either) tolerance(1e-8{{s}}) reset(x[160{{s}}] = jump[160{{s}}]) next(after); mode after;}} {body} def Steady {{ param p: Scalar = 2; let y: Scalar = p; annotation check p(p > 0); }} }}");
+    let rows=pse_authoring::language::parse(&text,id(20),pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
     let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
     let mut data = FitData::default();
     data.datasets.push(serde_json::from_value(serde_json::json!({"dataset_id":id(70),"name":"mixed","source":"analytic","content_hash":ContentHash::from_bytes([1;32])})).unwrap());
     for (obs, value, quantity) in [(71, expected, time), (72, 1., scalar)] {
         data.observations.push(serde_json::from_value(serde_json::json!({"observation_id":id(obs),"dataset_id":id(70),"target":"response","value":value,"unit_id":physical.quantities.quantity_type(quantity).unwrap().canonical_unit.as_id(),"std_dev":1.,"timestamp":null,"tag":null,"source_span":{"document_id":id(70),"start":0,"end":0}})).unwrap());
     }
-    let mut fit:FitDeclaration=serde_json::from_value(serde_json::json!({"fit_id":id(73),"parameters":[{"symbol_id":id(3),"fixed":false,"value":2.,"lower":0.1,"upper":10.,"scale":1.}],"experiments":[{"experiment_id":id(74),"case_id":root("Dynamic"),"route":"integrated","bindings":[{"parameter_id":id(3),"path":"p"}]}],"observations":[{"observation_id":id(71),"experiment_id":id(74),"output_path":"y[160{s}]","time":161.,"time_basis":"model_clock","included":true,"importance":1.}]})).unwrap();
+    let mut fit:FitDeclaration=serde_json::from_value(serde_json::json!({"fit_id":id(73),"parameters":[{"symbol_id":id(3),"fixed":false,"value":2.,"lower":0.1,"upper":10.,"scale":1.}],"experiments":[{"experiment_id":id(74),"case_id":root(case),"route":"integrated","bindings":[{"parameter_id":id(3),"path":"p"}]}],"observations":[{"observation_id":id(71),"experiment_id":id(74),"output_path":"y[160{s}]","time":161.,"time_basis":"model_clock","included":true,"importance":1.}]})).unwrap();
     if mixed {
         fit.experiments.push(serde_json::from_value(serde_json::json!({"experiment_id":id(75),"case_id":root("Steady"),"route":"steady","bindings":[{"parameter_id":id(3),"path":"p"}]})).unwrap());
         fit.observations.push(serde_json::from_value(serde_json::json!({"observation_id":id(72),"experiment_id":id(75),"output_path":"y","time":null,"included":true,"importance":1.})).unwrap());
@@ -57,7 +69,6 @@ fn source(mixed: bool, expected: f64) -> (crate::workflow::ModelingPackage, FitP
                 ..Default::default()
             },
         )]),
-        modes: BTreeMap::new(),
         rank_tolerance: 1e-8,
         max_cells: 100000,
         derivatives: FitDerivatives::Responses,
@@ -362,7 +373,11 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
             1 => 73.5,
             _ => 83.,
         };
-        let (package, mut profile) = source(false, expected);
+        let (package, mut profile) = if mode == 2 {
+            source_case(false, expected, "DynamicReset")
+        } else {
+            source(false, expected)
+        };
         if mode == 1 {
             profile
                 .simulations
@@ -373,29 +388,6 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
                     parameter: 0,
                     times: vec![160.5],
                 });
-        }
-        if mode == 2 {
-            profile.modes.insert(
-                InstanceId::from(id(74)),
-                vec![
-                    crate::workflow::ModelingDynamicMode {
-                        name: "before".into(),
-                        facts: BTreeMap::new(),
-                        events: vec![crate::workflow::ModelingDynamicEvent {
-                            guard: "hit[160{s}]".into(),
-                            reset: BTreeMap::from([("x[160{s}]".into(), "jump[160{s}]".into())]),
-                            terminal: false,
-                            next_mode: Some("after".into()),
-                            tolerance: 1e-8,
-                        }],
-                    },
-                    crate::workflow::ModelingDynamicMode {
-                        name: "after".into(),
-                        facts: BTreeMap::new(),
-                        events: vec![],
-                    },
-                ],
-            );
         }
         let cancel = crate::CancelSource::new();
         let (problem, _) = package
@@ -682,7 +674,6 @@ fn curved_source(method: native::dynamics::Method) -> (crate::workflow::Modeling
                 ..Default::default()
             },
         )]),
-        modes: BTreeMap::new(),
         rank_tolerance: 1e-8,
         max_cells: 100000,
         derivatives: FitDerivatives::Responses,

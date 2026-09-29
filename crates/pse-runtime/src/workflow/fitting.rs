@@ -54,11 +54,9 @@ pub use pse_model::generated::enums::FitDerivatives;
 pub struct FitProfile {
     /// Ordinary native NLP controls and original-space quality tolerances.
     pub solver: SolverProfile,
-    /// Smooth integration controls keyed by the experiment's instance.
+    /// Smooth integration controls keyed by the experiment's instance. An experiment's
+    /// modes, events and scheduled inputs are those its authored case declares (ADR-0119).
     pub simulations: BTreeMap<InstanceId, super::SimulationProfile>,
-    /// Authored dynamic modes keyed by the experiment's instance; absence selects one
-    /// smooth mode.
-    pub modes: BTreeMap<InstanceId, Vec<super::ModelingDynamicMode>>,
     /// Relative local response singular-value cutoff; not a confidence level.
     pub rank_tolerance: f64,
     /// Separate cap for sparse derivative contributions and optional dense rank cells.

@@ -83,9 +83,9 @@ Version: 3. Snapshot class: `case`. Primary key: `fit_id`.
 
 ## `modeling_declarations`
 
-Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104).
+Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110).
 
-Version: 5. Snapshot class: `model`. Primary key: `declaration_id`.
+Version: 6. Snapshot class: `model`. Primary key: `declaration_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -147,6 +147,37 @@ Version: 5. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.scope.fixture.integration.quadratures.item` | `Struct` | false | `payload` | — | — |
 | `value.scope.fixture.integration.quadratures.item.target` | `Utf8` | false | `payload` | — | — |
 | `value.scope.fixture.integration.quadratures.item.absolute_tolerance` | `Utf8` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules` | `List` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules.item` | `Struct` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules.item.target` | `Utf8` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules.item.times` | `List` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules.item.times.item` | `Utf8` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules.item.values` | `List` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules.item.values.item` | `Utf8` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules.item.free` | `Boolean` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules.item.lower` | `Utf8` | true | `payload` | — | — |
+| `value.scope.fixture.integration.schedules.item.upper` | `Utf8` | true | `payload` | — | — |
+| `value.scope.fixture.modes` | `List` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item` | `Struct` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item.name` | `Utf8` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item.facts` | `List` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item.facts.item` | `Struct` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item.facts.item.name` | `Utf8` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item.facts.item.value` | `Boolean` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item.events` | `List` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item.events.item` | `Struct` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item.events.item.guard` | `Utf8` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item.events.item.direction` | `enum:EventDirection` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item.events.item.tolerance` | `Utf8` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item.events.item.reset` | `List` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item.events.item.reset.item` | `Struct` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item.events.item.reset.item.target` | `Utf8` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item.events.item.reset.item.expression` | `Utf8` | false | `payload` | — | — |
+| `value.scope.fixture.modes.item.events.item.next` | `Utf8` | true | `payload` | — | — |
+| `value.scope.fixture.shooting` | `Struct` | true | `payload` | — | — |
+| `value.scope.fixture.shooting.method` | `enum:ShootingMethod` | false | `payload` | — | — |
+| `value.scope.fixture.shooting.nodes` | `List` | false | `payload` | — | — |
+| `value.scope.fixture.shooting.nodes.item` | `Utf8` | false | `payload` | — | — |
 | `value.scope.fixture.expected_failure` | `Struct` | true | `payload` | — | — |
 | `value.scope.fixture.expected_failure.class` | `enum:NativeBoundaryClass` | false | `payload` | — | — |
 | `value.scope.fixture.expected_failure.rule` | `Utf8` | false | `payload` | — | — |

@@ -360,6 +360,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `constant` | `` | false |
 | `dataset` | `` | false |
 
+## `EventDirection`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `either` | `` | false |
+| `rising` | `` | false |
+| `falling` | `` | false |
+
 ## `EvidenceUnavailableReason`
 
 | Member | IDAES name | Deprecated |

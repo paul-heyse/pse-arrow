@@ -299,6 +299,19 @@ impl Cursor<'_> {
         self.expect(name)?;
         self.fixture_literal()
     }
+    /// A parenthesized, comma-separated list of expressions, kept as source text.
+    fn expressions(&mut self) -> Result<Vec<String>> {
+        self.expect("(")?;
+        let mut values = Vec::new();
+        while !self.eat(")") {
+            values.push(self.until(&[",", ")"])?);
+            if self.eat(")") {
+                break;
+            }
+            self.expect(",")?;
+        }
+        Ok(values)
+    }
     fn literal_list<T: std::str::FromStr>(&mut self, name: &str) -> Result<Vec<T>> {
         self.expect(name)?;
         self.expect("(")?;
@@ -869,9 +882,161 @@ impl Cursor<'_> {
                     let mut intent = None;
                     let mut stages = Vec::new();
                     let mut integration = None;
+                    let mut schedules = Vec::new();
+                    let mut shooting = None;
+                    let mut modes = Vec::<AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem>::new();
                     let mut initialization = None;
                     let mut expected_failure = None;
                     while !self.eat("}") {
+                        // ADR-0119 Outcome 3: `mode <name> [facts(<fact> = <bool>, ...)];`
+                        // declares a same-layout mode; the events after it belong to it.
+                        if self.eat("mode") {
+                            let name = self.word()?;
+                            let mut facts = Vec::new();
+                            if self.eat("facts") {
+                                self.expect("(")?;
+                                while !self.eat(")") {
+                                    let name = self.path()?;
+                                    self.expect("=")?;
+                                    let value = match self.word()?.as_str() {
+                                        "true" => true,
+                                        "false" => false,
+                                        _ => return Err(self.error("true or false")),
+                                    };
+                                    facts.push(
+                                        AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem {
+                                            name,
+                                            value,
+                                        },
+                                    );
+                                    if self.eat(")") {
+                                        break;
+                                    }
+                                    self.expect(",")?;
+                                }
+                            }
+                            self.expect(";")?;
+                            modes.push(AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem {
+                                name,
+                                facts,
+                                events: Vec::new(),
+                            });
+                            continue;
+                        }
+                        // `event <guard> direction(<d>) tolerance(<x>) [reset(<state> = <member>, ...)]
+                        // (next(<mode>) | terminal);`
+                        if self.eat("event") {
+                            let guard = self.until(&["direction"])?;
+                            self.expect("direction")?;
+                            self.expect("(")?;
+                            let direction = self
+                                .word()?
+                                .parse()
+                                .map_err(|_| self.error("either, rising or falling"))?;
+                            self.expect(")")?;
+                            self.expect("tolerance")?;
+                            self.expect("(")?;
+                            let tolerance = self.until(&[")"])?;
+                            self.expect(")")?;
+                            let mut reset = Vec::new();
+                            if self.eat("reset") {
+                                self.expect("(")?;
+                                while !self.eat(")") {
+                                    let target = self.until(&["="])?;
+                                    self.expect("=")?;
+                                    let expression = self.until(&[",", ")"])?;
+                                    reset.push(
+                                        AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem {
+                                            target,
+                                            expression,
+                                        },
+                                    );
+                                    if self.eat(")") {
+                                        break;
+                                    }
+                                    self.expect(",")?;
+                                }
+                            }
+                            let next = if self.eat("terminal") {
+                                None
+                            } else {
+                                self.expect("next")?;
+                                self.expect("(")?;
+                                let next = self.word()?;
+                                self.expect(")")?;
+                                Some(next)
+                            };
+                            self.expect(";")?;
+                            let event =
+                                AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem {
+                                    guard,
+                                    direction,
+                                    tolerance,
+                                    reset,
+                                    next,
+                                };
+                            modes
+                                .last_mut()
+                                .ok_or_else(|| self.error("a mode clause before its events"))?
+                                .events
+                                .push(event);
+                            continue;
+                        }
+                        // ADR-0119 Outcome 2: `schedule u at(t1, ...) values(v0, v1, ...);`
+                        // holds `u` piecewise constant with one value per interval; with
+                        // `free [lower(<x>)] [upper(<x>)]` its values are shooting controls.
+                        if self.eat("schedule") {
+                            let target = self.until(&["at"])?;
+                            self.expect("at")?;
+                            let times = self.expressions()?;
+                            self.expect("values")?;
+                            let values = self.expressions()?;
+                            let free = self.eat("free");
+                            let mut bound = |name: &str| -> Result<Option<String>> {
+                                if !free || !self.eat(name) {
+                                    return Ok(None);
+                                }
+                                self.expect("(")?;
+                                let value = self.until(&[")"])?;
+                                self.expect(")")?;
+                                Ok(Some(value))
+                            };
+                            let lower = bound("lower")?;
+                            let upper = bound("upper")?;
+                            self.expect(";")?;
+                            schedules.push(
+                                AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
+                                    target,
+                                    times,
+                                    values,
+                                    free,
+                                    lower,
+                                    upper,
+                                },
+                            );
+                            continue;
+                        }
+                        // ADR-0110 Outcome 5: `shoot single;` or `shoot multiple nodes(...);`.
+                        if self.eat("shoot") {
+                            if shooting.is_some() {
+                                return Err(self.error("one shooting clause"));
+                            }
+                            let method = self
+                                .word()?
+                                .parse()
+                                .map_err(|_| self.error("single or multiple"))?;
+                            let nodes = if self.eat("nodes") {
+                                self.expressions()?
+                            } else {
+                                Vec::new()
+                            };
+                            self.expect(";")?;
+                            shooting = Some(AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
+                                method,
+                                nodes,
+                            });
+                            continue;
+                        }
                         if self.eat("run") {
                             if execution.is_some() {
                                 return Err(self.error("one fixture execution mode"));
@@ -926,15 +1091,7 @@ impl Cursor<'_> {
                                 return Err(self.error("one integration fixture"));
                             }
                             self.expect("samples")?;
-                            self.expect("(")?;
-                            let mut samples = Vec::new();
-                            while !self.eat(")") {
-                                samples.push(self.until(&[",", ")"])?);
-                                if self.eat(")") {
-                                    break;
-                                }
-                                self.expect(",")?;
-                            }
+                            let samples = self.expressions()?;
                             self.expect("relative")?;
                             self.expect("(")?;
                             let relative_tolerance = self
@@ -981,6 +1138,7 @@ impl Cursor<'_> {
                                     initial_step,
                                     quadrature_relative_tolerance,
                                     quadratures,
+                                    schedules: Vec::new(),
                                 },
                             );
                             continue;
@@ -1022,6 +1180,14 @@ impl Cursor<'_> {
                             },
                         );
                     }
+                    if !schedules.is_empty() {
+                        integration
+                            .as_mut()
+                            .ok_or_else(|| {
+                                self.error("an integrate clause for the scheduled inputs")
+                            })?
+                            .schedules = schedules;
+                    }
                     Some(AuthoredModelingDeclarationsFieldValueScopeFixture {
                         degrees_of_freedom,
                         execution,
@@ -1029,6 +1195,8 @@ impl Cursor<'_> {
                         stages,
                         initialization,
                         integration,
+                        modes,
+                        shooting,
                         expected_failure,
                         specifications,
                     })

@@ -1270,10 +1270,12 @@ impl<'a> Session<'a> {
             check(ffi::IDASetInitStep(s.mem, p.initial_step), "initial step")?;
         }
         s.linear_solver(p.idas.linear)?;
-        if p.idas.constraints.iter().any(|v| *v != StateSign::Free) {
-            let codes: Vec<_> = p
-                .idas
-                .constraints
+        // The authored bounds' signs keep the steps in the domain (ADR-0119 Outcome 4).
+        if s.callback.contract.signs.iter().any(|v| *v != StateSign::Free) {
+            let codes: Vec<_> = s
+                .callback
+                .contract
+                .signs
                 .iter()
                 .map(|v| state_sign_code(*v))
                 .collect();
@@ -1509,7 +1511,7 @@ impl<'a> Session<'a> {
     /// Root functions of the active mode, with their declared crossing directions.
     fn initialize_roots(&mut self) -> Result<(), ProblemError> {
         let events = &self.callback.contract.events[self.callback.mode];
-        let mut directions: Vec<i32> = events.iter().map(|e| e.direction.code()).collect();
+        let mut directions: Vec<i32> = events.iter().map(|e| root_direction(e.direction)).collect();
         let count = events.len();
         unsafe {
             check(

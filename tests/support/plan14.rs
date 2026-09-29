@@ -301,7 +301,6 @@ pub(crate) async fn heat_fit(
         pse_runtime::workflow::FitProfile {
             solver,
             simulations,
-            modes: BTreeMap::new(),
             rank_tolerance: 1e-8,
             max_cells: 1 << 20,
             derivatives: pse_runtime::workflow::FitDerivatives::Responses,

@@ -36,7 +36,7 @@ use super::*;
 /// # let id = |n| SemanticId::from_bytes([n; 16]);
 /// # let contract = Contract { quadratures: vec![], balances: vec![], identity: ContentHash::from_bytes([1; 32]),
 /// #     states: vec![id(1)], differential: vec![true], parameters: vec![id(2)], outputs: vec![id(1)],
-/// #     events: vec![vec![]], derivatives: pse_kernels::DerivativeOrder::First };
+/// #     events: vec![vec![]], signs: vec![], derivatives: pse_kernels::DerivativeOrder::First };
 /// // One differential state `x' = −k·x`: the window's parameters are `k`, then x's start.
 /// let mut window = Anchored::new(Decay(contract), false).unwrap();
 /// assert_eq!(window.contract().parameters.len(), 2);
@@ -87,6 +87,7 @@ impl<O: Oracle> Anchored<O> {
             quadratures: c.quadratures.clone(),
             balances: c.balances.clone(),
             events: c.events.clone(),
+            signs: c.signs.clone(),
             derivatives: c.derivatives,
         };
         contract.parameters.extend(
@@ -100,6 +101,12 @@ impl<O: Oracle> Anchored<O> {
                 .differential
                 .extend(std::iter::repeat_n(true, c.quadratures.len()));
             contract.outputs.extend(c.quadratures.iter().copied());
+            // An observed quadrature integrates without a sign of its own.
+            if !contract.signs.is_empty() {
+                contract
+                    .signs
+                    .extend(std::iter::repeat_n(StateSign::Free, c.quadratures.len()));
+            }
             contract.quadratures.clear();
         }
         contract.validate()?;

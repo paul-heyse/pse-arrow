@@ -27,7 +27,10 @@ pub use pse_model::generated::identities::{DeclarationId, InstanceId};
 use std::collections::{BTreeMap, BTreeSet};
 pub use value::{Environment, Value};
 mod fixture;
-pub use fixture::{Fixture, FixtureValue};
+pub use fixture::{
+    Fixture, FixtureEvent, FixtureMode, FixtureValue, IntegrationFixture, ScheduleControl,
+    ScheduleFixture, ShootingFixture,
+};
 mod regimes;
 pub use regimes::{Regime, RegimeSelection};
 mod forms;
@@ -1823,6 +1826,23 @@ impl Contribution {
     }
 }
 impl SpecializedModel {
+    /// The declared integral a member names: the integral itself, or the one reached by
+    /// following exact symbol aliases. A sum or scaled expression names none.
+    pub fn integral_of(&self, member: SemanticId) -> Option<SemanticId> {
+        let mut target = member;
+        let mut visited = BTreeSet::new();
+        while !self.integrals.contains_key(&target) {
+            if !visited.insert(target) {
+                return None;
+            }
+            target = self
+                .symbols
+                .get(&target)
+                .and_then(|symbol| symbol.expression.as_ref())
+                .and_then(symbol_reference)?;
+        }
+        Some(target)
+    }
     /// The typed refusal of a derived parameter's realization, naming its subject (ADR-0104).
     pub fn realization_refusal(
         &self,

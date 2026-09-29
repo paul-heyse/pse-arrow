@@ -12,7 +12,6 @@ use crate::workflow::dynamics::{
     CoordinateBinding, DynamicCoordinates, DynamicMode, DynamicWorker, FunctionProgram,
     GuardProgram, RangeCheck, RangeValue,
 };
-pub use events::{ModelingDynamicEvent, ModelingDynamicMode};
 use pse_backend_native::{
     ProblemError,
     dynamics::{self as native, Function},
@@ -250,6 +249,96 @@ impl ModelingSimulation {
                 .collect::<Vec<_>>(),
             max_cells: self.profile.max_cells,
         }
+    }
+    /// The shooting request an authored `run shooting` fixture of `instance` declares
+    /// (ADR-0110 Outcome 5): its method and nodes, its schedules held free as the
+    /// controls, and the model's one objective level, minimized. A member that names a
+    /// declared integral weighs that quadrature over the horizon; any other member is an
+    /// observed output weighed at the horizon's end. Path bounds are not authored: the
+    /// model's bounds remain the guard's.
+    #[cfg(feature = "solver-diffsol")]
+    pub(in crate::workflow) fn authored_shooting(
+        &self,
+        instance: InstanceId,
+        solver: crate::math::solves::SolverProfile,
+    ) -> Result<crate::workflow::ShootingProfile, WorkflowError> {
+        use crate::workflow::{ShootingControl, ShootingObjective, ShootingProfile};
+        let product = self.model().compiled();
+        let fixture = product
+            .model
+            .fixtures
+            .get(&instance)
+            .ok_or_else(|| contract("shooting fixture absent"))?;
+        let (Some(shooting), Some(integration)) = (&fixture.shooting, &fixture.integration)
+        else {
+            return Err(contract("the fixture declares no shooting"));
+        };
+        let controls = integration
+            .schedules
+            .iter()
+            .filter_map(|s| {
+                s.control.map(|bounds| ShootingControl {
+                    input: s.target,
+                    lower: bounds.lower,
+                    upper: bounds.upper,
+                })
+            })
+            .collect();
+        let objectives = &product.model.objectives;
+        let mut objective = ShootingObjective::default();
+        match objectives.levels.as_slice() {
+            [] => {}
+            [level] => {
+                let sign = if level.sense == pse_modeling::annotation::ObjectiveSense::Maximize
+                {
+                    -1.
+                } else {
+                    1.
+                };
+                for member in objectives.members_of(level) {
+                    let mut weight = sign * member.scale;
+                    if let Some(normalization) = member.normalization {
+                        let value = self.modes[0]
+                            .context
+                            .values
+                            .scalars
+                            .get(&normalization)
+                            .copied()
+                            .filter(|v| v.is_finite() && *v > 0.)
+                            .ok_or_else(|| contract("objective normalization value"))?;
+                        weight /= value;
+                    }
+                    if let Some(quadrature) = product.model.integral_of(member.target) {
+                        *objective.integral.entry(quadrature).or_default() += weight;
+                    } else {
+                        let output = ModelingOutput::Member(member.target).row_id();
+                        if !self.contract.outputs.contains(&output) {
+                            return Err(contract(
+                                "a shooting objective member is a declared integral or an observed output",
+                            ));
+                        }
+                        *objective.terminal.entry(output).or_default() += weight;
+                    }
+                }
+            }
+            _ => {
+                return Err(contract(
+                    "shooting minimizes one objective level, not lexicographic levels",
+                ));
+            }
+        }
+        Ok(ShootingProfile {
+            method: shooting.method,
+            nodes: shooting
+                .nodes
+                .iter()
+                .map(|t| t * self.coordinates.time_scale)
+                .collect(),
+            controls,
+            path: Vec::new(),
+            objective,
+            solver,
+        })
     }
     pub(in crate::workflow) fn submit(
         &self,
@@ -490,11 +579,43 @@ impl ModelingPackage {
             atol: vec![integration.normalized_absolute_tolerance; states.len()],
             initial_step: integration.initial_step * time_scale,
             parameter_scales: vec![1.; parameters.len()],
+            schedule: authored_schedule(integration, &parameters, time_scale)?
+                .into_iter()
+                .map(|(input, _)| input)
+                .collect(),
             numerics: numerics.clone(),
             ..pse_backend_native::dynamics::Profile::default()
         };
         Ok(profile)
     }
+}
+/// The fixture's scheduled inputs on the integration layout (ADR-0119 Outcome 2): each
+/// input's position among the contract parameters with its change times in seconds, and
+/// its authored interval values.
+fn authored_schedule<'f>(
+    integration: &'f pse_modeling::specialize::IntegrationFixture,
+    parameters: &[SemanticId],
+    time_scale: f64,
+) -> Result<Vec<(native::ScheduledInput, &'f [f64])>, WorkflowError> {
+    integration
+        .schedules
+        .iter()
+        .map(|s| {
+            let parameter = parameters
+                .iter()
+                .position(|p| *p == s.target)
+                .ok_or_else(|| {
+                    contract("a scheduled input must be an integration parameter, not a state")
+                })?;
+            Ok((
+                native::ScheduledInput {
+                    parameter,
+                    times: s.times.iter().map(|t| t * time_scale).collect(),
+                },
+                s.values.as_slice(),
+            ))
+        })
+        .collect()
 }
 impl ModelingPackage {
     /// Bind an authored case directly to the integrated route and its integration controls.
@@ -543,13 +664,13 @@ impl ModelingPackage {
         &self,
         root: DeclarationId,
         instance: InstanceId,
-        mut bindings: Bindings,
+        bindings: Bindings,
         limits: Limits,
         case: ModelingCaseBindings,
         compiler: Profile,
-        profile: native::Profile,
+        mut profile: native::Profile,
         derivatives: DerivativeOrder,
-        mode: &ModelingDynamicMode,
+        mode: usize,
         mode_names: &[String],
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
@@ -558,23 +679,6 @@ impl ModelingPackage {
                 "integrated dynamics needs at least first-order partials",
             ));
         }
-        mode.extend_bindings(&mut bindings)?;
-        if bindings.facts.keys().any(|k| k.starts_with("analysis."))
-            && bindings
-                .analysis_route()
-                .map_err(|e| contract(e.to_string()))?
-                != pse_modeling::analysis::Route::Integrated
-        {
-            return Err(contract(
-                "simulation requires the integrated analysis route",
-            ));
-        }
-        bindings = bindings.with_analysis(pse_modeling::analysis::Route::Integrated);
-        bindings
-            .demand
-            .extend(case.values.keys().chain(case.variables.keys()).cloned());
-        bindings.demand.sort();
-        bindings.demand.dedup();
         let model = self
             .prepare(root, instance, bindings, limits, cancel)
             .await?;
@@ -585,9 +689,16 @@ impl ModelingPackage {
             .values()
             .next()
             .ok_or_else(|| contract("simulation requires an integrated time axis"))?;
-        if product.model.integrated.len() != 1 || product.admitted.case.objective().is_some() {
+        // An authored objective needs an optimizing consumer: a shooting fixture, whose
+        // shooting problem minimizes it (ADR-0110 Outcome 5).
+        let shooting = product.model.fixtures.get(&instance).is_some_and(|f| {
+            f.execution == pse_model::generated::enums::ModelingFixtureExecution::Shooting
+        });
+        if product.model.integrated.len() != 1
+            || (product.admitted.case.objective().is_some() && !shooting)
+        {
             return Err(contract(
-                "integrated consumer requires one time axis and no optimization objective",
+                "integrated consumer requires one time axis; an optimization objective needs a shooting fixture",
             ));
         }
         let time_unit = self
@@ -652,6 +763,32 @@ impl ModelingPackage {
             ));
         }
         let (state, parameters) = dynamic_ports(product, &case)?;
+        // The fixture's schedules are the authority (ADR-0119 Outcome 2): a profile may
+        // repeat an authored schedule, but a different one for the same input is refused.
+        let authored = match product
+            .model
+            .fixtures
+            .get(&instance)
+            .and_then(|f| f.integration.as_ref())
+        {
+            Some(integration) => authored_schedule(integration, &parameters, time_scale)?,
+            None => Vec::new(),
+        };
+        for (input, _) in &authored {
+            match profile
+                .schedule
+                .iter()
+                .find(|s| s.parameter == input.parameter)
+            {
+                Some(declared) if declared == input => {}
+                Some(_) => {
+                    return Err(contract(
+                        "the profile schedules an input differently from its authored schedule",
+                    ));
+                }
+                None => profile.schedule.push(input.clone()),
+            }
+        }
         let rates = product
             .model
             .derivatives
@@ -814,10 +951,16 @@ impl ModelingPackage {
             .map(|id| ModelingOutput::Member(*id).row_id())
             .collect::<Vec<_>>();
         for a in &product.model.annotations {
+            // A shooting fixture observes its objective members, too.
             if matches!(
                 a.value,
                 pse_modeling::annotation::AnnotationValue::Report(_)
-            ) {
+            ) || (shooting
+                && matches!(
+                    a.value,
+                    pse_modeling::annotation::AnnotationValue::Objective(_)
+                ))
+            {
                 let id = ModelingOutput::Member(a.target).row_id();
                 if !outputs.contains(&id) {
                     outputs.push(id);
@@ -949,7 +1092,7 @@ impl ModelingPackage {
             .collect::<Vec<_>>();
         let mut programs = Vec::new();
         let (event_contracts, event_roles) =
-            events::resolve_events(mode, mode_names, product, &states)?;
+            events::resolve_events(product, instance, mode, &states)?;
         let quadrature_rows = product
             .model
             .integrals
@@ -1104,6 +1247,9 @@ impl ModelingPackage {
         let guard = self
             .prepare_dynamic_guards(&model, &case, &terminal_targets, compiler, cancel)
             .await?;
+        let signs = self
+            .state_signs(&model, &case, &states, &values, &providers, compiler, cancel)
+            .await?;
         let units = results::assessment_units(product);
         let sample_scope = (!integral_ids.is_empty()).then(|| {
             units
@@ -1158,13 +1304,21 @@ impl ModelingPackage {
                     .await?,
             )
         };
-        // Every interval of a scheduled input starts at the model's value (I6).
-        let parameter_values = profile.integration_parameters(
+        // Every interval of a scheduled input starts at the model's value; the authored
+        // interval values then replace it (I6).
+        let mut parameter_values = profile.integration_parameters(
             &parameters
                 .iter()
                 .map(|id| values.scalars[id])
                 .collect::<Vec<_>>(),
         );
+        let first = profile.columns_at(parameters.len(), profile.start);
+        for (input, authored) in &authored {
+            parameter_values
+                .get_mut(first[input.parameter]..first[input.parameter] + authored.len())
+                .ok_or_else(|| contract("scheduled input interval layout"))?
+                .copy_from_slice(authored);
+        }
         let mut hash = FramedHasher::new(pse_ids::Frame::ModelingDynamicV2);
         hash.id(&root.as_id())
             .id(&instance.as_id())
@@ -1188,6 +1342,9 @@ impl ModelingPackage {
         }
         for (id, v) in &values.scalars {
             hash.id(id).u64(v.to_bits());
+        }
+        for v in &parameter_values {
+            hash.u64(v.to_bits());
         }
         for r in providers.values() {
             hash.hash(&r.configuration_key());
@@ -1227,12 +1384,16 @@ impl ModelingPackage {
                 hash.id(&row.id);
             }
         }
-        hash.str(&mode.name);
+        hash.str(&mode_names[mode]);
         for event in &event_contracts {
             hash.id(&event.id)
                 .bool(event.terminal)
                 .u64(event.next_mode as u64)
-                .u64(event.tolerance.to_bits());
+                .u64(event.tolerance.to_bits())
+                .str(event.direction.as_str());
+        }
+        for sign in &signs {
+            hash.str(sign.as_str());
         }
         let key = hash.finish_hash();
         let contract = native::Contract {
@@ -1246,6 +1407,7 @@ impl ModelingPackage {
                 .collect(),
             quadratures: product.model.integrals.keys().copied().collect(),
             balances: vec![],
+            signs,
             derivatives,
         };
         let cells = profile
@@ -1317,7 +1479,7 @@ impl ModelingPackage {
             solved: model.solved(),
             quantities: self.quantities.clone(),
             modes: vec![SimulationMode {
-                name: mode.name.clone(),
+                name: mode_names[mode].clone(),
                 model,
                 numerics,
                 context: DynamicMode {
@@ -1338,6 +1500,116 @@ impl ModelingPackage {
             parameters: parameter_values,
             key,
             bytes,
+        })
+    }
+    /// The sign each state keeps during integration (ADR-0119 Outcome 4, review F03): a
+    /// constant-zero endpoint of the state's effective authored bound, the bound annotation
+    /// with any fixture override of an endpoint (the same bound the guard checks). A zero
+    /// lower endpoint keeps the state non-negative, a zero upper one non-positive; with no
+    /// zero endpoint, or both, the state is free. Empty when every state is free. The
+    /// guard remains the validity authority; coordinates scale without offset, so a sign
+    /// holds in them too.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the prepared model, case, state layout, values and providers are independent inputs of one observation"
+    )]
+    async fn state_signs(
+        &self,
+        model: &ModelingPreparation,
+        case: &ModelingCaseBindings,
+        states: &[SemanticId],
+        values: &CaseValues,
+        providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        compiler: Profile,
+        cancel: &crate::CancelSource,
+    ) -> Result<Vec<native::StateSign>, WorkflowError> {
+        use pse_modeling::annotation::AnnotationValue;
+        #[derive(Clone, Copy)]
+        enum Endpoint {
+            Constant(f64),
+            Row(SemanticId),
+        }
+        let product = model.compiled();
+        let mut endpoints = vec![[None::<Endpoint>; 2]; states.len()];
+        for a in &product.model.annotations {
+            let AnnotationValue::Bounds(lower, upper) = &a.value else {
+                continue;
+            };
+            let Some(i) = states.iter().position(|id| *id == a.target) else {
+                continue;
+            };
+            for (k, (bound, kind)) in [(lower, ModelingHint::Lower), (upper, ModelingHint::Upper)]
+                .into_iter()
+                .enumerate()
+            {
+                // Only an endpoint that references no member is a constant.
+                if pse_modeling::expression::references(bound).is_empty() {
+                    endpoints[i][k] = Some(Endpoint::Row(
+                        ModelingOutput::Hint {
+                            target: a.target,
+                            declaration: a.lineage.declaration,
+                            kind,
+                        }
+                        .row_id(),
+                    ));
+                }
+            }
+        }
+        for (path, state) in &case.variables {
+            let Some(i) = product
+                .model
+                .paths
+                .get(path)
+                .and_then(|id| states.iter().position(|s| s == id))
+            else {
+                continue;
+            };
+            for (k, endpoint) in [state.lower, state.upper].into_iter().enumerate() {
+                if let Some(endpoint) = endpoint {
+                    endpoints[i][k] = endpoint.map(Endpoint::Constant);
+                }
+            }
+        }
+        let rows = endpoints
+            .iter()
+            .flatten()
+            .filter_map(|e| match e {
+                Some(Endpoint::Row(id)) => Some(*id),
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>();
+        let observed: BTreeMap<SemanticId, f64> = if rows.is_empty() {
+            BTreeMap::new()
+        } else {
+            let observed = self
+                .observe_registered(
+                    model.clone(),
+                    rows,
+                    values.clone(),
+                    compiler,
+                    providers.clone(),
+                    cancel,
+                )
+                .await?;
+            (*observed).clone()
+        };
+        let zero = |endpoint: Option<Endpoint>| match endpoint {
+            Some(Endpoint::Constant(v)) => v == 0.,
+            Some(Endpoint::Row(id)) => observed.get(&id) == Some(&0.),
+            None => false,
+        };
+        let signs = endpoints
+            .into_iter()
+            .map(|[lower, upper]| match (zero(lower), zero(upper)) {
+                (true, false) => native::StateSign::NonNegative,
+                (false, true) => native::StateSign::NonPositive,
+                _ => native::StateSign::Free,
+            })
+            .collect::<Vec<_>>();
+        Ok(if signs.iter().all(|s| *s == native::StateSign::Free) {
+            Vec::new()
+        } else {
+            signs
         })
     }
     async fn prepare_dynamic_guards(
@@ -1688,44 +1960,134 @@ mod tests {
         );
         report.table().unwrap();
     }
+    /// ADR-0119 Outcome 2 (I6): an authored fixture holds an input piecewise constant.
+    /// Each interval is its own integration parameter carrying its authored value, so the
+    /// trajectory follows the schedule and the forward sensitivities of both intervals stay
+    /// live across the change. The fixture is the schedule's authority.
     #[tokio::test]
-    async fn kernel_integrated_events_bind_source_resets_and_same_layout_modes() {
+    async fn kernel_fixture_schedules_inputs() {
         let runtime = super::super::super::tests::runtime();
         let (physical, names) = physical();
-        let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == p; eq initial: x[0{s}] == 1{s}; let hit[i in t]: Time = x[i]-2{s}; let jump[i in t]: Time = 2*x[i]; let wrong: Scalar = 0; stage coast { override eq rate[i in t]: d(x[i])/di == 0; } annotation check x(x[i] <= 4.01{s}); } }";
+        let text = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param u: Scalar = 5; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == u; eq initial: x[0{s}] == 1{s}; } test scheduled fixture {dof 0; run integrated; integrate samples(0{s}, 0.5{s}, 1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.u at(0.5{s}) values(2, -1);} {child root: Root = Root();} test on_state fixture {dof 0; run integrated; integrate samples(0{s}, 1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.x[0{s}] at(0.5{s}) values(1{s}, 2{s});} {child root: Root = Root();} }";
         let rows = pse_authoring::language::parse(
-            source,
+            text,
             SemanticId::NIL,
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
         .unwrap();
-        let root = rows
-            .iter()
-            .find(|r| r.name == "Root")
-            .unwrap()
-            .declaration_id;
+        let rendered = pse_authoring::language::render(&rows).unwrap();
+        assert!(rendered.contains("schedule root.u at(0.5{s}) values(2, -1);"), "{rendered}");
+        let reparsed = pse_authoring::language::parse(
+            &rendered,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
+            reparsed.iter().map(|r| &r.value).collect::<Vec<_>>()
+        );
+        let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
+        let (scheduled, on_state) = (root("scheduled"), root("on_state"));
+        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let compiler = super::super::super::tests::compiler_profile();
+        let cancel = crate::CancelSource::new();
+        let prepared = package
+            .declared_simulation(scheduled, compiler, None, Limits::default(), &cancel)
+            .await
+            .unwrap();
+        // One contract parameter, two intervals, each with its authored value.
+        assert_eq!(prepared.contract().parameters.len(), 1);
+        assert_eq!(
+            prepared.profile().schedule,
+            vec![native::ScheduledInput {
+                parameter: 0,
+                times: vec![0.5]
+            }]
+        );
+        assert_eq!(prepared.parameters(), [2., -1.]);
+        let mut profile = prepared.profile().clone();
+        profile.sensitivity = native::DynamicSensitivity::Forward;
+        let sensitive = package
+            .declared_simulation(scheduled, compiler, Some(profile.clone()), Limits::default(), &cancel)
+            .await
+            .unwrap();
+        assert_ne!(sensitive.identity(), prepared.identity());
+        let result = sensitive.run(&cancel).await.unwrap();
+        assert!(result.accepted, "{:?}", result.diagnostic());
+        let samples = &result.report.samples;
+        // x = 1 + 2·t before the change and 2 − (t − 0.5) after; the unscheduled model
+        // value 5 would give 6 at the end.
+        for (sample, expected) in samples.iter().zip([1., 2., 1.5]) {
+            assert!((sample.outputs[0] - expected).abs() < 1e-7, "{sample:?}");
+        }
+        // dx/du₀ and dx/du₁, output-major over the two interval parameters.
+        let sensitivities = |i: usize| &samples[i].output_sensitivities[..2];
+        for (i, expected) in [(1, [0.5, 0.]), (2, [0.5, 0.5])] {
+            for (actual, expected) in sensitivities(i).iter().zip(expected) {
+                assert!((actual - expected).abs() < 1e-7, "{:?}", samples[i]);
+            }
+        }
+        // A profile repeating the authored schedule is accepted; one scheduling the same
+        // input differently is refused.
+        profile.schedule[0].times = vec![0.25];
+        let error = package
+            .declared_simulation(scheduled, compiler, Some(profile), Limits::default(), &cancel)
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("authored schedule"), "{error}");
+        // A state is not a scheduled input.
+        let error = package
+            .declared_simulation(on_state, compiler, None, Limits::default(), &cancel)
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("integration parameter"), "{error}");
+    }
+    /// ADR-0119 Outcome 3: the case's fixture declares the modes (the facts selecting
+    /// each) and the events with their resets and successors; the simulation reads them,
+    /// with no runtime mode input.
+    #[tokio::test]
+    async fn kernel_integrated_events_bind_source_resets_and_same_layout_modes() {
+        let runtime = super::super::super::tests::runtime();
+        let (physical, names) = physical();
+        let integrate = "dof 0; run integrated; integrate samples(0{s}, 0.25{s}, 0.75{s}, 2{s}) relative(1e-8) normalized_absolute(1e-8) step(1e-4{s});";
+        let source = format!(
+            "package p {{ def Root {{ domain t: Time from 0{{s}} to 2{{s}}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == p; eq initial: x[0{{s}}] == 1{{s}}; let hit[i in t]: Time = x[i]-2{{s}}; let jump[i in t]: Time = 2*x[i]; let wrong: Scalar = 0; stage coast {{ override eq rate[i in t]: d(x[i])/di == 0; }} annotation check x(x[i] <= 4.01{{s}}); }} \
+             test evented fixture {{ {integrate} mode rise; event root.hit[0{{s}}] direction(either) tolerance(1e-8{{s}}) reset(root.x[0{{s}}] = root.jump[0{{s}}]) next(coast); mode coast facts(stage.coast = true); }} {{ child root: Root = Root(); }} \
+             test mistyped fixture {{ {integrate} mode rise; event root.hit[0{{s}}] direction(either) tolerance(1e-8{{s}}) reset(root.x[0{{s}}] = root.wrong) next(coast); mode coast facts(stage.coast = true); }} {{ child root: Root = Root(); }} \
+             test stopped fixture {{ {integrate} mode stop; event root.hit[0{{s}}] direction(either) tolerance(1e-8{{s}}) terminal; }} {{ child root: Root = Root(); }} }}"
+        );
+        let rows = pse_authoring::language::parse(
+            &source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let rendered = pse_authoring::language::render(&rows).unwrap();
+        assert!(
+            rendered.contains("mode coast facts(stage.coast = true);")
+                && rendered.contains("event root.hit[0{s}] direction(either) tolerance(1e-8{s}) reset(root.x[0{s}] = root.jump[0{s}]) next(coast);")
+                && rendered.contains("event root.hit[0{s}] direction(either) tolerance(1e-8{s}) terminal;"),
+            "{rendered}"
+        );
+        let reparsed = pse_authoring::language::parse(
+            &rendered,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
+            reparsed.iter().map(|r| &r.value).collect::<Vec<_>>()
+        );
+        let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
+        let (evented, mistyped, stopped) = (root("evented"), root("mistyped"), root("stopped"));
         let package = runtime.modeling_package(rows, physical, names).unwrap();
         let cancel = crate::CancelSource::new();
-        let event = ModelingDynamicEvent {
-            guard: "hit[0{s}]".into(),
-            reset: BTreeMap::from([("x[0{s}]".into(), "jump[0{s}]".into())]),
-            terminal: false,
-            next_mode: Some("coast".into()),
-            tolerance: 1e-8,
-        };
-        let modes = vec![
-            ModelingDynamicMode {
-                name: "rise".into(),
-                facts: BTreeMap::new(),
-                events: vec![event.clone()],
-            },
-            ModelingDynamicMode {
-                name: "coast".into(),
-                facts: BTreeMap::from([("stage.coast".into(), true)]),
-                events: vec![],
-            },
-        ];
         let profile = native::Profile {
             end: 2.,
             samples: vec![0., 0.25, 0.75, 2.],
@@ -1734,20 +2096,11 @@ mod tests {
             ..Default::default()
         };
         let compiler = super::super::super::tests::compiler_profile();
-        let prepared = package
-            .prepare_simulation_modes(
-                root,
-                pse_modeling::specialize::root_instance(root),
-                Bindings::default(),
-                Limits::default(),
-                ModelingCaseBindings::default(),
-                compiler,
-                profile.clone(),
-                DerivativeOrder::First,
-                modes.clone(),
-                &cancel)
-            .await
-            .unwrap();
+        let simulate = |root, profile| {
+            package.declared_simulation(root, compiler, Some(profile), Limits::default(), &cancel)
+        };
+        let prepared = simulate(evented, profile.clone()).await.unwrap();
+        assert_eq!(prepared.mode_names().collect::<Vec<_>>(), ["rise", "coast"]);
         let result = prepared.run(&cancel).await.unwrap();
         assert!(
             result.accepted,
@@ -1776,53 +2129,11 @@ mod tests {
         assert!(
             tables.contains_key(&pse_relations::generated::runtime::simulation_events::RELATION_ID)
         );
-        let mut bad = modes.clone();
-        bad[0].events[0]
-            .reset
-            .insert("x[0{s}]".into(), "wrong".into());
-        assert!(
-            package
-                .prepare_simulation_modes(
-                    root,
-                    pse_modeling::specialize::root_instance(root),
-                    Bindings::default(),
-                    Limits::default(),
-                    ModelingCaseBindings::default(),
-                    compiler,
-                    profile.clone(),
-                    DerivativeOrder::First,
-                    bad,
-                    &cancel
-                )
-                .await
-                .unwrap_err()
-                .to_string()
-                .contains("physical types")
-        );
-        let terminal = vec![ModelingDynamicMode {
-            name: "stop".into(),
-            facts: BTreeMap::new(),
-            events: vec![ModelingDynamicEvent {
-                terminal: true,
-                reset: BTreeMap::new(),
-                next_mode: None,
-                ..event
-            }],
-        }];
+        let error = simulate(mistyped, profile.clone()).await.unwrap_err();
+        assert!(error.to_string().contains("physical type"), "{error}");
         let mut terminal_profile = profile;
         terminal_profile.sensitivity = native::DynamicSensitivity::None;
-        let stopped = package
-            .prepare_simulation_modes(
-                root,
-                pse_modeling::specialize::root_instance(root),
-                Bindings::default(),
-                Limits::default(),
-                ModelingCaseBindings::default(),
-                compiler,
-                terminal_profile,
-                DerivativeOrder::First,
-                terminal,
-                &cancel)
+        let stopped = simulate(stopped, terminal_profile)
             .await
             .unwrap()
             .run(&cancel)
@@ -1832,6 +2143,234 @@ mod tests {
         assert!(!stopped.accepted);
         assert!(!stopped.checks_complete);
         assert_eq!(stopped.report.samples.len(), 2);
+    }
+    /// ADR-0119 Outcome 3 within ADR-0110's routes: an authored directional event routes an
+    /// automatic method to IDAS, which honours the direction (`IDASetRootDirection`); an
+    /// undirected one stays on Diffsol; an explicit Diffsol request is refused. The guard
+    /// x − 1.25 s of x = 1 + 2t − 2t² rises through zero at (1 − 1/√2)/2 s and falls at
+    /// (1 + 1/√2)/2 s.
+    #[cfg(feature = "solver-idas")]
+    #[tokio::test]
+    async fn authored_directional_event_routes_to_idas() {
+        let runtime = super::super::super::tests::runtime();
+        let (physical, names) = physical();
+        let fixture = |direction: &str| {
+            format!(
+                "test {direction} fixture {{ dof 0; run integrated; integrate samples(0{{s}}, 0.5{{s}}, 1{{s}}) relative(1e-9) normalized_absolute(1e-10) step(1e-4{{s}}); mode arc; event root.g[0{{s}}] direction({direction}) tolerance(1e-8{{s}}) terminal; }} {{ child root: Arc = Arc(); }}"
+            )
+        };
+        let source = format!(
+            "package p {{ def Arc {{ domain t: Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == 2 - 4*i/1{{s}}; eq initial: x[0{{s}}] == 1{{s}}; let g[i in t]: Time = x[i] - 1.25{{s}}; }} {} {} {} }}",
+            fixture("either"),
+            fixture("rising"),
+            fixture("falling")
+        );
+        let rows = pse_authoring::language::parse(
+            &source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
+        let tests = ["either", "rising", "falling"].map(root);
+        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let compiler = super::super::super::tests::compiler_profile();
+        let cancel = crate::CancelSource::new();
+        let (rise, fall) = (0.5 - 0.5f64.sqrt() / 2., 0.5 + 0.5f64.sqrt() / 2.);
+        for (root, method, time) in [
+            (tests[0], native::Method::Diffsol, rise),
+            (tests[1], native::Method::Idas, rise),
+            (tests[2], native::Method::Idas, fall),
+        ] {
+            let prepared = package
+                .declared_simulation(root, compiler, None, Limits::default(), &cancel)
+                .await
+                .unwrap();
+            assert_eq!(prepared.profile().resolved_method().unwrap(), method);
+            let result = prepared.run(&cancel).await.unwrap();
+            assert_eq!(
+                result.report.termination,
+                native::Termination::Event,
+                "{:?}",
+                result.report.error
+            );
+            assert_eq!(result.report.events.len(), 1);
+            assert!(
+                (result.report.events[0].time - time).abs() < 1e-6,
+                "{method:?}: {:?}",
+                result.report.events
+            );
+            assert!((result.report.completed_time - time).abs() < 1e-6);
+        }
+        // Diffsol detects every sign change, so it refuses a directional event.
+        let mut diffsol = package
+            .declared_simulation(tests[2], compiler, None, Limits::default(), &cancel)
+            .await
+            .unwrap()
+            .profile()
+            .clone();
+        diffsol.method = native::Method::Diffsol;
+        let error = package
+            .declared_simulation(tests[2], compiler, Some(diffsol), Limits::default(), &cancel)
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("needs IDAS"), "{error}");
+    }
+    /// ADR-0119 Outcome 4 (review F03): the IDAS sign constraints derive from the authored
+    /// bounds, never from a runtime setting. A constant-zero lower endpoint keeps a state
+    /// non-negative and a zero upper one non-positive; a bound without a zero endpoint, or
+    /// with a fixture override of the zero endpoint, leaves it free. The constraint keeps a
+    /// stiff decay non-negative where the unconstrained loose-tolerance run dips below
+    /// zero (inside its relaxed bound, which the guard still checks).
+    #[cfg(feature = "solver-idas")]
+    #[tokio::test]
+    async fn idas_sign_constraints_from_authored_bounds() {
+        let runtime = super::super::super::tests::runtime();
+        let (physical, names) = physical();
+        let integrate = "dof 0; run integrated; integrate samples(0{s}, 10{s}) relative(1e-2) normalized_absolute(1e-2) step(1e-4{s});";
+        let decay = |state: &str, start: &str, rate: &str, bounds: &str| {
+            format!(
+                "var {state}[i in t]: Time; eq rate_{state}[i in t]: d({state}[i])/di == -{rate}*{state}[i]/1{{s}}; eq initial_{state}: {state}[0{{s}}] == {start}{{s}}; annotation bounds {state}({bounds});"
+            )
+        };
+        let axis = "domain t: Time from 0{s} to 10{s}; discretize grid on t using integrated(elements=1,order=1);";
+        let source = format!(
+            "package p {{ def Decay {{ {axis} {} }} def Signs {{ {axis} {} {} {} }} \
+             test decay fixture {{ {integrate} }} {{ child root: Decay = Decay(); }} \
+             test relaxed fixture {{ {integrate} lower root.x[0{{s}}] = -1{{s}}; }} {{ child root: Decay = Decay(); }} \
+             test signs fixture {{ {integrate} }} {{ child root: Signs = Signs(); }} }}",
+            decay("x", "1", "1000", "0{s}, 2{s}"),
+            decay("x", "1", "1", "0{s}, 2{s}"),
+            decay("y", "-1", "1", "-2{s}, 0{s}"),
+            decay("z", "0.5", "1", "-1{s}, 2{s}"),
+        );
+        let rows = pse_authoring::language::parse(
+            &source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
+        let [decay, relaxed, signs] = ["decay", "relaxed", "signs"].map(root);
+        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let compiler = super::super::super::tests::compiler_profile();
+        let cancel = crate::CancelSource::new();
+        let prepare = |root, profile| {
+            package.declared_simulation(root, compiler, profile, Limits::default(), &cancel)
+        };
+        // One sign per state, in state order: x ≥ 0, y ≤ 0, z free.
+        let prepared = prepare(signs, None).await.unwrap();
+        let symbols = &prepared.model().compiled().model.symbols;
+        let expected = prepared
+            .contract()
+            .states
+            .iter()
+            .map(|id| match symbols[id].lineage.path.rsplit('.').next() {
+                Some("x") => native::StateSign::NonNegative,
+                Some("y") => native::StateSign::NonPositive,
+                _ => native::StateSign::Free,
+            })
+            .collect::<Vec<_>>();
+        for sign in [
+            native::StateSign::NonNegative,
+            native::StateSign::NonPositive,
+            native::StateSign::Free,
+        ] {
+            assert!(expected.contains(&sign), "{expected:?}");
+        }
+        assert_eq!(prepared.contract().signs, expected);
+        // The stiff decay on IDAS with recoverable trials and loose tolerances.
+        let mut profile = prepare(decay, None).await.unwrap().profile().clone();
+        profile.method = native::Method::Idas;
+        profile.trial_failures = native::TrialPolicy::Recoverable;
+        profile.samples = (0..=400).map(|i| f64::from(i) * 0.025).collect();
+        let lowest = |result: &ModelingTrajectory| {
+            result
+                .report
+                .samples
+                .iter()
+                .map(|s| s.outputs[0])
+                .fold(f64::INFINITY, f64::min)
+        };
+        let constrained = prepare(decay, Some(profile.clone())).await.unwrap();
+        assert_eq!(
+            constrained.contract().signs,
+            [native::StateSign::NonNegative]
+        );
+        let kept = constrained.run(&cancel).await.unwrap();
+        assert!(kept.accepted, "{:?}", kept.diagnostic());
+        assert!(lowest(&kept) >= 0., "constrained minimum {}", lowest(&kept));
+        let free = prepare(relaxed, Some(profile)).await.unwrap();
+        assert!(free.contract().signs.is_empty());
+        assert_ne!(free.identity(), constrained.identity());
+        let dipped = free.run(&cancel).await.unwrap();
+        assert!(dipped.accepted, "{:?}", dipped.diagnostic());
+        assert!(
+            lowest(&dipped) < 0.,
+            "the unconstrained control run stayed non-negative ({})",
+            lowest(&dipped)
+        );
+    }
+    /// ADR-0119 Outcome 3: authored events select the integrated route. Specializing their
+    /// case on the simultaneous route is refused, and a fixture that declares both is
+    /// refused when the package is admitted.
+    #[tokio::test]
+    async fn simultaneous_route_refuses_authored_events() {
+        let runtime = super::super::super::tests::runtime();
+        let (physical, names) = physical();
+        let def = "def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == 2; eq initial: x[0{s}] == 1{s}; let hit[i in t]: Time = x[i]-2{s}; }";
+        let events = "mode run; event root.hit[0{s}] direction(rising) tolerance(1e-8{s}) terminal;";
+        let parse = |text: &str| {
+            pse_authoring::language::parse(
+                text,
+                SemanticId::NIL,
+                pse_authoring::language::IdentityPolicy::Named,
+                pse_authoring::ParseBudget::default(),
+            )
+            .unwrap()
+        };
+        let rows = parse(&format!(
+            "package p {{ {def} test evented fixture {{ dof 0; run integrated; integrate samples(0{{s}}, 1{{s}}) relative(1e-8) normalized_absolute(1e-8) step(1e-4{{s}}); {events} }} {{ child root: Root = Root(); }} }}"
+        ));
+        let evented = rows.iter().find(|r| r.name == "evented").unwrap().declaration_id;
+        let package = runtime
+            .modeling_package(rows, physical.clone(), names.clone())
+            .unwrap();
+        let cancel = crate::CancelSource::new();
+        let error = package
+            .prepare(
+                evented,
+                pse_modeling::specialize::root_instance(evented),
+                Bindings::default().with_analysis(pse_modeling::analysis::Route::Simultaneous),
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap_err();
+        assert!(
+            error.to_string().contains("the simultaneous route refuses them"),
+            "{error}"
+        );
+        // The integrated route admits the same case.
+        package
+            .prepare(
+                evented,
+                pse_modeling::specialize::root_instance(evented),
+                Bindings::default().with_analysis(pse_modeling::analysis::Route::Integrated),
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let rows = parse(&format!(
+            "package p {{ {def} test declared fixture {{ dof 0; run simultaneous; {events} }} {{ child root: Root = Root(); }} }}"
+        ));
+        let error = runtime
+            .modeling_package(rows, physical, names)
+            .unwrap_err();
+        assert!(error.to_string().contains("integrated route"), "{error}");
     }
     #[tokio::test]
     async fn kernel_integrated_definite_integrals_are_terminal_native_quadratures() {

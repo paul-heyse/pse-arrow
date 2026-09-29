@@ -276,12 +276,12 @@ class IdasLinearSpgmr(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 class IdasSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Typed IDAS-only method controls (ADR-0110 item 1), a versioned boundary document
     (ADR-0116 Outcome 6): the version is required, and absent fields take these defaults.
+    Version 2 removes the per-state sign constraints: they derive from the authored bounds
+    ([`Contract::signs`], ADR-0119 Outcome 4).
     """
 
     #: Document version.
-    version: Literal[1] = 1
-    #: Empty, or one declared sign per state in state order.
-    constraints: tuple[enums.StateSign, ...] = msgspec.field(default_factory=tuple)
+    version: Literal[2] = 2
     #: Consistent initialization at the start of the horizon; scheduled changes and resets
     #: always keep their differential states.
     initialization: enums.IdasInitialization = enums.IdasInitialization.ALGEBRAIC_AND_RATES

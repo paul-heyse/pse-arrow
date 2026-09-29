@@ -253,7 +253,6 @@ async fn sparse_fit(owner: &WorkflowRuntime, n: usize) {
             workflow::FitProfile {
                 solver,
                 simulations: BTreeMap::new(),
-                modes: BTreeMap::new(),
                 rank_tolerance: 1e-8,
                 max_cells: n * 8,
                 derivatives: workflow::FitDerivatives::Responses,

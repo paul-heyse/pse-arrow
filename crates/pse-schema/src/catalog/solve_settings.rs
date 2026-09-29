@@ -500,4 +500,14 @@ fn declare_dynamics(builder: &mut RegistryBuilder) {
             ("negative", "x < 0."),
         ],
     );
+    // ADR-0119 Outcome 3: an authored event's guard crossing (`IDASetRootDirection`).
+    vocabulary(
+        builder,
+        "EventDirection",
+        &[
+            ("either", "Every sign change of the guard."),
+            ("rising", "Only the guard increasing through zero; needs IDAS."),
+            ("falling", "Only the guard decreasing through zero; needs IDAS."),
+        ],
+    );
 }
