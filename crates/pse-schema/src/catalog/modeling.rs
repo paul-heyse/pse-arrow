@@ -418,6 +418,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "initialized",
             "integrated",
             "simultaneous",
+            "shooting",
         ],
     );
     // An `annotation valid` range either refuses a value outside it or, explicitly

@@ -152,6 +152,24 @@ impl Layout {
                     }
                 }
                 Experiment::Transient(s) => {
+                    // The exact Hessian's transient curvature over the free parameters'
+                    // bindings, in binding order: source `a·k + b` of a k-by-k block.
+                    if order >= DerivativeOrder::Second {
+                        let free = s
+                            .bindings
+                            .iter()
+                            .filter_map(|b| parameter_columns[b.parameter])
+                            .collect::<Vec<_>>();
+                        for (a, ca) in free.iter().enumerate() {
+                            for (b, cb) in free.iter().enumerate() {
+                                if ca >= cb {
+                                    let entry = Entry::new(*ca, *cb);
+                                    let c = push(&mut hessian_pairs, entry, limit)?;
+                                    mapping.hessian.push((a * free.len() + b, c));
+                                }
+                            }
+                        }
+                    }
                     for binding in &s.bindings {
                         if let Some(column) = parameter_columns[binding.parameter] {
                             for (observation, _) in measurements

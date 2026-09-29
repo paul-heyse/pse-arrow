@@ -12,6 +12,8 @@ use std::{
     time::Duration,
 };
 
+mod anchored;
+pub use anchored::Anchored;
 #[cfg(feature = "idas")]
 mod idas;
 #[cfg(feature = "diffsol")]
@@ -281,6 +283,10 @@ pub struct Gradient {
     pub report: Report,
     /// dJ/dp over the integration parameters, present when both passes completed.
     pub gradient: Option<Vec<f64>>,
+    /// The second-order route's d²J/dpᵢdpⱼ over the requested directions, symmetric,
+    /// present when both passes completed (ADR-0110 item 4); absent on the first-order
+    /// route.
+    pub hessian: Option<faer::Mat<f64>>,
     /// Forward checkpoints the native library actually stored.
     pub checkpoints: usize,
     /// The checkpoint estimate charged against the caller's allowance.
@@ -332,6 +338,43 @@ pub fn gradient(
     })
 }
 
+/// The gradient and the exact Hessian of a scalar functional of the sampled outputs with
+/// respect to the integration parameters in `directions`, by forward-over-adjoint
+/// second-order sensitivities on IDAS (ADR-0110 item 4): the forward pass integrates the
+/// state sensitivities with its checkpoints, and one backward problem of size 2n per
+/// direction integrates the adjoint together with its tangent along that direction. The
+/// cotangent `c` is held fixed, so the Hessian is `Σᵢ cᵢ·∇²yᵢ`; a least-squares caller adds
+/// its Gauss–Newton part. The profile requests [`DynamicSensitivity::Adjoint`] and its
+/// limits; the oracle declares second derivatives; the method resolves to IDAS, because
+/// Diffsol has no second-order adjoint; and the estimate of the checkpoints with their
+/// sensitivities and of the backward problems must fit `memory` before native work.
+#[cfg(feature = "idas")]
+pub fn hessian(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    directions: &[usize],
+    cotangent: Cotangent<'_>,
+    cancel: Cancellation,
+    memory: usize,
+) -> Result<Gradient, ProblemError> {
+    profile.validate(oracle.contract(), parameters)?;
+    let reserved = profile.admit_second_order(oracle.contract(), directions)?;
+    if reserved > memory {
+        return Err(ProblemError::memory(format!(
+            "second-order adjoint estimate of {reserved} bytes exceeds the {memory}-byte allowance"
+        )));
+    }
+    let progress = Arc::new(crate::solve::Progress::new(256));
+    idas::hessian(
+        oracle, profile, parameters, directions, cotangent, cancel, progress,
+    )
+    .map(|mut g| {
+        g.reserved_bytes = reserved;
+        g
+    })
+}
+
 /// The jump of the adjoint at an observed sample, shared by both adjoint backends
 /// (ADR-0110 item 3). With `c` the cotangent of the sample's outputs `y = g(x, p)`, the
 /// differential adjoint gains `dJ/dx_d` and the gradient gains `dJ/dp` over the contract
@@ -341,32 +384,66 @@ pub fn gradient(
 /// jump of its own; the integrator's consistent initialization recomputes it. `output` and
 /// `rhs` are the raw partials over the state followed by the contract parameters; `rhs` is
 /// needed only with algebraic states.
-#[cfg(any(feature = "diffsol", feature = "idas"))]
+#[cfg(feature = "diffsol")]
 pub(crate) fn sample_jump(
     differential: &[bool],
     output: faer::sparse::SparseColMatRef<'_, usize, f64>,
     rhs: Option<faer::sparse::SparseColMatRef<'_, usize, f64>>,
     cotangent: &[f64],
 ) -> Result<(Vec<f64>, Vec<f64>), ProblemError> {
-    use faer::{linalg::solvers::Solve, sparse::linalg::matmul::sparse_dense_matmul};
-    let n = differential.len();
-    let width = output.ncols();
-    if output.nrows() != cotangent.len() || width < n {
+    if output.nrows() != cotangent.len() || output.ncols() < differential.len() {
         return Err(ProblemError::internal("adjoint jump extent"));
     }
-    let product = |matrix: faer::sparse::SparseColMatRef<'_, usize, f64>, v: &[f64]| {
-        let mut out = vec![0.0; matrix.ncols()];
-        sparse_dense_matmul(
-            faer::MatMut::from_column_major_slice_mut(&mut out, matrix.ncols(), 1),
-            faer::Accum::Replace,
-            matrix.transpose(),
-            faer::MatRef::from_column_major_slice(v, v.len(), 1),
-            1.0,
-            faer::Par::Seq,
-        );
-        out
-    };
-    let mut jump = product(output, cotangent);
+    let eliminated = eliminate(differential, rhs, transposed_product(output, cotangent))?;
+    Ok((eliminated.state, eliminated.parameters))
+}
+/// A total derivative over the state followed by the contract parameters after the
+/// algebraic states are eliminated through the index-1 constraint.
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub(crate) struct Eliminated {
+    /// Over the state: the differential part; zero on algebraic states.
+    pub(crate) state: Vec<f64>,
+    /// Over the contract parameters.
+    pub(crate) parameters: Vec<f64>,
+    /// The constraint multipliers `w` of `F_aaᵀ w = b_a`, scattered over the algebraic rows
+    /// of the residual function and zero on its differential rows.
+    pub(crate) multipliers: Vec<f64>,
+}
+/// `Aᵀv` over a sparse matrix's columns.
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub(crate) fn transposed_product(
+    matrix: faer::sparse::SparseColMatRef<'_, usize, f64>,
+    v: &[f64],
+) -> Vec<f64> {
+    let mut out = vec![0.0; matrix.ncols()];
+    faer::sparse::linalg::matmul::sparse_dense_matmul(
+        faer::MatMut::from_column_major_slice_mut(&mut out, matrix.ncols(), 1),
+        faer::Accum::Replace,
+        matrix.transpose(),
+        faer::MatRef::from_column_major_slice(v, v.len(), 1),
+        1.0,
+        faer::Par::Seq,
+    );
+    out
+}
+/// Eliminate the algebraic states from `b`, a derivative over the state followed by the
+/// contract parameters: with `F_aaᵀ w = b_a`, the result is `b − F_zᵀw` with its algebraic
+/// entries zero. `rhs` holds the residual function's raw partials and is needed only with
+/// algebraic states. The first-order sample jump eliminates `g_zᵀc`; the second-order
+/// jump eliminates its tangent (ADR-0110 item 4).
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub(crate) fn eliminate(
+    differential: &[bool],
+    rhs: Option<faer::sparse::SparseColMatRef<'_, usize, f64>>,
+    mut jump: Vec<f64>,
+) -> Result<Eliminated, ProblemError> {
+    use faer::linalg::solvers::Solve;
+    let n = differential.len();
+    let width = jump.len();
+    if width < n {
+        return Err(ProblemError::internal("adjoint jump extent"));
+    }
+    let mut multipliers = vec![0.0; n];
     let algebraic = (0..n).filter(|i| !differential[*i]).collect::<Vec<_>>();
     if !algebraic.is_empty() {
         let f = rhs.ok_or_else(|| ProblemError::internal("adjoint jump constraint partials"))?;
@@ -403,11 +480,10 @@ pub(crate) fn sample_jump(
                 "singular algebraic block at an observed sample",
             ));
         }
-        let mut scattered = vec![0.0; n];
         for (k, i) in algebraic.iter().enumerate() {
-            scattered[*i] = w[k];
+            multipliers[*i] = w[k];
         }
-        for (total, correction) in jump.iter_mut().zip(product(f, &scattered)) {
+        for (total, correction) in jump.iter_mut().zip(transposed_product(f, &multipliers)) {
             *total -= correction;
         }
         for i in &algebraic {
@@ -418,7 +494,11 @@ pub(crate) fn sample_jump(
         return Err(ProblemError::numerical("nonfinite adjoint jump"));
     }
     let parameters = jump.split_off(n);
-    Ok((jump, parameters))
+    Ok(Eliminated {
+        state: jump,
+        parameters,
+        multipliers,
+    })
 }
 
 /// One compiled function role, not a second expression representation.
@@ -484,11 +564,20 @@ pub struct Contract {
     pub outputs: Vec<SemanticId>,
     /// Same-layout modes and their active roots.
     pub events: Vec<Vec<Event>>,
+    /// The exact derivative order the oracle's functions provide: first-order partials
+    /// for integration and sensitivities, second order for [`Oracle::weighted_hessian`]
+    /// and the exact transient Hessian (ADR-0110 item 4).
+    pub derivatives: pse_kernels::DerivativeOrder,
 }
 impl Contract {
     /// Validate finite layout and the concrete supported mass/event profile.
     pub fn validate(&self) -> Result<(), ProblemError> {
         let unique = |ids: &[SemanticId]| ids.iter().collect::<BTreeSet<_>>().len() == ids.len();
+        if self.derivatives < pse_kernels::DerivativeOrder::First {
+            return Err(contract(
+                "dynamic functions need at least first-order partials",
+            ));
+        }
         if !unique(&self.quadratures)
             || !unique(&self.balances.iter().map(|b| b.id).collect::<Vec<_>>())
             || self.balances.iter().any(|b| {
@@ -689,6 +778,47 @@ impl Profile {
             .checked_sub(intervals)
             .map(|n| n + self.schedule.len())
     }
+    /// The profile of a window `[start, end]` of this horizon, sampled at `samples`: every
+    /// scheduled input keeps the changes strictly inside the window, and one in effect at
+    /// `start` becomes the window's first interval. A shooting window's integration vector
+    /// holds, for each of its columns, the value of the horizon's column in effect there
+    /// ([`Profile::columns_at`] of both at the same time).
+    ///
+    /// ```
+    /// use pse_backend_native::dynamics::{Profile, ScheduledInput};
+    ///
+    /// let horizon = Profile {
+    ///     end: 3.0,
+    ///     schedule: vec![ScheduledInput { parameter: 0, times: vec![1.0, 2.0] }],
+    ///     ..Profile::default()
+    /// };
+    /// let window = horizon.window(1.0, 3.0, vec![1.0, 3.0]);
+    /// assert_eq!((window.start, window.end), (1.0, 3.0));
+    /// assert_eq!(window.schedule, vec![ScheduledInput { parameter: 0, times: vec![2.0] }]);
+    /// // Without a change inside, the input is constant over the window.
+    /// assert!(horizon.window(0.0, 1.0, vec![1.0]).schedule.is_empty());
+    /// ```
+    pub fn window(&self, start: f64, end: f64, samples: Vec<f64>) -> Profile {
+        let mut window = self.clone();
+        window.start = start;
+        window.end = end;
+        window.samples = samples;
+        window.schedule = self
+            .schedule
+            .iter()
+            .map(|s| ScheduledInput {
+                parameter: s.parameter,
+                times: s
+                    .times
+                    .iter()
+                    .copied()
+                    .filter(|t| *t > start && *t < end)
+                    .collect(),
+            })
+            .filter(|s| !s.times.is_empty())
+            .collect();
+        window
+    }
     /// Every distinct change time in increasing order: the segment boundaries.
     pub(crate) fn boundaries(&self) -> Vec<f64> {
         let mut times = self
@@ -799,6 +929,82 @@ impl Profile {
             })
             .and_then(|cells| cells.checked_mul(size_of::<f64>()))
             .ok_or_else(|| ProblemError::memory("adjoint checkpoint extent overflow"))?;
+        Ok(bytes)
+    }
+    /// The second-order route's admission (ADR-0110 item 4), before native work: the
+    /// adjoint profile and its limits (checked by [`Profile::validate`]), IDAS, declared
+    /// second derivatives, distinct integration columns as directions, and the sampled
+    /// state and output sensitivities within the cell allowance. Returns the estimated
+    /// bytes of the checkpoints with their stored sensitivities, the replay buffers and the
+    /// backward problems, charged against the caller's allowance. Accounting, not an RSS
+    /// claim.
+    pub fn admit_second_order(
+        &self,
+        c: &Contract,
+        directions: &[usize],
+    ) -> Result<usize, ProblemError> {
+        if self.sensitivity != DynamicSensitivity::Adjoint {
+            return Err(contract(
+                "an exact transient Hessian needs the adjoint sensitivity profile",
+            ));
+        }
+        if self.resolved_method()? != Method::Idas {
+            return Err(ProblemError::unsupported(
+                "exact transient Hessians need IDAS forward-over-adjoint sensitivities; Diffsol has no second-order adjoint",
+            ));
+        }
+        if c.derivatives < pse_kernels::DerivativeOrder::Second {
+            return Err(ProblemError::unsupported(
+                "an exact transient Hessian needs second derivatives of the dynamic functions",
+            ));
+        }
+        let n = c.states.len();
+        let width = self.integration_width(c.parameters.len());
+        if directions.is_empty()
+            || directions.iter().any(|d| *d >= width)
+            || directions.iter().collect::<BTreeSet<_>>().len() != directions.len()
+        {
+            return Err(contract(
+                "second-order directions are distinct integration columns",
+            ));
+        }
+        let cells = self
+            .samples
+            .len()
+            .checked_mul(c.outputs.len().saturating_add(n))
+            .and_then(|v| v.checked_mul(width.checked_add(1)?))
+            .and_then(|v| v.checked_add(self.max_events.checked_mul(n)?.checked_mul(2)?))
+            .ok_or_else(|| contract("dynamic result extent overflow"))?;
+        if cells > self.max_cells {
+            return Err(contract("dynamic result cell allowance"));
+        }
+        let steps = self.adjoint.steps_between_checkpoints.into_inner();
+        let segments = self.segments();
+        // Each IDAS checkpoint holds its history array for the state and every state
+        // sensitivity; each Hermite point the values and rates of both.
+        let stored = width.checked_add(1).and_then(|w| w.checked_mul(n));
+        let checkpoints = segments
+            .checked_mul(2)
+            .and_then(|ends| (self.max_steps / steps).checked_add(ends))
+            .map(|count| count.min(self.adjoint.max_checkpoints.into_inner()));
+        // Each backward problem integrates 2n adjoint values and 2·width quadratures.
+        let backward = n
+            .checked_mul(2 * 24)
+            .and_then(|a| a.checked_add(width.checked_mul(2 * 8)?))
+            .and_then(|per| per.checked_mul(directions.len()));
+        let bytes = checkpoints
+            .zip(stored)
+            .and_then(|(count, stored)| count.checked_mul(stored.checked_mul(6)?.checked_add(64)?))
+            .and_then(|b| {
+                b.checked_add(
+                    segments
+                        .checked_mul(steps.checked_add(2)?)?
+                        .checked_mul(stored?.checked_mul(2)?.checked_add(1)?)?,
+                )
+            })
+            .and_then(|b| b.checked_add(backward?))
+            .and_then(|cells| cells.checked_mul(size_of::<f64>()))
+            .ok_or_else(|| ProblemError::memory("second-order adjoint extent overflow"))?;
         Ok(bytes)
     }
     /// Validate before allocation or native construction; arithmetic overflow is a refusal.
@@ -1052,6 +1258,53 @@ pub trait Oracle: std::fmt::Debug {
         parameters: &[f64],
         derivatives: bool,
     ) -> Result<Evaluation, ProblemError>;
+    /// The exact second derivatives of `Σᵢ weights[i]·fᵢ` with respect to the state
+    /// followed by the parameters, as the lower triangle (row ≥ column) of a square sparse
+    /// matrix. Available when [`Contract::derivatives`] is second order; an oracle
+    /// without second derivatives refuses.
+    fn weighted_hessian(
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        weights: &[f64],
+    ) -> Result<faer::sparse::SparseColMat<usize, f64>, ProblemError> {
+        let _ = (mode, function, time, state, parameters, weights);
+        Err(ProblemError::unsupported(
+            "the dynamic oracle provides no second derivatives",
+        ))
+    }
+}
+/// `H·d` for a symmetric `H` stored as its lower triangle: every strictly lower entry
+/// contributes to both of its rows.
+#[cfg(feature = "idas")]
+pub(crate) fn symmetric_product(
+    lower: faer::sparse::SparseColMatRef<'_, usize, f64>,
+    direction: &[f64],
+) -> Result<Vec<f64>, ProblemError> {
+    let n = lower.ncols();
+    if lower.nrows() != n || direction.len() != n {
+        return Err(ProblemError::internal("weighted Hessian extent"));
+    }
+    let mut out = vec![0.0; n];
+    for col in 0..n {
+        for k in lower.col_range(col) {
+            let row = lower.row_idx()[k];
+            let value = lower.val()[k];
+            if row < col {
+                return Err(ProblemError::internal(
+                    "weighted Hessian entry above the diagonal",
+                ));
+            }
+            out[row] += value * direction[col];
+            if row != col {
+                out[col] += value * direction[row];
+            }
+        }
+    }
+    Ok(out)
 }
 /// Successfully completed output point; no preallocated placeholder is observable.
 #[derive(Clone, Debug)]

@@ -49,6 +49,13 @@ pub use strategies::{
 mod dynamics;
 mod fitting;
 mod integrated;
+#[cfg(feature = "solver-diffsol")]
+mod shooting;
+#[cfg(feature = "solver-diffsol")]
+pub use shooting::{
+    PathBound, ShootingControl, ShootingMethod, ShootingObjective, ShootingProblem,
+    ShootingProfile, ShootingReport,
+};
 pub use dynamics::SimulationProfile;
 pub use fitting::{
     Covariance, FitData, FitDeclaration, FitDerivatives, FitDiagnostic, FitProfile, FitReport,

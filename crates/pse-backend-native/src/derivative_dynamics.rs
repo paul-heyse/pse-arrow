@@ -259,6 +259,7 @@ mod tests {
                     events: vec![vec![]],
                     quadratures: vec![],
                     balances: vec![],
+                    derivatives: DerivativeOrder::First,
                 },
                 wrong,
                 missing,

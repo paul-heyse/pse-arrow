@@ -119,6 +119,7 @@ Derived in: pse-backend-native.
 | `PresolvePolicyV1` | `pse.presolve.policy.v1` | Presolve options. |
 | `PresolveTransformationV2` | `pse.presolve.transformation.v2` | A presolve transformation. |
 | `ScipReoptimizationSystemV1` | `pse.scip.reoptimization.system.v1` | The constraint system a SCIP reoptimization session was built for. |
+| `ShootingWindowV1` | `pse.shooting.window.v1` | A shooting window's oracle: its anchored starts and observed quadratures. |
 | `TearDecisionV1` | `pse.tear.decision.v1` | A tear-selection decision column. |
 | `TearOrderV1` | `pse.tear.order.v1` | A tear-selection order column. |
 
@@ -142,7 +143,7 @@ Derived in: pse-runtime.
 | `FitProfileV3` | `pse.fit.profile.v3` | A fit profile, with its derivative source. |
 | `FitSourceV1` | `pse.fit.source.v1` | A fit source. |
 | `ModelingDynamicModesV1` | `pse.modeling.dynamic-modes.v1` | Compiled simulation modes. |
-| `ModelingDynamicV1` | `pse.modeling.dynamic.v1` | A modeling dynamic simulation. |
+| `ModelingDynamicV2` | `pse.modeling.dynamic.v2` | A modeling dynamic simulation, with the derivative order of its functions. |
 | `ModelingFitExecutionV1` | `pse.modeling.fit-execution.v1` | A modeling fit's execution. |
 | `ModelingFitSourceV1` | `pse.modeling.fit-source.v1` | A modeling fit's source. |
 | `ModelingImplicitTrialHintsV1` | `pse.modeling.implicit-trial-hints.v1` | Implicit trial hints. |
@@ -151,6 +152,7 @@ Derived in: pse-runtime.
 | `RunAlgorithmsV1` | `pse.run.algorithms.v1` | A publication request's algorithms. |
 | `RunSourceV1` | `pse.run.source.v1` | A publication request's source. |
 | `RunTargetV1` | `pse.run.target.v1` | A publication request's target. |
+| `ShootingProblemV1` | `pse.shooting.problem.v1` | A shooting NLP: its simulation, method, nodes, controls, rows and objective. |
 | `SolvePreparationV1` | `pse.solve.preparation.v1` | A solve's compilation and normalization, before a seed is attached. |
 | `SolveRequestV1` | `pse.solve.request.v1` | A complete selected solve request. |
 | `SolveSeedPreparationV1` | `pse.solve.seed_preparation.v1` | The preparation a stored seed is keyed by. |

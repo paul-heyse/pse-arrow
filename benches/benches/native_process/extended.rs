@@ -380,6 +380,7 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
                             case,
                             compiler(),
                             prepared.profile().clone(),
+                            pse_kernels::DerivativeOrder::First,
                             &cancel,
                         )
                         .await

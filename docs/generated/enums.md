@@ -740,6 +740,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `initialized` | `` | false |
 | `integrated` | `` | false |
 | `simultaneous` | `` | false |
+| `shooting` | `` | false |
 
 ## `ModelingInitializationStep`
 
@@ -1392,6 +1393,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `error` | `` | false |
 | `warning` | `` | false |
+
+## `ShootingMethod`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `single` | `` | false |
+| `multiple` | `` | false |
 
 ## `SnapshotClass`
 

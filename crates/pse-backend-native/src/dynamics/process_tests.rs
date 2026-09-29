@@ -48,6 +48,7 @@ impl Vessel {
         let n = if dae { 2 } else { 1 };
         Self {
             c: Contract {
+                derivatives: pse_kernels::DerivativeOrder::First,
                 quadratures: vec![],
                 balances: vec![],
                 identity: ContentHash::from_bytes([40; 32]),
@@ -238,6 +239,7 @@ impl Degenerate {
     fn new() -> Self {
         Self {
             c: Contract {
+                derivatives: pse_kernels::DerivativeOrder::First,
                 quadratures: vec![],
                 balances: vec![],
                 identity: ContentHash::from_bytes([44; 32]),
@@ -366,6 +368,7 @@ impl Tank {
     fn new() -> Self {
         Self {
             c: Contract {
+                derivatives: pse_kernels::DerivativeOrder::First,
                 quadratures: vec![],
                 balances: vec![],
                 identity: ContentHash::from_bytes([50; 32]),

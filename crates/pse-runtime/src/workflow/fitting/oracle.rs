@@ -311,26 +311,8 @@ impl FitOracle {
         x: &[f64],
     ) -> Result<Vec<(usize, f64)>, ProblemError> {
         let outputs = s.program.contract.outputs.len();
-        let mut cotangent = |report: &native::dynamics::Report| {
-            let mut weights = vec![0.0; report.samples.len() * outputs];
-            for o in p
-                .measurements
-                .iter()
-                .filter(|o| o.experiment == ei && o.included)
-            {
-                let index = o
-                    .sample_index
-                    .ok_or_else(|| ProblemError::internal("missing prepared transient sample"))?;
-                let prediction = report
-                    .samples
-                    .get(index)
-                    .and_then(|sample| sample.outputs.get(o.row))
-                    .ok_or_else(|| ProblemError::internal("missing adjoint transient sample"))?;
-                let (r, w) = Self::residual(o, *prediction)?;
-                weights[index * outputs + o.row] += r * w;
-            }
-            Ok(weights)
-        };
+        let mut cotangent =
+            |report: &native::dynamics::Report| Self::cotangent(p, ei, outputs, report);
         s.gradient(&|k| Self::value(p, x, k), &self.execution, &mut cotangent)
             .map(|(_, contributions)| contributions)
     }
@@ -343,6 +325,91 @@ impl FitOracle {
         _: &[f64],
     ) -> Result<Vec<(usize, f64)>, ProblemError> {
         Err(ProblemError::unsupported("Diffsol not linked"))
+    }
+    #[cfg(feature = "solver-diffsol")]
+    /// The cotangent of the fit objective's transient part: each included observation's
+    /// weighted residual `rᵢwᵢ` at its sample and output, from the integration's report.
+    fn cotangent(
+        p: &FitProblem,
+        ei: usize,
+        outputs: usize,
+        report: &native::dynamics::Report,
+    ) -> Result<Vec<f64>, ProblemError> {
+        let mut weights = vec![0.0; report.samples.len() * outputs];
+        for o in p
+            .measurements
+            .iter()
+            .filter(|o| o.experiment == ei && o.included)
+        {
+            let index = o
+                .sample_index
+                .ok_or_else(|| ProblemError::internal("missing prepared transient sample"))?;
+            let prediction = report
+                .samples
+                .get(index)
+                .and_then(|sample| sample.outputs.get(o.row))
+                .ok_or_else(|| ProblemError::internal("missing adjoint transient sample"))?;
+            let (r, w) = Self::residual(o, *prediction)?;
+            weights[index * outputs + o.row] += r * w;
+        }
+        Ok(weights)
+    }
+    /// Every transient experiment's curvature block `Σ rᵢwᵢ∇²yᵢ` over its free parameters'
+    /// bindings, as the dense block the layout's transient Hessian sources index; absent
+    /// for steady experiments and for transient ones without an included observation or
+    /// a free parameter.
+    fn transient_curvatures(&self, x: &[f64]) -> Result<Vec<Option<Vec<f64>>>, ProblemError> {
+        let p = self.prepared.clone();
+        p.experiments
+            .iter()
+            .enumerate()
+            .map(|(ei, e)| {
+                let Experiment::Transient(s) = e else {
+                    return Ok(None);
+                };
+                let free = s
+                    .bindings
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, b)| p.parameter_columns[b.parameter].is_some())
+                    .map(|(i, _)| i)
+                    .collect::<Vec<_>>();
+                if free.is_empty()
+                    || !p
+                        .measurements
+                        .iter()
+                        .any(|o| o.experiment == ei && o.included)
+                {
+                    return Ok(None);
+                }
+                self.transient_curvature(&p, ei, s, x, &free).map(Some)
+            })
+            .collect()
+    }
+    #[cfg(feature = "solver-idas")]
+    fn transient_curvature(
+        &self,
+        p: &FitProblem,
+        ei: usize,
+        s: &IntegratedExperiment,
+        x: &[f64],
+        free: &[usize],
+    ) -> Result<Vec<f64>, ProblemError> {
+        let outputs = s.program.contract.outputs.len();
+        let mut cotangent = |report: &native::dynamics::Report| Self::cotangent(p, ei, outputs, report);
+        s.hessian(&|k| Self::value(p, x, k), &self.execution, free, &mut cotangent)
+            .map(|(_, _, curvature)| curvature)
+    }
+    #[cfg(not(feature = "solver-idas"))]
+    fn transient_curvature(
+        &self,
+        _: &FitProblem,
+        _: usize,
+        _: &IntegratedExperiment,
+        _: &[f64],
+        _: &[usize],
+    ) -> Result<Vec<f64>, ProblemError> {
+        Err(ProblemError::unsupported("IDAS not linked"))
     }
     fn residual(o: &Measurement, pred: f64) -> Result<(f64, f64), ProblemError> {
         let sigma = o.sigma.ok_or_else(|| error("missing standard deviation"))?;
@@ -474,6 +541,20 @@ impl NlpOracle for FitOracle {
         {
             return Err(ProblemError::internal("fit Lagrangian demand"));
         }
+        let exact = match self.prepared.profile.solver.controls.hessian {
+            HessianMode::Exact => true,
+            HessianMode::GaussNewton => false,
+            HessianMode::LimitedMemory => {
+                return Err(ProblemError::internal("limited-memory fit Hessian demand"));
+            }
+        };
+        // The exact Hessian's transient curvature Σ rᵢwᵢ∇²yᵢ, by second-order adjoint
+        // sensitivities of each transient experiment (ADR-0110 item 4).
+        let curvatures = if exact {
+            self.transient_curvatures(x)?
+        } else {
+            vec![None; self.prepared.experiments.len()]
+        };
         let p = &self.prepared;
         let point = self
             .point
@@ -502,23 +583,18 @@ impl NlpOracle for FitOracle {
             .as_mut()
             .ok_or_else(|| ProblemError::internal("Gram not prepared"))?
             .refill(&point.responses, &weights, objective_weight, h)?;
-        let exact = match p.profile.solver.controls.hessian {
-            HessianMode::Exact => true,
-            HessianMode::GaussNewton => false,
-            HessianMode::LimitedMemory => {
-                return Err(ProblemError::internal("limited-memory fit Hessian demand"));
-            }
-        };
         for (ei, e) in p.experiments.iter().enumerate() {
             let s = match e {
                 Experiment::Steady(s) => s,
-                // A transient experiment adds no constraint rows; its Gauss–Newton part is
-                // the Gram term alone.
-                Experiment::Transient(_) if !exact => continue,
+                // A transient experiment adds no constraint rows: its Gauss–Newton part is
+                // the Gram term alone, and the exact Hessian adds its curvature block.
                 Experiment::Transient(_) => {
-                    return Err(ProblemError::unsupported(
-                        "transient exact Hessian unavailable",
-                    ));
+                    if let Some(curvature) = &curvatures[ei] {
+                        for &(source, target) in &p.layout.mappings[ei].hessian {
+                            h.add(target, objective_weight * curvature[source])?;
+                        }
+                    }
+                    continue;
                 }
             };
             let mut lambda = vec![0.0; s.case.assembly.structure().rows().len()];

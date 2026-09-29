@@ -252,6 +252,19 @@ impl RunResult {
                 "gradient",
                 Metric::Text(r.derivatives.as_str().into()),
             )?;
+            // An exact Hessian's transient curvature comes from IDAS forward-over-adjoint
+            // second-order sensitivities (ADR-0110 item 4).
+            if r.hessian == HessianMode::Exact
+                && p.experiments
+                    .iter()
+                    .any(|e| matches!(e, Experiment::Transient(_)))
+            {
+                metric(
+                    "derivatives",
+                    "transient_hessian",
+                    Metric::Text("idas_forward_over_adjoint".into()),
+                )?;
+            }
             metric(
                 "estimate",
                 "qualified",
