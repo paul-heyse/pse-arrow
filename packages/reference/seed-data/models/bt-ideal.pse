@@ -106,4 +106,49 @@
 @id("01a0e1ad3a7f706c8439ef4d0598eb99") expect root.beta==0.3961 tolerance 0.0001;
 @id("01a0e1ad3a7f706c8439ef4e251fbecb") expect root.oracle_h==47297{J/mol} tolerance 1{J/mol};
 }
+@id("ffe95f6c03b24a7c87244e9c91db2608") test complementarity_liquid_smooth source "Complementarity VLE phase disappearance; two-phase comparison IDAES BTIdeal at 368 K" revision "2.13.0" fixture {dof 0; run steady; fix root.flow=1{mol/s}; value root.minimum_temperature=300{K}; value root.maximum_temperature=450{K}; value root.bubble_start=365{K}; value root.dew_start=370{K}; fix root.T=358{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("cdf658317302408588d63707d0c7736a") child root:equilibrium.ComplementarityVLE=equilibrium.SmoothComplementarityFTPx(selected=chem.aromatics,vapor_pressure=psat);
+@id("afb5be3dc1594a5bab2257bba48565d8") expect root.beta==0 tolerance 0.0001;
+@id("c7f207e4cc084f5bbcc23895b7b9c069") expect (1-root.beta)*root.x[chem.benzene]+root.beta*root.y[chem.benzene]==root.z[chem.benzene] tolerance 1e-8{1};
+}
+@id("b4ad05f4ab094e38ac2a87d114b54cef") test complementarity_two_phase_smooth source "Complementarity VLE phase disappearance; two-phase comparison IDAES BTIdeal at 368 K" revision "2.13.0" fixture {dof 0; run steady; fix root.flow=1{mol/s}; value root.minimum_temperature=300{K}; value root.maximum_temperature=450{K}; value root.bubble_start=365{K}; value root.dew_start=370{K}; fix root.T=368{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("630c785c855e47bf9af39708a1b7bed9") child root:equilibrium.ComplementarityVLE=equilibrium.SmoothComplementarityFTPx(selected=chem.aromatics,vapor_pressure=psat);
+@id("9f1e418a051e4d2e8748626bc0f89310") expect root.beta==0.3961 tolerance 0.0001;
+@id("9a5290d7089b4d928d52a7b0aad9c980") expect (1-root.beta)*root.x[chem.benzene]+root.beta*root.y[chem.benzene]==root.z[chem.benzene] tolerance 1e-8{1};
+}
+@id("648d8e3aba004e5395be33943ef92995") test complementarity_vapor_smooth source "Complementarity VLE phase disappearance; two-phase comparison IDAES BTIdeal at 368 K" revision "2.13.0" fixture {dof 0; run steady; fix root.flow=1{mol/s}; value root.minimum_temperature=300{K}; value root.maximum_temperature=450{K}; value root.bubble_start=365{K}; value root.dew_start=370{K}; fix root.T=378{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("8983b1e605ce4f3ab509354be765e779") child root:equilibrium.ComplementarityVLE=equilibrium.SmoothComplementarityFTPx(selected=chem.aromatics,vapor_pressure=psat);
+@id("2fd078e751fa4147ba3a2f68e4b5af28") expect root.beta==1 tolerance 0.0001;
+@id("48afdcc498d540a3a08f55723f8dcae3") expect (1-root.beta)*root.x[chem.benzene]+root.beta*root.y[chem.benzene]==root.z[chem.benzene] tolerance 1e-8{1};
+}
+@id("6181fa785ca841199721ed5493b4e408") test complementarity_liquid_disjunctive source "Complementarity VLE phase disappearance; two-phase comparison IDAES BTIdeal at 368 K" revision "2.13.0" fixture {dof 2; run steady; intent feasible_point; fix root.flow=1{mol/s}; value root.minimum_temperature=300{K}; value root.maximum_temperature=450{K}; value root.bubble_start=365{K}; value root.dew_start=370{K}; fix root.T=358{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("fbfafe5923cc40579138a75b66aacf6a") child root:equilibrium.ComplementarityVLE=equilibrium.DisjunctiveComplementarityFTPx(selected=chem.aromatics,vapor_pressure=psat);
+@id("83c479a434f74690a81357c0428e95a5") expect root.beta==0 tolerance 0.0001;
+@id("800d1676fa124d8d866002f9fbfacd74") expect (1-root.beta)*root.x[chem.benzene]+root.beta*root.y[chem.benzene]==root.z[chem.benzene] tolerance 1e-8{1};
+}
+@id("0ad9d52d25c04cfa85d0fbd8b7af7892") test complementarity_two_phase_disjunctive source "Complementarity VLE phase disappearance; two-phase comparison IDAES BTIdeal at 368 K" revision "2.13.0" fixture {dof 2; run steady; intent feasible_point; fix root.flow=1{mol/s}; value root.minimum_temperature=300{K}; value root.maximum_temperature=450{K}; value root.bubble_start=365{K}; value root.dew_start=370{K}; fix root.T=368{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("2419b6f7b3724aa09c5acb30417c8dc1") child root:equilibrium.ComplementarityVLE=equilibrium.DisjunctiveComplementarityFTPx(selected=chem.aromatics,vapor_pressure=psat);
+@id("2037caf231a940b6880ce8f24bdca3be") expect root.beta==0.3961 tolerance 0.0001;
+@id("8bfb98a600d14cc8b34d622cf8510071") expect (1-root.beta)*root.x[chem.benzene]+root.beta*root.y[chem.benzene]==root.z[chem.benzene] tolerance 1e-8{1};
+}
+@id("098d5e7376f14dc8a4a04579fccad7b8") test complementarity_vapor_disjunctive source "Complementarity VLE phase disappearance; two-phase comparison IDAES BTIdeal at 368 K" revision "2.13.0" fixture {dof 2; run steady; intent feasible_point; fix root.flow=1{mol/s}; value root.minimum_temperature=300{K}; value root.maximum_temperature=450{K}; value root.bubble_start=365{K}; value root.dew_start=370{K}; fix root.T=378{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("e7bc50e360174fe88af93c3fa49e3084") child root:equilibrium.ComplementarityVLE=equilibrium.DisjunctiveComplementarityFTPx(selected=chem.aromatics,vapor_pressure=psat);
+@id("04207b052c324b04a33f9b8bf93b9893") expect root.beta==1 tolerance 0.0001;
+@id("66e9ed63256b4826b6f8cd1ad298e423") expect (1-root.beta)*root.x[chem.benzene]+root.beta*root.y[chem.benzene]==root.z[chem.benzene] tolerance 1e-8{1};
+}
+@id("b3c4ce048e9e45bf9958986e03f47451") test complementarity_liquid_penalty source "Complementarity VLE phase disappearance; two-phase comparison IDAES BTIdeal at 368 K" revision "2.13.0" fixture {dof 2; run steady; intent feasible_point; fix root.flow=1{mol/s}; value root.minimum_temperature=300{K}; value root.maximum_temperature=450{K}; value root.bubble_start=365{K}; value root.dew_start=370{K}; fix root.T=358{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("8ead0a4de8cf49d4bb8649b18a1a8f5a") child root:equilibrium.ComplementarityVLE=equilibrium.PenaltyComplementarityFTPx(selected=chem.aromatics,vapor_pressure=psat);
+@id("34383871b7fb438e8992f206a4d5be56") expect root.beta==0 tolerance 0.0001;
+@id("7b610c023c2b458bb29e0805f3d7a7fa") expect (1-root.beta)*root.x[chem.benzene]+root.beta*root.y[chem.benzene]==root.z[chem.benzene] tolerance 1e-8{1};
+}
+@id("e79bdce2975445b0897ac6a68365176c") test complementarity_two_phase_penalty source "Complementarity VLE phase disappearance; two-phase comparison IDAES BTIdeal at 368 K" revision "2.13.0" fixture {dof 2; run steady; intent feasible_point; fix root.flow=1{mol/s}; value root.minimum_temperature=300{K}; value root.maximum_temperature=450{K}; value root.bubble_start=365{K}; value root.dew_start=370{K}; fix root.T=368{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("1aea311ff75e41dd9c2c3ceea0d8f47e") child root:equilibrium.ComplementarityVLE=equilibrium.PenaltyComplementarityFTPx(selected=chem.aromatics,vapor_pressure=psat);
+@id("eccdd2eb47a5441ea9137bf24194e898") expect root.beta==0.3961 tolerance 0.0001;
+@id("b8ba80098eb445d5aef1530c4c5eff52") expect (1-root.beta)*root.x[chem.benzene]+root.beta*root.y[chem.benzene]==root.z[chem.benzene] tolerance 1e-8{1};
+}
+@id("b058e4fe72a7460489bd13df59e8d8e5") test complementarity_vapor_penalty source "Complementarity VLE phase disappearance; two-phase comparison IDAES BTIdeal at 368 K" revision "2.13.0" fixture {dof 2; run steady; intent feasible_point; fix root.flow=1{mol/s}; value root.minimum_temperature=300{K}; value root.maximum_temperature=450{K}; value root.bubble_start=365{K}; value root.dew_start=370{K}; fix root.T=378{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("291c8b2de8204b2db35ae2cc8742d7eb") child root:equilibrium.ComplementarityVLE=equilibrium.PenaltyComplementarityFTPx(selected=chem.aromatics,vapor_pressure=psat);
+@id("ea760fa803dc43a18432e6e43b1749a3") expect root.beta==1 tolerance 0.0001;
+@id("4e1d1577f367466989e6d80a45853d91") expect (1-root.beta)*root.x[chem.benzene]+root.beta*root.y[chem.benzene]==root.z[chem.benzene] tolerance 1e-8{1};
+}
 }

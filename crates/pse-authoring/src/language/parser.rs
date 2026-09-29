@@ -376,6 +376,66 @@ impl Cursor<'_> {
         }
         Ok(result)
     }
+    /// The members of an objective annotation after its opening parenthesis, through the
+    /// closing one: the sense, then each named member at most once, in any order.
+    fn objective_members(
+        &mut self,
+    ) -> Result<AuthoredModelingDeclarationsFieldValueAnnotationObjective> {
+        let sense = self
+            .word()?
+            .parse()
+            .map_err(|_| self.error("objective sense minimize or maximize"))?;
+        let mut objective = AuthoredModelingDeclarationsFieldValueAnnotationObjective {
+            sense,
+            priority: None,
+            weight: None,
+            normalization: None,
+            absolute_tolerance: None,
+            relative_tolerance: None,
+        };
+        while self.eat(",") {
+            let member = self.word()?;
+            self.expect("=")?;
+            let value = self.until(&[",", ")"])?;
+            let slot = match member.as_str() {
+                "priority" => {
+                    if objective.priority.is_some() {
+                        return Err(self.error("one objective priority"));
+                    }
+                    objective.priority = Some(
+                        value
+                            .replace(' ', "")
+                            .parse()
+                            .map_err(|_| self.error("integer objective priority"))?,
+                    );
+                    continue;
+                }
+                "weight" => &mut objective.weight,
+                "normalization" => &mut objective.normalization,
+                "absolute_tolerance" => &mut objective.absolute_tolerance,
+                "relative_tolerance" => &mut objective.relative_tolerance,
+                _ => {
+                    return Err(self.error(
+                        "objective member priority, weight, normalization, absolute_tolerance or relative_tolerance",
+                    ));
+                }
+            };
+            if slot.replace(value).is_some() {
+                return Err(self.error("each objective member at most once"));
+            }
+        }
+        self.expect(")")?;
+        Ok(objective)
+    }
+    /// `>= 0` closing one member of a complementarity pair; the zero may carry a unit.
+    fn complement_zero(&mut self) -> Result<()> {
+        self.expect(">=")?;
+        let zero = self.until(&[",", ")"])?;
+        match crate::dsl::parse_expr(&zero).map(|e| e.kind) {
+            Ok(crate::dsl::ExprKind::Number(n)) if n.value == 0.0 => Ok(()),
+            _ => Err(self.error("complementarity member >= 0")),
+        }
+    }
     fn block(&mut self, parent: Option<DeclarationId>, depth: u32, braced: bool) -> Result<()> {
         if depth > self.budget.max_depth {
             return Err(AuthoringError::Budget {
@@ -547,6 +607,7 @@ impl Cursor<'_> {
                 self.expect("using")?;
                 let spelling = self.word()?;
                 let mut argument = None;
+                let mut function = None;
                 let policy = match spelling.as_str() {
                     // ADR-0104: `bigm(M)` asserts an authored M; `bigm(derived[, margin])`
                     // derives it from the case box.
@@ -571,9 +632,27 @@ impl Cursor<'_> {
                         }
                         Policy::Hull
                     }
+                    // ADR-0104 §5: `smooth(f, width)` equates the authored smoothing
+                    // function f(first, second, width) to zero; `penalty(l1)` selects the
+                    // l1 exact-penalty route.
+                    "smooth" => {
+                        self.expect("(")?;
+                        function = Some(self.path()?);
+                        self.expect(",")?;
+                        argument = Some(self.until(&[")"])?);
+                        self.expect(")")?;
+                        Policy::Smooth
+                    }
+                    "penalty" => {
+                        self.expect("(")?;
+                        self.expect("l1")?;
+                        self.expect(")")?;
+                        Policy::PenaltyL1
+                    }
                     "big_m" | "derived_big_m" => {
                         return Err(self.error("bigm(M) or bigm(derived)"));
                     }
+                    "penalty_l1" => return Err(self.error("penalty(l1)")),
                     other => other
                         .parse()
                         .map_err(|_| self.error("realization policy"))?,
@@ -592,6 +671,7 @@ impl Cursor<'_> {
                     policy,
                     accelerator,
                     argument,
+                    function,
                 })
             }
             "sos1" | "sos2" => {
@@ -670,6 +750,32 @@ impl Cursor<'_> {
                     input,
                     abscissa,
                     ordinate,
+                })
+            }
+            "complements" => {
+                let indices = self
+                    .indices()?
+                    .into_iter()
+                    .map(|(name, domain)| {
+                        AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem {
+                            name,
+                            domain,
+                        }
+                    })
+                    .collect();
+                self.expect(":")?;
+                self.expect("(")?;
+                let first = self.until(&[">="])?;
+                self.complement_zero()?;
+                self.expect(",")?;
+                let second = self.until(&[">="])?;
+                self.complement_zero()?;
+                self.expect(")")?;
+                self.expect(";")?;
+                Value::from_complementarity(AuthoredModelingDeclarationsFieldValueComplementarity {
+                    indices,
+                    first,
+                    second,
                 })
             }
             "logic" => {
@@ -1377,7 +1483,14 @@ impl Cursor<'_> {
                 let target = self.until(&["("])?;
                 self.expect("(")?;
                 let mut arguments = Vec::new();
-                if !self.eat(")") {
+                // ADR-0111: `annotation objective t(sense, member = value, ...)` carries
+                // typed members, not positional arguments.
+                let objective = if annotation_type == "objective" {
+                    Some(self.objective_members()?)
+                } else {
+                    None
+                };
+                if objective.is_none() && !self.eat(")") {
                     loop {
                         arguments.push(self.until(&[",", ")"])?);
                         if self.eat(")") {
@@ -1391,6 +1504,7 @@ impl Cursor<'_> {
                     annotation_type,
                     target,
                     arguments,
+                    objective,
                 })
             }
             "expect" => {

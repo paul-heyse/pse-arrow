@@ -582,40 +582,6 @@ impl ModelingPackage {
             .prepare_modeling_flow(model, self.quantities.clone(), selection, cancel)
             .await?)
     }
-    /// Resolve symbol-path specifications and prepare the existing solver pipeline's case view.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles and cancellation as independent inputs"
-    )]
-    pub async fn prepare_case(
-        &self,
-        root: DeclarationId,
-        instance: InstanceId,
-        bindings: Bindings,
-        limits: Limits,
-        case: pse_compiler::workspace::ModelingCaseBindings,
-        order: pse_kernels::DerivativeOrder,
-        profile: pse_compiler::workspace::Profile,
-        cancel: &crate::CancelSource,
-    ) -> Result<crate::math::modeling::ModelingCasePreparation, WorkflowError> {
-        Ok(self
-            .runtime
-            .shared
-            .math()
-            .prepare_modeling_case_revision(
-                self.workspace.clone(),
-                self.revision.clone(),
-                root,
-                instance,
-                bindings,
-                limits,
-                case,
-                order,
-                profile,
-                cancel,
-            )
-            .await?)
-    }
     /// Replace source declarations while preserving this revision's admitted physical aliases.
     /// No old document text is retained as the source of the edited IR.
     pub fn with_declarations(&self, rows: Vec<Declaration>) -> Result<Self, WorkflowError> {

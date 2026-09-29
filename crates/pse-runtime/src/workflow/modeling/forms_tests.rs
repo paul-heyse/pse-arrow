@@ -614,3 +614,87 @@ async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
             .any(|l| l.realization == pse_model::generated::enums::ModelingRealizationPolicy::Hull)
     );
 }
+
+/// The authored CHKS smoothing function the reference `math` package declares.
+const SMOOTH_MIN: &str = "fn smooth_min<Q>(a: Q, b: Q, eps: Delta<Q>) -> Q valid(eps > eps - eps) = a - eps*(d + sqrt(d*d + 1))/2 where d = (a - b)/eps;";
+
+#[tokio::test]
+async fn smooth_complementarity_product_equals_eps_sq_over_4() {
+    // 0 <= a ⊥ b >= 0 smoothed by CHKS: at a fixed a the solve finds a·b = eps²/4, and the
+    // width is a value, so continuing it rebinds the prepared structure.
+    let (package, root) = package(&format!(
+        "package p {{ {SMOOTH_MIN} def Root {{ param eps: Scalar = 0.1; param a0: Scalar = 0.2; var a: Scalar; var b: Scalar; eq pin: a == a0;
+        complements c: (a >= 0, b >= 0); realize r on c using smooth(smooth_min, eps);
+        annotation bounds b(0, 10); annotation start a(0.2); annotation start b(1);
+        annotation objective b(minimize); annotation report a(\"a\"); annotation report b(\"b\"); }} }}"
+    ));
+    let mut structures = std::collections::BTreeSet::new();
+    for eps in [0.1, 0.02, 0.004] {
+        let prepared = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                case(&[("eps", eps)]),
+                DerivativeOrder::Second,
+                fixture::compiler_profile(),
+                profile(SolverSelection::Explicit(Backend::Ipopt)),
+                NumericalInputs::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        structures.insert(prepared.model.case.compiled().plan.structure().key());
+        let result = package
+            .solve_case(
+                prepared,
+                fixture::compiler_profile(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        assert!(result.accepted, "{:?}", result.validation_error);
+        let report = |label: &str| {
+            result
+                .reports
+                .iter()
+                .find(|r| r.label == label)
+                .unwrap()
+                .value
+        };
+        let product = report("a") * report("b");
+        assert!(
+            (product - eps * eps / 4.0).abs() < 1e-9,
+            "eps={eps}: a·b = {product}"
+        );
+    }
+    assert_eq!(structures.len(), 1, "the width is continued by value");
+}
+
+#[tokio::test]
+async fn disjunctive_complementarity_refused_on_highs() {
+    // max a + b over a <= 0.6, b <= 0.7, a + b <= 1 with 0 <= a ⊥ b >= 0: the
+    // complementarity leaves one member nonzero, so the optimum is b = 0.7.
+    let text = "package p { def Root { var a: Scalar; var b: Scalar; let value: Scalar = a + b;
+        eq total: a + b <= 1; complements c: (a >= 0, b >= 0); realize r on c using disjunctive;
+        annotation bounds a(0, 0.6); annotation bounds b(0, 0.7); annotation start a(0); annotation start b(0);
+        annotation objective value(maximize); annotation report a(\"a\"); annotation report b(\"b\"); } }";
+    let (native, root) = scip_package(text);
+    let error = prepare(
+        &native,
+        root,
+        case(&[]),
+        SolverSelection::Explicit(Backend::Highs),
+    )
+    .await
+    .err()
+    .unwrap();
+    assert!(
+        native_refusal(&error).contains("native sos1 realization"),
+        "{error}"
+    );
+    // Automatic routing selects SCIP's SOS1 handler.
+    let [a, b] = optimal_on(&native, root, case(&[]), ["a", "b"], Backend::Scip).await;
+    assert!(a.abs() < 1e-6 && (b - 0.7).abs() < 1e-6, "a={a} b={b}");
+}

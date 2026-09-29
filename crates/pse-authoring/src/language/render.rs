@@ -124,7 +124,15 @@ fn print_block(
             ),
             Selected::Realization(v) => {
                 use pse_model::generated::enums::ModelingRealizationPolicy as Policy;
+                if v.function.is_some() != (v.policy == Policy::Smooth) {
+                    return Err(bad("a smoothing function belongs to exactly smooth"));
+                }
                 let policy = match (v.policy, v.argument.as_deref()) {
+                    (Policy::Smooth, Some(width)) => {
+                        format!("smooth({}, {width})", v.function.as_deref().unwrap_or_default())
+                    }
+                    (Policy::Smooth, None) => return Err(bad("smooth needs its width")),
+                    (Policy::PenaltyL1, None) => "penalty(l1)".into(),
                     (Policy::BigM, Some(m)) => format!("bigm({m})"),
                     (Policy::DerivedBigM, None) => "bigm(derived)".into(),
                     (Policy::DerivedBigM, Some(margin)) => format!("bigm(derived, {margin})"),
@@ -161,6 +169,12 @@ fn print_block(
                 v.input,
                 v.abscissa,
                 v.ordinate
+            ),
+            Selected::Complementarity(v) => format!(
+                "complements {n}{}: ({} >= 0, {} >= 0);",
+                indices(v.indices.iter().map(|i| (i.name.as_str(), i.domain.as_str()))),
+                v.first,
+                v.second
             ),
             Selected::Logic(v) => format!(
                 "logic {n}{}: {};",
@@ -394,12 +408,31 @@ fn print_block(
                     .collect::<Vec<_>>()
                     .join(" ")
             ),
-            Selected::Annotation(v) => format!(
-                "annotation {} {}({});",
-                crate::grammar::render_name(&v.annotation_type),
-                v.target,
-                v.arguments.join(", ")
-            ),
+            Selected::Annotation(v) => {
+                let arguments = match &v.objective {
+                    // ADR-0111: the sense, then the declared members in one canonical order.
+                    Some(o) if v.annotation_type == "objective" && v.arguments.is_empty() => {
+                        let mut members = vec![o.sense.as_str().to_owned()];
+                        members.extend(o.priority.map(|p| format!("priority = {p}")));
+                        for (name, value) in [
+                            ("weight", &o.weight),
+                            ("normalization", &o.normalization),
+                            ("absolute_tolerance", &o.absolute_tolerance),
+                            ("relative_tolerance", &o.relative_tolerance),
+                        ] {
+                            members.extend(value.as_ref().map(|v| format!("{name} = {v}")));
+                        }
+                        members.join(", ")
+                    }
+                    None if v.annotation_type != "objective" => v.arguments.join(", "),
+                    _ => return Err(bad("an objective annotation carries exactly its typed members")),
+                };
+                format!(
+                    "annotation {} {}({arguments});",
+                    crate::grammar::render_name(&v.annotation_type),
+                    v.target,
+                )
+            }
             Selected::Expectation(v) => format!(
                 "expect {} == {} tolerance {}{};",
                 v.actual, v.expected, v.tolerance,

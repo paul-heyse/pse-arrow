@@ -34,6 +34,30 @@ pub(crate) fn type_of(name: &str) -> Option<Type> {
         None
     }
 }
+/// The fact selecting the objective level of a staged lexicographic step (ADR-0111): the
+/// zero-based position of the level in priority order. Earlier levels are then bounded
+/// by generated parameters (`objective_bounds`); without it every level is kept for a
+/// native lexicographic solve.
+pub const OBJECTIVE_LEVEL: &str = "objective.level";
+/// The selected objective level, refusing any other `objective.` fact.
+pub(crate) fn objective_level(input: &Environment) -> Result<Option<usize>> {
+    if input
+        .keys()
+        .any(|key| key.starts_with("objective.") && key != OBJECTIVE_LEVEL)
+    {
+        return Err(invalid(SemanticId::NIL, "unknown objective fact"));
+    }
+    match input.get(OBJECTIVE_LEVEL) {
+        None => Ok(None),
+        Some(Value::Integer(level)) => usize::try_from(*level)
+            .map(Some)
+            .map_err(|_| invalid(SemanticId::NIL, "objective level must be nonnegative")),
+        Some(_) => Err(invalid(
+            SemanticId::NIL,
+            "objective level requires an integer fact",
+        )),
+    }
+}
 pub(crate) fn facts(input: &Environment) -> Result<Environment> {
     let mut output = input.clone();
     if input.keys().any(|key| {
@@ -79,6 +103,20 @@ impl Bindings {
             Value::Boolean(route != Route::Steady),
         );
         self
+    }
+    /// Select the objective level a staged lexicographic step optimizes (ADR-0111).
+    pub fn with_objective_level(mut self, level: usize) -> Self {
+        self.facts.insert(
+            OBJECTIVE_LEVEL.into(),
+            Value::Integer(i64::try_from(level).unwrap_or(i64::MAX)),
+        );
+        self
+    }
+    /// The selected objective level, if any.
+    /// # Errors
+    /// A negative or non-integer level, or another `objective.` fact.
+    pub fn objective_level(&self) -> Result<Option<usize>> {
+        objective_level(&self.facts)
     }
     /// Read and validate the selected mode, defaulting to steady analysis.
     pub fn analysis_route(&self) -> Result<Route> {

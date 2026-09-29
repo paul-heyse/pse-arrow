@@ -525,3 +525,134 @@ fn form_realizations_are_declared_and_admitted() {
         assert!(error.to_string().contains(message), "{error}");
     }
 }
+
+/// The authored CHKS smoothing function the reference `math` package declares.
+const SMOOTH_MIN: &str = "fn smooth_min<Q>(a: Q, b: Q, eps: Delta<Q>) -> Q valid(eps > eps - eps) = a - eps*(d + sqrt(d*d + 1))/2 where d = (a - b)/eps;";
+fn complementarity(realization: &str) -> String {
+    format!(
+        "package p {{ {SMOOTH_MIN} def Root {{ param eps: Scalar = 0.1; var a: Scalar; var b: Scalar; complements c: (a >= 0, b >= 0); {realization} }} }}"
+    )
+}
+
+#[test]
+fn complementarity_lowerings_keep_members_nonnegative() {
+    use pse_model::generated::enums::{
+        ModelingRealizationPolicy as Policy, ModelingStructuralRequirement as Requirement,
+    };
+    use pse_modeling::specialize::Equivalence;
+    let lowered = |realization: &str| {
+        let (mut w, root) = setup(&complementarity(realization));
+        let case = Case::new(&mut w, root, &[]).unwrap();
+        let lowering = case.model.model.lowerings[0].clone();
+        (case, lowering)
+    };
+    // smooth(f, width): the one row f(a, b, width) == 0, whose zero set keeps both
+    // members positive.
+    let (smooth, lowering) = lowered("realize r on c using smooth(smooth_min, eps);");
+    assert_eq!(
+        (lowering.realization, lowering.equivalence),
+        (Policy::Smooth, Equivalence::Smoothed)
+    );
+    assert_eq!(lowering.rows.len(), 1);
+    assert!(smooth.prepared.plan.structure().requirements().is_empty());
+    // The width stays a parameter: continuing it rebinds a value, not the structure.
+    assert!(smooth.model.admitted.inputs.contains(&smooth.symbol(".eps")));
+    // disjunctive: nonnegative slack columns equal to the members, one native SOS1.
+    let (disjunctive, lowering) = lowered("realize r on c using disjunctive;");
+    assert_eq!(
+        (lowering.realization, lowering.equivalence),
+        (Policy::Disjunctive, Equivalence::Native)
+    );
+    assert_eq!(lowering.variables.len(), 2);
+    let structure = disjunctive.prepared.plan.structure();
+    for slack in &lowering.variables {
+        let variable = structure
+            .variables()
+            .iter()
+            .find(|v| v.port.id == *slack)
+            .unwrap();
+        assert_eq!((variable.lower, variable.upper), (Some(0.0), None));
+    }
+    assert!(matches!(
+        structure.native(),
+        [NativeConstraint::Sos { form: NativeConstraintForm::Sos1, members }]
+            if members.iter().map(|(id, _)| *id).collect::<Vec<_>>() == lowering.variables
+    ));
+    // The slack columns equal the members; their lower bounds, asserted above, keep the
+    // members nonnegative.
+    for (a, b) in [(0.0, 2.0), (-1.0, 2.0)] {
+        let point = [
+            ("Root.a", a),
+            ("Root.b", b),
+            (".slack_first", a),
+            (".slack_second", b),
+        ];
+        assert!(disjunctive.feasible(&point), "{point:?}");
+        assert!(!disjunctive.feasible(&[
+            ("Root.a", a),
+            ("Root.b", b),
+            (".slack_first", a + 1.0),
+            (".slack_second", b),
+        ]));
+    }
+    // penalty(l1): nonnegative members, a·b <= 0, and the l1 exact-penalty requirement,
+    // which is structure.
+    let (penalty, lowering) = lowered("realize r on c using penalty(l1);");
+    assert_eq!(
+        (lowering.realization, lowering.equivalence),
+        (Policy::PenaltyL1, Equivalence::ExactPenalty)
+    );
+    let structure = penalty.prepared.plan.structure();
+    assert_eq!(structure.requirements(), [Requirement::L1ExactPenalty]);
+    for (a, b, holds) in [(0.0, 3.0, true), (2.0, 0.0, true), (1.0, 1.0, false)] {
+        assert_eq!(
+            penalty.feasible(&[("Root.a", a), ("Root.b", b)]),
+            holds,
+            "a={a} b={b}"
+        );
+    }
+    assert_ne!(
+        structure.key(),
+        smooth.prepared.plan.structure().key(),
+        "the requirement is structure"
+    );
+    // No default realization; a realization of another form does not apply.
+    for (realization, message) in [
+        ("", "a complementarity requires a declared realization"),
+        (
+            "realize r on c using hull;",
+            "hull realization does not apply to this form",
+        ),
+        (
+            "realize r on c using smooth(smooth_min, 0.1{W});",
+            "",
+        ),
+    ] {
+        let (mut w, root) = setup(&complementarity(realization));
+        let error = Case::new(&mut w, root, &[]).err().unwrap();
+        assert!(error.to_string().contains(message), "{error}");
+    }
+}
+
+#[test]
+fn smooth_complementarity_row_vanishes_on_eps_sq_over_4() {
+    // CHKS: f(a, b, eps) = (a + b − sqrt((a − b)² + eps²))/2 vanishes exactly where
+    // a·b = eps²/4 with a, b > 0.
+    let (mut w, root) = setup(&complementarity(
+        "realize r on c using smooth(smooth_min, eps);",
+    ));
+    let mut case = Case::new(&mut w, root, &[]).unwrap();
+    for eps in [0.1_f64, 0.01] {
+        // The width is a value: rebinding it keeps the prepared structure.
+        let width = case.symbol(".eps");
+        case.values.scalars.insert(width, eps);
+        for a in [eps / 2.0, 0.3, 2.0] {
+            let b = eps * eps / (4.0 * a);
+            assert!(case.feasible(&[("Root.a", a), ("Root.b", b)]), "eps={eps} a={a}");
+            assert!(
+                !case.feasible(&[("Root.a", a), ("Root.b", 2.0 * b)]),
+                "eps={eps} a={a}"
+            );
+        }
+    }
+}

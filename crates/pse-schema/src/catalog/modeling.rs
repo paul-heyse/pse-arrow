@@ -205,6 +205,13 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             ],
         ),
         ("logic", vec!["logic"], vec![indices(), text("proposition")]),
+        // ADR-0104 §5: `complements name[i in s]: (first >= 0, second >= 0);`, the pair
+        // 0 <= first ⊥ second >= 0, realized by smooth, penalty_l1 or disjunctive.
+        (
+            "complementarity",
+            vec!["complementarity"],
+            vec![indices(), text("first"), text("second")],
+        ),
         (
             "table",
             vec!["table"],
@@ -271,6 +278,20 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 text("annotation_type"),
                 text("target"),
                 strings("arguments"),
+                // ADR-0111: the typed members of `annotation objective`, present exactly on
+                // an objective, whose arguments are then empty. Priority orders levels
+                // (lower first); weight and normalization compose a level's weighted sum;
+                // the tolerances bound the level's degradation for later levels.
+                T::structure(vec![
+                    T::enumeration("NativeObjectiveSense").with_name("sense"),
+                    T::native(D::Int64).with_name("priority").optional(),
+                    text("weight").optional(),
+                    text("normalization").optional(),
+                    text("absolute_tolerance").optional(),
+                    text("relative_tolerance").optional(),
+                ])
+                .with_name("objective")
+                .optional(),
             ],
         ),
         (
@@ -329,8 +350,12 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 text("target"),
                 T::enumeration("ModelingRealizationPolicy").with_name("policy"),
                 text("accelerator").optional(),
-                // An authored big-M, a derived big-M's relative margin or a hull's epsilon.
+                // An authored big-M, a derived big-M's relative margin, a hull's epsilon or
+                // a smoothed complementarity's width.
                 text("argument").optional(),
+                // The authored smoothing function f(first, second, width) a smooth
+                // complementarity equates to zero; present exactly on `smooth`.
+                text("function").optional(),
             ],
         ),
     ];
@@ -414,7 +439,17 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "native",
             "sos2",
             "incremental",
+            "smooth",
+            "penalty_l1",
+            "disjunctive",
         ],
+    );
+    // ADR-0104 §5: a requirement a lowering places on the solve route, carried by the case
+    // structure. An authored `penalty(l1)` requires the l1 exact-penalty route.
+    enumeration(
+        builder,
+        "ModelingStructuralRequirement",
+        ["l1_exact_penalty"],
     );
     let alternative = TaggedAlternative::new(
         "kind",
@@ -435,7 +470,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         builder,
         N::Authored,
         "modeling_declarations",
-        4,
+        5,
         S::Model,
         &["declaration_id"],
         vec![
@@ -454,7 +489,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 T::structure(payload).with_alternative(&alternative),
             ),
         ],
-        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119).",
+        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104).",
     );
     enumeration(
         builder,

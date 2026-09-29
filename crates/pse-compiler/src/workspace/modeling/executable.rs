@@ -225,6 +225,18 @@ pub enum ModelingOutput {
         /// Authored relation between the two sides.
         sense: EquationSense,
     },
+    /// A generated objective bound of an earlier lexicographic level (ADR-0111,
+    /// `objective_bounds`). The output is the bound parameter β and enters the row with
+    /// factor −1; each member of the bounded level enters it with its scale, so the row
+    /// holds `level value − β <= 0` for a minimized level and `>= 0` for a maximized one.
+    LevelBound {
+        /// Generated row identity.
+        row: SemanticId,
+        /// Generated bound parameter β.
+        parameter: SemanticId,
+        /// `Le` for a minimized level, `Ge` for a maximized one.
+        sense: EquationSense,
+    },
     /// One demanded expression or accounting member.
     Member(SemanticId),
     /// Original contribution magnitude for independent closure checking.
@@ -253,7 +265,9 @@ pub struct AdmittedModeling {
 }
 #[derive(Clone, Debug, PartialEq)]
 struct Projection {
-    objective: Option<(SemanticId, pse_math::binding::ObjectiveSense)>,
+    /// Authored objective members grouped into levels (ADR-0111): priority, weight,
+    /// normalization, and each level's tolerances and generated bound.
+    objectives: pse_modeling::specialize::Objectives,
     body_limits: BodyLimits,
     /// Original additive conservation terms assembled into their semantic row.
     conservation: BTreeMap<SemanticId, Vec<(SemanticId, f64)>>,
@@ -266,6 +280,8 @@ struct Projection {
     unit_interval: BTreeSet<SemanticId>,
     /// Constraint forms left to native handlers (ADR-0104).
     native: Vec<pse_model::forms::NativeConstraint>,
+    /// Requirements the lowerings place on the solve route (ADR-0104 §5).
+    requirements: BTreeSet<pse_model::generated::enums::ModelingStructuralRequirement>,
     formals: Vec<Formal>,
     outputs: Vec<ModelingOutput>,
     expressions: Vec<Expr>,
@@ -274,6 +290,32 @@ struct Projection {
     local_quantities: BTreeMap<String, QuantityTypeId>,
     declarations: Vec<DeclarationId>,
     implicit: Vec<implicit::Projection>,
+}
+impl Projection {
+    /// The objective member whose value the case structure optimizes, with its
+    /// orientation: the solved level when it is one member entering with scale one. A
+    /// weighted or normalized level has no member equal to its value.
+    fn objective(&self) -> Option<(SemanticId, pse_math::binding::ObjectiveSense)> {
+        let level = self.objectives.solved()?;
+        let [member] = self.objectives.members_of(level).collect::<Vec<_>>()[..] else {
+            return None;
+        };
+        (member.scale == 1.0 && member.term == member.target)
+            .then_some((member.target, objective_sense(level.sense)))
+    }
+}
+/// The case structure's orientation of an authored objective sense.
+fn objective_sense(
+    sense: pse_modeling::annotation::ObjectiveSense,
+) -> pse_math::binding::ObjectiveSense {
+    match sense {
+        pse_modeling::annotation::ObjectiveSense::Minimize => {
+            pse_math::binding::ObjectiveSense::Minimize
+        }
+        pse_modeling::annotation::ObjectiveSense::Maximize => {
+            pse_math::binding::ObjectiveSense::Maximize
+        }
+    }
 }
 #[salsa::tracked(returns(clone),lru=64,heap_size=projection_heap)]
 fn projection(
@@ -336,34 +378,22 @@ fn projection(
             }
         }
     }
-    let objectives = model
-        .annotations
-        .iter()
-        .filter_map(|a| {
-            if let pse_modeling::annotation::AnnotationValue::Objective(sense) = a.value {
-                Some((
-                    a.target,
-                    match sense {
-                        pse_modeling::annotation::ObjectiveSense::Minimize => {
-                            pse_math::binding::ObjectiveSense::Minimize
-                        }
-                        pse_modeling::annotation::ObjectiveSense::Maximize => {
-                            pse_math::binding::ObjectiveSense::Maximize
-                        }
-                    },
-                ))
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
-    if objectives.len() > 1 {
-        return Err(CompileError::Missing(
-            "a selected analysis has exactly one objective".into(),
-        ));
+    // The case structure carries one objective: the solved level. Several levels without
+    // a selected one are optimized together only by a native lexicographic solve, whose
+    // multi-objective case structure is Plan 22 C3 engine work.
+    if model.objectives.levels.len() > 1 && model.objectives.selected.is_none() {
+        let lead = &model.objectives.members[0];
+        return Err(pse_modeling::ModelingError::Unsupported {
+            declaration: lead.lineage.declaration.as_id(),
+            capability: format!(
+                "a multi-objective case structure for {} lexicographic levels; select one level with the objective.level fact",
+                model.objectives.levels.len()
+            ),
+        }
+        .into());
     }
     let mut p = Projection {
-        objective: objectives.first().copied(),
+        objectives: model.objectives.clone(),
         body_limits: BodyLimits {
             occurrences: request
                 .limits(db)
@@ -393,11 +423,13 @@ fn projection(
             .elastic
             .values()
             .flat_map(|r| r.slacks.iter().copied())
+            .chain(model.nonnegative.iter().copied())
             .collect(),
         inputs: vec![],
         free: BTreeMap::new(),
         unit_interval: model.unit_interval.clone(),
         native: model.native.clone(),
+        requirements: model.requirements.clone(),
         formals: vec![],
         outputs: vec![],
         expressions: vec![],
@@ -632,6 +664,24 @@ fn projection(
             dsl::parse_expr(&symbol_name(id)).map_err(|e| CompileError::Missing(e.to_string()))?,
         );
     }
+    // `objective_bounds` (ADR-0111): each bounded level's row, assembled from β and the
+    // level's member outputs.
+    for level in &model.objectives.levels {
+        if let Some(bound) = &level.bound {
+            p.outputs.push(ModelingOutput::LevelBound {
+                row: bound.row,
+                parameter: bound.parameter,
+                sense: match level.sense {
+                    pse_modeling::annotation::ObjectiveSense::Minimize => EquationSense::Le,
+                    pse_modeling::annotation::ObjectiveSense::Maximize => EquationSense::Ge,
+                },
+            });
+            p.expressions.push(
+                dsl::parse_expr(&symbol_name(bound.parameter))
+                    .map_err(|e| CompileError::Missing(e.to_string()))?,
+            );
+        }
+    }
     for closure in model.closures.values() {
         for term in &closure.terms {
             p.outputs.push(ModelingOutput::Contribution {
@@ -658,7 +708,7 @@ fn projection(
         p.expressions.push(elastic.penalty.clone());
     }
     use pse_modeling::annotation::AnnotationValue as A;
-    let objective = p.objective;
+    let objective = p.objective();
     for annotation in &annotations {
         let mut push = |kind, expression: Expr| {
             p.outputs.push(ModelingOutput::Hint {
@@ -802,7 +852,9 @@ fn projection(
                 .iter()
                 .find(|r| r.id == *id)
                 .map(|r| r.lineage.declaration),
-            ModelingOutput::Member(id) => model.symbols.get(id).map(|s| s.lineage.declaration),
+            ModelingOutput::Member(id) | ModelingOutput::LevelBound { parameter: id, .. } => {
+                model.symbols.get(id).map(|s| s.lineage.declaration)
+            }
             ModelingOutput::Contribution {
                 accumulator,
                 contribution,
@@ -839,7 +891,7 @@ fn projection(
             if let ModelingHint::ObjectiveBound(_) = kind {
                 // The compared side has the objective's physical type.
                 let objective = p
-                    .objective
+                    .objective()
                     .and_then(|(objective, _)| model.symbols.get(&objective))
                     .ok_or_else(|| CompileError::Missing("objective-bound check".into()))?;
                 Some(objective.ty.clone())
@@ -898,7 +950,9 @@ fn projection(
             ModelingOutput::Hint { .. } => hint_type.as_ref(),
             ModelingOutput::OriginalEquation(_) | ModelingOutput::Penalty(_) => None,
             ModelingOutput::Term { .. } => term_type.as_ref(),
-            ModelingOutput::Member(id) => Some(&model.symbols[id].ty),
+            ModelingOutput::Member(id) | ModelingOutput::LevelBound { parameter: id, .. } => {
+                Some(&model.symbols[id].ty)
+            }
             ModelingOutput::Contribution { accumulator, .. } => {
                 Some(&model.closures[accumulator].ty)
             }
@@ -1003,7 +1057,8 @@ fn structure(
     let mut rows = Vec::new();
     let mut edges = Vec::new();
     for (output, meaning) in p.outputs.iter().enumerate() {
-        if let ModelingOutput::Equation { id, sense } = meaning {
+        if let Some((id, sense)) = meaning.constraint() {
+            let id = &id;
             let (lower, upper) = match sense {
                 EquationSense::Eq => (Some(0.), Some(0.)),
                 EquationSense::Le => (None, Some(0.)),
@@ -1100,6 +1155,10 @@ impl PreparedModeling {
 fn projection_heap(value: &Result<Arc<Projection>>) -> usize {
     value.as_ref().map_or(0, |p| {
         size_of::<Projection>()
+            + p.objectives.members.capacity()
+                * (size_of::<pse_modeling::specialize::ObjectiveMember>() + 256)
+            + p.objectives.levels.capacity()
+                * (size_of::<pse_modeling::specialize::ObjectiveLevel>() + 64)
             + p.conservation
                 .values()
                 .map(|terms| 128 + terms.capacity() * size_of::<(SemanticId, f64)>())

@@ -32,6 +32,8 @@ mod regimes;
 pub use regimes::{Regime, RegimeSelection};
 mod forms;
 pub use forms::{DEFAULT_BIG_M_MARGIN, Derived, DerivedRule, Equivalence, Lowering};
+mod objectives;
+pub use objectives::{ObjectiveBound, ObjectiveLevel, ObjectiveMember, Objectives};
 use value::{Evaluator, value_type};
 
 /// Explicit limits checked before expansion/allocation.
@@ -297,6 +299,13 @@ pub struct SpecializedModel {
     pub derived: BTreeMap<SemanticId, Derived>,
     /// Kernel-derived continuous variables confined to the unit interval.
     pub unit_interval: BTreeSet<SemanticId>,
+    /// Authored objective members grouped into lexicographic levels (ADR-0111).
+    pub objectives: Objectives,
+    /// Kernel-derived continuous variables confined to [0, ∞), such as the slack columns
+    /// of a disjunctive complementarity.
+    pub nonnegative: BTreeSet<SemanticId>,
+    /// Requirements the lowerings place on the solve route (ADR-0104 §5).
+    pub requirements: BTreeSet<pse_model::generated::enums::ModelingStructuralRequirement>,
 }
 /// A declared port aliases an existing physical coordinate without losing its owner.
 #[derive(Clone, Debug, PartialEq)]
@@ -351,6 +360,7 @@ pub(crate) struct Engine<'a, 'b> {
     relaxations: BTreeMap<SemanticId, (Type, Value, Lineage)>,
     form_realizations: BTreeMap<DeclarationId, (forms::Realized, DeclarationId)>,
     facts: Environment,
+    objective_level: Option<usize>,
     cancel: &'a dyn Fn() -> bool,
     discretizer: &'a dyn crate::continuous::Discretizer,
 }
@@ -437,6 +447,14 @@ pub fn specialize_with_discretizer(
             "analysis selection belongs to typed facts, not definition arguments",
         ));
     }
+    // The objective level selects a transformation after instantiation; it is not an
+    // ambient fact any definition reads.
+    let ambient = bindings
+        .facts
+        .iter()
+        .filter(|(name, _)| !name.starts_with("objective."))
+        .map(|(name, value)| (name.clone(), value.clone()))
+        .collect::<Environment>();
     let context = package.context();
     let mut engine = Engine {
         p: package,
@@ -455,13 +473,14 @@ pub fn specialize_with_discretizer(
         continuity_done: BTreeSet::new(),
         relaxations: BTreeMap::new(),
         form_realizations: BTreeMap::new(),
-        facts: crate::analysis::facts(&bindings.facts)?,
+        facts: crate::analysis::facts(&ambient)?,
+        objective_level: crate::analysis::objective_level(&bindings.facts)?,
         discretizer,
         cancel,
     };
     engine.checkpoint()?;
     let mut args = bindings.arguments.clone();
-    args.extend(bindings.facts.clone());
+    args.extend(ambient);
     engine.instantiate(
         root,
         instance,
@@ -624,7 +643,7 @@ impl Engine<'_, '_> {
         }
         Ok(())
     }
-    fn eval(
+    pub(crate) fn eval(
         &self,
         at: DeclarationId,
         env: &Environment,
@@ -1090,6 +1109,17 @@ impl Engine<'_, '_> {
                             .map(|i| (i.name.as_str(), i.domain.as_str())),
                     )? {
                         self.logic(id, &r, &coordinates, &env)?;
+                    }
+                }
+                Selected::Complementarity(c) => {
+                    for coordinates in self.coordinates(
+                        *member,
+                        &env,
+                        c.indices
+                            .iter()
+                            .map(|i| (i.name.as_str(), i.domain.as_str())),
+                    )? {
+                        self.complementarity(id, &r, &coordinates, &env)?;
                     }
                 }
                 Selected::Disjunction(_) => self.disjunction(id, *member, &env, None)?,
@@ -1688,6 +1718,7 @@ impl Engine<'_, '_> {
         }
         self.select_formulation(formulation)?;
         self.apply_relaxations()?;
+        self.admit_objectives()?;
         self.group_bodies()?;
         self.model.equations.sort_by_key(|r| r.id);
         Ok(())

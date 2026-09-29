@@ -878,6 +878,16 @@ fn check_forms(
     if let Some(l) = &row.value.logic {
         crate::logic::parse(&l.proposition).map_err(|e| invalid(id, e))?;
     }
+    if let Some(c) = &row.value.complementarity
+        && [&c.first, &c.second]
+            .into_iter()
+            .map(|member| typed(member, env))
+            .collect::<Result<Vec<_>>>()?
+            .iter()
+            .any(|ty| !matches!(ty, Type::Quantity(_)))
+    {
+        return Err(invalid(id, "complementarity members are physical"));
+    }
     Ok(())
 }
 pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<()> {
@@ -939,6 +949,12 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
             .or_else(|| {
                 row.value
                     .logic
+                    .as_ref()
+                    .map(|v| v.indices.iter().map(|i| (&i.name, &i.domain)).collect())
+            })
+            .or_else(|| {
+                row.value
+                    .complementarity
                     .as_ref()
                     .map(|v| v.indices.iter().map(|i| (&i.name, &i.domain)).collect())
             })
@@ -1052,6 +1068,7 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                     | K::Exactly
                     | K::Piecewise
                     | K::Logic
+                    | K::Complementarity
             ) || target
                 .value
                 .equation
@@ -1315,15 +1332,21 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                 }
                 continue;
             }
+            if a.annotation_type == "objective" {
+                objective_members(a, &target, &env, p, context, *id)?;
+                continue;
+            }
+            if a.objective.is_some() {
+                return Err(invalid(
+                    *id,
+                    "objective members belong to an objective annotation",
+                ));
+            }
             let numeric = match (a.annotation_type.as_str(), a.arguments.len()) {
                 ("start" | "nominal", 1) => 1,
                 ("bounds", 2) => 2,
                 ("valid", 3) => 2,
                 ("report" | "scale", 1) => 0,
-                ("objective", 1) => {
-                    crate::annotation::objective_sense(&a.arguments[0], *id)?;
-                    0
-                }
                 ("check", 1) => {
                     predicate(
                         &dsl::parse_predicate(&a.arguments[0])
@@ -1713,4 +1736,56 @@ fn refine(
 /// Conservative owned syntax storage for compiler memo and worker admission.
 pub fn retained_bytes(expression: &Expr) -> usize {
     crate::extent::expression(expression)
+}
+
+/// Static typing of an objective annotation's members (ADR-0111): the weight and relative
+/// tolerance are dimensionless, the normalization has the target's type, and the absolute
+/// tolerance is a difference of the member's term, the target or its dimensionless
+/// quotient by the normalization.
+fn objective_members(
+    a: &pse_authoring::language::AuthoredModelingDeclarationsFieldValueAnnotation,
+    target: &Type,
+    env: &BTreeMap<String, Type>,
+    p: &CheckedPackage,
+    context: &TypeContext<'_>,
+    id: DeclarationId,
+) -> Result<()> {
+    let members = a
+        .objective
+        .as_ref()
+        .filter(|_| a.arguments.is_empty())
+        .ok_or_else(|| invalid(id, "an objective annotation carries its typed members"))?;
+    let scalar = Type::Quantity(Scheme::Concrete(
+        context
+            .quantities
+            .neutral_dimensionless()
+            .ok_or_else(|| invalid(id, "objective members need a neutral scalar type"))?,
+    ));
+    let term = if members.normalization.is_some() {
+        &scalar
+    } else {
+        target
+    };
+    let Type::Quantity(scheme) = term else {
+        return Err(invalid(id, "objective requires a physical member"));
+    };
+    let difference = Type::Quantity(Scheme::Concrete(
+        Scheme::Delta(Box::new(scheme.clone()))
+            .resolve_with_evidence(context.quantities, &Substitution::new(), context.preconditions)
+            .map_err(|e| invalid(id, e.to_string()))?,
+    ));
+    for (source, expected) in [
+        (&members.weight, &scalar),
+        (&members.normalization, target),
+        (&members.absolute_tolerance, &difference),
+        (&members.relative_tolerance, &scalar),
+    ] {
+        if let Some(source) = source {
+            let expression = dsl::parse_expr(source).map_err(|e| invalid(id, e.to_string()))?;
+            if infer(&expression, env, p, context, id, Some(expected))? != *expected {
+                return Err(invalid(id, "objective member type differs"));
+            }
+        }
+    }
+    Ok(())
 }

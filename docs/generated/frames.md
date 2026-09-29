@@ -25,6 +25,7 @@ Derived in: pse-ids, pse-schema, pse-columnar, pse-model.
 | `SchemaExecutionEncodingV1` | `pse.schema.execution-encoding.v1` | The exact observed native field layout. |
 | `NumericalPolicyV1` | `pse.numerical.policy.v1` | An effective numerical policy request. |
 | `ProviderV4` | `pse.provider.v4` | A kernel provider's physical, algorithm and data identity. |
+| `ProviderConfigurationV1` | `pse.provider.configuration.v1` | A kernel provider's configuration key framed with its checked output envelope. |
 
 ## Structure
 
@@ -43,7 +44,7 @@ Derived in: pse-math.
 | Frame | Spelling | Meaning |
 |---|---|---|
 | `MathBodyV1` | `pse.math.body.v1` | An expression body key, never over printed atoms or process-global identifiers. |
-| `MathCaseStructureV3` | `pse.math.case-structure.v3` | A bound case's structure: bindings, units, inventories and class declarations. |
+| `MathCaseStructureV4` | `pse.math.case-structure.v4` | A bound case's structure: bindings, units, inventories, class declarations and the requirements its lowerings place on the route. |
 | `MathCaseValuesV1` | `pse.math.case-values.v1` | A bound case's values, separate from structure and prepared arithmetic. |
 | `MathGuardedRealV1` | `pse.math.guarded-real.v1` | The compiler-owned guarded-real interpretation policy. |
 | `MathBoundFactsV2` | `pse.math.bound-facts.v2` | Shared bound facts of a presolve analysis. |

@@ -896,8 +896,8 @@ impl MathService {
                 // enforced envelope export as auxiliaries inside it (ADR-0105 §1).
                 let mut envelopes = BTreeMap::new();
                 for (key, registration) in &providers {
-                    if let Some(envelope) = registration.envelope().map_err(ProblemError::from)? {
-                        envelopes.insert(*key, envelope);
+                    if let Some(envelope) = registration.envelope() {
+                        envelopes.insert(*key, envelope.to_vec());
                     }
                 }
                 let request = pse_math::factorable::FactorableRequest {

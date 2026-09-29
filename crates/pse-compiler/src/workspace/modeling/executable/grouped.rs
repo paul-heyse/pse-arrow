@@ -30,10 +30,22 @@ impl ModelingOutput {
                 equation, ordinal, ..
             } => pse_ids::named_id(*equation, &format!("original-term-{ordinal}")),
             Self::Equation { id, .. } => *id,
+            Self::LevelBound { row, .. } => *row,
             Self::Member(id) => pse_ids::named_id(*id, "modeling-member-output"),
             Self::Contribution { contribution, .. } => {
                 pse_ids::named_id(*contribution, "modeling-contribution-output")
             }
+        }
+    }
+}
+impl ModelingOutput {
+    /// The selected constraint row this output is, with its sense: an equation residual,
+    /// or a generated objective bound. Every other output is an observation.
+    pub fn constraint(&self) -> Option<(SemanticId, EquationSense)> {
+        match self {
+            Self::Equation { id, sense } => Some((*id, *sense)),
+            Self::LevelBound { row, sense, .. } => Some((*row, *sense)),
+            _ => None,
         }
     }
 }
@@ -316,19 +328,33 @@ pub(super) fn admit(
         .outputs
         .iter()
         .any(|o| matches!(o, ModelingOutput::Penalty(_)));
-    let objective = if let Some((target, sense)) = p.objective {
-        let index = p
-            .outputs
-            .iter()
-            .position(|o| *o == ModelingOutput::Member(target))
-            .ok_or_else(|| CompileError::Missing("objective scalar output".into()))?;
-        let quantity = p.quantities[index];
+    // The solved level's members contribute their scales to the objective, and every
+    // bounded level's members to its bound row (ADR-0111).
+    let mut objective_scales = BTreeMap::<SemanticId, Vec<(Target, f64)>>::new();
+    let solved = p.objectives.solved();
+    for level in &p.objectives.levels {
+        let solving = solved.is_some_and(|solved| std::ptr::eq(solved, level));
+        for member in p.objectives.members_of(level) {
+            let targets = objective_scales.entry(member.term).or_default();
+            if solving {
+                targets.push((Target::Objective, member.scale));
+            }
+            if let Some(bound) = &level.bound {
+                targets.push((Target::Row(bound.row), member.scale));
+            }
+        }
+    }
+    let objective = if let Some(level) = solved {
+        let quantity = level.quantity;
         if penalty && Some(quantity) != registry.neutral_dimensionless() {
             return Err(CompileError::Missing(
                 "elastic penalties require an explicitly normalized dimensionless objective".into(),
             ));
         }
-        Some(pse_math::binding::Objective { quantity, sense })
+        Some(pse_math::binding::Objective {
+            quantity,
+            sense: objective_sense(level.sense),
+        })
     } else if penalty {
         Some(pse_math::binding::Objective {
             quantity: registry
@@ -435,20 +461,11 @@ pub(super) fn admit(
                 )
             })
             .collect::<std::result::Result<Vec<_>, MathError>>()?;
-        let (lower, upper) = match output {
-            ModelingOutput::Equation {
-                sense: EquationSense::Eq,
-                ..
-            } => (0.0, 0.0),
-            ModelingOutput::Equation {
-                sense: EquationSense::Le,
-                ..
-            } => (f64::NEG_INFINITY, 0.0),
-            ModelingOutput::Equation {
-                sense: EquationSense::Ge,
-                ..
-            } => (0.0, f64::INFINITY),
-            _ => (f64::NEG_INFINITY, f64::INFINITY),
+        let (lower, upper) = match output.constraint() {
+            Some((_, EquationSense::Eq)) => (0.0, 0.0),
+            Some((_, EquationSense::Le)) => (f64::NEG_INFINITY, 0.0),
+            Some((_, EquationSense::Ge)) => (0.0, f64::INFINITY),
+            None => (f64::NEG_INFINITY, f64::INFINITY),
         };
         let id = output.row_id();
         rows.push(Row {
@@ -460,7 +477,12 @@ pub(super) fn admit(
         let mut contributions = vec![Contribution {
             output: 0,
             target: Target::Row(id),
-            scale: 1.0,
+            // β enters its bound row negatively: `level value − β`.
+            scale: if matches!(output, ModelingOutput::LevelBound { .. }) {
+                -1.0
+            } else {
+                1.0
+            },
         }];
         if let ModelingOutput::Contribution { contribution, .. } = output {
             for (row, terms) in &p.conservation {
@@ -480,14 +502,14 @@ pub(super) fn admit(
                 scale: objective.as_ref().map_or(1.0, |o| o.sense.sign()),
             });
         }
-        if p.objective
-            .is_some_and(|(target, _)| *output == ModelingOutput::Member(target))
-        {
-            contributions.push(Contribution {
-                output: 0,
-                target: Target::Objective,
-                scale: 1.0,
-            });
+        if let ModelingOutput::Member(member) = output {
+            for (target, scale) in objective_scales.get(member).into_iter().flatten() {
+                contributions.push(Contribution {
+                    output: 0,
+                    target: *target,
+                    scale: *scale,
+                });
+            }
         }
         instances.push(InstanceBinding {
             instance: id,
@@ -517,7 +539,8 @@ pub(super) fn admit(
             objective,
             CaseLimits::default(),
         )?
-        .with_native(p.native.clone())?,
+        .with_native(p.native.clone())?
+        .with_requirements(p.requirements.iter().copied()),
     );
     Ok(Arc::new(AdmittedModeling {
         inputs: p.inputs.clone(),

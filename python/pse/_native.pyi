@@ -216,6 +216,7 @@ class EngineSettings:
         time_zone: str | None = ...,
         math_artifact_bytes: int | None = ...,
         math_foreign_bytes: int | None = ...,
+        math_inner_session_bytes: int | None = ...,
         math_worker_bytes: int | None = ...,
         math_workspace_bytes: int | None = ...,
         math_stack_bytes: int | None = ...,
@@ -239,6 +240,8 @@ class EngineSettings:
     def math_flights(self, /) -> int: ...
     @property
     def math_foreign_bytes(self, /) -> int: ...
+    @property
+    def math_inner_session_bytes(self, /) -> int: ...
     @property
     def math_jobs(self, /) -> int: ...
     @property

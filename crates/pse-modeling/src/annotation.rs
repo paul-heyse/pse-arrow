@@ -8,20 +8,25 @@ use pse_authoring::{
     language::{StaticValue, parse_static},
 };
 use pse_ids::SemanticId;
-/// Orientation of the single selected analysis objective.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ObjectiveSense {
-    /// Minimize the original physical value.
-    Minimize,
-    /// Maximize the original physical value.
-    Maximize,
-}
-pub(crate) fn objective_sense(source: &str, at: DeclarationId) -> Result<ObjectiveSense> {
-    match label(source, at)?.as_str() {
-        "minimize" => Ok(ObjectiveSense::Minimize),
-        "maximize" => Ok(ObjectiveSense::Maximize),
-        _ => Err(invalid(at, "objective sense must be minimize or maximize")),
-    }
+/// Orientation of an authored objective member: the registry enumeration.
+pub use pse_model::generated::enums::NativeObjectiveSense as ObjectiveSense;
+/// An `annotation objective` with its members evaluated to canonical values (ADR-0111).
+/// Grouping into levels, and every rule across members, belongs to the objective
+/// admission after specialization ([`crate::specialize::Objectives`]).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ObjectiveDeclaration {
+    /// Authored orientation of the member.
+    pub sense: ObjectiveSense,
+    /// Lexicographic priority; a lower value is optimized first.
+    pub priority: Option<i64>,
+    /// Positive, finite, dimensionless weight within the member's level.
+    pub weight: Option<f64>,
+    /// Positive canonical value of the member's type dividing it into a dimensionless term.
+    pub normalization: Option<crate::specialize::Value>,
+    /// Nonnegative level degradation tolerance, a difference of the member's term type.
+    pub absolute_tolerance: Option<crate::specialize::Value>,
+    /// Nonnegative dimensionless level degradation tolerance relative to the level optimum.
+    pub relative_tolerance: Option<f64>,
 }
 /// The declared extrapolation policy of an `annotation valid` range (ADR-0115 Outcome 3).
 pub(crate) fn extrapolation_policy(
@@ -46,8 +51,8 @@ pub enum AnnotationValue {
     Bounds(Expr, Expr),
     /// Declared generic scaling scheme name.
     Scale(pse_model::generated::enums::ConstraintScalingScheme),
-    /// Select this existing scalar member as the analysis objective.
-    Objective(ObjectiveSense),
+    /// Select this existing scalar member as an objective member (ADR-0111).
+    Objective(ObjectiveDeclaration),
     /// Output label.
     Report(String),
     /// Physical validity range and explicit extrapolation policy.
@@ -185,6 +190,29 @@ impl Engine<'_, '_> {
         }
         for (target, ty, env) in targets {
             let env = &env;
+            if let Some(members) = &a.objective {
+                if a.annotation_type != "objective" || !a.arguments.is_empty() {
+                    return Err(invalid(at, "objective members belong to an objective annotation"));
+                }
+                if !self.model.symbols.contains_key(&target) {
+                    return Err(invalid(at, "objective requires a scalar value member"));
+                }
+                if self.model.annotations.iter().any(|a| {
+                    a.target == target && matches!(a.value, AnnotationValue::Objective(_))
+                }) {
+                    return Err(invalid(at, "a member is one objective at most"));
+                }
+                let value = AnnotationValue::Objective(self.objective_declaration(
+                    members, &ty, env, at,
+                )?);
+                self.reserve(1)?;
+                self.model.annotations.push(Annotation {
+                    target,
+                    value,
+                    lineage: self.lineage(instance, row, &[at]),
+                });
+                continue;
+            }
             let expression = |engine: &mut Self, index: usize| -> Result<Expr> {
                 let source = a
                     .arguments
@@ -222,9 +250,6 @@ impl Engine<'_, '_> {
                         .parse()
                         .map_err(|e| invalid(at, format!("scaling scheme: {e}")))?,
                 ),
-                ("objective", 1) => {
-                    AnnotationValue::Objective(objective_sense(&a.arguments[0], at)?)
-                }
                 ("report", 1) => AnnotationValue::Report(label(&a.arguments[0], at)?),
                 ("valid", 3) => {
                     let policy = extrapolation_policy(&a.arguments[2], at)?;
@@ -261,19 +286,6 @@ impl Engine<'_, '_> {
                     "annotation target must have a complete physical type",
                 ));
             }
-            if matches!(value, AnnotationValue::Objective(_)) {
-                if !self.model.symbols.contains_key(&target) {
-                    return Err(invalid(at, "objective requires a scalar value member"));
-                }
-                if self
-                    .model
-                    .annotations
-                    .iter()
-                    .any(|a| matches!(a.value, AnnotationValue::Objective(_)))
-                {
-                    return Err(invalid(at, "a selected analysis has exactly one objective"));
-                }
-            }
             self.reserve(1)?;
             self.model.annotations.push(Annotation {
                 target,
@@ -282,6 +294,82 @@ impl Engine<'_, '_> {
             });
         }
         Ok(())
+    }
+}
+
+impl Engine<'_, '_> {
+    /// Evaluate an objective's members in its instance (ADR-0111): the weight is a positive
+    /// dimensionless number, the normalization a positive value of the member's type, and
+    /// the tolerances nonnegative, the absolute one a difference of the member's term: the
+    /// member itself, or the dimensionless quotient by its normalization.
+    fn objective_declaration(
+        &self,
+        members: &pse_authoring::language::AuthoredModelingDeclarationsFieldValueAnnotationObjective,
+        ty: &Type,
+        env: &Environment,
+        at: DeclarationId,
+    ) -> Result<ObjectiveDeclaration> {
+        use crate::ObjectiveRefusal as Refusal;
+        let refuse = |reason| crate::ModelingError::Objective {
+            declaration: at.as_id(),
+            reason,
+        };
+        let scalar = Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
+            self.c
+                .quantities
+                .neutral_dimensionless()
+                .ok_or_else(|| invalid(at, "objective members need a neutral scalar type"))?,
+        ));
+        let number = |text: &Option<String>, ty: &Type| -> Result<Option<(crate::specialize::Value, f64)>> {
+            text.as_deref()
+                .map(|text| {
+                    let value = self.eval(at, env, text, Some(ty))?;
+                    let scalar = value.scalar(at)?;
+                    Ok((value, scalar))
+                })
+                .transpose()
+        };
+        let weight = number(&members.weight, &scalar)?;
+        if weight.as_ref().is_some_and(|(_, w)| !(w.is_finite() && *w > 0.0)) {
+            return Err(refuse(Refusal::InvalidWeight));
+        }
+        let normalization = number(&members.normalization, ty)?;
+        if normalization
+            .as_ref()
+            .is_some_and(|(_, n)| !(n.is_finite() && *n > 0.0))
+        {
+            return Err(refuse(Refusal::InvalidNormalization));
+        }
+        let term = if normalization.is_some() { &scalar } else { ty };
+        let Type::Quantity(scheme) = term else {
+            return Err(invalid(at, "objective requires a physical member"));
+        };
+        let difference = Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
+            pse_quantity::scheme::Scheme::Delta(Box::new(scheme.clone()))
+                .resolve_with_evidence(
+                    self.c.quantities,
+                    &std::collections::BTreeMap::new(),
+                    self.c.preconditions,
+                )
+                .map_err(|e| invalid(at, e.to_string()))?,
+        ));
+        let absolute = number(&members.absolute_tolerance, &difference)?;
+        let relative = number(&members.relative_tolerance, &scalar)?;
+        if [&absolute, &relative]
+            .into_iter()
+            .flatten()
+            .any(|(_, t)| !(t.is_finite() && *t >= 0.0))
+        {
+            return Err(refuse(Refusal::InvalidTolerance));
+        }
+        Ok(ObjectiveDeclaration {
+            sense: members.sense,
+            priority: members.priority,
+            weight: weight.map(|(_, w)| w),
+            normalization: normalization.map(|(v, _)| v),
+            absolute_tolerance: absolute.map(|(v, _)| v),
+            relative_tolerance: relative.map(|(_, r)| r),
+        })
     }
 }
 

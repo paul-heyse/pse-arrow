@@ -5757,6 +5757,9 @@ pub enum ModelingDeclarationKind {
     ///logic
     #[serde(rename = "logic")]
     Logic,
+    ///complementarity
+    #[serde(rename = "complementarity")]
+    Complementarity,
     ///table
     #[serde(rename = "table")]
     Table,
@@ -5816,7 +5819,7 @@ impl crate::SemanticEq for ModelingDeclarationKind {
 }
 impl ModelingDeclarationKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 49usize] = [
+    pub const ALL: [Self; 50usize] = [
         Self::Relaxation,
         Self::Continuation,
         Self::Package,
@@ -5849,6 +5852,7 @@ impl ModelingDeclarationKind {
         Self::Exactly,
         Self::Piecewise,
         Self::Logic,
+        Self::Complementarity,
         Self::Table,
         Self::Dataset,
         Self::Entity,
@@ -5902,6 +5906,7 @@ impl ModelingDeclarationKind {
             Self::Exactly => "exactly",
             Self::Piecewise => "piecewise",
             Self::Logic => "logic",
+            Self::Complementarity => "complementarity",
             Self::Table => "table",
             Self::Dataset => "dataset",
             Self::Entity => "entity",
@@ -5956,23 +5961,24 @@ impl ModelingDeclarationKind {
             Self::Exactly => 29usize,
             Self::Piecewise => 30usize,
             Self::Logic => 31usize,
-            Self::Table => 32usize,
-            Self::Dataset => 33usize,
-            Self::Entity => 34usize,
-            Self::Enum => 35usize,
-            Self::Import => 36usize,
-            Self::When => 37usize,
-            Self::Accumulator => 38usize,
-            Self::Contribution => 39usize,
-            Self::Connection => 40usize,
-            Self::Annotation => 41usize,
-            Self::Requirement => 42usize,
-            Self::Expectation => 43usize,
-            Self::Continuous => 44usize,
-            Self::DifferenceScheme => 45usize,
-            Self::CollocationScheme => 46usize,
-            Self::Discretization => 47usize,
-            Self::Realization => 48usize,
+            Self::Complementarity => 32usize,
+            Self::Table => 33usize,
+            Self::Dataset => 34usize,
+            Self::Entity => 35usize,
+            Self::Enum => 36usize,
+            Self::Import => 37usize,
+            Self::When => 38usize,
+            Self::Accumulator => 39usize,
+            Self::Contribution => 40usize,
+            Self::Connection => 41usize,
+            Self::Annotation => 42usize,
+            Self::Requirement => 43usize,
+            Self::Expectation => 44usize,
+            Self::Continuous => 45usize,
+            Self::DifferenceScheme => 46usize,
+            Self::CollocationScheme => 47usize,
+            Self::Discretization => 48usize,
+            Self::Realization => 49usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -6015,6 +6021,7 @@ impl ModelingDeclarationKind {
             Self::Exactly => None,
             Self::Piecewise => None,
             Self::Logic => None,
+            Self::Complementarity => None,
             Self::Table => None,
             Self::Dataset => None,
             Self::Entity => None,
@@ -6053,10 +6060,10 @@ impl schemars::JsonSchema for ModelingDeclarationKind {
             "implicit", "regime", "disjunction", "alternative", "parameter", "variable",
             "let", "alias", "attribute", "set", "child", "port", "preset", "scope_value",
             "function", "equation", "sos1", "sos2", "atmost", "atleast", "exactly",
-            "piecewise", "logic", "table", "dataset", "entity", "enum", "import", "when",
-            "accumulator", "contribution", "connection", "annotation", "requirement",
-            "expectation", "continuous", "difference_scheme", "collocation_scheme",
-            "discretization", "realization"] }
+            "piecewise", "logic", "complementarity", "table", "dataset", "entity",
+            "enum", "import", "when", "accumulator", "contribution", "connection",
+            "annotation", "requirement", "expectation", "continuous",
+            "difference_scheme", "collocation_scheme", "discretization", "realization"] }
         )
     }
 }
@@ -6096,6 +6103,7 @@ impl core::str::FromStr for ModelingDeclarationKind {
             "exactly" => Ok(Self::Exactly),
             "piecewise" => Ok(Self::Piecewise),
             "logic" => Ok(Self::Logic),
+            "complementarity" => Ok(Self::Complementarity),
             "table" => Ok(Self::Table),
             "dataset" => Ok(Self::Dataset),
             "entity" => Ok(Self::Entity),
@@ -6854,6 +6862,15 @@ pub enum ModelingRealizationPolicy {
     ///incremental
     #[serde(rename = "incremental")]
     Incremental,
+    ///smooth
+    #[serde(rename = "smooth")]
+    Smooth,
+    ///penalty_l1
+    #[serde(rename = "penalty_l1")]
+    PenaltyL1,
+    ///disjunctive
+    #[serde(rename = "disjunctive")]
+    Disjunctive,
 }
 impl crate::SemanticEq for ModelingRealizationPolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -6862,7 +6879,7 @@ impl crate::SemanticEq for ModelingRealizationPolicy {
 }
 impl ModelingRealizationPolicy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 11usize] = [
+    pub const ALL: [Self; 14usize] = [
         Self::Inline,
         Self::Nested,
         Self::Accelerated,
@@ -6874,6 +6891,9 @@ impl ModelingRealizationPolicy {
         Self::Native,
         Self::Sos2,
         Self::Incremental,
+        Self::Smooth,
+        Self::PenaltyL1,
+        Self::Disjunctive,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -6889,6 +6909,9 @@ impl ModelingRealizationPolicy {
             Self::Native => "native",
             Self::Sos2 => "sos2",
             Self::Incremental => "incremental",
+            Self::Smooth => "smooth",
+            Self::PenaltyL1 => "penalty_l1",
+            Self::Disjunctive => "disjunctive",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -6905,6 +6928,9 @@ impl ModelingRealizationPolicy {
             Self::Native => 8usize,
             Self::Sos2 => 9usize,
             Self::Incremental => 10usize,
+            Self::Smooth => 11usize,
+            Self::PenaltyL1 => 12usize,
+            Self::Disjunctive => 13usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -6926,6 +6952,9 @@ impl ModelingRealizationPolicy {
             Self::Native => None,
             Self::Sos2 => None,
             Self::Incremental => None,
+            Self::Smooth => None,
+            Self::PenaltyL1 => None,
+            Self::Disjunctive => None,
         }
     }
 }
@@ -6944,7 +6973,7 @@ impl schemars::JsonSchema for ModelingRealizationPolicy {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["inline", "nested", "accelerated", "big_m",
             "derived_big_m", "hull", "indicator", "linear", "native", "sos2",
-            "incremental"] }
+            "incremental", "smooth", "penalty_l1", "disjunctive"] }
         )
     }
 }
@@ -6963,10 +6992,97 @@ impl core::str::FromStr for ModelingRealizationPolicy {
             "native" => Ok(Self::Native),
             "sos2" => Ok(Self::Sos2),
             "incremental" => Ok(Self::Incremental),
+            "smooth" => Ok(Self::Smooth),
+            "penalty_l1" => Ok(Self::PenaltyL1),
+            "disjunctive" => Ok(Self::Disjunctive),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingRealizationPolicy).to_owned(),
                     enumeration: stringify!(ModelingRealizationPolicy).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum ModelingStructuralRequirement {
+    ///l1_exact_penalty
+    #[serde(rename = "l1_exact_penalty")]
+    L1ExactPenalty,
+}
+impl crate::SemanticEq for ModelingStructuralRequirement {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingStructuralRequirement {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 1usize] = [Self::L1ExactPenalty];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::L1ExactPenalty => "l1_exact_penalty",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::L1ExactPenalty => 0usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::L1ExactPenalty => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingStructuralRequirement {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingStructuralRequirement))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingStructuralRequirement)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["l1_exact_penalty"] })
+    }
+}
+impl core::str::FromStr for ModelingStructuralRequirement {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "l1_exact_penalty" => Ok(Self::L1ExactPenalty),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingStructuralRequirement).to_owned(),
+                    enumeration: stringify!(ModelingStructuralRequirement).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -14810,6 +14926,16 @@ impl crate::HeapUsage for ModelingRealizationPolicy {
     }
 }
 impl crate::SemanticFrame for ModelingRealizationPolicy {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ModelingStructuralRequirement {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingStructuralRequirement {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
