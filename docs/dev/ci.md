@@ -28,8 +28,8 @@ tag. It retains its release checks and publishing environments. Ordinary commits
 pushes do not trigger it.
 
 The local recipes remain available on demand: `just ci-fast` for a Rust aggregate,
-`just ci-pr` for the broader local aggregate, `just parity-container` for solver-backed
-parity, `just quality` for Python static checks, `just docs` for the site and
+`just ci-pr` for the broader local aggregate, `just parity` for the IDAES
+parity comparisons, `just quality` for Python static checks, `just docs` for the site and
 `just lint-repo` for workflow lint. `just --list` describes the full command surface.
 Run only the checks relevant to the question being investigated. When reporting a run,
 name its command, mode, scope and result against the zero-failure target; a passing

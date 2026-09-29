@@ -99,7 +99,7 @@ Each is stated once in its authority; this list only points to it.
 | Compilation of touched code | `just check-package <pkg>`, `just check` |
 | Library fit where doubt remains (DP-15) | capability maps (`just lib-outline`), the library skills and their probes |
 | Dependency families (DP-15) | `just family-check` |
-| Reference validation (PS-13) | `just parity`, `just parity-container` |
+| Reference validation (PS-13) | `just parity` |
 | Plan-close qualification | the AGENTS.md *Verifying work* table |
 
 ## Routes for required changes

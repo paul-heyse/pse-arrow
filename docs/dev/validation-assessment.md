@@ -165,6 +165,6 @@ and reference checks establish the stated cases only.
 
 `just assessment-list` prints these exclusions: other platforms, wheels and remote CI;
 release, coverage, feature powerset and alternate toolchains; IDAES parity (`just
-parity-container`); performance (`case-measure`); the time-dependent `register-check`;
+parity`); performance (`case-measure`); the time-dependent `register-check`;
 and architecture or scientific review, which is a judgement recorded by its owner, not
 command-exit evidence.

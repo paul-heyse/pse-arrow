@@ -66,7 +66,7 @@ Moving it is a decision, not a dependency bump:
    of ADR-0003, stating what changed upstream and what parity results moved.
 2. Update the `parity` group pin and the tag in `scripts/fetch-external.sh` in
    the same PR; the lint checks they agree.
-3. Re-run `python / parity` on every supported interpreter and record the
+3. Re-run `just parity` and record the
    differences in the ADR's Consequences section with a core principles §D
    evidence label.
 

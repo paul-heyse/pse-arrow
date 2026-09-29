@@ -67,7 +67,7 @@ differently from the rest:
    new scope. Formatting, lint and integrated suites run once all functional scope is
    implemented (AGENTS.md *Execution rhythm*). CI is entirely manual and does not
    run or gate commits, pushes, pull requests, merges or plan closure. Use `just ci-fast`,
-   `just ci-pr`, `just parity-container` or the GitHub Actions **Run workflow** button
+   `just ci-pr`, `just parity` or the GitHub Actions **Run workflow** button
    whenever you choose to review the project. Full wheels/sdists remain manual
    (`just wheels-check <ref>`) or release-time checks.
 5. **Commit** with Conventional Commit subjects so the changelog remains readable. Types:
@@ -127,9 +127,9 @@ the completed plan and its resolved reviews then retire (Git history keeps them)
 | `just coverage` | line/branch coverage numbers | that the covered lines assert anything meaningful |
 | `just bench-smoke` | benchmarks still build and run | any performance claim — that needs `Measured` with conditions |
 | `just quality` | ruff, pyrefly, import-linter, REUSE, lockfile freshness | that the Python surface matches the native extension |
-| `just parity` | agreement with `idaes-pse==2.12.0` on the trajectories under test, on Linux with Ipopt 3.14.x | agreement anywhere else, or that IDAES is right where we differ |
+| `just parity` | agreement with `idaes-pse==2.13.0` on the comparisons under test, on this Linux machine with the pinned solver prefix | agreement anywhere else, or that IDAES is right where we differ |
 | `just doc-lint` | every backticked `a::b::c` in `docs/**` resolves in the pinned API surface | that the prose describes what the API does |
-| `just ci-pr` | the local composite Rust, Python, quality and documentation checks pass | GitHub's interpreter matrix, container parity, or deeper manual jobs |
+| `just ci-pr` | the local composite Rust, Python, quality and documentation checks pass | GitHub's interpreter matrix, parity, or deeper manual jobs |
 
 GitHub checks and `just ci-pr` are optional and run only when requested.
 Say what you verified using the §D vocabulary, and say what you did not.

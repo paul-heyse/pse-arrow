@@ -102,8 +102,8 @@ or downloads — `just bootstrap` does that, visibly.
 
 For Python/native development, run `just py-sync` to refresh the editable extension
 using the dev profile, then targeted `just py-test`; `just quality` is available on
-demand. Use
-`just parity-container` when solver-backed parity is needed. Full wheel/sdist builds
+demand. `just parity` builds the linked native extension into `.venv-parity` and runs the
+IDAES comparisons on this machine against the extracted solver prefix. Full wheel/sdist builds
 are manual (`just wheels-check <ref>`) or part of a release; ordinary PRs do not wait
 for distribution builds. CI uses editable development builds for Python and parity.
 These local recipes are available on demand. Git hooks are not installed by bootstrap,

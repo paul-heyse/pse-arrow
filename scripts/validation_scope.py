@@ -191,7 +191,7 @@ def comprehensive() -> list[Gate]:
 EXCLUSIONS = {
     "other platforms and distribution": "This command qualifies the local pinned environment; remote CI, wheels and other hosts have separate commands.",
     "release, coverage, feature powerset, alternate toolchains": "Available separately; not part of the default and native local profiles.",
-    "parity": "Run parity-container separately when IDAES parity is in scope.",
+    "parity": "Run just parity separately when IDAES parity is in scope.",
     "performance": "Run case-measure after functional qualification, with an explicit functional report.",
     "reviews": "Architecture and scientific review are judgments recorded in the owning plan, not command-exit evidence.",
     "scheduled register checks": "register-check is time-dependent; deterministic adr-lint uses register-lint.",

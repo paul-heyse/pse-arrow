@@ -495,7 +495,7 @@ baseline with its command and conditions.
   - the invariant harness;
   - `just db-test`, `just worker-test` and `just publication-test`;
   - Python component and integration tests.
-- **Parity** (`just parity-container`): DegeneracyHunter, PETSc PID, `sens.py` (`sensitivity_agrees_with_ipopt_sens`) and parmest covariance.
+- **Parity** (`just parity`, on this machine): DegeneracyHunter, PETSc PID, `sens.py` (`sensitivity_agrees_with_ipopt_sens`) and parmest covariance.
 - **New `.config/process-cases.json` cases:**
   - authored MILP;
   - small MINLP and GDP;

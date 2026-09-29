@@ -748,16 +748,10 @@ bootstrap-docs:
 docs-serve:
     python3 -m scripts.docs serve
 
-[group('manual')]
-[doc('Parity suite against IDAES 2.13.0 in the parity environment (fails, never skips, without a solver)')]
-parity *args:
-    UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --group parity --python 3.13
-    UV_PROJECT_ENVIRONMENT=.venv-parity uv run --no-sync pytest --maxfail=0 --continue-on-collection-errors --parity -m "unit or component or integration" {{ args }}
-
 [group('local')]
-[doc('Parity comparisons against IDAES 2.13.0 on the host: pse built on the linked native solvers, the solver prefix on PATH')]
+[doc('Parity suite against IDAES 2.13.0 on this machine: pse built on the linked native solvers, the extracted solver prefix first on PATH (fails, never skips)')]
 [positional-arguments]
-parity-native *args:
+parity *args:
     #!/usr/bin/env bash
     set -euo pipefail
     source scripts/native-execution-env.sh
@@ -769,7 +763,7 @@ parity-native *args:
     .venv-parity/bin/python -m pytest --maxfail=0 --parity -m "unit or component or integration" python/pse/parity "$@"
 
 [group('manual')]
-[doc('Optional aggregate of Rust, Python, quality and documentation checks; container parity is separate')]
+[doc('Optional aggregate of Rust, Python, quality and documentation checks; parity is separate')]
 ci-pr:
     python3 -m scripts.validation --group ci-pr
 
@@ -966,11 +960,6 @@ solver-pin-check:
 [doc('Rebuild the solver libraries without Docker layer cache and compare published checksums')]
 solver-rebuild-check:
     bash scripts/solver-rebuild-check.sh
-
-[group('manual')]
-[doc('Parity preflight in the pinned dev image with isolated Linux caches')]
-parity-container *args:
-    ./scripts/parity-container.sh {{ args }}
 
 [group('discovery')]
 [doc('Read-only comparison of live GitHub configuration with full declarations')]

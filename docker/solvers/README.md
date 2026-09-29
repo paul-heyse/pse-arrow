@@ -203,7 +203,7 @@ pin, unchanged. The extracted prefix lands in
 that loads the extracted libraries directly (outside the image) needs the
 [process environment](#process-environment) and `LD_LIBRARY_PATH=<prefix>/lib`
 (the libraries' RUNPATH is `/opt/pse-solvers/lib`).
-The same variable is read by `just parity-container` and
+The same variable is read by
 `just solver-rebuild-check`, which also accept a tag, and by
 `just bootstrap-solvers`, which pulls it and so needs a registry reference.
 
@@ -232,7 +232,7 @@ host and container builds should not fight over it.
 The `dev` stage bakes the channel of `rust-toolchain.toml` (a dated nightly,
 ADR-0122), passed as `--build-arg RUST_TOOLCHAIN` by `just solver-image` and the
 `solvers-image` workflow. Moving the pin requires a rebuilt, re-pinned `dev` image
-before `just parity-container` or the devcontainer can build.
+before the devcontainer can build.
 
 ## Running `build.sh` outside Docker
 

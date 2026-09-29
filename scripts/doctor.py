@@ -438,7 +438,7 @@ def check_solvers() -> Check:
         return Check(
             "solvers",
             ready,
-            "pinned container present; use just parity-container"
+            "pinned solver image present"
             if ready
             else "pinned solver container missing",
             "" if ready else "just bootstrap-solvers",
