@@ -2,10 +2,11 @@
 // Copyright (c) 2026 Paul Heyse
 //! Rust-only Diffsol adapter. All operator failures exit through one owned catch boundary.
 //! The scheme (BDF, TR-BDF2, ESDIRK34, Tsit45) and the Newton linear solver (faer LU or
-//! SuiteSparse KLU) are typed profile fields (ADR-0110 item 2).
+//! SuiteSparse KLU) are typed profile fields (ADR-0110 item 2). Both linear solvers are
+//! pse-owned and fail through Diffsol's typed step recovery, not by panicking (I9).
 use super::*;
 use diffsol::{
-    ConstantOp, ConstantOpSens, FaerContext, FaerSparseLU, FaerSparseMat, FaerVec, LinearOp,
+    ConstantOp, ConstantOpSens, FaerContext, FaerSparseMat, FaerVec, LinearOp,
     LinearSolver, Matrix, NonLinearOp, NonLinearOpJacobian, NonLinearOpSens, OdeBuilder,
     OdeEquations, OdeEquationsRef, OdeSolverMethod, OdeSolverStopReason, Op, Vector, VectorHost,
 };
@@ -507,9 +508,12 @@ pub(super) fn integrate_with_progress(
         },
     });
     let mut report = Report::new(profile.start);
+    // The boundary exits Diffsol's infallible operator callbacks with the recorded typed
+    // failure (`Shared::abort`) and contains any other library panic. A failed Newton
+    // factorization never reaches it: the linear solvers return it as an error.
     let result = catch_unwind(AssertUnwindSafe(|| match profile.diffsol.linear {
-        DiffsolLinear::FaerLu => run::<FaerSparseLU<f64>>(shared.clone(), profile, &mut report),
-        DiffsolLinear::Klu => run::<diffsol::KLU<M>>(shared.clone(), profile, &mut report),
+        DiffsolLinear::FaerLu => run::<linear::FaerLu>(shared.clone(), profile, &mut report),
+        DiffsolLinear::Klu => run::<linear::Klu>(shared.clone(), profile, &mut report),
     }));
     match result {
         Ok(Ok(())) => {}
@@ -606,6 +610,8 @@ fn run<LS: LinearSolver<M>>(
         let stop = p.changes.get(change).map_or(p.end, |v| v.time);
         // One segment on the selected library scheme (ADR-0110 item 2). Every scheme
         // shares root finding, interpolation, output quadrature and reset sensitivities.
+        // The segment's own unwind catch records its statistics before an abort continues
+        // to the outer boundary.
         macro_rules! segment {
             ($solver:expr, sensitivities) => {{
                 let mut solver = $solver.map_err(native)?;

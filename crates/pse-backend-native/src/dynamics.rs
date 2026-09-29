@@ -16,6 +16,8 @@ use std::{
 mod idas;
 #[cfg(feature = "diffsol")]
 mod integrator;
+#[cfg(feature = "diffsol")]
+mod linear;
 
 /// Registry vocabularies of the dynamics settings (ADR-0110, ADR-0115 Outcome 3): the
 /// requested integration algorithm (`auto` resolves from trial requirements), the contract

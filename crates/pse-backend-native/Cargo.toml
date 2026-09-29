@@ -29,7 +29,7 @@ kinsol = ["dep:sundials-sys", "dep:suitesparse_sys"]
 # provider (ADR-0108 item 5). `clarabel/sdp-mkl` is not used: its intel-mkl-src pins a static
 # Intel-OpenMP MKL, a second threading runtime the image does not ship.
 sdp = ["clarabel/sdp", "clarabel/blas-src", "clarabel/lapack-src"]
-diffsol = ["dep:diffsol", "diffsol/suitesparse"]
+diffsol = ["dep:diffsol", "dep:diffsol-la", "dep:suitesparse_sys"]
 idas = ["dep:sundials-sys", "sundials-sys/idas", "dep:suitesparse_sys"]
 scip = ["dep:scip-sys"]
 native-solvers = [
@@ -46,6 +46,7 @@ native-solvers = [
 [dependencies]
 pse-model.workspace = true
 diffsol = { workspace = true, optional = true }
+diffsol-la = { workspace = true, optional = true }
 pounce-nlp.workspace = true
 pounce-common.workspace = true
 pounce-presolve.workspace = true
