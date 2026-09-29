@@ -431,6 +431,22 @@ fn declare_dynamics(builder: &mut RegistryBuilder) {
             ),
         ],
     );
+    // ADR-0110 Outcome 5: shooting routes over the integrated experiment; the scheduled
+    // inputs held free are the controls.
+    vocabulary(
+        builder,
+        "ShootingMethod",
+        &[
+            (
+                "single",
+                "One window over the horizon: the controls are the only variables.",
+            ),
+            (
+                "multiple",
+                "One window per node interval: the differential states at the inner nodes are variables, closed by continuity rows.",
+            ),
+        ],
+    );
     vocabulary(
         builder,
         "FitDerivatives",

@@ -140,3 +140,8 @@ pse.cone.lowered-row.v1
 # second-order preparation is a distinct simulation. modeling.dynamic.v2 replaces
 # modeling.dynamic.v1, which is not declared.
 pse.modeling.dynamic.v2
+# Plan 22 Y5b (ADR-0110 Outcome 5): a shooting window's oracle, whose parameters include
+# the differential start states and whose quadratures may be observed as states, and the
+# shooting NLP over the windows.
+pse.shooting.problem.v1
+pse.shooting.window.v1

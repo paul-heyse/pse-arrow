@@ -6502,6 +6502,9 @@ pub enum ModelingFixtureExecution {
     ///simultaneous
     #[serde(rename = "simultaneous")]
     Simultaneous,
+    ///shooting
+    #[serde(rename = "shooting")]
+    Shooting,
 }
 impl crate::SemanticEq for ModelingFixtureExecution {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -6510,12 +6513,13 @@ impl crate::SemanticEq for ModelingFixtureExecution {
 }
 impl ModelingFixtureExecution {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
+    pub const ALL: [Self; 6usize] = [
         Self::Pure,
         Self::Steady,
         Self::Initialized,
         Self::Integrated,
         Self::Simultaneous,
+        Self::Shooting,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -6525,6 +6529,7 @@ impl ModelingFixtureExecution {
             Self::Initialized => "initialized",
             Self::Integrated => "integrated",
             Self::Simultaneous => "simultaneous",
+            Self::Shooting => "shooting",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -6535,6 +6540,7 @@ impl ModelingFixtureExecution {
             Self::Initialized => 2usize,
             Self::Integrated => 3usize,
             Self::Simultaneous => 4usize,
+            Self::Shooting => 5usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -6550,6 +6556,7 @@ impl ModelingFixtureExecution {
             Self::Initialized => None,
             Self::Integrated => None,
             Self::Simultaneous => None,
+            Self::Shooting => None,
         }
     }
 }
@@ -6567,7 +6574,7 @@ impl schemars::JsonSchema for ModelingFixtureExecution {
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["pure", "steady", "initialized", "integrated",
-            "simultaneous"] }
+            "simultaneous", "shooting"] }
         )
     }
 }
@@ -6580,6 +6587,7 @@ impl core::str::FromStr for ModelingFixtureExecution {
             "initialized" => Ok(Self::Initialized),
             "integrated" => Ok(Self::Integrated),
             "simultaneous" => Ok(Self::Simultaneous),
+            "shooting" => Ok(Self::Shooting),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingFixtureExecution).to_owned(),
@@ -12575,6 +12583,95 @@ impl crate::SemanticFrame for Severity {
         hash.str(self.as_str());
     }
 }
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum ShootingMethod {
+    ///One window over the horizon: the controls are the only variables.
+    #[serde(rename = "single")]
+    Single,
+    ///One window per node interval: the differential states at the inner nodes are variables, closed by continuity rows.
+    #[serde(rename = "multiple")]
+    Multiple,
+}
+impl crate::SemanticEq for ShootingMethod {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ShootingMethod {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Single, Self::Multiple];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Single => "single",
+            Self::Multiple => "multiple",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Single => 0usize,
+            Self::Multiple => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Single => None,
+            Self::Multiple => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ShootingMethod {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ShootingMethod))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ShootingMethod)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["single", "multiple"] })
+    }
+}
+impl core::str::FromStr for ShootingMethod {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "single" => Ok(Self::Single),
+            "multiple" => Ok(Self::Multiple),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ShootingMethod).to_owned(),
+                    enumeration: stringify!(ShootingMethod).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
 /// A vocabulary owned by its source type; the registry declares its members.
 pub type SnapshotClass = pse_vocabulary::SnapshotClass;
 impl crate::SemanticEq for SnapshotClass {
@@ -15260,6 +15357,16 @@ impl crate::HeapUsage for SettlementOutcome {
     }
 }
 impl crate::SemanticFrame for SettlementOutcome {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ShootingMethod {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ShootingMethod {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

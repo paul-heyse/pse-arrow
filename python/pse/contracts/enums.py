@@ -729,6 +729,7 @@ class ModelingFixtureExecution(StrEnum):
     INITIALIZED = "initialized"
     INTEGRATED = "integrated"
     SIMULTANEOUS = "simultaneous"
+    SHOOTING = "shooting"
 
 
 class ModelingInitializationStep(StrEnum):
@@ -1372,6 +1373,13 @@ class Severity(StrEnum):
 
     ERROR = "error"
     WARNING = "warning"
+
+
+class ShootingMethod(StrEnum):
+    """The declared ShootingMethod enumeration."""
+
+    SINGLE = "single"
+    MULTIPLE = "multiple"
 
 
 class SnapshotClass(StrEnum):

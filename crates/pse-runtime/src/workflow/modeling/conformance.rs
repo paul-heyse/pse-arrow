@@ -674,7 +674,7 @@ impl ModelingPackage {
                 .and_then(|f| f.execution)
                 .unwrap_or(Execution::Steady);
             let bindings = Bindings::default().with_analysis(match execution {
-                Execution::Integrated => Route::Integrated,
+                Execution::Integrated | Execution::Shooting => Route::Integrated,
                 Execution::Simultaneous => Route::Simultaneous,
                 _ => Route::Steady,
             });
@@ -736,6 +736,22 @@ impl ModelingPackage {
                     model.compiled(),
                     checked.map_err(WorkflowError::from),
                     row,
+                    cap,
+                );
+                continue;
+            }
+            // A shooting fixture's controls are scheduled inputs held free: until the
+            // fixture declares schedules (ADR-0119 Outcome 2) it has nothing to shoot for,
+            // and the runtime route (`ModelingSimulation::shooting`) takes them directly.
+            if execution == Execution::Shooting {
+                report.failed(
+                    fixture,
+                    Kind::Preparation,
+                    &contract(
+                        "a shooting fixture needs authored scheduled inputs held free as its controls",
+                    ),
+                    expected_failure,
+                    oracle,
                     cap,
                 );
                 continue;

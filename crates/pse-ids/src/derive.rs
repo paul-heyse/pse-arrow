@@ -256,6 +256,8 @@ frames! {
         PresolveTransformationV2 => "pse.presolve.transformation.v2",
         /// The constraint system a SCIP reoptimization session was built for.
         ScipReoptimizationSystemV1 => "pse.scip.reoptimization.system.v1",
+        /// A shooting window's oracle: its anchored starts and observed quadratures.
+        ShootingWindowV1 => "pse.shooting.window.v1",
         /// A tear-selection decision column.
         TearDecisionV1 => "pse.tear.decision.v1",
         /// A tear-selection order column.
@@ -309,6 +311,8 @@ frames! {
         RunSourceV1 => "pse.run.source.v1",
         /// A publication request's target.
         RunTargetV1 => "pse.run.target.v1",
+        /// A shooting NLP: its simulation, method, nodes, controls, rows and objective.
+        ShootingProblemV1 => "pse.shooting.problem.v1",
         /// A solve's compilation and normalization, before a seed is attached.
         SolvePreparationV1 => "pse.solve.preparation.v1",
         /// A complete selected solve request.

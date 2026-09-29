@@ -12,6 +12,8 @@ use std::{
     time::Duration,
 };
 
+mod anchored;
+pub use anchored::Anchored;
 #[cfg(feature = "idas")]
 mod idas;
 #[cfg(feature = "diffsol")]
@@ -775,6 +777,47 @@ impl Profile {
         integration
             .checked_sub(intervals)
             .map(|n| n + self.schedule.len())
+    }
+    /// The profile of a window `[start, end]` of this horizon, sampled at `samples`: every
+    /// scheduled input keeps the changes strictly inside the window, and one in effect at
+    /// `start` becomes the window's first interval. A shooting window's integration vector
+    /// holds, for each of its columns, the value of the horizon's column in effect there
+    /// ([`Profile::columns_at`] of both at the same time).
+    ///
+    /// ```
+    /// use pse_backend_native::dynamics::{Profile, ScheduledInput};
+    ///
+    /// let horizon = Profile {
+    ///     end: 3.0,
+    ///     schedule: vec![ScheduledInput { parameter: 0, times: vec![1.0, 2.0] }],
+    ///     ..Profile::default()
+    /// };
+    /// let window = horizon.window(1.0, 3.0, vec![1.0, 3.0]);
+    /// assert_eq!((window.start, window.end), (1.0, 3.0));
+    /// assert_eq!(window.schedule, vec![ScheduledInput { parameter: 0, times: vec![2.0] }]);
+    /// // Without a change inside, the input is constant over the window.
+    /// assert!(horizon.window(0.0, 1.0, vec![1.0]).schedule.is_empty());
+    /// ```
+    pub fn window(&self, start: f64, end: f64, samples: Vec<f64>) -> Profile {
+        let mut window = self.clone();
+        window.start = start;
+        window.end = end;
+        window.samples = samples;
+        window.schedule = self
+            .schedule
+            .iter()
+            .map(|s| ScheduledInput {
+                parameter: s.parameter,
+                times: s
+                    .times
+                    .iter()
+                    .copied()
+                    .filter(|t| *t > start && *t < end)
+                    .collect(),
+            })
+            .filter(|s| !s.times.is_empty())
+            .collect();
+        window
     }
     /// Every distinct change time in increasing order: the segment boundaries.
     pub(crate) fn boundaries(&self) -> Vec<f64> {
