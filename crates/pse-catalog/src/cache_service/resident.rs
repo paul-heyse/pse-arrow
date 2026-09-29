@@ -407,6 +407,30 @@ struct SelectedExec {
 pub(crate) fn supports_round_reset(plan: &dyn ExecutionPlan) -> bool {
     plan.is::<SelectedExec>()
 }
+/// An equivalent rebuild of the exact source: the same native leaves, and above them the
+/// same operators with the same parameters and schemas. Distribution enforcement rebuilds
+/// an input this way when it replaces a round-robin repartition with an identical one;
+/// a rebound source has other leaves and an altered operator renders differently.
+fn rebuilt(old: &Arc<dyn ExecutionPlan>, new: &Arc<dyn ExecutionPlan>) -> bool {
+    if Arc::ptr_eq(old, new) {
+        return true;
+    }
+    let (old_children, new_children) = (old.children(), new.children());
+    !old_children.is_empty()
+        && old_children.len() == new_children.len()
+        && old.name() == new.name()
+        && old.schema() == new.schema()
+        && datafusion::physical_plan::displayable(old.as_ref())
+            .one_line()
+            .to_string()
+            == datafusion::physical_plan::displayable(new.as_ref())
+                .one_line()
+                .to_string()
+        && old_children
+            .into_iter()
+            .zip(new_children)
+            .all(|(old, new)| rebuilt(old, new))
+}
 impl DisplayAs for SelectedExec {
     fn fmt_as(&self, _: DisplayFormatType, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("NativeSelectedCacheExec: exact selection, lazy, lease-free idle entries")
@@ -422,6 +446,11 @@ impl ExecutionPlan for SelectedExec {
     fn children(&self) -> Vec<&Arc<dyn ExecutionPlan>> {
         vec![&self.input]
     }
+    /// The selection drains its whole input into one partition. Repartitioning that input
+    /// gains nothing and is a physical rewrite, which forfeits exact-source reuse.
+    fn benefits_from_input_partitioning(&self) -> Vec<bool> {
+        vec![false]
+    }
     fn with_new_children(
         self: Arc<Self>,
         mut children: Vec<Arc<dyn ExecutionPlan>>,
@@ -430,8 +459,9 @@ impl ExecutionPlan for SelectedExec {
             .pop()
             .filter(|_| children.is_empty())
             .ok_or_else(|| DataFusionError::Plan("resident cache needs one input".into()))?;
-        let reuse =
-            self.reuse && pse_engine::operation::ports::same_physical_input(&input, &self.input);
+        let reuse = self.reuse
+            && (pse_engine::operation::ports::same_physical_input(&input, &self.input)
+                || rebuilt(&self.input, &input));
         Ok(Arc::new(Self {
             input,
             full_schema: self.full_schema.clone(),

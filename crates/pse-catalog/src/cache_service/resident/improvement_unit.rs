@@ -244,3 +244,29 @@ async fn warm_complete_entries_project_and_limit_without_loading_partial_results
     assert_eq!(table.service.resident.report().hits, 2);
     assert_eq!(table.service.resident.loads.load(Ordering::Relaxed), 1);
 }
+
+#[test]
+fn resident_reuse_survives_an_equivalent_rebuild_only() {
+    use datafusion::{
+        datasource::memory::MemorySourceConfig,
+        physical_expr::expressions::Column,
+        physical_plan::{Partitioning, projection::ProjectionExec, repartition::RepartitionExec},
+    };
+    let schema = Arc::new(Schema::new(vec![Field::new("v", DataType::Int64, false)]));
+    let batch =
+        RecordBatch::try_new(schema.clone(), vec![Arc::new(Int64Array::from(vec![1, 2]))]).unwrap();
+    let source = || MemorySourceConfig::try_new_exec(&[vec![batch.clone()]], schema.clone(), None).unwrap();
+    let input = |leaf: Arc<dyn ExecutionPlan>, name: &str| -> Arc<dyn ExecutionPlan> {
+        let fanned =
+            Arc::new(RepartitionExec::try_new(leaf, Partitioning::RoundRobinBatch(4)).unwrap());
+        let column: Arc<dyn datafusion::physical_expr::PhysicalExpr> = Arc::new(Column::new("v", 0));
+        Arc::new(ProjectionExec::try_new(vec![(column, name.to_owned())], fanned).unwrap())
+    };
+    let leaf: Arc<dyn ExecutionPlan> = source();
+    let original = input(leaf.clone(), "v");
+    // Distribution enforcement's replacement: identical operators over the same leaf.
+    assert!(rebuilt(&original, &input(leaf.clone(), "v")));
+    // A rebound source reads other leaves; an altered operator renders differently.
+    assert!(!rebuilt(&original, &input(source(), "v")));
+    assert!(!rebuilt(&original, &input(leaf, "w")));
+}

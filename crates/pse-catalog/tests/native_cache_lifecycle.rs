@@ -22,4 +22,7 @@ async fn selected_cache_and_projected_reuse_match_fresh_native_results() {
         };
         println!("{receipt}");
     }
+    // Above one batch of rows, distribution enforcement rebuilds the selection's input
+    // with an identical round-robin repartition; the resident entry must still be reused.
+    println!("{}", Box::pin(cache_journey::run(true, 16384)).await);
 }
