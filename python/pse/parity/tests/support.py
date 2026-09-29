@@ -22,7 +22,9 @@ def runtime(spill: Path) -> pse.Runtime:
     """The in-memory runtime the comparisons share: a process configures one budget."""
     return pse.Runtime(
         pse.EngineSettings(
-            memory_limit_bytes=8 << 30,
+            # Every live package holds its compiler workspace allowance, and the
+            # comparisons keep several packages alive in one process.
+            memory_limit_bytes=64 << 30,
             threads=1,
             spill_dir=str(spill),
             max_spill_bytes=1 << 30,
@@ -58,6 +60,50 @@ def package(
         [{"package.toml": manifest, "models/parity.pse": text}], physical
     )
     return authored, {row.name: row.declaration_id for row in authored.declarations()}
+
+
+def documents(path: Path) -> dict[str, str]:
+    """A package directory's documents by relative path."""
+    return {
+        p.relative_to(path).as_posix(): p.read_text()
+        for p in path.rglob("*")
+        if p.is_file() and p.suffix in {".toml", ".yaml", ".yml", ".pse"}
+    }
+
+
+def reference_package(runtime: pse.Runtime, text: str) -> pse.ModelingPackage:
+    """An authored package that uses the reference libraries (`control`, `math`, …),
+    with their `Scalar` and `Time` aliases."""
+    reference = ROOT / "packages/reference"
+    physical = runtime.physical_from_documents(documents(reference / "physical"))
+    manifest = """[package]
+package_id = "5a1b2c3d4e5f60718293a4b5c6d7e8f9"
+name = "parity.reference"
+version = "1.0.0"
+kind = "model"
+id_policy = "named"
+dependencies = [
+  { package_id = "12104e13f2494492ba75de08955299a6", version_req = "=1.0.0" },
+  { package_id = "b27409be5572b8712e47db271fae28cd", version_req = "=1.0.0" },
+]
+doc = "Parity comparison models."
+
+[[quantity_aliases]]
+name = "Scalar"
+quantity_type_id = "dc255c612cf27e30cb835377c8dafcf4"
+
+[[quantity_aliases]]
+name = "Time"
+quantity_type_id = "e2ccf6d0a394403db967f4f35b83cb7c"
+"""
+    return runtime.modeling_from_documents(
+        [{"package.toml": manifest, "models/parity.pse": text}]
+        + [
+            documents(reference / name)
+            for name in ("process", "thermodynamics", "methods", "physical")
+        ],
+        physical,
+    )
 
 
 def members(
