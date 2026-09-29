@@ -51,6 +51,25 @@ class BuildEnvironmentTests(unittest.TestCase):
             {key: build.configure(build.ROOT, own)[key] for key in own}, own
         )
 
+    def test_target_directory_belongs_to_the_building_checkout(self) -> None:
+        own = str(build.ROOT / "target")
+        with tempfile.TemporaryDirectory() as other:
+            inherited = {"CARGO_TARGET_DIR": str(Path(other) / "target")}
+            self.assertEqual(
+                build.configure(build.ROOT, inherited)["CARGO_TARGET_DIR"], own
+            )
+        nested = {"CARGO_TARGET_DIR": str(build.ROOT / "target/measure-production")}
+        self.assertEqual(
+            build.configure(build.ROOT, nested)["CARGO_TARGET_DIR"],
+            nested["CARGO_TARGET_DIR"],
+        )
+        self.assertNotIn("CARGO_TARGET_DIR", build.configure(build.ROOT, {}))
+        explicit = {"PSE_CARGO_TARGET_DIR": "/fast/disk/target", **nested}
+        self.assertEqual(
+            build.configure(build.ROOT, explicit)["CARGO_TARGET_DIR"],
+            "/fast/disk/target",
+        )
+
     def test_nightly_preserves_flags_and_stable_rejects_unstable(self) -> None:
         env = build.configure(
             build.ROOT,

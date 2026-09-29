@@ -3,6 +3,7 @@
 # Copy to .envrc.local (gitignored) for machine-local overrides. Examples:
 # export RUSTC_WRAPPER=""               # disable automatic local compiler cache
 # export PSE_NATIVE_CACHE=/path/to/cache  # persistent native preparations
+# export PSE_CARGO_TARGET_DIR=/fast/disk/pse-target  # build outside the checkout (default: <checkout>/target)
 # Native recipes accept only an immutable image id or digest (sha256:<64 hex> or name@sha256:<64 hex>):
 # export PSE_SOLVER_IMAGE="$(docker image inspect --format '{{.Id}}' pse-solvers:dev-local)"
 # export IPOPT_DIR=/opt/pse-solvers
