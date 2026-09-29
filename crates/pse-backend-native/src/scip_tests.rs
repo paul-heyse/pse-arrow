@@ -148,6 +148,26 @@ fn case_with(
     order: DerivativeOrder,
     native: Vec<NativeConstraint>,
 ) -> Case {
+    case_of(
+        registry, body, columns, &[], rows, objective, order, native,
+    )
+}
+/// As [`case_with`], with case parameters `id(80 + j)` bound after the columns: body input
+/// `columns.len() + j` takes the value `parameters[j]`.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "a test case binds its body, columns, parameters, rows, objective, order and native forms"
+)]
+fn case_of(
+    registry: &QuantityRegistry,
+    body: pse_math::guarded::PreparedBody,
+    columns: &[(ModelingVariableDomain, Option<f64>, Option<f64>, f64)],
+    parameters: &[f64],
+    rows: &[(f64, f64)],
+    objective: Option<(usize, ObjectiveSense)>,
+    order: DerivativeOrder,
+    native: Vec<NativeConstraint>,
+) -> Case {
     let key = ContentHash::from_bytes([7; 32]);
     let variables = columns
         .iter()
@@ -160,11 +180,16 @@ fn case_with(
             upper: *upper,
         })
         .collect();
+    let parameter = |j: usize| port(registry, 80 + u8::try_from(j).unwrap());
     let slots = (0..columns.len())
         .map(|i| {
             let p = port(registry, u8::try_from(i + 1).unwrap());
             SlotBinding::new(&p, &p, registry).unwrap()
         })
+        .chain((0..parameters.len()).map(|j| {
+            let p = parameter(j);
+            SlotBinding::new(&p, &p, registry).unwrap()
+        }))
         .collect();
     let mut row = 0;
     let mut contributions = Vec::new();
@@ -194,7 +219,7 @@ fn case_with(
     let structure = Arc::new(
         CaseStructure::new(
             variables,
-            vec![],
+            (0..parameters.len()).map(parameter).collect(),
             vec![InstanceBinding {
                 instance: id(9),
                 body: key,
@@ -236,6 +261,12 @@ fn case_with(
             .iter()
             .enumerate()
             .map(|(i, c)| (id(u8::try_from(i + 1).unwrap()), c.3))
+            .chain(
+                parameters
+                    .iter()
+                    .enumerate()
+                    .map(|(j, v)| (id(80 + u8::try_from(j).unwrap()), *v)),
+            )
             .collect(),
     };
     Case {
@@ -1666,6 +1697,93 @@ fn commitment_optimum(prices: [f64; 2]) -> f64 {
         .fold(f64::NEG_INFINITY, f64::max)
 }
 
+/// [`commitment`] with the prices as case parameter values instead of body constants: one
+/// prepared structure whose objective coefficients follow the values.
+fn priced_commitment(registry: &QuantityRegistry, prices: [f64; 2]) -> Case {
+    let mut b = Body::new(registry, 6);
+    let x = b.x.clone();
+    let five = b.c(5.0);
+    let three = b.c(3.0);
+    let mut outputs = vec![];
+    for t in 0..2 {
+        let cap = b.op(Binary::Mul, &five, &x[2 + t]);
+        outputs.push(b.op(Binary::Sub, &x[t], &cap));
+    }
+    outputs.push(b.op(Binary::Add, &x[0], &x[1]));
+    let r0 = b.op(Binary::Mul, &x[4], &x[0]);
+    let r1 = b.op(Binary::Mul, &x[5], &x[1]);
+    let on = b.op(Binary::Add, &x[2], &x[3]);
+    let cost = b.op(Binary::Mul, &three, &on);
+    let revenue = b.op(Binary::Add, &r0, &r1);
+    outputs.push(b.op(Binary::Sub, &revenue, &cost));
+    let body = b.b.prepare(&outputs).unwrap();
+    let flow = (
+        ModelingVariableDomain::Continuous,
+        Some(0.0),
+        Some(5.0),
+        0.0,
+    );
+    let binary = (ModelingVariableDomain::Binary, None, None, 0.0);
+    case_of(
+        registry,
+        body,
+        &[flow, flow, binary, binary],
+        &prices,
+        &[
+            (f64::NEG_INFINITY, 0.0),
+            (f64::NEG_INFINITY, 0.0),
+            (f64::NEG_INFINITY, 8.0),
+        ],
+        Some((3, ObjectiveSense::Maximize)),
+        DerivativeOrder::Value,
+        vec![],
+    )
+}
+
+/// A reoptimization session is identified by the exported constraint system, never by the
+/// values the objective consumes: prices passed as case parameter values change the
+/// program's value identity at every step, yet each later step reuses the retained search
+/// tree. (A changed constraint system rebuilds: `reoptimized_sequence_matches_cold_solves`.)
+#[test]
+fn reoptimization_session_follows_the_constraint_system() {
+    let registry = standard_registry().unwrap();
+    let settings = ScipSettings {
+        reoptimize: true,
+        ..ScipSettings::default()
+    };
+    let controls = Controls {
+        reuse: crate::solve::ReusePolicy::AllowRebuild,
+        ..Controls::default()
+    };
+    let mut retained = Retained::default();
+    let mut keys = Vec::new();
+    for (step, prices) in [[4.0, 1.0], [1.0, 4.0], [2.0, 2.0]].into_iter().enumerate() {
+        let case = priced_commitment(&registry, prices);
+        let program = case.program(&FactorableRequest::default());
+        keys.push(program.key);
+        let report = run_with(
+            &case,
+            &program,
+            SolveIntent::Optimize,
+            false,
+            false,
+            &settings,
+            &controls,
+            &mut retained,
+        )
+        .unwrap();
+        let objective = report.observation.as_ref().unwrap().objective.unwrap();
+        let expected = commitment_optimum(prices);
+        assert!(
+            (objective - expected).abs() < 1e-6,
+            "{step}: {objective} vs {expected}"
+        );
+        assert_eq!(report.evidence.reused_native_state, step > 0, "{step}");
+    }
+    // The consumed prices are part of each program's value identity.
+    assert!(keys[0] != keys[1] && keys[1] != keys[2]);
+}
+
 #[test]
 fn reoptimized_sequence_matches_cold_solves() {
     let registry = standard_registry().unwrap();
@@ -1891,9 +2009,12 @@ fn indicator_on_nonlinear_row_unenforced_in_fixed_assignment_resolve() {
 /// A strongly correlated 0-1 knapsack, `max Σ (wᵢ + 10)·xᵢ + 100` with `Σ wᵢ·xᵢ ≤ ½·Σ wᵢ`:
 /// small, but it needs a branch-and-bound search, and its objective carries a constant.
 fn knapsack_with_constant(registry: &QuantityRegistry) -> Case {
-    const ITEMS: usize = 24;
-    let weights: Vec<f64> = (0..ITEMS).map(|i| 30.0 + ((i * 37) % 71) as f64).collect();
-    let mut b = Body::new(registry, ITEMS);
+    knapsack_of(registry, 24)
+}
+/// [`knapsack_with_constant`] over `items` items.
+fn knapsack_of(registry: &QuantityRegistry, items: usize) -> Case {
+    let weights: Vec<f64> = (0..items).map(|i| 30.0 + ((i * 37) % 71) as f64).collect();
+    let mut b = Body::new(registry, items);
     let x = b.x.clone();
     let mut load = None;
     let mut value = None;
@@ -1918,7 +2039,7 @@ fn knapsack_with_constant(registry: &QuantityRegistry) -> Case {
     case(
         registry,
         body,
-        &[binary; ITEMS],
+        &vec![binary; items],
         &[(f64::NEG_INFINITY, 0.5 * weights.iter().sum::<f64>())],
         Some((1, ObjectiveSense::Maximize)),
         DerivativeOrder::Value,
@@ -2535,4 +2656,146 @@ fn epigraph_incumbent_reports_function_value() {
             );
         }
     }
+}
+
+/// A multidimensional 0-1 knapsack, `max Σ vᵢ·xᵢ + 7` with `dims` capacity rows
+/// `Σ wₖᵢ·xᵢ ≤ ½·Σ wₖᵢ` over pseudo-random integer data: presolve does not solve it, so
+/// the search branches and improves its incumbent several times.
+fn multidimensional_knapsack(registry: &QuantityRegistry, items: usize, dims: usize) -> Case {
+    let mut state = 12_345_u64;
+    let mut next = |range: u64| {
+        state = state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        ((state >> 33) % range) as f64
+    };
+    let weights: Vec<Vec<f64>> = (0..dims)
+        .map(|_| (0..items).map(|_| 10.0 + next(90)).collect())
+        .collect();
+    let values: Vec<f64> = (0..items).map(|_| 20.0 + next(80)).collect();
+    let mut b = Body::new(registry, items);
+    let x = b.x.clone();
+    let mut outputs = Vec::new();
+    for row in &weights {
+        let mut load = None;
+        for (i, w) in row.iter().enumerate() {
+            let weight = b.c(*w);
+            let term = b.op(Binary::Mul, &weight, &x[i]);
+            load = Some(match load {
+                Some(sum) => b.op(Binary::Add, &sum, &term),
+                None => term,
+            });
+        }
+        outputs.push(load.unwrap());
+    }
+    let mut value = b.c(7.0);
+    for (i, v) in values.iter().enumerate() {
+        let price = b.c(*v);
+        let term = b.op(Binary::Mul, &price, &x[i]);
+        value = b.op(Binary::Add, &value, &term);
+    }
+    outputs.push(value);
+    let body = b.b.prepare(&outputs).unwrap();
+    let binary = (ModelingVariableDomain::Binary, None, None, 0.0);
+    let rows: Vec<(f64, f64)> = weights
+        .iter()
+        .map(|row| (f64::NEG_INFINITY, 0.5 * row.iter().sum::<f64>()))
+        .collect();
+    case(
+        registry,
+        body,
+        &vec![binary; items],
+        &rows,
+        Some((dims, ObjectiveSense::Maximize)),
+        DerivativeOrder::Value,
+    )
+}
+
+/// Concurrent solving under admitted permits streams incumbents while the search runs
+/// (Plan 22 G7): the concurrent solvers' improving solutions map back to the program's
+/// columns by name, the stream stays monotone, every captured solution evaluates in the
+/// original model to its reported objective, and the last incumbent is the result.
+#[test]
+fn scip_concurrent_streams_incumbents() {
+    let registry = standard_registry().unwrap();
+    let case = multidimensional_knapsack(&registry, 40, 5);
+    let program = case.program(&FactorableRequest::default());
+    let n = program.variables.len();
+    let m = program.rows.len();
+    let accuracy = ResolvedAccuracy::nominal();
+    let tolerances = tolerances(n, m);
+    let normalization = Normalization::identity(n, m);
+    let initial = case.initial();
+    let solve = |threads: usize| {
+        let controls = Controls {
+            threads,
+            ..Controls::default()
+        };
+        let mut original = Original(&case);
+        let tap = Arc::new(Collected::default());
+        let mut execution = execution(false);
+        execution.progress = Arc::new(crate::solve::Progress::tapped(
+            controls.history,
+            tap.clone(),
+        ));
+        let report = execution::factorable(
+            Step {
+                adapter: execution::adapter(Backend::Scip),
+                settings: &BackendSettings::Scip(ScipSettings::default()),
+                controls: &controls,
+                accuracy: &accuracy,
+                execution,
+                tolerances: &tolerances,
+                normalization: &normalization,
+                compatibility: stamp(Backend::Scip),
+                warm: None,
+            },
+            &mut Retained::default(),
+            Factorable {
+                program: &program,
+                initial: &initial,
+                intent: SolveIntent::Optimize,
+                original: &mut original,
+                resolve: None,
+            },
+        )
+        .unwrap();
+        let events = tap.0.lock().unwrap().clone();
+        (report, events)
+    };
+    let (serial, _) = solve(1);
+    let optimum = serial.candidate.as_ref().unwrap().objective.unwrap();
+    let (report, events) = solve(2);
+    assert!(matches!(
+        report.metrics["scip.threads"],
+        crate::solve::Metric::Integer(2)
+    ));
+    assert_eq!(
+        report.options["concurrent/presolvebefore"],
+        OptionValue::Bool(false)
+    );
+    assert_eq!(report.qualification, Qualification::GapQualified);
+    let result = report.candidate.as_ref().unwrap().objective.unwrap();
+    assert!((result - optimum).abs() < 1e-6, "{result} vs {optimum}");
+    let incumbents: Vec<&crate::solve::IncumbentEvent> =
+        events.iter().filter_map(|e| e.incumbent.as_ref()).collect();
+    // The search improved several times, and each improvement was streamed as it came.
+    let mut distinct: Vec<f64> = incumbents.iter().map(|i| i.objective).collect();
+    distinct.dedup_by(|a, b| (*a - *b).abs() < 1e-6);
+    assert!(distinct.len() >= 3, "{incumbents:?}");
+    for pair in incumbents.windows(2) {
+        assert!(pair[1].objective >= pair[0].objective - 1e-6, "{incumbents:?}");
+    }
+    assert!(incumbents[0].primal.is_some());
+    for incumbent in &incumbents {
+        if let Some(primal) = &incumbent.primal {
+            let value = Original(&case).evaluate(primal).unwrap().objective.unwrap();
+            assert!(
+                (value - incumbent.objective).abs() < 1e-6,
+                "{value} vs {}",
+                incumbent.objective
+            );
+        }
+    }
+    assert!((incumbents.last().unwrap().objective - result).abs() < 1e-6);
 }

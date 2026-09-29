@@ -333,14 +333,16 @@ struct Watch {
     events: AtomicU64,
     interrupted: AtomicBool,
     failed: AtomicBool,
-    /// Incumbent and bound reporting of a program with an objective; only the owning
-    /// SCIP's handler reads it.
+    /// Incumbent and bound reporting of a program with an objective: read by the owning
+    /// SCIP's handler, and by concurrent solvers' handlers for their incumbents, whose
+    /// shared record is locked.
     objective: Option<Objective>,
 }
 /// How the owning SCIP's incumbents and bounds are reported in original units: the owning
 /// SCIP (copies share the handler data), the column variables of the export, the objective
 /// function of an epigraph export, the objective constant held outside SCIP, SCIP's
-/// infinity and the capture throttle of solution vectors.
+/// infinity, the capture throttle of solution vectors and, under concurrent solving, how
+/// the concurrent solvers' incumbents map back.
 #[derive(Debug)]
 struct Objective {
     owner: *mut ffi::SCIP,
@@ -349,6 +351,50 @@ struct Objective {
     offset: f64,
     infinity: f64,
     throttle: CaptureThrottle,
+    concurrent: Option<Concurrent>,
+}
+/// How a concurrent solver's incumbents are reported while the search runs (Plan 22 G7).
+/// Concurrent solving starts without central presolving, so every concurrent solver
+/// copies the owning SCIP's unpresolved transformed variables under their names (`t_` and
+/// the export's name): a solver's solution maps back to the program's columns and
+/// auxiliaries by name, and the neutral program evaluates the objective there. Only an
+/// incumbent better than every one reported so far is reported, whichever SCIP found it.
+#[derive(Debug)]
+struct Concurrent {
+    /// Transformed names of the column variables, then of the auxiliaries.
+    names: Vec<CString>,
+    columns: usize,
+    program: FactorableProgram,
+    objective: pse_math::factorable::NodeId,
+    sense: ObjectiveSense,
+    best: std::sync::Mutex<Option<f64>>,
+}
+impl Concurrent {
+    /// Report `objective` through `report` when it improves on every earlier report,
+    /// holding the record across the report so that the stream stays monotone.
+    fn improving(&self, objective: f64, report: impl FnOnce()) {
+        let Ok(mut best) = self.best.lock() else {
+            return;
+        };
+        if best.is_none_or(|b| match self.sense {
+            ObjectiveSense::Minimize => objective < b,
+            ObjectiveSense::Maximize => objective > b,
+        }) {
+            *best = Some(objective);
+            report();
+        }
+    }
+    /// Record an incumbent the owning SCIP reported itself.
+    fn reported(&self, objective: f64) {
+        if let Ok(mut best) = self.best.lock()
+            && best.is_none_or(|b| match self.sense {
+                ObjectiveSense::Minimize => objective < b,
+                ObjectiveSense::Maximize => objective > b,
+            })
+        {
+            *best = Some(objective);
+        }
+    }
 }
 /// The authored objective at a stored solution of `scip`, in original units: an epigraph
 /// export's objective function evaluated at the solution, since the epigraph variable SCIP
@@ -434,6 +480,9 @@ impl Objective {
         else {
             return;
         };
+        if let Some(concurrent) = &self.concurrent {
+            concurrent.reported(objective);
+        }
         watch.progress.push(Event {
             phase: "scip.incumbent".into(),
             elapsed: watch.started.elapsed(),
@@ -446,6 +495,72 @@ impl Objective {
                 seconds,
                 primal: primal.filter(|p| p.iter().all(|v| v.is_finite())),
             }),
+        });
+    }
+    /// Report a concurrent solver's new best solution when it improves on every incumbent
+    /// reported so far, mapped back to the program's columns by name, with the solver's
+    /// node count and running time; its bounds are the solver's own and are not reported.
+    /// Nothing is reported for any other copy (a heuristic's sub-SCIP, whose solutions the
+    /// parent checks first) or when a column does not map back.
+    fn concurrent_incumbent(&self, scip: *mut ffi::SCIP, watch: &Watch) {
+        let Some(concurrent) = &self.concurrent else {
+            return;
+        };
+        // SAFETY: depth and stage queries of the live copy on its own thread. Concurrent
+        // solvers are the only copies at depth 0 (SCIPcreateConcurrent resets it).
+        let solving = unsafe {
+            ffi::SCIPgetSubscipDepth(scip) == 0
+                && matches!(
+                    ffi::SCIPgetStage(scip),
+                    ffi::SCIP_Stage_SCIP_STAGE_SOLVING | ffi::SCIP_Stage_SCIP_STAGE_SOLVED
+                )
+        };
+        if !solving {
+            return;
+        }
+        // SAFETY: the copy's best solution and its variables, queried on its own thread.
+        let best = unsafe { ffi::SCIPgetBestSol(scip) };
+        if best.is_null() {
+            return;
+        }
+        let mut values = Vec::with_capacity(concurrent.names.len());
+        for name in &concurrent.names {
+            // SAFETY: a name lookup in the copy's own variable table.
+            let var = unsafe { ffi::SCIPfindVar(scip, name.as_ptr()) };
+            if var.is_null() {
+                return;
+            }
+            // SAFETY: the value of a copy variable in the copy's stored solution.
+            values.push(unsafe { ffi::SCIPgetSolVal(scip, best, var) });
+        }
+        let (point, auxiliary) = values.split_at(concurrent.columns);
+        let Some(objective) = concurrent
+            .program
+            .evaluate(point, auxiliary)
+            .ok()
+            .and_then(|nodes| nodes.get(concurrent.objective).copied())
+            .filter(|v| v.is_finite())
+        else {
+            return;
+        };
+        // SAFETY: statistics queries of the live copy on its own thread.
+        let (nodes, seconds) =
+            unsafe { (ffi::SCIPgetNTotalNodes(scip), ffi::SCIPgetSolvingTime(scip)) };
+        concurrent.improving(objective, || {
+            let primal = self.throttle.admit().then(|| point.to_vec());
+            watch.progress.push(Event {
+                phase: "scip.incumbent".into(),
+                elapsed: watch.started.elapsed(),
+                values: BTreeMap::new(),
+                incumbent: Some(IncumbentEvent {
+                    objective,
+                    dual_bound: None,
+                    gap: None,
+                    nodes,
+                    seconds,
+                    primal: primal.filter(|p| p.iter().all(|v| v.is_finite())),
+                }),
+            });
         });
     }
     /// Report an improved dual bound, with the primal bound and gap it leaves.
@@ -537,17 +652,27 @@ unsafe extern "C" fn watch_exec(
         poll(scip, watch)
     })
 }
-/// The handler of a copy (sub-SCIP, concurrent solver, IIS sub-problem): cancellation
-/// only, since a copy's bounds are not the attempt's bounds.
+/// The handler of a copy (sub-SCIP, concurrent solver, IIS sub-problem): cancellation,
+/// and a concurrent solver's improving incumbents; a copy's bounds are not the attempt's
+/// bounds.
 unsafe extern "C" fn watch_copy_exec(
     scip: *mut ffi::SCIP,
     eventhdlr: *mut ffi::SCIP_EVENTHDLR,
-    _event: *mut ffi::SCIP_EVENT,
+    event: *mut ffi::SCIP_EVENT,
     _data: *mut ffi::SCIP_EVENTDATA,
 ) -> ffi::SCIP_RETCODE {
-    contained(|| match watch(eventhdlr) {
-        Some(watch) => poll(scip, watch),
-        None => ffi::SCIP_Retcode_SCIP_INVALIDDATA,
+    contained(|| {
+        let Some(watch) = watch(eventhdlr) else {
+            return ffi::SCIP_Retcode_SCIP_INVALIDDATA;
+        };
+        // SAFETY: SCIP passes the live event being processed.
+        let kind = unsafe { ffi::SCIPeventGetType(event) };
+        if kind & event::BESTSOLFOUND != 0
+            && let Some(objective) = &watch.objective
+        {
+            objective.concurrent_incumbent(scip, watch);
+        }
+        poll(scip, watch)
     })
 }
 /// An event execution callback.
@@ -798,8 +923,15 @@ impl Instance {
     }
     /// Report the next solve's incumbents and bounds for a program with an objective:
     /// solutions in the export's column variables, objective values with the offset the
-    /// export holds outside SCIP. Called between solves.
-    fn report_incumbents(&mut self, export: &Export, columns: usize, objective: bool) {
+    /// export holds outside SCIP, and under concurrent solving the concurrent solvers'
+    /// improving incumbents. Called between solves.
+    fn report_incumbents(
+        &mut self,
+        export: &Export,
+        columns: usize,
+        objective: bool,
+        concurrent: Option<Concurrent>,
+    ) {
         let reported = objective.then(|| Objective {
             owner: self.ptr(),
             columns: export.coordinates[..columns].to_vec(),
@@ -807,6 +939,7 @@ impl Instance {
             offset: export.offset,
             infinity: self.infinity,
             throttle: CaptureThrottle::new(),
+            concurrent,
         });
         // SAFETY: no solve is running, so no handler holds the data; the box is owned
         // exclusively by this instance.
@@ -993,7 +1126,10 @@ pub(crate) fn configure(
             OptionValue::Text(settings.nlp_linear_solver.as_str().into()),
         ),
     ];
-    // Concurrent solving is deterministic, with the admitted permits as its threads.
+    // Concurrent solving is deterministic, with the admitted permits as its threads. It
+    // starts without central presolving: every concurrent solver presolves its own copy of
+    // the unpresolved transformed problem, whose variables keep the export's names, so the
+    // solvers' incumbents map back to the program while the search runs.
     if controls.threads > 1 {
         let threads = i32::try_from(controls.threads)
             .map_err(|_| ProblemError::Unsupported("SCIP concurrent thread count".into()))?;
@@ -1001,6 +1137,7 @@ pub(crate) fn configure(
             ("parallel/mode", OptionValue::Integer(1)),
             ("parallel/maxnthreads", OptionValue::Integer(threads)),
             ("parallel/minnthreads", OptionValue::Integer(threads)),
+            ("concurrent/presolvebefore", OptionValue::Bool(false)),
         ]);
     }
     // Two SCIP 10.0.2 behaviours are avoided. With bound removal, its post-processing
@@ -2186,12 +2323,26 @@ fn inject(
     Ok(stored != 0)
 }
 
-/// Identity of the constraint system a reoptimization session was built for: every
-/// exported function's affine form, sides and condition, the box, the domains and the
-/// native forms. Only the objective may change between the steps of one session.
+/// Identity of the constraint system a reoptimization session was built for: the case
+/// layout, the branched box and domains, every exported function's affine form, sides and
+/// condition, and the native forms with their operands and weights. Only the objective may
+/// change between the steps of one session, so the program's value identity, which
+/// includes values only the objective consumes, is not part of it.
 fn system(plan: &Plan<'_>) -> Result<ContentHash, ProblemError> {
+    use pse_math::factorable::{NativeOperand, ProjectedNative};
+    let program = plan.program;
     let mut h = FramedHasher::new(pse_ids::Frame::ScipReoptimizationSystemV1);
-    h.hash(&plan.domain);
+    h.hash(&program.structure);
+    for (v, (lower, upper)) in program.variables.iter().zip(&plan.boxes) {
+        h.id(&v.id)
+            .str(v.domain.as_str())
+            .u64(pse_ids::canonical_f64_bits(*lower))
+            .u64(pse_ids::canonical_f64_bits(*upper));
+    }
+    for (lower, upper) in &plan.boxes[program.variables.len()..] {
+        h.u64(pse_ids::canonical_f64_bits(*lower))
+            .u64(pse_ids::canonical_f64_bits(*upper));
+    }
     h.u64(plan.constraints.len() as u64);
     for c in &plan.constraints {
         let form = plan.form(c.expression).ok_or_else(|| {
@@ -2209,9 +2360,46 @@ fn system(plan: &Plan<'_>) -> Result<ContentHash, ProblemError> {
             None => h.bool(false),
         };
     }
+    let operand = |h: &mut FramedHasher, o: &NativeOperand| match o {
+        NativeOperand::Column(c) => {
+            h.bool(true).u64(*c as u64);
+        }
+        NativeOperand::Fixed(v) => {
+            h.bool(false).u64(pse_ids::canonical_f64_bits(*v));
+        }
+    };
     h.u64(plan.native.len() as u64);
     for k in &plan.native {
-        h.u64(*k as u64);
+        let native = &program.native[*k];
+        h.u64(*k as u64).str(native.form().as_str());
+        match native {
+            ProjectedNative::Indicator { .. } => {}
+            ProjectedNative::Sos { members, .. } => {
+                h.u64(members.len() as u64);
+                for (o, weight) in members {
+                    operand(&mut h, o);
+                    h.u64(pse_ids::canonical_f64_bits(*weight));
+                }
+            }
+            ProjectedNative::Logic {
+                resultant,
+                operands,
+                ..
+            } => {
+                operand(&mut h, resultant);
+                h.u64(operands.len() as u64);
+                for (o, negated) in operands {
+                    operand(&mut h, o);
+                    h.bool(*negated);
+                }
+            }
+            ProjectedNative::Cardinality { members, bound } => {
+                h.u64(u64::from(*bound)).u64(members.len() as u64);
+                for o in members {
+                    operand(&mut h, o);
+                }
+            }
+        }
     }
     Ok(h.finish_hash())
 }
@@ -2532,9 +2720,28 @@ pub(crate) fn solve(
         }
         None => None,
     };
-    session
-        .instance
-        .report_incumbents(&session.export, columns, plan.objective.is_some());
+    // Under concurrent solving the solvers' incumbents are read back by transformed name.
+    let concurrent = match plan.objective {
+        Some((objective, sense)) if r.controls.threads > 1 => Some(Concurrent {
+            names: (0..columns)
+                .map(|i| format!("t_x{i}"))
+                .chain((0..program.auxiliaries.len()).map(|k| format!("t_a{k}")))
+                .map(|name| cstring(&name))
+                .collect::<Result<_, _>>()?,
+            columns,
+            program: program.clone(),
+            objective,
+            sense,
+            best: std::sync::Mutex::new(None),
+        }),
+        _ => None,
+    };
+    session.instance.report_incumbents(
+        &session.export,
+        columns,
+        plan.objective.is_some(),
+        concurrent,
+    );
     let s = session.instance.ptr();
     if r.controls.threads > 1 {
         native!("SCIPsolveConcurrent", ffi::SCIPsolveConcurrent(s))?;
