@@ -13,6 +13,9 @@ mod factorable;
 mod grouped;
 mod implicit;
 mod solve;
+#[cfg(test)]
+#[path = "executable/projection_tests.rs"]
+mod projection_tests;
 pub use conformance::ModelingExpectationResult;
 pub use derived::{Derivation, Derived};
 pub use implicit::{AdmittedImplicit, ImplicitAlgorithm, ImplicitScale};
@@ -978,11 +981,13 @@ fn projection(
             .iter()
             .any(|output| matches!(output, ModelingOutput::Equation {id, ..} if id == row))
     });
+    let members = MemberReads::new(&bindings, &p.validity);
     for expression in &mut p.expressions {
-        if !bindings.is_empty() {
+        let needed = members.closure(expression);
+        if !needed.is_empty() {
             *expression = Expr {
                 kind: ExprKind::Let {
-                    bindings: bindings.clone(),
+                    bindings: needed.iter().map(|&i| bindings[i].clone()).collect(),
                     body: Box::new(expression.clone()),
                 },
                 span: Span::default(),
@@ -991,6 +996,84 @@ fn projection(
         expression.strip_spans();
     }
     Ok(Arc::new(p))
+}
+/// The expression members an output reads, transitively and through the validity guards
+/// of what it reads. Each output carries only these, in their topological order: wrapping
+/// every output in every member grows with the product of outputs and members.
+struct MemberReads {
+    index: BTreeMap<String, usize>,
+    reads: Vec<Vec<usize>>,
+    guards: BTreeMap<String, Vec<String>>,
+}
+impl MemberReads {
+    fn new(
+        bindings: &[(String, Expr)],
+        validity: &BTreeMap<String, crate::typed_math::Validity>,
+    ) -> Self {
+        let names = |e: &Expr| {
+            e.free_paths()
+                .into_iter()
+                .filter(|p| p.segments.len() == 1)
+                .map(|p| p.segments[0].name.clone())
+                .collect::<Vec<_>>()
+        };
+        let index = bindings
+            .iter()
+            .enumerate()
+            .map(|(i, (name, _))| (name.clone(), i))
+            .collect::<BTreeMap<_, _>>();
+        let guards = validity
+            .iter()
+            .map(|(name, guard)| {
+                let mut read = names(&guard.lower);
+                read.extend(names(&guard.upper));
+                (name.clone(), read)
+            })
+            .collect::<BTreeMap<_, _>>();
+        let mut members = Self {
+            index,
+            reads: Vec::new(),
+            guards,
+        };
+        members.reads = bindings
+            .iter()
+            .map(|(name, e)| {
+                let mut read = names(e);
+                read.push(name.clone());
+                members.resolve(read)
+            })
+            .collect();
+        members
+    }
+    /// Member positions a set of names reads directly, including their guards' reads.
+    fn resolve(&self, names: Vec<String>) -> Vec<usize> {
+        let mut out = Vec::new();
+        for name in names {
+            if let Some(read) = self.guards.get(&name) {
+                out.extend(read.iter().filter_map(|n| self.index.get(n).copied()));
+            }
+            out.extend(self.index.get(&name).copied());
+        }
+        out
+    }
+    /// The positions of every member the expression reads, in topological order.
+    fn closure(&self, expression: &Expr) -> BTreeSet<usize> {
+        let mut needed = BTreeSet::new();
+        let mut pending = self.resolve(
+            expression
+                .free_paths()
+                .into_iter()
+                .filter(|p| p.segments.len() == 1)
+                .map(|p| p.segments[0].name.clone())
+                .collect(),
+        );
+        while let Some(i) = pending.pop() {
+            if needed.insert(i) {
+                pending.extend(&self.reads[i]);
+            }
+        }
+        needed
+    }
 }
 #[salsa::tracked(returns(clone),lru=64,heap_size=admitted_heap)]
 fn admitted(
