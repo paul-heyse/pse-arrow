@@ -346,7 +346,8 @@ pub fn admit(
         }
         DerivativeCapability::ExactHessianOrLimitedMemory
         | DerivativeCapability::JacobianOrProduct
-        | DerivativeCapability::FirstWithSmoothSensitivities => Some(DerivativeOrder::First),
+        | DerivativeCapability::ForwardAndAdjointSensitivities
+        | DerivativeCapability::SecondOrderAdjointSensitivities => Some(DerivativeOrder::First),
         DerivativeCapability::Coefficients | DerivativeCapability::Factorable => None,
     };
     if let Some(required) = required

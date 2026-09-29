@@ -960,7 +960,8 @@ class NativeDerivativeCapability(StrEnum):
     EXACT_HESSIAN_OR_LIMITED_MEMORY = "exact_hessian_or_limited_memory"
     JACOBIAN_OR_PRODUCT = "jacobian_or_product"
     COEFFICIENTS = "coefficients"
-    FIRST_WITH_SMOOTH_SENSITIVITIES = "first_with_smooth_sensitivities"
+    FORWARD_AND_ADJOINT_SENSITIVITIES = "forward_and_adjoint_sensitivities"
+    SECOND_ORDER_ADJOINT_SENSITIVITIES = "second_order_adjoint_sensitivities"
     FACTORABLE = "factorable"
 
 

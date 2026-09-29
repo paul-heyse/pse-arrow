@@ -138,9 +138,10 @@ async fn mixed_shared_parameter_gradient_uses_inline_forward_sensitivities() {
     assert!((responses[(0, 0)] - 1.).abs() < 1e-6);
     assert!((responses[(1, 0)] - 1.).abs() < 1e-6);
 }
-/// I8: a Gauss–Newton Hessian needs only forward sensitivities, so a transient fit
-/// admits it while the exact Hessian stays refused. The Hessian is the response Gram, the
-/// solve converges on it, and the result records its source (PS-07).
+/// I8: a Gauss–Newton Hessian needs only forward sensitivities, so a transient fit on
+/// Diffsol admits it, where the exact Hessian (the second-order adjoint, IDAS only, Y4b)
+/// is refused. The Hessian is the response Gram, the solve converges on it, and the
+/// result records its source (PS-07).
 #[tokio::test]
 async fn gauss_newton_fit_admits_transient() {
     let (package, mut profile) = source(true, 73.);
@@ -551,9 +552,10 @@ async fn transient_fit_deadline_is_time_limit() {
         native::callback::Failure::Stopped(native::solve::Termination::Cancelled)
     );
 }
-/// T11 (ADR-0118 items 3 and 8): a transient fit's covariance is Gauss–Newton from its
-/// forward-sensitivity responses, whichever supplied Hessian it solved with, and is
-/// published with that label. `y = 71 + p` observed once with σ = 1 gives `Σ = 1`.
+/// T11 (ADR-0118 items 3 and 8): a transient fit solved with the limited-memory or the
+/// Gauss–Newton Hessian takes its covariance by Gauss–Newton from its forward-sensitivity
+/// responses (only an exact-Hessian fit reads the exact one from its KKT analysis, I4),
+/// and publishes it with that label. `y = 71 + p` observed once with σ = 1 gives `Σ = 1`.
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn gauss_newton_covariance_labelled() {

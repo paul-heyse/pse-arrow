@@ -569,7 +569,8 @@ impl CaseStructure {
         &self.native
     }
     /// Attach the requirements the lowerings place on the solve route (ADR-0104 §5), such
-    /// as the l1 exact-penalty route of an authored `penalty(l1)`. Routing reads them.
+    /// as the l1 exact-penalty route of an authored `penalty(l1)`. Routing admits only an
+    /// adapter whose record and settings honour each of them.
     pub fn with_requirements(
         mut self,
         requirements: impl IntoIterator<Item = pse_model::generated::enums::ModelingStructuralRequirement>,

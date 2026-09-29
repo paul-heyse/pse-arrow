@@ -17,7 +17,8 @@ pub(super) static IDAS: Idas = Idas;
 static DIFFSOL_CAPABILITY: Capability = Capability {
     classes: &[ProblemClass::Ode, ProblemClass::SemiExplicitIndex1],
     automatic_classes: &[],
-    derivatives: DerivativeCapability::FirstWithSmoothSensitivities,
+    // Forward sensitivities and adjoint gradients (Plan 22 Y3a).
+    derivatives: DerivativeCapability::ForwardAndAdjointSensitivities,
     warm: WarmCapability::None,
     general_bounds: false,
     sign_bounds: false,
@@ -35,7 +36,9 @@ static DIFFSOL_CAPABILITY: Capability = Capability {
 static IDAS_CAPABILITY: Capability = Capability {
     classes: &[ProblemClass::Ode, ProblemClass::SemiExplicitIndex1],
     automatic_classes: &[],
-    derivatives: DerivativeCapability::FirstWithSmoothSensitivities,
+    // Forward sensitivities, adjoint gradients and the second-order adjoint of an exact
+    // transient Hessian (Plan 22 Y3b, Y4b).
+    derivatives: DerivativeCapability::SecondOrderAdjointSensitivities,
     warm: WarmCapability::None,
     general_bounds: false,
     sign_bounds: false,

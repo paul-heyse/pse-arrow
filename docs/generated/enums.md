@@ -961,7 +961,8 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `exact_hessian_or_limited_memory` | `` | false |
 | `jacobian_or_product` | `` | false |
 | `coefficients` | `` | false |
-| `first_with_smooth_sensitivities` | `` | false |
+| `forward_and_adjoint_sensitivities` | `` | false |
+| `second_order_adjoint_sensitivities` | `` | false |
 | `factorable` | `` | false |
 
 ## `NativeIneligibility`

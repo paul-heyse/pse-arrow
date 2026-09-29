@@ -2255,7 +2255,7 @@ impl Session<'_> {
     }
     /// Every backward problem with its KLU solver and quadrature: one first-order problem
     /// over the transposed pattern, or one 2n problem per second-order direction over the
-    /// block-diagonal pattern, whose callbacks read the forward sensitivities.
+    /// block lower-triangular pattern, whose callbacks read the forward sensitivities.
     fn create_backward(&mut self, t: f64, p: &Profile) -> Result<(), ProblemError> {
         let n = self.callback.contract.states.len();
         let width = self.callback.integration.len();

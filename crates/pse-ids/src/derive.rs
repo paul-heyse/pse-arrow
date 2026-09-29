@@ -301,7 +301,8 @@ frames! {
         FitCoordinateV1 => "pse.fit.coordinate.v1",
         /// A prepared fit.
         FitPreparedV1 => "pse.fit.prepared.v1",
-        /// A fit profile, with its derivative source.
+        /// A fit profile: its solver profile, rank tolerance, cell budget, derivative source,
+        /// simulation profiles and requested intervals.
         FitProfileV3 => "pse.fit.profile.v3",
         /// A fit source.
         FitSourceV1 => "pse.fit.source.v1",

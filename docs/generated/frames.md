@@ -143,7 +143,7 @@ Derived in: pse-runtime.
 | `ExplicitConicV4` | `pse.explicit-conic.v4` | An explicit conic request; its quadratic is certified exactly, so it carries no Gram witness. |
 | `FitCoordinateV1` | `pse.fit.coordinate.v1` | A fitting coordinate alias of an experiment and source. |
 | `FitPreparedV1` | `pse.fit.prepared.v1` | A prepared fit. |
-| `FitProfileV3` | `pse.fit.profile.v3` | A fit profile, with its derivative source. |
+| `FitProfileV3` | `pse.fit.profile.v3` | A fit profile: its solver profile, rank tolerance, cell budget, derivative source, simulation profiles and requested intervals. |
 | `FitSourceV1` | `pse.fit.source.v1` | A fit source. |
 | `ModelingDynamicModesV1` | `pse.modeling.dynamic-modes.v1` | Compiled simulation modes. |
 | `ModelingDynamicV2` | `pse.modeling.dynamic.v2` | A modeling dynamic simulation, with the derivative order of its functions, its integration parameter values, event directions and state signs. |

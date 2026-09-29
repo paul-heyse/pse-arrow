@@ -9087,9 +9087,12 @@ pub enum NativeDerivativeCapability {
     ///coefficients
     #[serde(rename = "coefficients")]
     Coefficients,
-    ///first_with_smooth_sensitivities
-    #[serde(rename = "first_with_smooth_sensitivities")]
-    FirstWithSmoothSensitivities,
+    ///forward_and_adjoint_sensitivities
+    #[serde(rename = "forward_and_adjoint_sensitivities")]
+    ForwardAndAdjointSensitivities,
+    ///second_order_adjoint_sensitivities
+    #[serde(rename = "second_order_adjoint_sensitivities")]
+    SecondOrderAdjointSensitivities,
     ///factorable
     #[serde(rename = "factorable")]
     Factorable,
@@ -9101,11 +9104,12 @@ impl crate::SemanticEq for NativeDerivativeCapability {
 }
 impl NativeDerivativeCapability {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
+    pub const ALL: [Self; 6usize] = [
         Self::ExactHessianOrLimitedMemory,
         Self::JacobianOrProduct,
         Self::Coefficients,
-        Self::FirstWithSmoothSensitivities,
+        Self::ForwardAndAdjointSensitivities,
+        Self::SecondOrderAdjointSensitivities,
         Self::Factorable,
     ];
     /// The declared member spelling.
@@ -9114,7 +9118,8 @@ impl NativeDerivativeCapability {
             Self::ExactHessianOrLimitedMemory => "exact_hessian_or_limited_memory",
             Self::JacobianOrProduct => "jacobian_or_product",
             Self::Coefficients => "coefficients",
-            Self::FirstWithSmoothSensitivities => "first_with_smooth_sensitivities",
+            Self::ForwardAndAdjointSensitivities => "forward_and_adjoint_sensitivities",
+            Self::SecondOrderAdjointSensitivities => "second_order_adjoint_sensitivities",
             Self::Factorable => "factorable",
         }
     }
@@ -9124,8 +9129,9 @@ impl NativeDerivativeCapability {
             Self::ExactHessianOrLimitedMemory => 0usize,
             Self::JacobianOrProduct => 1usize,
             Self::Coefficients => 2usize,
-            Self::FirstWithSmoothSensitivities => 3usize,
-            Self::Factorable => 4usize,
+            Self::ForwardAndAdjointSensitivities => 3usize,
+            Self::SecondOrderAdjointSensitivities => 4usize,
+            Self::Factorable => 5usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -9139,7 +9145,8 @@ impl NativeDerivativeCapability {
             Self::ExactHessianOrLimitedMemory => None,
             Self::JacobianOrProduct => None,
             Self::Coefficients => None,
-            Self::FirstWithSmoothSensitivities => None,
+            Self::ForwardAndAdjointSensitivities => None,
+            Self::SecondOrderAdjointSensitivities => None,
             Self::Factorable => None,
         }
     }
@@ -9158,8 +9165,8 @@ impl schemars::JsonSchema for NativeDerivativeCapability {
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["exact_hessian_or_limited_memory",
-            "jacobian_or_product", "coefficients", "first_with_smooth_sensitivities",
-            "factorable"] }
+            "jacobian_or_product", "coefficients", "forward_and_adjoint_sensitivities",
+            "second_order_adjoint_sensitivities", "factorable"] }
         )
     }
 }
@@ -9170,7 +9177,12 @@ impl core::str::FromStr for NativeDerivativeCapability {
             "exact_hessian_or_limited_memory" => Ok(Self::ExactHessianOrLimitedMemory),
             "jacobian_or_product" => Ok(Self::JacobianOrProduct),
             "coefficients" => Ok(Self::Coefficients),
-            "first_with_smooth_sensitivities" => Ok(Self::FirstWithSmoothSensitivities),
+            "forward_and_adjoint_sensitivities" => {
+                Ok(Self::ForwardAndAdjointSensitivities)
+            }
+            "second_order_adjoint_sensitivities" => {
+                Ok(Self::SecondOrderAdjointSensitivities)
+            }
             "factorable" => Ok(Self::Factorable),
             _ => {
                 Err(crate::ModelError::EnumMember {

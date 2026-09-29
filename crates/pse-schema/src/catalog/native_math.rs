@@ -466,7 +466,8 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "exact_hessian_or_limited_memory",
             "jacobian_or_product",
             "coefficients",
-            "first_with_smooth_sensitivities",
+            "forward_and_adjoint_sensitivities",
+            "second_order_adjoint_sensitivities",
             "factorable",
         ],
     );
@@ -775,7 +776,7 @@ fn declare_certificates(b: &mut RegistryBuilder) {
             )
             .optional(),
         ],
-        "A native infeasibility (Farkas) or unboundedness ray, in original physical coordinates over the cone form of the solved problem: rows then finite variable bounds, lower before upper. Verification recomputes it against the original data: `residual` is the worst column's |Aᵀy| (or row's |Px|, |Ax| on zero rows) relative to the magnitudes it sums, `objective` is bᵀy (or qᵀx) and `cone` the dual-cone (or cone) violation, both relative to the ray's largest entry; `margin` is -bᵀy less the rows' and bounds' acceptance budgets weighted by |y| (or -qᵀx), relative to the same entry. A ray is verified when every relative quantity is within `tolerance` and the margin is positive, so a problem infeasible by less than its acceptance budgets is never certified. Only a verified ray at full accuracy carries the certificate assurance. Absent verification means the original data could not be evaluated.",
+        "A native infeasibility (Farkas) or unboundedness ray, in original physical coordinates over the cone form of the solved problem: its rows (a cone row, or a coefficient row's lower and upper sides) then its finite variable bounds, lower before upper. Verification recomputes it against the original data: `residual` is the worst column's |Aᵀy| (or row's |Px|, |Ax| on zero rows) relative to the magnitudes it sums, `objective` is bᵀy (or qᵀx) and `cone` the dual-cone (or cone) violation, both relative to the ray's largest entry; `margin` is -bᵀy less the rows' and bounds' acceptance budgets weighted by |y| (or -qᵀx), relative to the same entry. A ray is verified when every relative quantity is within `tolerance` and the margin is positive, so a problem infeasible by less than its acceptance budgets is never certified. Only a verified ray at full accuracy carries the certificate assurance. Absent verification means the original data could not be evaluated.",
     );
 }
 
