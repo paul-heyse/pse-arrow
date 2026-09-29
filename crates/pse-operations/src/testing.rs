@@ -183,13 +183,27 @@ impl TestDatabase {
     /// Classified driver failures.
     pub async fn remove(self) -> Result<(), OperationsError> {
         self.store.close();
-        self.admin
-            .execute(&format!(
-                "DROP DATABASE IF EXISTS \"{}\" WITH (FORCE)",
-                self.name
-            ))
-            .await?;
-        Ok(())
+        let drop = format!("DROP DATABASE IF EXISTS \"{}\" WITH (FORCE)", self.name);
+        // FORCE refuses to terminate a server background worker (autovacuum) attached to
+        // the database, whose role this user may not signal. Such a worker leaves within
+        // moments, so that refusal is retried.
+        let mut attempts = 0;
+        loop {
+            match self.admin.client.simple_query(&drop).await {
+                Err(error)
+                    if attempts < 50
+                        && error.code()
+                            == Some(&tokio_postgres::error::SqlState::INSUFFICIENT_PRIVILEGE) =>
+                {
+                    attempts += 1;
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                }
+                result => {
+                    result.classify(&self.admin.target)?;
+                    return Ok(());
+                }
+            }
+        }
     }
 }
 
