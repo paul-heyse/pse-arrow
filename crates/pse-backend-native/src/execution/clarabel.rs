@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Clarabel adapter: explicit cones, and linear and convex quadratic coefficient programs the
+//! Clarabel adapter: explicit cones, recognized convex programs the cone runner lowers from
+//! their epigraph form (ADR-0121), and linear and convex quadratic coefficient programs the
 //! coefficient runner lowers to cone form; complete native settings, a preprocessing or
 //! data-update mode over a retained native solver, and a QDLDL or MKL Pardiso KKT solver.
 use super::{BackendExecution, BackendSettings, Capability, Input, Representation, Retained};
@@ -22,7 +23,8 @@ static CAPABILITY: Capability = Capability {
         ProblemClass::ContinuousCone,
     ],
     // Linear and convex quadratic programs belong to HiGHS automatically; Clarabel serves
-    // them when selected explicitly (ADR-0121).
+    // them when selected explicitly, and owns continuous cone programs, explicit or
+    // recognized by preparation (ADR-0121).
     automatic_classes: &[ProblemClass::ContinuousCone],
     derivatives: DerivativeCapability::Coefficients,
     warm: WarmCapability::None,
@@ -33,6 +35,7 @@ static CAPABILITY: Capability = Capability {
     parallel: cfg!(feature = "clarabel-pardiso"),
     certifies: false,
     native_forms: &[],
+    requirements: &[],
     reuse: "native data-update eligibility; reusable mode disables preprocessing",
     cancellation: "native iteration termination callback",
     diagnostics: "complete native info/settings, cone slacks/duals and certificates",

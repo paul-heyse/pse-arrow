@@ -29,6 +29,7 @@ static STUB_CAPABILITY: Capability = Capability {
     parallel: false,
     certifies: false,
     native_forms: &[],
+    requirements: &[],
     reuse: "test session counter",
     cancellation: "none",
     diagnostics: "none",
@@ -148,9 +149,10 @@ fn stub_backend_routes_through_adapter_table() {
         table: &STUB_TABLE,
         facts: &facts,
         intent: SolveIntent::Root,
-        convex: false,
+        numerical_psd: false,
         least_squares: false,
         controls: &controls,
+        settings: &BackendSettings::Default,
     };
     // Routing reads the stub's capability record through the table.
     let backend = Backend::Idas;
@@ -317,6 +319,7 @@ fn from_row(row: &pse_model::generated::runtime::solver_capabilities::Row) -> &'
         parallel: row.parallel,
         certifies: row.certifies,
         native_forms: Box::leak(row.native_forms.clone().into_boxed_slice()),
+        requirements: Box::leak(row.requirements.clone().into_boxed_slice()),
         reuse: "",
         cancellation: "",
         diagnostics: "",
@@ -348,6 +351,17 @@ fn grid() -> Vec<ProblemFacts> {
                             .into_iter()
                             .flat_map(|c| [(c, vec![]), (c, vec![NativeConstraintForm::Indicator])])
                     {
+                        for convexity in [
+                            pse_math::convexity::Convexity::not_assessed(ContentHash::from_bytes(
+                                [0; 32],
+                            )),
+                            pse_math::convexity::Convexity {
+                                key: ContentHash::from_bytes([1; 32]),
+                                class: pse_math::convexity::ConvexityClass::Cone(
+                                    pse_math::convexity::ConeSummary::default(),
+                                ),
+                            },
+                        ] {
                         out.push(ProblemFacts {
                             variables: 1,
                             rows,
@@ -363,8 +377,11 @@ fn grid() -> Vec<ProblemFacts> {
                             objective_degree: Some(if quadratic { 2 } else { 1 }),
                             bound_assumptions: ContentHash::from_bytes([0; 32]),
                             quadratic,
-                            native,
+                            native: native.clone(),
+                            requirements: vec![],
+                            convexity,
                         });
+                        }
                     }
                 }
             }
@@ -405,15 +422,16 @@ fn published_capabilities_equal_routing_rules() {
         };
         for f in &facts {
             for intent in intents {
-                for convex in [false, true] {
+                for numerical_psd in [false, true] {
                     for c in &controls {
                         let r = Requirements {
                             table: &LINKED,
                             facts: f,
                             intent,
-                            convex,
+                            numerical_psd,
                             least_squares: false,
                             controls: c,
+                            settings: &BackendSettings::Default,
                         };
                         assert_eq!(
                             adapter.admit(&r),
@@ -435,9 +453,10 @@ fn published_capabilities_equal_routing_rules() {
             table: &LINKED,
             facts: f,
             intent: SolveIntent::Root,
-            convex: false,
+            numerical_psd: false,
             least_squares: false,
             controls: &parallel,
+            settings: &BackendSettings::Default,
         };
         assert_eq!(
             adapter.admit(&r).contains(&Ineligible::Serial),

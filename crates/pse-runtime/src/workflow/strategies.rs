@@ -49,10 +49,6 @@ pub struct ConicRequest {
     pub cones: Vec<native::conic::Cone>,
     /// Original objective constant.
     pub objective_constant: f64,
-    /// Explicit sum-of-squares witness factors, one row per weight.
-    pub gram_factors: Vec<Vec<f64>>,
-    /// Nonnegative Gram weights, verified exactly against Q.
-    pub gram_weights: Vec<f64>,
 }
 /// Prepared explicit cone analysis, retaining the declared request and resolved policy.
 #[derive(Clone, Debug)]
@@ -90,7 +86,7 @@ impl Runtime {
             return Err(contract("cone request exceeds workspace allowance"));
         }
         // Identity of the pse-owned request encoding, independent of any library's serde.
-        let identity = native::identity::of(pse_ids::Frame::ExplicitConicV3, &request)
+        let identity = native::identity::of(pse_ids::Frame::ExplicitConicV4, &request)
             .map_err(MathRuntimeError::from)?;
         let target = |p: &AnalysisPort, kind| pse_math::numerics::TargetSpec {
             id: p.symbol_id,
@@ -124,13 +120,6 @@ impl Runtime {
                     return Err(MathRuntimeError::Cancelled);
                 }
                 let n = source.variables.len();
-                if source.gram_weights.len() != source.gram_factors.len()
-                    || source.gram_factors.iter().any(|r| r.len() != n)
-                {
-                    return Err(
-                        native::ProblemError::Internal("Gram witness dimensions".into()).into(),
-                    );
-                }
                 let problem = native::ConicProblem {
                     contract: native::OracleContract {
                         identity,
@@ -160,24 +149,26 @@ impl Runtime {
                         native::ProblemError::Contract("cone quadratic extent".into()).into(),
                     );
                 }
-                let work = n
-                    .checked_mul(n)
-                    .and_then(|v| v.checked_mul(source.gram_factors.len().max(1)))
-                    .ok_or(MathRuntimeError::Limit("Gram work extent"))?;
-                if work > allowance / 16 {
-                    return Err(MathRuntimeError::Limit("Gram witness allowance"));
-                }
+                // The quadratic's convexity is decided exactly (ADR-0121 Outcome 2): an
+                // indefinite or undecided quadratic is refused, never solved.
                 pse_math::initialize()?;
-                let factors = faer::Mat::from_fn(source.gram_factors.len(), n, |r, c| {
-                    source.gram_factors[r][c]
-                });
-                let proof = native::GramCertificate::new(
+                let proof = match native::GramCertificate::certify(
                     &problem.full_quadratic()?,
                     1.0,
-                    &factors,
-                    &source.gram_weights,
                     allowance / 16,
-                )?;
+                    &flag,
+                )? {
+                    pse_math::convexity::Definiteness::Psd(proof) => proof,
+                    pse_math::convexity::Definiteness::Indefinite => {
+                        return Err(native::ProblemError::Contract(
+                            "the cone objective quadratic is not positive semidefinite".into(),
+                        )
+                        .into());
+                    }
+                    pse_math::convexity::Definiteness::Inconclusive => {
+                        return Err(MathRuntimeError::Limit("exact Gram certificate allowance"));
+                    }
+                };
                 let sparse = [&problem.quadratic, &problem.constraints]
                     .iter()
                     .map(|a| {

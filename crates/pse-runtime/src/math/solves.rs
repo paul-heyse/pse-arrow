@@ -89,6 +89,12 @@ struct AlgebraicCase {
     /// The parametric program of a sensitivity request (Plan 22 S1), attached by
     /// [`PreparedSolve::with_sensitivity`].
     sensitivity: Option<SensitivityProgram>,
+    /// A recognized convex program's cone form (ADR-0121), built only for a cone route
+    /// over a program that is not a coefficient program, with its reservation.
+    recognized: Option<(
+        Arc<native::conic::Recognized>,
+        Arc<pse_columnar::AllocationLease>,
+    )>,
 }
 /// The parametric program a sensitivity request differentiates, with the normalization of
 /// its columns and each parameter's value.
@@ -719,7 +725,6 @@ impl MathService {
         values: CaseValues,
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         profile: SolverProfile,
-        certificate: Option<Arc<dyn QuadraticEvidence>>,
         numerical: NumericalInputs,
     ) -> Result<PreparedSolve, MathRuntimeError> {
         profile.controls.validate()?;
@@ -739,7 +744,6 @@ impl MathService {
             values,
             providers,
             profile,
-            certificate,
             numerics,
             numerical.implicit,
         )
@@ -748,9 +752,15 @@ impl MathService {
     /// Admission of a bound case under an already resolved numerical policy. A conditional
     /// initialization block resolves its policy once for the whole case and passes it here.
     /// `implicit` holds the residual definitions a factorable route exports.
+    ///
+    /// Convexity is the preparation's fact (ADR-0121): routing reads it, and a convex
+    /// quadratic coefficient objective carries its exact certificate. An explicit
+    /// [`ConvexityPolicy::Numerical`] may qualify this request's coefficient objective as
+    /// positive semidefinite when the fact does not; that evidence serves this request only
+    /// and never becomes a fact.
     #[expect(
-        clippy::too_many_arguments,
-        reason = "a bound case binds its view, values, providers, profile, evidence, policy and implicit definitions"
+        clippy::too_many_lines,
+        reason = "one admission binds routing, the representation each route needs and its identity"
     )]
     pub(crate) async fn prepare_resolved(
         self: &Arc<Self>,
@@ -758,7 +768,6 @@ impl MathService {
         values: CaseValues,
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         profile: SolverProfile,
-        mut certificate: Option<Arc<dyn QuadraticEvidence>>,
         numerics: Arc<ResolvedNumericalPolicy>,
         implicit: BTreeMap<pse_kernels::ProviderKey, pse_math::factorable::ImplicitDefinition>,
     ) -> Result<PreparedSolve, MathRuntimeError> {
@@ -799,7 +808,11 @@ impl MathService {
         let tolerances = Tolerances::from_policy(&numerics, plan.columns(), &rows)?;
         let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
 
-        let mut convex = false;
+        let mut certificate: Option<Arc<dyn QuadraticEvidence>> = f
+            .convexity
+            .convex_quadratic()
+            .map(|c| -> Arc<dyn QuadraticEvidence> { c.clone() });
+        let mut numerical_psd = false;
         if let Some(c) = &prepared.prepared.coefficients {
             if prepared
                 .prepared
@@ -809,67 +822,51 @@ impl MathService {
             {
                 return Err(ProblemError::Contract("case values differ from the compiler's coefficient assumptions; prepare a new snapshot".into()).into());
             }
-            let plan = prepared.prepared.plan.clone();
-            let coefficients = c.clone();
-            let supplied = certificate.take();
-            let coordinates = normalization.clone();
-            let policy = profile.convexity;
-            let bytes = self.policy.worker_bytes;
-            let evidence = self
-                .job(1, bytes, FlightCancellation::default(), move |flag| {
-                    let sign = plan.structure().objective().map_or(1.0, |o| o.sense.sign());
-                    if let Some(proof) = &supplied {
-                        proof.validate(&coefficients.hessian, sign)?;
-                        if proof
-                            .assumptions()
-                            .is_some_and(|key| key != coefficients.assumptions)
-                        {
-                            return Err(ProblemError::Contract(
-                                "quadratic evidence assumptions differ from the selected snapshot"
-                                    .into(),
-                            )
-                            .into());
-                        }
-                    }
-                    // A numerical witness is qualified again against this request's policy and coordinates.
-                    let proof: Arc<dyn QuadraticEvidence> = match supplied {
-                        Some(proof)
-                            if !matches!(
-                                proof.assessment(),
-                                Some(pse_math::convexity::ConvexityAssessment::NumericalPsd { .. })
-                            ) =>
-                        {
-                            proof
-                        }
-                        _ => Arc::new(coefficients.convexity(
+            if let (None, true, ConvexityPolicy::Numerical { absolute, relative }) =
+                (&certificate, f.quadratic, profile.convexity)
+            {
+                let coefficients = c.clone();
+                let coordinates = normalization.clone();
+                let sign = plan.structure().objective().map_or(1.0, |o| o.sense.sign());
+                let bytes = self.policy.worker_bytes;
+                let evidence = self
+                    .job(1, bytes, FlightCancellation::default(), move |flag| {
+                        Ok(coefficients.numerical_convexity(
                             sign,
                             &coordinates.variables,
                             coordinates.objective,
-                            policy,
-                            pse_math::convexity::ConvexityLimits {
-                                bytes,
-                                exact_operations: bytes / 16,
-                            },
+                            absolute,
+                            relative,
+                            bytes,
                             &flag,
-                        )?),
-                    };
-                    let eligible = proof.validate(&coefficients.hessian, sign).is_ok();
-                    Ok((proof, eligible))
-                })
-                .await?;
-            convex = evidence.1;
-            certificate = Some(evidence.0);
+                        )?)
+                    })
+                    .await?;
+                numerical_psd = evidence.accepted();
+                certificate = Some(Arc::new(evidence));
+            }
         }
         let requirements = routing::Requirements {
             table: &execution::LINKED,
             facts: f,
             intent: profile.intent,
-            convex,
+            numerical_psd,
             least_squares: false,
             controls: &profile.controls,
+            settings: &profile.backend,
         };
         let route = requirements.select(profile.selection)?;
         let eligibility = requirements.eligibility();
+        // An authored realization's structural requirement selects the method it needs on
+        // the route it admitted (ADR-0104 §5): the author's selection, recorded with the
+        // result, never an automatic choice.
+        let profile = match route {
+            Route::Native(backend) => SolverProfile {
+                backend: profile.backend.for_requirements(backend, &f.requirements),
+                ..profile
+            },
+            Route::Constant => profile,
+        };
         let adapter = match route {
             Route::Native(backend) => Some(execution::adapter(backend)),
             Route::Constant => None,
@@ -938,6 +935,46 @@ impl MathService {
             }
             _ => None,
         };
+        // A recognized convex program on a cone route is rebuilt, recognized again and
+        // lowered to cone form before any worker (ADR-0121 Outcome 6). A coefficient program
+        // on a cone route is lowered by the coefficient runner instead.
+        let recognized = match adapter.map(|a| a.representation()) {
+            Some(execution::Representation::Cone)
+                if prepared.prepared.coefficients.is_none() && f.convexity.cone() =>
+            {
+                let plan = prepared.prepared.plan.clone();
+                let values = values.clone();
+                let limit = self.policy.worker_bytes / 256;
+                let intent = profile.intent;
+                let fact = f.convexity.clone();
+                let lowered = self
+                    .job(
+                        1,
+                        self.policy.worker_bytes,
+                        FlightCancellation::default(),
+                        move |flag| {
+                            let program = plan
+                                .factorable_program(
+                                    &values,
+                                    &pse_math::factorable::FactorableRequest::default(),
+                                    limit,
+                                    &flag,
+                                )
+                                .map_err(|e| match e {
+                                    pse_math::factorable::FactorableError::Math(e) => {
+                                        ProblemError::Math(e)
+                                    }
+                                    other => ProblemError::Unsupported(other.to_string()),
+                                })?;
+                            Ok(native::conic::lower(&program, &fact, intent, &flag)?)
+                        },
+                    )
+                    .await?;
+                let owner = self.reserve("math:recognized-cone", lowered.bytes())?;
+                Some((Arc::new(lowered), owner))
+            }
+            _ => None,
+        };
         if let Some(adapter) = adapter {
             adapter.admit_contract(
                 &native::assembled::contract(plan),
@@ -971,6 +1008,7 @@ impl MathService {
                 certificate,
                 factorable,
                 sensitivity: None,
+                recognized,
             }),
             profile,
             numerics,
@@ -1048,6 +1086,7 @@ impl MathService {
                 // A block runs only on a root or NLP route, refused above otherwise.
                 factorable: None,
                 sensitivity: None,
+                recognized: None,
             }),
             profile,
             numerics,
@@ -1408,7 +1447,11 @@ impl MathService {
             compatibility: stamp,
             warm,
         };
-        let report = match (representation, adapter.representation()) {
+        let authored = match &representation {
+            Representation::Algebraic(a) => a.prepared.prepared.facts.requirements.clone(),
+            Representation::Conic { .. } => Vec::new(),
+        };
+        let mut report = match (representation, adapter.representation()) {
             (
                 Representation::Conic {
                     problem,
@@ -1417,7 +1460,13 @@ impl MathService {
                 },
                 execution::Representation::Cone,
             ) => execution::cone(run, retained, &problem, &original, certificate.as_ref())?,
-            // A cone adapter serves a coefficient model through the runner's lowering.
+            // A cone adapter serves a recognized convex program in its cone form, and a
+            // coefficient model through the coefficient runner's lowering.
+            (Representation::Algebraic(case), execution::Representation::Cone)
+                if case.recognized.is_some() =>
+            {
+                self.recognized_step(run, retained, case, budget)?
+            }
             (
                 Representation::Algebraic(case),
                 execution::Representation::Coefficients | execution::Representation::Cone,
@@ -1436,6 +1485,16 @@ impl MathService {
                 .into());
             }
         };
+        if authored.contains(&pse_model::generated::enums::ModelingStructuralRequirement::L1ExactPenalty) {
+            report.provenance.insert(
+                "method.selection".into(),
+                "the authored penalty(l1) realization selects POUNCE's l1 exact penalty-barrier (ADR-0104 §5): the author's selection, not an automatic one".into(),
+            );
+            report.provenance.insert(
+                "method.penalty_scope".into(),
+                "the l1 exact penalty relaxes every constraint row of the solve, not only the rows of the penalty(l1) realization".into(),
+            );
+        }
         Ok(Outcome::Native(Box::new(report)))
     }
     /// Coefficient projection of the compiled case, re-checked against the original case.
@@ -1483,6 +1542,44 @@ impl MathService {
                     .iter()
                     .map(|r| (r.lower, r.upper))
                     .collect(),
+                original: &mut original,
+            },
+        )?)
+    }
+    /// A recognized convex program's cone form on a cone adapter, raised to the program
+    /// and re-checked against the original case (ADR-0121 Outcome 6).
+    fn recognized_step(
+        &self,
+        run: execution::Step<'_>,
+        retained: &mut Retained,
+        case: AlgebraicCase,
+        budget: &Arc<WorkerBudget>,
+    ) -> Result<SolveReport, MathRuntimeError> {
+        let AlgebraicCase {
+            prepared,
+            case,
+            values,
+            providers,
+            recognized,
+            ..
+        } = case;
+        let (lowered, _owner) = recognized
+            .ok_or_else(|| ProblemError::Internal("missing recognized cone form".into()))?;
+        let plan = &prepared.prepared.plan;
+        let mut original = OriginalCase {
+            service: self,
+            case,
+            providers: &providers,
+            values: &values,
+            plan,
+            cancel: run.execution.cancel.clone(),
+            budget,
+        };
+        Ok(execution::recognized(
+            run,
+            retained,
+            execution::Recognized {
+                lowered: &lowered,
                 original: &mut original,
             },
         )?)

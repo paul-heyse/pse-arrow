@@ -152,10 +152,12 @@ frames! {
         MathBoundFactsV2 => "pse.math.bound-facts.v2",
         /// Coefficient extraction assumptions over shared bound facts.
         MathCoefficientAssumptionsV1 => "pse.math.coefficient-assumptions.v1",
-        /// A quadratic Gram representation.
-        MathGramV1 => "pse.math.gram.v1",
-        /// A convexity assessment of an admitted snapshot.
+        /// A quadratic matrix and orientation certified by an exact Gram representation.
+        MathGramV2 => "pse.math.gram.v2",
+        /// A numerical convexity assessment of an admitted snapshot.
         MathConvexityV1 => "pse.math.convexity.v1",
+        /// The convexity fact of a prepared problem (ADR-0121).
+        MathConvexityFactV1 => "pse.math.convexity-fact.v1",
         /// The mathematics environment projection.
         MathEnvironmentV1 => "pse.math.environment.v1",
         /// A factorable decomposition.
@@ -229,6 +231,9 @@ frames! {
         ConeLayoutV3 => "pse.cone.layout.v3",
         /// The lower-bound cone row of a two-sided coefficient row lowered to cone form.
         ConeLoweredRowV1 => "pse.cone.lowered-row.v1",
+        /// A recognized convex program's cone form: its auxiliary columns, atom rows and
+        /// contract (ADR-0121).
+        ConeRecognizedV1 => "pse.cone.recognized.v1",
         /// A factorable problem's variable domains.
         FactorableDomainV1 => "pse.factorable.domain.v1",
         /// The continuous problem of a fixed discrete assignment.
@@ -285,8 +290,9 @@ frames! {
         /// A dynamic simulation profile, with its scheduled inputs and typed sensitivity; its
         /// IDAS settings carry no sign constraints.
         DynamicProfileV6 => "pse.dynamic.profile.v6",
-        /// An explicit conic request.
-        ExplicitConicV3 => "pse.explicit-conic.v3",
+        /// An explicit conic request; its quadratic is certified exactly, so it carries no
+        /// Gram witness.
+        ExplicitConicV4 => "pse.explicit-conic.v4",
         /// A fitting coordinate alias of an experiment and source.
         FitCoordinateV1 => "pse.fit.coordinate.v1",
         /// A prepared fit.

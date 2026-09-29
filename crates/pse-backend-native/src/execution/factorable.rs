@@ -1173,9 +1173,10 @@ fn fixed_assignment(
         table: &LINKED,
         facts: &facts,
         intent,
-        convex: false,
+        numerical_psd: false,
         least_squares: false,
         controls: &controls,
+        settings: &BackendSettings::Default,
     })
     .select(SolverSelection::Auto)?
     else {

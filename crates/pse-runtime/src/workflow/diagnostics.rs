@@ -538,9 +538,10 @@ mod tests {
             table: &pse_backend_native::execution::Table::new(&[]),
             facts: &facts,
             intent: SolveIntent::Root,
-            convex: false,
+            numerical_psd: false,
             least_squares: false,
             controls: &controls,
+            settings: &pse_backend_native::execution::BackendSettings::Default,
         };
         let error = refused.select(SolverSelection::Auto).unwrap_err();
         assert!(matches!(error, ProblemError::Unsupported(_)), "{error:?}");

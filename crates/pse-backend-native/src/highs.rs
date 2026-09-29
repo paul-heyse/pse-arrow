@@ -1520,9 +1520,7 @@ mod tests {
             &[Triplet::new(0, 0, 2.), Triplet::new(1, 1, 2.)],
         )
         .unwrap();
-        let certificate =
-            crate::GramCertificate::new(&hessian, 1.0, &faer::Mat::identity(2, 2), &[2., 2.], 64)
-                .unwrap();
+        let certificate = crate::solver_tests::certify(&hessian, 1.0);
         let problem = CoefficientProblem {
             contract,
             objective: vec![-2., -4.],

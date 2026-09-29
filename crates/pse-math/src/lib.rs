@@ -7,6 +7,7 @@ pub mod binding;
 pub mod coefficients;
 pub mod collocation;
 pub mod convexity;
+pub mod curvature;
 pub mod diagnostics;
 mod error;
 mod execution;

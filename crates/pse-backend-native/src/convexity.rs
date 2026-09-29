@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use crate::{CoefficientProblem, ProblemError};
-pub use pse_math::coefficients::GramCertificate;
+pub use pse_math::convexity::GramCertificate;
 impl CoefficientProblem {
     /// A convex native QP route requires exact, current, sense-aware PSD evidence.
     pub fn validate_convex(

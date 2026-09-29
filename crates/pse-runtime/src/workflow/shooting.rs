@@ -542,9 +542,10 @@ impl ShootingProblem {
                 table: &native::execution::LINKED,
                 facts: &facts,
                 intent: problem.solver.intent,
-                convex: false,
+                numerical_psd: false,
                 least_squares: false,
                 controls: &problem.solver.controls,
+                settings: &problem.solver.backend,
             }
             .select(problem.solver.selection)
             .map_err(crate::math::MathRuntimeError::from)?;

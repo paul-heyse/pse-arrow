@@ -53,19 +53,37 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
                 target_row[*remote].clone(),
             );
         }
-        if reference.target != invariant.relation {
-            valid.insert(reference.target.to_owned(), vec![target_row]);
+        let self_reference = reference.target == invariant.relation;
+        if !self_reference {
+            valid.insert(reference.target.to_owned(), vec![target_row.clone()]);
         }
         invalid = valid.clone();
+        // A self-reference resolves against the subject's own key. A column the reference
+        // shares with that key (a composite reference's scope) moves both sides together,
+        // so the violation replaces a column that is not its own target.
+        let (local, remote) = reference
+            .columns
+            .iter()
+            .zip(&reference.target_columns)
+            .find(|(local, remote)| !self_reference || local != remote)
+            .unwrap_or_else(|| {
+                panic!(
+                    "{}: a self-reference whose every column is shared always resolves",
+                    invariant.qualified_name()
+                )
+            });
         let bad = default_value(
             registry,
-            &target
-                .column(reference.target_columns[0])
-                .unwrap()
-                .value_type(),
-            2,
+            &target.column(remote).unwrap().value_type(),
+            absent_identity(self_reference),
         );
-        set(&mut invalid, &invariant.relation, reference.columns[0], bad);
+        assert_ne!(
+            bad,
+            target_row[*remote],
+            "{}: the violating reference must name an absent key",
+            invariant.qualified_name()
+        );
+        set(&mut invalid, &invariant.relation, local, bad);
     } else if let Some(column) = invariant.name.strip_prefix("foreign_key:") {
         let product = registry.obligations(spec.key).unwrap();
         let occurrence = product
@@ -86,17 +104,39 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
                 target_row[&mapping.target].clone(),
             );
         }
-        if occurrence.reference.relation != invariant.relation {
-            valid.insert(occurrence.reference.relation.clone(), vec![target_row]);
+        let self_reference = occurrence.reference.relation == invariant.relation;
+        if !self_reference {
+            valid.insert(occurrence.reference.relation.clone(), vec![target_row.clone()]);
         }
         invalid = valid.clone();
-        let mapping = &occurrence.reference.columns[0];
-        let mut path = occurrence.path.clone();
-        path.extend(mapping.source.clone());
+        // As for a declared reference: a self-reference replaces a value that is not
+        // its own target column.
+        let (mapping, path) = occurrence
+            .reference
+            .columns
+            .iter()
+            .map(|mapping| {
+                let mut path = occurrence.path.clone();
+                path.extend(mapping.source.clone());
+                (mapping, path)
+            })
+            .find(|(mapping, path)| !self_reference || path[..] != [mapping.target.clone()])
+            .unwrap_or_else(|| {
+                panic!(
+                    "{}: a self-reference whose every column is shared always resolves",
+                    invariant.qualified_name()
+                )
+            });
         let bad = default_value(
             registry,
             &target.column(&mapping.target).unwrap().value_type(),
-            2,
+            absent_identity(self_reference),
+        );
+        assert_ne!(
+            bad,
+            target_row[&mapping.target],
+            "{}: the violating reference must name an absent key",
+            invariant.qualified_name()
         );
         set_path(
             registry,
@@ -150,6 +190,13 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
         expected_keys,
     };
     (convert(valid, vec![]), convert(invalid, keys))
+}
+/// The identity of a key the violating reference names. The target row has identity 1.
+/// A self-reference names an identity below its own row's: self-references commonly point
+/// to an earlier row, so a declared ordering check (such as a predecessor being earlier)
+/// holds and the case violates only the reference.
+fn absent_identity(self_reference: bool) -> u8 {
+    if self_reference { 0 } else { 2 }
 }
 // Construct one concrete occurrence from the declared path, independently of its SQL.
 fn set_path(

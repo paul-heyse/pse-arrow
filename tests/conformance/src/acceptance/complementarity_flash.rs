@@ -112,26 +112,35 @@ async fn flash_phase_disappearance_agrees_across_realizations() {
             smooth.1,
             disjunctive.1
         );
-        // penalty(l1) lowers to nonnegative members, a product row and the l1
-        // exact-penalty requirement of its case structure. Its solve needs the l1 route
-        // selection of Plan 22 M5b and is pending until then.
-        let penalty = seed_prepare(
-            &package,
-            cases[&format!("complementarity_{feed}_penalty")],
-            feasible(Backend::Ipopt),
-            &CancelSource::new(),
-        )
-        .await
-        .unwrap();
+        // penalty(l1): nonnegative members, a product row and the l1 exact-penalty
+        // requirement of its case structure, which selects POUNCE's l1 method: the
+        // author's selection (ADR-0104 §5, Plan 22 M5b).
+        let penalty_case = cases[&format!("complementarity_{feed}_penalty")];
+        let prepared = seed_prepare(&package, penalty_case, feasible(Backend::Pounce), &CancelSource::new())
+            .await
+            .unwrap();
         assert_eq!(
-            penalty
-                .model
-                .case
-                .compiled()
-                .plan
-                .structure()
-                .requirements(),
+            prepared.model.case.compiled().plan.structure().requirements(),
             [Requirement::L1ExactPenalty]
+        );
+        let penalty = solve(&package, penalty_case, feasible(Backend::Pounce)).await;
+        assert!(
+            (penalty.0 - beta).abs() < 1e-4,
+            "{feed} penalty: vapor fraction {}",
+            penalty.0
+        );
+        // The exact penalty's solution is the complementarity point itself.
+        assert!(
+            (penalty.1 - disjunctive.1).abs() < 1e-4,
+            "{feed}: penalty {} K, disjunctive {} K",
+            penalty.1,
+            disjunctive.1
+        );
+        // Another backend cannot honour the requirement.
+        assert!(
+            seed_prepare(&package, penalty_case, feasible(Backend::Ipopt), &CancelSource::new())
+                .await
+                .is_err()
         );
     }
 }

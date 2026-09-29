@@ -2171,6 +2171,7 @@ fn scip_incumbent_events_apply_offset() {
     }
 }
 
+mod curvature;
 #[cfg(all(feature = "ipopt", feature = "pounce"))]
 mod sensitivity;
 /// Semicontinuous supply: min price·s + 3p  s.t.  s + p ≥ demand, s ∈ {0} ∪ [lower, 5]

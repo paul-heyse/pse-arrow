@@ -13,6 +13,7 @@
         "general_bounds": "[\"bool\",true]",
         "native_forms": "[\"list\",[]]",
         "parallel": "[\"bool\",true]",
+        "requirements": "[\"list\",[]]",
         "reuse": "[\"text\",\"value-1\"]",
         "sign_bounds": "[\"bool\",true]",
         "warm": "[\"enum\",\"none\"]"

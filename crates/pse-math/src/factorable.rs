@@ -694,7 +694,7 @@ impl FactorableProgram {
             + self.incomplete.capacity() * size_of::<SemanticId>()
     }
 }
-fn power(base: f64, exponent: Constant) -> f64 {
+pub(crate) fn power(base: f64, exponent: Constant) -> f64 {
     match exponent {
         Constant::Rational(Rational {
             numerator,

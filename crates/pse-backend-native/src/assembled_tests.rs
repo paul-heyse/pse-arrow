@@ -142,8 +142,7 @@ fn explicit_cones_validate_storage_dimensions_parameters_and_psd() {
         &[faer::sparse::Triplet::new(0, 0, 2.0)],
     )
     .unwrap();
-    let cert =
-        GramCertificate::new(&q, 1.0, &faer::Mat::from_fn(1, 1, |_, _| 1.0), &[2.0], 10).unwrap();
+    let cert = solver_tests::certify(&q, 1.0);
     let mut p = ConicProblem {
         contract: assembled::contract(&a),
         quadratic: conic::SparseMatrix::new(1, 1, vec![0, 1], vec![0], vec![2.0]),

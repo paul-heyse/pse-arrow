@@ -13,6 +13,8 @@ pub(super) mod dynamics;
 pub use dynamics::{ModelingSimulation, ModelingTrajectory};
 #[cfg(test)]
 mod certificate_tests;
+#[cfg(all(test, feature = "solver-highs"))]
+mod convexity_tests;
 mod diagnostics;
 #[cfg(all(test, feature = "solver-highs"))]
 mod forms_tests;

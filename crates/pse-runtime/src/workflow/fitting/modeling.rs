@@ -155,9 +155,10 @@ impl ModelingPackage {
             table: &native::execution::LINKED,
             facts: &facts,
             intent: problem.profile.solver.intent,
-            convex: false,
+            numerical_psd: false,
             least_squares: true,
             controls: &problem.profile.solver.controls,
+            settings: &problem.profile.solver.backend,
         }
         .select(problem.profile.solver.selection)
         .map_err(crate::math::MathRuntimeError::from)?;

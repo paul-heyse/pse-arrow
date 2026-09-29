@@ -1620,6 +1620,70 @@ fn kernel_case_projection_excludes_observations_and_preserves_specification() {
     );
 }
 
+/// ADR-0121 Outcome 3: the convexity fact is a value-dependent product. A parameter that
+/// changes the curvature of a coefficient objective, or of a cone row, re-establishes the
+/// fact on rebind; the rebound fact equals a fresh preparation's under the same values, and
+/// its key identifies the values it consumed.
+#[test]
+fn convexity_fact_rebinds_with_values() {
+    use pse_math::convexity::{ConvexityClass, Unrecognized};
+    type Convex = fn(&ConvexityClass) -> bool;
+    let cases: [(&str, Convex, ConvexityClass); 2] = [
+        (
+            "package p { def Root { param p: Scalar = 1; var x: Scalar; var y: Scalar; let f: Scalar = p*x*x + x*y + y*y; annotation objective f(minimize); eq e: x + y == 1; } }",
+            |c: &ConvexityClass| matches!(c, ConvexityClass::ConvexQuadratic(_)),
+            ConvexityClass::Unrecognized(Unrecognized::Indefinite),
+        ),
+        (
+            "package p { def Root { param p: Scalar = 1; var x: Scalar; var y: Scalar; annotation bounds x(-2, 2); annotation bounds y(-2, 2); eq c: p*exp(x) + y <= 3; annotation objective y(maximize); } }",
+            |c: &ConvexityClass| matches!(c, ConvexityClass::Cone(s) if s.exponential == 1),
+            ConvexityClass::Unrecognized(Unrecognized::Curvature { row: Some(0) }),
+        ),
+    ];
+    for (text, convex, nonconvex) in cases {
+        let (mut w, _, _, root) = setup(text);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let bindings = Bindings {
+            demand: vec!["p".into(), "x".into(), "y".into()],
+            ..Bindings::default()
+        };
+        let model = w
+            .prepare_modeling_cancellable(
+                root,
+                InstanceId::from_id(SemanticId::NIL),
+                bindings,
+                Limits::default(),
+                cancel.clone(),
+            )
+            .unwrap();
+        let paths = &model.model.paths;
+        let (p, x, y) = (paths["p"], paths["x"], paths["y"]);
+        let values = |p_value: f64| CaseValues {
+            scalars: BTreeMap::from([(x, 0.5), (y, 0.5), (p, p_value)]),
+        };
+        let structure = model.bound_structure(&BTreeMap::new()).unwrap().structure;
+        let prepare = |w: &mut CompilerWorkspace, p_value| {
+            w.prepare_modeling_view(
+                &model,
+                structure.clone(),
+                &values(p_value),
+                DerivativeOrder::First,
+                Profile::default(),
+                &cancel,
+            )
+            .unwrap()
+        };
+        let first = prepare(&mut w, 1.0);
+        assert!(convex(&first.facts.convexity.class), "{text}: {:?}", first.facts.convexity);
+        let rebound = first.rebind(&values(-1.0), &cancel).unwrap();
+        assert_eq!(rebound.facts.convexity.class, nonconvex, "{text}");
+        assert_ne!(rebound.facts.convexity.key, first.facts.convexity.key);
+        assert_eq!(rebound.facts.convexity, prepare(&mut w, -1.0).facts.convexity);
+        // Back to the first values: the fact is re-established with the first key.
+        let restored = rebound.rebind(&values(1.0), &cancel).unwrap();
+        assert_eq!(restored.facts.convexity, first.facts.convexity);
+    }
+}
 #[test]
 fn value_rebind_shares_structure_and_rebuilds_only_consumed_values() {
     let (mut w, _, _, root) =

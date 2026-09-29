@@ -1,12 +1,25 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Exact witnesses and opt-in numerical evidence for an unchanged quadratic snapshot.
-use crate::{
-    MathError,
-    coefficients::{Coefficients, GramCertificate},
-};
+//! Exact convexity: the compiler fact routing reads (ADR-0121), exact rational LDLᵀ Gram
+//! certificates, and opt-in numerical evidence for one request.
+//!
+//! Convexity is established once, at preparation, and recorded in
+//! [`crate::facts::ProblemFacts::convexity`] with the identity of the values it consumed, so
+//! it rebinds with them (A6). A coefficient program's objective quadratic is decided by an
+//! exact rational LDLᵀ with symmetric pivoting ([`GramCertificate::certify`]); a continuous
+//! nonlinear program by the curvature pass ([`crate::curvature`]). Numerical PSD evidence
+//! ([`Coefficients::numerical_convexity`]) is an explicit qualification of one request and
+//! never a fact.
+use crate::{MathError, coefficients::Coefficients};
 use pse_ids::{ContentHash, FramedHasher};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
+use symbolica::domains::rational::Rational;
 
 mod sealed {
     pub trait Sealed {}
@@ -121,7 +134,7 @@ impl QuadraticEvidence for TransportedEvidence {
         q: &faer::sparse::SparseColMat<usize, f64>,
         sign: f64,
     ) -> Result<(), MathError> {
-        if self.matrix != crate::coefficients::quadratic_identity(q, sign) {
+        if self.matrix != quadratic_identity(q, sign) {
             return Err(MathError::Contract(
                 "stale normalized quadratic evidence".into(),
             ));
@@ -160,7 +173,7 @@ pub fn normalize_quadratic(
         .map_err(|e| MathError::Contract(e.to_string()))?;
     let evidence = TransportedEvidence {
         assessment: proof.assessment().cloned(),
-        matrix: crate::coefficients::quadratic_identity(&result, sign),
+        matrix: quadratic_identity(&result, sign),
         assumptions: proof.assumptions(),
     };
     Ok((result, evidence))
@@ -198,8 +211,8 @@ pub fn minimization_form(
         None => {}
     }
     // Upper-triangle entries, and the strictly lower ones at their mirrored position.
-    let mut upper = std::collections::BTreeMap::new();
-    let mut lower = std::collections::BTreeMap::new();
+    let mut upper = BTreeMap::new();
+    let mut lower = BTreeMap::new();
     for c in 0..n {
         for (r, &v) in q.row_idx_of_col(c).zip(q.val_of_col(c)) {
             if v == 0.0 {
@@ -236,7 +249,7 @@ pub fn minimization_form(
         .map_err(|e| MathError::Contract(e.to_string()))?;
     let evidence = TransportedEvidence {
         assessment: proof.and_then(|p| p.assessment().cloned()),
-        matrix: crate::coefficients::quadratic_identity(&result, 1.0),
+        matrix: quadratic_identity(&result, 1.0),
         assumptions: proof.and_then(|p| p.assumptions()),
     };
     Ok((result, evidence))
@@ -245,10 +258,11 @@ pub fn minimization_form(
 /// Numerical assessment is a separate, explicit permission from exact certification.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum ConvexityPolicy {
-    /// Only a verified represented-rational Gram identity establishes convexity.
+    /// Only the exact convexity fact establishes convexity.
     #[default]
     Exact,
-    /// Permit a residual-qualified PSD assessment in normalized coordinates.
+    /// Also permit a residual-qualified PSD assessment in normalized coordinates, for the
+    /// one request that states it; it never becomes a fact.
     Numerical {
         /// Absolute eigenvalue budget in normalized objective coordinates.
         absolute: f64,
@@ -286,8 +300,6 @@ impl ConvexityPolicy {
 pub enum InconclusiveReason {
     /// The caller's allocation or exact-operation allowance is insufficient.
     ResourceLimit,
-    /// No exact Gram witness was established and numerical assessment is disabled.
-    NoExactWitness,
     /// The eigensolver did not converge or returned invalid values.
     Eigensolver,
     /// Residual or orthogonality qualification failed.
@@ -300,7 +312,6 @@ impl InconclusiveReason {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::ResourceLimit => "resource_limit",
-            Self::NoExactWitness => "no_exact_witness",
             Self::Eigensolver => "eigensolver",
             Self::Residual => "residual",
             Self::Threshold => "threshold",
@@ -308,11 +319,10 @@ impl InconclusiveReason {
     }
 }
 
-/// Scientific interpretation; numerical PSD never masquerades as an exact certificate.
+/// A numerical assessment's scientific interpretation; numerical PSD never masquerades
+/// as an exact certificate.
 #[derive(Clone, Debug)]
 pub enum ConvexityAssessment {
-    /// Exact identity against every represented matrix entry and objective sense.
-    Exact(GramCertificate),
     /// PSD only within the explicit tolerance and numerical uncertainty.
     NumericalPsd {
         /// Smallest normalized computed eigenvalue.
@@ -332,7 +342,8 @@ pub enum ConvexityAssessment {
     /// No conclusion, distinct from infeasible or indefinite.
     Inconclusive(InconclusiveReason),
 }
-/// Nonforgeable evidence tied to coefficients, values, orientation and normalization.
+/// Nonforgeable numerical evidence tied to coefficients, values, orientation, normalization
+/// and the one request's tolerance policy.
 #[derive(Clone, Debug)]
 pub struct ConvexityEvidence {
     policy: ConvexityPolicy,
@@ -350,7 +361,7 @@ impl ConvexityEvidence {
         q: &faer::sparse::SparseColMat<usize, f64>,
         sign: f64,
     ) -> Result<(), MathError> {
-        if self.matrix != crate::coefficients::quadratic_identity(q, sign) {
+        if self.matrix != quadratic_identity(q, sign) {
             return Err(MathError::Contract("stale quadratic evidence".into()));
         }
         Ok(())
@@ -367,31 +378,31 @@ impl ConvexityEvidence {
     pub fn assessment(&self) -> &ConvexityAssessment {
         &self.assessment
     }
-    /// Eligibility under the explicitly selected evidence policy.
+    /// Whether the assessment established numerical PSD under the request's policy.
     pub fn accepted(&self) -> bool {
-        matches!(
-            self.assessment,
-            ConvexityAssessment::Exact(_) | ConvexityAssessment::NumericalPsd { .. }
-        )
+        matches!(self.assessment, ConvexityAssessment::NumericalPsd { .. })
     }
 }
-/// Caller-owned resource allowance. Computation is serial within the caller's CPU lease.
-#[derive(Clone, Copy, Debug)]
-pub struct ConvexityLimits {
-    /// Maximum dense work and library scratch allocation.
-    pub bytes: usize,
-    /// Maximum represented-rational multiply/add witness work.
-    pub exact_operations: usize,
-}
 impl Coefficients {
-    /// Assess the admitted snapshot without changing Q or silently repairing curvature.
-    pub fn convexity(
+    /// The residual-qualified numerical PSD assessment of the admitted snapshot under one
+    /// request's explicit tolerances (ADR-0121 Outcome 4), in normalized coordinates. It
+    /// never changes Q or silently repairs curvature, and it is never a fact: exact
+    /// convexity is [`crate::facts::ProblemFacts::convexity`].
+    ///
+    /// # Errors
+    /// Invalid coordinates, matrix or tolerances, or cancellation.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "an assessment binds its orientation, coordinates, tolerances, allowance and cancellation"
+    )]
+    pub fn numerical_convexity(
         &self,
         sign: f64,
         scales: &[f64],
         objective_scale: f64,
-        policy: ConvexityPolicy,
-        limits: ConvexityLimits,
+        absolute: f64,
+        relative: f64,
+        bytes: usize,
         cancel: &AtomicBool,
     ) -> Result<ConvexityEvidence, MathError> {
         let n = self.hessian.ncols();
@@ -407,6 +418,17 @@ impl Coefficients {
                 "convexity coordinates or matrix".into(),
             ));
         }
+        if !absolute.is_finite()
+            || !relative.is_finite()
+            || absolute < 0.0
+            || relative < 0.0
+            || absolute + relative <= 0.0
+        {
+            return Err(MathError::Contract(
+                "explicit numerical PSD tolerance".into(),
+            ));
+        }
+        let policy = ConvexityPolicy::Numerical { absolute, relative };
         let mut h = FramedHasher::new(pse_ids::Frame::MathConvexityV1);
         h.hash(&self.assumptions)
             .u64(sign.to_bits())
@@ -414,30 +436,10 @@ impl Coefficients {
         for v in scales {
             h.u64(v.to_bits());
         }
-        let tolerance = match policy {
-            ConvexityPolicy::Exact => {
-                h.u64(0);
-                None
-            }
-            ConvexityPolicy::Numerical { absolute, relative } => {
-                if !absolute.is_finite()
-                    || !relative.is_finite()
-                    || absolute < 0.0
-                    || relative < 0.0
-                    || absolute + relative <= 0.0
-                {
-                    return Err(MathError::Contract(
-                        "explicit numerical PSD tolerance".into(),
-                    ));
-                }
-                h.u64(1).u64(absolute.to_bits()).u64(relative.to_bits());
-                Some((absolute, relative))
-            }
-        };
+        h.u64(1).u64(absolute.to_bits()).u64(relative.to_bits());
         h.str("faer-0.24.4;serial-evd;residual-v1")
-            .u64(limits.bytes as u64)
-            .u64(limits.exact_operations as u64);
-        let matrix = crate::coefficients::quadratic_identity(&self.hessian, sign);
+            .u64(bytes as u64);
+        let matrix = quadratic_identity(&self.hessian, sign);
         h.hash(&matrix);
         let key = h.finish_hash();
         let result = |assessment| ConvexityEvidence {
@@ -454,86 +456,19 @@ impl Coefficients {
             return Err(MathError::Cancelled);
         }
         let dense_bytes = n.checked_mul(n).and_then(|v| v.checked_mul(8 * 10));
-        if dense_bytes.is_none_or(|v| v > limits.bytes) {
+        if dense_bytes.is_none_or(|v| v > bytes) {
             return Ok(unknown(InconclusiveReason::ResourceLimit));
         }
         let original = self.hessian.to_dense();
         if (0..n).any(|i| (0..n).any(|j| original[(i, j)] != original[(j, i)])) {
             return Err(MathError::Contract("asymmetric quadratic matrix".into()));
         }
-        let signed = faer::Mat::from_fn(n, n, |i, j| sign * original[(i, j)]);
-        let diagonal = (0..n).all(|i| (0..n).all(|j| i == j || signed[(i, j)] == 0.0));
-        let witness = if diagonal {
-            Some((
-                faer::Mat::identity(n, n),
-                (0..n).map(|i| signed[(i, i)]).collect::<Vec<_>>(),
-            ))
-        } else if n
-            .checked_mul(n)
-            .and_then(|v| v.checked_mul(n))
-            .is_some_and(|v| v <= limits.exact_operations)
-        {
-            // faer supplies candidate factors. Exact verification below owns the conclusion.
-            let mut factors = signed.clone();
-            let scratch = faer::linalg::cholesky::ldlt::factor::cholesky_in_place_scratch::<f64>(
-                n,
-                faer::Par::Seq,
-                Default::default(),
-            );
-            if dense_bytes
-                .and_then(|b| b.checked_add(scratch.unaligned_bytes_required()))
-                .is_none_or(|b| b > limits.bytes)
-            {
-                return Ok(unknown(InconclusiveReason::ResourceLimit));
-            }
-            let mut memory = faer::dyn_stack::MemBuffer::new(scratch);
-            faer::linalg::cholesky::ldlt::factor::cholesky_in_place(
-                factors.as_mut(),
-                Default::default(),
-                faer::Par::Seq,
-                faer::dyn_stack::MemStack::new(&mut memory),
-                Default::default(),
-            )
-            .ok()
-            .map(|_| {
-                let weights = (0..n).map(|i| factors[(i, i)]).collect::<Vec<_>>();
-                let transposed = faer::Mat::from_fn(n, n, |i, j| {
-                    if i == j {
-                        1.0
-                    } else if i < j {
-                        factors[(j, i)]
-                    } else {
-                        0.0
-                    }
-                });
-                (transposed, weights)
-            })
-        } else {
-            None
-        };
-        if let Some((factors, weights)) = witness
-            && let Ok(proof) = GramCertificate::new(
-                &self.hessian,
-                sign,
-                &factors,
-                &weights,
-                limits.exact_operations,
-            )
-        {
-            return Ok(result(ConvexityAssessment::Exact(proof)));
-        }
-        let Some((absolute, relative)) = tolerance else {
-            return Ok(unknown(InconclusiveReason::NoExactWitness));
-        };
-        if cancel.load(Ordering::Relaxed) {
-            return Err(MathError::Cancelled);
-        }
         let mut a = faer::Mat::zeros(n, n);
         for i in 0..n {
             for j in 0..n {
                 a[(i, j)] = crate::normalization::checked_ratio(
                     crate::normalization::checked_product(
-                        crate::normalization::checked_product(signed[(i, j)], scales[i])?,
+                        crate::normalization::checked_product(sign * original[(i, j)], scales[i])?,
                         scales[j],
                     )?,
                     objective_scale,
@@ -553,7 +488,7 @@ impl Coefficients {
         );
         if dense_bytes
             .and_then(|b| b.checked_add(scratch.unaligned_bytes_required()))
-            .is_none_or(|b| b > limits.bytes)
+            .is_none_or(|b| b > bytes)
         {
             return Ok(unknown(InconclusiveReason::ResourceLimit));
         }
@@ -609,11 +544,544 @@ impl Coefficients {
     }
 }
 
+/// The exact-operation allowance of one preparation's certificates: rational
+/// multiply-adds of every exact LDLᵀ and quadratic expansion it runs. An exhausted allowance
+/// is inconclusive, never convex (ADR-0121 Outcome 2).
+pub const EXACT_OPERATIONS: usize = 1 << 22;
+
+/// `Q = sign · Σₖ wₖ rₖ rₖᵀ` with every `wₖ > 0`: a Gram (sum-of-squares) representation of
+/// a positive semidefinite quadratic, computed by an exact rational LDLᵀ with symmetric
+/// pivoting ([`Self::certify`]) and tied to every numeric matrix entry and the objective
+/// orientation. The factors are kept: a cone lowering reads a certified quadratic as a sum
+/// of weighted squares.
+#[derive(Clone, Debug)]
+pub struct GramCertificate {
+    identity: ContentHash,
+    factors: GramFactors,
+}
+impl PartialEq for GramCertificate {
+    fn eq(&self, other: &Self) -> bool {
+        self.identity == other.identity
+    }
+}
+impl Eq for GramCertificate {}
+/// The factors of an exact LDLᵀ: rows `rₖ` in original coordinates, each with a unit entry
+/// at its pivot, and positive weights `wₖ`.
+#[derive(Clone, Debug, Default)]
+pub struct GramFactors {
+    rows: Vec<Vec<(usize, Rational)>>,
+    weights: Vec<Rational>,
+}
+impl GramFactors {
+    /// The squared terms: each positive weight with its row, in pivot order.
+    pub fn terms(&self) -> impl Iterator<Item = (&Rational, &[(usize, Rational)])> {
+        self.weights
+            .iter()
+            .zip(self.rows.iter().map(Vec::as_slice))
+    }
+    /// The number of squares: the rank of the certified matrix.
+    pub fn rank(&self) -> usize {
+        self.weights.len()
+    }
+    /// The same factors over the original columns `columns[k]` of local index `k`.
+    pub(crate) fn relabel(self, columns: &[usize]) -> Self {
+        Self {
+            rows: self
+                .rows
+                .into_iter()
+                .map(|row| row.into_iter().map(|(k, v)| (columns[k], v)).collect())
+                .collect(),
+            weights: self.weights,
+        }
+    }
+}
+/// The exact decision of one symmetric matrix.
+#[derive(Clone, Debug)]
+pub enum Definiteness {
+    /// Positive semidefinite, with its certificate.
+    Psd(GramCertificate),
+    /// A direction of negative curvature exists.
+    Indefinite,
+    /// The exact-operation allowance was exhausted before a decision.
+    Inconclusive,
+}
+/// The outcome of an exact LDLᵀ over rational rows.
+pub(crate) enum Ldlt {
+    Psd(GramFactors),
+    Indefinite,
+    Exhausted,
+}
+impl GramCertificate {
+    /// Decide positive semidefiniteness of `sign · q` exactly: every binary64 entry is a
+    /// rational, and a symmetric-pivoted rational LDLᵀ within `limit` multiply-adds either
+    /// yields the Gram factors, finds a direction of negative curvature, or is inconclusive.
+    ///
+    /// # Errors
+    /// A non-square, structurally unsymmetric or nonfinite matrix, an orientation other
+    /// than ±1, or cancellation.
+    pub fn certify(
+        q: &faer::sparse::SparseColMat<usize, f64>,
+        sign: f64,
+        limit: usize,
+        cancel: &AtomicBool,
+    ) -> Result<Definiteness, MathError> {
+        let n = q.ncols();
+        if q.nrows() != n || !matches!(sign, -1.0 | 1.0) {
+            return Err(MathError::Contract(
+                "Gram certificate dimensions or orientation".into(),
+            ));
+        }
+        let mut rows = vec![BTreeMap::new(); n];
+        for c in 0..n {
+            for (r, v) in q.row_idx_of_col(c).zip(q.val_of_col(c)) {
+                if *v == 0.0 {
+                    continue;
+                }
+                let value = Rational::try_from(sign * v)
+                    .map_err(|e| MathError::Contract(format!("Gram entry: {e}")))?;
+                rows[r].insert(c, value);
+            }
+        }
+        for (r, row) in rows.iter().enumerate() {
+            for (c, v) in row {
+                if rows[*c].get(&r) != Some(v) {
+                    return Err(MathError::Contract("asymmetric quadratic matrix".into()));
+                }
+            }
+        }
+        let mut budget = limit;
+        Ok(match ldlt(rows, &mut budget, cancel)? {
+            Ldlt::Psd(factors) => Definiteness::Psd(Self {
+                identity: quadratic_identity(q, sign),
+                factors,
+            }),
+            Ldlt::Indefinite => Definiteness::Indefinite,
+            Ldlt::Exhausted => Definiteness::Inconclusive,
+        })
+    }
+    /// Reject a stale certificate after any numeric matrix or sense change.
+    ///
+    /// # Errors
+    /// The certificate belongs to another matrix or orientation.
+    pub fn validate(
+        &self,
+        q: &faer::sparse::SparseColMat<usize, f64>,
+        sign: f64,
+    ) -> Result<(), MathError> {
+        if quadratic_identity(q, sign) != self.identity {
+            return Err(MathError::Contract("stale convexity evidence".into()));
+        }
+        Ok(())
+    }
+    /// The certified matrix and orientation's identity.
+    pub fn identity(&self) -> ContentHash {
+        self.identity
+    }
+    /// The exact factors.
+    pub fn factors(&self) -> &GramFactors {
+        &self.factors
+    }
+}
+/// Exact LDLᵀ of the symmetric rational matrix `a` (complete rows, zeros omitted) with
+/// symmetric pivoting, spending at most `budget` multiply-adds from it. At each step the pivot is the positive diagonal of the current
+/// Schur complement whose row has the fewest entries (then the lowest index), which keeps
+/// fill low. A negative diagonal, or a zero diagonal with an off-diagonal entry, in any
+/// Schur complement is a direction of negative curvature of `a`; when no positive diagonal
+/// remains, the complement is zero and the factors are complete.
+pub(crate) fn ldlt(
+    mut a: Vec<BTreeMap<usize, Rational>>,
+    budget: &mut usize,
+    cancel: &AtomicBool,
+) -> Result<Ldlt, MathError> {
+    enum Class {
+        Positive,
+        Zero,
+        Negative,
+    }
+    let classify = |row: &BTreeMap<usize, Rational>, i: usize| match row.get(&i) {
+        Some(d) if d.is_negative() => Class::Negative,
+        Some(d) if !d.is_zero() => Class::Positive,
+        // A zero diagonal with an off-diagonal entry `b` has the negative direction
+        // (b, -t) of the 2×2 minor for large t.
+        _ if row.keys().any(|&j| j != i) => Class::Negative,
+        _ => Class::Zero,
+    };
+    let mut positive = BTreeSet::new();
+    for (i, row) in a.iter().enumerate() {
+        match classify(row, i) {
+            Class::Negative => return Ok(Ldlt::Indefinite),
+            Class::Positive => {
+                positive.insert((row.len(), i));
+            }
+            Class::Zero => {}
+        }
+    }
+    let mut factors = GramFactors::default();
+    while let Some((_, p)) = positive.pop_first() {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(MathError::Cancelled);
+        }
+        let row = std::mem::take(&mut a[p]);
+        let d = row[&p].clone();
+        let neighbors: Vec<(usize, Rational)> = row
+            .into_iter()
+            .filter(|(j, _)| *j != p)
+            .collect();
+        let k = neighbors.len();
+        let cost = (k.saturating_mul(k + 1) / 2).saturating_add(k).max(1);
+        if cost > *budget {
+            *budget = 0;
+            return Ok(Ldlt::Exhausted);
+        }
+        *budget -= cost;
+        let multipliers: Vec<Rational> = neighbors.iter().map(|(_, v)| v / &d).collect();
+        for (i, _) in &neighbors {
+            positive.remove(&(a[*i].len(), *i));
+            a[*i].remove(&p);
+        }
+        // The Schur complement: a_ij -= a_ip a_jp / d.
+        for (x, (i, _)) in neighbors.iter().enumerate() {
+            for (j, a_jp) in neighbors.iter().skip(x) {
+                let update = &multipliers[x] * a_jp;
+                let entry = a[*i].entry(*j).or_insert_with(Rational::zero);
+                *entry -= &update;
+                let value = entry.clone();
+                if value.is_zero() {
+                    a[*i].remove(j);
+                    a[*j].remove(i);
+                } else if i != j {
+                    a[*j].insert(*i, value);
+                }
+            }
+        }
+        for (i, _) in &neighbors {
+            match classify(&a[*i], *i) {
+                Class::Negative => return Ok(Ldlt::Indefinite),
+                Class::Positive => {
+                    positive.insert((a[*i].len(), *i));
+                }
+                Class::Zero => {}
+            }
+        }
+        let mut gram = vec![(p, Rational::one())];
+        gram.extend(
+            neighbors
+                .iter()
+                .map(|(i, _)| *i)
+                .zip(multipliers),
+        );
+        gram.sort_by_key(|(i, _)| *i);
+        factors.rows.push(gram);
+        factors.weights.push(d);
+    }
+    Ok(Ldlt::Psd(factors))
+}
+/// Identity of a represented quadratic matrix and its objective orientation.
+pub(crate) fn quadratic_identity(
+    q: &faer::sparse::SparseColMat<usize, f64>,
+    sign: f64,
+) -> ContentHash {
+    let mut h = FramedHasher::new(pse_ids::Frame::MathGramV2);
+    h.u64(q.nrows() as u64)
+        .u64(q.ncols() as u64)
+        .u64(sign.to_bits());
+    for c in 0..q.ncols() {
+        for (&r, &v) in q
+            .symbolic()
+            .row_idx_of_col_raw(c)
+            .iter()
+            .zip(q.val_of_col(c))
+        {
+            if v != 0.0 {
+                h.u64(r as u64).u64(c as u64).u64(v.to_bits());
+            }
+        }
+    }
+    h.finish_hash()
+}
+
+/// Convexity established at preparation (ADR-0121): the one exact authority routing reads.
+/// It is carried by the value-dependent products, so a value rebind re-establishes it, and
+/// its key identifies the program or coefficient snapshot and the values it consumed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Convexity {
+    /// Identity of what the fact consumed and how it was established.
+    pub key: ContentHash,
+    /// The established class.
+    pub class: ConvexityClass,
+}
+/// What preparation established about a problem's convexity.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ConvexityClass {
+    /// Nothing was assessed: a coefficient program prepared without its coefficient
+    /// snapshot.
+    NotAssessed,
+    /// A linear coefficient program.
+    Affine,
+    /// A coefficient program whose objective quadratic, in the minimization sense, has an
+    /// exact Gram certificate.
+    ConvexQuadratic(Arc<GramCertificate>),
+    /// A continuous program whose rows and objective the curvature pass recognizes as
+    /// convex in the directions their bounds and sense require, with a cone representation.
+    Cone(ConeSummary),
+    /// Not established, with the first reason found.
+    Unrecognized(Unrecognized),
+    /// The exact allowance was exhausted; never convex.
+    Inconclusive,
+}
+/// The cones a recognized program lowers to.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ConeSummary {
+    /// Auxiliary epigraph and hypograph columns.
+    pub auxiliaries: usize,
+    /// Scalar nonnegative constraints of atoms (absolute values).
+    pub nonnegative: usize,
+    /// Second-order cones (norms and certified quadratics).
+    pub second_order: usize,
+    /// Exponential cones (exp, log, entropy, relative entropy).
+    pub exponential: usize,
+    /// Power cones.
+    pub power: usize,
+}
+/// Why convexity was not established.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Unrecognized {
+    /// A column is discrete; cone classes are continuous.
+    Discrete,
+    /// A row or the objective is not exported exactly, or the program has auxiliaries,
+    /// implicit residuals, native forms or incomplete instances.
+    Inexact,
+    /// A retained obligation's closure does not follow from the variable box.
+    Domain,
+    /// A row (`Some(index)`) or the objective (`None`) has no recognized convex form in the
+    /// direction its bounds or sense require.
+    Curvature {
+        /// The row, or `None` for the objective.
+        row: Option<usize>,
+    },
+    /// The objective quadratic has an exact direction of negative curvature.
+    Indefinite,
+}
+impl Convexity {
+    /// The certificate of a convex quadratic coefficient objective.
+    pub fn convex_quadratic(&self) -> Option<&Arc<GramCertificate>> {
+        match &self.class {
+            ConvexityClass::ConvexQuadratic(c) => Some(c),
+            _ => None,
+        }
+    }
+    /// Whether the program is a recognized continuous cone program.
+    pub fn cone(&self) -> bool {
+        matches!(self.class, ConvexityClass::Cone(_))
+    }
+    /// The class of a coefficient program: its objective quadratic decided exactly in the
+    /// minimization sense `sign`.
+    ///
+    /// # Errors
+    /// A malformed matrix, or cancellation.
+    pub fn of_coefficients(
+        coefficients: &Coefficients,
+        sign: f64,
+        cancel: &AtomicBool,
+    ) -> Result<Self, MathError> {
+        let q = &coefficients.hessian;
+        let class = if q.val().iter().all(|v| *v == 0.0) {
+            ConvexityClass::Affine
+        } else {
+            match GramCertificate::certify(q, sign, EXACT_OPERATIONS, cancel)? {
+                Definiteness::Psd(c) => ConvexityClass::ConvexQuadratic(Arc::new(c)),
+                Definiteness::Indefinite => ConvexityClass::Unrecognized(Unrecognized::Indefinite),
+                Definiteness::Inconclusive => ConvexityClass::Inconclusive,
+            }
+        };
+        let mut h = FramedHasher::new(pse_ids::Frame::MathConvexityFactV1);
+        h.hash(&coefficients.assumptions)
+            .hash(&quadratic_identity(q, sign))
+            .u64(EXACT_OPERATIONS as u64);
+        class.hash_into(&mut h);
+        Ok(Self {
+            key: h.finish_hash(),
+            class,
+        })
+    }
+    /// The fact of a problem whose class nothing assessed.
+    pub fn not_assessed(structure: ContentHash) -> Self {
+        let class = ConvexityClass::NotAssessed;
+        let mut h = FramedHasher::new(pse_ids::Frame::MathConvexityFactV1);
+        h.hash(&structure);
+        class.hash_into(&mut h);
+        Self {
+            key: h.finish_hash(),
+            class,
+        }
+    }
+}
+impl ConvexityClass {
+    pub(crate) fn hash_into(&self, h: &mut FramedHasher) {
+        match self {
+            Self::NotAssessed => {
+                h.u64(0);
+            }
+            Self::Affine => {
+                h.u64(1);
+            }
+            Self::ConvexQuadratic(c) => {
+                h.u64(2).hash(&c.identity).u64(c.factors.rank() as u64);
+            }
+            Self::Cone(s) => {
+                h.u64(3)
+                    .u64(s.auxiliaries as u64)
+                    .u64(s.nonnegative as u64)
+                    .u64(s.second_order as u64)
+                    .u64(s.exponential as u64)
+                    .u64(s.power as u64);
+            }
+            Self::Unrecognized(reason) => {
+                h.u64(4);
+                match reason {
+                    Unrecognized::Discrete => h.u64(0),
+                    Unrecognized::Inexact => h.u64(1),
+                    Unrecognized::Domain => h.u64(2),
+                    Unrecognized::Curvature { row } => {
+                        h.u64(3).u64(row.map_or(u64::MAX, |r| r as u64))
+                    }
+                    Unrecognized::Indefinite => h.u64(4),
+                };
+            }
+            Self::Inconclusive => {
+                h.u64(5);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::coefficients::GramCertificate;
     use faer::sparse::{SparseColMat, Triplet};
+
+    fn square(n: usize, entries: &[(usize, usize, f64)]) -> SparseColMat<usize, f64> {
+        let triplets: Vec<_> = entries
+            .iter()
+            .map(|(r, c, v)| Triplet::new(*r, *c, *v))
+            .collect();
+        SparseColMat::try_new_from_triplets(n, n, &triplets).unwrap()
+    }
+    fn certify(q: &SparseColMat<usize, f64>, sign: f64, limit: usize) -> Definiteness {
+        GramCertificate::certify(q, sign, limit, &AtomicBool::new(false)).unwrap()
+    }
+    /// `Σ wₖ rₖ rₖᵀ` evaluated exactly, as a dense rational matrix.
+    fn reconstruct(n: usize, factors: &GramFactors) -> Vec<Vec<Rational>> {
+        let mut m = vec![vec![Rational::zero(); n]; n];
+        for (w, row) in factors.terms() {
+            for (i, a) in row {
+                for (j, b) in row {
+                    m[*i][*j] += &(&(w * a) * b);
+                }
+            }
+        }
+        m
+    }
+    /// ADR-0121 Outcome 2: the exact rational LDLᵀ with symmetric pivoting certifies
+    /// nondiagonal positive semidefinite matrices that floating-point factors cannot (a
+    /// non-dyadic Schur complement, and a leading zero diagonal of a singular matrix that
+    /// needs a pivot other than the first), reproduces every entry exactly from its kept
+    /// factors, and finds exact negative directions of indefinite matrices.
+    #[test]
+    fn exact_ldlt_certifies_nondiagonal_psd() {
+        let cases = [
+            // [[3, 1], [1, 3]]: Schur complement 8/3 is not a binary64 number.
+            (2, vec![(0, 0, 3.0), (0, 1, 1.0), (1, 0, 1.0), (1, 1, 3.0)]),
+            // [[0.1, 0.3], [0.3, 0.9]] in binary64: the determinant is exactly 2⁻⁵⁶, which a
+            // floating-point Schur complement loses.
+            (2, vec![(0, 0, 0.1), (0, 1, 0.3), (1, 0, 0.3), (1, 1, 0.9)]),
+            // [[0.1, 0.2], [0.2, 0.4]] in binary64: singular exactly.
+            (2, vec![(0, 0, 0.1), (0, 1, 0.2), (1, 0, 0.2), (1, 1, 0.4)]),
+            // [[0, 0, 0], [0, 2, 1], [0, 1, 1]]: a zero row and a nondiagonal block.
+            (3, vec![(1, 1, 2.0), (1, 2, 1.0), (2, 1, 1.0), (2, 2, 1.0)]),
+            // [[1, 1, 1], [1, 1, 1], [1, 1, 1]]: rank one.
+            (
+                3,
+                (0..3)
+                    .flat_map(|i| (0..3).map(move |j| (i, j, 1.0)))
+                    .collect(),
+            ),
+        ];
+        for (n, entries) in cases {
+            let q = square(n, &entries);
+            let Definiteness::Psd(proof) = certify(&q, 1.0, 1000) else {
+                panic!("PSD: {entries:?}")
+            };
+            proof.validate(&q, 1.0).unwrap();
+            assert!(proof.validate(&q, -1.0).is_err());
+            assert!(proof.factors().terms().all(|(w, _)| !w.is_negative() && !w.is_zero()));
+            let exact = reconstruct(n, proof.factors());
+            let dense = q.to_dense();
+            for i in 0..n {
+                for j in 0..n {
+                    assert_eq!(exact[i][j], Rational::try_from(dense[(i, j)]).unwrap());
+                }
+            }
+        }
+        // The rank-one matrices have one square each.
+        let singular = square(2, &[(0, 0, 0.1), (0, 1, 0.2), (1, 0, 0.2), (1, 1, 0.4)]);
+        let Definiteness::Psd(proof) = certify(&singular, 1.0, 1000) else {
+            panic!("singular PSD")
+        };
+        assert_eq!(proof.factors().rank(), 1);
+        let ones = square(
+            3,
+            &(0..3)
+                .flat_map(|i| (0..3).map(move |j| (i, j, 1.0)))
+                .collect::<Vec<_>>(),
+        );
+        let Definiteness::Psd(proof) = certify(&ones, 1.0, 1000) else {
+            panic!("rank one is PSD")
+        };
+        assert_eq!(proof.factors().rank(), 1);
+        // Indefinite: a negative diagonal, a zero diagonal with an off-diagonal entry, and
+        // a negative Schur complement.
+        for (n, entries) in [
+            (1, vec![(0, 0, -1.0)]),
+            (2, vec![(0, 1, 1.0), (1, 0, 1.0), (1, 1, 1.0)]),
+            (2, vec![(0, 0, 1.0), (0, 1, 2.0), (1, 0, 2.0), (1, 1, 1.0)]),
+        ] {
+            assert!(matches!(
+                certify(&square(n, &entries), 1.0, 1000),
+                Definiteness::Indefinite
+            ));
+        }
+        // The concave quadratic of a maximization is certified in the minimization sense.
+        let concave = square(2, &[(0, 0, -3.0), (0, 1, -1.0), (1, 0, -1.0), (1, 1, -3.0)]);
+        assert!(matches!(certify(&concave, 1.0, 1000), Definiteness::Indefinite));
+        assert!(matches!(certify(&concave, -1.0, 1000), Definiteness::Psd(_)));
+        // An exhausted allowance is inconclusive, never convex.
+        assert!(matches!(
+            certify(&square(2, &[(0, 0, 3.0), (0, 1, 1.0), (1, 0, 1.0), (1, 1, 3.0)]), 1.0, 1),
+            Definiteness::Inconclusive
+        ));
+        // An unsymmetric matrix is a contract error, not a decision.
+        assert!(
+            GramCertificate::certify(
+                &square(2, &[(0, 1, 1.0), (1, 0, 2.0)]),
+                1.0,
+                1000,
+                &AtomicBool::new(false)
+            )
+            .is_err()
+        );
+    }
+    /// A diagonal matrix of any size is certified in linear work: the symmetric pivoting
+    /// takes rows without fill.
+    #[test]
+    fn exact_ldlt_of_sparse_diagonal_is_linear() {
+        let n = 20_000;
+        let entries: Vec<_> = (0..n).map(|i| (i, i, 1.0 + i as f64)).collect();
+        assert!(matches!(
+            certify(&square(n, &entries), 1.0, 2 * n),
+            Definiteness::Psd(_)
+        ));
+    }
 
     fn matrix(entries: &[(usize, usize, f64)]) -> SparseColMat<usize, f64> {
         let triplets: Vec<_> = entries
@@ -629,12 +1097,9 @@ mod tests {
     fn minimization_form_negates_and_retargets_evidence() {
         // Maximize -(2x² + 2xy + 2y²)/2: Q = -[[2, 1], [1, 2]] is certified with sign -1.
         let q = matrix(&[(0, 0, -2.0), (0, 1, -1.0), (1, 0, -1.0), (1, 1, -2.0)]);
-        let factor = faer::Mat::from_fn(2, 2, |r, c| match (r, c) {
-            (0, 0) | (1, 1) => 1.0,
-            (0, 1) => 0.5,
-            _ => 0.0,
-        });
-        let proof = GramCertificate::new(&q, -1.0, &factor, &[2.0, 1.5], 10).unwrap();
+        let Definiteness::Psd(proof) = certify(&q, -1.0, 10) else {
+            panic!("a concave quadratic is certified in the minimization sense")
+        };
         let (p, evidence) = minimization_form(&q, -1.0, Some(&proof)).unwrap();
         assert_eq!(p.to_dense(), faer::mat![[2.0, 1.0], [1.0, 2.0]]);
         evidence.validate(&p, 1.0).unwrap();

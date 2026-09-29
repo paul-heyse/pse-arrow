@@ -606,7 +606,6 @@ async fn constant_sequence_uses_shared_lifecycle_and_retains_result_allowance() 
                 backend: BackendSettings::Default,
                 sensitivity: None,
             },
-            None,
             NumericalInputs::default(),
         )
         .await
@@ -647,7 +646,6 @@ async fn solver_profile_refuses_mismatched_backend_before_artifact_construction(
                 backend: BackendSettings::Default,
                 sensitivity: None,
             },
-            None,
             NumericalInputs::default(),
         )
         .await;
@@ -1016,7 +1014,6 @@ async fn session_step_reserves_per_worker() {
                 backend: BackendSettings::Default,
                 sensitivity: None,
             },
-            None,
             NumericalInputs::default(),
         )
         .await
@@ -1097,7 +1094,6 @@ async fn resolved_accuracy_not_user_input() {
                     backend: BackendSettings::Default,
                     sensitivity: None,
                 },
-                None,
                 NumericalInputs::default(),
             )
             .await
@@ -1262,7 +1258,6 @@ async fn certify_intent_projects_and_solves_through_the_factorable_route() {
                     backend: BackendSettings::Default,
                     sensitivity: None,
                 },
-                None,
                 NumericalInputs::default(),
             )
             .await

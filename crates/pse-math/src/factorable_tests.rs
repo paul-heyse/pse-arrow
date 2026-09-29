@@ -892,3 +892,5 @@ fn fbbt_tapes_follow_the_shared_stage_projection() {
         }
     );
 }
+#[path = "curvature_tests.rs"]
+mod curvature_tests;

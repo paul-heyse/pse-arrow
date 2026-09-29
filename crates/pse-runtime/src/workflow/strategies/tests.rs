@@ -38,8 +38,6 @@ async fn explicit_cone_request_runs_without_an_algebraic_compiler_flag() {
         rhs: vec![-2.0],
         cones: vec![native::conic::Cone::Nonnegative { dimension: 1 }],
         objective_constant: 3.0,
-        gram_factors: vec![],
-        gram_weights: vec![],
     };
     let prepared = runtime()
         .prepare_conic(request, &physical, profile(SolveIntent::Optimize))

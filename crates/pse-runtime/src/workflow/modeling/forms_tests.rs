@@ -698,3 +698,96 @@ async fn disjunctive_complementarity_refused_on_highs() {
     let [a, b] = optimal_on(&native, root, case(&[]), ["a", "b"], Backend::Scip).await;
     assert!(a.abs() < 1e-6 && (b - 0.7).abs() < 1e-6, "a={a} b={b}");
 }
+
+/// ADR-0104 §5, ADR-0109 and finding T14: an authored `penalty(l1)` realization is the
+/// explicit selection of POUNCE's l1 exact penalty. Automatic routing reaches POUNCE with
+/// that method because the author selected it, the result records the selection and that
+/// the penalty covers every row, and a backend or method that cannot honour the
+/// requirement is refused with the typed `method` reason.
+#[cfg(feature = "solver-pounce")]
+#[tokio::test]
+async fn authored_l1_realization_selects_route() {
+    use pse_backend_native::{
+        execution::BackendSettings,
+        routing::{Ineligible, Route},
+        settings::pounce::{Method, Settings},
+        solve::OptionValue,
+    };
+    let (package, root) = package(
+        "package p { def Root { param a0: Scalar = 0.2; var a: Scalar; var b: Scalar; eq pin: a == a0;
+        complements c: (a >= 0, b >= 0); realize r on c using penalty(l1);
+        annotation bounds b(0, 10); annotation start a(0.2); annotation start b(1);
+        annotation objective b(minimize); annotation report a(\"a\"); annotation report b(\"b\"); } }",
+    );
+    // POUNCE takes second derivatives.
+    let cancel = crate::CancelSource::new();
+    let second = |profile| {
+        package.prepare_solve(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Bindings::default(),
+            Limits::default(),
+            case(&[]),
+            DerivativeOrder::Second,
+            fixture::compiler_profile(),
+            profile,
+            NumericalInputs::default(),
+            &cancel,
+        )
+    };
+    let prepared = second(profile(SolverSelection::Auto)).await.unwrap();
+    assert_eq!(prepared.solve.route(), Route::Native(Backend::Pounce));
+    for e in prepared.solve.eligibility() {
+        let method = e
+            .reasons
+            .iter()
+            .any(|r| matches!(r, Ineligible::Method { .. }));
+        assert_eq!(method, e.backend != Backend::Pounce, "{e}");
+    }
+    let result = package
+        .solve_case(
+            prepared,
+            fixture::compiler_profile(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let Outcome::Native(native) = &result.outcome else {
+        panic!("expected a native outcome: {:?}", result.outcome);
+    };
+    assert_eq!(native.backend, Backend::Pounce);
+    assert_eq!(
+        native.options["l1_exact_penalty_barrier"],
+        OptionValue::Bool(true)
+    );
+    assert!(
+        native.provenance["method.selection"].contains("penalty(l1)"),
+        "{:?}",
+        native.provenance
+    );
+    assert!(native.provenance["method.penalty_scope"].contains("every constraint row"));
+    assert!(result.accepted, "{:?}", result.validation_error);
+    let report = |label: &str| {
+        result
+            .reports
+            .iter()
+            .find(|r| r.label == label)
+            .unwrap()
+            .value
+    };
+    assert!((report("a") - 0.2).abs() < 1e-6, "a = {}", report("a"));
+    assert!(report("b").abs() < 1e-6, "b = {}", report("b"));
+    // A backend, or a POUNCE method, that cannot honour the requirement is refused.
+    let error = second(profile(SolverSelection::Explicit(Backend::Ipopt)))
+        .await
+        .err()
+        .unwrap();
+    assert!(native_refusal(&error).contains("l1_exact_penalty"), "{error}");
+    let mut interior = profile(SolverSelection::Explicit(Backend::Pounce));
+    interior.backend = BackendSettings::Pounce(Settings {
+        method: Method::InteriorPoint,
+        ..Settings::default()
+    });
+    let error = second(interior).await.err().unwrap();
+    assert!(native_refusal(&error).contains("l1_exact_penalty"), "{error}");
+}

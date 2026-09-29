@@ -453,6 +453,76 @@ fn reobserve(
     Ok(())
 }
 
+/// One run of a recognized convex program (ADR-0121 Outcome 6).
+pub struct Recognized<'a> {
+    /// The program's cone form, lowered from the preparation's recognition.
+    pub lowered: &'a crate::conic::Recognized,
+    /// The original compiled model the candidate is re-evaluated against.
+    pub original: &'a mut dyn OriginalModel,
+}
+impl std::fmt::Debug for Recognized<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Recognized")
+            .field("lowered", &self.lowered)
+            .finish_non_exhaustive()
+    }
+}
+/// A recognized convex program on a cone adapter: the cone form transported into the
+/// case's coordinates (auxiliary columns and atom cones at unit scale), the native solve,
+/// recovery, verification of a certificate against the cone form's original data, and the
+/// report raised to the program's columns and rows with the original model re-evaluated at
+/// the candidate, before qualification.
+///
+/// # Errors
+/// Transport or native execution failed before a report existed.
+pub fn recognized(
+    step: Step<'_>,
+    retained: &mut Retained,
+    run: Recognized<'_>,
+) -> Result<SolveReport, ProblemError> {
+    let lowered = run.lowered;
+    let normalization = lowered.normalization(step.normalization)?;
+    let n = lowered.problem.contract.variables.len();
+    let zero = faer::sparse::SparseColMat::try_new_from_triplets(n, n, &[])
+        .map_err(|e| ProblemError::Internal(e.to_string()))?;
+    let pse_math::convexity::Definiteness::Psd(linear) =
+        pse_math::convexity::GramCertificate::certify(
+            &zero,
+            1.0,
+            1,
+            &std::sync::atomic::AtomicBool::new(false),
+        )?
+    else {
+        return Err(ProblemError::Internal("zero quadratic certificate".into()));
+    };
+    let (problem, certificate) = transport::conic(&lowered.problem, &normalization, &linear)?;
+    let original = lowered.tolerances(step.tolerances, step.accuracy.feasibility)?;
+    let tolerances = original.normalized(&normalization)?;
+    let mut report = step.adapter.execute(
+        retained,
+        Input {
+            problem: Problem::Cone {
+                problem: &problem,
+                certificate: &certificate,
+            },
+            controls: step.controls,
+            accuracy: step.accuracy,
+            settings: step.settings,
+            execution: step.execution,
+            tolerances: &tolerances,
+            warm: None,
+            compatibility: step.compatibility,
+        },
+    )?;
+    transport::recover(&mut report, &normalization, &lowered.problem.contract)?;
+    if let Some(c) = &mut report.certificate {
+        crate::certificate::verify(c, &lowered.problem, &original, step.accuracy.feasibility);
+    }
+    lowered.raise(&mut report, run.original, step.tolerances)?;
+    quality::qualify(&mut report, step.accuracy);
+    Ok(report)
+}
+
 /// Native solve over a cone model normalized at preparation, recovery, verification of a
 /// certificate against the `original` cone data, and qualification.
 ///

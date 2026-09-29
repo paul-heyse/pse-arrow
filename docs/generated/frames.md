@@ -49,8 +49,9 @@ Derived in: pse-math.
 | `MathGuardedRealV1` | `pse.math.guarded-real.v1` | The compiler-owned guarded-real interpretation policy. |
 | `MathBoundFactsV2` | `pse.math.bound-facts.v2` | Shared bound facts of a presolve analysis. |
 | `MathCoefficientAssumptionsV1` | `pse.math.coefficient-assumptions.v1` | Coefficient extraction assumptions over shared bound facts. |
-| `MathGramV1` | `pse.math.gram.v1` | A quadratic Gram representation. |
-| `MathConvexityV1` | `pse.math.convexity.v1` | A convexity assessment of an admitted snapshot. |
+| `MathGramV2` | `pse.math.gram.v2` | A quadratic matrix and orientation certified by an exact Gram representation. |
+| `MathConvexityV1` | `pse.math.convexity.v1` | A numerical convexity assessment of an admitted snapshot. |
+| `MathConvexityFactV1` | `pse.math.convexity-fact.v1` | The convexity fact of a prepared problem (ADR-0121). |
 | `MathEnvironmentV1` | `pse.math.environment.v1` | The mathematics environment projection. |
 | `MathFactorableV1` | `pse.math.factorable.v1` | A factorable decomposition. |
 | `MathNormalizationV1` | `pse.math.normalization.v1` | A normalization, separate from native algorithmic scaling. |
@@ -104,6 +105,7 @@ Derived in: pse-backend-native.
 | `BackendSettingsV4` | `pse.backend.settings.v4` | Complete backend settings, derived from serde. |
 | `ConeLayoutV3` | `pse.cone.layout.v3` | A cone sequence layout in the pse encoding. |
 | `ConeLoweredRowV1` | `pse.cone.lowered-row.v1` | The lower-bound cone row of a two-sided coefficient row lowered to cone form. |
+| `ConeRecognizedV1` | `pse.cone.recognized.v1` | A recognized convex program's cone form: its auxiliary columns, atom rows and contract (ADR-0121). |
 | `FactorableDomainV1` | `pse.factorable.domain.v1` | A factorable problem's variable domains. |
 | `FactorableFixedAssignmentV1` | `pse.factorable.fixed-assignment.v1` | The continuous problem of a fixed discrete assignment. |
 | `FactorableFixedAssignmentProfileV1` | `pse.factorable.fixed-assignment.profile.v1` | The profile of a fixed discrete assignment's continuous solve. |
@@ -137,7 +139,7 @@ Derived in: pse-runtime.
 | `DurableStudyRequestV1` | `pse.durable.study_request.v1` | A durable study's request: its definition (Plan 22 O7). |
 | `DurableStudyPointBindingV1` | `pse.durable.study_point_binding.v1` | The value bindings of one durable study point (Plan 22 O7). |
 | `DynamicProfileV6` | `pse.dynamic.profile.v6` | A dynamic simulation profile, with its scheduled inputs and typed sensitivity; its IDAS settings carry no sign constraints. |
-| `ExplicitConicV3` | `pse.explicit-conic.v3` | An explicit conic request. |
+| `ExplicitConicV4` | `pse.explicit-conic.v4` | An explicit conic request; its quadratic is certified exactly, so it carries no Gram witness. |
 | `FitCoordinateV1` | `pse.fit.coordinate.v1` | A fitting coordinate alias of an experiment and source. |
 | `FitPreparedV1` | `pse.fit.prepared.v1` | A prepared fit. |
 | `FitProfileV3` | `pse.fit.profile.v3` | A fit profile, with its derivative source. |
