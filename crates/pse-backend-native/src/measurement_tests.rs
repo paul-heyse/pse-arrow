@@ -320,6 +320,12 @@ fn measure_large_kkt_linear_solvers() {
             8,
         ),
         (
+            "pounce feral (8 threads)",
+            Backend::Pounce,
+            BackendSettings::Pounce(Default::default()),
+            8,
+        ),
+        (
             "pounce feral",
             Backend::Pounce,
             BackendSettings::Pounce(Default::default()),
@@ -331,11 +337,24 @@ fn measure_large_kkt_linear_solvers() {
     // and the last without it, which isolates the analysis cost.
     let runs = routes
         .iter()
-        .map(|route| (route, execution::Analysis::for_intent(SolveIntent::Optimize)))
-        .chain([0, routes.len() - 1].map(|k| (&routes[k], execution::Analysis::NONE)));
-    for ((name, backend, settings, threads), analysis) in runs {
-        let analysed = analysis.second_order;
-        let (seconds, report) = nlp(*backend, settings, *threads, analysis);
+        .map(|route| (route, true))
+        .chain([0, routes.len() - 1].map(|k| (&routes[k], false)));
+    for ((name, backend, settings, threads), analysed) in runs {
+        // A route runs inside its adapter's admitted thread scope, as the runtime enters it.
+        let (seconds, report) = execution::scoped(
+            &[LINKED.get(*backend).unwrap()],
+            *threads,
+            64 << 20,
+            || {
+                let analysis = if analysed {
+                    execution::Analysis::for_intent(SolveIntent::Optimize)
+                } else {
+                    execution::Analysis::NONE
+                };
+                Ok::<_, ProblemError>(nlp(*backend, settings, *threads, analysis))
+            },
+        )
+        .unwrap();
         let objective = report.candidate.as_ref().and_then(|c| c.objective);
         eprintln!(
             "measure n_kkt={} {name}{}: {seconds:.3} s, {} iterations, {:?}, objective {objective:?}",

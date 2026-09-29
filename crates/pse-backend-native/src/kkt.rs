@@ -693,12 +693,19 @@ pub(crate) fn analyse(
         licq.push(base + k, j.get(), value);
     }
     let matrix = kkt.matrix(order)?;
-    // The rank of the active gradients: In([I Aᵀ; A 0]) = (n, r, a − r).
-    let (mut diagnostic, (_, rank, _)) = crate::conditioning::factor(&licq.matrix(order)?)?;
+    let (solver, inertia) = crate::conditioning::factor(&matrix)?;
+    // A nonsingular KKT matrix has independent active gradients (`Aᵀy = 0` would give it the
+    // null vector `(0, y)`), so only a singular one needs their rank, from
+    // In([I Aᵀ; A 0]) = (n, r, a − r), to split its zero eigenvalues.
+    let (mut diagnostic, rank) = if inertia.2 == 0 {
+        (None, active)
+    } else {
+        let (licq, (_, rank, _)) = crate::conditioning::factor(&licq.matrix(order)?)?;
+        (Some(licq), rank)
+    };
     let deficiency = active
         .checked_sub(rank)
         .ok_or_else(|| ProblemError::numerical("LICQ inertia exceeds the active set"))?;
-    let (solver, inertia) = crate::conditioning::factor(&matrix)?;
     let reduced = less(inertia, (rank, rank, deficiency)).ok_or_else(|| {
         ProblemError::numerical("KKT inertia disagrees with the rank of the active gradients")
     })?;
@@ -729,7 +736,11 @@ pub(crate) fn analyse(
             }
             released.values[n + k] = -1.0;
         }
-        let inertia = crate::conditioning::factor_into(&mut diagnostic, &released.matrix(order)?)?;
+        let released = released.matrix(order)?;
+        let inertia = match &mut diagnostic {
+            Some(diagnostic) => crate::conditioning::factor_into(diagnostic, &released)?,
+            None => crate::conditioning::factor(&released)?.1,
+        };
         // The strongly active gradients are independent, a subset of an independent set.
         let strong = active - weak.len();
         match less(inertia, (strong, strong + weak.len(), 0)) {
