@@ -37,7 +37,7 @@ env:
   # opens a pull request that rewrites this value AND the literal `container.image`
   # strings below to `ci-<tree-hash>@sha256:<digest>`. Until then every container job
   # here fails to pull, which is deliberate and visible rather than silently skipped.
-  SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
+  SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-ccfd084f7324@sha256:835ef07219c6a2699fad52900778fc39c8ae2e77ca529e32740f3a6b2f2ba2dd
 
 jobs:
   # --- core checks -------------------------------------------------------------------
@@ -64,7 +64,7 @@ jobs:
     # A literal, not ${{ env.SOLVER_IMAGE }}: the `env` context is not available in
     # `jobs.<job_id>.container`. Keep it in step with the SOLVER_IMAGE env above.
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
+      image: ghcr.io/paul-heyse/pse-solvers:ci-ccfd084f7324@sha256:835ef07219c6a2699fad52900778fc39c8ae2e77ca529e32740f3a6b2f2ba2dd
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -84,7 +84,7 @@ jobs:
     name: rust / test
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
+      image: ghcr.io/paul-heyse/pse-solvers:ci-ccfd084f7324@sha256:835ef07219c6a2699fad52900778fc39c8ae2e77ca529e32740f3a6b2f2ba2dd
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -121,7 +121,7 @@ jobs:
     runs-on: ubuntu-24.04
     # Needs the Ipopt headers and libclang for the bindgen arm of `xtask codegen`.
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
+      image: ghcr.io/paul-heyse/pse-solvers:ci-ccfd084f7324@sha256:835ef07219c6a2699fad52900778fc39c8ae2e77ca529e32740f3a6b2f2ba2dd
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -198,7 +198,7 @@ jobs:
     name: rust / docs
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
+      image: ghcr.io/paul-heyse/pse-solvers:ci-ccfd084f7324@sha256:835ef07219c6a2699fad52900778fc39c8ae2e77ca529e32740f3a6b2f2ba2dd
     env:
       # The one place a *DOCFLAGS variable is set. This is not RUSTFLAGS: it does not
       # affect codegen and so cannot move a float result.
@@ -256,7 +256,7 @@ jobs:
     name: rust / coverage
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
+      image: ghcr.io/paul-heyse/pse-solvers:ci-ccfd084f7324@sha256:835ef07219c6a2699fad52900778fc39c8ae2e77ca529e32740f3a6b2f2ba2dd
     permissions:
       contents: read
     steps:

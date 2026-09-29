@@ -25,7 +25,7 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: "1"
   # Immutable solver pin; synchronized by scripts/solver-images.py.
-  SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
+  SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-ccfd084f7324@sha256:835ef07219c6a2699fad52900778fc39c8ae2e77ca529e32740f3a6b2f2ba2dd
   # Never resolve or write the lockfile in CI. Every uv command here is `--locked`; this
   # makes an accidental omission fail instead of silently re-resolving.
   UV_FROZEN: "1"
@@ -142,7 +142,7 @@ jobs:
     # The `ci` stage carries Ipopt 3.14.x + MUMPS + ASL and uv-managed CPython 3.11-3.13.
     # A literal, not ${{ env.SOLVER_IMAGE }} — see rust.yml.
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
+      image: ghcr.io/paul-heyse/pse-solvers:ci-ccfd084f7324@sha256:835ef07219c6a2699fad52900778fc39c8ae2e77ca529e32740f3a6b2f2ba2dd
     env:
       # The parity group is isolated from production dependencies. Python 3.13
       # is supplied by the pinned image; IDAES 2.13.0 is admitted below Python 3.15.
