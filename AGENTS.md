@@ -251,6 +251,14 @@ Each of these is a real incident, not a hypothetical.
 - **`SessionConfig::set_str` panics on an invalid key and `Field::extension_type()` panics
   on a missing or invalid extension.** Both are banned in `clippy.toml`; use the typed
   config path and `try_extension_type`.
+- **A heavy native run can exhaust the machine and take the editor down with it.** On
+  2026-09-29 a conformance study grew to 156 GB outside the engine's accounted pool. The
+  kernel OOM kill and systemd-oomd then stopped the whole editor scope, killing every
+  session and agent twice. Recipes that run native solvers, conformance, parity or linked
+  Python go through `scripts/memory-cap.sh`. It runs each command in its own memory-capped
+  systemd scope (`PSE_MEMORY_MAX`, default 120G) and serializes heavy runs machine-wide
+  across every worktree. Run an ad hoc heavy command the same way:
+  `bash scripts/memory-cap.sh <command>`.
 - **uv workspaces enforce a single `requires-python`** (the intersection across members),
   which is why the IDAES parity set is a *dependency group* with an environment marker
   rather than a workspace member. Do not "simplify" it into one.
