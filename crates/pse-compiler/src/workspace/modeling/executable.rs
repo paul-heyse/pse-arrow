@@ -369,7 +369,10 @@ fn projection(
                 .limits(db)
                 .body_occurrences
                 .unwrap_or_else(|| BodyLimits::default().occurrences),
-            ..BodyLimits::default()
+            slots: request
+                .limits(db)
+                .body_slots
+                .unwrap_or_else(|| BodyLimits::default().slots),
         },
         conservation: model
             .closures

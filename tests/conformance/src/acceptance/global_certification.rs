@@ -358,3 +358,69 @@ async fn heater_optimization_certified() {
         "{objective} {bound}"
     );
 }
+
+/// The PC-SAFT tangent-plane case of the vessel mixture, added to the authored phase-stability
+/// fixtures at run time, prepared under `limits`.
+async fn pcsaft_tpd(
+    package: &ModelingPackage,
+    limits: pse_modeling::Limits,
+) -> Result<pse_runtime::workflow::ModelingSolvePreparation, pse_runtime::workflow::WorkflowError>
+{
+    let name = "tpd_pcsaft";
+    let source = format!(
+        "@id(\"{PHASE_STABILITY_FIXTURES}\") package phase_stability_fixtures {{ use pcsaft @\"1.0.0\"; test {name} fixture {{dof 2; run steady;}} {{ child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=chem.alkanes,law=pcsaft.potential,feed=vessel_fixtures.fraction); }} }}"
+    );
+    let extra = pse_authoring::language::parse(
+        &source,
+        pse_ids::named_id(SemanticId::NIL, &format!("tpd-{name}")),
+        pse_authoring::language::IdentityPolicy::Named,
+        Default::default(),
+    )
+    .unwrap();
+    let case = extra
+        .iter()
+        .find(|r| r.name == name)
+        .unwrap()
+        .declaration_id;
+    let mut rows = package.declarations().to_vec();
+    rows.extend(
+        extra
+            .into_iter()
+            .filter(|r| r.value.kind.as_str() != "package"),
+    );
+    let package = package.with_declarations(rows).unwrap();
+    let cancel = CancelSource::new();
+    let analysis = package
+        .declared_analysis(
+            case,
+            pse_relations::generated::enums::ModelingAnalysisRoute::Steady,
+            compiler(),
+            profile(Backend::Ipopt, true),
+            Default::default(),
+            limits,
+            &cancel,
+        )
+        .await?;
+    package.prepare_analysis(&analysis, &cancel).await
+}
+
+#[tokio::test]
+async fn pcsaft_tpd_fits_the_formal_pool() {
+    // The PC-SAFT tangent-plane body of three components needs 5510 formal slots (measured
+    // 2026-09-29), above the former 4096 pool: it is refused within that allowance and
+    // prepares and solves within the process-global pool.
+    let owner = WorkflowRuntime::new().unwrap();
+    let package = seed_package(&owner).await;
+    let former = pse_modeling::Limits {
+        body_slots: Some(4096),
+        ..seed_limits()
+    };
+    let refused = pcsaft_tpd(&package, former).await.unwrap_err();
+    assert!(refused.to_string().contains("body slots"), "{refused}");
+    let prepared = pcsaft_tpd(&package, seed_limits()).await.unwrap();
+    let result = prepared.start().unwrap().wait().await.unwrap();
+    // The feed is its own stationary trial phase: the distance is zero there.
+    let (value, check) = tpd(&result);
+    assert!(value.abs() < 1e-6, "{value}");
+    assert!(check.satisfied, "{check:?}");
+}
