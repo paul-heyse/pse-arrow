@@ -250,6 +250,96 @@ impl ModelingSimulation {
             max_cells: self.profile.max_cells,
         }
     }
+    /// The shooting request an authored `run shooting` fixture of `instance` declares
+    /// (ADR-0110 Outcome 5): its method and nodes, its schedules held free as the
+    /// controls, and the model's one objective level, minimized. A member that names a
+    /// declared integral weighs that quadrature over the horizon; any other member is an
+    /// observed output weighed at the horizon's end. Path bounds are not authored: the
+    /// model's bounds remain the guard's.
+    #[cfg(feature = "solver-diffsol")]
+    pub(in crate::workflow) fn authored_shooting(
+        &self,
+        instance: InstanceId,
+        solver: crate::math::solves::SolverProfile,
+    ) -> Result<crate::workflow::ShootingProfile, WorkflowError> {
+        use crate::workflow::{ShootingControl, ShootingObjective, ShootingProfile};
+        let product = self.model().compiled();
+        let fixture = product
+            .model
+            .fixtures
+            .get(&instance)
+            .ok_or_else(|| contract("shooting fixture absent"))?;
+        let (Some(shooting), Some(integration)) = (&fixture.shooting, &fixture.integration)
+        else {
+            return Err(contract("the fixture declares no shooting"));
+        };
+        let controls = integration
+            .schedules
+            .iter()
+            .filter_map(|s| {
+                s.control.map(|bounds| ShootingControl {
+                    input: s.target,
+                    lower: bounds.lower,
+                    upper: bounds.upper,
+                })
+            })
+            .collect();
+        let objectives = &product.model.objectives;
+        let mut objective = ShootingObjective::default();
+        match objectives.levels.as_slice() {
+            [] => {}
+            [level] => {
+                let sign = if level.sense == pse_modeling::annotation::ObjectiveSense::Maximize
+                {
+                    -1.
+                } else {
+                    1.
+                };
+                for member in objectives.members_of(level) {
+                    let mut weight = sign * member.scale;
+                    if let Some(normalization) = member.normalization {
+                        let value = self.modes[0]
+                            .context
+                            .values
+                            .scalars
+                            .get(&normalization)
+                            .copied()
+                            .filter(|v| v.is_finite() && *v > 0.)
+                            .ok_or_else(|| contract("objective normalization value"))?;
+                        weight /= value;
+                    }
+                    if let Some(quadrature) = product.model.integral_of(member.target) {
+                        *objective.integral.entry(quadrature).or_default() += weight;
+                    } else {
+                        let output = ModelingOutput::Member(member.target).row_id();
+                        if !self.contract.outputs.contains(&output) {
+                            return Err(contract(
+                                "a shooting objective member is a declared integral or an observed output",
+                            ));
+                        }
+                        *objective.terminal.entry(output).or_default() += weight;
+                    }
+                }
+            }
+            _ => {
+                return Err(contract(
+                    "shooting minimizes one objective level, not lexicographic levels",
+                ));
+            }
+        }
+        Ok(ShootingProfile {
+            method: shooting.method,
+            nodes: shooting
+                .nodes
+                .iter()
+                .map(|t| t * self.coordinates.time_scale)
+                .collect(),
+            controls,
+            path: Vec::new(),
+            objective,
+            solver,
+        })
+    }
     pub(in crate::workflow) fn submit(
         &self,
         run_id: RunId,
@@ -599,9 +689,16 @@ impl ModelingPackage {
             .values()
             .next()
             .ok_or_else(|| contract("simulation requires an integrated time axis"))?;
-        if product.model.integrated.len() != 1 || product.admitted.case.objective().is_some() {
+        // An authored objective needs an optimizing consumer: a shooting fixture, whose
+        // shooting problem minimizes it (ADR-0110 Outcome 5).
+        let shooting = product.model.fixtures.get(&instance).is_some_and(|f| {
+            f.execution == pse_model::generated::enums::ModelingFixtureExecution::Shooting
+        });
+        if product.model.integrated.len() != 1
+            || (product.admitted.case.objective().is_some() && !shooting)
+        {
             return Err(contract(
-                "integrated consumer requires one time axis and no optimization objective",
+                "integrated consumer requires one time axis; an optimization objective needs a shooting fixture",
             ));
         }
         let time_unit = self
@@ -854,10 +951,16 @@ impl ModelingPackage {
             .map(|id| ModelingOutput::Member(*id).row_id())
             .collect::<Vec<_>>();
         for a in &product.model.annotations {
+            // A shooting fixture observes its objective members, too.
             if matches!(
                 a.value,
                 pse_modeling::annotation::AnnotationValue::Report(_)
-            ) {
+            ) || (shooting
+                && matches!(
+                    a.value,
+                    pse_modeling::annotation::AnnotationValue::Objective(_)
+                ))
+            {
                 let id = ModelingOutput::Member(a.target).row_id();
                 if !outputs.contains(&id) {
                     outputs.push(id);

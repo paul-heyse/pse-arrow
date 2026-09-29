@@ -465,6 +465,39 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                         "fixture execution metadata disagrees with its route",
                     ));
                 }
+                // ADR-0110 Outcome 5: a shooting fixture declares its method and controls,
+                // schedules held free; single shooting has no inner nodes, multiple shooting
+                // at least one. Only a schedule held free has bounds.
+                let schedules = fixture
+                    .integration
+                    .iter()
+                    .flat_map(|i| &i.schedules)
+                    .collect::<Vec<_>>();
+                let shooting = execution == Execution::Shooting;
+                if shooting != fixture.shooting.is_some()
+                    || shooting != schedules.iter().any(|s| s.free)
+                    || schedules
+                        .iter()
+                        .any(|s| !s.free && (s.lower.is_some() || s.upper.is_some()))
+                    || fixture.shooting.as_ref().is_some_and(|s| {
+                        s.nodes.is_empty()
+                            != (s.method == pse_model::generated::enums::ShootingMethod::Single)
+                    })
+                {
+                    return Err(invalid(
+                        row.declaration_id,
+                        "a shooting fixture declares its method, the inner nodes of multiple shooting and schedules held free as its controls; only a shooting fixture holds a schedule free, with bounds",
+                    ));
+                }
+                for expression in fixture
+                    .shooting
+                    .iter()
+                    .flat_map(|s| &s.nodes)
+                    .chain(schedules.iter().flat_map(|s| s.lower.iter().chain(&s.upper)))
+                {
+                    dsl::parse_expr(expression)
+                        .map_err(|e| invalid(row.declaration_id, e.to_string()))?;
+                }
                 // ADR-0119 Outcome 3: modes and events belong to an integrated fixture; a
                 // mode's facts select `when` variants and stages, never the analysis route
                 // or an objective level; a terminal event neither resets nor changes mode.
@@ -1212,8 +1245,17 @@ impl CheckedPackage {
                         }
                         for s in &integration.schedules {
                             texts.push(&s.target);
-                            texts.extend(s.times.iter().chain(&s.values).map(String::as_str));
+                            texts.extend(
+                                s.times
+                                    .iter()
+                                    .chain(&s.values)
+                                    .chain(s.lower.iter().chain(&s.upper))
+                                    .map(String::as_str),
+                            );
                         }
+                    }
+                    if let Some(shooting) = &fixture.shooting {
+                        texts.extend(shooting.nodes.iter().map(String::as_str));
                     }
                     for e in fixture.modes.iter().flat_map(|m| &m.events) {
                         texts.push(&e.guard);

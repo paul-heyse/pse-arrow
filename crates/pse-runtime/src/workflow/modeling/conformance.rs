@@ -740,16 +740,54 @@ impl ModelingPackage {
                 );
                 continue;
             }
-            // A shooting fixture's controls are scheduled inputs held free: until the
-            // fixture declares schedules (ADR-0119 Outcome 2) it has nothing to shoot for,
-            // and the runtime route (`ModelingSimulation::shooting`) takes them directly.
+            // A shooting fixture solves the shooting problem it declares (ADR-0110 Outcome 5):
+            // its schedules held free are the controls and the model's objective level is
+            // minimized; the stitched trajectory carries the model's checks.
             if execution == Execution::Shooting {
+                #[cfg(feature = "solver-diffsol")]
+                match self
+                    .conform_shooting(fixture, &model, data, &policy, report.run_id, cancel)
+                    .await
+                {
+                    Ok(shooting) => {
+                        let solved = shooting.solve.as_ref().is_some_and(|s| {
+                            s.termination.category == pse_backend_native::solve::Termination::Success
+                        });
+                        report.record_fixture(
+                            fixture,
+                            Kind::StartToSolve,
+                            if solved && shooting.checks_complete && expected_failure.is_none() {
+                                Status::Passed
+                            } else {
+                                Status::Failed
+                            },
+                            format!(
+                                "{} shooting over the declared controls; objective {:?}, continuity {:?}",
+                                shooting.method.as_str(),
+                                shooting.objective,
+                                shooting.continuity
+                            ),
+                            oracle,
+                            cap,
+                        );
+                        report.model_checks(fixture, &shooting.checks, oracle, cap);
+                    }
+                    Err(error) => {
+                        report.failed(
+                            fixture,
+                            Kind::StartToSolve,
+                            &error,
+                            expected_failure,
+                            oracle,
+                            cap,
+                        );
+                    }
+                }
+                #[cfg(not(feature = "solver-diffsol"))]
                 report.failed(
                     fixture,
                     Kind::Preparation,
-                    &contract(
-                        "a shooting fixture needs authored scheduled inputs held free as its controls",
-                    ),
+                    &contract("shooting needs a linked integrator"),
                     expected_failure,
                     oracle,
                     cap,
@@ -1309,6 +1347,52 @@ impl ModelingPackage {
         .await?
         .run(cancel)
         .await
+    }
+    /// Solve an authored shooting fixture's problem on the math service.
+    #[cfg(feature = "solver-diffsol")]
+    async fn conform_shooting(
+        &self,
+        fixture: DeclarationId,
+        model: &ModelingPreparation,
+        data: Option<&pse_modeling::specialize::Fixture>,
+        policy: &ModelingConformancePolicy,
+        run_id: RunId,
+        cancel: &crate::CancelSource,
+    ) -> Result<crate::workflow::ShootingReport, WorkflowError> {
+        let data = data.ok_or_else(|| contract("shooting fixture data absent"))?;
+        let profile = self.integration_profile(model, data, &policy.solver.numerics)?;
+        let simulation = self
+            .declared_simulation(fixture, policy.compiler, Some(profile), policy.limits, cancel)
+            .await?;
+        let request = simulation.authored_shooting(
+            pse_modeling::specialize::root_instance(fixture),
+            policy.solver.clone(),
+        )?;
+        // Every window holds its own integration of the simulation's layout.
+        let bytes = simulation
+            .bytes
+            .checked_mul(request.nodes.len() + 2)
+            .ok_or_else(|| contract("shooting extent"))?;
+        let problem = Arc::new(simulation.shooting(request)?);
+        let handle = self
+            .runtime
+            .shared
+            .math()
+            .submit(1, bytes, move |flag, progress| {
+                let report = problem.solve(run_id, flag, progress, None)?;
+                Ok((report, bytes))
+            })?;
+        let control = handle.cancellation();
+        let finish = handle.finish();
+        tokio::pin!(finish);
+        let (report, _owner) = tokio::select! {
+            result = &mut finish => result?,
+            () = cancel.cancelled() => {
+                control.cancel();
+                finish.await?
+            }
+        };
+        Ok(report)
     }
     async fn conformance_derivatives(
         &self,

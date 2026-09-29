@@ -883,6 +883,7 @@ impl Cursor<'_> {
                     let mut stages = Vec::new();
                     let mut integration = None;
                     let mut schedules = Vec::new();
+                    let mut shooting = None;
                     let mut modes = Vec::<AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem>::new();
                     let mut initialization = None;
                     let mut expected_failure = None;
@@ -982,21 +983,58 @@ impl Cursor<'_> {
                             continue;
                         }
                         // ADR-0119 Outcome 2: `schedule u at(t1, ...) values(v0, v1, ...);`
-                        // holds `u` piecewise constant with one value per interval.
+                        // holds `u` piecewise constant with one value per interval; with
+                        // `free [lower(<x>)] [upper(<x>)]` its values are shooting controls.
                         if self.eat("schedule") {
                             let target = self.until(&["at"])?;
                             self.expect("at")?;
                             let times = self.expressions()?;
                             self.expect("values")?;
                             let values = self.expressions()?;
+                            let free = self.eat("free");
+                            let mut bound = |name: &str| -> Result<Option<String>> {
+                                if !free || !self.eat(name) {
+                                    return Ok(None);
+                                }
+                                self.expect("(")?;
+                                let value = self.until(&[")"])?;
+                                self.expect(")")?;
+                                Ok(Some(value))
+                            };
+                            let lower = bound("lower")?;
+                            let upper = bound("upper")?;
                             self.expect(";")?;
                             schedules.push(
                                 AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
                                     target,
                                     times,
                                     values,
+                                    free,
+                                    lower,
+                                    upper,
                                 },
                             );
+                            continue;
+                        }
+                        // ADR-0110 Outcome 5: `shoot single;` or `shoot multiple nodes(...);`.
+                        if self.eat("shoot") {
+                            if shooting.is_some() {
+                                return Err(self.error("one shooting clause"));
+                            }
+                            let method = self
+                                .word()?
+                                .parse()
+                                .map_err(|_| self.error("single or multiple"))?;
+                            let nodes = if self.eat("nodes") {
+                                self.expressions()?
+                            } else {
+                                Vec::new()
+                            };
+                            self.expect(";")?;
+                            shooting = Some(AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
+                                method,
+                                nodes,
+                            });
                             continue;
                         }
                         if self.eat("run") {
@@ -1158,6 +1196,7 @@ impl Cursor<'_> {
                         initialization,
                         integration,
                         modes,
+                        shooting,
                         expected_failure,
                         specifications,
                     })

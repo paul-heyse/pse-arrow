@@ -275,6 +275,9 @@ impl SpecializedModel {
                                 .map(|s| (s.times.capacity() + s.values.capacity()) * size_of::<f64>())
                                 .sum::<usize>()
                     })
+                    + f.shooting
+                        .as_ref()
+                        .map_or(0, |s| s.nodes.capacity() * size_of::<f64>())
                     + f.modes.capacity() * size_of::<crate::specialize::FixtureMode>()
                     + f.modes
                         .iter()

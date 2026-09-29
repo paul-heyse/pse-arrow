@@ -222,6 +222,12 @@ pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedule
     pub r#times: Vec<String>,
     ///values
     pub r#values: Vec<String>,
+    ///free
+    pub r#free: bool,
+    ///lower
+    pub r#lower: Option<String>,
+    ///upper
+    pub r#upper: Option<String>,
 }
 impl crate::SemanticEq
 for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
@@ -229,6 +235,9 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
         crate::SemanticEq::semantic_eq(&self.r#target, &other.r#target)
             && crate::SemanticEq::semantic_eq(&self.r#times, &other.r#times)
             && crate::SemanticEq::semantic_eq(&self.r#values, &other.r#values)
+            && crate::SemanticEq::semantic_eq(&self.r#free, &other.r#free)
+            && crate::SemanticEq::semantic_eq(&self.r#lower, &other.r#lower)
+            && crate::SemanticEq::semantic_eq(&self.r#upper, &other.r#upper)
     }
 }
 impl PartialEq
@@ -419,6 +428,30 @@ impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
+    ///method
+    pub r#method: crate::generated::enums::ShootingMethod,
+    ///nodes
+    pub r#nodes: Vec<String>,
+}
+impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#method, &other.r#method)
+            && crate::SemanticEq::semantic_eq(&self.r#nodes, &other.r#nodes)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure {
     ///class
     pub r#class: crate::generated::enums::NativeBoundaryClass,
@@ -491,6 +524,8 @@ pub struct AuthoredModelingDeclarationsFieldValueScopeFixture {
     >,
     ///modes
     pub r#modes: Vec<AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem>,
+    ///shooting
+    pub r#shooting: Option<AuthoredModelingDeclarationsFieldValueScopeFixtureShooting>,
     ///expected_failure
     pub r#expected_failure: Option<
         AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure,
@@ -514,6 +549,7 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeFixture {
             )
             && crate::SemanticEq::semantic_eq(&self.r#integration, &other.r#integration)
             && crate::SemanticEq::semantic_eq(&self.r#modes, &other.r#modes)
+            && crate::SemanticEq::semantic_eq(&self.r#shooting, &other.r#shooting)
             && crate::SemanticEq::semantic_eq(
                 &self.r#expected_failure,
                 &other.r#expected_failure,
@@ -5579,6 +5615,12 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
         crate::SemanticFrame::frame(&self.r#times, hash);
         hash.str(stringify!(r#values));
         crate::SemanticFrame::frame(&self.r#values, hash);
+        hash.str(stringify!(r#free));
+        crate::SemanticFrame::frame(&self.r#free, hash);
+        hash.str(stringify!(r#lower));
+        crate::SemanticFrame::frame(&self.r#lower, hash);
+        hash.str(stringify!(r#upper));
+        crate::SemanticFrame::frame(&self.r#upper, hash);
     }
 }
 impl crate::HeapUsage
@@ -5588,6 +5630,9 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#times))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#values))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#free))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#lower))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#upper))
     }
 }
 impl crate::SemanticFrame
@@ -5705,6 +5750,22 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixtureMode
     }
 }
 impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#method));
+        crate::SemanticFrame::frame(&self.r#method, hash);
+        hash.str(stringify!(r#nodes));
+        crate::SemanticFrame::frame(&self.r#nodes, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#method))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#nodes))
+    }
+}
+impl crate::SemanticFrame
 for AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#class));
@@ -5757,6 +5818,8 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueScopeFixture
         crate::SemanticFrame::frame(&self.r#integration, hash);
         hash.str(stringify!(r#modes));
         crate::SemanticFrame::frame(&self.r#modes, hash);
+        hash.str(stringify!(r#shooting));
+        crate::SemanticFrame::frame(&self.r#shooting, hash);
         hash.str(stringify!(r#expected_failure));
         crate::SemanticFrame::frame(&self.r#expected_failure, hash);
         hash.str(stringify!(r#specifications));
@@ -5773,6 +5836,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixture {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#initialization))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#integration))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#modes))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#shooting))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#expected_failure))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#specifications))
     }

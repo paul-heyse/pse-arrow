@@ -244,7 +244,22 @@ fn print_block(
                         if let Some(integration) = &f.integration {
                             let quadrature = integration.quadrature_relative_tolerance.map_or_else(String::new, |relative| format!(" quadrature_relative({relative}) quadrature_absolute({})", integration.quadratures.iter().map(|q|format!("{}={}",q.target,q.absolute_tolerance)).collect::<Vec<_>>().join(", ")));
                             statements.push(format!("integrate samples({}) relative({}) normalized_absolute({}) step({}){quadrature};", integration.samples.join(", "), integration.relative_tolerance, integration.normalized_absolute_tolerance, integration.initial_step));
-                            statements.extend(integration.schedules.iter().map(|s| format!("schedule {} at({}) values({});", s.target, s.times.join(", "), s.values.join(", "))));
+                            statements.extend(integration.schedules.iter().map(|s| format!(
+                                "schedule {} at({}) values({}){}{}{};",
+                                s.target,
+                                s.times.join(", "),
+                                s.values.join(", "),
+                                if s.free { " free" } else { "" },
+                                s.lower.as_ref().map_or_else(String::new, |v| format!(" lower({v})")),
+                                s.upper.as_ref().map_or_else(String::new, |v| format!(" upper({v})"))
+                            )));
+                        }
+                        if let Some(shooting) = &f.shooting {
+                            statements.push(format!(
+                                "shoot {}{};",
+                                shooting.method.as_str(),
+                                if shooting.nodes.is_empty() { String::new() } else { format!(" nodes({})", shooting.nodes.join(", ")) }
+                            ));
                         }
                         for mode in &f.modes {
                             let facts = mode.facts.iter().map(|f| format!("{} = {}", f.name, f.value)).collect::<Vec<_>>();

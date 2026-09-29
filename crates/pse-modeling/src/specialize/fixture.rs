@@ -47,6 +47,8 @@ pub struct Fixture {
     /// Same-layout modes in order, the first starting the integration; empty for one
     /// smooth mode (ADR-0119 Outcome 3).
     pub modes: Vec<FixtureMode>,
+    /// The shooting method and nodes of a shooting fixture.
+    pub shooting: Option<ShootingFixture>,
     /// Failure the fixture expects instead of a result.
     pub expected_failure: Option<pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure>,
 }
@@ -78,7 +80,27 @@ pub struct ScheduleFixture {
     /// sample, in the axis's canonical unit.
     pub times: Vec<f64>,
     /// One canonical value per interval: `times.len() + 1`, the first from the start.
+    /// A control's values are the shooting starting guesses.
     pub values: Vec<f64>,
+    /// Present when the schedule is held free: each interval value is a shooting control.
+    pub control: Option<ScheduleControl>,
+}
+/// The canonical bounds of a schedule held free; unbounded where absent.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ScheduleControl {
+    /// Lower bound of every interval value.
+    pub lower: Option<f64>,
+    /// Upper bound of every interval value.
+    pub upper: Option<f64>,
+}
+/// A shooting fixture's method and, for multiple shooting, its inner nodes in the axis's
+/// canonical unit (ADR-0110 Outcome 5).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ShootingFixture {
+    /// Single or multiple shooting.
+    pub method: pse_model::generated::enums::ShootingMethod,
+    /// Strictly increasing inner node times inside the horizon; empty for single shooting.
+    pub nodes: Vec<f64>,
 }
 /// One authored same-layout mode: the Boolean facts that select its `when` variants and
 /// stage overrides, and the events active in it (ADR-0119 Outcome 3).
@@ -203,6 +225,7 @@ impl Engine<'_, '_> {
     ) -> Result<()> {
         let at = row.declaration_id;
         let modes = self.fixture_modes(instance, at, contract, env)?;
+        let mut nodes = Vec::new();
         let integration = if let Some(data) = &contract.integration {
             let axis = self.model.integrated.values().next().ok_or_else(|| {
                 invalid(
@@ -242,22 +265,10 @@ impl Engine<'_, '_> {
                 // Authored lets retain their identity for diagnostics. Follow only
                 // exact symbol aliases to the integrated coordinate; a sum or scaled
                 // expression cannot define the integrator's absolute tolerance.
-                let mut target = *target;
-                let mut visited = BTreeSet::new();
-                while !self.model.integrals.contains_key(&target) {
-                    if !visited.insert(target) {
-                        return Err(invalid(at, "cyclic quadrature tolerance target"));
-                    }
-                    target = self
-                        .model
-                        .symbols
-                        .get(&target)
-                        .and_then(|symbol| symbol.expression.as_ref())
-                        .and_then(symbol_reference)
-                        .ok_or_else(|| {
-                            invalid(at, "quadrature tolerance target is not an integral")
-                        })?;
-                }
+                let target = self
+                    .model
+                    .integral_of(*target)
+                    .ok_or_else(|| invalid(at, "quadrature tolerance target is not an integral"))?;
                 let value = self
                     .eval(at, local, &entry.absolute_tolerance, Some(ty))?
                     .scalar(at)?;
@@ -316,12 +327,55 @@ impl Engine<'_, '_> {
                         "schedule changes must increase after the axis's lower bound up to the last sample, with one finite value per interval",
                     ));
                 }
+                // A schedule held free is a shooting control within its bounds, starting
+                // from its authored values (ADR-0110 Outcome 5).
+                let control = if entry.free {
+                    let bound = |text: &Option<String>| {
+                        text.as_ref()
+                            .map(|v| self.eval(at, local, v, Some(target_ty))?.scalar(at))
+                            .transpose()
+                    };
+                    let control = ScheduleControl {
+                        lower: bound(&entry.lower)?,
+                        upper: bound(&entry.upper)?,
+                    };
+                    let lower = control.lower.unwrap_or(f64::NEG_INFINITY);
+                    let upper = control.upper.unwrap_or(f64::INFINITY);
+                    if lower.is_nan()
+                        || upper.is_nan()
+                        || lower > upper
+                        || values.iter().any(|v| *v < lower || *v > upper)
+                    {
+                        return Err(invalid(
+                            at,
+                            "a free schedule's bounds are ordered and hold its starting values",
+                        ));
+                    }
+                    Some(control)
+                } else {
+                    None
+                };
                 self.reserve(1)?;
                 schedules.push(ScheduleFixture {
                     target: *target,
                     times,
                     values,
+                    control,
                 });
+            }
+            nodes = contract
+                .shooting
+                .iter()
+                .flat_map(|s| &s.nodes)
+                .map(|t| self.eval(at, env, t, Some(&ty))?.scalar(at))
+                .collect::<Result<Vec<_>>>()?;
+            if nodes.windows(2).any(|w| w[0] >= w[1])
+                || nodes.iter().any(|t| !t.is_finite() || *t <= lower || *t >= end)
+            {
+                return Err(invalid(
+                    at,
+                    "multiple shooting nodes increase strictly inside the horizon",
+                ));
             }
             Some(IntegrationFixture {
                 samples,
@@ -447,6 +501,10 @@ impl Engine<'_, '_> {
                 initialization: contract.initialization.clone(),
                 integration,
                 modes,
+                shooting: contract.shooting.as_ref().map(|s| ShootingFixture {
+                    method: s.method,
+                    nodes,
+                }),
                 expected_failure: contract.expected_failure.clone(),
             },
         );
