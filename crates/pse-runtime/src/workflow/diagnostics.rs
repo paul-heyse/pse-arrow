@@ -208,15 +208,23 @@ pub(super) fn observed(
                 E::Limit(_) => Class::ResourceLimit,
                 E::Contract(_) => Class::InvalidModel,
                 E::Terminal(_) => Class::Infrastructure,
-                E::Trial(_) | E::OutsideEnvelope { .. } | E::Singular(_) => Class::TrialRejected,
+                E::Trial(_)
+                | E::OutsideEnvelope { .. }
+                | E::Singular(_)
+                | E::RegimeCrossing { .. } => Class::TrialRejected,
             };
             result.observations.insert(
                 "provider_recoverable".into(),
-                Observation::Boolean(matches!(
-                    error,
-                    E::Trial(_) | E::OutsideEnvelope { .. } | E::Singular(_)
-                )),
+                Observation::Boolean(error.recoverable()),
             );
+            if let E::RegimeCrossing {
+                selector,
+                bound,
+                selected,
+            } = error
+            {
+                result.sources.extend([*selector, *bound, *selected]);
+            }
             if let E::OutsideEnvelope {
                 axis,
                 value,

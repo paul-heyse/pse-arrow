@@ -369,10 +369,15 @@ unsafe extern "C" fn intermediate(
     if barrier.is_finite() && barrier > 0.0 {
         c.barrier = Some(barrier);
     }
+    let crossings = c.state.complete_iteration();
     c.state
         .evaluate("intermediate", || {
             let mut values = std::collections::BTreeMap::from([
                 ("iteration".into(), Metric::Integer(i64::from(iteration))),
+                (
+                    "regime.crossings".into(),
+                    Metric::Integer(i64::try_from(crossings).unwrap_or(i64::MAX)),
+                ),
                 ("restoration".into(), Metric::Bool(mode == 1)),
                 ("objective.normalized".into(), Metric::Real(objective)),
                 ("primal.native".into(), Metric::Real(primal)),
