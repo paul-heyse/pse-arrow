@@ -104,7 +104,15 @@ pub(super) fn instrument(state: SessionState) -> SessionState {
         .with_config(config)
         .with_physical_optimizer_rules(rules)
         .build();
-    datafusion_tracing::instrument_rules_with_info_spans!(target: "pse_engine::execution", options: datafusion_tracing::RuleInstrumentationOptions::phase_only(), state: state)
+    let planner = Arc::clone(state.query_planner());
+    let state = datafusion_tracing::instrument_rules_with_info_spans!(target: "pse_engine::execution", options: datafusion_tracing::RuleInstrumentationOptions::phase_only(), state: state);
+    // With the physical optimizer phase the library also wraps the query planner in a span
+    // recording the complete logical and physical plan text, as large as any literal in
+    // the plan. Contract observation records no plan text and Diagnostic records it
+    // bounded (`observation::Recorder`), so the caller's planner is restored.
+    SessionStateBuilder::new_from_existing(state)
+        .with_query_planner(planner)
+        .build()
 }
 
 /// Successful exhaustion is different from dropping a partially consumed stream.

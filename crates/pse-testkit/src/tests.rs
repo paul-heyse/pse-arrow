@@ -145,6 +145,50 @@ async fn native_unit_execution_capture_has_terminal_and_negative_controls() {
     ));
 }
 
+/// Contract observation records operator and phase spans, never plan text: a folded
+/// 65,536-element literal would otherwise put about 900 KB of plan text into the capture.
+#[tokio::test]
+async fn native_unit_contract_capture_records_no_plan_text() {
+    let fixture = fixture();
+    let capture = Capture::new(4096, 1 << 20);
+    async {
+        let cancel = CancellationToken::new();
+        let session = fixture
+            .factory
+            .clone()
+            .with_observation(ObservationPolicy::Contract)
+            .candidate(
+                std::collections::BTreeMap::default(),
+                pse_schema::shared_registry().unwrap(),
+                &cancel,
+            )
+            .unwrap();
+        let prepared = session
+            .prepare_sql(
+                "SELECT sum(value) AS total FROM (SELECT unnest(range(0, 65536)) AS value) WHERE value % 2 = 0",
+                &cancel,
+            )
+            .await
+            .unwrap();
+        drop(prepared.execute(&cancel).await.unwrap());
+    }
+    .with_subscriber(capture.dispatch())
+    .await;
+    let (spans, truncated) = capture.snapshot();
+    assert!(!truncated);
+    assert!(
+        spans
+            .iter()
+            .all(|s| !s.fields.contains_key("logical_plan") && !s.fields.contains_key("physical_plan")),
+        "{spans:?}"
+    );
+    assert!(spans.iter().any(|s| s.name == "Phase"), "{spans:?}");
+    assert_eq!(
+        capture.assess(operation(&capture), &[]),
+        Assurance::Established
+    );
+}
+
 #[tokio::test]
 async fn native_unit_abandonment_is_not_completion() {
     let fixture = fixture();
