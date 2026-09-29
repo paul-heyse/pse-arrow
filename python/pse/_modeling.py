@@ -41,7 +41,11 @@ from pse.contracts.authored import (
     AuthoredObservationsRow,
 )
 from pse.contracts.documents import FitUncertainty, PointOverlay, SolveSettings
-from pse.contracts.enums import FitDerivatives, ModelingAnalysisRoute
+from pse.contracts.enums import (
+    FitDerivatives,
+    ModelingAnalysisRoute,
+    ModelingDiscreteInitialization,
+)
 from pse.contracts.identities import DeclarationId, FitId, InstanceId, RunId
 from pse.contracts.values import ContentHash, SemanticId
 
@@ -817,8 +821,15 @@ class ModelingPackage:
         growth: float = 1.5,
         maximum_attempts: int = 128,
         time_limit: float = 60.0,
+        discrete: ModelingDiscreteInitialization = ModelingDiscreteInitialization.REFUSE,
+        discrete_values: Mapping[str, float] | None = None,
     ) -> ModelingInitialization:
-        """Run bounded stages and adaptive homotopy, qualifying the original model."""
+        """Run bounded stages and adaptive homotopy, qualifying the original model.
+
+        Stage and homotopy steps fix the discrete variables the case leaves free under
+        ``discrete``: at their start values, or at ``discrete_values`` by case path.
+        The original model always runs unfixed.
+        """
         return ModelingInitialization(
             self._handle.initialize(
                 case_id.to_hex(),
@@ -830,6 +841,8 @@ class ModelingPackage:
                 growth=growth,
                 maximum_attempts=maximum_attempts,
                 time_limit=time_limit,
+                discrete=discrete.value,
+                discrete_values=dict(discrete_values or {}),
             )
         )
 

@@ -694,8 +694,8 @@ impl FactBatch {
             }
             Self::r#RuntimeModelingInitializations(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    55u8, 62u8, 60u8, 179u8, 145u8, 29u8, 42u8, 104u8, 166u8, 15u8,
-                    146u8, 250u8, 144u8, 141u8, 112u8, 81u8,
+                    45u8, 112u8, 52u8, 128u8, 82u8, 45u8, 89u8, 17u8, 127u8, 122u8,
+                    223u8, 128u8, 126u8, 55u8, 200u8, 236u8,
                 ])
             }
             Self::r#RuntimeModelingJacobianOptimization(_) => {

@@ -492,9 +492,9 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, fixture_id`.
 
 ## `modeling_initializations`
 
-Ordered immutable initialization attempts. Only an accepted original specification supplies committed values. Native result IDs link separately owned original-space result tables.
+Ordered immutable initialization attempts. Only an accepted original specification supplies committed values. Native result IDs link separately owned original-space result tables. `discrete_assignment` lists the free discrete variables every stage and homotopy attempt ran fixed at, under the `discrete` policy; it is empty under `refuse`, and the original specification always runs unfixed.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -506,6 +506,11 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
 | `committed.item` | `Struct` | false | `payload` | — | — |
 | `committed.item.source_id` | `semantic_id` | false | `payload` | — | — |
 | `committed.item.value` | `Float64` | false | `payload` | — | — |
+| `discrete` | `enum:ModelingDiscreteInitialization` | false | `payload` | — | — |
+| `discrete_assignment` | `List` | false | `payload` | — | — |
+| `discrete_assignment.item` | `Struct` | false | `payload` | — | — |
+| `discrete_assignment.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `discrete_assignment.item.value` | `Float64` | false | `payload` | — | — |
 | `attempts` | `List` | false | `payload` | — | — |
 | `attempts.item` | `Struct` | false | `payload` | — | — |
 | `attempts.item.kind` | `enum:ModelingInitializationStep` | false | `payload` | — | — |

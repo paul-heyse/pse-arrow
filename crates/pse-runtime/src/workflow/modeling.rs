@@ -33,7 +33,7 @@ pub use diagnostics::{
 pub use diagnostics::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
 mod engines;
 pub use engines::{
-    ModelingAnalysis, ModelingInitialization, ModelingInitializationAttempt,
+    DiscreteInitialization, ModelingAnalysis, ModelingInitialization, ModelingInitializationAttempt,
     ModelingInitializationReport, ModelingInitializationStep, ModelingStudyPoint,
     ModelingStudyReport,
 };
@@ -534,8 +534,7 @@ impl ModelingPackage {
                 a.compiler,
                 a.solver.clone(),
                 a.numerical.clone(),
-                BTreeMap::new(),
-                BTreeMap::new(),
+                Default::default(),
                 false,
                 cancel,
             )

@@ -5,6 +5,7 @@
 //! seeded only from a step whose candidate permits it, and shares prepared structure and the
 //! native session with the other steps.
 use super::assessment::Obligations;
+use super::cases::CaseOverrides;
 use super::*;
 use crate::math::solves::{NumericalInputs, SolverProfile};
 use crate::workflow::staged::{Overlay, Staged, Start, bounded};
@@ -55,6 +56,8 @@ pub struct ModelingInitialization {
     pub maximum_attempts: usize,
     /// Wall-clock budget of the whole initialization.
     pub time_limit: Duration,
+    /// How stage and homotopy steps treat the discrete variables the case leaves free.
+    pub discrete: DiscreteInitialization,
 }
 impl Default for ModelingInitialization {
     fn default() -> Self {
@@ -66,6 +69,33 @@ impl Default for ModelingInitialization {
             growth: 1.5,
             maximum_attempts: 128,
             time_limit: Duration::from_secs(60),
+            discrete: DiscreteInitialization::Refuse,
+        }
+    }
+}
+/// How initialization treats the discrete variables a case leaves free (ADR-0103 item 6).
+/// A fix is part of every stage and homotopy step's overlay and of no other step: the
+/// final original specification runs unfixed, and nothing a step fixes survives it
+/// (PS-08).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum DiscreteInitialization {
+    /// Fix nothing: a step whose analysis cannot decide a free discrete variable refuses it.
+    #[default]
+    Refuse,
+    /// Fix every free discrete variable at its specification start value.
+    FixAtStart,
+    /// Fix every free discrete variable at the value declared for its case path. The
+    /// assignment is complete: a free discrete variable without a value is refused.
+    FixAt(BTreeMap<String, f64>),
+}
+impl DiscreteInitialization {
+    /// Registry kind of this policy.
+    pub const fn kind(&self) -> pse_model::generated::enums::ModelingDiscreteInitialization {
+        use pse_model::generated::enums::ModelingDiscreteInitialization as K;
+        match self {
+            Self::Refuse => K::Refuse,
+            Self::FixAtStart => K::FixAtStart,
+            Self::FixAt(_) => K::FixAt,
         }
     }
 }
@@ -176,6 +206,11 @@ pub struct ModelingInitializationReport {
     pub failure: Option<BoundaryDiagnostic>,
     /// Last fully accepted original specification, absent after a failed initialization.
     pub committed: Option<BTreeMap<SemanticId, f64>>,
+    /// Registry kind of the discrete policy the initialization ran under.
+    pub discrete: pse_model::generated::enums::ModelingDiscreteInitialization,
+    /// The free discrete variables every stage and homotopy attempt ran fixed at; empty
+    /// when the policy fixes nothing. The original specification ran unfixed.
+    pub discrete_assignment: BTreeMap<SemanticId, f64>,
     pub(in crate::workflow::modeling) _owner: Arc<pse_columnar::AllocationLease>,
 }
 
@@ -251,16 +286,16 @@ impl ModelingPackage {
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        self.prepare_analysis_attempt(analysis, BTreeMap::new(), BTreeMap::new(), cancel)
+        self.prepare_analysis_attempt(analysis, CaseOverrides::default(), cancel)
             .await
     }
-    /// Bind one attempt: the analysis with a predecessor's seed and parameter replacements.
-    /// Its structure is prepared once per package and rebound per values (A6).
+    /// Bind one attempt: the analysis with a predecessor's seed, parameter replacements and
+    /// temporary fixes. Its structure is prepared once per package and rebound per values
+    /// (A6).
     pub(in crate::workflow) async fn prepare_analysis_attempt(
         &self,
         a: &ModelingAnalysis,
-        seed: BTreeMap<SemanticId, f64>,
-        parameters: BTreeMap<SemanticId, f64>,
+        overrides: CaseOverrides,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
         self.prepare_solve_seed(
@@ -273,8 +308,7 @@ impl ModelingPackage {
             a.compiler,
             a.solver.clone(),
             a.numerical.clone(),
-            seed,
-            parameters,
+            overrides,
             cancel,
         )
         .await
@@ -445,6 +479,18 @@ impl ModelingPackage {
                 "homotopy requires declared continuation endpoints",
             ));
         }
+        // ADR-0103 item 6: resolved once, before any attempt, so every stage and homotopy
+        // step fixes the same assignment.
+        let discrete = &policy.discrete;
+        let (assignment, interruption) =
+            bounded("initialization", Some(deadline), cancel, |child| async move {
+                self.discrete_assignment(analysis, discrete, &child).await
+            })
+            .await;
+        if let Some(error) = interruption {
+            return Err(error.into());
+        }
+        let assignment = assignment?;
         let names = policy
             .stages
             .iter()
@@ -455,6 +501,7 @@ impl ModelingPackage {
             .checked_mul(size_of::<ModelingInitializationAttempt>() + 4096)
             .and_then(|n| n.checked_add(names))
             .and_then(|n| n.checked_add(base.compiled().admitted.inputs.len().checked_mul(128)?))
+            .and_then(|n| n.checked_add(assignment.len().checked_mul(64)?))
             .ok_or_else(|| contract("initialization report extent"))?;
         let owner = self
             .runtime
@@ -476,6 +523,8 @@ impl ModelingPackage {
                 completed: false,
                 failure: None,
                 committed: None,
+                discrete: policy.discrete.kind(),
+                discrete_assignment: assignment,
                 _owner: owner,
             },
         };
@@ -552,6 +601,14 @@ impl Initializer<'_> {
         self.report.attempts.push(attempt);
         Some((accepted, retryable))
     }
+    /// `overlay` with the discrete assignment fixed: every stage and homotopy step runs
+    /// with it, and the original specification without it.
+    fn fixed(&self, overlay: Overlay) -> Overlay {
+        Overlay {
+            fixes: self.report.discrete_assignment.clone(),
+            ..overlay
+        }
+    }
     fn failed_last(&mut self) -> bool {
         self.report.failure = self
             .report
@@ -563,10 +620,10 @@ impl Initializer<'_> {
     /// Named stages in order; each stage's selection exists only inside its attempt.
     async fn stages(&mut self) -> bool {
         for stage in &self.policy.stages {
-            let overlay = Overlay {
+            let overlay = self.fixed(Overlay {
                 facts: BTreeMap::from([(format!("stage.{stage}"), Value::Boolean(true))]),
                 ..Overlay::default()
-            };
+            });
             match self
                 .attempt(ModelingInitializationStep::Stage(stage.clone()), overlay)
                 .await
@@ -610,10 +667,10 @@ impl Initializer<'_> {
                     return false;
                 }
             };
-            let overlay = Overlay {
+            let overlay = self.fixed(Overlay {
                 parameters,
                 ..Overlay::default()
-            };
+            });
             match self
                 .attempt(ModelingInitializationStep::Homotopy(fraction), overlay)
                 .await
@@ -759,6 +816,7 @@ mod tests {
             growth: 1.5,
             maximum_attempts: 256,
             time_limit: Duration::from_secs(60),
+            discrete: Default::default(),
         };
         (package, analysis, policy)
     }
@@ -957,6 +1015,7 @@ mod tests {
             growth: 2.,
             maximum_attempts: 10,
             time_limit: Duration::from_secs(20),
+            discrete: Default::default(),
         };
         let initialized = package
             .initialize_model(&analysis, policy.clone(), &cancel)
@@ -993,5 +1052,255 @@ mod tests {
             after.model.case.compiled().plan.structure().key()
         );
         assert_eq!(before.model.values, after.model.values);
+    }
+}
+
+/// Initialization of a mixed-integer model (ADR-0103 item 6): stage and homotopy steps fix
+/// the free discrete variables, and the original specification decides them.
+#[cfg(all(test, feature = "solver-scip", feature = "solver-ipopt"))]
+mod discrete_tests {
+    use super::*;
+    use crate::math::solves::{NumericalInputs, Outcome};
+    use crate::workflow::tests as fixture;
+    use pse_backend_native::solve::{Backend, SolveIntent, SolverSelection};
+    use pse_compiler::workspace::ModelingCaseBindings;
+    use pse_model::diagnostic::Observation;
+
+    /// A mixed-integer quadratic program: y = n and the cost pulls x towards both 2.6·t
+    /// and y. At t = 1 the optimum over n ∈ {0..5} is n = 3, x = 2.8; with n held at its
+    /// start 1 the continuous optimum is x = (2.6·t + 1)/2.
+    fn source(start: &str) -> String {
+        format!(
+            "package p {{ def Root {{
+            param t: Scalar = 1; param size: Power = 1{{W}};
+            var n: Count in integer; var x: Scalar; var y: Scalar;
+            eq link: size*y == size*n;
+            let cost: Scalar = (x - 2.6*t)*(x - 2.6*t) + (x - y)*(x - y);
+            annotation objective cost(minimize);
+            annotation bounds n(0{{1}}, 5{{1}}); annotation bounds x(0, 10);
+            annotation bounds y(0, 10);
+            annotation start n({start}{{1}}); annotation start x(0); annotation start y(0);
+            continue ramp on t from 0 to 1;
+            stage loose {{ override eq link: size*y == size*n; }}
+            stage wrong {{ override eq link: y == -1; }} }} }}"
+        )
+    }
+    fn package(start: &str) -> (ModelingPackage, ModelingAnalysis) {
+        let physical = fixture::physical();
+        let mut names = fixture::discrete_names();
+        names.insert(
+            "Scalar".into(),
+            physical.quantities.neutral_dimensionless().unwrap(),
+        );
+        let rows = pse_authoring::language::parse(
+            &source(start),
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = fixture::runtime_with(16 << 20, 16 << 20, 2 << 30)
+            .modeling_package(rows, physical, names)
+            .unwrap();
+        let mut solver = fixture::profile();
+        solver.intent = SolveIntent::Optimize;
+        solver.selection = SolverSelection::Auto;
+        let analysis = ModelingAnalysis {
+            root,
+            instance: pse_modeling::specialize::root_instance(root),
+            bindings: Bindings::default(),
+            limits: Limits::default(),
+            case: ModelingCaseBindings::default(),
+            order: DerivativeOrder::Second,
+            compiler: fixture::compiler_profile(),
+            solver,
+            numerical: NumericalInputs::default(),
+        };
+        (package, analysis)
+    }
+    fn policy(stages: &[&str], discrete: DiscreteInitialization) -> ModelingInitialization {
+        ModelingInitialization {
+            stages: stages.iter().map(|s| (*s).to_owned()).collect(),
+            homotopy: true,
+            initial_step: 0.5,
+            maximum_attempts: 16,
+            discrete,
+            ..ModelingInitialization::default()
+        }
+    }
+    fn symbol(result: &ModelingResult, name: &str) -> SemanticId {
+        result
+            .prepared
+            .model
+            .model
+            .compiled()
+            .model
+            .symbols
+            .values()
+            .find(|s| s.lineage.path.rsplit('.').next() == Some(name))
+            .unwrap()
+            .id
+    }
+    fn free(result: &ModelingResult, id: SemanticId) -> bool {
+        result
+            .prepared
+            .model
+            .case
+            .compiled()
+            .plan
+            .columns()
+            .contains(&id)
+    }
+
+    /// Every stage and homotopy step runs with the integer fixed at its start, as a
+    /// continuous problem; the original specification runs unfixed and decides it. Nothing
+    /// a step fixed survives it, whether initialization completes or fails (PS-08).
+    #[tokio::test]
+    async fn initialization_fixes_and_restores_integers() {
+        let (package, analysis) = package("1");
+        let cancel = crate::CancelSource::new();
+        let before = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let report = package
+            .initialize_model(
+                &analysis,
+                policy(&["loose"], DiscreteInitialization::FixAtStart),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert!(report.completed, "{:?}", report.failure);
+        let (last, steps) = report.attempts.split_last().unwrap();
+        assert_eq!(last.step, ModelingInitializationStep::Original);
+        assert!(matches!(steps[0].step, ModelingInitializationStep::Stage(_)));
+        assert!(
+            steps
+                .iter()
+                .any(|a| a.step == ModelingInitializationStep::Homotopy(1.))
+        );
+        let n = symbol(last.result.as_ref().unwrap(), "n");
+        assert_eq!(
+            report.discrete,
+            pse_model::generated::enums::ModelingDiscreteInitialization::FixAtStart
+        );
+        assert_eq!(report.discrete_assignment, BTreeMap::from([(n, 1.)]));
+        for attempt in steps {
+            let result = attempt.result.as_ref().unwrap();
+            assert!(attempt.accepted(), "{:?}", attempt.diagnostic());
+            assert!(!free(result, n), "{:?}", attempt.step);
+            assert_eq!(result.values.scalars[&n], 1.);
+            let Outcome::Native(native) = &result.outcome else {
+                panic!("{:?}", result.outcome);
+            };
+            assert_ne!(native.backend, Backend::Scip, "{:?}", attempt.step);
+        }
+        // At t = 1 with n = 1 the continuous optimum is x = 1.8.
+        let homotopy = steps.last().unwrap().result.as_ref().unwrap();
+        assert!((homotopy.values.scalars[&symbol(homotopy, "x")] - 1.8).abs() < 1e-5);
+        // The original specification decides n on SCIP.
+        let original = last.result.as_ref().unwrap();
+        assert!(last.accepted(), "{:?}", last.diagnostic());
+        assert!(free(original, n));
+        let Outcome::Native(native) = &original.outcome else {
+            panic!("{:?}", original.outcome);
+        };
+        assert_eq!(native.backend, Backend::Scip);
+        assert!((original.values.scalars[&n] - 3.).abs() < 1e-9);
+        assert!((original.values.scalars[&symbol(original, "x")] - 2.8).abs() < 1e-5);
+        assert!((report.committed.as_ref().unwrap()[&n] - 3.).abs() < 1e-9);
+        // A failed stage stops initialization; its fix does not outlive it either.
+        let failed = package
+            .initialize_model(
+                &analysis,
+                policy(&["wrong"], DiscreteInitialization::FixAtStart),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert!(!failed.completed && failed.committed.is_none());
+        assert_eq!(failed.attempts.len(), 1);
+        if let Ok(result) = &failed.attempts[0].result {
+            assert!(!free(result, n));
+        }
+        let after = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        assert_eq!(
+            before.model.case.compiled().plan.structure().key(),
+            after.model.case.compiled().plan.structure().key()
+        );
+        assert_eq!(before.model.values, after.model.values);
+        assert!(after.model.case.compiled().plan.columns().contains(&n));
+    }
+
+    /// A fix must be a member of the domain: a non-integral start or declared value is
+    /// refused before any attempt, with the variable and the initialization named; so is a
+    /// missing value. A declared value fixes nothing but a free discrete variable.
+    #[tokio::test]
+    async fn initialization_refuses_nonintegral_discrete_start() {
+        let refusal = |error: &WorkflowError| {
+            let diagnostic = error.boundary_diagnostic();
+            assert_eq!(diagnostic.rule, "modeling.domain", "{error}");
+            let text = |name: &str| match diagnostic.observations.get(name) {
+                Some(Observation::Text(value)) => value.clone(),
+                other => panic!("{name}: {other:?}"),
+            };
+            assert_eq!(text("variable").rsplit('.').next(), Some("n"));
+            assert_eq!(text("analysis"), "initialization");
+            text("reason")
+        };
+        let cancel = crate::CancelSource::new();
+        let (package, analysis) = package("1.5");
+        let error = package
+            .initialize_model(
+                &analysis,
+                policy(&["loose"], DiscreteInitialization::FixAtStart),
+                &cancel,
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(
+            refusal(&error),
+            pse_modeling::DomainRefusal::NotMember.as_str()
+        );
+        let declared = |values: &[(&str, f64)]| {
+            policy(
+                &["loose"],
+                DiscreteInitialization::FixAt(
+                    values.iter().map(|(p, v)| ((*p).to_owned(), *v)).collect(),
+                ),
+            )
+        };
+        let error = package
+            .initialize_model(&analysis, declared(&[("n", 2.5)]), &cancel)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            refusal(&error),
+            pse_modeling::DomainRefusal::NotMember.as_str()
+        );
+        let error = package
+            .initialize_model(&analysis, declared(&[]), &cancel)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            refusal(&error),
+            pse_modeling::DomainRefusal::NoFixValue.as_str()
+        );
+        assert!(
+            package
+                .initialize_model(&analysis, declared(&[("n", 2.), ("x", 1.)]), &cancel)
+                .await
+                .is_err_and(|e| matches!(e, WorkflowError::Contract(_)))
+        );
+        // A declared integral value overrides the non-integral start.
+        let report = package
+            .initialize_model(&analysis, declared(&[("n", 2.)]), &cancel)
+            .await
+            .unwrap();
+        assert!(report.completed, "{:?}", report.failure);
+        assert_eq!(report.discrete_assignment.values().collect::<Vec<_>>(), [&2.]);
     }
 }

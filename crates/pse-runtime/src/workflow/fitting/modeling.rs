@@ -598,8 +598,7 @@ impl ModelingPackage {
                         compiler,
                         profile.solver.clone(),
                         Default::default(),
-                        BTreeMap::new(),
-                        BTreeMap::new(),
+                        Default::default(),
                         false,
                         cancel,
                     )

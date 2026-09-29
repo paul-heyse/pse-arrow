@@ -381,6 +381,17 @@ impl ModelingInitializationReport {
                         )
                         .collect()
                 }),
+                discrete: self.discrete,
+                discrete_assignment: self
+                    .discrete_assignment
+                    .iter()
+                    .map(
+                        |(id, value)| RuntimeModelingInitializationsFieldDiscreteAssignmentItem {
+                            source_id: *id,
+                            value: *value,
+                        },
+                    )
+                    .collect(),
                 attempts: self
                     .attempts
                     .iter()

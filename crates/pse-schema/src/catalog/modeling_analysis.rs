@@ -189,10 +189,17 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         "ModelingInitializationStep",
         ["stage", "homotopy", "original"],
     );
-    relation(
+    // ADR-0103 item 6: how stage and homotopy steps treat free discrete variables.
+    enumeration(
+        b,
+        "ModelingDiscreteInitialization",
+        ["refuse", "fix_at_start", "fix_at"],
+    );
+    relation_version(
         b,
         N::Runtime,
         "modeling_initializations",
+        2,
         S::Derived,
         &["run_id"],
         vec![
@@ -201,6 +208,11 @@ pub(super) fn register(b: &mut RegistryBuilder) {
             column("failure", text()).optional(),
             column("failure_ordinal", count()).optional(),
             column("committed", coordinates()).optional(),
+            column(
+                "discrete",
+                T::enumeration("ModelingDiscreteInitialization"),
+            ),
+            column("discrete_assignment", coordinates()),
             column(
                 "attempts",
                 T::list(record(vec![
@@ -219,7 +231,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
                 ])),
             ),
         ],
-        "Ordered immutable initialization attempts. Only an accepted original specification supplies committed values. Native result IDs link separately owned original-space result tables.",
+        "Ordered immutable initialization attempts. Only an accepted original specification supplies committed values. Native result IDs link separately owned original-space result tables. `discrete_assignment` lists the free discrete variables every stage and homotopy attempt ran fixed at, under the `discrete` policy; it is empty under `refuse`, and the original specification always runs unfixed.",
     );
     relation(
         b,

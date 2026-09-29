@@ -219,7 +219,14 @@ impl ModelingPackage {
                 cancel,
                 |child| async move {
                     let prepared = self
-                        .prepare_analysis_attempt(&trial, seed, BTreeMap::new(), &child)
+                        .prepare_analysis_attempt(
+                            &trial,
+                            cases::CaseOverrides {
+                                seed,
+                                ..Default::default()
+                            },
+                            &child,
+                        )
                         .await?;
                     self.solve_case(prepared, trial.compiler, &child).await
                 },

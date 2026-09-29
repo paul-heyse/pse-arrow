@@ -658,8 +658,7 @@ impl ModelingPackage {
             .resolve_starts(
                 &model,
                 &case,
-                BTreeMap::new(),
-                BTreeMap::new(),
+                &Default::default(),
                 compiler,
                 false,
                 cancel,

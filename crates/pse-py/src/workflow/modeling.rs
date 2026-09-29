@@ -851,7 +851,7 @@ impl NativeModelingPackage {
         clippy::too_many_arguments,
         reason = "one parameter per argument of the Python method signature"
     )]
-    #[pyo3(signature=(case_id, settings, *, stages=Vec::new(), homotopy=false, initial_step=0.25, minimum_step=1e-6, growth=1.5, maximum_attempts=128, time_limit=60.0))]
+    #[pyo3(signature=(case_id, settings, *, stages=Vec::new(), homotopy=false, initial_step=0.25, minimum_step=1e-6, growth=1.5, maximum_attempts=128, time_limit=60.0, discrete="refuse", discrete_values=BTreeMap::new()))]
     fn initialize(
         &self,
         py: Python<'_>,
@@ -864,11 +864,29 @@ impl NativeModelingPackage {
         growth: f64,
         maximum_attempts: usize,
         time_limit: f64,
+        discrete: &str,
+        discrete_values: BTreeMap<String, f64>,
     ) -> PyResult<NativeModelingInitialization> {
+        use pse_model::generated::enums::ModelingDiscreteInitialization as Discrete;
         let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
         let duration = Duration::try_from_secs_f64(time_limit)
             .map_err(|_| invalid(py, "initialization time limit must be finite and positive"))?;
+        let discrete = match discrete.parse::<Discrete>() {
+            Ok(Discrete::FixAt) => native::DiscreteInitialization::FixAt(discrete_values),
+            Ok(Discrete::FixAtStart) if discrete_values.is_empty() => {
+                native::DiscreteInitialization::FixAtStart
+            }
+            Ok(Discrete::Refuse) if discrete_values.is_empty() => {
+                native::DiscreteInitialization::Refuse
+            }
+            _ => {
+                return Err(invalid(
+                    py,
+                    "discrete is refuse, fix_at_start or fix_at; values are declared only with fix_at",
+                ));
+            }
+        };
         let policy = native::ModelingInitialization {
             stages,
             homotopy,
@@ -877,6 +895,7 @@ impl NativeModelingPackage {
             growth,
             maximum_attempts,
             time_limit: duration,
+            discrete,
         };
         let cancel = CancelSource::new();
         let inner = blocking(

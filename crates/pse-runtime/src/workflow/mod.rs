@@ -61,7 +61,7 @@ pub mod uncertainty;
 mod modeling;
 pub use modeling::ModelingNativeAnalysis;
 pub use modeling::{
-    DiagnosticSampleStop, ElasticObservation, ModelingAnalysis, ModelingCheck,
+    DiagnosticSampleStop, DiscreteInitialization, ElasticObservation, ModelingAnalysis, ModelingCheck,
     ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
     ModelingDiagnosticPolicy, ModelingDiagnosticPreparation, ModelingDiagnosticSamples,
     ModelingDiagnostics, ModelingDynamicEvent, ModelingDynamicMode, ModelingElasticAttempt,

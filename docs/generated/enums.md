@@ -713,6 +713,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `time_limit` | `` | false |
 | `cancelled` | `` | false |
 
+## `ModelingDiscreteInitialization`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `refuse` | `` | false |
+| `fix_at_start` | `` | false |
+| `fix_at` | `` | false |
+
 ## `ModelingElasticObservation`
 
 | Member | IDAES name | Deprecated |

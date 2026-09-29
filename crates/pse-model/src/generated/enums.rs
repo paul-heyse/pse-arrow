@@ -6376,6 +6376,106 @@ impl core::str::FromStr for ModelingDiagnosticSampleStop {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum ModelingDiscreteInitialization {
+    ///refuse
+    #[serde(rename = "refuse")]
+    Refuse,
+    ///fix_at_start
+    #[serde(rename = "fix_at_start")]
+    FixAtStart,
+    ///fix_at
+    #[serde(rename = "fix_at")]
+    FixAt,
+}
+impl crate::SemanticEq for ModelingDiscreteInitialization {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingDiscreteInitialization {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::Refuse, Self::FixAtStart, Self::FixAt];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Refuse => "refuse",
+            Self::FixAtStart => "fix_at_start",
+            Self::FixAt => "fix_at",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Refuse => 0usize,
+            Self::FixAtStart => 1usize,
+            Self::FixAt => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Refuse => None,
+            Self::FixAtStart => None,
+            Self::FixAt => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingDiscreteInitialization {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingDiscreteInitialization))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingDiscreteInitialization)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["refuse", "fix_at_start", "fix_at"] }
+        )
+    }
+}
+impl core::str::FromStr for ModelingDiscreteInitialization {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "refuse" => Ok(Self::Refuse),
+            "fix_at_start" => Ok(Self::FixAtStart),
+            "fix_at" => Ok(Self::FixAt),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingDiscreteInitialization).to_owned(),
+                    enumeration: stringify!(ModelingDiscreteInitialization).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum ModelingElasticObservation {
     ///feasible_witness
     #[serde(rename = "feasible_witness")]
@@ -14992,6 +15092,16 @@ impl crate::HeapUsage for ModelingDiagnosticSampleStop {
     }
 }
 impl crate::SemanticFrame for ModelingDiagnosticSampleStop {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ModelingDiscreteInitialization {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingDiscreteInitialization {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

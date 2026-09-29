@@ -537,6 +537,14 @@ class RuntimeModelingInitializationsFieldCommittedItem:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeModelingInitializationsFieldDiscreteAssignmentItem:
+    """Declared relation row or nested value."""
+
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    value: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeModelingInitializationsFieldAttemptsItem:
     """Declared relation row or nested value."""
 
@@ -560,6 +568,8 @@ class RuntimeModelingInitializationsRow:
     failure: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     failure_ordinal: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     committed: b.tuple[RuntimeModelingInitializationsFieldCommittedItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingInitializationsFieldCommittedItem), iterable_validator=attrs.validators.instance_of(b.tuple))))
+    discrete: e.ModelingDiscreteInitialization = attrs.field(validator=attrs.validators.instance_of(e.ModelingDiscreteInitialization))
+    discrete_assignment: b.tuple[RuntimeModelingInitializationsFieldDiscreteAssignmentItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingInitializationsFieldDiscreteAssignmentItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     attempts: b.tuple[RuntimeModelingInitializationsFieldAttemptsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingInitializationsFieldAttemptsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 

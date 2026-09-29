@@ -321,6 +321,11 @@ pub enum DomainRefusal {
     EmptyDomain,
     /// The analysis admits a discrete variable only when the case fixes it.
     Free,
+    /// A value a discrete variable is fixed at is not a member of its domain: a
+    /// non-integral integer value, or a binary value other than zero or one.
+    NotMember,
+    /// A discrete variable to fix has neither a start nor a declared value.
+    NoFixValue,
 }
 impl DomainRefusal {
     /// Stable diagnostic spelling.
@@ -331,6 +336,8 @@ impl DomainRefusal {
             Self::ConflictingBound => "bounds conflict with the unit box of the domain",
             Self::EmptyDomain => "bounds admit no value of the domain",
             Self::Free => "must be fixed by the case",
+            Self::NotMember => "fixed value is not a member of the domain",
+            Self::NoFixValue => "has no start or declared value to fix at",
         }
     }
     /// A missing capability of the analysis, as opposed to an invalid model.

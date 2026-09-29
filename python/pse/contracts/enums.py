@@ -713,6 +713,14 @@ class ModelingDiagnosticSampleStop(StrEnum):
     CANCELLED = "cancelled"
 
 
+class ModelingDiscreteInitialization(StrEnum):
+    """The declared ModelingDiscreteInitialization enumeration."""
+
+    REFUSE = "refuse"
+    FIX_AT_START = "fix_at_start"
+    FIX_AT = "fix_at"
+
+
 class ModelingElasticObservation(StrEnum):
     """The declared ModelingElasticObservation enumeration."""
 

@@ -210,8 +210,7 @@ async fn gdp_indicator_matches_hull() {
             fixture::compiler_profile(),
             profile(SolverSelection::Auto),
             NumericalInputs::default(),
-            BTreeMap::new(),
-            BTreeMap::new(),
+            Default::default(),
             false,
             &crate::CancelSource::new(),
         )
@@ -421,8 +420,7 @@ async fn indicator_linear_lowering_matches_native() {
             fixture::compiler_profile(),
             profile(SolverSelection::Auto),
             NumericalInputs::default(),
-            BTreeMap::new(),
-            BTreeMap::new(),
+            Default::default(),
             false,
             &crate::CancelSource::new(),
         )

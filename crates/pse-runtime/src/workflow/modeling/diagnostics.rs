@@ -270,8 +270,7 @@ impl ModelingPackage {
                 analysis.compiler,
                 analysis.solver.clone(),
                 analysis.numerical.clone(),
-                BTreeMap::new(),
-                BTreeMap::new(),
+                Default::default(),
                 true,
                 cancel,
             )
@@ -987,7 +986,7 @@ mod tests {
         );
         assert!(
             package
-                .prepare_analysis_attempt(&analysis, BTreeMap::new(), BTreeMap::new(), &cancel)
+                .prepare_analysis_attempt(&analysis, Default::default(), &cancel)
                 .await
                 .is_err()
         );
@@ -1015,7 +1014,7 @@ mod tests {
         );
         assert!(
             package
-                .prepare_analysis_attempt(&analysis, BTreeMap::new(), BTreeMap::new(), &cancel)
+                .prepare_analysis_attempt(&analysis, Default::default(), &cancel)
                 .await
                 .is_err()
         );
