@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
+// PyO3's `Ungil` proof for the nested inspection closures exceeds rustc's default depth
+// of 128; its `recursion_depth_exceeding_limit` future-incompatibility lint asks for more.
+#![recursion_limit = "256"]
 #![allow(
     unsafe_code,
     reason = "pyo3 expansions carry the CPython ABI glue (blueprint §21)"

@@ -35,6 +35,7 @@ miette.workspace = true
 tokio-util.workspace = true
 tokio.workspace = true
 futures-util.workspace = true
+pse-workspace-hack.workspace = true
 
 [features]
 bench-instrumentation = []

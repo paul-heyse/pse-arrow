@@ -78,6 +78,7 @@ miette.workspace = true
 pse-operations.workspace = true
 chrono.workspace = true
 clap.workspace = true
+pse-workspace-hack.workspace = true
 
 [dev-dependencies]
 pse-operations = { workspace = true, features = ["test-support"] }

@@ -25,6 +25,7 @@ strum.workspace = true
 schemars.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+pse-workspace-hack.workspace = true
 
 [features]
 # Generated projection of the selected reference YAML packages (blueprint §8.2,

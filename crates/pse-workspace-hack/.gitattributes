@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# Avoid putting conflict markers in the generated Cargo.toml file, since their presence breaks
+# Cargo.
+# Also do not check out the file as CRLF on Windows, as that's what hakari needs.
+Cargo.toml merge=binary -crlf

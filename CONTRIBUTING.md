@@ -15,7 +15,8 @@ issues go through [SECURITY.md](SECURITY.md), never a public issue.
 Prerequisites: `git`, a C toolchain, [`just`](https://just.systems),
 [`uv`](https://docs.astral.sh/uv/) (any current release), and either Docker/Podman (for the solver
 container) or a local Ipopt 3.14.x. Rust is installed *by the repository*: the pinned
-toolchain comes from `rust-toolchain.toml` — never `rustup default`.
+toolchain comes from `rust-toolchain.toml` — never `rustup default`. It is a dated
+nightly, for Cargo's workspace feature unification (ADR-0122).
 
 ```bash
 git clone https://github.com/paul-heyse/pse-arrow
@@ -120,7 +121,7 @@ the completed plan and its resolved reviews then retire (Git history keeps them)
 | `just doctest` | documentation examples compile and run | that the surrounding prose is accurate |
 | `just codegen-check` | committed generated sources match the generator, byte for byte | that the generator is *correct* |
 | `just family-check` | exactly one resolved version per pinned family, matching the evidence lockfiles | that the pinned versions are the best ones |
-| `just governance` | the repository's own invariants (pins, registration, MSRV, floors, unsafe allowlist, error taxonomy) | anything about the domain |
+| `just governance` | the repository's own invariants (pins, registration, the nightly pin against the MSRV floor, floors, unsafe allowlist, error taxonomy) | anything about the domain |
 | `just deps-report` | what is in the dependency graph and under what licences — **advisory, always exits 0** | nothing: it refuses nothing, and no library or licence blocks a merge (§3.3.2, ADR-0066) |
 | `just policy` | the same `cargo deny` + `cargo audit` checks run strictly. Opt-in; not part of `just ci-pr` | that a dependency is *appropriate* |
 | `just coverage` | line/branch coverage numbers | that the covered lines assert anything meaningful |

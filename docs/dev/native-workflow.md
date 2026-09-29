@@ -272,5 +272,5 @@ by a policy allowing unavailable closure. Read `runtime.modeling_checks`, struct
 findings and candidate assessments alongside solver termination. Publication retains the
 same source documents, generated declarations and result contracts.
 
-Build caching, persistent native prefixes and experimental nightly commands are documented
-in [Rust build reuse](build-performance.md).
+Build caching, persistent native prefixes and the parallel frontend experiment are
+documented in [Rust build reuse](build-performance.md).

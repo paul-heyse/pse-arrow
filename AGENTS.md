@@ -120,7 +120,9 @@ start or require CI.
    generated paths are `docs/generated/`, `crates/*/src/generated/` (the operational
    store's `crates/pse-operations/src/generated/` included), `crates/pse-operations-queries/`,
    `crates/pse-ipopt-sys/src/bindings.rs`, `python/pse/contracts/` and
-   `python/pse/_native.pyi`. `just codegen-check`
+   `python/pse/_native.pyi`, plus the cargo-hakari section of
+   `crates/pse-workspace-hack/Cargo.toml` and each member's `pse-workspace-hack` line
+   (`.config/hakari.toml` is their source). `just codegen-check`
    is available to check this manually; a hand edit there is a red diff, not a fix.
 3. **One authoritative declaration per meaning.** Version pins live once in `Cargo.toml`
    (`[workspace.dependencies]`) and once in `pyproject.toml`. A schema is declared in the
@@ -138,7 +140,11 @@ start or require CI.
    no library and no licence is refused during phases 0–1
    ([dependency policy](docs/dev/dependency-policy.md), ADR-0066).
 6. **Use the tool from `.venv` and the pinned toolchain, never `$PATH`.** A stale global
-   `ruff` or a nightly `cargo` silently produces a different result than CI.
+   `ruff` or a `cargo +<other>` silently produces a different result than CI. The pinned
+   toolchain is the dated nightly in `rust-toolchain.toml`, its only declaration
+   (ADR-0122); rustup selects it for every cargo run in a checkout. Never override it
+   with `+toolchain` or `RUSTUP_TOOLCHAIN`: stable Cargo ignores the `[unstable]`
+   feature unification, and another nightly compiles a second copy of everything.
 7. **Report a failure count with its baseline and the command.** Never report that tests
    pass without naming the command, the mode, and the baseline. Mid-plan, one line per
    targeted check you ran is enough; comprehensive accounting belongs to a manually
@@ -148,7 +154,7 @@ start or require CI.
 
 | Path | What it is | How to treat it |
 |---|---|---|
-| `crates/` | Workspace `pse-*` crates declared in `Cargo.toml` | Ours; see `.claude/rules/rust.md` |
+| `crates/` | Workspace `pse-*` crates declared in `Cargo.toml` | Ours; see `.claude/rules/rust.md`. `pse-workspace-hack` has no code: cargo-hakari generates its dependencies (ADR-0122) |
 | `xtask/` | Everything that needs Rust APIs, JSON or cross-platform behaviour | Logic lives here, the justfile is the surface |
 | `tests/` | Workspace test crates: `governance`, `engine`, `conformance`, `lifecycle`, `structural` | `tests/fixtures/` contains source inputs, not a crate |
 | `benches/` | Criterion benchmarks (`pse-benches`) | No timing gate in CI; `just bench-smoke` only runs them |
@@ -198,6 +204,13 @@ Do not restate these; cite them.
   compile error — a silent failure that looks like a logic bug. `just family-check`.
 - **`force_validate` is a feature, not a profile.** Every test invocation passes
   `--features pse-relations/force-validate` explicitly. `just test` does this for you.
+  The workspace-hack must never switch it on: hakari simulates all features, so the
+  opt-in paths are excluded from its traversal in `.config/hakari.toml`.
+- **One feature set per dependency, whatever `-p` selects** (ADR-0122). `.cargo/config.toml`
+  turns on Cargo's workspace feature unification on the pinned nightly, and
+  `pse-workspace-hack` carries the same unification for Cargo that ignores `[unstable]`.
+  Only opt-in features (`force-validate`, `native-solvers`) change a dependency's
+  build; any other recipe selection reuses the same units.
 - **`panic = "unwind"`** in every profile. PyO3 turns unwinds into Python exceptions and
   the Ipopt callbacks `catch_unwind`; `abort` would take the interpreter down.
 - **Never `target-cpu=native`.** It lets LLVM contract `a*b + c` into an FMA and changes
@@ -252,9 +265,9 @@ checks available for manual qualification.
 |---|---|---|---|
 | `just ci-fast` | on demand | the workspace formats, compiles, lints clean and its tests and doctests pass | nothing about Python, features, policy or docs |
 | `just test` | on demand | Rust tests pass with Arrow `force_validate` on | nothing about doctests, other profiles, or release-only paths |
-| `just codegen-check` | on demand | every generated tree equals a fresh regeneration, with no extra or untracked generated files (ADR-0051) | nothing about runtime behavior of the generated interfaces |
+| `just codegen-check` | on demand | every generated tree equals a fresh regeneration, with no extra or untracked generated files (ADR-0051); the workspace-hack equals `cargo hakari generate` and every managed member depends on it (ADR-0122) | nothing about runtime behavior of the generated interfaces, or whether an opt-in feature reached the workspace-hack (governance `every_crate_registered` checks `force_validate`) |
 | `just family-check` | when a pinned-family dependency moves | one resolved version per dependency family, equal to the pins | nothing about whether that version behaves as documented |
-| `just governance` | on demand | the workspace-level invariants hold (pins, crates registered, MSRV, unsafe allowlist, error taxonomy) | nothing about runtime behaviour |
+| `just governance` | on demand | the workspace-level invariants hold (pins, crates registered, the dated nightly at or above the `rust-version` floor, unsafe allowlist, error taxonomy) | nothing about runtime behaviour, or whether the source still compiles on the stable floor |
 | `just quality` | on demand | Python format/lint/types/import boundaries and repo config are clean | that the code works |
 | `just deps-report` | on demand | what is in the dependency graph and under what licences; **advisory, always exits 0** | nothing — it refuses nothing and blocks nothing |
 | `just policy` | on demand | the same checks, strictly: no known advisory, no disallowed licence. Opt-in, not in `ci-pr` | nothing about code you wrote, and nothing you are obliged to act on yet (register R-31) |
@@ -347,7 +360,10 @@ artifacts. Each checkout builds into its own `target/`, and the sccache compiler
 is shared across checkouts: the recipe environment never exports the default
 `CARGO_TARGET_DIR`, because sccache keys Rust compilations on their `CARGO_*`
 environment. The Plan 15 second-worktree experiment saw no Rust cache hits for that
-reason, not because the paths changed.
+reason, not because the paths changed. Never point two checkouts at one Cargo build
+or target directory: Cargo keys a workspace crate's unit by its workspace-relative path
+and checks freshness by mtime, so one checkout silently reuses another's artifact for
+different sources (ADR-0122).
 
 ## Agent runtimes
 

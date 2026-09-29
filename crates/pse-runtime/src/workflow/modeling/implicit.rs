@@ -473,7 +473,7 @@ mod tests {
         let (_, options) = resolver.resolve(&[3.], Some(&[9., -4., 0.])).unwrap();
         assert_eq!(options.variable_nominals, vec![3.]);
         assert!((options.residual_tolerance[0] - 13e-8).abs() < 1e-20);
-        resolver.declarations.push(super::super::cases::requirement(
+        resolver.declarations.push(cases::requirement(
             solved(source).stage(Some(InstanceId::from_id(source))),
             row,
             NumericalTarget::Row,
@@ -886,7 +886,7 @@ mod tests {
             values: BTreeMap::new(),
             variables: BTreeMap::from([(
                 "root.y".into(),
-                pse_compiler::workspace::ModelingVariableState {
+                ModelingVariableState {
                     fixed: Some(true),
                     ..Default::default()
                 },

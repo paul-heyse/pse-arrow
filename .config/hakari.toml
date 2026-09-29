@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# cargo-hakari settings for pse-workspace-hack (ADR-0122; docs.rs/cargo-hakari, "config").
+#
+# The workspace-hack depends on every third-party crate that the workspace members build
+# with more than one feature set, with the union of those features, and every member
+# depends on it. Any package selection then resolves one feature set per crate, including
+# under Cargo that ignores `[unstable] feature-unification` (.cargo/config.toml), such as
+# stable Cargo in CI images. `just codegen` regenerates it; `just codegen-check` compares.
+
+hakari-package = "pse-workspace-hack"
+
+# Output format; 4 sorts dependency names alphabetically. Changing it rewrites the crate.
+dep-format-version = "4"
+
+# Hakari's feature resolver; v2 and the workspace's v3 resolve features identically.
+resolver = "2"
+
+# The only development and CI platform. Lines that differ on other platforms are written
+# under [target.<triple>] tables; wheels for other platforms build without them.
+platforms = ["x86_64-unknown-linux-gnu"]
+
+# Members depend on it as `pse-workspace-hack.workspace = true`, declared once in
+# [workspace.dependencies] like every other internal crate.
+workspace-hack-line-style = "workspace-dotted"
+
+# Unify target and host features separately, as Cargo's own resolver does. The dev
+# profile builds host code (build-override) and dependencies at different optimisation
+# levels, so a crate built on both never shares a unit, and replicating target lines to
+# the host would build the whole dependency graph a second time for build scripts.
+unify-target-host = "none"
+
+# Semver-compatible requirements, not exact versions: Cargo.lock and the `=` pins in
+# [workspace.dependencies] own versions, so a patch update does not rewrite this crate.
+exact-versions = false
+
+# Hakari simulates every member with no, default and ALL features; Cargo's workspace
+# unification uses default features plus what the command requests. Opt-in features
+# must stay opt-in: `pse-relations/force-validate` is never on in a release build, and
+# `native-solvers` needs the linked native environment. Hakari therefore does not
+# traverse the third-party crates those features switch on or reconfigure, so no line
+# here carries their effect. A new opt-in feature that reaches another third-party crate
+# adds that crate here (tests/governance every_crate_registered checks force_validate).
+[traversal-excludes]
+third-party = [
+  # `arrow/force_validate` (pse-relations/force-validate).
+  { name = "arrow" },
+  # native-solvers (pse-backend-native, pse-runtime, pse-py, conformance profiles).
+  { name = "clarabel" },
+  { name = "diffsol" },
+  { name = "diffsol-la" },
+  { name = "highs" },
+  { name = "highs-sys" },
+  { name = "pounce-nlp" },
+  { name = "pounce-rs" },
+  { name = "scip-sys" },
+  { name = "suitesparse_sys" },
+  { name = "sundials-sys" },
+]
+
+[final-excludes]
+# Members that never depend on the workspace-hack:
+# - pse-ids is a build dependency of pse-buildinfo, and pse-diagnostics is its only
+#   workspace dependency. If either depended on the workspace-hack, every build script
+#   of pse-buildinfo would build the hack -- and so every unified dependency, DataFusion
+#   and Arrow included -- a second time for the host. Any member that joins pse-ids'
+#   normal closure joins this list.
+# - pse-operations-queries is generated (`just codegen`); its manifest is the generator's.
+#   pse-operations, its only consumer, carries the unification.
+workspace-members = ["pse-diagnostics", "pse-ids", "pse-operations-queries"]

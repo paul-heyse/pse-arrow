@@ -135,10 +135,16 @@ jobs:
         with:
           shared-key: codegen
           save-if: ${{ github.ref == 'refs/heads/main' }}
+          tools: cargo-hakari
       - name: generated sources match the generator
         # Regenerates into the working tree and fails on any diff or untracked file.
         # If this is red, run `just codegen` and commit the result in the same PR.
         run: cargo xtask codegen --check
+      - name: the workspace-hack matches cargo-hakari
+        # Same fix: `just codegen` regenerates it and the member dependency lines (ADR-0122).
+        run: |
+          cargo hakari generate --diff
+          cargo hakari manage-deps --dry-run
 
   family-check:
     name: rust / family-check

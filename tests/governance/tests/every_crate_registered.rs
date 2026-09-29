@@ -207,3 +207,57 @@ fn validate_features_exist() {
         );
     }
 }
+
+/// Every feature the cargo-hakari workspace-hack switches on, by dependency table.
+fn workspace_hack_features(manifest: &Value, out: &mut Vec<(String, String)>) {
+    let Some(table) = manifest.as_table() else {
+        return;
+    };
+    for (key, value) in table {
+        if key.ends_with("dependencies") {
+            for (dependency, spec) in value.as_table().into_iter().flatten() {
+                for feature in spec
+                    .get("features")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                {
+                    out.push((dependency.clone(), feature.as_str().unwrap_or_default().to_owned()));
+                }
+            }
+        } else {
+            workspace_hack_features(value, out);
+        }
+    }
+}
+
+#[test]
+fn workspace_hack_keeps_force_validate_opt_in() {
+    // Hakari simulates every member with all features (.config/hakari.toml), so an opt-in
+    // feature reaches the generated manifest unless its path is excluded from traversal.
+    // A force_validate line would switch Arrow validation on in every build, release
+    // included.
+    let root = common::workspace_root();
+    let config = common::parse_toml(&root.join(".config/hakari.toml"));
+    let package = config
+        .get("hakari-package")
+        .and_then(Value::as_str)
+        .expect(".config/hakari.toml hakari-package");
+    let manifest = common::parse_toml(&root.join("crates").join(package).join("Cargo.toml"));
+    let mut features = Vec::new();
+    workspace_hack_features(&manifest, &mut features);
+    assert!(
+        !features.is_empty(),
+        "{package} enables no dependency features; control: the walk must see its tables"
+    );
+    let leaked: Vec<String> = features
+        .iter()
+        .filter(|(_, feature)| feature == "force_validate")
+        .map(|(dependency, _)| dependency.clone())
+        .collect();
+    assert!(
+        leaked.is_empty(),
+        "{package} switches on force_validate for {leaked:?}; exclude the opt-in path from \
+         hakari traversal in .config/hakari.toml (ADR-0122)"
+    );
+}

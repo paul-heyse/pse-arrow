@@ -1,37 +1,52 @@
 # Rust build reuse
 
+The toolchain is the dated nightly in `rust-toolchain.toml`, its only declaration
+(ADR-0122). The source uses no nightly language feature. The nightly carries Cargo's
+**workspace feature unification** (`-Z feature-unification`,
+`[resolver] feature-unification = "workspace"`), which `.cargo/config.toml` turns on for
+every Cargo run in a checkout, including rust-analyzer and maturin. Dependency features
+resolve over all workspace members whatever `-p` selects, so `check-package`,
+`unit-package`, `unit-native-package` and `check-solver-contracts` share one build of
+symbolica, DataFusion and Arrow per mode. Only opt-in features —
+`pse-relations/force-validate` and `native-solvers` — select a different build.
+
+`pse-workspace-hack` (cargo-hakari, `.config/hakari.toml`) states the same unification in
+manifests, for Cargo that does not read `[unstable]`. Hakari simulates every member with
+all features, so the opt-in paths are excluded from its traversal; `just codegen`
+regenerates it and `just codegen-check` compares it.
+
+Each checkout keeps its intermediates in its own `target/`. Cargo's build directory is
+not shared between checkouts: Cargo keys a workspace crate's unit by its
+workspace-relative path and checks freshness by mtime, so a shared directory let one
+worktree reuse another's artifact for different sources (ADR-0122). Across checkouts,
+the shared sccache serves identical compilations.
+
 Ordinary local `just` commands and direnv activate an installed `sccache`. Explicit
 `RUSTC_WRAPPER` settings take precedence, including the empty string. CI retains its
-existing cache policy. Workspace crates use O2, with incremental compilation in dev/test;
-release retains non-incremental ThinLTO. Imported dependencies use O3 without incremental
-compilation, including vendored path dependencies. Keep Cargo's target artifacts for direct
-reuse; sccache provides a fallback for eligible compilations. The Linux linker is mold,
-as declared in `.cargo/config.toml`. The existing profiles serve the daily workflows;
-no separate optimized test profile is needed.
+existing cache policy. Workspace
+crates use O2, with incremental compilation in dev/test; release retains non-incremental
+ThinLTO. Imported dependencies use O3 without incremental compilation, including vendored
+path dependencies. Keep Cargo's artifacts for direct reuse; sccache provides a fallback
+for eligible compilations. The Linux linker is mold, as declared in `.cargo/config.toml`.
+The existing profiles serve the daily workflows; no separate optimized test profile is
+needed.
 
 ```bash
-just build-stable unit-package pse-compiler 'test(workspace_tests::)'
-just build-dev unit-package pse-compiler 'test(workspace_tests::)'
+just build-frontend 2 unit-package pse-compiler 'test(workspace_tests::)'
 just build-uncached check-package pse-compiler
 just build-cache-probe
 just build-storage
 ```
 
-`build-dev` is an experimental, dated nightly route. `.config/build.toml` owns its
-date, frontend threads and cache/storage budgets. `.cargo/config.toml` owns the default
-16 Cargo jobs for stable and nightly; explicit job overrides take precedence. It has one persistent target
-tree shared by compatible recipes. `build-stable` selects `rust-toolchain.toml` and
-the ordinary stable target. Promoting nightly is a governance change backed by fresh
-`bench-builds` measurements; the retired
-[build-performance plan](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/15-rust-build-performance.md)
-records the earlier screening. Stable remains the canonical compiler.
-Invoke the stable route from a fresh shell if caller flags contain nightly options;
-the command refuses those flags rather than silently changing their meaning.
-
-For noninteractive commands, use the same environment entry point:
+`build-frontend N` is the parallel rustc frontend experiment (`-Zthreads=N`, N in 1, 2,
+4, 8). It builds into `target/frontend-N`, so its flags never replace the checkout's
+ordinary artifacts. `.config/build.toml` owns the cache and
+storage budgets; `.cargo/config.toml` owns the default 16 Cargo jobs, and explicit job
+overrides take precedence. For noninteractive commands, use the same environment entry
+point:
 
 ```bash
-python3 -m scripts.build_environment --mode nightly --frontend 2 --jobs 16 --cache on -- just check-package pse-compiler
+python3 -m scripts.build_environment --frontend 2 --jobs 16 --cache on -- just check-package pse-compiler
 ```
 
 The environment preserves explicit encoded flags, or `RUSTFLAGS`, according to
@@ -67,7 +82,7 @@ Fortran is unchanged. GMP/MPFR retains its upstream persistent cache mechanism.
 ```bash
 just bench-builds build/build-measurements/baseline --cache off
 just bench-builds build/build-measurements/cached --cache on --cold-cache --recovery --second-worktree
-just bench-builds build/build-measurements/nightly-screen --mode nightly --frontend 4 --jobs 16 --screen
+just bench-builds build/build-measurements/frontend-screen --frontend 4 --jobs 16 --screen
 just bench-builds build/build-measurements/profile-one --cache on --dependency-opt 1 --execute
 just bench-builds build/build-measurements/native-workflow --cache on --native --workflow
 ```
@@ -95,8 +110,8 @@ summed compilation durations are not wall time. The cold run is a screening samp
 replicate leading candidates before claiming a cold speedup. Other active builds and
 source changes make a run diagnostic. No linker comparison is included.
 
-Keep the stable and selected nightly working sets plus at most one temporary
-candidate. Run `just build-storage` before large campaigns. Below the configured
+Keep each checkout's `target/` and at most one temporary campaign. Run
+`just build-storage` before large campaigns. Below the configured
 50 GiB free-space floor, the measurement runner refuses to start. Reclaim identified
 inactive campaign targets explicitly; preserve reports and the active incremental,
 compiler, downloaded-source and native caches. Avoid broad `cargo clean` recovery.

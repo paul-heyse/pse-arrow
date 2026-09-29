@@ -21,6 +21,7 @@ workspace = true
 
 [dependencies]
 pse-ids.workspace = true
+pse-workspace-hack.workspace = true
 
 [build-dependencies]
 pse-ids.workspace = true

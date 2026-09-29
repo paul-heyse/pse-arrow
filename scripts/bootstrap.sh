@@ -31,7 +31,7 @@ CARGO_TOOLS=(
   "cargo-shear"   "cargo-machete" "cargo-llvm-cov"
   "cargo-insta"   "cargo-hack"   "cargo-msrv"
   "cargo-mutants" "cargo-geiger" "cargo-udeps"
-  "cargo-semver-checks" "git-cliff"
+  "cargo-semver-checks" "git-cliff"   "cargo-hakari"
 )
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }

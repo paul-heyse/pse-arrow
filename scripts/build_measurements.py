@@ -443,7 +443,6 @@ def execute_workload(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--mode", choices=("stable", "nightly"), default="stable")
     parser.add_argument("--cache", choices=("auto", "on", "off"), default="auto")
     parser.add_argument("--frontend", type=int, choices=(1, 2, 4, 8))
     parser.add_argument(
@@ -497,7 +496,6 @@ def main() -> None:
     env = build_environment.configure(
         root,
         validation.command_env(),
-        mode=args.mode,
         cache=args.cache,
         frontend=args.frontend,
         jobs=args.jobs,
@@ -519,7 +517,11 @@ def main() -> None:
             / f"pse-bench-{hashlib.sha256(str(output).encode()).hexdigest()[:16]}.sock"
         )
     # Original worktree source and its selected optimization policy stay untouched.
-    cargo = ["rustup", "run", env["RUSTUP_TOOLCHAIN"], "cargo"]
+    # The snapshot's own toolchain file names the one pinned nightly.
+    toolchain = tomllib.loads((source / "rust-toolchain.toml").read_text())[
+        "toolchain"
+    ]["channel"]
+    cargo = ["rustup", "run", toolchain, "cargo"]
     packages = (
         (
             "pse-backend-native",
@@ -537,7 +539,7 @@ def main() -> None:
         output / "host.json",
         {
             "rustc": subprocess.check_output(
-                ["rustup", "run", env["RUSTUP_TOOLCHAIN"], "rustc", "-Vv"], text=True
+                ["rustup", "run", toolchain, "rustc", "-Vv"], text=True
             ),
             "affinity": sorted(os.sched_getaffinity(0)),
             "cpu_quota": Path("/sys/fs/cgroup/cpu.max").read_text()

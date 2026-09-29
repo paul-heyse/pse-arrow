@@ -31,6 +31,7 @@ pse-ids.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 proptest = { workspace = true, optional = true }
+pse-workspace-hack.workspace = true
 
 [features]
 # `proptest::Arbitrary` generators for the expression AST, used by the DSL round-trip

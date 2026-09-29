@@ -22,12 +22,15 @@ def configure(
     root: Path,
     original: dict[str, str],
     *,
-    mode: str | None = None,
     cache: str = "auto",
     frontend: int | None = None,
     jobs: int | None = None,
 ) -> dict[str, str]:
-    """Preserve explicit overrides; never disable workspace incremental compilation."""
+    """Preserve explicit overrides; never disable workspace incremental compilation.
+
+    The toolchain is always rust-toolchain.toml's dated nightly, selected by rustup; this
+    environment never names one. ``frontend`` is the explicit parallel-frontend experiment.
+    """
     env = original.copy()
     # A selected system installation also works in long-running agent processes
     # whose inherited PATH/libclang variables predate the system migration.
@@ -111,24 +114,15 @@ def configure(
         inside = chosen.resolve().is_relative_to(root.resolve())
         if not inside or chosen.resolve() == (root / "target").resolve():
             del env["CARGO_TARGET_DIR"]
-    if mode:
-        stable = tomllib.loads((root / "rust-toolchain.toml").read_text())["toolchain"][
-            "channel"
-        ]
-        env["RUSTUP_TOOLCHAIN"] = settings["nightly"] if mode == "nightly" else stable
-        if mode == "nightly":
-            flags = effective_flags(root, env)
-            if any(flag.startswith(("-Zthreads", "--jobs-frontend")) for flag in flags):
-                raise ValueError(
-                    "frontend flags already supplied; use --frontend instead"
-                )
-            flags.append(f"-Zthreads={frontend or settings['frontend_threads']}")
-            env["CARGO_ENCODED_RUSTFLAGS"] = "\x1f".join(flags)
-            env["CARGO_TARGET_DIR"] = str(root / "target" / settings["nightly"])
-        elif any(flag.startswith("-Z") for flag in effective_flags(root, env)):
-            raise ValueError("stable route refuses caller-supplied unstable flags")
-        else:
-            env["CARGO_TARGET_DIR"] = str(root / "target")
+    if frontend is not None:
+        flags = effective_flags(root, env)
+        if any(flag.startswith(("-Zthreads", "--jobs-frontend")) for flag in flags):
+            raise ValueError("frontend flags already supplied; use --frontend instead")
+        flags.append(f"-Zthreads={frontend}")
+        env["CARGO_ENCODED_RUSTFLAGS"] = "\x1f".join(flags)
+        # The experiment keeps its own target directory, so its flags never replace
+        # this checkout's ordinary artifacts.
+        env["CARGO_TARGET_DIR"] = str(root / "target" / f"frontend-{frontend}")
     return env
 
 
@@ -163,7 +157,6 @@ def effective_flags(root: Path, env: dict[str, str]) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--shell", action="store_true")
-    parser.add_argument("--mode", choices=("stable", "nightly"))
     parser.add_argument("--cache", choices=("auto", "on", "off"), default="auto")
     parser.add_argument("--frontend", type=int, choices=(1, 2, 4, 8))
     parser.add_argument("--jobs", type=int, choices=range(1, 257))
@@ -172,7 +165,6 @@ def main() -> int:
     env = configure(
         ROOT,
         dict(os.environ),
-        mode=args.mode,
         cache=args.cache,
         frontend=args.frontend,
         jobs=args.jobs,
@@ -190,7 +182,7 @@ def main() -> int:
     if not command:
         parser.error("provide a command after --, or --shell")
     print(
-        f"build: toolchain={env.get('RUSTUP_TOOLCHAIN', 'repository pin')} wrapper={env.get('RUSTC_WRAPPER') or 'disabled'} target={env.get('CARGO_TARGET_DIR', 'target')}",
+        f"build: toolchain={env.get('RUSTUP_TOOLCHAIN', 'rust-toolchain.toml')} wrapper={env.get('RUSTC_WRAPPER') or 'disabled'} target={env.get('CARGO_TARGET_DIR', 'target')}",
         file=sys.stderr,
     )
     return subprocess.call(command, env=env)

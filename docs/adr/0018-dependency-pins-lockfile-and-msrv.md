@@ -1,7 +1,7 @@
 ---
 id: ADR-0018
 title: Pin both families with =, commit the lockfile, run cargo deny, and set MSRV to the pinned toolchain
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§3.1, §3.2, §3.3]
 review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md#7-principle-findings
 evidence: Interface-checked
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0122
 revisit: A DataFusion or Arrow release requires a Rust version above the pinned toolchain, or a pre-1.0 crate raises its declared floor above ours
 verification: `tests/governance/tests/pins_match_blueprint.rs`, `tests/governance/tests/toolchain_matches_msrv.rs`, `tests/governance/tests/dependency_floors.rs`; `rust / family-check`; `rust / deny`
 
@@ -61,3 +61,4 @@ Blueprint §3.1 (version anchors, revision 4 MSRV row), §3.3 (library boundarie
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-28 — superseded by ADR-0122.

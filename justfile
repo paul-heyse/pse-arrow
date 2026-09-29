@@ -313,6 +313,12 @@ codegen-bindgen-check:
     cargo run -p xtask --no-default-features --locked -- codegen --only bindgen --check
 
 [group('local')]
+[doc('The cargo-hakari workspace-hack matches a fresh generation and every managed member depends on it (ADR-0122)')]
+codegen-hakari-check:
+    cargo hakari generate --diff
+    cargo hakari manage-deps --dry-run
+
+[group('local')]
 [doc('The published document and authoring JSON Schemas and the Python document types match a fresh derivation from the owning crates (ADR-0116)')]
 codegen-schemas-check:
     bash scripts/native_exec.sh cargo run -p xtask --locked -- codegen --only schemas --check
@@ -766,9 +772,9 @@ test-release *args:
     cargo nextest {{ nextest_action }} --workspace --locked --cargo-profile release {{ validate }} {{ args }}
 
 [group('manual')]
-[doc('cargo udeps on the pinned nightly')]
-udeps nightly="nightly-2026-09-08":
-    cargo +{{ nightly }} udeps --workspace --all-targets
+[doc('cargo udeps on the pinned nightly toolchain')]
+udeps:
+    cargo udeps --workspace --all-targets --locked
 
 [group('manual')]
 [doc('Mutation testing for one file')]
@@ -836,9 +842,11 @@ fmt:
     "{{ ruff }}" format
 
 [group('mutating')]
-[doc('Regenerate relations, Python contracts, docs/generated, the store schema and statements, and the Ipopt bindings')]
+[doc('Regenerate relations, Python contracts, docs/generated, the store schema and statements, the Ipopt bindings and the cargo-hakari workspace-hack')]
 codegen *args:
     bash scripts/native_exec.sh cargo xtask codegen {{ args }}
+    cargo hakari generate
+    cargo hakari manage-deps --yes
 
 [group('mutating')]
 [doc('Generate Rust contracts, rebuild their package loader, then regenerate complete outputs')]
@@ -880,7 +888,7 @@ snapshots-accept:
 [doc('Build the solver container locally (Ipopt 3.14 with MUMPS/SPRAL/oneMKL Pardiso, SCIP 10; ~4 minutes on 32 threads)')]
 [confirm('Build the solver image locally?')]
 solver-image target="ci":
-    docker build --target {{ target }} -t pse-solvers:{{ target }}-local -f docker/solvers/Dockerfile docker/solvers
+    docker build --target {{ target }} -t pse-solvers:{{ target }}-local --build-arg RUST_TOOLCHAIN="$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)" -f docker/solvers/Dockerfile docker/solvers
 
 [group('mutating')]
 [doc('Regenerate the capability-map evidence (rustdoc extraction, probes, exported requirements)')]
@@ -1093,16 +1101,10 @@ unit-m21-authoring *args:
     cargo nextest run -p pse-ids -p pse-relations --lib --test golden_vectors --locked {{ validate }} -E 'package(pse-ids)' {{ args }}
 
 [group('local')]
-[doc('Run an existing recipe with the dated experimental nightly and compiler caching')]
+[doc('Run an existing recipe with the parallel rustc frontend (-Zthreads=1|2|4|8), compiler caching and an isolated target directory')]
 [positional-arguments]
-build-dev +args:
-    python3 -m scripts.build_environment --mode nightly --cache on -- just "$@"
-
-[group('local')]
-[doc('Run an existing recipe with the canonical stable toolchain')]
-[positional-arguments]
-build-stable +args:
-    python3 -m scripts.build_environment --mode stable -- just "$@"
+build-frontend threads +args:
+    python3 -m scripts.build_environment --frontend "$1" --cache on -- just "${@:2}"
 
 [group('local')]
 [doc('Run an existing recipe with compiler wrappers explicitly disabled')]

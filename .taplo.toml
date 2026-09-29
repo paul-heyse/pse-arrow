@@ -24,6 +24,8 @@ exclude = [
   # Generated TOML is written by its generator, never reformatted.
   "crates/*/src/generated/**",
   "crates/pse-operations-queries/**",
+  # cargo-hakari owns this manifest's layout; `hakari generate --diff` compares it.
+  "crates/pse-workspace-hack/Cargo.toml",
 ]
 
 [formatting]

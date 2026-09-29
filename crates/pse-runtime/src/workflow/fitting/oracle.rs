@@ -1700,7 +1700,7 @@ mod tests {
                 Default::default(),
                 Default::default(),
                 ModelingCaseBindings::default(),
-                pse_kernels::DerivativeOrder::Second,
+                DerivativeOrder::Second,
                 compiler,
                 ipopt(SolveIntent::FeasiblePoint),
                 NumericalInputs::default(),
@@ -1724,7 +1724,7 @@ mod tests {
                 // Initialization blocks prepare first derivatives only.
                 SolverProfile {
                     controls: Controls {
-                        hessian: native::solve::HessianMode::LimitedMemory,
+                        hessian: HessianMode::LimitedMemory,
                         ..Controls::default()
                     },
                     ..ipopt(SolveIntent::Initialize)

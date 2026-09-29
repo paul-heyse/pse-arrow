@@ -14,9 +14,30 @@
 # cache cdylib/bin/proc-macro crates, which is why pse-py is a thin shell over rlibs.)
 #
 # There is no config key for `--locked`; every gate passes it explicitly.
+#
+# This file governs every Cargo invocation in a checkout -- recipes, bare cargo,
+# rust-analyzer and maturin -- so feature unification lives here, not in the recipe
+# environment (ADR-0122). The toolchain is the dated nightly in rust-toolchain.toml.
+#
+# Intermediates stay in each checkout's own target/ (Cargo's default). A build directory
+# shared by several checkouts is unsound: Cargo keys a workspace member's unit by its
+# workspace-relative path and checks freshness by mtime, so one checkout would reuse
+# another checkout's artifact for different sources. sccache shares compilations across
+# checkouts instead (scripts/build_environment.py).
 
 [build]
 jobs = 16
+
+[unstable]
+# Resolve dependency features for the whole workspace whatever `-p` selects, so each
+# recipe selection shares one build of symbolica, DataFusion and Arrow ([resolver]).
+feature-unification = true
+
+[resolver]
+# Read only with `-Z feature-unification` (above); stable Cargo ignores it and resolves
+# per selection. pse-workspace-hack (cargo-hakari) carries the same unification for
+# Cargo that does not read [unstable].
+feature-unification = "workspace"
 
 [alias]
 xtask = "run --quiet --package xtask --"

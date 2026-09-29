@@ -43,6 +43,7 @@ miette.workspace = true
 # `net` and `io-util` serve the test-support fault proxy (`testing::FaultProxy`).
 tokio = { workspace = true, features = ["net", "io-util"] }
 clap.workspace = true
+pse-workspace-hack.workspace = true
 
 [dev-dependencies]
 # Store tests compare the created schema with the registry's store relations.

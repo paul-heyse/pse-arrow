@@ -181,8 +181,10 @@ ENV UV_PYTHON_DOWNLOADS=never
 # by `docker run -it` shells; CI jobs use the ci stage.
 # ---------------------------------------------------------------------------
 FROM ci AS dev
-# Keep in step with /rust-toolchain.toml (governance test toolchain_matches_msrv).
-ARG RUST_TOOLCHAIN=1.98.1
+# The channel of /rust-toolchain.toml, its single authority (ADR-0122), passed by every
+# dev-stage build (`just solver-image`, .github/workflows/solvers-image.yml). The recipe
+# tree hash does not cover it, so the pinned dev digest, not the tag, names the toolchain.
+ARG RUST_TOOLCHAIN
 ARG CARGO_BINSTALL_VERSION=1.23.0
 ARG JUST_VERSION=1.58.0
 ARG CARGO_NEXTEST_VERSION=0.9.143
@@ -203,7 +205,9 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 # `--disable-strategies compile` makes a missing prebuilt binary a loud failure
 # instead of a 10-minute source build.  The trailing chmod lets a non-root
 # devcontainer user share the toolchain.
-RUN curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs \
+RUN test -n "$RUST_TOOLCHAIN" \
+      || { echo 'dev stage: pass --build-arg RUST_TOOLCHAIN=<rust-toolchain.toml channel>' >&2; exit 1; } \
+ && curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs \
       | sh -s -- -y --no-modify-path --profile minimal \
           --default-toolchain "$RUST_TOOLCHAIN" \
           -c rustfmt -c clippy -c rust-src -c rust-analyzer -c llvm-tools \

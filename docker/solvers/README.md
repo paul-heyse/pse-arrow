@@ -229,6 +229,11 @@ finds Ipopt without `pkg-config` fallbacks. Bind-mounting the checkout shares
 `target/` with the host — pass `-e CARGO_TARGET_DIR=/work/target-container` if
 host and container builds should not fight over it.
 
+The `dev` stage bakes the channel of `rust-toolchain.toml` (a dated nightly,
+ADR-0122), passed as `--build-arg RUST_TOOLCHAIN` by `just solver-image` and the
+`solvers-image` workflow. Moving the pin requires a rebuilt, re-pinned `dev` image
+before `just parity-container` or the devcontainer can build.
+
 ## Running `build.sh` outside Docker
 
 `build.sh` is plain bash with no Docker assumptions:

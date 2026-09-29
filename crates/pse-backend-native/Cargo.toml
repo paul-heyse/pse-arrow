@@ -82,6 +82,7 @@ rayon = { workspace = true, optional = true }
 sundials-sys = { workspace = true, optional = true }
 suitesparse_sys = { workspace = true, optional = true }
 scip-sys = { workspace = true, optional = true }
+pse-workspace-hack.workspace = true
 
 [build-dependencies]
 pkg-config.workspace = true
