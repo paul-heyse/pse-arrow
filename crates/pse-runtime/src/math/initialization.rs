@@ -52,6 +52,7 @@ impl PreparedInitialization {
                     facts: &facts,
                     intent: SolveIntent::Initialize,
                     convex: false,
+                    least_squares: false,
                     controls,
                 }
                 .select(selection)

@@ -156,6 +156,7 @@ impl ModelingPackage {
             facts: &facts,
             intent: problem.profile.solver.intent,
             convex: false,
+            least_squares: true,
             controls: &problem.profile.solver.controls,
         }
         .select(problem.profile.solver.selection)
@@ -235,13 +236,18 @@ impl ModelingPackage {
                 "duplicate fit parameter, experiment or observation binding",
             ));
         }
-        let second = profile.solver.controls.hessian == HessianMode::Exact;
-        if second && d.experiments.iter().any(|e| e.route == Route::Integrated) {
+        // A supplied Hessian (exact or Gauss–Newton) needs second-order steady models for
+        // the constraint curvature. Only the exact Hessian also needs the residual
+        // curvature, which the forward sensitivities of a transient experiment lack.
+        let hessian = profile.solver.controls.hessian;
+        if hessian == HessianMode::Exact
+            && d.experiments.iter().any(|e| e.route == Route::Integrated)
+        {
             return Err(contract(
-                "transient fitting requires limited-memory Hessians",
+                "transient fitting requires Gauss–Newton or limited-memory Hessians",
             ));
         }
-        let order = if second {
+        let order = if hessian != HessianMode::LimitedMemory {
             DerivativeOrder::Second
         } else {
             DerivativeOrder::First

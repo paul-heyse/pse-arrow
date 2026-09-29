@@ -766,7 +766,8 @@
     "HessianMode": {
       "enum": [
         "exact",
-        "limited_memory"
+        "limited_memory",
+        "gauss_newton"
       ],
       "type": "string"
     },

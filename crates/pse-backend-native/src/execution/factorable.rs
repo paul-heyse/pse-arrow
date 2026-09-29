@@ -957,6 +957,7 @@ fn fixed_assignment(
         facts: &facts,
         intent,
         convex: false,
+        least_squares: false,
         controls: &controls,
     })
     .select(SolverSelection::Auto)?

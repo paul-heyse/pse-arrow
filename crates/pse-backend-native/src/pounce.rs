@@ -182,10 +182,12 @@ impl Session {
         let n = oracle.contract().variables.len();
         let m = oracle.contract().rows.len();
         tolerances.validate(n, m)?;
-        let exact = controls.hessian == HessianMode::Exact;
+        // Every mode but the library's quasi-Newton approximation supplies the Hessian:
+        // the exact Lagrangian or the oracle's Gauss–Newton Gram.
+        let supplied = controls.hessian != HessianMode::LimitedMemory;
         crate::validate_nlp(
             oracle.as_ref(),
-            if exact {
+            if supplied {
                 pse_kernels::DerivativeOrder::Second
             } else {
                 pse_kernels::DerivativeOrder::First
@@ -214,7 +216,7 @@ impl Session {
             }
         }
         let jac = Pattern::new(oracle.jacobian_pattern(), false)?;
-        let hess = if exact {
+        let hess = if supplied {
             Pattern::new(
                 oracle.hessian_pattern().ok_or_else(|| {
                     ProblemError::Unsupported("POUNCE exact Hessian unavailable".into())
@@ -352,7 +354,7 @@ impl Session {
             ),
             (
                 "hessian_approximation".into(),
-                OptionValue::Text(if exact { "exact" } else { "limited-memory" }.into()),
+                OptionValue::Text(if supplied { "exact" } else { "limited-memory" }.into()),
             ),
             (
                 "max_iter".into(),

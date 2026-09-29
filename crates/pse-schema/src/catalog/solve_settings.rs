@@ -229,6 +229,10 @@ fn declare_controls(builder: &mut RegistryBuilder) {
                 "limited_memory",
                 "Library-owned quasi-Newton approximation.",
             ),
+            (
+                "gauss_newton",
+                "Gauss–Newton Hessian of a least-squares objective: the weighted response Gram JᵀWJ plus the constraint-multiplier Hessians, without residual curvature. Admitted for least-squares fits only.",
+            ),
         ],
     );
     vocabulary(

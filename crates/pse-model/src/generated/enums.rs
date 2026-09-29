@@ -3011,6 +3011,9 @@ pub enum HessianMode {
     ///Library-owned quasi-Newton approximation.
     #[serde(rename = "limited_memory")]
     LimitedMemory,
+    ///Gauss–Newton Hessian of a least-squares objective: the weighted response Gram JᵀWJ plus the constraint-multiplier Hessians, without residual curvature. Admitted for least-squares fits only.
+    #[serde(rename = "gauss_newton")]
+    GaussNewton,
 }
 impl crate::SemanticEq for HessianMode {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -3019,12 +3022,17 @@ impl crate::SemanticEq for HessianMode {
 }
 impl HessianMode {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Exact, Self::LimitedMemory];
+    pub const ALL: [Self; 3usize] = [
+        Self::Exact,
+        Self::LimitedMemory,
+        Self::GaussNewton,
+    ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Exact => "exact",
             Self::LimitedMemory => "limited_memory",
+            Self::GaussNewton => "gauss_newton",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -3032,6 +3040,7 @@ impl HessianMode {
         match self {
             Self::Exact => 0usize,
             Self::LimitedMemory => 1usize,
+            Self::GaussNewton => 2usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -3044,6 +3053,7 @@ impl HessianMode {
         match self {
             Self::Exact => None,
             Self::LimitedMemory => None,
+            Self::GaussNewton => None,
         }
     }
 }
@@ -3058,7 +3068,7 @@ impl schemars::JsonSchema for HessianMode {
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
-            { "type" : "string", "enum" : ["exact", "limited_memory"] }
+            { "type" : "string", "enum" : ["exact", "limited_memory", "gauss_newton"] }
         )
     }
 }
@@ -3068,6 +3078,7 @@ impl core::str::FromStr for HessianMode {
         match value {
             "exact" => Ok(Self::Exact),
             "limited_memory" => Ok(Self::LimitedMemory),
+            "gauss_newton" => Ok(Self::GaussNewton),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(HessianMode).to_owned(),
@@ -7736,6 +7747,9 @@ pub enum NativeIneligibility {
     ///native_forms
     #[serde(rename = "native_forms")]
     NativeForms,
+    ///least_squares
+    #[serde(rename = "least_squares")]
+    LeastSquares,
 }
 impl crate::SemanticEq for NativeIneligibility {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -7744,7 +7758,7 @@ impl crate::SemanticEq for NativeIneligibility {
 }
 impl NativeIneligibility {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 9usize] = [
+    pub const ALL: [Self; 10usize] = [
         Self::NotLinked,
         Self::Serial,
         Self::NotSquareRoot,
@@ -7754,6 +7768,7 @@ impl NativeIneligibility {
         Self::Derivatives,
         Self::Bounds,
         Self::NativeForms,
+        Self::LeastSquares,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -7767,6 +7782,7 @@ impl NativeIneligibility {
             Self::Derivatives => "derivatives",
             Self::Bounds => "bounds",
             Self::NativeForms => "native_forms",
+            Self::LeastSquares => "least_squares",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -7781,6 +7797,7 @@ impl NativeIneligibility {
             Self::Derivatives => 6usize,
             Self::Bounds => 7usize,
             Self::NativeForms => 8usize,
+            Self::LeastSquares => 9usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -7800,6 +7817,7 @@ impl NativeIneligibility {
             Self::Derivatives => None,
             Self::Bounds => None,
             Self::NativeForms => None,
+            Self::LeastSquares => None,
         }
     }
 }
@@ -7818,7 +7836,7 @@ impl schemars::JsonSchema for NativeIneligibility {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["not_linked", "serial", "not_square_root",
             "no_objective", "certification", "class", "derivatives", "bounds",
-            "native_forms"] }
+            "native_forms", "least_squares"] }
         )
     }
 }
@@ -7835,6 +7853,7 @@ impl core::str::FromStr for NativeIneligibility {
             "derivatives" => Ok(Self::Derivatives),
             "bounds" => Ok(Self::Bounds),
             "native_forms" => Ok(Self::NativeForms),
+            "least_squares" => Ok(Self::LeastSquares),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(NativeIneligibility).to_owned(),

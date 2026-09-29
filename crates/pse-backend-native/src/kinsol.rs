@@ -1733,6 +1733,7 @@ mod tests {
                 facts: &facts,
                 intent: SolveIntent::Root,
                 convex: false,
+                least_squares: false,
                 controls: &Controls::default(),
             };
             let kinsol = requirements

@@ -422,28 +422,48 @@ impl NlpOracle for FitOracle {
                 }
             })
             .collect::<Result<Vec<_>, _>>()?;
+        // The weighted response Gram JᵀWJ is the Gauss–Newton part of every supplied
+        // Hessian; the exact Hessian adds the residual curvature Σ rᵢwᵢ∇²yᵢ.
         self.gram
             .as_mut()
             .ok_or_else(|| ProblemError::internal("Gram not prepared"))?
             .refill(&point.responses, &weights, objective_weight, h)?;
+        let exact = match p.profile.solver.controls.hessian {
+            HessianMode::Exact => true,
+            HessianMode::GaussNewton => false,
+            HessianMode::LimitedMemory => {
+                return Err(ProblemError::internal("limited-memory fit Hessian demand"));
+            }
+        };
         for (ei, e) in p.experiments.iter().enumerate() {
-            let Experiment::Steady(s) = e else {
-                return Err(ProblemError::unsupported(
-                    "transient exact Hessian unavailable",
-                ));
+            let s = match e {
+                Experiment::Steady(s) => s,
+                // A transient experiment adds no constraint rows; its Gauss–Newton part is
+                // the Gram term alone.
+                Experiment::Transient(_) if !exact => continue,
+                Experiment::Transient(_) => {
+                    return Err(ProblemError::unsupported(
+                        "transient exact Hessian unavailable",
+                    ));
+                }
             };
             let mut lambda = vec![0.0; s.case.assembly.structure().rows().len()];
             for &(local, global) in &s.constraints {
                 lambda[local.get()] += multipliers[global.get()];
             }
-            for (i, o) in p
-                .measurements
-                .iter()
-                .enumerate()
-                .filter(|(_, o)| o.experiment == ei && o.included)
-            {
-                let (r, w) = Self::residual(o, point.predictions[i])?;
-                lambda[o.row] += objective_weight * r * w;
+            if exact {
+                for (i, o) in p
+                    .measurements
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, o)| o.experiment == ei && o.included)
+                {
+                    let (r, w) = Self::residual(o, point.predictions[i])?;
+                    lambda[o.row] += objective_weight * r * w;
+                }
+            } else if lambda.iter().all(|v| *v == 0.0) {
+                // No constraint curvature enters the Gauss–Newton Hessian.
+                continue;
             }
             let mut values = s.values.clone();
             for &(id, c) in &s.coordinates {
@@ -540,6 +560,7 @@ impl FitProblem {
             checks_complete: false,
             validation_error: None,
             solve,
+            hessian: self.profile.solver.controls.hessian,
             candidate,
             quality: None,
             constraint_values: vec![],
@@ -1080,6 +1101,82 @@ mod tests {
         assert!((o.objective(&[2.0]).unwrap() - 0.5).abs() < 1e-12);
         drop(pressure);
         assert!(o.response_rank(&[2.0]).is_ok());
+    }
+    /// The lower-triangle Hessian values as a dense symmetric matrix.
+    fn dense_hessian(o: &mut FitOracle, x: &[f64], sigma: f64, lambda: &[f64]) -> Mat<f64> {
+        let pattern = o.hessian_pattern().unwrap().to_owned().unwrap();
+        let mut values = vec![0.0; pattern.row_idx().len()];
+        o.hessian(x, sigma, lambda, &mut values).unwrap();
+        let n = x.len();
+        let mut dense = Mat::zeros(n, n);
+        for c in 0..n {
+            for k in pattern.col_range(c) {
+                let r = pattern.row_idx()[k];
+                dense[(r, c)] += values[k];
+                if r != c {
+                    dense[(c, r)] += values[k];
+                }
+            }
+        }
+        dense
+    }
+    /// I8: the Gauss–Newton Hessian is the weighted response Gram JᵀWJ plus the
+    /// constraint-multiplier Hessians, and differs from the exact Hessian by the residual
+    /// curvature alone.
+    #[tokio::test]
+    async fn gauss_newton_hessian_matches_jtwj() {
+        // One free parameter and one experiment state tied by a nonlinear closure; the
+        // observed y = state² has curvature 2 in the state.
+        let body = "param p: Scalar = 2; var state: Scalar; annotation start state(2); eq closure: state*state == p*p; let y: Scalar = state*state;";
+        let oracle = |hessian| async move {
+            let mut profile = profile(false);
+            profile.solver.controls.hessian = hessian;
+            let p = source_body(false, body)
+                .prepare_fit_problem(
+                    id(32).into(),
+                    profile,
+                    compiler_profile(),
+                    Default::default(),
+                    &crate::CancelSource::new(),
+                )
+                .await
+                .unwrap()
+                .0;
+            let ex = Execution::new(Arc::new(AtomicBool::new(false)), &p.profile.solver.controls);
+            FitOracle::new(p, ex).unwrap()
+        };
+        let mut gn = oracle(HessianMode::GaussNewton).await;
+        let mut exact = oracle(HessianMode::Exact).await;
+        let x = [2.0, 2.0];
+        for sigma in [1.0, 0.5] {
+            // Without multipliers the Hessian is exactly σ·JᵀWJ, formed densely here from
+            // the evaluated responses and weights.
+            let prepared = gn.prepared.clone();
+            let point = gn.evaluate(&x).unwrap();
+            let responses = point.responses.matrix().to_dense();
+            let weights = prepared
+                .measurements
+                .iter()
+                .zip(&point.predictions)
+                .map(|(o, v)| FitOracle::residual(o, *v).unwrap().1)
+                .collect::<Vec<_>>();
+            let weighted = Mat::from_fn(responses.nrows(), responses.ncols(), |i, j| {
+                responses[(i, j)] * weights[i]
+            });
+            let gram = weighted.transpose() * &weighted * faer::Scale(sigma);
+            let h = dense_hessian(&mut gn, &x, sigma, &[0.0]);
+            assert!((&h - &gram).norm_max() < 1e-12, "{h:?} vs {gram:?}");
+            assert!(gram.norm_max() > 1.0);
+            // A multiplier adds the constraint curvature and nothing else.
+            let constrained = dense_hessian(&mut gn, &x, sigma, &[0.5]);
+            let curvature = &constrained - &h;
+            assert!((curvature.norm_max() - 1.0).abs() < 1e-12, "{curvature:?}");
+            // The exact Hessian adds σ·r·w·∇²y = σ·2 at the state's diagonal.
+            let full = dense_hessian(&mut exact, &x, sigma, &[0.5]);
+            let residual = &full - &constrained;
+            assert!((residual.norm_max() - 2.0 * sigma).abs() < 1e-12, "{residual:?}");
+            assert!((residual.norm_l1() - 2.0 * sigma).abs() < 1e-12, "{residual:?}");
+        }
     }
     #[tokio::test]
     async fn sparse_fit_admission_tracks_support_and_refills_duplicates() {

@@ -472,6 +472,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "derivatives",
             "bounds",
             "native_forms",
+            "least_squares",
         ],
     );
     // Constraint handlers a native realization leaves to the backend (ADR-0104).

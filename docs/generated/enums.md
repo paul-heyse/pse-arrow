@@ -418,6 +418,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `exact` | `` | false |
 | `limited_memory` | `` | false |
+| `gauss_newton` | `` | false |
 
 ## `HighsMethod`
 
@@ -857,6 +858,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `derivatives` | `` | false |
 | `bounds` | `` | false |
 | `native_forms` | `` | false |
+| `least_squares` | `` | false |
 
 ## `NativeMetricKind`
 

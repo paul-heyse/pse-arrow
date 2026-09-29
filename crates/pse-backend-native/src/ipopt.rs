@@ -563,10 +563,12 @@ impl Session {
         if oracle.normalization().is_some() {
             return Err(ProblemError::Internal("model normalization must be transported through the shared NLP pipeline before native execution".into()));
         }
-        let exact = controls.hessian == HessianMode::Exact;
+        // Every mode but the library's quasi-Newton approximation supplies the Hessian:
+        // the exact Lagrangian or the oracle's Gauss–Newton Gram.
+        let supplied = controls.hessian != HessianMode::LimitedMemory;
         crate::validate_nlp(
             oracle,
-            if exact {
+            if supplied {
                 pse_kernels::DerivativeOrder::Second
             } else {
                 pse_kernels::DerivativeOrder::First
@@ -585,7 +587,7 @@ impl Session {
             ));
         }
         let jac = Pattern::new(oracle.jacobian_pattern(), false)?;
-        let hess = if exact {
+        let hess = if supplied {
             Pattern::new(
                 oracle
                     .hessian_pattern()
@@ -672,7 +674,7 @@ impl Session {
             ),
             (
                 "hessian_approximation".into(),
-                OptionValue::Text(if exact { "exact" } else { "limited-memory" }.into()),
+                OptionValue::Text(if supplied { "exact" } else { "limited-memory" }.into()),
             ),
             ("nlp_lower_bound_inf".into(), OptionValue::Real(-INFINITY)),
             ("nlp_upper_bound_inf".into(), OptionValue::Real(INFINITY)),
@@ -693,7 +695,10 @@ impl Session {
             ("grad_f_constant", facts.gradient_constant),
             ("jac_c_constant", facts.jacobian_constant),
             ("jac_d_constant", facts.jacobian_constant),
-            ("hessian_constant", exact && facts.hessian_constant),
+            (
+                "hessian_constant",
+                controls.hessian == HessianMode::Exact && facts.hessian_constant,
+            ),
         ] {
             options.insert(k.into(), OptionValue::Bool(v));
         }

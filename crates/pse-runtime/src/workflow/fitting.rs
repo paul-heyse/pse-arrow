@@ -153,6 +153,10 @@ pub struct FitReport {
     pub validation_error: Option<pse_model::diagnostic::BoundaryDiagnostic>,
     /// Ordinary native NLP report, absent for all-fixed evaluation.
     pub solve: Option<native::solve::SolveReport>,
+    /// The Hessian source of the native solve (PS-07): the exact Lagrangian, the
+    /// Gauss–Newton Gram with constraint curvature, or the library's quasi-Newton
+    /// approximation.
+    pub hessian: HessianMode,
     /// Independent original constraint and bound quality, including all-fixed evaluation.
     pub quality: Option<native::quality::Quality>,
     /// Independently evaluated steady physical constraints in admitted order.

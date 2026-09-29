@@ -496,6 +496,7 @@ mod tests {
             facts: &facts,
             intent: SolveIntent::Root,
             convex: false,
+            least_squares: false,
             controls: &controls,
         };
         let error = refused.select(SolverSelection::Auto).unwrap_err();

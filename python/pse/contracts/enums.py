@@ -417,6 +417,7 @@ class HessianMode(StrEnum):
 
     EXACT = "exact"
     LIMITED_MEMORY = "limited_memory"
+    GAUSS_NEWTON = "gauss_newton"
 
 
 class HighsMethod(StrEnum):
@@ -856,6 +857,7 @@ class NativeIneligibility(StrEnum):
     DERIVATIVES = "derivatives"
     BOUNDS = "bounds"
     NATIVE_FORMS = "native_forms"
+    LEAST_SQUARES = "least_squares"
 
 
 class NativeMetricKind(StrEnum):
