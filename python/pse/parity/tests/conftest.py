@@ -8,12 +8,12 @@ from idaes import config
 
 import pse
 
+from . import support
+
 # Importing IDAES puts its own solver directory first on PATH, ahead of the pinned
-# solver prefix. The pinned builds stay first; IDAES's directory (PETSc) is the fallback.
+# solver prefix. The pinned builds stay first; IDAES's (PETSc) is the fallback.
 idaes.cfg.use_idaes_solvers = False
 config.reconfig(idaes.cfg)
-
-from . import support
 
 
 @pytest.fixture(scope="session")

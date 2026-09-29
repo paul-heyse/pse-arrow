@@ -2,18 +2,18 @@
 # Copyright (c) 2026 Paul Heyse
 """Irreducible degenerate sets against IDAES's DegeneracyHunter (blueprint §15.4).
 
-A square system of five linear equations has two known irreducible degenerate sets: a row
-and its double, ``{first, second}`` with multipliers proportional to ``(2, −1)``, and three
-rows whose sum closes, ``{third, fourth, fifth}`` with multipliers proportional to
-``(1, 1, −1)``. DegeneracyHunter solves its candidate and irreducible-set MILPs with SCIP on
-the unscaled Jacobian; pse's Jacobian diagnostic solves its minimum-support MILPs on rows
-scaled by their recorded nominals.
+A square system of five linear equations has two known irreducible degenerate sets: a
+row and its double, ``{first, second}`` with multipliers proportional to ``(2, -1)``,
+and three rows whose sum closes, ``{third, fourth, fifth}`` with multipliers
+proportional to ``(1, 1, -1)``. DegeneracyHunter solves its candidate and
+irreducible-set MILPs with SCIP on the unscaled Jacobian; pse's Jacobian diagnostic
+solves its minimum-support MILPs on rows scaled by their recorded nominals.
 
 The two differ in scope, not in answer. DegeneracyHunter's candidate MILP finds one
-minimum-L1 null combination and searches irreducible sets only through its rows; both sets
-here tie at that norm, so it reports one of them. pse pivots on every row and reports both.
-Every set DegeneracyHunter reports is one of pse's, with pse's weights divided by its row
-nominals equal to IDAES's multipliers up to one scale per set.
+minimum-L1 null combination and searches irreducible sets only through its rows; both
+sets here tie at that norm, so it reports one of them. pse pivots on every row and
+reports both. Every set DegeneracyHunter reports is one of pse's, with pse's weights
+divided by its row nominals equal to IDAES's multipliers up to one scale per set.
 """
 
 import pyomo.environ as pyo
@@ -29,7 +29,8 @@ from . import support
 
 ROWS = ("first", "second", "third", "fourth", "fifth")
 DEPENDENT = """package parity {
- def Dependent { var a: Scalar; var b: Scalar; var c: Scalar; var d: Scalar; var e: Scalar;
+ def Dependent {
+  var a: Scalar; var b: Scalar; var c: Scalar; var d: Scalar; var e: Scalar;
   eq first: a + b == 1;
   eq second: 2*a + 2*b == 2;
   eq third: c + d == 1;
@@ -64,7 +65,7 @@ def idaes_sets() -> Sets:
 def row_names(
     authored: pse.ModelingPackage, case: DeclarationId, settings: pse.SolveSettings
 ) -> dict[SemanticId, str]:
-    """Each row's name, read from the source locations of the IDAES-profile findings."""
+    """Each row's name, from the source locations of the IDAES-profile findings."""
     profile = pse.ModelingDiagnosticSettings.from_json(
         (support.ROOT / "packages/reference/diagnostics/idaes-2.13.json").read_text()
     )
@@ -73,16 +74,18 @@ def row_names(
     )
     names: dict[SemanticId, str] = {}
     for finding in support.rows(findings):
-        for location in finding["locations"]:  # type: ignore[union-attr]
-            name = location["path"].rsplit(".", 1)[-1]
+        for location in support.records(finding["locations"]):
+            path = location["path"]
+            assert isinstance(path, str)
+            name = path.rsplit(".", 1)[-1]
             if name in ROWS:
-                names[SemanticId(location["source_id"])] = name
+                names[support.identity(location["source_id"])] = name
     assert sorted(names.values()) == sorted(ROWS), names
     return names
 
 
 def pse_sets(runtime: pse.Runtime) -> Sets:
-    """pse's degenerate sets with their weights on unscaled rows."""
+    """The pse degenerate sets with their weights on unscaled rows."""
     authored, declarations = support.package(runtime, DEPENDENT)
     case = declarations["Dependent"]
     settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
@@ -92,18 +95,23 @@ def pse_sets(runtime: pse.Runtime) -> Sets:
     )
     assert report["complete"], report
     nominals = {
-        SemanticId(v["source_id"]): v["value"]
-        for v in report["row_nominals"]  # type: ignore[union-attr]
+        support.identity(v["source_id"]): support.real(v["value"])
+        for v in support.records(report["row_nominals"])
     }
     found: Sets = {}
-    for degenerate in report["degenerate"]:  # type: ignore[union-attr]
+    for degenerate in support.records(report["degenerate"]):
         assert degenerate["irreducible_at_tolerance"], degenerate
-        rows = frozenset(names[SemanticId(r)] for r in degenerate["rows"])
-        found[rows] = {
-            names[SemanticId(w["source_id"])]: w["value"]
-            / nominals[SemanticId(w["source_id"])]
-            for w in degenerate["certificate"]["weights"]
-            if w["value"] != 0.0
+        members = degenerate["rows"]
+        assert isinstance(members, list)
+        certificate = support.record(degenerate["certificate"])
+        weights = {
+            support.identity(w["source_id"]): support.real(w["value"])
+            for w in support.records(certificate["weights"])
+        }
+        found[frozenset(names[support.identity(r)] for r in members)] = {
+            names[row]: weight / nominals[row]
+            for row, weight in weights.items()
+            if weight != 0.0
         }
     return found
 
@@ -118,8 +126,8 @@ def proportional(left: dict[str, float], right: dict[str, float]) -> None:
     """`left` and `right` name the same rows with multipliers equal up to one scale."""
     assert set(left) == set(right)
     pivot = min(left)
-    for row in left:
-        assert left[row] / left[pivot] == pytest.approx(
+    for row, value in left.items():
+        assert value / left[pivot] == pytest.approx(
             right[row] / right[pivot], rel=1e-6
         ), (sorted(left), row)
 
@@ -127,8 +135,10 @@ def proportional(left: dict[str, float], right: dict[str, float]) -> None:
 @pytest.mark.integration
 @pytest.mark.parity
 def test_degenerate_sets_agree_with_degeneracy_hunter(runtime: pse.Runtime) -> None:
-    """Every DegeneracyHunter set is one of pse's with the same multipliers, and pse
-    reports both constructed sets."""
+    """Every DegeneracyHunter set is one of pse's, with the same multipliers.
+
+    pse reports both constructed sets.
+    """
     reference = idaes_sets()
     found = pse_sets(runtime)
     assert set(found) == set(EXPECTED)

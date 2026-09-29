@@ -2,16 +2,16 @@
 # Copyright (c) 2026 Paul Heyse
 """A PI loop against IDAES's PIDController integrated by PETSc (blueprint §13.5).
 
-A first-order plant ``τ·dy/dt = −y + u`` starts at ``y = 0.5`` under PI control toward a
-setpoint of 1. IDAES builds its ``PIDController`` (PI, unbounded) on a dynamic flowsheet
-and integrates it with ``petsc_dae_by_time_element``; pse integrates its control library's
-``PID`` with the derivative time zero and output limits far outside the trajectory, so the
-smooth saturation and the anti-windup term vanish to rounding. The gains map as
-``gain_p = Kp``, ``gain_i = Kp/Ti`` and ``mv_ref = bias``, with IDAES's integral
-contribution equal to ``Kp·integral_state/Ti``.
+A first-order plant ``tau dy/dt = u - y`` starts at ``y = 0.5`` under PI control
+toward a setpoint of 1. IDAES builds its ``PIDController`` (PI, unbounded) on a dynamic
+flowsheet and integrates it with ``petsc_dae_by_time_element``; pse integrates its
+control library's ``PID`` with the derivative time zero and output limits far outside
+the trajectory, so the smooth saturation and the anti-windup term vanish to rounding.
+The gains map as ``gain_p = Kp``, ``gain_i = Kp/Ti`` and ``mv_ref = bias``, with IDAES's
+integral contribution equal to ``Kp integral_state/Ti``.
 
-The loop is linear, so the exact response is a matrix exponential. Both integrators agree
-with it, and with each other, to their tolerances.
+The loop is linear, so the exact response is a matrix exponential. Both integrators
+agree with it, and with each other, to their tolerances.
 """
 
 import gc
@@ -23,7 +23,6 @@ import pytest
 from idaes.core import FlowsheetBlock
 from idaes.core.solvers import petsc
 from idaes.models.control.controller import ControllerType, PIDController
-from scipy.linalg import expm
 
 import pse
 from pse.contracts.enums import NativeSolveIntent
@@ -47,8 +46,9 @@ LOOP = f"""package pid_parity {{
   eq target[i in t]:regulator.setpoint[i]=={SETPOINT};
   annotation start y({START});
  }}
- test pi_loop source "PI loop compared with IDAES PIDController under PETSc" revision "1"
-  fixture {{dof 0; run integrated; integrate samples({",".join(f"{t}{{s}}" for t in SAMPLES)})
+ test pi_loop source "PI loop compared with IDAES PIDController under PETSc"
+  revision "1" fixture {{dof 0; run integrated;
+   integrate samples({",".join(f"{t}{{s}}" for t in SAMPLES)})
    relative(1e-10) normalized_absolute(1e-12) step(1e-4{{s}});}} {{
   child root:Loop=Loop();
  }}
@@ -56,12 +56,21 @@ LOOP = f"""package pid_parity {{
 
 
 def exact() -> list[float]:
-    """The closed loop's exact response: ``d/dt (y, I) = A·(y, I) + c``."""
+    """The closed loop's exact response, ``d/dt (y, I) = A (y, I) + c``.
+
+    ``exp(A t)`` comes from the eigendecomposition of ``A``, whose eigenvalues are a
+    distinct complex pair.
+    """
     a = np.array([[-(1 + KP) / TAU, KP / TI / TAU], [-1.0, 0.0]])
     c = np.array([(BIAS + KP * SETPOINT) / TAU, SETPOINT])
     steady = np.linalg.solve(a, -c)
     start = np.array([START, 0.0])
-    return [float((steady + expm(a * t) @ (start - steady))[0]) for t in SAMPLES]
+    values, vectors = np.linalg.eig(a)
+    offset = np.linalg.solve(vectors, start - steady)
+    return [
+        float(np.real(steady[0] + vectors[0] @ (np.exp(values * t) * offset)))
+        for t in SAMPLES
+    ]
 
 
 def petsc_response() -> list[float]:
@@ -113,7 +122,7 @@ def petsc_response() -> list[float]:
 
 
 def pse_response(runtime: pse.Runtime) -> list[float]:
-    """pse's control-library PID on the plant, integrated by the authored fixture."""
+    """The pse control-library PID on the plant, integrated by the authored fixture."""
     package = support.reference_package(runtime, LOOP)
     fixture = next(
         d.declaration_id for d in package.declarations() if d.name == "pi_loop"
@@ -132,7 +141,8 @@ def pse_response(runtime: pse.Runtime) -> list[float]:
     assert trajectory.termination == "completed"
     series: dict[bytes, dict[float, float]] = {}
     for row in support.rows(trajectory.table()):
-        series.setdefault(row["symbol_id"], {})[row["time"]] = row["value"]  # type: ignore[index, arg-type]
+        samples = series.setdefault(support.identity(row["symbol_id"]), {})
+        samples[support.real(row["time"])] = support.real(row["value"])
     # The plant state and the controller's measurement are equal by the loop's
     # equation, and they are the only samples that start at y(0).
     (process, measurement) = (
@@ -149,7 +159,7 @@ def pse_response(runtime: pse.Runtime) -> list[float]:
 # IDAES's PETSc trajectory reader leaves its temporary result files open.
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 def test_pi_loop_agrees_with_petsc(runtime: pse.Runtime) -> None:
-    """pse and PETSc each within 1e-6 of the exact response, and of each other."""
+    """The pse and PETSc responses are within 1e-6 of the exact one and each other."""
     reference = exact()
     integrated = petsc_response()
     simulated = pse_response(runtime)

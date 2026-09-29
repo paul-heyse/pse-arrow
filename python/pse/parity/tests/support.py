@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""The pse side of the parity comparisons: a runtime, authored packages over the
-physical primitives, member identities by path and result rows."""
+"""The pse side of the parity comparisons.
+
+A runtime, authored packages over the physical primitives or the reference libraries,
+member identities by path, and typed result rows.
+"""
 
 from pathlib import Path
 
@@ -36,8 +39,10 @@ def runtime(spill: Path) -> pse.Runtime:
 def package(
     runtime: pse.Runtime, text: str
 ) -> tuple[pse.ModelingPackage, dict[str, DeclarationId]]:
-    """An authored package over the physical primitives, with `Scalar` and `Time`
-    aliases, and its declarations by name."""
+    """An authored package over the physical primitives, by declaration name.
+
+    The package's manifest aliases `Scalar` and `Time`.
+    """
     primitives = ROOT / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(
         {
@@ -72,8 +77,10 @@ def documents(path: Path) -> dict[str, str]:
 
 
 def reference_package(runtime: pse.Runtime, text: str) -> pse.ModelingPackage:
-    """An authored package that uses the reference libraries (`control`, `math`, …),
-    with their `Scalar` and `Time` aliases."""
+    """An authored package that uses the reference libraries (`control`, `math`).
+
+    The package's manifest takes the libraries' `Scalar` and `Time` aliases.
+    """
     reference = ROOT / "packages/reference"
     physical = runtime.physical_from_documents(documents(reference / "physical"))
     manifest = """[package]
@@ -118,7 +125,8 @@ def members(
         lineage = member["lineage"]
         assert isinstance(lineage, dict)
         path, identity = lineage["path"], member["id"]
-        assert isinstance(path, str) and isinstance(identity, str)
+        assert isinstance(path, str)
+        assert isinstance(identity, str)
         identities[path] = SemanticId.from_hex(identity)
     return identities
 
@@ -137,3 +145,27 @@ def by_suffix(identities: dict[str, SemanticId], name: str) -> SemanticId:
 def rows(table: object) -> list[dict[str, object]]:
     """A published relation stream as Python rows."""
     return pa.RecordBatchReader.from_stream(table).read_all().to_pylist()
+
+
+def identity(value: object) -> SemanticId:
+    """A row's identity column."""
+    assert isinstance(value, bytes)
+    return SemanticId(value)
+
+
+def real(value: object) -> float:
+    """A row's finite real column."""
+    assert isinstance(value, float)
+    return value
+
+
+def record(value: object) -> dict[str, object]:
+    """A row's record column."""
+    assert isinstance(value, dict)
+    return value
+
+
+def records(value: object) -> list[dict[str, object]]:
+    """A row's list-of-records column."""
+    assert isinstance(value, list)
+    return [record(item) for item in value]

@@ -385,6 +385,7 @@ forbidden_modules = ["numpy", "scipy"]
 # implementation lands; unmatched exceptions remain errors.
 ignore_imports = [
   "pse._array -> numpy",
+  "pse.parity.tests.** -> numpy",
   "pse.tests.** -> numpy",
 ]
 
@@ -394,13 +395,17 @@ ignore_imports = [
 # for a packaging reason that has not changed: uv workspaces enforce a single
 # `requires-python` (the intersection across members), which is why the parity set is a
 # dependency group with an environment marker. An `idaes` import inside `pse` would drag
-# the platform package back to the parity interpreter range.
+# the platform package back to the parity interpreter range. The parity comparisons
+# under `pse.parity.tests` are excluded from the wheel and run only in the parity
+# environment, so they import IDAES directly.
 [[tool.importlinter.contracts]]
 name = "idaes is a parity dependency, never a platform dependency (blueprint §3.1)"
 type = "forbidden"
 source_modules = ["pse"]
 forbidden_modules = ["idaes"]
-ignore_imports = []
+ignore_imports = [
+  "pse.parity.tests.** -> idaes",
+]
 
 [[tool.importlinter.contracts]]
 name = "pyomo/pint only in the isolated parity harness (ADR-0083)"

@@ -2,12 +2,13 @@
 # Copyright (c) 2026 Paul Heyse
 """Fit estimate and covariance against Pyomo's parmest (ADR-0118, blueprint §19.4).
 
-A weighted linear regression ``y = a + b·x`` at five points with a declared standard
-deviation of 0.5 on every observation is fitted by both sides. parmest estimates with the
+Both sides fit a weighted linear regression ``y = a + b x`` at five points with a
+declared standard deviation of 0.5 on every observation. parmest estimates with the
 ``SSE_weighted`` objective and takes the covariance from its finite-difference Fisher
-information; pse fits the same observations and publishes the covariance of its estimate.
-For a model linear in its parameters both equal the weighted least-squares covariance
-``(JᵀWJ)⁻¹``, so the estimates and every covariance entry agree to solver accuracy.
+information; pse fits the same observations and publishes the covariance of its
+estimate. For a model linear in its parameters both equal the weighted least-squares
+covariance ``(JᵀWJ)⁻¹``, so the estimates and every covariance entry agree to solver
+accuracy.
 """
 
 import pyomo.contrib.parmest.parmest as parmest
@@ -58,7 +59,7 @@ class LineExperiment(Experiment):  # type: ignore[misc]
 
 
 def parmest_estimate() -> tuple[dict[str, float], dict[tuple[str, str], float]]:
-    """parmest's estimate and covariance."""
+    """The estimate and covariance parmest reports."""
     estimator = parmest.Estimator(
         [LineExperiment(x, y) for x, y in zip(X, Y, strict=True)],
         obj_function="SSE_weighted",
@@ -79,7 +80,7 @@ def identity(n: int) -> SemanticId:
 def pse_estimate(
     runtime: pse.Runtime,
 ) -> tuple[dict[str, float], dict[tuple[str, str], float]]:
-    """pse's fitted parameters and published covariance."""
+    """The pse fitted parameters and published covariance."""
     authored, declarations = support.package(runtime, LINE)
     case = declarations["Line"]
     parameters = {"a": identity(151), "b": identity(152)}
@@ -154,19 +155,20 @@ def pse_estimate(
     )
     assert result.usable, result.diagnostics()
     estimates = {
-        SemanticId(row["parameter_id"]): row["value"]
+        support.identity(row["parameter_id"]): support.real(row["value"])
         for row in support.rows(result.table("runtime.fit_parameters"))
     }
     (published,) = support.rows(result.table("runtime.parameter_covariances"))
-    order = [SemanticId(p) for p in published["parameters"]]  # type: ignore[union-attr]
-    values = published["values"]
+    parameter_ids, values = published["parameters"], published["values"]
+    assert isinstance(parameter_ids, list)
     assert isinstance(values, list)
+    order = [support.identity(p) for p in parameter_ids]
     n = len(order)
     names = {identity_: name for name, identity_ in parameters.items()}
     return (
-        {names[p]: float(estimates[p]) for p in order},  # type: ignore[arg-type]
+        {names[p]: estimates[p] for p in order},
         {
-            (names[order[i]], names[order[j]]): float(values[i * n + j])
+            (names[order[i]], names[order[j]]): support.real(values[i * n + j])
             for i in range(n)
             for j in range(n)
         },
