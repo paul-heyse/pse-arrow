@@ -172,12 +172,12 @@ fn bench_source(seed: &[(String, Vec<String>)], workloads: &[Value]) -> String {
     let all = members(seed, largest.max(seed.len()));
     let mut s = format!(
         "package preparation_bench {{\n\
-         use kinds @\"1.0.0\";\nuse chem @\"1.0.0\";\nuse helmholtz @\"1.0.0\";\n\
+         use chemistry @\"1.0.0\";\nuse chem @\"1.0.0\";\nuse helmholtz @\"1.0.0\";\n\
          use pcsaft @\"1.0.0\";\nuse peng_robinson @\"1.0.0\";\n"
     );
     let synthetic = &all[seed.len()..];
     for name in synthetic {
-        s.push_str(&format!("entity kinds.species {name} {{}}\n"));
+        s.push_str(&format!("entity chemistry.species {name} {{}}\n"));
     }
     if !synthetic.is_empty() {
         // Species k repeats seed row (k-1) mod |seed|, every cell scaled by 1+0.005·(k-|seed|).
@@ -200,8 +200,8 @@ fn bench_source(seed: &[(String, Vec<String>)], workloads: &[Value]) -> String {
         s.push_str("}\n");
     }
     s.push_str(&format!(
-        "def PcSaftState(selected:Set<kinds.species>) {{\n\
-         param components:Set<kinds.species>=selected;\n\
+        "def PcSaftState(selected:Set<chemistry.species>) {{\n\
+         param components:Set<chemistry.species>=selected;\n\
          child phase:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=selected,law=pcsaft.potential);\n\
          param pressure:Pressure={PRESSURE};\n\
          var h_residual:DeltaH;\n\
@@ -209,8 +209,8 @@ fn bench_source(seed: &[(String, Vec<String>)], workloads: &[Value]) -> String {
          eq pressure_binding:phase.pressure==pressure;\n\
          eq enthalpy_binding:h_residual==phase.h_residual;\n\
          eq fugacity_binding[j in components]:ln_phi[j]==phase.ln_phi[j];\n\
-         annotation start phase.rho(34.5{{mol/m3}});\n\
-         annotation nominal phase.rho(40{{mol/m3}});\n\
+         annotation start phase.rho(34.5{{mol/m^3}});\n\
+         annotation nominal phase.rho(40{{mol/m^3}});\n\
          }}\n"
     ));
     for workload in workloads {
@@ -220,7 +220,7 @@ fn bench_source(seed: &[(String, Vec<String>)], workloads: &[Value]) -> String {
                 let n = workload["components"].as_u64().unwrap() as usize;
                 let selected = members(seed, n);
                 s.push_str(&format!(
-                    "set members_{n:02}:Set<kinds.species>={{{}}};\n",
+                    "set members_{n:02}:Set<chemistry.species>={{{}}};\n",
                     selected.join(",")
                 ));
                 let amounts: String = selected
