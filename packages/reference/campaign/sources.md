@@ -27,3 +27,14 @@ against declared bounds: backward differences over 5, 10, 20 and 40 elements (fi
 order), and three-point Radau over 1, 2, 4 and 8 elements (endpoint order five). The
 Radau differences reach the solver tolerance by eight elements, so a finer Radau study
 measures round-off rather than order.
+
+`models/bt-pr-formulations.pse` solves one flowsheet, a Flash of the BT_PR binding at
+the IDAES 2.13 `test_flash` TestInitializersCubicModularBTX conditions (1 mol/s
+equimolar benzene/toluene, 368 K, 101325 Pa, zero duty and pressure change), under each
+phase-equilibrium formulation the binding's `formulation` parameter selects: the smooth
+bubble/dew formulation, the complementarity closure `pr_equilibrium.ComplementarityPR`
+(equilibrium temperature slacks complementary to the phase fractions, smooth
+realization), and the nested flash `nested_equilibrium.NestedPRFlash` (two-phase,
+liquid-only and vapor-only regimes solved on compressibility roots and selected by
+eligibility and the minimum Gibbs energy of the split). Each compares with the test's
+outlet flows, compositions, temperature and pressure at its absolute 1e-3.

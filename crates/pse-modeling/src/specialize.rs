@@ -388,7 +388,9 @@ pub(crate) struct Engine<'a, 'b> {
     /// every replica exists.
     replicated: Vec<ReplicatedEquation>,
     relaxations: BTreeMap<SemanticId, (Type, Value, Lineage)>,
-    form_realizations: BTreeMap<DeclarationId, (forms::Realized, DeclarationId)>,
+    /// Form realizations by the instance and form they realize: every instance of a
+    /// definition realizes its own occurrences of that definition's forms.
+    form_realizations: BTreeMap<(InstanceId, DeclarationId), (forms::Realized, DeclarationId)>,
     facts: Environment,
     objective_level: Option<usize>,
     cancel: &'a dyn Fn() -> bool,
@@ -1065,7 +1067,7 @@ impl Engine<'_, '_> {
                     .resolve(*member, &policy.target)
                     .ok_or_else(|| invalid(*member, "implicit target absent"))?;
                 if self.p.declarations[&target].value.kind != Kind::Implicit {
-                    self.register_form_realization(target, *member)?;
+                    self.register_form_realization(id, target, *member)?;
                     continue;
                 }
                 if realizations

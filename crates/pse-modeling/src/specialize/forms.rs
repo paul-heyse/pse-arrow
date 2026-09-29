@@ -182,6 +182,7 @@ impl Engine<'_, '_> {
     /// Register a realization declaration whose target is a constraint form or disjunction.
     pub(super) fn register_form_realization(
         &mut self,
+        instance: InstanceId,
         target: DeclarationId,
         declaration: DeclarationId,
     ) -> Result<()> {
@@ -251,15 +252,20 @@ impl Engine<'_, '_> {
         };
         if self
             .form_realizations
-            .insert(target, (realized, declaration))
+            .insert((instance, target), (realized, declaration))
             .is_some()
         {
             return Err(invalid(declaration, "competing form realizations"));
         }
         Ok(())
     }
-    fn realization(&self, form: Form, source: DeclarationId) -> Result<Realized> {
-        let realized = match self.form_realizations.get(&source) {
+    fn realization(
+        &self,
+        form: Form,
+        instance: InstanceId,
+        source: DeclarationId,
+    ) -> Result<Realized> {
+        let realized = match self.form_realizations.get(&(instance, source)) {
             Some((realized, _)) => realized.clone(),
             None => form.default().ok_or_else(|| {
                 invalid(
@@ -552,7 +558,7 @@ impl Engine<'_, '_> {
         };
         let id = member_id(instance, at, coordinates);
         let lineage = self.lineage(instance, row, &[at]);
-        let realized = self.realization(Form::Indicator, at)?;
+        let realized = self.realization(Form::Indicator, instance, at)?;
         if realized == Realized::Other(Policy::Indicator) {
             let row = self.push_row(id, lhs, sense, rhs, lineage)?;
             self.model.native.push(NativeConstraint::Indicator {
@@ -768,11 +774,11 @@ impl Engine<'_, '_> {
                         .p
                         .resolve(child, &policy.target)
                         .ok_or_else(|| invalid(child, "realization target absent"))?;
-                    self.register_form_realization(target, child)?;
+                    self.register_form_realization(instance, target, child)?;
                 }
             }
         }
-        let realized = self.realization(Form::Disjunction, declaration)?;
+        let realized = self.realization(Form::Disjunction, instance, declaration)?;
         let lineage = self.lineage(instance, &row, &[declaration]);
         let base = member_id(instance, declaration, &[]);
         let mut indicators = Vec::new();
@@ -1371,7 +1377,7 @@ impl Engine<'_, '_> {
         {
             return Err(invalid(at, "ordered set weights are finite and distinct"));
         }
-        let realized = self.realization(Form::OrderedSet, at)?;
+        let realized = self.realization(Form::OrderedSet, instance, at)?;
         let lineage = self.lineage(instance, row, &[at]);
         let base = member_id(instance, at, &[]);
         if realized == Realized::Other(Policy::Native) {
@@ -1557,7 +1563,7 @@ impl Engine<'_, '_> {
             let local = coordinates_env(env, &coordinates);
             members.push(self.variable_operand(instance, &v.member, &local, at)?);
         }
-        let realized = self.realization(Form::Cardinality, at)?;
+        let realized = self.realization(Form::Cardinality, instance, at)?;
         let lineage = self.lineage(instance, row, &[at]);
         let base = member_id(instance, at, &[]);
         let sense = match row.value.kind {
@@ -1697,7 +1703,7 @@ impl Engine<'_, '_> {
                 "a piecewise function needs two or more breakpoints",
             ));
         }
-        let realized = self.realization(Form::Piecewise, at)?;
+        let realized = self.realization(Form::Piecewise, instance, at)?;
         let lineage = self.lineage(instance, row, &[at]);
         let base = member_id(instance, at, &[]);
         let indicator = self.indicator_type(at)?;
@@ -1906,7 +1912,7 @@ impl Engine<'_, '_> {
             .complementarity
             .clone()
             .ok_or_else(|| invalid(at, "complementarity payload"))?;
-        let realized = self.realization(Form::Complementarity, at)?;
+        let realized = self.realization(Form::Complementarity, instance, at)?;
         let local = coordinates_env(env, coordinates);
         let base = member_id(instance, at, coordinates);
         let lineage = self.lineage(instance, row, &[at]);
@@ -2041,7 +2047,7 @@ impl Engine<'_, '_> {
             .clone()
             .ok_or_else(|| invalid(at, "logic payload"))?;
         let proposition = crate::logic::parse(&v.proposition).map_err(|e| invalid(at, e))?;
-        let realized = self.realization(Form::Logic, at)?;
+        let realized = self.realization(Form::Logic, instance, at)?;
         let native = realized == Realized::Other(Policy::Native);
         let mut lowering = LogicLowering {
             instance,

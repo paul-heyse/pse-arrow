@@ -82,6 +82,7 @@
 // the equilibrium temperature leaves T by a slack while one phase vanishes, each slack
 // complementary to its phase fraction. The realization of the pairs is the author's.
 @id("01e4e7198547443aa30242346a72c7cd") fn temperature_difference_unit()->DeltaTemperature=1{K};
+@id("01a0eeced80374ab83c0818dcb375c61") enum VleFormulation {@id("01a0ef441d697427a7ebd648366a09f2") smooth, @id("01a0ef441d697427a7ebd649f9fc78fc") complementarity, @id("01a0ef441d697427a7ebd64a9841bf6f") nested}
 @id("f8b565f98a4d47d6beace4813bc00094") interface ComplementarityVLE extends PhaseEquilibrium {
 @id("3bd6388e2a5a4703b65c3f7e50071495") annotation start z(fraction_unit()/sum(k in components | 1));
 @id("4da42935ba2a44e9a4985496ca583775") annotation start flow(1{mol/s});

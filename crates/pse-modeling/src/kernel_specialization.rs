@@ -995,3 +995,27 @@ fn reference_state_attributes_are_typed() {
         assert!(run(&refused, "p.Root", Bindings::default()).is_err(), "{to}");
     }
 }
+
+#[test]
+fn each_instance_realizes_its_own_constraint_forms() {
+    // Two instances of one definition each realize their complementarity; the realization
+    // belongs to the instance, not to the shared declaration.
+    let text = "package p {
+        fn smooth_min<Q>(a: Q, b: Q, eps: Delta<Q>) -> Q valid(eps > eps - eps) = a - eps*(d + sqrt(d*d + 1))/2 where d = (a - b)/eps;
+        def Pair(width: Scalar) {
+            var a: Scalar; var b: Scalar;
+            complements c: (a >= 0, b >= 0);
+            realize r on c using smooth(smooth_min, width);
+        }
+        def Root { child first: Pair = Pair(width=0.1); child second: Pair = Pair(width=0.2); }
+    }";
+    let model = run(text, "p.Root", Bindings::default()).unwrap();
+    assert_eq!(model.lowerings.len(), 2);
+    assert_ne!(model.lowerings[0].rows, model.lowerings[1].rows);
+    // A second realization of one form in one instance still competes.
+    let competing = text.replace(
+        "realize r on c using smooth(smooth_min, width);",
+        "realize r on c using smooth(smooth_min, width); realize s on c using smooth(smooth_min, width);",
+    );
+    assert!(run(&competing, "p.Root", Bindings::default()).is_err());
+}

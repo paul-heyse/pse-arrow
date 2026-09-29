@@ -11,6 +11,7 @@
 @id("01a0e1b4f611717da49a926e90be3394") use pr_equilibrium @"1.0.0";
 @id("01a0e1b4f611717da49a926f22a030a5") use equilibrium @"1.0.0";
 @id("01a0e1b4f611717da49a9270067ac1c7") use helmholtz @"1.0.0";
+@id("01a0eeced80374ab83c0820a4034adce") use nested_equilibrium @"1.0.0";
 @id("01a0e1b4f611717da49a92713ed6ca46") table reference[j:chemistry.species]:{gas_fit:caloric.fit,h:PrOracleEnthalpy,s:PrOracleEntropy} complete_over(j in chem.aromatics);
 @id("01a0e1b4f611717da49a9272a559d6a6") dataset reference_values:reference provenance(references.idaes_bt_pr, provenance.Role.oracle_input) {
 [chem.benzene]=[caloric_data.benzene_gas_rpp4_oracle,82900{J/mol},-269{J/(mol*K)}];
@@ -24,7 +25,7 @@
 @id("01a0e1b4f611717da49a927833f4d3d9") fn reference_P()->Pressure=101325{Pa};
 @id("01a0e1b4f611717da49a9279038f6687") fn gas_h(T:Temperature,j:chemistry.species)->MolarEnthalpy=equilibrium.enthalpy_datum()+caloric.polynomial_h_primitive(T,caloric.polynomial[reference[j].gas_fit])-caloric.polynomial_h_primitive(reference_T(),caloric.polynomial[reference[j].gas_fit]);
 @id("01a0e1b4f611717da49a927a3d93aefe") fn gas_s(T:Temperature,j:chemistry.species)->MolarEntropy=equilibrium.entropy_datum()+caloric.polynomial_s_primitive(T,caloric.polynomial[reference[j].gas_fit])-caloric.polynomial_s_primitive(reference_T(),caloric.polynomial[reference[j].gas_fit]);
-@id("01a0e1b4f611717da49a927b8ced04f1") def BT_PR(defined_state:Boolean=true,minimum:Temperature=350{K},maximum:Temperature=400{K}):pr_equilibrium.SmoothPR {
+@id("01a0e1b4f611717da49a927b8ced04f1") def BT_PR(defined_state:Boolean=true,minimum:Temperature=350{K},maximum:Temperature=400{K},formulation:equilibrium.VleFormulation=equilibrium.VleFormulation.smooth):pr_equilibrium.SmoothPR {
 @id("e5066feedc994f50b82c7a5e05569a15") override param defined:Boolean=defined_state;
 @id("01a0e1b4f611717da49a927c9b92fa31") override param components:Set<chemistry.species>=chem.aromatics;
 @id("01a0e1b4f611717da49a927de67a6ef2") override param psat:Fn(T:Temperature,j:chemistry.species)->Pressure=bt_ideal.psat;
@@ -41,6 +42,30 @@
 @id("01a0e1b4f611717da49a9288957882c3") let oracle_s_vapor:PrOracleEntropy=source_s_zero()+source_s_unit()*((s_vapor-equilibrium.entropy_datum())/caloric.s_unit()+helmholtz.reduced_gas_constant()*log(reference_P()/pr_equilibrium.reference_pressure())+sum(j in components | (y[j]/equilibrium.fraction_unit())*((reference[j].s-source_s_zero())/source_s_unit())));
 @id("01a0e1b4f611717da49a9289db1e3f2c") annotation valid T(minimum_temperature,maximum_temperature,reject);
 @id("01a0e1b4f611717da49a928a09891d4a") annotation valid pressure(80000{Pa},120000{Pa},reject);
+@id("01a0eed1000d7436b90c08550d1c0196") when formulation==equilibrium.VleFormulation.complementarity {
+@id("01a0eeced80374ab83c0820cd5bb1246") child closure:nested_equilibrium.FlashSplit=pr_equilibrium.ComplementarityPR(selected=chem.aromatics,vapor_pressure=bt_ideal.psat,minimum=minimum,maximum=maximum,bubble=365{K},dew=370{K});
+@id("01a0eeced80374ab83c0820dd9a03750") eq bind_temperature:closure.T==T;
+@id("01a0eeced80374ab83c0820ed5549345") eq bind_pressure:closure.pressure==pressure;
+@id("01a0eeced80374ab83c0820f90e5029b") eq bind_feed[j in components]:closure.z[j]==z[j];
+@id("01a0eeced80374ab83c08210de75dfa7") annotation start closure.T(T);
+@id("01a0eeced80374ab83c08211db57506b") annotation start closure.pressure(pressure);
+@id("01a0eeced80374ab83c0821294f87bf2") annotation start closure.z(z[j]);
+@id("01a0eeced80374ab83c0821361050890") override eq material[j in components]:x[j]==closure.x[j];
+@id("01a0eeced80374ab83c08214c816a1fa") override eq normalization:beta==closure.beta;
+@id("01a0eeced80374ab83c08215149d3695") override eq fugacity[j in components]:y[j]==closure.y[j];
+}
+@id("01a0eed1000d7436b90c0856218645d7") when formulation==equilibrium.VleFormulation.nested {
+@id("01a0eed1000d7436b90c085796f805ba") child closure:nested_equilibrium.FlashSplit=nested_equilibrium.NestedPRFlash(selected=chem.aromatics,vapor_pressure=bt_ideal.psat);
+@id("01a0eed189fc72d7af4d92af16a1ff4a") eq bind_temperature:closure.T==T;
+@id("01a0eed189fc72d7af4d92b06aec2d0f") eq bind_pressure:closure.pressure==pressure;
+@id("01a0eed189fc72d7af4d92b1aa1eaa17") eq bind_feed[j in components]:closure.z[j]==z[j];
+@id("01a0eed189fc72d7af4d92b2a42d67ce") annotation start closure.T(T);
+@id("01a0eed189fc72d7af4d92b34d4fc612") annotation start closure.pressure(pressure);
+@id("01a0eed189fc72d7af4d92b45bce01b1") annotation start closure.z(z[j]);
+@id("01a0eed189fc72d7af4d92b527ee4046") override eq material[j in components]:x[j]==closure.x[j];
+@id("01a0eed189fc72d7af4d92b62fdcc5d7") override eq normalization:beta==closure.beta;
+@id("01a0eed189fc72d7af4d92b767fe5b32") override eq fugacity[j in components]:y[j]==closure.y[j];
+}
 }
 @id("01a0e1b4f611717da49a928ba89fe8d7") test ftpx_368 oracle references.idaes_test_bt_pr_368 fixture {dof 0; run steady; fix root.flow=100{mol/s}; fix root.T=368{K}; fix root.pressure=100000{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
 @id("01a0e1b4f611717da49a928c23791ee5") child root:BT_PR=BT_PR;
