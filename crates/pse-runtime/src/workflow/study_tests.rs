@@ -146,6 +146,10 @@ async fn rows(publication: &pse_catalog::delta::publication::Publication, sql: &
 /// from the predecessor's stored solution; a dependent whose case has other coordinates
 /// starts from its authored start and records why; a point whose predecessor failed never
 /// runs.
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn predecessor_waits_and_seeds() {
     use pse_operations::studies::StudyPointState as P;
@@ -262,6 +266,10 @@ async fn predecessor_waits_and_seeds() {
 /// A failed point contributes no members and does not stop the others: the study's one
 /// publication holds the summary of every point and the members of every completed point,
 /// under the intent registered at creation, and names the study's own attempt.
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn failed_point_does_not_contaminate() {
     let database = TestDatabase::create().await.unwrap();

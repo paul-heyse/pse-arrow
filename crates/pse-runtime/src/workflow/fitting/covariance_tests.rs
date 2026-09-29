@@ -22,6 +22,10 @@ use pse_relations::{
 /// T11 and ADR-0118 item 8: an exact-Hessian fit's covariance is the inverse reduced
 /// Hessian of its own KKT analysis, labelled exact; a quasi-Newton fit's is Gauss–Newton
 /// from the response SVD. On a linear model both equal `(XᵀWX)⁻¹`.
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn linear_regression_covariance_analytic() {
     let (expected, estimate) = analytic();
@@ -104,6 +108,10 @@ async fn covariance_withheld_without_declared_sigma() {
     );
 }
 
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn covariance_withheld_with_nonunit_importance() {
     let result = fit(
@@ -160,6 +168,10 @@ async fn covariance_withheld_with_nonunit_importance() {
 
 /// On a linear model the signed root `√(2(f − f*))` is linear in the pinned value, so the
 /// profile-likelihood ends are the Wald ends. Two chains run at once.
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn profile_likelihood_matches_wald_on_linear_model() {
     let (expected, _) = analytic();
@@ -253,6 +265,10 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
 /// `d` leaves `a + d` identifiable but not `a` or `d`: the covariance is withheld with the
 /// identifiable directions reported, while the profile, which needs no full rank, is flat
 /// along `a` and `d` up to their bounds and sized from the declared scale.
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn profile_chain_seeds_from_predecessor() {
     let uncertainty = || {

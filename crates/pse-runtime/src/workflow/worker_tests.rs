@@ -132,6 +132,10 @@ fn retry() -> RetryPolicy {
     }
 }
 
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn worker_runs_an_authored_job_and_stores_its_seed() {
     let database = TestDatabase::create().await.unwrap();
@@ -639,6 +643,10 @@ fn start_event(record: &DurableRecord) -> BTreeMap<String, pse_operations::strea
 /// G8): a resume without a parent attempt starts fresh and says why; a stored-solution
 /// start seeds every free coordinate from that solution; an unknown solution fails the
 /// try instead of starting fresh.
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn job_start_policies_applied_and_recorded() {
     use pse_operations::streams::ProgressValue as V;

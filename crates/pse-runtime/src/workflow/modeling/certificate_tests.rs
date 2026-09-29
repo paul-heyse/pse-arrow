@@ -80,6 +80,10 @@ async fn run(text: &str, selection: SolverSelection) -> std::sync::Arc<crate::wo
 
 /// Explicit Clarabel serves an authored LP through the coefficient runner's cone form,
 /// while automatic routing keeps it on HiGHS when HiGHS is linked (ADR-0121).
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn clarabel_serves_explicit_linear_program() {
     let text = covering("1.5");

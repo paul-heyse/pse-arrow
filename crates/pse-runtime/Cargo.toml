@@ -93,6 +93,12 @@ pse-quantity = { workspace = true, features = ["fixtures"] }
 datafusion-common.workspace = true
 tokio.workspace = true
 
+[[test]]
+# The worker journeys run authored cases through the pse-worker binary, which needs the
+# linked native solvers.
+name = "worker"
+required-features = ["native-solvers"]
+
 [[bin]]
 # The durable job worker (ADR-0112 Outcome 18): the composition root that owns
 # `MathService` and the workflows claims jobs from the operational store.

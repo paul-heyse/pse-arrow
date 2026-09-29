@@ -821,6 +821,10 @@ mod tests {
         });
         Outcome::Native(Box::new(report))
     }
+    #[cfg_attr(
+        not(feature = "native-solvers"),
+        ignore = "needs the linked native solvers"
+    )]
     #[tokio::test]
     async fn objective_bound_check_uses_certified_bound() {
         use pse_backend_native::solve::Assurance;

@@ -1099,6 +1099,9 @@ mod tests {
     /// are withheld with their reason.
     #[test]
     fn sensitivity_requests_route_to_multiplier_adapters() {
+        if !adapter(Backend::Ipopt).linked() && !adapter(Backend::Pounce).linked() {
+            return;
+        }
         let mut f = miqp_facts();
         f.domains.fill(ModelingVariableDomain::Continuous);
         f.quadratic = true;

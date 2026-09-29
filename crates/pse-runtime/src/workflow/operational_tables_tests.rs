@@ -344,6 +344,10 @@ async fn provider_streams_bounded_pages_and_honours_limit_and_projection() {
     database.remove().await.unwrap();
 }
 
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn operational_tables_join_results_in_datafusion() {
     let database = TestDatabase::create().await.unwrap();

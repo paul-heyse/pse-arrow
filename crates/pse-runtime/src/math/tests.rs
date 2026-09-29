@@ -1065,6 +1065,10 @@ async fn session_step_reserves_per_worker() {
     assert!(overflow);
 }
 
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn resolved_accuracy_not_user_input() {
     use super::solves::*;

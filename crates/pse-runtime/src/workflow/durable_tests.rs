@@ -84,6 +84,10 @@ fn base() -> (tempfile::TempDir, url::Url) {
     (directory, base)
 }
 
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn ephemeral_cannot_publish() {
     let runtime = runtime();
@@ -120,6 +124,10 @@ async fn ephemeral_cannot_publish() {
     );
 }
 
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn durable_run_listed_after_restart() {
     let database = TestDatabase::create().await.unwrap();
@@ -255,6 +263,10 @@ fn optimize(analysis: &mut ModelingAnalysis, history: usize) {
     analysis.solver.controls.history = history;
 }
 
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn progress_stream_complete_under_volume() {
     let database = TestDatabase::create().await.unwrap();
@@ -285,6 +297,10 @@ async fn progress_stream_complete_under_volume() {
     database.remove().await.unwrap();
 }
 
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn published_metrics_equal_stream_snapshot() {
     use pse_operations::streams::ProgressValue as V;
@@ -367,6 +383,10 @@ async fn published_metrics_equal_stream_snapshot() {
     database.remove().await.unwrap();
 }
 
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn incompatible_seed_refused() {
     let database = TestDatabase::create().await.unwrap();
@@ -613,6 +633,10 @@ async fn incumbents_stored_as_seeds(
     incumbents
 }
 
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn incumbent_stream_records_offset_objective() {
     let incumbents = incumbents_stored_as_seeds(
@@ -628,6 +652,10 @@ async fn incumbent_stream_records_offset_objective() {
     );
 }
 
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn highs_incumbents_stored_as_highs_seeds() {
     incumbents_stored_as_seeds(
@@ -640,6 +668,10 @@ async fn highs_incumbents_stored_as_highs_seeds() {
 /// A durable run publishes its incumbent stream as the store held it when the attempt
 /// ended (Plan 22 I13): `runtime.incumbents` equals an independent reader's snapshot
 /// field by field, captured points included by identity.
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
 #[tokio::test]
 async fn published_incumbents_equal_stream_snapshot() {
     use pse_relations::{columnar::RelationRow, generated::runtime::incumbents};
