@@ -78,7 +78,8 @@ checks named in the record.
 | F01, F02, F05, F08 | Resolved in ADR-0122 and its implementing commit | T-B | `just check`, `just check-solver-contracts`, `just codegen-hakari-check`, the unit-graph comparison |
 | F03, F04 | Withdrawn with the shared build directory | T-B | — |
 | F09 | Resolved: the shared build directory is rejected in ADR-0122's Options | T-B | `.cargo/config.toml` sets no `build.build-dir` |
-| F06, F07 | Open, for the maintainer to decide | Maintainer | — |
+| F06 | Accepted: the widened build closures are hakari's build cost (DP-17), and the semantic ceilings still hold for code | Maintainer | ADR-0122 Consequences |
+| F07 | Decided by the maintainer on 2026-09-29: no scheduled stable build; the project tracks a recent nightly and fixes breakage as it appears | Maintainer | §3.1 |
 
 ## <a id="decision"></a>12. Decision
 

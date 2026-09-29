@@ -1534,9 +1534,10 @@ process that `pardiso_` resolves into the linked LP64 interface library, publish
 own `MKL_PARDISO_PATH` (the process's one environment write for it, made before the loader
 first reads it), and verifies that loading the alias returned the object already in the
 process and mapped no second oneMKL or Intel OpenMP runtime (`mkl::pardiso`); a loader that
-would find another `libmkl_rt` is refused. Moving the alias into the solver image is
-register R-38. `clarabel/faer-sparse` is not used: it would bring a second faer beside the
-pinned one (register R-45).
+would find another `libmkl_rt` is refused. This runtime alias is the supported mechanism;
+the solver image is not changed for it (maintainer decision, 2026-09-29).
+`clarabel/faer-sparse` is not used: it would bring a second faer beside the pinned one
+(register R-45).
 
 A linear or convex quadratic program explicitly routed to Clarabel is lowered to cone form
 (`ConicProblem::from_coefficients`): equality rows form one zero cone, each finite side of

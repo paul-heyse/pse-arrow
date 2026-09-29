@@ -16,7 +16,7 @@ the PostgreSQL operational store and typed data contracts) is **done** (2026-09-
 records what was built and its Q1 qualification, now the current basis in
 [§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2). Its
 plan, packets and target review are retired to Git history; follow-ups it deferred are
-register rows R-38–R-48. Its companion `22-solver-capabilities-architecture.md` stays
+register rows R-39–R-42 and R-44–R-48. Its companion `22-solver-capabilities-architecture.md` stays
 because ADR-0102–ADR-0121 cite its scenarios S10–S25; it authorizes nothing.
 [Plan 20](20-idaes-capability-target.md) and its companions remain capability background;
 Plan 21 supersedes their target decomposition. K9 remains proposed and excluded.

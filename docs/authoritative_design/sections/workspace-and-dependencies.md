@@ -43,7 +43,9 @@ pinned with `==` in `pyproject.toml`. Tools that only execute carry floors in de
 groups, and `uv.lock` records what resolved. `rust-toolchain.toml` pins one dated
 nightly, and `rust-version` is the stable language floor at or below it
 ([ADR-0122](../../adr/0122-nightly-toolchain-and-feature-unification.md); governance test
-`toolchain_matches_msrv`). The manifests contain no `[patch]` or `[replace]` tables.
+`toolchain_matches_msrv`). No build runs on stable Rust: the pin moves to a recent nightly
+when the project needs one, and a breakage is fixed when it appears (maintainer decision,
+2026-09-29; build-review F07). The manifests contain no `[patch]` or `[replace]` tables.
 The `dependency_pins` governance test checks that each external declaration is exact.
 No prose table in this collection is a second pin authority. Read the manifest for a
 version, and read the [capability maps](../../capability-maps/README.md) for what that
