@@ -95,9 +95,8 @@ impl<'r> Body<'r> {
     fn c(&mut self, value: f64) -> TypedValue {
         let unit = self
             .registry
-            .quantity_type(neutral())
-            .unwrap()
-            .canonical_unit;
+            .unit(self.registry.quantity_type(neutral()).unwrap().canonical_unit)
+            .unwrap();
         self.b
             .literal(
                 value,
