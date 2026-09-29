@@ -793,13 +793,15 @@ impl NativeModelingPackage {
             inner: Arc::new(inner),
         })
     }
-    #[pyo3(signature=(case_ids, settings, *, predecessors=Vec::new(), maximum_points=1024))]
+    /// Run a study in this process. `overlays` holds each point's encoded `PointOverlay`.
+    #[pyo3(signature=(case_ids, settings, *, predecessors=Vec::new(), overlays=Vec::new(), maximum_points=1024))]
     fn study(
         &self,
         py: Python<'_>,
         case_ids: Vec<String>,
         settings: &[u8],
         predecessors: Vec<Option<usize>>,
+        overlays: Vec<Vec<u8>>,
         maximum_points: usize,
     ) -> PyResult<NativeModelingStudy> {
         let settings = settings::solve_profile(py, settings)?;
@@ -807,12 +809,17 @@ impl NativeModelingPackage {
             || maximum_points > 4096
             || case_ids.len() > maximum_points
             || !predecessors.is_empty() && predecessors.len() != case_ids.len()
+            || !overlays.is_empty() && overlays.len() != case_ids.len()
         {
             return Err(invalid(
                 py,
-                "invalid bounded study extent or predecessor list",
+                "invalid bounded study extent, predecessor or overlay list",
             ));
         }
+        let overlays = overlays
+            .iter()
+            .map(|overlay| settings::point_overlay(py, overlay))
+            .collect::<PyResult<Vec<_>>>()?;
         if predecessors
             .iter()
             .enumerate()
@@ -850,6 +857,7 @@ impl NativeModelingPackage {
                     points.push(native::ModelingStudyPoint {
                         analysis,
                         predecessor: predecessors.get(index).copied().flatten(),
+                        overlay: overlays.get(index).cloned().unwrap_or_default(),
                     });
                 }
                 self.inner.study(points, maximum_points, &cancel).await
@@ -1697,6 +1705,13 @@ impl NativeModelingStudy {
     #[getter]
     fn count(&self) -> usize {
         self.inner.outcomes.len()
+    }
+    /// The study's own structural preparations and value rebinds as an encoded
+    /// `PreparationCounts` document.
+    #[getter]
+    fn preparations(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        serde_json::to_vec(&self.inner.preparations)
+            .map_err(|e| invalid(py, format!("preparation counts: {e}")))
     }
     fn result(&self, py: Python<'_>, index: usize) -> PyResult<Option<NativeModelingResult>> {
         let result = self

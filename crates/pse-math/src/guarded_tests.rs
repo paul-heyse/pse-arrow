@@ -207,17 +207,6 @@ fn bounded_layout_and_cancellation_reject_before_execution() {
         ),
         Err(MathError::Cancelled)
     ));
-    assert!(
-        compile_artifact(
-            0,
-            library::MAX_FORMAL_SYMBOLS + 1,
-            vec![0],
-            &[],
-            Optimization::default(),
-            &Arc::new(AtomicBool::new(false))
-        )
-        .is_err()
-    );
     let mut artifact = compile(1, 2, &[block(library::formal(0).unwrap(), 1)], 1);
     assert!(
         artifact

@@ -186,8 +186,45 @@ struct Preparations {
     rebuilt: AtomicUsize,
     shared: AtomicUsize,
 }
-/// A snapshot of [`MathService::preparations`].
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+impl Preparations {
+    fn snapshot(&self) -> PreparationCounts {
+        let read = |n: &AtomicUsize| n.load(std::sync::atomic::Ordering::Relaxed);
+        PreparationCounts {
+            views: read(&self.views),
+            observations: read(&self.observations),
+            rebuilt: read(&self.rebuilt),
+            shared: read(&self.shared),
+        }
+    }
+}
+tokio::task_local! {
+    /// The counters of every operation enclosing the current task, such as one study, so
+    /// concurrent operations on one service each count only their own preparations.
+    static SCOPES: Vec<Arc<Preparations>>;
+}
+/// Run `work` and count the preparations it performs on any math service (A6), whatever
+/// else runs concurrently. An enclosing count also includes this one.
+pub(crate) async fn counted<T>(work: impl Future<Output = T>) -> (T, PreparationCounts) {
+    let counters = Arc::new(Preparations::default());
+    let mut scopes = SCOPES.try_with(Clone::clone).unwrap_or_default();
+    scopes.push(Arc::clone(&counters));
+    let output = SCOPES.scope(scopes, work).await;
+    (output, counters.snapshot())
+}
+/// Structural preparations and value rebinds: of a math service, or of one operation such
+/// as a study (A6).
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
 pub struct PreparationCounts {
     /// Structural solver-view preparations: a case plan, structural analysis and artifact
     /// requests built from a bound structure.
@@ -401,13 +438,17 @@ impl MathService {
     }
     /// Structural preparations and value rebinds performed so far (A6).
     pub fn preparations(&self) -> PreparationCounts {
-        let read = |n: &AtomicUsize| n.load(std::sync::atomic::Ordering::Relaxed);
-        PreparationCounts {
-            views: read(&self.preparations.views),
-            observations: read(&self.preparations.observations),
-            rebuilt: read(&self.preparations.rebuilt),
-            shared: read(&self.preparations.shared),
-        }
+        self.preparations.snapshot()
+    }
+    /// Count one preparation in this service and in every enclosing [`counted`] operation.
+    fn count(&self, counter: impl Fn(&Preparations) -> &AtomicUsize) {
+        use std::sync::atomic::Ordering::Relaxed;
+        counter(&self.preparations).fetch_add(1, Relaxed);
+        let _ = SCOPES.try_with(|scopes| {
+            for scope in scopes {
+                counter(scope).fetch_add(1, Relaxed);
+            }
+        });
     }
     /// Resolve the exact compiler requests and bind immutable programs once per structure;
     /// every value rebind of the structure shares them.

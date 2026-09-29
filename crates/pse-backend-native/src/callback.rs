@@ -24,9 +24,9 @@ pub fn classify(error: &ProblemError) -> Failure {
     fn provider(error: &pse_kernels::ProviderError) -> Failure {
         use pse_kernels::ProviderError as E;
         match error {
-            E::Trial(_) | E::OutsideEnvelope { .. } | E::Singular(_) => Failure::Trial,
             E::Cancelled => Failure::Stopped(Termination::Cancelled),
-            E::Limit(_) | E::Contract(_) | E::Terminal(_) => Failure::Fatal,
+            _ if error.recoverable() => Failure::Trial,
+            _ => Failure::Fatal,
         }
     }
     fn math(error: &pse_math::MathError) -> Failure {
@@ -44,6 +44,7 @@ pub fn classify(error: &ProblemError) -> Failure {
             | E::Library(_)
             | E::Evaluation { .. }
             | E::Limit(_)
+            | E::SlotLimit { .. }
             | E::WorkLimit { .. }
             | E::Quantity(_) => Failure::Fatal,
         }
@@ -85,6 +86,10 @@ pub struct CallbackState {
     pub counts: BTreeMap<String, i64>,
     /// Per-demand wall seconds, including rejected trials.
     pub seconds: BTreeMap<String, f64>,
+    /// Trials refused for crossing a nested implicit stage's bound regime.
+    pub regime_crossings: usize,
+    /// Of those, the crossings since the adapter last reported a completed outer iteration.
+    pub iteration_crossings: usize,
 }
 impl CallbackState {
     /// Start a worker-local callback boundary.
@@ -97,7 +102,14 @@ impl CallbackState {
             terminal: None,
             counts: BTreeMap::new(),
             seconds: BTreeMap::new(),
+            regime_crossings: 0,
+            iteration_crossings: 0,
         }
+    }
+    /// The regime crossings of the outer iteration an adapter reports complete, recorded in
+    /// that iteration's progress event; the next iteration counts afresh.
+    pub fn complete_iteration(&mut self) -> usize {
+        std::mem::take(&mut self.iteration_crossings)
     }
     /// Catch Rust unwinds and record typed errors. Outputs are published by the caller
     /// only after this returns `Some`, so a failed trial cannot publish partial buffers.
@@ -123,6 +135,10 @@ impl CallbackState {
                 return Some(value);
             }
             Ok(Err(e)) => {
+                if regime_crossing(&e) {
+                    self.regime_crossings = self.regime_crossings.saturating_add(1);
+                    self.iteration_crossings = self.iteration_crossings.saturating_add(1);
+                }
                 let failure = classify(&e);
                 let message = e.to_string();
                 self.last_failure = Some(e);
@@ -178,11 +194,16 @@ impl CallbackState {
     pub fn finish(&mut self, report: &mut crate::solve::SolveReport) {
         report.evidence.callback = crate::solve::CallbackEvidence {
             trial_rejections: self.trial_rejections,
+            regime_crossings: self.regime_crossings,
             terminal_failure: self.terminal.is_some(),
         };
         report.metrics.insert(
             "callback.trial_rejections".into(),
             Metric::Integer(self.trial_rejections.try_into().unwrap_or(i64::MAX)),
+        );
+        report.metrics.insert(
+            "callback.regime_crossings".into(),
+            Metric::Integer(self.regime_crossings.try_into().unwrap_or(i64::MAX)),
         );
         report.metrics.insert(
             "callback.terminal_failure".into(),
@@ -211,6 +232,28 @@ impl CallbackState {
             report.callback_failure = None;
         }
         (report.events, report.dropped_events) = self.execution.progress.snapshot();
+    }
+}
+/// A trial refused for crossing a nested implicit stage's bound regime, typed through its
+/// provider and instance wrappers.
+fn regime_crossing(error: &ProblemError) -> bool {
+    fn math(error: &pse_math::MathError) -> bool {
+        use pse_math::MathError as E;
+        match error {
+            E::Instance { cause, .. } => math(cause),
+            E::Provider { cause, .. } => {
+                matches!(cause, pse_kernels::ProviderError::RegimeCrossing { .. })
+            }
+            E::Native { cause, .. } => cause
+                .downcast_ref::<ProblemError>()
+                .is_some_and(regime_crossing),
+            _ => false,
+        }
+    }
+    match error {
+        ProblemError::Math(e) => math(e),
+        ProblemError::Provider(e) => matches!(e, pse_kernels::ProviderError::RegimeCrossing { .. }),
+        _ => false,
     }
 }
 /// Native evaluation stops may be retried only with positive recoverability evidence.

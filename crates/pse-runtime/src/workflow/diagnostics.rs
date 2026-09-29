@@ -78,7 +78,7 @@ pub(super) fn observed(
                 E::Evaluation { .. } => "math.evaluation",
                 E::Provider { .. } => "math.provider",
                 E::Cancelled => "math.cancelled",
-                E::Limit(_) | E::WorkLimit { .. } => "math.limit",
+                E::Limit(_) | E::SlotLimit { .. } | E::WorkLimit { .. } => "math.limit",
                 E::Contract(_) => "math.contract",
                 E::Quantity(_) => "math.quantity",
                 E::Library(_) => "math.library",
@@ -106,7 +106,9 @@ pub(super) fn observed(
                     result.class = Class::TrialRejected;
                 }
                 E::Cancelled => result.class = Class::Cancelled,
-                E::Limit(_) | E::WorkLimit { .. } => result.class = Class::ResourceLimit,
+                E::Limit(_) | E::SlotLimit { .. } | E::WorkLimit { .. } => {
+                    result.class = Class::ResourceLimit;
+                }
                 E::Contract(_) | E::Quantity(_) => result.class = Class::InvalidModel,
                 E::Library(_) => result.class = Class::Infrastructure,
                 E::CoefficientRange => result.class = Class::Infrastructure,
@@ -143,6 +145,22 @@ pub(super) fn observed(
                         pse_kernels::DerivativeOrder::Second => 2,
                     }),
                 );
+            }
+            if let E::SlotLimit {
+                required,
+                available,
+            } = error
+            {
+                for (name, value) in [("required_slots", required), ("available_slots", available)]
+                {
+                    result.observations.insert(
+                        name.into(),
+                        i64::try_from(*value).map_or_else(
+                            |_| Observation::Text(value.to_string()),
+                            Observation::Integer,
+                        ),
+                    );
+                }
             }
             if let E::WorkLimit {
                 source_id,
@@ -190,15 +208,23 @@ pub(super) fn observed(
                 E::Limit(_) => Class::ResourceLimit,
                 E::Contract(_) => Class::InvalidModel,
                 E::Terminal(_) => Class::Infrastructure,
-                E::Trial(_) | E::OutsideEnvelope { .. } | E::Singular(_) => Class::TrialRejected,
+                E::Trial(_)
+                | E::OutsideEnvelope { .. }
+                | E::Singular(_)
+                | E::RegimeCrossing { .. } => Class::TrialRejected,
             };
             result.observations.insert(
                 "provider_recoverable".into(),
-                Observation::Boolean(matches!(
-                    error,
-                    E::Trial(_) | E::OutsideEnvelope { .. } | E::Singular(_)
-                )),
+                Observation::Boolean(error.recoverable()),
             );
+            if let E::RegimeCrossing {
+                selector,
+                bound,
+                selected,
+            } = error
+            {
+                result.sources.extend([*selector, *bound, *selected]);
+            }
             if let E::OutsideEnvelope {
                 axis,
                 value,
@@ -642,6 +668,26 @@ mod tests {
         assert!(matches!(
             diagnostic.observations["taylor_components"],
             Observation::Integer(6)
+        ));
+    }
+    #[test]
+    fn body_slot_limit_retains_required_and_available_slots_through_wrappers() {
+        let error = pse_math::MathError::SlotLimit {
+            required: 16_385,
+            available: 16_384,
+        };
+        let wrapped =
+            super::super::WorkflowError::Math(crate::math::MathRuntimeError::Compile(error.into()));
+        let diagnostic = wrapped.boundary_diagnostic();
+        assert_eq!(diagnostic.class, Class::ResourceLimit);
+        assert_eq!(diagnostic.rule, "math.limit");
+        assert!(matches!(
+            diagnostic.observations["required_slots"],
+            Observation::Integer(16_385)
+        ));
+        assert!(matches!(
+            diagnostic.observations["available_slots"],
+            Observation::Integer(16_384)
         ));
     }
     #[test]

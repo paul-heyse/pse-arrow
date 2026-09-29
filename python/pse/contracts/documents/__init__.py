@@ -565,6 +565,22 @@ class PounceSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     restart: WarmRestart = msgspec.field(default_factory=lambda: msgspec.convert({"barrier": {"kind": "seed"}, "bound_frac": 1e-9, "bound_push": 1e-9, "mult_bound_push": 1e-9, "slack_bound_frac": 1e-9, "slack_bound_push": 1e-9}, type=WarmRestart))
 
 
+class PreparationCounts(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Structural preparations and value rebinds: of a math service, or of one operation such
+    as a study (A6).
+    """
+
+    #: Value-independent observation programs compiled.
+    observations: Annotated[int, msgspec.Meta(ge=0)]
+    #: Value rebinds that rebuilt value-dependent products because a consumed value changed.
+    rebuilt: Annotated[int, msgspec.Meta(ge=0)]
+    #: Value rebinds that shared every product because no consumed value changed.
+    shared: Annotated[int, msgspec.Meta(ge=0)]
+    #: Structural solver-view preparations: a case plan, structural analysis and artifact
+    #: requests built from a bound structure.
+    views: Annotated[int, msgspec.Meta(ge=0)]
+
+
 class ProfileControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Controls of the profile-likelihood pin chains (ADR-0118 item 8)."""
 
@@ -896,6 +912,7 @@ __all__ = [
     "PositiveCount",
     "PounceConvexSettings",
     "PounceSettings",
+    "PreparationCounts",
     "ProfileControls",
     "Propagation",
     "RestartBarrier",

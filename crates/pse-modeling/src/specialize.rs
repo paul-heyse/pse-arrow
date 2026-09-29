@@ -52,7 +52,9 @@ pub struct Limits {
     /// None uses the mathematical backend's default, independently of mesh extent.
     pub body_occurrences: Option<usize>,
     /// Optional formal-slot allowance (inputs plus stage results) for each lowered
-    /// mathematical body, at most the process-global formal pool. None uses the pool.
+    /// mathematical body; the process-global formal pool extends up to it, and a body
+    /// needing more is refused with its required and available slots. None uses the
+    /// mathematical backend's default, the initially registered pool chunk.
     pub body_slots: Option<usize>,
 }
 impl Default for Limits {

@@ -194,9 +194,11 @@ impl BodyBuilder<'_> {
                 .replace(composed.clone())
                 .with(library::formal(*output)?);
         }
-        if calls.iter().any(|(_, _, _, _, _, output, _, _)| {
-            atom.contains_symbol(self.context.functions[*output])
-        }) {
+        let mut remaining_calls = false;
+        for (_, _, _, _, _, output, _, _) in &calls {
+            remaining_calls |= atom.contains_symbol(self.context.pool.function(*output)?);
+        }
+        if remaining_calls {
             return Err(MathError::Contract(
                 "pure function partial exceeds supplied external derivative order".into(),
             ));

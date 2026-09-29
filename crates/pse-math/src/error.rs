@@ -59,6 +59,15 @@ pub enum MathError {
     /// A configured finite admission bound was exceeded.
     #[error("math limit exceeded: {0}")]
     Limit(&'static str),
+    /// A body needs more formal slots (inputs plus stage results) than its explicit
+    /// allowance. The formal pool extends up to the allowance, never beyond it.
+    #[error("math limit exceeded: body slots: {required} required, allowance {available}")]
+    SlotLimit {
+        /// Slots the refused allocation needs, counting every slot the body holds so far.
+        required: usize,
+        /// The body's formal-slot allowance (`BodyLimits::slots`).
+        available: usize,
+    },
     /// A construction demand exceeds its explicit work allowance.
     #[error(
         "expression {source_id}: {resource} requires {required} operations, allowance {available}, Taylor width {components}"
@@ -119,6 +128,7 @@ impl MathError {
             Self::Domain { .. }
             | Self::OutsideRange { .. }
             | Self::Limit(_)
+            | Self::SlotLimit { .. }
             | Self::WorkLimit { .. }
             | Self::Cancelled
             | Self::CoefficientRange => 0,
@@ -150,7 +160,7 @@ pse_diagnostics::impl_diagnostic! {
     code(this) { match this {
         Self::Domain {..} | Self::OutsideRange {..} => Some(pse_diagnostics::DiagnosticCode::SolveEvaluationError),
         Self::Cancelled => Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),
-        Self::Limit(_) | Self::WorkLimit {..} => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
+        Self::Limit(_) | Self::SlotLimit {..} | Self::WorkLimit {..} => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
         Self::Quantity(_) | Self::Provider {..} | Self::Instance {..} => None,
         Self::Native {..} => Some(pse_diagnostics::DiagnosticCode::SolveSolverError),
         _ => Some(pse_diagnostics::DiagnosticCode::CompileMath),

@@ -345,20 +345,15 @@ mod tests {
             .unwrap();
         assert_eq!(jet.jacobian, vec![0.0]);
         assert_eq!(jet.hessians, vec![0.0]);
-        assert!(matches!(
-            selected.evaluate(&[-2.], DerivativeOrder::First, &cancel),
-            Err(MathError::Domain {
-                requirement: "implicit derivative trial crosses the bound regime",
-                ..
-            })
-        ));
-        assert!(matches!(
-            selected.evaluate(&[-2.], DerivativeOrder::Value, &cancel),
-            Err(MathError::Domain {
-                requirement: "implicit derivative trial crosses the bound regime",
-                ..
-            })
-        ));
+        for order in [DerivativeOrder::First, DerivativeOrder::Value] {
+            assert!(matches!(
+                selected.evaluate(&[-2.], order, &cancel),
+                Err(MathError::Provider {
+                    cause: pse_kernels::ProviderError::RegimeCrossing { bound, selected: crossed, .. },
+                    ..
+                }) if bound == positive.id && crossed == negative.id
+            ));
+        }
         let mut filtered = selection([true, false]);
         assert_eq!(
             filtered
@@ -642,10 +637,16 @@ impl RegimeSelection {
         }
         let eligible = candidates.len();
         let (id, values, _, _, derivatives) = candidates.swap_remove(best);
-        if self.derivative_branch.is_some_and(|branch| branch != id) {
-            return Err(MathError::Domain {
+        if let Some(bound) = self.derivative_branch.filter(|branch| *branch != id) {
+            // A typed, recoverable refusal: the outer solve counts it per iteration.
+            return Err(MathError::Provider {
                 source_id: self.id,
-                requirement: "implicit derivative trial crosses the bound regime",
+                provider: self.id,
+                cause: pse_kernels::ProviderError::RegimeCrossing {
+                    selector: self.id,
+                    bound,
+                    selected: id,
+                },
             });
         }
         if order > DerivativeOrder::Value {

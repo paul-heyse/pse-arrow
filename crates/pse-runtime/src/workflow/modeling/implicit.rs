@@ -705,6 +705,98 @@ mod tests {
             .unwrap_err();
         assert!(error.to_string().contains("tie"), "{error}");
     }
+    /// A nested regime selection binds its derivatives to the regime of the start (M3).
+    /// The outer Ipopt steps toward the other regime; every trial that crosses is refused
+    /// as a recoverable trial, and the solve report counts the crossings by the outer
+    /// iteration in which they occurred.
+    #[cfg(feature = "solver-ipopt")]
+    #[tokio::test]
+    async fn nested_stage_reports_regime_crossings_per_outer_iteration() {
+        let rt = super::super::super::tests::runtime();
+        let physical = super::super::super::tests::physical();
+        let names = BTreeMap::from([(
+            "Scalar".into(),
+            physical.quantities.neutral_dimensionless().unwrap(),
+        )]);
+        let rows=pse_authoring::language::parse(
+            "package p { def Root { var target:Scalar; var s:Scalar; implicit roots select minimum((y-target)*(y-target), 1e-8) { var y:Scalar; regime negative eligible(y<0) { eq root:y == -1; annotation start y(-0.5); annotation bounds y(-2,-0.1); } regime positive eligible(y>0) { eq root:y == 1; annotation start y(0.5); annotation bounds y(0.1,2); } } realize r on roots using nested; eq link:s == roots.y; eq pin:target == 2; annotation start target(-2); annotation start s(-1); } }",
+            SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = rt.modeling_package(rows, physical, names).unwrap();
+        let compiler = super::super::super::tests::compiler_profile();
+        let cancel = crate::CancelSource::new();
+        let mut solver = super::super::super::tests::profile();
+        // Presolve would fix `target` from the pin and start Ipopt across the switch.
+        solver.presolve = pse_backend_native::presolve::Policy::Off;
+        solver.controls.iterations = 20;
+        // Every refused trial is also an event: retain all of them with the iterations.
+        solver.controls.history = 4096;
+        solver.intent = pse_backend_native::solve::SolveIntent::FeasiblePoint;
+        solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
+            pse_backend_native::solve::Backend::Ipopt,
+        );
+        let prepared = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                pse_kernels::DerivativeOrder::Second,
+                compiler,
+                solver,
+                NumericalInputs::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let result = package
+            .solve_case(prepared, compiler, &cancel)
+            .await
+            .unwrap();
+        let crate::math::solves::Outcome::Native(report) = &result.outcome else {
+            panic!("expected a native outer solve: {:?}", result.outcome);
+        };
+        // Reaching `target == 2` crosses from the bound negative regime: refused, never
+        // continued across the switch.
+        assert!(!result.accepted);
+        let callback = report.evidence.callback;
+        assert!(callback.regime_crossings > 0, "{:?}", report.metrics);
+        assert!(callback.trial_rejections >= callback.regime_crossings);
+        use pse_backend_native::solve::Metric;
+        assert_eq!(
+            report.metrics["callback.regime_crossings"],
+            Metric::Integer(i64::try_from(callback.regime_crossings).unwrap())
+        );
+        // Every outer iteration's progress event carries its own crossings.
+        assert_eq!(report.dropped_events, 0);
+        let by_iteration = report
+            .events
+            .iter()
+            .filter(|e| e.phase == "ipopt.iteration")
+            .map(|e| match (&e.values["iteration"], &e.values["regime.crossings"]) {
+                (Metric::Integer(iteration), Metric::Integer(crossings)) => {
+                    (*iteration, *crossings)
+                }
+                other => panic!("{other:?}"),
+            })
+            .collect::<BTreeMap<_, _>>();
+        assert_eq!(
+            by_iteration.keys().copied().collect::<Vec<_>>(),
+            (0..=20).collect::<Vec<_>>()
+        );
+        // The start binds the regime in iteration 0; later iterations' steps cross.
+        assert_eq!(by_iteration[&0], 0);
+        assert!(by_iteration[&1] > 0, "{by_iteration:?}");
+        assert!(
+            by_iteration.values().sum::<i64>()
+                <= i64::try_from(callback.regime_crossings).unwrap()
+        );
+    }
     #[tokio::test]
     async fn kernel_nested_stage_composes_child_residuals_and_second_derivatives() {
         let rt = super::super::super::tests::runtime();

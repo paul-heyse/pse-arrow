@@ -5,46 +5,122 @@
 use crate::MathError;
 use symbolica::domains::{float::Complex, rational::Rational};
 use symbolica::{
-    atom::{Atom, AtomCore, NamespacedSymbol, SymbolBuilder},
+    atom::{Atom, AtomCore, NamespacedSymbol, Symbol, SymbolBuilder},
     evaluate::ExpressionEvaluator,
 };
-/// Hard ceiling for process-global reusable formal symbols, which also bounds the formal
-/// slots of one body. Instances do not register symbols. Measured on 2026-09-29: the
-/// PC-SAFT tangent-plane body of three components needs 5510 slots, above the former
-/// 4096; 8192 is the next power of two. Registration is linear in the pool: this pool's
-/// 16 384 symbols register in 5-6 ms at start-up, a 65 536 pool's in 52 ms.
-pub const MAX_FORMAL_SYMBOLS: usize = 8192;
-/// A reusable formal input or guarded-stage result.
+/// Formal and function symbols register in chunks of this many slots. Initialization
+/// registers the first chunk; a body whose explicit slot allowance (`BodyLimits::slots`)
+/// exceeds it extends the pool one chunk at a time when it first needs a slot there. The
+/// pool has no ceiling of its own: each body's allowance bounds it. Measured on
+/// 2026-09-29: the PC-SAFT tangent-plane body of three components needs 5510 slots, and a
+/// chunk's 16 384 symbols register in 5-6 ms.
+pub const FORMAL_CHUNK: usize = 8192;
+/// Symbolica's Horner-scheme variable budget. It equals the former fixed pool so that
+/// evaluator construction is unchanged; it is an optimizer budget, not a symbol bound.
+const HORNER_SCHEME_VARIABLES: usize = 8192;
+/// A reusable formal input or guarded-stage result. The first request for a slot beyond
+/// the registered pool extends it; the same slot always yields the same symbol.
 /// # Errors
-/// Exceeds the process-wide symbol bound or a symbol has incompatible registration.
+/// A symbol has incompatible registration.
 pub fn formal(slot: usize) -> Result<Atom, MathError> {
-    crate::context()?
-        .formals
-        .get(slot)
-        .cloned()
-        .ok_or(MathError::Limit("formal symbols"))
+    crate::context()?.pool.formal(slot)
+}
+/// The number of registered formal slots, a whole number of [`FORMAL_CHUNK`]s.
+/// # Errors
+/// The symbolic runtime is not initialized.
+pub fn formal_pool_len() -> Result<usize, MathError> {
+    crate::context()?.pool.len()
+}
+
+/// Process-global formal and function symbols. Chunk `k` registers the formals of slots
+/// `k·C..(k+1)·C`, then their functions, so Symbolica's registration order — its canonical
+/// term order — of any two pool symbols is fixed, whenever and wherever a chunk registers.
+/// Growth is serialized by the write lock; readers never observe a partial chunk.
+#[derive(Debug)]
+pub(crate) struct Pool(std::sync::RwLock<Symbols>);
+#[derive(Debug, Default)]
+struct Symbols {
+    formals: Vec<Atom>,
+    functions: Vec<Symbol>,
+}
+impl Pool {
+    /// Register the first chunk before any model is admitted.
+    pub(crate) fn new() -> Result<Self, String> {
+        let mut symbols = Symbols::default();
+        symbols.cover(FORMAL_CHUNK)?;
+        Ok(Self(std::sync::RwLock::new(symbols)))
+    }
+    fn read(&self) -> Result<std::sync::RwLockReadGuard<'_, Symbols>, MathError> {
+        self.0
+            .read()
+            .map_err(|_| MathError::Library("formal symbol pool lock poisoned".into()))
+    }
+    /// Extend the pool to cover `slot` and read it under the same lock.
+    fn extended<T>(
+        &self,
+        slot: usize,
+        read: impl Fn(&Symbols) -> Option<T>,
+    ) -> Result<T, MathError> {
+        let mut symbols = self
+            .0
+            .write()
+            .map_err(|_| MathError::Library("formal symbol pool lock poisoned".into()))?;
+        let slots = slot
+            .checked_add(1)
+            .ok_or(MathError::Limit("formal symbol index"))?;
+        symbols.cover(slots).map_err(MathError::Library)?;
+        read(&symbols).ok_or(MathError::Limit("formal symbol index"))
+    }
+    fn len(&self) -> Result<usize, MathError> {
+        Ok(self.read()?.formals.len())
+    }
+    fn formal(&self, slot: usize) -> Result<Atom, MathError> {
+        if let Some(atom) = self.read()?.formals.get(slot) {
+            return Ok(atom.clone());
+        }
+        self.extended(slot, |symbols| symbols.formals.get(slot).cloned())
+    }
+    pub(crate) fn function(&self, slot: usize) -> Result<Symbol, MathError> {
+        if let Some(symbol) = self.read()?.functions.get(slot) {
+            return Ok(*symbol);
+        }
+        self.extended(slot, |symbols| symbols.functions.get(slot).copied())
+    }
+}
+impl Symbols {
+    /// Register whole chunks until at least `slots` formals exist. A chunk is appended only
+    /// once all of its symbols registered; Symbolica returns an already registered symbol
+    /// unchanged, so a retried chunk keeps its registration order.
+    fn cover(&mut self, slots: usize) -> Result<(), String> {
+        let register = |name: String| {
+            let name = NamespacedSymbol::try_from(name.as_str())?;
+            SymbolBuilder::new(name)
+                .build()
+                .map_err(|error| error.to_string())
+        };
+        while self.formals.len() < slots {
+            let start = self.formals.len();
+            let end = start
+                .checked_add(FORMAL_CHUNK)
+                .ok_or("formal symbol pool extent")?;
+            let formals = (start..end)
+                .map(|slot| Ok(Atom::var(register(format!("pse_math::slot_{slot}"))?)))
+                .collect::<Result<Vec<_>, String>>()?;
+            let functions = (start..end)
+                .map(|slot| register(format!("pse_math::function_{slot}")))
+                .collect::<Result<Vec<_>, String>>()?;
+            self.formals.extend(formals);
+            self.functions.extend(functions);
+        }
+        Ok(())
+    }
 }
 
 pub(crate) fn register_symbols() -> Result<crate::SymbolicContext, String> {
-    let register = |name: String| {
-        let name = NamespacedSymbol::try_from(name.as_str())?;
-        SymbolBuilder::new(name)
-            .build()
-            .map_err(|error| error.to_string())
-    };
-    let mut formals = Vec::with_capacity(MAX_FORMAL_SYMBOLS);
-    let mut functions = Vec::with_capacity(MAX_FORMAL_SYMBOLS);
-    // Symbolica registers built-ins as part of its global State initialization.
-    // Complete each family in a fixed order, independent of model arrival order.
-    for slot in 0..MAX_FORMAL_SYMBOLS {
-        formals.push(Atom::var(register(format!("pse_math::slot_{slot}"))?));
-    }
-    for slot in 0..MAX_FORMAL_SYMBOLS {
-        functions.push(register(format!("pse_math::function_{slot}"))?);
-    }
+    // Symbolica registers built-ins as part of its global State initialization; the
+    // first chunk follows in a fixed order, independent of model arrival order.
     Ok(crate::SymbolicContext {
-        formals,
-        functions,
+        pool: Pool::new()?,
         environment: crate::linked_environment()?,
     })
 }
@@ -103,7 +179,7 @@ fn exact_evaluator(
         .cpe_iterations(Some(options.cpe_iterations))
         .max_common_pair_cache_entries(65536)
         .max_common_pair_distance(256)
-        .max_horner_scheme_variables(MAX_FORMAL_SYMBOLS)
+        .max_horner_scheme_variables(HORNER_SCHEME_VARIABLES)
         .verbose(false)
         .build()
         .map_err(|e| {
@@ -124,13 +200,10 @@ fn exact_evaluator(
 mod admission;
 pub(crate) use admission::bounded_evaluator;
 
-/// Bounded reusable function symbols for Symbolica-generated provider lifts.
+/// Reusable function symbols for Symbolica-generated provider lifts, one per formal slot.
 pub(crate) fn function(slot: usize, arguments: &[Atom]) -> Result<Atom, MathError> {
     use symbolica::atom::FunctionBuilder;
-    let symbol = *crate::context()?
-        .functions
-        .get(slot)
-        .ok_or(MathError::Limit("provider function symbols"))?;
+    let symbol = crate::context()?.pool.function(slot)?;
     Ok(FunctionBuilder::new(symbol)
         .add_args(arguments.iter())
         .finish())

@@ -56,8 +56,8 @@ futures-util.workspace = true
 [[bench]]
 name = "canonicalization"
 # Criterion supplies its own main; the libtest harness would swallow the arguments.
-# `cargo test --benches -p pse-benches` passes `--test`, which runs each benchmark once
-# with no timing gate — that is the CI smoke check (plan §6).
+# `cargo bench` passes `--bench`; `cargo test --benches -p pse-benches` passes no mode flag,
+# and every target then runs once with no timing gate — the smoke check (`just bench-smoke`).
 harness = false
 
 [[bench]]
@@ -72,6 +72,11 @@ harness = false
 name = "native_process"
 harness = false
 required-features = ["native-process"]
+
+# M1 preparation scaling (Plan 23 H2); no solver is linked or started.
+[[bench]]
+name = "modeling_preparation"
+harness = false
 
 [dependencies]
 pse-workspace-hack.workspace = true

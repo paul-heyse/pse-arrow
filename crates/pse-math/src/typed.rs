@@ -160,7 +160,8 @@ pub struct Guard {
 /// Resource bound for a local body, independent of instance count.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BodyLimits {
-    /// Formal inputs plus barrier result slots.
+    /// Formal inputs plus barrier result slots. The process-global formal pool extends up
+    /// to this allowance; the default is the initially registered chunk.
     pub slots: usize,
     /// Construction operations, including repeated occurrences.
     pub occurrences: usize,
@@ -168,7 +169,7 @@ pub struct BodyLimits {
 impl Default for BodyLimits {
     fn default() -> Self {
         Self {
-            slots: library::MAX_FORMAL_SYMBOLS,
+            slots: library::FORMAL_CHUNK,
             occurrences: 16384,
         }
     }
@@ -211,7 +212,7 @@ impl std::fmt::Debug for BodyBuilder<'_> {
 impl<'a> BodyBuilder<'a> {
     /// Create a bounded context. Every input is physically checked before use.
     /// # Errors
-    /// Zero/oversized limits or excessive input width.
+    /// Zero limits, or more inputs than the slot allowance.
     pub fn new(
         context: &'a crate::SymbolicContext,
         registry: &'a QuantityRegistry,
@@ -219,12 +220,14 @@ impl<'a> BodyBuilder<'a> {
         inputs: usize,
         limits: BodyLimits,
     ) -> Result<Self, MathError> {
-        if limits.slots == 0
-            || limits.slots > library::MAX_FORMAL_SYMBOLS
-            || inputs > limits.slots
-            || limits.occurrences == 0
-        {
+        if limits.slots == 0 || limits.occurrences == 0 {
             return Err(MathError::Limit("body limits"));
+        }
+        if inputs > limits.slots {
+            return Err(MathError::SlotLimit {
+                required: inputs,
+                available: limits.slots,
+            });
         }
         Ok(Self {
             context,
@@ -263,7 +266,10 @@ impl<'a> BodyBuilder<'a> {
     }
     fn slot(&mut self) -> Result<usize, MathError> {
         if self.next_slot >= self.limits.slots {
-            return Err(MathError::Limit("body slots"));
+            return Err(MathError::SlotLimit {
+                required: self.next_slot.saturating_add(1),
+                available: self.limits.slots,
+            });
         }
         let slot = self.next_slot;
         self.next_slot += 1;
@@ -1358,6 +1364,7 @@ impl<'a> BodyBuilder<'a> {
             self.provider_order,
         )?;
         body.set_effects(outputs.iter().map(|v| v.effects.clone()).collect());
+        body.set_occurrences(self.occurrences);
         body.set_quantities(
             self.input_quantities,
             outputs.iter().map(|v| v.quantity).collect(),

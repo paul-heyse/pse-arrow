@@ -1160,6 +1160,10 @@ pub enum SolutionStatus {
 pub struct CallbackEvidence {
     /// Recoverable trial refusals.
     pub trial_rejections: usize,
+    /// Trial refusals that crossed a nested implicit stage's bound regime, a subset of
+    /// `trial_rejections`. Adapters with per-iteration progress record each outer
+    /// iteration's crossings in its event (`regime.crossings`).
+    pub regime_crossings: usize,
     /// A terminal failure latched and ended the attempt.
     pub terminal_failure: bool,
 }

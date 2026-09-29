@@ -296,6 +296,17 @@ pub enum ProviderError {
     /// Nonregular implicit branch.
     #[error("provider root is singular: {0}")]
     Singular(String),
+    /// A trial selects another regime than the one its derivatives are bound to: a
+    /// recoverable regime crossing, refused rather than continued across the switch.
+    #[error("provider regime {selector}: trial selects {selected} across bound regime {bound}")]
+    RegimeCrossing {
+        /// Regime selector (provider) identity.
+        selector: SemanticId,
+        /// Regime the first derivative request bound.
+        bound: SemanticId,
+        /// Regime the refused trial selected.
+        selected: SemanticId,
+    },
     /// Terminal failure.
     #[error("provider failed: {0}")]
     Terminal(String),
@@ -308,8 +319,18 @@ impl ProviderError {
                 s.capacity()
             }
             Self::OutsideEnvelope { axis, .. } => axis.capacity(),
-            Self::Cancelled | Self::Limit(_) => 0,
+            Self::Cancelled | Self::Limit(_) | Self::RegimeCrossing { .. } => 0,
         })
+    }
+    /// A recoverable trial refusal: the outer method may shorten or change its step.
+    pub fn recoverable(&self) -> bool {
+        matches!(
+            self,
+            Self::Trial(_)
+                | Self::OutsideEnvelope { .. }
+                | Self::Singular(_)
+                | Self::RegimeCrossing { .. }
+        )
     }
 }
 pse_diagnostics::impl_diagnostic! {

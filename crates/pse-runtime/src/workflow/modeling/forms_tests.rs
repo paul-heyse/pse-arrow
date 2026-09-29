@@ -298,6 +298,7 @@ async fn derived_big_m_follows_value_only_study_points() {
             ModelingStudyPoint {
                 analysis: Ok(analysis),
                 predecessor: None,
+                overlay: Default::default(),
             }
         })
         .collect();

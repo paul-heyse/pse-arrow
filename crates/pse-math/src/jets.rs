@@ -194,9 +194,6 @@ impl ProviderLift {
         cancelled: &Arc<AtomicBool>,
     ) -> Result<Self, MathError> {
         let n = layout.coordinates.len();
-        if arity + n >= library::MAX_FORMAL_SYMBOLS {
-            return Err(MathError::Limit("provider composition symbols"));
-        }
         let estimate = arity
             .checked_mul(layout.width())
             .and_then(|k| k.checked_add(arity.checked_mul(arity)?))

@@ -38,7 +38,12 @@ from pse.contracts.authored import (
     AuthoredModelingDeclarationsRow,
     AuthoredObservationsRow,
 )
-from pse.contracts.documents import FitUncertainty, PointOverlay, SolveSettings
+from pse.contracts.documents import (
+    FitUncertainty,
+    PointOverlay,
+    PreparationCounts,
+    SolveSettings,
+)
 from pse.contracts.enums import (
     FitDerivatives,
     ModelingAnalysisRoute,
@@ -338,6 +343,11 @@ class ModelingStudy:
     @property
     def unattempted(self) -> int:
         return self._handle.unattempted
+
+    @property
+    def preparations(self) -> PreparationCounts:
+        """The study's own structural preparations and value rebinds."""
+        return codec.decode_json(self._handle.preparations, PreparationCounts)
 
     def result(self, index: int) -> ModelingResult | None:
         handle = self._handle.result(index)
@@ -839,6 +849,7 @@ class ModelingPackage:
         *,
         predecessors: tuple[int | None, ...] = (),
         maximum_points: int = 1024,
+        overlays: tuple[PointOverlay, ...] = (),
     ) -> ModelingStudy: ...
 
     @overload
@@ -872,10 +883,12 @@ class ModelingPackage:
         """Execute authored cases; failures do not suppress independent points.
 
         Without ``runtime`` the points run in order in this process and the
-        returned study holds their results (the library path). With a durable
-        ``runtime`` the study is stored in its operational store and run by
-        workers: a point with a predecessor waits for it and starts from its
-        stored solution, and the study publishes once in ``workspace``.
+        returned study holds their results and its own preparation counts (the
+        library path): points of one structure prepare it once and rebind their
+        values. With a durable ``runtime`` the study is stored in its
+        operational store and run by workers: a point with a predecessor waits
+        for it and starts from its stored solution, and the study publishes
+        once in ``workspace``.
 
         Args:
             case_ids: The authored case of each point.
@@ -892,14 +905,15 @@ class ModelingPackage:
             The in-process study, or the durable study's handle.
         """
         if runtime is None:
-            if workspace is not None or overlays:
-                message = "workspace and overlays select a durable study; pass runtime"
+            if workspace is not None:
+                message = "a workspace selects a durable study; pass runtime"
                 raise ValueError(message)
             return ModelingStudy(
                 self._handle.study(
                     [case.to_hex() for case in case_ids],
                     codec.encode_json(settings),
                     predecessors=list(predecessors),
+                    overlays=[codec.encode_json(overlay) for overlay in overlays],
                     maximum_points=maximum_points,
                 )
             )
