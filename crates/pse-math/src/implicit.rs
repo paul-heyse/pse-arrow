@@ -453,12 +453,12 @@ pub enum ImplicitFactory {
     Regimes(RegimeFactory),
 }
 impl ImplicitFactory {
-    /// Numeric library programs and conservative derivative scratch retained by the factory.
-    pub fn retained_numeric_bytes(&self) -> Result<usize, MathError> {
+    /// Library programs and conservative derivative scratch retained by the factory.
+    pub fn retained_bytes(&self) -> Result<usize, MathError> {
         let root = |factory: &Factory| {
             factory
                 .body
-                .retained_numeric_bytes()
+                .retained_bytes()
                 .checked_add(factory.body.scratch_bytes())?
                 .checked_add(factory.max_entries.checked_mul(8)?)
                 .and_then(|n| n.checked_add(factory.configuration.retained_bytes()))
@@ -466,7 +466,7 @@ impl ImplicitFactory {
                     n.checked_add(factory.hints.iter().chain(&factory.terms).try_fold(
                         0usize,
                         |n, b| {
-                            n.checked_add(b.retained_numeric_bytes())?
+                            n.checked_add(b.retained_bytes())?
                                 .checked_add(b.scratch_bytes())
                         },
                     )?)
@@ -481,8 +481,8 @@ impl ImplicitFactory {
                     .try_fold(0usize, |bytes, branch| {
                         bytes
                             .checked_add(root(&branch.residual)?)?
-                            .checked_add(branch.eligibility.retained_numeric_bytes())?
-                            .checked_add(branch.criterion.retained_numeric_bytes())
+                            .checked_add(branch.eligibility.retained_bytes())?
+                            .checked_add(branch.criterion.retained_bytes())
                     })
             }
         }

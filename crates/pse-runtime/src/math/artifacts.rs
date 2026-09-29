@@ -22,7 +22,7 @@ impl CacheKey for Key {
         None
     }
 }
-/// Immutable program and its live native allocation allowance. Clones retain accounting.
+/// Immutable program and the reservation of what it retains. Clones retain accounting.
 #[derive(Debug)]
 pub struct Artifact {
     pub(super) program: Arc<CompiledBody>,
@@ -83,14 +83,10 @@ impl MathService {
                 }
                 let cores = request.cores();
                 let check = cancel.flag();
-                let foreign = service.policy.foreign_bytes;
                 let (program, lease) = service
                     .job_retained(cores, request.scratch_limit(), cancel, move |flag| {
                         let program = request.build(&flag).map_err(MathRuntimeError::Math)?;
-                        let retained = program
-                            .retained_numeric_bytes()
-                            .checked_add(foreign)
-                            .ok_or(MathRuntimeError::Limit("retained artifact extent"))?;
+                        let retained = program.retained_bytes();
                         Ok((program, retained))
                     })
                     .await?;

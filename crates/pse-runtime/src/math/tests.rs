@@ -29,6 +29,17 @@ fn service_in(
     Arc<MathService>,
     Arc<pse_engine::cache_service::NativeCacheService>,
 ) {
+    service_with(pool, 1 << 20)
+}
+/// A service on a `pool`-byte pool whose native jobs admit `foreign` bytes of
+/// library-owned memory.
+fn service_with(
+    pool: usize,
+    foreign: usize,
+) -> (
+    Arc<MathService>,
+    Arc<pse_engine::cache_service::NativeCacheService>,
+) {
     let pool: Arc<dyn MemoryPool> = Arc::new(FairSpillPool::new(pool));
     let native = pse_engine::cache_service::NativeCacheService::new(
         pse_engine::cache_service::CacheBudget::disabled(1024),
@@ -40,7 +51,7 @@ fn service_in(
         Arc::new(tokio::sync::Semaphore::new(2)),
         2,
         MathPolicy {
-            foreign_bytes: 1 << 20,
+            foreign_bytes: foreign,
             worker_bytes: 8 << 20,
             workspace_bytes: 16 << 20,
             ..MathPolicy::default()
@@ -164,6 +175,55 @@ async fn preparation_runs_inside_its_workspace_reservation() {
         .unwrap();
     assert!(s.pool.reserved() >= prepared.prepared.retained_bytes());
     drop(prepared);
+    assert_eq!(s.pool.reserved(), 0);
+}
+/// A retained preparation and its programs are charged what they retain once their jobs
+/// have joined; the foreign allowance belongs to a running job only (H9, DP-20). A pool
+/// that admits one running job beside the workspace therefore admits every later job while
+/// the products stay retained, and their reservation is exactly their extent.
+#[tokio::test]
+async fn retained_programs_do_not_hold_the_foreign_allowance_while_idle() {
+    let foreign = 64 << 20;
+    let policy = service().policy.clone();
+    let running = policy.stack_bytes + foreign + policy.inner_session_bytes;
+    let pool = policy.workspace_bytes + running + profile().evaluation.scratch_bytes + (4 << 20);
+    let s = service_with(pool, foreign).0;
+    let w = s.workspace(inputs(), WorkspaceLimits::default()).unwrap();
+    let prepared = s
+        .prepare(
+            w,
+            id(5),
+            DerivativeOrder::Second,
+            profile(),
+            false,
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let case = s.assemble(prepared.clone()).await.unwrap();
+    let programs = case._artifacts.iter().map(|a| a.lease.size()).sum::<usize>();
+    assert!(!case._artifacts.is_empty());
+    assert_eq!(
+        programs,
+        case._artifacts
+            .iter()
+            .map(|a| a.program.retained_bytes())
+            .sum::<usize>()
+    );
+    let idle = s.pool.reserved();
+    assert_eq!(idle, prepared.compiled().retained_bytes() + programs);
+    assert!(idle < foreign / 16, "{idle}");
+    // A later job still admits its whole foreign allowance beside the retained products.
+    let pool = s.pool.clone();
+    s.job(1, 0, FlightCancellation::default(), move |_| {
+        assert_eq!(pool.reserved(), idle + running);
+        Ok(())
+    })
+    .await
+    .unwrap();
+    assert_eq!(s.pool.reserved(), idle);
+    s.invalidate();
+    drop((case, prepared));
     assert_eq!(s.pool.reserved(), 0);
 }
 #[tokio::test]
@@ -1191,14 +1251,16 @@ async fn resolved_accuracy_not_user_input() {
     .unwrap();
     assert_eq!(default.accuracy(), &expected);
 }
-/// A solve's declared foreign allowance replaces the deployment's in its own reservation
-/// only; a solve without one keeps the deployment's, and a zero allowance is refused.
+/// A solve's declared foreign allowance is reserved by its step while the step runs,
+/// beside the deployment allowance its native session holds. A prepared solve reserves
+/// none, declared or not, so a result that keeps it holds no allowance (H9). A zero
+/// allowance is refused.
 #[cfg_attr(
     not(feature = "native-solvers"),
     ignore = "needs the linked native solvers"
 )]
 #[tokio::test]
-async fn solve_reservation_charges_its_declared_foreign_allowance() {
+async fn a_declared_foreign_allowance_is_reserved_only_while_its_step_runs() {
     use super::solves::*;
     use pse_backend_native::{execution::BackendSettings, solve::*};
     let s = service();
@@ -1234,8 +1296,8 @@ async fn solve_reservation_charges_its_declared_foreign_allowance() {
     let open = prepare(None).await.unwrap();
     let open_bytes = s.pool.reserved() - before;
     let scoped = prepare(Some(declared)).await.unwrap();
-    let scoped_bytes = s.pool.reserved() - before - open_bytes;
-    assert_eq!(scoped_bytes - open_bytes, declared - deployment);
+    assert_eq!(s.pool.reserved() - before - open_bytes, open_bytes);
+    assert!(open_bytes < deployment, "{open_bytes}");
     assert_eq!(s.policy.foreign_allowance(&Controls::default()), deployment);
     // The allowance is a per-attempt budget: the request names it, and the retained native
     // session a sequence may reuse does not.
@@ -1247,9 +1309,108 @@ async fn solve_reservation_charges_its_declared_foreign_allowance() {
         open.compatibility().map(|c| c.profile),
         scoped.compatibility().map(|c| c.profile)
     );
-    drop((open, scoped));
+    // How much more each step holds while it runs than when it was admitted; the step's
+    // prepared solve is released inside it, so this may be negative.
+    let running = |step: PreparedSolve| {
+        let s = s.clone();
+        async move {
+            let session = s.open_session().unwrap();
+            let owner = s
+                .reserve("test:results", step.result_bytes().unwrap())
+                .unwrap();
+            let idle = s.pool.reserved();
+            let pool = s.pool.clone();
+            let (outcome, reserved) = session
+                .step(
+                    step,
+                    None,
+                    0,
+                    Arc::new(Progress::new(0)),
+                    owner,
+                    &crate::CancelSource::new(),
+                    move |_, _, _| (pool.reserved(), true),
+                )
+                .await
+                .unwrap();
+            session.close().await;
+            assert!(matches!(&outcome, Outcome::Native(r) if r.candidate.is_some()));
+            reserved as isize - idle as isize
+        }
+    };
+    let open = running(open).await;
+    let scoped = running(scoped).await;
+    assert_eq!(scoped - open, declared as isize);
     assert_eq!(s.pool.reserved(), before);
     assert!(prepare(Some(0)).await.is_err());
+}
+/// Many sequential native solves on one runtime, each keeping its preparation, programs,
+/// prepared solve and report as a conformance report keeps a fixture's result, hold only
+/// what those products retain (H9, DP-20). A pool that admits one running solve beside
+/// them admits every solve; one foreign allowance per retained program would refuse the
+/// third.
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
+#[tokio::test]
+async fn sequential_native_solves_keep_retained_reservations_bounded() {
+    use super::solves::*;
+    use pse_backend_native::{execution::BackendSettings, solve::*};
+    let foreign = 64 << 20;
+    let policy = service().policy.clone();
+    // One running solve: its session's stack, foreign allowance and inner sessions, and its
+    // worker share; each retained fixture far less than one foreign allowance.
+    let running = policy.stack_bytes + foreign + policy.inner_session_bytes + policy.worker_bytes;
+    let (fixtures, retained) = (24, foreign / 4);
+    let s = service_with(policy.workspace_bytes + running + fixtures * retained, foreign).0;
+    let mut kept = Vec::new();
+    let mut idle = 0;
+    for k in 1..=fixtures {
+        let mut i = inputs();
+        i.definitions.get_mut(&id(2)).unwrap().sources[0] = format!("x*x-{k}");
+        let w = s.workspace(i, WorkspaceLimits::default()).unwrap();
+        let p = s
+            .prepare(
+                w,
+                id(5),
+                DerivativeOrder::Second,
+                profile(),
+                false,
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let solve = s
+            .prepare_solve(
+                p.clone(),
+                CaseValues {
+                    scalars: BTreeMap::from([(id(1), 1.0)]),
+                },
+                BTreeMap::new(),
+                SolverProfile {
+                    intent: SolveIntent::Root,
+                    backend: BackendSettings::Default,
+                    ..SolverProfile::default()
+                },
+                NumericalInputs::default(),
+            )
+            .await
+            .unwrap();
+        let report = s.solve(solve.clone()).unwrap().finish().await.unwrap();
+        let Outcome::Native(r) = &report.outcome else {
+            panic!("{:?}", report.outcome);
+        };
+        let x = r.candidate.as_ref().unwrap().primal[0];
+        assert!((x.abs() - (k as f64).sqrt()).abs() < 1e-6, "{k}: {x}");
+        kept.push((p, solve, report));
+        let now = s.pool.reserved();
+        assert!(now - idle < retained, "{k}: {}", now - idle);
+        idle = now;
+    }
+    assert!(idle < fixtures * retained, "{idle}");
+    s.invalidate();
+    drop(kept);
+    assert_eq!(s.pool.reserved(), 0);
 }
 /// min y*y - 3y + x  s.t.  y - x*x = 0, x in `x_box`, y in [0, 4]: the quartic
 /// x^4 - 3x^2 + x, whose global minimum is near x = -1.3008.

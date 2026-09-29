@@ -25,7 +25,6 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<Arc<ExecutableCase>, MathRuntimeError> {
         let control = FlightCancellation::default();
-        let foreign = self.policy.foreign_bytes;
         let operation =
             self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
                 let _lease = workspace.lease;
@@ -35,11 +34,7 @@ impl MathService {
                 compiler.publish(inputs)?;
                 let prepared =
                     compiler.prepare_functions(id, outputs, coordinates, order, profile, flag)?;
-                let bytes = prepared
-                    .plan
-                    .retained_bytes()
-                    .checked_add(foreign)
-                    .ok_or(MathRuntimeError::Limit("function product extent"))?;
+                let bytes = prepared.plan.retained_bytes();
                 Ok((prepared, bytes))
             });
         tokio::pin!(operation);

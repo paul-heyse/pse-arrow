@@ -6,7 +6,7 @@ use crate::MathError;
 use symbolica::domains::{float::Complex, rational::Rational};
 use symbolica::{
     atom::{Atom, AtomCore, NamespacedSymbol, Symbol, SymbolBuilder},
-    evaluate::ExpressionEvaluator,
+    evaluate::{ExportedInstructions, ExpressionEvaluator, Instruction},
 };
 /// Formal and function symbols register in chunks of this many slots. Initialization
 /// registers the first chunk; a body whose explicit slot allowance (`BodyLimits::slots`)
@@ -209,13 +209,55 @@ pub(crate) fn function(slot: usize, arguments: &[Atom]) -> Result<Atom, MathErro
         .finish())
 }
 
-/// Owned scalar stack slots exposed by the portable library representation.
-/// Instruction storage and allocator overhead remain a separate foreign allowance.
-pub(crate) fn numeric_entries(evaluator: &ExpressionEvaluator<f64>) -> Result<usize, MathError> {
+/// What one immutable evaluator retains, measured from the library's exported
+/// representation.
+pub(crate) struct Storage {
+    /// Owned scalar stack slots: inputs, constants and temporaries.
+    pub(crate) numeric_entries: usize,
+    /// Instruction stream, argument lists, output indices and sub-evaluators, in bytes. The
+    /// exported instructions are at least as wide as the library's own, so this bounds them.
+    pub(crate) instruction_bytes: usize,
+}
+/// The retained storage of `evaluator`: its numeric stack and its instruction stream.
+pub(crate) fn storage(evaluator: &ExpressionEvaluator<f64>) -> Result<Storage, MathError> {
     let export = evaluator.export_instructions();
-    export
-        .input_count
-        .checked_add(export.constants.len())
-        .and_then(|n| n.checked_add(export.temporary_count))
-        .ok_or(MathError::Limit("evaluator stack extent"))
+    Ok(Storage {
+        numeric_entries: export
+            .input_count
+            .checked_add(export.constants.len())
+            .and_then(|n| n.checked_add(export.temporary_count))
+            .ok_or(MathError::Limit("evaluator stack extent"))?,
+        instruction_bytes: instruction_bytes(&export)
+            .ok_or(MathError::Limit("evaluator instruction extent"))?,
+    })
+}
+fn instruction_bytes(export: &ExportedInstructions<f64>) -> Option<usize> {
+    let listed = size_of_val(export.instructions.as_slice())
+        .checked_add(export.output_count.checked_mul(size_of::<usize>())?)?;
+    let arguments = export.instructions.iter().try_fold(listed, |bytes, i| {
+        bytes.checked_add(match i {
+            Instruction::Add(_, arguments, _) | Instruction::Mul(_, arguments, _) => {
+                size_of_val(arguments.as_slice())
+            }
+            Instruction::Fun(_, call, _) => {
+                let (_, tags, arguments) = call.as_ref();
+                size_of_val(call.as_ref())
+                    + size_of_val(tags.as_slice())
+                    + tags.iter().map(String::len).sum::<usize>()
+                    + size_of_val(arguments.as_slice())
+            }
+            _ => 0,
+        })
+    })?;
+    export.sub_evaluators.iter().try_fold(arguments, |bytes, sub| {
+        let own = &sub.instructions;
+        let numeric = own
+            .input_count
+            .checked_add(own.constants.len())?
+            .checked_add(own.temporary_count)?
+            .checked_mul(size_of::<f64>())?;
+        bytes
+            .checked_add(numeric)?
+            .checked_add(instruction_bytes(own)?)
+    })
 }

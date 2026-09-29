@@ -189,7 +189,6 @@ impl MathService {
             return Ok(external);
         }
         let control = FlightCancellation::default();
-        let foreign = self.policy.foreign_bytes;
         let operation =
             self.job_retained(1, self.policy.worker_bytes, control.clone(), move |flag| {
                 #[cfg(feature = "solver-kinsol")]
@@ -198,7 +197,7 @@ impl MathService {
                 #[cfg(not(feature = "solver-kinsol"))]
                 let solver: Arc<dyn pse_math::implicit::InnerSolver> = Arc::new(MissingInnerSolver);
                 let mut factories = Vec::new();
-                let mut retained = foreign;
+                let mut retained = 0usize;
                 for item in inner {
                     #[cfg(not(feature = "solver-kinsol"))]
                     if item.admitted.algorithm == pse_compiler::workspace::ImplicitAlgorithm::Native
@@ -215,7 +214,7 @@ impl MathService {
                         profile.evaluation,
                     )?;
                     retained = retained
-                        .checked_add(factory.retained_numeric_bytes()?)
+                        .checked_add(factory.retained_bytes()?)
                         .ok_or(MathRuntimeError::Limit("inner program extent"))?;
                     let dependencies = item
                         .admitted
@@ -376,7 +375,6 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
         let control = FlightCancellation::default();
-        let foreign = self.policy.foreign_bytes;
         let operation =
             self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
                 let _lease = workspace.lease;
@@ -391,11 +389,7 @@ impl MathService {
                     profile,
                     &flag,
                 )?;
-                let bytes = prepared
-                    .plan
-                    .retained_bytes()
-                    .checked_add(foreign)
-                    .ok_or(MathRuntimeError::Limit("modeling function extent"))?;
+                let bytes = prepared.plan.retained_bytes();
                 Ok((prepared, bytes))
             });
         tokio::pin!(operation);
@@ -414,7 +408,6 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
         let control = FlightCancellation::default();
-        let foreign = self.policy.foreign_bytes;
         let operation =
             self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
                 let _lease = workspace.lease;
@@ -427,11 +420,7 @@ impl MathService {
                     profile,
                     &flag,
                 )?;
-                let bytes = prepared
-                    .plan
-                    .retained_bytes()
-                    .checked_add(foreign)
-                    .ok_or(MathRuntimeError::Limit("parametric program extent"))?;
+                let bytes = prepared.plan.retained_bytes();
                 Ok((prepared, bytes))
             });
         tokio::pin!(operation);
@@ -449,7 +438,6 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
         let control = FlightCancellation::default();
-        let foreign = self.policy.foreign_bytes;
         let operation =
             self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
                 let _lease = workspace.lease;
@@ -462,11 +450,7 @@ impl MathService {
                     profile,
                     &flag,
                 )?;
-                let bytes = product
-                    .plan
-                    .retained_bytes()
-                    .checked_add(foreign)
-                    .ok_or(MathRuntimeError::Limit("observation extent"))?;
+                let bytes = product.plan.retained_bytes();
                 Ok((product, bytes))
             });
         tokio::pin!(operation);
@@ -491,7 +475,6 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<super::Preparation, MathRuntimeError> {
         let control = FlightCancellation::default();
-        let foreign = self.policy.foreign_bytes;
         let operation =
             self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
                 let _lease = workspace.lease;
@@ -506,10 +489,7 @@ impl MathService {
                     profile,
                     &flag,
                 )?;
-                let bytes = product
-                    .retained_bytes()
-                    .checked_add(foreign)
-                    .ok_or(MathRuntimeError::Limit("bound case extent"))?;
+                let bytes = product.retained_bytes();
                 Ok((product, bytes))
             });
         tokio::pin!(operation);
@@ -633,7 +613,6 @@ impl MathService {
     ) -> Result<ModelingPreparation, MathRuntimeError> {
         let lineage = revision.clone();
         let control = FlightCancellation::default();
-        let foreign = self.policy.foreign_bytes;
         let operation =
             self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
                 let _workspace_lease = workspace.lease;
@@ -646,10 +625,7 @@ impl MathService {
                 compiler.publish_modeling_revision(revision.admitted.clone())?;
                 let product = compiler
                     .prepare_modeling_cancellable(root, instance, bindings, limits, flag)?;
-                let bytes = product
-                    .retained_bytes()
-                    .checked_add(foreign)
-                    .ok_or(MathRuntimeError::Limit("modeling product extent"))?;
+                let bytes = product.retained_bytes();
                 Ok((product, bytes))
             });
         tokio::pin!(operation);

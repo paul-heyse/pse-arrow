@@ -41,7 +41,9 @@ use std::{
 pub struct MathPolicy {
     /// Completed program retention limit (not an up-front reservation).
     pub artifact_bytes: usize,
-    /// Conservative foreign-library allowance per native job and program.
+    /// Conservative foreign-library allowance of one native job or open native session,
+    /// charged while its native work runs. A compiled program, prepared product or prepared
+    /// solve that outlives its job is charged its own extent instead.
     pub foreign_bytes: usize,
     /// Retained KINSOL inner-solve sessions per native job or session thread, in bytes;
     /// reserved in its lease, and zero retains none (Plan 22 I14).
@@ -73,8 +75,9 @@ impl Default for MathPolicy {
 }
 impl MathPolicy {
     /// The foreign-library allowance of one solve: the allowance its controls declare, else
-    /// this deployment's. The solve's reservation charges it, and a library that enforces
-    /// its own memory limit receives it (`Execution::memory`).
+    /// this deployment's. It is reserved only while the solve runs, the deployment's by its
+    /// native session and a declared one by its step, and a library that enforces its own
+    /// memory limit receives it (`Execution::memory`).
     pub fn foreign_allowance(&self, controls: &pse_backend_native::solve::Controls) -> usize {
         controls.foreign_bytes.unwrap_or(self.foreign_bytes)
     }
@@ -390,7 +393,6 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<Preparation, MathRuntimeError> {
         let control = FlightCancellation::default();
-        let foreign = self.policy.foreign_bytes;
         let operation = self.job_retained(1, WITHIN_WORKSPACE, control.clone(), move |flag| {
             let _workspace_lease = workspace.lease;
             let mut compiler = workspace
@@ -398,10 +400,7 @@ impl MathService {
                 .lock()
                 .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?;
             let prepared = compiler.prepare_cancellable(id, order, profile, coefficients, flag)?;
-            let bytes = prepared
-                .retained_bytes()
-                .checked_add(foreign)
-                .ok_or(MathRuntimeError::Limit("prepared product extent"))?;
+            let bytes = prepared.retained_bytes();
             Ok((prepared, bytes))
         });
         tokio::pin!(operation);
@@ -419,7 +418,6 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<Preparation, MathRuntimeError> {
         let control = FlightCancellation::default();
-        let foreign = self.policy.foreign_bytes;
         let operation = self.job_retained(1, WITHIN_WORKSPACE, control.clone(), move |flag| {
             let _lease = workspace.lease;
             let mut compiler = workspace
@@ -433,10 +431,7 @@ impl MathService {
             } else {
                 prepared
             };
-            let bytes = prepared
-                .retained_bytes()
-                .checked_add(foreign)
-                .ok_or(MathRuntimeError::Limit("prepared product extent"))?;
+            let bytes = prepared.retained_bytes();
             Ok((prepared, bytes))
         });
         tokio::pin!(operation);

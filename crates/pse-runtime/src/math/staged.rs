@@ -130,8 +130,9 @@ impl std::fmt::Debug for Request {
     }
 }
 impl MathService {
-    /// Open a native session: one job slot, the session thread's stack, the foreign
-    /// allowance and one worker share, held until the session closes.
+    /// Open a native session: one job slot, the session thread's stack, the deployment's
+    /// foreign allowance and the inner-session cache, held until the session closes. Its
+    /// workers draw worker storage from the pool as they are built.
     ///
     /// # Errors
     /// No job slot or pool capacity, or the thread could not start.
@@ -268,7 +269,9 @@ impl NativeSession {
         outcome.map_err(|_| MathRuntimeError::Infrastructure("lost native session step".into()))?
     }
     /// Execute one bound solve step on the retained native state and `assess` its outcome
-    /// on the same worker, charged to the session's worker share (A6). Native events go to
+    /// on the same worker, charged to the session's worker share (A6). A foreign allowance
+    /// the step declares is reserved on admission and released when its work ends on the
+    /// session thread; the session holds the deployment's. Native events go to
     /// `progress`: one stream per step, or one shared by an authored sequence and its run
     /// handle. `assess` returns its product and whether the original-model assessment
     /// accepted the candidate. A step that does not end with a usable, accepted candidate
@@ -295,7 +298,9 @@ impl NativeSession {
     ) -> Result<(super::solves::Outcome, T), MathRuntimeError> {
         let service = self.service.clone();
         let (threads, backend) = (step.threads(), step.backend());
+        let allowance = service.reserve("math:step-foreign", step.declared_foreign_bytes())?;
         self.run(threads, backend, cancel, move |retained, flag, budget| {
+            let _allowance = allowance;
             let outcome = service.execute(
                 step, previous, attempt, retained, flag, &progress, budget, &owner,
             )?;
@@ -333,7 +338,13 @@ impl NativeSession {
         };
         let service = self.service.clone();
         let (threads, backend) = (first.step.threads(), first.step.backend());
+        let declared = members
+            .iter()
+            .try_fold(0usize, |n, m| n.checked_add(m.step.declared_foreign_bytes()))
+            .ok_or(MathRuntimeError::Limit("native allowance overflow"))?;
+        let allowance = service.reserve("math:step-foreign", declared)?;
         self.run(threads, backend, cancel, move |retained, flag, budget| {
+            let _allowance = allowance;
             let outcomes = service.execute_batch(members, retained, flag, &progress, budget);
             let mut kept = true;
             let assessed = outcomes

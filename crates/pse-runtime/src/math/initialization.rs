@@ -343,7 +343,6 @@ impl MathService {
         profile: Profile,
         order: pse_kernels::DerivativeOrder,
     ) -> Result<PreparedInitialization, MathRuntimeError> {
-        let foreign = self.policy.foreign_bytes;
         let quantities = revision.quantities.clone();
         let targets = revision
             .cases
@@ -365,7 +364,7 @@ impl MathService {
                     let products = compiler.prepare_initialization_blocks(id, profile, order)?;
                     let bytes = products
                         .iter()
-                        .try_fold(foreign, |n, p| n.checked_add(p.plan.retained_bytes()))
+                        .try_fold(0usize, |n, p| n.checked_add(p.plan.retained_bytes()))
                         .ok_or(MathRuntimeError::Limit("initialization product extent"))?;
                     Ok((products, bytes))
                 },
@@ -397,7 +396,6 @@ impl MathService {
             .map(|r| size_of_val(r) + r.declaration.owned_bytes())
             .sum::<usize>()
             + size_of_val(targets.as_slice());
-        let foreign = self.policy.foreign_bytes;
         let control = FlightCancellation::default();
         let operation =
             self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
@@ -409,12 +407,7 @@ impl MathService {
                     compiler.prepare_bound_initialization(case.compiled(), profile, &flag)?;
                 let bytes = products
                     .iter()
-                    .try_fold(
-                        foreign
-                            .checked_add(numerical_bytes)
-                            .ok_or(MathRuntimeError::Limit("initialization numerical extent"))?,
-                        |n, p| n.checked_add(p.plan.retained_bytes()),
-                    )
+                    .try_fold(numerical_bytes, |n, p| n.checked_add(p.plan.retained_bytes()))
                     .ok_or(MathRuntimeError::Limit("initialization product extent"))?;
                 Ok((products, bytes))
             });

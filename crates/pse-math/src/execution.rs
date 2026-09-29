@@ -86,8 +86,8 @@ impl PartialEq for PreparedBody {
     }
 }
 impl PreparedBody {
-    /// Known symbolic payload and container contents. Tree/allocator overhead and
-    /// library-global interners require a separately labelled foreign allowance.
+    /// Known symbolic payload and container contents. The library's global symbol interner
+    /// is process state that no product owns or releases, so it is not counted here.
     pub fn retained_bytes(&self) -> usize {
         fn stages(items: &[Stage]) -> usize {
             size_of_val(items)
@@ -442,6 +442,7 @@ impl PreparedBody {
         let mut programs = EnumMap::<DerivativeOrder, Option<Vec<CompiledStage>>>::default();
         let mut used = 0usize;
         let mut retained_numeric = 0usize;
+        let mut retained_instructions = 0usize;
         for requested in [
             DerivativeOrder::Value,
             DerivativeOrder::First,
@@ -460,6 +461,7 @@ impl PreparedBody {
                 operations: limits.operations,
                 providers: limits.provider_calls,
                 entries: frame,
+                instructions: 0,
                 local_order: if local_branches {
                     requested
                 } else {
@@ -480,6 +482,9 @@ impl PreparedBody {
             retained_numeric = retained_numeric
                 .checked_add(allowance.entries - frame)
                 .ok_or(MathError::Limit("retained numeric storage"))?;
+            retained_instructions = retained_instructions
+                .checked_add(allowance.instructions)
+                .ok_or(MathError::Limit("retained instruction storage"))?;
             used = used
                 .checked_add(allowance.entries)
                 .ok_or(MathError::Limit("compiled demand scratch"))?;
@@ -512,7 +517,10 @@ impl PreparedBody {
             inputs: self.inputs,
             slots: self.slots,
             scratch_bytes: used * size_of::<f64>(),
-            retained_numeric_bytes: retained_numeric * size_of::<f64>(),
+            retained_bytes: retained_numeric
+                .checked_mul(size_of::<f64>())
+                .and_then(|n| n.checked_add(retained_instructions))
+                .ok_or(MathError::Limit("retained program storage"))?,
             outputs: Arc::new(selected),
             layouts: Arc::new(layouts),
             programs: Arc::new(programs),
@@ -585,7 +593,7 @@ enum CompiledStage {
 pub struct CompiledBody {
     owner: Option<Arc<dyn crate::AllocationOwner>>,
     scratch_bytes: usize,
-    retained_numeric_bytes: usize,
+    retained_bytes: usize,
     inputs: usize,
     slots: usize,
     outputs: Arc<Vec<usize>>,
@@ -613,10 +621,11 @@ impl CompiledBody {
     pub fn scratch_bytes(&self) -> usize {
         self.scratch_bytes
     }
-    /// Numeric buffers retained in the immutable evaluator templates, excluding
-    /// attempt frames and returned derivative buffers. Foreign heaps are separate.
-    pub fn retained_numeric_bytes(&self) -> usize {
-        self.retained_numeric_bytes
+    /// Storage retained by the immutable evaluator templates: their numeric buffers and
+    /// library instruction streams, excluding attempt frames and returned derivative
+    /// buffers.
+    pub fn retained_bytes(&self) -> usize {
+        self.retained_bytes
     }
     /// Independent mutable scratch; caller/attempt owns its provider worker map.
     pub fn worker(&self) -> Worker {
@@ -793,6 +802,9 @@ struct BuildAllowance {
     operations: usize,
     providers: usize,
     entries: usize,
+    /// Instruction storage of the evaluators built so far, in bytes: retained with the
+    /// program, never scratch.
+    instructions: usize,
 }
 #[allow(
     clippy::too_many_arguments,
@@ -909,16 +921,16 @@ fn compile_stages(
                 {
                     return Err(MathError::Contract("library vectorization layout".into()));
                 }
+                let storage = library::storage(&evaluator)?;
                 allowance.entries = allowance
                     .entries
-                    .checked_add(
-                        input_len
-                            + output_len
-                            + components.len()
-                            + library::numeric_entries(&evaluator)?,
-                    )
+                    .checked_add(input_len + output_len + components.len() + storage.numeric_entries)
                     .ok_or(MathError::Limit("evaluator scratch"))?;
                 limits.allocation(allowance.entries)?;
+                allowance.instructions = allowance
+                    .instructions
+                    .checked_add(storage.instruction_bytes)
+                    .ok_or(MathError::Limit("evaluator instruction storage"))?;
                 CompiledStage::Block {
                     evaluator,
                     components,

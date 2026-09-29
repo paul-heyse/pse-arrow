@@ -485,6 +485,12 @@ impl PreparedSolve {
     pub(crate) fn threads(&self) -> usize {
         self.profile.controls.threads
     }
+    /// The foreign allowance this step reserves while it runs, beyond the deployment
+    /// allowance its native session holds: the one its controls declare, else none. A
+    /// prepared step, and a result that keeps it, reserve no foreign allowance.
+    pub(crate) fn declared_foreign_bytes(&self) -> usize {
+        self.profile.controls.foreign_bytes.unwrap_or(0)
+    }
     /// The adapter whose scope this step's native state lives in.
     pub(crate) fn backend(&self) -> Option<Backend> {
         match self.route {
@@ -811,7 +817,6 @@ impl MathService {
                 n.checked_add(values.scalars.len() * size_of::<(pse_ids::SemanticId, f64)>())
             })
             .and_then(|n| n.checked_add(size_of::<PreparedSolve>()))
-            .and_then(|n| n.checked_add(self.policy.foreign_allowance(&profile.controls)))
             .ok_or(MathRuntimeError::Limit("solve metadata extent"))?;
         let owner = self.reserve("math:prepared-solve", bytes)?;
         prepared
@@ -1099,12 +1104,9 @@ impl MathService {
         let tolerances = Tolerances::from_policy(&numerics, plan.columns(), &rows)?;
         let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
         let stamp = compatibility(plan, &values, &profile, &numerics, backend, &providers)?;
-        // The session holds the deployment's foreign allowance; a declared one is this
-        // block's to reserve.
         let bytes = (plan.structure().variables().len() + rows.len())
             .checked_mul(size_of::<pse_math::numerics::TargetSpec>() + 8 * size_of::<f64>())
             .and_then(|n| n.checked_add(size_of::<PreparedSolve>()))
-            .and_then(|n| n.checked_add(profile.controls.foreign_bytes.unwrap_or(0)))
             .ok_or(MathRuntimeError::Limit("solve metadata extent"))?;
         Ok(PreparedSolve {
             representation: Representation::Algebraic(AlgebraicCase {
@@ -1161,7 +1163,6 @@ impl MathService {
         let bytes = (problem.contract.variables.len() + problem.contract.rows.len())
             .checked_mul(size_of::<pse_math::numerics::TargetSpec>() + 8 * size_of::<f64>())
             .and_then(|n| n.checked_add(sparse_bytes.checked_mul(2)?))
-            .and_then(|n| n.checked_add(self.policy.foreign_allowance(&profile.controls)))
             .ok_or(MathRuntimeError::Limit("conic product extent"))?;
         let owner = self.reserve("math:prepared-conic", bytes)?;
         let admitted = problem.clone();

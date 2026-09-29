@@ -47,6 +47,37 @@ fn block(expressions: Vec<Atom>, outputs: Vec<usize>) -> Stage {
     }
 }
 
+/// An evaluator's retained storage counts its instruction stream beside its numeric stack:
+/// the library storage a retained program's reservation covers now that no foreign
+/// allowance is retained with it (H9).
+#[test]
+fn evaluator_storage_counts_its_instruction_stream() {
+    crate::initialize().unwrap();
+    let x = library::formal(0).unwrap();
+    let y = library::formal(1).unwrap();
+    let limits = EvaluationLimits::default();
+    let layout = crate::jets::JetLayout::new(vec![], DerivativeOrder::Value, limits).unwrap();
+    let evaluator = library::bounded_evaluator(
+        id(1),
+        &[(&x * &y).sin() + &x * &x * &y + (&x + &y).exp()],
+        &[x, y],
+        &layout,
+        Optimization::default(),
+        &Arc::new(AtomicBool::new(false)),
+        limits,
+        limits.operations,
+        0,
+    )
+    .unwrap();
+    let export = evaluator.export_instructions();
+    let storage = library::storage(&evaluator).unwrap();
+    assert!(!export.instructions.is_empty());
+    assert!(storage.instruction_bytes > size_of_val(export.instructions.as_slice()));
+    assert_eq!(
+        storage.numeric_entries,
+        export.input_count + export.constants.len() + export.temporary_count
+    );
+}
 #[test]
 fn numerica_raw_diagonal_mixed_and_multi_output_derivatives() {
     crate::initialize().unwrap();

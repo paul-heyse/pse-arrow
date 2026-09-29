@@ -41,7 +41,6 @@ impl MathService {
         revision: pse_compiler::workspace::Inputs,
         id: SemanticId,
     ) -> Result<PreparedFlow, MathRuntimeError> {
-        let foreign = self.policy.foreign_bytes;
         let (graph, lease) = self
             .job_retained(
                 1,
@@ -65,12 +64,7 @@ impl MathService {
                             .map(|e| size_of_val(e) + size_of_val(e.bindings.as_slice()))
                             .sum::<usize>()
                         + size_of_val(d.decisions.as_slice());
-                    Ok((
-                        graph,
-                        bytes
-                            .checked_add(foreign)
-                            .ok_or(MathRuntimeError::Limit("flow product extent"))?,
-                    ))
+                    Ok((graph, bytes))
                 },
             )
             .await?;
@@ -90,7 +84,6 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<PreparedFlow, MathRuntimeError> {
         let control = FlightCancellation::default();
-        let foreign = self.policy.foreign_bytes;
         let operation = self.job_retained(
             1,
             self.policy.workspace_bytes,
@@ -111,12 +104,7 @@ impl MathService {
                         .map(|c| size_of_val(c) + size_of_val(c.bindings.as_slice()))
                         .sum::<usize>()
                     + size_of_val(d.decisions.as_slice());
-                Ok((
-                    graph,
-                    bytes
-                        .checked_add(foreign)
-                        .ok_or(MathRuntimeError::Limit("flow product extent"))?,
-                ))
+                Ok((graph, bytes))
             },
         );
         tokio::pin!(operation);

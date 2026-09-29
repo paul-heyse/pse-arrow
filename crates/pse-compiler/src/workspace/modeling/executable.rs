@@ -1216,7 +1216,8 @@ impl CompilerWorkspace {
 }
 
 impl PreparedModeling {
-    /// Conservative known product bytes; foreign library allowance is reserved by the runtime.
+    /// Conservative known product bytes, which the runtime charges for as long as the
+    /// product is retained.
     pub fn retained_bytes(&self) -> usize {
         self.model.retained_bytes()
             + admitted_heap(&Ok(self.admitted.clone()))
