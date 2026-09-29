@@ -2428,3 +2428,111 @@ fn exact_mode_accepts_semi_lowering() {
     assert_eq!(record.exact_objective.as_deref(), Some("9/2"));
     assert_eq!(record.transformations.len(), 1);
 }
+
+/// SCIP optimizes a nonlinear objective through its epigraph variable, whose value in a
+/// stored solution only bounds the function: SCIP's trivial heuristic stores, for instance,
+/// x = 2 with the epigraph at a large value. Every reported objective (the candidate's, each
+/// streamed incumbent's and each pooled solution's) is the function at the solution.
+#[test]
+fn epigraph_incumbent_reports_function_value() {
+    // min (x − 1)² − 3 over x ∈ [−2, 2]: optimum −3 at x = 1.
+    let registry = standard_registry().unwrap();
+    let mut b = Body::new(&registry, 1);
+    let x = b.x[0].clone();
+    let one = b.c(1.0);
+    let three = b.c(3.0);
+    let d = b.op(Binary::Sub, &x, &one);
+    let dd = b.op(Binary::Mul, &d, &d);
+    let objective = b.op(Binary::Sub, &dd, &three);
+    let body = b.b.prepare(&[objective]).unwrap();
+    let case = case(
+        &registry,
+        body,
+        &[(
+            ModelingVariableDomain::Continuous,
+            Some(-2.0),
+            Some(2.0),
+            0.0,
+        )],
+        &[],
+        Some((0, ObjectiveSense::Minimize)),
+        DerivativeOrder::Second,
+    );
+    let program = case.program(&FactorableRequest::default());
+    let plan = execution::factorable::plan(&program, SolveIntent::Optimize).unwrap();
+    assert!(plan.nonlinear());
+    let settings = ScipSettings {
+        pool: 16,
+        ..ScipSettings::default()
+    };
+    let controls = Controls::default();
+    let accuracy = ResolvedAccuracy::nominal();
+    let tolerances = tolerances(1, 0);
+    let normalization = Normalization::identity(1, 0);
+    let mut original = Original(&case);
+    let initial = case.initial();
+    let tap = Arc::new(Collected::default());
+    let mut execution = execution(false);
+    execution.progress = Arc::new(crate::solve::Progress::tapped(
+        controls.history,
+        tap.clone(),
+    ));
+    let report = execution::factorable(
+        Step {
+            adapter: execution::adapter(Backend::Scip),
+            settings: &BackendSettings::Scip(settings),
+            controls: &controls,
+            accuracy: &accuracy,
+            execution,
+            tolerances: &tolerances,
+            normalization: &normalization,
+            compatibility: stamp(Backend::Scip),
+            warm: None,
+        },
+        &mut Retained::default(),
+        Factorable {
+            program: &program,
+            initial: &initial,
+            intent: SolveIntent::Optimize,
+            original: &mut original,
+            resolve: None,
+        },
+    )
+    .unwrap();
+    let f = |primal: &[f64]| Original(&case).evaluate(primal).unwrap().objective.unwrap();
+    let candidate = report.candidate.as_ref().unwrap();
+    assert!((candidate.primal[0] - 1.0).abs() < 1e-5, "{candidate:?}");
+    assert!((candidate.objective.unwrap() - f(&candidate.primal)).abs() < 1e-9);
+    assert_eq!(report.qualification, Qualification::GapQualified);
+    let pool = &report.global.as_ref().unwrap().pool;
+    // The trivial upper-bound solution x = 2, stored with its epigraph at SCIP's large
+    // value, is reported at f(2) = −2.
+    assert!(
+        pool.iter()
+            .any(|s| s.primal == [2.0] && s.objective == Some(-2.0)),
+        "{pool:?}"
+    );
+    for solution in pool {
+        let value = f(&solution.primal);
+        assert!(
+            (solution.objective.unwrap() - value).abs() < 1e-9,
+            "{solution:?}: {value}"
+        );
+    }
+    let events = tap.0.lock().unwrap().clone();
+    let incumbents: Vec<&crate::solve::IncumbentEvent> =
+        events.iter().filter_map(|e| e.incumbent.as_ref()).collect();
+    // The first incumbent is the trivial zero solution, whose epigraph variable SCIP holds
+    // at 0: reported at f(0) = −2.
+    assert_eq!(incumbents[0].primal.as_deref(), Some(&[0.0][..]));
+    assert_eq!(incumbents[0].objective, -2.0);
+    for incumbent in &incumbents {
+        if let Some(primal) = &incumbent.primal {
+            let value = f(primal);
+            assert!(
+                (incumbent.objective - value).abs() < 1e-9,
+                "{incumbent:?}: {value}"
+            );
+        }
+    }
+}

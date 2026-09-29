@@ -338,16 +338,46 @@ struct Watch {
     objective: Option<Objective>,
 }
 /// How the owning SCIP's incumbents and bounds are reported in original units: the owning
-/// SCIP (copies share the handler data), the column variables of the export, the
-/// objective constant held outside SCIP, SCIP's infinity and the capture throttle of
-/// solution vectors.
+/// SCIP (copies share the handler data), the column variables of the export, the objective
+/// function of an epigraph export, the objective constant held outside SCIP, SCIP's
+/// infinity and the capture throttle of solution vectors.
 #[derive(Debug)]
 struct Objective {
     owner: *mut ffi::SCIP,
     columns: Vec<*mut ffi::SCIP_VAR>,
+    function: Option<*mut ffi::SCIP_EXPR>,
     offset: f64,
     infinity: f64,
     throttle: CaptureThrottle,
+}
+/// The authored objective at a stored solution of `scip`, in original units: an epigraph
+/// export's objective function evaluated at the solution, since the epigraph variable SCIP
+/// optimizes only bounds it; otherwise SCIP's objective value with the constant held
+/// outside SCIP. `None` when the value is undefined or not finite.
+fn objective_value(
+    scip: *mut ffi::SCIP,
+    sol: *mut ffi::SCIP_SOL,
+    function: Option<*mut ffi::SCIP_EXPR>,
+    offset: f64,
+    infinity: f64,
+) -> Option<f64> {
+    let value = match function {
+        Some(f) => {
+            // SAFETY: the expression is held by the live instance and references its
+            // original variables, whose values SCIP projects from the stored solution; only
+            // the owning thread evaluates it.
+            let code = unsafe { ffi::SCIPevalExpr(scip, f, sol, 0) };
+            if code != ffi::SCIP_Retcode_SCIP_OKAY {
+                return None;
+            }
+            // SAFETY: reads the value SCIP just stored in the live expression; an undefined
+            // evaluation reads as SCIP_INVALID, outside the finite range below.
+            unsafe { ffi::SCIPexprGetEvalValue(f) }
+        }
+        // SAFETY: the original objective of a stored solution of this SCIP.
+        None => offset + unsafe { ffi::SCIPgetSolOrigObj(scip, sol) },
+    };
+    (value.is_finite() && value.abs() < infinity).then_some(value)
 }
 impl Objective {
     /// A finite native value in original units, the offset applied.
@@ -384,7 +414,7 @@ impl Objective {
             return;
         }
         // SAFETY: as above.
-        let (objective, dual_bound, gap, nodes, seconds, primal) = unsafe {
+        let (dual_bound, gap, nodes, seconds, primal) = unsafe {
             let primal = capture().then(|| {
                 self.columns
                     .iter()
@@ -392,7 +422,6 @@ impl Objective {
                     .collect::<Vec<f64>>()
             });
             (
-                ffi::SCIPgetSolOrigObj(scip, best),
                 ffi::SCIPgetDualbound(scip),
                 ffi::SCIPgetGap(scip),
                 ffi::SCIPgetNTotalNodes(scip),
@@ -400,7 +429,9 @@ impl Objective {
                 primal,
             )
         };
-        let Some(objective) = self.original(objective) else {
+        let Some(objective) =
+            objective_value(scip, best, self.function, self.offset, self.infinity)
+        else {
             return;
         };
         watch.progress.push(Event {
@@ -649,6 +680,7 @@ pub(crate) struct Instance {
     scip: NonNull<ffi::SCIP>,
     vars: Vec<*mut ffi::SCIP_VAR>,
     conss: Vec<*mut ffi::SCIP_CONS>,
+    exprs: Vec<*mut ffi::SCIP_EXPR>,
     watch: NonNull<Watch>,
     infinity: f64,
     modes: Modes,
@@ -664,6 +696,10 @@ impl std::fmt::Debug for Instance {
 impl Drop for Instance {
     fn drop(&mut self) {
         let scip = self.scip.as_ptr();
+        for expr in &mut self.exprs {
+            // SAFETY: each held expression carries one reference this instance captured.
+            let _ = unsafe { ffi::SCIPreleaseExpr(scip, expr) };
+        }
         for var in &mut self.vars {
             // SAFETY: each held variable carries one reference this instance captured.
             let _ = unsafe { ffi::SCIPreleaseVar(scip, var) };
@@ -707,6 +743,7 @@ impl Instance {
             scip,
             vars: vec![],
             conss: vec![],
+            exprs: vec![],
             watch: NonNull::from(Box::leak(watch)),
             infinity: 0.0,
             modes,
@@ -766,6 +803,7 @@ impl Instance {
         let reported = objective.then(|| Objective {
             owner: self.ptr(),
             columns: export.coordinates[..columns].to_vec(),
+            function: export.function,
             offset: export.offset,
             infinity: self.infinity,
             throttle: CaptureThrottle::new(),
@@ -1047,6 +1085,9 @@ pub(crate) struct Export {
     /// Lowered semi columns, whose indicators close the coordinates.
     semi: Vec<Semi>,
     epigraph: Option<*mut ffi::SCIP_VAR>,
+    /// The objective function of an epigraph export, held by the instance: the reported
+    /// objective of a solution is its value there.
+    function: Option<*mut ffi::SCIP_EXPR>,
     /// Exported functions; the constraint named `c{k}` belongs to plan function `k`.
     constraints: Vec<Exported>,
     /// Affine objective form, exported through variable objective coefficients.
@@ -1156,6 +1197,13 @@ impl Instance {
     fn hold(&mut self, cons: *mut ffi::SCIP_CONS) -> Result<(), ProblemError> {
         self.conss.push(cons);
         native!("SCIPaddCons", ffi::SCIPaddCons(self.ptr(), cons))
+    }
+    /// Capture an expression for the instance's lifetime.
+    fn hold_expr(&mut self, expr: *mut ffi::SCIP_EXPR) -> *mut ffi::SCIP_EXPR {
+        // SAFETY: a live expression of this instance gains the reference released on drop.
+        unsafe { ffi::SCIPcaptureExpr(expr) };
+        self.exprs.push(expr);
+        expr
     }
     /// The variable, or its negation, as a logic literal.
     fn literal(
@@ -1656,7 +1704,9 @@ pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export,
             }
         }
     }
+    let mut function = None;
     if let (Some((node, sense)), Some(z)) = (nonlinear_objective, epigraph) {
+        function = Some(instance.hold_expr(exprs.nodes[node]));
         // min f: f - z <= 0; max f: f - z >= 0.
         let mut z_expr = ptr::null_mut();
         native!(
@@ -1718,6 +1768,7 @@ pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export,
         coordinates,
         semi: plan.semi.clone(),
         epigraph,
+        function,
         constraints,
         objective: affine_objective.map(|(node, _)| node),
         offset,
@@ -2520,8 +2571,7 @@ pub(crate) fn solve(
             .map(|var| unsafe { ffi::SCIPgetSolVal(s, sol, *var) })
             .collect()
     };
-    // SAFETY: the original objective of a stored solution.
-    let objective_of = |sol| instance.finite(unsafe { ffi::SCIPgetSolOrigObj(s, sol) } + offset);
+    let objective_of = |sol| objective_value(s, sol, export.function, offset, instance.infinity);
     let candidate = (!best.is_null()).then(|| Candidate {
         kind: CandidateKind::FeasiblePoint,
         primal: values(best),
@@ -2706,7 +2756,7 @@ pub(crate) fn solve(
         ("scip.api".into(), abi.api.to_string()),
         (
             "scip.objective".into(),
-            "authored sense; nonlinear objectives through an epigraph variable".into(),
+            "authored sense; nonlinear objectives through an epigraph variable, reported at the objective function's value".into(),
         ),
     ]);
     report.warm_start = candidate.as_ref().map(|c| WarmStart {
