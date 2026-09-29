@@ -111,6 +111,18 @@ fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
 
+/// The relative integration tolerance of `method`, the declared relative agreement of the
+/// adjoint with the forward sensitivities and with central differences, and the relative
+/// difference step, which exceeds the integration noise. IDAS DAE forward sensitivities
+/// fail their first error test at t = 0 at tighter tolerances (a known limitation
+/// predating the adjoint), so IDAS runs at 1e-8.
+fn tolerance(method: Method) -> (f64, f64, f64, f64) {
+    if method == Method::Idas {
+        (1e-8, 1e-5, 1e-4, 1e-3)
+    } else {
+        (1e-10, 1e-7, 1e-5, 1e-4)
+    }
+}
 /// The reactor's profile on `method`; a scheduled feed changes at the samples at 1 s and
 /// 1.5 s, which observe the later intervals.
 fn reactor_profile(method: Method, scheme: DiffsolMethod, dae: bool, scheduled: bool) -> Profile {
@@ -118,7 +130,7 @@ fn reactor_profile(method: Method, scheme: DiffsolMethod, dae: bool, scheduled: 
         method,
         end: 2.0,
         samples: vec![0.0, 0.3, 0.7, 1.0, 1.5, 2.0],
-        rtol: 1e-10,
+        rtol: tolerance(method).0,
         atol: vec![1e-12; if dae { 2 } else { 1 }],
         initial_step: 1e-5,
         parameter_scales: vec![1.0, 1.0],
@@ -190,8 +202,8 @@ fn adjoint(oracle: &mut Reactor, p: &Profile, parameters: &[f64]) -> Gradient {
 
 /// The adjoint gradient of J = Σ wᵢₒ·yₒ(tᵢ) equals the forward sensitivities contracted
 /// with the same weights, and central finite differences of J, for every scheme, the ODE
-/// and the DAE, and a scheduled feed whose intervals cross two changes. Declared
-/// tolerances: 1e-7 relative against forward, 1e-5 against differences.
+/// and the DAE, and a scheduled feed whose intervals cross two changes, with the declared
+/// tolerances of [`tolerance`].
 fn adjoint_equals_forward_and_differences(method: Method) {
     for (scheme, dae) in cases(method) {
         for scheduled in [false, true] {
@@ -204,7 +216,9 @@ fn adjoint_equals_forward_and_differences(method: Method) {
             assert_eq!(adjoint.len(), parameters.len());
             assert_eq!(g.report.samples.len(), p.samples.len(), "{case}");
             assert!(g.report.samples.iter().all(|s| s.output_sensitivities.is_empty()));
-            assert!(g.checkpoints >= 2 * p.segments(), "{case}: {}", g.checkpoints);
+            // Diffsol holds every segment's checkpoints, IDAS one segment's at a time.
+            let held = if method == Method::Idas { 1 } else { 2 * p.segments() };
+            assert!(g.checkpoints >= held, "{case}: {}", g.checkpoints);
             assert_eq!(g.reserved_bytes, p.checkpoint_bytes(&Reactor::new(dae).c).unwrap());
             // Forward sensitivities of the same samples.
             p.sensitivity = DynamicSensitivity::Forward;
@@ -227,7 +241,7 @@ fn adjoint_equals_forward_and_differences(method: Method) {
             p.sensitivity = DynamicSensitivity::None;
             let differences = (0..np)
                 .map(|j| {
-                    let h = 1e-4 * (1.0 + parameters[j].abs());
+                    let h = tolerance(method).3 * (1.0 + parameters[j].abs());
                     let at = |delta: f64| {
                         let mut q = parameters.clone();
                         q[j] += delta;
@@ -240,13 +254,15 @@ fn adjoint_equals_forward_and_differences(method: Method) {
                 .collect::<Vec<_>>();
             for j in 0..np {
                 assert!(
-                    (adjoint[j] - contracted[j]).abs() <= 1e-7 * (1.0 + contracted[j].abs()),
+                    (adjoint[j] - contracted[j]).abs()
+                        <= tolerance(method).1 * (1.0 + contracted[j].abs()),
                     "{case}: column {j}: adjoint {} forward {}",
                     adjoint[j],
                     contracted[j]
                 );
                 assert!(
-                    (adjoint[j] - differences[j]).abs() <= 1e-5 * (1.0 + differences[j].abs()),
+                    (adjoint[j] - differences[j]).abs()
+                        <= tolerance(method).2 * (1.0 + differences[j].abs()),
                     "{case}: column {j}: adjoint {} differences {}",
                     adjoint[j],
                     differences[j]
@@ -258,6 +274,11 @@ fn adjoint_equals_forward_and_differences(method: Method) {
 #[test]
 fn diffsol_adjoint_gradient_equals_forward_and_differences() {
     adjoint_equals_forward_and_differences(Method::Diffsol);
+}
+#[cfg(feature = "idas")]
+#[test]
+fn idas_adjoint_gradient_equals_forward_and_differences() {
+    adjoint_equals_forward_and_differences(Method::Idas);
 }
 
 /// The checkpoints stay within `AdjointSettings` and are charged against the caller's
@@ -278,7 +299,7 @@ fn checkpoints_bounded(method: Method) {
     assert!(frequent.checkpoints > reference.checkpoints, "{} vs {}", frequent.checkpoints, reference.checkpoints);
     assert!(frequent.checkpoints <= p.adjoint.max_checkpoints.into_inner());
     for (a, b) in frequent.gradient.unwrap().iter().zip(&reference.gradient.unwrap()) {
-        assert!((a - b).abs() <= 1e-7 * (1.0 + b.abs()), "{a} vs {b}");
+        assert!((a - b).abs() <= tolerance(method).1 * (1.0 + b.abs()), "{a} vs {b}");
     }
     // The forward pass stops with a typed memory limit when it needs more checkpoints
     // than the maximum; it returns no gradient.
@@ -340,6 +361,11 @@ fn checkpoints_bounded(method: Method) {
 #[test]
 fn checkpoint_memory_bounded() {
     checkpoints_bounded(Method::Diffsol);
+}
+#[cfg(feature = "idas")]
+#[test]
+fn idas_checkpoint_memory_bounded() {
+    checkpoints_bounded(Method::Idas);
 }
 
 /// Events, resets and quadratures are outside the adjoint profile and refused before

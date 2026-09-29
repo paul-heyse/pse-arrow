@@ -320,8 +320,10 @@ pub fn gradient(
         Method::Diffsol => {
             integrator::gradient(oracle, profile, parameters, cotangent, cancel, progress)
         }
+        #[cfg(feature = "idas")]
+        Method::Idas => idas::gradient(oracle, profile, parameters, cotangent, cancel, progress),
         _ => Err(ProblemError::unsupported(
-            "the requested dynamic backend has no linked adjoint",
+            "requested dynamic backend is not linked",
         )),
     }
     .map(|mut g| {
@@ -339,7 +341,7 @@ pub fn gradient(
 /// jump of its own; the integrator's consistent initialization recomputes it. `output` and
 /// `rhs` are the raw partials over the state followed by the contract parameters; `rhs` is
 /// needed only with algebraic states.
-#[cfg(feature = "diffsol")]
+#[cfg(any(feature = "diffsol", feature = "idas"))]
 pub(crate) fn sample_jump(
     differential: &[bool],
     output: faer::sparse::SparseColMatRef<'_, usize, f64>,
@@ -726,9 +728,10 @@ impl Profile {
     /// The adjoint route's profile limits (ADR-0110 items 3 and 6), refused before native
     /// work: the functional observes sampled outputs only, so declared quadratures need
     /// forward sensitivities; no event is crossed, because Diffsol has no mass-matrix reset
-    /// adjoint and keeps the reset metadata between its checkpoint segments private; every
-    /// scheduled change precedes the end; and every scheduled segment stores at least its
-    /// two end checkpoints.
+    /// adjoint and keeps the reset metadata between its checkpoint segments private, and
+    /// IDAS has no reset sensitivities; the start keeps its requested differential values;
+    /// every scheduled change precedes the end; and every scheduled segment stores at least
+    /// its two end checkpoints.
     fn admit_adjoint(&self, c: &Contract) -> Result<(), ProblemError> {
         if c.events.iter().any(|e| !e.is_empty()) {
             return Err(ProblemError::unsupported(
@@ -738,6 +741,13 @@ impl Profile {
         if !c.quadratures.is_empty() {
             return Err(ProblemError::unsupported(
                 "adjoint gradients observe sampled outputs only; declared quadratures need forward sensitivities",
+            ));
+        }
+        // A steady start's values solve the model at its parameters; their partials would
+        // need that solve's adjoint, which neither backend's initialization provides.
+        if self.idas.initialization == IdasInitialization::SteadyStates {
+            return Err(ProblemError::unsupported(
+                "adjoint gradients need the algebraic-and-rates initialization",
             ));
         }
         // A change at the end is observed by the final sample alone: that single-point

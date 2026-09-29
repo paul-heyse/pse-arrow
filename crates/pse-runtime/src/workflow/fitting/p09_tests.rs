@@ -190,14 +190,25 @@ async fn gauss_newton_fit_admits_transient() {
 }
 /// ADR-0110 item 3: a gradient-only fit's objective gradient is the adjoint product of its
 /// transient experiment, and it equals the forward-sensitivity gradient and central finite
-/// differences of the objective, with and without a scheduled input (declared tolerances:
-/// 1e-6 against forward, 1e-5 against differences). The gradient fit integrates without
-/// sensitivities, needs the limited-memory Hessian, and reruns the forward sensitivities
-/// once for rank at its candidate (PS-12).
+/// differences of the objective, on Diffsol and IDAS, with and without a scheduled input
+/// (declared tolerances: 1e-6 against forward, 1e-5 against differences). The gradient fit
+/// integrates without sensitivities, needs the limited-memory Hessian, and reruns the
+/// forward sensitivities once for rank at its candidate (PS-12).
 #[tokio::test]
 async fn adjoint_gradient_equals_forward_on_transient_fit() {
-    for scheduled in [false, true] {
+    let mut methods = vec![native::dynamics::Method::Diffsol];
+    #[cfg(feature = "solver-idas")]
+    methods.push(native::dynamics::Method::Idas);
+    for (method, scheduled) in methods
+        .into_iter()
+        .flat_map(|m| [(m, false), (m, true)])
+    {
         let (package, mut profile) = source(true, 73.);
+        profile
+            .simulations
+            .get_mut(&InstanceId::from(id(74)))
+            .unwrap()
+            .method = method;
         if scheduled {
             profile
                 .simulations
@@ -256,7 +267,7 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
             assert!(g[0].abs() > 0.1, "a nonzero gradient at {x}: {g:?}");
             assert!(
                 (a[0] - g[0]).abs() <= 1e-6 * (1. + g[0].abs()),
-                "scheduled={scheduled} x={x}: adjoint {a:?} forward {g:?}"
+                "{method:?} scheduled={scheduled} x={x}: adjoint {a:?} forward {g:?}"
             );
             let step = 1e-4;
             let difference = (adjoint.objective(&[x + step]).unwrap()
@@ -264,7 +275,7 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
                 / (2. * step);
             assert!(
                 (a[0] - difference).abs() <= 1e-5 * (1. + difference.abs()),
-                "scheduled={scheduled} x={x}: adjoint {a:?} differences {difference}"
+                "{method:?} scheduled={scheduled} x={x}: adjoint {a:?} differences {difference}"
             );
             // The gradient fit's own integrations carry no sensitivities.
             let point = adjoint.evaluate(&[x]).unwrap();
