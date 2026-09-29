@@ -827,7 +827,8 @@ async fn retained_result_capacity_transfers_without_a_second_reservation() {
     let s = service();
     let pool = s.pool.clone();
     let bytes = 1 << 20;
-    let active = bytes + s.policy.stack_bytes + s.policy.foreign_bytes;
+    let active =
+        bytes + s.policy.stack_bytes + s.policy.foreign_bytes + s.policy.inner_session_bytes;
     let (result, owner) = s
         .job_retained(1, bytes, FlightCancellation::default(), move |_| {
             assert_eq!(pool.reserved(), active);
@@ -847,7 +848,10 @@ async fn retained_result_capacity_transfers_without_a_second_reservation() {
 async fn parallel_jobs_admit_library_team_stacks_and_release_them_after_join() {
     let service = service();
     let pool = service.pool.clone();
-    let expected = 1024 + 3 * service.policy.stack_bytes + service.policy.foreign_bytes;
+    let expected = 1024
+        + 3 * service.policy.stack_bytes
+        + service.policy.foreign_bytes
+        + service.policy.inner_session_bytes;
     service
         .job(2, 1024, Default::default(), move |_| {
             assert_eq!(pool.reserved(), expected);

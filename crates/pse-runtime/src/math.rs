@@ -43,6 +43,9 @@ pub struct MathPolicy {
     pub artifact_bytes: usize,
     /// Conservative foreign-library allowance per native job and program.
     pub foreign_bytes: usize,
+    /// Retained KINSOL inner-solve sessions per native job or session thread, in bytes;
+    /// reserved in its lease, and zero retains none (Plan 22 I14).
+    pub inner_session_bytes: usize,
     /// Maximum aggregate worker numeric capacity.
     pub worker_bytes: usize,
     /// Reserved workspace generation capacity, including metadata allowance.
@@ -59,6 +62,7 @@ impl Default for MathPolicy {
         Self {
             artifact_bytes: 8 << 30,
             foreign_bytes: 64 << 20,
+            inner_session_bytes: 16 << 20,
             worker_bytes: 2 << 30,
             workspace_bytes: 4 << 30,
             stack_bytes: pse_structural::incidence::MATCHING_STACK,

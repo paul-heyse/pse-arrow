@@ -3,7 +3,8 @@
 //! KINSOL child execution on an already admitted outer worker. No runtime admission occurs here.
 //! Native sessions are cached per worker thread and problem layout (Plan 22 Y6, L-D7): a
 //! nested solve refreshes the retained SUNDIALS context, vectors and KLU analysis with the
-//! call's parameters instead of allocating them again.
+//! call's parameters instead of allocating them again. The cache holds at most the bytes
+//! the thread's job reserves for it (I14).
 use crate::{
     NleOracle, OracleContract, ProblemError, Variable, kinsol, quality::Tolerances, solve::*,
 };
@@ -21,18 +22,52 @@ use std::{
 /// Native root capability injected into generic implicit evaluation.
 #[derive(Debug)]
 pub struct Kinsol;
+/// Budget this worker thread's KINSOL session cache at `bytes`, the amount its job or
+/// session lease reserves for it (Plan 22 I14). Retained sessions beyond the budget are
+/// released, least recently used first. A thread that never received a budget retains
+/// no session, so no cache outlives an admitted job.
+pub fn budget_sessions(bytes: usize) {
+    sessions::budget(bytes);
+}
 /// Per-worker KINSOL sessions keyed by problem identity. A session is taken out of the
 /// cache for the duration of its solve, so a nested solve on the same worker never
-/// aliases it; it returns afterwards, least recently used first out.
+/// aliases it; it returns afterwards and is kept within the thread's byte budget, least
+/// recently used first out. A session larger than the whole budget is never kept.
 mod sessions {
     use super::{ProblemError, kinsol};
     use std::cell::{Cell, RefCell};
-    /// Retained sessions per worker thread.
-    const CAPACITY: usize = 8;
+    /// Retained sessions, least recently used first, with their retained bytes.
+    struct Cache {
+        budget: usize,
+        held: Vec<(pse_ids::ContentHash, kinsol::Session, usize)>,
+    }
+    impl Cache {
+        fn bytes(&self) -> usize {
+            self.held.iter().map(|(_, _, b)| *b).sum()
+        }
+        /// Release the least recently used sessions until the budget holds.
+        fn evict(&mut self) -> Vec<kinsol::Session> {
+            let mut released = Vec::new();
+            while !self.held.is_empty() && self.bytes() > self.budget {
+                released.push(self.held.remove(0).1);
+            }
+            released
+        }
+    }
     thread_local! {
-        static SESSIONS: RefCell<Vec<(pse_ids::ContentHash, kinsol::Session)>> =
-            const { RefCell::new(Vec::new()) };
+        static SESSIONS: RefCell<Cache> = const {
+            RefCell::new(Cache { budget: 0, held: Vec::new() })
+        };
         static CREATED: Cell<u64> = const { Cell::new(0) };
+    }
+    /// Set the thread's budget. Released sessions are destroyed outside the cache borrow.
+    pub(super) fn budget(bytes: usize) {
+        let released = SESSIONS.with(|s| {
+            let mut s = s.borrow_mut();
+            s.budget = bytes;
+            s.evict()
+        });
+        drop(released);
     }
     /// A compatible retained session refreshed with this call's function, or a new one.
     pub(super) fn take(
@@ -44,7 +79,10 @@ mod sessions {
     ) -> Result<kinsol::Session, ProblemError> {
         let retained = SESSIONS.with(|s| {
             let mut s = s.borrow_mut();
-            s.iter().position(|(k, _)| *k == key).map(|i| s.remove(i).1)
+            let held = &mut s.held;
+            held.iter()
+                .position(|(k, _, _)| *k == key)
+                .map(|i| held.remove(i).1)
         });
         if let Some(mut session) = retained
             && session.matches_layout(&compatibility)
@@ -56,20 +94,31 @@ mod sessions {
         CREATED.with(|c| c.set(c.get() + 1));
         kinsol::Session::new(function, settings, execution, compatibility)
     }
-    /// Return a session after its solve.
+    /// Return a session after its solve, counted at its current retained bytes.
     pub(super) fn give(key: pse_ids::ContentHash, session: kinsol::Session) {
-        SESSIONS.with(|s| {
+        let bytes = session.retained_bytes();
+        let released = SESSIONS.with(|s| {
             let mut s = s.borrow_mut();
-            s.push((key, session));
-            if s.len() > CAPACITY {
-                s.remove(0);
+            if bytes > s.budget {
+                return vec![session];
             }
+            s.held.push((key, session, bytes));
+            s.evict()
         });
+        drop(released);
     }
     /// Sessions this worker thread has allocated.
     #[cfg(test)]
     pub(super) fn created() -> u64 {
         CREATED.with(Cell::get)
+    }
+    /// Sessions this worker thread retains, and their bytes.
+    #[cfg(test)]
+    pub(super) fn retained() -> (usize, usize) {
+        SESSIONS.with(|s| {
+            let s = s.borrow();
+            (s.held.len(), s.bytes())
+        })
     }
 }
 /// The trial problem is lent to the native session for one solve only: the implicit
@@ -462,7 +511,8 @@ mod tests {
     fn nested_inner_solver_reuses_session() {
         let cancel = Arc::new(AtomicBool::new(false));
         let mut problem = Arc::new(problem(false).unwrap());
-        // The test thread starts with its own empty cache.
+        // The test thread starts with its own empty cache, budgeted as a job would.
+        budget_sessions(16 << 20);
         let before = sessions::created();
         for p in [3.0, 5.0, -2.0, 3.0] {
             let root = Kinsol
@@ -496,6 +546,46 @@ mod tests {
         ));
         Kinsol.solve(problem, &[3.0], &options(), &cancel).unwrap();
         assert_eq!(sessions::created() - before, 2);
+    }
+    /// I14: the cache keeps sessions only within the thread's byte budget, releasing the
+    /// least recently used first; a session larger than the budget is never kept, and a
+    /// thread without a budget keeps none.
+    #[test]
+    fn inner_session_cache_bounded_by_bytes() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let first = Arc::new(problem_with(98, false).unwrap());
+        let second = Arc::new(problem_with(99, false).unwrap());
+        let solve = |p: &Arc<Problem>| Kinsol.solve(p.clone(), &[2.0], &options(), &cancel);
+        // No budget: every solve allocates and nothing is retained.
+        let before = sessions::created();
+        solve(&first).unwrap();
+        solve(&first).unwrap();
+        assert_eq!(sessions::created() - before, 2);
+        assert_eq!(sessions::retained(), (0, 0));
+        // A generous budget keeps both layouts, counted in bytes.
+        budget_sessions(16 << 20);
+        solve(&first).unwrap();
+        solve(&second).unwrap();
+        let (count, both) = sessions::retained();
+        assert_eq!(count, 2);
+        // Vectors, workspaces, the sparse Jacobian and KLU's factors: well above a header.
+        assert!(both > 2 * 1024, "{both}");
+        // A budget for one session releases the least recently used one (the first).
+        budget_sessions(both / 2 + both / 4);
+        let (count, one) = sessions::retained();
+        assert!(count == 1 && one <= both / 2 + both / 4, "{count} {one}");
+        let before = sessions::created();
+        solve(&second).unwrap();
+        assert_eq!(sessions::created() - before, 0, "the recent session was kept");
+        solve(&first).unwrap();
+        assert_eq!(sessions::created() - before, 1, "the released session is rebuilt");
+        assert_eq!(sessions::retained().0, 1);
+        // A session larger than the whole budget is never kept.
+        budget_sessions(one / 2);
+        assert_eq!(sessions::retained(), (0, 0));
+        solve(&second).unwrap();
+        assert_eq!(sessions::retained(), (0, 0));
+        budget_sessions(0);
     }
     #[test]
     fn implicit_kinsol_uses_physical_variable_nominals() {

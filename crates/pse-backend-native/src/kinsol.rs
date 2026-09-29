@@ -579,6 +579,61 @@ unsafe extern "C" fn precondition_solve(
     result(value, &c.state)
 }
 impl Session {
+    /// Bytes the session keeps between solves, as the libraries report them: KINSOL's
+    /// and its linear interface's workspace, the session's own vectors, the Jacobian
+    /// storage and KLU's current factor memory, plus the owned callback buffers (Plan 22
+    /// I14). The count is exact for SUNDIALS' own arrays and KLU's allocations; the
+    /// SUNDIALS object headers are covered by a fixed allowance per object.
+    pub fn retained_bytes(&self) -> usize {
+        const HEADER: usize = 256;
+        // Real and integer word counts at 8 bytes each, plus the object header allowance.
+        let words = |r: i64, i: i64| {
+            usize::try_from(r.saturating_add(i).max(0))
+                .unwrap_or(usize::MAX)
+                .saturating_mul(8)
+                .saturating_add(HEADER)
+        };
+        let callback = &self.callback;
+        let mut bytes = (size_of::<Self>() + size_of::<Context>()).saturating_add(
+            (callback.rows.capacity()
+                + callback.columns.capacity()
+                + callback.offsets.capacity()
+                + callback.inverse_diagonal.capacity())
+            .saturating_mul(8),
+        );
+        // SAFETY: every queried object is live and owned by this session; the queries only
+        // write the caller's counters, and KLU's common block is read between solves.
+        unsafe {
+            for v in [self.x, self.us, self.fs, self.signs] {
+                if !v.is_null() {
+                    let (mut r, mut i) = (0, 0);
+                    ffi::N_VSpace(v, &raw mut r, &raw mut i);
+                    bytes = bytes.saturating_add(words(r, i));
+                }
+            }
+            let (mut r, mut i) = (0, 0);
+            if !self.mem.is_null() && ffi::KINGetWorkSpace(self.mem, &raw mut r, &raw mut i) >= 0
+            {
+                bytes = bytes.saturating_add(words(r.into(), i.into()));
+            }
+            if !self.linear.is_null()
+                && ffi::KINGetLinWorkSpace(self.mem, &raw mut r, &raw mut i) >= 0
+            {
+                bytes = bytes.saturating_add(words(r.into(), i.into()));
+            }
+            if !self.matrix.is_null() && ffi::SUNMatSpace(self.matrix, &raw mut r, &raw mut i) >= 0
+            {
+                bytes = bytes.saturating_add(words(r.into(), i.into()));
+            }
+            if !self.linear.is_null() && self.settings.method.linear == Linear::Klu {
+                let common = ffi::SUNLinSol_KLUGetCommon(self.linear);
+                if !common.is_null() {
+                    bytes = bytes.saturating_add((*common).memusage);
+                }
+            }
+        }
+        bytes
+    }
     /// Controls fixed during native allocation must match; legal numeric controls refresh.
     pub fn matches_settings(&self, settings: &Settings) -> bool {
         let (held, next) = (&self.settings.method, &settings.method);

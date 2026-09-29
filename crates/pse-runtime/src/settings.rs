@@ -26,6 +26,7 @@ macro_rules! engine_settings_fields {
         time_zone: Option<String>, "str | None", None => String, $budget.execution.time_zone.clone();
         math_artifact_bytes: Option<usize>, "int | None", None => usize, $budget.math.artifact_bytes;
         math_foreign_bytes: Option<usize>, "int | None", None => usize, $budget.math.foreign_bytes;
+        math_inner_session_bytes: Option<usize>, "int | None", None => usize, $budget.math.inner_session_bytes;
         math_worker_bytes: Option<usize>, "int | None", None => usize, $budget.math.worker_bytes;
         math_workspace_bytes: Option<usize>, "int | None", None => usize, $budget.math.workspace_bytes;
         math_stack_bytes: Option<usize>, "int | None", None => usize, $budget.math.stack_bytes;
@@ -128,6 +129,9 @@ impl EngineSettingsInput {
                 foreign_bytes: self
                     .math_foreign_bytes
                     .unwrap_or(math_defaults.foreign_bytes),
+                inner_session_bytes: self
+                    .math_inner_session_bytes
+                    .unwrap_or(math_defaults.inner_session_bytes),
                 worker_bytes: self.math_worker_bytes.unwrap_or(math_defaults.worker_bytes),
                 workspace_bytes: self
                     .math_workspace_bytes
@@ -166,6 +170,7 @@ mod delta_boundary_unit {
             model_result_bytes: None,
             math_artifact_bytes: None,
             math_foreign_bytes: None,
+            math_inner_session_bytes: None,
             math_worker_bytes: None,
             math_workspace_bytes: None,
             math_stack_bytes: None,
