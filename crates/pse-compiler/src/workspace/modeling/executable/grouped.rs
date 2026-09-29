@@ -539,7 +539,8 @@ pub(super) fn admit(
             objective,
             CaseLimits::default(),
         )?
-        .with_native(p.native.clone())?,
+        .with_native(p.native.clone())?
+        .with_requirements(p.requirements.iter().copied()),
     );
     Ok(Arc::new(AdmittedModeling {
         inputs: p.inputs.clone(),

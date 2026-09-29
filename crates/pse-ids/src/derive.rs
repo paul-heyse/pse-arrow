@@ -141,8 +141,9 @@ frames! {
     "mathematics" ("pse-math") {
         /// An expression body key, never over printed atoms or process-global identifiers.
         MathBodyV1 => "pse.math.body.v1",
-        /// A bound case's structure: bindings, units, inventories and class declarations.
-        MathCaseStructureV3 => "pse.math.case-structure.v3",
+        /// A bound case's structure: bindings, units, inventories, class declarations and
+        /// the requirements its lowerings place on the route.
+        MathCaseStructureV4 => "pse.math.case-structure.v4",
         /// A bound case's values, separate from structure and prepared arithmetic.
         MathCaseValuesV1 => "pse.math.case-values.v1",
         /// The compiler-owned guarded-real interpretation policy.

@@ -537,63 +537,6 @@ impl MathService {
         self.preparations.rebuilt.fetch_add(1, Relaxed);
         Ok(Self::own_rebind(prepared, rebound, lease))
     }
-    /// Prepare the model and its solver view atomically under the existing compiler writer.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one compiler job receives the workspace and revision with the specialization request, case, order, profile and cancellation driver"
-    )]
-    pub async fn prepare_modeling_case_revision(
-        self: &Arc<Self>,
-        workspace: Workspace,
-        revision: ModelingRevision,
-        root: DeclarationId,
-        instance: InstanceId,
-        bindings: Bindings,
-        limits: Limits,
-        case: pse_compiler::workspace::ModelingCaseBindings,
-        order: pse_kernels::DerivativeOrder,
-        profile: pse_compiler::workspace::Profile,
-        driver: &crate::CancelSource,
-    ) -> Result<ModelingCasePreparation, MathRuntimeError> {
-        let lineage = revision.clone();
-        let control = FlightCancellation::default();
-        let foreign = self.policy.foreign_bytes;
-        let operation = self.job_retained(
-            1,
-            self.policy.workspace_bytes,
-            control.clone(),
-            move |flag| {
-                let _lease = workspace.lease;
-                let mut compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
-                compiler.publish_modeling_revision(revision.admitted.clone())?;
-                let (model, case, values, tightenings) = compiler
-                    .prepare_modeling_case_cancellable(
-                        root, instance, bindings, limits, &case, order, profile, flag,
-                    )?;
-                let bytes = model
-                    .retained_bytes()
-                    .checked_add(case.retained_bytes())
-                    .and_then(|n| n.checked_add(foreign))
-                    .ok_or(MathRuntimeError::Limit("modeling case product extent"))?;
-                Ok(((model, case, values, tightenings), bytes))
-            },
-        );
-        tokio::pin!(operation);
-        let ((model, case, values, tightenings), lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        let solved = lineage.solved(root, instance)?;
-        Ok(ModelingCasePreparation {
-            model: ModelingPreparation {
-                product: model,
-                solved,
-                _lease: lease.clone(),
-            },
-            case: self.own_preparation((case, lease))?,
-            values,
-            tightenings,
-        })
-    }
     /// Own immutable generated declarations under the deployment pool.
     pub fn modeling_revision(
         &self,

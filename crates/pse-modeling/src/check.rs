@@ -370,6 +370,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                     | Kind::Exactly
                     | Kind::Piecewise
                     | Kind::Logic
+                    | Kind::Complementarity
             ) || row
                 .value
                 .equation
@@ -1226,8 +1227,13 @@ impl CheckedPackage {
             if let Some(v) = &row.value.logic {
                 texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
             }
+            if let Some(v) = &row.value.complementarity {
+                texts.extend([v.first.as_str(), v.second.as_str()]);
+                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
+            }
             if let Some(v) = &row.value.realization {
                 texts.extend(v.argument.as_deref());
+                texts.extend(v.function.as_deref());
             }
             if let Some(v) = &row.value.guard {
                 texts.push(&v.predicate);

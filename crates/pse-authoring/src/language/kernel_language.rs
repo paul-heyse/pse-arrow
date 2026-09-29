@@ -525,3 +525,95 @@ fn objective_members_parse_and_render() {
         );
     }
 }
+
+#[test]
+fn complements_parses_and_renders() {
+    use pse_model::generated::enums::{
+        ModelingDeclarationKind as Kind, ModelingRealizationPolicy as Policy,
+    };
+    let source = r#"package p {
+ entity kind k {}
+ set ks: Set<k> = {};
+ def D {
+ var s[j in ks]: DeltaTemperature; var f[j in ks]: Flow; var a: Scalar; var b: Scalar;
+ param eps: Scalar = 1e-4;
+ complements phase[j in ks]: (s[j]/1{K} >= 0, f[j]/1{mol/s} >= 0{1});
+ complements pair: (a >= 0, b >= 0);
+ realize smoothed on pair using smooth(math.smooth_min, eps);
+ realize penalized on phase using penalty(l1);
+ realize switched on pair using disjunctive;
+ }
+}"#;
+    let rows = parse_named(source);
+    let pair = rows.iter().find(|r| r.name == "pair").unwrap();
+    assert_eq!(pair.value.kind, Kind::Complementarity);
+    let phase = rows
+        .iter()
+        .find(|r| r.name == "phase")
+        .and_then(|r| r.value.complementarity.clone())
+        .unwrap();
+    assert_eq!(
+        (phase.first.as_str(), phase.second.as_str()),
+        ("s[j]/1{K}", "f[j]/1{mol/s}")
+    );
+    assert_eq!(phase.indices[0].domain, "ks");
+    let realization = |name: &str| {
+        let v = rows
+            .iter()
+            .find(|r| r.name == name)
+            .and_then(|r| r.value.realization.clone())
+            .unwrap();
+        (v.policy, v.function, v.argument)
+    };
+    assert_eq!(
+        realization("smoothed"),
+        (
+            Policy::Smooth,
+            Some("math.smooth_min".into()),
+            Some("eps".into())
+        )
+    );
+    assert_eq!(realization("penalized"), (Policy::PenaltyL1, None, None));
+    assert_eq!(realization("switched"), (Policy::Disjunctive, None, None));
+    let printed = render(&rows).unwrap();
+    for rendered in [
+        "complements pair: (a >= 0, b >= 0);",
+        "complements phase[j in ks]: (s[j]/1{K} >= 0, f[j]/1{mol/s} >= 0);",
+        "realize smoothed on pair using smooth(math.smooth_min, eps);",
+        "realize penalized on phase using penalty(l1);",
+        "realize switched on pair using disjunctive;",
+    ] {
+        assert!(printed.contains(rendered), "{rendered}\n{printed}");
+    }
+    let again = parse(
+        &printed,
+        SemanticId::NIL,
+        IdentityPolicy::Explicit,
+        ParseBudget::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
+        again.iter().map(|r| &r.value).collect::<Vec<_>>()
+    );
+    for invalid in [
+        "package p { def D { complements c: (a >= 1, b >= 0); } }",
+        "package p { def D { complements c: (a > 0, b >= 0); } }",
+        "package p { def D { complements c: (a >= 0); } }",
+        "package p { def D { realize r on c using smooth(eps); } }",
+        "package p { def D { realize r on c using smooth; } }",
+        "package p { def D { realize r on c using penalty(l2); } }",
+        "package p { def D { realize r on c using penalty_l1; } }",
+    ] {
+        assert!(
+            parse(
+                invalid,
+                SemanticId::NIL,
+                IdentityPolicy::Named,
+                ParseBudget::default()
+            )
+            .is_err(),
+            "{invalid}"
+        );
+    }
+}

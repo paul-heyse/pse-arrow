@@ -504,7 +504,8 @@ impl PreparedModeling {
                     model.admitted.case.objective().cloned(),
                     CaseLimits::default(),
                 )?
-                .with_native(model.admitted.case.native().to_vec())?,
+                .with_native(model.admitted.case.native().to_vec())?
+                .with_requirements(model.admitted.case.requirements().iter().copied()),
             ),
             tightenings,
         })

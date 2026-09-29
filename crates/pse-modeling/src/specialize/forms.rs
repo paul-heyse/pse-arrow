@@ -12,7 +12,9 @@ use super::*;
 use crate::logic::Proposition;
 use pse_model::{
     forms::{LogicOperand, NativeConstraint},
-    generated::enums::{ModelingRealizationPolicy as Policy, NativeConstraintForm},
+    generated::enums::{
+        ModelingRealizationPolicy as Policy, ModelingStructuralRequirement, NativeConstraintForm,
+    },
 };
 
 /// The default relative margin by which a derived big-M is widened outward.
@@ -32,6 +34,13 @@ pub enum Equivalence {
     },
     /// Left to a native constraint handler; only a backend with it may run the case.
     Native,
+    /// A complementarity smoothed to `f(first, second, width) == 0` by the authored
+    /// smoothing function: an O(width) approximation, continued toward zero width (PS-06).
+    Smoothed,
+    /// A complementarity product row for the l1 exact-penalty route: exact at a
+    /// nondegenerate solution with a sufficient penalty, a labelled least-infeasible point
+    /// otherwise.
+    ExactPenalty,
 }
 /// One named transformation applied at preparation.
 #[derive(Clone, Debug, PartialEq)]
@@ -87,6 +96,11 @@ pub(super) enum Realized {
     BigM(String),
     DerivedBigM(f64),
     Hull(Option<f64>),
+    /// The authored smoothing function and width expression of a complementarity.
+    Smooth {
+        function: String,
+        width: String,
+    },
     Other(Policy),
 }
 impl Realized {
@@ -95,6 +109,7 @@ impl Realized {
             Self::BigM(_) => Policy::BigM,
             Self::DerivedBigM(_) => Policy::DerivedBigM,
             Self::Hull(_) => Policy::Hull,
+            Self::Smooth { .. } => Policy::Smooth,
             Self::Other(policy) => *policy,
         }
     }
@@ -108,6 +123,7 @@ enum Form {
     Cardinality,
     Piecewise,
     Logic,
+    Complementarity,
 }
 impl Form {
     fn admits(self, policy: Policy) -> bool {
@@ -126,6 +142,10 @@ impl Form {
             Self::Piecewise => {
                 matches!(policy, Policy::Sos2 | Policy::Incremental | Policy::Native)
             }
+            Self::Complementarity => matches!(
+                policy,
+                Policy::Smooth | Policy::PenaltyL1 | Policy::Disjunctive
+            ),
         }
     }
     fn default(self) -> Option<Realized> {
@@ -137,6 +157,8 @@ impl Form {
                 Some(Realized::Other(Policy::Linear))
             }
             Self::Piecewise => Some(Realized::Other(Policy::Sos2)),
+            // How a complementarity is approximated or enforced is the author's decision.
+            Self::Complementarity => None,
         }
     }
 }
@@ -181,7 +203,17 @@ impl Engine<'_, '_> {
                 .filter(|v| v.is_finite())
                 .ok_or_else(|| invalid(declaration, "realization argument must be a finite number"))
         };
+        if v.function.is_some() != (v.policy == Policy::Smooth) {
+            return Err(invalid(
+                declaration,
+                "a smoothing function belongs to exactly a smooth realization",
+            ));
+        }
         let realized = match (v.policy, v.argument.as_deref()) {
+            (Policy::Smooth, Some(width)) => Realized::Smooth {
+                function: v.function.clone().unwrap_or_default(),
+                width: width.into(),
+            },
             (Policy::BigM, Some(m)) => Realized::BigM(m.into()),
             (Policy::DerivedBigM, margin) => {
                 let margin = margin
@@ -205,7 +237,9 @@ impl Engine<'_, '_> {
                 | Policy::Linear
                 | Policy::Native
                 | Policy::Sos2
-                | Policy::Incremental),
+                | Policy::Incremental
+                | Policy::PenaltyL1
+                | Policy::Disjunctive),
                 None,
             ) => Realized::Other(policy),
             _ => {
@@ -227,9 +261,16 @@ impl Engine<'_, '_> {
     fn realization(&self, form: Form, source: DeclarationId) -> Result<Realized> {
         let realized = match self.form_realizations.get(&source) {
             Some((realized, _)) => realized.clone(),
-            None => form
-                .default()
-                .ok_or_else(|| invalid(source, "a disjunction requires a declared realization"))?,
+            None => form.default().ok_or_else(|| {
+                invalid(
+                    source,
+                    if form == Form::Complementarity {
+                        "a complementarity requires a declared realization"
+                    } else {
+                        "a disjunction requires a declared realization"
+                    },
+                )
+            })?,
         };
         if !form.admits(realized.policy()) {
             return Err(invalid(
@@ -827,7 +868,7 @@ impl Engine<'_, '_> {
                     _ => Equivalence::Exact,
                 }
             }
-            Realized::Other(_) => {
+            Realized::Smooth { .. } | Realized::Other(_) => {
                 return Err(invalid(declaration, "unsupported disjunction realization"));
             }
         };
@@ -1828,6 +1869,140 @@ impl Engine<'_, '_> {
                 }
                 Equivalence::Exact
             }
+        };
+        self.record(
+            at,
+            instance,
+            realized.policy(),
+            equivalence,
+            rows,
+            variables,
+        );
+        Ok(())
+    }
+
+    /// `complements name: (first >= 0, second >= 0);`, the pair 0 <= first ⊥ second >= 0,
+    /// lowered by its declared realization (ADR-0104 §5, improvement I12). Every lowering
+    /// keeps both members nonnegative:
+    /// - `smooth(f, width)`: the row `f(first, second, width) == 0` with the package's
+    ///   smoothing function, CHKS `(a + b − sqrt((a − b)² + width²))/2` for `smooth_min`.
+    ///   It holds exactly where `first·second = width²/4` with both members positive, so
+    ///   no inequality row is added and a square system stays square. A width
+    ///   referencing a parameter is continued as a value;
+    /// - `disjunctive`: nonnegative slack columns equal to each member, one native SOS1
+    ///   over them;
+    /// - `penalty(l1)`: the rows `first >= 0`, `second >= 0` and `first*second <= 0`, and
+    ///   the structural requirement of the l1 exact-penalty route.
+    pub(super) fn complementarity(
+        &mut self,
+        instance: InstanceId,
+        row: &Declaration,
+        coordinates: &[(String, Value)],
+        env: &Environment,
+    ) -> Result<()> {
+        let at = row.declaration_id;
+        let v = row
+            .value
+            .complementarity
+            .clone()
+            .ok_or_else(|| invalid(at, "complementarity payload"))?;
+        let realized = self.realization(Form::Complementarity, at)?;
+        let local = coordinates_env(env, coordinates);
+        let base = member_id(instance, at, coordinates);
+        let lineage = self.lineage(instance, row, &[at]);
+        let member = |engine: &mut Self, text: &str| -> Result<(Expr, Type)> {
+            let parsed = dsl::parse_expr(text).map_err(|e| invalid(at, e.to_string()))?;
+            let expression = engine.rewrite(instance, &parsed, &local, &[at])?;
+            let contracts = engine.model.function_contracts(engine.p);
+            let ty = engine.type_of(&expression, &contracts, at)?;
+            Ok((expression, ty))
+        };
+        let (first, first_ty) = member(self, &v.first)?;
+        let (second, second_ty) = member(self, &v.second)?;
+        let mut rows = Vec::new();
+        let mut variables = Vec::new();
+        let nonnegative = |engine: &mut Self, rows: &mut Vec<SemanticId>, name: &str, value: &Expr, ty: &Type| -> Result<()> {
+            let zero = engine.typed_zero(ty, at)?;
+            rows.push(engine.push_row(
+                pse_ids::named_id(base, name),
+                value.clone(),
+                EquationSense::Ge,
+                zero,
+                lineage.clone(),
+            )?);
+            Ok(())
+        };
+        let equivalence = match &realized {
+            Realized::Smooth { function, width } => {
+                // The smoothing function is the package's, called as authored.
+                let call = dsl::parse_expr(&format!(
+                    "{function}(({}), ({}), ({width}))",
+                    v.first, v.second
+                ))
+                .map_err(|e| invalid(at, e.to_string()))?;
+                let smoothed = self.rewrite(instance, &call, &local, &[at])?;
+                let contracts = self.model.function_contracts(self.p);
+                let ty = self.type_of(&smoothed, &contracts, at)?;
+                let zero = self.typed_zero(&ty, at)?;
+                rows.push(self.push_row(
+                    pse_ids::named_id(base, "complementarity-smooth"),
+                    smoothed,
+                    EquationSense::Eq,
+                    zero,
+                    lineage.clone(),
+                )?);
+                Equivalence::Smoothed
+            }
+            Realized::Other(Policy::Disjunctive) => {
+                let mut slacks = Vec::new();
+                for (name, value, ty) in [
+                    ("first", &first, &first_ty),
+                    ("second", &second, &second_ty),
+                ] {
+                    let slack = self.derived_variable(
+                        pse_ids::named_id(base, &format!("complementarity-slack-{name}")),
+                        ty.clone(),
+                        Domain::Continuous,
+                        self.derived_lineage(&lineage, &format!("slack_{name}")),
+                        at,
+                    )?;
+                    self.model.nonnegative.insert(slack);
+                    rows.push(self.push_row(
+                        pse_ids::named_id(base, &format!("complementarity-{name}")),
+                        sym(slack),
+                        EquationSense::Eq,
+                        value.clone(),
+                        lineage.clone(),
+                    )?);
+                    variables.push(slack);
+                    slacks.push(slack);
+                }
+                self.model.native.push(NativeConstraint::Sos {
+                    form: NativeConstraintForm::Sos1,
+                    members: slacks.iter().copied().zip([1.0, 2.0]).collect(),
+                });
+                Equivalence::Native
+            }
+            Realized::Other(Policy::PenaltyL1) => {
+                nonnegative(self, &mut rows, "complementarity-first", &first, &first_ty)?;
+                nonnegative(self, &mut rows, "complementarity-second", &second, &second_ty)?;
+                let product = bin(BinaryOp::Mul, first, second);
+                let contracts = self.model.function_contracts(self.p);
+                let ty = self.type_of(&product, &contracts, at)?;
+                let zero = self.typed_zero(&ty, at)?;
+                rows.push(self.push_row(
+                    pse_ids::named_id(base, "complementarity-product"),
+                    product,
+                    EquationSense::Le,
+                    zero,
+                    lineage.clone(),
+                )?);
+                self.model
+                    .requirements
+                    .insert(ModelingStructuralRequirement::L1ExactPenalty);
+                Equivalence::ExactPenalty
+            }
+            _ => return Err(invalid(at, "complementarity realization expected")),
         };
         self.record(
             at,

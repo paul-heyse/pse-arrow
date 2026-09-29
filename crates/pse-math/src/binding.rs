@@ -285,6 +285,8 @@ pub struct CaseStructure {
     objective: Option<Objective>,
     /// Constraint forms left to native handlers (ADR-0104); empty for linear lowerings.
     native: Vec<pse_model::forms::NativeConstraint>,
+    /// Requirements the lowerings place on the solve route (ADR-0104 §5), in order.
+    requirements: Vec<pse_model::generated::enums::ModelingStructuralRequirement>,
 }
 impl CaseStructure {
     /// Admit identities, closed bounds and resource limits without inspecting values.
@@ -417,6 +419,7 @@ impl CaseStructure {
             rows,
             objective,
             native: Vec::new(),
+            requirements: Vec::new(),
         })
     }
     /// Attach native constraint forms. Every row and variable they name must be selected;
@@ -449,9 +452,25 @@ impl CaseStructure {
     pub fn native(&self) -> &[pse_model::forms::NativeConstraint] {
         &self.native
     }
+    /// Attach the requirements the lowerings place on the solve route (ADR-0104 §5), such
+    /// as the l1 exact-penalty route of an authored `penalty(l1)`. Routing reads them.
+    pub fn with_requirements(
+        mut self,
+        requirements: impl IntoIterator<Item = pse_model::generated::enums::ModelingStructuralRequirement>,
+    ) -> Self {
+        let mut requirements = requirements.into_iter().collect::<Vec<_>>();
+        requirements.sort_by_key(|r| r.as_str());
+        requirements.dedup();
+        self.requirements = requirements;
+        self
+    }
+    /// Requirements the lowerings place on the solve route.
+    pub fn requirements(&self) -> &[pse_model::generated::enums::ModelingStructuralRequirement] {
+        &self.requirements
+    }
     /// Structural identity includes bindings, physical units, selected inventories and class declarations.
     pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new(pse_ids::Frame::MathCaseStructureV3);
+        let mut h = FramedHasher::new(pse_ids::Frame::MathCaseStructureV4);
         h.u64(self.variables.len() as u64);
         for v in &self.variables {
             h.id(&v.port.id)
@@ -484,6 +503,10 @@ impl CaseStructure {
         h.u64(self.native.len() as u64);
         for constraint in &self.native {
             constraint.frame(&mut h);
+        }
+        h.u64(self.requirements.len() as u64);
+        for requirement in &self.requirements {
+            h.str(requirement.as_str());
         }
         h.u64(self.instances.len() as u64);
         for b in &self.instances {

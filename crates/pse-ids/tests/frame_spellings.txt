@@ -33,7 +33,6 @@ pse.jacobian-diagnostic.problem.v1
 pse.math.artifact.v4
 pse.math.body.v1
 pse.math.bound-facts.v2
-pse.math.case-structure.v3
 pse.math.case-values.v1
 pse.math.coefficient-assumptions.v1
 pse.math.convexity.v1
@@ -132,3 +131,7 @@ pse.dynamic.profile.v4
 # Plan 22 ENV (ADR-0120 item 7): the host frames a provider's checked output envelope into
 # its configuration key.
 pse.provider.configuration.v1
+# Plan 22 M5a (ADR-0104 §5): the case structure frames the structural requirements its
+# lowerings place on the route (l1_exact_penalty). math.case-structure.v4 replaces
+# math.case-structure.v3, which is no longer declared.
+pse.math.case-structure.v4

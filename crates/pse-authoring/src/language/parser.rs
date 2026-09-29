@@ -427,6 +427,15 @@ impl Cursor<'_> {
         self.expect(")")?;
         Ok(objective)
     }
+    /// `>= 0` closing one member of a complementarity pair; the zero may carry a unit.
+    fn complement_zero(&mut self) -> Result<()> {
+        self.expect(">=")?;
+        let zero = self.until(&[",", ")"])?;
+        match crate::dsl::parse_expr(&zero).map(|e| e.kind) {
+            Ok(crate::dsl::ExprKind::Number(n)) if n.value == 0.0 => Ok(()),
+            _ => Err(self.error("complementarity member >= 0")),
+        }
+    }
     fn block(&mut self, parent: Option<DeclarationId>, depth: u32, braced: bool) -> Result<()> {
         if depth > self.budget.max_depth {
             return Err(AuthoringError::Budget {
@@ -598,6 +607,7 @@ impl Cursor<'_> {
                 self.expect("using")?;
                 let spelling = self.word()?;
                 let mut argument = None;
+                let mut function = None;
                 let policy = match spelling.as_str() {
                     // ADR-0104: `bigm(M)` asserts an authored M; `bigm(derived[, margin])`
                     // derives it from the case box.
@@ -622,9 +632,27 @@ impl Cursor<'_> {
                         }
                         Policy::Hull
                     }
+                    // ADR-0104 §5: `smooth(f, width)` equates the authored smoothing
+                    // function f(first, second, width) to zero; `penalty(l1)` selects the
+                    // l1 exact-penalty route.
+                    "smooth" => {
+                        self.expect("(")?;
+                        function = Some(self.path()?);
+                        self.expect(",")?;
+                        argument = Some(self.until(&[")"])?);
+                        self.expect(")")?;
+                        Policy::Smooth
+                    }
+                    "penalty" => {
+                        self.expect("(")?;
+                        self.expect("l1")?;
+                        self.expect(")")?;
+                        Policy::PenaltyL1
+                    }
                     "big_m" | "derived_big_m" => {
                         return Err(self.error("bigm(M) or bigm(derived)"));
                     }
+                    "penalty_l1" => return Err(self.error("penalty(l1)")),
                     other => other
                         .parse()
                         .map_err(|_| self.error("realization policy"))?,
@@ -643,6 +671,7 @@ impl Cursor<'_> {
                     policy,
                     accelerator,
                     argument,
+                    function,
                 })
             }
             "sos1" | "sos2" => {
@@ -721,6 +750,32 @@ impl Cursor<'_> {
                     input,
                     abscissa,
                     ordinate,
+                })
+            }
+            "complements" => {
+                let indices = self
+                    .indices()?
+                    .into_iter()
+                    .map(|(name, domain)| {
+                        AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem {
+                            name,
+                            domain,
+                        }
+                    })
+                    .collect();
+                self.expect(":")?;
+                self.expect("(")?;
+                let first = self.until(&[">="])?;
+                self.complement_zero()?;
+                self.expect(",")?;
+                let second = self.until(&[">="])?;
+                self.complement_zero()?;
+                self.expect(")")?;
+                self.expect(";")?;
+                Value::from_complementarity(AuthoredModelingDeclarationsFieldValueComplementarity {
+                    indices,
+                    first,
+                    second,
                 })
             }
             "logic" => {

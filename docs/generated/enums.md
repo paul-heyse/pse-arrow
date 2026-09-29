@@ -628,6 +628,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `exactly` | `` | false |
 | `piecewise` | `` | false |
 | `logic` | `` | false |
+| `complementarity` | `` | false |
 | `table` | `` | false |
 | `dataset` | `` | false |
 | `entity` | `` | false |
@@ -716,6 +717,15 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `native` | `` | false |
 | `sos2` | `` | false |
 | `incremental` | `` | false |
+| `smooth` | `` | false |
+| `penalty_l1` | `` | false |
+| `disjunctive` | `` | false |
+
+## `ModelingStructuralRequirement`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `l1_exact_penalty` | `` | false |
 
 ## `ModelingVariableDomain`
 

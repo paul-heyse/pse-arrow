@@ -627,6 +627,7 @@ class ModelingDeclarationKind(StrEnum):
     EXACTLY = "exactly"
     PIECEWISE = "piecewise"
     LOGIC = "logic"
+    COMPLEMENTARITY = "complementarity"
     TABLE = "table"
     DATASET = "dataset"
     ENTITY = "entity"
@@ -715,6 +716,15 @@ class ModelingRealizationPolicy(StrEnum):
     NATIVE = "native"
     SOS2 = "sos2"
     INCREMENTAL = "incremental"
+    SMOOTH = "smooth"
+    PENALTY_L1 = "penalty_l1"
+    DISJUNCTIVE = "disjunctive"
+
+
+class ModelingStructuralRequirement(StrEnum):
+    """The declared ModelingStructuralRequirement enumeration."""
+
+    L1_EXACT_PENALTY = "l1_exact_penalty"
 
 
 class ModelingVariableDomain(StrEnum):

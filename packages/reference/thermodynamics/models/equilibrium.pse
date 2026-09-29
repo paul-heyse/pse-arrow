@@ -80,6 +80,74 @@
 @id("01a0e18b78db742e8fd36e3df604a2f2") override param components:Set<kinds.species>=selected;
 @id("01a0e18b78db742e8fd36e3e34bfc2b3") override param psat:Fn(T:Temperature,j:kinds.species)->Pressure=vapor_pressure;
 }
+// A complementarity VLE (after Dabadghao et al., AIChE J. 2022, DOI 10.1002/aic.18029):
+// the equilibrium temperature leaves T by a slack while one phase vanishes, each slack
+// complementary to its phase fraction. The realization of the pairs is the author's.
+@id("01e4e7198547443aa30242346a72c7cd") fn temperature_difference_unit()->DeltaTemperature=1{K};
+@id("f8b565f98a4d47d6beace4813bc00094") interface ComplementarityVLE extends PhaseEquilibrium {
+@id("3bd6388e2a5a4703b65c3f7e50071495") annotation start z(fraction_unit()/sum(k in components | 1));
+@id("4da42935ba2a44e9a4985496ca583775") annotation start flow(1{mol/s});
+@id("fd6a63c79bcc4f47a3acb4125040849e") annotation nominal flow(1{mol/s});
+@id("a5c6e7cef3e04a9694483a99d86201b4") annotation start pressure(101325{Pa});
+@id("117ab2004a9a4455a401f77885e4ea7c") annotation nominal pressure(101325{Pa});
+@id("d6896d4a0ee44f45b7c9c4738ec38b92") when not defined {
+@id("99629f0b045749edaf0067aaf945201c") eq total_composition:sum(j in components | z[j]/fraction_unit())==1;
+}
+@id("bebb7cb4eead4a5fb72d4fff9483328e") param psat:Fn(T:Temperature,j:kinds.species)->Pressure;
+@id("ecbabe9eadb04f328a1f0ac6c6664623") param epsilon_phase:Scalar=0.0001;
+@id("ac60e8fa80b94ee1b8583c2912519af1") param epsilon_start:DeltaTemperature=0.01{K};
+@id("9dd04cda89e64f2daac08c5839cabce4") param minimum_temperature:Temperature;
+@id("480218e4e8d64b7888ac1f3079b928f2") param maximum_temperature:Temperature;
+@id("863fcafd3bd548cdbfb418f65cd343ac") param bubble_start:Temperature;
+@id("26fbaa919dde448bb3fd4ed6507501a6") param dew_start:Temperature;
+@id("db85a4fe0e2840b79f5b61b16e17cdd4") var liquid_slack:Scalar;
+@id("73c3723802ae4b5498f0a61baafbb9c2") var vapor_slack:Scalar;
+@id("add70dde48ee4d2897ca570fb186147d") var equilibrium_temperature:Temperature;
+@id("c49252c589364bd289218bd33f46a6c8") let liquid_fraction:Scalar=1-beta;
+@id("a1d121ba742d4f18930c1c06f7d1ab7c") eq equilibrium_temperature_binding:equilibrium_temperature==T+(vapor_slack-liquid_slack)*temperature_difference_unit();
+@id("0b99f8285e814ca4ba1a8788bebfee24") eq fugacity[j in components]:log_fugacity(x[j],psat(equilibrium_temperature,j))==log_fugacity(y[j],pressure);
+@id("de3fc959158a4ddcbca5e636a840cd5d") let initial_temperature:Temperature=math.smooth_min(math.smooth_max(T,bubble_start,epsilon_start),dew_start,epsilon_start);
+@id("bc451bec87d040b3bb8a578180f17a71") let initial_K[j in components]:Scalar=psat(initial_temperature,j)/pressure;
+@id("bad0de0971ab406da09509e15d1f813e") let feed_fraction[j in components]:Scalar=z[j]/fraction_unit();
+@id("6588eb41f4ee460e9ac3d750549c7f4f") let initial_beta:Scalar=rr_start(feed_fraction,initial_K,components);
+@id("88377f2772c24d7b8b0a998b9a2fb458") annotation start beta(initial_beta);
+@id("e34b56b4050d48b6903d890c2f1e7468") annotation start x(z[j]/(1+initial_beta*(initial_K[j]-1)));
+@id("35577f6994fc425b9a67cb50dabdc9a4") annotation start y(initial_K[j]*z[j]/(1+initial_beta*(initial_K[j]-1)));
+@id("cc47cda3f4d0473ea37fa2d94869b9e4") annotation bounds x(0.0000000001{1},1{1});
+@id("724d5128579a495282c6c3af99944b6f") annotation bounds y(0.0000000001{1},1{1});
+@id("cc02fc04071640ee8ce3d3d6966a8af0") annotation start liquid_slack(math.smooth_max((T-initial_temperature)/temperature_difference_unit(),0,0.0001));
+@id("8774a8aaccf5481fb02c61f2b761c4bf") annotation start vapor_slack(math.smooth_max((initial_temperature-T)/temperature_difference_unit(),0,0.0001));
+@id("70edce9a7d474c98aa5f8a5e5a98abfa") annotation bounds liquid_slack(0,(maximum_temperature-minimum_temperature)/temperature_difference_unit());
+@id("194a970df4984033a2c0a9bd3f938b1c") annotation bounds vapor_slack(0,(maximum_temperature-minimum_temperature)/temperature_difference_unit());
+@id("b76c90963b5847c78cb52d54e6598b00") annotation start equilibrium_temperature(initial_temperature);
+@id("534b50404607491c990c1e446e22c44e") annotation bounds equilibrium_temperature(minimum_temperature,maximum_temperature);
+@id("5b8ab4cf8d5f4531a65ef5051f7d5017") annotation report beta("vapor fraction");
+@id("075eb6eac0c045deb04f4b1d5b562f92") annotation report equilibrium_temperature("equilibrium temperature");
+}
+@id("e3e50185c5104c2395d3f57653465911") def SmoothComplementarityFTPx(selected:Set<kinds.species>,vapor_pressure:Fn(T:Temperature,j:kinds.species)->Pressure):ComplementarityVLE {
+@id("52fedc5789bf4445a72a644c9e66f605") override param components:Set<kinds.species>=selected;
+@id("23627ad371e04f01b02246de4e9189ae") override param psat:Fn(T:Temperature,j:kinds.species)->Pressure=vapor_pressure;
+@id("5830706ea51f4c3ebabe0266c193abc0") complements liquid_disappearance:(liquid_slack>=0,liquid_fraction>=0);
+@id("444f06602c204cbcac334f3179eb0dba") complements vapor_disappearance:(vapor_slack>=0,beta>=0);
+@id("280e415960e34c5797cd762748ef80e3") realize liquid_realization on liquid_disappearance using smooth(math.smooth_min,epsilon_phase);
+@id("6008c529a5be4e4e95100ae69551344c") realize vapor_realization on vapor_disappearance using smooth(math.smooth_min,epsilon_phase);
+}
+@id("85f919fd8bf34d4dbec23e52aafc5799") def DisjunctiveComplementarityFTPx(selected:Set<kinds.species>,vapor_pressure:Fn(T:Temperature,j:kinds.species)->Pressure):ComplementarityVLE {
+@id("711ca0cbe93442698d76a7db78bd1760") override param components:Set<kinds.species>=selected;
+@id("066a511a18f54dfd9f9e60cdc8a47e4a") override param psat:Fn(T:Temperature,j:kinds.species)->Pressure=vapor_pressure;
+@id("6efa38c1983e47f495901ce80a6fc383") complements liquid_disappearance:(liquid_slack>=0,liquid_fraction>=0);
+@id("ee87201ff458454bad64a12c290342e3") complements vapor_disappearance:(vapor_slack>=0,beta>=0);
+@id("4d706aa3ad384cee92af3febb9562c05") realize liquid_realization on liquid_disappearance using disjunctive;
+@id("e7b384d009414dadaf54d7f50fe621f5") realize vapor_realization on vapor_disappearance using disjunctive;
+}
+@id("49cf10e61b9547039b98c8f29c51a13d") def PenaltyComplementarityFTPx(selected:Set<kinds.species>,vapor_pressure:Fn(T:Temperature,j:kinds.species)->Pressure):ComplementarityVLE {
+@id("38d80063398c4f74afea8b27656411ba") override param components:Set<kinds.species>=selected;
+@id("686f09a0939544ca84b3797b99627a04") override param psat:Fn(T:Temperature,j:kinds.species)->Pressure=vapor_pressure;
+@id("62850f29dbc745399bc729f5560b4c80") complements liquid_disappearance:(liquid_slack>=0,liquid_fraction>=0);
+@id("01d3451965184bd9bb7d25ae053ba9de") complements vapor_disappearance:(vapor_slack>=0,beta>=0);
+@id("4f53a191e0ac432b80a68cdb5806334a") realize liquid_realization on liquid_disappearance using penalty(l1);
+@id("72ec4b9d05c64c6fae63704237cd02a3") realize vapor_realization on vapor_disappearance using penalty(l1);
+}
 @id("01a0e1971f9075519925980c1db041c9") fn enthalpy_datum()->MolarEnthalpy=0{J/mol};
 @id("01a0e1db89d774f6b2eec0873293f7a4") interface ThermoPackage extends MaterialState {
 @id("ba9aee1d2f2545f681e4e11603c10e4f") let phase_enthalpy[p in phases]:MolarEnthalpy;

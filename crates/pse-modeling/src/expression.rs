@@ -878,6 +878,16 @@ fn check_forms(
     if let Some(l) = &row.value.logic {
         crate::logic::parse(&l.proposition).map_err(|e| invalid(id, e))?;
     }
+    if let Some(c) = &row.value.complementarity
+        && [&c.first, &c.second]
+            .into_iter()
+            .map(|member| typed(member, env))
+            .collect::<Result<Vec<_>>>()?
+            .iter()
+            .any(|ty| !matches!(ty, Type::Quantity(_)))
+    {
+        return Err(invalid(id, "complementarity members are physical"));
+    }
     Ok(())
 }
 pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<()> {
@@ -939,6 +949,12 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
             .or_else(|| {
                 row.value
                     .logic
+                    .as_ref()
+                    .map(|v| v.indices.iter().map(|i| (&i.name, &i.domain)).collect())
+            })
+            .or_else(|| {
+                row.value
+                    .complementarity
                     .as_ref()
                     .map(|v| v.indices.iter().map(|i| (&i.name, &i.domain)).collect())
             })
@@ -1052,6 +1068,7 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                     | K::Exactly
                     | K::Piecewise
                     | K::Logic
+                    | K::Complementarity
             ) || target
                 .value
                 .equation

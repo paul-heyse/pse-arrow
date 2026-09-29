@@ -301,6 +301,11 @@ pub struct SpecializedModel {
     pub unit_interval: BTreeSet<SemanticId>,
     /// Authored objective members grouped into lexicographic levels (ADR-0111).
     pub objectives: Objectives,
+    /// Kernel-derived continuous variables confined to [0, ∞), such as the slack columns
+    /// of a disjunctive complementarity.
+    pub nonnegative: BTreeSet<SemanticId>,
+    /// Requirements the lowerings place on the solve route (ADR-0104 §5).
+    pub requirements: BTreeSet<pse_model::generated::enums::ModelingStructuralRequirement>,
 }
 /// A declared port aliases an existing physical coordinate without losing its owner.
 #[derive(Clone, Debug, PartialEq)]
@@ -1104,6 +1109,17 @@ impl Engine<'_, '_> {
                             .map(|i| (i.name.as_str(), i.domain.as_str())),
                     )? {
                         self.logic(id, &r, &coordinates, &env)?;
+                    }
+                }
+                Selected::Complementarity(c) => {
+                    for coordinates in self.coordinates(
+                        *member,
+                        &env,
+                        c.indices
+                            .iter()
+                            .map(|i| (i.name.as_str(), i.domain.as_str())),
+                    )? {
+                        self.complementarity(id, &r, &coordinates, &env)?;
                     }
                 }
                 Selected::Disjunction(_) => self.disjunction(id, *member, &env, None)?,

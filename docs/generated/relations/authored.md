@@ -83,7 +83,7 @@ Version: 3. Snapshot class: `case`. Primary key: `fit_id`.
 
 ## `modeling_declarations`
 
-Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111).
+Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104).
 
 Version: 5. Snapshot class: `model`. Primary key: `declaration_id`.
 
@@ -222,6 +222,13 @@ Version: 5. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.logic.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.logic.indices.item.domain` | `Utf8` | false | `payload` | — | — |
 | `value.logic.proposition` | `Utf8` | false | `payload` | — | — |
+| `value.complementarity` | `Struct` | true | `payload` | — | — |
+| `value.complementarity.indices` | `List` | false | `payload` | — | — |
+| `value.complementarity.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.complementarity.indices.item.name` | `Utf8` | false | `payload` | — | — |
+| `value.complementarity.indices.item.domain` | `Utf8` | false | `payload` | — | — |
+| `value.complementarity.first` | `Utf8` | false | `payload` | — | — |
+| `value.complementarity.second` | `Utf8` | false | `payload` | — | — |
 | `value.table` | `Struct` | true | `payload` | — | — |
 | `value.table.keys` | `List` | false | `payload` | — | — |
 | `value.table.keys.item` | `Struct` | false | `payload` | — | — |
@@ -326,6 +333,7 @@ Version: 5. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.realization.policy` | `enum:ModelingRealizationPolicy` | false | `payload` | — | — |
 | `value.realization.accelerator` | `Utf8` | true | `payload` | — | — |
 | `value.realization.argument` | `Utf8` | true | `payload` | — | — |
+| `value.realization.function` | `Utf8` | true | `payload` | — | — |
 
 ## `numerical_requirements`
 

@@ -11,7 +11,7 @@
         "parent_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "source_end": "[\"i64\",1]",
         "source_start": "[\"i64\",1]",
-        "value": "[\"struct\",[[\"enum\",\"accumulator\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"struct\",[[\"list\",[]],[\"text\",\"value-1\"],[\"enum\",\"conservation\"],[\"text\",\"value-1\"]]],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null]]]"
+        "value": "[\"struct\",[[\"enum\",\"accumulator\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"struct\",[[\"list\",[]],[\"text\",\"value-1\"],[\"enum\",\"conservation\"],[\"text\",\"value-1\"]]],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null]]]"
       },
       {
         "declaration_id": "[\"id\",\"01010101010101010101010101010101\"]",
@@ -22,7 +22,7 @@
         "parent_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "source_end": "[\"i64\",1]",
         "source_start": "[\"i64\",1]",
-        "value": "[\"struct\",[[\"enum\",\"accumulator\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"struct\",[[\"list\",[]],[\"text\",\"value-1\"],[\"enum\",\"conservation\"],[\"text\",\"value-1\"]]],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null]]]"
+        "value": "[\"struct\",[[\"enum\",\"accumulator\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"struct\",[[\"list\",[]],[\"text\",\"value-1\"],[\"enum\",\"conservation\"],[\"text\",\"value-1\"]]],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null]]]"
       }
     ]
   },

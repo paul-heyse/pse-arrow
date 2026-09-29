@@ -280,6 +280,8 @@ struct Projection {
     unit_interval: BTreeSet<SemanticId>,
     /// Constraint forms left to native handlers (ADR-0104).
     native: Vec<pse_model::forms::NativeConstraint>,
+    /// Requirements the lowerings place on the solve route (ADR-0104 §5).
+    requirements: BTreeSet<pse_model::generated::enums::ModelingStructuralRequirement>,
     formals: Vec<Formal>,
     outputs: Vec<ModelingOutput>,
     expressions: Vec<Expr>,
@@ -421,11 +423,13 @@ fn projection(
             .elastic
             .values()
             .flat_map(|r| r.slacks.iter().copied())
+            .chain(model.nonnegative.iter().copied())
             .collect(),
         inputs: vec![],
         free: BTreeMap::new(),
         unit_interval: model.unit_interval.clone(),
         native: model.native.clone(),
+        requirements: model.requirements.clone(),
         formals: vec![],
         outputs: vec![],
         expressions: vec![],
