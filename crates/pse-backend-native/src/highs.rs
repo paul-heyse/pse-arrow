@@ -346,12 +346,18 @@ fn verify_upload(model: &highs::Model, p: &CoefficientProblem) -> Result<(), Pro
             ffi::Highs_getHessianNumNz(ptr),
         )
     };
+    // HiGHS completes a Hessian's diagonal with explicit zeros (`completeHessianDiagonal`),
+    // so the readback holds up to one entry more per column; the entry comparison below
+    // ignores explicit zeros.
     if nc != index(p.objective.len())?
         || nr != index(p.bounds.len())?
         || nz < 0
         || qz < 0
         || nz as usize > p.constraints.val().len()
-        || qz as usize > p.hessian.as_ref().map_or(0, |q| q.val().len())
+        || qz as usize
+            > p.hessian
+                .as_ref()
+                .map_or(0, |q| q.val().len() + p.objective.len())
     {
         return Err(ProblemError::Internal(
             "HiGHS model readback dimensions differ from upload".into(),
@@ -1698,6 +1704,34 @@ mod tests {
             },
             warm,
         )
+    }
+    /// A column without a quadratic term leaves a gap on the Hessian diagonal, which HiGHS
+    /// fills with an explicit zero; the upload is still the admitted problem.
+    #[test]
+    fn highs_qp_with_linear_columns_verifies_its_upload() {
+        use faer::sparse::{SparseColMat, Triplet};
+        let (mut p, _) = quadratic();
+        // min (x − 1)² − 2y over y ≤ 1 − x: only x is quadratic.
+        let hessian =
+            SparseColMat::try_new_from_triplets(2, 2, &[Triplet::new(0, 0, 2.)]).unwrap();
+        let certificate = crate::GramCertificate::new(
+            &hessian,
+            1.0,
+            &faer::Mat::from_fn(1, 2, |_, j| if j == 0 { 1.0 } else { 0.0 }),
+            &[2.],
+            64,
+        )
+        .unwrap();
+        p.hessian = Some(hessian);
+        p.objective = vec![-2., -2.];
+        let stamp = crate::solver_tests::stamp(Backend::Highs);
+        let mut session = Session::new(&p, Some(&certificate), stamp).unwrap();
+        let report =
+            solve_quadratic(&mut session, &p, Method::Choose, Options::new(), None).unwrap();
+        assert_eq!(report.termination.category, Termination::Success);
+        // With y = 1 − x the objective (x − 1)² − 2 + 2x is least at x = 0.
+        let x = &report.candidate.unwrap().primal;
+        assert!(x[0].abs() < 1e-6 && (x[1] - 1.).abs() < 1e-6, "{x:?}");
     }
     #[test]
     fn highs_qp_explicit_method_refused() {

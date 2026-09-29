@@ -127,3 +127,8 @@ Enumerating the alternatives gives the optimum: the large unit at 60 W, cost 36 
 small unit cannot meet the demand and idling produces nothing. The disjunction is
 realized by the convex hull over the declared output and cost boxes (ADR-0104); the
 fixture runs under an optimization intent.
+
+`models/control-fixtures.pse` also declares `SaturatedProcess` and `SwitchedProcess`: a
+first-order lag `lag·dx/dt = u − x` from rest, with a bounded or an on/off input tracking a
+target over 2 s. Their expected values are closed-form optima of that analytic model (the
+input stays at its bound until the target is reached, then holds it), not external data.
