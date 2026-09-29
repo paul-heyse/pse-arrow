@@ -664,7 +664,7 @@ py-unit-native *args:
     #!/usr/bin/env bash
     set -euo pipefail
     source scripts/native-execution-env.sh
-    "{{ py }}" -m pytest --maxfail=0 --continue-on-collection-errors -m unit {{ args }}
+    bash scripts/memory-cap.sh "{{ py }}" -m pytest --maxfail=0 --continue-on-collection-errors -m unit {{ args }}
 
 [group('local')]
 [doc('Run data-authored modeling fixtures and shared conformance checks; accepts Python module CLI arguments')]
@@ -672,7 +672,7 @@ modeling-conformance *args:
     #!/usr/bin/env bash
     set -euo pipefail
     source scripts/native-execution-env.sh
-    "{{ py }}" -m pse.conformance {{ args }}
+    bash scripts/memory-cap.sh "{{ py }}" -m pse.conformance {{ args }}
 
 [group('local')]
 [doc('Run every reference fixture once from packages/reference/conformance.toml; Arrow reports in build/seed-conformance')]
@@ -680,7 +680,7 @@ seed-conformance:
     #!/usr/bin/env bash
     set -euo pipefail
     source scripts/native-execution-env.sh
-    "{{ py }}" -m pse.conformance --manifest packages/reference/conformance.toml --report-dir build/seed-conformance
+    bash scripts/memory-cap.sh "{{ py }}" -m pse.conformance --manifest packages/reference/conformance.toml --report-dir build/seed-conformance
 
 [group('local')]
 [doc('Repository-config lint: taplo, typos, reuse, actionlint, zizmor, shellcheck, ast-grep')]
@@ -768,7 +768,7 @@ parity *args:
     uv sync --locked --group parity --no-install-project --python 3.13
     VIRTUAL_ENV="$PWD/.venv-parity" "$maturin" develop --uv --profile dev --locked --features force-validate,native-solvers
     export PATH="$IPOPT_DIR/bin:$PATH"
-    .venv-parity/bin/python -m pytest --maxfail=0 --parity -m "unit or component or integration" python/pse/parity "$@"
+    bash scripts/memory-cap.sh .venv-parity/bin/python -m pytest --maxfail=0 --parity -m "unit or component or integration" python/pse/parity "$@"
 
 [group('manual')]
 [doc('Optional aggregate of Rust, Python, quality and documentation checks; parity is separate')]
@@ -1163,7 +1163,7 @@ unit-native-package pkg features filter *args:
     source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
-    cargo nextest {{ nextest_action }} -p {{ pkg }} -p pse-relations --lib --locked --features {{ features }},pse-relations/force-validate -E {{ quote(filter) }} {{ args }}
+    bash scripts/memory-cap.sh cargo nextest {{ nextest_action }} -p {{ pkg }} -p pse-relations --lib --locked --features {{ features }},pse-relations/force-validate -E {{ quote(filter) }} {{ args }}
 
 [group('local')]
 [doc('Full workspace native feature graph with Arrow force validation; nextest owns selection')]

@@ -50,9 +50,21 @@ struct GuardWorker {
     program: GuardProgram,
     worker: CaseWorker,
 }
+/// One range obligation observed at a point: the checked value and its endpoints.
+struct Observed {
+    value: f64,
+    lower: Option<f64>,
+    upper: Option<f64>,
+}
 impl GuardWorker {
-    fn validate(&mut self, values: &CaseValues) -> Result<(), ProblemError> {
-        let rows = self.worker.constraints(values)?;
+    /// Observe `check` at `values`, whose guard rows are `rows`; an endpoint or value that is
+    /// not finite, or a reversed range, is refused.
+    fn observe(
+        &self,
+        check: &RangeCheck,
+        rows: &[f64],
+        values: &CaseValues,
+    ) -> Result<Observed, ProblemError> {
         let read = |v: &RangeValue| -> Result<f64, ProblemError> {
             match v {
                 RangeValue::Input(id) => values
@@ -70,18 +82,31 @@ impl GuardWorker {
                 RangeValue::Constant(v) => Ok(*v),
             }
         };
+        let value = read(&check.value)?;
+        let lower = check.lower.as_ref().map(&read).transpose()?;
+        let upper = check.upper.as_ref().map(&read).transpose()?;
+        if !value.is_finite()
+            || lower.into_iter().chain(upper).any(|v| !v.is_finite())
+            || lower.zip(upper).is_some_and(|(a, b)| a > b)
+        {
+            return Err(ProblemError::Contract(
+                "invalid dynamic physical range".into(),
+            ));
+        }
+        Ok(Observed {
+            value,
+            lower,
+            upper,
+        })
+    }
+    fn validate(&mut self, values: &CaseValues) -> Result<(), ProblemError> {
+        let rows = self.worker.constraints(values)?;
         for check in &self.program.checks {
-            let value = read(&check.value)?;
-            let lower = check.lower.as_ref().map(&read).transpose()?;
-            let upper = check.upper.as_ref().map(&read).transpose()?;
-            if !value.is_finite()
-                || lower.into_iter().chain(upper).any(|v| !v.is_finite())
-                || lower.zip(upper).is_some_and(|(a, b)| a > b)
-            {
-                return Err(ProblemError::Contract(
-                    "invalid dynamic physical range".into(),
-                ));
-            }
+            let Observed {
+                value,
+                lower,
+                upper,
+            } = self.observe(check, &rows, values)?;
             if lower.is_some_and(|v| value < v) || upper.is_some_and(|v| value > v) {
                 return Err(pse_math::MathError::OutsideRange {
                     source_id: check.source,
@@ -94,6 +119,24 @@ impl GuardWorker {
             }
         }
         Ok(())
+    }
+    /// The physical range each checked target is admitted in at `values`: the
+    /// intersection of every obligation on it.
+    fn ranges(
+        &mut self,
+        values: &CaseValues,
+    ) -> Result<BTreeMap<SemanticId, (f64, f64)>, ProblemError> {
+        let rows = self.worker.constraints(values)?;
+        let mut ranges = BTreeMap::new();
+        for check in &self.program.checks {
+            let observed = self.observe(check, &rows, values)?;
+            let (lower, upper): &mut (f64, f64) = ranges
+                .entry(check.target)
+                .or_insert((f64::NEG_INFINITY, f64::INFINITY));
+            *lower = lower.max(observed.lower.unwrap_or(f64::NEG_INFINITY));
+            *upper = upper.min(observed.upper.unwrap_or(f64::INFINITY));
+        }
+        Ok(ranges)
     }
 }
 fn provider_workers(
@@ -309,13 +352,72 @@ pub(crate) struct DynamicWorker {
     cancel: Arc<AtomicBool>,
 }
 impl DynamicWorker {
-    /// Bind one trial point into the mode's physical values: check the dimensions, set the
-    /// time, state and parameter coordinates, and validate the mode's range obligations
-    /// for every role but the initial values.
+    /// Bind one trial point into the mode's physical values and validate the mode's range
+    /// obligations for every role but the initial values.
     fn bind(
         &mut self,
         mode: usize,
         role: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+    ) -> Result<(), ProblemError> {
+        self.assign(mode, time, state, parameters)?;
+        let context = &mut self.modes[mode];
+        if role != Function::Initial
+            && let Some(guard) = &mut context.guard
+        {
+            guard.validate(&context.values)?;
+        }
+        Ok(())
+    }
+    /// The box the mode's range obligations admit each coordinate in at one point: states
+    /// then parameters, in native coordinates, unbounded where no obligation applies. An
+    /// endpoint is rounded inward, so every coordinate of the box maps into its range.
+    pub(crate) fn coordinate_box(
+        &mut self,
+        mode: usize,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+    ) -> Result<Vec<(f64, f64)>, ProblemError> {
+        self.assign(mode, time, state, parameters)?;
+        let context = &mut self.modes[mode];
+        let ranges = match &mut context.guard {
+            Some(guard) => guard.ranges(&context.values)?,
+            None => BTreeMap::new(),
+        };
+        self.coordinates
+            .state
+            .iter()
+            .chain(&self.coordinates.parameters)
+            .map(|c| {
+                let (lower, upper) = ranges
+                    .get(&c.id)
+                    .copied()
+                    .unwrap_or((f64::NEG_INFINITY, f64::INFINITY));
+                if !c.scale.is_finite() || c.scale <= 0. || !c.offset.is_finite() {
+                    return Err(ProblemError::Internal("dynamic coordinate scale".into()));
+                }
+                let native = |v: f64| (v - c.offset) / c.scale;
+                let physical = |x: f64| x * c.scale + c.offset;
+                let mut low = native(lower);
+                if low.is_finite() && physical(low) < lower {
+                    low = low.next_up();
+                }
+                let mut high = native(upper);
+                if high.is_finite() && physical(high) > upper {
+                    high = high.next_down();
+                }
+                Ok((low, high))
+            })
+            .collect()
+    }
+    /// Set one trial point's time, state and parameter coordinates in the mode's physical
+    /// values, after checking its dimensions and values.
+    fn assign(
+        &mut self,
+        mode: usize,
         time: f64,
         state: &[f64],
         parameters: &[f64],
@@ -348,11 +450,6 @@ impl DynamicWorker {
             .chain(d.parameters.iter().zip(parameters))
         {
             context.values.scalars.insert(c.id, x * c.scale + c.offset);
-        }
-        if role != Function::Initial
-            && let Some(guard) = &mut context.guard
-        {
-            guard.validate(&context.values)?;
         }
         Ok(())
     }

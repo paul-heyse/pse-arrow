@@ -676,6 +676,7 @@ fn hash_session(h: &mut FramedHasher, p: &SolverProfile) -> Result<(), ProblemEr
         history: 0,
         reuse: ReusePolicy::Fresh,
         start: StartPolicy::NoPriorStart,
+        foreign_bytes: None,
         ..p.controls.clone()
     };
     h.str(p.intent.as_str())
@@ -810,7 +811,7 @@ impl MathService {
                 n.checked_add(values.scalars.len() * size_of::<(pse_ids::SemanticId, f64)>())
             })
             .and_then(|n| n.checked_add(size_of::<PreparedSolve>()))
-            .and_then(|n| n.checked_add(self.policy.foreign_bytes))
+            .and_then(|n| n.checked_add(self.policy.foreign_allowance(&profile.controls)))
             .ok_or(MathRuntimeError::Limit("solve metadata extent"))?;
         let owner = self.reserve("math:prepared-solve", bytes)?;
         prepared
@@ -1098,9 +1099,12 @@ impl MathService {
         let tolerances = Tolerances::from_policy(&numerics, plan.columns(), &rows)?;
         let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
         let stamp = compatibility(plan, &values, &profile, &numerics, backend, &providers)?;
+        // The session holds the deployment's foreign allowance; a declared one is this
+        // block's to reserve.
         let bytes = (plan.structure().variables().len() + rows.len())
             .checked_mul(size_of::<pse_math::numerics::TargetSpec>() + 8 * size_of::<f64>())
             .and_then(|n| n.checked_add(size_of::<PreparedSolve>()))
+            .and_then(|n| n.checked_add(profile.controls.foreign_bytes.unwrap_or(0)))
             .ok_or(MathRuntimeError::Limit("solve metadata extent"))?;
         Ok(PreparedSolve {
             representation: Representation::Algebraic(AlgebraicCase {
@@ -1157,7 +1161,7 @@ impl MathService {
         let bytes = (problem.contract.variables.len() + problem.contract.rows.len())
             .checked_mul(size_of::<pse_math::numerics::TargetSpec>() + 8 * size_of::<f64>())
             .and_then(|n| n.checked_add(sparse_bytes.checked_mul(2)?))
-            .and_then(|n| n.checked_add(self.policy.foreign_bytes))
+            .and_then(|n| n.checked_add(self.policy.foreign_allowance(&profile.controls)))
             .ok_or(MathRuntimeError::Limit("conic product extent"))?;
         let owner = self.reserve("math:prepared-conic", bytes)?;
         let admitted = problem.clone();
@@ -1497,8 +1501,8 @@ impl MathService {
         }
         let mut execution = Execution::new(flag.clone(), &controls);
         execution.progress = progress.clone();
-        // Libraries that enforce their own memory limit read the job's foreign allowance.
-        execution.memory = Some(self.policy.foreign_bytes);
+        // Libraries that enforce their own memory limit read the solve's foreign allowance.
+        execution.memory = Some(self.policy.foreign_allowance(&controls));
         let receipt = StartReceipt {
             previous_attempt,
             seed: chosen.clone(),

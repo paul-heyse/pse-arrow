@@ -28,6 +28,10 @@ use pse_math::{
 };
 use std::{cell::RefCell, rc::Rc};
 
+/// Why automatic presolve declined interval propagation for a problem.
+const PROPAGATION_DECLINED: &str =
+    "propagation fixed every variable of a retained row; transformed equality matching failed";
+
 /// Attempt-owned wrapper stack and original worker. Never stored in Salsa or sent across workers.
 pub struct Pipeline {
     original: Rc<RefCell<Adapter>>,
@@ -126,6 +130,34 @@ impl Pipeline {
         compatibility: Compatibility,
         limit: usize,
     ) -> Result<Self, ProblemError> {
+        Self::build(
+            oracle,
+            initial,
+            policy,
+            tolerance,
+            execution,
+            warm,
+            compatibility,
+            limit,
+            false,
+        )
+    }
+    /// [`Pipeline::new`], with interval propagation declined when `decline_propagation`.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Presolve admission needs the independent solver, warm-start, and resource contracts"
+    )]
+    fn build(
+        oracle: Box<dyn NlpOracle>,
+        initial: &[f64],
+        policy: &Policy,
+        tolerance: &Tolerances,
+        execution: Execution,
+        warm: Option<&WarmStart>,
+        compatibility: Compatibility,
+        limit: usize,
+        decline_propagation: bool,
+    ) -> Result<Self, ProblemError> {
         let source_warm = warm;
         let normalization = oracle.normalization().cloned().unwrap_or_else(|| {
             pse_math::normalization::Normalization::identity(
@@ -138,6 +170,14 @@ impl Pipeline {
             oracle.contract().rows.len(),
         )?;
         let mut report = policy.qualify(oracle.as_ref(), tolerance)?;
+        if decline_propagation
+            && let Some(decision) = report.passes.get_mut(&super::Pass::Fbbt)
+            && decision.applied
+        {
+            decision.applied = false;
+            decision.reason = Some(PROPAGATION_DECLINED.into());
+            report.effective.fbbt = false;
+        }
         let (n, m) = (
             report.dimensions.original_columns,
             report.dimensions.original_rows,
@@ -550,10 +590,11 @@ impl Pipeline {
             nj,
             nh,
         };
-        // Propagation may fix a nonlinear row's last variable while retaining
+        // Interval propagation may fix a nonlinear row's last variable while retaining
         // that row. Such a projection can be valid but is not admissible to an
-        // equality-matched native NLP. Auto is optional: keep the original problem
-        // rather than uploading an overdetermined transformed oracle.
+        // equality-matched native NLP. Auto is optional: it first declines propagation
+        // and keeps the other qualified passes, then keeps the original problem rather
+        // than uploading an overdetermined transformed oracle.
         if nr > 0 && report.proof.is_none() {
             let admission = crate::structural::oracle(
                 &transport.contract,
@@ -582,6 +623,25 @@ impl Pipeline {
                 let execution = adapter.state.execution.clone();
                 // The original start and supplied original-space warm start remain
                 // the authorities; the declined wrapper's projected start is discarded.
+                if report.passes[&super::Pass::Fbbt].applied {
+                    let mut retained = Self::build(
+                        adapter.oracle,
+                        initial,
+                        policy,
+                        tolerance,
+                        execution,
+                        source_warm,
+                        compatibility,
+                        limit,
+                        true,
+                    )?;
+                    retained
+                        .report
+                        .diagnostics
+                        .entry("propagation.declined".into())
+                        .or_insert(reason);
+                    return Ok(retained);
+                }
                 let mut fallback = Self::new(
                     adapter.oracle,
                     initial,

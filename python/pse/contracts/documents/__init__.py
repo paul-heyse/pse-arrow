@@ -672,6 +672,11 @@ class SolveControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     fields take these defaults and unknown fields are refused.
     """
 
+    #: Positive foreign-library allowance of this solve, in bytes: its reservation charges
+    #: it, and a library that enforces its own memory limit receives it. Absent, the
+    #: deployment's allowance applies (`MathPolicy.foreign_bytes`); an absent allowance is
+    #: not encoded, so controls without one keep their identity.
+    foreign_bytes: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: Hessian representation for compatible NLP methods.
     hessian: enums.HessianMode = enums.HessianMode.EXACT
     #: Bounded retained progress and failure events.

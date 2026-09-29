@@ -932,8 +932,11 @@ fn propagation_fixed_row() -> PropagationFixedRow {
     m.facts.objective_linear = vec![true; 3];
     PropagationFixedRow(m)
 }
+/// Interval propagation fixes `x₀` through `x₀² = 4` and retains that row, which leaves the
+/// transformed problem overdetermined. Automatic presolve declines propagation alone and
+/// keeps the other qualified passes: the affine row still eliminates its column.
 #[test]
-fn automatic_presolve_retains_original_when_propagation_leaves_constant_nonlinear_rows() {
+fn automatic_presolve_declines_propagation_that_leaves_constant_nonlinear_rows() {
     let tolerance = Tolerances {
         variables: vec![1e-8; 3],
         rows: vec![1e-8; 3],
@@ -950,19 +953,27 @@ fn automatic_presolve_retains_original_when_propagation_leaves_constant_nonlinea
         1000,
     )
     .unwrap();
-    assert_eq!(pipeline.report().dimensions, Dimensions::identity(3, 3));
+    let report = pipeline.report();
     assert!(
-        pipeline
-            .report()
-            .diagnostics
-            .contains_key("structure.declined")
+        report.diagnostics.contains_key("propagation.declined"),
+        "{:?}",
+        report.diagnostics
     );
-    assert!(pipeline.report().passes.values().all(|p| !p.applied));
-    let mut oracle = pipeline.take_oracle().unwrap();
+    assert!(!report.diagnostics.contains_key("structure.declined"));
+    let fbbt = &report.passes[&Pass::Fbbt];
+    assert!(fbbt.requested && fbbt.eligible && !fbbt.applied);
+    assert!(fbbt.reason.as_deref().is_some_and(|r| r.contains("propagation")));
+    assert!(!report.effective.fbbt);
+    assert!(report.passes[&Pass::AffineElimination].applied);
+    assert_eq!(
+        (
+            report.dimensions.presolved_columns,
+            report.dimensions.presolved_rows
+        ),
+        (2, 2)
+    );
+    let oracle = pipeline.take_oracle().unwrap();
     crate::validate_nlp(&oracle, pse_kernels::DerivativeOrder::Second).unwrap();
-    let mut values = vec![0.0; 3];
-    oracle.constraints(&[2.0, 2.0, 2.0], &mut values).unwrap();
-    assert_eq!(values, vec![4.0, 0.0, 8.0]);
     let required = Policy::Explicit {
         options: PresolveOptions {
             enabled: true,
@@ -985,4 +996,117 @@ fn automatic_presolve_retains_original_when_propagation_leaves_constant_nonlinea
         ),
         Err(ProblemError::Structural { .. })
     ));
+}
+
+/// `x₀ = c` as a proved affine row whose projected tape carries the constant with its own
+/// rounding (a different last bit), beside `x₁² = 4` without a tape.
+#[derive(Debug)]
+struct RoundedConstant(Mixed);
+/// The proof's constant, and the projected tape's evaluation of the same constant.
+const PROVED: f64 = -375.279_905_375_125_96;
+const PROJECTED: f64 = -375.279_905_375_125_8;
+impl NlpOracle for RoundedConstant {
+    fn contract(&self) -> &OracleContract {
+        &self.0.contract
+    }
+    fn presolve_facts(&self) -> Option<&Facts> {
+        Some(&self.0.facts)
+    }
+    fn constraint_bounds(&self) -> &[(f64, f64)] {
+        &self.0.bounds
+    }
+    fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+        self.0.j.matrix().symbolic()
+    }
+    fn hessian_pattern(&self) -> Option<faer::sparse::SymbolicSparseColMatRef<'_, usize>> {
+        Some(self.0.h.matrix().symbolic())
+    }
+    fn objective(&mut self, _: &[f64]) -> Result<f64, ProblemError> {
+        Ok(0.0)
+    }
+    fn gradient(&mut self, _: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        out.fill(0.0);
+        Ok(())
+    }
+    fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        out.copy_from_slice(&[x[0] + PROVED, x[1] * x[1]]);
+        Ok(())
+    }
+    fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        out.copy_from_slice(&[1.0, 2.0 * x[1]]);
+        Ok(())
+    }
+    fn hessian(
+        &mut self,
+        _: &[f64],
+        _: f64,
+        l: &[f64],
+        out: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        out.copy_from_slice(&[2.0 * l[1]]);
+        Ok(())
+    }
+}
+/// An affine row is propagated as its proof, whose constant the transported bounds absorb,
+/// not as its projected tape: a tape constant one rounding away from the proof's would leave
+/// an exact equality with an empty interval, and presolve would detect an infeasibility the
+/// feasible problem does not have.
+#[test]
+fn automatic_presolve_propagates_an_affine_row_by_its_proof() {
+    let mut m = Mixed::new();
+    m.contract.variables = vec![
+        Variable {
+            id: id(1),
+            lower: 0.0,
+            upper: 1000.0,
+        },
+        Variable {
+            id: id(2),
+            lower: 1.0,
+            upper: 3.0,
+        },
+    ];
+    m.bounds = vec![(0.0, 0.0), (4.0, 4.0)];
+    m.j = jacobian(2, &[(0, 0), (1, 1)]);
+    m.h = hessian(2, &[(1, 1)]);
+    m.facts.affine = vec![
+        Some(AffineRow {
+            entries: BTreeMap::from([(0, 1.0)]),
+            constant: PROVED,
+        }),
+        None,
+    ];
+    m.facts.tapes = vec![
+        FbbtTape {
+            ops: vec![Op::Var(0), Op::Const(PROJECTED), Op::Add(0, 1)],
+        },
+        FbbtTape {
+            ops: vec![Op::Opaque],
+        },
+    ];
+    m.facts.complete = vec![true, false];
+    m.facts.objective_linear = vec![true; 2];
+    assert_ne!(PROVED, PROJECTED);
+    let pipeline = Pipeline::new(
+        Box::new(RoundedConstant(m)),
+        &[1.0, 1.5],
+        &Policy::Auto,
+        &tolerances(),
+        execution(),
+        None,
+        stamp(),
+        1000,
+    )
+    .unwrap();
+    let report = pipeline.report();
+    assert!(report.proof.is_none());
+    assert!(
+        !report.diagnostics.contains_key("infeasibility.confirmation"),
+        "{:?}",
+        report.diagnostics
+    );
+    assert!(report.passes[&Pass::Fbbt].applied, "{:?}", report.passes);
+    // The affine row is eliminated; its column stays, fixed at the row's value.
+    assert!(report.passes[&Pass::AffineElimination].applied);
+    assert_eq!(report.dimensions, dimensions(2, 2, 2, 1));
 }

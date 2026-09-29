@@ -40,7 +40,7 @@
 @id("5d245e5012684108b260df7ac93b0568") expect root.phase.rho==34.565566349336066{mol/m^3} tolerance 0.00001{mol/m^3};
 @id("0efb8581a934401d8bb6abf547dc6dc2") expect root.duty==16204.445642740735{W} tolerance 0.001{W};
 }
-@id("e0d4fbe894134e60bb4e364dddae9c5f") test heater_optimization_certified source "heater_optimization certified globally over a declared vapor-branch box; independent teqp/DIPPR endpoint reference" revision "1" fixture {dof 1; run steady; intent certify; value root.phase.T=363.15{K};} {
+@id("e0d4fbe894134e60bb4e364dddae9c5f") test heater_optimization_certified source "heater_optimization certified globally over a declared vapor-branch box; independent teqp/DIPPR endpoint reference" revision "1" fixture {dof 1; run steady; intent certify; policy { limits foreign_bytes(2147483648); } value root.phase.T=363.15{K};} {
 @id("223664523f9740148df331660748bf88") child root:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=chem.alkanes,law=pcsaft.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction);
 @id("de6c5a0b7b154e0682e178b6af998dd4") eq minimum_temperature:root.phase.T>=350{K};
 @id("8508d2aa12464631a2c7bc266b329c79") annotation objective root.enthalpy(minimize);

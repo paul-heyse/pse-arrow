@@ -70,20 +70,20 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    171u8, 94u8, 211u8, 103u8, 104u8, 188u8, 226u8, 174u8, 158u8, 159u8, 246u8, 1u8,
-    227u8, 142u8, 124u8, 183u8,
+    81u8, 102u8, 23u8, 121u8, 233u8, 58u8, 152u8, 207u8, 48u8, 76u8, 6u8, 9u8, 175u8,
+    10u8, 137u8, 149u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_declarations";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 7u32;
+pub const VERSION: u32 = 8u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    222u8, 97u8, 238u8, 62u8, 183u8, 38u8, 58u8, 87u8, 65u8, 255u8, 139u8, 100u8, 229u8,
-    172u8, 78u8, 67u8, 163u8, 157u8, 154u8, 240u8, 71u8, 106u8, 227u8, 159u8, 66u8,
-    250u8, 195u8, 91u8, 154u8, 45u8, 187u8, 161u8,
+    222u8, 95u8, 10u8, 212u8, 90u8, 49u8, 211u8, 125u8, 123u8, 162u8, 63u8, 35u8, 161u8,
+    223u8, 251u8, 252u8, 40u8, 204u8, 207u8, 202u8, 246u8, 47u8, 119u8, 235u8, 40u8,
+    228u8, 198u8, 165u8, 183u8, 91u8, 124u8, 9u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueRelaxation {
     fn append(
@@ -377,6 +377,10 @@ for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
             &self.r#body_slots,
             children[7usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#foreign_bytes,
+            children[8usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -411,6 +415,9 @@ for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
         <Option<
             i64,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -467,6 +474,12 @@ for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
                 i64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#foreign_bytes: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
                 index,
             )?,
         })
@@ -4586,10 +4599,10 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        485_376_usize + size_of::<Self::Builder>()
+        487_424_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        3792usize
+        3808usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -4955,6 +4968,17 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
                                                                 bytes = crate::columnar::allocation_add(
                                                                     bytes,
                                                                     if ((value).r#body_slots).is_some() {
+                                                                        crate::columnar::allocation_add(
+                                                                            1,
+                                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                                        )
+                                                                    } else {
+                                                                        Ok::<usize, crate::RelationError>(1)
+                                                                    }?,
+                                                                )?;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    if ((value).r#foreign_bytes).is_some() {
                                                                         crate::columnar::allocation_add(
                                                                             1,
                                                                             Ok::<usize, crate::RelationError>(8usize)?,

@@ -377,7 +377,7 @@ fn fixture_policy_parses_and_renders() {
     };
     // Every setting, written out of canonical order.
     let rows = parse_named(&source(
-        "policy { limits body_slots(512) items(1000000) body_occurrences(65536); derivatives cells(8000000) tolerance(1e-4) step(1e-9); presolve off; backend ipopt; }",
+        "policy { limits foreign_bytes(2147483648) body_slots(512) items(1000000) body_occurrences(65536); derivatives cells(8000000) tolerance(1e-4) step(1e-9); presolve off; backend ipopt; }",
     ));
     let policy = fixture(&rows).policy.unwrap();
     assert_eq!(policy.backend, Some(NativeBackend::Ipopt));
@@ -388,16 +388,22 @@ fn fixture_policy_parses_and_renders() {
     assert_eq!(policy.items, Some(1_000_000));
     assert_eq!(policy.body_occurrences, Some(65_536));
     assert_eq!(policy.body_slots, Some(512));
+    assert_eq!(policy.foreign_bytes, Some(2 << 30));
     assert!(roundtrip(&rows).contains(
-        "policy { backend ipopt; presolve off; derivatives step(1e-9) tolerance(0.0001) cells(8000000); limits items(1000000) body_occurrences(65536) body_slots(512); }"
+        "policy { backend ipopt; presolve off; derivatives step(1e-9) tolerance(0.0001) cells(8000000); limits items(1000000) body_occurrences(65536) body_slots(512) foreign_bytes(2147483648); }"
     ));
     // One setting leaves the others to the run.
     let rows = parse_named(&source("policy { presolve auto; }"));
     let policy = fixture(&rows).policy.unwrap();
     assert_eq!(policy.presolve, Some(PresolvePolicyKind::Auto));
     assert_eq!(
-        (policy.backend, policy.derivative_step, policy.items),
-        (None, None, None)
+        (
+            policy.backend,
+            policy.derivative_step,
+            policy.items,
+            policy.foreign_bytes
+        ),
+        (None, None, None, None)
     );
     assert!(roundtrip(&rows).contains("policy { presolve auto; }"));
     // Control: without the clause the fixture carries no policy and prints none.
@@ -417,7 +423,9 @@ fn kernel_conformance_refuses_unknown_fixture_policy_setting() {
         ("policy { derivatives cells(-1); }", "-1", "nonnegative integer"),
         ("policy { derivatives step(small); }", "small", "number"),
         ("policy { derivatives; }", ";", "step, tolerance, cells"),
-        ("policy { limits members(10); }", "members", "items, body_occurrences, body_slots"),
+        ("policy { limits members(10); }", "members", "items, body_occurrences, body_slots, foreign_bytes"),
+        ("policy { limits foreign_bytes(1024) foreign_bytes(2048); }", "foreign_bytes(2048)", "one foreign_bytes option"),
+        ("policy { limits foreign_bytes(-1); }", "-1", "nonnegative integer"),
         ("policy { }", "}", "a fixture policy setting"),
         ("policy { presolve off; } policy { presolve auto; }", "policy { presolve auto", "one fixture policy"),
     ] {

@@ -81,8 +81,9 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                         .optional(),
                     // ADR-0119: the fixture's execution policy over the run's. Each absent
                     // setting keeps the run's: an explicit backend, presolve auto or off,
-                    // the derivative inspection's step, tolerance and cell allowance, and
-                    // the specialization allowances. Scientific data is never here.
+                    // the derivative inspection's step, tolerance and cell allowance, the
+                    // specialization allowances and the foreign-library allowance of the
+                    // fixture's solves. Scientific data is never here.
                     T::structure(vec![
                         T::enumeration("NativeBackend")
                             .with_name("backend")
@@ -105,6 +106,9 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                             .optional(),
                         T::nonnegative(i64::MAX)
                             .with_name("body_slots")
+                            .optional(),
+                        T::nonnegative(i64::MAX)
+                            .with_name("foreign_bytes")
                             .optional(),
                     ])
                     .with_name("policy")
@@ -539,7 +543,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         builder,
         N::Authored,
         "modeling_declarations",
-        7,
+        8,
         S::Model,
         &["declaration_id"],
         vec![
@@ -558,7 +562,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 T::structure(payload).with_alternative(&alternative),
             ),
         ],
-        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119).",
+        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119). Version eight adds the policy's foreign-library allowance in bytes, which the fixture's solves reserve and a native library that enforces its own memory limit receives, in place of the deployment's (ADR-0119).",
     );
     enumeration(
         builder,

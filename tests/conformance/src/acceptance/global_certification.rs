@@ -237,7 +237,6 @@ async fn fixture_intent_selects_certify() {
                             relative_tolerance: 1e-4,
                             maximum_cells: 100,
                         },
-                        fixture_policies: Default::default(),
                         maximum_fixtures: 16,
                         maximum_checks: 10_000,
                     },
@@ -303,32 +302,24 @@ async fn fixture_intent_selects_certify() {
     assert_eq!(check.basis, ModelingCheckBasis::Point);
 }
 
-/// The foreign-library allowance this test declares for SCIP's search over the PC-SAFT
-/// heater, which becomes SCIP's `limits/memory`. Measured on 2026-09-28: at 512 MiB and
-/// 1 GiB SCIP stops with `SCIP_STATUS_MEMLIMIT` before its first node; at 2 GiB it proves
-/// optimality in 91 nodes (the whole run 18 s, process peak 3.3 GB). The runtime default is
-/// 64 MiB.
+/// The foreign-library allowance the heater's certification declares for SCIP's search over
+/// the PC-SAFT heater, which becomes SCIP's `limits/memory`. Measured on 2026-09-28: at
+/// 512 MiB and 1 GiB SCIP stops with `SCIP_STATUS_MEMLIMIT` before its first node; at 2 GiB
+/// it proves optimality in 91 nodes (the whole run 18 s, process peak 3.3 GB). The
+/// deployment's allowance is 64 MiB; a declared one is the solve's own, so no other job or
+/// program is charged it.
 const SCIP_FOREIGN_BYTES: usize = 2 << 30;
-/// The shared memory ceiling the allowance needs: it is charged to every native job and
-/// retained program, and the 64 GiB workflow ceiling is exhausted during preparation at a
-/// 2 GiB allowance. The ceiling is an accounting bound, not an allocation.
-const SCIP_POOL_BYTES: usize = 256 << 30;
 
 #[tokio::test]
 async fn heater_optimization_certified() {
     // The authored `intent certify;` fixture: heater_optimization over a declared
     // vapor-branch box, so the certified global minimum is the selected local one.
-    let owner = WorkflowRuntime::with_math(
-        pse_runtime::math::MathPolicy {
-            foreign_bytes: SCIP_FOREIGN_BYTES,
-            ..Default::default()
-        },
-        SCIP_POOL_BYTES,
-    )
-    .unwrap();
+    let owner = WorkflowRuntime::new().unwrap();
     let package = seed_package(&owner).await;
     let case = SemanticId::parse_hex("e0d4fbe894134e60bb4e364dddae9c5f").unwrap();
-    let result = seed_prepare(&package, case, certify(10), &CancelSource::new())
+    let mut solver = certify(10);
+    solver.controls.foreign_bytes = Some(SCIP_FOREIGN_BYTES);
+    let result = seed_prepare(&package, case, solver, &CancelSource::new())
         .await
         .unwrap()
         .start()

@@ -25,21 +25,37 @@ pub(crate) struct Adapter {
 }
 impl pounce_nlp::expression_provider::ExpressionProvider for Adapter {
     fn constraint_expression(&self, i: usize) -> Option<pounce_nlp::expression_provider::FbbtTape> {
-        use pounce_nlp::expression_provider::FbbtOp;
         let f = self.oracle.presolve_facts()?;
-        let mut tape = f.tapes.get(i)?.clone();
-        if self.normalize_affine
-            && let Some(row) = f.affine.get(i)?.as_ref()
-        {
-            let n = tape.len();
-            if n == 0 {
-                return None;
-            }
-            tape.ops.push(FbbtOp::Const(row.constant));
-            tape.ops.push(FbbtOp::Sub(n - 1, n));
-        }
+        let tape = match f.affine.get(i)?.as_ref() {
+            // The transported bounds absorb the proof's constant, so the row's tape is the
+            // proof's linear part. The projected tape evaluates the same row with its own
+            // rounding, and its constant need not equal the proof's: shifting it by the
+            // proof's constant leaves a residual offset that an exact equality then refuses.
+            Some(row) if self.normalize_affine => affine_tape(row),
+            _ => f.tapes.get(i)?.clone(),
+        };
         self.normalization.tape(&tape, i, 1_000_000).ok()
     }
+}
+/// The linear part `Σ aⱼ·xⱼ` of a proved affine row, in original coordinates.
+fn affine_tape(row: &pse_math::presolve::AffineRow) -> pounce_nlp::expression_provider::FbbtTape {
+    use pounce_nlp::expression_provider::{FbbtOp, FbbtTape};
+    let mut ops = Vec::with_capacity(4 * row.entries.len() + 1);
+    let mut sum = None;
+    for (&column, &coefficient) in &row.entries {
+        ops.push(FbbtOp::Var(column));
+        ops.push(FbbtOp::Const(coefficient));
+        ops.push(FbbtOp::Mul(ops.len() - 2, ops.len() - 1));
+        let term = ops.len() - 1;
+        if let Some(previous) = sum {
+            ops.push(FbbtOp::Add(previous, term));
+        }
+        sum = Some(ops.len() - 1);
+    }
+    if sum.is_none() {
+        ops.push(FbbtOp::Const(0.0));
+    }
+    FbbtTape { ops }
 }
 pub(crate) fn copy<T: Copy>(from: &[T], to: &mut [T]) -> Result<(), ProblemError> {
     if from.len() != to.len() {

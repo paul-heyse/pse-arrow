@@ -127,6 +127,9 @@ impl ModelingTrajectory {
             for (index, sample) in trajectory.report.samples.iter().enumerate() {
                 let p = &trajectory.prepared;
                 let parameters = p.profile.parameters_at(&p.parameters, sample.time);
+                // The box the mode's range obligations admit, so a difference step stays
+                // inside it: one-sided at an input or state held at its bound.
+                let bounds = p.worker(flag.clone())?.coordinate_box(sample.mode, sample.time, &sample.state, &parameters)?;
                 let mut functions = vec![(Function::Rhs, p.contract.states.len()), (Function::Output, p.contract.outputs.len())];
                 if !p.contract.quadratures.is_empty() { functions.push((Function::QuadratureFlux, p.contract.quadratures.len())); }
                 let mut complete = true; let mut passed = true; let mut checked = 0; let mut suspicious = 0; let mut missing = 0; let mut details = Vec::new();
@@ -135,7 +138,7 @@ impl ModelingTrajectory {
                     normalization.variables[p.contract.states.len()..].copy_from_slice(&p.profile.parameter_scales);
                     let result = pse_backend_native::derivative_diagnostics::analyze_dynamic(
                         Box::new(p.worker(flag.clone())?),
-                        pse_backend_native::derivative_diagnostics::DynamicSample { mode: sample.mode, function, time: sample.time, state: sample.state.clone(), parameters: parameters.clone() },
+                        pse_backend_native::derivative_diagnostics::DynamicSample { mode: sample.mode, function, time: sample.time, state: sample.state.clone(), parameters: parameters.clone(), bounds: bounds.clone() },
                         normalization, policy, pse_backend_native::solve::Execution::new(flag.clone(), &controls),
                     )?;
                     if !result.passed() { details.push(format!("{function:?}: {}", result.summary())); }

@@ -72,6 +72,12 @@ impl Default for MathPolicy {
     }
 }
 impl MathPolicy {
+    /// The foreign-library allowance of one solve: the allowance its controls declare, else
+    /// this deployment's. The solve's reservation charges it, and a library that enforces
+    /// its own memory limit receives it (`Execution::memory`).
+    pub fn foreign_allowance(&self, controls: &pse_backend_native::solve::Controls) -> usize {
+        controls.foreign_bytes.unwrap_or(self.foreign_bytes)
+    }
     pub(crate) fn validate(&self) -> Result<(), crate::RuntimeError> {
         if [
             self.artifact_bytes,

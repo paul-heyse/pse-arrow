@@ -103,9 +103,21 @@ pub fn analyze(
     policy.check_extent(n, m)?;
     normalization.validate(n, m)?;
     let jac = Pattern::new(oracle.jacobian_pattern(), false)?;
-    let expected = n
-        .checked_add(jac.rows.len())
-        .ok_or_else(|| ProblemError::Contract("derivative comparison extent".into()))?;
+    // A coordinate its box fixes has no direction to difference along, so the library
+    // compares neither its gradient entry nor its Jacobian column. Every other coordinate
+    // owes both; one the step cannot move inside its box leaves the sample incomplete.
+    let moves: Vec<bool> = oracle
+        .contract()
+        .variables
+        .iter()
+        .map(|v| v.lower < v.upper)
+        .collect();
+    let expected = moves.iter().filter(|m| **m).count()
+        + jac
+            .columns
+            .iter()
+            .filter(|c| usize::try_from(**c).is_ok_and(|c| moves[c]))
+            .count();
     // No Hessian demand or native solver construction is needed for this sample.
     let mut adapter = Adapter {
         normalization,
@@ -217,5 +229,107 @@ mod tests {
         let stopped = run(crate::solver_tests::Polynomial::new(), true);
         assert!(!stopped.complete);
         assert_eq!(stopped.terminal, Some(crate::solve::Termination::Cancelled));
+    }
+    /// `min x₀² + x₁²` subject to `x₀·x₁ = 1`, with the box of `x₁` given per case.
+    #[derive(Debug)]
+    struct Pair {
+        contract: crate::OracleContract,
+        pattern: faer::sparse::SparseColMat<usize, f64>,
+        bounds: Vec<(f64, f64)>,
+    }
+    impl Pair {
+        fn new(lower: f64, upper: f64) -> Self {
+            let variable = |n: u8, lower, upper| crate::Variable {
+                id: pse_ids::SemanticId::from_bytes([n; 16]),
+                lower,
+                upper,
+            };
+            Self {
+                contract: crate::OracleContract {
+                    identity: pse_ids::ContentHash::from_bytes([7; 32]),
+                    variables: vec![
+                        variable(1, f64::NEG_INFINITY, f64::INFINITY),
+                        variable(2, lower, upper),
+                    ],
+                    rows: vec![pse_ids::SemanticId::from_bytes([3; 16])],
+                    derivatives: pse_kernels::DerivativeOrder::First,
+                    smoothness: pse_kernels::DerivativeOrder::First,
+                },
+                pattern: faer::sparse::SparseColMat::try_new_from_triplets(
+                    1,
+                    2,
+                    &[
+                        faer::sparse::Triplet::new(0, 0, 0.),
+                        faer::sparse::Triplet::new(0, 1, 0.),
+                    ],
+                )
+                .unwrap(),
+                bounds: vec![(1., 1.)],
+            }
+        }
+    }
+    impl NlpOracle for Pair {
+        fn contract(&self) -> &crate::OracleContract {
+            &self.contract
+        }
+        fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+            self.pattern.symbolic()
+        }
+        fn hessian_pattern(&self) -> Option<faer::sparse::SymbolicSparseColMatRef<'_, usize>> {
+            None
+        }
+        fn constraint_bounds(&self) -> &[(f64, f64)] {
+            &self.bounds
+        }
+        fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
+            Ok(x[0] * x[0] + x[1] * x[1])
+        }
+        fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            out.copy_from_slice(&[2. * x[0], 2. * x[1]]);
+            Ok(())
+        }
+        fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            out[0] = x[0] * x[1];
+            Ok(())
+        }
+        fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            out.copy_from_slice(&[x[1], x[0]]);
+            Ok(())
+        }
+        fn hessian(&mut self, _: &[f64], _: f64, _: &[f64], _: &mut [f64]) -> Result<(), ProblemError> {
+            Err(ProblemError::Contract("first-order sample".into()))
+        }
+    }
+    /// A coordinate its box fixes (equal bounds, as an authored `bounds x(T, T)` gives) has
+    /// no direction; the sample expects no comparison for it, and completes with the others.
+    #[test]
+    fn derivative_sample_expects_no_comparison_along_a_coordinate_its_box_fixes() {
+        let run = |oracle: Pair| {
+            analyze(
+                Box::new(oracle),
+                vec![2., 0.5],
+                Normalization::identity(2, 1),
+                Policy {
+                    perturbation: 1e-6,
+                    relative_tolerance: 1e-4,
+                    maximum_cells: 100,
+                },
+                Execution::new(
+                    std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                    &Default::default(),
+                ),
+            )
+            .unwrap()
+        };
+        let fixed = run(Pair::new(0.5, 0.5));
+        let sample = fixed.sample.as_ref().unwrap();
+        // The gradient entry and Jacobian entry of the free coordinate only.
+        assert_eq!(sample.checked, 2);
+        assert!(fixed.complete, "{:?}", fixed.sample);
+        assert!(fixed.passed());
+        // Control: a free second coordinate owes its own two comparisons.
+        let free = run(Pair::new(0., 1.));
+        assert_eq!(free.sample.as_ref().unwrap().checked, 4);
+        assert!(free.complete && free.passed());
     }
 }

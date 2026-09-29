@@ -50,7 +50,7 @@ fn parameters<'a>(items: impl Iterator<Item = (&'a str, &'a str, Option<&'a str>
 fn fixture_policy(
     policy: &super::AuthoredModelingDeclarationsFieldValueScopeFixturePolicy,
 ) -> String {
-    fn options(values: [(&str, Option<String>); 3]) -> Option<String> {
+    fn options<const N: usize>(values: [(&str, Option<String>); N]) -> Option<String> {
         let written = values
             .into_iter()
             .filter_map(|(name, value)| value.map(|v| format!("{name}({v})")))
@@ -75,6 +75,7 @@ fn fixture_policy(
         ("items", policy.items.map(|v| v.to_string())),
         ("body_occurrences", policy.body_occurrences.map(|v| v.to_string())),
         ("body_slots", policy.body_slots.map(|v| v.to_string())),
+        ("foreign_bytes", policy.foreign_bytes.map(|v| v.to_string())),
     ]) {
         settings.push(format!("limits {limits};"));
     }

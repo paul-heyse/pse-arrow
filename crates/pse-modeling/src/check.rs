@@ -565,12 +565,14 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                         || policy.presolve.is_some()
                         || policy.derivative_step.is_some()
                         || policy.derivative_tolerance.is_some()
-                        || policy.derivative_cells.is_some();
+                        || policy.derivative_cells.is_some()
+                        || policy.foreign_bytes.is_some();
                     let allowances = [
                         policy.derivative_cells,
                         policy.items,
                         policy.body_occurrences,
                         policy.body_slots,
+                        policy.foreign_bytes,
                     ];
                     if !solver && allowances.iter().all(Option::is_none)
                         || allowances.iter().flatten().any(|n| *n <= 0)

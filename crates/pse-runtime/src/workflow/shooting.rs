@@ -1057,8 +1057,14 @@ impl ShootingProblem {
             started,
             time_limit: self.solver.controls.time_limit,
             progress,
-            // Adjoint checkpoints are foreign allocations charged to the job's allowance.
-            memory: Some(self.runtime.shared.budget().math.foreign_bytes),
+            // Adjoint checkpoints are foreign allocations charged to the solve's allowance.
+            memory: Some(
+                self.runtime
+                    .shared
+                    .budget()
+                    .math
+                    .foreign_allowance(&self.solver.controls),
+            ),
         };
         let initial = match initial {
             Some(x) => x.to_vec(),
