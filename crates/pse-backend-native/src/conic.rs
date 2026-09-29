@@ -388,16 +388,19 @@ fn data(p: &ConicProblem) -> Result<Data, ProblemError> {
     let mut rowval = Vec::new();
     let mut nzval = Vec::new();
     let constraints = &p.constraints;
+    // The bound rows are in variable order, so one cursor appends each column's own.
+    let mut next = 0;
     for c in 0..constraints.columns {
         for k in constraints.column(c) {
             rowval.push(constraints.row_indices[k]);
             nzval.push(constraints.values[k]);
         }
-        for (r, &(v, lower)) in bounds.iter().enumerate() {
-            if c == v {
-                rowval.push(constraints.rows + r);
-                nzval.push(if lower { -1.0 } else { 1.0 });
-            }
+        while let Some(&(v, lower)) = bounds.get(next)
+            && v == c
+        {
+            rowval.push(constraints.rows + next);
+            nzval.push(if lower { -1.0 } else { 1.0 });
+            next += 1;
         }
         colptr.push(rowval.len());
     }

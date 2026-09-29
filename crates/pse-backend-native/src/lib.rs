@@ -909,3 +909,7 @@ mod pounce_convex_tests;
 #[cfg(test)]
 #[cfg(feature = "scip")]
 mod scip_tests;
+
+#[cfg(test)]
+#[cfg(all(feature = "ipopt", feature = "pounce", feature = "clarabel-pardiso"))]
+mod measurement_tests;
