@@ -2,7 +2,7 @@
 title: Thermodynamic domain model and integrated kernel campaign
 status: in-progress
 date: 2026-09-29
-adrs: [ADR-0123, ADR-0124, ADR-0125, ADR-0126]
+adrs: [ADR-0123, ADR-0124, ADR-0125, ADR-0127]
 review_sources: [docs/design_review/reviews/design_review_idaes-capability-target_2026-09-26.md]
 scenario_sources: [docs/design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#s01]
 ---
@@ -42,7 +42,7 @@ The current representation falls short of that in both the kernel and the knowle
 
 | ID | Decision | Status | Route |
 |---|---|---|---|
-| T1 | The domain schema is a **typed package schema**. The kernel gains generic typed-relational mechanisms; one domain declaration in packages is the authority; every library package conforms to it. The kernel defines no scientific concept and the Plan 21 knowledge-boundary test (N1) holds. Only vocabulary the kernel acts on becomes registry enums (ADR-0115) | Maintainer decision, 2026-09-29 | ADR-0123, ADR-0126 |
+| T1 | The domain schema is a **typed package schema**. The kernel gains generic typed-relational mechanisms; one domain declaration in packages is the authority; every library package conforms to it. The kernel defines no scientific concept and the Plan 21 knowledge-boundary test (N1) holds. Only vocabulary the kernel acts on becomes registry enums (ADR-0115) | Maintainer decision, 2026-09-29 | ADR-0123, ADR-0127 (supersedes ADR-0126) |
 | T2 | Readiness scope: data banks (NIST, RPP3/4/5, Perry, the DIPPR public subset, ChemSep, CIAAW) and method families (cubic and SAFT EoS, NRTL/Wilson/UNIQUAC/UNIFAC, eNRTL, multiparameter Helmholtz, transport, reactions). External libraries as oracles or production providers are outside it; FeOS, teqp and IDAES values remain frozen oracle data | Maintainer decision, 2026-09-29 | This plan |
 | T3 | Unit literals are canonical unit products; coefficient types are declared derived quantity kinds, resolved, never synthesized | Proposed | ADR-0124 |
 | T4 | Large datasets are Parquet package data documents admitted through the typed relation path; inline cells remain for seed-size data. This decides Plan 21's storage open item | Proposed | ADR-0125 |
@@ -67,14 +67,22 @@ The current representation falls short of that in both the kernel and the knowle
 
 ### Thermodynamic domain schema (package knowledge)
 
-- **`packages/reference/domain` (`pse.domain`)**, above `physical`, holds the whole
-  schema: the chemical core (species, element, reaction and phase kinds with attribute
-  schemas, identifier schemes, the formula relation and the single phase authority typed by
-  `compatibility.PhaseType`), provenance kinds and roles, property kinds, the abstract keyed
-  parameter set, pair and group relations, `selection`, `pair_selection`,
-  `component_role` and constants. The physical document names no chemistry kind as a
-  subject; its 354 shaped quantity types over species, element, phase and phase-species axes
-  are unreferenced and are deleted in SM0.
+- **Chemical core in a `chemistry` module of `pse.physical`** (ADR-0127). It holds the
+  species, element, reaction and phase kinds with their attribute schemas, the identifier
+  schemes, the formula relation and the single phase authority, typed by
+  `compatibility.PhaseType`. The kinds belong here because 177 physical quantity types name
+  species, element or reaction as their subject, six operations name them as result
+  subjects, and the finite reductions range over species. The physical inventory is admitted
+  from `pse.physical` alone; register R-51 defers composing it across packages. The 354
+  shaped quantity types over chemistry axes are unreferenced and are deleted in SM0.
+- **`packages/reference/domain` (`pse.domain`)**, above `physical`, holds the rest of the
+  schema:
+  - provenance kinds and roles;
+  - property kinds;
+  - the abstract keyed parameter set;
+  - pair and group relations;
+  - `selection`, `pair_selection` and `component_role`;
+  - constants.
 - **`methods`** becomes the form library: each form is a refined parameter-set kind with
   dimensioned coefficients and bound functions.
 - **`data/<bank>`** packages carry rows only: the species catalogue, `ciaaw`, `nist`,
@@ -85,7 +93,7 @@ The current representation falls short of that in both the kernel and the knowle
   flowsheets and studies.
 
 ```pse
-// pse.domain: chemistry
+// pse.physical: chemistry module
 identifier scheme cas; identifier scheme inchikey;               // opaque; uniqueness only
 entity kind element { key symbol: Text; atomic_number: Count unique; standard_atomic_weight: MolarMass; }
 entity kind species { cas: Id<cas>? unique; inchikey: Id<inchikey>? unique; charge: ChargeNumber = 0;
@@ -150,7 +158,7 @@ package, species, property and phase type. Two-phase formulations take phase slo
 | Today | Becomes | Packet |
 |---|---|---|
 | `caloric.fit` and 13 name-encoded fits | Keyed `parameter_set` rows | SM3 |
-| 354 unreferenced physical shaped types over chemistry axes; chemistry kinds in `kinds` | Deleted; chemistry kinds in `pse.domain` | SM0 |
+| 354 unreferenced physical shaped types over chemistry axes; chemistry kinds in `kinds` | Deleted; chemistry kinds in the `chemistry` module of `pse.physical` | SM0 |
 | `polynomial` with `scale` and `Scalar a..e`; Shomate `t=T/(1000 K)` | Refined forms with dimensioned coefficients; any reduction scale is a typed attribute | KR2, SM3 |
 | `caloric_binding[j]{liquid_fit,…}`, `vapor_pressure_fit[j]` | `selection` rows of a `property_package` | SM5 |
 | `if p==equilibrium.liquid`, `if j==chem.water`, duplicated phases | Phase slots with `require`; `component_role`; one phase authority | SM0, SM5 |
@@ -190,14 +198,14 @@ and after.
 | P0 Decisions and plan transfer | ADR-0123–0126 accepted after review; Plan 21 Outcome, K9 and F01–F13 transfer, retirement of Plan 21 records; register rows; current-work indexes | `just adr-lint` | Plan 21, its execution packets, the K0–K3/K4–K7/through-K8 reviews (ADR-0096) | done (`0e725de2`, `41336c23`) |
 | H1 Whole-seed conformance | Typed fixture `policy { backend; presolve; derivatives; expansion; body slots; time limit }` (within ADR-0119); `packages/reference/conformance.toml`; `just seed-conformance` | `kernel_conformance_reads_fixture_policies_from_declarations`, `kernel_conformance_refuses_unknown_fixture_policy_setting`, `test_conformance_runs_the_declared_reference_set`; one complete run of every fixture | `--fixture-solver/--fixture-presolve/--fixture-derivatives` flags, the runtime `ModelingFixturePolicy` map and parameter, `WorkflowError::FixtureIntentConflict` (the declaration-ID fixture subset in `tests/support/plan14.rs` stays: it selects fixtures for targeted Rust tests) | done; first complete run 90 passed, 1 failed, 3 inconclusive of 94 (H1f) |
 | H1f Whole-seed findings; H1 | The first complete run's non-passing fixtures, each fixed at its cause: SCIP's native allowance is unreachable from a fixture (`heater_optimization_certified` fails; register R-40); derivative sampling perturbs an input fixed at its bound (`saturated_integrated` inconclusive); the tangent-plane check miscounts compared entries (`tpd_ideal` inconclusive); automatic selection now stops `pfr_radau` at a local infeasibility where K8 passed (a routing or Ipopt regression, not a fixture policy) | `just seed-conformance` 94/94 with no masking policy | Whatever each root cause replaces | pending |
-| SM0 Chemistry kinds and phase authority | Confirm the modeling path needs no registry-shaped chemistry types, delete the unreferenced shaped types from `physical.yaml`, and create the `pse.domain` distribution with the species, element, reaction and phase kinds (identities unchanged) and the canonical phases; references move from `kinds.*` and `equilibrium.liquid/vapor`; dependent manifests gain `pse.domain` | `package_declared_axis_indexes_a_sum_without_a_registered_shaped_type`; H1 unchanged | 354 shaped quantity types over species, element, phase and phase-species axes, `kinds.phase_species`, the four kinds in `kinds.pse`, `equilibrium.liquid/vapor`, `chem.liquid/vapor/aqueous` | pending |
+| SM0 Chemistry kinds and phase authority | Confirm the modeling path needs no registry-shaped chemistry types and delete the 354 unreferenced shaped types from `physical.yaml`; move the species, element, reaction and phase kinds (identities unchanged) and the canonical phases into a `chemistry` module of `pse.physical`; references move from `kinds.*` and `equilibrium.liquid/vapor` | `package_declared_axis_indexes_a_sum_without_a_registered_shaped_type`; H1 unchanged | 354 shaped quantity types, `kinds.phase_species`, the four kinds in `kinds.pse`, `equilibrium.liquid/vapor`, `chem.liquid/vapor/aqueous` | in rework on `plan23/sm` (ADR-0127) |
 
 ### Track K — kernel (sequential; owns `pse-schema`, the parser and `pse-modeling/data.rs`)
 
 | Packet | Responsibility / dependencies | Acceptance (targeted tests) | Deletion | Status |
 |---|---|---|---|---|
-| KR1 Unit algebra | `dsl` `Number.unit` → `UnitProduct`; `QuantityRegistry::compose`; atomic and defined units; affine only as sole factor; unit-product identity framed over canonical factors; `reference.units` v2 | `unit_product_is_order_independent` (identity equality), `composite_literal_needs_no_registered_whole_unit`, `affine_unit_only_as_sole_factor`, `defined_unit_dimension_and_scale_are_derived`, `rational_unit_exponents_canonicalize`, `report_in_a_composite_unit_carries_its_identity` | Token-joining `unit()`, exact-string `unit_by_symbol` call sites, authored scale of composite units | pending |
-| KR2 Derived quantity kinds; KR1 | `QuantityKind.definition` with canonical unit, `by_monomial` index, chain flattening in `infer.rs` with the ADR-0124 leaf eligibility and result policy; language type expressions use the same lookup | `seed_forms_type_without_intermediate_kinds` (dippr100, Shomate, RPP4 `cp`, `dh`, `ds`), `eligible_leaves_are_exactly_true_zero_ratio_points_and_differences`, `nonzero_datum_leaf_is_refused_with_its_factor`, `basis_must_agree_or_be_declared`, `undeclared_monomial_is_refused_with_factors`, `rule_and_chain_disagreement_is_refused`, `type_expression_resolves_by_monomial` | — | pending |
+| KR1 Unit algebra | `dsl` `Number.unit` → `UnitProduct`; `QuantityRegistry::compose`; atomic and defined units; affine only as sole factor; unit-product identity framed over canonical factors; `reference.units` v2 | `unit_product_is_order_independent` (identity equality), `composite_literal_needs_no_registered_whole_unit`, `affine_unit_only_as_sole_factor`, `defined_unit_dimension_and_scale_are_derived`, `rational_unit_exponents_canonicalize`, `report_in_a_composite_unit_carries_its_identity` | Token-joining `unit()`, exact-string `unit_by_symbol` call sites, authored scale of composite units | on `plan23/kr` (`d78fe6d0`); awaiting merge |
+| KR2 Derived quantity kinds; KR1 | `QuantityKind.definition` with canonical unit, `by_monomial` index, chain flattening in `infer.rs` with the ADR-0124 leaf eligibility and result policy; language type expressions use the same lookup | `seed_forms_type_without_intermediate_kinds` (dippr100, Shomate, RPP4 `cp`, `dh`, `ds`), `eligible_leaves_are_exactly_true_zero_ratio_points_and_differences`, `nonzero_datum_leaf_is_refused_with_its_factor`, `basis_must_agree_or_be_declared`, `undeclared_monomial_is_refused_with_factors`, `rule_and_chain_disagreement_is_refused`, `type_expression_resolves_by_monomial` | — | on `plan23/kr` (`a8a3282a`); awaiting merge |
 | KR3 Structured IR core; KR2 | Type arena replaces every type-bearing Utf8 (relation version after H1's); `ModelingMissingPolicy`, `ModelingAnnotationKind`, fact-namespace enum, `ModelingVersionOperator`; frame `ModelingSourceRevisionV2` with the ADR-0123 Outcome 8 preimage, and new variants for every frame whose preimage changes (dispatch-body and function-specialization frames included), with golden vectors; no migration (§20.5) |  `type_arena_render_parse_roundtrip` (property test), `type_arena_rejects_forward_child`, `missing_policy_is_enum`, `annotation_kind_dispatch_is_exhaustive`, `analysis_facts_are_typed_namespaces`, `import_requirement_is_typed`, `source_revision_changes_with_a_physical_name_binding`, `unchanged_inputs_reproduce_the_source_revision` (the data-byte case lands with KR9: `source_revision_changes_with_one_data_byte`) | String type grammar in `types.rs`, policy-word check, annotation string dispatch, `analysis.rs` prefix parsing, `Frame::ModelingSourceRevisionV1` | pending |
 | KR4 Typed cells and entity records; KR3 | `ModelingCell`; attribute schemas; kind refinement (interface graph and SCC check reused); identifier schemes and closure uniqueness; keyed kinds from datasets (identity over the key-declaring kind and typed keys; enum members gain identities; dataset-supplied keys are declared bindings); kind-level bindings incl. functions; static `Ref` calls specialize per resolved most-derived function on the existing function-specialization path; `constant` declarations | `kind_extends_kind_and_subkind_members_conform`, `kind_refinement_cycle_refused`, `identifier_unique_within_closure`, `identifier_values_are_never_interpreted`, `attribute_cells_type_checked_at_admission`, `missing_required_attribute_refused_at_admission`, `keyed_identity_is_the_key_declaring_kind_and_typed_keys`, `same_key_in_two_forms_is_refused`, `moving_a_row_between_forms_keeps_its_identity`, `refined_kind_binds_inherited_function_attribute`, `ref_calls_dispatch_one_body_per_concrete_kind`, `non_static_ref_is_refused`, `constants_are_typed_declarations` | Per-access attribute re-evaluation; interface-only base rule for kinds | pending |
 | KR5 Relations with constraints; KR4 | `data.rs` rewrite: three-phase admission (key identities; order-free references, completeness, symmetry, uniqueness, integer ranges; value-dependency-ordered derived columns and row `require`), direct typed ingestion, positional rows | `row_reference_requires_existing_target_row`, `self_referential_lineage_admits_and_cycles_are_refused`, `completeness_over_declared_sets_checked_at_admission`, `required_without_completeness_refused`, `symmetric_pair_answers_both_orientations`, `symmetric_pair_with_both_orientations_refused`, `unique_constraint_rejects_duplicate_tuple`, `derived_column_evaluated_once_per_row`, `row_requirement_names_row_and_clause`, `lookup_outside_completeness_set_refused_before_evaluation` | Fixed-point loop, per-cell text evaluation, string missing-policy test, lookup-time absence failure | pending |
@@ -210,7 +218,7 @@ and after.
 
 | Packet | Responsibility / dependencies | Acceptance | Deletion | Status |
 |---|---|---|---|---|
-| H2 Formal-slot gap | `MAX_FORMAL_SYMBOLS` becomes a lazily extended pool up to the explicit `body_slots` limit with a typed refusal; M1 bench `modeling_preparation` (PC-SAFT 2/5/10/20 components; PR inline and nested) | `formal_pool_extends_to_the_declared_limit_and_refuses_beyond`, `formal_symbols_are_stable_across_pool_extension` | The fixed ceiling | pending |
+| H2 Formal-slot gap | `MAX_FORMAL_SYMBOLS` becomes a lazily extended pool up to the explicit `body_slots` limit with a typed refusal; M1 bench `modeling_preparation` (PC-SAFT 2/5/10/20 components; PR inline and nested) | `formal_pool_extends_to_the_declared_limit_and_refuses_beyond`, `formal_symbols_are_stable_across_pool_extension` | The fixed ceiling | done on `plan23/h` (`c97edece`, `d4cbe19e`); awaiting merge |
 | H3 Reuse counters (CT-S08) | `PreparationCounts` in study results, Rust and Python | `study_results_carry_preparation_counts`, `test_flash_sweep_prepares_structure_once` | — | pending |
 | H4 Regime-crossing counters (M3) | Nested stage reports regime changes per outer iteration | `nested_stage_reports_regime_crossings_per_outer_iteration` | — | pending |
 | H5 Typed expectations; KR6, KR7 | Expected failures match class plus lineage (parameter set, form, envelope layer, member) | `expected_envelope_failure_matches_set_layer_and_variable`, `expected_failure_with_wrong_lineage_fails_the_fixture` | Class-and-rule-only match | pending |
@@ -303,7 +311,7 @@ closes with the acceptance of the named scenarios.
 | [F13](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f13) FeOS cannot own the scope | CT-S03 | scheduled | CT-S03, SM2 | — |
 
 The [typed-domain review](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md)
-findings are resolved in the text of ADR-0123 to ADR-0126 (review §13). Each closes when
+findings are resolved in the text of ADR-0123 to ADR-0125 and ADR-0127 (review §13; §13.1 corrects F07). Each closes when
 its implementation evidence exists:
 
 | Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |
@@ -314,7 +322,7 @@ its implementation evidence exists:
 | [Typed-domain F04](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f04) test-only taint granularity | DM4 | scheduled | KR6 | `production_root_reading_an_oracle_row_is_refused`, `shared_relation_with_oracle_rows_keeps_production_roots_admissible` |
 | [Typed-domain F05](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f05) admission order and self-reference | DM6 | scheduled | KR5 | `self_referential_lineage_admits_and_cycles_are_refused` |
 | [Typed-domain F06](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f06) pair and phase-model selection | DM2, DM5 | scheduled | D0 | missing pair selection refusal; DM2 pairs |
-| [Typed-domain F07](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f07) chemistry kinds' placement | — | scheduled | SM0 | `package_declared_axis_indexes_a_sum_without_a_registered_shaped_type`; 354 shaped types deleted |
+| [Typed-domain F07](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f07) chemistry kinds' placement | — | scheduled | SM0, ADR-0127 | shaped types deleted; subject kinds stay in `pse.physical` (review §13.1) |
 | [Typed-domain F08](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f08) datum stated twice | CT-S10 | scheduled | D0, KR8 | parameter sets carry no reference attribute |
 | [Typed-domain F09](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f09) binary documents across text contracts | DM1 | scheduled | KR9 | `durable_job_round_trips_a_package_with_a_data_document`, `parquet_metadata_unit_disagreement_is_refused` |
 | [Typed-domain F10](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f10) admitted-table reuse owner | S01 | scheduled | KR9 | `unchanged_dataset_reuses_admitted_table` (incremental equals clean) |
@@ -366,6 +374,34 @@ H1 done: typed fixture `policy` clauses, `packages/reference/conformance.toml` a
 In progress:
 - KR1 → KR2, in the worktree `/home/paul/pse-arrow-wt/kr` (branch `plan23/kr`).
 - H2, in the worktree `/home/paul/pse-arrow-wt/h` (branch `plan23/h`).
+
+H2 implemented on `plan23/h`. Its smoke run of `modeling_preparation`, first-order
+derivatives only, prepared PC-SAFT at 2 components in 3.5 s (1095 slots), at 5 components in
+16 s (2961 slots) and at 10 components in 277 s (8591 slots, 1.0 GB RSS; the pool grew past its
+first chunk). This is single-run evidence for M1, not the measurement.
+
+`just bench-smoke` fails in `native_cache` and `native_consolidation`; H is checking whether
+they already fail at the base commit.
+
+KR1 and KR2 are implemented on `plan23/kr`:
+- `reference.units` v2, with unit-product frame `pse.quantity.unit-product.v1`;
+- `reference.quantity_kinds` v3;
+- `MathPhysicalInventoryV4`;
+- 17 composite units are now defined units;
+- 242 literals were rewritten mechanically, `m3` → `m^3` and `m2` → `m^2`.
+
+Open: the entropy increment `ds` has the monomial of `MolarCp`. The decision is to use no
+silent reinterpretation between same-monomial kinds: an explicit reinterpretation is
+declared once in the physical document and invoked in the form. The KR agent is
+implementing it, then running H1 on its rebased branch.
+
+Architecture text owed at wave end:
+- the 4096-slot figures in §7 (mathematics and compilation);
+- the statement that tracked queries only read the mathematical context, now amended: the
+  formal pool grows monotonically and append-only, and slot symbols are stable;
+- the pool-ceiling sentence on TPD certification in §18.10.1;
+- §8.1 (inventory v4) and §8.2 (unit products, defined units, canonical spellings);
+- §8.3: chain resolution, and the reinterpretation between same-monomial kinds.
 
 KR3 starts after H1 merges, because both change `authored.modeling_declarations`. SM0 and
 track C start after H1.

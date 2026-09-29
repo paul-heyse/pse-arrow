@@ -134,7 +134,7 @@ The registry generates every public declaration contract.
 The foundation keeps each meaning in one owner and derives every consumer projection
 from it. The implementation below replaces the former selected builder/relationship vocabulary.
 Decision rationale for this change is in proposed ADR-0097–0101; the typed package schema
-that refines it is ADR-0123 to ADR-0126, implemented by
+that refines it is ADR-0123 to ADR-0125 and ADR-0127, implemented by
 [Plan 23](../../plans/23-thermodynamic-domain-and-campaign.md).
 Limits are recorded in
 [§25](scope-and-open-design.md#section-25).

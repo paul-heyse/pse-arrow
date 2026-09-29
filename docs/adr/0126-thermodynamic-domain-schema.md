@@ -1,7 +1,7 @@
 ---
 id: ADR-0126
 title: Declare the thermodynamic domain once for every library
-status: accepted
+status: superseded
 date: 2026-09-29
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§9.1, §9.3, §9.5, §9.7, §6.15.3, §6.15.7]
 review: not-required: package knowledge on the ADR-0123 mechanisms; examined by the Plan 23 knowledge-boundary audit
 evidence: Proposed
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0127
 revisit: A ported library needs a domain concept the schema lacks and cannot express as a refinement or relation of it, or two libraries require incompatible meanings for one declared kind.
 verification: Plan 23 SM0 control package_declared_axis_indexes_a_sum_without_a_registered_shaped_type, the D0 refusal corpus (domain_schema_refusals_name_the_violated_constraint, including a missing pair selection), the SM1–SM6 seed migration with unchanged fixture expectations, and scenarios CT-S01, DM1, DM2 (extended to pairs), DM4 and DM5; the AUD review confirms that libraries add rows, forms and bindings only.
 standard: core-3.1/process-simulator-1.1
@@ -129,3 +129,4 @@ findings F06–F08 and F15 are incorporated.
 
 - 2026-09-29: proposed; amended the same day with the design-review resolutions.
 - 2026-09-29: accepted on the maintainer's Plan 23 authorization; design-review verdict Accept-scoped, with its condition (N2: every chemistry-axis shaped type is deleted) incorporated.
+- 2026-09-29 — superseded by ADR-0127.

@@ -385,3 +385,16 @@ over the listed type IDs.
 - Under the binding, the plan's table is the current owner of these dispositions and of N1, N2 and E1. It should link them.
 
 This is bookkeeping, not a design finding.
+
+### 13.1 Correction from execution evidence (2026-09-29)
+
+F07's observation that `subject_kind` is null on all 466 quantity types is wrong.
+Plan 23 SM0 counted 177 types whose subject is species (146), element (29) or reaction (2),
+six operations whose result subject is species or element, and two finite reductions over
+species. After the 354 shaped chemistry-axis types were deleted, 34 subject-bearing types
+remain, and they back live quantity names. The physical inventory is admitted from
+`pse.physical` alone, so ADR-0126's placement of the chemical core in `pse.domain` was
+inadmissible. ADR-0127 supersedes ADR-0126: the chemical core, including `phase`, lives in
+a `chemistry` module of `pse.physical`. Register R-51 defers composing physical inventories
+across packages. The other F07 conclusion stands, and SM0 applied it: the shaped
+chemistry-axis types were unreferenced and are deleted.
