@@ -97,6 +97,30 @@ pub enum LimitKind {
 fn native_suffix(status: Option<&NativeStatus>) -> String {
     status.map_or_else(String::new, |s| format!(" [{s}]"))
 }
+/// Why retained native state cannot serve a step whose policy requires reusing it (PS-10).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ReuseRefusal {
+    /// Another backend holds the retained state.
+    Foreign(solve::Backend),
+    /// The step's coordinates, profile, sparsity, bounds or settings differ from those of
+    /// the retained state, which must be rebuilt for them.
+    Structure,
+    /// The retained native problem holds these option keys and the step sets none of them.
+    /// The native interface cannot unset an option, so reuse would carry their earlier
+    /// values into the step (F02).
+    DroppedOptions(Vec<String>),
+}
+impl std::fmt::Display for ReuseRefusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Foreign(held) => write!(f, "{} holds the retained state", held.as_str()),
+            Self::Structure => f.write_str("coordinates, sparsity, bounds or settings changed"),
+            Self::DroppedOptions(keys) => {
+                write!(f, "the step drops retained options {}", keys.join(", "))
+            }
+        }
+    }
+}
 /// A refused request or an attributable failure, classified by its cause (DP-21).
 #[derive(Debug, thiserror::Error)]
 pub enum ProblemError {
@@ -132,6 +156,14 @@ pub enum ProblemError {
     /// No eligible route, or the selected adapter cannot represent the request.
     #[error("unsupported: {0}")]
     Unsupported(String),
+    /// The step requires reusing retained native state that cannot serve it.
+    #[error("{} cannot reuse its retained native state: {refusal}", .backend.as_str())]
+    Reuse {
+        /// Backend whose reuse was required.
+        backend: solve::Backend,
+        /// Why the retained state cannot serve the step.
+        refusal: ReuseRefusal,
+    },
     /// A native method or numerical kernel failed; the native status is kept when one exists.
     #[error("numerical failure: {detail}{}", native_suffix(.status.as_ref()))]
     Numerical {
@@ -238,6 +270,13 @@ impl ProblemError {
                 .capacity()
                 .saturating_add(status.as_ref().map_or(0, |s| s.name.capacity())),
             Self::Limit { detail, .. } => detail.capacity(),
+            Self::Reuse { refusal, .. } => match refusal {
+                ReuseRefusal::DroppedOptions(keys) => keys.iter().fold(
+                    keys.capacity().saturating_mul(size_of::<String>()),
+                    |bytes, key| bytes.saturating_add(key.capacity()),
+                ),
+                ReuseRefusal::Foreign(_) | ReuseRefusal::Structure => 0,
+            },
             Self::Structural { rows, columns, .. } => rows
                 .capacity()
                 .saturating_add(columns.capacity())
@@ -252,7 +291,7 @@ pse_diagnostics::impl_diagnostic! {
     ProblemError,
     code(this) { match this {
         Self::Contract(_) | Self::Structural{..} => Some(pse_diagnostics::DiagnosticCode::CompileMath),
-        Self::Unavailable{..} | Self::Unsupported(_) => Some(pse_diagnostics::DiagnosticCode::CapabilityBackend),
+        Self::Unavailable{..} | Self::Unsupported(_) | Self::Reuse{..} => Some(pse_diagnostics::DiagnosticCode::CapabilityBackend),
         Self::Numerical{..} => Some(pse_diagnostics::DiagnosticCode::SolveSolverError),
         Self::Limit{kind: LimitKind::Time, ..} => Some(pse_diagnostics::DiagnosticCode::RuntimeTimeout),
         Self::Limit{..} => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
