@@ -101,6 +101,14 @@ impl PreparedExperiments {
             .filter(|n| *n > 0)
             .ok_or_else(|| contract("fit preparation memory allowance"))?
             .min(profile.max_cells);
+        reservation
+            .try_grow(
+                layout_limit
+                    .checked_mul(256)
+                    .and_then(|n| n.checked_add(metadata_bytes))
+                    .ok_or_else(|| contract("fit preparation memory allowance"))?,
+            )
+            .map_err(crate::math::MathRuntimeError::from)?;
         let layout = Arc::new(
             sparse::Layout::new(
                 &experiments,

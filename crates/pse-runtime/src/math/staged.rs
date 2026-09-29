@@ -163,13 +163,13 @@ impl MathService {
         self: &Arc<Self>,
         slot: tokio::sync::OwnedSemaphorePermit,
     ) -> Result<NativeSession, MathRuntimeError> {
-        // The session thread's inner-solve session cache is held within its lease (I14).
+        // The session thread's inner-solve session cache is held within its lease (I14);
+        // its workers draw from the pool as they are built.
         let sessions = self.policy.inner_session_bytes;
         let bytes = self
             .policy
             .stack_bytes
             .checked_add(self.policy.foreign_bytes)
-            .and_then(|n| n.checked_add(self.policy.worker_bytes))
             .and_then(|n| n.checked_add(sessions))
             .ok_or(MathRuntimeError::Limit("native allowance overflow"))?;
         let lease = self.reserve("math:native-session", bytes)?;
@@ -198,7 +198,7 @@ impl MathService {
             service: self.clone(),
             sender: Some(sender),
             joined: Some(receiver),
-            budget: WorkerBudget::new(self.policy.worker_bytes),
+            budget: WorkerBudget::drawing(self.policy.worker_bytes, &self.pool),
         })
     }
 }

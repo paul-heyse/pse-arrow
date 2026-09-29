@@ -180,12 +180,9 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<(FitProblem, Vec<Assessment>), WorkflowError> {
-        let policy = &self.runtime.shared.budget().math;
+        // Charged once the layout bound is known, before the layout is built.
         let reservation = datafusion::execution::memory_pool::MemoryConsumer::new("fit:prepared")
             .register(&self.runtime.shared.pool());
-        reservation
-            .try_grow(policy.workspace_bytes)
-            .map_err(crate::math::MathRuntimeError::from)?;
         let d = self
             .fit_data
             .fits

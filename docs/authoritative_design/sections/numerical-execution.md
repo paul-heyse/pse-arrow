@@ -1229,6 +1229,10 @@ native stack, live jobs and flights.
 - A job acquires a job slot, CPU permits for its admitted cores and a pool reservation
   covering stacks (one per worker plus a coordinator for parallel teams), numeric bytes
   and the foreign allowance; parallelism cannot exceed the effective process CPU count.
+  A compiler job (preparation, rebinding, flow or function generation) runs inside its
+  workspace's lease, which already covers the compiler's working set, so it charges only
+  its thread up front; a fit preparation charges its sparse-layout bound (`max_cells`),
+  not the workspace allowance.
   A library that enforces its own memory limit receives the job's foreign allowance as
   `Execution::memory`, set by `MathService::execute`; SCIP turns it into `limits/memory`
   and refuses to run without it ([§18.10.1](#section-18-10-1)).
@@ -1238,10 +1242,14 @@ native stack, live jobs and flights.
 - Dropping a `SolveHandle` requests cancellation; awaiting `finish` observes completion
   only after native teardown, thread-local destruction and join. Permits and
   reservations survive caller cancellation until that join. Retained results transfer a
-  split of the job reservation to an `AllocationLease` that lives with the result.
+  split of the job reservation to an `AllocationLease` that lives with the result; a
+  product larger than the job's working allowance first grows the reservation to its
+  extent, and one the pool cannot admit is refused as a pool limit.
 - A staged sequence runs on one `NativeSession` (`math/staged.rs`, Plan 22 A6). Opening it
   takes one job slot and a pool reservation for its thread's stack, the foreign allowance
-  and one worker share, held until the session closes; each step acquires CPU permits for
+  and the inner-session cache, held until the session closes. Its evaluators draw their
+  numeric storage from the pool as they are built, up to one worker share, so an idle
+  session holds no worker storage. Each step acquires CPU permits for
   its own admitted cores only, so the driver prepares and rebinds between steps without
   holding permits for an idle session. Every step, a single solve included
   (`MathService::solve` opens a one-step session), runs through `MathService::execute` on
@@ -1295,8 +1303,8 @@ native stack, live jobs and flights.
 - Each attempt evaluator is built by one path, `MathService::worker`. Its provider workers
   are scoped to the attempt's cooperative cancel flag, so a nested native provider, such as
   an implicit inner solve, polls that same flag. Its numeric storage is charged to a
-  per-job `WorkerBudget`, the worker share of the job's reservation, for as long as the
-  evaluator lives. Staged-sequence steps (the step, the original re-evaluation and the
+  per-job `WorkerBudget`, the worker share of the job's reservation (a session's budget
+  draws each charge from the pool), for as long as the evaluator lives. Staged-sequence steps (the step, the original re-evaluation and the
   step's original-model assessment, all on the session's worker), block initialization,
   causal-map units and owned-worker jobs build their
   evaluators this way, so the reservation covers all of a job's live evaluators together;

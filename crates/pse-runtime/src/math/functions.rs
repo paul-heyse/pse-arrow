@@ -28,7 +28,7 @@ impl MathService {
         let foreign = self.policy.foreign_bytes;
         let operation = self.job_retained(
             1,
-            self.policy.workspace_bytes,
+            super::WITHIN_WORKSPACE,
             control.clone(),
             move |flag| {
                 let _lease = workspace.lease;

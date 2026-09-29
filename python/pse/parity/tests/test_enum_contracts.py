@@ -32,19 +32,10 @@ BINDINGS = msgspec.toml.decode(
 
 @pytest.fixture(scope="module")
 def admitted_names(
-    tmp_path_factory: pytest.TempPathFactory,
+    runtime: pse.Runtime,
 ) -> dict[str, tuple[str, dict[str, str]]]:
     root = Path(__file__).resolve().parents[4]
     documents = _documents(root / "packages/reference/physical")
-    runtime = pse.Runtime(
-        pse.EngineSettings(
-            memory_limit_bytes=8 << 30,
-            threads=1,
-            spill_dir=str(tmp_path_factory.mktemp("enum-parity")),
-            max_spill_bytes=1 << 30,
-            batch_size=1024,
-        )
-    )
     physical = runtime.physical_from_documents(documents)
     package = runtime.modeling_from_documents([documents], physical)
     declared = {

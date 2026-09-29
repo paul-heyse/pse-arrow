@@ -45,7 +45,7 @@ impl MathService {
         let (graph, lease) = self
             .job_retained(
                 1,
-                self.policy.workspace_bytes,
+                super::WITHIN_WORKSPACE,
                 FlightCancellation::default(),
                 move |_| {
                     let _lease = workspace.lease;

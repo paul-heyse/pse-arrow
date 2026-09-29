@@ -21,7 +21,15 @@ fn service_and_cache() -> (
     Arc<MathService>,
     Arc<pse_engine::cache_service::NativeCacheService>,
 ) {
-    let pool: Arc<dyn MemoryPool> = Arc::new(FairSpillPool::new(512 << 20));
+    service_in(512 << 20)
+}
+fn service_in(
+    pool: usize,
+) -> (
+    Arc<MathService>,
+    Arc<pse_engine::cache_service::NativeCacheService>,
+) {
+    let pool: Arc<dyn MemoryPool> = Arc::new(FairSpillPool::new(pool));
     let native = pse_engine::cache_service::NativeCacheService::new(
         pse_engine::cache_service::CacheBudget::disabled(1024),
         &pool,
@@ -131,6 +139,33 @@ async fn prepared(s: &Arc<MathService>) -> Preparation {
     )
     .await
     .unwrap()
+}
+#[tokio::test]
+async fn preparation_runs_inside_its_workspace_reservation() {
+    // A pool holding one workspace, one native thread and the product admits the
+    // preparation: the job does not charge the workspace allowance a second time.
+    let policy = service().policy.clone();
+    let pool = policy.workspace_bytes
+        + policy.stack_bytes
+        + policy.foreign_bytes
+        + policy.inner_session_bytes
+        + (policy.workspace_bytes / 2);
+    let s = service_in(pool).0;
+    let w = s.workspace(inputs(), WorkspaceLimits::default()).unwrap();
+    let prepared = s
+        .prepare(
+            w,
+            id(5),
+            DerivativeOrder::First,
+            profile(),
+            false,
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    assert!(s.pool.reserved() >= prepared.prepared.retained_bytes());
+    drop(prepared);
+    assert_eq!(s.pool.reserved(), 0);
 }
 #[tokio::test]
 async fn prepared_products_share_capacity_and_survive_workspace_rotation() {
@@ -845,6 +880,29 @@ async fn retained_result_capacity_transfers_without_a_second_reservation() {
 }
 
 #[tokio::test]
+async fn retained_result_beyond_the_working_allowance_is_charged_at_its_extent() {
+    let s = service();
+    let (result, owner) = s
+        .job_retained(1, 0, FlightCancellation::default(), move |_| {
+            Ok((vec![3_u64; 1 << 20], 8 << 20))
+        })
+        .await
+        .unwrap();
+    assert_eq!(owner.size(), 8 << 20);
+    assert_eq!(s.pool.reserved(), 8 << 20);
+    drop((result, owner));
+    assert_eq!(s.pool.reserved(), 0);
+    // A product the pool cannot admit is refused after the work, as a pool limit.
+    let refused = s
+        .job_retained(1, 0, FlightCancellation::default(), move |_| {
+            Ok(((), 1 << 30))
+        })
+        .await;
+    assert!(matches!(refused, Err(MathRuntimeError::Pool(_))));
+    assert_eq!(s.pool.reserved(), 0);
+}
+
+#[tokio::test]
 async fn parallel_jobs_admit_library_team_stacks_and_release_them_after_join() {
     let service = service();
     let pool = service.pool.clone();
@@ -1032,6 +1090,7 @@ async fn session_step_reserves_per_worker() {
             owner,
             &crate::CancelSource::new(),
             move |_, cancel, budget| {
+                let idle = assessor.pool.reserved();
                 // The step's assessment builds two evaluators at once on the session worker.
                 let first = assessor
                     .worker(case.clone(), &registrations, cancel.clone(), budget)
@@ -1042,26 +1101,31 @@ async fn session_step_reserves_per_worker() {
                 let both = budget.used();
                 // No further evaluator fits once the session's worker share is spent.
                 let overflow = budget.charge(budget.capacity() - both + 1).is_err();
+                let reserved = assessor.pool.reserved();
+                drop((first, second));
                 let seen = (
                     budget.capacity(),
                     both,
                     case.assembly.numeric_worker_bytes(),
-                    assessor.pool.reserved(),
+                    reserved,
+                    reserved - idle,
+                    reserved - assessor.pool.reserved(),
                     overflow,
                 );
-                drop((first, second));
                 (seen, true)
             },
         )
         .await
         .unwrap();
     session.close().await;
-    let (capacity, both, worker, reserved, overflow) = seen;
-    // Every evaluator the step builds is charged to the session's worker share, and the
-    // session's pool reservation covers that whole share.
+    let (capacity, both, worker, reserved, drawn, released, overflow) = seen;
+    // Every evaluator the step builds is charged to the session's worker share and drawn
+    // from the pool while it lives; the share is a ceiling, not a standing reservation.
     assert_eq!(capacity, s.policy.worker_bytes);
     assert_eq!(both, 2 * worker);
-    assert!(reserved >= capacity + s.policy.stack_bytes + s.policy.foreign_bytes);
+    assert!(reserved >= both + s.policy.stack_bytes + s.policy.foreign_bytes);
+    assert_eq!(drawn, both);
+    assert_eq!(released, both);
     assert!(overflow);
 }
 

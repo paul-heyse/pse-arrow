@@ -131,7 +131,7 @@ impl MathService {
         let control = FlightCancellation::default();
         let operation = self.job(
             1,
-            self.policy.workspace_bytes,
+            super::WITHIN_WORKSPACE,
             control.clone(),
             move |flag| {
                 let _lease = workspace.lease;
@@ -361,7 +361,7 @@ impl MathService {
         let foreign = self.policy.foreign_bytes;
         let operation = self.job_retained(
             1,
-            self.policy.workspace_bytes,
+            super::WITHIN_WORKSPACE,
             control.clone(),
             move |flag| {
                 let _lease = workspace.lease;
@@ -403,7 +403,7 @@ impl MathService {
         let foreign = self.policy.foreign_bytes;
         let operation = self.job_retained(
             1,
-            self.policy.workspace_bytes,
+            super::WITHIN_WORKSPACE,
             control.clone(),
             move |flag| {
                 let _lease = workspace.lease;
@@ -442,7 +442,7 @@ impl MathService {
         let foreign = self.policy.foreign_bytes;
         let operation = self.job_retained(
             1,
-            self.policy.workspace_bytes,
+            super::WITHIN_WORKSPACE,
             control.clone(),
             move |flag| {
                 let _lease = workspace.lease;
@@ -490,7 +490,7 @@ impl MathService {
         let foreign = self.policy.foreign_bytes;
         let operation = self.job_retained(
             1,
-            self.policy.workspace_bytes,
+            super::WITHIN_WORKSPACE,
             control.clone(),
             move |flag| {
                 let _lease = workspace.lease;
@@ -590,11 +590,11 @@ impl MathService {
         if bytes > self.policy.workspace_bytes / 2 {
             return Err(MathRuntimeError::Limit("modeling source bytes"));
         }
-        // Reserve the admission's maximum before building checked state; the
-        // retained lease is reduced to the actual immutable revision extent.
+        // The source rows are charged before building checked state inside the
+        // workspace's lease; the retained lease then takes the revision's actual extent.
         let reservation =
             pse_columnar::MemoryConsumer::new("modeling:source-revision").register(&self.pool);
-        reservation.try_grow(self.policy.workspace_bytes / 2)?;
+        reservation.try_grow(bytes)?;
         use pse_model::SemanticFrame;
         let mut source = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingSourceRevisionV1);
         source.u64(rows.len() as u64);
@@ -613,7 +613,7 @@ impl MathService {
         if admitted.retained_bytes() > self.policy.workspace_bytes / 2 {
             return Err(MathRuntimeError::Limit("modeling admitted source bytes"));
         }
-        reservation.shrink(self.policy.workspace_bytes / 2 - admitted.retained_bytes());
+        reservation.try_resize(admitted.retained_bytes())?;
         Ok(ModelingRevision {
             identity: source.finish_hash(),
             admitted,
@@ -640,7 +640,7 @@ impl MathService {
         let foreign = self.policy.foreign_bytes;
         let operation = self.job_retained(
             1,
-            self.policy.workspace_bytes,
+            super::WITHIN_WORKSPACE,
             control.clone(),
             move |flag| {
                 let _workspace_lease = workspace.lease;

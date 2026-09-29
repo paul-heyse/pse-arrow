@@ -754,6 +754,20 @@ parity *args:
     UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --group parity --python 3.13
     UV_PROJECT_ENVIRONMENT=.venv-parity uv run --no-sync pytest --maxfail=0 --continue-on-collection-errors --parity -m "unit or component or integration" {{ args }}
 
+[group('local')]
+[doc('Parity comparisons against IDAES 2.13.0 on the host: pse built on the linked native solvers, the solver prefix on PATH')]
+[positional-arguments]
+parity-native *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-execution-env.sh
+    maturin="$(realpath "{{ bin / 'maturin' }}")"
+    export UV_PROJECT_ENVIRONMENT=.venv-parity
+    uv sync --locked --group parity --no-install-project --python 3.13
+    VIRTUAL_ENV="$PWD/.venv-parity" "$maturin" develop --uv --profile dev --locked --features force-validate,native-solvers
+    export PATH="$IPOPT_DIR/bin:$PATH"
+    .venv-parity/bin/python -m pytest --maxfail=0 --parity -m "unit or component or integration" python/pse/parity "$@"
+
 [group('manual')]
 [doc('Optional aggregate of Rust, Python, quality and documentation checks; container parity is separate')]
 ci-pr:

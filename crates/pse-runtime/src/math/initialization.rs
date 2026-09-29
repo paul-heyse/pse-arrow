@@ -350,7 +350,7 @@ impl MathService {
         let (products, lease) = self
             .job_retained(
                 1,
-                self.policy.workspace_bytes,
+                super::WITHIN_WORKSPACE,
                 FlightCancellation::default(),
                 move |_| {
                     let _lease = workspace.lease;
@@ -397,7 +397,7 @@ impl MathService {
         let control = FlightCancellation::default();
         let operation = self.job_retained(
             1,
-            self.policy.workspace_bytes,
+            super::WITHIN_WORKSPACE,
             control.clone(),
             move |flag| {
                 let _lease = workspace.lease;

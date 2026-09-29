@@ -11,10 +11,14 @@ use std::sync::{
 /// evaluator the job builds charges its numeric storage here and releases the charge when
 /// it is dropped, so the reservation covers all of the job's live workers together, never
 /// only the first; a worker that does not fit is refused (F31).
+///
+/// A native session's budget instead draws each charge from the deployment pool as it is
+/// made, up to its capacity, so an idle session holds no worker storage.
 #[derive(Debug)]
 pub struct WorkerBudget {
     capacity: usize,
     used: AtomicUsize,
+    pool: Option<datafusion::execution::memory_pool::MemoryReservation>,
 }
 impl WorkerBudget {
     /// A budget of `capacity` bytes, the worker share of the job's reservation.
@@ -22,18 +26,40 @@ impl WorkerBudget {
         Arc::new(Self {
             capacity,
             used: AtomicUsize::new(0),
+            pool: None,
+        })
+    }
+    /// A budget of up to `capacity` bytes charged to `pool` as workers are built.
+    pub(crate) fn drawing(
+        capacity: usize,
+        pool: &Arc<dyn datafusion::execution::memory_pool::MemoryPool>,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            capacity,
+            used: AtomicUsize::new(0),
+            pool: Some(
+                datafusion::execution::memory_pool::MemoryConsumer::new("math:session-workers")
+                    .register(pool),
+            ),
         })
     }
     /// Reserve `bytes` for one worker until the returned charge is dropped.
     ///
     /// # Errors
-    /// The job's live workers and this one exceed its worker capacity.
+    /// The job's live workers and this one exceed its worker capacity, or the pool cannot
+    /// admit a session's charge.
     pub fn charge(self: &Arc<Self>, bytes: usize) -> Result<WorkerCharge, MathRuntimeError> {
         self.used
             .try_update(Ordering::AcqRel, Ordering::Acquire, |used| {
                 used.checked_add(bytes).filter(|n| *n <= self.capacity)
             })
             .map_err(|_| MathRuntimeError::Limit("worker storage"))?;
+        if let Some(pool) = &self.pool
+            && let Err(error) = pool.try_grow(bytes)
+        {
+            self.used.fetch_sub(bytes, Ordering::AcqRel);
+            return Err(error.into());
+        }
         Ok(WorkerCharge {
             budget: self.clone(),
             bytes,
@@ -56,6 +82,9 @@ pub struct WorkerCharge {
 }
 impl Drop for WorkerCharge {
     fn drop(&mut self) {
+        if let Some(pool) = &self.budget.pool {
+            pool.shrink(self.bytes);
+        }
         self.budget.used.fetch_sub(self.bytes, Ordering::AcqRel);
     }
 }
@@ -160,7 +189,8 @@ impl MathService {
             .map(|(r, _)| r)
     }
     /// Transfer retained capacity from the active job reservation after native join.
-    /// The returned owner is acquired without releasing/reacquiring pool capacity.
+    /// The returned owner is acquired without releasing/reacquiring pool capacity; a
+    /// product larger than `bytes` grows the reservation to its extent first.
     pub(super) async fn job_retained<T: Send + 'static>(
         self: &Arc<Self>,
         cores: usize,
@@ -232,7 +262,8 @@ impl MathService {
                 // Joining, not receipt of an early result, witnesses TLS destruction.
                 let result=tokio::task::spawn_blocking(move||handle.join()).await.map_err(|e|MathRuntimeError::Infrastructure(e.to_string()))?.map_err(|_|MathRuntimeError::Infrastructure("native worker panic".into()))?;
                 let result = result.and_then(|(value, retained)| {
-                    if retained > lease.size() { return Err(MathRuntimeError::Limit("retained result exceeds admitted capacity")); }
+                    // A product beyond the working allowance is charged at its actual extent.
+                    if let Some(more) = retained.checked_sub(lease.size()).filter(|n| *n > 0) { lease.try_grow(more)?; }
                     Ok((value, pse_columnar::AllocationLease::new(lease.split(retained))))
                 });
                 drop(lease);drop(cpu);result

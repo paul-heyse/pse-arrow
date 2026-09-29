@@ -157,6 +157,10 @@ pse_diagnostics::impl_diagnostic! {
     forward(this) { match this {Self::Solve(e)=>Some(e),Self::Compile(e)=>Some(e),Self::Math(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),_=>None} },
     help(_this) { None },related(_this) { None },source(_this) { None }
 }
+/// Working allowance of a job that runs inside a held workspace lease. The workspace lease
+/// already covers the compiler's working set, so the job charges only its native thread
+/// and then its retained product at the product's extent.
+const WITHIN_WORKSPACE: usize = 0;
 /// Deployment-owned mathematics service registered with native cache reporting/invalidation.
 pub struct MathService {
     pool: Arc<dyn MemoryPool>,
@@ -346,7 +350,7 @@ impl MathService {
         let foreign = self.policy.foreign_bytes;
         let operation = self.job_retained(
             1,
-            self.policy.workspace_bytes,
+            WITHIN_WORKSPACE,
             control.clone(),
             move |flag| {
                 let _workspace_lease = workspace.lease;
@@ -380,7 +384,7 @@ impl MathService {
         let foreign = self.policy.foreign_bytes;
         let operation = self.job_retained(
             1,
-            self.policy.workspace_bytes,
+            WITHIN_WORKSPACE,
             control.clone(),
             move |flag| {
                 let _lease = workspace.lease;
