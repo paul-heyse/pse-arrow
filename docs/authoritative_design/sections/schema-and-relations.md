@@ -364,15 +364,15 @@ The old instance/composition/connection relation families have no remaining prod
 
 > Decision: [ADR-0103](../../adr/0103-variable-domain-facet.md) — variables gain a
 > declared domain facet (`continuous`, `integer`, `binary`, `semicontinuous`,
-> `semiinteger`) with per-mode semantics (Plan 22 M1, the M2 refusals and the M2a inward
-> tightening, implemented; the M2 fixed-assignment stage, M2b, is not yet implemented);
+> `semiinteger`) with per-mode semantics (Plan 22 M1, the M2 refusals, the M2a inward
+> tightening, the M2b initialization fixes and the M2c commitment, implemented);
 > [ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md) — indicator,
 > SOS, cardinality, piecewise-linear, logic and disjunction declarations with named
-> realizations (Plan 22 M3 and M4, implemented), and complementarity declarations (M5a,
-> implemented; executing the penalty realization, M5b, is not yet implemented);
+> realizations (Plan 22 M3 and M4, implemented), and complementarity declarations with
+> their three realizations (M5a and M5b, implemented);
 > [ADR-0111](../../adr/0111-multi-objective-optimization.md) — objective members with
-> priority, weight, normalization and level tolerances (Plan 22 C3 authoring, implemented;
-> the C3 engine is not yet implemented).
+> priority, weight, normalization and level tolerances, and the lexicographic engine (Plan
+> 22 C3, implemented).
 
 Variables, parameters and value members are tagged modeling declarations. Specialized
 scalar identities derive from declaration, instance and admitted membership, never display
@@ -408,15 +408,29 @@ with one:
 |---|---|
 | Steady optimization | A decision: an authored MILP routes to HiGHS, and MIQP and MINLP route to SCIP ([§18.1](numerical-execution.md#section-18-1)), whose export lowers semicontinuous and semiinteger variables by `semi(indicator)` |
 | Root solve | Refused; when the case fixes every discrete variable, the solve is continuous |
-| Initialization | Refused; the stage that fixes discrete variables as a scoped overlay (Plan 22 M2) is not yet implemented |
+| Initialization | Refused by default (`DiscreteInitialization::Refuse`); `FixAtStart` or `FixAt(values)` holds them in every stage and homotopy step as a scoped overlay, restored on every exit, and the final original specification runs unfixed and decides them (Plan 22 M2b) |
 | Fitting | Refused unless the experiment's case fixes it |
 | Integrated dynamics | Refused unless the case fixes it; a fixed one is a parameter of integration, piecewise constant through scheduled inputs ([§13.5](workflows-and-results.md#section-13-5)) |
 | Nested implicit root | A discrete unknown is refused (analysis `root`) |
 
-The factorable runner's fixed-assignment re-solve states its duals, local analysis and
-sensitivities conditional on the assignment
-([§18.10.1](numerical-execution.md#section-18-10-1)); one commitment shared by that re-solve
-and HiGHS's fixed-commitment LP (Plan 22 M2c) is not yet implemented. Each refusal is a
+An initialization's fix values are resolved once, before any attempt: a value that is not a
+member of the variable's domain (a non-integral integer, a binary other than 0 or 1) or a
+missing one is a typed `DomainRefusal` (`NotMember`, `NoFixValue`), and
+`runtime.modeling_initializations` (version 2) records the policy and the assignment the
+stage and homotopy attempts ran under (`initialization_fixes_and_restores_integers`,
+`initialization_refuses_nonintegral_discrete_start`, runtime units).
+
+Multipliers of a mixed-integer candidate's continuous problem are conditional on one typed
+`transform::Commitment` (the committed columns by identity at their original values,
+Plan 22 M2c): the factorable runner's fixed-assignment re-solve pins its relaxed and
+parametric callbacks under it (`Pinned::discrete`,
+[§18.10.1](numerical-execution.md#section-18-10-1)), and HiGHS's fixed-commitment LP gives
+a MIP candidate its multipliers when that LP reaches the candidate's objective
+(`FixedLp::price`; otherwise `fixed_lp.candidate` states why not). The candidate carries
+the commitment, `runtime.solve_runs` (version 5) states it once per step, and a
+`LocalValidity` row is conditional exactly when it exists
+(`duals_conditional_on_assignment` on HiGHS and SCIP, `sensitivity_conditional_on_assignment`,
+runtime units). Each refusal is a
 typed `pse_modeling::ModelingError::Domain` naming the variable (identity, declaration and
 instance path), its domain, the analysis
 (`preparation`, `root`, `initialization`, `fitting` or `integrated_dynamics`) and the
@@ -490,20 +504,38 @@ one) or an unknown selected level. A step selects one level with the `objective.
 fact; the named transformation `objective_bounds` then bounds every earlier level by a
 generated parameter β, a `LevelBound` row `value − β ≤ 0` for a minimized level and `≥ 0`
 for a maximized one. The row is structure and β a value without a default, which the C3
-engine binds from the earlier level's optimum and its tolerances. The case structure carries
-one objective, the solved level, so several levels without a selection are refused
-(`modeling.capability`) until the native lexicographic route and the staged driver of the
-C3 engine land. *Tested* by `objective_members_parse_and_render` (authoring units) and
-`objective_bounds_rows_generated_per_level`, `competing_objectives_without_priority_refused`,
-`dimensional_weighted_sum_refused` and `zero_tolerance_refused_on_staged_level` (compiler
-units).
+engine binds from the earlier level's optimum and its tolerances.
+
+**The C3 engine** (Plan 22 C3, `pse-runtime::workflow::objectives`) optimizes the levels
+in priority order, each earlier level held within its degradation of its optimum `f*`,
+`max(abs, rel·|f*|)`. The route follows from the class. Linear and mixed-integer linear
+levels go to HiGHS as one native solve over a case structure that carries every level's
+objective (`pse.math.case-structure.v4`; `CoefficientProblem.objectives`,
+`Highs_passLinearObjectives` with blending off); HiGHS's record lists them as its
+`lexicographic` classes, and because HiGHS bounds an earlier level by the tighter of its two
+tolerances, the native route takes only levels with one of the two zero. Every other
+problem runs as a staged sequence of one step per level
+([§19.2](workflows-and-results.md#section-19-2)): the step's `objective.level` fact selects
+the level and `objective_bounds` bounds the earlier ones by β, so K levels prepare at most K
+structures and a repeated solve rebinds values only; each level starts from the previous
+level's accepted step, and a staged level needs a positive degradation, since an exactly
+active objective bound breaks the constraint qualification an interior point needs
+(ADR-0111 item 3). Level values are the observed weighted sums in original coordinates,
+published in `runtime.objective_levels`. *Tested* by `objective_members_parse_and_render`
+(authoring units), `objective_bounds_rows_generated_per_level`,
+`competing_objectives_without_priority_refused` and `dimensional_weighted_sum_refused`
+(compiler units), `lexicographic_milp_native`,
+`lexicographic_nlp_staged_matches_weighted_limit`,
+`lexicographic_degradation_tolerance_respected`, `zero_tolerance_refused_on_staged_level`
+and `objective_levels_prepare_once_per_level` (runtime units).
 
 ### 6.10 Cases, observations, dynamics and fitting
 
 > Decision: [ADR-0119](../../adr/0119-fixture-analysis-selections.md) — a fixture declares
 > its solve intent (`intent certify;`; a conflict with the runtime fixture policy is a typed
 > refusal; Plan 22 G6r kernel, implemented), integration schedules, events with a direction,
-> and modes (Plan 22 Y0c kernel and Y0d; not yet implemented).
+> and modes, and a shooting problem (Plan 22 Y0c kernel, Y0d and authored Y5b,
+> implemented; `authored.modeling_declarations` version 6).
 
 Case and test scopes in the modeling IR carry root bindings, values, fixed/free state,
 bounds and analysis choices. Initialized, steady, integrated and simultaneous fixture routes
@@ -529,6 +561,17 @@ observed); neither takes precedence. Without a declared intent the runtime polic
 ([§18.10.1](numerical-execution.md#section-18-10-1)). *Tested* by
 `fixture_policy_intent_conflict_refused` (runtime units) and `fixture_intent_selects_certify`
 (native acceptance conformance).
+
+An integration fixture also declares its analysis selections (ADR-0119; version 6 of
+`authored.modeling_declarations`): `schedule u at(t₁, …) values(v₀, …);` holds an input
+piecewise constant, and `free` with optional `lower(…)`/`upper(…)` makes it a shooting
+control whose authored values are the starting guesses; `mode name;` and
+`event guard direction(…) tolerance(…) reset(…) next(…);` declare its modes and
+directional events; `shoot single;` or `shoot multiple nodes(…);` states the shooting
+problem of a `run shooting` fixture, which needs at least one free schedule. The
+integrators consume them as described in
+[§13.5](workflows-and-results.md#section-13-5)–[§13.6](workflows-and-results.md#section-13-6);
+the runtime- and Python-only mode and event inputs are removed.
 
 `authored.datasets` and `authored.observations` supply measurements. `authored.fit_cases`
 binds authored modeling experiments and source paths to the existing sparse fitting engine.
@@ -562,7 +605,7 @@ owning section:
 
 | Group | Relations | Owner |
 |---|---|---|
-| Runs and results | `computation_runs`, `solve_runs`, `solve_variables`, `solve_constraints`, `solve_metrics`, `candidate_assessments`, `modeling_checks`, `modeling_reports`, `modeling_conformance`, `modeling_fixture_status`, `modeling_findings`, `simulation_samples`, `simulation_events`, `fit_*`, `response_sensitivities`, `run_lineage`, `resolved_numerics`, `study_outcomes` | [§19](workflows-and-results.md#section-19) |
+| Runs and results | `computation_runs`, `solve_runs`, `solve_variables`, `solve_constraints`, `solve_metrics`, `candidate_assessments`, `modeling_checks`, `modeling_reports`, `modeling_conformance`, `modeling_fixture_status`, `modeling_findings`, `simulation_samples`, `simulation_events`, `fit_*`, `response_sensitivities`, `run_lineage`, `resolved_numerics`, `study_outcomes`, `modeling_initializations`, `objective_levels` | [§19](workflows-and-results.md#section-19), [§6.8](#section-6-8) |
 | Native evidence | `infeasibility_certificates`, `solution_pool`, `incumbents` (durable runs) | [§18](numerical-execution.md#section-18) |
 | Local analysis and uncertainty | `local_validity`, `parametric_sensitivities`, `reduced_hessians`, `parameter_covariances`, `parameter_intervals`, `profile_points`, `response_directions`, `propagated_covariances` | [§15.5.1](numerical-execution.md#section-15-5-1), [§19.4](workflows-and-results.md#section-19-4), [§19.8](workflows-and-results.md#section-19-8) |
 | Capability inventory | `solver_capabilities` | [§18](numerical-execution.md#section-18) |

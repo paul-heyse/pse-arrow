@@ -108,8 +108,12 @@ reason; it is never zero or a fabricated NaN.
 > (Plan 22 S0), parametric sensitivity and the reduced Hessian (S1,
 > [§15.5.1](#section-15-5-1)), covariance and intervals (S3,
 > [§19.4](workflows-and-results.md#section-19-4)) and propagation (S4,
-> [§19.8](workflows-and-results.md#section-19-8)). The QP routes (HiGHS, Clarabel and
-> POUNCE-convex, Plan 22 N5) are not yet served. ADR-0118 supersedes ADR-0107, whose
+> [§19.8](workflows-and-results.md#section-19-8)). A quadratic program reaches the analysis
+> by routing (Plan 22 N5, implemented): automatic routing of a sensitivity request prefers
+> an adapter whose candidate the analysis differentiates ([§18.9](#section-18-9)), so the
+> program runs on an NLP route; an explicitly selected coefficient or cone adapter solves
+> it and withholds the quantities as `no_local_analysis`. POUNCE-convex's own QP
+> sensitivity is excluded as a second mechanism. ADR-0118 supersedes ADR-0107, whose
 > two-route mechanism (POUNCE `SensSolve` and an Ipopt barrier replica) and presolve
 > restriction no longer apply.
 >
@@ -127,6 +131,7 @@ Each analysis is opt-in or bounded, and none replaces the original candidate:
 | KKT-point analysis | For an optimizing NLP candidate, through the one NLP runner (Ipopt, POUNCE and SCIP's fixed-assignment re-solve): one active-set KKT system in original coordinates, factored by FERAL with certified inertia and a Hager–Higham condition estimate (`kkt`, `Evidence::local`, [§15.5.1](#section-15-5-1)) | A local verdict on activity, LICQ and curvature (`sufficient`, `negative_curvature`, `singular`, `undecided`); an analysis that cannot run is a typed `Unavailable`; coefficient, cone and root routes have none |
 | Parametric sensitivity and reduced Hessian | On request (`SolveSettings.sensitivity`), read from the same analysis over the model's parametric program with the parameters pinned ([§15.5.1](#section-15-5-1)) | Local and first-order, valid while the active set holds; each quantity is certified or withheld with its reason (`runtime.local_validity`) |
 | Verified infeasibility certificates | Clarabel's rays, and HiGHS's when its diagnostics request them, recovered to original coordinates and verified against the original data (`runtime.infeasibility_certificates`, [§18.10](#section-18-10)) | Only a verified ray at full native accuracy carries the `certificate` assurance; a ray is never a candidate |
+| Sum-of-squares bound | `ModelingPackage::sos_bound`: the moment relaxation of `pounce-convex` over the polynomial projection of the case's factorable program (`execution::sos`, Plan 22 N5), at a stated order | A floating-point SDP value labelled `sos_bound_nonrigorous`: never a certified global bound and never the basis of an objective-bound check; a program that is not an exact polynomial, or whose moment basis exceeds 256 monomials, is refused (`sos_bound_labelled_nonrigorous`, runtime units) |
 | Jacobian conditioning | FERAL sparse LU of a square Jacobian in a stated scaling, with a Hager–Higham 1-norm estimate (`conditioning::jacobian_condition`), reported as the `jacobian.condition_estimate` modeling finding | An estimate and a lower bound; none when the LU is singular |
 | Fit response rank and conditioning | faer pivoted LU for implicit response, bounded SVD for scaled observation rank; the right singular vectors in `runtime.response_directions` | Rank alone implies no covariance, which has its own rule ([§19.4](workflows-and-results.md#section-19-4)); global identifiability is not claimed |
 
@@ -152,8 +157,8 @@ dependence. The generic profile/knowledge contract is proposed
 #### 15.5.1 KKT-point analysis and parametric sensitivity
 
 > Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — one KKT-point analysis
-> in original coordinates (Plan 22 S0 and S1, implemented for the NLP routes; the QP routes,
-> N5, are not yet served).
+> in original coordinates (Plan 22 S0, S1 and the advanced step Y5c2, implemented for the
+> NLP routes, which automatic routing prefers for a sensitivity request, N5).
 
 **The analysis** (Plan 22 S0, `pse-backend-native::kkt`). The one NLP runner
 ([§18.7](#section-18-7)) analyses the candidate against the original model when the step's
@@ -174,9 +179,12 @@ the congruence, so every verdict is coordinate free. `KktFactor` answers in orig
 coordinates through the explicit back-map and implements `pounce-sens-core`'s
 `SensBacksolver`.
 
-- *Activity.* An active constraint is strongly active when its normalized multiplier
-  exceeds the resolved stationarity budget and weakly active otherwise; equalities and pins
-  are always strongly active.
+- *Activity.* A row or bound is active when its slack is within its acceptance budget, or
+  when its normalized multiplier exceeds the resolved stationarity budget and its
+  normalized slack: an interior-point candidate keeps an active limit's slack at `μ/z`,
+  which may exceed the budget, and an inactive limit's multiplier at `μ/s`. An active
+  constraint is strongly active when its normalized multiplier exceeds the stationarity
+  budget and weakly active otherwise; equalities and pins are always strongly active.
 - *LICQ* is read from the inertia of `[I Aᵀ; A 0]` over the active gradients `A`
   (`Licq::Independent`, or `Dependent` with its deficiency), so a dependent active set and a
   singular reduced Hessian are distinct verdicts.
@@ -197,7 +205,8 @@ runner, so an adopted candidate keeps its analysis, conditional on the assignmen
 coefficient, cone and root runners have no local analysis. *Tested* by
 `kkt_inertia_certifies_second_order` (Ipopt and POUNCE),
 `second_order_verdicts_follow_the_inertia`, `licq_failure_distinct_from_singular_curvature`,
-`kkt_factor_backsolve_matches_dense_reference`, `local_analysis_unavailable_is_typed` and
+`kkt_factor_backsolve_matches_dense_reference`, `local_analysis_unavailable_is_typed`,
+`interior_point_active_bound_beyond_its_tolerance_is_active` and
 `fixed_assignment_resolve_keeps_local_analysis` (native backend units).
 
 **Parametric sensitivity** (Plan 22 S1). `SolveSettings.sensitivity` requests it as a
@@ -255,7 +264,27 @@ of a re-solve at a perturbed parameter), `reduced_hessian_sign_pinned`,
 `sensitivities_published_with_local_validity` and
 `sensitivity_withheld_without_local_analysis` (runtime units). The comparison against
 Ipopt's sIPOPT in the parity container that ADR-0118 names
-(`sensitivity_agrees_with_ipopt_sens`) is not built.
+(`sensitivity_agrees_with_ipopt_sens`) is not built. A quadratic program with a request
+routes to an NLP adapter and receives the same analytic quantities
+(`qp_sensitivity_through_kkt_analysis`, runtime units).
+
+**Advanced step** (Plan 22 Y5c2, `kkt::advance`). A request may keep its pinned
+parametric factor (`Sensitivity::retain`, set by `PreparedSolve::retaining_factor`). When
+the step's sensitivities are certified, the runner keeps an `Advance` (the factor, its pin
+rows, the candidate with its multipliers, row values and bounds, and the parametric
+Jacobian) in the worker's `Retained` state beside, not inside, the adapter's session; the
+worker charges its bytes to the job's allowance before the next step and releases it when
+the allowance cannot hold it, recording none as kept (`Parametric::retained`). `predict`
+answers at new parameter values by one `parametric_step` backsolve, `Δw = K⁻¹·(−e_pin)·Δp`,
+without evaluating or factoring anything. It refuses, with a typed `Fallback`, when no
+factor is retained, the parameters differ, the backsolve fails, or the step changes the
+active set: an active multiplier changes sign, or an inactive row (on its linearization
+through the parameter columns) or bound is driven beyond its budget. While the active set
+holds, the prediction of a problem whose KKT conditions are linear in the parameters is its
+solution. The rolling horizon's advanced-step controller is its consumer
+([§13.6](workflows-and-results.md#section-13-6)). *Tested* by
+`advanced_step_predicts_within_the_active_set` and
+`advanced_step_needs_certified_sensitivities` (native backend units).
 
 ### 15.6 Reports
 
@@ -1029,14 +1058,19 @@ use (§16.6) combines these facts with physical closure.
 > [ADR-0116](../../adr/0116-typed-boundary-documents.md) — typed routes, eligibility rows
 > and registry reason codes across the Python boundary (Plan 22 A5, implemented);
 > [ADR-0111](../../adr/0111-multi-objective-optimization.md) — lexicographic and weighted
-> multi-objective routes (Plan 22 C3: the authored members and levels are implemented,
-> [§6.8](schema-and-relations.md#section-6-8); the native lexicographic and staged
-> routes, the C3 engine, are not yet implemented).
+> multi-objective routes (Plan 22 C3, implemented: the authored members and levels and
+> the native and staged lexicographic routes, [§6.8](schema-and-relations.md#section-6-8)).
 >
 > Decision: [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — automatic ownership per
 > class (`Capability.automatic_classes`, Plan 22 C4, implemented); convexity classes from
 > the compiler fact, and a numerical PSD qualification only for the request whose explicit
-> policy asks for it (Plan 22 C5; not yet implemented).
+> policy asks for it (`Requirements::numerical_psd`, Plan 22 C5, implemented).
+>
+> Decision: [ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md) §5 — an
+> authored realization's structural requirement selects the method that honours it (the
+> ℓ1 exact penalty of `penalty(l1)`, Plan 22 M5b, implemented); ADR-0118 — automatic
+> routing of a sensitivity request prefers an adapter whose candidate the KKT-point
+> analysis differentiates (Plan 22 N5, implemented).
 
 Capability is five distinct facts:
 
@@ -1058,7 +1092,11 @@ adapter except the trajectory ones. Each adapter owns its pse-owned settings typ
 (`automatic_classes`), derivative representation, warm-start support, general bounds,
 one-sided bounds as shifted sign constraints (`sign_bounds`), parallelism, whether it
 certifies global bounds (`certifies`), the native constraint handlers it consumes
-(`native_forms`), reuse, cancellation and diagnostics), admission of its settings
+(`native_forms`), the structural requirements its settings' methods honour
+(`requirements`), the classes it optimizes lexicographically in one native solve
+(`lexicographic`), whether it solves a study's independent points as one batch (`batch`)
+and whether its candidate carries the multipliers the KKT-point analysis differentiates
+(`sensitivities`), reuse, cancellation and diagnostics), admission of its settings
 and model contract, its native session on the owning worker, its warm-start payload and
 its typed evidence. The capability record is the only source of both eligibility and the
 published inventory row: `routing::admit` is a function of that record, the adapter's
@@ -1144,8 +1182,16 @@ assessment by registry spelling.
 the backend and every applicable `Ineligible` reason, empty when eligible. Each reason has
 one registry code, `NativeIneligibility` (`not_linked`, `serial`, `not_square_root`,
 `no_objective`, `certification`, `class`, `derivatives`, `bounds`, `native_forms`,
-`least_squares`; `Ineligible::code`), and keeps its typed detail: the problem's classes, the
-required derivative order, whether sign bounds were representable, or the missing handlers.
+`least_squares`, `method`, `lexicographic`; `Ineligible::code`), and keeps its typed
+detail: the problem's classes, the required derivative order, whether sign bounds were
+representable, the missing handlers, or the unmet structural requirements. `method` marks a
+formulation whose structural requirement (ADR-0104 §5) the adapter's record or the request's
+settings do not honour: the ℓ1 exact penalty an authored `penalty(l1)` states is honoured
+only by POUNCE's `L1ExactPenalty`, which native defaults on POUNCE then select as the
+author's choice, never an automatic one, and the report records that the penalty relaxes
+every row (`authored_l1_realization_selects_route`, runtime units; `l1_never_automatic`,
+native backend units). `lexicographic` marks several objectives in a class the adapter does
+not optimize lexicographically in one solve (`several_objectives_route_only_to_a_lexicographic_record`).
 `least_squares` marks a Gauss–Newton Hessian requested for anything but a least-squares fit
 objective, which only fitting declares ([§19.4](workflows-and-results.md#section-19-4)); every
 adapter refuses it before native work (`gauss_newton_requires_least_squares_objective`). The
@@ -1271,17 +1317,19 @@ qualification matters ([§24.2](operations-and-validation.md#section-24-2)).
 > Implemented: SCIP (G1, G3–G7 and the semi lowering, with G4 and G6 partial as stated in
 > [§18.10.1](#section-18-10-1)), the Ipopt linear solvers and their threads (N1), the IDAS
 > and Diffsol extensions (Y1, Y2), scheduled inputs (Y0c), adjoint sensitivities (Y3),
-> Gauss–Newton and exact transient Hessians (Y4), shooting (Y5b) and the KINSOL extensions
-> (Y6, with the byte-bounded session cache); not yet implemented: POUNCE-convex (N5).
+> Gauss–Newton and exact transient Hessians (Y4), shooting (Y5b), the KINSOL extensions
+> (Y6, with the byte-bounded session cache) and POUNCE-convex (N5).
 >
 > Decision: [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — the records publish
 > `automatic_classes`; Clarabel serves `linear`, `convex_quadratic` and `continuous_cone`,
-> automatically only for cones (Plan 22 C4, implemented; cone recognition from compiler
-> facts, C5, is not yet implemented).
+> automatically only for cones (Plan 22 C4, implemented), including the continuous cone
+> programs preparation recognizes from the compiler's convexity fact (C5, implemented,
+> [§18.10](#section-18-10)).
 
 The linked inventory is the static adapter table `execution::LINKED`
-(`pse-backend-native/src/execution.rs`). `runtime.solver_capabilities` (version 2, which adds
-`automatic_classes`) publishes one row per linked adapter from the capability record
+(`pse-backend-native/src/execution.rs`). `runtime.solver_capabilities` (version 3: version 2
+added `automatic_classes`; version 3 adds `requirements`, `lexicographic_classes`, `batch`
+and `sensitivities`) publishes one row per linked adapter from the capability record
 routing reads ([§18.7](#section-18-7)); the
 test `published_capabilities_equal_routing_rules` rebuilds each adapter from its published
 row alone and checks that routing assesses it identically. Feature
@@ -1295,11 +1343,12 @@ the algebraic router never assesses them.
 | Ipopt | Smooth NLP | General | Exact Hessian or limited memory | Primal/dual with a typed restart | Admitted for SPRAL and oneMKL Pardiso; MUMPS serial |
 | POUNCE | Smooth NLP | General | Exact Hessian or limited memory | Primal/dual with a typed restart; working set | Admitted pool |
 | KINSOL | Square root, declared fixed point | One-sided, as shifted signs | Jacobian or JVP | Primal | Serial |
-| HiGHS | LP, MILP, convex QP | General, semi domains | Coefficients | Primal/dual, basis, partial MIP start; QP hot start | Admitted |
+| HiGHS | LP, MILP, convex QP; LP and MILP levels lexicographically in one solve | General, semi domains | Coefficients | Primal/dual, basis, partial MIP start; QP hot start | Admitted |
 | Clarabel | Explicit cones, automatic (SDP with `solver-sdp`, on oneMKL); LP and convex QP by explicit selection, lowered to cone form | General | Coefficients | None | QDLDL serial; MKL Pardiso on admitted MKL threads (`clarabel-pardiso`) |
+| POUNCE-convex | LP, convex QP and continuous cones by explicit selection only, lowered to cone form; batches a study's independent points | General | Coefficients | The previous solutions of the same layout | Admitted pool: one instance's factorization, or a batch's instances each factored serially |
 | SCIP | LP, MILP, convex and nonconvex QP, MIQP, MINLP, smooth NLP; certifies; all seven native constraint forms | General, semi domains through `semi(indicator)`; finite boxes inside nonlinear terms | Factorable | Primal incumbent | Admitted: deterministic concurrent mode, except with exact solving or reoptimization |
-| Diffsol | ODE, semi-explicit index-1 | None | Forward or adjoint first-order sensitivities | None | Serial |
-| IDAS | ODE, semi-explicit index-1 | None | Forward or adjoint first-order sensitivities; second order by forward-over-adjoint | None | Serial |
+| Diffsol | ODE, semi-explicit index-1 | None | Forward sensitivities and adjoint gradients (`forward_and_adjoint_sensitivities`) | None | Serial |
+| IDAS | ODE, semi-explicit index-1 | None | Forward sensitivities, adjoint gradients and the second-order adjoint (`second_order_adjoint_sensitivities`) | None | Serial |
 
 HiGHS is linked at 1.15. Its record states that simplex, IPM and MIP honour the interrupt
 callback while its QP solver and PDLP stop only at the native time limit
@@ -1309,20 +1358,26 @@ part of `native-solvers`); its record is the only one that `certifies` and the o
 lists native constraint handlers ([§18.10.1](#section-18-10-1)). The published row carries the
 `certifies` and `native_forms` columns. `sign_bounds` means one-sided bounds of any value,
 represented as sign constraints on shifted coordinates (KINSOL, [§18.10](#section-18-10)).
-The Diffsol and IDAS records still publish the derivative capability
-`first_with_smooth_sensitivities`: the adjoint and second-order routes of
-[§13.6](workflows-and-results.md#section-13-6) are profile choices the records do not yet
-distinguish.
+The Diffsol and IDAS records distinguish their derivative routes
+([§13.6](workflows-and-results.md#section-13-6)): Diffsol forward sensitivities and adjoint
+gradients, IDAS in addition the second-order adjoint of an exact transient Hessian.
+`batch` marks POUNCE-convex, the one adapter that solves a study's independent points as
+one parallel batch ([§19.3](workflows-and-results.md#section-19-3)); its record states its
+cancellation granularity, a solve-wide deadline with no interrupt, so a stop request is
+honoured before a solve or batch starts and a running solve stops at the deadline.
+`sensitivities` marks Ipopt, POUNCE and SCIP, whose candidates carry the multipliers the
+KKT-point analysis differentiates; automatic routing of a sensitivity request prefers them
+([§15.5](#section-15-5)). *Tested* by `pounce_convex_never_automatic` and
+`sensitivity_requests_route_to_multiplier_adapters` (native backend units).
 
 Outside the matrix today: global solving where a provider output without a declared
 envelope enters a nonlinear term (no production provider declares one yet); exact rational
 solving of anything but a linear program without native forms, conditional rows or
-auxiliaries; native handlers on any adapter but SCIP; automatic cone recognition; a local
-analysis, sensitivities or covariance on the QP and cone routes; exact transient Hessians on
-Diffsol; general or higher-index DAE; finite-difference derivatives; GPU and distributed
-execution. Of these, cone recognition from compiler facts (Plan 22 C5; ADR-0121) and the
-KKT-point analysis of the QP routes (Plan 22 N5; ADR-0118) are in the design target and not
-yet implemented. Durable multi-process execution through the
+auxiliaries; native handlers on any adapter but SCIP; a local analysis, sensitivities or
+covariance read on the coefficient and cone routes themselves (a sensitivity request routes
+automatically to an NLP adapter instead); exact transient Hessians on Diffsol; general or
+higher-index DAE; finite-difference derivatives; GPU and distributed execution. Durable
+multi-process execution through the
 operational store ([ADR-0114](../../adr/0114-typed-operational-store.md),
 [§20.6](identity-and-publication.md#section-20-6)) is implemented: jobs across worker
 processes, studies, durable incumbents and resumption from them. General or higher-index
@@ -1344,8 +1399,14 @@ the target.
 > Decision: [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — Clarabel serves LP and
 > convex QP besides cones, its direct solver is QDLDL or MKL Pardiso with `faer-sparse`
 > excluded, and its and HiGHS's rays become one verified certificate (Plan 22 C4,
-> implemented); HiGHS's convex-QP admission reads the compiler's convexity fact (Plan 22 C5;
-> not yet implemented).
+> implemented); convexity is a compiler fact that HiGHS's convex-QP admission and cone
+> routing read, and preparation recognizes continuous cone programs (Plan 22 C5,
+> implemented).
+>
+> Decision: [ADR-0109](../../adr/0109-pounce-l1-and-convex-methods.md) — POUNCE-convex as an
+> explicit method for linear, quadratic and cone programs, batched studies and
+> sum-of-squares bounds (Plan 22 N5, implemented; its own QP sensitivity is excluded,
+> ADR-0118).
 
 **KINSOL** (`kinsol`) owns Newton, line search, Picard and fixed-point iteration with
 Anderson acceleration. Callers choose only the typed `kinsol::Method`, the adapter's
@@ -1477,6 +1538,48 @@ refused. Variable bounds stay on the contract and are appended as cone rows by t
 The coefficient runner lowers, solves and restates the result on the coefficient rows
 (authored-sense row duals, reduced costs and certificate coordinates) before the original
 model re-check.
+
+**Convexity as a compiler fact** (Plan 22 C5, ADR-0121). Preparation decides convexity once
+and carries it with the view's value products (`ProblemFacts.convexity`,
+`pse.math.convexity-fact.v1`), so a value-only rebind re-decides it with the values and
+never reuses a stale verdict. A degree-two coefficient objective is convex by an exact
+rational LDLᵀ with symmetric pivoting of its quadratic form, which keeps its Gram factors
+(`GramCertificate`, `pse.math.gram.v2`, non-diagonal forms included) or finds a direction of
+negative curvature; `ConvexityPolicy::Numerical` stays an explicit per-request qualification
+(`Requirements::numerical_psd`) and never becomes a fact. A continuous nonlinear program is
+recognized as a cone program by the curvature pass over the factorable program preparation
+already builds (`pse-math::curvature`): DCP composition rules with signs from the
+outward-rounded interval box prove each node's curvature and record its atom (exponential,
+logarithm, entropy and relative entropy to the exponential cone; powers to the power cone;
+absolute values to linear rows; Euclidean norms and certified quadratic forms to
+second-order cones). Only exact rows and objective over continuous columns, without
+auxiliaries, implicit residuals or native forms, and with every retained obligation
+following from the box, are recognized. The recognized program's epigraph form
+(`pse.cone.recognized.v1`, `conic::recognized`) is what a cone adapter lowers, raised back
+to the program and re-checked against the original case; routing classes the program
+`continuous_cone`, which Clarabel owns automatically. The SCIP curvature detection is a
+differential test oracle only. *Tested* by `exact_ldlt_certifies_nondiagonal_psd`,
+`gram_certificate_yields_soc` and `curvature_sound_against_scip_oracle` (math units),
+`unrecognized_problem_not_routed` (native backend units), `convexity_fact_rebinds_with_values`
+(compiler units) and `recognized_exp_cone_routes_to_clarabel` and
+`numerical_psd_only_under_explicit_policy` (runtime units).
+
+**POUNCE-convex** (`execution::pounce_convex`, Plan 22 N5) is explicit only. It receives the
+pse cone form, including a coefficient program the runner lowered, and maps it to POUNCE's
+standard form: zero-cone rows become equalities, every other block inequality rows
+`G x ⪯_K h` with its `ConeSpec`, and the variable box stays first class. POUNCE stores the
+power cone norm-first and PSD blocks as the lower triangle, so both are row permutations
+mapped back for the multipliers; the generalized power cone is refused. A quadratic
+program runs through `solve_qp_ipm_warm`, a cone program through `solve_socp_ipm_warm`, to a
+tolerance a decade inside every budget the report is qualified against. The report carries
+the primal, dual and gap residuals of the cone form, a Farkas or recession certificate in
+the certificate layout above, and warm starts come from the previous solutions of the same
+layout (`settings::pounce_convex`: self-dual embedding or the direct method, equilibration,
+crossover and FERAL). Batches are described in
+[§19.3](workflows-and-results.md#section-19-3). *Tested* by
+`pounce_convex_qp_matches_highs` (a convex QP and a mixed LP against HiGHS),
+`pounce_convex_farkas_certificate` and `psd_rows_map_lower_to_upper_triangle` (native
+backend units).
 
 **Infeasibility certificates.** A primal-infeasible (Farkas) ray or a dual-infeasible
 (recession) direction from Clarabel, or from HiGHS when its diagnostics request rays

@@ -80,9 +80,9 @@ meshes explicitly; a small successful fixture does not qualify all mesh sizes.
 
 > Decision: [ADR-0119](../../adr/0119-fixture-analysis-selections.md) — schedules, whose
 > interval values stay live parameters of the sensitivities, replace profile `changes`
-> (Plan 22 Y0c backend, implemented; the authored fixture clause, the Y0c kernel, is not yet
-> implemented); authored events and modes replace the runtime- and Python-only mode and
-> event inputs (Plan 22 Y0d; not yet implemented).
+> (Plan 22 Y0c, implemented: the backend and the authored fixture clause); authored events
+> and modes replace the runtime- and Python-only mode and event inputs (Plan 22 Y0d,
+> implemented).
 
 Operations that IDAES performs by mutating a model are either new immutable revisions or
 declared parts of the prepared profile:
@@ -90,8 +90,8 @@ declared parts of the prepared profile:
 | Need | Current operation |
 |---|---|
 | Change parameter values or horizon | `PreparedSimulation::rebind` prepares new immutable case bindings; unaffected bodies and artifacts are shared by semantic identity |
-| Piecewise-constant inputs | Scheduled inputs (`Profile.schedule`: per input, its contract parameter and strictly increasing change times after the start, a change at the end observed by the final sample only). Each interval's value is its own integration parameter, so forward and adjoint sensitivities are taken with respect to every interval, across every change, on both integrators; IDAS restarts in place at each change ([§13.6](#section-13-6)). Schedules are a Rust profile field; no fixture clause declares one yet |
-| Mode switches and state jumps | Declared events: guard row, complete reset rows, `terminal`, `next_mode` and a guard tolerance, all within one state/parameter layout; on IDAS only without forward sensitivities |
+| Piecewise-constant inputs | Scheduled inputs (`Profile.schedule`: per input, its contract parameter and strictly increasing change times after the start, a change at the end observed by the final sample only). Each interval's value is its own integration parameter, so forward and adjoint sensitivities are taken with respect to every interval, across every change, on both integrators; IDAS restarts in place at each change ([§13.6](#section-13-6)). An integration fixture declares one as `schedule u at(t₁, …) values(v₀, …);`, and a schedule held `free` (with optional `lower`/`upper`) is a shooting control |
+| Mode switches and state jumps | Authored fixture `mode` and `event guard direction(…) tolerance(…) reset(…) next(…)` clauses: guard row, complete reset rows, crossing direction (`EventDirection`), next mode and guard tolerance, all within one state/parameter layout; a directional event routes to IDAS, and IDAS events run without forward sensitivities |
 | Different initial state | Initial rows evaluated from time and parameters; change the parameters or declaration, not a stored trajectory |
 
 Located roots rewind to the native root time, apply the reset and mode change together
@@ -105,14 +105,13 @@ between time points or deactivating a model at selected points have no counterpa
 > inputs with recoverable trials, events without sensitivities, constraints and Krylov;
 > Diffsol SDIRK, `tsit45` and KLU (Plan 22 Y1 and Y2, implemented); pse-owned Diffsol
 > linear solvers (Y0a), adjoint sensitivities on both integrators (Y3a, Y3b), exact
-> transient Hessians on IDAS (Y4b) and single and multiple shooting (Y5b), implemented;
-> simultaneous dynamic optimization (Y5a) and NMPC and MHE (Y5c) are not yet implemented.
+> transient Hessians on IDAS (Y4b), single and multiple shooting (Y5b), simultaneous
+> dynamic optimization (Y5a) and rolling horizons, NMPC and MHE with the advanced step
+> (Y5c), implemented.
 >
 > Decision: [ADR-0119](../../adr/0119-fixture-analysis-selections.md) — IDAS sign
 > constraints derive only from constant-zero bound annotations, and authored schedules and
-> directional events reach both integrators (Plan 22 Y0c kernel and Y0d; not yet
-> implemented; the Y0c backend is implemented). The recorded follow-ups below close when
-> they land.
+> directional events reach both integrators (Plan 22 Y0c and Y0d, implemented).
 
 | Route | Admitted profile | Owner |
 |---|---|---|
@@ -139,19 +138,21 @@ not a second compiler.
 Profile identity comes from serde, never from a hand-written field list. `profile_json` is
 the complete encoding of the profile plus the resolved method; Diffsol's native option types
 enter through remote serde definitions, so a new field in a pinned option type fails to
-compile rather than escaping identity. `pse.dynamic.profile.v5` frames that encoding, which
-includes the scheduled inputs and the typed sensitivity, with the numerical policy key. A
+compile rather than escaping identity. `pse.dynamic.profile.v6` frames that encoding, which
+includes the scheduled inputs and the typed sensitivity, with the numerical policy key; the
+IDAS settings (document version 2) no longer carry signs, which come from authored bounds. A
 modeling dynamic simulation's preparation (`pse.modeling.dynamic.v2`) also frames the
 derivative order its functions were prepared at. Fitting's `pse.fit.profile.v3` frames the
 solver profile key, the rank tolerance, the cell cap, the derivative source, each
-simulation's dynamic profile identity and each experiment's declared modes by their serde
-encoding, and the uncertainty request when one is present
-([§19.4](#section-19-4)).
+simulation's dynamic profile identity, and the uncertainty request when one is present
+([§19.4](#section-19-4)); modes are the fixture's, not the fit's.
 
-Authored workflows do not yet reach every native control: authored events detect crossings
-in either direction, IDAS sign constraints come from the profile rather than from authored
-bounds, and authored scheduled inputs have no kernel fixture field (recorded Plan 22
-follow-ups, ADR-0119).
+Authored workflows reach the native controls (Plan 22 Y0c and Y0d): events carry their
+crossing direction, IDAS sign constraints derive from constant-zero bound annotations, and
+schedules are fixture clauses. The runtime- and Python-only mode and event inputs are
+deleted. *Tested* by `kernel_fixture_schedules_inputs`,
+`authored_directional_event_routes_to_idas`, `idas_sign_constraints_from_authored_bounds`
+and `simultaneous_route_refuses_authored_events` (runtime and kernel units).
 
 **Failing linear solves** (Plan 22 Y0a). Diffsol's Newton matrices are factored by
 pse-owned linear solvers over faer LU and KLU (`dynamics/linear.rs`, selected by
@@ -211,8 +212,10 @@ by continuity rows. A terminal objective takes its gradient from the forward sen
 the rows need anyway, and an integral one from the adjoint. The shooting NLP supplies first
 derivatives only, so it requires the limited-memory Hessian and refuses any other mode. A
 `ShootingReport` returns the solve, controls, node states, objective, continuity residual,
-trajectory and checks. The route is Rust-only: a conformance fixture that selects it
-(`ModelingFixtureExecution::shooting`) is refused until fixtures declare schedules. *Tested*
+trajectory and checks. A fixture selects it with `run shooting`, a `shoot single;` or
+`shoot multiple nodes(…);` clause and at least one free schedule
+(`ModelingSimulation::authored_shooting`); an integrated simulation admits the model's
+objective only when its fixture runs shooting. *Tested*
 by `shooting_matches_simultaneous_optimum` (against an analytic optimum),
 `multiple_shooting_continuity_closes`, `shooting_path_bounds_hold_at_samples` and
 `shooting_fixture_needs_authored_controls` (runtime units) and
@@ -234,12 +237,52 @@ actual event records only; output completed before a later failure survives, wit
 last completed time and sample count in `runtime.computation_runs`. Integration inside
 fitting runs inline under the outer job's admission, without nested executor permits.
 
+**Simultaneous dynamic optimization** (Plan 22 Y5a). The simultaneous route optimizes an
+authored dynamic model through its collocation, like any steady optimization: a bounded
+continuous input is a convex QP on HiGHS, and an on/off input a MIQP on SCIP whose
+candidate is the continuous re-solve under the node assignment, stated as its commitment
+([§6.8](schema-and-relations.md#section-6-8)). The same definition integrates with the input
+scheduled. *Tested* by `simultaneous_dynamic_optimization_matches_analytic` and
+`simultaneous_dynamic_optimization_with_discrete_decision` (native acceptance, the
+`control_fixtures` `SaturatedProcess` and `SwitchedProcess`).
+
+**Rolling horizons** (Plan 22 Y5c, `workflow/horizon.rs`, `Runtime::start_horizon`). A
+horizon is one run and, under a durable runtime, one attempt registered before any effect
+(`pse.durable.horizon_request.v1`). Its steps are strictly sequential and share one
+worker-owned native session, so they are not a study's independent points. At every sample
+the loop measures the plant, runs the estimator once its window is measured (MHE: a
+least-squares window whose free initial state carries an arrival cost; the next prior is
+the solved state one period into the window), runs the controller (NMPC over its horizon
+from the measured or estimated state) and integrates the plant for one period on the same
+native session from the previous period's end state with the moves held, so the solves'
+retained native state survives. Every estimator and controller step composes a value-only
+overlay over its immutable specification, so each prepares its structure once and rebinds
+values (A6); a step starts from the previous accepted step of its role and offers its native
+seed (N2), which a value-only rebind keeps across presolve (`pse.presolve.transformation.v3`
+frames value-dependent facts only when a pass consumed them). The steps are the run's
+modeling steps, each with its stored seed under a durable runtime (O6), and every sample
+streams one `horizon.step` event (O5). `HorizonDecision` records how a sample's moves were
+decided (`open_loop`, `solved`, `held`, `predicted`, `fallback`).
+
+*Advanced step* (Plan 22 Y5c2). An advanced-step controller (`HorizonController.advanced`)
+binds its measured or estimated state as the parameters of a sensitivity request. After
+applying its moves it solves in the background at the values it predicts for the next
+sample (its own solution one period ahead for each mapped state, the next setpoint, the
+moves just applied), keeping that solve's parametric factor
+([§15.5.1](numerical-execution.md#section-15-5-1)). At the next sample one backsolve
+corrects the prediction to the actual state; a refused prediction (no factor kept, or an
+active-set change) falls back to a full solve at the sample, and the step records the
+`Fallback` reason. *Tested* by `nmpc_closed_loop_on_antiwindup`,
+`horizon_reuses_prepared_view`, `mhe_recovers_initial_state`,
+`horizon_records_one_durable_attempt`, `advanced_step_matches_full_resolve` (every sample
+equal to the fully re-solving loop within 1e-8 at KKT budgets of 1e-12) and
+`advanced_step_falls_back_on_active_set_change` (runtime units).
+
 **Limits.** Higher-index or general implicit DAEs, variable-layout modes, IDAS
 sensitivities across events (hybrid IDAS sensitivities), adjoints across events or resets or
-over declared quadratures, second-order sensitivities on Diffsol, and simultaneous dynamic
-optimization, NMPC and MHE (Plan 22 Y5a and Y5c, in the target, ADR-0110; not yet
-implemented) are not supported by native integration; declarations outside the admitted
-profile are refused before native work. The
+over declared quadratures, and second-order sensitivities on Diffsol are not supported by
+native integration; declarations outside the admitted profile are refused before native
+work. The
 qualification basis for the admitted profiles is
 [§24.2](operations-and-validation.md#section-24-2).
 
@@ -381,6 +424,8 @@ Clones and exported Arrow buffers share allocation ownership through the last re
 > (implemented) runs a study as one staged sequence over package views.
 > [ADR-0114](../../adr/0114-typed-operational-store.md) — durable studies across workers,
 > published once (Plan 22 O7, implemented).
+> [ADR-0109](../../adr/0109-pounce-l1-and-convex-methods.md) — POUNCE-convex's batched
+> parallel solves serve a study's independent points (Plan 22 N5, implemented).
 
 `ModelingPackage::study` executes a finite inventory of points, at most 4,096 and at most the
 caller's cap, as one staged sequence with explicit predecessor relationships; a predecessor
@@ -398,6 +443,22 @@ structure and library programs while values and requested analyses remain explic
 Dynamic rebinding retains the same ownership contract. Runtime cache clearing removes
 retained programs without invalidating active workers; historical campaign measurements do
 not qualify the new seed.
+
+**Batched points** (Plan 22 N5). Consecutive independent points that explicitly select an
+adapter whose record declares `batch` ([§18.9](numerical-execution.md#section-18-9)) run as
+one batch: each is bound from its specification and assessed on its own
+(`Staged::batch`), the session admits the batch once on the first point's threads
+(`NativeSession::batch`), `MathService::execute_batch` admits each point's start as a
+single step would and solves the coefficient programs together
+(`execution::coefficients_batch`, `BackendExecution::execute_batch`), and every point is
+recovered, re-checked against its original model, qualified and recorded as its own step.
+POUNCE-convex, the one batching adapter, solves a batch of quadratic programs with one
+options set through `solve_qp_batch_parallel_warm` on the admitted threads, each instance
+factored serially, and any other batch instance by instance; the previous batch's solutions
+of the same layout warm-start the next. Points that cannot join a batch run in turn.
+*Tested* by `pounce_convex_batched_study` (eight points on two threads, each equal to HiGHS
+within 1e-6, runtime units) and `pounce_convex_batch_matches_single_solves` (native backend
+units).
 
 **Durable studies.** `Runtime::start_study` (Python `ModelingPackage.study(..., runtime=,
 workspace=)`) runs a study's points as jobs across any number of worker processes and
@@ -563,10 +624,10 @@ exists.
 > enter the design target (Plan 22 M1–M5);
 > [ADR-0103](../../adr/0103-variable-domain-facet.md) — the declared domain facet (Plan 22
 > M1, implemented) and its inward bound tightening (M2a, implemented). Plan 22 M3 and M4
-> (implemented) lower the constraint forms and disjunctions, and M5a (implemented) lowers
-> complementarity; the M2 fixed-assignment initialization stage (M2b), results conditional
-> on an assignment (M2c), the penalty route and discrete phase modes (M5b) are not yet
-> implemented.
+> (implemented) lower the constraint forms and disjunctions; M5a and M5b (implemented)
+> lower complementarity and route its penalty realization, so phase appearance runs in all
+> three forms; the initialization fixes (M2b) and results conditional on one commitment
+> (M2c) are implemented ([§6.8](schema-and-relations.md#section-6-8)).
 
 Authored discrete domains are implemented: a variable declares `integer`, `binary`,
 `semicontinuous` or `semiinteger` ([§6.8](schema-and-relations.md#section-6-8)), and a
@@ -642,8 +703,10 @@ The smoothing choice belongs to the author: the realization names the function a
 width, which may reference a parameter, so continuing the width rebinds values without a
 new structure ([§14.4](mathematics-and-compilation.md#section-14-4)). The disjunctive
 realization's SOS1 set is a native form, so it routes to SCIP and is refused on HiGHS. The
-`l1_exact_penalty` requirement enters the structure's identity, but no route reads it yet:
-executing the penalty realization on the ℓ1 route is Plan 22 M5b. The reference
+`l1_exact_penalty` requirement enters the structure's identity and routing reads it as a
+fact (Plan 22 M5b): only POUNCE's ℓ1 exact penalty honours it, as the author's selection,
+and the result states that the penalty relaxes every row
+([§18.7](numerical-execution.md#section-18-7)). The reference
 thermodynamics package declares `ComplementarityVLE` (`equilibrium.pse`), phase
 disappearance by temperature slacks complementary to the liquid fraction and to the vapor
 fraction, with smooth, disjunctive and penalty definitions and nine flash fixtures, three
@@ -654,8 +717,7 @@ feeds in each form. *Tested* by `complements_parses_and_renders` (authoring unit
 `disjunctive_complementarity_refused_on_highs` (runtime units), and
 `flash_phase_disappearance_agrees_across_realizations` (native acceptance conformance: on
 every feed the smooth form on Ipopt leaves the equilibrium temperature within O(width²) of
-the disjunctive form on SCIP; the penalty fixtures are prepared and carry the requirement
-but are not solved).
+the disjunctive form on SCIP, and the penalty form on POUNCE's ℓ1 route agrees with both).
 
 **Routing.** Linear realizations produce ordinary rows over binary variables, which HiGHS
 solves when they are linear and SCIP when a quadratic objective or nonlinear row remains. The
@@ -671,10 +733,10 @@ enumerated one at every tested demand (`gdp_indicator_matches_hull`). The seed G
 hull realization.
 
 Semi domains reach SCIP, which has no native semi variable, through the `semi(indicator)`
-lowering of its export ([§18.10.1](numerical-execution.md#section-18-10-1)). Not yet
-implemented: executing the penalty realization and discrete phase-appearance modes (Plan 22
-M5b), the M2 fixed-assignment initialization stage (M2b) and duals and sensitivities stated
-conditional on a fixed assignment through one commitment (M2c).
+lowering of its export ([§18.10.1](numerical-execution.md#section-18-10-1)). An
+initialization may hold the free discrete variables in its stage and homotopy steps (M2b),
+and duals and sensitivities of a mixed-integer candidate are stated conditional on one
+commitment (M2c), both in [§6.8](schema-and-relations.md#section-6-8).
 
 ### 19.8 Uncertainty
 

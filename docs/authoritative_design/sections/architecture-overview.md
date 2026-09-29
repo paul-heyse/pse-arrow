@@ -77,8 +77,9 @@ admitted lifecycle ([§18](numerical-execution.md#section-18)):
 | Nonlinear programs | Ipopt C API (`pse-ipopt-sys`) and POUNCE, sharing one NLP oracle |
 | Square roots and declared fixed-point maps | KINSOL with KLU, dense or Krylov linear solvers |
 | Matching, Dulmage–Mendelsohn, block triangularization, presolve | pounce-presolve, with independent original-coordinate validation |
-| LP, MILP, certified convex QP, tear selection | HiGHS |
-| Explicit cones, including SDP; LP and convex QP on explicit selection | Clarabel |
+| LP, MILP, certified convex QP, lexicographic LP and MILP objectives, tear selection | HiGHS |
+| Explicit and recognized cones, including SDP; LP and convex QP on explicit selection | Clarabel |
+| LP, convex QP and cones on explicit selection; batched study points; sum-of-squares bounds | POUNCE-convex |
 | Mixed-integer quadratic and nonlinear programs; explicit global certification | SCIP 10.0.2 over the factorable projection |
 | ODE/index-1 dynamics | Diffsol BDF, SDIRK or explicit schemes; IDAS for recoverable residual trials, directional events, sign constraints and exact transient Hessians; scheduled inputs and forward or adjoint sensitivities on both |
 

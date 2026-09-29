@@ -519,14 +519,14 @@ baseline with its command and conditions.
 | Step | Packets | State |
 |---|---|---|
 | W7 | ADR-0118–ADR-0121; DOCS-a; R82874 → S0; Y0a → Y0b → Y4a → Y0c backend; C4; M2a → G6r kernel | complete: decision records `68f4ea6d`, DOCS-a `5143f567`, R82874 and S0 `407103b1`, C4 `7cffc2e9`, Y0a–Y0c `fbd03320`, M2a and G6r kernel `4e0d2107` |
-| W8 | S1; Y3a → Y3b; G-semi → epigraph → G4r → G8f; ENV → C3 authoring → M5a | running: S1 (T-N), Y3a → Y3b (T-Y), ENV → C3 authoring → M5a (T-L), and T-G with G6r tests and the SCIP follow-ups pulled forward from W10 |
-| W9 | S3 → S4; Y4b → Y5b; C5 → M5b → N5; M2b → M2c → C3 engine | not started |
-| W10 | G6r tests, PC-SAFT, SCIP concurrency; Y0c kernel and Y0d; Y5a | not started |
-| W11 | Y5c1 → Y5c2 | not started |
-| W12 | DOCS-z; re-publication only if C4 changed the image | not started |
-| W13 | Q1 | not started |
+| W8 | S1; Y3a → Y3b; G-semi → epigraph → G4r → G8f; ENV → C3 authoring → M5a | complete: S1 `30adcd0a`, Y3a–Y3b `58fd9e66`, ENV, C3 authoring and M5a `ff65741d`, T-G with G6r tests, PC-SAFT slots and SCIP concurrency `55b75e70`; DOCS-b `8e696985` |
+| W9 | S3 → S4; Y4b → Y5b; C5 → M5b → N5; M2b → M2c → C3 engine | complete: S3–S4 `1c4e18e3`, Y4b and Y5b `8c25bebb`, C5 and M5b `91683d83`, M2b, M2c, C3 engine and Y5a `064d204a`, N5 `f021f0c6` |
+| W10 | G6r tests, PC-SAFT, SCIP concurrency; Y0c kernel and Y0d; Y5a | complete: Y0c kernel, Y0d and authored shooting `667b9fae`; the rest landed with W8 and W9 |
+| W11 | Y5c1 → Y5c2 | complete: Y5c1 `8da0cff5`, Y5c2 `5a37033d` |
+| W12 | DOCS-z; re-publication only if C4 changed the image | complete: DOCS-z (blueprint revision 73); the image did not change after `ci-2893f027e09f` |
+| W13 | Q1 | running |
 
-## Current checkpoint (2026-09-28)
+## Current checkpoint (2026-09-29)
 
 **State.** Planned; nothing implemented. The solver image is published and pinned
 (`b0aed3ef`), and the doctor recognizes the native build (`9cab2ca2`). W7 starts with the
@@ -562,7 +562,11 @@ Blueprint revision 69. `just adr-lint` exits 0 on `main`.
   - hakari's hand-kept skip list (arrow, the native-solver crates, pse-ids, pse-diagnostics, diffsol-la);
   - nothing compiles on the stable 1.98.1 floor any more.
 
-**Next:** in dependency order:
-1. the decision records;
-2. the four W7 tracks;
-3. DOCS-a.
+**W8–W12 complete (2026-09-29).**
+- **Merges.** Every track merged into `main` (commits in the progress table). Generated conflicts were regenerated, never hand-edited; semantic conflicts were fixed on the merge (C5's `numerical_psd` against shooting and routing literals; one `solver_capabilities` v3 carrying T-C's `requirements` and T-M's `lexicographic_classes`; M2b's `CaseOverrides` in the horizon driver).
+- **Coordinator takeover.** From W9's end the coordinator finished the remaining work sequentially in the main checkout, at the maintainer's direction, after parallel agents' broad test runs overloaded the machine. Worktrees and merged branches were removed.
+- **Y5c2** found and fixed an S0 defect: the KKT-point analysis treated an interior-point candidate's active bound as inactive when its slack `μ/z` exceeded the acceptance budget. A limit whose strong multiplier exceeds its slack is now active (`interior_point_active_bound_beyond_its_tolerance_is_active`).
+- **N5** adds `batch` and `sensitivities` to the capability record; a sensitivity request is an automatic-routing preference, not an eligibility rule, so an explicit coefficient adapter keeps S1's withheld-with-reason behaviour.
+- **Stale comments** listed by DOCS-b were fixed (`c5df295a`), including the Diffsol/IDAS derivative vocabulary.
+
+**Next:** Q1 (W13), then the Outcome and retirement (ADR-0096).

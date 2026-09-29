@@ -164,9 +164,10 @@ as constants, not model inputs.
 > left to native handlers are structure metadata in `CaseStructure` and `ProblemFacts` (Plan
 > 22 M3 and M4, implemented);
 > [ADR-0111](../../adr/0111-multi-objective-optimization.md) — several
-> objectives with priority, weight and degradation tolerances (Plan 22 C3 authoring,
-> implemented: members, levels and level-bound rows,
-> [§6.8](schema-and-relations.md#section-6-8); the C3 engine is not yet implemented).
+> objectives with priority, weight and degradation tolerances (Plan 22 C3, implemented:
+> members, levels, level-bound rows and the lexicographic engine,
+> [§6.8](schema-and-relations.md#section-6-8)); a native lexicographic structure carries
+> every level's objective (`pse.math.case-structure.v4`).
 >
 > Decision: [ADR-0120](../../adr/0120-provider-envelope-contract.md) — a provider output
 > becomes an auxiliary bounded by its factory's declared and checked output envelope, which
@@ -175,7 +176,8 @@ as constants, not model inputs.
 > production provider declares an envelope yet.
 > [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — `ProblemFacts.convexity` from a
 > DCP pass over `FactorableProgram` and exact rational LDLᵀ Gram certificates, rebound with
-> values (Plan 22 C5; not yet implemented).
+> values (Plan 22 C5, implemented,
+> [§18.10](numerical-execution.md#section-18-10)).
 
 A selected case is a `pse_math::binding::CaseStructure`: variables with their declared
 registry domain (`ModelingVariableDomain`: `continuous`, `integer`, `binary`,
