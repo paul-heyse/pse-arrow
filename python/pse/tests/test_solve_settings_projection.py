@@ -252,7 +252,7 @@ def test_solve_settings_backend_projection(
             samples=[0.0],
             atol=[1e-8],
             parameter_scales=[],
-            idas=b'{"version": 2}',
+            idas=b'{"version": 3}',
         )
 
     # Each variant reaches its backend: the report records the effective settings.

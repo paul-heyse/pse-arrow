@@ -298,19 +298,6 @@ class ModelingDiagnosticSettings:
     def to_json(self, /) -> str: ...
 
 @final
-class ModelingEventSettings:
-    def __new__(
-        cls,
-        /,
-        *,
-        guard: str,
-        tolerance: float,
-        terminal: bool = False,
-        next_mode: str | None = None,
-        reset: dict[str, str] | None = None,
-    ) -> ModelingEventSettings: ...
-
-@final
 class ModelingFixturePolicy:
     def __new__(
         cls,
@@ -332,26 +319,18 @@ class ModelingLimits:
         items: int | None = None,
         members: int | None = None,
         body_occurrences: int | None = None,
+        body_slots: int | None = None,
     ) -> ModelingLimits: ...
     @property
     def body_occurrences(self, /) -> int | None: ...
+    @property
+    def body_slots(self, /) -> int | None: ...
     @property
     def depth(self, /) -> int: ...
     @property
     def items(self, /) -> int: ...
     @property
     def members(self, /) -> int: ...
-
-@final
-class ModelingModeSettings:
-    def __new__(
-        cls,
-        /,
-        *,
-        name: str,
-        facts: dict[str, bool] | None = None,
-        events: Sequence[ModelingEventSettings] | None = None,
-    ) -> ModelingModeSettings: ...
 
 @final
 class NativeAttempt:
@@ -604,9 +583,10 @@ class NativeModelingPackage:
         settings: bytes,
         simulations: Sequence[tuple[str, SimulationSettings]],
         *,
-        modes: Sequence[tuple[str, Sequence[ModelingModeSettings]]] | None = None,
         rank_tolerance: float = 1e-8,
         max_cells: int = 1000000,
+        derivatives: str = "responses",
+        uncertainty: bytes | None = None,
     ) -> NativePreparedOperation: ...
     def prepare_flow(
         self, /, case_id: str, selection: bytes, settings: bytes
@@ -615,21 +595,13 @@ class NativeModelingPackage:
         self, /, case_id: str, selection: bytes, request: bytes, settings: bytes
     ) -> NativePreparedStrategy: ...
     def prepare_simulation(
-        self,
-        /,
-        case_id: str,
-        settings: SimulationSettings,
-        modes: Sequence[ModelingModeSettings] | None = None,
+        self, /, case_id: str, settings: SimulationSettings
     ) -> NativePreparedOperation: ...
     def prepare_solve(
         self, /, case_id: str, settings: bytes, *, route: str = "steady"
     ) -> NativePreparedOperation: ...
     def simulate(
-        self,
-        /,
-        case_id: str,
-        settings: SimulationSettings,
-        modes: Sequence[ModelingModeSettings] | None = None,
+        self, /, case_id: str, settings: SimulationSettings
     ) -> NativeModelingTrajectory: ...
     def solve_case(
         self, /, case_id: str, settings: bytes, *, route: str = "steady"
@@ -962,7 +934,7 @@ class SimulationSettings:
         samples: Sequence[float],
         atol: Sequence[float],
         parameter_scales: Sequence[float],
-        sensitivities: bool | None = None,
+        sensitivity: str | None = None,
         rtol: float | None = None,
         out_rtol: float | None = None,
         out_atol: Sequence[float] | None = None,
@@ -976,7 +948,10 @@ class SimulationSettings:
         numerics: dict[str, object] | None = None,
         diffsol: bytes | None = None,
         idas: bytes | None = None,
+        adjoint: bytes | None = None,
     ) -> SimulationSettings: ...
+    @property
+    def adjoint(self, /) -> bytes: ...
     @property
     def diffsol(self, /) -> bytes: ...
     @staticmethod
