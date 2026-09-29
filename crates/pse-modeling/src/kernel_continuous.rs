@@ -136,3 +136,103 @@ fn continuous_schemes_are_visible_data_and_lattice_offsets_cross_elements() {
     assert!(run("package foreign { collocation hidden alpha(0) beta(0) right(false); } package p { def D { domain t:Scalar from 0 to 1; discretize mesh on t using foreign.hidden(elements=1,order=2); } }").is_err());
     assert!(run("package p { collocation bad alpha(-1) beta(0) right(true); def D {} }").is_err());
 }
+
+/// Rendered equations as a sorted multiset: row identities and lineage differ between
+/// formulations, the realized mathematics must not.
+fn rendered(model: &SpecializedModel) -> Vec<String> {
+    let mut rows = model
+        .equations
+        .iter()
+        .map(|e| pse_authoring::dsl::render_equation(&e.equation))
+        .collect::<Vec<_>>();
+    rows.sort();
+    rows
+}
+const REPLICA_SCHEMES: &str = "difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0,1); difference forward order(1) offsets(0,1) weights(-1,1) quadrature(1,0);";
+
+#[test]
+fn replica_derivative_reads_the_sibling_replica_at_each_stencil_point() {
+    for (scheme, boundary) in [("backward", "cell[0].x==0"), ("forward", "cell[2].x==0")] {
+        // The derivative is authored inside the replicated definition, along the coordinate
+        // its owner binds; the forward stencil reads replicas instantiated after it.
+        let inside = format!(
+            "package p {{ {REPLICA_SCHEMES} def Cell(at:Scalar) {{ var x:Scalar; var y:Scalar; eq ode:d(x)/d at==y; eq source:y==1; }} def D {{ domain t:Scalar from 0 to 2; discretize grid on t using {scheme}(elements=4,order=1); child cell[i in t]:Cell=Cell(at=i); eq boundary:{boundary}; }} }}"
+        );
+        let outside = format!(
+            "package p {{ {REPLICA_SCHEMES} def Cell(at:Scalar) {{ var x:Scalar; var y:Scalar; eq source:y==1; }} def D {{ domain t:Scalar from 0 to 2; discretize grid on t using {scheme}(elements=4,order=1); child cell[i in t]:Cell=Cell(at=i); eq ode[i in t]:d(cell[i].x)/di==cell[i].y; eq boundary:{boundary}; }} }}"
+        );
+        let inside = run(&inside).unwrap();
+        let outside = run(&outside).unwrap();
+        // Four stencil rows, five sources and one boundary condition.
+        assert_eq!(inside.equations.len(), 10, "{scheme}");
+        assert_eq!(rendered(&inside), rendered(&outside), "{scheme}");
+        let ode = inside
+            .equations
+            .iter()
+            .filter(|e| e.lineage.path.ends_with(".ode"))
+            .collect::<Vec<_>>();
+        assert_eq!(ode.len(), 4, "{scheme}");
+        // Every stencil row reads the state of two distinct replicas.
+        for row in ode {
+            let text = pse_authoring::dsl::render_equation(&row.equation);
+            let states = inside
+                .symbols
+                .values()
+                .filter(|s| s.lineage.path.ends_with(".x") && text.contains(&specialize::symbol_name(s.id)))
+                .map(|s| s.lineage.instance)
+                .collect::<std::collections::BTreeSet<_>>();
+            assert_eq!(states.len(), 2, "{scheme}: {text}");
+        }
+    }
+}
+
+#[test]
+fn replica_derivative_follows_the_replica_through_nested_children() {
+    // The replicated unit owns a child whose equation differentiates along the unit's
+    // coordinate: the stencil reads the corresponding child of each sibling replica.
+    let inside = format!(
+        "package p {{ {REPLICA_SCHEMES} def Inner(at:Scalar) {{ var x:Scalar; eq ode:d(x)/d at==1; }} def Cell(at:Scalar) {{ child inner:Inner=Inner(at=at); }} def D {{ domain t:Scalar from 0 to 2; discretize grid on t using backward(elements=2,order=1); child cell[i in t]:Cell=Cell(at=i); eq initial:cell[0].inner.x==0; }} }}"
+    );
+    let outside = format!(
+        "package p {{ {REPLICA_SCHEMES} def Inner(at:Scalar) {{ var x:Scalar; }} def Cell(at:Scalar) {{ child inner:Inner=Inner(at=at); }} def D {{ domain t:Scalar from 0 to 2; discretize grid on t using backward(elements=2,order=1); child cell[i in t]:Cell=Cell(at=i); eq ode[i in t]:d(cell[i].inner.x)/di==1; eq initial:cell[0].inner.x==0; }} }}"
+    );
+    let inside = run(&inside).unwrap();
+    assert_eq!(inside.equations.len(), 3);
+    assert_eq!(rendered(&inside), rendered(&run(&outside).unwrap()));
+}
+
+#[test]
+fn replica_derivative_on_an_integrated_axis_is_the_state_rate() {
+    let text = "package p { def Cell(at:Time) { var x:Time; eq ode:d(x)/d at==1; } def D { domain t:Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); child cell[i in t]:Cell=Cell(at=i); eq initial:cell[0{s}].x==0{s}; } }";
+    // The standard physical document names Time.
+    let (registry, _) = physical();
+    let preconditions =
+        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
+            .unwrap();
+    let context = TypeContext {
+        preconditions: &preconditions,
+        quantities: &registry,
+        scope: &PhysicalScope::default(),
+    };
+    let package = check(&kernel_types::source(text), &context).unwrap();
+    let model = specialize(
+        &package,
+        package.names["p.D"],
+        InstanceId::from_id(SemanticId::NIL),
+        &Bindings::default().with_analysis(analysis::Route::Integrated),
+        Limits::default(),
+    )
+    .unwrap();
+    // One replica at the integrated coordinate; its state has a rate symbol.
+    assert_eq!(model.derivatives.len(), 1);
+    assert_eq!(model.initial_equations.len(), 1);
+}
+
+#[test]
+fn replica_derivative_refuses_a_coordinate_without_a_mesh() {
+    // A plain value is not a realized coordinate, whether or not the instance is replicated.
+    let text = format!(
+        "package p {{ {REPLICA_SCHEMES} def Cell(at:Scalar) {{ var x:Scalar; eq ode:d(x)/d at==1; }} def D {{ child cell:Cell=Cell(at=1); }} }}"
+    );
+    assert!(run(&text).is_err());
+}

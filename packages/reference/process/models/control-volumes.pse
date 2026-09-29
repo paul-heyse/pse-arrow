@@ -24,7 +24,16 @@
 @id("e7f7e38468db4780b678e83341b8e5e4") eq steady_material[p in phases,j in components]:phase_material_accumulation[p,j]==0{mol/s};
 @id("0842a0b5175240339a8fb7d2b6d1c55b") eq steady_energy[p in phases]:phase_energy_accumulation[p]==0{W};
 }
+@id("01a0ee398db8733eb490d0d210d8f05c") when analysis.dynamic {
+@id("01a0ee398db8733eb490d0d3e08e98e3") eq material_rate[i in time,p in phases,j in evolving_inventory]:d(phase_material_holdup[p,j])/di==phase_material_accumulation[p,j];
+@id("01a0ee398db8733eb490d0d4d36ad2b3") eq constant_material[p in phases,j in constant_inventory]:phase_material_accumulation[p,j]==0{mol/s};
+@id("01a0ee398db8733eb490d0d5b5b99c8a") eq energy_rate[i in time,p in phases]:d(phase_energy_holdup[p])/di==phase_energy_accumulation[p];
 }
+}
+@id("01a0ee398db8733eb490d0d695def0fe") param time:Set<Time>={};
+@id("01a0ee414bb27705867410005413e924") require not analysis.dynamic or sum(i in time | 1)==1 : "a dynamic control volume is evaluated at one instant of its owner's time domain";
+@id("01a0ee398db8733eb490d0d7e02bf428") param constant_inventory:Set<chemistry.species>={};
+@id("01a0ee398db8733eb490d0d8816a79bf") param evolving_inventory:Set<chemistry.species>={j for j in components where not (j in constant_inventory)};
 @id("4fee7b020ea94caaae04d6d470202852") param material_basis:MaterialBalance=MaterialBalance.componentTotal;
 @id("9b5e8a73656444e1b1db2b41a049c162") param phases:Set<chemistry.phase>=outlet_package.phases;
 @id("0fecf4a5ef1b476e9d7e154dc118c3bb") param elements:Set<chemistry.element>={};

@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+[package]
+package_id = "01a0ee3cf88675089ed360b096500f6e"
+name = "pse.campaign"
+version = "1.0.0"
+kind = "reference"
+id_policy = "explicit"
+dependencies = [
+  { package_id = "01a0e1461e93764398a669e208f425e7", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "12104e13f2494492ba75de08955299a6", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0e169482c760bbd985b849a06417d", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "b27409be5572b8712e47db271fae28cd", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "ce317b088cc74ac89873845b0c086ea8", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+]
+doc = "Plan 23 integrated campaign: K9 process-scenario flowsheets, studies and their oracle fixtures."

@@ -498,6 +498,9 @@ impl Engine<'_, '_> {
                 "derivative is undefined at this scheme boundary",
             ));
         }
+        // Along a coordinate at which this instance was replicated, each stencil term reads
+        // the corresponding member of the replica at the shifted coordinate.
+        let replica = self.replica(instance, value.identity());
         let Type::Quantity(axis) = value_type(value).ok_or_else(|| invalid(at, "axis type"))?
         else {
             return Err(invalid(at, "axis type"));
@@ -513,8 +516,27 @@ impl Engine<'_, '_> {
         ));
         let baseline = self.rewrite(instance, body, env, chain)?;
         let mut hash = FramedHasher::new(pse_ids::Frame::ModelingContinuityV2);
-        hash.id(&instance.as_id())
-            .id(&at.as_id())
+        // Replicas share one family of continuity rows, owned by the replicating member.
+        match &replica {
+            Some(replica) => {
+                hash.id(&replica.owner.as_id()).str(&replica.name);
+                for (position, id) in replica.key.iter().enumerate() {
+                    if position != replica.position {
+                        hash.id(id);
+                    }
+                }
+                for (name, key) in &replica.descent {
+                    hash.str(name);
+                    for id in key {
+                        hash.id(id);
+                    }
+                }
+            }
+            None => {
+                hash.id(&instance.as_id());
+            }
+        }
+        hash.id(&at.as_id())
             .id(&mesh_id)
             .str(&dsl::render_expr(body));
         for (n, v) in env {
@@ -528,19 +550,16 @@ impl Engine<'_, '_> {
         if self.continuity_done.insert(key) {
             for (element, (endpoint, coefficients)) in continuity.into_iter().enumerate() {
                 self.reserve(1)?;
-                let mut local = env.clone();
-                local.insert(name.clone(), points[endpoint].clone());
                 let rhs = binary(
                     BinaryOp::Sub,
-                    self.rewrite(instance, body, &local, chain)?,
+                    self.shifted(instance, body, env, &name, &points[endpoint], replica.as_ref(), chain)?,
                     baseline.clone(),
                 );
                 let mut terms = Vec::new();
                 for (j, w) in coefficients {
-                    local.insert(name.clone(), points[j].clone());
                     let delta = binary(
                         BinaryOp::Sub,
-                        self.rewrite(instance, body, &local, chain)?,
+                        self.shifted(instance, body, env, &name, &points[j], replica.as_ref(), chain)?,
                         baseline.clone(),
                     );
                     let factor = self.constant(
@@ -567,9 +586,8 @@ impl Engine<'_, '_> {
         }
         let mut terms = Vec::new();
         for (index, weight) in weights {
-            let mut local = env.clone();
-            local.insert(name.clone(), points[index].clone());
-            let shifted = self.rewrite(instance, body, &local, chain)?;
+            let shifted =
+                self.shifted(instance, body, env, &name, &points[index], replica.as_ref(), chain)?;
             let delta = binary(BinaryOp::Sub, shifted, baseline.clone());
             terms.push(binary(
                 BinaryOp::Mul,
@@ -578,6 +596,131 @@ impl Engine<'_, '_> {
             ));
         }
         sum(terms, at)
+    }
+
+    /// The body at another mesh point: in this instance with the coordinate rebound, or,
+    /// along a replication coordinate, in the corresponding instance of the replica there.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one stencil term: instance, body, scope, coordinate, point, replica and attribution"
+    )]
+    fn shifted(
+        &mut self,
+        instance: InstanceId,
+        body: &Expr,
+        env: &Environment,
+        name: &str,
+        point: &Value,
+        replica: Option<&Replica>,
+        chain: &[DeclarationId],
+    ) -> Result<Expr> {
+        let Some(replica) = replica else {
+            let mut local = env.clone();
+            local.insert(name.to_owned(), point.clone());
+            return self.rewrite(instance, body, &local, chain);
+        };
+        let sibling = self.replica_at(replica, point.identity())?;
+        // Lexical bindings of the occurrence carry over; the instance scope is the sibling's.
+        let own = &self.states[&instance].env;
+        let mut local = self.states[&sibling].env.clone();
+        for (key, value) in env {
+            if own.get(key) != Some(value) {
+                local.insert(key.clone(), value.clone());
+            }
+        }
+        self.rewrite(sibling, body, &local, chain)
+    }
+    /// The indexed child occurrence that replicated `instance`, or its nearest such
+    /// ancestor, at the continuous coordinate `coordinate`.
+    pub(super) fn replica(&self, instance: InstanceId, coordinate: SemanticId) -> Option<Replica> {
+        let mut descent = Vec::new();
+        let mut current = instance;
+        while let Some(owner) = self.states.get(&current).and_then(|s| s.parent) {
+            let (name, key) = self.states[&owner]
+                .children
+                .iter()
+                .find(|(_, child)| **child == current)
+                .map(|(key, _)| key.clone())?;
+            if let Some(position) = key.iter().position(|id| *id == coordinate) {
+                descent.reverse();
+                return Some(Replica {
+                    owner,
+                    name,
+                    key,
+                    position,
+                    descent,
+                });
+            }
+            descent.push((name, key));
+            current = owner;
+        }
+        None
+    }
+    /// The instance corresponding to a replica's instance in the replica at `point`.
+    fn replica_at(&self, replica: &Replica, point: SemanticId) -> Result<InstanceId> {
+        let absent = || {
+            invalid(
+                self.states[&replica.owner].definition,
+                "replica at a stencil coordinate is absent",
+            )
+        };
+        let mut key = replica.key.clone();
+        key[replica.position] = point;
+        let mut current = *self.states[&replica.owner]
+            .children
+            .get(&(replica.name.clone(), key))
+            .ok_or_else(absent)?;
+        for step in &replica.descent {
+            current = *self
+                .states
+                .get(&current)
+                .and_then(|s| s.children.get(step))
+                .ok_or_else(absent)?;
+        }
+        Ok(current)
+    }
+    /// Whether an equation differentiates along a meshed coordinate at which its instance
+    /// was replicated; such stencils read sibling replicas that may not exist yet.
+    pub(super) fn differentiates_replicas(
+        &self,
+        instance: InstanceId,
+        equation: &Equation,
+        env: &Environment,
+    ) -> bool {
+        let mut found = false;
+        let mut visit = |e: &Expr| {
+            let _ = e.clone().try_walk_mut(|e| -> Result<()> {
+                if let ExprKind::Derivative { wrt, .. } = &e.kind
+                    && let Some(value) = env.get(&dsl::render_path(wrt))
+                    && let Ok((mesh, _)) = self.coordinate_mesh(value)
+                    && !self.model.integrated.contains_key(&mesh.id)
+                    && self.replica(instance, value.identity()).is_some()
+                {
+                    found = true;
+                }
+                Ok(())
+            });
+        };
+        fn equations<'e>(equation: &'e Equation, out: &mut Vec<&'e Expr>) {
+            match &equation.kind {
+                EquationKind::Relation { lhs, rhs, .. } => {
+                    out.push(lhs);
+                    out.push(rhs);
+                }
+                EquationKind::Conditional {
+                    then, otherwise, ..
+                } => {
+                    equations(then, out);
+                    equations(otherwise, out);
+                }
+            }
+        }
+        let mut sides = Vec::new();
+        equations(equation, &mut sides);
+        for side in sides {
+            visit(side);
+        }
+        found
     }
 
     pub(super) fn integral(
@@ -727,4 +870,14 @@ fn sum(terms: Vec<Expr>, at: DeclarationId) -> Result<Expr> {
         .into_iter()
         .reduce(|a, b| binary(BinaryOp::Add, a, b))
         .ok_or_else(|| invalid(at, "empty continuous stencil"))
+}
+/// An indexed child occurrence replicating an instance over a continuous coordinate:
+/// the owner, the child key with the coordinate's position, and the child keys from the
+/// replica down to the replicated instance.
+pub(super) struct Replica {
+    owner: InstanceId,
+    name: String,
+    key: Vec<SemanticId>,
+    position: usize,
+    descent: Vec<(String, Vec<SemanticId>)>,
 }

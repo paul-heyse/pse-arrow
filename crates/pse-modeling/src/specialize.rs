@@ -360,6 +360,14 @@ struct State {
     /// selected it: the nearest instance that selects one decides (ADR-0123 Outcome 4).
     extrapolation: Option<(pse_model::generated::enums::ExtrapolationPolicy, DeclarationId)>,
 }
+/// One deferred equation occurrence: its instance, declaration, coordinates and scope.
+#[derive(Clone)]
+struct ReplicatedEquation {
+    instance: InstanceId,
+    member: DeclarationId,
+    coordinates: Vec<(String, Value)>,
+    env: Environment,
+}
 pub(crate) struct Engine<'a, 'b> {
     pub(crate) p: &'a CheckedPackage,
     pub(crate) c: &'a TypeContext<'b>,
@@ -375,6 +383,10 @@ pub(crate) struct Engine<'a, 'b> {
     preset_stack: Vec<DeclarationId>,
     local_serial: usize,
     continuity_done: BTreeSet<SemanticId>,
+    /// Equation occurrences differentiating along a coordinate at which their instance
+    /// was replicated; their stencils read sibling replicas, so they are realized once
+    /// every replica exists.
+    replicated: Vec<ReplicatedEquation>,
     relaxations: BTreeMap<SemanticId, (Type, Value, Lineage)>,
     form_realizations: BTreeMap<DeclarationId, (forms::Realized, DeclarationId)>,
     facts: Environment,
@@ -496,6 +508,7 @@ pub fn specialize_with_discretizer(
         preset_stack: Vec::new(),
         local_serial: 0,
         continuity_done: BTreeSet::new(),
+        replicated: Vec::new(),
         relaxations: BTreeMap::new(),
         form_realizations: BTreeMap::new(),
         facts: ambient.clone(),
@@ -524,6 +537,7 @@ pub fn specialize_with_discretizer(
         args,
         bindings.scope.clone(),
     )?;
+    engine.replicated_equations()?;
     for name in &bindings.demand {
         let expr = dsl::parse_expr(name).map_err(|e| invalid(root, e.to_string()))?;
         let resolved = engine.rewrite(instance, &expr, &Environment::new(), &[root])?;
@@ -1111,40 +1125,20 @@ impl Engine<'_, '_> {
                     )? {
                         let equation = dsl::parse_equation(&e.expression)
                             .map_err(|e| invalid(*member, e.to_string()))?;
-                        if !self
-                            .equation_defined(&equation, &coordinates_env(&env, &coordinates))?
-                        {
-                            continue;
-                        }
-                        let initial = self.initial_equation(
-                            id,
-                            *member,
-                            &equation,
-                            &coordinates_env(&env, &coordinates),
-                        )?;
-                        if initial {
-                            self.model.initial_equations.insert(member_id(
-                                id,
-                                *member,
-                                &coordinates,
-                            ));
-                        }
-                        let equation = self.rewrite_equation(
+                        if self.differentiates_replicas(
                             id,
                             &equation,
                             &coordinates_env(&env, &coordinates),
-                            &[*member],
-                        )?;
-                        if e.condition.is_some() {
-                            self.indicator_equation(id, &r, &coordinates, equation, &env)?;
+                        ) {
+                            self.replicated.push(ReplicatedEquation {
+                                instance: id,
+                                member: *member,
+                                coordinates,
+                                env: env.clone(),
+                            });
                             continue;
                         }
-                        self.reserve(1)?;
-                        self.model.equations.push(Row {
-                            id: member_id(id, *member, &coordinates),
-                            equation,
-                            lineage: self.lineage(id, &r, &[*member]),
-                        });
+                        self.equation(id, *member, &equation, &coordinates, &env)?;
                     }
                 }
                 Selected::Sos1(_) | Selected::Sos2(_) => self.ordered_set(id, &r, &env)?,
@@ -1338,6 +1332,66 @@ impl Engine<'_, '_> {
         }
         self.regimes(id, &row, &members, &env)?;
         self.stack.pop();
+        Ok(())
+    }
+    /// Realize one equation occurrence: its definedness, initial-endpoint role and row.
+    fn equation(
+        &mut self,
+        id: InstanceId,
+        member: DeclarationId,
+        equation: &Equation,
+        coordinates: &[(String, Value)],
+        env: &Environment,
+    ) -> Result<()> {
+        let r = self.p.declarations[&member].clone();
+        let Selected::Equation(e) = r
+            .value
+            .selected()
+            .map_err(|e| invalid(member, e.to_string()))?
+        else {
+            return Err(invalid(member, "equation payload"));
+        };
+        let local = coordinates_env(env, coordinates);
+        if !self.equation_defined(equation, &local)? {
+            return Ok(());
+        }
+        if self.initial_equation(id, member, equation, &local)? {
+            self.model
+                .initial_equations
+                .insert(member_id(id, member, coordinates));
+        }
+        let equation = self.rewrite_equation(id, equation, &local, &[member])?;
+        if e.condition.is_some() {
+            return self.indicator_equation(id, &r, coordinates, equation, env);
+        }
+        self.reserve(1)?;
+        self.model.equations.push(Row {
+            id: member_id(id, member, coordinates),
+            equation,
+            lineage: self.lineage(id, &r, &[member]),
+        });
+        Ok(())
+    }
+    /// Realize the equations deferred until every replica of their instances exists.
+    fn replicated_equations(&mut self) -> Result<()> {
+        for occurrence in std::mem::take(&mut self.replicated) {
+            let Selected::Equation(e) = self.p.declarations[&occurrence.member]
+                .value
+                .selected()
+                .map_err(|e| invalid(occurrence.member, e.to_string()))?
+            else {
+                return Err(invalid(occurrence.member, "equation payload"));
+            };
+            let equation = dsl::parse_equation(&e.expression)
+                .map_err(|e| invalid(occurrence.member, e.to_string()))?;
+            self.equation(
+                occurrence.instance,
+                occurrence.member,
+                &equation,
+                &occurrence.coordinates,
+                &occurrence.env,
+            )?;
+        }
         Ok(())
     }
     fn active_members(

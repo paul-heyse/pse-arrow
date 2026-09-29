@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0ee3d408b75e0b32edfa8f1641e0b") package cstr_dynamics {
+@id("c86e3989fdbe4f2c81a0a592e09b4d05") use temperature_driving_force @"1.0.0";
+@id("01a0ee3d408b75e0b32edfa968e88b72") use control @"1.0.0";
+@id("01a0ee3d408b75e0b32edfaa4664d829") use distributed_volumes @"1.0.0";
+@id("01a0ede58ecc720b8be6cd2ed76aa4ce") use chemistry @"1.0.0";
+@id("c4a897cef26d42929e485474c8da6eed") use chem @"1.0.0";
+@id("d02bd312349f46cda9571e022d34061c") use reactors @"1.0.0";
+@id("69a88b61fcb945029d061a895fbfafcd") use saponification @"1.0.0";
+@id("318bf542e11744408077ff7e58ad2c32") use equilibrium @"1.0.0";
+@id("5f80787fec7e40f2a5d6e6dbb866553c") table initial_feed[j:chemistry.species]:MolarDensity complete_over(j in chem.saponification_species);
+@id("a5d890c2adfe4277a2855cad480c3dee") dataset feed:initial_feed source "Dynamic demonstration inlet at the steady IDAES 2.13 saponification CSTR specification" {
+[chem.water]=[55388{mol/m^3}];
+[chem.sodium_hydroxide]=[100{mol/m^3}];
+[chem.ethyl_acetate]=[100{mol/m^3}];
+[chem.sodium_acetate]=[1e-08{mol/m^3}];
+[chem.ethanol]=[1e-08{mol/m^3}];
+}
+@id("a70dc0e63c17457196733ebac0b6952f") table initial_outlet[j:chemistry.species]:MolarDensity complete_over(j in chem.saponification_species);
+@id("65d4734c82f941688b8fe3d5dd8a07bd") dataset initial_state:initial_outlet source "Steady zero-duty CSTR solution with Arrhenius rate and solvent heat capacity, checked against IDAES 2.13 CSTR fixture" {
+[chem.water]=[55388{mol/m^3}];
+[chem.sodium_hydroxide]=[20.316088036339764{mol/m^3}];
+[chem.ethyl_acetate]=[20.316088036339764{mol/m^3}];
+[chem.sodium_acetate]=[79.68391197366024{mol/m^3}];
+[chem.ethanol]=[79.68391197366024{mol/m^3}];
+}
+@id("f2c452a0401a452c921e4dbd516719a7") def ControlledCSTR {
+@id("96a1f0dbc1ab4acfaeb9e82c74bb2f94") domain t:Time from 0{s} to 20{s};
+@id("6e868ca54ae447ad93c2db89d7001e43") when analysis.route==analysis.integrated {
+@id("adfba282bd4f4817bb7a84741192510c") discretize grid on t using integrated(elements=1,order=1);
+}
+@id("e61c2d04f46f4793a1e43588332592f3") when analysis.route==analysis.simultaneous {
+@id("9c0d5164d1874e2bb64cc02b6938fbd1") discretize grid on t using distributed_volumes.radau(elements=12,order=3);
+}
+@id("51e4def814ea4480a226e1b9cc2dafb8") param components:Set<chemistry.species>=chem.saponification_species;
+@id("37b1d1e618ea45ed853e123584ba9957") param solutes:Set<chemistry.species>={chem.sodium_hydroxide,chem.ethyl_acetate,chem.sodium_acetate,chem.ethanol};
+@id("01a0ee3d408b75e0b32edfa7ea4ab1b9") child reactor[i in t]:reactors.CSTR=reactors.CSTR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions,holdup=true,times={i});
+@id("a618e9dd5ef0444c93e64af5541d7402") child regulator:control.PID=control.PID(timeline=t,first=0{s},initial_filter=0.40858373453369{s});
+@id("ce6814920f494e57ad2587f864778d8b") eq inlet_temperature[i in t]:reactor[i].inlet.T==303.15{K};
+@id("b20101bceaf449d49988a502bcaa6176") eq inlet_pressure[i in t]:reactor[i].inlet.pressure==101325{Pa};
+@id("b96d962b235a424aa46a1611476e9565") eq inlet_flow[i in t]:reactor[i].inlet.volume_flow==0.001{m^3/s};
+@id("d62755c2408f4103ac9bc72df37afd74") eq inlet_concentration[i in t,j in components]:reactor[i].inlet.concentration[j]==initial_feed[j];
+@id("b3878b61db7c42af85d0d72251230991") eq volume[i in t]:reactor[i].volume==0.0015{m^3};
+@id("b6db8dd49ff445448759860693bd4bf4") eq pressure[i in t]:reactor[i].delta_pressure==0{Pa};
+@id("59838f7a6d8c4abb9af8e64d80d7128a") eq measurement[i in t]:regulator.measurement[i]==(reactor[i].outlet.T-300{K})/temperature_driving_force.kelvin_difference();
+@id("62fafb7ccd34404d80dbba16cf533785") eq target[i in t]:regulator.setpoint[i]==5;
+@id("6d4403abffa941aead525214ad3e5d59") eq duty[i in t]:reactor[i].heat==10000*reactors.power_unit()*regulator.output[i];
+@id("09e0996be231496f9eed2ffe52faf352") eq initial_energy:reactor[0{s}].phase_energy_holdup[chemistry.liquid]==reactors.stored_energy(0.0015{m^3},saponification.liquid_data[chem.water].density,saponification.component_enthalpy(304.0858373453369{K},chemistry.liquid,chem.water),101325{Pa});
+@id("cde9c6a2b91f44b4a273281d506c3fa3") eq initial_inventory[j in solutes]:reactor[0{s}].phase_material_holdup[chemistry.liquid,j]==0.0015{m^3}*initial_outlet[j];
+@id("6a5989f1e66142a699392958a85bb18a") let temperature[i in t]:Temperature=reactor[i].outlet.T;
+@id("9d0459f45eff45a8a6723d5ce7828bb6") let reactant[i in t]:MolarDensity=reactor[i].outlet.concentration[chem.ethyl_acetate];
+@id("447c3c0e27ba44b69c088955f44a8821") annotation report temperature("controlled CSTR temperature");
+@id("b4b0b8d2530b460b9c422d5e06a832b4") annotation report reactant("controlled CSTR reactant");
+@id("d327e66fb95548ccb5033f5b100eeb56") annotation check temperature((i!=0{s} or abs(temperature[i]-304.0858373453369{K})<0.002{K}) and (i!=1{s} or abs(temperature[i]-304.684711005116{K})<0.002{K}) and (i!=5{s} or abs(temperature[i]-304.8917741663{K})<0.002{K}) and (i!=20{s} or abs(temperature[i]-304.989180370365{K})<0.002{K}));
+@id("308f004a329a4234b252341fca3b2ba8") annotation check reactant((i!=0{s} or abs(reactant[i]-20.31608803634{mol/m^3})<0.01{mol/m^3}) and (i!=1{s} or abs(reactant[i]-20.0418922088{mol/m^3})<0.01{mol/m^3}) and (i!=5{s} or abs(reactant[i]-19.91592179354{mol/m^3})<0.01{mol/m^3}) and (i!=20{s} or abs(reactant[i]-19.86671515627{mol/m^3})<0.01{mol/m^3}));
+}
+@id("7b4665c39e1748cb91118b24f3638f64") test cstr_integrated source "Independent reduced incompressible CSTR/controller ODE, SciPy 1.18.1 DOP853 and Radau agree with rtol=1e-11 atol=1e-12; sample comparisons only" revision "1" fixture {dof 0; value root.reactor[0{s}].inlet.concentration[chem.water]=initial_feed[chem.water]; value root.reactor[0{s}].inlet.concentration[chem.sodium_hydroxide]=initial_feed[chem.sodium_hydroxide]; value root.reactor[0{s}].inlet.concentration[chem.ethyl_acetate]=initial_feed[chem.ethyl_acetate]; value root.reactor[0{s}].inlet.concentration[chem.sodium_acetate]=initial_feed[chem.sodium_acetate]; value root.reactor[0{s}].inlet.concentration[chem.ethanol]=initial_feed[chem.ethanol]; value root.reactor[0{s}].outlet.concentration[chem.water]=initial_outlet[chem.water]; value root.reactor[0{s}].outlet.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.reactor[0{s}].outlet.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.reactor[0{s}].outlet.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.reactor[0{s}].outlet.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.reactor[0{s}].reaction.concentration[chem.water]=initial_outlet[chem.water]; value root.reactor[0{s}].reaction.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.reactor[0{s}].reaction.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.reactor[0{s}].reaction.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.reactor[0{s}].reaction.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.reactor[0{s}].inlet.T=303.15{K}; value root.reactor[0{s}].outlet.T=304.0858373453369{K}; value root.reactor[0{s}].reaction.T=304.0858373453369{K}; value root.reactor[0{s}].volume=0.0015{m^3}; run integrated; integrate samples(0{s},1{s},5{s},20{s}) relative(1e-10) normalized_absolute(1e-12) step(1e-5{s});} {
+@id("fe7a6d2fd15843f3bf583fe189e16467") child root:ControlledCSTR=ControlledCSTR();
+}
+@id("ad7bac7b5fdd495a990a1bdcd920c35e") test cstr_simultaneous source "Independent reduced incompressible CSTR/controller ODE, SciPy 1.18.1 DOP853 and Radau agree with rtol=1e-11 atol=1e-12; sample comparisons only" revision "1" fixture {dof 0; value root.reactor[0{s}].inlet.concentration[chem.water]=initial_feed[chem.water]; value root.reactor[0{s}].inlet.concentration[chem.sodium_hydroxide]=initial_feed[chem.sodium_hydroxide]; value root.reactor[0{s}].inlet.concentration[chem.ethyl_acetate]=initial_feed[chem.ethyl_acetate]; value root.reactor[0{s}].inlet.concentration[chem.sodium_acetate]=initial_feed[chem.sodium_acetate]; value root.reactor[0{s}].inlet.concentration[chem.ethanol]=initial_feed[chem.ethanol]; value root.reactor[0{s}].outlet.concentration[chem.water]=initial_outlet[chem.water]; value root.reactor[0{s}].outlet.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.reactor[0{s}].outlet.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.reactor[0{s}].outlet.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.reactor[0{s}].outlet.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.reactor[0{s}].reaction.concentration[chem.water]=initial_outlet[chem.water]; value root.reactor[0{s}].reaction.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.reactor[0{s}].reaction.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.reactor[0{s}].reaction.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.reactor[0{s}].reaction.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.reactor[0{s}].inlet.T=303.15{K}; value root.reactor[0{s}].outlet.T=304.0858373453369{K}; value root.reactor[0{s}].reaction.T=304.0858373453369{K}; value root.reactor[0{s}].volume=0.0015{m^3}; run simultaneous; policy { derivatives cells(8000000); }} {
+@id("c1949bf2ca80483389891e41ad1157df") child root:ControlledCSTR=ControlledCSTR();
+}
+@id("01a0ee3de15373109faad80b7ea855ce") def OpenLoopCSTR(horizon:Time=60{s}) {
+@id("01a0ee3de15373109faad80cb5012b8d") domain t:Time from 0{s} to horizon;
+@id("01a0ee3de15373109faad80d1d192558") when analysis.route==analysis.integrated {
+@id("01a0ee3de15373109faad80e82cbf956") discretize grid on t using integrated(elements=1,order=1);
+}
+@id("01a0ee3de15373109faad80f6727b36c") param components:Set<chemistry.species>=chem.saponification_species;
+@id("01a0ee3de15373109faad810b4eaa8cb") param solutes:Set<chemistry.species>={chem.sodium_hydroxide,chem.ethyl_acetate,chem.sodium_acetate,chem.ethanol};
+@id("01a0ee3de15373109faad8111f6c2b12") child reactor[i in t]:reactors.CSTR=reactors.CSTR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions,holdup=true,times={i});
+@id("01a0ee3de15373109faad812dda687f0") eq inlet_temperature[i in t]:reactor[i].inlet.T==303.15{K};
+@id("01a0ee3de15373109faad81323112fb6") eq inlet_pressure[i in t]:reactor[i].inlet.pressure==101325{Pa};
+@id("01a0ee3de15373109faad814e4f6e00d") eq inlet_flow[i in t]:reactor[i].inlet.volume_flow==0.001{m^3/s};
+@id("01a0ee3de15373109faad8156de6f817") eq inlet_concentration[i in t,j in components]:reactor[i].inlet.concentration[j]==initial_feed[j];
+@id("01a0ee3de15373109faad816fd23382d") eq volume[i in t]:reactor[i].volume==0.0015{m^3};
+@id("01a0ee3de15373109faad817ab4b2d5c") eq pressure[i in t]:reactor[i].delta_pressure==0{Pa};
+@id("01a0ee3de15373109faad818b4cf01c6") eq duty[i in t]:reactor[i].heat==0{W};
+@id("01a0ee3de15373109faad819c2a75a0b") eq initial_energy:reactor[0{s}].phase_energy_holdup[chemistry.liquid]==reactors.stored_energy(0.0015{m^3},saponification.liquid_data[chem.water].density,saponification.component_enthalpy(303.15{K},chemistry.liquid,chem.water),101325{Pa});
+@id("01a0ee3de15373109faad81a921fd677") eq initial_inventory[j in solutes]:reactor[0{s}].phase_material_holdup[chemistry.liquid,j]==0.0015{m^3}*initial_feed[j];
+@id("01a0ee3de15373109faad81b22c3826e") let temperature[i in t]:Temperature=reactor[i].outlet.T;
+@id("01a0ee3de15373109faad81c0af18e6b") let reactant[i in t]:MolarDensity=reactor[i].outlet.concentration[chem.ethyl_acetate];
+@id("01a0ee3de15373109faad81d7b3f4ff2") let product[i in t]:MolarDensity=reactor[i].outlet.concentration[chem.ethanol];
+@id("01a0ee3de15373109faad81e288e9cfd") annotation report temperature("open-loop CSTR temperature");
+@id("01a0ee3de15373109faad81f7c46828c") annotation report reactant("open-loop CSTR reactant");
+@id("01a0ee3de15373109faad8203f4ab78e") annotation check temperature(i!=horizon or abs(temperature[i]-304.0858373453369{K})<0.0001{K});
+@id("01a0ee3de15373109faad821c5f6d243") annotation check reactant(i!=horizon or abs(reactant[i]-initial_outlet[chem.ethyl_acetate])<0.0001{mol/m^3});
+@id("01a0ee3de15373109faad822fb121b9f") annotation check product(i!=horizon or abs(product[i]-initial_outlet[chem.ethanol])<0.0001{mol/m^3});
+}
+@id("01a0ee3de15373109faad823ef577163") test cstr_steady_dynamic_same_definition source "The reactors.CSTR definition solved steady by cstr_steady_same_definition (and IDAES 2.13 test_cstr TestSaponification by cstr_saponification) integrated from a feed-filled start at zero duty; 40 residence times reach the steady state" revision "1" fixture {dof 0; value root.reactor[0{s}].inlet.concentration[chem.water]=initial_feed[chem.water]; value root.reactor[0{s}].inlet.concentration[chem.sodium_hydroxide]=initial_feed[chem.sodium_hydroxide]; value root.reactor[0{s}].inlet.concentration[chem.ethyl_acetate]=initial_feed[chem.ethyl_acetate]; value root.reactor[0{s}].inlet.concentration[chem.sodium_acetate]=initial_feed[chem.sodium_acetate]; value root.reactor[0{s}].inlet.concentration[chem.ethanol]=initial_feed[chem.ethanol]; value root.reactor[0{s}].outlet.concentration[chem.water]=initial_feed[chem.water]; value root.reactor[0{s}].outlet.concentration[chem.sodium_hydroxide]=initial_feed[chem.sodium_hydroxide]; value root.reactor[0{s}].outlet.concentration[chem.ethyl_acetate]=initial_feed[chem.ethyl_acetate]; value root.reactor[0{s}].outlet.concentration[chem.sodium_acetate]=initial_feed[chem.sodium_acetate]; value root.reactor[0{s}].outlet.concentration[chem.ethanol]=initial_feed[chem.ethanol]; value root.reactor[0{s}].reaction.concentration[chem.water]=initial_feed[chem.water]; value root.reactor[0{s}].reaction.concentration[chem.sodium_hydroxide]=initial_feed[chem.sodium_hydroxide]; value root.reactor[0{s}].reaction.concentration[chem.ethyl_acetate]=initial_feed[chem.ethyl_acetate]; value root.reactor[0{s}].reaction.concentration[chem.sodium_acetate]=initial_feed[chem.sodium_acetate]; value root.reactor[0{s}].reaction.concentration[chem.ethanol]=initial_feed[chem.ethanol]; value root.reactor[0{s}].inlet.T=303.15{K}; value root.reactor[0{s}].outlet.T=303.15{K}; value root.reactor[0{s}].reaction.T=303.15{K}; value root.reactor[0{s}].volume=0.0015{m^3}; run integrated; integrate samples(0{s},1{s},5{s},60{s}) relative(1e-10) normalized_absolute(1e-12) step(1e-5{s});} {
+@id("01a0ee3de15373109faad8248947ad1a") child root:OpenLoopCSTR=OpenLoopCSTR();
+}
+@id("01a0ee3de15373109faad8251c7d3424") test cstr_steady_same_definition source "Steady zero-duty solve of the same reactors.CSTR definition; the initial_state values, whose IDAES 2.13 test_cstr comparison is cstr_saponification" revision "1" fixture {dof 0; run steady; fix root.inlet.volume_flow=0.001{m^3/s}; fix root.inlet.T=303.15{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.concentration[chem.water]=initial_feed[chem.water]; fix root.inlet.concentration[chem.sodium_hydroxide]=initial_feed[chem.sodium_hydroxide]; fix root.inlet.concentration[chem.ethyl_acetate]=initial_feed[chem.ethyl_acetate]; fix root.inlet.concentration[chem.sodium_acetate]=initial_feed[chem.sodium_acetate]; fix root.inlet.concentration[chem.ethanol]=initial_feed[chem.ethanol]; fix root.volume=0.0015{m^3}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa};} {
+@id("01a0ee3de15373109faad826e1e7b91b") child root:reactors.CSTR=reactors.CSTR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions);
+@id("01a0ee3de15373109faad827145f202c") expect root.outlet.T==304.0858373453369{K} tolerance 0.000001{K};
+@id("01a0ee3de15373109faad8287df448ec") expect root.outlet.concentration[chem.ethyl_acetate]==initial_outlet[chem.ethyl_acetate] tolerance 0.000001{mol/m^3};
+@id("01a0ee3de15373109faad82908faaa0a") expect root.outlet.concentration[chem.ethanol]==initial_outlet[chem.ethanol] tolerance 0.000001{mol/m^3};
+}
+}

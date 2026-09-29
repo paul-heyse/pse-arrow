@@ -16,6 +16,7 @@ expressions, datasets and exact package dependencies are the source authority.
 | `thermodynamics` | Potential identities, ideal/PR/PC-SAFT forms and state/equilibrium interfaces |
 | `seed-data` | Chemical entities, CIAAW masses, the source entities the seed cites, sourced coefficients and named property-package bindings with fixtures |
 | `process` | Control volumes, unit definitions, controllers, costing and vessel/fitting fixtures |
+| `campaign` | Integrated campaign flowsheets, studies and their oracle fixtures, above the seed data |
 | `diagnostics` | Authored diagnostic thresholds and numerical profiles |
 
 Each package's `sources.md` records qualification boundaries. Every dataset and

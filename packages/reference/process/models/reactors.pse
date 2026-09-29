@@ -12,7 +12,9 @@
 @id("73d2637eb9c74b6585ae042562d66d14") fn power_unit()->Power=1{W};
 @id("4b6effccc1a64c338c4915767a4288b6") fn reaction_heat_unit()->ReactionHeat=1{J/mol};
 @id("ecb3aec4215b4aed87fb9f5bd8c81f71") fn stored_energy(volume:Volume,density:Density,enthalpy:MolarEnthalpy,pressure:Pressure)->Energy=1{J}*(volume/volume_unit())*((density/helmholtz.density_unit())*((enthalpy-equilibrium.enthalpy_datum())/caloric.h_unit())-(pressure-100000{Pa})/equilibrium.pressure_difference_unit());
-@id("b176836e913849d69b3597b74930af5b") def CSTR(inlet_pkg:aqueous.DiluteLiquid,outlet_pkg:aqueous.DiluteLiquid,reaction_pkg:reactions.RateLaw,holdup:Boolean=false):control_volumes.ControlVolume0D {
+@id("b176836e913849d69b3597b74930af5b") def CSTR(inlet_pkg:aqueous.DiluteLiquid,outlet_pkg:aqueous.DiluteLiquid,reaction_pkg:reactions.RateLaw,holdup:Boolean=false,times:Set<Time>={}):control_volumes.ControlVolume0D {
+@id("01a0ee398db8733eb490d0d9240cd2a2") override param time:Set<Time>=times;
+@id("01a0ee398db8733eb490d0da956665a6") override param constant_inventory:Set<chemistry.species>={outlet_pkg.solvent};
 @id("ffb822da2fca45b6a421c985d8556664") override param has_holdup:Boolean=holdup;
 @id("55823dd9a6794dbfb616805e0b9ea56d") require material_basis==control_volumes.MaterialBalance.componentTotal : "CSTR reaction sources use component-total balances";
 @id("ccba2a74d5454952919cffe0e88da858") override param inlet_package:equilibrium.ThermoPackage=inlet_pkg;
