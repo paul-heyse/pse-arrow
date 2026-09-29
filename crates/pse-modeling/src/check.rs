@@ -499,6 +499,17 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                             "integration fixture requires samples and positive finite tolerances",
                         ));
                     }
+                    // ADR-0119 Outcome 2: one value per interval of each scheduled input.
+                    if integration
+                        .schedules
+                        .iter()
+                        .any(|s| s.times.is_empty() || s.values.len() != s.times.len() + 1)
+                    {
+                        return Err(invalid(
+                            row.declaration_id,
+                            "a scheduled input declares its change times and one value per interval",
+                        ));
+                    }
                     for expression in integration
                         .samples
                         .iter()
@@ -508,6 +519,12 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                                 .quadratures
                                 .iter()
                                 .map(|q| &q.absolute_tolerance),
+                        )
+                        .chain(
+                            integration
+                                .schedules
+                                .iter()
+                                .flat_map(|s| s.times.iter().chain(&s.values)),
                         )
                     {
                         dsl::parse_expr(expression)
@@ -1150,6 +1167,10 @@ impl CheckedPackage {
                         for q in &integration.quadratures {
                             texts.push(&q.target);
                             texts.push(&q.absolute_tolerance);
+                        }
+                        for s in &integration.schedules {
+                            texts.push(&s.target);
+                            texts.extend(s.times.iter().chain(&s.values).map(String::as_str));
                         }
                     }
                     for s in &fixture.specifications {

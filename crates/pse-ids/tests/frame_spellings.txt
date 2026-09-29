@@ -51,7 +51,6 @@ pse.modeling.coordinate.v1
 pse.modeling.definite-integral.v1
 pse.modeling.dispatch-body.v1
 pse.modeling.dynamic-modes.v1
-pse.modeling.dynamic.v1
 pse.modeling.finite-function.v1
 pse.modeling.finite-reduction.v1
 pse.modeling.fit-execution.v1
@@ -142,3 +141,7 @@ pse.provider.configuration.v1
 # lowerings place on the route (l1_exact_penalty). math.case-structure.v4 replaces
 # math.case-structure.v3, which is no longer declared.
 pse.math.case-structure.v4
+# Plan 22 Y0c kernel (ADR-0119 Outcome 2): a simulation's identity covers its integration
+# parameter values, whose scheduled intervals carry authored values. modeling.dynamic.v2
+# replaces modeling.dynamic.v1, which is no longer declared.
+pse.modeling.dynamic.v2

@@ -11,6 +11,7 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
     AuthoredModelingDeclarationsFieldValueScopeOracle,
     AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization,
     AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem,
+    AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem,
     AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration,
     AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure,
     AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem,
@@ -63,20 +64,20 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    53u8, 238u8, 167u8, 143u8, 83u8, 110u8, 21u8, 45u8, 150u8, 62u8, 71u8, 135u8, 168u8,
-    178u8, 106u8, 218u8,
+    166u8, 97u8, 213u8, 69u8, 201u8, 57u8, 82u8, 141u8, 99u8, 54u8, 20u8, 198u8, 227u8,
+    16u8, 136u8, 147u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_declarations";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 5u32;
+pub const VERSION: u32 = 6u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    140u8, 62u8, 227u8, 155u8, 60u8, 129u8, 25u8, 114u8, 109u8, 92u8, 116u8, 95u8, 35u8,
-    213u8, 223u8, 199u8, 30u8, 43u8, 9u8, 34u8, 63u8, 145u8, 195u8, 11u8, 72u8, 90u8,
-    206u8, 77u8, 3u8, 47u8, 157u8, 245u8,
+    108u8, 162u8, 208u8, 16u8, 20u8, 43u8, 202u8, 218u8, 152u8, 35u8, 227u8, 96u8, 63u8,
+    212u8, 138u8, 96u8, 233u8, 208u8, 175u8, 19u8, 199u8, 189u8, 107u8, 75u8, 57u8, 50u8,
+    76u8, 195u8, 199u8, 66u8, 213u8, 67u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueRelaxation {
     fn append(
@@ -467,6 +468,65 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem
     }
 }
 impl crate::columnar::ArrowValue
+for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#target, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#times, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#values, children[2usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Vec<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Vec<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#target: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#times: <Vec<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#values: <Vec<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
 for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
     fn append(
         &self,
@@ -497,6 +557,10 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
             &self.r#quadratures,
             children[5usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#schedules,
+            children[6usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -519,6 +583,9 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
         <Vec<
             AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem,
         > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Vec<
+            AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -557,6 +624,12 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
                 AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem,
             > as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#schedules: <Vec<
+                AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
                 index,
             )?,
         })
@@ -4035,10 +4108,10 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        418_816_usize + size_of::<Self::Builder>()
+        429_056_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        3272usize
+        3352usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -4432,6 +4505,49 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
                                                                                             8,
                                                                                             ((item).r#absolute_tolerance).len(),
                                                                                         )?,
+                                                                                    )?;
+                                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                                }?,
+                                                                            ),
+                                                                        )?,
+                                                                )?;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    ((value).r#schedules)
+                                                                        .iter()
+                                                                        .try_fold(
+                                                                            8usize,
+                                                                            |bytes, item| crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                {
+                                                                                    let mut bytes = 1usize;
+                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                        bytes,
+                                                                                        crate::columnar::allocation_add(8, ((item).r#target).len())?,
+                                                                                    )?;
+                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                        bytes,
+                                                                                        ((item).r#times)
+                                                                                            .iter()
+                                                                                            .try_fold(
+                                                                                                8usize,
+                                                                                                |bytes, item| crate::columnar::allocation_add(
+                                                                                                    bytes,
+                                                                                                    crate::columnar::allocation_add(8, (item).len())?,
+                                                                                                ),
+                                                                                            )?,
+                                                                                    )?;
+                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                        bytes,
+                                                                                        ((item).r#values)
+                                                                                            .iter()
+                                                                                            .try_fold(
+                                                                                                8usize,
+                                                                                                |bytes, item| crate::columnar::allocation_add(
+                                                                                                    bytes,
+                                                                                                    crate::columnar::allocation_add(8, (item).len())?,
+                                                                                                ),
+                                                                                            )?,
                                                                                     )?;
                                                                                     Ok::<usize, crate::RelationError>(bytes)
                                                                                 }?,

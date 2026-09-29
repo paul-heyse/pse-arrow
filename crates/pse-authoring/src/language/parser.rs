@@ -299,6 +299,19 @@ impl Cursor<'_> {
         self.expect(name)?;
         self.fixture_literal()
     }
+    /// A parenthesized, comma-separated list of expressions, kept as source text.
+    fn expressions(&mut self) -> Result<Vec<String>> {
+        self.expect("(")?;
+        let mut values = Vec::new();
+        while !self.eat(")") {
+            values.push(self.until(&[",", ")"])?);
+            if self.eat(")") {
+                break;
+            }
+            self.expect(",")?;
+        }
+        Ok(values)
+    }
     fn literal_list<T: std::str::FromStr>(&mut self, name: &str) -> Result<Vec<T>> {
         self.expect(name)?;
         self.expect("(")?;
@@ -869,9 +882,28 @@ impl Cursor<'_> {
                     let mut intent = None;
                     let mut stages = Vec::new();
                     let mut integration = None;
+                    let mut schedules = Vec::new();
                     let mut initialization = None;
                     let mut expected_failure = None;
                     while !self.eat("}") {
+                        // ADR-0119 Outcome 2: `schedule u at(t1, ...) values(v0, v1, ...);`
+                        // holds `u` piecewise constant with one value per interval.
+                        if self.eat("schedule") {
+                            let target = self.until(&["at"])?;
+                            self.expect("at")?;
+                            let times = self.expressions()?;
+                            self.expect("values")?;
+                            let values = self.expressions()?;
+                            self.expect(";")?;
+                            schedules.push(
+                                AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
+                                    target,
+                                    times,
+                                    values,
+                                },
+                            );
+                            continue;
+                        }
                         if self.eat("run") {
                             if execution.is_some() {
                                 return Err(self.error("one fixture execution mode"));
@@ -926,15 +958,7 @@ impl Cursor<'_> {
                                 return Err(self.error("one integration fixture"));
                             }
                             self.expect("samples")?;
-                            self.expect("(")?;
-                            let mut samples = Vec::new();
-                            while !self.eat(")") {
-                                samples.push(self.until(&[",", ")"])?);
-                                if self.eat(")") {
-                                    break;
-                                }
-                                self.expect(",")?;
-                            }
+                            let samples = self.expressions()?;
                             self.expect("relative")?;
                             self.expect("(")?;
                             let relative_tolerance = self
@@ -981,6 +1005,7 @@ impl Cursor<'_> {
                                     initial_step,
                                     quadrature_relative_tolerance,
                                     quadratures,
+                                    schedules: Vec::new(),
                                 },
                             );
                             continue;
@@ -1021,6 +1046,14 @@ impl Cursor<'_> {
                                 expression,
                             },
                         );
+                    }
+                    if !schedules.is_empty() {
+                        integration
+                            .as_mut()
+                            .ok_or_else(|| {
+                                self.error("an integrate clause for the scheduled inputs")
+                            })?
+                            .schedules = schedules;
                     }
                     Some(AuthoredModelingDeclarationsFieldValueScopeFixture {
                         degrees_of_freedom,

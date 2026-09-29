@@ -27,7 +27,7 @@ pub use pse_model::generated::identities::{DeclarationId, InstanceId};
 use std::collections::{BTreeMap, BTreeSet};
 pub use value::{Environment, Value};
 mod fixture;
-pub use fixture::{Fixture, FixtureValue};
+pub use fixture::{Fixture, FixtureValue, IntegrationFixture, ScheduleFixture};
 mod regimes;
 pub use regimes::{Regime, RegimeSelection};
 mod forms;

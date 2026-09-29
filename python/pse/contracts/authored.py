@@ -163,6 +163,15 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesIt
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem:
+    """Declared relation row or nested value."""
+
+    target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    times: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    values: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration:
     """Declared relation row or nested value."""
 
@@ -172,6 +181,7 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration:
     initial_step: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     quadrature_relative_tolerance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     quadratures: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    schedules: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)

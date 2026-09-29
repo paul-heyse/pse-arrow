@@ -490,11 +490,43 @@ impl ModelingPackage {
             atol: vec![integration.normalized_absolute_tolerance; states.len()],
             initial_step: integration.initial_step * time_scale,
             parameter_scales: vec![1.; parameters.len()],
+            schedule: authored_schedule(integration, &parameters, time_scale)?
+                .into_iter()
+                .map(|(input, _)| input)
+                .collect(),
             numerics: numerics.clone(),
             ..pse_backend_native::dynamics::Profile::default()
         };
         Ok(profile)
     }
+}
+/// The fixture's scheduled inputs on the integration layout (ADR-0119 Outcome 2): each
+/// input's position among the contract parameters with its change times in seconds, and
+/// its authored interval values.
+fn authored_schedule<'f>(
+    integration: &'f pse_modeling::specialize::IntegrationFixture,
+    parameters: &[SemanticId],
+    time_scale: f64,
+) -> Result<Vec<(native::ScheduledInput, &'f [f64])>, WorkflowError> {
+    integration
+        .schedules
+        .iter()
+        .map(|s| {
+            let parameter = parameters
+                .iter()
+                .position(|p| *p == s.target)
+                .ok_or_else(|| {
+                    contract("a scheduled input must be an integration parameter, not a state")
+                })?;
+            Ok((
+                native::ScheduledInput {
+                    parameter,
+                    times: s.times.iter().map(|t| t * time_scale).collect(),
+                },
+                s.values.as_slice(),
+            ))
+        })
+        .collect()
 }
 impl ModelingPackage {
     /// Bind an authored case directly to the integrated route and its integration controls.
@@ -548,7 +580,7 @@ impl ModelingPackage {
         limits: Limits,
         case: ModelingCaseBindings,
         compiler: Profile,
-        profile: native::Profile,
+        mut profile: native::Profile,
         mode: &ModelingDynamicMode,
         mode_names: &[String],
         cancel: &crate::CancelSource,
@@ -647,6 +679,32 @@ impl ModelingPackage {
             ));
         }
         let (state, parameters) = dynamic_ports(product, &case)?;
+        // The fixture's schedules are the authority (ADR-0119 Outcome 2): a profile may
+        // repeat an authored schedule, but a different one for the same input is refused.
+        let authored = match product
+            .model
+            .fixtures
+            .get(&instance)
+            .and_then(|f| f.integration.as_ref())
+        {
+            Some(integration) => authored_schedule(integration, &parameters, time_scale)?,
+            None => Vec::new(),
+        };
+        for (input, _) in &authored {
+            match profile
+                .schedule
+                .iter()
+                .find(|s| s.parameter == input.parameter)
+            {
+                Some(declared) if declared == input => {}
+                Some(_) => {
+                    return Err(contract(
+                        "the profile schedules an input differently from its authored schedule",
+                    ));
+                }
+                None => profile.schedule.push(input.clone()),
+            }
+        }
         let rates = product
             .model
             .derivatives
@@ -1153,14 +1211,22 @@ impl ModelingPackage {
                     .await?,
             )
         };
-        // Every interval of a scheduled input starts at the model's value (I6).
-        let parameter_values = profile.integration_parameters(
+        // Every interval of a scheduled input starts at the model's value; the authored
+        // interval values then replace it (I6).
+        let mut parameter_values = profile.integration_parameters(
             &parameters
                 .iter()
                 .map(|id| values.scalars[id])
                 .collect::<Vec<_>>(),
         );
-        let mut hash = FramedHasher::new(pse_ids::Frame::ModelingDynamicV1);
+        let first = profile.columns_at(parameters.len(), profile.start);
+        for (input, authored) in &authored {
+            parameter_values
+                .get_mut(first[input.parameter]..first[input.parameter] + authored.len())
+                .ok_or_else(|| contract("scheduled input interval layout"))?
+                .copy_from_slice(authored);
+        }
+        let mut hash = FramedHasher::new(pse_ids::Frame::ModelingDynamicV2);
         hash.id(&root.as_id())
             .id(&instance.as_id())
             .hash(&numerics.key)
@@ -1178,6 +1244,9 @@ impl ModelingPackage {
         }
         for (id, v) in &values.scalars {
             hash.id(id).u64(v.to_bits());
+        }
+        for v in &parameter_values {
+            hash.u64(v.to_bits());
         }
         for r in providers.values() {
             hash.hash(&r.configuration_key());
@@ -1676,6 +1745,91 @@ mod tests {
             3
         );
         report.table().unwrap();
+    }
+    /// ADR-0119 Outcome 2 (I6): an authored fixture holds an input piecewise constant.
+    /// Each interval is its own integration parameter carrying its authored value, so the
+    /// trajectory follows the schedule and the forward sensitivities of both intervals stay
+    /// live across the change. The fixture is the schedule's authority.
+    #[tokio::test]
+    async fn kernel_fixture_schedules_inputs() {
+        let runtime = super::super::super::tests::runtime();
+        let (physical, names) = physical();
+        let text = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param u: Scalar = 5; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == u; eq initial: x[0{s}] == 1{s}; } test scheduled fixture {dof 0; run integrated; integrate samples(0{s}, 0.5{s}, 1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.u at(0.5{s}) values(2, -1);} {child root: Root = Root();} test on_state fixture {dof 0; run integrated; integrate samples(0{s}, 1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.x[0{s}] at(0.5{s}) values(1{s}, 2{s});} {child root: Root = Root();} }";
+        let rows = pse_authoring::language::parse(
+            text,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let rendered = pse_authoring::language::render(&rows).unwrap();
+        assert!(rendered.contains("schedule root.u at(0.5{s}) values(2, -1);"), "{rendered}");
+        let reparsed = pse_authoring::language::parse(
+            &rendered,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
+            reparsed.iter().map(|r| &r.value).collect::<Vec<_>>()
+        );
+        let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
+        let (scheduled, on_state) = (root("scheduled"), root("on_state"));
+        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let compiler = super::super::super::tests::compiler_profile();
+        let cancel = crate::CancelSource::new();
+        let prepared = package
+            .declared_simulation(scheduled, compiler, None, Limits::default(), &cancel)
+            .await
+            .unwrap();
+        // One contract parameter, two intervals, each with its authored value.
+        assert_eq!(prepared.contract().parameters.len(), 1);
+        assert_eq!(
+            prepared.profile().schedule,
+            vec![native::ScheduledInput {
+                parameter: 0,
+                times: vec![0.5]
+            }]
+        );
+        assert_eq!(prepared.parameters(), [2., -1.]);
+        let mut profile = prepared.profile().clone();
+        profile.sensitivity = native::DynamicSensitivity::Forward;
+        let sensitive = package
+            .declared_simulation(scheduled, compiler, Some(profile.clone()), Limits::default(), &cancel)
+            .await
+            .unwrap();
+        assert_ne!(sensitive.identity(), prepared.identity());
+        let result = sensitive.run(&cancel).await.unwrap();
+        assert!(result.accepted, "{:?}", result.diagnostic());
+        let samples = &result.report.samples;
+        // x = 1 + 2·t before the change and 2 − (t − 0.5) after; the unscheduled model
+        // value 5 would give 6 at the end.
+        for (sample, expected) in samples.iter().zip([1., 2., 1.5]) {
+            assert!((sample.outputs[0] - expected).abs() < 1e-7, "{sample:?}");
+        }
+        // dx/du₀ and dx/du₁, output-major over the two interval parameters.
+        let sensitivities = |i: usize| &samples[i].output_sensitivities[..2];
+        for (i, expected) in [(1, [0.5, 0.]), (2, [0.5, 0.5])] {
+            for (actual, expected) in sensitivities(i).iter().zip(expected) {
+                assert!((actual - expected).abs() < 1e-7, "{:?}", samples[i]);
+            }
+        }
+        // A profile repeating the authored schedule is accepted; one scheduling the same
+        // input differently is refused.
+        profile.schedule[0].times = vec![0.25];
+        let error = package
+            .declared_simulation(scheduled, compiler, Some(profile), Limits::default(), &cancel)
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("authored schedule"), "{error}");
+        // A state is not a scheduled input.
+        let error = package
+            .declared_simulation(on_state, compiler, None, Limits::default(), &cancel)
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("integration parameter"), "{error}");
     }
     #[tokio::test]
     async fn kernel_integrated_events_bind_source_resets_and_same_layout_modes() {

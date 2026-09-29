@@ -103,6 +103,14 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                             text("absolute_tolerance"),
                         ]))
                         .with_name("quadratures"),
+                        // ADR-0119 Outcome 2: a piecewise-constant input, its change times
+                        // on the integrated axis and one value per interval.
+                        T::list(T::structure(vec![
+                            text("target"),
+                            strings("times"),
+                            strings("values"),
+                        ]))
+                        .with_name("schedules"),
                     ])
                     .with_name("integration")
                     .optional(),
@@ -470,7 +478,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         builder,
         N::Authored,
         "modeling_declarations",
-        5,
+        6,
         S::Model,
         &["declaration_id"],
         vec![
@@ -489,7 +497,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 T::structure(payload).with_alternative(&alternative),
             ),
         ],
-        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104).",
+        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval (ADR-0119).",
     );
     enumeration(
         builder,

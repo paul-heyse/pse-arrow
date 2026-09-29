@@ -83,9 +83,9 @@ Version: 3. Snapshot class: `case`. Primary key: `fit_id`.
 
 ## `modeling_declarations`
 
-Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104).
+Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval (ADR-0119).
 
-Version: 5. Snapshot class: `model`. Primary key: `declaration_id`.
+Version: 6. Snapshot class: `model`. Primary key: `declaration_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -147,6 +147,13 @@ Version: 5. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.scope.fixture.integration.quadratures.item` | `Struct` | false | `payload` | — | — |
 | `value.scope.fixture.integration.quadratures.item.target` | `Utf8` | false | `payload` | — | — |
 | `value.scope.fixture.integration.quadratures.item.absolute_tolerance` | `Utf8` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules` | `List` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules.item` | `Struct` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules.item.target` | `Utf8` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules.item.times` | `List` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules.item.times.item` | `Utf8` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules.item.values` | `List` | false | `payload` | — | — |
+| `value.scope.fixture.integration.schedules.item.values.item` | `Utf8` | false | `payload` | — | — |
 | `value.scope.fixture.expected_failure` | `Struct` | true | `payload` | — | — |
 | `value.scope.fixture.expected_failure.class` | `enum:NativeBoundaryClass` | false | `payload` | — | — |
 | `value.scope.fixture.expected_failure.rule` | `Utf8` | false | `payload` | — | — |

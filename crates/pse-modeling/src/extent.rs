@@ -266,7 +266,14 @@ impl SpecializedModel {
                     .map(|s| s.capacity() + size_of::<String>())
                     .sum::<usize>()
                     + f.integration.as_ref().map_or(0, |i| {
-                        i.samples.capacity() * size_of::<f64>() + map(&i.quadratures, |_, _| 0)
+                        i.samples.capacity() * size_of::<f64>()
+                            + map(&i.quadratures, |_, _| 0)
+                            + i.schedules.capacity()
+                                * size_of::<crate::specialize::ScheduleFixture>()
+                            + i.schedules
+                                .iter()
+                                .map(|s| (s.times.capacity() + s.values.capacity()) * size_of::<f64>())
+                                .sum::<usize>()
                     })
                     + f.expected_failure.as_ref().map_or(0, HeapUsage::heap_bytes)
                     + map(&f.specifications, |p, _| p.capacity())

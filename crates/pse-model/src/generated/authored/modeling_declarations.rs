@@ -215,6 +215,35 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
+    ///target
+    pub r#target: String,
+    ///times
+    pub r#times: Vec<String>,
+    ///values
+    pub r#values: Vec<String>,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#target, &other.r#target)
+            && crate::SemanticEq::semantic_eq(&self.r#times, &other.r#times)
+            && crate::SemanticEq::semantic_eq(&self.r#values, &other.r#values)
+    }
+}
+impl PartialEq
+for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
     ///samples
     pub r#samples: Vec<String>,
@@ -229,6 +258,10 @@ pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
     ///quadratures
     pub r#quadratures: Vec<
         AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem,
+    >,
+    ///schedules
+    pub r#schedules: Vec<
+        AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem,
     >,
 }
 impl crate::SemanticEq
@@ -252,6 +285,7 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
                 &other.r#quadrature_relative_tolerance,
             )
             && crate::SemanticEq::semantic_eq(&self.r#quadratures, &other.r#quadratures)
+            && crate::SemanticEq::semantic_eq(&self.r#schedules, &other.r#schedules)
     }
 }
 impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
@@ -5415,6 +5449,26 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem
     }
 }
 impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#target));
+        crate::SemanticFrame::frame(&self.r#target, hash);
+        hash.str(stringify!(r#times));
+        crate::SemanticFrame::frame(&self.r#times, hash);
+        hash.str(stringify!(r#values));
+        crate::SemanticFrame::frame(&self.r#values, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#times))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#values))
+    }
+}
+impl crate::SemanticFrame
 for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#samples));
@@ -5429,6 +5483,8 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
         crate::SemanticFrame::frame(&self.r#quadrature_relative_tolerance, hash);
         hash.str(stringify!(r#quadratures));
         crate::SemanticFrame::frame(&self.r#quadratures, hash);
+        hash.str(stringify!(r#schedules));
+        crate::SemanticFrame::frame(&self.r#schedules, hash);
     }
 }
 impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
@@ -5444,6 +5500,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixtureInte
                 crate::HeapUsage::heap_bytes(&self.r#quadrature_relative_tolerance),
             )
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quadratures))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#schedules))
     }
 }
 impl crate::SemanticFrame

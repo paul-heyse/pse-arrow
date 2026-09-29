@@ -50,12 +50,32 @@ pub struct Fixture {
 /// Authored integration samples expressed in the admitted axis's canonical unit.
 #[derive(Clone, Debug, PartialEq)]
 pub struct IntegrationFixture {
+    /// Strictly increasing sample times within the axis; the last one ends the horizon.
     pub samples: Vec<f64>,
+    /// Positive initial step.
     pub initial_step: f64,
+    /// Relative integration tolerance.
     pub relative_tolerance: f64,
+    /// Absolute tolerance of every normalized state coordinate.
     pub normalized_absolute_tolerance: f64,
+    /// Relative tolerance of the terminal quadratures, when there are any.
     pub quadrature_relative_tolerance: Option<f64>,
+    /// Canonical absolute tolerance of each integral, keyed by the integral.
     pub quadratures: BTreeMap<SemanticId, f64>,
+    /// Piecewise-constant inputs, in declaration order (ADR-0119 Outcome 2).
+    pub schedules: Vec<ScheduleFixture>,
+}
+/// One authored input held piecewise constant: each interval's value is its own
+/// integration parameter, so sensitivities stay live across every change (I6).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ScheduleFixture {
+    /// The scheduled independent parameter or variable.
+    pub target: SemanticId,
+    /// Strictly increasing change times after the axis's lower bound and up to the last
+    /// sample, in the axis's canonical unit.
+    pub times: Vec<f64>,
+    /// One canonical value per interval: `times.len() + 1`, the first from the start.
+    pub values: Vec<f64>,
 }
 impl Engine<'_, '_> {
     pub(super) fn fixture(
@@ -139,9 +159,58 @@ impl Engine<'_, '_> {
                     "each integrated quadrature requires an explicit physical tolerance",
                 ));
             }
+            let end = samples.last().copied().unwrap_or(lower);
+            let mut schedules = Vec::with_capacity(data.schedules.len());
+            for entry in &data.schedules {
+                let targets = self.annotation_targets(instance, &entry.target, env, at, false)?;
+                let [(target, target_ty, local)] = targets.as_slice() else {
+                    return Err(invalid(at, "a scheduled input names one indexed scalar"));
+                };
+                if !self.model.symbols.get(target).is_some_and(|symbol| {
+                    symbol.expression.is_none()
+                        && matches!(symbol.role, Kind::Variable | Kind::Parameter)
+                        && matches!(target_ty, Type::Quantity(_))
+                }) {
+                    return Err(invalid(
+                        at,
+                        "a scheduled input must be an independent physical variable or parameter",
+                    ));
+                }
+                if schedules.iter().any(|s: &ScheduleFixture| s.target == *target) {
+                    return Err(invalid(at, "one schedule per input"));
+                }
+                let times = entry
+                    .times
+                    .iter()
+                    .map(|t| self.eval(at, env, t, Some(&ty))?.scalar(at))
+                    .collect::<Result<Vec<_>>>()?;
+                let values = entry
+                    .values
+                    .iter()
+                    .map(|v| self.eval(at, local, v, Some(target_ty))?.scalar(at))
+                    .collect::<Result<Vec<_>>>()?;
+                if times.is_empty()
+                    || values.len() != times.len() + 1
+                    || times.iter().any(|t| !t.is_finite() || *t <= lower || *t > end)
+                    || times.windows(2).any(|w| w[0] >= w[1])
+                    || values.iter().any(|v| !v.is_finite())
+                {
+                    return Err(invalid(
+                        at,
+                        "schedule changes must increase after the axis's lower bound up to the last sample, with one finite value per interval",
+                    ));
+                }
+                self.reserve(1)?;
+                schedules.push(ScheduleFixture {
+                    target: *target,
+                    times,
+                    values,
+                });
+            }
             Some(IntegrationFixture {
                 samples,
                 quadratures,
+                schedules,
                 quadrature_relative_tolerance: data.quadrature_relative_tolerance,
                 initial_step,
                 relative_tolerance: data.relative_tolerance,
