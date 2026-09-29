@@ -97,13 +97,20 @@ def configure(
     # directory inherited from another checkout is not an override for this one: a
     # long-running agent or editor process started under that checkout's direnv carries
     # its absolute export into every worktree, which would then share one build and one
-    # Cargo lock. Choose a directory outside the checkout with PSE_CARGO_TARGET_DIR.
+    # Cargo lock. The checkout's default <root>/target is Cargo's own default, so it is
+    # not exported at all: sccache keys every rustc call on its CARGO_* environment, and
+    # a per-checkout absolute path would make every Rust compilation miss the cache
+    # shared by the other checkouts. Choose another directory with PSE_CARGO_TARGET_DIR.
     if env.get("PSE_CARGO_TARGET_DIR"):
         env["CARGO_TARGET_DIR"] = env["PSE_CARGO_TARGET_DIR"]
-    elif env.get("CARGO_TARGET_DIR") and not (
-        Path(env["CARGO_TARGET_DIR"]).resolve().is_relative_to(root.resolve())
-    ):
-        env["CARGO_TARGET_DIR"] = str(root / "target")
+    elif not env.get("CARGO_TARGET_DIR"):
+        env.pop("CARGO_TARGET_DIR", None)
+    else:
+        chosen = Path(env["CARGO_TARGET_DIR"])
+        chosen = chosen if chosen.is_absolute() else root / chosen
+        inside = chosen.resolve().is_relative_to(root.resolve())
+        if not inside or chosen.resolve() == (root / "target").resolve():
+            del env["CARGO_TARGET_DIR"]
     if mode:
         stable = tomllib.loads((root / "rust-toolchain.toml").read_text())["toolchain"][
             "channel"
@@ -174,6 +181,8 @@ def main() -> int:
         for key, value in env.items():
             if os.environ.get(key) != value:
                 print(f"export {key}={shlex.quote(value)}")
+        for key in os.environ.keys() - env.keys():
+            print(f"unset {key}")
         return 0
     command = args.command
     if command[:1] == ["--"]:
