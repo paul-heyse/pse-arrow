@@ -1070,7 +1070,7 @@ py-measure-production:
 bench-production:
     mkdir -p "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}/production"
     CARGO_TARGET_DIR=target/measure-production cargo tree -p pse-benches --locked -e features --format '{p} features=[{f}]' > "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}/production/features.txt"
-    CARGO_TARGET_DIR=target/measure-production PSE_ACCEPTANCE_OUTPUT="${PSE_ACCEPTANCE_OUTPUT:-build/measurements}/production" cargo bench --no-fail-fast -p pse-benches --bench native_cache --bench native_consolidation --locked
+    CARGO_TARGET_DIR=target/measure-production PSE_ACCEPTANCE_OUTPUT="$(realpath -m "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}")/production" bash scripts/memory-cap.sh cargo bench --no-fail-fast -p pse-benches --bench native_cache --bench native_consolidation --locked
 
 [group('local')]
 [doc('M17-M18 native operator, derivative composition and workflow contract units')]
