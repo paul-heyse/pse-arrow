@@ -52,23 +52,40 @@ class BuildEnvironmentTests(unittest.TestCase):
         )
 
     def test_target_directory_belongs_to_the_building_checkout(self) -> None:
-        own = str(build.ROOT / "target")
+        # The default <root>/target is Cargo's default and is never exported: sccache
+        # keys rustc calls on their CARGO_* environment, so a per-checkout absolute path
+        # would stop every other checkout from reusing the shared compiler cache.
         with tempfile.TemporaryDirectory() as other:
-            inherited = {"CARGO_TARGET_DIR": str(Path(other) / "target")}
-            self.assertEqual(
-                build.configure(build.ROOT, inherited)["CARGO_TARGET_DIR"], own
+            foreign = {"CARGO_TARGET_DIR": str(Path(other) / "target")}
+            self.assertNotIn("CARGO_TARGET_DIR", build.configure(build.ROOT, foreign))
+        for default in (str(build.ROOT / "target"), "target"):
+            self.assertNotIn(
+                "CARGO_TARGET_DIR",
+                build.configure(build.ROOT, {"CARGO_TARGET_DIR": default}),
             )
+        self.assertNotIn("CARGO_TARGET_DIR", build.configure(build.ROOT, {}))
         nested = {"CARGO_TARGET_DIR": str(build.ROOT / "target/measure-production")}
         self.assertEqual(
             build.configure(build.ROOT, nested)["CARGO_TARGET_DIR"],
             nested["CARGO_TARGET_DIR"],
         )
-        self.assertNotIn("CARGO_TARGET_DIR", build.configure(build.ROOT, {}))
         explicit = {"PSE_CARGO_TARGET_DIR": "/fast/disk/target", **nested}
         self.assertEqual(
             build.configure(build.ROOT, explicit)["CARGO_TARGET_DIR"],
             "/fast/disk/target",
         )
+
+    def test_shell_exports_unset_the_default_target_directory(self) -> None:
+        env = {**os.environ, "CARGO_TARGET_DIR": str(build.ROOT / "target")}
+        out = subprocess.run(
+            [sys.executable, "-m", "scripts.build_environment", "--shell"],
+            cwd=build.ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        self.assertIn("unset CARGO_TARGET_DIR", out.splitlines())
 
     def test_nightly_preserves_flags_and_stable_rejects_unstable(self) -> None:
         env = build.configure(
