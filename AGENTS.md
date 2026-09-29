@@ -34,8 +34,9 @@ qualification basis and its exclusions are summarized in
 packets and reviews are not a backlog and authorize nothing.
 
 [Current work](docs/plans/README.md) links the owning packet status and remaining decision
-work. Plan 21 K0–K8 implementation is complete; its packet records conformance and the
-assessment's remaining static-quality findings. K9 remains proposed and excluded.
+work. Plan 21 (the modeling kernel, K0–K8) is done. Plan 23 (in progress) adds a typed,
+relational thermodynamic domain model, migrates the seed onto it and runs the transferred
+K9 campaign; it owns the open Plan 20 findings.
 Plan 22 (solver capabilities, discrete decisions, the PostgreSQL operational store and
 typed data contracts) is done (2026-09-29); its Q1 is the current qualification basis
 (§24.2), and its record is retired to Git history with its deferrals in the register.

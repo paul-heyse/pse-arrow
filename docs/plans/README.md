@@ -4,12 +4,14 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
-[Plan 21](21-modeling-kernel.md) retains the proposed decision-PR route and excluded K9.
-The authorized **K0–K8 implementation is complete**; the
-[K8 packet](21-modeling-kernel-k8-execution.md) owns completion, selected conformance
-and assessment evidence, including the remaining static-quality findings. Its companions
-are `21-modeling-kernel-architecture.md` and `21-knowledge-placement.md`; the earlier
-execution packets retain their original evidence.
+[Plan 23](23-thermodynamic-domain-and-campaign.md) (thermodynamic domain model and the
+integrated kernel campaign) is **in progress**, authorized 2026-09-29. It adds a typed,
+relational domain schema, migrates the seed onto it, runs the transferred K9 scenarios
+and measurements, and owns the open Plan 20 findings F01–F13.
+[Plan 21](21-modeling-kernel.md) (the modeling kernel) is **done**: K0–K8 were implemented;
+K9 transferred to Plan 23; ADR-0097–ADR-0101 retain the proposed decision-PR route. Its
+companions `21-modeling-kernel-architecture.md` and `21-knowledge-placement.md` remain
+target background until Plan 23 supersedes them.
 [Plan 22](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md) (solver capabilities, discrete decisions,
 the PostgreSQL operational store and typed data contracts) is **done** (2026-09-29): its
 [Outcome](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md#outcome-recorded-after-implementation)
@@ -19,7 +21,7 @@ plan, packets and target review are retired to Git history; follow-ups it deferr
 register rows R-39–R-42 and R-44–R-48. Its companion `22-solver-capabilities-architecture.md` stays
 because ADR-0102–ADR-0121 cite its scenarios S10–S25; it authorizes nothing.
 [Plan 20](20-idaes-capability-target.md) and its companions remain capability background;
-Plan 21 supersedes their target decomposition. K9 remains proposed and excluded.
+Plan 21 supersedes their target decomposition.
 [Plan 19](19-current-documentation-consolidation.md),
 the documentation consolidation, is done. Plans 01–18 are
 complete or superseded as workstreams; their enduring meaning has moved to the architecture sections and retained

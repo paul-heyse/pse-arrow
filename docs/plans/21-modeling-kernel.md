@@ -1,6 +1,6 @@
 ---
 title: Modeling kernel before knowledge — implementation plan
-status: in-progress
+status: done
 date: 2026-09-26
 adrs: [ADR-0097, ADR-0098, ADR-0099, ADR-0100, ADR-0101]
 review_sources: [docs/design_review/reviews/design_review_idaes-capability-target_2026-09-26.md]
@@ -9,14 +9,16 @@ scenario_sources: [docs/design_review/reviews/design_review_idaes-capability-tar
 
 # Modeling kernel before knowledge — implementation plan
 
-**Status: authorized K0–K8 implementation complete, 2026-09-27.** The
+**Status: done, 2026-09-29.** K0–K8 were implemented (2026-09-27). The
 [K0–K3 execution packet](21-modeling-kernel-k0-k3-execution.md) owns packet progress.
 The [K4–K7 execution packet](21-modeling-kernel-k4-k7-execution.md) owns its implementation
 and original evidence. The [K8 execution packet](21-modeling-kernel-k8-execution.md)
 owns completed seed/retirement progress, corrective K1–K7 evidence and the assessment
 results. Its selected checks retain the earlier passing fixtures as the maintainer requested.
-K9 remains proposed and excluded from this execution. Architectural decisions remain
-proposed pending their decision PRs.
+K9 and the open Plan 20 finding dispositions transferred on 2026-09-29 to
+[Plan 23](23-thermodynamic-domain-and-campaign.md), which re-scopes the campaign on a
+typed thermodynamic domain model. ADR-0097–ADR-0101 remain proposed pending their
+decision PRs.
 
 **Companion documents:**
 
@@ -107,10 +109,10 @@ mechanisms are tested without real science) and what it deletes (AGENTS.md *Exec
 | K6 Analyses and engines | Analysis modes as facts (steady; dynamic integrated through the existing Diffsol/IDAS route consuming generated `d/dt`; dynamic simultaneous); case bindings by symbol path; numerical sources (hints, derived nominals with IDAES scheme names); initialization engine consuming `@start`, `stage` and adaptive homotopy; post-solve `@check`s; generic diagnostics catalogue; study runner over case sets | Synthetic: same definition solves steady and dynamic; staged initialization restores the specification on failure; derived nominal matches hand computation; study isolates a failing point | Live `dynamic_cases` and transient-fitting consumers retire together in K8; replaced initializer/scaler refusals | [execution packet](21-modeling-kernel-k4-k7-execution.md#sequence-and-progress) |
 | K7 Conformance harness | Test declarations (function-level and model-level); runner; **shared checks for every definition** (DoF, closure per accumulator, derivative consistency sample, envelope rejection, start-to-solve); `idaes-oracle:` linkage through the skill records; reports | Synthetic definitions gain the shared checks with no test code | Ad hoc fixture scaffolding superseded by test data | [execution packet](21-modeling-kernel-k4-k7-execution.md#sequence-and-progress) |
 | K8 Seed knowledge | The science below plus existing knowledge required for retirement, authored per the [placement guide](21-knowledge-placement.md) | All seed conformance tests pass; **no model-specific production Rust or Python** (N1) | Production FeOS provider and FeOS/num-dual production dependencies (FeOS becomes reference-only) once seed PC-SAFT agrees with independent oracles; legacy scientific construction and dynamics | [execution packet](21-modeling-kernel-k8-execution.md) |
-| K9 Integrated campaign and measurements | End-to-end scenarios on the seed (below); measurements R1–R3; knowledge boundary audit | Scenario acceptances; measurement report | — | proposed |
+| K9 Integrated campaign and measurements | End-to-end scenarios on the seed (below); measurements R1–R3; knowledge boundary audit | Scenario acceptances; measurement report | — | transferred to [Plan 23](23-thermodynamic-domain-and-campaign.md) (scenarios CT-S01…CT-S14, measurements M1–M3, AUD) |
 
-After K9, Plan 20's W1–W5 are executed as **knowledge-port packets**: package files plus
-conformance tests, with any Rust change routed to *Kernel gaps*.
+After Plan 23, Plan 20's W1–W5 are executed as **knowledge-port packets**: package files
+plus conformance tests, with any Rust change routed to a kernel-gap row.
 
 ## Seed knowledge (K8)
 
@@ -147,6 +149,10 @@ reference values.
 If porting any of them later needs Rust, that is a kernel gap under N1.
 
 ## Integrated campaign (K9)
+
+Transferred to [Plan 23](23-thermodynamic-domain-and-campaign.md) on 2026-09-29, where
+these scenarios are cited as `CT-S01…CT-S14` and R1–R3 as `M1–M3`. The table below is the
+original K9 scope.
 
 | Scenario (review ID) | Seed realization | Acceptance |
 |---|---|---|
@@ -253,25 +259,26 @@ links reopened kernel work and seed/retirement dependencies.
 | Through-K8 F08 retirement dependencies | S04, S05 | resolved | K8; E4/E8/E9 | Tested: authored vessel/fitting replacements in the native assessment and selected vessel conformance; production FeOS, legacy scientific relations/builders and their callers removed |
 | Through-K8 F09 reference provenance | S14 | resolved | K8; E4/E5 | Tested: all 77 seed fixtures have passing evidence in the K8 packet; sourced data, demonstration fits and IDAES/teqp oracle inputs retain distinct provenance, references and tolerances |
 
-This plan becomes the disposition owner of the Plan 20 review findings that concern the
-kernel. [Plan 20's table](20-idaes-capability-target.md#finding-dispositions) links here, so
-the status has one owner.
+This plan owned the Plan 20 review findings that concern the kernel until 2026-09-29.
+They transferred, still open, to
+[Plan 23's disposition table](23-thermodynamic-domain-and-campaign.md#finding-dispositions),
+which maps each to the campaign scenario whose acceptance closes it.
 
 | Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |
 |---|---|---|---|---|
-| [F01](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f01) provider fuses model and algorithm | S03, S04 | open | R1, R2; K4, K5, K8 | — |
-| [F02](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f02) no demand derivation | S01, S02 | open | R1; K3 (lazy demand, interfaces) | — |
-| [F03](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f03) method data never executes | S01 | open | R1, R3; K1 (families deleted), K8 | — |
-| [F04](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f04) scalar-only laws | S02, S12 | open | R4; K3 | — |
-| [F05](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f05) no formulation primitives | S07 | open | R5; K4, K5, K8 | — |
-| [F06](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f06) composition cannot express the library | S02, S06 | open | R3; K3 | — |
-| [F07](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f07) semantics in the runtime | S08, S11 | open | R2; K3 | — |
-| [F08](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f08) steady and dynamic authored apart | S05 | open | R6; K6 | — |
-| [F09](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f09) no continuous domains | S06 | open | K4 | — |
-| [F10](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f10) no initialization knowledge | S09 | open | R6; K6 | — |
-| [F11](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f11) no derived nominals | S08 | open | R6; K5, K6 | — |
-| [F12](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f12) diagnostics incomplete | S13 | open | K6 | — |
-| [F13](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f13) FeOS cannot own the scope | S04 | open | R1; K8 | — |
+| [F01](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f01) provider fuses model and algorithm | S03, S04 | transferred | [Plan 23](23-thermodynamic-domain-and-campaign.md#finding-dispositions) | — |
+| [F02](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f02) no demand derivation | S01, S02 | transferred | [Plan 23](23-thermodynamic-domain-and-campaign.md#finding-dispositions) | — |
+| [F03](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f03) method data never executes | S01 | transferred | [Plan 23](23-thermodynamic-domain-and-campaign.md#finding-dispositions) | — |
+| [F04](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f04) scalar-only laws | S02, S12 | transferred | [Plan 23](23-thermodynamic-domain-and-campaign.md#finding-dispositions) | — |
+| [F05](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f05) no formulation primitives | S07 | transferred | [Plan 23](23-thermodynamic-domain-and-campaign.md#finding-dispositions) | — |
+| [F06](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f06) composition cannot express the library | S02, S06 | transferred | [Plan 23](23-thermodynamic-domain-and-campaign.md#finding-dispositions) | — |
+| [F07](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f07) semantics in the runtime | S08, S11 | transferred | [Plan 23](23-thermodynamic-domain-and-campaign.md#finding-dispositions) | — |
+| [F08](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f08) steady and dynamic authored apart | S05 | transferred | [Plan 23](23-thermodynamic-domain-and-campaign.md#finding-dispositions) | — |
+| [F09](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f09) no continuous domains | S06 | transferred | [Plan 23](23-thermodynamic-domain-and-campaign.md#finding-dispositions) | — |
+| [F10](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f10) no initialization knowledge | S09 | transferred | [Plan 23](23-thermodynamic-domain-and-campaign.md#finding-dispositions) | — |
+| [F11](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f11) no derived nominals | S08 | transferred | [Plan 23](23-thermodynamic-domain-and-campaign.md#finding-dispositions) | — |
+| [F12](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f12) diagnostics incomplete | S13 | transferred | [Plan 23](23-thermodynamic-domain-and-campaign.md#finding-dispositions) | — |
+| [F13](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f13) FeOS cannot own the scope | S04 | transferred | [Plan 23](23-thermodynamic-domain-and-campaign.md#finding-dispositions) | — |
 
 ### K0–K3 target review
 
@@ -301,9 +308,9 @@ they do not close the scientific IDAES scenarios above.
 | [K4 F05](../design_review/reviews/design_review_modeling-kernel-k4-k7_2026-09-26.md#f05) shared checks need concrete fixtures | S11 | resolved | K7 | Authored physical fixtures, uncovered-definition reports, pure fixture values and owned Python conformance tables |
 | [K4 F06](../design_review/reviews/design_review_modeling-kernel-k4-k7_2026-09-26.md#f06) local failure is not infeasibility proof | S13 | resolved | K6 | Bounded local elastic explanation, inconclusive stop controls, separate native outcomes and continuous-relaxation IIS scope |
 
-The broader Plan 20 findings retain their original scenario acceptance: the excluded K9
-convergence, formulation-switch, scaling and diagnostics campaigns are not certified by
-K8 seed checks. K0–K7 controls establish the exercised kernel mechanisms; K8 establishes
+The broader Plan 20 findings retain their original scenario acceptance: the K9
+convergence, formulation-switch, scaling and diagnostics campaigns (now Plan 23) are not
+certified by K8 seed checks. K0–K7 controls establish the exercised kernel mechanisms; K8 establishes
 the named seed and replacement behavior, not the full IDAES capability target. The live
 FeOS/vessel and legacy transient-fitting consumers have been replaced and deleted; the
 K8 packet owns that retirement evidence.
@@ -326,15 +333,60 @@ Comprehensive qualification is separately requested by the maintainer.
 - The grammar and single compiler-owned Salsa workspace are implemented; the execution
   packets own their evidence and approved refinements. Companion examples remain sketches
   until replaced by executable package examples.
-- The first accelerator set beyond `cubic_roots`: decided by the R2/R3 measurements, not
-  up front.
-- The storage format for large datasets (inline, CSV or Arrow/Parquet through the data layer),
-  decided with the first dataset larger than the seed.
+- The first accelerator set beyond `cubic_roots`: decided by the Plan 23 M2/M3
+  measurements, not up front.
+- The storage format for large datasets: Parquet package data documents, proposed in
+  ADR-0125 and implemented by Plan 23 KR9.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
+**Implemented and Tested (K0–K8).** The modeling kernel carries all scientific knowledge
+as package data:
+- the modeling language and its registry IR;
+- quantity-typed checking;
+- the Salsa-backed specialization engine with lazy demand, dispatch, interfaces,
+  accumulators, ports and presets;
+- transformations: discretization, implicit blocks with inline, nested and accelerated
+  realizations, and regimes;
+- lowering to library-owned mathematics with verified `piecewise` and external functions;
+- analysis modes, numerical sources and initialization engines;
+- the conformance harness.
+
+The K8 seed covers prelude mathematics, caloric methods, ideal, Peng–Robinson and PC-SAFT
+potentials, FTPx/FPhx equilibrium, the BT and saponification packages, control volumes,
+the seed units, PID control, SSLW costing and the vessel/fitting replacements. The
+production FeOS provider and the legacy scientific construction were deleted; FeOS is
+reference-only.
+
+**Evidence.** The execution packets own the evidence:
+- `just native-test --profile ci`: 1,509 passed;
+- `just native-python`: 154 passed;
+- container parity: 51 passed against IDAES 2.13.0;
+- selected seed conformance runs, with conditions in the K8 packet.
+
+The *Kernel gaps* table records 54 generalized kernel corrections, each with synthetic
+controls. The static-quality findings of the K8 assessment were cleared by Plan 22's Q1
+qualification (blueprint §24.2).
+
 ### A mistake made and corrected
 
+The K8 record reports "77/77 fixtures" with passing evidence. That count combined:
+- one retained mixed run: 60 passed, one failed, one inconclusive, 15 unattempted;
+- two selected runs through scratch selector scripts that are not in the repository.
+
+The per-fixture solver, derivative and resource policies those runs needed were passed as
+command-line flags and not recorded as data. The evidence was therefore never one
+reproducible whole-seed run. Plan 23 H1 corrects this: fixture policies become declared
+data, and `just seed-conformance` runs every fixture once.
+
 ### Deviations from the plan, deliberate
+
+- **K9 was not executed here.** It transferred to Plan 23, which first adds a typed
+  thermodynamic domain model (maintainer decision, 2026-09-29). Its scenarios, measurements
+  and knowledge-boundary audit keep their acceptance there.
+- **Seed completion used selected fixture checks** rather than a complete rerun, at the
+  maintainer's request (K8 packet).
+- **ADR-0097–ADR-0101 remain proposed.** Implementation did not manufacture their
+  acceptance.

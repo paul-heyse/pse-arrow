@@ -6,7 +6,7 @@ completed work or no longer applicable, it is removed; Git history retains it (A
 Row ids are never reused; a new row takes the next id after the high-water mark below,
 which the lint checks. The register may be empty.
 
-Highest issued row id: R-48.
+Highest issued row id: R-50.
 
 | Column | Meaning |
 |---|---|
@@ -28,7 +28,7 @@ runs `--due` and reports the checks of rows that are due.
 | R-NN | item | ADR | trigger | check | owner | last-checked | next-check | status |
 |---|---|---|---|---|---|---|---|---|
 | R-04 | Compiled third-party physical provider packages and their loading boundary (§26, D9) | — | an external provider package is actually proposed | manual: has a provider outside `pse-kernels` been proposed? | paul-heyse | 2026-09-26 | 2027-03-01 | open |
-| R-05 | FeOS provider at compatible workspace num-dual pin (§9.8) | ADR-0084 | A new property package requires a different derivative family | manual: review the actual provider and derivative contract before moving pins | paul-heyse | 2026-09-24 | 2026-12-01 | watch |
+| R-05 | Reference-only FeOS fixes the workspace num-dual family (§9.8) | ADR-0084 | a FeOS release needs a different num-dual family, or Plan 23 oracle generation (CT-S03, DM1) needs a newer FeOS | manual: does the FeOS release used for oracle banks still build on the pinned num-dual? | paul-heyse | 2026-09-29 | 2027-03-01 | open |
 | R-08 | Ipopt / MUMPS build recipe on platforms other than local Linux (§18.3, §26) | ADR-0108 | a macOS or Windows build of the native solver profile is requested, or the Linux recipe fails to reproduce | $ `ls docker/solvers/checksums.sha256` | paul-heyse | 2026-09-25 | 2026-12-01 | open |
 | R-09 | wheel solver linkage: bundle Ipopt/MUMPS versus runtime `libloading` | ADR-0108 | the first wheel that must ship the native backend | manual: does a release need `pse-py` built with the `ipopt` feature? | paul-heyse | 2026-09-13 | 2026-12-01 | open |
 | R-11 | Proposed: canonical plan-byte contract beyond diagnostic encodings (§14.2) | ADR-0044 | a consumer requires canonical plan bytes or upstream supplies a usable versioned byte-stability contract | manual: review need and codec/engine compatibility at dependency changes; current diagnostic plan bytes stay noncanonical | paul-heyse | 2026-09-13 | 2026-10-13 | open |
@@ -56,3 +56,5 @@ runs `--due` and reports the checks of rows that are due.
 | R-46 | SCIP `bounddisjunction` constraints for semi domains are excluded; the `semi(indicator)` lowering serves them (§25) | ADR-0103 | a measured case where the indicator lowering dominates SCIP time | manual: has a semi-domain model's SCIP time been dominated by its indicator rows? | paul-heyse | 2026-09-29 | 2027-03-01 | open |
 | R-47 | diffsol-nl as the nested `InnerSolver` is excluded: it loses KINSOL's recoverable trials, sign constraints and cancellation (§25) | ADR-0110 | a measured case where the KINSOL session cache still dominates cost | manual: has a nested inner solve's KINSOL setup dominated a measured case? | paul-heyse | 2026-09-29 | 2027-03-01 | open |
 | R-48 | Parsing Ipopt's timing journal is excluded: status strings are never parsed (PS-10); POUNCE timings are captured natively (§25) | ADR-0108 | Ipopt exposes its timings through its C API | manual: does the next pinned Ipopt's C API expose timing statistics? | paul-heyse | 2026-09-29 | 2027-03-01 | open |
+| R-49 | Relational projection of admitted package knowledge (narrow registry relations over entities, attribute values, relation rows and values) is deferred (§22.1) | ADR-0125 | a consumer needs cross-package queries over admitted knowledge, such as parameter sets valid at a temperature across data banks | manual: has a feature or audit needed queries over admitted knowledge rather than a package lookup? | paul-heyse | 2026-09-29 | 2027-03-01 | open |
+| R-50 | Fitting datasets and observations (`authored.datasets`, observation targets) stay outside the typed modeling data; unification as `measured`-role modeling datasets is deferred (§6.10) | ADR-0123 | the first measured-property data bank, or a fit that consumes bank data | manual: has a package added measured property data or a fit read a data bank? | paul-heyse | 2026-09-29 | 2027-03-01 | open |

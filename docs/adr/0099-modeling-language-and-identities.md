@@ -86,6 +86,9 @@ registry and physical-type migration costs are larger than adding another specia
 
 [Plan 21](../plans/21-modeling-kernel.md) and its companion documents own implementation
 sequencing. [Target review](../design_review/reviews/design_review_modeling-kernel-k0-k3_2026-09-26.md).
+[ADR-0123](0123-typed-package-schema.md) refines the durable IR shape decided here into
+structured syntax: typed type arenas, data cells, enums and path references in place of
+re-parsed text.
 
 ## Status history
 

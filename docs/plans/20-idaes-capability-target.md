@@ -159,15 +159,16 @@ acceptance tests and what it deletes. Packets are proposed, not scheduled.
 | P4.x Advanced thermodynamics | Wave W4: native PC-SAFT, Helmholtz, nested flash, electrolytes | S03, S04: FeOS-oracle agreement for PC-SAFT; IAPWS-95 against reference data | Production FeOS provider (`pse-kernels::feos`) and its FeOS/num-dual production dependencies | proposed |
 | P5.x Costing, surrogates, studies, `models_extra`, applications | Wave W5 | S12, study journeys | — | proposed |
 
-After Plan 21 lands, P1.x–P5.x are executed as **knowledge-port packets**. Each one is package
-files plus conformance tests only, with any Rust change recorded as a
-[kernel gap](21-modeling-kernel.md#kernel-gaps).
+After Plan 23 lands, P1.x–P5.x are executed as **knowledge-port packets**. Each one is package
+files plus conformance tests only, conforming to the typed domain schema, with any Rust
+change recorded as a kernel gap.
 
 ## Finding dispositions
 
 The disposition owner for F01–F13 is now
-[Plan 21 *Finding dispositions*](21-modeling-kernel.md#finding-dispositions). The table below
-records the original proposed owners and is not maintained.
+[Plan 23 *Finding dispositions*](23-thermodynamic-domain-and-campaign.md#finding-dispositions)
+(transferred from Plan 21 on 2026-09-29). The table below records the original proposed
+owners and is not maintained.
 
 | Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |
 |---|---|---|---|---|
