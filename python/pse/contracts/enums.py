@@ -1528,7 +1528,6 @@ class WithheldReason(StrEnum):
     SECOND_ORDER_FAILED = "second_order_failed"
     BACKSOLVE_FAILED = "backsolve_failed"
     RANK_DEFICIENT = "rank_deficient"
-    UNDECLARED_DEVIATION = "undeclared_deviation"
     NONUNIT_IMPORTANCE = "nonunit_importance"
     RESPONSES_UNAVAILABLE = "responses_unavailable"
     PARAMETER_AT_BOUND = "parameter_at_bound"

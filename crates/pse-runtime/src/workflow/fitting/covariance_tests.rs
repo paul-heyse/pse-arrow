@@ -71,34 +71,26 @@ async fn linear_regression_covariance_analytic() {
     }
 }
 
+/// F02 (ADR-0118 item 2): the declared model needs a standard deviation for every included
+/// observation. Admission refuses one without, so no fit exists whose covariance would
+/// lack it.
 #[tokio::test]
 async fn covariance_withheld_without_declared_sigma() {
     let mut sigma = declared();
     sigma[1] = None;
-    let result = fit(&package(sigma, [1.0; 4]), profile(HessianMode::Exact, None)).await;
-    let report = report(&result);
-    // The fit itself is defined: the undeclared observation is weighted by one.
-    assert!(report.estimate_qualified(), "{report:?}");
-    let covariance = report.covariance.as_ref().unwrap();
+    let error = package(sigma, [1.0; 4])
+        .prepare_fit(
+            id(32).into(),
+            profile(HessianMode::Exact, None),
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap_err();
     assert!(
-        matches!(&covariance.values, Err(FitWithheld::UndeclaredDeviation(o)) if *o == vec![id(41)]),
-        "{covariance:?}"
-    );
-    let validity = validity(&result);
-    assert_eq!(validity.len(), 1);
-    assert!(!validity[0].validity.certified);
-    assert_eq!(
-        validity[0].validity.reason,
-        Some(WithheldReason::UndeclaredDeviation)
-    );
-    // A withheld quantity has no data rows.
-    assert_eq!(
-        result
-            .table("runtime.parameter_covariances")
-            .unwrap()
-            .batch()
-            .num_rows(),
-        0
+        matches!(error, WorkflowError::Contract(ref message) if message == "included observations require finite values, positive difference-unit standard deviations and importance"),
+        "{error:?}"
     );
 }
 
@@ -258,17 +250,15 @@ async fn profile_chain_seeds_from_predecessor() {
             predictions: false,
         })
     };
-    let mut sigma = declared();
-    sigma[0] = None;
     let result = fit(
-        &package_with(true, sigma, [1.0; 4]),
+        &package_with(true, declared(), [2.0, 1.0, 1.0, 1.0]),
         profile(HessianMode::LimitedMemory, uncertainty()),
     )
     .await;
     // The profile needs the declared model too.
     assert!(matches!(
         report(&result).profiles,
-        Some(Err(FitWithheld::UndeclaredDeviation(_)))
+        Some(Err(FitWithheld::NonunitImportance(_)))
     ));
     let result = fit(
         &package_with(true, declared(), [1.0; 4]),

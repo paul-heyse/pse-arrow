@@ -13999,9 +13999,6 @@ pub enum WithheldReason {
     ///The fit's responses do not have full rank: a parameter combination is unidentifiable.
     #[serde(rename = "rank_deficient")]
     RankDeficient,
-    ///An included observation has no declared standard deviation.
-    #[serde(rename = "undeclared_deviation")]
-    UndeclaredDeviation,
     ///An included observation has an importance weight other than one.
     #[serde(rename = "nonunit_importance")]
     NonunitImportance,
@@ -14022,7 +14019,7 @@ impl crate::SemanticEq for WithheldReason {
 }
 impl WithheldReason {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 16usize] = [
+    pub const ALL: [Self; 15usize] = [
         Self::NoCandidate,
         Self::NoLocalAnalysis,
         Self::MultipliersUnrecovered,
@@ -14034,7 +14031,6 @@ impl WithheldReason {
         Self::SecondOrderFailed,
         Self::BacksolveFailed,
         Self::RankDeficient,
-        Self::UndeclaredDeviation,
         Self::NonunitImportance,
         Self::ResponsesUnavailable,
         Self::ParameterAtBound,
@@ -14054,7 +14050,6 @@ impl WithheldReason {
             Self::SecondOrderFailed => "second_order_failed",
             Self::BacksolveFailed => "backsolve_failed",
             Self::RankDeficient => "rank_deficient",
-            Self::UndeclaredDeviation => "undeclared_deviation",
             Self::NonunitImportance => "nonunit_importance",
             Self::ResponsesUnavailable => "responses_unavailable",
             Self::ParameterAtBound => "parameter_at_bound",
@@ -14075,11 +14070,10 @@ impl WithheldReason {
             Self::SecondOrderFailed => 8usize,
             Self::BacksolveFailed => 9usize,
             Self::RankDeficient => 10usize,
-            Self::UndeclaredDeviation => 11usize,
-            Self::NonunitImportance => 12usize,
-            Self::ResponsesUnavailable => 13usize,
-            Self::ParameterAtBound => 14usize,
-            Self::UpstreamWithheld => 15usize,
+            Self::NonunitImportance => 11usize,
+            Self::ResponsesUnavailable => 12usize,
+            Self::ParameterAtBound => 13usize,
+            Self::UpstreamWithheld => 14usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -14101,7 +14095,6 @@ impl WithheldReason {
             Self::SecondOrderFailed => None,
             Self::BacksolveFailed => None,
             Self::RankDeficient => None,
-            Self::UndeclaredDeviation => None,
             Self::NonunitImportance => None,
             Self::ResponsesUnavailable => None,
             Self::ParameterAtBound => None,
@@ -14124,8 +14117,8 @@ impl schemars::JsonSchema for WithheldReason {
             "multipliers_unrecovered", "complementarity_failed", "not_stationary",
             "analysis_unavailable", "licq_failed", "weakly_active",
             "second_order_failed", "backsolve_failed", "rank_deficient",
-            "undeclared_deviation", "nonunit_importance", "responses_unavailable",
-            "parameter_at_bound", "upstream_withheld"] }
+            "nonunit_importance", "responses_unavailable", "parameter_at_bound",
+            "upstream_withheld"] }
         )
     }
 }
@@ -14144,7 +14137,6 @@ impl core::str::FromStr for WithheldReason {
             "second_order_failed" => Ok(Self::SecondOrderFailed),
             "backsolve_failed" => Ok(Self::BacksolveFailed),
             "rank_deficient" => Ok(Self::RankDeficient),
-            "undeclared_deviation" => Ok(Self::UndeclaredDeviation),
             "nonunit_importance" => Ok(Self::NonunitImportance),
             "responses_unavailable" => Ok(Self::ResponsesUnavailable),
             "parameter_at_bound" => Ok(Self::ParameterAtBound),

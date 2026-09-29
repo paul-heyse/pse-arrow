@@ -803,14 +803,12 @@ impl ModelingPackage {
                     .value
                     .map(|v| v * conversion.scale + conversion.offset);
                 let sigma = observation.std_dev.map(|s| s * conversion.scale.abs());
-                // An included observation without a declared deviation is weighted by one in
-                // its quantity's canonical unit; its fit has no covariance (ADR-0118 item 2).
                 if !binding.importance.is_finite()
                     || binding.importance <= 0.
                     || value.is_some_and(|v| !v.is_finite())
                     || sigma.is_some_and(|s| !s.is_finite() || s <= 0.)
                     || sigma.is_some_and(|s| !(binding.importance.sqrt() / s).is_finite())
-                    || (binding.included && value.is_none())
+                    || (binding.included && (value.is_none() || sigma.is_none()))
                 {
                     return Err(contract(
                         "included observations require finite values, positive difference-unit standard deviations and importance",

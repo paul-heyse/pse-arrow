@@ -282,12 +282,8 @@ impl FitOracle {
             .as_ref()
             .ok_or_else(|| ProblemError::internal("fit point publication"))
     }
-    /// The weighted residual `√importance·(prediction − value)/σ` and its weight
-    /// `√importance/σ`. An observation without a declared standard deviation is weighted
-    /// by one in its quantity's canonical unit: the fit stays defined, and its covariance
-    /// is withheld (`undeclared_deviation`).
     fn residual(o: &Measurement, pred: f64) -> Result<(f64, f64), ProblemError> {
-        let sigma = o.sigma.unwrap_or(1.0);
+        let sigma = o.sigma.ok_or_else(|| error("missing standard deviation"))?;
         let r = (pred - o.value.ok_or_else(|| error("missing observation"))?) / sigma;
         let w = o.importance.sqrt() / sigma;
         Ok((r * o.importance.sqrt(), w))

@@ -15,8 +15,9 @@
 //!
 //! **Statistical model.** The declared standard deviations are absolute, so no residual
 //! variance estimate rescales the covariance, and the Wald quantile is the standard
-//! normal's. A fit whose observations lack a declared deviation or carry an importance
-//! other than one has no covariance (F02).
+//! normal's. Admission already refuses an included observation without a declared
+//! deviation; a fit whose included observations carry an importance other than one has no
+//! covariance (F02).
 //!
 //! **Validity.** The covariance is withheld, with the first failed condition recorded,
 //! unless the fit has a candidate qualified stationary or better, the declared model holds
@@ -39,8 +40,6 @@ use statrs::distribution::{ContinuousCDF, Normal};
 pub enum FitWithheld {
     /// A condition of the candidate or of the fit's KKT-point analysis.
     Local(Withheld),
-    /// Included observations without a declared standard deviation.
-    UndeclaredDeviation(Vec<SemanticId>),
     /// Included observations with an importance other than one.
     NonunitImportance(Vec<SemanticId>),
     /// The local responses are unavailable, so the response rank is unknown.
@@ -63,7 +62,6 @@ impl FitWithheld {
     pub fn reason(&self) -> WithheldReason {
         match self {
             Self::Local(withheld) => crate::workflow::local_analysis::reason(withheld),
-            Self::UndeclaredDeviation(_) => WithheldReason::UndeclaredDeviation,
             Self::NonunitImportance(_) => WithheldReason::NonunitImportance,
             Self::Responses(_) => WithheldReason::ResponsesUnavailable,
             Self::RankDeficient { .. } => WithheldReason::RankDeficient,
@@ -82,9 +80,6 @@ impl std::fmt::Display for FitWithheld {
         };
         match self {
             Self::Local(withheld) => write!(f, "{withheld}"),
-            Self::UndeclaredDeviation(o) => {
-                write!(f, "observations without a declared standard deviation: {}", ids(o))
-            }
             Self::NonunitImportance(o) => {
                 write!(f, "observations with an importance other than one: {}", ids(o))
             }
@@ -169,16 +164,12 @@ impl FitProblem {
             (Some(_), Some(solve)) => solve,
             _ => return Err(FitWithheld::Local(Withheld::NoCandidate)),
         };
-        let included = || self.measurements.iter().filter(|o| o.included);
-        let undeclared: Vec<_> = included()
-            .filter(|o| o.sigma.is_none())
-            .map(|o| o.id)
-            .collect();
-        if !undeclared.is_empty() {
-            return Err(FitWithheld::UndeclaredDeviation(undeclared));
-        }
-        let weighted: Vec<_> = included()
-            .filter(|o| o.importance != 1.0)
+        // Admission refuses an included observation without a declared deviation, so the
+        // model's remaining condition is unit importance.
+        let weighted: Vec<_> = self
+            .measurements
+            .iter()
+            .filter(|o| o.included && o.importance != 1.0)
             .map(|o| o.id)
             .collect();
         if !weighted.is_empty() {

@@ -148,9 +148,6 @@ impl RunResult {
             let prediction = report.and_then(|r| r.predictions.get(i).copied().flatten());
             let residual = prediction.zip(o.value).map(|(p, v)| p - v);
             let standardized = residual.zip(o.sigma).map(|(r, s)| r / s);
-            // Without a declared deviation the objective weighs the residual by one in its
-            // quantity's canonical unit.
-            let weighted = residual.map(|r| r / o.sigma.unwrap_or(1.0));
             observations
                 .push(fit_observations::Row {
                     run_id: self.run_id,
@@ -161,7 +158,7 @@ impl RunResult {
                     residual,
                     standardized_residual: standardized,
                     objective_contribution: if o.included {
-                        weighted.map(|r| 0.5 * o.importance * r * r)
+                        standardized.map(|r| 0.5 * o.importance * r * r)
                     } else {
                         None
                     },

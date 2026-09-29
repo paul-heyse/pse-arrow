@@ -1045,10 +1045,6 @@ fn declare_local_analysis(b: &mut RegistryBuilder) {
                 "The fit's responses do not have full rank: a parameter combination is unidentifiable.",
             ),
             EnumMember::new(
-                "undeclared_deviation",
-                "An included observation has no declared standard deviation.",
-            ),
-            EnumMember::new(
                 "nonunit_importance",
                 "An included observation has an importance weight other than one.",
             ),

@@ -1529,7 +1529,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `second_order_failed` | `` | false |
 | `backsolve_failed` | `` | false |
 | `rank_deficient` | `` | false |
-| `undeclared_deviation` | `` | false |
 | `nonunit_importance` | `` | false |
 | `responses_unavailable` | `` | false |
 | `parameter_at_bound` | `` | false |
