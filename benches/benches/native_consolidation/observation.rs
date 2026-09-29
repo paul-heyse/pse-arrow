@@ -20,21 +20,25 @@ pub(super) fn measure(c: &mut Criterion) {
     let cancel = CancellationToken::new();
     let mut receipts = Vec::new();
     let mut group = c.benchmark_group("integrated/observation");
-    for threads in [1, 4] {
+    for threads in [1_usize, 4] {
         for rows in [1_i64, 65_536] {
-            for concurrency in [1, 4] {
+            // Deployment CPU admission refuses saturation rather than queueing (ADR-0112):
+            // a query admits its partitions of the workers, so concurrent queries each
+            // take an equal share and never request more queries than workers.
+            for concurrency in [1_usize, 4].into_iter().filter(|q| *q <= threads) {
+                let partitions = threads / concurrency;
                 for policy in [
                     ObservationPolicy::Off,
                     ObservationPolicy::Contract,
                     ObservationPolicy::Diagnostic,
                 ] {
                     let mut cache = CacheBudget::disabled(128 << 20);
-                    cache.concurrent_queries = threads.try_into().unwrap();
+                    cache.concurrent_queries = concurrency.try_into().unwrap();
                     let fixture = pse_testkit::NativeFixture::with_settings(
                         (128 << 20).try_into().unwrap(),
                         ThreadBudget {
                             pool_threads: threads.try_into().unwrap(),
-                            target_partitions: threads.try_into().unwrap(),
+                            target_partitions: partitions.try_into().unwrap(),
                         },
                         ExecutionSettings::default(),
                         cache,
@@ -82,7 +86,7 @@ pub(super) fn measure(c: &mut Criterion) {
                     );
                     receipts.push(serde_json::json!({
                         "policy": format!("{policy:?}"), "rows": rows, "pool_threads": threads,
-                        "target_partitions": threads, "concurrent_query_limit": threads,
+                        "target_partitions": partitions, "concurrent_query_limit": concurrency,
                         "requested_queries": concurrency, "pool_budget_bytes": 128 << 20,
                         "result_cache_bytes": 0, "capture_spans_per_query": 4096,
                         "capture_bytes_per_query": 1 << 20, "captured_spans_and_field_bytes": evidence,
