@@ -9,9 +9,9 @@ use pse_relations::{
     generated::{
         enums::DualQualification,
         runtime::{
-            modeling_checks, modeling_findings, modeling_reports, solution_pool as pool,
-            solve_constraints as constraints, solve_metrics as metrics, solve_runs as runs,
-            solve_variables as variables,
+            infeasibility_certificates as certificates, modeling_checks, modeling_findings,
+            modeling_reports, solution_pool as pool, solve_constraints as constraints,
+            solve_metrics as metrics, solve_runs as runs, solve_variables as variables,
         },
     },
 };
@@ -74,6 +74,8 @@ impl RunResult {
             constraints::Builder::with_registry(registry, 0).map_err(relation)?;
         let mut metric_rows = metrics::Builder::with_registry(registry, 0).map_err(relation)?;
         let mut pool_rows = pool::Builder::with_registry(registry, 0).map_err(relation)?;
+        let mut certificate_rows =
+            certificates::Builder::with_registry(registry, 0).map_err(relation)?;
         for (ordinal, request) in requests.iter().enumerate() {
             let declaration = request.model.case.compiled().plan.structure();
             let step = ordinal as i64;
@@ -253,6 +255,9 @@ impl RunResult {
                     native,
                     events,
                 )?;
+                if let Some(row) = super::results::certificate_row(self.run_id, step, native) {
+                    certificate_rows.push(row).map_err(relation)?;
+                }
             }
             // Ranked pooled solutions over the report's free variables (ADR-0105 §8).
             for solution in native
@@ -366,6 +371,10 @@ impl RunResult {
                 metric_rows.finish().map_err(relation)?,
             ),
             (pool::RELATION_ID, pool_rows.finish().map_err(relation)?),
+            (
+                certificates::RELATION_ID,
+                certificate_rows.finish().map_err(relation)?,
+            ),
         ]);
         self.retain_sources(&mut batches)?;
         Ok(batches)

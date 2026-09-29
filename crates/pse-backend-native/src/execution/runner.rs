@@ -4,7 +4,7 @@
 //! original-coordinate inputs, executes the selected adapter, recovers original
 //! coordinates and qualifies the report. Workflows choose a runner by representation and
 //! the adapter by table lookup; neither step names a backend.
-use super::{BackendExecution, BackendSettings, Budgets, Input, Problem, Retained};
+use super::{BackendExecution, BackendSettings, Budgets, Input, Problem, Representation, Retained};
 pub use crate::kkt::Analysis;
 use crate::{
     CoefficientProblem, ConicProblem, NleOracle, NlpOracle, ProblemError,
@@ -274,9 +274,12 @@ impl std::fmt::Debug for Coefficients<'_> {
 }
 /// Normalized coefficient transport, native solve and recovery, then an independent
 /// re-check of the candidate against the original compiled model before qualification.
+/// A cone adapter receives the problem lowered to cone form
+/// ([`ConicProblem::from_coefficients`]) and its report is raised back to the coefficient
+/// rows before recovery. A certificate is verified against the original coefficients.
 ///
 /// # Errors
-/// Transport or native execution failed before a report existed.
+/// Transport, lowering or native execution failed before a report existed.
 pub fn coefficients(
     step: Step<'_>,
     retained: &mut Retained,
@@ -292,25 +295,55 @@ pub fn coefficients(
         .warm
         .map(|w| transport::warm(w, step.normalization, true))
         .transpose()?;
-    let mut report = step.adapter.execute(
-        retained,
-        Input {
-            problem: Problem::Coefficients {
-                problem: &problem,
-                certificate,
-                normalization: step.normalization,
-                row_constants: run.row_constants,
+    let mut report = if step.adapter.representation() == Representation::Cone {
+        let lowered = ConicProblem::from_coefficients(&problem, certificate)?;
+        let mut report = step.adapter.execute(
+            retained,
+            Input {
+                problem: Problem::Cone {
+                    problem: &lowered.problem,
+                    certificate: &lowered.evidence,
+                },
+                controls: step.controls,
+                accuracy: step.accuracy,
+                settings: step.settings,
+                execution: step.execution.clone(),
+                tolerances: &lowered.tolerances(&tolerances),
+                warm: warm.as_ref(),
+                compatibility: step.compatibility.clone(),
             },
-            controls: step.controls,
-            accuracy: step.accuracy,
-            settings: step.settings,
-            execution: step.execution.clone(),
-            tolerances: &tolerances,
-            warm: warm.as_ref(),
-            compatibility: step.compatibility.clone(),
-        },
-    )?;
+        )?;
+        lowered.raise(&mut report, &problem, &tolerances)?;
+        report
+    } else {
+        step.adapter.execute(
+            retained,
+            Input {
+                problem: Problem::Coefficients {
+                    problem: &problem,
+                    certificate,
+                    normalization: step.normalization,
+                    row_constants: run.row_constants,
+                },
+                controls: step.controls,
+                accuracy: step.accuracy,
+                settings: step.settings,
+                execution: step.execution.clone(),
+                tolerances: &tolerances,
+                warm: warm.as_ref(),
+                compatibility: step.compatibility.clone(),
+            },
+        )?
+    };
     transport::recover(&mut report, step.normalization, &run.problem.contract)?;
+    if let Some(c) = &mut report.certificate {
+        crate::certificate::verify_coefficients(
+            c,
+            run.problem,
+            step.tolerances,
+            step.accuracy.feasibility,
+        );
+    }
     if let Some(candidate) = &report.candidate {
         match run
             .problem
@@ -389,7 +422,8 @@ fn reobserve(
     Ok(())
 }
 
-/// Native solve over a cone model normalized at preparation, recovery and qualification.
+/// Native solve over a cone model normalized at preparation, recovery, verification of a
+/// certificate against the `original` cone data, and qualification.
 ///
 /// # Errors
 /// Native execution failed before a report existed.
@@ -397,6 +431,7 @@ pub fn cone(
     step: Step<'_>,
     retained: &mut Retained,
     problem: &ConicProblem,
+    original: &ConicProblem,
     certificate: &dyn QuadraticEvidence,
 ) -> Result<SolveReport, ProblemError> {
     let tolerances = step.tolerances.normalized(step.normalization)?;
@@ -417,6 +452,9 @@ pub fn cone(
         },
     )?;
     transport::recover(&mut report, step.normalization, &problem.contract)?;
+    if let Some(c) = &mut report.certificate {
+        crate::certificate::verify(c, original, step.tolerances, step.accuracy.feasibility);
+    }
     quality::qualify(&mut report, step.accuracy);
     Ok(report)
 }

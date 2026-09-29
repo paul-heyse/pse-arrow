@@ -15,6 +15,7 @@ pub(super) struct Pounce;
 pub(super) static ADAPTER: Pounce = Pounce;
 static CAPABILITY: Capability = Capability {
     classes: &[ProblemClass::SmoothNlp],
+    automatic_classes: &[ProblemClass::SmoothNlp],
     derivatives: DerivativeCapability::ExactHessianOrLimitedMemory,
     warm: WarmCapability::PrimalDualAndWorkingSet,
     general_bounds: true,

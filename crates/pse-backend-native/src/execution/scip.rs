@@ -97,6 +97,15 @@ static CAPABILITY: Capability = Capability {
         ProblemClass::MixedIntegerNonlinear,
         ProblemClass::SmoothNlp,
     ],
+    // Automatic only where HiGHS, Ipopt or POUNCE do not own the class: mixed-integer
+    // programs, and smooth NLP behind the local NLP adapters. Continuous linear and
+    // quadratic programs select SCIP explicitly.
+    automatic_classes: &[
+        ProblemClass::MixedLinear,
+        ProblemClass::MixedIntegerQuadratic,
+        ProblemClass::MixedIntegerNonlinear,
+        ProblemClass::SmoothNlp,
+    ],
     derivatives: DerivativeCapability::Factorable,
     warm: WarmCapability::Primal,
     general_bounds: true,
@@ -133,8 +142,7 @@ impl BackendExecution for Scip {
         cfg!(feature = "scip")
     }
     fn automatic(&self) -> Option<u8> {
-        // After HiGHS, Ipopt and POUNCE, so it is automatic only where no other adapter
-        // represents the class (mixed-integer quadratic and nonlinear programs).
+        // After HiGHS, Ipopt and POUNCE within the classes they share.
         Some(5)
     }
     fn admit_settings(

@@ -843,7 +843,7 @@ impl Session {
         };
         let mut g = vec![f64::NAN; m];
         let mut objective = f64::NAN;
-        let threads = runtime::Threads::enter(controls.threads)?;
+        let threads = crate::mkl::Threads::enter(controls.threads)?;
         let code = unsafe {
             ffi::IpoptSolve(
                 handle.0.as_ptr(),
@@ -1490,6 +1490,10 @@ mod tests {
                 &solve_with(&mut Session::new(), Options::new(), &settings, 1).unwrap()
             ));
         }
+        // Clarabel's MKL Pardiso is loaded at run time, from the same linked oneMKL
+        // (Plan 22 I11): no libmkl_rt and no Intel OpenMP appear beside it.
+        #[cfg(feature = "clarabel-pardiso")]
+        crate::clarabel_tests::solve_on_mkl_pardiso(2);
         runtime::tests::assert_single_provider();
     }
     #[test]

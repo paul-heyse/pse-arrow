@@ -7,7 +7,7 @@ use pse_relations::{
     columnar::FieldCheckedBatch,
     generated::runtime::{
         computation_runs, fit_constraints, fit_observations, fit_parameters, fit_variables,
-        response_sensitivities, solve_metrics,
+        infeasibility_certificates, response_sensitivities, solve_metrics,
     },
 };
 impl RunResult {
@@ -281,6 +281,14 @@ impl RunResult {
             );
             crate::workflow::results::push_native_metrics(&mut metrics, self.run_id, 0, s, events)?;
         }
+        let mut certificates =
+            infeasibility_certificates::Builder::with_registry(registry, 0).map_err(relation)?;
+        if let Some(row) = report
+            .and_then(|r| r.solve.as_ref())
+            .and_then(|s| crate::workflow::results::certificate_row(self.run_id, 0, s))
+        {
+            certificates.push(row).map_err(relation)?;
+        }
         let mut batches = BTreeMap::from([
             (
                 fit_variables::RELATION_ID,
@@ -309,6 +317,10 @@ impl RunResult {
             (
                 solve_metrics::RELATION_ID,
                 metrics.finish().map_err(relation)?,
+            ),
+            (
+                infeasibility_certificates::RELATION_ID,
+                certificates.finish().map_err(relation)?,
             ),
         ]);
         batches.extend(source.fit_data.tables(registry)?);

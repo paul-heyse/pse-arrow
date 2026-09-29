@@ -166,6 +166,82 @@ pub fn normalize_quadratic(
     Ok((result, evidence))
 }
 
+/// The minimization form `sign · q` of an admitted objective quadratic as a solver that
+/// stores only the upper triangle sees it: the upper triangle mirrored into the lower one.
+/// Negation is exact; a mirrored entry replaces its lower partner, which may differ from
+/// it only by the rounding of the congruence that produced `q`, so the evidence is the
+/// admitted evidence's, transported to exactly the returned matrix under orientation one.
+/// A matrix without nonzeros needs no evidence.
+///
+/// # Errors
+/// Missing or stale evidence, a structurally unsymmetric `q`, or partners that differ by
+/// more than rounding.
+pub fn minimization_form(
+    q: &faer::sparse::SparseColMat<usize, f64>,
+    sign: f64,
+    proof: Option<&dyn QuadraticEvidence>,
+) -> Result<(faer::sparse::SparseColMat<usize, f64>, TransportedEvidence), MathError> {
+    let n = q.ncols();
+    if q.nrows() != n || !(sign == 1.0 || sign == -1.0) {
+        return Err(MathError::Contract(
+            "objective quadratic dimensions or orientation".into(),
+        ));
+    }
+    let nonzero = q.val().iter().any(|v| *v != 0.0);
+    match proof {
+        Some(proof) => proof.validate(q, sign)?,
+        None if nonzero => {
+            return Err(MathError::Contract(
+                "a nonzero objective quadratic needs convexity evidence".into(),
+            ));
+        }
+        None => {}
+    }
+    // Upper-triangle entries, and the strictly lower ones at their mirrored position.
+    let mut upper = std::collections::BTreeMap::new();
+    let mut lower = std::collections::BTreeMap::new();
+    for c in 0..n {
+        for (r, &v) in q.row_idx_of_col(c).zip(q.val_of_col(c)) {
+            if v == 0.0 {
+                continue;
+            }
+            if r <= c {
+                upper.insert((r, c), v);
+            } else {
+                lower.insert((c, r), v);
+            }
+        }
+    }
+    // Four units in the last place bound the congruence's rounding of either partner.
+    let rounding = 4.0 * f64::EPSILON;
+    let unsymmetric = upper.keys().any(|&(r, c)| r != c && !lower.contains_key(&(r, c)))
+        || lower.iter().any(|(position, &v)| {
+            upper
+                .get(position)
+                .is_none_or(|&u| (u - v).abs() > rounding * u.abs().max(v.abs()))
+        });
+    if unsymmetric {
+        return Err(MathError::Contract(
+            "objective quadratic is not symmetric".into(),
+        ));
+    }
+    let mut entries = Vec::with_capacity(2 * upper.len());
+    for (&(r, c), &v) in &upper {
+        entries.push(faer::sparse::Triplet::new(r, c, sign * v));
+        if r != c {
+            entries.push(faer::sparse::Triplet::new(c, r, sign * v));
+        }
+    }
+    let result = faer::sparse::SparseColMat::try_new_from_triplets(n, n, &entries)
+        .map_err(|e| MathError::Contract(e.to_string()))?;
+    let evidence = TransportedEvidence {
+        assessment: proof.and_then(|p| p.assessment().cloned()),
+        matrix: crate::coefficients::quadratic_identity(&result, 1.0),
+        assumptions: proof.and_then(|p| p.assumptions()),
+    };
+    Ok((result, evidence))
+}
+
 /// Numerical assessment is a separate, explicit permission from exact certification.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum ConvexityPolicy {
@@ -530,5 +606,45 @@ impl Coefficients {
         } else {
             unknown(InconclusiveReason::Threshold)
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::coefficients::GramCertificate;
+    use faer::sparse::{SparseColMat, Triplet};
+
+    fn matrix(entries: &[(usize, usize, f64)]) -> SparseColMat<usize, f64> {
+        let triplets: Vec<_> = entries
+            .iter()
+            .map(|(r, c, v)| Triplet::new(*r, *c, *v))
+            .collect();
+        SparseColMat::try_new_from_triplets(2, 2, &triplets).unwrap()
+    }
+    /// The minimization form negates a maximized concave quadratic exactly, carries its
+    /// evidence to exactly the returned matrix under orientation one, and refuses stale
+    /// evidence and a nonzero matrix without evidence.
+    #[test]
+    fn minimization_form_negates_and_retargets_evidence() {
+        // Maximize -(2x² + 2xy + 2y²)/2: Q = -[[2, 1], [1, 2]] is certified with sign -1.
+        let q = matrix(&[(0, 0, -2.0), (0, 1, -1.0), (1, 0, -1.0), (1, 1, -2.0)]);
+        let factor = faer::Mat::from_fn(2, 2, |r, c| match (r, c) {
+            (0, 0) | (1, 1) => 1.0,
+            (0, 1) => 0.5,
+            _ => 0.0,
+        });
+        let proof = GramCertificate::new(&q, -1.0, &factor, &[2.0, 1.5], 10).unwrap();
+        let (p, evidence) = minimization_form(&q, -1.0, Some(&proof)).unwrap();
+        assert_eq!(p.to_dense(), faer::mat![[2.0, 1.0], [1.0, 2.0]]);
+        evidence.validate(&p, 1.0).unwrap();
+        assert!(evidence.validate(&q, -1.0).is_err());
+        // Evidence of another orientation, and a nonzero matrix without evidence.
+        assert!(minimization_form(&q, 1.0, Some(&proof)).is_err());
+        assert!(minimization_form(&q, -1.0, None).is_err());
+        // The zero quadratic of a linear program needs none.
+        let (zero, evidence) = minimization_form(&matrix(&[]), -1.0, None).unwrap();
+        assert!(zero.val().is_empty());
+        evidence.validate(&zero, 1.0).unwrap();
     }
 }

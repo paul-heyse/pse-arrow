@@ -129,6 +129,10 @@ pub enum FactBatch {
     r#RuntimeFitParameters(Vec<super::r#runtime::r#fit_parameters::Row>),
     #[doc = stringify!(r#RuntimeFitVariables)]
     r#RuntimeFitVariables(Vec<super::r#runtime::r#fit_variables::Row>),
+    #[doc = stringify!(r#RuntimeInfeasibilityCertificates)]
+    r#RuntimeInfeasibilityCertificates(
+        Vec<super::r#runtime::r#infeasibility_certificates::Row>,
+    ),
     #[doc = stringify!(r#RuntimeMaintenanceOutcomes)]
     r#RuntimeMaintenanceOutcomes(Vec<super::r#runtime::r#maintenance_outcomes::Row>),
     #[doc = stringify!(r#RuntimeModelingChecks)]
@@ -616,6 +620,12 @@ impl FactBatch {
                     170u8, 2u8, 231u8, 180u8, 178u8, 86u8,
                 ])
             }
+            Self::r#RuntimeInfeasibilityCertificates(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    247u8, 249u8, 97u8, 174u8, 73u8, 224u8, 141u8, 7u8, 138u8, 35u8,
+                    82u8, 44u8, 133u8, 253u8, 98u8, 228u8,
+                ])
+            }
             Self::r#RuntimeMaintenanceOutcomes(_) => {
                 pse_ids::SemanticId::from_bytes([
                     218u8, 241u8, 38u8, 36u8, 183u8, 143u8, 195u8, 23u8, 184u8, 79u8,
@@ -906,8 +916,8 @@ impl FactBatch {
             }
             Self::r#RuntimeSolverCapabilities(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    223u8, 154u8, 86u8, 234u8, 87u8, 237u8, 32u8, 225u8, 181u8, 122u8,
-                    236u8, 20u8, 68u8, 100u8, 169u8, 160u8,
+                    115u8, 109u8, 126u8, 171u8, 112u8, 182u8, 10u8, 175u8, 162u8, 151u8,
+                    107u8, 190u8, 100u8, 166u8, 142u8, 85u8,
                 ])
             }
             Self::r#RuntimeStudyOutcomes(_) => {
@@ -983,6 +993,7 @@ impl FactBatch {
             Self::r#RuntimeFitObservations(rows) => rows.len(),
             Self::r#RuntimeFitParameters(rows) => rows.len(),
             Self::r#RuntimeFitVariables(rows) => rows.len(),
+            Self::r#RuntimeInfeasibilityCertificates(rows) => rows.len(),
             Self::r#RuntimeMaintenanceOutcomes(rows) => rows.len(),
             Self::r#RuntimeModelingChecks(rows) => rows.len(),
             Self::r#RuntimeModelingConformance(rows) => rows.len(),
@@ -1322,6 +1333,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeFitVariables(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeInfeasibilityCertificates(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1800,6 +1816,12 @@ impl FactBatch {
             }
             Self::r#RuntimeFitVariables(rows) => {
                 rows.get(index).map(|row| Self::r#RuntimeFitVariables(vec![row.clone()]))
+            }
+            Self::r#RuntimeInfeasibilityCertificates(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeInfeasibilityCertificates(
+                        vec![row.clone()],
+                    ))
             }
             Self::r#RuntimeMaintenanceOutcomes(rows) => {
                 rows.get(index)
@@ -2588,6 +2610,17 @@ impl FactBatch {
                 }
             }
             (Self::r#RuntimeFitVariables(left), Self::r#RuntimeFitVariables(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeInfeasibilityCertificates(left),
+                Self::r#RuntimeInfeasibilityCertificates(right),
+            ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(left, right)
@@ -3533,6 +3566,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeFitVariables(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeInfeasibilityCertificates(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -4639,6 +4679,21 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeInfeasibilityCertificates(left),
+                Self::r#RuntimeInfeasibilityCertificates(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeMaintenanceOutcomes(left),
                 Self::r#RuntimeMaintenanceOutcomes(right),
             ) => {
@@ -5736,6 +5791,11 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#experiment_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#symbol_id, &mut hash);
             }
+            Self::r#RuntimeInfeasibilityCertificates(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+            }
             Self::r#RuntimeMaintenanceOutcomes(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#table_uri, &mut hash);
@@ -6375,6 +6435,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeInfeasibilityCertificates(left),
+                Self::r#RuntimeInfeasibilityCertificates(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeMaintenanceOutcomes(left),
                 Self::r#RuntimeMaintenanceOutcomes(mut right),
             ) => {
@@ -6818,6 +6885,9 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeFitObservations(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeFitParameters(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeFitVariables(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeInfeasibilityCertificates(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeMaintenanceOutcomes(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }

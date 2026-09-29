@@ -1082,15 +1082,64 @@ impl StartReceipt {
         })
     }
 }
-/// One native attempt, including unsuccessful attempts with no usable candidate.
-#[derive(Clone, Debug)]
-pub struct Certificate {
-    /// Native certificate type and accuracy qualifier.
-    pub kind: String,
-    /// Native primal recession direction, if supplied.
-    pub primal: Option<Vec<f64>>,
-    /// Native dual certificate in original native row order, if supplied.
-    pub dual: Option<Vec<f64>>,
+/// Registry-owned certificate vocabularies: what a ray proves, the native accuracy it was
+/// found at, and the cone-form coordinate each ray entry multiplies (Plan 22 I11).
+pub use pse_model::generated::enums::{
+    NativeCertificateAccuracy as CertificateAccuracy, NativeCertificateKind as CertificateKind,
+    NativeRayCoordinate as RayCoordinate,
+};
+/// One entry of a certificate ray: the cone-form coordinate it multiplies, the source
+/// identity of that row or variable, and its value.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RayEntry {
+    /// The cone row or variable the entry belongs to.
+    pub coordinate: RayCoordinate,
+    /// Row identity for row coordinates, variable identity otherwise.
+    pub id: SemanticId,
+    /// Ray value.
+    pub value: f64,
+}
+/// The recomputation of a certificate against the original problem data (Plan 22 I11).
+/// Every relative quantity is scale-invariant under the positive diagonal row and column
+/// scalings of normalization, so the verdict does not depend on the coordinates a native
+/// method saw.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CertificateVerification {
+    /// Worst column |Aᵀy| (or row |Px|, zero-row |Ax|) relative to the magnitudes it sums.
+    pub residual: f64,
+    /// bᵀy (or qᵀx) relative to the ray's largest entry.
+    pub objective: f64,
+    /// Dual-cone (or cone) violation relative to the ray's largest entry.
+    pub cone: f64,
+    /// -bᵀy less the budget-weighted |y| (or -qᵀx), relative to the ray's largest entry.
+    pub margin: f64,
+    /// The declared relative tolerance of `residual` and `cone`.
+    pub tolerance: f64,
+    /// Every relative quantity is within `tolerance` and the margin is positive.
+    pub verified: bool,
+}
+/// A native infeasibility (Farkas) or unboundedness ray. Adapters record it in native
+/// coordinates over the cone form they solved; the runner transports it to original
+/// coordinates and verifies it against the original data. It is never a primal solution.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InfeasibilityCertificate {
+    /// What the ray proves.
+    pub kind: CertificateKind,
+    /// Native accuracy the ray was found at.
+    pub accuracy: CertificateAccuracy,
+    /// Rows then finite variable bounds (lower before upper) for a Farkas ray; variables
+    /// for a recession direction.
+    pub ray: Vec<RayEntry>,
+    /// Recomputation against the original data; absent until the runner verifies it, or
+    /// when the original data could not be evaluated.
+    pub verification: Option<CertificateVerification>,
+}
+impl InfeasibilityCertificate {
+    /// Only a verified ray found at full accuracy certifies its conclusion.
+    pub fn certified(&self) -> bool {
+        self.accuracy == CertificateAccuracy::Full
+            && self.verification.is_some_and(|v| v.verified)
+    }
 }
 /// Native solution status as reported by the library, never inferred from values.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1343,8 +1392,8 @@ pub struct SolveReport {
     /// Complete native POUNCE statistics, with its optional trajectory bounded by policy.
     #[cfg(feature = "pounce")]
     pub pounce_statistics: Option<Box<pounce_rs::SolveStatistics>>,
-    /// Native infeasibility/unboundedness certificates, never exposed as primal solutions.
-    pub certificate: Option<Certificate>,
+    /// Typed infeasibility/unboundedness certificate, never exposed as a primal solution.
+    pub certificate: Option<InfeasibilityCertificate>,
     /// Records of a certifying adapter: box, solution pool, IIS, exact objective.
     pub global: Option<Arc<GlobalRecord>>,
     /// Selected native implementation.

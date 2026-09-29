@@ -517,6 +517,14 @@ pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::
         qualify_global(report, global);
         return;
     }
+    // A ray is never a candidate: its assurance is that of its verification in original
+    // coordinates at full native accuracy (Plan 22 I11).
+    if let Some(certificate) = &report.certificate {
+        if certificate.certified() {
+            report.termination.assurance = Assurance::Certificate;
+        }
+        return;
+    }
     if report.validation_failure().is_some()
         || report.candidate.is_none()
         || !report.quality.as_ref().is_some_and(Quality::feasible)

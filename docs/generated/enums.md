@@ -107,6 +107,13 @@ Member names are canonical string values; declaration order is presentation only
 | `update_preimage` | `` | false |
 | `update_postimage` | `` | false |
 
+## `ClarabelDirect`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `qdldl` | `` | false |
+| `mkl_pardiso` | `` | false |
+
 ## `ClarabelMergeMethod`
 
 | Member | IDAES name | Deprecated |
@@ -794,6 +801,20 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `feasible_point` | `` | false |
 | `constant_evaluation` | `` | false |
 
+## `NativeCertificateAccuracy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `full` | `` | false |
+| `reduced` | `` | false |
+
+## `NativeCertificateKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `primal_infeasible` | `` | false |
+| `dual_infeasible` | `` | false |
+
 ## `NativeConstraintForm`
 
 | Member | IDAES name | Deprecated |
@@ -901,6 +922,17 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `stationary` | `` | false |
 | `optimal_within_tolerance` | `` | false |
 | `gap_qualified` | `` | false |
+
+## `NativeRayCoordinate`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `row` | `` | false |
+| `row_lower` | `` | false |
+| `row_upper` | `` | false |
+| `variable_lower` | `` | false |
+| `variable_upper` | `` | false |
+| `variable` | `` | false |
 
 ## `NativeRunState`
 

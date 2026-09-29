@@ -27,6 +27,8 @@ pub mod r#fit_parameters;
 ///Generated relation contract.
 pub mod r#fit_variables;
 ///Generated relation contract.
+pub mod r#infeasibility_certificates;
+///Generated relation contract.
 pub mod r#maintenance_outcomes;
 ///Generated relation contract.
 pub mod r#modeling_checks;

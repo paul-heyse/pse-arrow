@@ -6,11 +6,11 @@
 pub use pse_model::generated::r#enums::{
     ArtifactReconstruction, AssertionStatus, AttemptKind, AttemptState, Authority,
     BasisKind, BasisRule, BoundKind, BoundStatus, CandidateUse, ChangeKind,
-    ClarabelMergeMethod, ClarabelMode, ClosureAssessment, ClosurePolicy, ColumnRole,
-    CompositionBasis, ComputationKind, ConstraintScalingScheme, ConversionKind,
-    DerivationGranularity, Determinism, DiagnosticCode, DiagnosticSeverity,
-    DiffsolLinear, DiffsolMethod, DualQualification, DynamicsMethod, EntityKind,
-    EvidenceUnavailableReason, ExternalDerivativeSource, ExtrapolationPolicy,
+    ClarabelDirect, ClarabelMergeMethod, ClarabelMode, ClosureAssessment, ClosurePolicy,
+    ColumnRole, CompositionBasis, ComputationKind, ConstraintScalingScheme,
+    ConversionKind, DerivationGranularity, Determinism, DiagnosticCode,
+    DiagnosticSeverity, DiffsolLinear, DiffsolMethod, DualQualification, DynamicsMethod,
+    EntityKind, EvidenceUnavailableReason, ExternalDerivativeSource, ExtrapolationPolicy,
     FailureClass, FeralOrdering, FeralScaling, FindingSeverity, HessianMode, HighsMethod,
     IdPolicy, IdasInitialization, InputConsumptionKind, InvariantKind, IpoptLinearSolver,
     JobState, KinsolOrthogonalization, KinsolStrategy, MemberSelectionKind, MigrationOp,
@@ -20,9 +20,10 @@ pub use pse_model::generated::r#enums::{
     ModelingFixtureBinding, ModelingFixtureExecution, ModelingInitializationStep,
     ModelingRealValueKind, ModelingRealizationPolicy, ModelingVariableDomain, MuStrategy,
     MumpsOrdering, Namespace, NativeAssurance, NativeBackend, NativeBoundaryClass,
-    NativeCandidateKind, NativeConstraintForm, NativeDependencyEvidenceKind,
-    NativeDependencyKind, NativeDerivativeCapability, NativeIneligibility,
-    NativeMetricKind, NativeObjectiveSense, NativeProblemClass, NativeQualification,
+    NativeCandidateKind, NativeCertificateAccuracy, NativeCertificateKind,
+    NativeConstraintForm, NativeDependencyEvidenceKind, NativeDependencyKind,
+    NativeDerivativeCapability, NativeIneligibility, NativeMetricKind,
+    NativeObjectiveSense, NativeProblemClass, NativeQualification, NativeRayCoordinate,
     NativeRunState, NativeSolveIntent, NativeStartPolicy, NativeTermination,
     NativeWarmCapability, NumericalCoordinates, NumericalProvenanceField,
     NumericalSource, NumericalTarget, ObservationTimeBasis, Opcode, OperationEffect,
@@ -246,6 +247,25 @@ impl crate::columnar::ArrowValue for CandidateUse {
     }
 }
 impl crate::columnar::ArrowValue for ChangeKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for ClarabelDirect {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -1439,6 +1459,44 @@ impl crate::columnar::ArrowValue for NativeCandidateKind {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for NativeCertificateAccuracy {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeCertificateKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for NativeConstraintForm {
     fn append(
         &self,
@@ -1592,6 +1650,25 @@ impl crate::columnar::ArrowValue for NativeProblemClass {
     }
 }
 impl crate::columnar::ArrowValue for NativeQualification {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeRayCoordinate {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

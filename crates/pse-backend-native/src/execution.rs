@@ -72,6 +72,11 @@ impl Representation {
 pub struct Capability {
     /// Representable mathematical classes.
     pub classes: &'static [ProblemClass],
+    /// The classes automatic routing may choose this adapter for, a subset of `classes`;
+    /// every other class needs explicit selection (ADR-0121). Automatic routing takes the
+    /// problem's classes most specific first and selects among the eligible adapters
+    /// automatic for the first class that has one, by [`BackendExecution::automatic`].
+    pub automatic_classes: &'static [ProblemClass],
     /// Required derivative representation.
     pub derivatives: DerivativeCapability,
     /// Externally supplied starting-state support.
@@ -102,6 +107,7 @@ impl Capability {
         pse_model::generated::runtime::solver_capabilities::Row {
             backend,
             classes: self.classes.to_vec(),
+            automatic_classes: self.automatic_classes.to_vec(),
             derivatives: self.derivatives,
             warm: self.warm,
             reuse: self.reuse.into(),
@@ -232,8 +238,9 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     fn representation(&self) -> Representation;
     /// Whether this binary links the native implementation.
     fn linked(&self) -> bool;
-    /// Automatic-selection preference among eligible adapters (lower first); `None`
-    /// is explicit-only. It orders a choice and never grants eligibility.
+    /// Automatic-selection preference among the eligible adapters automatic for one class
+    /// (`Capability::automatic_classes`), lower first; `None` is explicit-only. It orders a
+    /// choice and never grants eligibility.
     fn automatic(&self) -> Option<u8>;
     /// Identity of the linked native build beyond the pinned crate: library versions and
     /// the process's numerical contract (ADR-0108 item 14). `None` when the pinned crate

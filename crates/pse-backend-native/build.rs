@@ -8,8 +8,9 @@
 
 //! The native profile's single BLAS/LAPACK and OpenMP provider (ADR-0108 items 5 and 14).
 //!
-//! When Ipopt or Clarabel's SDP cones are linked, every native routine in the process runs
-//! on the solver image's oneMKL (LP64, GNU threading layer) and libgomp. The link line is
+//! When Ipopt, Clarabel's SDP cones or Clarabel's MKL Pardiso are linked, every native
+//! routine in the process runs on the solver image's oneMKL (LP64, GNU threading layer) and
+//! libgomp. The link line is
 //! the image's own `mkl-dynamic-lp64-gomp.pc`, so the image stays the one authority for it.
 //! The image manifest (`share/pse-solvers/build-info.txt`) is embedded for the profile key;
 //! a build outside the image records it as unavailable.
@@ -28,9 +29,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let out = PathBuf::from(env::var_os("OUT_DIR").ok_or("OUT_DIR unset")?);
     let ipopt = env::var_os("CARGO_FEATURE_IPOPT").is_some();
     let sdp = env::var_os("CARGO_FEATURE_SDP").is_some();
+    let pardiso = env::var_os("CARGO_FEATURE_CLARABEL_PARDISO").is_some();
     let prefix = env::var_os("IPOPT_DIR").map(PathBuf::from);
     let mut manifest = String::new();
-    if ipopt || sdp {
+    if ipopt || sdp || pardiso {
         match &prefix {
             Some(prefix) => {
                 let pc = prefix.join("lib/pkgconfig").join(format!("{MKL}.pc"));

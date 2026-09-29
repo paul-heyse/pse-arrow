@@ -18,6 +18,7 @@ pub(super) struct Ipopt;
 pub(super) static ADAPTER: Ipopt = Ipopt;
 static CAPABILITY: Capability = Capability {
     classes: &[ProblemClass::SmoothNlp],
+    automatic_classes: &[ProblemClass::SmoothNlp],
     derivatives: DerivativeCapability::ExactHessianOrLimitedMemory,
     warm: WarmCapability::PrimalDual,
     general_bounds: true,

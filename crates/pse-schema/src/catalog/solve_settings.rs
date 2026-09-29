@@ -347,6 +347,20 @@ fn declare_backend_methods(builder: &mut RegistryBuilder) {
             ("clique_graph", "Clique-graph merging."),
         ],
     );
+    vocabulary(
+        builder,
+        "ClarabelDirect",
+        &[
+            (
+                "qdldl",
+                "Clarabel's built-in quasidefinite LDLᵀ; factorizes on one thread.",
+            ),
+            (
+                "mkl_pardiso",
+                "oneMKL Pardiso from the process's one linked oneMKL (LP64, GNU threading); admits more than one thread.",
+            ),
+        ],
+    );
 }
 
 /// The dynamics profile, Diffsol and IDAS settings (ADR-0110).
