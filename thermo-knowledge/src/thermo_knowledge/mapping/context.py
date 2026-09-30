@@ -100,13 +100,13 @@ class _Block:
 
 
 def _satisfies(
-    where: Mapping[str, object], row: SourceRow
+    where: Mapping[str, object], values: Mapping[str, object]
 ) -> dict[str, str] | None:
-    """The named groups of the patterns of `where` when the row satisfies every condition (the
+    """The named groups of the patterns of `where` when `values` satisfy every condition (the
     empty mapping for conditions with no group), else `None`."""
     groups: dict[str, str] = {}
     for column, wanted in where.items():
-        found = row.get(column)
+        found = values.get(column)
         if isinstance(wanted, dict):
             if not isinstance(found, str):
                 return None
@@ -126,6 +126,9 @@ def _decoding_columns(decoding: Decoding) -> list[str]:
     return sorted({column for line in decoding.rules for column in line.where})
 
 
+STANDARD_STATE = "standard_state"
+"""The key of a rule's `column` table that says the column is of the standard state."""
+PLAIN_NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
 NUMBER_WITH_UNIT = re.compile(r"\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\s+(\S.*?)\s*")
 
 
@@ -137,6 +140,9 @@ class Decoded:
     to: str
     polymorph: str | None
     reason: str
+    key: str | None = None
+    groups: Mapping[str, str] = field(default_factory=dict)
+    """The named groups of the patterns the row satisfied."""
 
 
 def _structure_held(ctx: "RunContext[object]", rows: Sequence[SourceRow]) -> None:
@@ -144,12 +150,18 @@ def _structure_held(ctx: "RunContext[object]", rows: Sequence[SourceRow]) -> Non
     rule states the exact value (`equals`) holds another."""
     for row in rows:
         for column, rule in ctx.fields(row).items():
-            if rule.equals is None:
+            if rule.equals is None and not rule.holds:
                 continue
             found = row[column]
             if isinstance(found, list):
                 found = list(found)
-            if found != rule.equals:
+            if rule.holds and found is not None and found != "":
+                raise RowHeld(
+                    "missing_convention",
+                    f"{row.locator}: `{column}` states {found!r}, which the mapping does not "
+                    f"map yet ({rule.reason})",
+                )
+            if rule.equals is not None and found != rule.equals:
                 raise RowHeld(
                     "pattern_mismatch",
                     f"{row.locator}: `{column}` is {found!r}, the mapping relies on "
@@ -327,10 +339,28 @@ class RunContext[E]:
         raw = self._raw(row, column, rule)
         if raw is None:
             return None
+        if rule.text_unit and not isinstance(raw, str):
+            assert rule.unit is not None  # validated: a default has its unit
+            self._use(row, column, rule)
+            return Quantity(float(raw), rule.unit)
         if rule.text_unit and isinstance(raw, str):
             found = self._quantity_text(row, column, rule, raw)
             self._use(row, column, rule)
             return found
+        if rule.text_number is not None and isinstance(raw, str):
+            digits = re.fullmatch(rule.text_number, raw)
+            if digits is None:
+                raise RowHeld(
+                    "pattern_mismatch",
+                    f"{row.table}.{column}: {raw!r} does not match `{rule.text_number}`",
+                )
+            try:
+                number = float(digits.group(1))
+            except ValueError as error:
+                raise RowHeld("not_a_number", f"{row.table}.{column}: {raw!r}") from error
+            self._use(row, column, rule)
+            assert rule.unit is not None
+            return Quantity(number, rule.unit)
         if isinstance(raw, bool) or not isinstance(raw, (int, float)):
             raise RowHeld("not_a_number", f"{row.table}.{column}: {raw!r} is not a number")
         self._use(row, column, rule)
@@ -370,22 +400,53 @@ class RunContext[E]:
         factor = 1 if rule.factor is None else int(rule.factor)
         return raw * factor + (rule.offset or 0)
 
-    def decoded(self, row: SourceRow, column: str) -> Decoded:
+    def digits(self, row: SourceRow, column: str) -> int | None:
+        """The number of significant digits the text of `column` writes, or `None` when the text
+        is not a plain number (a marker, `INFINITE`, a cell the source leaves empty): the digits
+        from the first nonzero digit to the last written one, and for zero the digits written
+        after the decimal point (at least one)."""
+        rule = self.rule(row, column)
+        raw = row[column]
+        if not isinstance(raw, str) or not PLAIN_NUMBER.fullmatch(raw.strip()):
+            return None
+        self._use(row, column, rule)
+        body = raw.strip().lstrip("+-").split("e")[0].split("E")[0]
+        whole, _, fraction = body.partition(".")
+        digits = (whole + fraction).lstrip("0")
+        if not digits:
+            return max(len(fraction), 1)
+        return len(digits)
+
+    def decoded(
+        self,
+        row: SourceRow,
+        column: str,
+        *,
+        using: Mapping[str, object] | None = None,
+        required: bool = True,
+    ) -> Decoded | None:
         """What the decoding named by the rule of `column` makes of `row`: the first rule whose
-        conditions the row satisfies decides. A row no rule covers is held
-        (`missing_convention`): the source does not state what the mapping needs of it."""
+        conditions the row satisfies decides (the conditions are tested against `using` where the
+        fact decoded is that of another row, such as the phase that includes a species). A row
+        no rule covers is held (`missing_convention`): the source does not state what the
+        mapping needs of it; with `required` false it is `None` instead, for a fact the mapping
+        can do without."""
         rule = self.rule(row, column)
         if rule.decode is None:
             raise MappingError(f"table {row.table}: column `{column}` names no decoding")
         decoding = self.spec.decodings[rule.decode]
+        values = row.values if using is None else using
         for line in decoding.rules:
-            groups = _satisfies(line.where, row)
+            groups = _satisfies(line.where, values)
             if groups is None:
                 continue
             self._use(row, column, rule)
             polymorph = None if line.polymorph is None else line.polymorph.format(**groups)
-            return Decoded(line.to, polymorph, line.reason)
-        shown = ", ".join(f"{c}={row[c]!r}" for c in _decoding_columns(decoding))
+            key = None if line.key is None else line.key.format(**groups)
+            return Decoded(line.to.format(**groups), polymorph, line.reason, key, groups)
+        if not required:
+            return None
+        shown = ", ".join(f"{c}={values.get(c)!r}" for c in _decoding_columns(decoding))
         raise RowHeld(
             "missing_convention",
             f"{row.locator}: decoding `{rule.decode}` has no rule for {shown}",
@@ -437,11 +498,30 @@ class RunContext[E]:
             found = self._column_value(row, column, rule)
             if found is not None:
                 values[name] = found
-        for text, raw in self._constants(row).items():
-            owner, _, name = text.rpartition(".")
-            if owner == kind:
-                values[name] = self._constant(text, raw)
+        values.update(self.constants(row, kind))
         return values
+
+    def constants(self, row: SourceRow, kind: str) -> dict[str, object]:
+        """The constants of `kind` declared for the row's table or partition, by attribute
+        name: the values the mapping gives that no column holds."""
+        return {
+            text.rpartition(".")[2]: self._constant(text, raw)
+            for text, raw in self._constants(row).items()
+            if text.rpartition(".")[0] == kind
+        }
+
+    def declared(self, kind: str, name: str) -> uuid.UUID:
+        """The identifier of the declared entity `name` of `kind` (the aggregation a decoding
+        gave, by its name)."""
+        found = declared_entity(self.decl, kind, name)
+        if found is None:
+            raise RowHeld("unknown_subject", f"`{name}` is not a declared {kind}")
+        return found.id
+
+    def states_standard_state(self, row: SourceRow, column: str) -> bool:
+        """Whether the values of `column` are of the standard state of the segment they are in
+        (`standard_state = true` in the rule's `column` table)."""
+        return self.rule(row, column).column_standard_state
 
     def column_attributes(self, row: SourceRow, column: str) -> dict[str, object]:
         """The attributes of the `dataset_column` the values of `column` fill, as its rule's
@@ -453,6 +533,7 @@ class RunContext[E]:
         return {
             name: self._constant(f"{pc.DATASET_COLUMN.declared}.{name}", raw)
             for name, raw in rule.column.items()
+            if name != STANDARD_STATE
         }
 
     def _constants(self, row: SourceRow) -> dict[str, Scalar | dict[str, Scalar]]:
@@ -632,6 +713,11 @@ class IdentityEmitter:
         if not self._checked:
             self._checked = True
             _structure_held(self._ctx, self._block.rows)  # type: ignore[arg-type]
+
+    def check(self) -> None:
+        """Apply the structure rules of the block's rows now (`equals`, `holds`): a block that
+        emits nothing but is to be held for what its rows state calls this."""
+        self._ready()
 
     def source_entity(
         self,
@@ -866,6 +952,10 @@ class RecordEmitter:
             self._checked = True
             _structure_held(self._ctx, self._block.rows)  # type: ignore[arg-type]
 
+    def check(self) -> None:
+        """Apply the structure rules of the block's rows now (`equals`, `holds`)."""
+        self._ready()
+
     @property
     def locator(self) -> str:
         return self._origins[0].ref.locator
@@ -1069,15 +1159,21 @@ class RecordEmitter:
             origins,
         )
 
-    def parameterization(self, name: str) -> uuid.UUID:
+    def parameterization(self, name: str, *, artifact: str | None = None) -> uuid.UUID:
         """The parameterization `name` of `mapping.toml` (and its convention set), with this
         block's rows among its origins, in the origin role `mapping.toml` gives the
-        parameterization and not the role of the block that happens to emit it."""
+        parameterization and not the role of the block that happens to emit it. A
+        parameterization that is `per_artifact` is the one of the file `artifact`."""
         self._ready()
         ctx = self._ctx
         spec = ctx.spec.parameterizations.get(name)
         if spec is None:
             raise MappingError(f"`{name}` is not a declared parameterization")
+        if spec.per_artifact != (artifact is not None):
+            raise MappingError(
+                f"parameterization `{name}` "
+                + ("is per artifact and needs the `artifact`" if spec.per_artifact else "names no artifact")
+            )
         origins = tuple(Origin(origin.ref, spec.origin_role) for origin in self._origins)
         convention: uuid.UUID | None = None
         if spec.convention_set is not None:
@@ -1086,9 +1182,9 @@ class RecordEmitter:
         found = self._kind(
             pz.declared,
             {
-                pz.key: spec.key,
+                pz.key: spec.key.format(artifact=artifact, pin=ctx.carrier.pin),
                 pz.revision: spec.revision.format(pin=ctx.carrier.pin),
-                pz.title: spec.title,
+                pz.title: spec.title.format(artifact=artifact, pin=ctx.carrier.pin),
                 pz.coherence: spec.coherence,
                 pz.convention_set: convention,
             },

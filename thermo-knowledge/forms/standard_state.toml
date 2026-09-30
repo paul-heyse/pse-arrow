@@ -125,7 +125,7 @@ s = "R * (-a1 / (2 * T ** 2) - a2 / T + a3 * lnT + a4 * T + a5 * T ** 2 / 2 + a6
 # ---------------------------------------------------------------- Shomate
 
 [forms.shomate]
-doc = "The Shomate equation: heat capacity as a cubic polynomial in temperature plus an inverse-square term on each temperature interval, with enthalpy and entropy constants. Coefficients are stored for temperature in kelvin; sources that tabulate them for t = T/1000 K are converted by the mapping."
+doc = "The Shomate equation: heat capacity as a cubic polynomial in temperature plus an inverse-square term on each temperature interval, with enthalpy and entropy constants. The coefficients of the powers of the temperature are stored for temperature in kelvin; a source that tabulates them for t = T/1000 K (the NIST WebBook, Cantera) is converted by the mapping with the unit of each coefficient. The entropy constant G is the constant of the published equation, whose logarithm is that of t, so the logarithm here is of T over a kilokelvin and G needs no conversion."
 implements = "standard_state_thermo"
 completeness = "fully_declared"
 status = "expressed"
@@ -164,7 +164,7 @@ G = "pure.piece.G[i, n]"
 [forms.shomate.outputs]
 cp = "A + B * T + C * T ** 2 + D * T ** 3 + E / T ** 2"
 h = "A * T + B * T ** 2 / 2 + C * T ** 3 / 3 + D * T ** 4 / 4 - E / T + F"
-s = "A * log(T / unit('K')) + B * T + C * T ** 2 / 2 + D * T ** 3 / 3 - E / (2 * T ** 2) + G"
+s = "A * log(T / unit('kK')) + B * T + C * T ** 2 / 2 + D * T ** 3 / 3 - E / (2 * T ** 2) + G"
 
 # ---------------------------------------------------------------- constant heat capacity
 
@@ -221,3 +221,28 @@ h_ref = "pure.h_ref[i]"
 
 [forms.assigned_enthalpy.outputs]
 h = "h_ref"
+
+# ---------------------------------------------------------------- piecewise Gibbs energy
+
+[forms.piecewise_gibbs]
+doc = "A standard chemical potential given at chosen temperatures, divided by the gas constant and the temperature, with the enthalpy at 298.15 K and a constant heat capacity between each pair of neighbouring temperatures that the program derives from the values (the model of Cantera's Mu0Poly). The heat capacities, and through them the enthalpy and entropy at any temperature, follow from the points by a recursion over them that the program evaluates in code; the form holds what the source states."
+implements = "standard_state_thermo"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+conventions = ["gas_constant"]
+
+[forms.piecewise_gibbs.slot_groups.pure]
+doc = "The enthalpy, reference pressure and points of one species form."
+subject.i = { type = "species_form", doc = "The species form." }
+
+[forms.piecewise_gibbs.slot_groups.pure.slots]
+h0 = { type = "MolarEnergy", doc = "Molar enthalpy at 298.15 K." }
+p_ref = { type = "Pressure", doc = "The pressure the chemical potentials apply at." }
+
+[forms.piecewise_gibbs.slot_groups.pure.families.point]
+doc = "One chemical potential per temperature, in ascending order of temperature."
+index.n = { type = "Integer", min = 1, doc = "Point number, ascending in temperature." }
+
+[forms.piecewise_gibbs.slot_groups.pure.families.point.slots]
+T = { type = "Temperature", doc = "Temperature of the point." }
+mu0_over_RT = { type = "Scalar", doc = "The standard chemical potential at the temperature, divided by the gas constant and the temperature." }

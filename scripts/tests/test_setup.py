@@ -267,7 +267,9 @@ class EditPolicyTests(unittest.TestCase):
 
 
 class ConfigurationTests(unittest.TestCase):
-    def test_instruction_scan_includes_local_contracts_but_excludes_library_contents(self) -> None:
+    def test_instruction_scan_includes_local_contracts_but_excludes_library_contents(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             expected = [
@@ -384,7 +386,9 @@ class ConfigurationTests(unittest.TestCase):
             with patch.object(cache, "solver_image", side_effect=ValueError):
                 self.assertIsNone(cache.prepared_solver(base))
 
-    def test_materialized_skill_aliases_preserve_native_adapters_and_live_links(self) -> None:
+    def test_materialized_skill_aliases_preserve_native_adapters_and_live_links(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             shutil.copytree(ROOT / ".claude/agents", root / ".claude/agents")
@@ -414,7 +418,9 @@ class ConfigurationTests(unittest.TestCase):
             self.assertTrue((root / ".agents/skills/adr/SKILL.md").is_file())
             self.assertEqual(agents.synchronize(root, check=True), [])
             for directory in (".claude", ".agents"):
-                self.assertTrue((root / directory / "skills/library-example").is_symlink())
+                self.assertTrue(
+                    (root / directory / "skills/library-example").is_symlink()
+                )
             self.assertEqual(native.read_bytes(), native_before)
             self.assertEqual(claude.read_bytes(), claude_before)
             (root / ".agents/skills/adr/SKILL.md").write_text("changed alias")

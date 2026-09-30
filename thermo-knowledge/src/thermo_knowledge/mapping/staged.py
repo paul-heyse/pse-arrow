@@ -110,12 +110,16 @@ class StagedTables:
         return cached
 
 
-def _matches(where: Mapping[str, Scalar | list[Scalar]], values: Mapping[str, object]) -> bool:
+def _matches(where: Mapping[str, object], values: Mapping[str, object]) -> bool:
     for column, wanted in where.items():
         if column not in values:  # a column of a join the row has no related row in
             return False
         found = values[column]
-        if isinstance(wanted, list):
+        if isinstance(wanted, dict):
+            excluded = wanted["not"]
+            if found in (excluded if isinstance(excluded, list) else [excluded]):
+                return False
+        elif isinstance(wanted, list):
             if found not in wanted:
                 return False
         elif found != wanted or isinstance(found, bool) != isinstance(wanted, bool):

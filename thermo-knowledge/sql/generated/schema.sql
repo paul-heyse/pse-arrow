@@ -3217,6 +3217,22 @@ COMMENT ON COLUMN "tk"."phase_definition"."structure" IS 'The internal structure
 COMMENT ON COLUMN "tk"."phase_definition"."prototype" IS 'A structure prototype or Strukturbericht designation, where the source gives one.';
 COMMENT ON COLUMN "tk"."phase_definition"."source_directives" IS 'Uninterpreted source directives attached to the phase, retained verbatim.';
 
+CREATE TABLE "param"."piecewise_gibbs__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '9432bae7-1dea-52c6-b40d-253358751b3a'::uuid,
+    "i" uuid NOT NULL,
+    "h0" "meta"."molar_energy" NOT NULL,
+    "p_ref" "meta"."pressure" NOT NULL,
+    CONSTRAINT "piecewise_gibbs__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "piecewise_gibbs__pure__ck__slot_group" CHECK ("slot_group" = '9432bae7-1dea-52c6-b40d-253358751b3a'::uuid)
+);
+COMMENT ON TABLE "param"."piecewise_gibbs__pure" IS 'The enthalpy, reference pressure and points of one species form.';
+COMMENT ON COLUMN "param"."piecewise_gibbs__pure"."id" IS 'Deterministic identifier of the piecewise_gibbs__pure instance.';
+COMMENT ON COLUMN "param"."piecewise_gibbs__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."piecewise_gibbs__pure"."i" IS 'The species form.';
+COMMENT ON COLUMN "param"."piecewise_gibbs__pure"."h0" IS 'Molar enthalpy at 298.15 K.';
+COMMENT ON COLUMN "param"."piecewise_gibbs__pure"."p_ref" IS 'The pressure the chemical potentials apply at.';
+
 CREATE TABLE "param"."pitzer_ion_pair__pair" (
     "id" uuid NOT NULL,
     "slot_group" uuid NOT NULL DEFAULT '262cb88b-d595-532e-8d37-0aaa29459bf9'::uuid,
@@ -5229,6 +5245,20 @@ COMMENT ON COLUMN "param"."nasa9__pure__piece"."b1" IS 'Enthalpy integration con
 COMMENT ON COLUMN "param"."nasa9__pure__piece"."b2" IS 'Entropy integration constant over R.';
 COMMENT ON COLUMN "param"."nasa9__pure__piece"."interval" IS 'The half-open interval [lower, upper) the piece covers.';
 
+CREATE TABLE "param"."piecewise_gibbs__pure__point" (
+    "set_id" uuid NOT NULL,
+    "n" bigint NOT NULL,
+    "T" "meta"."temperature" NOT NULL,
+    "mu0_over_RT" "meta"."scalar" NOT NULL,
+    CONSTRAINT "piecewise_gibbs__pure__point__ck__n__minimum" CHECK ("n" >= 1),
+    CONSTRAINT "piecewise_gibbs__pure__point__pk" PRIMARY KEY ("set_id", "n")
+);
+COMMENT ON TABLE "param"."piecewise_gibbs__pure__point" IS 'One chemical potential per temperature, in ascending order of temperature.';
+COMMENT ON COLUMN "param"."piecewise_gibbs__pure__point"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."piecewise_gibbs__pure__point"."n" IS 'Point number, ascending in temperature.';
+COMMENT ON COLUMN "param"."piecewise_gibbs__pure__point"."T" IS 'Temperature of the point.';
+COMMENT ON COLUMN "param"."piecewise_gibbs__pure__point"."mu0_over_RT" IS 'The standard chemical potential at the temperature, divided by the gas constant and the temperature.';
+
 CREATE TABLE "param"."redlich_kister_pair__pair__order" (
     "set_id" uuid NOT NULL,
     "k" bigint NOT NULL,
@@ -5843,6 +5873,10 @@ ALTER TABLE "tk"."phase_definition" ADD CONSTRAINT "phase_definition__fk__system
 
 ALTER TABLE "tk"."phase_definition" ADD CONSTRAINT "phase_definition__fk__aggregation" FOREIGN KEY ("aggregation") REFERENCES "tk"."aggregation" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."piecewise_gibbs__pure" ADD CONSTRAINT "piecewise_gibbs__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."piecewise_gibbs__pure" ADD CONSTRAINT "piecewise_gibbs__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species_form" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "param"."pitzer_ion_pair__pair" ADD CONSTRAINT "pitzer_ion_pair__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."pitzer_ion_pair__pair" ADD CONSTRAINT "pitzer_ion_pair__pair__fk__cation" FOREIGN KEY ("cation") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -6324,6 +6358,8 @@ ALTER TABLE "param"."multifluid_departure_terms__core__gaussian" ADD CONSTRAINT 
 ALTER TABLE "param"."nasa7__pure__piece" ADD CONSTRAINT "nasa7__pure__piece__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."nasa7__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."nasa9__pure__piece" ADD CONSTRAINT "nasa9__pure__piece__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."nasa9__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."piecewise_gibbs__pure__point" ADD CONSTRAINT "piecewise_gibbs__pure__point__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."piecewise_gibbs__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."redlich_kister_pair__pair__order" ADD CONSTRAINT "redlich_kister_pair__pair__order__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."redlich_kister_pair__pair" ("id") DEFERRABLE INITIALLY DEFERRED;
 

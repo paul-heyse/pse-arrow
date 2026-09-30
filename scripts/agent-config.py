@@ -40,13 +40,19 @@ def skill_alias(root: Path, directory: str) -> None:
 def same_tree(left: Path, right: Path) -> bool:
     """Compare copies without traversing shared library directory links."""
     if left.is_symlink() or right.is_symlink():
-        return left.is_symlink() and right.is_symlink() and left.resolve() == right.resolve()
+        return (
+            left.is_symlink()
+            and right.is_symlink()
+            and left.resolve() == right.resolve()
+        )
     if left.is_dir() and right.is_dir():
         names = {path.name for path in left.iterdir()}
         return names == {path.name for path in right.iterdir()} and all(
             same_tree(left / name, right / name) for name in names
         )
-    return left.is_file() and right.is_file() and left.read_bytes() == right.read_bytes()
+    return (
+        left.is_file() and right.is_file() and left.read_bytes() == right.read_bytes()
+    )
 
 
 def synchronize(root: Path, *, check: bool) -> list[str]:
@@ -60,7 +66,9 @@ def synchronize(root: Path, *, check: bool) -> list[str]:
             if not same_tree(alias, target) and not (
                 alias.is_symlink() and alias.resolve() == target.resolve()
             ):
-                problems.append(f"skill alias drift: {directory}/skills; run just agent-config-sync")
+                problems.append(
+                    f"skill alias drift: {directory}/skills; run just agent-config-sync"
+                )
         else:
             skill_alias(root, directory)
     return problems

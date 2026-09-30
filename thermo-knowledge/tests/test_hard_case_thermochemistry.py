@@ -79,10 +79,11 @@ def nasa9_values(c: dict[str, float], T: np.ndarray, gas: float = R) -> tuple[np
 
 
 def shomate_values(c: dict[str, float], T: np.ndarray, gas: float = 0.0) -> tuple[np.ndarray, ...]:
+    """The published equation's logarithm is that of t = T / 1000 K, so G needs no conversion."""
     cp = c["A"] + c["B"] * T + c["C"] * T**2 + c["D"] * T**3 + c["E"] / T**2
     h = c["A"] * T + c["B"] * T**2 / 2 + c["C"] * T**3 / 3 + c["D"] * T**4 / 4 - c["E"] / T + c["F"]
     s = (
-        c["A"] * np.log(T) + c["B"] * T + c["C"] * T**2 / 2 + c["D"] * T**3 / 3
+        c["A"] * np.log(T / 1000.0) + c["B"] * T + c["C"] * T**2 / 2 + c["D"] * T**3 / 3
         - c["E"] / (2 * T**2) + c["G"]
     )
     return cp, h, s

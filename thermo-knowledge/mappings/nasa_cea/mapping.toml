@@ -160,10 +160,14 @@ disposition = "out_of_scope"
 reason = "The record's first line exactly; it is kept in the staged table."
 
 [tables.species_records.fields.raw_line_2]
+disposition = "out_of_scope"
+reason = "The record's second line exactly; it is kept in the staged table (its formula pairs are the rows of species_formula_pairs)."
+
+[tables.species_records.fields."derived:formula"]
 target = "identity_assertion.value"
 scheme = "formula"
 precision = "close"
-loss = "The formula is assembled from the record's element-and-count pairs in Hill order (thermo_knowledge.mapping.formula) with the pseudo-element E left out; the charge is its own assertion of the entity."
+loss = "The formula is assembled from the record's element-and-count pairs in Hill order (thermo_knowledge.mapping.formula) with the pseudo-element E left out; the charge is the entity's stated charge."
 
 # ------------------------------------------------------------------------------------------
 # species_formula_pairs: the composition of a record, which is also its charge.

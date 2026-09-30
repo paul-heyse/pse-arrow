@@ -40,7 +40,7 @@ def identities(ctx: IdentityContext) -> None:
                 stated_charge=charge,
             )
             emit.assertion(entity, "name")
-            emit.assertion(entity, "raw_line_2", hill(counts))
+            emit.assertion(entity, "derived:formula", hill(counts))
 
 
 def records(ctx: RecordContext) -> None:

@@ -34,6 +34,7 @@ Disposition = Literal["mapped", "out_of_scope", "deferred"]
 Precision = Literal["exact", "narrower", "broader", "close"]
 
 PROVENANCE_COLUMNS = (staging_schema.ARTIFACT, staging_schema.LOCATOR)
+DERIVED = "derived:"
 ELEMENT_KEY = re.compile(r"(.+)\[(\d+)\]")
 _STRICT = {"forbid_unknown_fields": True}
 
@@ -129,14 +130,16 @@ class DecodeRule(Struct, kw_only=True, **_STRICT):
 
     A condition is `column = value` (exactly), `column = [values]` (one of them) or `column =
     { pattern = "..." }` (the whole text of the value matches). Named groups of the patterns are
-    available to `polymorph`, a text template (`"{group}"`) of the decoded polymorph of a species
-    form. A decoding with no `default` leaves a row no rule covers undecoded, and the mapping holds
-    it."""
+    available to `to`, `polymorph` and `key`, text templates (`"{group}"`): `polymorph` is the
+    decoded polymorph of a species form and `key` the key of a record the decoding names. A row
+    no rule covers is undecoded, and the mapping holds it (or goes on without, where the fact is
+    optional)."""
 
     where: dict[str, Scalar | list[Scalar] | dict[str, str]]
     to: str
     reason: str
     polymorph: str | None = None
+    key: str | None = None
 
 
 class Decoding(Struct, **_STRICT):
@@ -175,14 +178,25 @@ class FieldRule(Struct, **_STRICT):
     - `default` is the value an absent source value takes, in the rule's unit, the source's own
       documented default, which the rule's `loss` states;
     - `case` (`capitalize`, `upper`, `lower`) is applied to the text that names a declared entity;
+    - `digits` marks a text column holding a number, whose value is the number of significant
+      digits the text writes (the digits a source reports);
     - `decode` names a `[decodings]` table: the row's decoded value is the rule's value;
     - `equals` states the exact value a column holds in every row that maps, a structure that the
       mapping relies on; a row with another value is held (`pattern_mismatch`);
     - `text_unit` marks a text column whose value is a number followed by its unit, which the
-      source states (`0.0 kJ/mol`), and whose `unit` is therefore the unit the storage expects;
+      source states (`0.0 kJ/mol`); the rule's `unit`, which it needs only with a `default`, is
+      the unit of that default;
+    - `text_number` is a regular expression with one group that captures the number a text
+      column holds (the temperature a key path ends in), which the rule's `unit` is the unit of;
+    - `holds` marks a column the mapping does not map (`out_of_scope` or `deferred`) and cannot
+      drop either: a row that states it is held (`missing_convention`), so that the loss is not
+      silent;
+    - a rule keyed `derived:<name>` is the rule of a value the mapping makes from several
+      columns (the formula of a species from its composition rows) and belongs to no column;
     - `column` states the attributes of the `dataset_column` the values of this rule fill, for a
       rule whose target is `datum.value`: the observable, the role and what the column is
-      presented against.
+      presented against; `standard_state = true` in it says the values are of the standard state
+      of the segment the column is in, which the mapping attaches.
     """
 
     target: str | None = None
@@ -202,15 +216,23 @@ class FieldRule(Struct, **_STRICT):
     factor: float | None = None
     default: float | None = None
     case: Literal["capitalize", "upper", "lower"] | None = None
+    digits: bool = False
     decode: str | None = None
     equals: Scalar | list[Scalar] | None = None
     text_unit: bool = False
+    text_number: str | None = None
+    holds: bool = False
     column: dict[str, Scalar | dict[str, Scalar]] | None = None
+
+    @property
+    def column_standard_state(self) -> bool:
+        return bool(self.column and self.column.get("standard_state") is True)
 
 
 class Partition(Struct, **_STRICT):
-    """The rows of a table matching `where` (every column equals its value, or is one of its
-    listed values) and what the mapping does with them, in place of the table's disposition.
+    """The rows of a table matching `where` (every column equals its value, is one of its listed
+    values, or, as `{ not = value-or-list }`, is none of them) and what the mapping does with
+    them, in place of the table's disposition.
     `derivation` states how the records made from these rows were produced.
 
     `constants` are canonical values the rows' records take that no column holds, by target
@@ -222,7 +244,7 @@ class Partition(Struct, **_STRICT):
     the partition and the table, the partition's rule is the one its rows follow."""
 
     name: str
-    where: dict[str, Scalar | list[Scalar]]
+    where: dict[str, Scalar | list[Scalar] | dict[str, Scalar | list[Scalar]]]
     disposition: Disposition
     reason: str | None = None
     wave: int | None = None
@@ -273,6 +295,10 @@ class ParameterizationSpec(Struct, **_STRICT):
     origin_role: str
     convention_set: str | None = None
     no_convention_set: str | None = None
+    per_artifact: bool = False
+    """One parameterization for each file the sets come from: `{artifact}` in the key and the
+    title is the path of the file, and a block names the file (`emit.parameterization(name,
+    artifact=...)`)."""
 
 
 class MappingSpec(Struct, **_STRICT):
@@ -454,6 +480,18 @@ def validate(
             problems.append(
                 f"parameterization {name}: `revision` may use only the placeholder {{pin}}"
             )
+        for text, label in ((item.key, "key"), (item.title, "title")):
+            try:
+                text.format(artifact="", pin="")
+            except (KeyError, IndexError, ValueError):
+                problems.append(
+                    f"parameterization {name}: `{label}` may use only the placeholders "
+                    "{artifact} and {pin}"
+                )
+        if item.per_artifact and "{artifact}" not in item.key:
+            problems.append(f"parameterization {name}: `per_artifact` needs `{{artifact}}` in `key`")
+        if not item.per_artifact and "{artifact}" in item.key:
+            problems.append(f"parameterization {name}: `{{artifact}}` belongs to `per_artifact`")
     return problems
 
 
@@ -667,6 +705,9 @@ def _table(
             problems.append(f"{label}: `{partition.origin_role}` is not an origin role")
         if not partition.where:
             problems.append(f"{label}: `where` names at least one column")
+        for column, wanted in partition.where.items():
+            if isinstance(wanted, dict) and set(wanted) != {"not"}:
+                problems.append(f"{label}: `{column}` is a value, a list or `{{ not = ... }}`")
         for column in partition.where:
             join_name, dot, joined_column = column.partition(".")
             if dot:
@@ -702,6 +743,10 @@ def _table(
     ]
     for label, fields in checked:
         for key, field_rule in fields.items():
+            if key.startswith(DERIVED):
+                _field(problems, decl, spec, f"{label} {key}", rule_table=table, rule=field_rule,
+                       field=None, schemes=schemes)
+                continue
             column, index = element_of(key)
             if column not in names:
                 problems.append(f"{label} {key}: field rule names no column")
@@ -790,7 +835,7 @@ def _field(
     *,
     rule_table: str,
     rule: FieldRule,
-    field: pa.Field,
+    field: pa.Field | None,
     schemes: set[str],
 ) -> None:
     kinds = [rule.target is not None, rule.role is not None, rule.disposition is not None]
@@ -806,10 +851,14 @@ def _field(
             _disposition(problems, where, rule.disposition, rule.reason, rule.wave)
         elif not rule.reason:
             problems.append(f"{where}: a structure column states its `reason`")
-        for option in ("factor", "default", "case", "decode", "column"):
+        for option in ("factor", "default", "case", "decode", "column", "text_number"):
             if getattr(rule, option) is not None:
                 problems.append(f"{where}: `{option}` belongs to a value rule")
+        if rule.holds and rule.role is not None:
+            problems.append(f"{where}: `holds` belongs to a column the mapping does not map")
         return
+    if rule.holds:
+        problems.append(f"{where}: `holds` belongs to a column the mapping does not map")
     assert rule.target is not None
     if rule.precision is None:
         problems.append(f"{where}: a mapped column states its `precision`")
@@ -837,11 +886,16 @@ def _field(
     _value_options(problems, decl, spec, where, rule_table, rule, target)
     if target.dimensioned:
         if rule.text_unit:
-            if rule.unit is not None:
+            if (rule.unit is None) != (rule.default is None):
                 problems.append(
-                    f"{where}: the unit is stated in the text (`text_unit`), so the rule states none"
+                    f"{where}: the unit is stated in the text (`text_unit`); the rule states a "
+                    "`unit` exactly when it states a `default`, which is in that unit"
                 )
-            if not pa.types.is_string(field.type):
+            elif rule.unit is not None:
+                message = _unit_parses(rule.unit)
+                if message:
+                    problems.append(f"{where}: {message}")
+            if field is None or not pa.types.is_string(field.type):
                 problems.append(f"{where}: `text_unit` belongs to a text column")
             return
         if rule.unit is None:
@@ -857,7 +911,7 @@ def _field(
             message = _unit_parses(rule.unit)
             if message:
                 problems.append(f"{where}: {message}")
-        stated = stated_unit(field)
+        stated = None if field is None else stated_unit(field)
         if stated is None:
             if not rule.loss:
                 problems.append(
@@ -897,28 +951,45 @@ def _value_options(
         if found is None:
             problems.append(f"{where}: `{rule.decode}` is not a [decodings] entry")
             return
-        if type_.element_kind not in ("enum", "kind"):
-            problems.append(f"{where}: a decoded value is an enum member or a declared entity")
-        elif type_.element_kind == "enum":
+        if type_.element_kind == "enum":
             members = {member.name for member in decl.enums[type_.element].members}
             for line in found.rules:
-                if line.to not in members:
+                if "{" not in line.to and line.to not in members:
                     problems.append(
                         f"{where}: decoding `{rule.decode}` decodes to `{line.to}`, which is not "
                         f"a member of `{type_.element}`"
                     )
-        else:
+        elif type_.element_kind == "kind":
             for line in found.rules:
-                if declared_entity(decl, type_.element, line.to) is None:
+                if "{" not in line.to and declared_entity(decl, type_.element, line.to) is None:
                     problems.append(
                         f"{where}: decoding `{rule.decode}` decodes to `{line.to}`, which is not "
                         f"a declared entity of kind `{type_.element}`"
                     )
+    if rule.digits:
+        if target.field.type.text != "Integer" or rule.unit is not None:
+            problems.append(f"{where}: `digits` belongs to an Integer target with no unit")
+    if rule.text_number is not None:
+        try:
+            if re.compile(rule.text_number).groups != 1:
+                problems.append(f"{where}: `text_number` has exactly one group")
+        except re.error as error:
+            problems.append(f"{where}: `text_number` is not a regular expression: {error}")
+        if not target.dimensioned or rule.text_unit:
+            problems.append(f"{where}: `text_number` belongs to a dimensioned target with a `unit`")
     if rule.column is not None:
         if rule.target != "datum.value":
             problems.append(f"{where}: `column` belongs to a rule whose target is `datum.value`")
         else:
-            _attributes(problems, decl, f"{where} column", "dataset_column", rule.column)
+            _attributes(
+                problems,
+                decl,
+                f"{where} column",
+                "dataset_column",
+                {k: v for k, v in rule.column.items() if k != "standard_state"},
+            )
+            if rule.column.get("standard_state", True) is not True:
+                problems.append(f"{where} column: `standard_state` is `true` or left out")
 
 
 def _attributes(
