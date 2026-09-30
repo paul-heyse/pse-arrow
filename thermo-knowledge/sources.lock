@@ -135,6 +135,14 @@
       "total_bytes": 347731991,
       "tree_hash": "c2e1302ed794371bcbd195d165e9b1d6862be6b5b9badf0316fa28696b61324a"
     },
+    "janaf": {
+      "file_count": 3596,
+      "kind": "pages",
+      "pin": "2026-09-30",
+      "retrieved": "2026-09-30T22:19:05Z",
+      "total_bytes": 7492303,
+      "tree_hash": "f1bda4514cdbb8d43e78fdbb06f3e68799330a632f36c93dbca8a7527e6fdf30"
+    },
     "kineticgas": {
       "file_count": 262,
       "kind": "git",
