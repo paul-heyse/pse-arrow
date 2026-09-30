@@ -125,7 +125,11 @@ def write_identity(
     """Write the phase-1 output of a fake carrier.
 
     Each entity is `{"scope", "key", "assertions": [(scheme, value), ...]}` with optional
-    `aggregation`, `polymorph`, `charge` and `locator`."""
+    `aggregation`, `polymorph`, `charge` and `locator`, and its `class` (a `species_form` when it
+    states an aggregation, else a `species`). A defined mixture (`class = "defined_mixture"`)
+    states its `definition` (default `by_definition`), its fraction `basis` (`mole` or `mass`,
+    default `mole`) and its `components`: `(scope, key, fraction text)` of the source entities of
+    the same carrier."""
     from thermo_knowledge.canonical import store
     from thermo_knowledge.canonical.store import CanonicalManifest, FormulaScopeRecord
     from thermo_knowledge.mapping import claims
@@ -136,22 +140,44 @@ def write_identity(
     info = carrier(manifest_id, *artifacts)
     claim_entities: list[claims.EntityClaim] = []
     claim_assertions: list[claims.AssertionClaim] = []
+    claim_components: list[claims.ComponentClaim] = []
     for entity in entities:
         artifact = f"data/{entity['scope']}.json"
         locator = str(entity.get("locator", f"{artifact}#/{entity['key']}"))
+        klass = str(entity.get("class") or ("species_form" if entity.get("aggregation") else "species"))
+        mixture = klass == "defined_mixture"
         claim_entities.append(
             claims.EntityClaim(
                 manifest_id,
                 str(entity["scope"]),
                 str(entity["key"]),
+                klass,
                 entity.get("aggregation"),  # type: ignore[arg-type]
                 entity.get("polymorph"),  # type: ignore[arg-type]
                 entity.get("charge"),  # type: ignore[arg-type]
+                str(entity.get("definition", "by_definition")) if mixture else None,
+                entity.get("basis", "mole") == "mole" if mixture else None,
                 role,
                 artifact,
                 locator,
             )
         )
+        for index, (component_scope, component_key, fraction) in enumerate(
+            entity.get("components", [])  # type: ignore[attr-defined]
+        ):
+            claim_components.append(
+                claims.ComponentClaim(
+                    manifest_id,
+                    str(entity["scope"]),
+                    str(entity["key"]),
+                    component_scope,
+                    component_key,
+                    fraction,
+                    role,
+                    artifact,
+                    f"{locator}[{index}]",
+                )
+            )
         for scheme, value in entity["assertions"]:  # type: ignore[misc]
             claim_assertions.append(
                 claims.AssertionClaim(
@@ -167,9 +193,17 @@ def write_identity(
             )
     directory = canonical / manifest_id / claims.IDENTITY_DIR
     directory.mkdir(parents=True)
-    summary = claims.write_claims(directory, claim_entities, claim_assertions, [])
+    summary = claims.write_claims(
+        directory, claim_entities, claim_assertions, claim_components, [], {}
+    )
     records = {}
-    for file in (claims.SOURCE_ENTITY_FILE, claims.ASSERTION_FILE, claims.LEDGER_FILE):
+    for file in (
+        claims.SOURCE_ENTITY_FILE,
+        claims.ASSERTION_FILE,
+        claims.COMPONENT_FILE,
+        claims.LEDGER_FILE,
+        claims.RULES_FILE,
+    ):
         parquet = pq.ParquetFile(directory / file)
         records[file.removesuffix(".parquet")] = store.TableRecord(
             file,

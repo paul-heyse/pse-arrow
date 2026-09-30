@@ -47,6 +47,9 @@ COMMENT ON TYPE "meta"."assignment_origin" IS 'How a decomposition into groups w
 CREATE TYPE "meta"."auxiliary_kind" AS ENUM ('approximation', 'exact_inverse', 'approximate_inverse', 'initial_guess', 'validity_boundary');
 COMMENT ON TYPE "meta"."auxiliary_kind" IS 'How an auxiliary relation relates to the model it serves.';
 
+CREATE TYPE "meta"."blocked_reason" AS ENUM ('carrier_not_unique', 'parameterization_missing', 'no_subjects', 'subject_unidentified', 'subjects_not_found', 'sample_too_large', 'ambiguous_occurrence', 'no_grid', 'harness_missing', 'harness_failed', 'nothing_compared');
+COMMENT ON TYPE "meta"."blocked_reason" IS 'Why a qualification run could not be carried out.';
+
 CREATE TYPE "meta"."branch" AS ENUM ('adsorption', 'desorption', 'not_applicable');
 COMMENT ON TYPE "meta"."branch" IS 'The branch of a path-dependent measurement.';
 
@@ -89,6 +92,9 @@ COMMENT ON TYPE "meta"."diffusion_frame" IS 'The frame of reference of a diffusi
 CREATE TYPE "meta"."enthalpy_datum" AS ENUM ('formation_from_elements', 'stable_element_reference', 'zero_at_state', 'apparent_helgeson', 'apparent_berman', 'not_stated');
 COMMENT ON TYPE "meta"."enthalpy_datum" IS 'What fixes the zero of enthalpy.';
 
+CREATE TYPE "meta"."entity_class" AS ENUM ('species', 'species_form', 'defined_mixture', 'material', 'pseudo_component', 'polymer_type', 'undetermined');
+COMMENT ON TYPE "meta"."entity_class" IS 'The class of thing a source says one of its keys names. It decides which resolution rules apply: a source entity is never resolved by the rules of another class.';
+
 CREATE TYPE "meta"."entropy_datum" AS ENUM ('third_law', 'zero_at_state', 'conventional_ionic', 'not_stated');
 COMMENT ON TYPE "meta"."entropy_datum" IS 'What fixes the zero of entropy.';
 
@@ -109,6 +115,9 @@ COMMENT ON TYPE "meta"."group_role" IS 'Whether a group row is a fragment or a c
 
 CREATE TYPE "meta"."group_scheme_role" AS ENUM ('activity', 'equation_of_state', 'additive_increment', 'correction_tree', 'reaction_template');
 COMMENT ON TYPE "meta"."group_scheme_role" IS 'What the groups of a scheme are used for.';
+
+CREATE TYPE "meta"."held_reason" AS ENUM ('ambiguous_subject', 'unknown_subject', 'validation_failed', 'unit_not_parseable', 'missing_convention', 'not_a_number', 'not_an_integer', 'unusable_key', 'pattern_mismatch', 'unmapped_by_mapping');
+COMMENT ON TYPE "meta"."held_reason" IS 'Why a row of a source-faithful table was not loaded.';
 
 CREATE TYPE "meta"."interpolation" AS ENUM ('linear', 'cubic_spline', 'bin_weights', 'not_stated');
 COMMENT ON TYPE "meta"."interpolation" IS 'How a tabulated function is evaluated between its points.';
@@ -146,7 +155,7 @@ COMMENT ON TYPE "meta"."purity_basis" IS 'The basis of a stated purity.';
 CREATE TYPE "meta"."reference_relation" AS ENUM ('absolute', 'standard', 'excess', 'residual_tv', 'residual_tp', 'mixing', 'formation', 'increment');
 COMMENT ON TYPE "meta"."reference_relation" IS 'What an observable''s value is relative to.';
 
-CREATE TYPE "meta"."resolution_rule" AS ENUM ('curated', 'structural', 'registry', 'formula_scope', 'provisional');
+CREATE TYPE "meta"."resolution_rule" AS ENUM ('curated', 'structural', 'registry', 'formula_scope', 'composition', 'provisional');
 COMMENT ON TYPE "meta"."resolution_rule" IS 'Which rule decided the resolution of a source entity.';
 
 CREATE TYPE "meta"."resolution_status" AS ENUM ('unique', 'ambiguous', 'unresolved', 'rejected');
@@ -1685,7 +1694,8 @@ CREATE TABLE "qual"."held_row" (
     "source_table" text NOT NULL,
     "locator" text NOT NULL,
     "state" "meta"."row_state" NOT NULL,
-    "reason" text NOT NULL,
+    "reason" "meta"."held_reason" NOT NULL,
+    "detail" text NOT NULL,
     CONSTRAINT "held_row__pk" PRIMARY KEY ("id"),
     CONSTRAINT "held_row__identity" UNIQUE ("manifest_id", "source_table", "locator")
 );
@@ -1696,6 +1706,7 @@ COMMENT ON COLUMN "qual"."held_row"."source_table" IS 'The source-faithful table
 COMMENT ON COLUMN "qual"."held_row"."locator" IS 'The row''s locator.';
 COMMENT ON COLUMN "qual"."held_row"."state" IS '`held` or `unmapped`.';
 COMMENT ON COLUMN "qual"."held_row"."reason" IS 'Why it was not loaded.';
+COMMENT ON COLUMN "qual"."held_row"."detail" IS 'The reason in words: what about this row led to it.';
 
 CREATE TABLE "tk"."identity_assertion" (
     "id" uuid NOT NULL,
@@ -1771,6 +1782,7 @@ CREATE TABLE "qual"."mapping_rule" (
     "factor" "meta"."finite_real",
     "precision" "meta"."mapping_precision",
     "loss" text,
+    "applied_rows" bigint,
     CONSTRAINT "mapping_rule__pk" PRIMARY KEY ("id"),
     CONSTRAINT "mapping_rule__identity" UNIQUE ("manifest_id", "source_table", "source_field")
 );
@@ -1785,6 +1797,7 @@ COMMENT ON COLUMN "qual"."mapping_rule"."source_unit" IS 'The unit of the source
 COMMENT ON COLUMN "qual"."mapping_rule"."factor" IS 'The factor from the source unit to the target''s storage unit.';
 COMMENT ON COLUMN "qual"."mapping_rule"."precision" IS 'How closely the source''s meaning matches the target.';
 COMMENT ON COLUMN "qual"."mapping_rule"."loss" IS 'What the rule loses or assumes, or why the table is out of scope or deferred.';
+COMMENT ON COLUMN "qual"."mapping_rule"."applied_rows" IS 'For a value rule, the number of mapped rows of its table the mapping applied it to, that is, rows for which it produced a value in a block that wrote records; absent for any other rule.';
 
 CREATE TABLE "tk"."material" (
     "id" uuid NOT NULL,
@@ -2018,19 +2031,15 @@ COMMENT ON COLUMN "tk"."pseudo_component"."produced_by" IS 'The characterisation
 
 CREATE TABLE "prov"."publication" (
     "id" uuid NOT NULL,
-    "year" bigint,
     "doi" "meta"."id_doi",
     "isbn" "meta"."id_isbn",
-    "citation" text,
     CONSTRAINT "publication__pk" PRIMARY KEY ("id"),
     CONSTRAINT "publication__uq__doi" UNIQUE ("doi")
 );
-COMMENT ON TABLE "prov"."publication" IS 'A published work that content is attributed to.';
+COMMENT ON TABLE "prov"."publication" IS 'A published work that content is attributed to. Its identity is bound to the work: the key is `doi:` and the lower-case DOI when the work has one, so two carriers citing one paper under different citation keys name one publication, and otherwise `carrier:`, the citing carrier''s manifest id, `:` and its citation key. What a carrier says about the work (its citation key, year and citation text) is per carrier and lives on the `citation` relation, so carriers that differ in it still agree on the publication.';
 COMMENT ON COLUMN "prov"."publication"."id" IS 'Deterministic identifier of the publication instance.';
-COMMENT ON COLUMN "prov"."publication"."year" IS 'Year of publication.';
-COMMENT ON COLUMN "prov"."publication"."doi" IS 'DOI where one exists.';
+COMMENT ON COLUMN "prov"."publication"."doi" IS 'The DOI in lower case, where one exists.';
 COMMENT ON COLUMN "prov"."publication"."isbn" IS 'ISBN for a book.';
-COMMENT ON COLUMN "prov"."publication"."citation" IS 'Bibliographic citation as given by the carrier.';
 
 CREATE TABLE "qual"."qualification_run" (
     "id" uuid NOT NULL,
@@ -2045,9 +2054,11 @@ CREATE TABLE "qual"."qualification_run" (
     "observable" uuid,
     "absolute_tolerance" "meta"."finite_real",
     "worst_relative_deviation" "meta"."scalar",
+    "blocked_reason" "meta"."blocked_reason",
     "note" text,
     CONSTRAINT "qualification_run__pk" PRIMARY KEY ("id"),
-    CONSTRAINT "qualification_run__identity" UNIQUE ("key")
+    CONSTRAINT "qualification_run__identity" UNIQUE ("key"),
+    CONSTRAINT "qualification_run__ck__blocked_reason_iff_blocked" CHECK (("blocked_reason" IS NOT NULL) = ("outcome"::text IN ('blocked')))
 );
 COMMENT ON TABLE "qual"."qualification_run" IS 'One comparison of a form, evaluated from canonical records, against an independent answer over a declared domain.';
 COMMENT ON COLUMN "qual"."qualification_run"."id" IS 'Deterministic identifier of the qualification_run instance.';
@@ -2062,7 +2073,8 @@ COMMENT ON COLUMN "qual"."qualification_run"."relative_tolerance" IS 'Declared r
 COMMENT ON COLUMN "qual"."qualification_run"."observable" IS 'The observable of the contract output compared, where the output denotes one.';
 COMMENT ON COLUMN "qual"."qualification_run"."absolute_tolerance" IS 'Declared absolute tolerance in the observable''s storage unit.';
 COMMENT ON COLUMN "qual"."qualification_run"."worst_relative_deviation" IS 'Largest relative deviation observed.';
-COMMENT ON COLUMN "qual"."qualification_run"."note" IS 'Reason for a blocked run, or what the domain excluded.';
+COMMENT ON COLUMN "qual"."qualification_run"."blocked_reason" IS 'Why a blocked run could not be carried out; present exactly when the outcome is `blocked`.';
+COMMENT ON COLUMN "qual"."qualification_run"."note" IS 'The detail of a blocked run''s reason, or what the domain excluded.';
 
 CREATE TABLE "tk"."reaction" (
     "id" uuid NOT NULL,
@@ -2262,7 +2274,7 @@ CREATE TABLE "prov"."source" (
 );
 COMMENT ON TABLE "prov"."source" IS 'An attributable origin of content: a publication, a software release, a database release or an acquired carrier.';
 COMMENT ON COLUMN "prov"."source"."id" IS 'Deterministic identifier of the source instance.';
-COMMENT ON COLUMN "prov"."source"."key" IS 'Stable key: the manifest id and resolved pin for a carrier, a citation key for a publication.';
+COMMENT ON COLUMN "prov"."source"."key" IS 'Stable key: the manifest id and resolved pin for a carrier; `doi:` and the lower-case DOI for a publication that has one, otherwise `carrier:`, the manifest id of the carrier that cites it, `:` and that carrier''s citation key.';
 COMMENT ON COLUMN "prov"."source"."title" IS 'Human-readable title.';
 
 CREATE TABLE "tk"."source_entity" (
@@ -2270,6 +2282,7 @@ CREATE TABLE "tk"."source_entity" (
     "carrier" uuid NOT NULL,
     "scope" text NOT NULL,
     "local_key" text NOT NULL,
+    "entity_class" "meta"."entity_class" NOT NULL,
     "aggregation" uuid,
     "polymorph" text,
     "stated_charge" "meta"."charge_number",
@@ -2285,6 +2298,7 @@ COMMENT ON COLUMN "tk"."source_entity"."id" IS 'Deterministic identifier of the 
 COMMENT ON COLUMN "tk"."source_entity"."carrier" IS 'The carrier whose key this is.';
 COMMENT ON COLUMN "tk"."source_entity"."scope" IS 'The context within the carrier in which the key is unique, such as a table or database file; empty when carrier-wide.';
 COMMENT ON COLUMN "tk"."source_entity"."local_key" IS 'The key, verbatim.';
+COMMENT ON COLUMN "tk"."source_entity"."entity_class" IS 'The class of thing the source says the key names, as its mapping declares it; it selects the resolution rules.';
 COMMENT ON COLUMN "tk"."source_entity"."aggregation" IS 'The state of aggregation the source states for the entity, when its records are about a form rather than a chemical identity.';
 COMMENT ON COLUMN "tk"."source_entity"."polymorph" IS 'The polymorph or structure designation the source states.';
 COMMENT ON COLUMN "tk"."source_entity"."stated_charge" IS 'The net charge the source states for the entity, where it states one.';
@@ -2402,6 +2416,13 @@ COMMENT ON COLUMN "tk"."tabulated_series"."name" IS 'Name of the series; `value`
 COMMENT ON COLUMN "tk"."tabulated_series"."value_type" IS 'Quantity type of the values.';
 COMMENT ON COLUMN "tk"."tabulated_series"."values" IS 'Values in the value type''s storage unit, in row-major order over the axes.';
 
+CREATE TABLE "tk"."unclassified_entity" (
+    "id" uuid NOT NULL,
+    CONSTRAINT "unclassified_entity__pk" PRIMARY KEY ("id")
+);
+COMMENT ON TABLE "tk"."unclassified_entity" IS 'An entity whose class its source does not establish; it is never joined across carriers. It is the provisional entity of a source entity of class `undetermined`.';
+COMMENT ON COLUMN "tk"."unclassified_entity"."id" IS 'Deterministic identifier of the unclassified_entity instance.';
+
 CREATE TABLE "param"."vapor_pressure_exp_series_tau__pure" (
     "id" uuid NOT NULL,
     "slot_group" uuid NOT NULL DEFAULT '3e0a0dfd-7fb2-5591-b4ca-58f7b3a0bd3e'::uuid,
@@ -2463,6 +2484,24 @@ COMMENT ON COLUMN "qual"."capability"."calculation" IS 'The calculation offered.
 COMMENT ON COLUMN "qual"."capability"."scope" IS 'The model families or phase kinds the claim is limited to; empty when unrestricted.';
 COMMENT ON COLUMN "qual"."capability"."evidence" IS 'How the claim was established.';
 COMMENT ON COLUMN "qual"."capability"."locator" IS 'Where in the documentation or source the capability is found.';
+
+CREATE TABLE "prov"."citation" (
+    "id" uuid NOT NULL,
+    "carrier" uuid NOT NULL,
+    "local_key" text NOT NULL,
+    "publication" uuid NOT NULL,
+    "year" bigint,
+    "citation" text,
+    CONSTRAINT "citation__pk" PRIMARY KEY ("carrier", "local_key"),
+    CONSTRAINT "citation__uq__id" UNIQUE ("id")
+);
+COMMENT ON TABLE "prov"."citation" IS 'The publication a carrier''s own citation key denotes, with what that carrier says about it. Several carriers citing one work give one publication and one row each.';
+COMMENT ON COLUMN "prov"."citation"."id" IS 'Deterministic identifier of the row, computed from its keys.';
+COMMENT ON COLUMN "prov"."citation"."carrier" IS 'The carrier that cites the work.';
+COMMENT ON COLUMN "prov"."citation"."local_key" IS 'The carrier''s citation key, verbatim.';
+COMMENT ON COLUMN "prov"."citation"."publication" IS 'The work the key denotes.';
+COMMENT ON COLUMN "prov"."citation"."year" IS 'Year of publication as the carrier states it.';
+COMMENT ON COLUMN "prov"."citation"."citation" IS 'Bibliographic citation as the carrier gives it.';
 
 CREATE TABLE "tk"."composition" (
     "id" uuid NOT NULL,
@@ -3443,6 +3482,8 @@ ALTER TABLE "tk"."tabulated_series" ADD CONSTRAINT "tabulated_series__fk__functi
 
 ALTER TABLE "tk"."tabulated_series" ADD CONSTRAINT "tabulated_series__fk__value_type" FOREIGN KEY ("value_type") REFERENCES "meta"."quantity_type" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "tk"."unclassified_entity" ADD CONSTRAINT "unclassified_entity__fk__id" FOREIGN KEY ("id") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "param"."vapor_pressure_exp_series_tau__pure" ADD CONSTRAINT "vapor_pressure_exp_series_tau__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."vapor_pressure_exp_series_tau__pure" ADD CONSTRAINT "vapor_pressure_exp_series_tau__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -3458,6 +3499,10 @@ ALTER TABLE "tk"."auxiliary_of" ADD CONSTRAINT "auxiliary_of__fk__target" FOREIG
 ALTER TABLE "qual"."capability" ADD CONSTRAINT "capability__fk__library" FOREIGN KEY ("library") REFERENCES "prov"."source" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "qual"."capability" ADD CONSTRAINT "capability__fk__calculation" FOREIGN KEY ("calculation") REFERENCES "qual"."calculation" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "prov"."citation" ADD CONSTRAINT "citation__fk__carrier" FOREIGN KEY ("carrier") REFERENCES "prov"."carrier" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "prov"."citation" ADD CONSTRAINT "citation__fk__publication" FOREIGN KEY ("publication") REFERENCES "prov"."publication" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."composition" ADD CONSTRAINT "composition__fk__entity" FOREIGN KEY ("entity") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 

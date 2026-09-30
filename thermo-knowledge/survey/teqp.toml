@@ -727,7 +727,9 @@ locator = "include/teqp/models/vdW.hpp; include/teqp/models/cubics/simple_cubics
 class = "helmholtz_potential"
 inputs = "T, molar density, mole fractions; alpha_r = -ln(1 - b rho) - a/(R T) times a logarithmic term in Delta1 and Delta2"
 parameters = "pure: Tc, pc, acentric factor or an alpha object; pair: kmat; global: R, Delta1, Delta2, OmegaA, OmegaB (exact constants per type)"
-composes = "alpha function (Basic, Twu, Mathias-Copeman, PR78), quadratic a mixing rule with kmat, linear b mixing, cubic superancillaries for PR and SRK"
+composes = [
+  { slot = "", accepts = "alpha function (Basic, Twu, Mathias-Copeman, PR78), quadratic a mixing rule with kmat, linear b mixing, cubic superancillaries for PR and SRK", default = "" },
+]
 equation_source = "constants cite doi 10.1021/acs.iecr.1c00847 in comments; the superancillaries are attributed to Bell and Deiters in a comment"
 closed_form = "yes"
 data = "constructs 'kinds vdW1 and vdW', 'kinds PR, SRK and cubic'"
@@ -738,7 +740,9 @@ locator = "include/teqp/models/cubics/simple_cubics.hpp lines 420-560"
 class = "helmholtz_potential"
 inputs = "T, density, composition; volume shift rho = 1/(1/rho0 + c)"
 parameters = "pure: Tc, pc, Twu L M N, A, B, c; pair: kmat, lmat"
-composes = "Twu alpha, temperature-dependent covolume b_i(T), linear volume translation"
+composes = [
+  { slot = "", accepts = "Twu alpha, temperature-dependent covolume b_i(T), linear volume translation", default = "" },
+]
 equation_source = "class comment: Aasen et al., Fluid Phase Equilibria 524 (2020) 112790, doi 10.1016/j.fluid.2020.112790"
 closed_form = "yes"
 data = "construct 'kinds QCPRAasen and RKPRCismondi2005'"
@@ -749,7 +753,9 @@ locator = "include/teqp/models/cubics/simple_cubics.hpp lines 560-696"
 class = "helmholtz_potential"
 inputs = "T, density, composition with mole-fraction-averaged Delta1"
 parameters = "pure: delta_1, Tc, pc, k; pair: kmat, lmat"
-composes = "a(T) = a_c (3/(2 + T/Tc))^k, constant b, derived Omega_a and Omega_b from delta_1"
+composes = [
+  { slot = "", accepts = "a(T) = a_c (3/(2 + T/Tc))^k, constant b, derived Omega_a and Omega_b from delta_1", default = "" },
+]
 equation_source = "class comment: Cismondi and Mollerup, Fluid Phase Equilibria 232 (2005) 74-89, doi 10.1016/j.fluid.2005.03.020"
 closed_form = "yes"
 data = "construct 'kinds QCPRAasen and RKPRCismondi2005'"
@@ -760,7 +766,9 @@ locator = "include/teqp/models/cubics/advancedmixing_cubics.hpp"
 class = "helmholtz_potential"
 inputs = "T, density, composition"
 parameters = "pure: Tc, pc, alpha object; excess model parameters; global: brule, s, CEoS, R"
-composes = "PR with an activity-model residual term in a/b of the mixture and linear or quadratic b mixing"
+composes = [
+  { slot = "", accepts = "PR with an activity-model residual term in a/b of the mixture and linear or quadratic b mixing", default = "" },
+]
 equation_source = "class comment: EoS/aE method of Jaubert and co-workers (no citation)"
 closed_form = "yes"
 data = "construct 'kind advancedPRaEres'"
@@ -771,7 +779,9 @@ locator = "include/teqp/models/CPA.hpp"
 class = "association"
 inputs = "T, density, composition; association site fractions solved iteratively"
 parameters = "pure: a0i, bi, c1, Tc, epsABi, betaABi, class or sites; pair: kmat; global: R, cubic, radial_dist, association options"
-composes = "a cubic (PR or SRK) plus a Wertheim association term (legacy single-component classes or the general Association class)"
+composes = [
+  { slot = "", accepts = "a cubic (PR or SRK) plus a Wertheim association term (legacy single-component classes or the general Association class)", default = "" },
+]
 equation_source = "none cited in the source"
 closed_form = "implicit"
 data = "construct 'kind CPA'"
@@ -782,7 +792,9 @@ locator = "include/teqp/models/pcsaft.hpp; include/teqp/models/saft/pcsaftpure.h
 class = "residual_or_excess_contribution"
 inputs = "T, density, composition; equation numbers of the Appendix of Gross and Sadowski are quoted in comments (A.6, A.11 with a stated erratum, A.31)"
 parameters = "pure: m, sigma, epsilon, optional dipole and quadrupole squared with counts; pair: kmat; global: universal a and b arrays"
-composes = "hard sphere, hard chain, dispersion, optional dipolar, quadrupolar and cross terms (Gross and Vrabec), association through genericSAFT"
+composes = [
+  { slot = "", accepts = "hard sphere, hard chain, dispersion, optional dipolar, quadrupolar and cross terms (Gross and Vrabec), association through genericSAFT", default = "" },
+]
 equation_source = "Gross and Sadowski 2001 doi 10.1021/ie0003887; Gross 2005 doi 10.1002/aic.10502; Vrabec and Gross 2008 doi 10.1021/jp072619u (comments)"
 closed_form = "yes"
 data = "construct 'kinds PCSAFT and PCSAFTPureGrossSadowski2001'"
@@ -793,7 +805,9 @@ locator = "include/teqp/models/saftvrmie.hpp; include/teqp/models/saft/polar_ter
 class = "residual_or_excess_contribution"
 inputs = "T, density, composition; temperature-dependent hard-sphere diameter by quadrature"
 parameters = "pure: m, sigma, epsilon, lambda_r, lambda_a, optional multipoles; pair: kmat; flags for cross energy and polar approach; global: phi 7 by 7, A 4 by 4"
-composes = "hard sphere, chain, dispersion, optional multipolar term chosen from eight polar models"
+composes = [
+  { slot = "", accepts = "hard sphere, chain, dispersion, optional multipolar term chosen from eight polar models", default = "" },
+]
 equation_source = "Lafitte 2001 (BibTeXKey, equation A55 in a comment); no DOI in the source"
 closed_form = "procedural"
 data = "construct 'kind SAFT-VR-Mie'"
@@ -804,7 +818,9 @@ locator = "include/teqp/models/saft/softsaft.hpp; include/teqp/models/saft/gener
 class = "residual_or_excess_contribution"
 inputs = "T, density, composition"
 parameters = "pure: m, epsilon, sigma; nested model objects"
-composes = "SoftSAFT: Johnson LJ monomer with one-fluid mixing and a Ghonasgi-Chapman chain term; genericSAFT: one nonpolar term (PC-SAFT, SAFT-VR-Mie, SoftSAFT or two-centre LJ) plus optional association (canonical or Dufal)"
+composes = [
+  { slot = "", accepts = "SoftSAFT: Johnson LJ monomer with one-fluid mixing and a Ghonasgi-Chapman chain term; genericSAFT: one nonpolar term (PC-SAFT, SAFT-VR-Mie, SoftSAFT or two-centre LJ) plus optional association (canonical or Dufal)", default = "" },
+]
 equation_source = "Johnson, Zollweg and Gubbins 1993 (doi 10.1080/00268979300100411); chain contribution of Johnson, Mueller and Gubbins 1994 named in LJChain.hpp"
 closed_form = "implicit"
 data = "construct 'kinds SoftSAFT and genericSAFT, and the association model specification'"
@@ -815,7 +831,9 @@ locator = "include/teqp/models/association/association.hpp; association_types.hp
 class = "association"
 inputs = "T, density, composition; site fractions by fixed-point iteration with options alpha, rtol, atol and max_iters"
 parameters = "pure or group: b, beta, epsilon (CR1) or sigma, epsilon, lambda_r, epsilon_HB, K_HB (Dufal); pair: kmat; site multiplicities and interaction partners"
-composes = "site-site bonding strength Delta from a radial distribution function (CR1) or the Dufal integral with seven coefficient matrices; counting matrix D_IJ of Langenbach and Enders"
+composes = [
+  { slot = "", accepts = "site-site bonding strength Delta from a radial distribution function (CR1) or the Dufal integral with seven coefficient matrices; counting matrix D_IJ of Langenbach and Enders", default = "" },
+]
 equation_source = "Dufal et al. 2015, doi 10.1080/00268976.2015.1029027 and its erratum doi 10.1080/00268976.2017.1402604 (comments); Langenbach and Enders for the counting matrix (comment)"
 closed_form = "implicit"
 data = "construct 'kinds SoftSAFT and genericSAFT, and the association model specification'"
@@ -826,7 +844,9 @@ locator = "include/teqp/models/GERG/GERG.hpp"
 class = "helmholtz_potential"
 inputs = "T, density, composition with tau = Tr/T and delta = rho/rho_r"
 parameters = "pure: Dc, Tc, M, residual terms, n0 and theta0; pair: betas, gammas, Fij; departure coefficients"
-composes = "corresponding-states term of pure fluids, GERG reducing function, pair departure functions with the generalised function for 8 pairs; ideal-gas part as a separate model"
+composes = [
+  { slot = "", accepts = "corresponding-states term of pure fluids, GERG reducing function, pair departure functions with the generalised function for 8 pairs; ideal-gas part as a separate model", default = "" },
+]
 equation_source = "GERG-2004 monograph (TM15) and Kunz and Wagner 2012 by table names in comments"
 closed_form = "yes"
 data = "construct 'GERG-2004 and GERG-2008 parameter tables (GERG.hpp)'"
@@ -837,7 +857,9 @@ locator = "include/teqp/models/multifluid.hpp; multifluid_reducing.hpp; multiflu
 class = "helmholtz_potential"
 inputs = "T, density, composition; tau = Tr(x)/T, delta = rho/rho_r(x)"
 parameters = "pure: residual term rows, reducing state, gas constant; pair: betaT, gammaT, betaV, gammaV (or xi, zeta), F, departure function name; flags"
-composes = "corresponding-states sum of pure residual terms, GERG-form composition-dependent reducing function (Y = sum z_i^2 Y_ci + double sum of z_i z_j (z_i + z_j)/(beta^2 z_i + z_j) Y_ij with Y_ij = 2 beta gamma times a mean of critical values), pair departure terms weighted by z_i z_j F_ij, gas-constant rule"
+composes = [
+  { slot = "", accepts = "corresponding-states sum of pure residual terms, GERG-form composition-dependent reducing function (Y = sum z_i^2 Y_ci + double sum of z_i z_j (z_i + z_j)/(beta^2 z_i + z_j) Y_ij with Y_ij = 2 beta gamma times a mean of critical values), pair departure terms weighted by z_i z_j F_ij, gas-constant rule", default = "" },
+]
 equation_source = "BibTeX keys in the fluid and pair files; 'as implemented in Table 7.18 from GERG-2004' in a comment"
 closed_form = "yes"
 data = "constructs 'multifluid model specification', 'fluid file (CoolProp format) and accepted residual term types', 'binary pair record and departure function record (teqp copies)'"
@@ -848,7 +870,9 @@ locator = "include/teqp/models/multifluid_reducing.hpp lines 267-361; multifluid
 class = "other"
 inputs = "composition; phiT, lambdaT, phiV, lambdaV pair matrices; pure Tc, vc"
 parameters = "pair: phi (symmetric), lambda (antisymmetric); pure: Tc, vc"
-composes = "none (supplies Tr and rho_r to the mutant multifluid)"
+composes = [
+  { slot = "", accepts = "none (supplies Tr and rho_r to the mutant multifluid)", default = "" },
+]
 equation_source = "'as implemented in Table 7.18 from GERG-2004' in a comment"
 closed_form = "yes"
 data = "construct 'multifluid mutant (Python-level model built from a multifluid model)'"
@@ -859,7 +883,9 @@ locator = "include/teqp/models/ECSHuberEly.hpp; multifluid_ecs_mutant.hpp"
 class = "residual_or_excess_contribution"
 inputs = "T, density, composition of a fluid evaluated as the reference fluid at T/f and rho h"
 parameters = "pure: acentric factor, Z_crit, Tc, rhoc, f_T_coeffs, h_T_coeffs; reference fluid: same values and a fluid file"
-composes = "a multifluid reference model evaluated at conformal T and rho"
+composes = [
+  { slot = "", accepts = "a multifluid reference model evaluated at conformal T and rho", default = "" },
+]
 equation_source = "Huber and Ely 1994, equations 30 and 31 (comments)"
 closed_form = "yes"
 data = "construct 'kinds multifluid-ECS-HuberEly1994, multifluid-association and multifluid-activity'"
@@ -870,7 +896,9 @@ locator = "include/teqp/models/multifluid_association.hpp; include/teqp/models/m
 class = "residual_or_excess_contribution"
 inputs = "T, density, composition"
 parameters = "as multifluid plus association parameters or activity model parameters (b, u)"
-composes = "the multifluid Helmholtz plus an association term, or plus an activity-based term scaled by log(1 + rho b)/log(1 + 1/u)"
+composes = [
+  { slot = "", accepts = "the multifluid Helmholtz plus an association term, or plus an activity-based term scaled by log(1 + rho b)/log(1 + 1/u)", default = "" },
+]
 equation_source = "Jaeger et al., doi 10.1016/j.fluid.2018.04.015 for the activity composition (comment)"
 closed_form = "implicit"
 data = "construct 'kinds multifluid-ECS-HuberEly1994, multifluid-association and multifluid-activity'"
@@ -881,7 +909,9 @@ locator = "include/teqp/models/activity/activity_models.hpp; COSMOSAC.hpp"
 class = "residual_or_excess_contribution"
 inputs = "T and mole fractions"
 parameters = "pure: volumes, areas, sigma profiles; pair: Wilson m and n matrices; global: COSMO constants"
-composes = "Wilson total minus combinatorial; COSMO-SAC with combinatorial and residual parts and an iterative segment activity"
+composes = [
+  { slot = "", accepts = "Wilson total minus combinatorial; COSMO-SAC with combinatorial and residual parts and an iterative segment activity", default = "" },
+]
 equation_source = "Bell et al. 2020 doi 10.1021/acs.jctc.9b01016 (header comment for COSMO-SAC)"
 closed_form = "implicit"
 data = "construct 'activity residual models (Wilson, binaryInvariant, COSMO-SAC-2010)'"
@@ -892,7 +922,9 @@ locator = "include/teqp/models/LKP.hpp"
 class = "helmholtz_potential"
 inputs = "T, density, composition"
 parameters = "pure: Tc, pc, acentric factor; pair: kmat multiplying T_c,ij; global: R; fixed simple and reference fluid constants"
-composes = "interpolation in acentric factor between a simple-fluid and a reference-fluid function with Plocker mixing rules"
+composes = [
+  { slot = "", accepts = "interpolation in acentric factor between a simple-fluid and a reference-fluid function with Plocker mixing rules", default = "" },
+]
 equation_source = "none cited"
 closed_form = "yes"
 data = "construct 'kind LKP'"
@@ -903,7 +935,9 @@ locator = "include/teqp/models/ammonia_water.hpp"
 class = "helmholtz_potential"
 inputs = "T, density, mole fraction of ammonia (zero refused)"
 parameters = "fixed: embedded pure EOS and the model's coefficient arrays, R = 8.314471"
-composes = "embedded ammonia and water EOS, own reducing function with exponent parameters and a departure with a fractional power of x"
+composes = [
+  { slot = "", accepts = "embedded ammonia and water EOS, own reducing function with exponent parameters and a departure with a fractional power of x", default = "" },
+]
 equation_source = "BibTeX keys TillnerRoth-DKV-1993 and Wagner-JPCRD-2002 in the embedded JSON"
 closed_form = "yes"
 data = "construct 'kinds AmmoniaWaterTillnerRoth and LJ126 (no-argument kinds)'"
@@ -914,7 +948,9 @@ locator = "include/teqp/models/mie/lennardjones.hpp; mie/lennardjones/johnson.hp
 class = "helmholtz_potential"
 inputs = "T*, rho* (simulation units)"
 parameters = "fixed: embedded coefficients"
-composes = "multifluid form with LJ-unit reducing values (Thol); analytic EOS of Kolafa-Nezbeda and of Johnson et al."
+composes = [
+  { slot = "", accepts = "multifluid form with LJ-unit reducing values (Thol); analytic EOS of Kolafa-Nezbeda and of Johnson et al.", default = "" },
+]
 equation_source = "doi 10.1063/1.4945000, 10.1016/0378-3812(94)80001-4, 10.1080/00268979300100411 (comments)"
 closed_form = "yes"
 data = "construct 'kinds AmmoniaWaterTillnerRoth and LJ126 (no-argument kinds)'"
@@ -925,7 +961,9 @@ locator = "include/teqp/models/model_potentials/*.hpp; include/teqp/models/mie/m
 class = "helmholtz_potential"
 inputs = "T*, rho* (simulation units)"
 parameters = "global: lambda, alpha, lambda_r, lambda_a, L*, (mu*)^2, (Q*)^2, author variant; FeANN weights"
-composes = "square well: fourth-order expansion; exp-6: empirical correlation; Mie lambda_r 11 to 13: a fitted multiparameter equation with coefficients linear in 1/lambda_r; Mie general: neural-network Helmholtz function; 2CLJF: hard sphere, attractive, dipolar, quadrupolar parts in Mecke and Lisal variants"
+composes = [
+  { slot = "", accepts = "square well: fourth-order expansion; exp-6: empirical correlation; Mie lambda_r 11 to 13: a fitted multiparameter equation with coefficients linear in 1/lambda_r; Mie general: neural-network Helmholtz function; 2CLJF: hard sphere, attractive, dipolar, quadrupolar parts in Mecke and Lisal variants", default = "" },
+]
 equation_source = "doi 10.1063/1.3054361 (square well), 10.1246/bcsj.65.2093 (exp-6), 10.1063/1.472764 (two-centre polar contribution); Pohl et al. and Chaparro and Mueller by author names only"
 closed_form = "yes"
 data = "construct 'kinds SW_EspindolaHeredia2009, EXP6_Kataoka1992, Mie_Pohl2023, Mie_Chaparro2023 and the 2CLJF family'"
@@ -936,7 +974,9 @@ locator = "include/teqp/ideal_eosterms.hpp; include/teqp/models/GERG/GERG.hpp li
 class = "standard_state_species"
 inputs = "T and density"
 parameters = "pure: R and term objects of ten types"
-composes = "additive sum of terms plus the mixing term x_i ln x_i; converters from the CoolProp ideal-gas terms"
+composes = [
+  { slot = "", accepts = "additive sum of terms plus the mixing term x_i ln x_i; converters from the CoolProp ideal-gas terms", default = "" },
+]
 equation_source = "term formulas in doc comments (Cp0 forms with T_0 reference); no citation"
 closed_form = "yes"
 data = "construct 'kind IdealHelmholtz and its term types'"
@@ -1052,119 +1092,119 @@ documented = "yes, in a comment (backwards compatible approach)"
 
 [[capability]]
 calculation = "flash_tp"
-offered = false
+offered = "no"
 scope = "no flash routine: a search of include, interface and src for the word flash finds no hit; VLE routines need initial guesses and do not detect the number of phases"
 locator = "not applicable (absence)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_ph"
-offered = false
+offered = "no"
 scope = "no phase split at specified enthalpy; GeneralizedPhaseEquilibrium accepts T, p, molar volume, internal energy, enthalpy or entropy as specifications together with initial phase guesses (see the proposed key below)"
 locator = "include/teqp/algorithms/phase_equil.hpp lines 97-300"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_uv"
-offered = false
+offered = "no"
 scope = "specification classes exist for molar volume and internal energy inside GeneralizedPhaseEquilibrium, which needs initial guesses; no flash"
 locator = "include/teqp/algorithms/phase_equil.hpp lines 160-264"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "multiphase_equilibrium_polish (proposed new key: solution of multiphase equilibrium for an arbitrary number of phases and components from initial guesses with two specification equations)"
-offered = true
-scope = "any model exposing the derivative interface; specifications T, phase fraction beta, p, molar volume, molar entropy, molar internal energy, molar enthalpy; optional ideal-gas model for caloric specifications"
+calculation = "multiphase_equilibrium_polish (proposed)"
+offered = "yes"
+scope = "Proposed key for: solution of multiphase equilibrium for an arbitrary number of phases and components from initial guesses with two specification equations. any model exposing the derivative interface; specifications T, phase fraction beta, p, molar volume, molar entropy, molar internal energy, molar enthalpy; optional ideal-gas model for caloric specifications"
 locator = "include/teqp/algorithms/phase_equil.hpp lines 13-583 (GeneralizedPhaseEquilibrium)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "bubble_dew_point"
-offered = true
+offered = "yes"
 scope = "mixtures of any model with the derivative interface, with initial densities: mix_VLE_Tx (T and liquid composition), mixture_VLE_px (p and composition for T), mix_VLE_Tp (T and p for a binary at given guesses)"
 locator = "include/teqp/algorithms/VLE.hpp lines 76, 287 and 399"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_stability"
-offered = false
+offered = "no"
 scope = "no tangent-plane-distance analysis; local stability is assessed only along critical-curve tracing by the method of Deiters and Bell (is_locally_stable) and through the minimum eigenvalue of the Hessian of Psi (get_minimum_eigenvalue_Psi_Hessian)"
 locator = "include/teqp/algorithms/critical_tracing.hpp lines 125 and 314-333"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "critical_point"
-offered = true
+offered = "yes"
 scope = "pure fluids (solve_pure_critical with Jacobian conditions and extrapolate_from_critical) and mixtures (criticality conditions via the eigen problem of the Hessian of Psi; polishing at fixed composition, fixed density or fixed temperature)"
 locator = "include/teqp/algorithms/critical_pure.hpp lines 22-224; include/teqp/algorithms/critical_tracing.hpp lines 39-390"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_envelope"
-offered = true
+offered = "yes"
 scope = "binary VLE isotherm and isobar tracing (trace_VLE_isotherm_binary, trace_VLE_isobar_binary), binary VLLE tracing and finding (trace_VLLE_binary, find_VLLE_T_binary, find_VLLE_p_binary, mix_VLLE_T, mix_VLLE_p) and binary critical-curve tracing by arclength (trace_critical_arclength_binary); not a generic multicomponent envelope"
 locator = "include/teqp/algorithms/VLE.hpp lines 792-1300; include/teqp/algorithms/VLLE.hpp lines 30-652; include/teqp/algorithms/critical_tracing.hpp line 391"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "pure_saturation (proposed new key: saturation state of a pure fluid at given temperature and tracing of the saturation curve)"
-offered = true
-scope = "pure_VLE_T, pure_trace_VLE, dpsatdT_pure, ancillary construction by build_ancillaries"
+calculation = "pure_saturation (proposed)"
+offered = "yes"
+scope = "Proposed key for: saturation state of a pure fluid at given temperature and tracing of the saturation curve. pure_VLE_T, pure_trace_VLE, dpsatdT_pure, ancillary construction by build_ancillaries"
 locator = "include/teqp/algorithms/VLE_pure.hpp lines 19-259; include/teqp/algorithms/ancillary_builder.hpp"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "virial_coefficients (proposed new key: virial coefficients and their temperature derivatives from the residual Helmholtz energy)"
-offered = true
-scope = "second virial B2, cross virial B12, higher virial coefficients by order (get_Bnvir) and temperature derivatives (get_dmBnvirdTm), by automatic differentiation of any model"
+calculation = "virial_coefficients (proposed)"
+offered = "yes"
+scope = "Proposed key for: virial coefficients and their temperature derivatives from the residual Helmholtz energy. second virial B2, cross virial B12, higher virial coefficients by order (get_Bnvir) and temperature derivatives (get_dmBnvirdTm), by automatic differentiation of any model"
 locator = "include/teqp/cpp/teqpcpp.hpp lines 130-133; include/teqp/derivs.hpp"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "residual_derivatives (proposed new key: derivatives of the residual Helmholtz energy in T, density and composition)"
-offered = true
-scope = "Ar_xy mixed derivatives, derivatives in composition (A_TrhoXi up to third order), in tau and delta, chemical potentials, fugacity coefficients, partial molar volumes, Hessians and gradients of Psi, isochoric derivative matrices; by complex-step, multicomplex or automatic differentiation"
+calculation = "residual_derivatives (proposed)"
+offered = "yes"
+scope = "Proposed key for: derivatives of the residual Helmholtz energy in T, density and composition. Ar_xy mixed derivatives, derivatives in composition (A_TrhoXi up to third order), in tau and delta, chemical potentials, fugacity coefficients, partial molar volumes, Hessians and gradients of Psi, isochoric derivative matrices; by complex-step, multicomplex or automatic differentiation"
 locator = "include/teqp/cpp/teqpcpp.hpp lines 94-160; include/teqp/derivs.hpp; interface/pybind11_wrapper.cpp"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "parameter_regression"
-offered = true
+offered = "yes"
 scope = "PureParameterOptimizer over JSON-pointer-addressed model parameters with cost contributions SatRhoLPoint, SatRhoLPPoint, SatRhoLPWPoint, SOSPoint and PVTNoniterativePoint and a threaded cost function; binary interaction fitting is demonstrated in notebooks (user level)"
 locator = "include/teqp/algorithms/pure_param_optimization.hpp lines 16-285; doc/source/fitting/MultifluidBIPFitting.ipynb"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "state_iteration (proposed new key: Newton-type iteration for a state at specified variable values)"
-offered = true
-scope = "generic iteration over T, density and composition variables with stopping conditions (max absolute error, minimum relative step size, NaN, negative value), used for polarizable fluids"
+calculation = "state_iteration (proposed)"
+offered = "yes"
+scope = "Proposed key for: Newton-type iteration for a state at specified variable values. generic iteration over T, density and composition variables with stopping conditions (max absolute error, minimum relative step size, NaN, negative value), used for polarizable fluids"
 locator = "include/teqp/algorithms/iteration.hpp lines 1-515"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "gibbs_minimization"
-offered = false
+offered = "no"
 scope = "no constrained minimisation over species and phases"
 locator = "not applicable (absence)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "aqueous_speciation"
-offered = false
+offered = "no"
 scope = "no chemical equilibrium or speciation routine"
 locator = "not applicable (absence)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "characterization"
-offered = false
+offered = "no"
 scope = "no pseudo-component generation from assay data (LKP and cubics take critical constants as inputs)"
 locator = "not applicable (absence)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "interfacial_profile"
-offered = false
+offered = "no"
 scope = "no interface or density-profile calculation"
 locator = "not applicable (absence)"
 evidence = "source_inspected"

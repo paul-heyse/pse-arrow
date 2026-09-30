@@ -8,7 +8,8 @@
                                   qual.run_parameter_set.parquet   (when sets were evaluated)
                                   prov.source.parquet, prov.software_release.parquet
                                                                    (when the library's version was known)
-                                  manifest.json                    phase "qualification"
+                                  manifest.json                    phase "qualification", with the
+                                                                   content hash of every record read
                                   report.json                      the run's report
 ```
 
@@ -32,18 +33,18 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from psycopg import sql
 
-from thermo_knowledge import config
+from thermo_knowledge import config, reuse
 from thermo_knowledge.build.database import DatabaseRefusedError, ingest_file
 from thermo_knowledge.build.inputs import QUALIFICATION_DIR, QUALIFICATION_PHASE
 from thermo_knowledge.canonical import store
-from thermo_knowledge.canonical.store import CanonicalError, CanonicalManifest
+from thermo_knowledge.canonical.store import CanonicalError, CanonicalManifest, ReadRecords
 from thermo_knowledge import pipeline_contract as pc
 from thermo_knowledge.canonical.values import Quantity
 from thermo_knowledge.canonical.writer import CanonicalWriter
 from thermo_knowledge.declaration import model as m
 
 REPORT_NAME = "report.json"
-FORMAT = 2
+FORMAT = 3
 """Bumped when what a run records, or how, changes."""
 RUN_TABLE = pc.QUALIFICATION_RUN.table
 SET_TABLE = pc.RUN_PARAMETER_SET.table
@@ -69,6 +70,8 @@ class RunRecord:
     absolute_tolerance: tuple[float, str] | None
     observable: str | None
     worst_relative_deviation: float | None
+    blocked_reason: str | None
+    """The `blocked_reason` member of a blocked run; `None` for any other outcome."""
     note: str | None
     sets: tuple[uuid.UUID, ...]
 
@@ -94,6 +97,7 @@ def tables(decl: m.Declaration, run: RunRecord) -> dict[str, pa.Table]:
         record.outcome: run.outcome,
         record.points: run.points,
         record.relative_tolerance: run.relative_tolerance,
+        record.blocked_reason: run.blocked_reason,
         record.note: run.note,
         record.worst_relative_deviation: run.worst_relative_deviation,
     }
@@ -126,11 +130,12 @@ def write_output(
     case: str,
     decl: m.Declaration,
     run: RunRecord,
-    inputs: dict[str, str],
-    key: str,
+    key: reuse.Key,
     report: dict[str, object],
+    read: ReadRecords | None,
 ) -> Path:
-    """Write the output directory of `case` (replacing an earlier one) and return it."""
+    """Write the output directory of `case` (replacing an earlier one) and return it. `read` is
+    what the run read, which `tk build` checks against the values it holds."""
     destination = output_dir(canonical, case)
     work = store.new_work_directory(destination.parent)
     try:
@@ -141,10 +146,11 @@ def write_output(
                 schema=store.MANIFEST_SCHEMA,
                 source_id=case,
                 phase=QUALIFICATION_PHASE,
-                reuse_key=key,
-                inputs=inputs,
+                reuse_key=key.digest,
+                inputs=key.inputs,
                 tables=records,
                 summary={"points": run.points, "sets": len(run.sets)},
+                read=read,
             ),
         )
         (work / REPORT_NAME).write_text(

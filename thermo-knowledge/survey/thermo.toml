@@ -288,7 +288,7 @@ fields = [
   { name = "bij", meaning = "b of Lambda_ij; converted from the ChemSep energy parameter by b = -A_ij / R with R = 1.9872042586408316 (thermo/wilson.py docstring)", unit = "not stated (kelvin implied)", shape = "scalar", role = "input" },
   { name = "name", meaning = "text 'Name1/Name2'", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
 ]
-origin = "derived from ChemSep Wilson data (no .ipd for Wilson in the tree); the pure-component volumes behind aij are the ChemSep WilsonVolume values (units m3/kmol); the docstring states the conversions (a_ij = log(V_j/V_i), b_ij = -A_ij/R)"
+origin = "other (derived from ChemSep Wilson data (no .ipd for Wilson in the tree); the pure-component volumes behind aij are the ChemSep WilsonVolume values (units m3/kmol); the docstring states the conversions (a_ij = log(V_j/V_i), b_ij = -A_ij/R))"
 conventions = "Lambda_ij = exp(a + b/T + c ln T + d T + e/T^2 + f T^2) and g^E = -RT sum_i x_i ln(sum_j x_j Lambda_ij) (thermo/wilson.py); ChemSep's own form is Lambda_ij = (V_j/V_i) exp(-A_ij/(RT)) (same docstring). The equation each coefficient belongs to is therefore fixed by the docstring, not by the data."
 absence = "Missing pair gives aij 0.0 and bij 0 (Lambda = 1, an ideal pair); the docstring warns that omitting all interactions reverts the model to an ideal solution. A stored pair with aij 0 and bij 0 cannot be told from missing through get_ip_specific."
 validity = "not stated"
@@ -308,7 +308,7 @@ fields = [
   { name = "bij", meaning = "b of tau_ij = exp(a + b/T + ...); converted from the ChemSep energy parameter by b = -A_ij / R with R = 1.9872042586408316 (docstring)", unit = "not stated (kelvin implied)", shape = "scalar", role = "input" },
   { name = "name", meaning = "text 'Name1/Name2'", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
 ]
-origin = "derived from ChemSep UNIQUAC data by the conversion in the docstring; no .ipd for UNIQUAC is in the tree; pure-component r and q are not in this table (the docstring example supplies them by hand)"
+origin = "other (derived from ChemSep UNIQUAC data by the conversion in the docstring; no .ipd for UNIQUAC is in the tree; pure-component r and q are not in this table (the docstring example supplies them by hand))"
 conventions = "tau_ij = exp(a + b/T + c ln T + d T + e/T^2 + f T^2) with the combinatorial and residual terms of thermo/uniquac.py (coordination number z in the code); ChemSep's own form is tau_ij = exp(-A_ij/(RT)). The table is unusable without r and q, which ChemSep XML supplies as UniquacR and UniquacQ (429 compounds each) but thermo never extracts."
 absence = "Missing pair gives bij 0 (tau = 1); the class docstring states there is no such thing as a missing UNIQUAC parameter because tau = 1 does not make the solution ideal."
 validity = "not stated"
@@ -333,7 +333,7 @@ fields = [
   { name = "F", meaning = "coefficient of T^2", unit = "not stated (1/K^2 per docs)", shape = "scalar", role = "input" },
   { name = "name", meaning = "text 'Name1/Name2' (ChemSep Henry only, 41 of 41 rows)", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
 ]
-origin = "ChemSep Henry: transcribed from ChemSep (no script in tree); Sander Const and Sander T dep: labelled only by the source string 'Sander Const' and 'Sander T dep' (a Henry-constant compilation; the tree gives no citation, conversion or script); PRTranslated best: computed from a volume-translated Peng-Robinson model per the file name and the empty script dev/henry_parameters_from_CEOS.py, version and conditions not recorded"
+origin = "other (ChemSep Henry: transcribed from ChemSep (no script in tree); Sander Const and Sander T dep: labelled only by the source string 'Sander Const' and 'Sander T dep' (a Henry-constant compilation; the tree gives no citation, conversion or script); PRTranslated best: computed from a volume-translated Peng-Robinson model per the file name and the empty script dev/henry_parameters_from_CEOS.py, version and conditions not recorded)"
 conventions = "ln H_ij = A + B/T + C ln T + D T + E/T^2 + F T^2 with H_ij in pascal, matrix [solute][solvent] (thermo/phases/gibbs_excess.py docstring 'log(Pa)'); Henry_constants in chemicals.solubility (not in this tree) mixes the matrix over solvent mole fractions. Sander Const stores a constant as A alone (B to F exactly 0 in 4407 of 4407); PRTranslated stores E as 1.0 in 20138 of 20138 rows (meaning not established: read literally it is a 1/T^2 coefficient, which is implausible as a constant 1.0). The data files state neither the form, the pressure unit nor the concentration basis."
 absence = "Missing pair returns A to F all 0.0 (ln H = 0, H = 1 Pa), a numeric value not a marker; within a table, zero coefficients mean a term is unused (metadata.T dependent is the only flag). Sander and PRTranslated zeros are structural (unused terms) rather than measured zeros."
 validity = "not stated in any Henry table"
@@ -508,7 +508,7 @@ fields = [
   { name = "RegularSolutionSP", meaning = "solubility parameter (ChemSep SolubilityParameter)", unit = "not stated (Pa^0.5 per regular_solution.py; ChemSep source unit J0.5/m1.5)", shape = "scalar", role = "input" },
   { name = "name", meaning = "the CAS repeated", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
 ]
-origin = "derived from ChemSep: V = WilsonVolume * 0.001 (unit conversion in dev/dump_chemsep_model_parameters.py), SP copied; only compounds holding both tags appear (431 compounds carry a solubility parameter and 423 a Wilson volume; 423 rows result)"
+origin = "other (derived from ChemSep: V = WilsonVolume * 0.001 (unit conversion in dev/dump_chemsep_model_parameters.py), SP copied; only compounds holding both tags appear (431 compounds carry a solubility parameter and 423 a Wilson volume; 423 rows result))"
 conventions = "Reference temperature of the volume and of the solubility parameter is 'often 298.15 K' per the model docstring and is not stated in the table; ChemSep's units (m3/kmol, J^0.5/m^1.5) are converted on write and then unstated."
 absence = "Missing compound gives None for both; no interaction parameters in this table (kij of the model is separate and defaults to 0)."
 validity = "not stated"
@@ -533,7 +533,7 @@ fields = [
   { name = "column 2", meaning = "main group id n", unit = "not applicable (integer id)", shape = "reference", role = "input" },
   { name = "column 3", meaning = "a_mn, interaction parameter in psi_mn = exp(-a_mn / T)", unit = "not stated (kelvin implied by a/T)", shape = "scalar", role = "input" },
 ]
-origin = "original and LLE: transcribed from DDBST published parameter tables (url in unifac.py comments and docstrings; revision not stated); UNIFAC 2.0: transcribed from Hayer et al. (Chem. Eng. J. 504, 2025, cited in the unifac.py module docstring), complete 54 x 54 matrix including the diagonal, not used by default"
+origin = "other (original and LLE: transcribed from DDBST published parameter tables (url in unifac.py comments and docstrings; revision not stated); UNIFAC 2.0: transcribed from Hayer et al. (Chem. Eng. J. 504, 2025, cited in the unifac.py module docstring), complete 54 x 54 matrix including the diagonal, not used by default)"
 conventions = "psi_mn = exp(-a_mn/T) with the row index the group whose neighbours are being described (UNIFAC_psi in thermo/unifac.py). Group numbers are main-group ids of the matching subgroup set: original uses UFSG/UFMG (54 main groups, ids 1 to 51 plus 55, 84, 85), LLE uses LLEUFSG (32 main groups). The file has no header; the equation is fixed by code only. Subgroup ids are scheme-local: of the 57 subgroup ids shared by UFSG and LLEUFSG only 24 belong to the same main group."
 absence = "An (m, n) pair absent from the table, or a main group absent as a key, yields a = 0 (psi = 1) in from_subgroups (KeyError caught, all three coefficients 0.0) and 1.0 in UNIFAC_psi; the original table lists 1270 of 54*53 = 2862 ordered off-diagonal pairs (44 percent), LLE 512 of 992, so most pairs are absent and treated as zero interaction. The source does not distinguish absent from a stored zero (two zero values exist in the original table, one in LLE). One original row has a = 10000.0, a large placeholder-like value."
 validity = "not stated in the files (the NIST variant has a range; these do not)"
@@ -924,7 +924,7 @@ subject = "An ordered list of compounds."
 fields = [
   { name = "VaporPressures ... PermittivityLiquids (per-compound lists); VolumeGasMixtureObj ... SurfaceTensionMixtureObj (mixture objects)", meaning = "lists of TDependentProperty and MixtureProperty instances", unit = "by class: Pa, m3/mol, J/mol/K, Pa s, W/m/K, N/m", shape = "function", role = "input" },
 ]
-origin = "built by correlations_from_IDs from the chemicals package and the Misc JSON"
+origin = "other (built by correlations_from_IDs from the chemicals package and the Misc JSON)"
 conventions = "Each object holds all its available methods and a selected one (see selection records)."
 absence = "skip_missing controls whether missing properties are dropped."
 validity = "per method Tmin and Tmax"
@@ -989,7 +989,9 @@ locator = "thermo/eos.py:501 GCEOS; main_derivatives_and_departures at :324; vol
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V for one compound; molar basis; Tc, Pc, omega per compound"
 parameters = "pure: a, b, delta, epsilon and the temperature function alpha(T); the framework states P = RT/(V - b) - a alpha(T)/(V^2 + delta V + epsilon)"
-composes = "an alpha function (per subclass), a volume-root solver (eos_volume.py), departure-function algebra generated by SymPy (per the docstring) and a saturation-pressure Chebyshev-style fit used for Psat and Tsat (procedural)"
+composes = [
+  { slot = "", accepts = "an alpha function (per subclass), a volume-root solver (eos_volume.py), departure-function algebra generated by SymPy (per the docstring) and a saturation-pressure Chebyshev-style fit used for Psat and Tsat (procedural)", default = "" },
+]
 equation_source = "docstring says all derivatives and departures were derived with SymPy and not taken from publications; subclasses cite their own equations"
 closed_form = "implicit"
 data = "none bundled (Tc, Pc, omega come from the caller or chemicals tables)"
@@ -1000,7 +1002,9 @@ locator = "thermo/eos.py:7154 IG"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound"
 parameters = "none (b = delta = epsilon = 0, alpha = 0, Zc = 1.0)"
-composes = "GCEOS"
+composes = [
+  { slot = "", accepts = "GCEOS", default = "" },
+]
 equation_source = "Smith, Van Ness and Abbott (textbook, cited in the docstring)"
 closed_form = "yes"
 data = "none bundled"
@@ -1011,7 +1015,9 @@ locator = "thermo/eos.py:9136 VDW"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc (omega accepted and unused)"
 parameters = "pure: a = 27 R^2 Tc^2/(64 Pc), b = R Tc/(8 Pc); delta = epsilon = 0; alpha = 1; c1 = 27/64, c2 = 1/8, Zc = 3/8"
-composes = "GCEOS"
+composes = [
+  { slot = "", accepts = "GCEOS", default = "" },
+]
 equation_source = "Poling (Properties of Gases and Liquids, 5th ed.) and Walas (Phase Equilibria in Chemical Engineering)"
 closed_form = "implicit"
 data = "none bundled"
@@ -1022,7 +1028,9 @@ locator = "thermo/eos.py:9389 RK"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc (omega accepted and unused)"
 parameters = "pure: a = 0.42748 R^2 Tc^2/Pc, b = delta = 0.08664 R Tc/Pc, epsilon = 0; alpha = (T/Tc)^-0.5 (RK_a_alphas_vectorized)"
-composes = "GCEOS"
+composes = [
+  { slot = "", accepts = "GCEOS", default = "" },
+]
 equation_source = "Redlich and Kwong 1949 (Chem. Rev. 44); Poling; Walas"
 closed_form = "implicit"
 data = "none bundled"
@@ -1033,7 +1041,9 @@ locator = "thermo/eos.py:9636 SRK"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega"
 parameters = "pure: a = 0.42748 R^2 Tc^2/Pc, b = delta = 0.08664 R Tc/Pc, epsilon = 0; alpha = [1 + m(1 - sqrt(T/Tc))]^2 with m = 0.480 + 1.574 omega - 0.176 omega^2"
-composes = "GCEOS, implicit Soave 1972 alpha"
+composes = [
+  { slot = "", accepts = "GCEOS, implicit Soave 1972 alpha", default = "" },
+]
 equation_source = "Soave 1972 (Chem. Eng. Sci. 27); Poling; Walas"
 closed_form = "implicit"
 data = "none bundled"
@@ -1044,7 +1054,9 @@ locator = "thermo/eos.py:7355 PR"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega"
 parameters = "pure: a = 0.4572355289 R^2 Tc^2/Pc, b = 0.0777960739 R Tc/Pc, delta = 2b, epsilon = -b^2; alpha = [1 + kappa(1 - sqrt(Tr))]^2 with kappa = 0.37464 + 1.54226 omega - 0.26992 omega^2"
-composes = "GCEOS"
+composes = [
+  { slot = "", accepts = "GCEOS", default = "" },
+]
 equation_source = "Peng and Robinson 1976 (Ind. Eng. Chem. Fundam. 15); Robinson, Peng and Chung 1985; Privat and Jaubert 2011 (PPR78, cited for the kappa)"
 closed_form = "implicit"
 data = "none bundled (kij is a mixture parameter; see the interaction tables)"
@@ -1055,7 +1067,9 @@ locator = "thermo/eos.py:8041 PR78"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega"
 parameters = "pure: as PR with kappa piecewise in omega: the 1976 polynomial when omega <= 0.491 and a cubic polynomial in omega above (low_omega_constants, high_omega_constants)"
-composes = "PR"
+composes = [
+  { slot = "", accepts = "PR", default = "" },
+]
 equation_source = "Robinson and Peng 1978 (GPA report); Robinson, Peng and Chung 1985"
 closed_form = "implicit"
 data = "none bundled"
@@ -1066,7 +1080,9 @@ locator = "thermo/eos.py:8590 PRSV"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega, kappa1"
 parameters = "pure: kappa0 = 0.378893 + 1.4897153 omega - 0.17131848 omega^2 + 0.0196554 omega^3 and kappa = kappa0 + kappa1 (1 + sqrt(Tr))(0.7 - Tr); kappa1 is a per-compound fitted parameter"
-composes = "PR"
+composes = [
+  { slot = "", accepts = "PR", default = "" },
+]
 equation_source = "Stryjek and Vera 1986 (Can. J. Chem. Eng. 64, three PRSV papers); Proust and Vera 1989 (parameters for further compounds)"
 closed_form = "implicit"
 data = "none bundled (ScalarParameterDB lists a PRSVkappa1 key but no table holds it)"
@@ -1077,7 +1093,9 @@ locator = "thermo/eos.py:8867 PRSV2"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega, kappa1, kappa2, kappa3"
 parameters = "pure: kappa0 as PRSV plus a three-parameter temperature term kappa1, kappa2, kappa3 (kappa3 also shifts the reduced-temperature factor)"
-composes = "PR"
+composes = [
+  { slot = "", accepts = "PR", default = "" },
+]
 equation_source = "Stryjek and Vera 1986 (PRSV2 paper)"
 closed_form = "implicit"
 data = "none bundled (no table for PRSV2kappa1 to 3)"
@@ -1088,7 +1106,9 @@ locator = "thermo/eos.py:10650 TWUPR"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega"
 parameters = "pure: PR a, b, delta, epsilon with the Twu 1995 generalised alpha (built-in L, M, N sets for subcritical and supercritical conditions)"
-composes = "PR, TwuPR95 alpha"
+composes = [
+  { slot = "", accepts = "PR, TwuPR95 alpha", default = "" },
+]
 equation_source = "Twu, Coon and Cunningham 1995 (Fluid Phase Equilib. 105, part 1)"
 closed_form = "implicit"
 data = "none bundled (coefficients are constants in eos_alpha_functions.py)"
@@ -1099,7 +1119,9 @@ locator = "thermo/eos.py:10744 TWUSRK"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega"
 parameters = "pure: SRK a, b, delta with the Twu 1995 generalised alpha"
-composes = "SRK, TwuSRK95 alpha"
+composes = [
+  { slot = "", accepts = "SRK, TwuSRK95 alpha", default = "" },
+]
 equation_source = "Twu, Coon and Cunningham 1995 (Fluid Phase Equilib. 105, part 2)"
 closed_form = "implicit"
 data = "none bundled"
@@ -1110,7 +1132,9 @@ locator = "thermo/eos.py:10447 APISRK"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega (accepted), S1, S2"
 parameters = "pure: SRK a, b, delta; alpha = [1 + S1(1 - sqrt(Tr)) + S2 (1 - sqrt(Tr))/sqrt(Tr)]^2"
-composes = "SRK"
+composes = [
+  { slot = "", accepts = "SRK", default = "" },
+]
 equation_source = "API Technical Data Book, General Properties and Characterization, 7th ed. 2005"
 closed_form = "implicit"
 data = "Scalar Parameters/chemsep_APISRK.json (18 compounds)"
@@ -1121,7 +1145,9 @@ locator = "thermo/eos.py:8130 PRTranslated"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega, c, optional alpha_coeffs"
 parameters = "pure: b0 = 0.0777960739 R Tc/Pc, b = b0 - c, delta = 2(c + b0), epsilon = -b0^2 + c^2 + 2 c b0; P = RT/(v + c - b) - a alpha/((v + c)(v + c + b) + b(v + c - b)); alpha from PR kappa unless alpha_coeffs replaces it in a subclass"
-composes = "PR; subclasses add an alpha function and a c estimator"
+composes = [
+  { slot = "", accepts = "PR; subclasses add an alpha function and a c estimator", default = "" },
+]
 equation_source = "Gmehling, Kleiber, Kolbe and Rarey 2019 (Chemical Thermodynamics for Process Simulation)"
 closed_form = "implicit"
 data = "Scalar Parameters/PRVolumeTranslation_PinaMartinez.json for c"
@@ -1132,7 +1158,9 @@ locator = "thermo/eos.py:8226 PRTranslatedPPJP"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega, c"
 parameters = "pure: PRTranslated with kappa = 0.3919 + 1.4996 omega - 0.2721 omega^2 + 0.1063 omega^3"
-composes = "PRTranslated"
+composes = [
+  { slot = "", accepts = "PRTranslated", default = "" },
+]
 equation_source = "Pina-Martinez, Privat, Jaubert and Peng 2018 (Fluid Phase Equilib., updated generalised Soave a-functions)"
 closed_form = "implicit"
 data = "none bundled for c beyond the Pina-Martinez volume-translation table"
@@ -1143,7 +1171,9 @@ locator = "thermo/eos.py:8316 PRTranslatedPoly"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega, c, alpha_coeffs (polynomial in T)"
 parameters = "pure: PRTranslated with a*alpha = a * polynomial(T)"
-composes = "PRTranslated, Poly_a_alpha"
+composes = [
+  { slot = "", accepts = "PRTranslated, Poly_a_alpha", default = "" },
+]
 equation_source = "none given beyond the docstring example"
 closed_form = "implicit"
 data = "none bundled"
@@ -1154,7 +1184,9 @@ locator = "thermo/eos.py:8376 PRTranslatedMathiasCopeman"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega, c, Mathias-Copeman alpha_coeffs"
 parameters = "pure: PRTranslated with the polynomial Mathias-Copeman alpha"
-composes = "PRTranslated, Mathias_Copeman_poly_a_alpha"
+composes = [
+  { slot = "", accepts = "PRTranslated, Mathias_Copeman_poly_a_alpha", default = "" },
+]
 equation_source = "Mathias and Copeman 1983 (through the alpha class)"
 closed_form = "implicit"
 data = "Scalar Parameters/chemsep_PSRK_matthias_copeman.json (ChemSep constants)"
@@ -1165,7 +1197,9 @@ locator = "thermo/eos.py:8379 PRTranslatedCoqueletChapoyRichon"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega, c, alpha_coeffs"
 parameters = "pure: the Mathias-Copeman translated PR configured with Coquelet-Chapoy-Richon style coefficients; class has no docstring, so the coefficient convention is not stated"
-composes = "PRTranslatedMathiasCopeman"
+composes = [
+  { slot = "", accepts = "PRTranslatedMathiasCopeman", default = "" },
+]
 equation_source = "not stated (class has no docstring or reference)"
 closed_form = "implicit"
 data = "none bundled"
@@ -1176,7 +1210,9 @@ locator = "thermo/eos.py:8411 PRTranslatedTwu"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega, alpha_coeffs = (L, M, N), c"
 parameters = "pure: translated PR with the Twu 1991 alpha"
-composes = "PRTranslated, Twu91_a_alpha"
+composes = [
+  { slot = "", accepts = "PRTranslated, Twu91_a_alpha", default = "" },
+]
 equation_source = "Twu, Bluck, Cunningham and Coon 1991 (Fluid Phase Equilib. 69)"
 closed_form = "implicit"
 data = "Scalar Parameters/PRTwu_ibell_2018.json and PRTwu_PinaMartinez.json"
@@ -1187,7 +1223,9 @@ locator = "thermo/eos.py:8474 PRTranslatedConsistent"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega; optional c and alpha_coeffs"
 parameters = "pure: translated PR with the Twu 1991 alpha; when c is absent it is estimated from Tc, Pc and omega and N is set to 2 in the alpha estimate (docstring)"
-composes = "PRTranslatedTwu"
+composes = [
+  { slot = "", accepts = "PRTranslatedTwu", default = "" },
+]
 equation_source = "Le Guennec, Privat and Jaubert 2016 (Fluid Phase Equilib. 429, tc-PR and tc-RK)"
 closed_form = "implicit"
 data = "Scalar Parameters/PRTwu_PinaMartinez.json (L, M, N, c) for 1800 compounds"
@@ -1198,7 +1236,9 @@ locator = "thermo/eos.py:9968 SRKTranslated"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega, c, optional alpha_coeffs"
 parameters = "pure: b0 = 0.08664 R Tc/Pc, b = b0 - c, delta = 2c + b0, epsilon = c(b0 + c); alpha from SRK m unless a subclass supplies another"
-composes = "SRK"
+composes = [
+  { slot = "", accepts = "SRK", default = "" },
+]
 equation_source = "Gmehling et al. 2019"
 closed_form = "implicit"
 data = "Scalar Parameters/SRKVolumeTranslation_PinaMartinez.json for c"
@@ -1209,7 +1249,9 @@ locator = "thermo/eos.py:10065 MSRKTranslated"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega, M, N, c"
 parameters = "pure: translated SRK with alpha = 1 + (1 - Tr)(M + N/Tr) (Soave_1979_a_alpha)"
-composes = "SRKTranslated, Soave_1979_a_alpha"
+composes = [
+  { slot = "", accepts = "SRKTranslated, Soave_1979_a_alpha", default = "" },
+]
 equation_source = "Soave 1980 (Chem. Eng. Sci. 35); Sandarusi, Kidnay and Yesavage 1986; Valderrama, De la Puente and Ibrahim 1994"
 closed_form = "implicit"
 data = "none bundled (ScalarParameterDB lists MSRKM, MSRKN, MSRKc keys with no table)"
@@ -1220,7 +1262,9 @@ locator = "thermo/eos.py:10241 SRKTranslatedPPJP"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega, c"
 parameters = "pure: translated SRK with the Pina-Martinez et al. updated Soave m polynomial"
-composes = "SRK"
+composes = [
+  { slot = "", accepts = "SRK", default = "" },
+]
 equation_source = "Pina-Martinez, Privat, Jaubert and Peng 2018"
 closed_form = "implicit"
 data = "none bundled beyond the Pina-Martinez translation table"
@@ -1231,7 +1275,9 @@ locator = "thermo/eos.py:10327 SRKTranslatedTwu"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega, alpha_coeffs = (L, M, N), c"
 parameters = "pure: translated SRK with the Twu 1991 alpha; class has no docstring"
-composes = "SRKTranslated, Twu91_a_alpha"
+composes = [
+  { slot = "", accepts = "SRKTranslated, Twu91_a_alpha", default = "" },
+]
 equation_source = "Twu et al. 1991 (through the alpha class); not cited in the class"
 closed_form = "implicit"
 data = "Scalar Parameters/SRKTwu_PinaMartinez.json"
@@ -1242,7 +1288,9 @@ locator = "thermo/eos.py:10329 SRKTranslatedConsistent"
 class = "residual_or_excess_contribution"
 inputs = "two of T, P, V; one compound; Tc, Pc, omega; optional c and alpha_coeffs"
 parameters = "pure: translated SRK with the Twu 1991 alpha and an estimated c when absent"
-composes = "SRKTranslated, Twu91_a_alpha"
+composes = [
+  { slot = "", accepts = "SRKTranslated, Twu91_a_alpha", default = "" },
+]
 equation_source = "Le Guennec, Privat and Jaubert 2016"
 closed_form = "implicit"
 data = "Scalar Parameters/SRKTwu_PinaMartinez.json (1800 compounds)"
@@ -1257,7 +1305,9 @@ locator = "thermo/eos_mix_methods.py:129 a_alpha_aijs_composition_independent an
 class = "other"
 inputs = "T, P or V, mole fractions zs; pure a*alpha_i(T) and b_i; kijs"
 parameters = "pure: a alpha_i, b_i; pair: kij (constant square matrix, default all 0); a alpha = sum_i sum_j z_i z_j (1 - kij) sqrt(a alpha_i a alpha_j); b = sum_i z_i b_i"
-composes = "an alpha function per component, a pure EOS class"
+composes = [
+  { slot = "", accepts = "an alpha function per component, a pure EOS class", default = "" },
+]
 equation_source = "docstrings of PRMIX, SRKMIX etc. state the rule without a citation"
 closed_form = "yes"
 data = "Interaction Parameters/ChemSep/pr.json and eppr78_common.json supply candidate kij (neither is read by any EOS class)"
@@ -1268,7 +1318,9 @@ locator = "thermo/eos_mix.py:5561 EpsilonZeroMixingRules"
 class = "other"
 inputs = "composition derivatives of epsilon"
 parameters = "none: all composition derivatives of epsilon are zero, for EOS with epsilon = 0 (IG, VDW, RK, SRK, API SRK, Twu SRK)"
-composes = "mixed into IGMIX, RKMIX, SRKMIX, VDWMIX"
+composes = [
+  { slot = "", accepts = "mixed into IGMIX, RKMIX, SRKMIX, VDWMIX", default = "" },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "none"
@@ -1279,7 +1331,9 @@ locator = "thermo/eos_mix.py:5684 PSRKMixingRules"
 class = "residual_or_excess_contribution"
 inputs = "T, zs, an excess-Gibbs model object ge_model, pure b_i and alpha_i"
 parameters = "global: u = 1.1, A = ln(u/(u + 1)) = -0.6466; a alpha = bRT [ sum_i z_i alpha_i/(b_i RT) + (1/A)(G^E/RT + sum_i z_i ln(b/b_i)) ] (docstring)"
-composes = "a GibbsExcess model (UNIFAC with PSRK groups in the example), SRKMIXTranslated"
+composes = [
+  { slot = "", accepts = "a GibbsExcess model (UNIFAC with PSRK groups in the example), SRKMIXTranslated", default = "" },
+]
 equation_source = "Holderbaum and Gmehling 1991 (Fluid Phase Equilib. 70, PSRK)"
 closed_form = "yes"
 data = "thermo/Phase Change/PSRK interaction parameters.tsv plus PSRKSG subgroup set"
@@ -1290,7 +1344,9 @@ locator = "thermo/eos_mix.py:5875 IGMIX"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs"
 parameters = "none"
-composes = "IG, EpsilonZeroMixingRules, GCEOSMIX"
+composes = [
+  { slot = "", accepts = "IG, EpsilonZeroMixingRules, GCEOSMIX", default = "" },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "none bundled"
@@ -1301,7 +1357,9 @@ locator = "thermo/eos_mix.py:9853 VDWMIX"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, kijs"
 parameters = "pure: a, b; pair: kij"
-composes = "VDW, EpsilonZeroMixingRules, GCEOSMIX, van der Waals one-fluid rule"
+composes = [
+  { slot = "", accepts = "VDW, EpsilonZeroMixingRules, GCEOSMIX, van der Waals one-fluid rule", default = "" },
+]
 equation_source = "none in the class"
 closed_form = "implicit"
 data = "none bundled"
@@ -1312,7 +1370,9 @@ locator = "thermo/eos_mix.py:6302 RKMIX"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, kijs"
 parameters = "pure: a, b; pair: kij"
-composes = "RK, EpsilonZeroMixingRules, GCEOSMIX, van der Waals one-fluid rule"
+composes = [
+  { slot = "", accepts = "RK, EpsilonZeroMixingRules, GCEOSMIX, van der Waals one-fluid rule", default = "" },
+]
 equation_source = "none in the class"
 closed_form = "implicit"
 data = "none bundled"
@@ -1323,7 +1383,9 @@ locator = "thermo/eos_mix.py:8397 SRKMIX"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, omegas, kijs"
 parameters = "pure: a, b, m; pair: kij"
-composes = "SRK, EpsilonZeroMixingRules, GCEOSMIX, van der Waals one-fluid rule"
+composes = [
+  { slot = "", accepts = "SRK, EpsilonZeroMixingRules, GCEOSMIX, van der Waals one-fluid rule", default = "" },
+]
 equation_source = "none in the class (Soave 1972 through SRK)"
 closed_form = "implicit"
 data = "none bundled"
@@ -1334,7 +1396,9 @@ locator = "thermo/eos_mix.py:8771 SRKMIXTranslated"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, omegas, kijs, cs"
 parameters = "pure: a, b0, c; pair: kij; b = sum z_i b_i and c mixed linearly (inferred from SRK_translated_* helper functions)"
-composes = "SRKMIX, SRKTranslated"
+composes = [
+  { slot = "", accepts = "SRKMIX, SRKTranslated", default = "" },
+]
 equation_source = "none in the class"
 closed_form = "implicit"
 data = "Scalar Parameters/SRKVolumeTranslation_PinaMartinez.json"
@@ -1345,7 +1409,9 @@ locator = "thermo/eos_mix.py:9170 SRKMIXTranslatedConsistent"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, omegas, kijs, cs, alpha_coeffs (Twu L, M, N per compound)"
 parameters = "pure: a, b0, c, L, M, N; pair: kij"
-composes = "SRKMIXTranslated, Twu91_a_alpha"
+composes = [
+  { slot = "", accepts = "SRKMIXTranslated, Twu91_a_alpha", default = "" },
+]
 equation_source = "Le Guennec et al. 2016 (through SRKTranslatedConsistent)"
 closed_form = "implicit"
 data = "Scalar Parameters/SRKTwu_PinaMartinez.json"
@@ -1356,7 +1422,9 @@ locator = "thermo/eos_mix.py:9369 MSRKMIXTranslated"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, omegas, kijs, cs, alpha_coeffs (M, N per compound)"
 parameters = "pure: a, b0, c, M, N; pair: kij"
-composes = "SRKMIXTranslatedConsistent, Soave_1979_a_alpha"
+composes = [
+  { slot = "", accepts = "SRKMIXTranslatedConsistent, Soave_1979_a_alpha", default = "" },
+]
 equation_source = "Soave 1980 (through MSRKTranslated)"
 closed_form = "implicit"
 data = "none bundled"
@@ -1367,7 +1435,9 @@ locator = "thermo/eos_mix.py:9537 PSRK"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, omegas, alpha_coeffs, ge_model, kijs, cs"
 parameters = "pure: a, b, Mathias-Copeman polynomial coefficients; mixture: the UNIFAC excess model; the docstring warns the class is incomplete (fugacities and their derivatives not implemented)"
-composes = "Mathias_Copeman_poly_a_alpha, PSRKMixingRules, SRKMIXTranslated, UNIFAC (PSRK version)"
+composes = [
+  { slot = "", accepts = "Mathias_Copeman_poly_a_alpha, PSRKMixingRules, SRKMIXTranslated, UNIFAC (PSRK version)", default = "" },
+]
 equation_source = "Holderbaum and Gmehling 1991"
 closed_form = "implicit"
 data = "Scalar Parameters/chemsep_PSRK_matthias_copeman.json; PSRK interaction tsv and PSRKSG"
@@ -1378,7 +1448,9 @@ locator = "thermo/eos_mix.py:6624 PRMIX"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, omegas, kijs"
 parameters = "pure: a, b, kappa; pair: kij (constant)"
-composes = "PR, GCEOSMIX, van der Waals one-fluid rule"
+composes = [
+  { slot = "", accepts = "PR, GCEOSMIX, van der Waals one-fluid rule", default = "" },
+]
 equation_source = "Peng and Robinson 1976; Robinson, Peng and Chung 1985"
 closed_form = "implicit"
 data = "Interaction Parameters/ChemSep/pr.json (by user code; see flash_vl.py docstring)"
@@ -1389,7 +1461,9 @@ locator = "thermo/eos_mix.py:7627 PRMIXTranslated"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, omegas, kijs, cs"
 parameters = "pure: a, b0, c; pair: kij; b linear in z, c mixed linearly (inferred)"
-composes = "PRMIX, PRTranslated"
+composes = [
+  { slot = "", accepts = "PRMIX, PRTranslated", default = "" },
+]
 equation_source = "Gmehling et al. 2019 (through PRTranslated)"
 closed_form = "implicit"
 data = "Scalar Parameters/PRVolumeTranslation_PinaMartinez.json"
@@ -1400,7 +1474,9 @@ locator = "thermo/eos_mix.py:8045 PRMIXTranslatedPPJP"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, omegas, kijs, cs"
 parameters = "pure: as PRTranslatedPPJP; pair: kij"
-composes = "PRMIXTranslated, PRTranslatedPPJP"
+composes = [
+  { slot = "", accepts = "PRMIXTranslated, PRTranslatedPPJP", default = "" },
+]
 equation_source = "Pina-Martinez et al. 2018"
 closed_form = "implicit"
 data = "Scalar Parameters/PRVolumeTranslation_PinaMartinez.json"
@@ -1411,7 +1487,9 @@ locator = "thermo/eos_mix.py:8198 PRMIXTranslatedConsistent"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, omegas, kijs, cs, alpha_coeffs"
 parameters = "pure: a, b0, c, L, M, N; pair: kij"
-composes = "PRMIXTranslated, Twu91_a_alpha, PRTranslatedConsistent"
+composes = [
+  { slot = "", accepts = "PRMIXTranslated, Twu91_a_alpha, PRTranslatedConsistent", default = "" },
+]
 equation_source = "Le Guennec et al. 2016"
 closed_form = "implicit"
 data = "Scalar Parameters/PRTwu_PinaMartinez.json (L, M, N, c)"
@@ -1422,7 +1500,9 @@ locator = "thermo/eos_mix.py:9707 PR78MIX"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, omegas, kijs"
 parameters = "as PRMIX with the 1978 kappa"
-composes = "PRMIX, PR78"
+composes = [
+  { slot = "", accepts = "PRMIX, PR78", default = "" },
+]
 equation_source = "Robinson and Peng 1978"
 closed_form = "implicit"
 data = "none bundled"
@@ -1433,7 +1513,9 @@ locator = "thermo/eos_mix.py:10237 PRSVMIX"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, omegas, kijs, kappa1s"
 parameters = "pure: a, b, kappa0, kappa1; pair: kij"
-composes = "PRMIX, PRSV"
+composes = [
+  { slot = "", accepts = "PRMIX, PRSV", default = "" },
+]
 equation_source = "Stryjek and Vera 1986"
 closed_form = "implicit"
 data = "none bundled"
@@ -1444,7 +1526,9 @@ locator = "thermo/eos_mix.py:10495 PRSV2MIX"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, omegas, kijs, kappa1s, kappa2s, kappa3s"
 parameters = "pure: a, b, kappa0 to kappa3; pair: kij"
-composes = "PRMIX, PRSV2"
+composes = [
+  { slot = "", accepts = "PRMIX, PRSV2", default = "" },
+]
 equation_source = "Stryjek and Vera 1986"
 closed_form = "implicit"
 data = "none bundled"
@@ -1455,7 +1539,9 @@ locator = "thermo/eos_mix.py:10755 TWUPRMIX"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, omegas, kijs"
 parameters = "pure: a, b and the Twu 1995 alpha; pair: kij"
-composes = "PRMIX, TwuPR95_a_alpha"
+composes = [
+  { slot = "", accepts = "PRMIX, TwuPR95_a_alpha", default = "" },
+]
 equation_source = "Twu, Coon and Cunningham 1995"
 closed_form = "implicit"
 data = "none bundled"
@@ -1466,7 +1552,9 @@ locator = "thermo/eos_mix.py:10909 TWUSRKMIX"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, omegas, kijs"
 parameters = "pure: a, b and the Twu 1995 alpha; pair: kij"
-composes = "SRKMIX, TwuSRK95_a_alpha"
+composes = [
+  { slot = "", accepts = "SRKMIX, TwuSRK95_a_alpha", default = "" },
+]
 equation_source = "Twu, Coon and Cunningham 1995"
 closed_form = "implicit"
 data = "none bundled"
@@ -1477,7 +1565,9 @@ locator = "thermo/eos_mix.py:11062 APISRKMIX"
 class = "residual_or_excess_contribution"
 inputs = "T, P or V, zs, Tcs, Pcs, omegas, kijs, S1s, S2s"
 parameters = "pure: a, b, S1, S2; pair: kij"
-composes = "SRKMIX, APISRK"
+composes = [
+  { slot = "", accepts = "SRKMIX, APISRK", default = "" },
+]
 equation_source = "API Technical Data Book"
 closed_form = "implicit"
 data = "Scalar Parameters/chemsep_APISRK.json"
@@ -1488,7 +1578,9 @@ locator = "thermo/eos_volume.py (volume_solutions_NR default via GCEOS.volume_so
 class = "other"
 inputs = "T, P, b, delta, epsilon, a alpha"
 parameters = "none (solver tolerances only); the compressibility polynomial is Z^3 + (delta' - B' - 1)Z^2 + ... with B' = bP/(RT)"
-composes = "used by GCEOS"
+composes = [
+  { slot = "", accepts = "used by GCEOS", default = "" },
+]
 equation_source = "docstring derives the polynomial; no citation"
 closed_form = "procedural"
 data = "none"
@@ -1503,7 +1595,9 @@ locator = "thermo/eos_alpha_functions.py:1387 Poly_a_alpha"
 class = "explicit_correlation"
 inputs = "T; per-compound a"
 parameters = "pure: alpha_coeffs, a polynomial in T evaluated by Horner (a alpha = a poly(T))"
-composes = "mixed into PRTranslatedPoly"
+composes = [
+  { slot = "", accepts = "mixed into PRTranslatedPoly", default = "" },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "none bundled"
@@ -1514,7 +1608,9 @@ locator = "thermo/eos_alpha_functions.py:1436 Soave_1972_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; per-compound a"
 parameters = "pure: c0 (one coefficient); alpha = [1 + c0(1 - sqrt(T/Tc))]^2"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Soave 1972; Young, Pessoa and Ahon 2016 (20 alpha functions in PR)"
 closed_form = "yes"
 data = "none bundled"
@@ -1525,7 +1621,9 @@ locator = "thermo/eos_alpha_functions.py:1471 Heyen_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2; alpha = exp(c1 (1 - (T/Tc)^c2))"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Heyen 1980 (Proc. 2nd Int. Conf. on Phase Equilibria and Fluid Properties in the Chemical Industry, DECHEMA)"
 closed_form = "yes"
 data = "none bundled"
@@ -1536,7 +1634,9 @@ locator = "thermo/eos_alpha_functions.py:1501 Harmens_Knapp_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2 (two coefficients)"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Harmens and Knapp 1980 (Ind. Eng. Chem. Fundam. 19)"
 closed_form = "yes"
 data = "none bundled"
@@ -1547,7 +1647,9 @@ locator = "thermo/eos_alpha_functions.py:1531 Mathias_1983_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2 (two coefficients)"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Mathias 1983 (Ind. Eng. Chem. Process Des. Dev. 22)"
 closed_form = "yes"
 data = "none bundled"
@@ -1558,7 +1660,9 @@ locator = "thermo/eos_alpha_functions.py:1564 Mathias_Copeman_untruncated_a_alph
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2, c3; alpha = [1 + c1 x + c2 x^2 + c3 x^3]^2 with x = 1 - sqrt(T/Tc), applied at all temperatures"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Mathias and Copeman 1983 (Fluid Phase Equilib. 13)"
 closed_form = "yes"
 data = "Scalar Parameters/chemsep_PSRK_matthias_copeman.json"
@@ -1569,7 +1673,9 @@ locator = "thermo/eos_alpha_functions.py:1596 Mathias_Copeman_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2, c3; same polynomial as the untruncated form below Tc, with truncation above Tc (the docstring formula is identical; the truncation is in the code)"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Mathias and Copeman 1983"
 closed_form = "yes"
 data = "Scalar Parameters/chemsep_PSRK_matthias_copeman.json"
@@ -1580,7 +1686,9 @@ locator = "thermo/eos_alpha_functions.py:1640 Mathias_Copeman_poly_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a; tau = 1 - sqrt(T/Tc)"
 parameters = "pure: alpha_coeffs list per compound with Horner order (highest first, final element the constant 1.0, second-last element c1); below Tc alpha = poly(tau)^2, at or above Tc alpha = (1 + c1 tau)^2 (vectorised code)"
-composes = "a_alpha_base; used by PSRK and PRTranslatedMathiasCopeman"
+composes = [
+  { slot = "", accepts = "a_alpha_base; used by PSRK and PRTranslatedMathiasCopeman", default = "" },
+]
 equation_source = "Mathias and Copeman 1983 (through the class name); no docstring"
 closed_form = "yes"
 data = "Scalar Parameters/chemsep_PSRK_matthias_copeman.json (C1 to C3 map to the list by inference)"
@@ -1591,7 +1699,9 @@ locator = "thermo/eos_alpha_functions.py:1737 Gibbons_Laughton_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Gibbons and Laughton 1984 (J. Chem. Soc. Faraday Trans. 2, 80)"
 closed_form = "yes"
 data = "none bundled"
@@ -1602,7 +1712,9 @@ locator = "thermo/eos_alpha_functions.py:1767 Soave_1984_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Soave 1984 (Chem. Eng. Sci. 39)"
 closed_form = "yes"
 data = "none bundled"
@@ -1613,7 +1725,9 @@ locator = "thermo/eos_alpha_functions.py:1797 Yu_Lu_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2, c3, c4; alpha = 10^(c4 (1 - Tr)(c3 Tr^2 + c2 Tr + c1))"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Yu and Lu 1987 (Fluid Phase Equilib. 34)"
 closed_form = "yes"
 data = "none bundled"
@@ -1624,7 +1738,9 @@ locator = "thermo/eos_alpha_functions.py:1826 Trebble_Bishnoi_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1 (one coefficient)"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Trebble and Bishnoi 1987 (Fluid Phase Equilib. 35)"
 closed_form = "yes"
 data = "none bundled"
@@ -1635,7 +1751,9 @@ locator = "thermo/eos_alpha_functions.py:1852 Melhem_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2; alpha = exp(c1 (1 - Tr) + c2 (1 - sqrt(Tr))^2)"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Melhem, Saini and Goodwin 1989 (Fluid Phase Equilib. 47)"
 closed_form = "yes"
 data = "none bundled"
@@ -1646,7 +1764,9 @@ locator = "thermo/eos_alpha_functions.py:1880 Androulakis_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2, c3"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Androulakis, Kalospiros and Tassios 1989 (Fluid Phase Equilib. 45)"
 closed_form = "yes"
 data = "none bundled"
@@ -1657,7 +1777,9 @@ locator = "thermo/eos_alpha_functions.py:1911 Schwartzentruber_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2, c3, c4 (code registry lists four; docstring says three coefficients needed)"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Schwartzentruber, Renon and Watanasiri 1990 (Chem. Eng. March 1990, pp. 118-124)"
 closed_form = "yes"
 data = "none bundled"
@@ -1668,7 +1790,9 @@ locator = "thermo/eos_alpha_functions.py:1939 Almeida_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2, c3; alpha = exp(c1 (1 - Tr)|Tr - 1|^(c2 - 1) + c3 (Tc/T - 1))"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Almeida, Aznar and Telles 1991 (Rev. Bras. Eng. 8)"
 closed_form = "yes"
 data = "none bundled"
@@ -1679,7 +1803,9 @@ locator = "thermo/eos_alpha_functions.py:1998 Twu91_a_alpha; Twu91_alpha_pure"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1 = L, c2 = M, c3 = N; alpha = Tr^(c3 (c2 - 1)) exp(c1 (1 - Tr^(c2 c3)))"
-composes = "a_alpha_base; used by the translated-consistent EOS"
+composes = [
+  { slot = "", accepts = "a_alpha_base; used by the translated-consistent EOS", default = "" },
+]
 equation_source = "Twu, Bluck, Cunningham and Coon 1991 (Fluid Phase Equilib. 69)"
 closed_form = "yes"
 data = "Scalar Parameters/PRTwu_PinaMartinez.json, SRKTwu_PinaMartinez.json, PRTwu_ibell_2018.json"
@@ -1690,7 +1816,9 @@ locator = "thermo/eos_alpha_functions.py:2110 Soave_1993_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Soave 1993 (Fluid Phase Equilib. 84)"
 closed_form = "yes"
 data = "none bundled"
@@ -1701,7 +1829,9 @@ locator = "thermo/eos_alpha_functions.py:2138 Gasem_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2, c3; alpha = exp((1 - Tr^c3)(c1 + c2 Tr))"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Gasem, Gao, Pan and Robinson 2001 (Fluid Phase Equilib. 181)"
 closed_form = "yes"
 data = "none bundled"
@@ -1712,7 +1842,9 @@ locator = "thermo/eos_alpha_functions.py:2167 Coquelet_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2, c3"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Coquelet, Chapoy and Richon 2004 (Int. J. Thermophys. 25)"
 closed_form = "yes"
 data = "none bundled"
@@ -1723,7 +1855,9 @@ locator = "thermo/eos_alpha_functions.py:2199 Haghtalab_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2, c3"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Haghtalab, Kamali, Mazloumi and Mahmoodi 2010 (Fluid Phase Equilib. 293)"
 closed_form = "yes"
 data = "none bundled"
@@ -1734,7 +1868,9 @@ locator = "thermo/eos_alpha_functions.py:2229 Saffari_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: c1, c2, c3"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Saffari and Zahedi 2013 (Chin. J. Chem. Eng. 21)"
 closed_form = "yes"
 data = "none bundled"
@@ -1745,7 +1881,9 @@ locator = "thermo/eos_alpha_functions.py:2258 Chen_Yang_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc, omega; a"
 parameters = "pure: c1 to c7 (seven coefficients; the code registry also passes omega)"
-composes = "a_alpha_base"
+composes = [
+  { slot = "", accepts = "a_alpha_base", default = "" },
+]
 equation_source = "Chen and Yang 2017 (J. Chem. Eng. Data; reduced-temperature optimisation for vapor pressure)"
 closed_form = "yes"
 data = "none bundled"
@@ -1756,7 +1894,9 @@ locator = "thermo/eos_alpha_functions.py:2287 TwuSRK95_a_alpha; TWU_a_alpha_comm
 class = "regional_piecewise"
 inputs = "T, Tc, omega; a"
 parameters = "global: two built-in (L, M, N) sets, alpha = alpha0 + omega (alpha1 - alpha0) with alpha_i = Tr^(N(M - 1)) exp(L(1 - Tr^(NM))), and separate constants for subcritical and supercritical temperatures (12 constants, values in the docstring, differing from the PR variant); no per-compound parameters"
-composes = "a_alpha_base; used by TWUSRK"
+composes = [
+  { slot = "", accepts = "a_alpha_base; used by TWUSRK", default = "" },
+]
 equation_source = "Twu, Coon and Cunningham 1995 (Fluid Phase Equilib. 105, part 2)"
 closed_form = "yes"
 data = "none bundled (constants in code)"
@@ -1767,7 +1907,9 @@ locator = "thermo/eos_alpha_functions.py:2409 TwuPR95_a_alpha; TWU_a_alpha_commo
 class = "regional_piecewise"
 inputs = "T, Tc, omega; a"
 parameters = "global: two built-in (L, M, N) sets for subcritical and two for supercritical temperatures (12 constants printed in the docstring; the supercritical N0 and N1 are negative); alpha = alpha0 + omega (alpha1 - alpha0); no per-compound parameters"
-composes = "a_alpha_base; used by TWUPR"
+composes = [
+  { slot = "", accepts = "a_alpha_base; used by TWUPR", default = "" },
+]
 equation_source = "Twu, Coon and Cunningham 1995 (Fluid Phase Equilib. 105, part 1)"
 closed_form = "yes"
 data = "none bundled (constants in code)"
@@ -1778,7 +1920,9 @@ locator = "thermo/eos_alpha_functions.py:2531 Soave_1979_a_alpha"
 class = "explicit_correlation"
 inputs = "T, Tc; a"
 parameters = "pure: M, N (plus a third alpha coefficient, the docstring says three coefficients); alpha = 1 + (1 - Tr)(M + N/Tr)"
-composes = "a_alpha_base; used by MSRKTranslated"
+composes = [
+  { slot = "", accepts = "a_alpha_base; used by MSRKTranslated", default = "" },
+]
 equation_source = "Soave 1980 (Chem. Eng. Sci. 35)"
 closed_form = "yes"
 data = "none bundled"
@@ -1793,7 +1937,9 @@ locator = "thermo/activity.py GibbsExcess, IdealSolution"
 class = "residual_or_excess_contribution"
 inputs = "T, mole fractions xs"
 parameters = "none for IdealSolution (gamma = 1); subclasses supply the G^E function and its derivatives"
-composes = "base of NRTL, UNIQUAC, Wilson, UNIFAC, RegularSolution, FloryHuggins, Hansen"
+composes = [
+  { slot = "", accepts = "base of NRTL, UNIQUAC, Wilson, UNIFAC, RegularSolution, FloryHuggins, Hansen", default = "" },
+]
 equation_source = "Walas 1985; Gmehling 2012 (cited in the module); derivatives derived with SymPy per the docstring"
 closed_form = "yes"
 data = "none bundled"
@@ -1804,7 +1950,9 @@ locator = "thermo/nrtl.py NRTL"
 class = "residual_or_excess_contribution"
 inputs = "T, xs"
 parameters = "pair (ordered): tau_ij = a + b/T + e ln T + f T + g/T^2 + h T^2 and alpha_ij = c + d T; G_ij = exp(-alpha_ij tau_ij)"
-composes = "GibbsExcess"
+composes = [
+  { slot = "", accepts = "GibbsExcess", default = "" },
+]
 equation_source = "Poling (5th ed.) and Gmehling et al. 2019"
 closed_form = "yes"
 data = "Interaction Parameters/ChemSep/nrtl.json (b and alpha only)"
@@ -1815,7 +1963,9 @@ locator = "thermo/uniquac.py UNIQUAC"
 class = "residual_or_excess_contribution"
 inputs = "T, xs"
 parameters = "pure: r_i, q_i (regressed, or sums of UNIFAC group R, Q); pair (ordered): tau_ij = exp(a + b/T + c ln T + d T + e/T^2 + f T^2)"
-composes = "GibbsExcess"
+composes = [
+  { slot = "", accepts = "GibbsExcess", default = "" },
+]
 equation_source = "Poling (5th ed.) and Gmehling et al. 2019"
 closed_form = "yes"
 data = "Interaction Parameters/ChemSep/uniquac.json (b only); no bundled r and q"
@@ -1826,7 +1976,9 @@ locator = "thermo/wilson.py Wilson"
 class = "residual_or_excess_contribution"
 inputs = "T, xs"
 parameters = "pair (ordered): Lambda_ij = exp(a + b/T + c ln T + d T + e/T^2 + f T^2); g^E = -RT sum x_i ln(sum x_j Lambda_ij)"
-composes = "GibbsExcess"
+composes = [
+  { slot = "", accepts = "GibbsExcess", default = "" },
+]
 equation_source = "Smith and Van Ness (4th ed.), the ChemSep Book (Kooijman and Taylor), Gmehling et al. 2019"
 closed_form = "yes"
 data = "Interaction Parameters/ChemSep/wilson.json (a, b)"
@@ -1837,7 +1989,9 @@ locator = "thermo/unifac.py UNIFAC class (version 0), from_subgroups, UNIFAC_gam
 class = "group_contribution"
 inputs = "T, xs, per-compound subgroup counts"
 parameters = "group: R_k, Q_k per subgroup; group pair (ordered, main groups): a_mn; psi_mn = exp(-a_mn/T); combinatorial term with r_i, q_i and z = 10 implied by the 5 q_i (1 - V_i/F_i + ln(V_i/F_i)) term"
-composes = "GibbsExcess; UNIFAC_subgroup sets UFSG (original) or LLEUFSG; tables UFIP or LLEUFIP"
+composes = [
+  { slot = "", accepts = "GibbsExcess; UNIFAC_subgroup sets UFSG (original) or LLEUFSG; tables UFIP or LLEUFIP", default = "" },
+]
 equation_source = "Fredenslund, Jones and Prausnitz 1975 (AIChE J. 21); Gmehling et al. 2019"
 closed_form = "yes"
 data = "UNIFAC original interaction parameters.tsv; UNIFAC LLE interaction parameters.tsv; UFSG; LLEUFSG"
@@ -1848,7 +2002,9 @@ locator = "thermo/unifac.py UNIFAC class (version 1)"
 class = "group_contribution"
 inputs = "T, xs, subgroup counts"
 parameters = "group: R, Q (Dortmund set DOUFSG); pair (ordered): a, b, c with psi = exp(-a/T - b - c T); combinatorial term with r^(3/4)"
-composes = "GibbsExcess; DOUFSG; DOUFIP2016 (default), DOUFIP2006, NISTUFIP and DOUF2IP as alternatives"
+composes = [
+  { slot = "", accepts = "GibbsExcess; DOUFSG; DOUFIP2016 (default), DOUFIP2006, NISTUFIP and DOUF2IP as alternatives", default = "" },
+]
 equation_source = "docstrings cite Gmehling et al. 2019; Hayer et al. 2025 for the 2.0 variant"
 closed_form = "yes"
 data = "UNIFAC modified Dortmund interaction parameters.tsv (2016), ... 2006.tsv, UNIFAC 2.0 Dortmund interaction parameters.tsv, UNIFAC modified NIST 2015 interaction parameters.tsv; DOUFSG, NISTUFSG"
@@ -1859,7 +2015,9 @@ locator = "thermo/unifac.py UNIFAC class (version 2)"
 class = "group_contribution"
 inputs = "T, xs, subgroup counts"
 parameters = "group: R, Q (PSRKSG, 150 subgroups); pair (ordered): a, b, c with the same psi form as Dortmund (-a/T - b - cT); original combinatorial term"
-composes = "GibbsExcess; PSRKSG; PSRKIP"
+composes = [
+  { slot = "", accepts = "GibbsExcess; PSRKSG; PSRKIP", default = "" },
+]
 equation_source = "Holderbaum and Gmehling 1991 (through PSRK)"
 closed_form = "yes"
 data = "PSRK interaction parameters.tsv; PSRKSG"
@@ -1870,7 +2028,9 @@ locator = "thermo/unifac.py UNIFAC class (version 3; skip_comb = True)"
 class = "group_contribution"
 inputs = "T, xs, subgroup counts"
 parameters = "group: Q_k only (R is set to 0 and skipped: r_i is not accumulated in from_subgroups); pair (ordered): a, b, c with the Dortmund psi form; the combinatorial term is dropped"
-composes = "GibbsExcess; VTPRSG; VTPRIP"
+composes = [
+  { slot = "", accepts = "GibbsExcess; VTPRSG; VTPRIP", default = "" },
+]
 equation_source = "the VTPR article named in a unifac.py comment ('Present Status of the Group Contribution Equation of State VTPR and Typical Applications for Process Development'); Hector and Gmehling 2014 for ionic liquids"
 closed_form = "yes"
 data = "VTPR 2012, 2014, 2016 interaction parameters.tsv; VTPRSG"
@@ -1881,7 +2041,9 @@ locator = "thermo/unifac.py UNIFAC class (version 4)"
 class = "group_contribution"
 inputs = "T, xs, subgroup counts"
 parameters = "group: R, Q (LUFSG, 45 subgroups); pair (ordered): a, b, c with psi = exp(-(a + b (T - T0) + c (T ln(T0/T) + T - T0))/T), T0 = 298.15 K; combinatorial term ln(V') + 1 - V' with r^(2/3)"
-composes = "GibbsExcess; LUFSG; LUFIP"
+composes = [
+  { slot = "", accepts = "GibbsExcess; LUFSG; LUFIP", default = "" },
+]
 equation_source = "class docstring names 'Lyngby/Larsen' without a citation"
 closed_form = "yes"
 data = "UNIFAC Lyngby interaction parameters.tsv; LUFSG"
@@ -1892,7 +2054,9 @@ locator = "thermo/unifac.py UNIFAC class (version 5)"
 class = "group_contribution"
 inputs = "T, xs, subgroup counts"
 parameters = "group: R, Q (NISTKTUFSG, 138 subgroups); pair (ordered): a, b (c is identically 0 in the table) with the Lyngby psi form; combinatorial term as the original"
-composes = "GibbsExcess; NISTKTUFSG; NISTKTUFIP"
+composes = [
+  { slot = "", accepts = "GibbsExcess; NISTKTUFSG; NISTKTUFIP", default = "" },
+]
 equation_source = "Kang, Diky, Chirico, Magee, Muzny, Abdulagatov, Kazakov and Frenkel 2011 (comment in unifac.py: A new method for evaluation of UNIFAC interaction parameters)"
 closed_form = "yes"
 data = "NIST KT 2011 interaction parameters.tsv; NISTKTUFSG"
@@ -1903,7 +2067,9 @@ locator = "thermo/regular_solution.py RegularSolution"
 class = "residual_or_excess_contribution"
 inputs = "T, xs"
 parameters = "pure: V_i (molar volume), delta_i (solubility parameter); pair (ordered): k_mn optional; G^E = sum_m sum_n x_m x_n V_m V_n A_mn / sum x_m V_m with A_mn = 0.5 (delta_m - delta_n)^2 + delta_m delta_n k_mn; S^E = 0, G^E = H^E"
-composes = "GibbsExcess"
+composes = [
+  { slot = "", accepts = "GibbsExcess", default = "" },
+]
 equation_source = "Poling (5th ed.), Gmehling et al. 2019, Elliott and Lira, the ChemSep Book"
 closed_form = "yes"
 data = "Scalar Parameters/chemsep_regular_solution.json (V and delta for 423 compounds)"
@@ -1914,7 +2080,9 @@ locator = "thermo/regular_solution.py FloryHuggins"
 class = "residual_or_excess_contribution"
 inputs = "T, xs"
 parameters = "pure: V_i, delta_i; pair: k_mn; G^E = RT sum x_i ln(V_i / sum x_j V_j) + G^E of the regular solution"
-composes = "RegularSolution, GibbsExcess"
+composes = [
+  { slot = "", accepts = "RegularSolution, GibbsExcess", default = "" },
+]
 equation_source = "Poling (5th ed.); the ChemSep Book"
 closed_form = "yes"
 data = "Scalar Parameters/chemsep_regular_solution.json"
@@ -1925,7 +2093,9 @@ locator = "thermo/regular_solution.py Hansen"
 class = "residual_or_excess_contribution"
 inputs = "T, xs"
 parameters = "pure: V_i, delta_d, delta_p, delta_h; global: alpha (default 1.0; the docstring recommends 0.6); A_mn = alpha [(dd_m - dd_n)^2 + 0.25 (dp_m - dp_n)^2 + 0.25 (dh_m - dh_n)^2]; Flory-Huggins G^E form"
-composes = "FloryHuggins form, GibbsExcess"
+composes = [
+  { slot = "", accepts = "FloryHuggins form, GibbsExcess", default = "" },
+]
 equation_source = "Lindvig, Michelsen and Kontogeorgis 2002 (Fluid Phase Equilib. 203); Brouwer and Schuur 2019; Hansen 2007"
 closed_form = "yes"
 data = "none bundled (no Hansen parameter table)"
@@ -1936,7 +2106,9 @@ locator = "thermo/redlich_kister.py (redlich_kister_excess_binary, redlich_kiste
 class = "explicit_correlation"
 inputs = "T, mole fractions; used for mixture excess properties through MixtureProperty"
 parameters = "pair: N_terms orders each with N_T temperature coefficients (c0 + c1/T + c2 ln T + c3 T + c4/T^2 + c5 T^2 truncated); odd orders change sign on swapping the pair"
-composes = "MixtureProperty (excess correlations)"
+composes = [
+  { slot = "", accepts = "MixtureProperty (excess correlations)", default = "" },
+]
 equation_source = "none in the module"
 closed_form = "yes"
 data = "Misc/mixture_correlations.json (1 pair, disabled by default)"
@@ -1951,7 +2123,9 @@ locator = "thermo/phases/phase.py:76 Phase"
 class = "other"
 inputs = "T, P, zs"
 parameters = "global: T_REF_IG = 298.15 K, P_REF_IG = 101325 Pa, limits T_MIN_FIXED, T_MAX_FIXED (1e-3 to 10000 K), P_MIN_FIXED 1e-2 Pa, P_MAX_FIXED 1e9 Pa"
-composes = "subclasses implement H, S, Cp, dP_dT, dP_dV, d2P_*; everything else is derived in the base class"
+composes = [
+  { slot = "", accepts = "subclasses implement H, S, Cp, dP_dT, dP_dV, d2P_*; everything else is derived in the base class", default = "" },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "none bundled"
@@ -1962,7 +2136,9 @@ locator = "thermo/phases/ideal_gas.py:37 IdealGas"
 class = "residual_or_excess_contribution"
 inputs = "T, P, zs; per-compound ideal-gas Cp objects, optional Hfs, Gfs, Sfs"
 parameters = "pure: ideal-gas heat capacity correlation (HeatCapacityGas), formation Hf and Gf at 298.15 K"
-composes = "HeatCapacityGas objects"
+composes = [
+  { slot = "", accepts = "HeatCapacityGas objects", default = "" },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "via HeatCapacityGas objects (chemicals tables and Misc correlations)"
@@ -1973,7 +2149,9 @@ locator = "thermo/phases/phase.py:5539 IdealGasDeparturePhase"
 class = "residual_or_excess_contribution"
 inputs = "T, P, zs; H_dep and S_dep from a subclass"
 parameters = "global: H = H_dep + sum z_i integral from 298.15 K to T of Cp_ig dT; S = S_dep + sum z_i integral Cp_ig/T dT - R sum z ln z - R ln(P/101325)"
-composes = "HeatCapacityGas objects plus a subclass departure model (CEOSPhase, VirialGas)"
+composes = [
+  { slot = "", accepts = "HeatCapacityGas objects plus a subclass departure model (CEOSPhase, VirialGas)", default = "" },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "none bundled"
@@ -1984,7 +2162,9 @@ locator = "thermo/phases/ceos.py:36 CEOSPhase, :585 CEOSGas, :873 CEOSLiquid"
 class = "residual_or_excess_contribution"
 inputs = "T, P, zs; eos_class (any GCEOSMIX subclass), eos_kwargs, HeatCapacityGases, Hfs, Gfs, Sfs"
 parameters = "as the chosen EOS class; CEOSGas uses the vapour-like root (falling back to the liquid-like root when only one exists) and CEOSLiquid the liquid-like root (inferred from ceos.py)"
-composes = "a GCEOSMIX class, IdealGasDeparturePhase, HeatCapacityGas objects"
+composes = [
+  { slot = "", accepts = "a GCEOSMIX class, IdealGasDeparturePhase, HeatCapacityGas objects", default = "" },
+]
 equation_source = "none in the classes"
 closed_form = "implicit"
 data = "none bundled"
@@ -1995,7 +2175,9 @@ locator = "thermo/phases/gibbs_excess.py:91 GibbsExcessLiquid, :3005 GibbsExcess
 class = "residual_or_excess_contribution"
 inputs = "T, P, zs; VaporPressures (or SublimationPressures), VolumeLiquids, HeatCapacityGases, a GibbsExcess model, optional eos_pure_instances, EnthalpyVaporizations, Henry parameters, equilibrium_basis, caloric_basis"
 parameters = "equilibrium_basis in {Psat, Poynting&PhiSat, Poynting, PhiSat}: phi_i = gamma_i Psat_i [phi_sat_i] [Poynting_i] / P; caloric_basis in the same set or Hvap; Henry components use A to F of the Henry tables; henry_mode in {solvents, solvents_with_parameters}; PHI_SAT_IDEAL_TR 0.1"
-composes = "GibbsExcess model, VaporPressure, VolumeLiquid, HeatCapacityGas, EnthalpyVaporization, optional cubic EOS for phi_sat, Henry matrix"
+composes = [
+  { slot = "", accepts = "GibbsExcess model, VaporPressure, VolumeLiquid, HeatCapacityGas, EnthalpyVaporization, optional cubic EOS for phi_sat, Henry matrix", default = "" },
+]
 equation_source = "none cited in the class docstring"
 closed_form = "procedural"
 data = "via the property objects; Henry tables in Interaction Parameters"
@@ -2006,7 +2188,9 @@ locator = "thermo/phases/virial_phase.py:134 VirialCSP, :898 VirialGas"
 class = "residual_or_excess_contribution"
 inputs = "T, P, zs; Tcs, Pcs, Vcs, omegas"
 parameters = "B_model in {VIRIAL_B_ZERO, PITZER_CURL, ABBOTT, TSONOPOULOS, TSONOPOULOS_EXTENDED, OCONNELL_PRAUSNITZ, XIANG, MENG}; cross_B_model in {TARAKAD_DANNER, Zeros}; C_model in {VIRIAL_C_ZERO, ORBEY_VERA, XIANG}; cross_C_model; pair: cross-B kijs, Meng a, Tsonopoulos extended a and b; mixing rules B: linear or theory, C: linear or Orentlicher-Prausnitz; Z = 1 + B/V + C/V^2"
-composes = "IdealGasDeparturePhase, chemicals.virial correlations (not in tree)"
+composes = [
+  { slot = "", accepts = "IdealGasDeparturePhase, chemicals.virial correlations (not in tree)", default = "" },
+]
 equation_source = "O'Connell and Prausnitz 1967; Pitzer and Curl 1957; Smith and Van Ness; Tsonopoulos 1974; Tsonopoulos and Heidman 1990; Tsonopoulos and Dymond 1997; Xiang 2002; Meng et al. 2004; Orbey and Vera 1983; Liu and Xiang 2003"
 closed_form = "implicit"
 data = "none bundled"
@@ -2017,7 +2201,9 @@ locator = "thermo/phases/helmholtz_eos.py:30 HelmholtzEOS; iapws_phase.py:41 IAP
 class = "helmholtz_potential"
 inputs = "T, P, zs (single component); residual Helmholtz energy derivatives from chemicals.iapws and chemicals.air"
 parameters = "none in this tree: reducing density and temperature, R and all term coefficients live in the chemicals package (for air: T_red, rho_red, R_air from chemicals.air; MW 28.96546 in the class); DryAirLemmon limits T to 132.6313 K to 2000 K"
-composes = "chemicals.iapws, chemicals.air"
+composes = [
+  { slot = "", accepts = "chemicals.iapws, chemicals.air", default = "" },
+]
 equation_source = "IAPWS-95 and Lemmon et al. 2000 air (names only; no citation text in the phase classes)"
 closed_form = "implicit"
 data = "none bundled"
@@ -2028,7 +2214,9 @@ locator = "thermo/phases/iapws_phase.py:204 IAPWS97"
 class = "regional_piecewise"
 inputs = "T, P, zs (water)"
 parameters = "none in this tree (region equations and coefficients in chemicals.iapws)"
-composes = "chemicals.iapws"
+composes = [
+  { slot = "", accepts = "chemicals.iapws", default = "" },
+]
 equation_source = "name only (IAPWS Industrial Formulation 1997)"
 closed_form = "procedural"
 data = "none bundled"
@@ -2039,7 +2227,9 @@ locator = "thermo/phases/iapws_phase.py:653 IAPWS06; gibbs_eos.py:28 GibbsEOS"
 class = "helmholtz_potential"
 inputs = "T, P, zs (water)"
 parameters = "none in this tree; GibbsEOS derives V, dV_dP and related quantities from derivatives of G"
-composes = "chemicals.iapws (ice Gibbs energy)"
+composes = [
+  { slot = "", accepts = "chemicals.iapws (ice Gibbs energy)", default = "" },
+]
 equation_source = "name only (IAPWS-06 ice Ih)"
 closed_form = "yes"
 data = "none bundled"
@@ -2050,7 +2240,9 @@ locator = "thermo/phases/air_phase.py:175 HumidAirRP1485"
 class = "residual_or_excess_contribution"
 inputs = "T, P, zs (air and water vapour)"
 parameters = "virial gas of an (air, water) mole-fraction pair (zs order is fixed as air first); B from DryAirLemmon and IAPWS95 pure virial coefficients plus the TEOS-10 air-water cross coefficient, C likewise; Z from the density-form virial equation"
-composes = "VirialGas, DryAirLemmon, IAPWS95, chemicals.air (TEOS-10 cross virial)"
+composes = [
+  { slot = "", accepts = "VirialGas, DryAirLemmon, IAPWS95, chemicals.air (TEOS-10 cross virial)", default = "" },
+]
 equation_source = "name refers to ASHRAE RP-1485 (class has no docstring)"
 closed_form = "implicit"
 data = "none bundled"
@@ -2061,7 +2253,9 @@ locator = "thermo/phases/coolprop_phase.py:160 CoolPropPhase; thermo/coolprop.py
 class = "helmholtz_potential"
 inputs = "T, P, zs; a CoolProp backend name and fluid string"
 parameters = "none: all model data lives in the CoolProp library loaded at run time"
-composes = "the CoolProp package (optional dependency)"
+composes = [
+  { slot = "", accepts = "the CoolProp package (optional dependency)", default = "" },
+]
 equation_source = "delegated to CoolProp"
 closed_form = "implicit"
 data = "none bundled"
@@ -2072,7 +2266,9 @@ locator = "thermo/phases/petroleum.py:35 GraysonStreed, :168 ChaoSeader"
 class = "explicit_correlation"
 inputs = "T, P, zs, Tcs, Pcs, omegas, CASs, optional GibbsExcessModel (default IdealSolution)"
 parameters = "global: three 10-coefficient tuples (simple fluids, methane, hydrogen) in each class: GraysonStreed holds the set labelled revised (version 1, with a reduced-temperature limit) and ChaoSeader subclasses it with the set labelled original (version 0); phi_i = gamma_i nu_i with nu the pure-liquid fugacity-coefficient correlation; hydrogen and methane CAS are special-cased"
-composes = "GibbsExcess model (regular solution intended)"
+composes = [
+  { slot = "", accepts = "GibbsExcess model (regular solution intended)", default = "" },
+]
 equation_source = "not stated in the file"
 closed_form = "yes"
 data = "thermo/phases/petroleum.py coefficient tuples (6 in total)"
@@ -2083,7 +2279,9 @@ locator = "thermo/phases/combined.py:28 CombinedPhase"
 class = "other"
 inputs = "T, P, zs; a list of phases and indices for equilibrium, thermal, volume and other properties"
 parameters = "none: routes each property to one of the wrapped phases"
-composes = "any Phase objects"
+composes = [
+  { slot = "", accepts = "any Phase objects", default = "" },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "none"
@@ -2094,7 +2292,9 @@ locator = "thermo/bulk.py:253 BulkSettings, :619 Bulk"
 class = "other"
 inputs = "phases and phase fractions"
 parameters = "global: T_liquid_volume_ref 298.15 K, T_normal 273.15 K and P_normal 101325 Pa, T_standard 288.15 K and P_standard 101325 Pa, viscosity, conductivity and surface-tension mixing rules (LL, VL) with power-law exponents"
-composes = "Phase objects"
+composes = [
+  { slot = "", accepts = "Phase objects", default = "" },
+]
 equation_source = "docstring cites references for the normal and standard conditions"
 closed_form = "procedural"
 data = "none"
@@ -2109,7 +2309,9 @@ locator = "thermo/group_contribution/joback.py"
 class = "group_contribution"
 inputs = "an RDKit molecule or SMILES, or user group counts"
 parameters = "group: 41 (Joback) or 44 (Diky) groups with Tc, Pc, Vc, Tb, Tm, Hform, Gform, Cp polynomial, Hfus, Hvap, viscosity a, b; Diky adds second-order corrections and ring-size terms"
-composes = "smarts_fragment (group_contribution_base.py), JOBACK_GROUPS tables"
+composes = [
+  { slot = "", accepts = "smarts_fragment (group_contribution_base.py), JOBACK_GROUPS tables", default = "" },
+]
 equation_source = "Joback and Reid (docstring); Diky refit (docstring); SMARTS by Jason Biggs"
 closed_form = "yes"
 data = "thermo/group_contribution/joback.py tables"
@@ -2120,7 +2322,9 @@ locator = "thermo/group_contribution/wilson_jasperson.py"
 class = "group_contribution"
 inputs = "molecule or formula"
 parameters = "element and group increments for Tc and Pc"
-composes = "functional-group SMARTS, element parsing"
+composes = [
+  { slot = "", accepts = "functional-group SMARTS, element parsing", default = "" },
+]
 equation_source = "named in the module; no citation text in the excerpt read"
 closed_form = "yes"
 data = "wilson_jasperson.py tables"
@@ -2131,7 +2335,9 @@ locator = "thermo/group_contribution/fedors.py"
 class = "group_contribution"
 inputs = "molecule"
 parameters = "atom, ring and bond contributions to critical volume"
-composes = "functional-group SMARTS, ring counting"
+composes = [
+  { slot = "", accepts = "functional-group SMARTS, ring counting", default = "" },
+]
 equation_source = "docstring cites Fedors"
 closed_form = "yes"
 data = "fedors.py dict"
@@ -2142,7 +2348,9 @@ locator = "thermo/group_contribution/bondi.py"
 class = "group_contribution"
 inputs = "molecule"
 parameters = "52 groups with Vw and Aw; R and Q from Van der Waals volume and area"
-composes = "functional-group identification"
+composes = [
+  { slot = "", accepts = "functional-group identification", default = "" },
+]
 equation_source = "named in the module header; no citation text read"
 closed_form = "yes"
 data = "bondi.py tables"
@@ -2153,7 +2361,9 @@ locator = "thermo/group_contribution/ppr78.py"
 class = "group_contribution"
 inputs = "T, group counts of two molecules, Tc, Pc, omega of each"
 parameters = "group pair: A_kl, B_kl; pure: Tc, Pc, omega; the result is a binary PR kij at T"
-composes = "PR alpha and b; fragment_PPR78 group assignment"
+composes = [
+  { slot = "", accepts = "PR alpha and b; fragment_PPR78 group assignment", default = "" },
+]
 equation_source = "Privat and Jaubert 2011 (cited in the PR docstring)"
 closed_form = "yes"
 data = "ppr78.py tables (15 and 40 groups; 110 and 353 group pairs)"
@@ -2164,7 +2374,9 @@ locator = "thermo/group_contribution/group_contribution_base.py (smarts_fragment
 class = "group_contribution"
 inputs = "an RDKit molecule and a catalog of group patterns"
 parameters = "per group: smarts, atoms, bonds, priority (priority = atom-weighted score when not given: H 1, C 100, O 150, N 175, Cl 300, ...)"
-composes = "all group-contribution catalogs (UNIFAC, Joback, PPR78, Bondi)"
+composes = [
+  { slot = "", accepts = "all group-contribution catalogs (UNIFAC, Joback, PPR78, Bondi)", default = "" },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "catalogs embedded in code"
@@ -2179,7 +2391,9 @@ locator = "thermo/electrochem.py (Laliberte_density, Laliberte_heat_capacity, La
 class = "explicit_correlation"
 inputs = "T, mass fractions of water and of solutes"
 parameters = "per solute: a coefficient set from Laliberte_data (chemicals data file Laliberte2009.tsv, not in this tree); the _mix functions combine several solutes (combination rule not read)"
-composes = "water correlations (iapws95 saturated liquid Cp)"
+composes = [
+  { slot = "", accepts = "water correlations (iapws95 saturated liquid Cp)", default = "" },
+]
 equation_source = "named for Laliberte; citations are in the function docstrings (not read)"
 closed_form = "yes"
 data = "none bundled in thermo; chemicals/Electrolytes/Laliberte2009.tsv"
@@ -2190,7 +2404,9 @@ locator = "thermo/electrochem.py (thermal_conductivity_Magomedov, Magomedov_mix)
 class = "transport"
 inputs = "T, composition"
 parameters = "per salt: Magomedov coefficients (chemicals data, not in tree)"
-composes = "Magomedov_mix"
+composes = [
+  { slot = "", accepts = "Magomedov_mix", default = "" },
+]
 equation_source = "named in the function"
 closed_form = "yes"
 data = "chemicals/Electrolytes/Magomedov Thermal Conductivity.tsv"
@@ -2201,7 +2417,9 @@ locator = "thermo/electrochem.py (conductivity_McCleskey, dilute_ionic_conductiv
 class = "transport"
 inputs = "T, concentrations, ion charges"
 parameters = "per ion: limiting ionic conductivities and McCleskey coefficients (chemicals data files not in tree)"
-composes = "ionic strength"
+composes = [
+  { slot = "", accepts = "ionic strength", default = "" },
+]
 equation_source = "McCleskey (named); others in docstrings"
 closed_form = "yes"
 data = "chemicals/Electrolytes/*.tsv (Marcus, CRC, Lange, McCleskey)"
@@ -2212,7 +2430,9 @@ locator = "thermo/electrochem.py (Kweq_1981, Kweq_IAPWS, Kweq_IAPWS_gas, Kweq_Ar
 class = "reaction_property"
 inputs = "T, and density or pressure for the IAPWS forms"
 parameters = "global constants per correlation"
-composes = "IAPWS-95 density for the IAPWS forms"
+composes = [
+  { slot = "", accepts = "IAPWS-95 density for the IAPWS forms", default = "" },
+]
 equation_source = "named per correlation (1981 form, IAPWS, Arcis-Tremaine-Bandura-Lvov); citations are in the function docstrings (not read)"
 closed_form = "yes"
 data = "none bundled"
@@ -2223,7 +2443,7 @@ locator = "thermo/electrochem.py (balance_ions, ion_balance_adjust_wrapper, ion_
 class = "other"
 inputs = "ion list, charges and concentrations"
 parameters = "none: electroneutrality adjustment methods"
-composes = "none"
+composes = []
 equation_source = "none"
 closed_form = "procedural"
 data = "none"
@@ -2238,7 +2458,9 @@ locator = "thermo/utils/t_dependent_property.py TDependentProperty; TPDependentP
 class = "explicit_correlation"
 inputs = "T (and P for TP-dependent classes); CASRN"
 parameters = "per method: Tmin, Tmax, extrapolation settings (low and high), T_limits; correlation_models registry of 95 equations"
-composes = "chemicals correlation functions, JSON correlation database, tabular-data interpolators"
+composes = [
+  { slot = "", accepts = "chemicals correlation functions, JSON correlation database, tabular-data interpolators", default = "" },
+]
 equation_source = "none in the framework; each method cites its source in chemicals"
 closed_form = "procedural"
 data = "Misc/*.json (loaded) and chemicals tables"
@@ -2249,7 +2471,9 @@ locator = "thermo/heat_capacity.py:169 HeatCapacityGas"
 class = "explicit_correlation"
 inputs = "T; CASRN, optional molecular data"
 parameters = "methods in ranked order: HEOS_FIT, TRCIG, WEBBOOK_SHOMATE, JANAF, POLING_POLY, COOLPROP, JOBACK, LASTOVKA_SHAW, CRCSTD, POLING_CONST, VDI_TABULAR"
-composes = "TDependentProperty; Joback and Lastovka-Shaw estimators"
+composes = [
+  { slot = "", accepts = "TDependentProperty; Joback and Lastovka-Shaw estimators", default = "" },
+]
 equation_source = "per method in chemicals"
 closed_form = "yes"
 data = "Misc/refprop_correlations.json (HEOS_FIT), janaf_correlations.json; other methods read chemicals tables"
@@ -2260,7 +2484,9 @@ locator = "thermo/heat_capacity.py:588 HeatCapacityLiquid"
 class = "explicit_correlation"
 inputs = "T; CASRN"
 parameters = "methods in ranked order: HEOS_FIT, ZABRANSKY_SPLINE, ZABRANSKY_QUASIPOLYNOMIAL, ZABRANSKY_SPLINE_C, ZABRANSKY_QUASIPOLYNOMIAL_C, ZABRANSKY_SPLINE_SAT, ZABRANSKY_QUASIPOLYNOMIAL_SAT, WEBBOOK_SHOMATE, JANAF, UNARY, VDI_TABULAR, COOLPROP, DADGOSTAR_SHAW, ROWLINSON_POLING, ROWLINSON_BONDI, POLING_CONST, CRCSTD"
-composes = "TDependentProperty"
+composes = [
+  { slot = "", accepts = "TDependentProperty", default = "" },
+]
 equation_source = "per method in chemicals"
 closed_form = "yes"
 data = "Misc/refprop_correlations.json, pycalphad_unary50.json (UNARY), janaf_correlations.json"
@@ -2271,7 +2497,9 @@ locator = "thermo/heat_capacity.py:1130 HeatCapacitySolid"
 class = "explicit_correlation"
 inputs = "T; CASRN"
 parameters = "methods in ranked order: WEBBOOK_SHOMATE, JANAF_FIT, JANAF, UNARY, PERRY151, CRCSTD, LASTOVKA_S"
-composes = "TDependentProperty"
+composes = [
+  { slot = "", accepts = "TDependentProperty", default = "" },
+]
 equation_source = "per method in chemicals"
 closed_form = "yes"
 data = "Misc/janaf_correlations.json, pycalphad_unary50.json, elements.json"
@@ -2282,7 +2510,9 @@ locator = "thermo/heat_capacity.py:1413 HeatCapacityLiquidMixture, :1554 HeatCap
 class = "explicit_correlation"
 inputs = "T, P, zs, ws"
 parameters = "methods ranked: liquid LALIBERTE then LINEAR; solid LINEAR; gas LINEAR (the linear mixing basis was not checked)"
-composes = "MixtureProperty and the pure heat-capacity objects"
+composes = [
+  { slot = "", accepts = "MixtureProperty and the pure heat-capacity objects", default = "" },
+]
 equation_source = "per method"
 closed_form = "yes"
 data = "none bundled"
@@ -2293,7 +2523,9 @@ locator = "thermo/vapor_pressure.py VaporPressure, SublimationPressure"
 class = "explicit_correlation"
 inputs = "T; CASRN, Tc, Pc, omega for estimators"
 parameters = "VaporPressure methods in ranked order: IAPWS_PSAT, HEOS_FIT, WAGNER_MCGARRY, WAGNER_POLING, ANTOINE_EXTENDED_POLING, DIPPR_PERRY_8E, VDI_PPDS, COOLPROP, ANTOINE_POLING, VDI_TABULAR, ANTOINE_WEBBOOK, ALCOCK_ELEMENTS, LANDOLT, AMBROSE_WALTON, LEE_KESLER_PSAT, EDALAT, BOILING_CRITICAL, EOS, SANJARI; SublimationPressure: IAPWS_PSUB, ALCOCK_ELEMENTS, LANDOLT, PSUB_CLAPEYRON"
-composes = "TDependentProperty; a cubic EOS for the EOS method"
+composes = [
+  { slot = "", accepts = "TDependentProperty; a cubic EOS for the EOS method", default = "" },
+]
 equation_source = "per method in chemicals"
 closed_form = "yes"
 data = "Misc/refprop_correlations.json, organic, inorganic and elements JSON (Wagner, DIPPR 101 leaves); other methods read chemicals tables"
@@ -2304,7 +2536,9 @@ locator = "thermo/volume.py VolumeLiquid, VolumeSupercriticalLiquid, VolumeGas, 
 class = "explicit_correlation"
 inputs = "T, P; CASRN, Tc, Pc, omega, Vc, Zc"
 parameters = "VolumeLiquid T-methods ranked: HEOS_FIT, DIPPR_PERRY_8E, VDI_PPDS, COOLPROP, MMSNM0FIT, VDI_TABULAR, HTCOSTALDFIT, RACKETTFIT, CRC_INORG_L, CRC_INORG_L_CONST, COMMON_CHEMISTRY, MMSNM0, HTCOSTALD, YEN_WOODS_SAT, RACKETT, YAMADA_GUNN, BHIRUD_NORMAL, TOWNSEND_HALES, CAMPBELL_THODOS, EOS; pressure methods: COOLPROP, COSTALD_COMPRESSED, EOS, NEGLECT_P; VolumeGas pressure methods: IDEAL, COOLPROP, EOS, TSONOPOULOS_EXTENDED, TSONOPOULOS, ABBOTT, PITZER_CURL, CRC_VIRIAL; VolumeSolid: CRC_INORG_S, GOODMAN"
-composes = "TPDependentProperty; cubic EOS and virial correlations for the EOS and virial methods"
+composes = [
+  { slot = "", accepts = "TPDependentProperty; cubic EOS and virial correlations for the EOS and virial methods", default = "" },
+]
 equation_source = "per method in chemicals"
 closed_form = "yes"
 data = "Misc/refprop_correlations.json; chemicals tables"
@@ -2315,7 +2549,9 @@ locator = "thermo/volume.py VolumeLiquidMixture, VolumeGasMixture, VolumeSolidMi
 class = "explicit_correlation"
 inputs = "T, P, zs, ws"
 parameters = "liquid methods ranked: LALIBERTE, LINEAR, COSTALD_MIXTURE_FIT, RACKETT_PARAMETERS, COSTALD_MIXTURE, RACKETT; gas: EOS, LINEAR, IDEAL, LINEAR_MISSING_IDEAL; solid: LINEAR"
-composes = "MixtureProperty"
+composes = [
+  { slot = "", accepts = "MixtureProperty", default = "" },
+]
 equation_source = "per method"
 closed_form = "yes"
 data = "none bundled"
@@ -2326,7 +2562,9 @@ locator = "thermo/viscosity.py ViscosityLiquid, ViscosityGas"
 class = "transport"
 inputs = "T, P; CASRN, Tc, Pc, omega, MW"
 parameters = "liquid T-methods ranked: REFPROP_FIT, COOLPROP, DIPPR_PERRY_8E, VDI_PPDS, DUTT_PRASAD, VISWANATH_NATARAJAN_3, VISWANATH_NATARAJAN_2, VISWANATH_NATARAJAN_2E, VDI_TABULAR, LETSOU_STIEL, JOBACK, PRZEDZIECKI_SRIDHAR; liquid pressure: COOLPROP, LUCAS, NEGLECT_P; gas T-methods: REFPROP_FIT, COOLPROP, DIPPR_PERRY_8E, VDI_PPDS, VDI_TABULAR, GHARAGHEIZI, YOON_THODOS, STIEL_THODOS, LUCAS_GAS; gas pressure: NEGLECT_P, COOLPROP"
-composes = "TPDependentProperty"
+composes = [
+  { slot = "", accepts = "TPDependentProperty", default = "" },
+]
 equation_source = "per method in chemicals"
 closed_form = "yes"
 data = "Misc/refprop_correlations.json; chemicals tables"
@@ -2337,7 +2575,9 @@ locator = "thermo/viscosity.py ViscosityLiquidMixture, ViscosityGasMixture"
 class = "transport"
 inputs = "T, P, zs, ws"
 parameters = "liquid methods ranked: LALIBERTE_MU, MIXING_LOG_MOLAR, MIXING_LOG_MASS, LINEAR; gas: BROKAW, HERNING_ZIPPERER, LINEAR, WILKE"
-composes = "MixtureProperty"
+composes = [
+  { slot = "", accepts = "MixtureProperty", default = "" },
+]
 equation_source = "per method"
 closed_form = "yes"
 data = "none bundled"
@@ -2348,7 +2588,9 @@ locator = "thermo/thermal_conductivity.py ThermalConductivityLiquid, ThermalCond
 class = "transport"
 inputs = "T, P; CASRN and molecular data"
 parameters = "liquid T-methods ranked: REFPROP_FIT, COOLPROP, DIPPR_PERRY_8E, VDI_PPDS, VDI_TABULAR, GHARAGHEIZI_L, SHEFFY_JOHNSON, SATO_RIEDEL, LAKSHMI_PRASAD, BAHADORI_L, NICOLA, NICOLA_ORIGINAL; liquid pressure: COOLPROP, DIPPR_9G, MISSENARD, NEGLECT_P; gas T-methods: REFPROP_FIT, COOLPROP, VDI_PPDS, DIPPR_PERRY_8E, VDI_TABULAR, GHARAGHEIZI_G, DIPPR_9B, CHUNG, ELI_HANLEY, EUCKEN_MOD, EUCKEN, BAHADORI_G; gas pressure: COOLPROP, ELI_HANLEY_DENSE, CHUNG_DENSE, STIEL_THODOS_DENSE, NEGLECT_P; solid: HO1972"
-composes = "TPDependentProperty"
+composes = [
+  { slot = "", accepts = "TPDependentProperty", default = "" },
+]
 equation_source = "per method in chemicals"
 closed_form = "yes"
 data = "Misc/refprop_correlations.json, Ho_1972_thermal_conductivity_solid.json, organic, inorganic and elements JSON"
@@ -2359,7 +2601,9 @@ locator = "thermo/thermal_conductivity.py ThermalConductivityLiquidMixture, Ther
 class = "transport"
 inputs = "T, P, zs, ws"
 parameters = "liquid methods ranked: MAGOMEDOV, DIPPR_9H, LINEAR, FILIPPOV; gas: LINDSAY_BROMLEY, LINEAR"
-composes = "MixtureProperty"
+composes = [
+  { slot = "", accepts = "MixtureProperty", default = "" },
+]
 equation_source = "per method"
 closed_form = "yes"
 data = "none bundled"
@@ -2370,7 +2614,9 @@ locator = "thermo/interface.py SurfaceTension, SurfaceTensionMixture"
 class = "explicit_correlation"
 inputs = "T; CASRN, Tc, Pc, Vc, omega and others; mixtures T, P, zs"
 parameters = "pure methods ranked: IAPWS_SIGMA, REFPROP_FIT, STREFPROP, SOMAYAJULU2, SOMAYAJULU, VDI_PPDS, VDI_TABULAR, JASPER, MIQUEU, BROCK_BIRD, SASTRI_RAO, PITZER_SIGMA, ZUO_STENBY, ALEEM; mixture: WINTERFELDSCRIVENDAVIS, DIGUILIOTEJA, LINEAR"
-composes = "TDependentProperty, MixtureProperty, Redlich-Kister excess option"
+composes = [
+  { slot = "", accepts = "TDependentProperty, MixtureProperty, Redlich-Kister excess option", default = "" },
+]
 equation_source = "per method"
 closed_form = "yes"
 data = "Misc/refprop_correlations.json (exp_stable_polynomial_ln_tau leaves), organic, inorganic, elements JSON; mixture_correlations.json (disabled)"
@@ -2381,7 +2627,9 @@ locator = "thermo/permittivity.py PermittivityLiquid"
 class = "explicit_correlation"
 inputs = "T; CASRN"
 parameters = "methods ranked: IAPWS_PERMITTIVITY, CRC, CRC_CONSTANT"
-composes = "TDependentProperty"
+composes = [
+  { slot = "", accepts = "TDependentProperty", default = "" },
+]
 equation_source = "per method in chemicals"
 closed_form = "yes"
 data = "chemicals tables"
@@ -2392,7 +2640,9 @@ locator = "thermo/phase_change.py EnthalpyVaporization, EnthalpySublimation"
 class = "explicit_correlation"
 inputs = "T; CASRN, Tc, Pc, omega, Tb"
 parameters = "vaporization methods ranked: HEOS_FIT, COOLPROP, DIPPR_PERRY_8E, VDI_PPDS, MORGAN_KOBAYASHI, SIVARAMAN_MAGEE_KOBAYASHI, VELASCO, PITZER, VDI_TABULAR, ALIBAKHSHI, CRC_HVAP_TB, CRC_HVAP_298, GHARAGHEIZI_HVAP_298, CLAPEYRON, RIEDEL, CHEN, VETERE, LIU; sublimation: WEBBOOK_HSUB, GHARAGHEIZI_HSUB, CRC_HFUS_HVAP_TM, GHARAGHEIZI_HSUB_298"
-composes = "TDependentProperty"
+composes = [
+  { slot = "", accepts = "TDependentProperty", default = "" },
+]
 equation_source = "per method in chemicals"
 closed_form = "yes"
 data = "Misc/refprop_correlations.json; chemicals tables"
@@ -2403,7 +2653,9 @@ locator = "thermo/utils/mixture_property.py MixtureProperty"
 class = "explicit_correlation"
 inputs = "T, P, zs, ws"
 parameters = "methods per subclass; optional excess correlations (Redlich-Kister) added by add_excess_correlation"
-composes = "pure property objects"
+composes = [
+  { slot = "", accepts = "pure property objects", default = "" },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "Misc/mixture_correlations.json (disabled by default)"
@@ -2418,7 +2670,9 @@ locator = "thermo/flash/flash_base.py:104 Flash; spec_to_iter_vars at :60"
 class = "other"
 inputs = "zs plus two specifications from T, P, V, H, S, U, G, A, VF, SF (and mass-basis or reactive variants)"
 parameters = "none: maps each supported specification pair to an iteration variable and a backup"
-composes = "FlashPureVLS, FlashVL, FlashVLN, Phase objects, identify_sort_phases"
+composes = [
+  { slot = "", accepts = "FlashPureVLS, FlashVL, FlashVLN, Phase objects, identify_sort_phases", default = "" },
+]
 equation_source = "none in the base class"
 closed_form = "procedural"
 data = "none"
@@ -2429,7 +2683,9 @@ locator = "thermo/flash/flash_pure_vls.py:58 FlashPureVLS"
 class = "other"
 inputs = "one compound; gas phase, list of liquid phases, list of solid phases"
 parameters = "tolerances and iteration limits per specification; the phase with lowest Gibbs energy is chosen when several exist"
-composes = "Phase objects, vapor and sublimation pressure correlations"
+composes = [
+  { slot = "", accepts = "Phase objects, vapor and sublimation pressure correlations", default = "" },
+]
 equation_source = "Newton methods with analytical derivatives; references named in the docstring"
 closed_form = "procedural"
 data = "none"
@@ -2440,7 +2696,9 @@ locator = "thermo/flash/flash_vl.py:61 FlashVL"
 class = "other"
 inputs = "mixture; one gas phase, one liquid phase"
 parameters = "PT_SS_MAXITER, PT_SS_TOL, stability maxiter and tolerance, bubble and dew tolerances, PT_SS_POLISH"
-composes = "Phase objects, Michelsen stability test (stability_test_Michelsen), sequential substitution, Newton, Michelsen-Mollerup bubble and dew point routines"
+composes = [
+  { slot = "", accepts = "Phase objects, Michelsen stability test (stability_test_Michelsen), sequential substitution, Newton, Michelsen-Mollerup bubble and dew point routines", default = "" },
+]
 equation_source = "Michelsen and Mollerup 2007; Poling; Gmehling et al. 2019"
 closed_form = "procedural"
 data = "none"
@@ -2451,7 +2709,9 @@ locator = "thermo/flash/flash_vln.py:37 FlashVLN"
 class = "other"
 inputs = "mixture; one gas phase and a list of liquid phases (maximum liquids searched)"
 parameters = "SS_NP_MAXITER, SS_NP_TOL, SS_NP_TRIVIAL_TOL, SS_STAB_AQUEOUS_CHECK, DOUBLE_CHECK_2P; skip_solids True"
-composes = "FlashVL, stability test over all phase pairs, sequential substitution for three or more phases"
+composes = [
+  { slot = "", accepts = "FlashVL, stability test over all phase pairs, sequential substitution for three or more phases", default = "" },
+]
 equation_source = "Michelsen and Mollerup 2007; Poling; Gmehling et al. 2019"
 closed_form = "procedural"
 data = "none"
@@ -2462,7 +2722,9 @@ locator = "thermo/flash/flash_utils.py (74 functions)"
 class = "other"
 inputs = "phases and specifications"
 parameters = "none: sequential_substitution_2P and NP, Mehra and GDEM acceleration, nonlinear-equation forms, minimize_gibbs_2P_transformed and minimize_gibbs_NP_transformed (phase-split Gibbs minimisation at fixed species), dew and bubble point Newton and Michelsen-Mollerup, TVF and PVF secant and Newton for pure components, phase-boundary searches, water dew point and wet bulb, speed of sound"
-composes = "used by the Flash classes"
+composes = [
+  { slot = "", accepts = "used by the Flash classes", default = "" },
+]
 equation_source = "named in docstrings"
 closed_form = "procedural"
 data = "none"
@@ -2473,7 +2735,9 @@ locator = "thermo/phase_identification.py"
 class = "other"
 inputs = "phase properties (T, P, V, PIP) and constants"
 parameters = "vapor_score_Tpc, _Vpc, _Tpc_weighted, _Tpc_Vpc, _Wilson, _Poling, _PIP, _Bennett_Schmidt, _traces; sort_phases, identify_sort_phases"
-composes = "used by Flash.flash"
+composes = [
+  { slot = "", accepts = "used by Flash.flash", default = "" },
+]
 equation_source = "named per method"
 closed_form = "procedural"
 data = "none"
@@ -2484,7 +2748,9 @@ locator = "thermo/property_package.py (PropertyPackage, Ideal, IdealCaloric, Sta
 class = "other"
 inputs = "T, P, zs; vapor pressures, critical constants, heat capacities"
 parameters = "global: T_REF_IG = 298.15 K, P_REF_IG = 101325 Pa; Ideal uses K = Psat/P (Raoult); IdealCaloric adds ideal-gas and liquid enthalpy from Cp integrals and Hvap"
-composes = "Rachford-Rice and stability tester"
+composes = [
+  { slot = "", accepts = "Rachford-Rice and stability tester", default = "" },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "none"
@@ -2495,7 +2761,9 @@ locator = "thermo/mixture.py Mixture; thermo/stream.py StreamArgs, Stream, Equil
 class = "other"
 inputs = "identifiers, compositions, T, P, flows"
 parameters = "none: bind property objects and a property package; Stream adds flow bookkeeping and EquilibriumStream wraps a flash result"
-composes = "PropertyPackage, TDependentProperty, MixtureProperty, Flash"
+composes = [
+  { slot = "", accepts = "PropertyPackage, TDependentProperty, MixtureProperty, Flash", default = "" },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "via chemicals databases and Misc correlations"
@@ -2506,7 +2774,9 @@ locator = "thermo/fitting.py; TDependentProperty.fit_data_to_model (thermo/utils
 class = "regression"
 inputs = "temperature and property data; model names from correlation_models"
 parameters = "none: fit_customized, fit_function, fit_polynomial, fit_cheb_poly_auto and statistics (BIC, AICc, data_fit_statistics); leastsq, curve_fit, differential evolution via fluids.numerics"
-composes = "correlation_models registry, fluids.numerics"
+composes = [
+  { slot = "", accepts = "correlation_models registry, fluids.numerics", default = "" },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "none bundled"
@@ -2718,168 +2988,168 @@ documented = "yes"
 
 [[capability]]
 calculation = "flash_tp"
-offered = true
+offered = "yes"
 scope = "pure (FlashPureVLS), vapour-liquid (FlashVL), vapour and multiple liquid (FlashVLN) systems; any phase objects with consistent or mixed models; solids only for pure components"
 locator = "thermo/flash/flash_base.py:158 Flash.flash (T with P); flash_vl.py:777 flash_TPV; flash_vln.py:339 flash_TPV; flash_pure_vls.py:340 flash_TPV"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_ph"
-offered = true
+offered = "yes"
 scope = "single-phase and multiphase with P and H fixed, iterating on T (backup V)"
 locator = "thermo/flash/flash_base.py:60 spec_to_iter_vars; flash_vl.py:802 flash_TPV_HSGUA"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_ps"
-offered = true
+offered = "yes"
 scope = "P and S fixed, iterating on T (backup V)"
 locator = "thermo/flash/flash_base.py:60 spec_to_iter_vars"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_uv"
-offered = true
+offered = "yes"
 scope = "V and U fixed, iterating on P (backup T)"
 locator = "thermo/flash/flash_base.py:60 spec_to_iter_vars"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_tv_pv (proposed)"
-offered = true
+offered = "yes"
 scope = "T with V and P with V (volume-specified flashes) through flash_TPV"
 locator = "thermo/flash/flash_base.py:379 (T or P with V branch), flash_vl.py:764-777 flash_PV, flash_TV"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_th_ts_tu_vh_vs (proposed)"
-offered = true
+offered = "yes"
 scope = "T fixed with H, S or U; V fixed with H or S: all via flash_TPV_HSGUA"
 locator = "thermo/flash/flash_base.py:60-82 spec_to_iter_vars"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_vapor_fraction_spec (proposed)"
-offered = true
+offered = "yes"
 scope = "T with VF and P with VF for pure and multicomponent systems (bubble and dew points are VF 0 and 1), and VF with H, S, U, G or A for pure components"
 locator = "thermo/flash/flash_base.py:398-455; flash_pure_vls.py:473 flash_TVF, :514 flash_PVF, :1085 flash_VF_HSGUA; flash_vl.py:364, :441"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_solid_fraction (proposed)"
-offered = true
+offered = "yes"
 scope = "T with SF and P with SF for pure components with a solid phase only (supports_SF_flash false for FlashVL and FlashVLN, skip_solids True)"
 locator = "thermo/flash/flash_pure_vls.py:556 flash_TSF, :573 flash_PSF; flash_vl.py:319; flash_vln.py:159"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "bubble_dew_point"
-offered = true
+offered = "yes"
 scope = "FlashVL and FlashVLN through flash with VF 0 or 1; Michelsen-Mollerup bubble and dew point routines in flash_utils"
 locator = "thermo/flash/flash_vl.py:364 flash_TVF, :441 flash_PVF; flash_utils.py dew_bubble_Michelsen_Mollerup"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_stability"
-offered = true
+offered = "yes"
 scope = "Michelsen tangent-plane-distance stability test used inside vapour-liquid and multiple-liquid flashes (all phase pairs in FlashVLN)"
 locator = "thermo/flash/flash_vl.py:526 stability_test_Michelsen; flash_utils.py stability_iteration_Michelsen; thermo/utils/functional.py TPD and Stateva_Tsvetkov_TPDF"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "critical_point"
-offered = false
+offered = "no"
 scope = "no true thermodynamic critical point of a mixture; only pure-component Tc, Pc from constants and the cubic-EOS mechanical critical point (next record); cricondentherm and cricondenbar criteria functions exist in flash_utils.py but no caller uses them (grep)"
 locator = "thermo/flash/flash_utils.py cricondentherm_direct_criteria, critcondenbar_direct_criteria"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "mechanical_critical_point (proposed)"
-offered = true
+offered = "yes"
 scope = "cubic EOS mixtures: dP/drho = d2P/drho2 = 0 at fixed composition"
 locator = "thermo/eos_mix.py:1375 mechanical_critical_point; :824 to_mechanical_critical_point"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_envelope"
-offered = true
+offered = "yes"
 scope = "only as plotting helpers that run repeated T with VF flashes (plot_TP, plot_PT, plot_Txy, plot_Pxy, plot_xy); no dedicated envelope tracer and no critical-point or cricondens detection"
 locator = "thermo/flash/flash_base.py:1369 plot_TP, :1487 plot_PT, :1697 plot_Txy"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "gibbs_minimization"
-offered = true
+offered = "yes"
 scope = "phase-split Gibbs minimisation at fixed species and overall composition (minimize_gibbs_2P_transformed, minimize_gibbs_NP_transformed); no element-balance constrained minimisation over species"
 locator = "thermo/flash/flash_utils.py minimize_gibbs_2P_transformed, minimize_gibbs_NP_transformed"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "reaction_equilibrium (proposed)"
-offered = false
+offered = "no"
 scope = "no chemical reaction equilibrium solver, no reaction data and no speciation in thermo (searched for reaction and speciation)"
 locator = "thermo/ (whole package)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "aqueous_speciation"
-offered = false
+offered = "no"
 scope = "only water dissociation constant correlations and ion-balance helpers; no speciation solver from total concentrations"
 locator = "thermo/electrochem.py Kweq_*, balance_ions"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "characterization"
-offered = false
+offered = "no"
 scope = "no assay-to-pseudo-component generation; Grayson-Streed and Chao-Seader phases exist for hydrocarbon liquids but no petroleum characterisation routines were found (searched for pseudo-component, Riazi, assay, TBP)"
 locator = "thermo/phases/petroleum.py"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "parameter_regression"
-offered = true
+offered = "yes"
 scope = "fitting of temperature-dependent correlations (fit_data_to_model, fit_customized) and helper fits; no general interaction-parameter regression routine in thermo (a script under dev/activity_fitting)"
 locator = "thermo/fitting.py; thermo/utils/t_dependent_property.py:2174 fit_add_model, :2207 fit_data_to_model"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "group_estimation"
-offered = true
+offered = "yes"
 scope = "Joback, Diky-Joback heat capacity, Wilson-Jasperson, Fedors, Bondi volumes and areas, PPR78 kij, UNIFAC group assignment by SMARTS (requires RDKit)"
 locator = "thermo/group_contribution/*.py; thermo/unifac.py"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "interfacial_profile"
-offered = false
+offered = "no"
 scope = "only surface-tension correlations; no density-profile or functional calculation"
 locator = "thermo/interface.py"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "adsorption_mixture_prediction"
-offered = false
+offered = "no"
 scope = "no adsorption models found"
 locator = "thermo/ (whole package)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_hs_and_gibbs_helmholtz_specs (proposed)"
-offered = false
+offered = "no"
 scope = "no flash with H and S together, and G or A specifications are accepted only with VF for pure components: the single-spec dispatch key includes only T, P, V, H, S, U so T, P or V with G or A alone raises unsupported (inferred from the dispatch tuple)"
 locator = "thermo/flash/flash_base.py:456 (HSGUA_spec_count == 2 passes), :459 single_iter_key"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "association_models (proposed)"
-offered = false
+offered = "no"
 scope = "no SAFT, CPA or other association equation of state in thermo (searched for SAFT, association, CPA)"
 locator = "thermo/ (whole package)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "electrolyte_activity_models (proposed)"
-offered = false
+offered = "no"
 scope = "no Pitzer, e-NRTL or other ion-interaction activity model; electrolyte content is limited to Laliberte, Magomedov and conductivity correlations"
 locator = "thermo/electrochem.py"
 evidence = "source_inspected"

@@ -97,7 +97,7 @@ fields = [
   { name = "values", meaning = "array of shape (number of P, number of T, number of configurations)", unit = "J/mol-atom for HM, J/K/mol-atom for SM and CPM, by suffix FORM or MIX", shape = "table", role = "input" },
   { name = "reference_state (string form)", meaning = "a string such as SGTE91 found in 14 datasets of the datasets repository; ESPEI reads reference_state only for activity data, where it is a dict", unit = "not applicable (text)", shape = "scalar", role = "unread" },
 ]
-origin = "first-principles calculations, experiments or estimates, per reference"
+origin = "other (first-principles calculations, experiments or estimates, per reference)"
 conventions = "Suffix _FORM: a formation quantity, measured from the pure elements in the phases that the TDB ELEMENT statements name as reference (the code builds pycalphad ReferenceState objects from dbf.refstates[el]['phase']); suffix _MIX: relative to the endmember reference model of the phase (the weighted sum of endmember energies); a mixing configuration should have ideal mixing removed, per the docs. Values are per mole of atoms; parameter fitting converts to per mole of formula unit by the site-ratio normalisation. Sublattice configurations are compared after canonicalisation under the phase's equivalent_sublattices."
 absence = "No sublattice_occupancies is allowed only when no sublattice mixes; a missing excluded_model_contributions excludes nothing."
 validity = "T below 298.15 K is dropped"
@@ -118,7 +118,7 @@ fields = [
   { name = "conditions.X_<component>", meaning = "composition lists; all must have the same length; one fewer than the number of components", unit = "mole fraction", shape = "list", role = "input" },
   { name = "values", meaning = "measured property at each point", unit = "J/mol-atom or J/K/mol-atom by output", shape = "table", role = "input" },
 ]
-origin = "experiments, per reference"
+origin = "other (experiments, per reference)"
 conventions = "The standard deviations are 500 J/mol for HM and 0.2 J/K/mol for SM and CPM before division by the data-type weight and the dataset weight; when reference_states are given, an output name ending in R (for example HMR) has the R stripped to name the unreferenced property that the shift is applied to."
 absence = "no datasets of this kind exist in espei_datasets"
 validity = "not stated"
@@ -139,7 +139,7 @@ fields = [
   { name = "reference_state.conditions", meaning = "P, T and X_<component> of the reference state, usually the pure component", unit = "Pa, K, mole fraction", shape = "table", role = "input" },
   { name = "values", meaning = "activities a_i", unit = "dimensionless", shape = "table", role = "input" },
 ]
-origin = "digitised experiments, per reference"
+origin = "other (digitised experiments, per reference)"
 conventions = "Activity is a ratio of chemical potentials to the reference state: mu_i(target) = R T ln a + mu_i(reference state), evaluated with pycalphad's R = 8.3145."
 absence = "a missing reference_state raises KeyError in the error function"
 validity = "not stated"
@@ -161,7 +161,7 @@ fields = [
   { name = "tie-line point components and compositions", meaning = "names and mole fractions; null for unknown; the sum of the known fractions must not exceed one", unit = "mole fraction", shape = "list", role = "input" },
   { name = "tie-line point flag", meaning = "optional fourth entry 'disordered' marking that the phase composition refers to the disordered configuration of an ordered phase", unit = "not applicable (flag)", shape = "enum", role = "input" },
 ]
-origin = "digitised phase diagrams and experiments, per reference"
+origin = "other (digitised phase diagrams and experiments, per reference)"
 conventions = "Each region must have at least one phase with a prescribed composition or the target hyperplane is undefined and the region contributes zero. The dependent component of each tie-line is the one left out; all tie-lines of a dataset must leave out exactly one component. The zero-phase-fraction name refers to the overall composition at which the phase fraction of the stated phase is one."
 absence = "null composition: the vertex does not contribute to the hyperplane, and its driving force is estimated by sampling the phase; a phase region with all compositions null contributes nothing."
 validity = "not stated"
@@ -256,7 +256,7 @@ fields = [
   { name = "refStable expression", meaning = "energy of the element in its reference structure (the content of the GHSER function)", unit = "not stated (inferred: J/mol)", shape = "function", role = "input" },
   { name = "refSER entry", meaning = "reference phase, mass, H298, S298 of the element", unit = "not stated (inferred: g/mol, J/mol, J/mol/K)", shape = "table", role = "input" },
 ]
-origin = "SGTE91: Dinsdale 1991 (comment); SR2016: not stated"
+origin = "other (SGTE91: Dinsdale 1991 (comment); SR2016: not stated)"
 conventions = "The stable element reference: GHSER functions are created for each element as a Database symbol named GHSER + the first two letters of the symbol (the symbol letters are doubled for one-letter elements, so boron is GHSERBB) and set as the endmember energy basis; lattice-stability symbols are named G + the first three letters of the phase or alias name + the element symbol. The SER data fall back to SGTE91 when the chosen set lacks an element."
 absence = "An element missing in the chosen SER set falls back to the SGTE91 SER data, with a warning when neither has it; formation energies cannot then be fitted."
 validity = "T limits of each piece"
@@ -305,7 +305,9 @@ composes = [
   { slot = "candidate builder", accepts = "successive temperature feature sets crossed with successive Redlich-Kister orders (L0 to L3 by default) or, for ternaries, a symmetric term and an asymmetric triple", default = "build_redlich_kister_candidate_models; switches to a simpler cross product above 1000 candidates" },
   { slot = "selection", accepts = "ridge or ordinary least-squares fit plus the modified AICc", default = "ordinary least squares when ridge_alpha is null" },
 ]
-variants = "excess_model: only linear; the order of steps matters because each step fits the residual left by the previous steps (fixed_portions); parameters already present in an input database are not refitted"
+variants = [
+  { selector = "", selects = "excess_model: only linear; the order of steps matters because each step fits the residual left by the previous steps (fixed_portions); parameters already present in an input database are not refitted" },
+]
 equation_source = "docs/ and code comments: the modified AICc with a per-phase parameter penalty; the approach references the ESPEI paper (Bocklund et al. 2019, MRS Communications 9(2)) in docs/index.rst"
 closed_form = "procedural"
 data = "construct single-phase fixed-configuration dataset"
@@ -317,7 +319,9 @@ class = "regression"
 inputs = "feature matrix, response vector, dataset weights used as sample weights"
 parameters = "ridge alpha; AICc penalty factor p (per phase and property); the number of features k; the number of points n"
 composes = []
-variants = "AICc = n ln(RSS/n) + 2pk plus a correction (2p^2k^2 + 2pk)/(n - pk - 1), replaced by a finite alternative when pk is at least n - 1; RSS below 1e-16 is set to 1e-16; an exact fit (score minus infinity) ends the search; the lowest score among candidates wins"
+variants = [
+  { selector = "", selects = "AICc = n ln(RSS/n) + 2pk plus a correction (2p^2k^2 + 2pk)/(n - pk - 1), replaced by a finite alternative when pk is at least n - 1; RSS below 1e-16 is set to 1e-16; an exact fit (score minus infinity) ends the search; the lowest score among candidates wins" },
+]
 equation_source = "described in the docstring (modified AICc); no citation"
 closed_form = "yes"
 data = "none bundled"
@@ -333,7 +337,9 @@ composes = [
   { slot = "prior", accepts = "PriorSpec (normal, uniform, triangular, zero) or a user object with logpdf, per parameter", default = "zero prior (ln p = 0, improper)" },
   { slot = "scheduler", accepts = "a map-able object (dask client or scheduler file) or none", default = "dask local cluster" },
 ]
-variants = "restart from a saved trace: the last iteration of each chain becomes the new start; lnprob = sum of prior log pdf + sum of the registered log-likelihoods; proposals with minus infinity prior skip the likelihood"
+variants = [
+  { selector = "", selects = "restart from a saved trace: the last iteration of each chain becomes the new start; lnprob = sum of prior log pdf + sum of the registered log-likelihoods; proposals with minus infinity prior skip the likelihood" },
+]
 equation_source = "Goodman and Weare 2010 affine-invariant ensemble sampler as implemented by emcee (Foreman-Mackey et al. 2013), cited in the class docstring"
 closed_form = "procedural"
 data = "all dataset constructs"
@@ -345,7 +351,9 @@ class = "regression"
 inputs = "phase boundary datasets, current parameter values"
 parameters = "standard deviation 1000 J/mol divided by the ZPF data weight and the dataset weight"
 composes = []
-variants = "for each phase region: compute chemical potentials at each vertex with all phases active (skipped for unknown compositions and for stoichiometric-only vertices), take their mean as the target hyperplane, then for each vertex the driving force is the hyperplane dot product with the vertex composition minus the phase's energy at that composition (a max over sampled points when the composition is unknown; the disordered configuration when flagged); NaN hyperplane gives zero; infinite driving force returns minus infinity"
+variants = [
+  { selector = "", selects = "for each phase region: compute chemical potentials at each vertex with all phases active (skipped for unknown compositions and for stoichiometric-only vertices), take their mean as the target hyperplane, then for each vertex the driving force is the hyperplane dot product with the vertex composition minus the phase's energy at that composition (a max over sampled points when the composition is unknown; the disordered configuration when flagged); NaN hyperplane gives zero; infinite driving force returns minus infinity" },
+]
 equation_source = "docstring cites the PanOptimizer rough-search approach; Bocklund et al. 2019 (docs/index.rst)"
 closed_form = "procedural"
 data = "construct phase boundary (ZPF) dataset"
@@ -357,7 +365,9 @@ class = "regression"
 inputs = "activity datasets"
 parameters = "standard deviation 500 J/mol in chemical potential divided by the ACR data weight and the dataset weight"
 composes = []
-variants = "residual = computed chemical potential minus (R T ln a + reference-state chemical potential); reference computed by an equilibrium at reference_state.conditions; NaN likelihood returns minus infinity"
+variants = [
+  { selector = "", selects = "residual = computed chemical potential minus (R T ln a + reference-state chemical potential); reference computed by an equilibrium at reference_state.conditions; NaN likelihood returns minus infinity" },
+]
 equation_source = "not cited"
 closed_form = "procedural"
 data = "construct activity dataset"
@@ -369,7 +379,9 @@ class = "regression"
 inputs = "single-phase datasets with output HM_FORM, SM_FORM, CPM_FORM, HM_MIX, SM_MIX or CPM_MIX"
 parameters = "standard deviations 500 J/mol (HM), 0.2 J/K/mol (SM and CPM), described as estimated from NIST TRC uncertainties, divided by the per-type data weight and the dataset weight"
 composes = []
-variants = "models are built with excluded contributions set to zero; _FORM properties are referenced to the pure elements in the TDB's ELEMENT reference phases (shift_reference_state), _MIX to the endmember reference model; no equilibrium is solved (a solver that does not iterate evaluates the properties at the dataset's site fractions); the query on output uses a substring test, so a bare output such as HM is matched by both the HM_FORM and HM_MIX groups (inferred from Python semantics of x in prop on a string; not executed)"
+variants = [
+  { selector = "", selects = "models are built with excluded contributions set to zero; _FORM properties are referenced to the pure elements in the TDB's ELEMENT reference phases (shift_reference_state), _MIX to the endmember reference model; no equilibrium is solved (a solver that does not iterate evaluates the properties at the dataset's site fractions); the query on output uses a substring test, so a bare output such as HM is matched by both the HM_FORM and HM_MIX groups (inferred from Python semantics of x in prop on a string; not executed)" },
+]
 equation_source = "std deviation comment cites NIST TRC"
 closed_form = "procedural"
 data = "construct single-phase fixed-configuration dataset"
@@ -381,7 +393,9 @@ class = "regression"
 inputs = "equilibrium thermochemical datasets"
 parameters = "standard deviations 500 J/mol (HM), 0.2 J/K/mol (SM, CPM), other outputs 1.0, divided by data and dataset weights"
 composes = []
-variants = "an equilibrium is solved at each point; reference_states shift the property; any NaN or infinity difference gives minus infinity"
+variants = [
+  { selector = "", selects = "an equilibrium is solved at each point; reference_states shift the property; any NaN or infinity difference gives minus infinity" },
+]
 equation_source = "not cited"
 closed_form = "procedural"
 data = "construct equilibrium thermochemical dataset"

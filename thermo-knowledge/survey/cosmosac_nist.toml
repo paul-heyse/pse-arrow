@@ -416,8 +416,8 @@ composes = [
   { slot = "profile source", accepts = "ProfileDatabase (VirginiaTech, Delaware or DirectImport)", default = "none; the caller supplies the database" },
 ]
 variants = [
-  { flag = "fast_Gamma", selects = "iterate only over the non-zero bins of all component profiles; same equation, tested equal to 1e-7" },
-  { flag = "profile database", selects = "with the Delaware reader the model uses only the nhb block of a three-profile file, normalised by the total area (inferred from easy_COSMOSAC.py which loads UD sigma3 for every method)" },
+  { selector = "fast_Gamma", selects = "iterate only over the non-zero bins of all component profiles; same equation, tested equal to 1e-7" },
+  { selector = "profile database", selects = "with the Delaware reader the model uses only the nhb block of a three-profile file, normalised by the total area (inferred from easy_COSMOSAC.py which loads UD sigma3 for every method)" },
 ]
 equation_source = "profiles/VT2005/COSMO-SAC-VT-2005_v2.F90 header cites Lin and Sandler, Ind. Eng. Chem. Res. 41 (2002) 899 for the model; README.md cites J. Chem. Theory Comput. DOI 10.1021/acs.jctc.9b01016 for this implementation; COSMO.hpp cites nothing"
 closed_form = "implicit"
@@ -435,8 +435,8 @@ composes = [
   { slot = "misfit energy", accepts = "temperature-dependent electrostatic term and pairwise hydrogen-bond term by class pair", default = "COSMO3::get_DELTAW" },
 ]
 variants = [
-  { flag = "fast_Gamma", selects = "restrict the 153-row system to the bins that are non-zero for any component (tested equal to 1e-8)" },
-  { flag = "Gamma_rel_tol", selects = "convergence tolerance; an exception is thrown after 2000 iterations" },
+  { selector = "fast_Gamma", selects = "restrict the 153-row system to the bins that are non-zero for any component (tested equal to 1e-8)" },
+  { selector = "Gamma_rel_tol", selects = "convergence tolerance; an exception is thrown after 2000 iterations" },
 ]
 equation_source = "no citation in COSMO.hpp; the test file attributes its acceptance table to Hsieh, Fluid Phase Equilibria 2014; the profile files record averaging = Hsieh"
 closed_form = "implicit"
@@ -452,8 +452,8 @@ composes = [
   { slot = "base model", accepts = "COSMO-SAC-2010 combinatorial plus residual", default = "COSMO3::get_lngamma_comb plus get_lngamma_resid" },
 ]
 variants = [
-  { flag = "method name", selects = "COSMOSAC-2010 returns comb plus resid; COSMOSAC-dsp returns COSMO3::get_lngamma (comb plus resid plus disp)" },
-  { flag = "dispersion class pair", selects = "water with hydrogen-bond acceptor-only, water with COOH, and COOH with NHB or donor-acceptor take the negative weight; all other pairs the positive weight" },
+  { selector = "method name", selects = "COSMOSAC-2010 returns comb plus resid; COSMOSAC-dsp returns COSMO3::get_lngamma (comb plus resid plus disp)" },
+  { selector = "dispersion class pair", selects = "water with hydrogen-bond acceptor-only, water with COOH, and COOH with NHB or donor-acceptor take the negative weight; all other pairs the positive weight" },
 ]
 equation_source = "not cited in the code; to_sigma.py labels the parameters 'COSMO-SAC-dsp'"
 closed_form = "yes"
@@ -479,7 +479,7 @@ inputs = "temperature, a discretised segment distribution (51 or 153 bins) and t
 parameters = "global: misfit constants and R (see the two constants structs)"
 composes = []
 variants = [
-  { flag = "model", selects = "COSMO1 uses a 51 by 51 matrix with hydrogen bonding through the cutoff sigma_hb; COSMO3 uses 153 by 153 blocks with class-pair coefficients and temperature-dependent electrostatics" },
+  { selector = "model", selects = "COSMO1 uses a 51 by 51 matrix with hydrogen bonding through the cutoff sigma_hb; COSMO3 uses 153 by 153 blocks with class-pair coefficients and temperature-dependent electrostatics" },
 ]
 equation_source = "not cited in COSMO.hpp"
 closed_form = "implicit"
@@ -493,7 +493,7 @@ inputs = "temperature, a mole-fraction scan of a binary, two sigma profile files
 parameters = "global: permittivity of vacuum, AEFFPRIME, R, VNORM, ANORM, COORD, CHB, SIGMAHB, relative permittivity EPS, and the derived ALPHAPRIME = FPOL times ALPHA with FPOL = (EPS-1)/(EPS+0.5); pure: profile, volume"
 composes = []
 variants = [
-  { flag = "combinatorial term", selects = "computed but commented out of the final gamma in the program (the gamma lines keep '! + (GAMMASG1)')" },
+  { selector = "combinatorial term", selects = "computed but commented out of the final gamma in the program (the gamma lines keep '! + (GAMMASG1)')" },
 ]
 equation_source = "file header: Lin and Sandler, Ind. Eng. Chem. Res. 41 (2002) 899; Lin PhD dissertation (Delaware 2000); Klamt 1995, 1998, 2000"
 closed_form = "implicit"
@@ -507,9 +507,9 @@ inputs = "a .cosmo (or GAMESS, Gaussian or ORCA CPCM) segment table with positio
 parameters = "global: averaging scheme (Mullins: r_av = 0.8176300195 A, f_decay = 1; Hsieh: r_av^2 = 7.25/pi A^2, f_decay = 3.57), sigma grid (-0.025 to 0.025, step 0.001), hydrogen-bond probability width sigma_0 = 0.007 e/A^2, bond detection factor 1.15 on the sum of covalent radii, Bohr to Angstrom factor 0.52917721067; tables: covalent radii of 96 elements, dispersive atom-type table (14 entries)"
 composes = []
 variants = [
-  { flag = "averaging", selects = "Mullins or Hsieh: different averaging radius and decay factor in the weight exp(-f_decay d^2/(r_n^2 + r_av^2)) r_n^2 r_av^2/(r_n^2 + r_av^2) over segment pairs" },
-  { flag = "num_profiles", selects = "1 gives one NHB profile; 3 splits segments by atom hydrogen-bond class (OH, OT, NHB), scales hydrogen-bond classes by a probability in sigma and returns the remainder to NHB, and adds the dispersion descriptor" },
-  { flag = "input program", selects = "the parser branches on the banner text to read DMol3, Gaussian09, GAMESS or ORCA CPCM outputs (ORCA needs a companion corrected-charge file)" },
+  { selector = "averaging", selects = "Mullins or Hsieh: different averaging radius and decay factor in the weight exp(-f_decay d^2/(r_n^2 + r_av^2)) r_n^2 r_av^2/(r_n^2 + r_av^2) over segment pairs" },
+  { selector = "num_profiles", selects = "1 gives one NHB profile; 3 splits segments by atom hydrogen-bond class (OH, OT, NHB), scales hydrogen-bond classes by a probability in sigma and returns the remainder to NHB, and adds the dispersion descriptor" },
+  { selector = "input program", selects = "the parser branches on the banner text to read DMol3, Gaussian09, GAMESS or ORCA CPCM outputs (ORCA needs a companion corrected-charge file)" },
 ]
 equation_source = "no equation citation; the covalent radii cite DOI 10.1039/b801115j; the profile files cite neither Mullins nor Hsieh beyond the averaging name"
 closed_form = "procedural"

@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Literal
 
 from thermo_knowledge import config
+from thermo_knowledge import pipeline_contract as pc
 
 PROTOCOL = 1
 ORACLES_DIR = "oracles"
@@ -31,7 +32,13 @@ _STATUSES = ("ok", "nan", "error")
 
 
 class HarnessUnavailable(Exception):
-    """The harness could not produce a result; the message is the reason a run is blocked."""
+    """The harness could not produce a result: `reason` is the `blocked_reason` member of the run
+    it blocks (`harness_missing` for a script that does not exist, `harness_failed` for every
+    other failure) and the message is its detail."""
+
+    def __init__(self, detail: str, reason: str = pc.BLOCKED_REASON.member("harness_failed")) -> None:
+        self.reason = reason
+        super().__init__(detail)
 
 
 @dataclass(frozen=True)
@@ -98,8 +105,8 @@ def command(
     return ["bash", str(launcher), "run", environment, "python", str(script), *arguments]
 
 
-def _fail(reason: str) -> HarnessUnavailable:
-    return HarnessUnavailable(reason)
+def _fail(detail: str) -> HarnessUnavailable:
+    return HarnessUnavailable(detail)
 
 
 def parse_result(text: str, request: Request) -> Result:
@@ -170,7 +177,9 @@ def run(
     """Run the harness of `request.library` in `environment` and return its validated result."""
     script = harness_script(request.library, oracles)
     if not script.is_file():
-        raise _fail(f"the harness {script} does not exist")
+        raise HarnessUnavailable(
+            f"the harness {script} does not exist", pc.BLOCKED_REASON.member("harness_missing")
+        )
     with tempfile.TemporaryDirectory(prefix="tk-qualify-") as work:
         request_file, result_file = Path(work) / "request.json", Path(work) / "result.json"
         request_file.write_text(json.dumps(request.as_json(), allow_nan=False), encoding="utf-8")

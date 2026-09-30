@@ -192,12 +192,14 @@ def test_a_curated_decision_overrides_the_rules(tmp_path: Path) -> None:
     decisions = f"""
 [[decision]]
 action = "identify"
+class = "species"
 entity = {{ carrier = "gamma", scope = "species", key = "ethanol" }}
 canonical_key = "{METHANE}"
 reason = "The source's InChIKey is a known error."
 
 [[decision]]
 action = "identify"
+class = "species"
 entity = {{ carrier = "alpha", scope = "species", key = "mystery-a" }}
 canonical_key = "made-up-key"
 charge = -1
@@ -457,21 +459,38 @@ def test_decisions_file_format() -> None:
         """
 [[decision]]
 action = "identify"
+class = "species"
 entity = { carrier = "a", scope = "s", key = "k" }
 canonical_key = "K"
 reason = "r"
 """,
         file="x",
     )
-    assert parsed.identify[("a", "s", "k")] == decision_module.Identify("K", 0, "r")
+    assert parsed.identify[("a", "s", "k")] == decision_module.Identify("K", "species", 0, "r")
     for text, message in (
         (
             '[[decision]]\naction = "reject"\nentity = { carrier = "a", scope = "s", key = "k" }\nreason = " "\n',
             "carries a reason",
         ),
         (
-            '[[decision]]\naction = "identify"\nentity = { carrier = "a", scope = "s", key = "k" }\nreason = "r"\n',
+            '[[decision]]\naction = "identify"\nclass = "species"\nentity = { carrier = "a", scope = "s", key = "k" }\nreason = "r"\n',
             "states the `canonical_key`",
+        ),
+        (
+            '[[decision]]\naction = "identify"\nentity = { carrier = "a", scope = "s", key = "k" }\ncanonical_key = "K"\nreason = "r"\n',
+            "states the `class` of the entity it names",
+        ),
+        (
+            '[[decision]]\naction = "identify"\nclass = "pseudo_component"\nentity = { carrier = "a", scope = "s", key = "k" }\ncanonical_key = "K"\nreason = "r"\n',
+            "states the `class` of the entity it names",
+        ),
+        (
+            '[[decision]]\naction = "identify"\nclass = "material"\ncharge = 1\nentity = { carrier = "a", scope = "s", key = "k" }\ncanonical_key = "K"\nreason = "r"\n',
+            "`charge` belongs to a species",
+        ),
+        (
+            '[[decision]]\naction = "reject"\nclass = "species"\nentity = { carrier = "a", scope = "s", key = "k" }\nreason = "r"\n',
+            "belong to `identify`",
         ),
         (
             '[[decision]]\naction = "distinct"\nentities = [{ carrier = "a", scope = "s", key = "k" }]\nreason = "r"\n',

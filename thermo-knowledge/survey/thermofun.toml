@@ -803,21 +803,21 @@ consequence = "Duplicated symbols lose records silently; file-level identity is 
 # ---------------------------------------------------------------------------
 
 [[capability]]
-calculation = "proposed:standard_state_properties"
+calculation = "standard_state_properties (proposed)"
 offered = "yes"
 scope = "G0, H0, S0, Cp0, V0, U0, A0 of species at (T, P) through ThermoEngine::thermoPropertiesSubstance with derivatives in T and P (ThermoScalar carries val, ddt, ddp, err and a status)"
 locator = "ThermoFun/ThermoEngine.cpp thermoPropertiesSubstance; Batch/ThermoBatch.cpp"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "proposed:reaction_properties"
+calculation = "reaction_properties (proposed)"
 offered = "yes"
 scope = "logK, dG, dH, dS, dCp, dV, dU, dA of reactions at (T, P) including reactions written as an equation string that is not in the database"
 locator = "ThermoEngine.cpp thermoPropertiesReaction (line 670)"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "proposed:solvent_properties"
+calculation = "solvent_properties (proposed)"
 offered = "yes"
 scope = "water density, expansivity, compressibility, dielectric constant and Born functions through HGK, IAPWS-95 (Reaktoro) and Zhang-Duan equations and three dielectric correlations"
 locator = "ThermoEngine.cpp propertiesSolvent, electroPropertiesSolvent; ThermoModelsSolvent.h"

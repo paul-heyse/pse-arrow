@@ -15,6 +15,7 @@ from thermo_knowledge import identity
 from thermo_knowledge import pipeline_contract as pc
 from thermo_knowledge.canonical.provenance import CarrierInfo, Carriers, Origin, SourceRef
 from thermo_knowledge.canonical.store import CanonicalManifest
+from thermo_knowledge.canonical.values import Quantity
 from thermo_knowledge.canonical.writer import CanonicalWriter
 from thermo_knowledge.declaration import model as m
 from thermo_knowledge.mapping import claims
@@ -53,6 +54,9 @@ def read_claims(directories: dict[str, tuple[Path, CanonicalManifest]]) -> Claim
         by_entity: dict[tuple[str, str, str], list[claims.EntityClaim]] = defaultdict(list)
         for claim in claims.read_entity_claims(directory):
             by_entity[claim.key].append(claim)
+        composed: dict[tuple[str, str, str], list[claims.ComponentClaim]] = defaultdict(list)
+        for component in claims.read_component_claims(directory):
+            composed[component.mixture].append(component)
         found: dict[tuple[str, str, str], list[Assertion]] = defaultdict(list)
         seen: set[tuple[object, ...]] = set()
         for item in claims.read_assertion_claims(directory):
@@ -63,13 +67,28 @@ def read_claims(directories: dict[str, tuple[Path, CanonicalManifest]]) -> Claim
         for key, rows in sorted(by_entity.items()):
             first = rows[0]
             for other in rows[1:]:
-                for attribute in ("aggregation", "polymorph", "stated_charge"):
+                for attribute in (
+                    "entity_class",
+                    "aggregation",
+                    "polymorph",
+                    "stated_charge",
+                    "mixture_definition",
+                    "mole_basis",
+                ):
                     if getattr(first, attribute) != getattr(other, attribute):
                         raise ResolveError(
                             f"competing claims for the source entity {key}: {attribute} is "
                             f"{getattr(first, attribute)!r} at {first.locator} and "
                             f"{getattr(other, attribute)!r} at {other.locator}"
                         )
+            fractions: dict[tuple[str, str, str], str] = {}
+            for component in composed.get(key, ()):
+                if fractions.setdefault(component.component, component.fraction) != component.fraction:
+                    raise ResolveError(
+                        f"competing claims for the source entity {key}: the fraction of "
+                        f"{component.component} is {fractions[component.component]} and "
+                        f"{component.fraction} at {component.locator}"
+                    )
             entities.append(
                 SourceEntityRec(
                     key=key,
@@ -80,13 +99,27 @@ def read_claims(directories: dict[str, tuple[Path, CanonicalManifest]]) -> Claim
                     origins=tuple(
                         sorted(
                             {
-                                Origin(SourceRef(manifest_id, c.artifact, c.locator), c.origin_role)
-                                for c in rows
+                                *(
+                                    Origin(
+                                        SourceRef(manifest_id, c.artifact, c.locator), c.origin_role
+                                    )
+                                    for c in rows
+                                ),
+                                *(
+                                    Origin(
+                                        SourceRef(manifest_id, c.artifact, c.locator), c.origin_role
+                                    )
+                                    for c in composed.get(key, ())
+                                ),
                             },
                             key=lambda o: (o.ref.artifact, o.ref.locator, o.role),
                         )
                     ),
                     assertions=tuple(sorted(found[key], key=lambda a: (a.scheme, a.value))),
+                    entity_class=first.entity_class,
+                    mixture_definition=first.mixture_definition,
+                    mole_basis=first.mole_basis,
+                    components=tuple(sorted(fractions.items())),
                 )
             )
     return Claims(carriers, entities, FormulaScopes(scopes))
@@ -99,7 +132,8 @@ def _ids(decl: m.Declaration, kind: str) -> dict[str, uuid.UUID]:
 def write_rows(
     decl: m.Declaration, read: Claims, resolution: Resolution, carriers: Carriers
 ) -> CanonicalWriter:
-    """The canonical rows of a resolution: species, species forms, source entities, identity
+    """The canonical rows of a resolution: species, species forms, defined mixtures with their
+    components, materials, polymer types, unclassified entities, source entities, identity
     assertions and resolution candidates, with their records and origins."""
     writer = CanonicalWriter(decl, carriers)
     schemes = _ids(decl, pc.NAMING_SCHEME.declared)
@@ -136,6 +170,53 @@ def write_rows(
             origins=form.origins,
             at=f"species_form {key}",
         )
+    for key, mixture in sorted(resolution.mixtures.items()):
+        blend = pc.DEFINED_MIXTURE
+        ids[key] = writer.kind(
+            blend.declared,
+            {
+                blend.canonical_key: mixture.canonical_key,
+                blend.label: mixture.label,
+                blend.provisional: mixture.provisional,
+                blend.definition: mixture.definition,
+                blend.mole_basis: mixture.mole_basis,
+            },
+            origins=mixture.origins,
+            at=f"defined_mixture {key}",
+        )
+    for key, mixture in sorted(resolution.mixtures.items()):
+        part = pc.MIXTURE_COMPONENT
+        for component, fraction in mixture.components:
+            writer.relation(
+                part.declared,
+                {part.mixture: ids[key], part.component: ids[component]},
+                {part.value: Quantity(float(fraction), m.DIMENSIONLESS)},
+                at=f"defined_mixture {key}",
+            )
+    for key, material in sorted(resolution.materials.items()):
+        host = pc.MATERIAL
+        ids[key] = writer.kind(
+            host.declared,
+            {
+                host.canonical_key: material.canonical_key,
+                host.label: material.label,
+                host.provisional: material.provisional,
+                host.registry_key: material.registry_key,
+            },
+            origins=material.origins,
+            at=f"material {key}",
+        )
+    for key, plain in sorted(resolution.others.items()):
+        ids[key] = writer.kind(
+            plain.kind,
+            {
+                pc.MATERIAL_ENTITY.canonical_key: plain.canonical_key,
+                pc.SPECIES.label: plain.label,
+                pc.SPECIES.provisional: plain.provisional,
+            },
+            origins=plain.origins,
+            at=f"{plain.kind} {key}",
+        )
     for key, outcome in sorted(resolution.entities.items()):
         entity = by_key[key]
         carrier = read.carriers[entity.manifest_id]
@@ -151,6 +232,7 @@ def write_rows(
                 source_entity.carrier: uuid_of_carrier(carrier),
                 source_entity.scope: entity.scope,
                 source_entity.local_key: entity.local_key,
+                source_entity.entity_class: entity.entity_class,
                 source_entity.aggregation: aggregation_id,
                 source_entity.polymorph: entity.polymorph,
                 source_entity.stated_charge: entity.stated_charge,
@@ -194,35 +276,63 @@ def report(read: Claims, resolution: Resolution) -> dict[str, object]:
     """The resolution report: counts by carrier, status and rule, and every ambiguous entity
     with its candidates."""
     by_carrier: dict[str, dict[str, Counter[str]]] = {
-        manifest_id: {"status": Counter(), "rule": Counter(), "status_rule": Counter()}
+        manifest_id: {
+            "class": Counter(),
+            "status": Counter(),
+            "rule": Counter(),
+            "class_status_rule": Counter(),
+        }
         for manifest_id in read.carriers
     }
     for key, outcome in resolution.entities.items():
         bucket = by_carrier[key[0]]
+        bucket["class"][outcome.entity_class] += 1
         bucket["status"][outcome.status] += 1
         bucket["rule"][outcome.rule] += 1
-        bucket["status_rule"][f"{outcome.status}/{outcome.rule}"] += 1
+        bucket["class_status_rule"][f"{outcome.entity_class}/{outcome.status}/{outcome.rule}"] += 1
     totals = {
+        "class": Counter(o.entity_class for o in resolution.entities.values()),
         "status": Counter(o.status for o in resolution.entities.values()),
         "rule": Counter(o.rule for o in resolution.entities.values()),
+        "class_status_rule": Counter(
+            f"{o.entity_class}/{o.status}/{o.rule}" for o in resolution.entities.values()
+        ),
     }
+    provisional = Counter(
+        {
+            **{pc.SPECIES.declared: sum(1 for s in resolution.species.values() if s.provisional)},
+            **{pc.SPECIES_FORM.declared: sum(1 for f in resolution.forms.values() if f.provisional)},
+            **{
+                pc.DEFINED_MIXTURE.declared: sum(
+                    1 for x in resolution.mixtures.values() if x.provisional
+                )
+            },
+            **{pc.MATERIAL.declared: sum(1 for x in resolution.materials.values() if x.provisional)},
+            **Counter(x.kind for x in resolution.others.values() if x.provisional),
+        }
+    )
     return {
         "carriers": {
             manifest_id: {
                 "entities": sum(buckets["status"].values()),
+                "class": dict(sorted(buckets["class"].items())),
                 "status": dict(sorted(buckets["status"].items())),
                 "rule": dict(sorted(buckets["rule"].items())),
-                "status_rule": dict(sorted(buckets["status_rule"].items())),
+                "class_status_rule": dict(sorted(buckets["class_status_rule"].items())),
             }
             for manifest_id, buckets in sorted(by_carrier.items())
         },
         "totals": {
             "source_entities": len(resolution.entities),
             "species": sum(1 for s in resolution.species.values() if not s.provisional),
-            "provisional_species": sum(1 for s in resolution.species.values() if s.provisional),
             "species_forms": len(resolution.forms),
+            "defined_mixtures": sum(1 for x in resolution.mixtures.values() if not x.provisional),
+            "materials": sum(1 for x in resolution.materials.values() if not x.provisional),
+            "provisional": {name: count for name, count in sorted(provisional.items()) if count},
+            "class": dict(sorted(totals["class"].items())),
             "status": dict(sorted(totals["status"].items())),
             "rule": dict(sorted(totals["rule"].items())),
+            "class_status_rule": dict(sorted(totals["class_status_rule"].items())),
         },
         "ambiguous": [
             {
@@ -256,17 +366,19 @@ def report(read: Claims, resolution: Resolution) -> dict[str, object]:
 
 def report_table(data: dict[str, object]) -> list[str]:
     """The report's counts as printable lines."""
-    lines = ["carrier                    entities  status/rule"]
+    lines = ["carrier                    entities  class/status/rule"]
     carriers = data["carriers"]
     assert isinstance(carriers, dict)
     for manifest_id, info in carriers.items():
-        detail = ", ".join(f"{k}: {v}" for k, v in info["status_rule"].items())
+        detail = ", ".join(f"{k}: {v}" for k, v in info["class_status_rule"].items())
         lines.append(f"{manifest_id:<26} {info['entities']:>8}  {detail}")
     totals = data["totals"]
     assert isinstance(totals, dict)
+    provisional = ", ".join(f"{k} {v}" for k, v in totals["provisional"].items()) or "none"
     lines.append(
-        f"{'all':<26} {totals['source_entities']:>8}  species {totals['species']}, "
-        f"provisional {totals['provisional_species']}, forms {totals['species_forms']}"
+        f"{'all':<26} {totals['source_entities']:>8}  species {totals['species']}, forms "
+        f"{totals['species_forms']}, defined mixtures {totals['defined_mixtures']}, materials "
+        f"{totals['materials']}; provisional: {provisional}"
     )
     ambiguous = data["ambiguous"]
     assert isinstance(ambiguous, list)

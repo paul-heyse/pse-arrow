@@ -18,7 +18,7 @@ from typing import Annotated
 
 import typer
 
-from thermo_knowledge import config
+from thermo_knowledge import config, reuse
 from thermo_knowledge.canonical import store
 from thermo_knowledge.canonical.environment import Environment
 from thermo_knowledge.canonical.provenance import Carriers
@@ -30,7 +30,7 @@ from thermo_knowledge.resolve import engine, output, structure
 from thermo_knowledge.resolve.decisions import DecisionError
 from thermo_knowledge.resolve.engine import ResolveError
 
-FORMAT = 1
+FORMAT = 2
 """Bump when the rows or rules of resolution change in a way the inputs do not show."""
 REPORT_NAME = "report.json"
 RESOLUTION_ID = "_resolution"
@@ -72,20 +72,27 @@ def resolve_all(
             "run `tk map <id> --phase identity` first"
         )
     decided, decision_bytes = decisions_module.load(env.decisions_path)
-    inputs = {
-        **{f"identity:{i}": store.manifest_hash(d) for i, (d, _) in sorted(sources.items())},
-        "decisions": hashlib.sha256(decision_bytes).hexdigest(),
-        "declaration": env.fingerprint(decl),
-        "format": str(FORMAT),
-    }
-    key = store.reuse_key(inputs)
+    try:
+        key = reuse.stage_key(
+            "resolve",
+            {
+                **{
+                    f"identity:{i}": store.manifest_hash(d) for i, (d, _) in sorted(sources.items())
+                },
+                "decisions": hashlib.sha256(decision_bytes).hexdigest(),
+                "declaration": env.fingerprint(decl),
+                "format": FORMAT,
+            },
+        )
+    except reuse.ReuseError as error:
+        raise ResolveError(str(error)) from error
     destination = env.resolution_dir
     if not force and (destination / store.MANIFEST_NAME).is_file():
         try:
             recorded = store.read_manifest(destination)
         except CanonicalError:
             recorded = None
-        if recorded is not None and recorded.reuse_key == key:
+        if recorded is not None and recorded.reuse_key == key.digest:
             data = json.loads((destination / REPORT_NAME).read_text())
             return ResolveOutcome("current", output.report_table(data), _rows(recorded))
 
@@ -114,8 +121,8 @@ def resolve_all(
             schema=store.MANIFEST_SCHEMA,
             source_id=RESOLUTION_ID,
             phase="resolution",
-            reuse_key=key,
-            inputs=inputs,
+            reuse_key=key.digest,
+            inputs=key.inputs,
             tables=records,
             summary={
                 "source_entities": len(resolution.entities),

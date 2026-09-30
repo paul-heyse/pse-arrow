@@ -5,8 +5,8 @@
 own coefficients (as a library holds its bundled data) and imports nothing of the tree.
 
 The call picks the behaviour: `ok` answers every point; `mixed` answers NaN at the first point of
-each subject and an error at the second; `crash` exits non-zero; `wrong_unit` answers in other
-units; `short` answers one point too few. Each invocation appends one line (the number of
+each subject and an error at the second; `all_nan` answers NaN at every point; `crash` exits
+non-zero; `wrong_unit` answers in other units; `short` answers one point too few. Each invocation appends one line (the number of
 subjects) to the file named by FAKE_HARNESS_LOG, when set.
 """
 
@@ -54,7 +54,9 @@ def main() -> int:
         (key,) = subject["key"]
         points = []
         for position, temperature in enumerate(subject["arguments"]["T"]):
-            if call == "mixed" and position == 0:
+            if call == "all_nan":
+                points.append({"value": None, "status": "nan", "message": "no answer anywhere"})
+            elif call == "mixed" and position == 0:
                 points.append(
                     {"value": None, "status": "nan", "message": "above the reducing temperature"}
                 )

@@ -15,8 +15,10 @@ Every source-faithful row of every staged table ends in exactly one state (pipel
 
 `compute` derives the states from the dispositions `mapping.toml` declares and the outcomes the
 run recorded; it never reads a mapping's intent. The counts per table and state are written to
-`qual.mapping_coverage`, each held or unmapped row to `qual.held_row`, and each rule to
-`qual.mapping_rule`.
+`qual.mapping_coverage`, each held or unmapped row to `qual.held_row` with its typed reason
+(a `held_reason` member) and the detail in words, and each rule to `qual.mapping_rule`, a value
+rule with the number of mapped rows it was applied to. `check_rule_use` states which value rules
+were applied to no row of a table that has mapped rows.
 """
 
 from __future__ import annotations
@@ -32,7 +34,7 @@ from thermo_knowledge.canonical.writer import CanonicalWriter
 from thermo_knowledge.declaration import model as m
 from thermo_knowledge.mapping import claims
 from thermo_knowledge.mapping.context import Outcome
-from thermo_knowledge.mapping.spec import MappingSpec, TableRule, resolve_target
+from thermo_knowledge.mapping.spec import MappingSpec, TableRule, maps_rows, resolve_target
 from thermo_knowledge.mapping.staged import Classifier, StagedTables
 
 RULE = pc.MAPPING_RULE
@@ -44,7 +46,20 @@ STATES = pc.ROW_STATE.members
 UNMAPPED = pc.ROW_STATE.member("unmapped")
 MAPPED_WITH_LOSS = pc.ROW_STATE.member("mapped_with_loss")
 ROW_MAPPED = pc.ROW_STATE.member("mapped")
-UNMAPPED_REASON = "read by the mapping, which emitted nothing for it"
+UNMAPPED_BY_MAPPING = pc.HELD_REASON.member("unmapped_by_mapping")
+UNMAPPED_DETAIL = "read by the mapping, which emitted nothing for it"
+
+
+@dataclass(frozen=True)
+class HeldRow:
+    """A row that was not loaded: where it is, its state (`held` or `unmapped`), why as a
+    `held_reason` member and the detail in words."""
+
+    table: str
+    locator: str
+    state: str
+    reason: str
+    detail: str
 
 
 @dataclass
@@ -52,11 +67,18 @@ class Coverage:
     """Rows per staged table and state, and the rows that were not loaded."""
 
     counts: dict[str, dict[str, int]] = field(default_factory=dict)
-    held: list[tuple[str, str, str, str]] = field(default_factory=list)
-    """(table, locator, state, reason) of every held and unmapped row."""
+    held: list[HeldRow] = field(default_factory=list)
+    """Every held and unmapped row."""
 
     def total(self, state: str) -> int:
         return sum(row.get(state, 0) for row in self.counts.values())
+
+    def by_reason(self) -> dict[str, int]:
+        """The held and unmapped rows grouped by their typed reason, in reason-name order."""
+        counts: dict[str, int] = {}
+        for row in self.held:
+            counts[row.reason] = counts.get(row.reason, 0) + 1
+        return dict(sorted(counts.items()))
 
 
 def merge_outcomes(
@@ -70,17 +92,15 @@ def merge_outcomes(
             str(row["state"]),
             bool(row["lossy"]),
             row["reason"] if isinstance(row["reason"], str) else None,
+            row["detail"] if isinstance(row["detail"], str) else None,
         )
     for key, outcome in outcomes.items():
         existing = merged.get(key)
         if existing is None:
-            merged[key] = Outcome(outcome.state, outcome.lossy, outcome.reason)
+            merged[key] = Outcome(outcome.state, outcome.lossy, outcome.reason, outcome.detail)
         elif outcome.state == claims.HELD:
-            merged[key] = Outcome(
-                claims.HELD,
-                False,
-                existing.reason if existing.state == claims.HELD else outcome.reason,
-            )
+            kept = existing if existing.state == claims.HELD else outcome
+            merged[key] = Outcome(claims.HELD, False, kept.reason, kept.detail)
         elif existing.state == claims.EMITTED:
             existing.lossy = existing.lossy or outcome.lossy
     return merged
@@ -89,7 +109,14 @@ def merge_outcomes(
 def ledger_rows(outcomes: Mapping[tuple[str, str], Outcome]) -> list[dict[str, object]]:
     """The ledger of the outcomes: one row per source row."""
     return [
-        {"table": table, "locator": locator, "state": o.state, "lossy": o.lossy, "reason": o.reason}
+        {
+            "table": table,
+            "locator": locator,
+            "state": o.state,
+            "lossy": o.lossy,
+            "reason": o.reason,
+            "detail": o.detail,
+        }
         for (table, locator), o in outcomes.items()
     ]
 
@@ -115,10 +142,17 @@ def compute(
                 outcome = outcomes.get((table, locator))
                 if outcome is None:
                     state = UNMAPPED
-                    result.held.append((table, locator, state, UNMAPPED_REASON))
+                    result.held.append(
+                        HeldRow(table, locator, state, UNMAPPED_BY_MAPPING, UNMAPPED_DETAIL)
+                    )
                 elif outcome.state == claims.HELD:
+                    assert outcome.reason is not None  # a held row always states its reason
                     state = claims.HELD
-                    result.held.append((table, locator, state, outcome.reason or claims.HELD))
+                    result.held.append(
+                        HeldRow(
+                            table, locator, state, outcome.reason, outcome.detail or outcome.reason
+                        )
+                    )
                 else:
                     state = MAPPED_WITH_LOSS if outcome.lossy else ROW_MAPPED
             counts[state] = counts.get(state, 0) + 1
@@ -137,10 +171,49 @@ def _reason(disposition: str, reason: str | None, wave: int | None, loss: str | 
     return loss
 
 
+def check_rule_use(
+    spec: MappingSpec, result: Coverage, applied: Mapping[tuple[str, str], int]
+) -> tuple[list[str], list[str]]:
+    """The value rules that were applied to no row although their table has mapped rows:
+    `(refused, reported)`, each naming the rule. A rule the mapping declares `optional` (a field
+    the source fills only sometimes) is reported; any other is refused, since a declared rule the
+    mapping never consumed is a mapping that stopped emitting what it declares."""
+    refused: list[str] = []
+    reported: list[str] = []
+    for table, rule in spec.tables.items():
+        counts = result.counts.get(table, {})
+        mapped = sum(
+            rows
+            for state, rows in counts.items()
+            if state not in (claims.OUT_OF_SCOPE, claims.DEFERRED)
+        )
+        if not maps_rows(rule) or mapped == 0:
+            continue
+        for column, field_rule in rule.fields.items():
+            if field_rule.target is None or applied.get((table, column), 0) > 0:
+                continue
+            text = (
+                f"table {table} column {column}: the value rule for `{field_rule.target}` was "
+                f"applied to none of the {mapped} mapped row(s) of the table"
+            )
+            if field_rule.optional:
+                reported.append(text)
+            else:
+                refused.append(
+                    f"{text}; the mapping no longer emits what the rule declares (declare "
+                    "`optional = true` for a field the source fills only sometimes)"
+                )
+    return refused, reported
+
+
 def rule_rows(
-    spec: MappingSpec, decl: m.Declaration, schemas: Mapping[str, pa.Schema]
+    spec: MappingSpec,
+    decl: m.Declaration,
+    schemas: Mapping[str, pa.Schema],
+    applied: Mapping[tuple[str, str], int],
 ) -> list[dict[str, object]]:
-    """The `qual.mapping_rule` rows of a mapping: one per table, partition and column."""
+    """The `qual.mapping_rule` rows of a mapping: one per table, partition and column; a value
+    rule states the number of mapped rows of its table it was applied to (`applied`)."""
     rows: list[dict[str, object]] = []
     manifest_id = spec.source
     for table in schemas:
@@ -219,6 +292,7 @@ def rule_rows(
                     else field_rule.target
                 )
                 row[RULE.precision] = field_rule.precision
+                row[RULE.applied_rows] = applied.get((table, column), 0)
                 if field_rule.unit is not None:
                     row[RULE.source_unit] = field_rule.unit
                     if target.unit is not None:
@@ -264,15 +338,16 @@ def write_rows(
                     },
                     at=f"coverage {table}",
                 )
-    for table, locator, state, reason in coverage.held:
+    for held in coverage.held:
         writer.kind(
             HELD_ROW.declared,
             {
                 HELD_ROW.manifest_id: manifest_id,
-                HELD_ROW.source_table: table,
-                HELD_ROW.locator: locator,
-                HELD_ROW.state: state,
-                HELD_ROW.reason: reason,
+                HELD_ROW.source_table: held.table,
+                HELD_ROW.locator: held.locator,
+                HELD_ROW.state: held.state,
+                HELD_ROW.reason: held.reason,
+                HELD_ROW.detail: held.detail,
             },
-            at=locator,
+            at=held.locator,
         )

@@ -993,7 +993,9 @@ locator = "src/cubic.f90, src/cubic_eos.f90, src/cbmix.f90, src/cbhelm.f90, src/
 class = "residual_or_excess_contribution"
 inputs = "T, V (or P), mole numbers; composition as mole numbers and fractions."
 parameters = "pure: Tc, Pc, acf (from the component record), alpha parameters (2 or 3 numbers), b, optionally c (PT) and Schmidt-Wensel acf; pair: kij, lij; model constants m1 and m2 from a per-equation delta (SRK 0, PR 1)."
-composes = "alpha function (Classic, TWU, MC, GD, RK, Soave, PR, UMR, PR78, VdW, SW, PT, CLASSICFIT), beta (covolume temperature dependence), volume translation, mixing rules, ideal-gas Helmholtz part"
+composes = [
+  { slot = "", accepts = "alpha function (Classic, TWU, MC, GD, RK, Soave, PR, UMR, PR78, VdW, SW, PT, CLASSICFIT), beta (covolume temperature dependence), volume translation, mixing rules, ideal-gas Helmholtz part", default = "" },
+]
 equation_source = "not stated in code headers (the headers list SRK, PR, VdW, RK, SW and PT by name); GD cites doi 10.1021/i260068a009, RK cites 10.1021/cr60137a013, PR76 cites 10.1021/i160057a011, UMR cites 10.1021/ie049580p in docs/vCurrent/cubic_keys.md"
 closed_form = "implicit"
 data = "constructs 'PR and SRK container blocks', 'alpha correlation set', 'volume_shift', 'binary kij record', 'binary lij record'"
@@ -1004,7 +1006,7 @@ locator = "src/cbalpha.f90:1-570; src/cubic_eos.f90:276-330"
 class = "explicit_correlation"
 inputs = "reduced temperature Tr = T/Tc"
 parameters = "pure: Classic (1 parameter from acentric factor by a polynomial per equation: Soave 0.48 + 1.574 w - 0.176 w^2, PR 0.37464 + 1.54226 w - 0.26992 w^2, and others), TWU (3), MC (3), GERG-water (declared, not implemented: stoperror), CLASSICFIT (1, used by CPA), UMR (polynomial of w to fourth degree; water uses MC), PR78 (w-dependent), SW (Schmidt-Wensel), RK (1/sqrt Tr), VdW (1)"
-composes = "none"
+composes = []
 equation_source = "not stated in code; parameter tables follow the cited literature in docs/vCurrent/cubic_keys.md"
 closed_form = "yes"
 data = "construct 'alpha correlation set' (TWU, MC); Classic and the other polynomial forms need no stored data"
@@ -1015,7 +1017,9 @@ locator = "src/cbbeta.f90; src/cubic_eos.f90 nBetaCorrs"
 class = "explicit_correlation"
 inputs = "temperature"
 parameters = "pure: 2 numbers per quantum component, literals in code for HE, NE, H2, D2, P-H2 and O-H2"
-composes = "cubic equations"
+composes = [
+  { slot = "", accepts = "cubic equations", default = "" },
+]
 equation_source = "Aasen et al. 2020 (10.1016/j.fluid.2020.112790) by reference tag and comment in eoslibinit.f90"
 closed_form = "yes"
 data = "construct 'inline quantum-cubic and beta(T) parameters in code'"
@@ -1026,7 +1030,9 @@ locator = "src/volume_shift.f90; src/compdata.f90:53-70; docs/memo/peneloux"
 class = "explicit_correlation"
 inputs = "T, composition"
 parameters = "pure: ciA, ciB, ciC (and code-only ciDD, ciE, ciF), type 1, 2, 3 or 6; fallback from Rackett factor Zra, Tc, Pc for SRK and PR"
-composes = "cubic equations; also initialised for multiparameter fallback equations"
+composes = [
+  { slot = "", accepts = "cubic equations; also initialised for multiparameter fallback equations", default = "" },
+]
 equation_source = "memo peneloux.tex (volume shift for generic EOS)"
 closed_form = "yes"
 data = "construct 'volume_shift' and 'rackett_factor'"
@@ -1037,7 +1043,9 @@ locator = "src/cbmix.f90; src/cubic_eos.f90:196-262 mix_label_db; src/cbselect.f
 class = "residual_or_excess_contribution"
 inputs = "T, mole numbers"
 parameters = "pair: kij, lij (Reid uses directional kij(i,j) not equal to kij(j,i)); optional covolume exponent b_exponent"
-composes = "cubic equations"
+composes = [
+  { slot = "", accepts = "cubic equations", default = "" },
+]
 equation_source = "not stated"
 closed_form = "yes"
 data = "constructs 'binary kij record', 'binary lij record', 'Lee-Kesler binary kij record'"
@@ -1048,7 +1056,9 @@ locator = "src/excess_gibbs.f90; src/cbmix.f90; src/cbselect.f90:378-384, 557-62
 class = "residual_or_excess_contribution"
 inputs = "T, mole numbers"
 parameters = "pair: alpha_ij, alpha_ji, aGE, bGE, cGE (HV2 only) per direction; correlation variant 1 or 2 (Maribo-Mogensen, HV2 only); infinite-pressure limit constant per equation (VdW 1, SRK ln 2, PR -ln(sqrt 2 - 1)/sqrt 2)"
-composes = "cubic equations; CPA variants HVCPA and HVCPA2 reuse the same machinery with CPA data"
+composes = [
+  { slot = "", accepts = "cubic equations; CPA variants HVCPA and HVCPA2 reuse the same machinery with CPA data", default = "" },
+]
 equation_source = "memo thermopack2013.tex; the module header states it is based on Skaugen's Huron-Vidal implementation"
 closed_form = "yes"
 data = "construct 'binary excess-Gibbs mixing record'"
@@ -1059,7 +1069,9 @@ locator = "src/wong_sandler.f90; src/cubic_eos.f90:196-262; docs/memo/WongSandle
 class = "residual_or_excess_contribution"
 inputs = "T, mole numbers"
 parameters = "pair: alpha, k, tau with temperature polynomial or fraction forms (type inter_ws_datadb, declared but no data array exists); set only through the API (set_ws_param)"
-composes = "cubic equations and CPA"
+composes = [
+  { slot = "", accepts = "cubic equations and CPA", default = "" },
+]
 equation_source = "Wong and Sandler (1992), doi 10.1002/aic.690380505, cited in the module header"
 closed_form = "yes"
 data = "none bundled"
@@ -1070,7 +1082,9 @@ locator = "src/unifac.f90; src/unifacdata.f90; docs/memo/UNIFAC"
 class = "group_contribution"
 inputs = "T, mole numbers"
 parameters = "group: Rk, Qk; pair of main groups: aij, bij, cij; two flags selecting Flory-Huggins and Staverman-Guggenheim combinatorial terms (UMR: no FH with SG; VTPR: neither; UNIFAC: both)"
-composes = "cubic equations as an excess-Gibbs mixing rule"
+composes = [
+  { slot = "", accepts = "cubic equations as an excess-Gibbs mixing rule", default = "" },
+]
 equation_source = "memo unifac.tex; data sources Hansen 1991, Holderbaum 1991, Fisher 1996 by row"
 closed_form = "yes"
 data = "constructs 'UNIFAC subgroup', 'UNIFAC component decomposition', 'UNIFAC interaction row'"
@@ -1081,7 +1095,9 @@ locator = "src/cpa_parameters.f90; src/saft_association.f90; src/eosdata.f90:20-
 class = "association"
 inputs = "T, V, mole numbers"
 parameters = "pure: a0, b, alpha parameter c1, eps, beta, assoc_scheme, simplified_rdf; pair: kij_a, kij_eps, kij_beta, combining rules for eps and beta"
-composes = "cubic (SRK or PR), association term, mixing rules (classic, HV with CPA data, WS with CPA data)"
+composes = [
+  { slot = "", accepts = "cubic (SRK or PR), association term, mixing rules (classic, HV with CPA data, WS with CPA data)", default = "" },
+]
 equation_source = "memo cpa.tex; Michelsen-style Q-function solution in saft_association.f90"
 closed_form = "implicit"
 data = "constructs 'CPA pure-component set' (SRK only) and 'CPA cross-association and kij record'"
@@ -1092,7 +1108,9 @@ locator = "src/assocschemeutils.f90; src/association_var.f90; src/saft_associati
 class = "association"
 inputs = "T, V, mole numbers, pure association energy and volume, scheme per component"
 parameters = "pure: eps, beta, scheme; pair: cross eps and beta through arithmetic or geometric or default combining rules"
-composes = "CPA, PC-SAFT, SAFT-VR Mie, PeTS, LJ splined"
+composes = [
+  { slot = "", accepts = "CPA, PC-SAFT, SAFT-VR Mie, PeTS, LJ splined", default = "" },
+]
 equation_source = "Michelsen-type site-fraction solution (saft_association.f90 comments); SAFT-VR Mie association after Dufal et al. (10.1080/00268976.2015.1029027)"
 closed_form = "implicit"
 data = "association parameters inside constructs 'CPA pure-component set', 'PC-SAFT pure-component set', 'SAFT-VR Mie pure-component set'"
@@ -1103,7 +1121,9 @@ locator = "src/pc_saft_nonassoc.f90; src/pc_saft_parameters.f90; src/multipol.f9
 class = "residual_or_excess_contribution"
 inputs = "T, V, mole numbers"
 parameters = "pure: m, sigma, eps_depth_divk, eps, beta, scheme, mu, Q; pair: kij and combining rules"
-composes = "hard-chain and dispersion terms, association term, polar terms (dipole-dipole, quadrupole-quadrupole, dipole-quadrupole), cubic fallback equation for initial estimates"
+composes = [
+  { slot = "", accepts = "hard-chain and dispersion terms, association term, polar terms (dipole-dipole, quadrupole-quadrupole, dipole-quadrupole), cubic fallback equation for initial estimates", default = "" },
+]
 equation_source = "Gross and Sadowski 2001 (doi 10.1021/ie0003887, equation numbers A.12 to A.19 in comments); polar terms Gross 2005 (10.1002/aic.10502), Gross and Vrabec 2006 (10.1002/aic.10683), Vrabec and Gross 2008 (10.1021/jp072619u); simplified form von Solms et al. 2003 (10.1021/ie020753p); memo pc_saft.tex"
 closed_form = "implicit"
 data = "constructs 'PC-SAFT pure-component set' and 'PC-SAFT binary record'"
@@ -1114,7 +1134,9 @@ locator = "src/saftvrmie_interface.f90, saftvrmie_dispersion.f90, saftvrmie_chai
 class = "residual_or_excess_contribution"
 inputs = "T, V, mole numbers"
 parameters = "pure: m, sigma, eps_depth_divk, lambda_a, lambda_r, eps, beta, scheme; pair: kij (energy), lij (size), optional gamma_ij (repulsive exponent, API only); options: hard-sphere reference (Lafitte, single-component, additive, non-additive, additive exact), zeta mixing rule (Lafitte, linear, Leonard), A1/A2/A3/chain switches, truncation and shift corrections with r_cut"
-composes = "hard-sphere, first, second and third dispersion terms, chain term, association term, optional quantum corrections, cubic fallback"
+composes = [
+  { slot = "", accepts = "hard-sphere, first, second and third dispersion terms, chain term, association term, optional quantum corrections, cubic fallback", default = "" },
+]
 equation_source = "Lafitte et al. 2013 (doi 10.1063/1.4819786); association Dufal et al. 2015 (10.1080/00268976.2015.1029027); hard-sphere references Hammer et al. 2020 (10.1063/1.5142771); memo SAFT-VR-Mie.tex"
 closed_form = "implicit"
 data = "constructs 'SAFT-VR Mie pure-component set' and 'SAFT-VR Mie binary record'"
@@ -1125,7 +1147,9 @@ locator = "src/saftvrmie_options.f90:45-120; src/eoslibinit.f90:1007-1046 init_q
 class = "residual_or_excess_contribution"
 inputs = "T, V, mole numbers"
 parameters = "as SAFT-VR Mie plus fh_order per pure set and the segment mass; FH1 and FH2 switch the quantum correction of the dispersion and hard-sphere terms (quantum_correction 1 or 2, quantum_correction_spec 0 Feynman-Hibbs or 1 Jaen-Kahn in the option type)"
-composes = "SAFT-VR Mie"
+composes = [
+  { slot = "", accepts = "SAFT-VR Mie", default = "" },
+]
 equation_source = "Aasen et al. 2019 (doi 10.1063/1.5111364) by reference tag and docs/vCurrent/saftvrqmie_methods.md; Hammer et al. 2020 for hard spheres"
 closed_form = "implicit"
 data = "'SAFT-VR Mie pure-component set' sets with fh_order 1 or 2 and the AASEN2019, HYVA, HAMMER2022 tags"
@@ -1136,7 +1160,9 @@ locator = "src/pets.f90"
 class = "residual_or_excess_contribution"
 inputs = "T, V, mole numbers (argon only)"
 parameters = "pure: sigma 3.42e-10 m and eps/k 136.0 K as literals in getPetsPureParams (argon only; the component list is fixed to AR)"
-composes = "hard-sphere and dispersion terms with fixed a_vec and b_vec coefficients"
+composes = [
+  { slot = "", accepts = "hard-sphere and dispersion terms with fixed a_vec and b_vec coefficients", default = "" },
+]
 equation_source = "Heier et al. 2018 (doi 10.1080/00268976.2018.1447153)"
 closed_form = "implicit"
 data = "none bundled as data (constants in code)"
@@ -1147,7 +1173,9 @@ locator = "src/lj_splined.f90 (LJSarray at lines 76-115); src/hardsphere_wca.f90
 class = "residual_or_excess_contribution"
 inputs = "T, V, mole numbers (argon only)"
 parameters = "pure: sigma 3.42e-10 m and eps/k 124.0 K as inline data for AR for each of the 5 model labels; model flags for the perturbation scheme"
-composes = "Barker-Henderson, WCA or Van Westen UV and UF perturbation terms, hard-sphere references (BMCSL, WCA cavity), optional Lafitte a3"
+composes = [
+  { slot = "", accepts = "Barker-Henderson, WCA or Van Westen UV and UF perturbation terms, hard-sphere references (BMCSL, WCA cavity), optional Lafitte a3", default = "" },
+]
 equation_source = "hard-sphere: Mansoori et al. (10.1063/1.1675048), Boublik (10.1063/1.1673824); the LJ/s perturbation papers are cited by the code only as author names"
 closed_form = "implicit"
 data = "5 inline ljs_data records (argon)"
@@ -1158,7 +1186,9 @@ locator = "src/multiparameter_lj.f90"
 class = "helmholtz_potential"
 inputs = "reduced T and density (Rgas_meos = 1 in reduced units)"
 parameters = "global: Thol et al. coefficients for the full and the truncated-and-shifted Lennard-Jones fluid"
-composes = "ideal-gas part of reduced form"
+composes = [
+  { slot = "", accepts = "ideal-gas part of reduced form", default = "" },
+]
 equation_source = "Thol et al. (doi 10.1063/1.4945000 and 10.1080/00268976.2016.1246760)"
 closed_form = "yes"
 data = "inline constants"
@@ -1169,7 +1199,9 @@ locator = "src/leekesler.f90; docs/memo/leekesler"
 class = "residual_or_excess_contribution"
 inputs = "T, V, mole numbers with critical constants and acentric factor"
 parameters = "global: simple-fluid and reference-fluid constants b1..b4, c1..c4, d1, d2, beta, gamma as literals; reference-fluid acentric factor wRef 0.3978; pair: kij from LK_kij with default 1.0"
-composes = "simple and reference fluids (two-fluid interpolation) with a cubic (SRK) fallback for initial values"
+composes = [
+  { slot = "", accepts = "simple and reference fluids (two-fluid interpolation) with a cubic (SRK) fallback for initial values", default = "" },
+]
 equation_source = "memo leekesler.tex; binary data tag Plocker1982(+) (doi 10.1021/i260067a020)"
 closed_form = "implicit"
 data = "construct 'Lee-Kesler binary kij record'"
@@ -1180,7 +1212,9 @@ locator = "src/extcsp.f90; src/eoslibinit.f90:531-625; docs/memo/SPUNG"
 class = "residual_or_excess_contribution"
 inputs = "T, V, mole numbers; shape factors (theta, phi) with a reference component (default C3)"
 parameters = "global and pure: shape-factor equation (SRK or PR), shape alpha, shape mixing rule, reference equation (cubic, MBWR19, MBWR32 or NIST_MEOS for C3 only), reference component; binary: CSP-SRK and CSP-PR kij"
-composes = "shape-factor cubic equation, reference multiparameter or cubic equation, mixing rule for the shape equation"
+composes = [
+  { slot = "", accepts = "shape-factor cubic equation, reference multiparameter or cubic equation, mixing rule for the shape equation", default = "" },
+]
 equation_source = "memo spungmemo.tex (Implementing MBWR and SPUNG); notation from Michelsen and Mollerup pages 115-120 (module comment)"
 closed_form = "implicit"
 data = "constructs 'binary kij record' (CSP files) and 'MBWR coefficient set'"
@@ -1191,7 +1225,9 @@ locator = "src/mbwr.f90; src/mbwrdata.f90; src/mbwr_additional.f90"
 class = "helmholtz_potential"
 inputs = "T, molar density (pressure explicit, converted to Helmholtz form)"
 parameters = "pure: 20 or 33 coefficients with gamma; range flags"
-composes = "ideal-gas part from the component heat capacity; used as a reference in extended corresponding states"
+composes = [
+  { slot = "", accepts = "ideal-gas part from the component heat capacity; used as a reference in extended corresponding states", default = "" },
+]
 equation_source = "Span 2003 'Multiparameter equations of state' (mbwr.f90 comment); Younglove and Ely 1987 (mbwrdata.f90 comment)"
 closed_form = "implicit"
 data = "construct 'MBWR coefficient set'"
@@ -1202,7 +1238,9 @@ locator = "src/multiparameter_base.f90; src/multiparameter_c3.f90, _normal_h2, _
 class = "helmholtz_potential"
 inputs = "delta = rho/rho_c and tau = T_c/T; pure components only for NIST_MEOS, ideal mixing for NIST_MEOS_MIX"
 parameters = "pure: component constants and term arrays compiled into the modules; global: reference-state option (DEFAULT, IIR, NBP, ASHRAE, IDGAS, TRIPLE_POINT are documented; the pinned code implements only the default, see questions)"
-composes = "ideal-gas Helmholtz part (alpha0) and residual part (alphaRes), hyperdual differentiation"
+composes = [
+  { slot = "", accepts = "ideal-gas Helmholtz part (alpha0) and residual part (alphaRes), hyperdual differentiation", default = "" },
+]
 equation_source = "Lemmon et al. 2009 (propane), Leachman et al. 2009 (hydrogen), Tillner-Roth and Baehr 1994 (R134a) in module headers"
 closed_form = "implicit"
 data = "construct 'multiparameter Helmholtz parameters in code'"
@@ -1213,7 +1251,7 @@ locator = "src/eoslibinit.f90:158-162 (label test), 851-924 init_trend; src/dltr
 class = "helmholtz_potential"
 inputs = "T, density, mole numbers"
 parameters = "none in the tree: the library and its fluid and binary files are loaded at run time through dlopen from a TRENDROOT path"
-composes = "none"
+composes = []
 equation_source = "named EOSCG, GERG2008 and EOSCG-GERG in comments; no citation in the tree"
 closed_form = "implicit"
 data = "none bundled (the init_trend body is commented out in this pin, and the stub file supplies empty subroutines)"
@@ -1224,7 +1262,9 @@ locator = "src/ideal.f90:203-580; src/idealh2.f90; src/compdata.f90:12-43"
 class = "standard_state_species"
 inputs = "T"
 parameters = "pure: up to 21 numbers (n_max_cp) selected by the correlation id 1 to 13; integration constants href_int and sref_int set from href and sref at 298.15 K"
-composes = "ideal-mixture entropy of mixing (R ln x), the equation's residual part, TREND ideal terms (id 11)"
+composes = [
+  { slot = "", accepts = "ideal-mixture entropy of mixing (R ln x), the equation's residual part, TREND ideal terms (id 11)", default = "" },
+]
 equation_source = "named in comments: Sherwood, Reid and Prausnitz (3rd and 4th ed.), API project 44, Chen-Bender, DIPPR/AIChE (Daubert and Danner), Poling-Prausnitz-O'Connell (5th ed.), Shomate; docs/vCurrent/new_fluids.md"
 closed_form = "yes"
 data = "construct 'ideal_heat_capacity-N'"
@@ -1235,7 +1275,9 @@ locator = "src/solideos.f90; src/co2_gibbs.f90; src/h2o_gibbs.f90; src/vls.f90"
 class = "standard_state_species"
 inputs = "T, P"
 parameters = "pure: Gibbs-energy coefficients in code (CO2 Jaeger and Span; ice Feistel and Wagner)"
-composes = "fluid equation plus solid phase in vls.f90 (fluid or solid selection)"
+composes = [
+  { slot = "", accepts = "fluid equation plus solid phase in vls.f90 (fluid or solid selection)", default = "" },
+]
 equation_source = "Jaeger and Span (J. Chem. Eng. Data 57, 590-597); Feistel and Wagner (10.1063/1.2183324)"
 closed_form = "yes"
 data = "construct 'solid equation parameters in code'"
@@ -1246,7 +1288,9 @@ locator = "src/solid_saturation.f90:2290-2470"
 class = "explicit_correlation"
 inputs = "T"
 parameters = "pure: p_red, T_red, triple T, 6 coefficients and exponents, term counts n, n1, n2, n3"
-composes = "scaling to the equation's saturation pressure at the triple point"
+composes = [
+  { slot = "", accepts = "scaling to the equation's saturation pressure at the triple point", default = "" },
+]
 equation_source = "docs/vCurrent/new_fluids.md describes the forms; per-set DOIs in the data"
 closed_form = "yes"
 data = "constructs 'melting_curve' and 'sublimation_curve'"
@@ -1257,7 +1301,9 @@ locator = "src/ideal.f90:83-163; src/thermo_utils.f90 wilsonK; src/saturation.f9
 class = "explicit_correlation"
 inputs = "T and, for Wilson K, p"
 parameters = "pure: ant(3), Tantmin, Tantmax (Antoine); Tc, Pc, acf, Zc (others)"
-composes = "initial estimates for saturation and flash routines (Wilson K uses Tc, Pc, acf)"
+composes = [
+  { slot = "", accepts = "initial estimates for saturation and flash routines (Wilson K uses Tc, Pc, acf)", default = "" },
+]
 equation_source = "not stated"
 closed_form = "yes"
 data = "construct 'saturation' (estimate parameters unused in this pin) and the critical constants"
@@ -1268,7 +1314,9 @@ locator = "src/apparent_composition.f90; docs/memo/apparent"
 class = "electrolyte_interaction"
 inputs = "apparent mole numbers and a stoichiometric matrix v_stoich (symmetric upper-left ncsym block)"
 parameters = "global: stoichiometric matrix set through the API; no bundled data"
-composes = "wraps an equation of state so that fugacities and differentials are mapped between apparent and true species; ions appear only as names in the SRK_GE data (NA+, CL-)"
+composes = [
+  { slot = "", accepts = "wraps an equation of state so that fugacities and differentials are mapped between apparent and true species; ions appear only as names in the SRK_GE data (NA+, CL-)", default = "" },
+]
 equation_source = "memo apparent.tex"
 closed_form = "implicit"
 data = "none bundled"
@@ -1279,7 +1327,9 @@ locator = "src/tp_solver.f90, ph_solver.f90, ps_solver.f90, uv_solver.f90, sv_so
 class = "other"
 inputs = "T, p, h, s, u, v and overall composition as specified by each solver; the algorithms are procedures that take any model in the library (this family is a set of numerical methods, not an equation)"
 parameters = "global numerical settings: tpTmin 80 K, tpTmax 999 K, tpPmin 10 Pa, tpPmax 1e8 Pa, robustness level, stability tolerance, g_tolerance"
-composes = "all equations of state above through the eos and eostv interfaces"
+composes = [
+  { slot = "", accepts = "all equations of state above through the eos and eostv interfaces", default = "" },
+]
 equation_source = "memos flash.tex, envelopes.tex, critical.tex, binaryXY.tex; Michelsen 1984 method cited in critical.f90"
 closed_form = "procedural"
 data = "none bundled"
@@ -1290,7 +1340,9 @@ locator = "src/hyperdual_mod.f90, hyperdual_utility.f90; src/fmt.f90; docs/memo/
 class = "other"
 inputs = "hyperdual arguments (value and two first-order parts and one cross part); densities for the FMT energy density"
 parameters = "none"
-composes = "used for exact derivatives of the multiparameter equations and of the Wong-Sandler mixing rule; fmt.f90 gives a White-Bear type reduced energy density and BMCSL pieces for density functional use"
+composes = [
+  { slot = "", accepts = "used for exact derivatives of the multiparameter equations and of the Wong-Sandler mixing rule; fmt.f90 gives a White-Bear type reduced energy density and BMCSL pieces for density functional use", default = "" },
+]
 equation_source = "hyperdual code credited to Rehner and Bauer (module header); FMT references cited by doi in fmt.f90"
 closed_form = "procedural"
 data = "none bundled"
@@ -1301,7 +1353,9 @@ locator = "src/eoslibinit.f90:193-268 init_fallback_and_redefine_criticals, 632-
 class = "other"
 inputs = "an initialised non-cubic model"
 parameters = "global: an SRK alternative built on the same components with Tc, Pc and acf overwritten from the active model's own critical point"
-composes = "every model whose label has need_alternative_eos true (LK, CSP, CPA, PC-SAFT variants, MBWR, NIST, LJ, SAFT-VR Mie, PeTS)"
+composes = [
+  { slot = "", accepts = "every model whose label has need_alternative_eos true (LK, CSP, CPA, PC-SAFT variants, MBWR, NIST, LJ, SAFT-VR Mie, PeTS)", default = "" },
+]
 equation_source = "not stated"
 closed_form = "procedural"
 data = "none bundled"
@@ -1312,7 +1366,9 @@ locator = "addon/pycThermopack/thermopack/*.py"
 class = "other"
 inputs = "strings for components and model options; SI numbers"
 parameters = "constructor options: eos, mixing, alpha, parameter_reference (default Default), volume_shift, simplified, polar, feynman_hibbs_order, reference_state, minimum_temperature"
-composes = "thermo (base, 5184 lines) with subclasses cubic (and VanDerWaals, SoaveRedlichKwong, RedlichKwong, PengRobinson, PengRobinson78, SchmidtWensel, PatelTeja), tcPR, qcubic, cpa (SRK_CPA, PR_CPA), pcsaft (PCP_SAFT, SPC_SAFT), saft, saftvrmie, saftvrqmie, pets, ljs_bh, ljs_wca (ljs_uv), lee_kesler, ext_csp, multiparam, ideal, volume_translation; result classes FlashResult, XYDiagram, PxyEquilibrium, TxyEquilibrium, State, PhaseDiagram"
+composes = [
+  { slot = "", accepts = "thermo (base, 5184 lines) with subclasses cubic (and VanDerWaals, SoaveRedlichKwong, RedlichKwong, PengRobinson, PengRobinson78, SchmidtWensel, PatelTeja), tcPR, qcubic, cpa (SRK_CPA, PR_CPA), pcsaft (PCP_SAFT, SPC_SAFT), saft, saftvrmie, saftvrqmie, pets, ljs_bh, ljs_wca (ljs_uv), lee_kesler, ext_csp, multiparam, ideal, volume_translation; result classes FlashResult, XYDiagram, PxyEquilibrium, TxyEquilibrium, State, PhaseDiagram", default = "" },
+]
 equation_source = "not applicable"
 closed_form = "procedural"
 data = "none bundled"
@@ -1453,189 +1509,189 @@ documented = "no"
 
 [[capability]]
 calculation = "flash_tp"
-offered = true
+offered = "yes"
 scope = "vapour-liquid two-phase flash with stability analysis for all equations of state (cubic, CPA, PC-SAFT family, SAFT-VR Mie family, LK, CSP, multiparameter, PeTS, LJ); not three-phase"
 locator = "src/tp_solver.f90 twoPhaseTPflash; addon/pycThermopack/thermopack/thermo.py:1923 two_phase_tpflash"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_ph"
-offered = true
+offered = "yes"
 scope = "two-phase PH flash, all equations"
 locator = "src/ph_solver.f90; thermo.py:2035 two_phase_phflash"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_ps"
-offered = true
+offered = "yes"
 scope = "two-phase PS flash, all equations"
 locator = "src/ps_solver.f90; thermo.py:1972 two_phase_psflash"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_uv"
-offered = true
+offered = "yes"
 scope = "two-phase UV flash, all equations"
 locator = "src/uv_solver.f90; thermo.py:2102 two_phase_uvflash"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_sv (proposed)"
-offered = true
+offered = "yes"
 scope = "two-phase SV flash, single-component special case and multicomponent; exported from the shared library (addon/pyUtils/exports/export_list.py:345) but the Python binding is commented out (thermo.py:192), so it is not reachable from the wrapper"
 locator = "src/sv_solver.f90:67-91 twoPhaseSVflash"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "bubble_dew_point"
-offered = true
+offered = "yes"
 scope = "bubble and dew temperature and pressure for all equations"
 locator = "src/saturation.f90 bubT, bubP, dewT, dewP, safe_*; thermo.py:2928-3042"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_stability"
-offered = true
+offered = "yes"
 scope = "tangent-plane distance minimisation used inside flashes and saturation; vapour-liquid stability"
 locator = "src/stability.f90 checkVLEstability, stabcalc; src/critical.f90 (stability limit)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "critical_point"
-offered = true
+offered = "yes"
 scope = "mixture critical points in (T, V), (T, P) and Z formulations, pure-fluid criticals, critical end point and three-phase critical point for binaries"
 locator = "src/critical.f90 calcCritical, calcCriticalTV, calcCriticalZ, calcCriticalEndPoint; src/solid_saturation.f90 threePhaseCriticalPoint; thermo.py:4463 critical"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_envelope"
-offered = true
+offered = "yes"
 scope = "pressure-temperature envelope of a mixture, pure-fluid saturation curve, isentrope-envelope crossing, saturation points from a specified property"
 locator = "src/saturation_curve.f90 envelopePlot; src/puresaturation.f90; src/saturation_point_locators.f90; thermo.py:3080 get_envelope_twophase, 3203 get_pure_fluid_saturation_curve, 3971 saturation_points_from_property"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_envelope"
-offered = true
+offered = "yes"
 scope = "binary composition-plane diagrams Txy and Pxy with liquid-liquid, liquid-vapour and three-phase (LLVE) lines, global binary phase diagram"
 locator = "src/binaryplot.f90 binaryTxy, binaryPxy, VLLEBinaryXY; thermo.py:3286 get_binary_pxy, 3418 get_binary_txy, 3641 global_binary_plot"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_envelope"
-offered = true
+offered = "yes"
 scope = "solid-fluid envelope and solid-liquid-vapour triple line for a mixture with a pure solid (CO2 or H2O) using the melting and sublimation correlations"
 locator = "src/solid_saturation.f90 solidEnvelopePlot, satSolid, threePhaseLineTemperature; thermo.py:3698 solid_envelope_plot"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "spinodal"
-offered = true
+calculation = "spinodal (proposed)"
+offered = "yes"
 scope = "spinodal and metastable-limit mapping, meta-isentropes and meta-isotherms, pure and mixture"
 locator = "src/spinodal.f90; src/mut_solver.f90; thermo.py:4653 spinodal, 4799 map_meta_isentrope"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "isoline_tracing (proposed)"
-offered = true
+offered = "yes"
 scope = "isotherm, isobar, isenthalp and isentrope curves across the two-phase region"
 locator = "src/isolines.f90; thermo.py:4182-4384 get_isotherm, get_isobar, get_isenthalp, get_isentrope"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "joule_thomson_inversion_curve (proposed)"
-offered = true
+offered = "yes"
 scope = "Joule-Thomson inversion curve for a fixed composition"
 locator = "src/joule_thompson_inversion.f90; thermo.py:5136 joule_thompson_inversion"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "speed_of_sound_evaluation (proposed)"
-offered = true
+offered = "yes"
 scope = "single-phase, two-phase (equilibrium) and solid speed of sound"
 locator = "src/speed_of_sound.f90; thermo.py:1825 speed_of_sound, 1878 speed_of_sound_tv"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "virial_coefficient_evaluation (proposed)"
-offered = true
+offered = "yes"
 scope = "second virial matrix and binary third virial matrix of the active equation"
 locator = "thermo.py:5038 virial_coeffcients (sic), 5070 second_virial_matrix, 5100 binary_third_virial_matrix"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "eos_property_evaluation (proposed)"
-offered = true
+offered = "yes"
 scope = "specific volume, compressibility, enthalpy, entropy, internal energy, Helmholtz energy, chemical potential and fugacity with analytical differentials in (T, p, n) and (T, V, n); residual and ideal parts separately; no direct heat capacity"
 locator = "src/eos.f90, src/eostv.f90, src/single_phase.f90; thermo.py:1104-2852"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "melting_line_evaluation (proposed)"
-offered = true
+offered = "yes"
 scope = "melting and sublimation pressure from the stored correlations, optionally scaled to the equation's saturation pressure at the triple point"
 locator = "src/solid_saturation.f90 melting_pressure_correlation, sublimation_pressure_correlation; thermo.py:3755, 3802"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "activity_coefficient_evaluation (proposed)"
-offered = true
+offered = "yes"
 scope = "excess Gibbs models (Huron-Vidal, NRTL, UNIFAC, UMR, VTPR, Wong-Sandler) only as mixing rules inside a cubic equation; no standalone activity-coefficient interface was found"
 locator = "src/excess_gibbs.f90; src/unifac.f90; src/wong_sandler.f90"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "multiphase_flash (proposed)"
-offered = false
+offered = "no"
 scope = "flash with more than two fluid phases; the TP flash is two-phase only, three-phase behaviour appears only as binary LLVE lines and in vls.f90 bookkeeping"
 locator = "src/tp_solver.f90 header (two-phase, 'Look for single phase or a mixture of LV'); src/binaryplot.f90 LLVEline"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "hydrate_equilibrium (proposed)"
-offered = false
+offered = "no"
 scope = "gas-hydrate or clathrate equilibrium: the only mentions are in docs/memo/thermopack/thermopack2013.tex and docs/memo/flash/flash.tex; no hydrate model exists in src"
 locator = "whole src tree (no match for hydrate or clathrate); docs/memo/thermopack/thermopack2013.tex:46, 480; docs/memo/flash/flash.tex:584"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "gibbs_minimization"
-offered = false
+offered = "no"
 scope = "constrained Gibbs minimisation over a species and phase list: not present (flashes are two-phase TP/PH/PS/UV/SV; the MINGIBBSPH flag selects a single-phase root)"
 locator = "src/thermopack_constants.f90 phase flags; src/tp_solver.f90"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "characterization"
-offered = false
+offered = "no"
 scope = "petroleum pseudo-component characterisation from assay data: not present; only user-supplied pseudo components (init_cubic_pseudo with Tc, Pc, acf, Mw)"
 locator = "src/eoslibinit.f90:423-498"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "parameter_regression"
-offered = false
+offered = "no"
 scope = "fitting of model parameters to data: not present; tuning.f90 and the wrapper expose getters and setters for kij, lij, HV and WS parameters only"
 locator = "src/tuning.f90; thermo.py and cubic.py set_* methods"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "aqueous_speciation"
-offered = false
+offered = "no"
 scope = "speciation from equilibrium constants: not present; the apparent-composition wrapper maps apparent to true species from a user-supplied stoichiometric matrix and does not solve reactions"
 locator = "src/apparent_composition.f90"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "transport_property_evaluation (proposed)"
-offered = false
+offered = "no"
 scope = "viscosity, thermal conductivity and diffusion: no transport model exists in the pin (KineticGas adds transport on top of ThermoPack)"
 locator = "whole src and wrapper tree (no match)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "gerg_2008_evaluation (proposed)"
-offered = false
+offered = "no"
 scope = "GERG-2008 and EOS-CG mixture equations: selectable by label and routed to the external TREND library, whose interface code is stubbed (init_trend body commented out, dltrend_dummy.f90 empty routines), so nothing is computed from the tree alone"
 locator = "src/eoslibinit.f90:158-162 and 851-924; src/dltrend.cpp; src/dltrend_dummy.f90"
 evidence = "source_inspected"

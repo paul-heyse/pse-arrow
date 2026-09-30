@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,11 +20,13 @@ from test_acquire_support import (
     manifest_text,
     md5,
     sha256,
+    unseal,
     write_manifest,
 )
 from typer.testing import CliRunner
 
 from thermo_knowledge import config
+from thermo_knowledge.acquire import store
 from thermo_knowledge.cli import app
 
 runner = CliRunner()
@@ -171,8 +174,33 @@ def pin_of(workspace: Workspace, source_id: str) -> str:
     return json.loads(workspace.lock.read_text())["sources"][source_id]["pin"]
 
 
+def test_a_completed_acquisition_is_read_only_and_a_partial_one_is_not(
+    workspace: Workspace,
+) -> None:
+    acquire_both(workspace)
+    pin_directory = workspace.raw / "alpha" / pin_of(workspace, "alpha")
+    entries = [pin_directory, *pin_directory.rglob("*")]
+    assert entries and all(not entry.stat().st_mode & 0o222 for entry in entries), (
+        "every file and directory of a completed acquisition has lost its write permission"
+    )
+    with pytest.raises(PermissionError):
+        (pin_directory / "tree" / "f.txt").write_bytes(b"rewritten\n")
+    with pytest.raises(PermissionError):
+        (pin_directory / "tree" / "stray.txt").write_text("new")
+    # `.partial`, where an acquisition is built, is writable until it is renamed into place
+    partial = store.partial_dir(workspace.raw, "alpha")
+    partial.mkdir(parents=True)
+    (partial / "work.txt").write_text("in progress")
+    assert partial.stat().st_mode & 0o200 and (partial / "work.txt").stat().st_mode & 0o200
+    # the documented way to remove a pin directory that must go
+    unseal(pin_directory)
+    shutil.rmtree(pin_directory)
+    assert not pin_directory.exists()
+
+
 def test_check_reports_a_changed_file_by_path(workspace: Workspace) -> None:
     acquire_both(workspace)
+    unseal(workspace.raw)  # tampering needs write access: a completed acquisition is read-only
     (workspace.tree("alpha", pin_of(workspace, "alpha")) / "f.txt").write_bytes(b"tampered\n")
     result = workspace.cli("--check")
     assert result.exit_code == 1
@@ -184,6 +212,7 @@ def test_check_reports_a_changed_file_by_path(workspace: Workspace) -> None:
 
 def test_check_reports_a_missing_file_by_path(workspace: Workspace) -> None:
     acquire_both(workspace)
+    unseal(workspace.raw)
     (workspace.tree("alpha", pin_of(workspace, "alpha")) / "f.txt").unlink()
     result = workspace.cli("--check")
     assert result.exit_code == 1
@@ -193,6 +222,7 @@ def test_check_reports_a_missing_file_by_path(workspace: Workspace) -> None:
 def test_check_reports_an_extra_file_by_path(workspace: Workspace) -> None:
     acquire_both(workspace)
     tree = workspace.tree("alpha", pin_of(workspace, "alpha"))
+    unseal(workspace.raw)
     (tree / "sub").mkdir()
     (tree / "sub" / "stray.txt").write_text("extra")
     result = workspace.cli("--check")
@@ -273,6 +303,7 @@ def test_list_reports_a_store_that_lost_its_directory_as_mismatched(workspace: W
     acquire_both(workspace)
     import shutil
 
+    unseal(workspace.raw)
     shutil.rmtree(workspace.raw / "alpha")
     result = workspace.cli("--list", "alpha")
     assert " mismatched" in result.output
@@ -313,6 +344,7 @@ def test_a_tampered_store_is_refused_rather_than_repaired(workspace: Workspace) 
     workspace.declare_file("alpha", "/one.txt", ONE)
     assert workspace.cli().exit_code == 0
     tree = workspace.tree("alpha", sha256(ONE)[:12])
+    unseal(workspace.raw)
     (tree / "f.txt").write_bytes(b"tampered\n")
     lock_before = workspace.lock.read_bytes()
     requests = len(workspace.server.log)

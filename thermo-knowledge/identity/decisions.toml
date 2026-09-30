@@ -9,10 +9,11 @@
 # key, and carries a reason. The format is documented in docs/pipeline.md (section 1.1):
 #
 #   [[decision]]
-#   action = "identify"      # the entity is this canonical species
+#   action = "identify"      # the entity is this canonical entity
 #   entity = { carrier = "coolprop", scope = "fluids", key = "R1123" }
+#   class = "species"        # species, defined_mixture, material or polymer_type
 #   canonical_key = "ZWQIPCQCAOKXDI-UHFFFAOYSA-N"
-#   charge = 0               # optional, default 0
+#   charge = 0               # optional, default 0, species only
 #   reason = "why"
 #
 #   [[decision]]

@@ -57,7 +57,26 @@ def _uncertainty_needs_slot(row: Row) -> str | None:
     return None
 
 
+def _key_follows_doi(row: Row) -> str | None:
+    """A publication's key is `doi:<doi>` when it has a DOI, else `carrier:<manifest id>:<key>`."""
+    key, doi = row.get(pc.SOURCE.key), row.get(pc.PUBLICATION.doi)
+    if doi is not None:
+        if key != f"doi:{doi}":
+            return f"a publication with the DOI {doi!r} has the key `doi:{doi}`, not {key!r}"
+        if doi != str(doi).lower():
+            return f"the DOI {doi!r} is stated in lower case"
+        return None
+    parts = str(key).split(":", 2)
+    if len(parts) != 3 or parts[0] != "carrier" or not parts[1] or not parts[2]:
+        return (
+            f"a publication without a DOI has the key `carrier:<manifest id>:<citation key>`, "
+            f"not {key!r}"
+        )
+    return None
+
+
 LOAD_INVARIANTS: dict[tuple[str, str], Evaluator] = {
+    (pc.PUBLICATION.declared, "key_follows_doi"): _key_follows_doi,
     (pc.PARAMETER_SET.declared, "nested_has_both"): _nested_has_both,
     (
         pc.STANDARD_STATE.declared,

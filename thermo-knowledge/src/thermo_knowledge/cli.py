@@ -18,6 +18,8 @@ from thermo_knowledge.mapping.command import map_command
 from thermo_knowledge.qualify.command import qualify_command
 from thermo_knowledge.resolve.command import resolve_command
 from thermo_knowledge.staging.command import load_src_command, read_command
+from thermo_knowledge.survey_index.command import HELP as SURVEY_HELP
+from thermo_knowledge.survey_index.command import survey_command
 from thermo_knowledge.verify.command import VERIFY_HELP, verify_command
 
 app = typer.Typer(
@@ -28,6 +30,7 @@ app = typer.Typer(
 )
 db_app = typer.Typer(help="The pse_thermo database.", no_args_is_help=True)
 app.add_typer(db_app, name="db")
+app.command(name="survey", help=SURVEY_HELP)(survey_command)
 
 STAGES: dict[str, str] = {
     "acquire": "Acquire declared sources into the raw store and record sources.lock.",

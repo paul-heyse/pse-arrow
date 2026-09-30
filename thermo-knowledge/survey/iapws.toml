@@ -504,7 +504,7 @@ fields = [
   { name = "p_c", meaning = "22.064 + 0.27 delta1 +- 0.005 MPa (H2O); 21.671 + 0.27 delta2 +- 0.010 MPa (D2O)", unit = "MPa", shape = "scalar", role = "input" },
   { name = "rho_c", meaning = "322 +- 3 kg/m3 (H2O); 356 +- 5 kg/m3 (D2O)", unit = "kg/m3", shape = "scalar", role = "input" },
 ]
-origin = "evaluated (assessment by Levelt Sengers, Straub, Watanabe and Hill, J. Phys. Chem. Ref. Data 14, 193 (1985); temperatures converted from IPTS-68 to ITS-90, one extra decimal given)"
+origin = "other (evaluated (assessment by Levelt Sengers, Straub, Watanabe and Hill, J. Phys. Chem. Ref. Data 14, 193 (1985); temperatures converted from IPTS-68 to ITS-90, one extra decimal given))"
 conventions = "The number of decimals in the temperatures does not imply accuracy (stated); density is mass density."
 absence = "not applicable"
 validity = "not applicable"
@@ -528,7 +528,7 @@ fields = [
   { name = "density maximum", meaning = "near 3.98 C at 0.101 325 MPa", unit = "kg/m3", shape = "scalar", role = "input" },
   { name = "reference viscosity", meaning = "ISO value at 293.15 K and p0", unit = "mPa s", shape = "scalar", role = "input" },
 ]
-origin = "evaluated (recommendations by IAPWS, reviewed annually; the present revision is dated July 2026 and lists the earlier revisions 2002, 2005, 2008, 2012, 2016, 2020)"
+origin = "other (evaluated (recommendations by IAPWS, reviewed annually; the present revision is dated July 2026 and lists the earlier revisions 2002, 2005, 2008, 2012, 2016, 2020))"
 conventions = "Uncertainties are given in the parenthesis form (for example 1.854 98(9) D); the isotopic composition is 2H 0.015 574(5) atom percent of hydrogen and 17O 0.037 90(9), 18O 0.200 04(5) atom percent of oxygen; the triple point is (611.657 +- 0.010) Pa and T_t = 273.16 K; critical constants as in R2-83."
 absence = "not applicable"
 validity = "not applicable"

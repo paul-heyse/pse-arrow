@@ -380,7 +380,9 @@ locator = "AGA8CODE/C/GERG2008.cpp (PressureGERG, DensityGERG, PropertiesGERG, A
 class = "helmholtz_potential"
 inputs = "T (K), molar density D (mol/l) and mole fractions x(1..21) as natural variables of the function; pressure P (kPa) with T is solved for D."
 parameters = "pure (per component): Dc, Tc, molar mass, residual term rows (n, d, t, c), ideal-gas n0(1..7) and th0(4..7); pair: bvij, gvij, btij, gtij, mNumb, fij; departure model: nijk, dijk, tijk, cijk, eijk, bijk, gijk; global: R = 8.314472 J/mol/K (and 8.31451 for the ideal-gas scaling)."
-composes = "pure-fluid residual terms evaluated at mixture reduced variables, composition-dependent reducing function, binary departure functions weighted by x_i x_j fij, ideal-gas Helmholtz part with mixing term ln x"
+composes = [
+  { slot = "", accepts = "pure-fluid residual terms evaluated at mixture reduced variables, composition-dependent reducing function, binary departure functions weighted by x_i x_j fij, ideal-gas Helmholtz part with mixing term ln x", default = "" },
+]
 equation_source = "header cites Kunz and Wagner, The GERG-2008 Wide-Range Equation of State for Natural Gases and Other Mixtures, J. Chem. Eng. Data 57(11):3032-3091, 2012, and Kunz, Klimeck, Wagner and Jaeschke, GERG Technical Monograph 15 (2007)"
 closed_form = "yes"
 data = "constructs: component list, GERG-2008 pure-component constants, pure-fluid residual terms, ideal-gas terms, binary reducing parameters, departure functions"
@@ -391,7 +393,9 @@ locator = "AGA8CODE/C/GERG2008.cpp lines 350-401 (ReducingParametersGERG) and 15
 class = "other"
 inputs = "mole fractions; combined pair quantities"
 parameters = "pair: combined gvij and gtij (gamma times beta times the pure-value product) and squared betas; pure: Dc, Tc"
-composes = "none (supplies the reducing temperature Tr and density Dr to the pure and departure terms); the double sum runs over pairs with a factor 2 for i not equal to j and skips pairs with a component below epsilon"
+composes = [
+  { slot = "", accepts = "none (supplies the reducing temperature Tr and density Dr to the pure and departure terms); the double sum runs over pairs with a factor 2 for i not equal to j and skips pairs with a component below epsilon", default = "" },
+]
 equation_source = "not cited in code beyond the file header"
 closed_form = "yes"
 data = "constructs: GERG-2008 pure-component constants and binary reducing parameters"
@@ -402,7 +406,9 @@ locator = "AGA8CODE/C/GERG2008.cpp lines 402-459 (Alpha0GERG); AGA8CODE/C/Detail
 class = "standard_state_species"
 inputs = "T, D and x; the density enters through ln(D x_i)"
 parameters = "pure: n0(1..7), th0(4..7); global: T0 = 298.15 K and P0 = 101.325 kPa for the reference constants, R, Rs"
-composes = "none; mixing term x_i ln x_i is part of the sum"
+composes = [
+  { slot = "", accepts = "none; mixing term x_i ln x_i is part of the sum", default = "" },
+]
 equation_source = "header only; the four hyperbolic terms are sinh and cosh logarithm terms of the GERG-2004 ideal-gas form (term names are not stated in this repository)"
 closed_form = "yes"
 data = "construct 'GERG-2008 ideal-gas terms'"
@@ -413,7 +419,9 @@ locator = "AGA8CODE/C/Detail.cpp (PressureDetail, DensityDetail, PropertiesDetai
 class = "helmholtz_potential"
 inputs = "T (K), D (mol/l), x(1..21)"
 parameters = "global: an, bn, kn, un and flags (58 terms), R = 8.31451 J/mol/K; pure: Ei, Ki, Gi, Qi, Fi, Si, Wi, molar mass, ideal-gas n0 and th0; pair: Eij, Uij, Kij, Gij (default 1)"
-composes = "virial-type density series with mixture characterisation parameters (K, U, G, Q, F) from quadratic and pair combining rules, plus the shared ideal-gas part"
+composes = [
+  { slot = "", accepts = "virial-type density series with mixture characterisation parameters (K, U, G, Q, F) from quadratic and pair combining rules, plus the shared ideal-gas part", default = "" },
+]
 equation_source = "header: the publication is available from AGA and the Transmission Measurement Committee; no citation details"
 closed_form = "yes"
 data = "constructs: DETAIL equation terms, characterisation parameters, binary interaction parameters, component list"
@@ -424,7 +432,9 @@ locator = "AGA8CODE/C/Gross.cpp (PressureGross, DensityGross, GrossHv, GrossInpu
 class = "explicit_correlation"
 inputs = "T (K), D (mol/l) and the lumped composition (equivalent hydrocarbon, N2, CO2) with HCH; Method 1 and 2 build these from heating value, relative density and N2/CO2 fractions"
 parameters = "global: b, c polynomial coefficients for N2 and CO2 pairs and triples, hydrocarbon coefficient arrays, cross combining constants, heating values of 21 components, G1, G2, Mref, Bref coefficients, R = 8.31451 J/mol/K"
-composes = "second and third virial coefficients from the three-pseudo-component mixture; Method 1 and Method 2 characterisation iterations (up to 20) that fix composition from bulk properties"
+composes = [
+  { slot = "", accepts = "second and third virial coefficients from the three-pseudo-component mixture; Method 1 and Method 2 characterisation iterations (up to 20) that fix composition from bulk properties", default = "" },
+]
 equation_source = "header: publication available from AGA; no citation details; heating values cite AGA-5 (2009) in a comment and ISO 6976 in a superseded comment block"
 closed_form = "implicit"
 data = "construct 'GROSS method inputs and correlation constants'"
@@ -518,50 +528,50 @@ documented = "yes (routine header comments)"
 # ---------------------------------------------------------------------------
 
 [[capability]]
-calculation = "single_phase_properties_td (proposed new key: properties of one phase from temperature, density and composition)"
-offered = true
-scope = "GERG-2008 and DETAIL (pressure, Z, derivatives, U, H, S, Cv, Cp, W, G, JT, Kappa, A for GERG); GROSS returns pressure and Z only"
+calculation = "single_phase_properties_td (proposed)"
+offered = "yes"
+scope = "Proposed key for: properties of one phase from temperature, density and composition. GERG-2008 and DETAIL (pressure, Z, derivatives, U, H, S, Cv, Cp, W, G, JT, Kappa, A for GERG); GROSS returns pressure and Z only"
 locator = "AGA8CODE/C/GERG2008.cpp lines 277-348 (PropertiesGERG); Detail.cpp lines 209-282"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "single_phase_density_tp (proposed new key: molar density of one phase from temperature, pressure and composition)"
-offered = true
-scope = "GERG-2008 (gas root by default, liquid root by flag), DETAIL, GROSS"
+calculation = "single_phase_density_tp (proposed)"
+offered = "yes"
+scope = "Proposed key for: molar density of one phase from temperature, pressure and composition. GERG-2008 (gas root by default, liquid root by flag), DETAIL, GROSS"
 locator = "AGA8CODE/C/GERG2008.cpp lines 155-276 (DensityGERG); Detail.cpp lines 145-208; Gross.cpp lines 140-208"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_tp"
-offered = false
+offered = "no"
 scope = "all methods: the state is single-phase by construction; a two-phase input returns a metastable state (GERG-2008 header comment)"
 locator = "AGA8CODE/C/GERG2008.cpp lines 155-176"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_stability"
-offered = false
+offered = "no"
 scope = "GERG-2008 iFlag 1 performs heuristic checks for possible two-phase states (negative dP/dD or d2P/dTdD, nonpositive heat capacities or speed of sound) without a tangent-plane analysis"
 locator = "AGA8CODE/C/GERG2008.cpp lines 240-270"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "critical_point"
-offered = false
+offered = "no"
 scope = "GERG-2008 computes only a mole-fraction-average pseudo-critical temperature and density (PseudoCriticalPointGERG) to start the density search; no critical-point solve"
 locator = "AGA8CODE/C/GERG2008.cpp lines 639-656"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "bubble_dew_point"
-offered = false
+offered = "no"
 scope = "no saturation or bubble/dew routine in any method"
 locator = "not applicable: a search of the C, Fortran and VB sources finds no such routine"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "group_estimation"
-offered = false
+offered = "no"
 scope = "GROSS lumps any mixture into equivalent hydrocarbon, nitrogen and CO2 from heating value and density, which is a characterisation of bulk properties rather than group-contribution estimation"
 locator = "AGA8CODE/C/Gross.cpp lines 359-467"
 evidence = "source_inspected"

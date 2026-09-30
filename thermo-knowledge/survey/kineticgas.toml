@@ -488,7 +488,9 @@ locator = "cpp/KineticGas.h, KineticGas.cpp, KineticGas_properties.cpp, KineticG
 class = "transport"
 inputs = "T (K), molar volume Vm (m3/mol) and mole fractions (or T, p and mole fractions through an equation of state, vapour root); expansion order N (Enskog approximation order)"
 parameters = "global: Enskog order N; pure: molar mass; pair: collision integrals omega(i,j,l,r,T), radial distribution function at contact, momentum and energy transfer lengths, sigma and eps scales; thermodynamic: chemical-potential derivatives, Cp_ideal and Cp_real from an equation of state"
-composes = "a potential model (collision integrals), a radial-distribution-function model, a transfer-length model, a frame-of-reference transformation, an equation of state for density and thermodynamic factors"
+composes = [
+  { slot = "", accepts = "a potential model (collision integrals), a radial-distribution-function model, a transfer-length model, a frame-of-reference transformation, an equation of state for density and thermodynamic factors", default = "" },
+]
 equation_source = "Thompson, Tipton and Lloyalka 2009 (doi 10.1016/j.euromechflu.2009.05.002); Lopez de Haro, Cohen and Kincaid 1983 (doi 10.1063/1.444985); Jervell and Wilhelmsen 2023 (J. Chem. Phys. 158, 224101, doi 10.1063/5.0149865) and 2024 (transfer lengths); Jervell 2022 thesis (NTNU)"
 closed_form = "procedural"
 data = "none bundled for the core; potential parameters come from the parameter-set constructs"
@@ -499,7 +501,9 @@ locator = "cpp/Spherical.cpp:37-112 omega and w_integral; cpp/Integration/Integr
 class = "other"
 inputs = "T, species pair and the pair potential with first and second derivatives (autodiff dual2 numbers); the integration is over reduced relative speed g and impact parameter b of the deflection angle chi"
 parameters = "global: integration grid (origin 1e-7, end (8, 5) in (g, b/sigma) with temperature-dependent refinement below 70, 50, 35 and 20 K, cell double-derivative limit 1e-5); results cached at 0.1 K resolution"
-composes = "any spherically symmetric potential, hard-sphere closed form (HardSphere), Fokin correlation for Mie at reduced temperature above 0.4"
+composes = [
+  { slot = "", accepts = "any spherically symmetric potential, hard-sphere closed form (HardSphere), Fokin correlation for Mie at reduced temperature above 0.4", default = "" },
+]
 equation_source = "Jervell thesis 2022 (integrate2d algorithm); Chapman-Enskog definition of Omega(l,r)"
 closed_form = "procedural"
 data = "none bundled"
@@ -510,7 +514,9 @@ locator = "cpp/HardSphere.h; cpp/PseudoHardSphere.h; pykingas/HardSphere.py; pyk
 class = "transport"
 inputs = "T, Vm, mole fractions; N (python default 4 for HardSphere, 3 for PseudoHardSphere)"
 parameters = "pure: sigma (HardSphere block), molar mass; pair: sigma_ij = mean"
-composes = "analytic collision integrals (HardSphere) or numerical integration of a continuous steep potential (PseudoHardSphere, described as primarily for testing); Enskog contact value of the radial distribution function (a Boublik-Mansoori-Carnahan-Starling-Leland-type mixture form, inferred from the expression); python-side hard-sphere equation of state"
+composes = [
+  { slot = "", accepts = "analytic collision integrals (HardSphere) or numerical integration of a continuous steep potential (PseudoHardSphere, described as primarily for testing); Enskog contact value of the radial distribution function (a Boublik-Mansoori-Carnahan-Starling-Leland-type mixture form, inferred from the expression); python-side hard-sphere equation of state", default = "" },
+]
 equation_source = "not stated in the headers"
 closed_form = "yes"
 data = "construct 'HardSphere parameter set'"
@@ -521,7 +527,9 @@ locator = "cpp/MieKinGas.h, MieKinGas.cpp; pykingas/MieKinGas.py, MieType.py"
 class = "transport"
 inputs = "T, Vm (or p), mole fractions; N (python default 4)"
 parameters = "pure: sigma, eps_div_k, lambda_a, lambda_r; pair: lij, kij; options: use_eos, use_default_eos_param, parameter_ref"
-composes = "Mie potential with collision integrals by integration or by the Fokin-Popov-Kalashnikov correlation (l <= 2, r <= 3, lambda_a = 6, T* > 0.4), radial distribution function at contact from SAFT-VR Mie perturbation theory (Barker-Henderson diameters, g_HS, g1, g2 with an optional correction), transfer length model, ThermoPack saftvrmie equation"
+composes = [
+  { slot = "", accepts = "Mie potential with collision integrals by integration or by the Fokin-Popov-Kalashnikov correlation (l <= 2, r <= 3, lambda_a = 6, T* > 0.4), radial distribution function at contact from SAFT-VR Mie perturbation theory (Barker-Henderson diameters, g_HS, g1, g2 with an optional correction), transfer length model, ThermoPack saftvrmie equation", default = "" },
+]
 equation_source = "Jervell and Wilhelmsen 2023 (doi 10.1063/5.0149865); Lafitte et al. 2013 (doi 10.1063/1.4819786) for the RDF; Fokin, Popov and Kalashnikov 1999 for the correlation"
 closed_form = "procedural"
 data = "constructs 'Mie potential parameter set' and 'inline constants in code'"
@@ -532,7 +540,9 @@ locator = "cpp/ExtendedSutherland.h, ExtendedSutherland.cpp; pykingas/Sutherland
 class = "transport"
 inputs = "T, Vm, mole fractions; N (python defaults 2 to 4 by class)"
 parameters = "pure and pair arrays: sigma, eps, C, lambda, beta_exp, rho_exp per term (up to nterms); the potential may depend on T and density through effective parameters"
-composes = "multi-term Sutherland potentials with temperature and density dependent effective sigma and epsilon (dual numbers), RDF at contact after Lafitte, collision integrals from Spherical"
+composes = [
+  { slot = "", accepts = "multi-term Sutherland potentials with temperature and density dependent effective sigma and epsilon (dual numbers), RDF at contact after Lafitte, collision integrals from Spherical", default = "" },
+]
 equation_source = "Lafitte et al. 2013 (doi 10.1063/1.4819786) for the RDF"
 closed_form = "procedural"
 data = "none bundled (parameters are supplied by the caller or derived from Mie sets in S_MieKinGas)"
@@ -543,7 +553,9 @@ locator = "cpp/QuantumMie.h, QuantumMie.cpp; pykingas/QuantumMie.py; cpp/extenti
 class = "transport"
 inputs = "T, Vm, mole fractions; N (python default 4); FH orders per component (all equal)"
 parameters = "pure: sigma, eps_div_k, lambda_a, lambda_r of the Mie-FH<n> set, molar mass (quantum terms use mass); pair as MieType"
-composes = "ExtSutherland with 2, 4 or 6 terms (Mie plus Q1 and Q2 corrections), ThermoPack saftvrqmie equation"
+composes = [
+  { slot = "", accepts = "ExtSutherland with 2, 4 or 6 terms (Mie plus Q1 and Q2 corrections), ThermoPack saftvrqmie equation", default = "" },
+]
 equation_source = "QuantumMie.h cites the article Equation of state and force fields for Feynman-Hibbs-corrected Mie fluids, II (doi 10.1063/1.5136079); parameter sets cite Aasen 2019 (doi 10.1063/1.5111364)"
 closed_form = "procedural"
 data = "construct 'Feynman-Hibbs-corrected Mie parameter set'"
@@ -554,7 +566,9 @@ locator = "cpp/Quantum.h, Quantum.cpp (1554 lines); pykingas/Quantum.py"
 class = "transport"
 inputs = "T and species pair; relative energy E and angular momentum l through phase shifts"
 parameters = "pure: half_spin, rot_ground_state, bound-state energies, phase-shift cache; global: JKWB energy limit 120 (unit not stated) and l limit 1000"
-composes = "spherical potentials that implement derivatives of any order (ModTangToennis, HFD_B2, Patowski and their FH-corrected variants); semi-classical JKWB approximation above the limits; cross sections, second virial coefficients with ideal, thermal and bound contributions, dimer constant, de Broglie wavelength, de Boer parameter"
+composes = [
+  { slot = "", accepts = "spherical potentials that implement derivatives of any order (ModTangToennis, HFD_B2, Patowski and their FH-corrected variants); semi-classical JKWB approximation above the limits; cross sections, second virial coefficients with ideal, thermal and bound contributions, dimer constant, de Broglie wavelength, de Boer parameter", default = "" },
+]
 equation_source = "Meeks et al. 1994 (doi 10.1063/1.466370); Lang et al. 2024 (doi 10.1103/PhysRevA.109.052803); Kilpatrick et al. 1954; Munn et al. 1964; Mehl et al. 2010; Hurly and Mehl 2007 (as listed in the file header)"
 closed_form = "procedural"
 data = "constructs 'Quantum block', 'bound-state energy table', 'absolute phase-shift table'"
@@ -565,7 +579,9 @@ locator = "cpp/multiparam.h, multiparam.cpp; pykingas/multiparam.py"
 class = "transport"
 inputs = "T; ideal gas only (is_idealgas is set true in the python MultiParam wrapper, model_rdf throws)"
 parameters = "pure (single component): parameter sets in the corresponding JSON blocks (first component only)"
-composes = "Quantum class with analytic potential derivatives (PolyExp terms); FH-corrected variants of each (FH_ModTangToennies, FH_HFD_B2, PatowskiFH) with quantum calculations deactivated"
+composes = [
+  { slot = "", accepts = "Quantum class with analytic potential derivatives (PolyExp terms); FH-corrected variants of each (FH_ModTangToennies, FH_HFD_B2, PatowskiFH) with quantum calculations deactivated", default = "" },
+]
 equation_source = "Jaeger, Hellmann and Bich 2010 (Mol. Phys. 108); Aziz and Slaman 1990 (Metrologia 27, 211); Mehl, Huber and Harvey 2010 (Int. J. Thermophys.) by per-record bib_reference"
 closed_form = "procedural"
 data = "constructs 'ModTangToennis', 'Patowski' and 'HFD-B2' parameter sets"
@@ -576,7 +592,9 @@ locator = "cpp/LJSpline.h, LJSpline.cpp, LJTS.h; pykingas/LJSpline.py, LJTS.py"
 class = "transport"
 inputs = "T, Vm, x = [1] (argon-like single component only); N (python default 3)"
 parameters = "global: constants in code (LJ/s: sigma, epsilon, spline constants; LJTS: rc = 2.5 sigma, dilute gas only)"
-composes = "Spherical collision integrals, RDF at contact (Lafitte-type adapted to LJ/s), ThermoPack LJs_uv equation for LJSpline; LJTS has no RDF (ideal gas only)"
+composes = [
+  { slot = "", accepts = "Spherical collision integrals, RDF at contact (Lafitte-type adapted to LJ/s), ThermoPack LJs_uv equation for LJSpline; LJTS has no RDF (ideal gas only)", default = "" },
+]
 equation_source = "Loeken 2025 MS thesis (NTNU) for LJ/s, per the header comment"
 closed_form = "procedural"
 data = "none bundled as data (constants in code; the JSON LJs block is unread)"
@@ -587,7 +605,9 @@ locator = "cpp/transfer_lengths.cpp; cpp/utils.h:147-153; cpp/KineticGas.cpp:151
 class = "transport"
 inputs = "T, density, composition"
 parameters = "global: model id (DEFAULT -1, collision_diameter 0, EWCA 1, correlation 2); the default is EWCA; invalid ids throw after falling back to the default"
-composes = "collision_diameter: average closest approach by Gauss-Legendre quadrature over impact parameter; EWCA: exchange weighted closest approach with thread-parallel evaluation; correlation: argon-only fit of the momentum and energy transfer lengths (comment: should not be used for anything else)"
+composes = [
+  { slot = "", accepts = "collision_diameter: average closest approach by Gauss-Legendre quadrature over impact parameter; EWCA: exchange weighted closest approach with thread-parallel evaluation; correlation: argon-only fit of the momentum and energy transfer lengths (comment: should not be used for anything else)", default = "" },
+]
 equation_source = "Jervell and Wilhelmsen 2023 and 2024 (collision diameter, EWCA); EWCA and the correlation are labelled unpublished in cpp/utils.h"
 closed_form = "procedural"
 data = "constants in code"
@@ -598,7 +618,9 @@ locator = "cpp/KineticGas.h:164-178; cpp/KineticGas_properties.cpp:165-207; cpp/
 class = "transport"
 inputs = "T, Vm, mole fractions, frame name, dependent component index (default last), solvent index"
 parameters = "global: matrices psi from the centre-of-mass frame to centre of moles, centre of volume (uses the equation of state) and solvent; Ortiz de Zarate matrices X and W"
-composes = "diffusion and thermal-diffusion coefficients computed in the centre-of-mass frame; zarate_x is implemented only for the ideal gas"
+composes = [
+  { slot = "", accepts = "diffusion and thermal-diffusion coefficients computed in the centre-of-mass frame; zarate_x is implemented only for the ideal gas", default = "" },
+]
 equation_source = "memo diffusion_definitions (docs/memo/diffusion); Ortiz de Zarate (doi 10.1140/epje/i2019-11803-2) cited in docstrings"
 closed_form = "yes"
 data = "none bundled"
@@ -609,7 +631,9 @@ locator = "cpp/KineticGas_properties.cpp:85-142"
 class = "transport"
 inputs = "T, Vm, mole fractions, N, contribution string (any of t, d, i)"
 parameters = "global: constant 1.32e3 in the internal contribution; thermodynamic: ideal-gas heat capacity Cp_ideal from the equation of state (subtracting 5R/2) and the dilute viscosity"
-composes = "t: Sonine expansion with thermal-diffusion correction (N > 1, multicomponent); d: density correction from energy transfer lengths and RDF (zero for ideal-gas models); i: modified-Eucken-type internal contribution (nonzero only when Cp_ideal exceeds 5R/2)"
+composes = [
+  { slot = "", accepts = "t: Sonine expansion with thermal-diffusion correction (N > 1, multicomponent); d: density correction from energy transfer lengths and RDF (zero for ideal-gas models); i: modified-Eucken-type internal contribution (nonzero only when Cp_ideal exceeds 5R/2)", default = "" },
+]
 equation_source = "Jervell and Wilhelmsen 2023 (Eq. 13 cited in python docstring)"
 closed_form = "procedural"
 data = "none bundled"
@@ -620,7 +644,9 @@ locator = "cpp/KineticGas_properties.cpp:28-68; cpp/KineticGas.h:154; pykingas/p
 class = "transport"
 inputs = "T, Vm, mole fractions, N"
 parameters = "thermodynamic: for bulk viscosity the pressure p through an equation of state; kinematic viscosity uses mass density; thermal diffusivity uses Cp_real of the equation of state"
-composes = "eta = eta' + eta'' with eta'' omitted for ideal-gas models; bulk viscosity through get_bulk_viscosity_* in C++ and bulk_viscosity in python (docstring says not implemented)"
+composes = [
+  { slot = "", accepts = "eta = eta' + eta'' with eta'' omitted for ideal-gas models; bulk viscosity through get_bulk_viscosity_* in C++ and bulk_viscosity in python (docstring says not implemented)", default = "" },
+]
 equation_source = "Jervell and Wilhelmsen 2023"
 closed_form = "procedural"
 data = "none bundled"
@@ -631,7 +657,9 @@ locator = "cpp/eos_interface.h; cpp/KineticGas.h:125-133, 189-194; pykingas/MieK
 class = "other"
 inputs = "T, p or Vm, mole fractions; the equation must provide specific_volume (for the tp interface) and chemical_potential_tv, plus Cp_ideal and Cp_real"
 parameters = "model-specific default: saftvrmie for MieKinGas, saftvrqmie for QuantumMie, ideal for is_idealgas, LJs_uv for LJSpline, an internal hard-sphere equation for HardSphere; use_eos overrides"
-composes = "the tp interface solves the specific volume with phase flag VAPPH (vapour root) in every call; parameter copying between the model and the saft equation controlled by use_default_eos_param"
+composes = [
+  { slot = "", accepts = "the tp interface solves the specific volume with phase flag VAPPH (vapour root) in every call; parameter copying between the model and the saft equation controlled by use_default_eos_param", default = "" },
+]
 equation_source = "not applicable (delegated)"
 closed_form = "procedural"
 data = "none bundled"
@@ -642,7 +670,9 @@ locator = "cpp/Spherical.cpp:150-216; cpp/Quantum.cpp second_virial, bound_secon
 class = "other"
 inputs = "T and species pair"
 parameters = "pair: the potential; contributions selected by a string of i (ideal), b (bound), t (thermal)"
-composes = "classical integral of the Mayer function, hard-sphere closed form, quantum and semiclassical contributions, dimer constant"
+composes = [
+  { slot = "", accepts = "classical integral of the Mayer function, hard-sphere closed form, quantum and semiclassical contributions, dimer constant", default = "" },
+]
 equation_source = "Kilpatrick et al. 1954 (cited in Quantum.cpp)"
 closed_form = "procedural"
 data = "none bundled"
@@ -653,7 +683,9 @@ locator = "pykingas/*.py"
 class = "other"
 inputs = "strings for components and options"
 parameters = "constructor options: mole_weights, sigma, eps_div_k, la, lr, lij, kij, N, is_idealgas, use_eos, parameter_ref, FH_orders"
-composes = "py_KineticGas base (matrix handling, frames, conductivity and resistivity matrices in the T-psi formulation, ideal gas only) with HardSphere, PseudoHardSphere, MieType (MieKinGas, QuantumMie), MultiParam (ModTangToennis, HFD_B2, Patowski), LJSpline, LJTS, Sutherland family; default Enskog order N: 4 for Mie, HardSphere and QuantumMie, 3 for PseudoHardSphere, LJSpline and PureSutherland, 2 for Sutherland and ExtSutherland; the C++ default is 2"
+composes = [
+  { slot = "", accepts = "py_KineticGas base (matrix handling, frames, conductivity and resistivity matrices in the T-psi formulation, ideal gas only) with HardSphere, PseudoHardSphere, MieType (MieKinGas, QuantumMie), MultiParam (ModTangToennis, HFD_B2, Patowski), LJSpline, LJTS, Sutherland family; default Enskog order N: 4 for Mie, HardSphere and QuantumMie, 3 for PseudoHardSphere, LJSpline and PureSutherland, 2 for Sutherland and ExtSutherland; the C++ default is 2", default = "" },
+]
 equation_source = "not applicable"
 closed_form = "procedural"
 data = "none bundled"
@@ -767,49 +799,49 @@ documented = "yes (MieKinGas docstring)"
 
 [[capability]]
 calculation = "viscosity_evaluation (proposed)"
-offered = true
+offered = "yes"
 scope = "shear viscosity (and kinematic viscosity) of pure gases and mixtures from dilute gas to dense fluid, for Mie, hard-sphere, extended-Sutherland, FH-corrected Mie and LJ/s models; bulk viscosity through get_bulk_viscosity_* (python docstring says not implemented); spherical (non-associating, non-polar) potentials only"
 locator = "cpp/KineticGas_properties.cpp:28-68; pykingas/py_KineticGas.py:708-805"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "thermal_conductivity_evaluation (proposed)"
-offered = true
+offered = "yes"
 scope = "thermal conductivity with translational, density and internal contributions selectable by a string of t, d, i; thermal diffusivity from Cp_real of the equation of state; multicomponent thermal properties were incorrect in v2.0.0 (docs/v2.0.0/bugs.md) and are stated fixed in later versions"
 locator = "cpp/KineticGas_properties.cpp:75-141; pykingas/py_KineticGas.py:608-705; docs/v2.0.0/bugs.md"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "diffusion_coefficient_evaluation (proposed)"
-offered = true
+offered = "yes"
 scope = "inter-diffusion matrix or binary coefficient in the frames CoN, CoM, CoV, solvent, zarate, zarate_x (ideal gas only), zarate_w; self-diffusion; independent or full coefficient sets"
 locator = "cpp/KineticGas_properties.cpp:165-207; pykingas/py_KineticGas.py:204-300"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "thermal_diffusion_evaluation (proposed)"
-offered = true
+offered = "yes"
 scope = "thermal diffusion coefficients, ratios, factors and Soret coefficients (N >= 2), in the same frames; ideal-gas thermal diffusion ratio had a bug in v2.0.0 (docs/v2.0.0/bugs.md)"
 locator = "cpp/KineticGas_properties.cpp:208-360; pykingas/py_KineticGas.py:332-607"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "virial_coefficient_evaluation (proposed)"
-offered = true
+offered = "yes"
 scope = "second virial coefficient of the pair potential, with ideal, bound and thermal contributions for the quantum models, and the dimer constant"
 locator = "cpp/Spherical.cpp:150-216; cpp/Quantum.cpp; cpp/bindings.cpp:41-43"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "eos_property_evaluation (proposed)"
-offered = false
+offered = "no"
 scope = "KineticGas computes no thermodynamic state function itself: molar volume from (T, p) (vapour root only), chemical-potential derivatives and heat capacities are delegated to ThermoPack or a user equation, so the tp interface cannot evaluate liquid states (use the T-V interface)"
 locator = "cpp/KineticGas.h:125-133; pykingas/py_KineticGas.py:939-1010; README.md 'Making predictions'"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "transport_property_evaluation (proposed)"
-offered = false
+offered = "no"
 scope = "transport of non-spherical, associating or polar molecules, electrolytes or mixtures of species without a spherical potential model: not offered; all models are spherically symmetric pair potentials (ExtSutherland and quantum variants included)"
 locator = "cpp/Spherical.h header comment; cpp/readme.md"
 evidence = "source_inspected"

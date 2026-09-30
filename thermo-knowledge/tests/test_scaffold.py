@@ -52,8 +52,8 @@ def test_cli_lists_every_subcommand() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     registered = set(typer.main.get_command(app).commands)  # type: ignore[attr-defined]
-    assert registered == {*STAGE_NAMES, "db"}
-    for name in [*STAGE_NAMES, "db"]:
+    assert registered == {*STAGE_NAMES, "db", "survey"}
+    for name in [*STAGE_NAMES, "db", "survey"]:
         assert name in result.output
     group = runner.invoke(app, ["db", "--help"])
     assert group.exit_code == 0

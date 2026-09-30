@@ -40,6 +40,11 @@ schema = "prov"
 extends = "source"
 attributes.version = { type = "Text" }
 
+[kinds.publication]
+schema = "prov"
+extends = "source"
+attributes.doi = { type = "Id<doi>", optional = true }
+
 [kinds.artifact]
 schema = "prov"
 identity = ["carrier", "path"]
@@ -153,6 +158,7 @@ identity = ["carrier", "scope", "local_key"]
 attributes.carrier = { type = "carrier" }
 attributes.scope = { type = "Text" }
 attributes.local_key = { type = "Text" }
+attributes.entity_class = { type = "entity_class" }
 attributes.aggregation = { type = "aggregation", optional = true }
 attributes.polymorph = { type = "Text", optional = true }
 attributes.stated_charge = { type = "ChargeNumber", optional = true }
@@ -191,6 +197,37 @@ attributes.species = { type = "species" }
 attributes.aggregation = { type = "aggregation" }
 attributes.polymorph = { type = "Text", optional = true }
 
+[kinds.defined_mixture]
+schema = "tk"
+extends = "material_entity"
+attributes.canonical_key = { type = "Text" }
+attributes.label = { type = "Text" }
+attributes.provisional = { type = "Boolean", defaulted = true }
+attributes.definition = { type = "mixture_definition" }
+attributes.mole_basis = { type = "Boolean" }
+
+[kinds.material]
+schema = "tk"
+extends = "material_entity"
+attributes.canonical_key = { type = "Text" }
+attributes.label = { type = "Text" }
+attributes.provisional = { type = "Boolean", defaulted = true }
+attributes.registry_key = { type = "Text", optional = true }
+
+[kinds.polymer_type]
+schema = "tk"
+extends = "material_entity"
+attributes.canonical_key = { type = "Text" }
+attributes.label = { type = "Text" }
+attributes.provisional = { type = "Boolean", defaulted = true }
+
+[kinds.unclassified_entity]
+schema = "tk"
+extends = "material_entity"
+attributes.canonical_key = { type = "Text" }
+attributes.label = { type = "Text" }
+attributes.provisional = { type = "Boolean", defaulted = true }
+
 [kinds.naming_scheme]
 schema = "tk"
 identity = ["name"]
@@ -215,6 +252,7 @@ attributes.source_unit = { type = "Text", optional = true }
 attributes.factor = { type = "Real", optional = true }
 attributes.precision = { type = "mapping_precision", optional = true }
 attributes.loss = { type = "Text", optional = true }
+attributes.applied_rows = { type = "Integer", optional = true }
 
 [kinds.mapping_coverage]
 schema = "qual"
@@ -231,7 +269,8 @@ attributes.manifest_id = { type = "Text" }
 attributes.source_table = { type = "Text" }
 attributes.locator = { type = "Text" }
 attributes.state = { type = "row_state" }
-attributes.reason = { type = "Text" }
+attributes.reason = { type = "held_reason" }
+attributes.detail = { type = "Text" }
 
 [kinds.qualification_run]
 schema = "qual"
@@ -247,6 +286,7 @@ attributes.relative_tolerance = { type = "Scalar" }
 attributes.observable = { type = "observable", optional = true }
 attributes.absolute_tolerance = { type = "Real", optional = true }
 attributes.worst_relative_deviation = { type = "Scalar", optional = true }
+attributes.blocked_reason = { type = "blocked_reason", optional = true }
 attributes.note = { type = "Text", optional = true }
 
 [kinds.standard_state]
@@ -281,6 +321,20 @@ schema = "prov"
 keys.record = { type = "Record" }
 keys.import_record = { type = "import_record" }
 columns.role = { type = "origin_role" }
+
+[relations.citation]
+schema = "prov"
+keys.carrier = { type = "carrier" }
+keys.local_key = { type = "Text" }
+columns.publication = { type = "publication" }
+columns.year = { type = "Integer", optional = true }
+columns.citation = { type = "Text", optional = true }
+
+[relations.mixture_component]
+schema = "tk"
+keys.mixture = { type = "defined_mixture" }
+keys.component = { type = "material_entity" }
+columns.value = { type = "Fraction" }
 
 [relations.derivation_output]
 schema = "prov"
@@ -330,8 +384,43 @@ members = ["passed", "failed", "blocked"]
 [enums.resolution_status]
 members = ["unique", "ambiguous", "unresolved", "rejected"]
 
+[enums.entity_class]
+members = ["species", "species_form", "defined_mixture", "material", "pseudo_component", "polymer_type", "undetermined"]
+
+[enums.mixture_definition]
+members = ["by_definition", "by_measurement"]
+
+[enums.held_reason]
+members = [
+  "ambiguous_subject",
+  "unknown_subject",
+  "validation_failed",
+  "unit_not_parseable",
+  "missing_convention",
+  "not_a_number",
+  "not_an_integer",
+  "unusable_key",
+  "pattern_mismatch",
+  "unmapped_by_mapping",
+]
+
+[enums.blocked_reason]
+members = [
+  "carrier_not_unique",
+  "parameterization_missing",
+  "no_subjects",
+  "subject_unidentified",
+  "subjects_not_found",
+  "sample_too_large",
+  "ambiguous_occurrence",
+  "no_grid",
+  "harness_missing",
+  "harness_failed",
+  "nothing_compared",
+]
+
 [enums.resolution_rule]
-members = ["curated", "structural", "registry", "formula_scope", "provisional"]
+members = ["curated", "structural", "registry", "formula_scope", "composition", "provisional"]
 
 [enums.row_state]
 members = ["mapped", "mapped_with_loss", "out_of_scope", "deferred", "held", "unmapped"]

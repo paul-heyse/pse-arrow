@@ -87,6 +87,8 @@ def map_command(
                 typer.echo("")
                 for line in runner.coverage_lines(outcome.coverage):
                     typer.echo(line)
+            for line in outcome.unused_optional:
+                typer.echo(f"optional rule applied to no row: {line}")
     if failed:
         typer.echo(
             f"error: {len(failed)} of {len(targets)} source(s) not mapped: {', '.join(failed)}",

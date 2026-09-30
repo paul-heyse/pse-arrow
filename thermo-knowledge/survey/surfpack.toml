@@ -245,7 +245,9 @@ composes = [
   { slot = "eos", accepts = "ThermoPack equation-of-state object supplying bulk quantities (hard-sphere diameters, dispersion, association, chain contact values, phase equilibria, de Broglie wavelength)", default = "constructed from the component string by the subclass" },
   { slot = "solver", accepts = "SequentialSolver or GridRefiner", default = "get_solver(key) chosen from the model" },
 ]
-variants = "subclasses: FMT_Functional (Rosenfeld, WhiteBear, WhiteBearMarkII), SAFT_WhiteBear and SAFT_HardSphere (hard-sphere parts of SAFT models), SAFT (dispersion), PC_SAFT, SAFT_VR_Mie."
+variants = [
+  { selector = "", selects = "subclasses: FMT_Functional (Rosenfeld, WhiteBear, WhiteBearMarkII), SAFT_WhiteBear and SAFT_HardSphere (hard-sphere parts of SAFT models), SAFT (dispersion), PC_SAFT, SAFT_VR_Mie." },
+]
 equation_source = "docstrings cite R. Roth, Introduction to Density Functional Theory of Classical Systems: Theory and Applications (sections 2.7, 3.4, 4.2.3) for the definitions; docs/memo/ holds derivation notes"
 closed_form = "procedural"
 data = "component set construct; parameters held by the ThermoPack eos"
@@ -257,7 +259,9 @@ class = "spatial_functional"
 inputs = "hard-sphere radii R_i (angstrom) and optional segment numbers ms; the six weighted densities n0, n1, n2, n3, nv1, nv2; phi = -n0 ln(1 - n3) + (n1 n2 - nv1 nv2)/(1 - n3) + (n2^3 - 3 n2 nv2 nv2)/(24 pi (1 - n3)^2)"
 parameters = "pure: hard-sphere radius, segment number"
 composes = []
-variants = "temperature-independent radii in FMT_Functional; SAFT_HardSphere subclasses override get_R with ThermoPack's temperature-dependent diameters."
+variants = [
+  { selector = "", selects = "temperature-independent radii in FMT_Functional; SAFT_HardSphere subclasses override get_R with ThermoPack's temperature-dependent diameters." },
+]
 equation_source = "docstring: 'Rosenfeld ... in introduction to DFT' (R. Roth)"
 closed_form = "yes"
 data = "none bundled"
@@ -269,7 +273,9 @@ class = "spatial_functional"
 inputs = "as Rosenfeld with the White Bear expressions for the second and third terms; supports derivatives with respect to T and rho and precomputed weighted densities"
 parameters = "pure: radius, segment number"
 composes = []
-variants = "SAFT_WhiteBear in saft_hardsphere.py is the default hard-sphere contribution of the SAFT models and takes the diameter from the eos."
+variants = [
+  { selector = "", selects = "SAFT_WhiteBear in saft_hardsphere.py is the default hard-sphere contribution of the SAFT models and takes the diameter from the eos." },
+]
 equation_source = "docstring: 'White Bear ... in introduction to DFT'"
 closed_form = "yes"
 data = "none bundled"
@@ -281,7 +287,7 @@ class = "spatial_functional"
 inputs = "as Rosenfeld with phi2 and phi3 functions of n3: phi = -n0 ln(1 - n3) + (n1 n2 - nv1 nv2)(1 + phi2/3)/(1 - n3) + (n2^3 - 3 n2 nv2 nv2)(1 - phi3/3)/(24 pi (1 - n3)^2)"
 parameters = "pure: radius, segment number"
 composes = []
-variants = ""
+variants = []
 equation_source = "docstring: 'White Bear Mark II ... in introduction to DFT'"
 closed_form = "yes"
 data = "none bundled"
@@ -296,7 +302,9 @@ composes = [
   { slot = "eos", accepts = "ThermoPack SAFT-type eos that passes test_fmt_compatibility", default = "required" },
   { slot = "fmt_model", accepts = "FMT functional choice", default = "WhiteBear (SAFT_WhiteBear)" },
 ]
-variants = "SAFT_HardSphere accepts the comps string 'LJs' and then builds the EoS without components (the Lennard-Jones-spline path); a commented SAFT_Rosenfeld class is present in the source."
+variants = [
+  { selector = "", selects = "SAFT_HardSphere accepts the comps string 'LJs' and then builds the EoS without components (the Lennard-Jones-spline path); a commented SAFT_Rosenfeld class is present in the source." },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "pure-fluid SAFT parameters construct"
@@ -310,7 +318,9 @@ parameters = "pure and pair: the dispersion parameters of the ThermoPack eos; gl
 composes = [
   { slot = "eos", accepts = "ThermoPack SAFT-type eos exposing a_dispersion", default = "PC-SAFT or SAFT-VR-Mie eos per subclass" },
 ]
-variants = "set_dispersion_active, set_association_active, set_chain_active and set_multipole_active toggle contributions; no multipole contribution is computed anywhere in the tree."
+variants = [
+  { selector = "", selects = "set_dispersion_active, set_association_active, set_chain_active and set_multipole_active toggle contributions; no multipole contribution is computed anywhere in the tree." },
+]
 equation_source = "code comment: kernel scale fitted in Sauer and Gross (2016)"
 closed_form = "yes"
 data = "pure-fluid SAFT parameters construct"
@@ -324,7 +334,9 @@ parameters = "pure: ms, sigma, epsilon/k through the eos"
 composes = [
   { slot = "eos", accepts = "ThermoPack PC-SAFT eos exposing lng_ii", default = "pcsaft(comps)" },
 ]
-variants = "inactive when all segment numbers equal one."
+variants = [
+  { selector = "", selects = "inactive when all segment numbers equal one." },
+]
 equation_source = "Sauer and Gross, doi 10.1021/acs.iecr.6b04551, Eqs. 53 and 54 (code comments)"
 closed_form = "yes"
 data = "pure-fluid SAFT parameters construct"
@@ -338,7 +350,9 @@ parameters = "pure: association energy and volume through the eos; site scheme f
 composes = [
   { slot = "eos", accepts = "ThermoPack PC-SAFT eos exposing association_energy_density and get_n_assoc_sites", default = "pcsaft(comps)" },
 ]
-variants = "active when the eos reports association sites."
+variants = [
+  { selector = "", selects = "active when the eos reports association sites." },
+]
 equation_source = "none (Heier et al., Mol. Phys. 116, 2018 is listed among the readme references)"
 closed_form = "implicit"
 data = "pure-fluid SAFT parameters construct"
@@ -353,7 +367,9 @@ composes = [
   { slot = "hs_model", accepts = "SAFT hard-sphere functional class", default = "SAFT_WhiteBear" },
   { slot = "eos", accepts = "ThermoPack pcsaft", default = "pcsaft(comps, parameter_reference=parameter_ref)" },
 ]
-variants = "hs_model may be SAFT_WhiteBear or another SAFT_HardSphere subclass; contributions toggled by set_*_active."
+variants = [
+  { selector = "", selects = "hs_model may be SAFT_WhiteBear or another SAFT_HardSphere subclass; contributions toggled by set_*_active." },
+]
 equation_source = "Sauer and Gross 2017; Mairhofer and Gross 2017 (readme references)"
 closed_form = "implicit"
 data = "pure-fluid SAFT parameters construct"
@@ -368,7 +384,9 @@ composes = [
   { slot = "eos", accepts = "ThermoPack saftvrmie eos", default = "saftvrmie(comps, parameter_reference)" },
   { slot = "hs_model", accepts = "SAFT hard-sphere functional class", default = "SAFT_WhiteBear" },
 ]
-variants = "the solver key is 'single_segment' when all m equal one."
+variants = [
+  { selector = "", selects = "the solver key is 'single_segment' when all m equal one." },
+]
 equation_source = "none in the tree"
 closed_form = "yes"
 data = "pure-fluid SAFT parameters construct"
@@ -380,7 +398,9 @@ class = "spatial_functional"
 inputs = "No functional class: only an 'LJs' key in SAFT_HardSphere and three scripts that import src.interface, src.dft_numerics and thermopack.ljs_wca from outside the tree, with the ljs/*.csv MD profiles and the ljts/*.dat tables"
 parameters = "not applicable"
 composes = []
-variants = "psi_disp and psi_soft_rep (both 1.4) are passed as functional_kwargs by the scripts."
+variants = [
+  { selector = "", selects = "psi_disp and psi_soft_rep (both 1.4) are passed as functional_kwargs by the scripts." },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "planar LJ-spline MD profile row and LJTS table constructs"
@@ -392,7 +412,9 @@ class = "other"
 inputs = "an initial profile p0 and a constraint specification: rhoT (bulk densities and T, fixed-point in the profile with the equilibrium condition), NT (fixed particle numbers), muT (fixed chemical potentials); picard mixing, anderson acceleration, Ng extrapolation, sequential fallbacks, grid refinement"
 parameters = "none of its own (tolerance schedules)"
 composes = []
-variants = "keys 'default', 'assoc', 'NH3,H2O', 'single_segment'."
+variants = [
+  { selector = "", selects = "keys 'default', 'assoc', 'NH3,H2O', 'single_segment'." },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "none"
@@ -404,7 +426,9 @@ class = "other"
 inputs = "an analytical (Fourier-transformed) weight function and a discrete profile; discrete cosine and sine transforms selected by the parity of profile and weight; spherical geometry uses r f(r) with a shifted bulk term; polar geometry raises NotImplementedError"
 parameters = "none"
 composes = []
-variants = "Geometry.PLANAR, Geometry.SPHERICAL supported; Geometry.POLAR declared but unimplemented."
+variants = [
+  { selector = "", selects = "Geometry.PLANAR, Geometry.SPHERICAL supported; Geometry.POLAR declared but unimplemented." },
+]
 equation_source = "docs/memo/dft (derivation)"
 closed_form = "procedural"
 data = "none"
@@ -418,7 +442,9 @@ parameters = "none of its own"
 composes = [
   { slot = "eos", accepts = "ThermoPack eos for bulk equilibria", default = "self.eos" },
 ]
-variants = "rhoT properties (from bulk densities), profile properties (from a given profile), isotherm properties (sweep composition or temperature)."
+variants = [
+  { selector = "", selects = "rhoT properties (from bulk densities), profile properties (from a given profile), isotherm properties (sweep composition or temperature)." },
+]
 equation_source = "docstrings cite R. Roth (Introduction to Density Functional Theory of Classical Systems)"
 closed_form = "procedural"
 data = "none bundled"

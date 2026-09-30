@@ -100,9 +100,20 @@ members.rejected = { doc = "A curated decision says the source's identification 
 doc = "Which rule decided the resolution of a source entity."
 members.curated = { doc = "A curated decision in the identity ledger." }
 members.structural = { doc = "A structural identifier: a standard InChIKey, given or computed from a structure notation." }
-members.registry = { doc = "A registry identifier that the corpus maps to exactly one structure." }
+members.registry = { doc = "A registry identifier that the corpus maps to exactly one structure, or, for a material, a registry identifier in a scheme declared as a registry." }
 members.formula_scope = { doc = "Formula and charge, within a scope the mapping declares as formula-identified." }
+members.composition = { doc = "For a defined mixture: the resolved components, their fractions and the basis." }
 members.provisional = { doc = "No rule applied; the entity stands for this source entity alone." }
+
+[enums.entity_class]
+doc = "The class of thing a source says one of its keys names. It decides which resolution rules apply: a source entity is never resolved by the rules of another class."
+members.species = { doc = "A chemical species: the keys of a pure substance, an ion or an element." }
+members.species_form = { doc = "A species in a stated state of aggregation and, for a crystalline solid, a polymorph." }
+members.defined_mixture = { doc = "A fixed-composition blend that the source treats as one entity, such as air or a pseudo-pure refrigerant blend." }
+members.material = { doc = "A solid host or adsorbent identified by a registry or a name, not by composition." }
+members.pseudo_component = { doc = "An entity defined by characterisation or by fiat, without a formula." }
+members.polymer_type = { doc = "A polymer identified by its repeat units and architecture." }
+members.undetermined = { doc = "The source does not establish the class of the entity." }
 
 [enums.conserved_kind]
 doc = "What kind of thing a formula matrix conserves."
@@ -295,6 +306,10 @@ extends = "material_entity"
 [kinds.material.attributes]
 registry_key = { type = "Text", optional = true, doc = "The identifier in the registry that defines it." }
 
+[kinds.unclassified_entity]
+doc = "An entity whose class its source does not establish; it is never joined across carriers. It is the provisional entity of a source entity of class `undetermined`."
+extends = "material_entity"
+
 [kinds.sample]
 doc = "A physical batch of an entity as used in a measurement."
 identity = ["carrier", "local_key"]
@@ -320,6 +335,7 @@ traces = ["IC-02", "SI-01"]
 carrier = { type = "carrier", doc = "The carrier whose key this is." }
 scope = { type = "Text", doc = "The context within the carrier in which the key is unique, such as a table or database file; empty when carrier-wide." }
 local_key = { type = "Text", doc = "The key, verbatim." }
+entity_class = { type = "entity_class", doc = "The class of thing the source says the key names, as its mapping declares it; it selects the resolution rules." }
 aggregation = { type = "aggregation", optional = true, doc = "The state of aggregation the source states for the entity, when its records are about a form rather than a chemical identity." }
 polymorph = { type = "Text", optional = true, doc = "The polymorph or structure designation the source states." }
 stated_charge = { type = "ChargeNumber", optional = true, doc = "The net charge the source states for the entity, where it states one." }

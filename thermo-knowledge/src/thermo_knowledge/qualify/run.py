@@ -28,7 +28,10 @@ from psycopg import sql
 
 from thermo_knowledge import config
 from thermo_knowledge import pipeline_contract as pc
+from thermo_knowledge import reuse
 from thermo_knowledge.canonical import store
+from thermo_knowledge.build import currency
+from thermo_knowledge.canonical.store import ReadRecords
 from thermo_knowledge.canonical.values import convert, storage_unit
 from thermo_knowledge.declaration import model as m
 from thermo_knowledge.expression.canonical import evaluation_hash
@@ -61,7 +64,16 @@ _SHOWN_INVALID = 10
 
 
 class Blocked(Exception):
-    """The run cannot be carried out; the message is recorded as the run's note."""
+    """The run cannot be carried out: `reason` is the `blocked_reason` member the run records and
+    the message is recorded as its note."""
+
+    def __init__(self, reason: str, detail: str) -> None:
+        if reason not in pc.BLOCKED_REASON.members:
+            raise ValueError(
+                f"`{reason}` is not a blocked reason: {', '.join(pc.BLOCKED_REASON.members)}"
+            )
+        self.reason = reason
+        super().__init__(detail)
 
 
 @dataclass(frozen=True)
@@ -126,6 +138,11 @@ class CaseOutcome:
     def outcome(self) -> str:
         return str(self.report["outcome"])
 
+    @property
+    def blocked_reason(self) -> str | None:
+        found = self.report.get("blocked_reason")
+        return None if found is None else str(found)
+
 
 # -- selection ---------------------------------------------------------------------------------
 
@@ -141,8 +158,9 @@ def _revision(conn: psycopg.Connection, spec: ParameterizationSpec) -> str:
     ).fetchall()
     if len(rows) != 1:
         raise Blocked(
+            "carrier_not_unique",
             f"the carrier `{spec.carrier}` has {len(rows)} acquisitions in the database; "
-            "`{pin}` needs exactly one"
+            "`{pin}` needs exactly one",
         )
     return spec.revision.replace("{pin}", rows[0][0])
 
@@ -157,7 +175,10 @@ def _parameterization(
         (spec.key, revision),
     ).fetchone()
     if row is None:
-        raise Blocked(f"the parameterization {spec.key}@{revision} is not in the database")
+        raise Blocked(
+            "parameterization_missing",
+            f"the parameterization {spec.key}@{revision} is not in the database",
+        )
     return row[0], revision
 
 
@@ -235,21 +256,28 @@ def select_subjects(
             subjects.append(Subject(set_id, ids, tuple(names)))
     if problems:
         raise Blocked(
+            "subject_unidentified",
             "; ".join(problems[:5])
-            + (f" (and {len(problems) - 5} more)" if len(problems) > 5 else "")
+            + (f" (and {len(problems) - 5} more)" if len(problems) > 5 else ""),
         )
     subjects.sort(key=lambda subject: subject.keys)
     if spec.select == "list":
         by_key = {subject.keys: subject for subject in subjects}
         unknown = [key for key in spec.keys if (key,) not in by_key]
         if unknown:
-            raise Blocked(f"no set in the parameterization for subject(s) {', '.join(unknown)}")
+            raise Blocked(
+                "subjects_not_found",
+                f"no set in the parameterization for subject(s) {', '.join(unknown)}",
+            )
         chosen = [by_key[(key,)] for key in spec.keys]
         return sorted(chosen, key=lambda subject: subject.keys)
     if spec.select == "sample":
         assert spec.size is not None and spec.seed is not None
         if spec.size > len(subjects):
-            raise Blocked(f"a sample of {spec.size} subjects was asked for, {len(subjects)} exist")
+            raise Blocked(
+                "sample_too_large",
+                f"a sample of {spec.size} subjects was asked for, {len(subjects)} exist",
+            )
         return sorted(random.Random(spec.seed).sample(subjects, spec.size), key=lambda s: s.keys)
     return subjects
 
@@ -328,7 +356,7 @@ def grids(
         per_argument[argument.name] = table
     if problems:
         shown = "; ".join(problems[:5])
-        raise Blocked(f"no grid for {len(problems)} subject(s): {shown}")
+        raise Blocked("no_grid", f"no grid for {len(problems)} subject(s): {shown}")
     names = [a.name for a in contract.arguments]
     result: dict[uuid.UUID, dict[str, list[float]]] = {}
     for subject in subjects:
@@ -343,51 +371,45 @@ def grids(
 # -- keys and digests --------------------------------------------------------------------------
 
 
+def _key(
+    inputs: Mapping[str, object], *, files: Mapping[str, Sequence[Path]] | None = None
+) -> reuse.Key:
+    """The reuse key of a run: the shared builder over the run's inputs, the framework files,
+    the installed libraries and, when the run got far enough to have them, the harness script and
+    the lock of the environment it runs in."""
+    try:
+        return reuse.stage_key("qualify", inputs, files=files)
+    except reuse.ReuseError as error:
+        raise Blocked("harness_failed", f"the run cannot be keyed: {error}") from error
+
+
 def _digest(value: object) -> str:
     text = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def stored_digest(
+def records_read(
     conn: psycopg.Connection,
     decl: m.Declaration,
     sets: Sequence[uuid.UUID],
     parameterizations: Sequence[uuid.UUID] = (),
-) -> str:
-    """A digest of what the database holds for the sets a run evaluated: their rows in every slot
-    group and family table (nested sets followed), their envelopes, and every set of the
-    `parameterizations` (those a sub-form choice reads). A rebuilt database with other values
-    under the same identifiers gives another digest."""
-    ps = pc.PARAMETER_SET
-    ids = [
-        row[0]
-        for row in conn.execute(
-            f"WITH RECURSIVE s AS (SELECT id FROM {ps.table} WHERE id = ANY(%s) "  # noqa: S608
-            f"OR {ps.parameterization} = ANY(%s) UNION "
-            f"SELECT p.id FROM {ps.table} p JOIN s ON p.{ps.parent} = s.id) SELECT id FROM s",
-            (list(sets), list(parameterizations)),
-        ).fetchall()
-    ]
-    parts: dict[str, list[str]] = {}
-    for group in decl.slot_groups:
-        query = sql.SQL("SELECT g::text FROM {} g WHERE g.id = ANY(%s)").format(
-            sql.Identifier(m.PARAM_SCHEMA, group.id)
-        )
-        parts[group.id] = sorted(row[0] for row in conn.execute(query, (ids,)).fetchall())
-        for family in group.families:
-            query = sql.SQL("SELECT f::text FROM {} f WHERE f.set_id = ANY(%s)").format(
-                sql.Identifier(m.PARAM_SCHEMA, family.id)
-            )
-            parts[family.id] = sorted(row[0] for row in conn.execute(query, (ids,)).fetchall())
-    envelope = pc.ENVELOPE
-    envelopes = conn.execute(
-        f"SELECT e::text FROM {envelope.table} e "  # noqa: S608
-        f"WHERE e.{envelope.parameter_set} = ANY(%s)",
-        (ids,),
-    ).fetchall()
-    parts["envelope"] = sorted(row[0] for row in envelopes)
-    parts["set"] = sorted(str(i) for i in ids)
-    return _digest(parts)
+) -> ReadRecords:
+    """The content hash of every record the database holds that a run evaluating `sets` reads
+    (`build.currency` says which), and every set of the `parameterizations` (those a sub-form
+    choice reads). `tk build` computes the same hashes from the canonical Parquet it loads, so a
+    rebuilt database with other values under the same identifiers gives another result."""
+    layout = currency.Layout(decl)
+    found = currency.read_records(
+        layout,
+        currency.DatabaseRows(conn, layout),
+        sets=sets,
+        parameterizations=parameterizations,
+    )
+    return ReadRecords(
+        sets=sorted(str(identifier) for identifier in sets),
+        parameterizations=sorted(str(identifier) for identifier in parameterizations),
+        records=found,
+    )
 
 
 # -- evaluation and comparison -----------------------------------------------------------------
@@ -513,6 +535,7 @@ def _report(
     revision: str,
     state: _State,
     outcome: str,
+    blocked_reason: str | None,
     note: str | None,
     outcomes: Sequence[SubjectOutcome],
     invalid: Sequence[dict[str, object]],
@@ -531,6 +554,7 @@ def _report(
         "output": case.spec.output,
         "basis": case.spec.basis,
         "outcome": outcome,
+        "blocked_reason": blocked_reason,
         "note": note,
         "library": state.library,
         "library_version": state.version,
@@ -598,7 +622,9 @@ def table_lines(report: Mapping[str, object]) -> list[str]:
         f"  {report['subjects']:>8} {report['points']:>8} {report['passed']:>8} {report['failed']:>8} "
         f"{report['invalid']:>8}  {deviation}  ({where})",
     ]
-    if report["note"]:
+    if report["blocked_reason"]:
+        lines.append(f"  blocked ({report['blocked_reason']}): {report['note']}")
+    elif report["note"]:
         lines.append(f"  note: {report['note']}")
     refused = [o for o in report["per_subject"] if o["refused"]]  # type: ignore[union-attr]
     for entry in refused[:_SHOWN_INVALID]:
@@ -647,8 +673,9 @@ def run_case(ctx: Context, conn: psycopg.Connection, case: Case) -> CaseOutcome:
     revision = spec.parameterization.revision
     outcomes: list[SubjectOutcome] = []
     invalid: list[dict[str, object]] = []
-    outcome, note = BLOCKED, None
-    inputs: dict[str, str] = {}
+    outcome, blocked_reason, note = BLOCKED, None, None
+    key: reuse.Key | None = None
+    read: ReadRecords | None = None
 
     def run_key_of() -> str:
         return f"{case.name}/{spec.form}/{spec.parameterization.key}@{revision}/{fingerprint[:16]}"
@@ -666,7 +693,9 @@ def run_case(ctx: Context, conn: psycopg.Connection, case: Case) -> CaseOutcome:
         )
         subjects = select_subjects(conn, case, group, parameterization)
         if not subjects:
-            raise Blocked("the parameterization holds no set of the slot group for any subject")
+            raise Blocked(
+                "no_subjects", "the parameterization holds no set of the slot group for any subject"
+            )
         state.sets = tuple(s.set_id for s in subjects)
         points = grids(conn, case, decl, contract, subjects)
         probed = _harness(
@@ -682,21 +711,30 @@ def run_case(ctx: Context, conn: psycopg.Connection, case: Case) -> CaseOutcome:
         )
         state.library, state.version = probed.library, probed.version
         extra = [choice for choices in _subform_ids(conn, case).values() for choice in choices]
-        inputs = {
-            "declaration": fingerprint,
-            "form": expression,
-            "case": case.content_hash,
-            "library": f"{probed.library} {probed.version}",
-            "subjects": _digest([[list(s.keys), str(s.set_id)] for s in subjects]),
-            "stored": stored_digest(conn, decl, state.sets, extra),
-            "format": str(persist.FORMAT),
-        }
-        key = store.reuse_key(inputs)
+        read = records_read(conn, decl, state.sets, extra)
+        script = harness.harness_script(spec.harness.library, ctx.oracles_dir)
+        key = _key(
+            {
+                "declaration": fingerprint,
+                "form": expression,
+                "case": case.content_hash,
+                "library": f"{probed.library} {probed.version}",
+                "subjects": _digest([[list(s.keys), str(s.set_id)] for s in subjects]),
+                "read": currency.read_digest(read.records),
+                "format": persist.FORMAT,
+            },
+            files={
+                "harness": [script],
+                f"environment:{spec.harness.environment}": list(
+                    reuse.environment_locks(spec.harness.environment, ctx.tree)
+                ),
+            },
+        )
         stored = persist.read_output(ctx.canonical, case.name)
         if (
             not ctx.force
             and stored is not None
-            and stored.manifest.reuse_key == key
+            and stored.manifest.reuse_key == key.digest
             and stored.report.get("outcome") != BLOCKED
         ):
             persist.load_live(ctx.url, stored.directory, stored.manifest, f"{case.name}/")
@@ -716,9 +754,11 @@ def run_case(ctx: Context, conn: psycopg.Connection, case: Case) -> CaseOutcome:
         )
         state.library, state.version = result.library, result.version
         outcomes, invalid = compare(case, decl, contract, subjects, points, answers, result)
-        outcome, note = _verdict(case, outcomes, invalid)
-    except (Blocked, AmbiguousOccurrence) as reason:
-        note = str(reason)
+        outcome, blocked_reason, note = _verdict(case, outcomes, invalid)
+    except Blocked as reason:
+        blocked_reason, note = reason.reason, str(reason)
+    except AmbiguousOccurrence as reason:
+        blocked_reason, note = pc.BLOCKED_REASON.member("ambiguous_occurrence"), str(reason)
     run_key = run_key_of()
     worst = max((o.worst for o in outcomes if o.worst is not None), default=None)
     record = persist.RunRecord(
@@ -737,22 +777,31 @@ def run_case(ctx: Context, conn: psycopg.Connection, case: Case) -> CaseOutcome:
         else (spec.comparison.absolute_tolerance.value, spec.comparison.absolute_tolerance.unit),
         observable=output.observable,
         worst_relative_deviation=worst if worst is not None and math.isfinite(worst) else None,
+        blocked_reason=blocked_reason,
         note=note,
         sets=state.sets if outcomes else (),
     )
-    report = _report(case, run_key, revision, state, outcome, note, outcomes, invalid, record.sets)
-    if not inputs:
-        inputs = {"declaration": fingerprint, "case": case.content_hash, "blocked": note or ""}
-    directory = persist.write_output(
-        ctx.canonical, case.name, decl, record, inputs, store.reuse_key(inputs), report
+    report = _report(
+        case, run_key, revision, state, outcome, blocked_reason, note, outcomes, invalid, record.sets
     )
+    if key is None:
+        key = _key(
+            {
+                "declaration": fingerprint,
+                "case": case.content_hash,
+                "blocked": f"{blocked_reason}: {note}",
+                "format": persist.FORMAT,
+            }
+        )
+    directory = persist.write_output(ctx.canonical, case.name, decl, record, key, report, read)
     persist.load_live(ctx.url, directory, store.read_manifest(directory), f"{case.name}/")
     return CaseOutcome(case.name, "ran", report, directory)
 
 
 def _verdict(
     case: Case, outcomes: Sequence[SubjectOutcome], invalid: Sequence[dict[str, object]]
-) -> tuple[str, str | None]:
+) -> tuple[str, str | None, str | None]:
+    """The outcome, the blocked reason (only for a blocked outcome) and the note."""
     comparison = case.spec.comparison
     compared = sum(o.passed + o.failed for o in outcomes)
     excluded = comparison.invalid_points == "exclude"
@@ -774,18 +823,20 @@ def _verdict(
         bad = sum(1 for o in outcomes if o.failed)
         notes.append(f"{failed} point(s) of {bad} subject(s) outside the tolerance")
     if compared == 0 and not refused:
-        return BLOCKED, "no point could be compared: " + (
-            notes[0] if notes else "the grid is empty"
+        return (
+            BLOCKED,
+            pc.BLOCKED_REASON.member("nothing_compared"),
+            "no point could be compared: " + (notes[0] if notes else "the grid is empty"),
         )
     fails = bool(failed or refused or (invalid and not excluded))
-    return (FAILED if fails else PASSED), ("; ".join(notes) or None)
+    return (FAILED if fails else PASSED), None, ("; ".join(notes) or None)
 
 
 def _harness(call: Callable[[], harness.Result]) -> harness.Result:
     try:
         return call()
     except harness.HarnessUnavailable as error:
-        raise Blocked(f"harness unavailable: {error}") from error
+        raise Blocked(error.reason, f"harness unavailable: {error}") from error
 
 
 def _subject_request(subject: Subject, columns: dict[str, list[float]]) -> harness.SubjectRequest:
@@ -826,6 +877,6 @@ __all__ = [
     "grids",
     "run_case",
     "select_subjects",
-    "stored_digest",
+    "records_read",
     "table_lines",
 ]

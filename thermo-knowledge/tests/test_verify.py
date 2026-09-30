@@ -228,6 +228,7 @@ def test_provisional_target_matches_status(conn: psycopg.Connection) -> None:
             carrier=new(),
             scope="s",
             local_key=key,
+            entity_class="species",
             status=status,
             rule="structural",
             target=target,

@@ -1,0 +1,204 @@
+source = "alpha"
+pin = "0123456789ab"
+additional_pins = { alpha_code = "ba9876543210" }
+surveyed = "2026-01-02"
+summary = "An invented source: two tables and a keyword block, used only by the survey tests."
+
+[[payload]]
+paths = ["data/*.json", "data/readme.txt"]
+format = "JSON objects keyed by name"
+files = 3
+bytes = 1200
+records = "14 objects, counted by parsing"
+reader = "json.load"
+read_by_source = "partly"
+notes = "readme.txt is not read."
+
+[[payload]]
+paths = ["docs/*.pdf"]
+format = "PDF releases"
+files = 1
+bytes = 5000
+records = "1 document"
+reader = "a PDF reader"
+read_by_source = "not recorded"
+notes = "none"
+documents = [
+  { slug = "rel-1", identifier = "ALPHA R1", title = "An invented release", pages = 4, bytes = 5000 },
+]
+
+[[construct]]
+name = "plain record"
+locator = "data/plain.json"
+meaning = "A record that maps without remainder."
+subject = "one compound, keyed by name"
+fields = [
+  { name = "tc", meaning = "critical temperature", unit = "K", shape = "scalar", role = "input" },
+]
+origin = "authored (by the invented maintainers)"
+conventions = "none"
+absence = "missing means unknown"
+validity = "not stated"
+provenance = "none"
+count = "3 records"
+example = "data/plain.json#/0"
+candidate = "parameter_set"
+precision = "exact"
+loss = ""
+
+[[construct]]
+name = "exact but lossy"
+locator = "data/lossy.json"
+meaning = "A record whose mapping assumes a unit."
+subject = "one compound"
+fields = [
+  { name = "pc", meaning = "critical pressure", unit = "not stated", shape = "scalar", role = "input" },
+  { name = "note", meaning = "free text", unit = "not applicable", shape = "scalar", role = "not recorded" },
+]
+origin = "transcribed (from a table)"
+conventions = "none"
+absence = "not stated"
+validity = "not stated"
+provenance = "none"
+count = "3 records"
+example = "data/lossy.json#/0"
+candidate = "parameter_set"
+precision = "exact"
+loss = "The unit of pc is assumed to be bar."
+
+[[construct]]
+name = "exact, loss none"
+locator = "data/none.json"
+meaning = "A record that states no loss with the word none."
+subject = "one compound"
+fields = []
+origin = "generated (by a script, version not recorded)"
+conventions = "none"
+absence = "not stated"
+validity = "not stated"
+provenance = "none"
+count = "1 record"
+example = "data/none.json#/0"
+candidate = "parameter_set"
+precision = "exact"
+loss = "None."
+
+[[construct]]
+name = "close record"
+locator = "data/close.json"
+meaning = "A record whose order matters."
+subject = "an ordered pair"
+fields = [
+  { name = "kij", meaning = "interaction", unit = "1", shape = "scalar", role = "input" },
+]
+origin = "computed (from a model)"
+conventions = "the order of the pair fixes the sign"
+absence = "not stated"
+validity = "not stated"
+provenance = "none"
+count = "5 pairs"
+example = "data/close.json#/0"
+candidate = "parameter_set"
+precision = "close"
+loss = "The order of the pair is lost."
+values = ["a", "b"]
+
+[[construct]]
+name = "narrower record"
+locator = "data/narrow.json"
+meaning = "A special case of a candidate."
+subject = "one compound"
+fields = []
+origin = "other (hand edited)"
+conventions = "none"
+absence = "not stated"
+validity = "not stated"
+provenance = "none"
+count = "2 records"
+example = "data/narrow.json#/0"
+candidate = "parameter_set"
+precision = "narrower"
+loss = ""
+
+[[construct]]
+name = "unmapped record"
+locator = "data/unmapped.json"
+meaning = "Nothing in the model holds it."
+subject = "a site pair"
+fields = []
+origin = "not stated"
+conventions = "none"
+absence = "not stated"
+validity = "not stated"
+provenance = "none"
+count = "1 record"
+example = "data/unmapped.json#/0"
+candidate = "none"
+precision = "unmapped"
+loss = "There is no concept to map to."
+
+[[model_family]]
+name = "AlphaEOS"
+locator = "alpha/eos.py"
+class = "other (an invented equation)"
+inputs = "T, density"
+parameters = "pure: a, b"
+composes = [
+  { slot = "alpha", accepts = "an alpha function", default = "AlphaDefault" },
+  { slot = "", accepts = "a mixing rule", default = "" },
+]
+variants = [
+  { selector = "version=2", selects = "a different default table" },
+]
+equation_source = "not cited"
+closed_form = "yes (explicit in the natural variables)"
+data = "construct 'plain record'"
+
+[[model_family]]
+name = "Wrapper"
+locator = "alpha/wrap.py"
+class = "wrapper"
+inputs = "none"
+parameters = "none"
+composes = []
+equation_source = "not cited"
+closed_form = "procedural"
+data = "none bundled"
+
+[[convention]]
+name = "units"
+locator = "alpha/units.py"
+statement = "SI throughout"
+scope = "all constructs"
+
+[[selection]]
+name = "table choice"
+locator = "alpha/select.py"
+rule = "first table wins"
+scope = "critical constants"
+documented = "yes"
+
+[[discrepancy]]
+locator = "alpha/eos.py:10"
+documented = "the docstring says Pa"
+actual = "the code uses kPa"
+consequence = "pressure parameters"
+
+[[capability]]
+calculation = "flash_tp"
+offered = "yes"
+scope = "AlphaEOS"
+locator = "alpha/flash.py"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "virial_sweep (proposed)"
+offered = "no"
+scope = "Proposed key for: virial coefficients over a temperature range."
+locator = "not applicable"
+evidence = "documentation"
+
+[[question]]
+about = "units"
+question = "Is pc in bar?"
+why_it_matters = "The mapping factor depends on it."

@@ -30,6 +30,8 @@ from thermo_knowledge.build import build_database, discover
 from thermo_knowledge.testing import TestDatabase
 
 SATURATION = "vapor_pressure_exp_series_tau__pure"
+PSEUDO_PURE_FILE = re.compile(r".+\.[Pp][Pp][Ff]")
+"""How the source marks a pseudo-pure fluid: its INFO/CAS names a REFPROP blend file."""
 
 
 def _staged_directory() -> Path | None:
@@ -148,14 +150,17 @@ def test_resolution_agrees_with_an_independent_structure_computation(run: Run) -
             found.add(Chem.MolToInchiKey(Chem.MolFromSmiles(str(row["SMILES"]))))
         return found
 
-    fluids = staged("fluids")
+    fluids = [r for r in staged("fluids") if not PSEUDO_PURE_FILE.fullmatch(str(r["CAS"]))]
     structural = {r["NAME"]: keys(r) for r in fluids}
     status = {(r["local_key"]): r["status"] for r in run.table("tk.source_entity", resolution=True)}
     for name, found in structural.items():
         expected = "unresolved" if not found else ("unique" if len(found) == 1 else "ambiguous")
         assert status[name] == expected, name
     counts = Counter(status.values())
-    assert sum(counts.values()) == 136 and counts["ambiguous"] == 7 and counts["unresolved"] == 10
+    # 130 pure fluids (the five pseudo-pure fluids with a composition are unique mixtures and
+    # SES36, which has none, is unresolved: see the tests on the pseudo-pure fluids below)
+    assert sum(counts.values()) == 136 and counts["ambiguous"] == 7
+    assert counts["unresolved"] == 5 and counts["unique"] == 124
     totals = run.report["totals"]
     assert totals["status"] == dict(sorted(counts.items()))  # type: ignore[index]
     assert {i["entity"]["key"] for i in run.report["ambiguous"]} == {  # type: ignore[attr-defined]
@@ -172,6 +177,129 @@ def test_resolution_agrees_with_an_independent_structure_computation(run: Run) -
             assert species[entity["target"]]["inchikey"] == target["canonical_key"]
         else:
             assert target["provisional"] is True
+
+
+def component_names() -> dict[str, str]:
+    """The fluid a name in the predefined-mixture table denotes, by name or alias without regard
+    to case, from the staged fluids alone."""
+    names: dict[str, set[str]] = {}
+    for row in staged("fluids"):
+        for name in (row["NAME"], *(row["ALIASES"] or [])):  # type: ignore[misc]
+            names.setdefault(str(name).casefold(), set()).add(str(row["NAME"]))
+    return {name: next(iter(found)) for name, found in names.items() if len(found) == 1}
+
+
+def test_the_pseudo_pure_fluids_are_defined_mixtures_of_resolved_species(run: Run) -> None:
+    fluids = {str(r["NAME"]): r for r in staged("fluids")}
+    pseudo = sorted(n for n, r in fluids.items() if PSEUDO_PURE_FILE.fullmatch(str(r["CAS"])))
+    assert pseudo == ["Air", "R404A", "R407C", "R410A", "R507A", "SES36"]
+    entities = {r["local_key"]: r for r in run.table("tk.source_entity", resolution=True)}
+    material = {r["id"]: r for r in run.table("tk.material_entity", resolution=True)}
+    mixtures = {r["id"]: r for r in run.table("tk.defined_mixture", resolution=True)}
+    species = {r["id"] for r in run.table("tk.species", resolution=True)}
+    assert {n for n, e in entities.items() if e["entity_class"] == "defined_mixture"} == set(pseudo)
+    # no provisional species stands for a pseudo-pure fluid, and no pure fluid is a mixture
+    for name in pseudo:
+        assert entities[name]["target"] in mixtures and entities[name]["target"] not in species
+    assert not any(
+        e["target"] in mixtures for n, e in entities.items() if n not in set(pseudo)
+    )
+    # the compositions the predefined-mixture table gives: the resolved species of its components
+    table = {(str(r["name"]), int(r["component_index"])): r for r in staged("predefined_mixture_components")}  # type: ignore[call-overload]
+    lookup = component_names()
+    links: dict[object, dict[object, float]] = {}
+    for row in run.table("tk.mixture_component", resolution=True):
+        links.setdefault(row["mixture"], {})[row["component"]] = row["value"]
+    given = 0
+    for name in pseudo:
+        entity = entities[name]
+        parts = [r for (mixture, _), r in sorted(table.items()) if mixture == name]
+        if not parts:
+            assert name == "SES36"
+            assert (entity["status"], entity["rule"]) == ("unresolved", "provisional")
+            assert material[entity["target"]]["provisional"] is True
+            assert entity["target"] not in links
+            continue
+        given += 1
+        assert (entity["status"], entity["rule"]) == ("unique", "composition"), name
+        assert material[entity["target"]]["provisional"] is False
+        expected = {}
+        for part in parts:
+            component = entities[lookup[str(part["fluids"]).casefold()]]
+            assert component["status"] == "unique" and component["target"] in species
+            expected[component["target"]] = part["mole_fractions"]
+        assert links[entity["target"]] == pytest.approx(expected, abs=0, rel=1e-15)
+        assert sum(expected.values()) == pytest.approx(1.0, abs=1e-6)
+        assert (mixtures[entity["target"]]["definition"], mixtures[entity["target"]]["mole_basis"]) == (
+            "by_definition",
+            True,
+        )
+    assert given == 5
+    totals = run.report["totals"]
+    assert totals["defined_mixtures"] == 5  # type: ignore[index]
+    assert totals["provisional"]["defined_mixture"] == 1  # type: ignore[index]
+    for name in pseudo:
+        assert entities[name]["entity_class"] == "defined_mixture"
+
+
+def test_the_compositions_of_the_pseudo_pure_fluids_are_claimed_in_phase_one(run: Run) -> None:
+    directory = run.env.canonical_dir / "coolprop" / claims.IDENTITY_DIR
+    pseudo = {"Air", "R404A", "R407C", "R410A", "R507A"}
+    lookup = component_names()
+    expected = {
+        (str(r["name"]), lookup[str(r["fluids"]).casefold()], claims.decimal_text(r["mole_fractions"]))  # type: ignore[arg-type]
+        for r in staged("predefined_mixture_components")
+        if r["name"] in pseudo
+    }
+    found = claims.read_component_claims(directory)
+    assert {(c.local_key, c.component_key, c.fraction) for c in found} == expected
+    assert len(found) == len(expected) == 13
+    assert {(c.scope, c.component_scope, c.origin_role) for c in found} == {
+        ("fluids", "fluids", "published")
+    }
+    assert ("Air", "Nitrogen", "0.7812") in expected and ("R410A", "R32", "0.697614699375863") in expected
+    ledger = {
+        (r["table"], r["state"]) for r in claims.read_ledger(directory) if r["table"].startswith("predefined")
+    }
+    assert ledger == {("predefined_mixtures", "emitted"), ("predefined_mixture_components", "emitted")}
+    manifest = run.table("qual.mapping_coverage")
+    states = {
+        (r["source_table"], r["state"]): r["rows"]
+        for r in manifest
+        if r["source_table"].startswith("predefined")
+    }
+    assert states == {
+        ("predefined_mixtures", "mapped_with_loss"): 5,
+        ("predefined_mixtures", "deferred"): 149,
+        ("predefined_mixture_components", "mapped_with_loss"): 13,
+        ("predefined_mixture_components", "deferred"): 505,
+    }
+
+
+def test_air_resolves_to_a_defined_mixture_of_nitrogen_argon_and_oxygen(run: Run) -> None:
+    entities = {r["local_key"]: r for r in run.table("tk.source_entity", resolution=True)}
+    material = {r["id"]: r["canonical_key"] for r in run.table("tk.material_entity", resolution=True)}
+    air = entities["Air"]
+    assert (air["status"], air["rule"], air["entity_class"]) == (
+        "unique",
+        "composition",
+        "defined_mixture",
+    )
+    parts = {
+        material[r["component"]]: r["value"]
+        for r in run.table("tk.mixture_component", resolution=True)
+        if r["mixture"] == air["target"]
+    }
+    assert parts == {
+        material[entities["Nitrogen"]["target"]]: 0.7812,
+        material[entities["Argon"]["target"]]: 0.0092,
+        material[entities["Oxygen"]["target"]]: 0.2096,
+    }
+    in_key_order = sorted(parts.items())
+    assert material[air["target"]] == "mixture:" + json.dumps(
+        ["mole", *(part for key, fraction in in_key_order for part in (key, str(fraction)))],
+        separators=(",", ":"),
+    )
 
 
 def test_resolution_is_deterministic(run: Run) -> None:

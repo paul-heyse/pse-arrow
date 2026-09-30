@@ -1200,21 +1200,21 @@ locator = "Reaktoro/Utils/AqueousProps.hpp; Equilibrium/EquilibriumSolver"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "proposed:reaction_kinetics"
+calculation = "reaction_kinetics (proposed)"
 offered = "yes"
 scope = "kinetic integration of reaction rates (Reaction with ReactionRateModel, Palandri-Kharaka mineral rates, surface area models) coupled to equilibrium (KineticsSolver, SmartKineticsSolver)"
 locator = "Reaktoro/Kinetics/KineticsSolver.hpp; Core/Reaction.hpp; Models/ReactionRateModels"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "proposed:standard_state_properties"
+calculation = "standard_state_properties (proposed)"
 offered = "yes"
 scope = "standard G0, H0, V0, VT0, VP0, Cp0 (and derived S, U, A, Cv) of any species at (T, P), through Species::standardThermoProps"
 locator = "Reaktoro/Core/Species.cpp standardThermoProps (line 312); ChemicalProps species accessors"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "proposed:reactive_transport_step"
+calculation = "reactive_transport_step (proposed)"
 offered = "partial"
 scope = "a TransportSolver class for one-dimensional transport steps; no coupled reactive-transport driver in the library proper (examples only)"
 locator = "Reaktoro/Transport/TransportSolver.hpp; examples/"

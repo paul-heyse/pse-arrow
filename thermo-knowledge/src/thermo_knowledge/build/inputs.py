@@ -13,12 +13,13 @@
 
 `discover` reads and verifies those directories; `check_current` refuses the ones that were
 written against another declaration fingerprint, naming the source that must be mapped again.
-`discover_qualification` adds the qualification outputs that are still current and reports, with
-its reason, each one it leaves out.
+`discover_qualification` adds the qualification outputs that are still current for the values
+these directories hold and reports, with its reason, each one it leaves out.
 """
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,6 +27,7 @@ from pathlib import Path
 import pyarrow.parquet as pq
 
 from thermo_knowledge import pipeline_contract as pc
+from thermo_knowledge.build import currency
 from thermo_knowledge.canonical import store
 from thermo_knowledge.canonical.environment import RESOLUTION_DIR
 from thermo_knowledge.canonical.provenance import CarrierInfo
@@ -173,25 +175,24 @@ class SkippedOutput:
     reason: str
 
 
-def _column(path: Path, column: str) -> list[object]:
-    return pq.read_table(path, columns=[column]).column(column).to_pylist()
-
-
 def discover_qualification(
-    canonical: Path, inputs: Sequence[SourceInput], fingerprint: str
+    canonical: Path, inputs: Sequence[SourceInput], decl: m.Declaration, fingerprint: str
 ) -> tuple[list[SourceInput], list[SkippedOutput]]:
     """The qualification outputs under `canonical` that this build can load, and those it leaves
     out with the reason.
 
     An output is left out when it was made against another declaration fingerprint than
-    `fingerprint`, or when a parameter set it evaluated is not among the `tk.parameter_set` rows
-    of `inputs`. An output that does not match its own manifest is an error, like any other
-    canonical directory.
+    `fingerprint`, or when the records it read are not, row for row, the ones `inputs` hold: the
+    content hashes its manifest records (`build.currency`) are recomputed from the canonical
+    Parquet of `inputs` with the function the run computed them with, and any difference retires
+    the run. An output that does not match its own manifest is an error, like any other canonical
+    directory.
     """
     root = canonical / QUALIFICATION_DIR
     if not root.is_dir():
         return [], []
-    present: set[object] | None = None
+    layout: currency.Layout | None = None
+    source: currency.ParquetRows | None = None
     kept: list[SourceInput] = []
     skipped: list[SkippedOutput] = []
     for directory in sorted(
@@ -220,24 +221,26 @@ def discover_qualification(
                 )
             )
             continue
-        evaluated = files.get(pc.RUN_PARAMETER_SET.table)
-        if evaluated is not None:
-            if present is None:
-                present = {
-                    identifier
-                    for item in inputs
-                    if pc.PARAMETER_SET.table in item.files
-                    for identifier in _column(item.files[pc.PARAMETER_SET.table], "id")
-                }
-            missing = sum(
-                1 for identifier in _column(evaluated, pc.RUN_PARAMETER_SET.parameter_set) if identifier not in present
+        reason = None
+        if manifest.read is not None:
+            if layout is None or source is None:
+                layout = currency.Layout(decl)
+                tables: dict[str, list[Path]] = {}
+                for item in inputs:
+                    for table, path in item.files.items():
+                        tables.setdefault(table, []).append(path)
+                source = currency.ParquetRows(tables)
+            current = currency.read_records(
+                layout,
+                source,
+                sets=[uuid.UUID(value) for value in manifest.read.sets],
+                parameterizations=[uuid.UUID(value) for value in manifest.read.parameterizations],
             )
-            if missing:
-                skipped.append(
-                    SkippedOutput(
-                        case, f"{missing} parameter set(s) it evaluated are not in this build"
-                    )
-                )
-                continue
+            reason = currency.differences(manifest.read.records, current)
+        elif pc.RUN_PARAMETER_SET.table in files:
+            reason = "its manifest records no content hash of the records it read"
+        if reason is not None:
+            skipped.append(SkippedOutput(case, f"{reason}: run `tk qualify {case}`"))
+            continue
         kept.append(SourceInput(f"{QUALIFICATION_DIR}/{case}", directory, manifest, files, None))
     return kept, skipped

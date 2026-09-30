@@ -1,0 +1,50 @@
+source = "beta"
+pin = "partial"
+surveyed = "2026-01-03"
+summary = "A second invented source with one lossy and one lossless construct."
+
+[[payload]]
+paths = ["*.csv"]
+format = "CSV with a header row"
+files = 1
+bytes = 100
+records = "9 rows"
+reader = "csv module"
+read_by_source = "all"
+notes = "none"
+
+[[construct]]
+name = "broad table"
+locator = "table.csv"
+meaning = "A table that carries more than the candidate."
+subject = "one compound"
+fields = [
+  { name = "x", meaning = "a value", unit = "not stated", shape = "table", role = "unread" },
+]
+origin = "not recorded"
+conventions = "none"
+absence = "not stated"
+validity = "not stated"
+provenance = "none"
+count = "9 rows"
+example = "table.csv:2"
+candidate = "tabulated_function"
+precision = "broader"
+loss = "Two columns have no slot."
+
+[[construct]]
+name = "simple table"
+locator = "simple.csv"
+meaning = "A table that maps exactly."
+subject = "one compound"
+fields = []
+origin = "authored (by hand)"
+conventions = "none"
+absence = "not stated"
+validity = "not stated"
+provenance = "none"
+count = "4 rows"
+example = "simple.csv:2"
+candidate = "tabulated_function"
+precision = "exact"
+loss = ""

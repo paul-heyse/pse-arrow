@@ -4,6 +4,7 @@ doc = "A fixture mapping: identities, and pressure curves as saturation paramete
 [scopes.species]
 table = "species"
 key = "name"
+class = "species"
 doc = "A species of the fixture source."
 
 [parameterizations.curves]
@@ -45,6 +46,7 @@ target = "identity_assertion.value"
 scheme = "name"
 precision = "close"
 absent = ["N/A", "?"]
+optional = true
 loss = "The fixture's placeholder column is asserted as a name."
 
 [tables.species.fields.aliases]

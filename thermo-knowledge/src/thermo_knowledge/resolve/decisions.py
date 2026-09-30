@@ -5,10 +5,11 @@
 
 ```toml
 [[decision]]
-action = "identify"            # the entity is this canonical species
+action = "identify"            # the entity is this canonical entity
 entity = { carrier = "coolprop", scope = "fluids", key = "R1123" }
+class = "species"              # the class of the canonical entity it names (see below)
 canonical_key = "ZWQIPCQCAOKXDI-UHFFFAOYSA-N"   # an InChIKey, or another declared canonical key
-charge = 0                     # optional, default 0
+charge = 0                     # optional, default 0, species only
 reason = "why"
 
 [[decision]]
@@ -27,6 +28,12 @@ reason = "why"
 
 An entity is named by the manifest id of its carrier, its scope and its local key. At most one
 `identify` or `reject` decision names an entity.
+
+An `identify` decision states the class of the canonical entity it names: `species`,
+`defined_mixture`, `material` or `polymer_type`. It must agree with the class the source states
+for the entity (a source entity of class `species_form` is identified through its species, so the
+decision's class is `species`), unless the source states none (`undetermined`), when the decision
+settles it.
 """
 
 from __future__ import annotations
@@ -61,6 +68,7 @@ class Decision(Struct, forbid_unknown_fields=True):
     reason: str
     entity: EntityRef | None = None
     entities: list[EntityRef] = []
+    entity_class: str | None = msgspec.field(name="class", default=None)
     canonical_key: str | None = None
     charge: int | None = None
 
@@ -77,9 +85,15 @@ class DecisionError(Exception):
         super().__init__("\n".join(problems))
 
 
+IDENTIFIABLE_CLASSES = ("species", "defined_mixture", "material", "polymer_type")
+"""The classes a curated decision can name an entity of: those with rows a canonical key alone
+identifies. A pseudo-component also needs the `kind` that says why it has no formula."""
+
+
 @dataclass(frozen=True)
 class Identify:
     canonical_key: str
+    entity_class: str
     charge: int
     reason: str
 
@@ -132,8 +146,14 @@ def parse(text: str, *, file: str) -> Decisions:
             if first == second:
                 problems.append(f"{where}: the two entities are the same entity")
                 continue
-            if item.canonical_key is not None or item.charge is not None:
-                problems.append(f"{where}: `canonical_key` and `charge` belong to `identify`")
+            if (
+                item.canonical_key is not None
+                or item.charge is not None
+                or item.entity_class is not None
+            ):
+                problems.append(
+                    f"{where}: `canonical_key`, `charge` and `class` belong to `identify`"
+                )
             distinct.append((min(first, second), max(first, second), item.reason))
             continue
         if item.entity is None or item.entities:
@@ -147,10 +167,26 @@ def parse(text: str, *, file: str) -> Decisions:
             if not item.canonical_key:
                 problems.append(f"{where}: `identify` states the `canonical_key`")
                 continue
-            identify[key] = Identify(item.canonical_key, item.charge or 0, item.reason)
+            if item.entity_class not in IDENTIFIABLE_CLASSES:
+                problems.append(
+                    f"{where}: `identify` states the `class` of the entity it names, one of "
+                    f"{', '.join(IDENTIFIABLE_CLASSES)}"
+                )
+                continue
+            if item.charge is not None and item.entity_class != "species":
+                problems.append(f"{where}: `charge` belongs to a species")
+            identify[key] = Identify(
+                item.canonical_key, item.entity_class, item.charge or 0, item.reason
+            )
         else:
-            if item.canonical_key is not None or item.charge is not None:
-                problems.append(f"{where}: `canonical_key` and `charge` belong to `identify`")
+            if (
+                item.canonical_key is not None
+                or item.charge is not None
+                or item.entity_class is not None
+            ):
+                problems.append(
+                    f"{where}: `canonical_key`, `charge` and `class` belong to `identify`"
+                )
             reject[key] = item.reason
     if problems:
         raise DecisionError(problems)

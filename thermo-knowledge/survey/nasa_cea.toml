@@ -394,7 +394,9 @@ locator = "source/fits.f90 ThermoFit (lines 6-110); source/thermo.f90 SpeciesThe
 class = "standard_state_species"
 inputs = "T in kelvin; the species' fit intervals; gas species use three intervals, condensed species up to ten"
 parameters = "per species interval: a1 to a7 (T^-2 to T^4), b1, b2; interval bounds; reference pressure implicit (1 bar)"
-composes = "none; used by the mixture and equilibrium code"
+composes = [
+  { slot = "", accepts = "none; used by the mixture and equilibrium code", default = "" },
+]
 equation_source = "NASA TP-2002-211556 and RP-1311 (docs/source/ref_list.rst items 1 and 3); Cp/R = a1 T^-2 + a2 T^-1 + a3 + a4 T + a5 T^2 + a6 T^3 + a7 T^4 is the form of calc_cp, enthalpy and entropy follow by integration with b1 and b2"
 closed_form = "yes"
 data = "constructs 'fit interval header line', 'fit coefficient lines' and the species record constructs"
@@ -405,7 +407,9 @@ locator = "source/thermo.f90 st_calc_cv, st_calc_energy, st_calc_gibbs_energy, s
 class = "standard_state_species"
 inputs = "T, and for a gas species ln n_j, P in bar and total moles n"
 parameters = "none beyond the fits"
-composes = "NASA polynomial fit; for a reactant-only record with no coefficients, the assigned enthalpy and cp = 0, s = 0"
+composes = [
+  { slot = "", accepts = "NASA polynomial fit; for a reactant-only record with no coefficients, the assigned enthalpy and cp = 0, s = 0", default = "" },
+]
 equation_source = "none in the tree; cv/R = cp/R - 1; u/R = h/R - T; mu/RT = h/RT - s/R plus ln(n_j) + ln(P/n) for gas only"
 closed_form = "yes"
 data = "thermo.inp records"
@@ -416,7 +420,9 @@ locator = "source/mixture.f90 (mixture_calc_enthalpy_single line 743, entropy li
 class = "other"
 inputs = "T, P (bar), mole amounts per kg of mixture; gas mole fractions"
 parameters = "global: gas constant, reference pressure; species: fits, formulas, molecular weights"
-composes = "NASA fits; ideal mixing for gas (entropy sum of n_j(s_j - ln n_j) less n ln(P/n)); each condensed species a separate pure phase of zero volume"
+composes = [
+  { slot = "", accepts = "NASA fits; ideal mixing for gas (entropy sum of n_j(s_j - ln n_j) less n ln(P/n)); each condensed species a separate pure phase of zero volume", default = "" },
+]
 equation_source = "docs/source/theory.rst: PV = n_g R T and condensed species occupy zero volume; RP-1311 Part I cited"
 closed_form = "yes"
 data = "thermo.inp; no interaction parameters exist"
@@ -427,7 +433,9 @@ locator = "source/database_compile.f90 utherm (line 140); source/thermo.f90 buil
 class = "other"
 inputs = "thermo.inp text"
 parameters = "global: the fixed gas grid 200-1000-6000-20000 K; limiting heat capacity values 2.5, 4.5, 3n-1.75 (in cp/R) at 1e6 K"
-composes = "produces the structures used by the NASA fit model"
+composes = [
+  { slot = "", accepts = "produces the structures used by the NASA fit model", default = "" },
+]
 equation_source = "none in the tree"
 closed_form = "procedural"
 data = "construct 'compiled thermo library (thermo.lib) and its derived fits'"
@@ -438,7 +446,9 @@ locator = "source/fits.f90 TransportFit (lines 32-40) and calc_transport_value (
 class = "transport"
 inputs = "T in kelvin"
 parameters = "per species (pure) or ordered pair: A, B, C, D per interval for viscosity and, for pure species, conductivity"
-composes = "mixture rules below"
+composes = [
+  { slot = "", accepts = "mixture rules below", default = "" },
+]
 equation_source = "NASA TM-4647 (Svehla 1995), docs/source/ref_list.rst item 6"
 closed_form = "yes"
 data = "constructs 'trans.inp entry header' and 'trans.inp coefficient rows'"
@@ -449,7 +459,9 @@ locator = "source/equilibrium.f90 compute_transport_properties (line 5097), eta 
 class = "transport"
 inputs = "T, equilibrium composition, reaction basis from the element-potential solution; at most 40 species with data (max_tr)"
 parameters = "pure viscosity and conductivity fits, binary viscosity interaction fits, estimates for missing data: diagonal eta from sqrt(M T) over a molecular-weight omega, off-diagonals from a rigid-sphere analogy, ion-ion and ion-electron Debye estimates"
-composes = "transport fits; thermo fits (cp and reaction enthalpies for the reaction conductivity); equilibrium composition"
+composes = [
+  { slot = "", accepts = "transport fits; thermo fits (cp and reaction enthalpies for the reaction conductivity); equilibrium composition", default = "" },
+]
 equation_source = "no citation in the code; the documentation cites NASA TM-4647 and RP-1311 Part I"
 closed_form = "procedural"
 data = "data/trans.inp"
@@ -460,7 +472,9 @@ locator = "source/equilibrium.f90 EqSolver (line 16), EqSolver_solve (line 2448)
 class = "other"
 inputs = "element abundances b0 from the reactants; assigned pair tp, hp, sp, tv, uv or sv (and reversed letters pt, ph, ps, vt, vu, vs); product species list (gas plus condensed); trace threshold; ions flag; insert list of condensed species"
 parameters = "solver options: trace (species activation threshold ln 1e-8), max iterations 50 plus half the species count, max_converged 3 times element count, smooth truncation flags; initial guess n_j = 0.1/NG, n = 0.1, T = 3800 K (theory.rst)"
-composes = "mixture thermo (NASA fits); condensed-phase activation logic; Newton iterations on the variables ln n_j (gas), n_j (condensed), ln n and ln T with a damped update factor"
+composes = [
+  { slot = "", accepts = "mixture thermo (NASA fits); condensed-phase activation logic; Newton iterations on the variables ln n_j (gas), n_j (condensed), ln n and ln T with a damped update factor", default = "" },
+]
 equation_source = "docs/source/theory.rst (Lagrangian, convergence checks); NASA RP-1311 Part I (Gordon and McBride 1994) cited"
 closed_form = "implicit"
 data = "none bundled; uses thermo.inp"
@@ -471,7 +485,9 @@ locator = "source/equilibrium.f90 EqSolver_check_condensed_phases (line 1648), E
 class = "other"
 inputs = "current equilibrium state and the condensed species list, including several phases of one substance"
 parameters = "solver counters; insert list"
-composes = "equilibrium solver; a condensed species is added if it lowers the Gibbs energy, the one with the largest decrease first (theory.rst steps 1 to 5)"
+composes = [
+  { slot = "", accepts = "equilibrium solver; a condensed species is added if it lowers the Gibbs energy, the one with the largest decrease first (theory.rst steps 1 to 5)", default = "" },
+]
 equation_source = "theory.rst (section Condensed Species, marked 'To be continued')"
 closed_form = "procedural"
 data = "none bundled"
@@ -482,7 +498,9 @@ locator = "source/rocket.f90 RocketSolver (line 23), RocketSolver_solve_iac (lin
 class = "other"
 inputs = "reactants, chamber (injector) pressure, pi/p or subsonic and supersonic area ratios, Ac/At and mass flux for the finite-area case, frozen station nfz, optional assigned chamber enthalpy or temperature"
 parameters = "global: equilibrium solver settings"
-composes = "equilibrium solver for each station; frozen composition after the chosen station; throat found iteratively"
+composes = [
+  { slot = "", accepts = "equilibrium solver for each station; frozen composition after the chosen station; throat found iteratively", default = "" },
+]
 equation_source = "NASA RP-1311 Part I and II (docs/source/ref_list.rst items 1 and 2)"
 closed_form = "implicit"
 data = "none bundled"
@@ -493,7 +511,9 @@ locator = "source/shock.f90 ShockSolver (line 16), solve_incident (389), solve_i
 class = "other"
 inputs = "reactants, T0, P0 (bar), incident velocity u1 or Mach number, flags for reflected and frozen analyses"
 parameters = "global: solver settings"
-composes = "equilibrium solver at the post-shock state"
+composes = [
+  { slot = "", accepts = "equilibrium solver at the post-shock state", default = "" },
+]
 equation_source = "RP-1311 (cited generally)"
 closed_form = "implicit"
 data = "none bundled"
@@ -504,7 +524,9 @@ locator = "source/detonation.f90 DetonSolver_solve_eq (line 100), DetonSolver_so
 class = "other"
 inputs = "reactants, initial T and P (bar)"
 parameters = "global: solver settings"
-composes = "equilibrium solver in an outer iteration on the detonation wave conditions"
+composes = [
+  { slot = "", accepts = "equilibrium solver in an outer iteration on the detonation wave conditions", default = "" },
+]
 equation_source = "RP-1311 (cited generally)"
 closed_form = "implicit"
 data = "none bundled"
@@ -515,7 +537,9 @@ locator = "source/equilibrium.f90 EqDerivatives (line 372), EqDerivatives_comput
 class = "other"
 inputs = "a converged equilibrium solution"
 parameters = "none"
-composes = "equilibrium solver; total derivatives of the solution with respect to assigned state and reactants"
+composes = [
+  { slot = "", accepts = "equilibrium solver; total derivatives of the solution with respect to assigned state and reactants", default = "" },
+]
 equation_source = "theory.rst note on equilibrium sensitivities and activity branches"
 closed_form = "implicit"
 data = "none bundled"
@@ -642,147 +666,147 @@ documented = "partly: theory.rst says there are 'additional considerations for h
 
 [[capability]]
 calculation = "flash_tp"
-offered = true
+offered = "yes"
 scope = "ideal-gas mixtures with pure zero-volume condensed phases; species from thermo.inp"
 locator = "source/equilibrium.f90 EqConstraints_set line 4083 (tp)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_ph"
-offered = true
+offered = "yes"
 scope = "as tp; assigned enthalpy (hp)"
 locator = "source/equilibrium.f90 line 4083 and EqConstraints_is_constant_enthalpy line 4110"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_ps"
-offered = true
+offered = "yes"
 scope = "as tp; assigned entropy (sp)"
 locator = "source/equilibrium.f90 line 4083 and EqConstraints_is_constant_entropy line 4122"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_uv"
-offered = true
+offered = "yes"
 scope = "as tp; assigned internal energy and volume or density (uv)"
 locator = "source/equilibrium.f90 line 4083 and EqConstraints_is_constant_energy line 4116"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_tv (proposed)"
-offered = true
+offered = "yes"
 scope = "assigned temperature and density (tv)"
 locator = "source/equilibrium.f90 line 4083"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_sv (proposed)"
-offered = true
+offered = "yes"
 scope = "assigned entropy and density (sv)"
 locator = "source/equilibrium.f90 line 4083"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "gibbs_minimization"
-offered = true
+offered = "yes"
 scope = "element-conserving Gibbs minimisation over gas and pure condensed species, ions optional; reactants may carry assigned enthalpies"
 locator = "source/equilibrium.f90 EqSolver_solve line 2448; docs/source/theory.rst"
 evidence = "documentation"
 
 [[capability]]
 calculation = "phase_stability"
-offered = false
+offered = "no"
 scope = "no stability test of a phase against splitting: condensed species are pure phases, tested for addition by a Gibbs-energy decrease criterion"
 locator = "source/equilibrium.f90 EqSolver_test_condensed line 1814"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "aqueous_speciation"
-offered = false
+offered = "no"
 scope = "no solution phase, no activity coefficients, no electrolyte data"
 locator = "not found: mixture model is ideal gas plus pure condensed phases"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "bubble_dew_point"
-offered = false
+offered = "no"
 scope = "no liquid mixture model; condensed species are pure phases"
 locator = "not found in source/*.f90"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "critical_point"
-offered = false
+offered = "no"
 scope = "not offered"
 locator = "not found in source/*.f90"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_envelope"
-offered = false
+offered = "no"
 scope = "not offered"
 locator = "not found in source/*.f90"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "characterization"
-offered = false
+offered = "no"
 scope = "not offered"
 locator = "not found in source/*.f90"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "parameter_regression"
-offered = false
+offered = "no"
 scope = "the fits are supplied; the source has no fitting of species data (database_compile.f90 only re-arranges and extrapolates them)"
 locator = "source/database_compile.f90"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "group_estimation"
-offered = false
+offered = "no"
 scope = "not offered; the compile step estimates only a limiting heat capacity from the atom count"
 locator = "source/database_compile.f90 lines 232-270"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "transport_property_evaluation (proposed)"
-offered = true
+offered = "yes"
 scope = "mixture viscosity and frozen and equilibrium thermal conductivity, with optional ions"
 locator = "source/equilibrium.f90 compute_transport_properties line 5097"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "rocket_performance (proposed)"
-offered = true
+offered = "yes"
 scope = "infinite- and finite-area combustors; equilibrium and frozen nozzle flow; throat, pressure-ratio and area-ratio stations"
 locator = "source/rocket.f90 lines 1028, 1232, 1618"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "shock_state (proposed)"
-offered = true
+offered = "yes"
 scope = "incident and reflected shocks, equilibrium and frozen"
 locator = "source/shock.f90 line 1009"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "detonation_state (proposed)"
-offered = true
+offered = "yes"
 scope = "Chapman-Jouguet detonation with equilibrium composition (frozen variant not implemented)"
 locator = "source/detonation.f90 lines 100 and 268"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "equilibrium_sensitivity (proposed)"
-offered = true
+offered = "yes"
 scope = "analytic total derivatives of equilibrium solutions with a finite-difference check"
 locator = "source/equilibrium.f90 lines 3498 and 3538; docs/source/examples/sp_derivatives.rst"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "database_compilation (proposed)"
-offered = true
+offered = "yes"
 scope = "thermo.inp and trans.inp to binary libraries"
 locator = "source/database_compile.f90; README.md lines 152-164"
 evidence = "documentation"

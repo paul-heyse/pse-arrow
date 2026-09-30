@@ -24,9 +24,11 @@ A reader is either
 `<reader>` is the source manifest's `payload.reader`.
 
 The reuse key of a stage is the hash of its complete inputs: the source's tree hash from the lock,
-the reader's name, environment and version, the hash of the reader's source files and the staging
-format (the layout this package writes). A staged directory whose recorded key equals the current
-key is reused; `--force` reads again.
+the reader's name, environment and version, the hash of the reader's source files, the staging
+format (the layout this package writes) and what every stage's key covers (`thermo_knowledge.reuse`):
+the framework files it executes and the installed versions of the libraries it declares, with the
+lock of a side environment for a side reader. A staged directory whose recorded key equals the
+current key is reused; `--force` reads again.
 """
 
 from __future__ import annotations
@@ -35,7 +37,6 @@ import ast
 import hashlib
 import importlib
 import importlib.util
-import json
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -44,7 +45,7 @@ from types import ModuleType
 
 import pyarrow as pa
 
-from thermo_knowledge import config
+from thermo_knowledge import config, reuse
 from thermo_knowledge.acquire.manifest import Manifest
 from thermo_knowledge.staging.errors import StagingError
 from thermo_knowledge.staging.writer import Writer
@@ -197,16 +198,30 @@ def _common_parent(files: tuple[Path, ...]) -> Path:
 
 
 def reuse_key(*, source_id: str, tree_identity: str, reader: ResolvedReader) -> tuple[str, str]:
-    """`(key, reader_source_hash)` for a stage's complete inputs."""
+    """`(key, reader_source_hash)` for a stage's complete inputs, built by the shared key builder
+    (`thermo_knowledge.reuse`): the stated inputs, the framework files the stage executes, the
+    installed libraries it declares and, for a side-environment reader, that environment's lock."""
     hashed = source_hash(reader.source_files)
-    description = {
-        "staging_format": STAGING_FORMAT,
-        "source": source_id,
-        "tree": tree_identity,
-        "reader": reader.name,
-        "environment": reader.environment,
-        "reader_version": reader.version,
-        "reader_source": hashed,
-    }
-    text = json.dumps(description, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(text.encode()).hexdigest(), hashed
+    locks: dict[str, list[Path]] = {}
+    try:
+        if reader.side:
+            assert reader.script is not None
+            locks[f"environment:{reader.environment}"] = list(
+                reuse.directory_locks(reader.script.parents[1])
+            )
+        key = reuse.stage_key(
+            "read",
+            {
+                "staging_format": STAGING_FORMAT,
+                "source": source_id,
+                "tree": tree_identity,
+                "reader": reader.name,
+                "environment": reader.environment,
+                "reader_version": reader.version,
+                "reader_source": hashed,
+            },
+            files=locks,
+        )
+    except reuse.ReuseError as error:
+        raise StagingError(f"{source_id}: {error}") from error
+    return key.digest, hashed

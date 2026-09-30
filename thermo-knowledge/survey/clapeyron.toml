@@ -3748,7 +3748,7 @@ fields = [
   { name = "T_r, reducing_value, using_tau_r, Tmin, Tmax", meaning = "reducing temperature, reducing value, reduced-variable switch and range", unit = "K, Pa or mol/m^3, K", shape = "scalar", role = "input" },
   { name = "max_abserror_percentage, max_abs_error, description, BibTeX, _note", meaning = "quality and documentation fields", unit = "not applicable", shape = "scalar", role = "metadata" },
 ]
-origin = "fitted (by scripts in CoolProp's repository, not included here); the fit data are not stored"
+origin = "other (fitted (by scripts in CoolProp's repository, not included here); the fit data are not stored)"
 conventions = "Clapeyron uses only pS/pL/pV, rhoL and rhoV, as initial guesses for saturation solves (a CompositeModel of PolExpSat, PolExpLiquid and PolExpVapour); all other members are carried but unread."
 absence = "Missing curves are simply not available; hL, hLV, sL, sLV appear in 31 to 32 files, melting_line in 26, surface_tension in 33."
 validity = "Tmin and Tmax per curve (present in all ancillary objects)"
@@ -3848,7 +3848,9 @@ locator = "src/models/SAFT/PCSAFT/PCSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "pure: Mw, segment; pair: sigma, epsilon (combined from pure values with k); site: epsilon_assoc, bondvol; site counts n_<site>; optional pair k"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Gross and Sadowski (2001), Perturbed-chain SAFT: An equation of state based on a perturbation theory for chain molecules; doi 10.1021/ie0003887 | Gross and Sadowski (2002), Application of the perturbed-chain SAFT equation of state to associating systems; doi 10.1021/ie010954d"
 closed_form = "implicit"
 data = "PC-SAFT like table; binary k table with SMILES and source (SAFT, cubic k); SAFT assoc table with SMILES columns; molar mass table"
@@ -3859,7 +3861,9 @@ locator = "src/models/SAFT/PCSAFT/variants/sPCSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "as PCSAFT (it reuses PCSAFTParam)"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "von Solms et al. (2003), Computational and physical performance of a modified PC-SAFT equation of state for highly...; doi 10.1021/ie020753p"
 closed_form = "implicit"
 data = "PC-SAFT like table (same layout in SAFT/PCSAFT/sPCSAFT, 552 rows); SAFT assoc table with SMILES columns"
@@ -3870,7 +3874,9 @@ locator = "src/models/SAFT/PCSAFT/variants/gcsPCSAFT.jl"
 class = "group_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation; components are given as names or (name, [group => count]) tuples"
 parameters = "group: segment, msigma3, mepsilon, Mw, site counts; component view built by group sums (segment, sigma from msigma3, epsilon from mepsilon, Mw); site: epsilon_assoc, bondvol per group"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; an internal sPCSAFT component model built from the group sums"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; an internal sPCSAFT component model built from the group sums", default = "" },
+]
 equation_source = "Tihic et al. (2008), A predictive group-contribution simplified PC-SAFT equation of state: Application to polymer...; doi 10.1021/ie0710768"
 closed_form = "implicit"
 data = "gcsPC-SAFT like table (group-keyed); groups file (gcsPCSAFT_groups 15 rows); SAFT assoc table with SMILES columns (empty file)"
@@ -3881,7 +3887,9 @@ locator = "src/models/SAFT/PCSAFT/variants/PharmaPCSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "as PCSAFT plus pair k and kT (temperature-dependent binary parameter) and a SpecialComp marker for water08 (a temperature-dependent sigma correlation for water)"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; default assoc_options combining = elliott_runtime"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; default assoc_options combining = elliott_runtime", default = "" },
+]
 equation_source = "Paus et al. (2015), Predicting the solubility advantage of amorphous pharmaceuticals: A novel thermodynamic...; doi 10.1021/mp500824d | Cameretti and Sadowski (2008), Modeling of aqueous amino acid and polypeptide solutions with PC-SAFT; doi 10.1016/j.cep.2007.02.034"
 closed_form = "implicit"
 data = "PC-SAFT like table (pharmaPCSAFT directory); binary k and kT table (ePCSAFT, pharmaPCSAFT); SAFT assoc table with SMILES columns"
@@ -3892,7 +3900,9 @@ locator = "src/models/SAFT/PCSAFT/variants/ADPCSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation; single-component only (the constructor refuses mixtures)"
 parameters = "pure: Mw, segment, r_c, c1, c2, c3; pair: sigma, epsilon; site: epsilon_assoc, theta_c (and bondvol field in the struct)"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Marshall (2021), A modified perturbed chain‐statistical associating fluid theory equation of state for water...; doi 10.1002/aic.17342"
 closed_form = "implicit"
 data = "ADPC-SAFT like table; ADPC-SAFT / DAPT assoc table"
@@ -3903,7 +3913,9 @@ locator = "src/models/SAFT/PCSAFT/variants/PCPSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "as PCSAFT plus dipole (D), internal dipole2 = mu^2/(m kB) with unit conversion 1e-36*1e-10*1e-3"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Gross and Vrabec (2005), An equation-of-state contribution for polar components: Dipolar molecules; doi 10.1002/aic.10683"
 closed_form = "implicit"
 data = "PCP-SAFT like table (Esper set); PCP-SAFT assoc table (Esper set); assoc table without SMILES or source (sCPA, PCP-SAFT cross, gc-PCP-SAFT); binary k table without source"
@@ -3914,7 +3926,9 @@ locator = "src/models/SAFT/PCSAFT/variants/QPCPSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "as PCPSAFT plus quadrupole (D*A) and quadrupole2"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Gross (2005), An equation-of-state contribution for polar components: Quadrupolar molecules; doi 10.1002/aic.10502 | Gross and Vrabec (2008), Vapor−Liquid Equilibria Simulation and an Equation of State Contribution for Dipole−Quadrupole...; doi 10.1021/jp072619u"
 closed_form = "implicit"
 data = "QPCP-SAFT like table; SAFT assoc table with SMILES columns (empty); binary k table with SMILES and source (SAFT, cubic k) (4 rows)"
@@ -3925,7 +3939,9 @@ locator = "src/models/SAFT/PCSAFT/variants/gcPCPSAFT/homogcPCPSAFT.jl"
 class = "group_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation; components as names or group tuples"
 parameters = "group: Mw, segment, sigma, epsilon, dipole, pair k; site: epsilon_assoc, bondvol; component view by group sums and group_pairmean2 for k"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; an internal PCPSAFT component model; the constructor default is AssocOptions(combining = :cr1)"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; an internal PCPSAFT component model; the constructor default is AssocOptions(combining = :cr1)", default = "" },
+]
 equation_source = "Sauer et al. (2014), Comparison between a Homo- and a Heterosegmented Group Contribution Approach Based on the...; doi 10.1021/ie502203w"
 closed_form = "implicit"
 data = "gc-PCP-SAFT like table (group-keyed); group binary k table with source; assoc table without SMILES or source; groups file (homo 83 rows)"
@@ -3936,7 +3952,9 @@ locator = "src/models/SAFT/PCSAFT/variants/gcPCPSAFT/heterogcPCPSAFT.jl"
 class = "group_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation; components as names or group tuples with bond information"
 parameters = "group: Mw, segment, sigma, epsilon, dipole, comp_segment, comp_sigma, comp_epsilon; bond matrix n_intergroups; site: epsilon_assoc, bondvol per group with site translation to components"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "(the heterosegmented model has no docstring; references of the homosegmented sibling) Sauer et al. (2014), Comparison between a Homo- and a Heterosegmented Group Contribution Approach Based on the...; doi 10.1021/ie502203w"
 closed_form = "implicit"
 data = "gc-PCP-SAFT like table (group-keyed); group binary k table with source; assoc table without SMILES or source; groups file (hetero 83 rows); intragroups file (77 rows)"
@@ -3947,7 +3965,9 @@ locator = "src/models/SAFT/PCSAFT/variants/gcPCPSAFT/gcPCSAFT.jl"
 class = "group_contribution"
 inputs = "as the homo and hetero models"
 parameters = "as the selected model; keyword mixing = :hetero (default) or :homo"
-composes = "selects HeterogcPCPSAFT or HomogcPCPSAFT; gcPCSAFT sets assoc_options combining = cr1 by default (through __gcpcpsaft_combine), gcPCPSAFT leaves the default AssocOptions()"
+composes = [
+  { slot = "", accepts = "selects HeterogcPCPSAFT or HomogcPCPSAFT; gcPCSAFT sets assoc_options combining = cr1 by default (through __gcpcpsaft_combine), gcPCPSAFT leaves the default AssocOptions()", default = "" },
+]
 equation_source = "docstring references of the two selected models"
 closed_form = "implicit"
 data = "same as HomogcPCPSAFT or HeterogcPCPSAFT"
@@ -3958,7 +3978,9 @@ locator = "src/models/SAFT/PCSAFT/variants/CPPCSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "pure: Mw; pair: segment (combined from the pure segment numbers with l), sigma, epsilon; site: epsilon_assoc, bondvol (BR site for aromatic rings)"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Polishuk (2014), Standardized critical point-based numerical solution of statistical association fluid theory...; doi 10.1021/ie502633e"
 closed_form = "implicit"
 data = "CP-PC-SAFT like table; binary k, l table with source; group assoc table with source (CP-PC-SAFT rows)"
@@ -3969,7 +3991,9 @@ locator = "src/models/SAFT/PCSAFT/variants/iPCSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "as PCSAFT plus pure v_shift (volume translation, m3/mol)"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Moine et al. (2019), I-PC-SAFT: An Industrialized Version of the Volume-Translated PC-SAFT Equation of State for...; doi 10.1021/acs.iecr.9b04660"
 closed_form = "implicit"
 data = "iPC-SAFT like table (584 rows); SAFT assoc table with SMILES columns"
@@ -3980,7 +4004,9 @@ locator = "src/models/SAFT/PCSAFT/variants/GEPCSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "as PCSAFT (GEPCSAFTParam: Mw, segment, sigma, epsilon, epsilon_assoc, bondvol); the three PC-SAFT tables are named explicitly in the constructor"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; activity slot: any ActivityModel (default UNIFAC) used for a gE mixing rule"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; activity slot: any ActivityModel (default UNIFAC) used for a gE mixing rule", default = "" },
+]
 equation_source = "Walker (2022), Toward advanced, predictive mixing rules in SAFT equations of state; doi 10.1021/acs.iecr.2c03464"
 closed_form = "implicit"
 data = "PC-SAFT like table; binary k table with SMILES and source; SAFT assoc table with SMILES columns"
@@ -3991,7 +4017,9 @@ locator = "src/models/SAFT/ogSAFT/ogSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "as PCSAFT (Mw, segment, sigma, epsilon, epsilon_assoc, bondvol)"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Chapman et al. (1989), SAFT: Equation-of-state solution model for associating fluids; doi 10.1016/0378-3812(89)80308-5 | Chapman et al. (1990), New reference equation of state for associating liquids; doi 10.1021/ie00104a021"
 closed_form = "implicit"
 data = "og-SAFT like table; binary k table with SMILES and source (SAFT, cubic k); SAFT assoc table with SMILES columns"
@@ -4002,7 +4030,9 @@ locator = "src/models/SAFT/CKSAFT/CKSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "pure: Mw, segment, c; pair: sigma derived from vol (with l), epsilon; site: epsilon_assoc, bondvol"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Huang and Radosz (1990), Equation of state for small, large, polydisperse, and associating molecules; doi 10.1021/ie00107a014 | Huang and Radosz (1991), Equation of state for small, large, polydisperse, and associating molecules: extension to...; doi 10.1021/ie00056a050"
 closed_form = "implicit"
 data = "CKSAFT like table; binary k table with SMILES and source; SAFT assoc table with SMILES columns"
@@ -4013,7 +4043,9 @@ locator = "src/models/SAFT/CKSAFT/variants/sCKSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "as CKSAFT without c"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Huang and Radosz (1990), Equation of state for small, large, polydisperse, and associating molecules; doi 10.1021/ie00107a014 | Huang and Radosz (1991), Equation of state for small, large, polydisperse, and associating molecules: extension to...; doi 10.1021/ie00056a050"
 closed_form = "implicit"
 data = "sCKSAFT like table (directory SAFT/sCKSAFT); binary k table with SMILES and source (SAFT, cubic k) (18 rows); SAFT assoc table with SMILES columns"
@@ -4024,7 +4056,9 @@ locator = "src/models/SAFT/BACKSAFT/BACKSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); no association fields in the parameter struct"
 parameters = "pure: Mw, segment, c, alpha; pair: sigma (from vol), epsilon"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Chen and Mi (2001), Equation of state extended from SAFT with improved results for non-polar fluids across the...; doi 10.1016/s0378-3812(01)00521-0 | Mi et al. (2002), Equation of state extended from SAFT with improved results for polar fluids across the...; doi 10.1016/s0378-3812(02)00093-6"
 closed_form = "yes"
 data = "BACKSAFT like table; binary k table with SMILES and source (SAFT, cubic k) (empty)"
@@ -4035,7 +4069,9 @@ locator = "src/models/SAFT/LJSAFT/LJSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "pure: Mw, segment; pair: b (covolume, combined with zeta), T_tilde (combined with k); site: epsilon_assoc, bondvol"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Kraska and Gubbins (1996), Phase equilibria calculations with a modified SAFT equation of state; doi 10.1021/ie9602320"
 closed_form = "implicit"
 data = "LJ-SAFT like table; LJ-SAFT binary table; SAFT assoc table with SMILES columns"
@@ -4046,7 +4082,9 @@ locator = "src/models/SAFT/softSAFT/softSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "as PCSAFT"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; uses Lennard-Jones correlations of Johnson et al. for the reference fluid"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; uses Lennard-Jones correlations of Johnson et al. for the reference fluid", default = "" },
+]
 equation_source = "Johnson et al. (1993), The Lennard-Jones equation of state revisited; doi 10.1080/00268979300100411 | FELIPE J. BLAS and LOURDES F. VEGA. (1997), Thermodynamic behaviour of homonuclear and heteronuclear Lennard-Jones chains with association...; doi 10.1080/002689797170707"
 closed_form = "implicit"
 data = "softSAFT like table; SAFT assoc table with SMILES columns; none for pairs (softSAFT_unlike.csv has no rows)"
@@ -4057,7 +4095,9 @@ locator = "src/models/SAFT/softSAFT/variants/softSAFT2016.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "as softSAFT (reads the same SAFT/softSAFT directory)"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; an LJRef model (Thol 2016) as the Lennard-Jones reference"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; an LJRef model (Thol 2016) as the Lennard-Jones reference", default = "" },
+]
 equation_source = "FELIPE J. BLAS and LOURDES F. VEGA. (1997), Thermodynamic behaviour of homonuclear and heteronuclear Lennard-Jones chains with association...; doi 10.1080/002689797170707 | Thol et al. (2016), Equation of state for the Lennard-Jones fluid; doi 10.1063/1.4945000"
 closed_form = "implicit"
 data = "same tables as softSAFT"
@@ -4068,7 +4108,9 @@ locator = "src/models/SAFT/softSAFT/variants/solidsoftSAFT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); solid phase"
 parameters = "pure: Mw, segment; pair: sigma, epsilon (no association fields in the parameter struct, although the model macro still creates an empty site record)"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Johnson et al. (1993), The Lennard-Jones equation of state revisited; doi 10.1080/00268979300100411 | FELIPE J. BLAS and LOURDES F. VEGA. (1997), Thermodynamic behaviour of homonuclear and heteronuclear Lennard-Jones chains with association...; doi 10.1080/002689797170707"
 closed_form = "yes"
 data = "solid softSAFT like table (a1..a5 columns unread)"
@@ -4079,7 +4121,9 @@ locator = "src/models/SAFT/SAFTVRSW/SAFTVRSW.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "pure: Mw, segment; pair: sigma, epsilon, lambda (combined with sigma weights); site: epsilon_assoc, bondvol"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Gil-Villegas et al. (1997), Statistical associating fluid theory for chain molecules with attractive potentials of...; doi 10.1063/1.473101"
 closed_form = "implicit"
 data = "SAFT-VR SW like table; binary k table with SMILES and source (SAFT, cubic k) (32 rows); SAFT assoc table with SMILES columns"
@@ -4090,7 +4134,9 @@ locator = "src/models/SAFT/SAFTVRMie/SAFTVRMie.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "pure: Mw, segment; pair: sigma, epsilon, lambda_a, lambda_r (cross values from the file or from combining rules); site: epsilon_assoc, bondvol"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Lafitte et al. (2013), Accurate statistical associating fluid theory for chain molecules formed from Mie segments; doi 10.1063/1.4819786 | Dufal et al. (2015), The A in SAFT: developing the contribution of association to the Helmholtz free energy within...; doi 10.1080/00268976.2015.1029027"
 closed_form = "implicit"
 data = "SAFT-VR Mie like table; SAFT-VR Mie cross-interaction table; SAFT assoc table with SMILES columns"
@@ -4101,7 +4147,9 @@ locator = "src/models/SAFT/SAFTVRMie/variants/SAFTVRMie15.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "as SAFTVRMie; uses the Mie association kernel with tabulated coefficients in the source"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; the dufal/mie15 combining rule is available through AssocOptions but is not the default (default AssocOptions has no combining)"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; the dufal/mie15 combining rule is available through AssocOptions but is not the default (default AssocOptions has no combining)", default = "" },
+]
 equation_source = "Lafitte et al. (2013), Accurate statistical associating fluid theory for chain molecules formed from Mie segments; doi 10.1063/1.4819786 | Dufal et al. (2015), The A in SAFT: developing the contribution of association to the Helmholtz free energy within...; doi 10.1080/00268976.2015.1029027"
 closed_form = "implicit"
 data = "SAFT-VR Mie like table (MieKernel directory); SAFT-VR Mie cross-interaction table; SAFT assoc table with SMILES columns"
@@ -4112,7 +4160,9 @@ locator = "src/models/SAFT/SAFTVRMie/variants/SAFTVRSMie.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); solid phase"
 parameters = "pure: Mw, segment; pair: sigma, epsilon, lambda_a, lambda_r (no association fields in the struct, although its docstring lists epsilon_assoc and bondvol)"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Jalani et al. (2024), SAFT-VR Mie Equation of State for the Solid and Fluid Phases"
 closed_form = "yes"
 data = "SAFT-VR Mie like table (directory SAFT/SAFTVRMie, shared with the liquid model)"
@@ -4123,7 +4173,9 @@ locator = "src/models/SAFT/SAFTVRMie/variants/SAFTVRMieGV.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "as SAFTVRMie plus dipole, np, quadrupole, nQ and internal dipole2, quadrupole2"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Gross (2005), An equation-of-state contribution for polar components: Quadrupolar molecules; doi 10.1002/aic.10502 | Gross and Vrabec (2006), An equation-of-state contribution for polar components: Dipolar molecules; doi 10.1002/aic.10683"
 closed_form = "implicit"
 data = "SAFT-VR Mie GV like table; SAFT-VR Mie cross-interaction table (empty); SAFT assoc table with SMILES columns"
@@ -4134,7 +4186,9 @@ locator = "src/models/SAFT/SAFTVRMie/variants/SAFTVRQMie.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); quantum-corrected, option fh_order = :fh1 or :fh2"
 parameters = "pure: segment; pair: Mw (mixed by a half-harmonic rule, kg/mol), sigma, epsilon, lambda_a, lambda_r"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Aasen et al. (2019), Equation of state and force fields for Feynman–Hibbs-corrected Mie fluids; doi 10.1063/1.5111364 | Aasen et al. (2020), Equation of state and force fields for Feynman-Hibbs-corrected Mie fluids; doi 10.1063/1.5136079"
 closed_form = "yes"
 data = "SAFT-VR Mie like table (SAFTVRQMie directory); binary k, l table without source. Both fh orders name the same directory SAFT/SAFTVRQMie"
@@ -4145,7 +4199,9 @@ locator = "src/models/SAFT/SAFTgammaMie/SAFTgammaMie.jl"
 class = "group_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation; components as names or (name, [group => count]) tuples"
 parameters = "group: segment (vst), shapefactor (S), sigma, epsilon, lambda_a, lambda_r, epsilon_assoc, bondvol, mixed_segment; component sites built from group sites; molar mass from the group molar mass table"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; an internal SAFTVRMie component model (vrmodel); epsilon_mixing selector (:default or hudsen_mccoubrey)"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; an internal SAFTVRMie component model (vrmodel); epsilon_mixing selector (:default or hudsen_mccoubrey)", default = "" },
+]
 equation_source = "Papaioannou et al. (2014), Group contribution methodology based on the statistical associating fluid theory for...; doi 10.1063/1.4851455 | Dufal et al. (2014), Prediction of thermodynamic properties and phase behavior of fluids and mixtures with the...; doi 10.1021/je500248h"
 closed_form = "implicit"
 data = "SAFT-gamma Mie like table (group-keyed); SAFT-gamma Mie group cross table; group assoc table with source (SAFT-gamma Mie, CP-PC-SAFT); groups file (51 rows); group molar mass table"
@@ -4156,7 +4212,9 @@ locator = "src/models/SAFT/SAFTgammaMie/variants/structSAFTgammaMie.jl"
 class = "group_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation; components with group and bond data"
 parameters = "as SAFTgammaMie plus group bond matrix (intragroups)"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; an internal SAFTVRMie component model"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; an internal SAFTVRMie component model", default = "" },
+]
 equation_source = "Shaahmadi et al. (2021), Improving the SAFT-γ Mie equation of state to account for functional group interactions in a...; doi 10.1063/5.0048315  | Schulze-Hulbe et al. (2022), Extending the Structural (s)-SAFT-γ Mie Equation of State to Primary Alcohols; doi 10.1021/acs.iecr.2c00198"
 closed_form = "implicit"
 data = "SAFT-gamma Mie like table (structSAFTgammaMie, 5 rows); structural SAFT-gamma Mie cross table; intragroups file (23 rows); group assoc table with source"
@@ -4167,7 +4225,9 @@ locator = "src/models/SAFT/DAPT/DAPT.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation; single-component only (mixtures refused)"
 parameters = "pure: Mw, segment, r_c, lambda; pair: sigma, epsilon; site: epsilon_assoc, theta_c"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Marshall (2019), A doubly associated reference perturbation theory for water; doi 10.1016/j.fluid.2019.112252"
 closed_form = "implicit"
 data = "DAPT like table; ADPC-SAFT / DAPT assoc table"
@@ -4178,7 +4238,9 @@ locator = "src/models/SAFT/COFFEE/COFFEE.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); electrostatic (dipolar) contributions"
 parameters = "pure: Mw, segment, dipole, shift; pair: sigma, epsilon, lambda_a, lambda_r; internal dipole2 (no association fields in the struct although its docstring lists epsilon_assoc and bondvol)"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions", default = "" },
+]
 equation_source = "Langenbach (2017), Co-Oriented Fluid Functional Equation for Electrostatic interactions (COFFEE); doi 10.1016/j.ces.2017.08.025"
 closed_form = "implicit"
 data = "none bundled (default location 'COFFEE' has no directory in database/)"
@@ -4189,7 +4251,9 @@ locator = "src/models/SAFT/CPA/CPA.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "pure: Mw, Tc, c1; pair: a, b (from the cubic core), optional k and l; site: epsilon_assoc, bondvol; the cubic part's alpha constant is CPAAlpha's c1"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; cubicmodel slot: a CubicModel (default RK) built with alpha CPAAlpha, mixing vdW1fRule, translation NoTranslation; radial_dist = :CS (default) or :KG"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; cubicmodel slot: a CubicModel (default RK) built with alpha CPAAlpha, mixing vdW1fRule, translation NoTranslation; radial_dist = :CS (default) or :KG", default = "" },
+]
 equation_source = "Kontogeorgis et al. (2006), Ten years with the CPA (cubic-plus-association) equation of state; doi 10.1021/ie051305v"
 closed_form = "implicit"
 data = "CPA like table; CPA assoc table with SMILES columns; binary k table without source; critical constants table; molar mass table"
@@ -4200,7 +4264,9 @@ locator = "src/models/SAFT/CPA/variants/sCPA.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "as CPA with alpha sCPAAlpha and the radial distribution of Kontogeorgis (:KG)"
-composes = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; cubicmodel slot (default RK); activity slot"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel (default BasicIdeal), evaluated for the ideal part; assoc_options: AssocOptions; cubicmodel slot (default RK); activity slot", default = "" },
+]
 equation_source = "Kontogeorgis et al. (2006), Ten years with the CPA (cubic-plus-association) equation of state; doi 10.1021/ie051305v"
 closed_form = "implicit"
 data = "CPA like table (CPA/sCPA, 39 rows); assoc table without SMILES or source (sCPA, PCP-SAFT cross, gc-PCP-SAFT); binary k table without source"
@@ -4211,7 +4277,9 @@ locator = "src/models/SAFT/CPA/variants/eCPA.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); the association fractions are solved inside the evaluation"
 parameters = "as CPA; only a helper function neutral_eCPA is defined, with alpha eCPAAlpha and activity eCPANRTL as defaults"
-composes = "cubicmodel RK, alpha eCPAAlpha, activity eCPANRTL (its model file is commented out of the include list, so the default does not resolve)"
+composes = [
+  { slot = "", accepts = "cubicmodel RK, alpha eCPAAlpha, activity eCPANRTL (its model file is commented out of the include list, so the default does not resolve)", default = "" },
+]
 equation_source = "docstring: none"
 closed_form = "implicit"
 data = "none that the model reads: SAFT/eCPA is named by no code path"
@@ -4222,7 +4290,9 @@ locator = "src/models/cubic/vdW/vdW.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "pure: Tc, Pc, Mw (Vc, acentricfactor optional); pair: a, b (built from Tc, Pc with constants from the cubic denominator roots), optional k, l"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha NoAlpha, mixing vdW1fRule, translation NoTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha NoAlpha, mixing vdW1fRule, translation NoTranslation", default = "" },
+]
 equation_source = "Van der Waals JD. Over de Continuiteit van den Gasen Vloeistoftoestand. PhD thesis, University of Leiden;"
 closed_form = "yes"
 data = "critical constants table; molar mass table; binary k table with SMILES and source (SAFT, cubic k)"
@@ -4233,7 +4303,9 @@ locator = "src/models/cubic/vdW/variants/Clausius.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "pure: Tc, Pc, Vc, Mw; pair: a, b, c (extra volume parameter of the ABC family), optional k, l"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha ClausiusAlpha, mixing vdW1fRule, translation NoTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha ClausiusAlpha, mixing vdW1fRule, translation NoTranslation", default = "" },
+]
 equation_source = "Clausius (1880), Ueber das Verhalten der Kohlensäure in Bezug auf Druck, Volumen und Temperatur; doi 10.1002/andp.18802450302"
 closed_form = "yes"
 data = "critical constants table; molar mass table; binary k table with SMILES and source (SAFT, cubic k)"
@@ -4244,7 +4316,9 @@ locator = "src/models/cubic/vdW/variants/Berthelot.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "pure: Tc, Pc, Vc, Mw; pair: a, b (from Pc and Vc), optional k"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha ClausiusAlpha, mixing vdW1fRule, translation NoTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha ClausiusAlpha, mixing vdW1fRule, translation NoTranslation", default = "" },
+]
 equation_source = "Berthelot (1899), Sur une méthode purement physique pour la détermination des poids moléculaires des gaz et des...; doi 10.1051/jphystap:018990080026300"
 closed_form = "yes"
 data = "critical constants table; molar mass table; binary k table with SMILES and source (SAFT, cubic k)"
@@ -4255,7 +4329,9 @@ locator = "src/models/cubic/RK/RK.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "pure: Tc, Pc, Mw; pair: a, b, optional k, l"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha RKAlpha, mixing vdW1fRule, translation NoTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha RKAlpha, mixing vdW1fRule, translation NoTranslation", default = "" },
+]
 equation_source = "Redlich and Kwong (1949), On the thermodynamics of solutions; an equation of state; fugacities of gaseous solutions; doi 10.1021/cr60137a013"
 closed_form = "yes"
 data = "critical constants table; molar mass table; binary k table with SMILES and source (SAFT, cubic k)"
@@ -4266,7 +4342,9 @@ locator = "src/models/cubic/RK/variants/SRK.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "as RK with acentricfactor through the alpha model"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha SoaveAlpha, mixing vdW1fRule, translation NoTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha SoaveAlpha, mixing vdW1fRule, translation NoTranslation", default = "" },
+]
 equation_source = "Soave (1972), Equilibrium constants from a modified Redlich-Kwong equation of state; doi 10.1016/0009-2509(72)80096-4"
 closed_form = "yes"
 data = "critical constants table; molar mass table; binary k table with SMILES and source (SAFT, cubic k)"
@@ -4277,7 +4355,9 @@ locator = "src/models/cubic/RK/variants/PSRK.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "as RK; acentric-factor alpha constants; group-contribution activity part"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha SoaveAlpha, mixing PSRKRule with activity PSRKUNIFAC, translation PenelouxTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha SoaveAlpha, mixing PSRKRule with activity PSRKUNIFAC, translation PenelouxTranslation", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "critical constants table; molar mass table; binary k table with SMILES and source (SAFT, cubic k); UNIFAC group like table (R, Q); UNIFAC group-pair interaction table; groups file"
@@ -4288,7 +4368,9 @@ locator = "src/models/cubic/RK/variants/tcRK.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "as RK with tc alpha (Twu L, M, N), v_shift and ZRA from tcRK_single.csv"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha tcTwuAlpha, mixing vdW1fRule, translation tcTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha tcTwuAlpha, mixing vdW1fRule, translation tcTranslation", default = "" },
+]
 equation_source = "Le Guennec et al. (2016), Development of the translated-consistent tc-PR and tc-RK cubic equations of state for a safe...; doi 10.1016/j.fluid.2016.09.003 | Pina-Martinez et al. (2018), Analysis of the combinations of property data that are suitable for a safe estimation of...; doi 10.1021/acs.jced.8b00640"
 closed_form = "yes"
 data = "tc-RK single table"
@@ -4299,7 +4381,9 @@ locator = "src/models/cubic/PR/PR.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "pure: Tc, Pc, Mw (Vc and acentricfactor optional); pair: a, b, optional k, l"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha PRAlpha, mixing vdW1fRule, translation NoTranslation; saturation seeds from Chebyshev tables in the source"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha PRAlpha, mixing vdW1fRule, translation NoTranslation; saturation seeds from Chebyshev tables in the source", default = "" },
+]
 equation_source = "Peng and Robinson (1976), A New Two-Constant Equation of State; doi 10.1021/I160057A011"
 closed_form = "yes"
 data = "critical constants table; molar mass table; binary k table with SMILES and source (SAFT, cubic k)"
@@ -4310,7 +4394,9 @@ locator = "src/models/cubic/PR/variants/PR78.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "as PR with the PR78 alpha (acentricfactor)"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha PR78Alpha, mixing vdW1fRule, translation NoTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha PR78Alpha, mixing vdW1fRule, translation NoTranslation", default = "" },
+]
 equation_source = "Robinson DB, Peng DY. The characterization of the heptanes and heavier fractions for the GPA Peng-Robinson..."
 closed_form = "yes"
 data = "critical constants table; molar mass table; binary k table with SMILES and source (SAFT, cubic k)"
@@ -4321,7 +4407,9 @@ locator = "src/models/cubic/PR/variants/cPR.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "as PR with Twu L, M, N from cPR_single.csv"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha TwuAlpha, mixing vdW1fRule, translation NoTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha TwuAlpha, mixing vdW1fRule, translation NoTranslation", default = "" },
+]
 equation_source = "Bell et al. (2018), Consistent twu parameters for more than 2500 pure fluids from critically evaluated...; doi 10.1021/acs.jced.7b00967"
 closed_form = "yes"
 data = "c-PR single table; Twu alpha-function table"
@@ -4332,7 +4420,9 @@ locator = "src/models/cubic/PR/variants/tcPR.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "as PR with tc constants: Twu L, M, N, v_shift, acentricfactor from tcPR_single.csv"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha tcTwuAlpha, mixing vdW1fRule, translation tcTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha tcTwuAlpha, mixing vdW1fRule, translation tcTranslation", default = "" },
+]
 equation_source = "Le Guennec et al. (2016), Development of the translated-consistent tc-PR and tc-RK cubic equations of state for a safe...; doi 10.1016/j.fluid.2016.09.003 | Pina-Martinez et al. (2018), Analysis of the combinations of property data that are suitable for a safe estimation of...; doi 10.1021/acs.jced.8b00640"
 closed_form = "yes"
 data = "tc-PR single table"
@@ -4343,7 +4433,9 @@ locator = "src/models/cubic/PR/variants/tcPRW.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "as tcPR with an activity-based mixing rule using a residual Wilson model"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha tcTwuAlpha, mixing gErRule with activity tcPRWilsonRes, translation tcTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha tcTwuAlpha, mixing gErRule with activity tcPRWilsonRes, translation tcTranslation", default = "" },
+]
 equation_source = "Le Guennec et al. (2016), Development of the translated-consistent tc-PR and tc-RK cubic equations of state for a safe...; doi 10.1016/j.fluid.2016.09.003 | Pina-Martinez et al. (2018), Analysis of the combinations of property data that are suitable for a safe estimation of...; doi 10.1021/acs.jced.8b00640"
 closed_form = "yes"
 data = "tc-PR single table; tc-PR Wilson residual table"
@@ -4354,7 +4446,9 @@ locator = "src/models/cubic/PR/variants/EPPR78.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function; group composition of each component"
 parameters = "pure: Tc, Pc, acentricfactor; group: pair constants A and B (from the E-PPR78 group-pair table) that define k_ij(T)"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha PR78Alpha, mixing PPR78Rule, translation NoTranslation; components as names or group tuples"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha PR78Alpha, mixing PPR78Rule, translation NoTranslation; components as names or group tuples", default = "" },
+]
 equation_source = "Jaubert et al. (2010), Predicting the phase equilibria of synthetic petroleum fluids with the PPR78 approach; doi 10.1002/aic.12232 | Jaubert et al. (2022), The impressive impact of including enthalpy and heat capacity of mixing data when...; doi 10.1016/j.fluid.2022.113456"
 closed_form = "yes"
 data = "E-PPR78 group-pair table; groups file (EPPR78_groups 28 rows); critical constants table"
@@ -4365,7 +4459,9 @@ locator = "src/models/cubic/PR/variants/QCPR.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "pure: Tc, Pc, Mw (QCPR_critical), quantum-correction constants A and B, volume shift v_shift, Twu L, M, N; pair: k, l"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha TwuAlpha, mixing QCPRRule, translation ConstantTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha TwuAlpha, mixing QCPRRule, translation ConstantTranslation", default = "" },
+]
 equation_source = "Aasen et al. (2020), Accurate quantum-corrected cubic equations of state for helium, neon, hydrogen, deuterium and...; doi 10.1016/j.fluid.2020.112790"
 closed_form = "yes"
 data = "QCPR critical constants table; QCPR mixing-rule constants table; QCPR volume shift table; Twu alpha-function table (Twu_QCPR); binary k, l table without source"
@@ -4376,7 +4472,9 @@ locator = "src/models/cubic/PR/variants/VTPR.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "as PR; the mixing rule takes its activity model's residual part"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha TwuAlpha, mixing VTPRRule with activity UNIFAC (VTPRUNIFAC residual tables), translation PenelouxTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha TwuAlpha, mixing VTPRRule with activity UNIFAC (VTPRUNIFAC residual tables), translation PenelouxTranslation", default = "" },
+]
 equation_source = "Ahlers and Gmehling (2001), Development of an universal group contribution equation of state; doi 10.1016/s0378-3812(01)00626-4"
 closed_form = "yes"
 data = "critical constants table; Twu alpha-function table; VTPR group like table (Q only); UNIFAC group-pair interaction table; groups file"
@@ -4387,7 +4485,9 @@ locator = "src/models/cubic/PR/variants/TVTPR.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "as VTPR with the temperature-dependent VTPR translation (pure Vc)"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; alpha TwuAlpha, translation TVTPRTranslation, mixing VTPRRule with VTPRUNIFAC"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; alpha TwuAlpha, translation TVTPRTranslation, mixing VTPRRule with VTPRUNIFAC", default = "" },
+]
 equation_source = "Ahlers and Gmehling (2001), Development of an universal group contribution equation of state; doi 10.1016/s0378-3812(01)00626-4"
 closed_form = "yes"
 data = "critical constants table; Twu alpha-function table; VTPR group like table (Q only); UNIFAC group-pair interaction table; groups file"
@@ -4398,7 +4498,9 @@ locator = "src/models/cubic/PR/variants/UMRPR.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "as PR with the Magoulas-Tassios alpha and translation and the universal mixing rule"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; alpha MTAlpha, translation MTTranslation, mixing UMRRule with activity UNIFAC"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; alpha MTAlpha, translation MTTranslation, mixing UMRRule with activity UNIFAC", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "critical constants table; UNIFAC group like table (R, Q); UNIFAC group-pair interaction table; groups file"
@@ -4409,7 +4511,9 @@ locator = "src/models/cubic/PatelTeja/PatelTeja.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "pure: Tc, Pc, Vc_fit (fitted critical volume), acentricfactor, Mw; pair: a, b, c (the ABC family's extra parameter), optional k, l"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha PatelTejaAlpha, mixing vdW1fRule, translation NoTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha PatelTejaAlpha, mixing vdW1fRule, translation NoTranslation", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "critical constants table; molar mass table; binary k table with SMILES and source (SAFT, cubic k); Patel-Teja fitted critical volume table"
@@ -4420,7 +4524,9 @@ locator = "src/models/cubic/PatelTeja/variants/PatelTejaHeyen.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "as PatelTeja"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha PTHAlpha (Twu type), mixing vdW1fRule, translation NoTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha PTHAlpha (Twu type), mixing vdW1fRule, translation NoTranslation", default = "" },
+]
 equation_source = "Patel and Teja (1982), A new cubic equation of state for fluids and fluid mixtures; doi 10.1016/0009-2509(82)80099-7 | Forero G. and Velásquez J. (2013), A modified Patel–Teja cubic equation of state: Part I – Generalized model for gases and...; doi 10.1016/j.fluid.2012.12.032"
 closed_form = "yes"
 data = "critical constants table; molar mass table; binary k table with SMILES and source (SAFT, cubic k)"
@@ -4431,7 +4537,9 @@ locator = "src/models/cubic/PatelTeja/variants/PatelTejaValderrama.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "pure: Tc, Pc, Vc, Mw; pair: a, b, c"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha PTVAlpha, mixing vdW1fRule, translation NoTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha PTVAlpha, mixing vdW1fRule, translation NoTranslation", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "critical constants table; molar mass table; binary k table with SMILES and source (SAFT, cubic k)"
@@ -4442,7 +4550,9 @@ locator = "src/models/cubic/PatelTeja/variants/YFR.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "pure: Tc, Pc, Vc, Mw; pair: a, b, c"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha YFRAlpha, mixing YFR1fRule, translation NoTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha YFRAlpha, mixing YFR1fRule, translation NoTranslation", default = "" },
+]
 equation_source = "Yang et al. (2025), Symbolic-regression aided development of a new cubic equation of state for improved liquid...; doi 10.1007/s10765-024-03490-5"
 closed_form = "yes"
 data = "critical constants table; molar mass table; binary k table with SMILES and source (SAFT, cubic k)"
@@ -4453,7 +4563,9 @@ locator = "src/models/cubic/RKPR/RKPR.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "pure: Tc, Pc, Vc (optional), delta (optional), Mw; pair: a, b, optional k, l"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha RKPRAlpha, mixing vdW1fRule, translation NoTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha RKPRAlpha, mixing vdW1fRule, translation NoTranslation", default = "" },
+]
 equation_source = "Cismondi and Mollerup (2005), Development and application of a three-parameter RK–PR equation of state; doi 10.1016/j.fluid.2005.03.020 | Tassin et al. (2019), Phase behavior of multicomponent alkane mixtures and evaluation of predictive capacity for the...; doi 10.1016/j.fluid.2018.10.005"
 closed_form = "yes"
 data = "critical constants table; molar mass table; binary k table with SMILES and source (SAFT, cubic k)"
@@ -4464,7 +4576,9 @@ locator = "src/models/cubic/KU/KU.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); volume roots of the cubic are found numerically outside the Helmholtz function"
 parameters = "pure: Tc, Pc, Vc, omega_a, omega_b (component-dependent Omega constants), Mw; pair: a, b, optional k, l"
-composes = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha KUAlpha, mixing vdW1fRule, translation NoTranslation"
+composes = [
+  { slot = "", accepts = "slots: idealmodel (IdealModel, default BasicIdeal), alpha (AlphaModel), mixing (MixingRule), translation (TranslationModel); activity (ActivityModel) is passed to activity-based mixing rules; defaults alpha KUAlpha, mixing vdW1fRule, translation NoTranslation", default = "" },
+]
 equation_source = "Kumar and Upadhyay (2021), A new two-parameters cubic equation of state with benefits of three-parameters; doi 10.1016/j.ces.2020.116045"
 closed_form = "yes"
 data = "critical constants table; molar mass table; binary k table with SMILES and source (SAFT, cubic k)"
@@ -4475,7 +4589,9 @@ locator = "src/models/cubic/alphas/NoAlpha.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "none (alpha_i = 1)"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none"
@@ -4486,7 +4602,9 @@ locator = "src/models/cubic/alphas/ClausiusAlpha.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "none (default of Clausius and Berthelot)"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none"
@@ -4497,7 +4615,9 @@ locator = "src/models/cubic/alphas/RKAlpha.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "none"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none"
@@ -4508,7 +4628,9 @@ locator = "src/models/cubic/alphas/soave.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: acentricfactor"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "critical constants table (default_locations = critical_data())"
@@ -4519,7 +4641,9 @@ locator = "src/models/cubic/alphas/soave2019.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: acentricfactor"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "Pina-Martinez et al. (2019), Updated versions of the generalized Soave α-function suitable for the Redlich-Kwong and...; doi 10.1016/j.fluid.2018.12.007"
 closed_form = "yes"
 data = "critical constants table"
@@ -4530,7 +4654,9 @@ locator = "src/models/cubic/alphas/PRAlpha.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: acentricfactor"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "critical constants table"
@@ -4541,7 +4667,9 @@ locator = "src/models/cubic/alphas/Leibovici.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: acentricfactor"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "Leibovici (1994), A unified m(ω) relation for cubic equations of state; doi 10.1016/0378-3812(94)02603-3"
 closed_form = "yes"
 data = "critical constants table"
@@ -4552,7 +4680,9 @@ locator = "src/models/cubic/alphas/CPAAlpha.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: c1"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "CPA like table (CPAAlpha reads SAFT/CPA/CPA_like.csv, sCPAAlpha reads SAFT/CPA/sCPA/sCPA_like.csv, eCPAAlpha names SAFT/CPA/eCPA/eCPA_like.csv which does not exist in the tree)"
@@ -4563,7 +4693,9 @@ locator = "src/models/cubic/alphas/PR78Alpha.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: acentricfactor"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "critical constants table"
@@ -4574,7 +4706,9 @@ locator = "src/models/cubic/alphas/BM.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: acentricfactor"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "J.F. Boston, P.M. Mathias, Proceedings of the 2nd International Conference on Phase Equilibria and Fluid..."
 closed_form = "yes"
 data = "critical constants table"
@@ -4585,7 +4719,9 @@ locator = "src/models/cubic/alphas/Twu.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: L, M, N"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "Twu et al. (1980), Improved analytical representation of argon thermodynamic behavior; doi 10.1016/0378-3812(80)80003-3"
 closed_form = "yes"
 data = "Twu alpha-function table"
@@ -4596,7 +4732,9 @@ locator = "src/models/cubic/alphas/Twu.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: L, M (N may be absent)"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "Twu et al. (1980), Improved analytical representation of argon thermodynamic behavior; doi 10.1016/0378-3812(80)80003-3"
 closed_form = "yes"
 data = "Twu alpha-function table"
@@ -4607,7 +4745,9 @@ locator = "src/models/cubic/alphas/tcTwu.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: L, M, N, acentricfactor (several may be absent: default_ignore_missing_singleparams lists them)"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "Twu et al. (1980), Improved analytical representation of argon thermodynamic behavior; doi 10.1016/0378-3812(80)80003-3 | Le Guennec et al. (2016), Development of the translated-consistent tc-PR and tc-RK cubic equations of state for a safe...; doi 10.1016/j.fluid.2016.09.003"
 closed_form = "yes"
 data = "tc-PR single table; tc-RK single table"
@@ -4618,7 +4758,9 @@ locator = "src/models/cubic/alphas/MT.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: acentricfactor"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "Magoulas and Tassios (1990), Thermophysical properties of n-Alkanes from C1 to C20 and their prediction for higher ones; doi 10.1016/0378-3812(90)85098-u"
 closed_form = "yes"
 data = "critical constants table"
@@ -4629,7 +4771,9 @@ locator = "src/models/cubic/alphas/RKPRAlpha.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: k1, k2, acentricfactor (when k1 or k2 is absent, k2 is set to 2.0 and k1 is computed from the acentric factor and the critical compressibility in recombine_alpha!)"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "critical constants table"
@@ -4640,7 +4784,9 @@ locator = "src/models/cubic/alphas/MathiasCopemanAlpha.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: c1, c2, c3"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "P. M. Mathias and T. W. Copeman: Extension of the Peng-Robinson Equation of State to Complex Mixtures: Evaluation of the Various Forms of the Local Composition Concept (1983), 91–108, DOI: https://doi.org/10.1016/0378-3812(83)80084-3.; doi 10.1016/0378-3812(83)80084-3 | S. Horstmann et al. (2005), 157–164,; doi 10.1016/j.fluid.2004.11.002"
 closed_form = "yes"
 data = "none bundled (the default location list is empty, constants come from the user or are estimated by MC3PRAlpha)"
@@ -4651,7 +4797,9 @@ locator = "src/models/cubic/alphas/MC3PRAlpha.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: c1, c2, c3 (from the table or estimated from acentricfactor)"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "P. M. Mathias and T. W. Copeman: Extension of the Peng-Robinson Equation of State to Complex Mixtures: Evaluation of the Various Forms of the Local Composition Concept (1983), 91–108, 80084-3); doi 10.1016/0378-3812(83)80084-3 | Novak et al. (2019), Prediction of Vapor–Liquid Equilibrium and Thermodynamic Properties of Natural Gas and Gas...; doi 10.1021/acs.iecr.9b00756"
 closed_form = "yes"
 data = "Mathias-Copeman alpha table; critical constants table"
@@ -4662,7 +4810,9 @@ locator = "src/models/cubic/KU/KU.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: acentricfactor (SimpleAlphaParam; Vc read from the critical table but may be absent)"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "Kumar and Upadhyay (2021), A new two-parameters cubic equation of state with benefits of three-parameters; doi 10.1016/j.ces.2020.116045"
 closed_form = "yes"
 data = "critical constants table"
@@ -4673,7 +4823,9 @@ locator = "src/models/cubic/PatelTeja/PatelTeja.jl"
 class = "explicit_correlation"
 inputs = "reduced temperature of each component against its critical temperature Tc (supplied by the host cubic's parameters); the model returns a vector alpha_i(T)"
 parameters = "pure: acentricfactor (SimpleAlphaParam for PatelTejaAlpha, PTVAlpha, YFRAlpha; PTHAlpha reuses the Twu parameter struct)"
-composes = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)"
+composes = [
+  { slot = "", accepts = "none (parameters may be built from the host cubic's parameter dictionary: init_alphamodel reuses acentricfactor or c1 when present)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "critical constants table (default_locations = critical_data())"
@@ -4684,7 +4836,7 @@ locator = "src/models/cubic/mixing/vdW1f.jl"
 class = "other"
 inputs = "the pure a_i, b_i vectors and pair matrices of the host cubic, amounts z; the rule returns the mixed a, b (and c) scalars [other: a mixing rule for cubic a and b]"
 parameters = "none (uses a_ij, b_ij premixed from k, l)"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none bundled (k and l come from the host cubic)"
@@ -4695,7 +4847,7 @@ locator = "src/models/cubic/mixing/Kay.jl"
 class = "other"
 inputs = "the pure a_i, b_i vectors and pair matrices of the host cubic, amounts z; the rule returns the mixed a, b (and c) scalars [other: a mixing rule for cubic a and b]"
 parameters = "none"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none bundled"
@@ -4706,7 +4858,9 @@ locator = "src/models/cubic/mixing/HV.jl"
 class = "other"
 inputs = "the pure a_i, b_i vectors and pair matrices of the host cubic, amounts z; the rule returns the mixed a, b (and c) scalars [other: a mixing rule for cubic a and b]"
 parameters = "none of its own"
-composes = "activity slot: any ActivityModel (default Wilson)"
+composes = [
+  { slot = "", accepts = "activity slot: any ActivityModel (default Wilson)", default = "" },
+]
 equation_source = "Huron and Vidal (1979), New mixing rules in simple equations of state for representing vapour-liquid equilibria of...; doi 10.1016/0378-3812(79)80001-1"
 closed_form = "yes"
 data = "none bundled (the activity model's own tables)"
@@ -4717,7 +4871,9 @@ locator = "src/models/cubic/mixing/MHV1.jl"
 class = "other"
 inputs = "the pure a_i, b_i vectors and pair matrices of the host cubic, amounts z; the rule returns the mixed a, b (and c) scalars [other: a mixing rule for cubic a and b]"
 parameters = "none of its own"
-composes = "activity slot: ActivityModel (default Wilson)"
+composes = [
+  { slot = "", accepts = "activity slot: ActivityModel (default Wilson)", default = "" },
+]
 equation_source = "Michelsen (1990), A modified Huron-Vidal mixing rule for cubic equations of state; doi 10.1016/0378-3812(90)85053-d"
 closed_form = "yes"
 data = "none bundled (the activity model's own tables)"
@@ -4728,7 +4884,9 @@ locator = "src/models/cubic/mixing/MHV2.jl"
 class = "other"
 inputs = "the pure a_i, b_i vectors and pair matrices of the host cubic, amounts z; the rule returns the mixed a, b (and c) scalars [other: a mixing rule for cubic a and b]"
 parameters = "none of its own"
-composes = "activity slot: ActivityModel (default Wilson)"
+composes = [
+  { slot = "", accepts = "activity slot: ActivityModel (default Wilson)", default = "" },
+]
 equation_source = "Michelsen (1990), A modified Huron-Vidal mixing rule for cubic equations of state; doi 10.1016/0378-3812(90)85053-d"
 closed_form = "yes"
 data = "none bundled (the activity model's own tables)"
@@ -4739,7 +4897,9 @@ locator = "src/models/cubic/mixing/LCVM.jl"
 class = "other"
 inputs = "the pure a_i, b_i vectors and pair matrices of the host cubic, amounts z; the rule returns the mixed a, b (and c) scalars [other: a mixing rule for cubic a and b]"
 parameters = "none of its own"
-composes = "activity slot: ActivityModel (default Wilson)"
+composes = [
+  { slot = "", accepts = "activity slot: ActivityModel (default Wilson)", default = "" },
+]
 equation_source = "Boukouvalas et al. (1994), Prediction of vapor-liquid equilibrium with the LCVM model: a linear combination of the Vidal...; doi 10.1016/0378-3812(94)80043-x"
 closed_form = "yes"
 data = "none bundled (the activity model's own tables)"
@@ -4750,7 +4910,9 @@ locator = "src/models/cubic/mixing/WS.jl"
 class = "other"
 inputs = "the pure a_i, b_i vectors and pair matrices of the host cubic, amounts z; the rule returns the mixed a, b (and c) scalars [other: a mixing rule for cubic a and b]"
 parameters = "none of its own"
-composes = "activity slot: ActivityModel (default Wilson)"
+composes = [
+  { slot = "", accepts = "activity slot: ActivityModel (default Wilson)", default = "" },
+]
 equation_source = "Wong and Sandler (1992), A theoretically correct mixing rule for cubic equations of state; doi 10.1002/aic.690380505"
 closed_form = "yes"
 data = "none bundled (the activity model's own tables)"
@@ -4761,7 +4923,9 @@ locator = "src/models/cubic/mixing/modWS.jl"
 class = "other"
 inputs = "the pure a_i, b_i vectors and pair matrices of the host cubic, amounts z; the rule returns the mixed a, b (and c) scalars [other: a mixing rule for cubic a and b]"
 parameters = "none of its own"
-composes = "activity slot: ActivityModel (default Wilson)"
+composes = [
+  { slot = "", accepts = "activity slot: ActivityModel (default Wilson)", default = "" },
+]
 equation_source = "Wong and Sandler (1992), A theoretically correct mixing rule for cubic equations of state; doi 10.1002/aic.690380505 | Orbey and Sandler (1995), Reformulation of Wong-Sandler mixing rule for cubic equations of state; doi 10.1002/aic.690410325"
 closed_form = "yes"
 data = "none bundled (the activity model's own tables)"
@@ -4772,7 +4936,9 @@ locator = "src/models/cubic/mixing/gEr.jl"
 class = "other"
 inputs = "the pure a_i, b_i vectors and pair matrices of the host cubic, amounts z; the rule returns the mixed a, b (and c) scalars [other: a mixing rule for cubic a and b]"
 parameters = "none of its own"
-composes = "activity slot: ActivityModel with a residual excess Gibbs function (default NRTL)"
+composes = [
+  { slot = "", accepts = "activity slot: ActivityModel with a residual excess Gibbs function (default NRTL)", default = "" },
+]
 equation_source = "Piña-Martinez et al. (2021), What is the optimal activity coefficient model to be combined with the translated–consistent...; doi 10.1021/acs.iecr.1c03003"
 closed_form = "yes"
 data = "none bundled (the activity model's own tables)"
@@ -4783,7 +4949,9 @@ locator = "src/models/cubic/PR/variants/VTPR.jl"
 class = "other"
 inputs = "the pure a_i, b_i vectors and pair matrices of the host cubic, amounts z; the rule returns the mixed a, b (and c) scalars [other: a mixing rule for cubic a and b]"
 parameters = "none of its own"
-composes = "activity slot: an activity model defining excess_g_res (default UNIFAC)"
+composes = [
+  { slot = "", accepts = "activity slot: an activity model defining excess_g_res (default UNIFAC)", default = "" },
+]
 equation_source = "Ahlers and Gmehling (2001), Development of an universal group contribution equation of state; doi 10.1016/s0378-3812(01)00626-4"
 closed_form = "yes"
 data = "none bundled (the activity model's own tables)"
@@ -4794,7 +4962,9 @@ locator = "src/models/cubic/PR/variants/UMRPR.jl"
 class = "other"
 inputs = "the pure a_i, b_i vectors and pair matrices of the host cubic, amounts z; the rule returns the mixed a, b (and c) scalars [other: a mixing rule for cubic a and b]"
 parameters = "none of its own"
-composes = "activity slot (default UNIFAC)"
+composes = [
+  { slot = "", accepts = "activity slot (default UNIFAC)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none bundled (the activity model's own tables)"
@@ -4805,7 +4975,9 @@ locator = "src/models/cubic/RK/variants/PSRK.jl"
 class = "other"
 inputs = "the pure a_i, b_i vectors and pair matrices of the host cubic, amounts z; the rule returns the mixed a, b (and c) scalars [other: a mixing rule for cubic a and b]"
 parameters = "none of its own"
-composes = "activity slot (default PSRKUNIFAC)"
+composes = [
+  { slot = "", accepts = "activity slot (default PSRKUNIFAC)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none bundled (the activity model's own tables)"
@@ -4816,7 +4988,9 @@ locator = "src/models/cubic/PR/variants/EPPR78.jl"
 class = "other"
 inputs = "the pure a_i, b_i vectors and pair matrices of the host cubic, amounts z; the rule returns the mixed a, b (and c) scalars [other: a mixing rule for cubic a and b]"
 parameters = "group: A, B pair constants of the group-pair table"
-composes = "group decomposition of the components"
+composes = [
+  { slot = "", accepts = "group decomposition of the components", default = "" },
+]
 equation_source = "Jaubert et al. (2010), Predicting the phase equilibria of synthetic petroleum fluids with the PPR78 approach; doi 10.1002/aic.12232 | Jaubert et al. (2022), The impressive impact of including enthalpy and heat capacity of mixing data when...; doi 10.1016/j.fluid.2022.113456"
 closed_form = "yes"
 data = "E-PPR78 group-pair table"
@@ -4827,7 +5001,9 @@ locator = "src/models/cubic/PR/variants/QCPR.jl"
 class = "other"
 inputs = "the pure a_i, b_i vectors and pair matrices of the host cubic, amounts z; the rule returns the mixed a, b (and c) scalars [other: a mixing rule for cubic a and b]"
 parameters = "pure: A, B; pair: l (k_ij as a pair parameter)"
-composes = "activity slot: a flag only (activity = nothing)"
+composes = [
+  { slot = "", accepts = "activity slot: a flag only (activity = nothing)", default = "" },
+]
 equation_source = "Aasen et al. (2020), Accurate quantum-corrected cubic equations of state for helium, neon, hydrogen, deuterium and...; doi 10.1016/j.fluid.2020.112790"
 closed_form = "yes"
 data = "QCPR mixing-rule constants table; binary k, l table without source"
@@ -4838,7 +5014,7 @@ locator = "src/models/cubic/PatelTeja/variants/YFR.jl"
 class = "other"
 inputs = "the pure a_i, b_i vectors and pair matrices of the host cubic, amounts z; the rule returns the mixed a, b (and c) scalars [other: a mixing rule for cubic a and b]"
 parameters = "none"
-composes = "none"
+composes = []
 equation_source = "Yang et al. (2025), Symbolic-regression aided development of a new cubic equation of state for improved liquid...; doi 10.1007/s10765-024-03490-5"
 closed_form = "yes"
 data = "none bundled"
@@ -4849,7 +5025,7 @@ locator = "src/models/cubic/translation/NoTranslation.jl"
 class = "explicit_correlation"
 inputs = "T and amounts of the host cubic; the model returns the component volume shifts c_i [volume translation]"
 parameters = "none"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none"
@@ -4860,7 +5036,7 @@ locator = "src/models/cubic/translation/ConstantTranslation.jl"
 class = "explicit_correlation"
 inputs = "T and amounts of the host cubic; the model returns the component volume shifts c_i [volume translation]"
 parameters = "pure: v_shift (m3/mol)"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "QCPR volume shift table, tc-PR single table, tc-RK single table"
@@ -4871,7 +5047,7 @@ locator = "src/models/cubic/translation/Peneloux.jl"
 class = "explicit_correlation"
 inputs = "T and amounts of the host cubic; the model returns the component volume shifts c_i [volume translation]"
 parameters = "pure: Vc, v_shift (v_shift derived from Vc when absent)"
-composes = "none"
+composes = []
 equation_source = "Péneloux A and Fréze R. (1982), A consistent correction for Redlich‐Kwong‐Soave volumes; doi 10.1016/0378-3812(82)80002-2 | Ahlers and Gmehling (2001), Development of an universal group contribution equation of state; doi 10.1016/s0378-3812(01)00626-4"
 closed_form = "yes"
 data = "critical constants table"
@@ -4882,7 +5058,7 @@ locator = "src/models/cubic/translation/MT.jl"
 class = "explicit_correlation"
 inputs = "T and amounts of the host cubic; the model returns the component volume shifts c_i [volume translation]"
 parameters = "pure: acentricfactor"
-composes = "none"
+composes = []
 equation_source = "Magoulas and Tassios (1990), Thermophysical properties of n-Alkanes from C1 to C20 and their prediction for higher ones; doi 10.1016/0378-3812(90)85098-u"
 closed_form = "yes"
 data = "critical constants table"
@@ -4893,7 +5069,7 @@ locator = "src/models/cubic/translation/Baled.jl"
 class = "explicit_correlation"
 inputs = "T and amounts of the host cubic; the model returns the component volume shifts c_i [volume translation]"
 parameters = "pure: acentricfactor"
-composes = "none"
+composes = []
 equation_source = "Baled et al. (2012), Prediction of hydrocarbon densities at extreme conditions using volume-translated SRK and PR...; doi 10.1016/j.fluid.2011.12.027"
 closed_form = "yes"
 data = "critical constants table"
@@ -4904,7 +5080,7 @@ locator = "src/models/cubic/translation/Clausius.jl"
 class = "explicit_correlation"
 inputs = "T and amounts of the host cubic; the model returns the component volume shifts c_i [volume translation]"
 parameters = "pure: Vc"
-composes = "none"
+composes = []
 equation_source = "Clausius (1880), Ueber das Verhalten der Kohlensäure in Bezug auf Druck, Volumen und Temperatur; doi 10.1002/andp.18802450302"
 closed_form = "yes"
 data = "critical constants table (the model file is not included by src/Clapeyron.jl: its include is commented out in translation.jl, so the type is not loaded)"
@@ -4915,7 +5091,7 @@ locator = "src/models/cubic/translation/tcTranslation.jl"
 class = "explicit_correlation"
 inputs = "T and amounts of the host cubic; the model returns the component volume shifts c_i [volume translation]"
 parameters = "pure: acentricfactor, ZRA, v_shift"
-composes = "none"
+composes = []
 equation_source = "Le Guennec et al. (2016), Development of the translated-consistent tc-PR and tc-RK cubic equations of state for a safe...; doi 10.1016/j.fluid.2016.09.003 | Pina-Martinez et al. (2018), Analysis of the combinations of property data that are suitable for a safe estimation of...; doi 10.1021/acs.jced.8b00640"
 closed_form = "yes"
 data = "tc-PR single table, tc-RK single table"
@@ -4926,7 +5102,7 @@ locator = "src/models/cubic/PR/variants/TVTPR.jl"
 class = "explicit_correlation"
 inputs = "T and amounts of the host cubic; the model returns the component volume shifts c_i [volume translation]"
 parameters = "pure: Vc"
-composes = "none"
+composes = []
 equation_source = "Ahlers and Gmehling (2001), Development of an universal group contribution equation of state; doi 10.1016/s0378-3812(01)00626-4"
 closed_form = "yes"
 data = "critical constants table"
@@ -4937,7 +5113,9 @@ locator = "src/models/Activity/Margules/Margules.jl"
 class = "residual_or_excess_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "A12, A21 (per-component slots holding the two binary parameters; the constructor also accepts a pair parameter A and extracts its (1,2) and (2,1) entries); Mw; binary only (the constructor asserts two components)"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "Max Margules, « Über die Zusammensetzung der gesättigten Dämpfe von Misschungen », Sitzungsberichte der..."
 closed_form = "yes"
 data = "binary A12, A21 table (Margules, VanLaar)"
@@ -4948,7 +5126,9 @@ locator = "src/models/Activity/VanLaar/VanLaar.jl"
 class = "residual_or_excess_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "A12, A21 (as for Margules), Mw; binary only"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "J. J. van Laar, Sechs Vorträgen über das thermodynamische Potential. (Six Lectures on the Thermodynamic... | J. J. van Laar, “Über Dampfspannungen von binären Gemischen (The vapor pressure of binary mixtures)”, Z...."
 closed_form = "yes"
 data = "binary A12, A21 table (Margules, VanLaar)"
@@ -4959,7 +5139,9 @@ locator = "src/models/Activity/Wilson/Wilson.jl"
 class = "residual_or_excess_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "pair: g (asymmetric); pure: Tc, Pc, acentricfactor, Mw (ZRA computed from the acentric factor by a fixed linear correlation in the constructor)"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam; Rackett correlation for liquid volumes built in"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam; Rackett correlation for liquid volumes built in", default = "" },
+]
 equation_source = "Wilson (1964), Vapor-liquid equilibrium; doi 10.1021/ja01056a002"
 closed_form = "yes"
 data = "Wilson binary table; critical constants table; molar mass table"
@@ -4970,7 +5152,9 @@ locator = "src/models/Activity/Wilson/variants/tcPRWilsonRes.jl"
 class = "residual_or_excess_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "pair: g (asymmetric); pure: v (optional individual volumes)"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "Wilson (1964), Vapor-liquid equilibrium; doi 10.1021/ja01056a002 | Piña-Martinez et al. (2021), What is the optimal activity coefficient model to be combined with the translated–consistent...; doi 10.1021/acs.iecr.1c03003"
 closed_form = "yes"
 data = "tc-PR Wilson residual table"
@@ -4981,7 +5165,9 @@ locator = "src/models/Activity/NRTL/NRTL.jl"
 class = "residual_or_excess_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "pair: a, b, c (asymmetric) or the alternative names tau and alpha (mutually exclusive with a, b, c); Mw optional"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "Renon and Prausnitz (1968), Local compositions in thermodynamic excess functions for liquid mixtures; doi 10.1002/aic.690140124"
 closed_form = "yes"
 data = "NRTL binary table; molar mass table"
@@ -4992,7 +5178,9 @@ locator = "src/models/Activity/NRTL/variants/aspenNRTL.jl"
 class = "residual_or_excess_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "pair: t0, t1, t2, t3, a0, a1 (asymmetric)"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "Renon and Prausnitz (1968), Local compositions in thermodynamic excess functions for liquid mixtures; doi 10.1002/aic.690140124"
 closed_form = "yes"
 data = "aspen NRTL binary table"
@@ -5003,7 +5191,9 @@ locator = "src/models/Activity/NRTL/variants/eNRTL.jl"
 class = "electrolyte_interaction"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "a neutral NRTL part plus an ion part; declared with neutral, ion-model and IdealModel type parameters"
-composes = "an ion model (IonModel) and a neutral activity model; the file is not included by src/Clapeyron.jl so the type is never defined in the package"
+composes = [
+  { slot = "", accepts = "an ion model (IonModel) and a neutral activity model; the file is not included by src/Clapeyron.jl so the type is never defined in the package", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "implicit"
 data = "none reachable (eNRTL_unlike.csv is unreferenced)"
@@ -5014,7 +5204,9 @@ locator = "src/models/Activity/UNIQUAC/UNIQUAC.jl"
 class = "residual_or_excess_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "pair: a (asymmetric); pure: r, q, q_p, Mw"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "Abrams and Prausnitz (1975), Statistical thermodynamics of liquid mixtures: A new expression for the excess Gibbs energy of...; doi 10.1002/aic.690210115"
 closed_form = "yes"
 data = "UNIQUAC like table; UNIQUAC binary table; molar mass table"
@@ -5025,7 +5217,9 @@ locator = "src/models/Activity/UNIFAC/UNIFAC.jl"
 class = "group_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only; group counts per component"
 parameters = "group: R, Q; group-pair: A, B, C (asymmetric; temperature form exp(-(A + B T + C T^2)/T))"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam; components as names or (name, [group => count]) tuples"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam; components as names or (name, [group => count]) tuples", default = "" },
+]
 equation_source = "Fredenslund et al. (1977), Computerized design of multicomponent distillation columns using the UNIFAC group contribution...; doi 10.1021/i260064a004 | Weidlich, U.; Gmehling, J. A modified UNIFAC model. 1. Prediction of VLE, hE, and.gamma..infin. Ind. Eng...."
 closed_form = "yes"
 data = "UNIFAC group like table (R, Q); UNIFAC group-pair interaction table; groups file (UNIFAC_groups 47 rows)"
@@ -5036,7 +5230,9 @@ locator = "src/models/Activity/UNIFAC/variants/UNIFAC2.jl"
 class = "group_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "as UNIFAC, with the UNIFAC 2.0 refit of A, B, C (matrix completion)"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "Hayer et al. (2025), 10304–10313, DOI: .; doi 10.1021/acs.iecr.5c00077"
 closed_form = "yes"
 data = "UNIFAC group like table (R, Q) (UNIFAC_like.csv); UNIFAC group-pair interaction table (UNIFAC2_unlike 3906 rows); groups file (UNIFAC_groups.csv)"
@@ -5047,7 +5243,9 @@ locator = "src/models/Activity/UNIFAC/variants/ogUNIFAC.jl"
 class = "group_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "group: R, Q; group-pair: A (asymmetric; form exp(-A/T))"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "Fredenslund et al. (1977), Computerized design of multicomponent distillation columns using the UNIFAC group contribution...; doi 10.1021/i260064a004"
 closed_form = "yes"
 data = "original UNIFAC group like table; original UNIFAC group-pair table (A only); groups file (ogUNIFAC_groups 28 rows)"
@@ -5058,7 +5256,9 @@ locator = "src/models/Activity/UNIFAC/variants/ogUNIFAC2.jl"
 class = "group_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "as ogUNIFAC with the UNIFAC 2.0 refit of A"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "Hayer et al. (2025), 158667; doi 10.1016/j.cej.2024.158667"
 closed_form = "yes"
 data = "original UNIFAC group like table; original UNIFAC group-pair table (A only) (ogUNIFAC2_unlike 2862 rows)"
@@ -5069,7 +5269,9 @@ locator = "src/models/Activity/UNIFAC/variants/PSRK.jl"
 class = "group_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "group: R, Q; group-pair: A, B, C (PSRK parameter set)"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "Fredenslund et al. (1977), Computerized design of multicomponent distillation columns using the UNIFAC group contribution...; doi 10.1021/i260064a004 | Weidlich, U.; Gmehling, J. A modified UNIFAC model. 1. Prediction of VLE, hE, and.gamma..infin. Ind. Eng...."
 closed_form = "yes"
 data = "UNIFAC group like table (R, Q) (PSRK_like.csv); UNIFAC group-pair interaction table (PSRK_unlike.csv); groups file (PSRK_groups 33 rows)"
@@ -5080,7 +5282,9 @@ locator = "src/models/Activity/UNIFAC/variants/VTPR.jl"
 class = "group_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "group: Q; group-pair: A, B, C (residual part only; VTPR parameter set)"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "Fredenslund et al. (1977), Computerized design of multicomponent distillation columns using the UNIFAC group contribution...; doi 10.1021/i260064a004 | Weidlich, U.; Gmehling, J. A modified UNIFAC model. 1. Prediction of VLE, hE, and.gamma..infin. Ind. Eng...."
 closed_form = "yes"
 data = "VTPR group like table (Q only); UNIFAC group-pair interaction table (VTPR_unlike.csv); groups file (VTPR_groups 33 rows)"
@@ -5091,7 +5295,9 @@ locator = "src/models/Activity/UNIFAC/variants/UNIFACFV.jl"
 class = "group_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "component: volume (specific volume); group: R, Q, Mw; group-pair: A (asymmetric)"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "Oishi and Prausnitz (1978), Estimation of solvent activities in polymer solutions using a group-contribution method; doi 10.1021/i260067a021"
 closed_form = "yes"
 data = "UNIFAC-FV like table; original UNIFAC group like table; original UNIFAC group-pair table (A only); groups file (UNIFACFV_groups 5 rows)"
@@ -5102,7 +5308,9 @@ locator = "src/models/Activity/UNIFAC/variants/UNIFACFVPoly.jl"
 class = "group_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "component: volume, c (external degrees of freedom); group: R, Q, Mw; group-pair: A; polymer blends with a Flory-Huggins combinatorial part"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "UNIFAC-FV like table; original UNIFAC group like table; original UNIFAC group-pair table (A only)"
@@ -5113,7 +5321,9 @@ locator = "src/models/Activity/FH/FH.jl"
 class = "residual_or_excess_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "pair: a, b; pure: N (degree of polymerisation, given in the constructor), v (monomer volume), Mw (multiplied by N)"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "Flory (1953), \"Principles of Polymer Chemistry\" | Huggins (1941), \"Solutions of Long-Chain Compounds\""
 closed_form = "yes"
 data = "Flory-Huggins like table; Flory-Huggins binary table; molar mass table"
@@ -5124,7 +5334,9 @@ locator = "src/models/Activity/COSMOSAC/COSMOSAC02.jl"
 class = "residual_or_excess_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "pure: Pi (51-bin sigma profile), V (cavity volume), A (cavity area)"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam; option use_nist_database downloads sigma profiles from an external repository"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam; option use_nist_database downloads sigma profiles from an external repository", default = "" },
+]
 equation_source = "Klamt (1995), Conductor-like screening model for real solvents: A new approach to the quantitative...; doi 10.1021/j100007a062 | Lin and S.I. (2002), A priori phase equilibrium prediction from a segment contribution solvation model; doi 10.1021/ie001047w"
 closed_form = "implicit"
 data = "COSMO-SAC (2002) like table; CAS to InChIKey list (COSMO-SAC download) (only for the download option)"
@@ -5135,7 +5347,9 @@ locator = "src/models/Activity/COSMOSAC/COSMOSAC10.jl"
 class = "residual_or_excess_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "pure: Pnhb, POH, POT (51-bin profiles), V, A"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "Klamt (1995), Conductor-like screening model for real solvents: A new approach to the quantitative...; doi 10.1021/j100007a062 | Lin and S.I. (2002), A priori phase equilibrium prediction from a segment contribution solvation model; doi 10.1021/ie001047w"
 closed_form = "implicit"
 data = "COSMO-SAC (2010) like table"
@@ -5146,7 +5360,9 @@ locator = "src/models/Activity/COSMOSAC/COSMOSACdsp.jl"
 class = "residual_or_excess_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "as COSMOSAC10 plus epsilon, water, COOH, hb_acc, hb_don (dispersion contribution)"
-composes = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam"
+composes = [
+  { slot = "", accepts = "puremodel slot: any EoSModel for pure-component pressure-dependent properties (default PR; BasicIdeal for Flory-Huggins and tcPRWilsonRes), wrapped in EoSVectorParam", default = "" },
+]
 equation_source = "Klamt (1995), Conductor-like screening model for real solvents: A new approach to the quantitative...; doi 10.1021/j100007a062 | Lin and S.I. (2002), A priori phase equilibrium prediction from a segment contribution solvation model; doi 10.1021/ie001047w"
 closed_form = "implicit"
 data = "COSMO-SAC (2010) like table; COSMO-SAC-dsp like table"
@@ -5157,7 +5373,9 @@ locator = "src/models/Activity/equations.jl"
 class = "residual_or_excess_contribution"
 inputs = "temperature T [K] and composition z (mole amounts, fractions x = z/sum(z)); pressure or volume is passed through to the pure-component model slot only"
 parameters = "none"
-composes = "none (a singleton ActivityModel with zero excess energy, defined with @newmodelsingleton)"
+composes = [
+  { slot = "", accepts = "none (a singleton ActivityModel with zero excess energy, defined with @newmodelsingleton)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none bundled"
@@ -5168,7 +5386,9 @@ locator = "src/models/ideal/BasicIdeal.jl"
 class = "explicit_correlation"
 inputs = "T [K], V [m³], amounts z [mol]; the model returns the reduced ideal Helmholtz energy a_ideal(V,T,z)"
 parameters = "none"
-composes = "none (ideal models have no sub-model slots)"
+composes = [
+  { slot = "", accepts = "none (ideal models have no sub-model slots)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none bundled"
@@ -5179,7 +5399,9 @@ locator = "src/models/ideal/ideal.jl"
 class = "other"
 inputs = "T [K], V [m³], amounts z [mol]; the model returns the reduced ideal Helmholtz energy a_ideal(V,T,z)"
 parameters = "none"
-composes = "none (ideal models have no sub-model slots)"
+composes = [
+  { slot = "", accepts = "none (ideal models have no sub-model slots)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none bundled"
@@ -5190,7 +5412,9 @@ locator = "src/models/ideal/MonomerIdeal.jl"
 class = "other"
 inputs = "T [K], V [m³], amounts z [mol]; the model returns the reduced ideal Helmholtz energy a_ideal(V,T,z)"
 parameters = "pure: Mw (kg/mol via 1e-3); thermal de Broglie wavelength from Mw and T [other: translational statistical-mechanics ideal gas]"
-composes = "none (ideal models have no sub-model slots)"
+composes = [
+  { slot = "", accepts = "none (ideal models have no sub-model slots)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "molar mass table"
@@ -5201,7 +5425,9 @@ locator = "src/models/ideal/ReidIdeal.jl"
 class = "explicit_correlation"
 inputs = "T [K], V [m³], amounts z [mol]; the model returns the reduced ideal Helmholtz energy a_ideal(V,T,z)"
 parameters = "pure: a, b, c, d, e (Cp polynomial in T; e multiplies T^4), Mw; reference_state"
-composes = "none (ideal models have no sub-model slots)"
+composes = [
+  { slot = "", accepts = "none (ideal models have no sub-model slots)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "Reid polynomial ideal heat-capacity table; molar mass table"
@@ -5212,7 +5438,9 @@ locator = "src/models/ideal/ShomateIdeal.jl"
 class = "explicit_correlation"
 inputs = "T [K], V [m³], amounts z [mol]; the model returns the reduced ideal Helmholtz energy a_ideal(V,T,z)"
 parameters = "pure: a, b, c, d, e (e for the T^-2 term), Mw; reference_state (uses ReidIdealParam)"
-composes = "none (ideal models have no sub-model slots)"
+composes = [
+  { slot = "", accepts = "none (ideal models have no sub-model slots)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "Shomate ideal heat-capacity table; molar mass table"
@@ -5223,7 +5451,9 @@ locator = "src/models/ideal/CPLNGEstIdeal.jl"
 class = "explicit_correlation"
 inputs = "T [K], V [m³], amounts z [mol]; the model returns the reduced ideal Helmholtz energy a_ideal(V,T,z)"
 parameters = "pure: Mw; the Reid polynomial coefficients are estimated from the molar mass"
-composes = "none (ideal models have no sub-model slots)"
+composes = [
+  { slot = "", accepts = "none (ideal models have no sub-model slots)", default = "" },
+]
 equation_source = "Kareem et al. (2014), Isobaric specific heat capacity of natural gas as a function of specific gravity, pressure and...; doi 10.1016/j.jngse.2014.04.011"
 closed_form = "yes"
 data = "molar mass table"
@@ -5234,7 +5464,9 @@ locator = "src/models/ideal/PPDSIdeal.jl"
 class = "explicit_correlation"
 inputs = "T [K], V [m³], amounts z [mol]; the model returns the reduced ideal Helmholtz energy a_ideal(V,T,z)"
 parameters = "pure: A..G (the PPDS form in y = T/(T + constant)), Mw; reference_state"
-composes = "none (ideal models have no sub-model slots)"
+composes = [
+  { slot = "", accepts = "none (ideal models have no sub-model slots)", default = "" },
+]
 equation_source = "Gmehling et al. (2019), Chemical thermodynamics for process simulation (2nd ed.)"
 closed_form = "yes"
 data = "PPDS ideal heat-capacity table; molar mass table"
@@ -5245,7 +5477,9 @@ locator = "src/models/ideal/AlyLeeIdeal.jl"
 class = "explicit_correlation"
 inputs = "T [K], V [m³], amounts z [mol]; the model returns the reduced ideal Helmholtz energy a_ideal(V,T,z)"
 parameters = "pure: A..I (extended Aly-Lee: hyperbolic terms in temperature), Mw; reference_state; integration constants taken at T0 = 298.15 K"
-composes = "none (ideal models have no sub-model slots)"
+composes = [
+  { slot = "", accepts = "none (ideal models have no sub-model slots)", default = "" },
+]
 equation_source = "Aly and Lee (1981), Self-consistent equations for calculating the ideal gas heat capacity, enthalpy, and entropy; doi 10.1016/0378-3812(81)85002-9"
 closed_form = "yes"
 data = "Aly-Lee ideal heat-capacity table; molar mass table"
@@ -5256,7 +5490,9 @@ locator = "src/models/ideal/GCAlyLeeIdeal.jl"
 class = "group_contribution"
 inputs = "T [K], V [m³], amounts z [mol]; the model returns the reduced ideal Helmholtz energy a_ideal(V,T,z)"
 parameters = "group: A..E; component view by group sums; Mw from the group table; reference_state"
-composes = "none (ideal models have no sub-model slots)"
+composes = [
+  { slot = "", accepts = "none (ideal models have no sub-model slots)", default = "" },
+]
 equation_source = "Burkhardt et al. (2026), A new group-contribution approach for ideal gas heat capacity, critical temperature and normal...; doi 10.1021/acs.jced.5c00573"
 closed_form = "yes"
 data = "GC Aly-Lee group ideal table; group molar mass table; groups file (BurkhardtIdeal_groups 20 rows)"
@@ -5267,7 +5503,9 @@ locator = "src/models/ideal/BurkhardtIdeal.jl"
 class = "group_contribution"
 inputs = "T [K], V [m³], amounts z [mol]; the model returns the reduced ideal Helmholtz energy a_ideal(V,T,z)"
 parameters = "group: A..D; Mw; reference_state"
-composes = "none (ideal models have no sub-model slots)"
+composes = [
+  { slot = "", accepts = "none (ideal models have no sub-model slots)", default = "" },
+]
 equation_source = "Burkhardt et al. (2026), A new group-contribution approach for ideal gas heat capacity, critical temperature and normal...; doi 10.1021/acs.jced.5c00573"
 closed_form = "yes"
 data = "Burkhardt group ideal table; group molar mass table; groups file (BurkhardtIdeal_groups 20 rows)"
@@ -5278,7 +5516,9 @@ locator = "src/models/ideal/JobackIdeal.jl"
 class = "group_contribution"
 inputs = "T [K], V [m³], amounts z [mol]; the model returns the reduced ideal Helmholtz energy a_ideal(V,T,z)"
 parameters = "group: a, b, c, d (Cp polynomial increments) plus T_c, P_c, V_c, T_b, T_m, H_form, G_form, H_fusion, H_vap, eta_a, eta_b, N_a, Mw; the model also offers pure-property estimators (critical constants, boiling point and others) from the increments"
-composes = "none (ideal models have no sub-model slots)"
+composes = [
+  { slot = "", accepts = "none (ideal models have no sub-model slots)", default = "" },
+]
 equation_source = "Joback and Reid (1987), Estimation of pure-component properties from group-contributions; doi 10.1080/00986448708960487"
 closed_form = "yes"
 data = "Joback group-contribution table; group molar mass table; group atom counts table; groups file (JobackIdeal_Groups 17 rows)"
@@ -5289,7 +5529,9 @@ locator = "src/models/ideal/WalkerIdeal.jl"
 class = "group_contribution"
 inputs = "T [K], V [m³], amounts z [mol]; the model returns the reduced ideal Helmholtz energy a_ideal(V,T,z)"
 parameters = "group: Mw, Nrot, theta1..theta4, deg1..deg4; reference_state"
-composes = "none (ideal models have no sub-model slots)"
+composes = [
+  { slot = "", accepts = "none (ideal models have no sub-model slots)", default = "" },
+]
 equation_source = "Walker and Haslam (2020), A new predictive group-contribution ideal-heat-capacity model and its influence on...; doi 10.1021/acs.jced.0c00723"
 closed_form = "yes"
 data = "Walker group ideal heat-capacity table; groups file (WalkerIdeal_Groups 24 rows)"
@@ -5300,7 +5542,9 @@ locator = "src/models/ideal/GlennJL.jl"
 class = "explicit_correlation"
 inputs = "T [K], V [m³], amounts z [mol]; the model returns the reduced ideal Helmholtz energy a_ideal(V,T,z)"
 parameters = "NASA-7 coefficients from a Glenn.jl database; options Rgas, R0 (the gas constant used in the fit); reference_state"
-composes = "a Glenn.Calculator or ThermoDB object"
+composes = [
+  { slot = "", accepts = "a Glenn.Calculator or ThermoDB object", default = "" },
+]
 equation_source = "NASA TP-2002-211556, “NASA Glenn Coefficients for Calculating Thermodynamic Properties of Individual..."
 closed_form = "yes"
 data = "none bundled (needs the Glenn.jl package and its database, loaded as an extension)"
@@ -5311,7 +5555,9 @@ locator = "src/models/EmpiricHelmholtz/SingleFluid/SingleFluid.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "pure (from JSON): reducing state, critical constants, triple point, molar mass, acentric factor, gas constant, alpha0 terms, alphar terms (polynomial, exponential, Gaussian, GaoB, non-analytic, double-exponential, associating), ancillaries"
-composes = "ancillaries slot: a saturation correlation model (default: parsed from the JSON ANCILLARIES or SUPERANCILLARY); optional idealmodel override through idealmodel_to_json_data; CoolProp library when loaded and no location is given"
+composes = [
+  { slot = "", accepts = "ancillaries slot: a saturation correlation model (default: parsed from the JSON ANCILLARIES or SUPERANCILLARY); optional idealmodel override through idealmodel_to_json_data; CoolProp library when loaded and no location is given", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "fluid JSON file (CoolProp/teqp layout); EOS entry: alpha0 term list; EOS entry: alphar term list; ANCILLARIES member"
@@ -5322,7 +5568,9 @@ locator = "src/models/EmpiricHelmholtz/SingleFluid/SingleFluid.jl"
 class = "explicit_correlation"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "the ideal terms of a SingleFluid, scaled by R0 over the model's gas constant"
-composes = "a view of a SingleFluid's properties and alpha0"
+composes = [
+  { slot = "", accepts = "a view of a SingleFluid's properties and alpha0", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "EOS entry: alpha0 term list"
@@ -5333,7 +5581,9 @@ locator = "src/models/EmpiricHelmholtz/SingleFluid/variants/PseudoPure.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "one multiparameter equation for a fixed-composition mixture (refrigerant blend or air) held as a single JSON fluid"
-composes = "a SingleFluid plus a dedicated flash method (SingleFluidFlashMethod); two-phase properties are not available per the docstring"
+composes = [
+  { slot = "", accepts = "a SingleFluid plus a dedicated flash method (SingleFluidFlashMethod); two-phase properties are not available per the docstring", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "procedural"
 data = "fluid JSON file (none of the 42 bundled files has pseudo_pure = true, so no bundled fluid)"
@@ -5344,7 +5594,7 @@ locator = "src/models/EmpiricHelmholtz/SingleFluid/variants/IAPWS95.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "pure: hard-coded Mw, Tc, Pc and coefficient arrays (ideal 8 terms, residual 56 terms incl. Gaussian and non-analytic)"
-composes = "none"
+composes = []
 equation_source = "Wagner and Pruß (2002), The IAPWS formulation 1995 for the thermodynamic properties of ordinary water substance for...; doi 10.1063/1.1461829 | IAPWS R6-95 (2018), Revised Release on the IAPWS Formulation 1995 for the Thermodynamic Properties of Ordinary..."
 closed_form = "yes"
 data = "hard-coded reference equations"
@@ -5355,7 +5605,7 @@ locator = "src/models/EmpiricHelmholtz/SingleFluid/variants/IAPWS95.jl"
 class = "explicit_correlation"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "the ideal part of IAPWS95"
-composes = "none"
+composes = []
 equation_source = "Wagner and Pruß (2002), The IAPWS formulation 1995 for the thermodynamic properties of ordinary water substance for...; doi 10.1063/1.1461829 | IAPWS R6-95 (2018), Revised Release on the IAPWS Formulation 1995 for the Thermodynamic Properties of Ordinary..."
 closed_form = "yes"
 data = "hard-coded reference equations"
@@ -5366,7 +5616,7 @@ locator = "src/models/EmpiricHelmholtz/SingleFluid/variants/PropaneRef.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "pure: hard-coded coefficients"
-composes = "none"
+composes = []
 equation_source = "Lemmon et al. (2009), Thermodynamic properties of propane; doi 10.1021/je900217v"
 closed_form = "yes"
 data = "hard-coded reference equations"
@@ -5377,7 +5627,7 @@ locator = "src/models/EmpiricHelmholtz/SingleFluid/variants/Ammonia2023.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "pure: hard-coded coefficients incl. an associating term"
-composes = "none"
+composes = []
 equation_source = "Gao et al. (2023), A reference equation of state with an associating term for the thermodynamic properties of...; doi 10.1063/5.0128269"
 closed_form = "yes"
 data = "hard-coded reference equations"
@@ -5388,7 +5638,9 @@ locator = "src/models/EmpiricHelmholtz/SingleFluid/variants/XiangDeiters.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "pure: Tc, Pc, Vc, acentricfactor, Mw (estimates a SingleFluid from the extended corresponding-states form)"
-composes = "idealmodel slot: any IdealModel"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "critical constants table; molar mass table"
@@ -5399,7 +5651,9 @@ locator = "src/models/EmpiricHelmholtz/LJRef/LJRef.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state); reduced with epsilon and sigma instead of critical constants"
 parameters = "pure: sigma, epsilon, Mw, segment; pair k optional; Lennard-Jones reference equation with fixed coefficients and one-fluid mixing"
-composes = "none (a LJRefIdeal wrapper is its ideal part)"
+composes = [
+  { slot = "", accepts = "none (a LJRefIdeal wrapper is its ideal part)", default = "" },
+]
 equation_source = "Thol et al. (2016), Equation of state for the Lennard-Jones fluid; doi 10.1063/1.4945000"
 closed_form = "yes"
 data = "none bundled (sigma and epsilon from the user or from SAFT tables through softSAFT2016)"
@@ -5410,7 +5664,7 @@ locator = "src/models/EmpiricHelmholtz/LJRef/LJRef.jl"
 class = "explicit_correlation"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "the ideal part of LJRef"
-composes = "none"
+composes = []
 equation_source = "Thol et al. (2016), Equation of state for the Lennard-Jones fluid; doi 10.1063/1.4945000"
 closed_form = "yes"
 data = "none bundled"
@@ -5421,7 +5675,9 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/multifluid.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "pure: Mw, Tc, Pc, Vc, Tr, Vr, acentricfactor, lb_volume (copied from each SingleFluid); mixture: mixing and departure parameters"
-composes = "pure slot: one SingleFluid per component (JSON files); mixing slot: MixingRule (default AsymmetricMixing); departure slot: MultiFluidDepartureModel (default EmpiricDeparture); idealmodel slot (default: the JSON alpha0); Rgas (default the JSON value for a pure fluid, the 2019 gas constant for a mixture); estimate_mixing :off, :lb or :linear"
+composes = [
+  { slot = "", accepts = "pure slot: one SingleFluid per component (JSON files); mixing slot: MixingRule (default AsymmetricMixing); departure slot: MultiFluidDepartureModel (default EmpiricDeparture); idealmodel slot (default: the JSON alpha0); Rgas (default the JSON value for a pure fluid, the 2019 gas constant for a mixture); estimate_mixing :off, :lb or :linear", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "fluid JSON file (CoolProp/teqp layout); multifluid reducing parameters (two layouts); multifluid departure table (F, parameters)"
@@ -5432,7 +5688,9 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/variants/GERG2008.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "as MultiFluid with the GERG-2008 pure JSON files, mixing table and departure table; Rgas 8.314472"
-composes = "MultiFluid with pure_userlocations GERG2008/pures, mixing_userlocations GERG2008_mixing_unlike.csv, departure_userlocations GERG2008_departure_unlike.csv; coolprop_userlocations = false"
+composes = [
+  { slot = "", accepts = "MultiFluid with pure_userlocations GERG2008/pures, mixing_userlocations GERG2008_mixing_unlike.csv, departure_userlocations GERG2008_departure_unlike.csv; coolprop_userlocations = false", default = "" },
+]
 equation_source = "Kunz and Wagner (2012), The GERG-2008 wide-range equation of state for natural gases and other mixtures: An expansion...; doi 10.1021/je300655b"
 closed_form = "yes"
 data = "fluid JSON file (GERG2008/pures, 21 files); multifluid reducing parameters (GERG-2008, EOS-LNG); multifluid departure table (F, parameters)"
@@ -5443,7 +5701,9 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/variants/EOS_CG.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "as GERG2008 with EOS-CG pure files, mixing and departure tables"
-composes = "MultiFluid with EOS_CG pures, mixing and departure files"
+composes = [
+  { slot = "", accepts = "MultiFluid with EOS_CG pures, mixing and departure files", default = "" },
+]
 equation_source = "EOS-CG: A Mixture Model for the Calculation of Thermodynamic Properties of CCS | It uses the same functional form as"
 closed_form = "yes"
 data = "fluid JSON file (EOS_CG/pures, 15 files); multifluid reducing parameters with CAS columns (EOS_CG_mixing 120 rows); multifluid departure table (F, parameters) (EOS_CG_departure 21 rows)"
@@ -5454,7 +5714,9 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/variants/EOS_LNG.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "as GERG2008 with EOS-LNG mixing and departure tables"
-composes = "MultiFluid with the GERG2008 pure files and the EOS-LNG mixing and departure files; Rgas 8.314472"
+composes = [
+  { slot = "", accepts = "MultiFluid with the GERG2008 pure files and the EOS-LNG mixing and departure files; Rgas 8.314472", default = "" },
+]
 equation_source = "Thol et al. (2019), EOS-LNG: A fundamental equation of state for the calculation of thermodynamic properties of...; doi 10.1063/1.5093800 | Kunz and Wagner (2012), The GERG-2008 wide-range equation of state for natural gases and other mixtures: An expansion...; doi 10.1021/je300655b"
 closed_form = "yes"
 data = "fluid JSON file (GERG2008/pures); multifluid reducing parameters (GERG-2008, EOS-LNG) (EOS_LNG_mixing 210 rows); multifluid departure table (F, parameters) (EOS_LNG_departure 17 rows)"
@@ -5465,7 +5727,9 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/variants/TillnerRothFriend.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "ammonia-water mixture with fixed constants in code (mixing kt, kv, alpha, beta; departure coefficient sets); Rgas 8.314471"
-composes = "MultiFluid with IAPWS95 and the ammonia TLF JSON, TillnerRothFriendMixing and TillnerRothFriendDeparture"
+composes = [
+  { slot = "", accepts = "MultiFluid with IAPWS95 and the ammonia TLF JSON, TillnerRothFriendMixing and TillnerRothFriendDeparture", default = "" },
+]
 equation_source = "IAPWS G4-01 (2001), Guideline on the IAPWS Formulation 2001 for the Thermodynamic Properties of Ammonia-Water..."
 closed_form = "yes"
 data = "fluid JSON file (TLF/ammonia.json); hard-coded reference equations"
@@ -5476,7 +5740,9 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/variants/HelmAct.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "pure JSON fluids plus an activity model's residual excess Gibbs energy as the departure"
-composes = "MultiFluid with a GEDeparture; activity slot: any ActivityModel (default PSRKUNIFAC)"
+composes = [
+  { slot = "", accepts = "MultiFluid with a GEDeparture; activity slot: any ActivityModel (default PSRKUNIFAC)", default = "" },
+]
 equation_source = "Jäger et al. (2021), The representation of cross second virial coefficients by multifluid mixture models and other...; doi 10.1021/acs.iecr.1c01186"
 closed_form = "yes"
 data = "fluid JSON file; the activity model's tables"
@@ -5487,7 +5753,9 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/variants/EmpiricIdeal.jl"
 class = "explicit_correlation"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "the ideal part of a multi-component Empiric model, built from JSON fluids"
-composes = "SingleFluidIdeal per component; Rgas; estimate_pure (XiangDeiters fallback)"
+composes = [
+  { slot = "", accepts = "SingleFluidIdeal per component; Rgas; estimate_pure (XiangDeiters fallback)", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "fluid JSON file"
@@ -5498,7 +5766,7 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/mixing/Asymmetric.jl"
 class = "other"
 inputs = "reduced-state scales of the pure fluids (Tr, Vr) and amounts z; the rule returns the mixture reducing temperature and volume"
 parameters = "pair: beta_v, gamma_v, beta_T, gamma_T (beta mirrored by inversion; gamma symmetric); missing pairs handled by estimate_mixing"
-composes = "none"
+composes = []
 equation_source = "R. Klimeck, Ph.D. dissertation, Ruhr-Universit¨at Bochum,"
 closed_form = "yes"
 data = "multifluid reducing parameters (two layouts)"
@@ -5509,7 +5777,7 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/mixing/LB.jl"
 class = "other"
 inputs = "reduced-state scales of the pure fluids (Tr, Vr) and amounts z; the rule returns the mixture reducing temperature and volume"
 parameters = "pair: k, l (an AsymmetricMixing with all betas and gammas 1 and k, l deviations)"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "binary k, l table with source (LorentzBerthelotMixing_unlike.csv, empty)"
@@ -5520,7 +5788,7 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/mixing/linear.jl"
 class = "other"
 inputs = "reduced-state scales of the pure fluids (Tr, Vr) and amounts z; the rule returns the mixture reducing temperature and volume"
 parameters = "none"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none bundled"
@@ -5531,7 +5799,7 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/mixing/TRFMixing.jl"
 class = "other"
 inputs = "reduced-state scales of the pure fluids (Tr, Vr) and amounts z; the rule returns the mixture reducing temperature and volume"
 parameters = "none in files (constants kt, kv, alpha, beta in code); water-ammonia only"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "hard-coded reference equations"
@@ -5542,7 +5810,7 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/mixing/LKP.jl"
 class = "other"
 inputs = "reduced-state scales of the pure fluids (Tr, Vr) and amounts z; the rule returns the mixture reducing temperature and volume"
 parameters = "pair: k"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none bundled"
@@ -5553,7 +5821,7 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/departure/EmpiricDeparture.jl"
 class = "residual_or_excess_contribution"
 inputs = "delta, tau and composition; the departure returns an additional reduced residual Helmholtz contribution"
 parameters = "pair: F (scale), parameters (a list of residual terms read from JSON)"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "multifluid departure table (F, parameters); empirical departure table with source"
@@ -5564,7 +5832,7 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/departure/QuadraticDeparture.j
 class = "residual_or_excess_contribution"
 inputs = "delta, tau and composition; the departure returns an additional reduced residual Helmholtz contribution"
 parameters = "pair: k0, k1 (temperature-dependent)"
-composes = "none"
+composes = []
 equation_source = "Jäger et al. (2021), The representation of cross second virial coefficients by multifluid mixture models and other...; doi 10.1021/acs.iecr.1c01186"
 closed_form = "yes"
 data = "quadratic departure table (empty)"
@@ -5575,7 +5843,9 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/departure/GEDeparture.jl"
 class = "residual_or_excess_contribution"
 inputs = "delta, tau and composition; the departure returns an additional reduced residual Helmholtz contribution"
 parameters = "pure: vref; pair: k1 (temperature-dependent)"
-composes = "activity slot: an ActivityModel's residual excess Gibbs energy"
+composes = [
+  { slot = "", accepts = "activity slot: an ActivityModel's residual excess Gibbs energy", default = "" },
+]
 equation_source = "Jäger et al. (2021), The representation of cross second virial coefficients by multifluid mixture models and other...; doi 10.1021/acs.iecr.1c01186"
 closed_form = "yes"
 data = "the activity model's tables"
@@ -5586,7 +5856,7 @@ locator = "src/models/EmpiricHelmholtz/MultiFluid/departure/TRFDeparture.jl"
 class = "residual_or_excess_contribution"
 inputs = "delta, tau and composition; the departure returns an additional reduced residual Helmholtz contribution"
 parameters = "none in files (coefficients in code)"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "hard-coded reference equations"
@@ -5597,7 +5867,9 @@ locator = "src/models/EmpiricHelmholtz/LKP/LKP.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "pure: Mw, Tc, Pc, Vc (optional), acentricfactor; pair: k (1 - kappa of the original paper)"
-composes = "idealmodel slot: any IdealModel; simple-fluid (methane) and reference-fluid (n-octane) Benedict-Webb-Rubin-type coefficient sets in code"
+composes = [
+  { slot = "", accepts = "idealmodel slot: any IdealModel; simple-fluid (methane) and reference-fluid (n-octane) Benedict-Webb-Rubin-type coefficient sets in code", default = "" },
+]
 equation_source = "Plöcker et al. (1978), Calculation of high-pressure vapor-liquid equilibria from a corresponding-states correlation...; doi 10.1021/i260067a020"
 closed_form = "yes"
 data = "critical constants table; molar mass table; binary k table without source (LKP_unlike 142 rows)"
@@ -5608,7 +5880,9 @@ locator = "src/models/EmpiricHelmholtz/LKP/variants/LKPmod.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "as LKP with modified BWR coefficients"
-composes = "idealmodel slot"
+composes = [
+  { slot = "", accepts = "idealmodel slot", default = "" },
+]
 equation_source = "Plöcker et al. (1978), Calculation of high-pressure vapor-liquid equilibria from a corresponding-states correlation...; doi 10.1021/i260067a020 | Sabozin et al. (2024), Enhancement of the Lee–Kesler–Plöcker equation of state for calculating thermodynamic...; doi 10.1007/s10765-024-03360-0"
 closed_form = "yes"
 data = "critical constants table; molar mass table"
@@ -5619,7 +5893,9 @@ locator = "src/models/EmpiricHelmholtz/LKP/variants/LKPSJT.jl"
 class = "helmholtz_potential"
 inputs = "natural variables V [m³], T [K], amounts z [mol]; reduced variables delta = rho/rho_r and tau = T_r/T with the reducing state of the fluid (mixtures: composition-dependent reducing state)"
 parameters = "as LKP with the methane and octane reference equations in place of BWR"
-composes = "idealmodel slot; the reference equations of state of methane and n-octane (per the docstring), not a slot"
+composes = [
+  { slot = "", accepts = "idealmodel slot; the reference equations of state of methane and n-octane (per the docstring), not a slot", default = "" },
+]
 equation_source = "Plöcker et al. (1978), Calculation of high-pressure vapor-liquid equilibria from a corresponding-states correlation...; doi 10.1021/i260067a020 | Sabozin et al. (2024), Enhancement of the Lee–Kesler–Plöcker equation of state for calculating thermodynamic...; doi 10.1007/s10765-024-03360-0"
 closed_form = "yes"
 data = "critical constants table; molar mass table"
@@ -5630,7 +5906,9 @@ locator = "src/models/Electrolytes/ESElectrolyte.jl"
 class = "electrolyte_interaction"
 inputs = "T [K], V [m³], amounts z [mol] including ions; charges from the charge vector"
 parameters = "none of its own (charges)"
-composes = "neutralmodel slot: any EoSModel for the solvent species; ionmodel slot: an IonModel; RSPmodel slot: a relative-static-permittivity model; idealmodel slot (default BasicIdeal); charges from the charge vector (ion charge table) or an explicit list; default neutralmodel pharmaPCSAFT, ionmodel DH, RSPmodel ConstRSP"
+composes = [
+  { slot = "", accepts = "neutralmodel slot: any EoSModel for the solvent species; ionmodel slot: an IonModel; RSPmodel slot: a relative-static-permittivity model; idealmodel slot (default BasicIdeal); charges from the charge vector (ion charge table) or an explicit list; default neutralmodel pharmaPCSAFT, ionmodel DH, RSPmodel ConstRSP", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "implicit"
 data = "ion charge table; the slot models' tables"
@@ -5641,7 +5919,9 @@ locator = "src/models/Electrolytes/ISElectrolyte.jl"
 class = "electrolyte_interaction"
 inputs = "T, V and salt amounts; ions are obtained from salts through the stoichiometric matrix"
 parameters = "none of its own (SaltParam: stoichiometric matrices)"
-composes = "an explicit-solvent ESElectrolyte wrapped as an implicit-solvent model; salts from auto_binary_salts or an explicit list"
+composes = [
+  { slot = "", accepts = "an explicit-solvent ESElectrolyte wrapped as an implicit-solvent model; salts from auto_binary_salts or an explicit list", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "implicit"
 data = "none bundled (salts.csv is unreferenced)"
@@ -5652,7 +5932,9 @@ locator = "src/models/SAFT/PCSAFT/variants/ePCSAFT.jl"
 class = "electrolyte_interaction"
 inputs = "T [K], V [m³], amounts z [mol] including ions; charges from the charge vector"
 parameters = "none of its own (charges); solvent PC-SAFT parameters from the neutral model"
-composes = "neutralmodel slot: any EoSModel for the solvent species; ionmodel slot: an IonModel; RSPmodel slot: a relative-static-permittivity model; idealmodel slot (default BasicIdeal); charges from the charge vector (ion charge table) or an explicit list; defaults neutralmodel pharmaPCSAFT, ionmodel hsdDH, RSPmodel ConstRSP; hard-coded neutral path list SAFT/PCSAFT, SAFT/PCSAFT/ePCSAFT, SAFT/PCSAFT/pharmaPCSAFT"
+composes = [
+  { slot = "", accepts = "neutralmodel slot: any EoSModel for the solvent species; ionmodel slot: an IonModel; RSPmodel slot: a relative-static-permittivity model; idealmodel slot (default BasicIdeal); charges from the charge vector (ion charge table) or an explicit list; defaults neutralmodel pharmaPCSAFT, ionmodel hsdDH, RSPmodel ConstRSP; hard-coded neutral path list SAFT/PCSAFT, SAFT/PCSAFT/ePCSAFT, SAFT/PCSAFT/pharmaPCSAFT", default = "" },
+]
 equation_source = "Held et al. (2014), ePC-SAFT Revised"
 closed_form = "implicit"
 data = "PC-SAFT like table; binary k and kT table (ePCSAFT, pharmaPCSAFT); SAFT assoc table with SMILES columns; ion charge table"
@@ -5663,7 +5945,9 @@ locator = "src/models/SAFT/SAFTVRMie/variants/SAFTVREMie.jl"
 class = "electrolyte_interaction"
 inputs = "T [K], V [m³], amounts z [mol] including ions; charges from the charge vector"
 parameters = "none of its own"
-composes = "neutralmodel slot: any EoSModel for the solvent species; ionmodel slot: an IonModel; RSPmodel slot: a relative-static-permittivity model; idealmodel slot (default BasicIdeal); charges from the charge vector (ion charge table) or an explicit list; defaults neutralmodel SAFTVRMie, ionmodel MSABorn, RSPmodel Schreckenberg (an ESElectrolyte built by a function)"
+composes = [
+  { slot = "", accepts = "neutralmodel slot: any EoSModel for the solvent species; ionmodel slot: an IonModel; RSPmodel slot: a relative-static-permittivity model; idealmodel slot (default BasicIdeal); charges from the charge vector (ion charge table) or an explicit list; defaults neutralmodel SAFTVRMie, ionmodel MSABorn, RSPmodel Schreckenberg (an ESElectrolyte built by a function)", default = "" },
+]
 equation_source = "Eriksen et al. (2016), Development of intermolecular potential models for electrolyte solutions using an electrolyte..."
 closed_form = "implicit"
 data = "SAFT-VR Mie like table; Born diameter table; Schreckenberg permittivity table; ion charge table"
@@ -5674,7 +5958,9 @@ locator = "src/models/SAFT/SAFTVRMie/variants/eSAFTVRMie.jl"
 class = "electrolyte_interaction"
 inputs = "T [K], V [m³], amounts z [mol] including ions; charges from the charge vector"
 parameters = "none of its own"
-composes = "neutralmodel slot: any EoSModel for the solvent species; ionmodel slot: an IonModel; RSPmodel slot: a relative-static-permittivity model; idealmodel slot (default BasicIdeal); charges from the charge vector (ion charge table) or an explicit list; defaults neutralmodel SAFTVRMie15, ionmodel DHBorn, RSPmodel ZuoFurst"
+composes = [
+  { slot = "", accepts = "neutralmodel slot: any EoSModel for the solvent species; ionmodel slot: an IonModel; RSPmodel slot: a relative-static-permittivity model; idealmodel slot (default BasicIdeal); charges from the charge vector (ion charge table) or an explicit list; defaults neutralmodel SAFTVRMie15, ionmodel DHBorn, RSPmodel ZuoFurst", default = "" },
+]
 equation_source = "Selam et al. (2018), A thermodynamic model for strong aqueous electrolytes based on the eSAFT-VR Mie equation of..."
 closed_form = "implicit"
 data = "SAFT-VR Mie like table (MieKernel); Born diameter table; ion charge table"
@@ -5685,7 +5971,9 @@ locator = "src/models/SAFT/SAFTgammaMie/variants/SAFTgammaEMie.jl"
 class = "electrolyte_interaction"
 inputs = "T [K], V [m³], amounts z [mol] including ions; charges from the charge vector; group components"
 parameters = "none of its own (ion groups carry charge and sigma_born)"
-composes = "neutralmodel slot: any EoSModel for the solvent species; ionmodel slot: an IonModel; RSPmodel slot: a relative-static-permittivity model; idealmodel slot (default BasicIdeal); charges from the charge vector (ion charge table) or an explicit list; defaults neutralmodel SAFTgammaMie, ionmodel GCMSABorn, RSPmodel Schreckenberg"
+composes = [
+  { slot = "", accepts = "neutralmodel slot: any EoSModel for the solvent species; ionmodel slot: an IonModel; RSPmodel slot: a relative-static-permittivity model; idealmodel slot (default BasicIdeal); charges from the charge vector (ion charge table) or an explicit list; defaults neutralmodel SAFTgammaMie, ionmodel GCMSABorn, RSPmodel Schreckenberg", default = "" },
+]
 equation_source = "Haslam et al. (2020), Expanding the Applications of the SAFT-γ Mie Group-Contribution Equation of State: Prediction..."
 closed_form = "implicit"
 data = "SAFT-gamma Mie like table (group-keyed); SAFT-gamma E Mie ion table; Schreckenberg permittivity table"
@@ -5696,7 +5984,9 @@ locator = "src/models/Electrolytes/Ion/Born.jl"
 class = "electrolyte_interaction"
 inputs = "T [K], V [m³], amounts z [mol] including ions; charges from the charge vector; relative permittivity from the RSP slot"
 parameters = "pure: sigma_born"
-composes = "RSP slot"
+composes = [
+  { slot = "", accepts = "RSP slot", default = "" },
+]
 equation_source = "Born (1920), Z"
 closed_form = "yes"
 data = "Born diameter table"
@@ -5707,7 +5997,9 @@ locator = "src/models/Electrolytes/Ion/DH.jl"
 class = "electrolyte_interaction"
 inputs = "T [K], V [m³], amounts z [mol] including ions; charges from the charge vector; relative permittivity from the RSP slot"
 parameters = "none of its own (ion diameters and charges from the host)"
-composes = "RSP slot"
+composes = [
+  { slot = "", accepts = "RSP slot", default = "" },
+]
 equation_source = "Debye and Huckel (1923), Phys"
 closed_form = "yes"
 data = "none bundled (sigma from the neutral model's tables)"
@@ -5718,7 +6010,9 @@ locator = "src/models/Electrolytes/Ion/hsdDH.jl"
 class = "electrolyte_interaction"
 inputs = "T [K], V [m³], amounts z [mol] including ions; charges from the charge vector; relative permittivity from the RSP slot"
 parameters = "none of its own (hard-sphere diameters from the host)"
-composes = "RSP slot; default ionmodel of ePCSAFT"
+composes = [
+  { slot = "", accepts = "RSP slot; default ionmodel of ePCSAFT", default = "" },
+]
 equation_source = "Debye and Huckel (1923), Phys"
 closed_form = "yes"
 data = "none bundled"
@@ -5729,7 +6023,9 @@ locator = "src/models/Electrolytes/Ion/DHBorn.jl"
 class = "electrolyte_interaction"
 inputs = "T [K], V [m³], amounts z [mol] including ions; charges from the charge vector; relative permittivity from the RSP slot"
 parameters = "pure: sigma, sigma_born, charge"
-composes = "RSP slot"
+composes = [
+  { slot = "", accepts = "RSP slot", default = "" },
+]
 equation_source = "Debye and Huckel (1923), Phys | Born (1920), Z"
 closed_form = "yes"
 data = "Born diameter table; ion charge table"
@@ -5740,7 +6036,9 @@ locator = "src/models/Electrolytes/Ion/MSA.jl"
 class = "electrolyte_interaction"
 inputs = "T [K], V [m³], amounts z [mol] including ions; charges from the charge vector; relative permittivity from the RSP slot"
 parameters = "none of its own (from the host)"
-composes = "RSP slot"
+composes = [
+  { slot = "", accepts = "RSP slot", default = "" },
+]
 equation_source = "Blum (1974), Solution of a model for the solvent-electrolyte interactions in the mean spherical...; doi 10.1063/1.1682224"
 closed_form = "yes"
 data = "none bundled"
@@ -5751,7 +6049,9 @@ locator = "src/models/Electrolytes/Ion/MSABorn.jl"
 class = "electrolyte_interaction"
 inputs = "T [K], V [m³], amounts z [mol] including ions; charges from the charge vector; relative permittivity from the RSP slot"
 parameters = "pure: sigma_born"
-composes = "RSP slot"
+composes = [
+  { slot = "", accepts = "RSP slot", default = "" },
+]
 equation_source = "Blum (1974), Solution of a model for the solvent‐electrolyte interactions in the mean spherical... | Born (1920), Z"
 closed_form = "yes"
 data = "Born diameter table"
@@ -5762,7 +6062,9 @@ locator = "src/models/Electrolytes/Ion/GCMSABorn.jl"
 class = "electrolyte_interaction"
 inputs = "T [K], V [m³], amounts z [mol] including ions; charges from the charge vector; relative permittivity from the RSP slot"
 parameters = "group: shapefactor, segment, sigma, sigma_born, charge (and group-weighted gc_sigma, gc_sigma_born)"
-composes = "RSP slot"
+composes = [
+  { slot = "", accepts = "RSP slot", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "SAFT-gamma E Mie ion table; SAFT-gamma Mie like table (group-keyed)"
@@ -5773,7 +6075,9 @@ locator = "src/models/Electrolytes/Ion/MSAID.jl"
 class = "electrolyte_interaction"
 inputs = "T [K], V [m³], amounts z [mol] including ions; charges from the charge vector; relative permittivity from the RSP slot"
 parameters = "pure: sigma, dipole, charge"
-composes = "none (a struct with its own parameter record, no RSP slot)"
+composes = [
+  { slot = "", accepts = "none (a struct with its own parameter record, no RSP slot)", default = "" },
+]
 equation_source = "Blum (1974), Solution of a model for the solvent‐electrolyte interactions in the mean spherical..."
 closed_form = "yes"
 data = "none bundled"
@@ -5784,7 +6088,7 @@ locator = "src/models/Electrolytes/RSP/ConstRSP.jl"
 class = "explicit_correlation"
 inputs = "T [K], V [m³], amounts z [mol] (solvent and ions); the model returns a dimensionless relative static permittivity"
 parameters = "value (a constant relative permittivity given to the constructor)"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none bundled"
@@ -5795,7 +6099,7 @@ locator = "src/models/Electrolytes/RSP/LinMixRSP.jl"
 class = "explicit_correlation"
 inputs = "T [K], V [m³], amounts z [mol] (solvent and ions); the model returns a dimensionless relative static permittivity"
 parameters = "pure: dielectric_constant (mixed linearly by composition)"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "relative permittivity table (dielectric) (two copies)"
@@ -5806,7 +6110,7 @@ locator = "src/models/Electrolytes/RSP/ZuoFurst.jl"
 class = "explicit_correlation"
 inputs = "T [K], V [m³], amounts z [mol] (solvent and ions); the model returns a dimensionless relative static permittivity"
 parameters = "none (fixed correlation for water)"
-composes = "none"
+composes = []
 equation_source = "Zuo and Fürst (1997), Prediction of vapor pressure for nonaqueous electrolyte solutions using an electrolyte..."
 closed_form = "yes"
 data = "none bundled"
@@ -5817,7 +6121,7 @@ locator = "src/models/Electrolytes/RSP/Schreckenberg.jl"
 class = "explicit_correlation"
 inputs = "T [K], V [m³], amounts z [mol] (solvent and ions); the model returns a dimensionless relative static permittivity"
 parameters = "pure: d_T, d_V"
-composes = "none"
+composes = []
 equation_source = "Schreckenberg et al. (2014), Modelling of the thermodynamic and solvation properties of electrolyte solutions with the..."
 closed_form = "yes"
 data = "Schreckenberg permittivity table"
@@ -5828,7 +6132,7 @@ locator = "src/models/Electrolytes/RSP/MM1.jl"
 class = "explicit_correlation"
 inputs = "T [K], V [m³], amounts z [mol] (solvent and ions); the model returns a dimensionless relative static permittivity"
 parameters = "pair: gamma, theta, coordz; pure: mu, polarizability"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "MM1 permittivity like table; MM1 permittivity unlike table (empty)"
@@ -5839,7 +6143,9 @@ locator = "src/models/CompositeModel/CompositeModel.jl"
 class = "other"
 inputs = "as its sub-models"
 parameters = "none of its own (an optional mapping between solid and fluid components)"
-composes = "fluid slot (an EoSModel, or FluidCorrelation or GammaPhi built from liquid/gas/saturation/fluid keywords); solid slot (an EoS, SolidCorrelation built from melting and sublimation, or chemical-potential solid models); mapping"
+composes = [
+  { slot = "", accepts = "fluid slot (an EoSModel, or FluidCorrelation or GammaPhi built from liquid/gas/saturation/fluid keywords); solid slot (an EoS, SolidCorrelation built from melting and sublimation, or chemical-potential solid models); mapping", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "procedural"
 data = "none bundled (each slot model reads its own tables)"
@@ -5850,7 +6156,9 @@ locator = "src/models/CompositeModel/FluidCorrelation.jl"
 class = "other"
 inputs = "as its slot models"
 parameters = "none"
-composes = "gas model (default BasicIdeal), liquid volume model, saturation model and an optional heat-capacity model"
+composes = [
+  { slot = "", accepts = "gas model (default BasicIdeal), liquid volume model, saturation model and an optional heat-capacity model", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "procedural"
 data = "none bundled"
@@ -5861,7 +6169,9 @@ locator = "src/models/CompositeModel/GammaPhi.jl"
 class = "other"
 inputs = "as its slot models"
 parameters = "none"
-composes = "activity model for the liquid and a fluid model (Helmholtz EoS or another CompositeModel) for the gas"
+composes = [
+  { slot = "", accepts = "activity model for the liquid and a fluid model (Helmholtz EoS or another CompositeModel) for the gas", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "procedural"
 data = "none bundled"
@@ -5872,7 +6182,9 @@ locator = "src/models/CompositeModel/SolidCorrelation.jl"
 class = "other"
 inputs = "as its slot models"
 parameters = "none"
-composes = "a solid phase volume model, a melting correlation and a sublimation correlation"
+composes = [
+  { slot = "", accepts = "a solid phase volume model, a melting correlation and a sublimation correlation", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "procedural"
 data = "none bundled"
@@ -5883,7 +6195,7 @@ locator = "src/models/CompositeModel/SaturationModel/AntoineSat/AntoineEqSat.jl"
 class = "explicit_correlation"
 inputs = "temperature T [K]; the model returns saturation pressure (and optionally saturated volumes)"
 parameters = "pure: Tc, Pc, A, B, C, Tmin, Tmax"
-composes = "none"
+composes = []
 equation_source = "Antoine (1888), «Tensions des vapeurs; nouvelle relation entre les tensions et les températures», Comptes..."
 closed_form = "yes"
 data = "Antoine table; critical constants table"
@@ -5894,7 +6206,7 @@ locator = "src/models/CompositeModel/SaturationModel/DIPPR101Sat/DIPPR101Sat.jl"
 class = "explicit_correlation"
 inputs = "temperature T [K]; the model returns saturation pressure (and optionally saturated volumes)"
 parameters = "pure: Tc, Pc, A, B, C, D, E, Tmin, Tmax"
-composes = "none"
+composes = []
 equation_source = "Design Institute for Physical Properties, 1996. DIPPR Project 801"
 closed_form = "yes"
 data = "DIPPR 101 table; critical constants table"
@@ -5905,7 +6217,7 @@ locator = "src/models/CompositeModel/SaturationModel/LeeKeslerSat/LeeKeslerSat.j
 class = "explicit_correlation"
 inputs = "temperature T [K]; the model returns saturation pressure (and optionally saturated volumes)"
 parameters = "pure: Tc, Pc, acentricfactor"
-composes = "none"
+composes = []
 equation_source = "Lee and Kesler (1975), A generalized thermodynamic correlation based on three-parameter corresponding states; doi 10.1002/aic.690210313"
 closed_form = "yes"
 data = "critical constants table"
@@ -5916,7 +6228,7 @@ locator = "src/models/CompositeModel/SaturationModel/PolExpSat/PolExpSat.jl"
 class = "explicit_correlation"
 inputs = "T [K] (reduced by the ancillary's reducing temperature); the models return saturation pressure or saturated densities"
 parameters = "ancillary series held in a GenericAncEvaluator or ChebyshevRange (from JSON ANCILLARIES or a superancillary)"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "ANCILLARIES member (of the fluid JSON files)"
@@ -5927,7 +6239,7 @@ locator = "src/models/CompositeModel/LiquidVolumeModel/COSTALD/costald.jl"
 class = "explicit_correlation"
 inputs = "temperature T [K] (and pressure for the pressure-dependent water models); the model returns a liquid molar volume [m³/mol]"
 parameters = "pure: Tc, Vc, acentricfactor"
-composes = "none"
+composes = []
 equation_source = "Hankinson and Thomson (1979), A new correlation for saturated densities of liquids and their mixtures; doi 10.1002/aic.690250412"
 closed_form = "yes"
 data = "critical constants table"
@@ -5938,7 +6250,7 @@ locator = "src/models/CompositeModel/LiquidVolumeModel/DIPPR105Liquid/DIPPR105Li
 class = "explicit_correlation"
 inputs = "temperature T [K] (and pressure for the pressure-dependent water models); the model returns a liquid molar volume [m³/mol]"
 parameters = "pure: A, B, C, D, Tmin, Tmax"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "DIPPR 105 table"
@@ -5949,7 +6261,7 @@ locator = "src/models/CompositeModel/LiquidVolumeModel/Rackett/RackettLiquid.jl"
 class = "explicit_correlation"
 inputs = "temperature T [K] (and pressure for the pressure-dependent water models); the model returns a liquid molar volume [m³/mol]"
 parameters = "pure: Tc, Pc, Zc (Zc from Vc, or Zc)"
-composes = "none"
+composes = []
 equation_source = "Rackett (1970), Equation of state for saturated liquids; doi 10.1021/je60047a012"
 closed_form = "yes"
 data = "critical constants table"
@@ -5960,7 +6272,7 @@ locator = "src/models/CompositeModel/LiquidVolumeModel/Rackett/RackettLiquid.jl"
 class = "explicit_correlation"
 inputs = "temperature T [K] (and pressure for the pressure-dependent water models); the model returns a liquid molar volume [m³/mol]"
 parameters = "pure: Tc, Pc, acentricfactor (Zc from the acentric factor)"
-composes = "none"
+composes = []
 equation_source = "Rackett (1970), Equation of state for saturated liquids; doi 10.1021/je60047a012 | Gunn and Yamada (1971), A corresponding states correlation of saturated liquid volumes; doi 10.1002/aic.690170613"
 closed_form = "yes"
 data = "critical constants table"
@@ -5971,7 +6283,7 @@ locator = "src/models/CompositeModel/LiquidVolumeModel/ZeroLiquid/ZeroLiquid.jl"
 class = "other"
 inputs = "temperature T [K] (and pressure for the pressure-dependent water models); the model returns a liquid molar volume [m³/mol]"
 parameters = "none"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none bundled"
@@ -5982,7 +6294,7 @@ locator = "src/models/CompositeModel/LiquidVolumeModel/GrenkeElliott/GrenkeEllio
 class = "explicit_correlation"
 inputs = "temperature T [K] (and pressure for the pressure-dependent water models); the model returns a liquid molar volume [m³/mol]; valid 200 to 300 K and 0.1 to 400 MPa per the docstring"
 parameters = "none (fixed correlation for water)"
-composes = "none"
+composes = []
 equation_source = "Grenke and Elliott (2025), Analytic correlation for the thermodynamic properties of water at low temperatures (200-300 K)...; doi 10.1021/acs.jpcb.4c03909"
 closed_form = "yes"
 data = "none bundled"
@@ -5993,7 +6305,7 @@ locator = "src/models/CompositeModel/LiquidVolumeModel/HoltenWater/HoltenWater.j
 class = "explicit_correlation"
 inputs = "temperature T [K] (and pressure for the pressure-dependent water models); the model returns a liquid molar volume [m³/mol]; supercooled water up to 400 MPa per the docstring"
 parameters = "none (fixed correlation for water)"
-composes = "none"
+composes = []
 equation_source = "Holten et al. (2014), Equation of state for supercooled water at pressures up to 400 MPa; doi 10.1063/1.4895593"
 closed_form = "yes"
 data = "none bundled"
@@ -6004,7 +6316,7 @@ locator = "src/models/CompositeModel/SolidModel/IAPWS06.jl"
 class = "other"
 inputs = "T [K], p [Pa], composition; the model returns a solid-phase chemical potential or Gibbs energy [other: fundamental Gibbs energy function of ice Ih]"
 parameters = "none (fixed equation)"
-composes = "none"
+composes = []
 equation_source = "Feistel and Wagner (2006), A new equation of state for H2O ice Ih; doi 10.1063/1.2183324 | IAPWS R10-06 (2009), Revised Release on the Equation of State 2006 for H2O Ice Ih"
 closed_form = "yes"
 data = "none bundled"
@@ -6015,7 +6327,7 @@ locator = "src/models/CompositeModel/SolidModel/JagerSpanSolidCO2.jl"
 class = "other"
 inputs = "T [K], p [Pa], composition; the model returns a solid-phase chemical potential or Gibbs energy [other: fundamental Gibbs energy function of solid CO2]"
 parameters = "none (fixed equation)"
-composes = "none"
+composes = []
 equation_source = "Jäger and Span (2012), Equation of state for solid carbon dioxide based on the Gibbs free energy; doi 10.1021/je2011677"
 closed_form = "yes"
 data = "none bundled"
@@ -6026,7 +6338,7 @@ locator = "src/models/CompositeModel/SolidModel/SolidHfus.jl"
 class = "explicit_correlation"
 inputs = "T [K], p [Pa], composition; the model returns a solid-phase chemical potential or Gibbs energy"
 parameters = "pure: Hfus, Tm, CpSL (optional)"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "solid fusion table"
@@ -6037,7 +6349,7 @@ locator = "src/models/CompositeModel/SolidModel/SolidKs.jl"
 class = "explicit_correlation"
 inputs = "T [K], p [Pa], composition; the model returns a solid-phase chemical potential or Gibbs energy"
 parameters = "pure: Gform, Hform, Tref"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "solid formation table"
@@ -6048,7 +6360,7 @@ locator = "src/models/CompositeModel/SolidModel/SolidModel.jl"
 class = "explicit_correlation"
 inputs = "T [K]; caloric solid models used as a heat-capacity part"
 parameters = "DebyeT: debye_temperature; DulongPetit: none"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none bundled"
@@ -6059,7 +6371,9 @@ locator = "src/models/utility/PTFlashWrapper.jl"
 class = "other"
 inputs = "as the wrapped model"
 parameters = "none (caches saturation results and pure models)"
-composes = "wraps any EoSModel (activity and composite models included) to cache pure-component saturation data during a PT flash"
+composes = [
+  { slot = "", accepts = "wraps any EoSModel (activity and composite models included) to cache pure-component saturation data during a PT flash", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "procedural"
 data = "none bundled"
@@ -6070,7 +6384,9 @@ locator = "src/models/utility/EoSVectorParam.jl"
 class = "other"
 inputs = "as the wrapped models"
 parameters = "none"
-composes = "a vector of pure-component EoSModels held as one model; used as the puremodel slot of activity models"
+composes = [
+  { slot = "", accepts = "a vector of pure-component EoSModels held as one model; used as the puremodel slot of activity models", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "procedural"
 data = "none bundled"
@@ -6081,7 +6397,9 @@ locator = "src/models/utility/ZeroResidual.jl"
 class = "other"
 inputs = "as the ideal model"
 parameters = "none"
-composes = "an idealmodel slot"
+composes = [
+  { slot = "", accepts = "an idealmodel slot", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none bundled"
@@ -6092,7 +6410,9 @@ locator = "src/models/ECS/ECS.jl"
 class = "other"
 inputs = "as its slot models; shape factors f and h found by a root solve"
 parameters = "none of its own"
-composes = "shape_model (an EoSModel such as SRK), shape_ref (the same type, at the reference fluid), model_ref (a Helmholtz reference model such as PropaneRef)"
+composes = [
+  { slot = "", accepts = "shape_model (an EoSModel such as SRK), shape_ref (the same type, at the reference fluid), model_ref (a Helmholtz reference model such as PropaneRef)", default = "" },
+]
 equation_source = "Mollerup (1998), Unification of the two-parameter equation of state and the principle of corresponding states; doi 10.1016/s0378-3812(98)00230-1"
 closed_form = "implicit"
 data = "none bundled"
@@ -6103,7 +6423,9 @@ locator = "src/models/ECS/variants/SPUNG.jl"
 class = "other"
 inputs = "as ECS"
 parameters = "none of its own"
-composes = "ECS with SRK as the shape model and PropaneRef as the reference model"
+composes = [
+  { slot = "", accepts = "ECS with SRK as the shape model and PropaneRef as the reference model", default = "" },
+]
 equation_source = "Wilhelmsen et al. (2012), Evaluation of SPUNG* and other equations of state for use in carbon capture and storage...; doi 10.1016/j.egypro.2012.06.024"
 closed_form = "implicit"
 data = "none bundled"
@@ -6114,7 +6436,9 @@ locator = "src/models/Potentials/PeTS/PeTS.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside)"
 parameters = "pure: Mw, segment; pair: sigma, epsilon (optional k)"
-composes = "idealmodel slot"
+composes = [
+  { slot = "", accepts = "idealmodel slot", default = "" },
+]
 equation_source = "Heier et al. (2018), Equation of state for the Lennard-Jones truncated and shifted fluid with a cut-off radius of...; doi 10.1080/00268976.2018.1447153"
 closed_form = "yes"
 data = "SAFT like table (PC-SAFT family, default location SAFT/PCSAFT); molar mass table"
@@ -6125,7 +6449,9 @@ locator = "src/models/Potentials/KolafaNezbeda/KolafaNezbeda.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside)"
 parameters = "pure: Mw; pair: sigma, epsilon (optional k)"
-composes = "idealmodel slot"
+composes = [
+  { slot = "", accepts = "idealmodel slot", default = "" },
+]
 equation_source = "Kolafa and Nezbeda (1994), The Lennard-Jones fluid: An accurate analytic and theoretically-based equation of state; doi 10.1016/0378-3812(94)02573-G"
 closed_form = "yes"
 data = "Kolafa-Nezbeda like table"
@@ -6136,7 +6462,9 @@ locator = "src/models/LatticeFluid/SanchezLacombe/SanchezLacombe.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside)"
 parameters = "pure: Mw, segment; pair (premixed): epsilon, vol"
-composes = "idealmodel slot; mixing slot: an SLMixingRule (default SLk0k1lMixingRule)"
+composes = [
+  { slot = "", accepts = "idealmodel slot; mixing slot: an SLMixingRule (default SLk0k1lMixingRule)", default = "" },
+]
 equation_source = "Neau (2002), A consistent method for phase equilibrium calculation using the Sanchez–Lacombe lattice–fluid...; doi 10.1016/s0378-3812(02)00176-0"
 closed_form = "yes"
 data = "Sanchez-Lacombe like table; Sanchez-Lacombe k0, k1, l table; molar mass table"
@@ -6147,7 +6475,7 @@ locator = "src/models/LatticeFluid/SanchezLacombe/mixing/SLk0k1lrule.jl"
 class = "other"
 inputs = "pure epsilon and vol and segment fractions [other: a mixing rule of the lattice fluid]"
 parameters = "SLKRule: pair k; SLk0k1lMixingRule: pair k0, k1, l"
-composes = "none"
+composes = []
 equation_source = "Neau (2002), A consistent method for phase equilibrium calculation using the Sanchez–Lacombe lattice–fluid...; doi 10.1016/s0378-3812(02)00176-0"
 closed_form = "yes"
 data = "Sanchez-Lacombe k0, k1, l table"
@@ -6158,7 +6486,7 @@ locator = "src/models/AnalyticalSLV/AnalyticalSLV.jl"
 class = "residual_or_excess_contribution"
 inputs = "natural variables V [m³], T [K], mole amounts z [mol] (composition as amounts; fractions x = z/sum(z) inside); describes solid, liquid and vapour"
 parameters = "pure: Mw, Tc, Pc, Vc, a0, a1, a2, n, b0, b1, b2, m, c, d"
-composes = "none"
+composes = []
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "analytical SLV table (path spelled with a capital L in the model)"
@@ -6169,7 +6497,9 @@ locator = "src/models/Virial/AbbottVirial/AbbottVirial.jl"
 class = "explicit_correlation"
 inputs = "T [K] and amounts; the model returns second virial coefficients combined quadratically"
 parameters = "pure: Tc, Pc, acentricfactor, Mw"
-composes = "idealmodel slot"
+composes = [
+  { slot = "", accepts = "idealmodel slot", default = "" },
+]
 equation_source = "Smith, H. C. Van Ness Joseph M. Introduction to Chemical Engineering Thermodynamics 4E"
 closed_form = "yes"
 data = "critical constants table; molar mass table"
@@ -6180,7 +6510,9 @@ locator = "src/models/Virial/TsonopoulosVirial/TsonopoulosVirial.jl"
 class = "explicit_correlation"
 inputs = "T [K] and amounts; second virial coefficients combined quadratically"
 parameters = "pure: Tc, Pc, acentricfactor, Mw"
-composes = "idealmodel slot"
+composes = [
+  { slot = "", accepts = "idealmodel slot", default = "" },
+]
 equation_source = "Tsonopoulos (1974), An empirical correlation of second virial coefficients; doi 10.1002/aic.690200209"
 closed_form = "yes"
 data = "critical constants table; molar mass table"
@@ -6191,7 +6523,9 @@ locator = "src/models/Virial/EoSVirial/EoSVirial.jl"
 class = "explicit_correlation"
 inputs = "T [K] and amounts; returns the second virial coefficient of the wrapped model"
 parameters = "none"
-composes = "model slot: any EoSModel providing second_virial_coefficient; idealmodel slot"
+composes = [
+  { slot = "", accepts = "model slot: any EoSModel providing second_virial_coefficient; idealmodel slot", default = "" },
+]
 equation_source = "none in the docstring"
 closed_form = "yes"
 data = "none bundled"
@@ -6418,189 +6752,189 @@ documented = "partly: the ParamOptions docstring describes a default dictionary 
 
 [[capability]]
 calculation = "flash_tp"
-offered = true
+offered = "yes"
 scope = "Helmholtz-based models, cubic, SAFT, activity-based CompositeModel; two-phase Michelsen and Rachford-Rice, global-optimisation DETPFlash, successive-stability multiphase, MultiComponentFlash.jl (extension)"
 locator = "src/methods/property_solvers/multicomponent/flash/PT.jl:1-70; tp_flash/Michelsentp_flash.jl, RachfordRicetp_flash.jl, DifferentialEvolutiontp_flash.jl, multiphase.jl, MCFlashJL.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_ph"
-offered = true
+offered = "yes"
 scope = "two-phase generalised formulation (GeneralizedXYFlash, RRXYFlash)"
 locator = "src/methods/property_solvers/multicomponent/flash/PH.jl:1-60; flash/general_flash.jl; flash/RRXYFlash.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_ps"
-offered = true
+offered = "yes"
 scope = "two-phase generalised formulation"
 locator = "src/methods/property_solvers/multicomponent/flash/PS.jl; general_flash.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_uv"
-offered = true
+offered = "yes"
 scope = "two-phase generalised formulation (uv_flash)"
 locator = "src/methods/property_solvers/multicomponent/flash/flash_HSU.jl; flash/general_flash.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_vt (proposed)"
-offered = true
+offered = "yes"
 scope = "two-phase flash at specified volume and temperature (vt_flash)"
 locator = "src/methods/property_solvers/multicomponent/flash/VT.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_ts (proposed)"
-offered = true
+offered = "yes"
 scope = "T-S two-phase flash"
 locator = "src/methods/property_solvers/multicomponent/flash/TS.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_vapor_fraction (proposed)"
-offered = true
+offered = "yes"
 scope = "vapour-fraction with temperature specification (qt_flash) and with pressure specification (qp_flash)"
 locator = "src/methods/property_solvers/multicomponent/flash/QT.jl; QP.jl; tp_flash/RRQXFlash.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "bubble_dew_point"
-offered = true
+offered = "yes"
 scope = "bubble and dew pressure and temperature by chemical-potential, fugacity and activity methods; electrolyte variants with nonvolatile ions"
 locator = "src/methods/property_solvers/multicomponent/bubble_point.jl, dew_point.jl and their subdirectories; models/Electrolytes/ESElectrolyte.jl (init_preferred_method)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_stability"
-offered = true
+offered = "yes"
 scope = "tangent plane distance (tpd, tpd_solver), mechanical, diffusive and chemical stability checks, isstable"
 locator = "src/methods/property_solvers/stability/tpd.jl; stability.jl:1-120"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "critical_point"
-offered = true
+offered = "yes"
 scope = "pure component critical point (crit_pure), mixture critical point (crit_mix), mechanical critical point, UCEP, UCST, Krichevskii parameter, Widom and CIIC lines"
 locator = "src/methods/property_solvers/singlecomponent/crit_pure.jl; multicomponent/crit_mix.jl; UCEP.jl; UCST_mix.jl; krichevskii_parameter.jl; singlecomponent/widom.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_envelope"
-offered = false
+offered = "no"
 scope = "no routine traces a whole pressure-temperature or composition envelope; pointwise bubble, dew, azeotrope, LLE and VLLE solvers are provided (proposed key: pointwise_equilibrium_locus for azeotrope, LLE and VLLE points)"
 locator = "src/methods/property_solvers/multicomponent/azeotrope_point.jl, LLE_point.jl, VLLE.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "gibbs_minimization"
-offered = true
+offered = "yes"
 scope = "non-reactive only: DETPFlash minimises Gibbs energy globally over an assumed number of phases with the feed as the only conservation constraint; no element balances or reactions"
 locator = "src/methods/property_solvers/multicomponent/tp_flash/DifferentialEvolutiontp_flash.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "reactive_equilibrium (proposed)"
-offered = false
+offered = "no"
 scope = "no reactive flash, no chemical-equilibrium constants and no element-balance formulation anywhere in the source (the docstrings describe every flash as non-reactive)"
 locator = "src/methods/property_solvers/multicomponent/flash/*.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "aqueous_speciation"
-offered = false
+offered = "no"
 scope = "no speciation or chemical-equilibrium routine; electrolyte models work with explicit ions and a mean-ionic-activity and osmotic-coefficient route"
 locator = "src/methods/property_solvers/electrolytes/mT.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "characterization"
-offered = false
+offered = "no"
 scope = "no pseudo-component generation from assay data"
 locator = "src/"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "parameter_regression"
-offered = true
+offered = "yes"
 scope = "EstimationProblem, EstimationModel, EstimationData and ToEstimate; solving needs a separate optimiser (the Metaheuristics extension adds optimize; users may supply their own)"
 locator = "src/estimation/estimation.jl; estimation_data.jl; estimation_model.jl; ext/ClapeyronMetaheuristicsExt.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "group_estimation"
-offered = true
+offered = "yes"
 scope = "Joback estimators for critical constants, boiling and melting points, formation enthalpy and Gibbs energy, fusion and vaporization enthalpy from group increments"
 locator = "src/models/ideal/JobackIdeal.jl:240-415"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "interfacial_profile"
-offered = false
+offered = "no"
 scope = "no density-profile or interfacial-tension calculation (the words surface tension occur only inside a citation title in PeTS.jl)"
 locator = "src/models/Potentials/PeTS/PeTS.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "adsorption_mixture_prediction"
-offered = false
+offered = "no"
 scope = "no adsorption models"
 locator = "src/"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "saturation_pressure (proposed)"
-offered = true
+offered = "yes"
 scope = "pure saturation pressure and temperature: ChemPotV, ChemPotDensity, IsoFugacity, Clapeyron (extrapolation), Antoine, CritExtrapolation and superancillary (extension) methods"
 locator = "src/methods/property_solvers/singlecomponent/saturation/*.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "solid_fluid_equilibrium (proposed)"
-offered = true
+offered = "yes"
 scope = "melting and sublimation pressure and temperature, triple point, SLE solubility, SLLE solubility and eutectic point for CompositeModels with a solid phase"
 locator = "src/methods/property_solvers/singlecomponent/melting.jl, sublimation.jl, triple_point.jl; multicomponent/solids/sle_solubility.jl, slle_solubility.jl, eutectic_point.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "spinodal (proposed)"
-offered = true
+offered = "yes"
 scope = "spinodal pressure and temperature, spinodal maximum, edge pressure and temperature"
 locator = "src/methods/property_solvers/spinodal.jl; Pproperty.jl; Tproperty.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "azeotrope_lle_vlle (proposed)"
-offered = true
+offered = "yes"
 scope = "azeotrope pressure and temperature, LLE pressure and temperature, VLLE pressure and temperature (binary)"
 locator = "src/methods/property_solvers/multicomponent/azeotrope_point.jl, LLE_point.jl, VLLE.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "electrolyte_properties (proposed)"
-offered = true
+offered = "yes"
 scope = "mean ionic activity coefficient and osmotic coefficient (also at saturation)"
 locator = "src/methods/property_solvers/electrolytes/mT.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "bulk_properties (proposed)"
-offered = true
+offered = "yes"
 scope = "volume, entropy, enthalpy, internal energy, Gibbs and Helmholtz energies and their residuals, heat capacities, speed of sound, compressibilities, expansivity, Joule-Thomson coefficient, second virial and cross-virial coefficients, fugacity and activity coefficients, chemical potential, thermodynamic factor, mixing and excess functions"
 locator = "src/methods/pT.jl; VT.jl; property_solvers/volume.jl; fugacity_coefficient.jl"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "transport_properties (proposed)"
-offered = false
+offered = "no"
 scope = "no viscosity, thermal conductivity or diffusivity routines (the JSON TRANSPORT blocks are unread)"
 locator = "src/"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "reaction_kinetics (proposed)"
-offered = false
+offered = "no"
 scope = "no rate laws or reactive systems"
 locator = "src/"
 evidence = "source_inspected"

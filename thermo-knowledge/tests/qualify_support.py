@@ -98,6 +98,7 @@ def write_world(
                 "carrier": carrier_id,
                 "scope": "items",
                 "local_key": name,
+                "entity_class": "species",
                 "status": "unique",
                 "rule": "structural",
                 "target": species[name],

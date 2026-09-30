@@ -10,7 +10,10 @@
 ```
 
 A pin directory is written once: the acquisition is built in `.partial` and renamed into place
-when complete, so an interrupted run leaves nothing that looks complete.
+when complete, so an interrupted run leaves nothing that looks complete. A completed pin directory
+is then made read-only (every file and directory loses its write permission), so nothing rewrites
+third-party bytes in place; `.partial` stays writable. To remove a pin directory that must go,
+make it writable first (`chmod -R u+w <pin directory>`), then remove it and its lock entry.
 """
 
 from __future__ import annotations
@@ -18,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -210,14 +214,28 @@ def read_acquisition(directory: Path) -> Acquisition:
         raise AcquireError(f"{path}: invalid: {error}") from error
 
 
+def seal(directory: Path) -> None:
+    """Make a completed acquisition read-only: `directory`, every directory under it and every
+    file loses its write permission. Symbolic links are left alone (their mode is not theirs to
+    change)."""
+    for current, names, files in os.walk(directory, topdown=False, followlinks=False):
+        for name in (*files, *names):
+            path = Path(current) / name
+            if not path.is_symlink():
+                path.chmod(stat.S_IMODE(path.stat().st_mode) & ~0o222)
+    directory.chmod(stat.S_IMODE(directory.stat().st_mode) & ~0o222)
+
+
 def finalize(work: Path, destination: Path) -> None:
-    """Rename the completed `work` directory to `destination`; never writes into an existing one."""
+    """Rename the completed `work` directory to `destination` and make it read-only; never writes
+    into an existing one."""
     if destination.exists():
         raise AcquireError(
             f"{destination}: refusing to write into an existing resolved-pin directory; "
             "an existing acquisition is never modified in place"
         )
     work.rename(destination)
+    seal(destination)
 
 
 def remove_tree(path: Path) -> None:

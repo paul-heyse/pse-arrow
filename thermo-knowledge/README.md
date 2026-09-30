@@ -36,6 +36,7 @@ directory, `just <recipe>`. Every recipe runs in `thermo-knowledge/.venv`.
 | `tk-verify [--report <path>]` | run every check of `sql/verify/` against the built database and write the JSON report |
 | `tk-generate` | write `sql/generated/schema.sql` from the declaration in `model/` and `forms/` ([contract](docs/meta-model.md)) |
 | `tk-generate-check` | compare the committed generated tree with a fresh generation; fails on any missing, extra or changed file |
+| `tk-survey [--check] [--report [--strict]]` | validate the source survey records (`survey/*.toml`) and their dispositions; `--report` writes `survey/residue-report.md`, `--strict` fails while a construct with a stated loss has no disposition ([format](docs/survey.md)) |
 
 `tk build` replaces the canonical schemas (`meta`, `prov`, `tk`, `param`, `ev`, `qual`) of the
 configured database in one transaction: the generated DDL and `sql/physical.sql`, the reified `meta`
@@ -68,6 +69,14 @@ reader contract, the writer's refusals and the side-reader protocol are document
 `thermo_knowledge/staging/reader.py`, `writer.py` and `side.py`. A stage is skipped when its reuse
 key (lock tree hash, reader name and version, hash of the reader's source files, staging format)
 is unchanged; `--force` reads again.
+
+`tk survey` is not a pipeline stage. `thermo_knowledge/survey_index/` loads the survey records, reports
+every deviation from [docs/survey.md](docs/survey.md) (the files, tables, records and keys concerned)
+and validates the dispositions in `survey/dispositions/<source id>.toml`: one per construct whose
+`precision` is not `exact` or whose `loss` is stated, each naming a model construct, an
+alignment-notes item or a design-review finding. `--report` writes the generated, byte-stable
+`survey/residue-report.md`: per-source counts, the `model_change` dispositions by `ref` and every
+construct that still has none.
 
 ## Configuration
 

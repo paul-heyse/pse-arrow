@@ -11,7 +11,7 @@ runs and this page is wrong.
 - **The declared pin is not the pin.** Acquisition records what actually resolved in
   `sources.lock`, and every later stage refuses a raw store that disagrees with the lock.
 - **Untouched.** The raw store holds bytes as delivered. No reformatting, no line-ending
-  conversion, no pruning beyond a declared sparse path list.
+  conversion, no pruning beyond a declared sparse path list. A completed acquisition is read-only.
 - **`tk acquire` is the only networked stage.** Every other stage runs offline from the store.
 - **Rights are recorded, not used as a filter.** A source is skipped only when its manifest says
   `kind = "none"` with a stated reason.
@@ -123,6 +123,13 @@ run completed for `pages`. `local` and `none` have no pin directory. A new pin i
 directory; an existing directory is never modified in place. Work happens in a `.partial`
 sibling that is renamed into place only when the acquisition completed, so an interrupted run
 leaves nothing that looks complete.
+
+When the acquisition completes, the stage makes the pin directory read-only: it, every directory
+under it and every file lose their write permission, so nothing can rewrite third-party bytes in
+place (links are left alone). A `.partial` directory stays writable, since it is where the
+acquisition is built. A pin directory that must go (a tampered store, a pin to acquire again) is
+made writable first, `chmod -R u+w .store/raw/<id>/<pin>`, then removed together with its entry in
+`sources.lock`; `tk acquire <id>` then acquires it again.
 
 An archive is stored as `tree/<archive name>` and, with `extract = true`, also as
 `tree/extracted/`. A `git` tree holds the checked-out files only; line endings and filters are

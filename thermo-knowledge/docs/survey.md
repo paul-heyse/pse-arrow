@@ -5,7 +5,11 @@ source actually contains and how it represents it. The survey is evidence for th
 It is written before mappings exist, from the acquired bytes in the raw store, and it is what
 the alignment step works from. It records what was found, not what the model should be.
 
-One file per source: `survey/<source id>.toml`.
+One file per source: `survey/<source id>.toml`. The loader (`tk survey --check`, section 5) accepts
+exactly this specification: a key that is not listed, a required key that is missing and a value
+outside a stated vocabulary are each reported, at the key; a record that deviates is left out of
+what is loaded.
+Every key below is required unless it is marked optional; a table that has no records is left out.
 
 ## 1. Rules
 
@@ -25,9 +29,10 @@ One file per source: `survey/<source id>.toml`.
 ## 2. File shape
 
 ```toml
-source = "coolprop"
+source = "coolprop"                 # the source id: the file name without .toml
 pin = "ae81610e7d23"
-surveyed = "2026-09-30"
+additional_pins = { }               # optional, see below
+surveyed = "2026-09-30"             # ISO date
 summary = "One or two sentences: what this source contributes and what it does not."
 
 [[payload]]          # one per group of files that share a format and meaning
@@ -40,6 +45,18 @@ summary = "One or two sentences: what this source contributes and what it does n
 [[question]]         # anything the survey could not settle
 ```
 
+`pin` is the pin of the source the file is named for. A record that also reads another acquired
+source states each of that source's pins in the optional `additional_pins` table, keyed by the other
+source's id (`additional_pins = { sigma_profiles_pyscf_code = "764075efc394" }`); a record that
+reads only one pin leaves the key out.
+
+**Not recorded.** A record written before a key existed states `"not recorded"` for that key: the
+survey does not say. It is a value the specification gives only where a key below lists it (`role`,
+`origin`, `read_by_source`, `offered`); it never means "none" or "not applicable", and it is not
+`"not stated"` (the source does not say) or `"not established"` (the survey looked and could not
+settle it). `variants` is the one array that can be not recorded: its key is left out (section
+`[[model_family]]`).
+
 ### `[[payload]]`
 
 | Key | Content |
@@ -49,8 +66,9 @@ summary = "One or two sentences: what this source contributes and what it does n
 | `files`, `bytes` | measured counts |
 | `records` | measured number of records (rows, objects, entries), and how it was counted |
 | `reader` | how it can be parsed: the library's own loader (name the function and where it is defined in the tree), another library, or a plain parser |
-| `read_by_source` | `all`, `partly` or `none`: whether the source's own code reads these files; say which parts are not read |
+| `read_by_source` | `all`, `partly`, `none` or `not recorded`: whether the source's own code reads these files; say which parts are not read in `notes` |
 | `notes` | encoding quirks, headerless columns, duplicated or generated files |
+| `documents` | optional: for a payload made of individual documents, an array of `{ slug, identifier, title, pages, bytes }` tables (`pages` and `bytes` integers) |
 
 `files` and `bytes` are integers. `records` and a construct's `count` are strings, because a
 count often needs its unit of counting ("21 term objects in 20 fluids, 46 rows").
@@ -66,8 +84,8 @@ class, a parameter-file row type.
 | `locator` | where it is defined or exemplified |
 | `meaning` | what it represents, in the source's terms |
 | `subject` | what it is about: one compound, an ordered pair, an unordered pair, a group, a group pair, a site pair, a phase with a constituent array, a reaction, a mixture, a global constant, a measurement point. State how the source keys it (name, CAS, index, formula) |
-| `fields` | array of `{ name, meaning, unit, shape, role }`, written inline or as `[[construct.fields]]` sub-tables. `unit` is exactly as the source states it, `"not stated"`, or `"not applicable"` for text. `shape` is one of scalar, enum, reference, function, list, table. `role` is `input` (an authored value the source's code uses), `computed` (stored but derived from other content, such as a state computed from the equation), `unread` (present but never read by the source's own code), `metadata`, or `not established` |
-| `origin` | how the construct's content came to be in the source: `authored`, `transcribed` (from which publication or table), `generated` (by which tool or script, and whether its version is recorded), `computed` (from which model), or `not stated`. The value starts with the keyword; the detail follows in parentheses |
+| `fields` | array of `{ name, meaning, unit, shape, role }`, written inline or as `[[construct.fields]]` sub-tables. `unit` is exactly as the source states it, `"not stated"`, or `"not applicable"` for text. `shape` is one of scalar, enum, reference, function, list, table. `role` is `input` (an authored value the source's code uses), `computed` (stored but derived from other content, such as a state computed from the equation), `unread` (present but never read by the source's own code), `metadata`, `not established`, or `not recorded` |
+| `origin` | how the construct's content came to be in the source: `authored`, `transcribed` (from which publication or table), `generated` (by which tool or script, and whether its version is recorded), `computed` (from which model), `other` (none of these; say what it is), `not stated`, or `not recorded`. The value starts with the keyword as a whole word; the detail follows, in parentheses by preference. A value that combines two ("authored and transcribed") starts with the first |
 | `conventions` | reference states, composition basis, temperature scale, gas constant, sign and ordering conventions that the values assume |
 | `absence` | what a missing entry or an explicit zero means in this source, and whether the source distinguishes them |
 | `validity` | how the source states a range of applicability, if it does |
@@ -77,6 +95,9 @@ class, a parameter-file row type.
 | `candidate` | the concept(s) of the model this would map to (see `docs/meta-model.md` and the plan's concept set), or `"none"` |
 | `precision` | `exact`; `narrower` (the source construct is a special case of the candidate concept); `broader` (the source construct carries more than the candidate can hold); `close` (near, with a stated difference); or `unmapped` |
 | `loss` | what a mapping to the candidate would lose or have to assume; empty when exact |
+| `values` | optional: for a construct that is an enumeration, an array of strings with its values exactly as the source writes them |
+
+A construct's `name` is unique within its source: a disposition (section 4) is keyed by it.
 
 ### `[[model_family]]`
 
@@ -84,13 +105,13 @@ class, a parameter-file row type.
 |---|---|
 | `name` | the library's name for the model |
 | `locator` | the module, class or file that implements it |
-| `class` | one of the representation classes in section 3 |
+| `class` | one of the representation classes in section 3; `other` may be followed by what it is in parentheses (`other (numerical root finder)`) |
 | `inputs` | natural variables and composition basis |
 | `parameters` | the parameter names it needs, by subject (pure, pair, group, site, global) |
 | `composes` | the components it embeds or accepts, as an array of `{ slot, accepts, default }`: the source's name for the slot, the abstract type or family it accepts, and the default the source uses when none is given; empty when it composes nothing |
-| `variants` | flags or version numbers that select a different equation or different default data under the same name, with what each selects; empty when there are none |
+| `variants` | optional: an array of `{ selector, selects }` tables, one per flag or version number that selects a different equation or different default data under the same name: `selector` is the flag or version as the source names it (empty when the variant has no name of its own), `selects` what it selects. `[]` when the survey looked and there are none; the key is left out when the record predates it (not recorded) |
 | `equation_source` | the citation the code gives for the equations, if any |
-| `closed_form` | `yes`, `implicit` (needs a solve), or `procedural` (behaviour lives in code: matching, characterisation, numerical integration) |
+| `closed_form` | `yes`, `implicit` (needs a solve), `procedural` (behaviour lives in code: matching, characterisation, numerical integration) or `not stated`. The value starts with the keyword as a whole word; any qualification follows |
 | `data` | which `[[construct]]` supplies its parameters in this source, or `"none bundled"` |
 
 ### `[[convention]]`
@@ -114,9 +135,12 @@ only what the pinned bytes show; do not judge which side is right.
 ### `[[capability]]`
 
 `calculation` (a key from the `calculation` vocabulary in `model/qualification.toml`, or a new
-proposed key with ` (proposed)` appended), `offered` (`"yes"`, `"partial"` with the limitation stated in
-`scope`, or `"no"` to record that a library one might expect to offer it does not), `scope` (model families or phase kinds), `locator`,
-`evidence` (`documentation` or `source_inspected`).
+proposed key with ` (proposed)` appended: exactly that suffix, after a key of lower-case words joined
+by `_`; a key that is not in the vocabulary is proposed, and the loader refuses one without the
+suffix; what a proposed key would mean is stated in `scope`), `offered` (`"yes"`, `"partial"` with
+the limitation stated in `scope`, `"no"` to record that a library one might expect to offer it does
+not, or `"not recorded"`; a string, never a boolean), `scope` (model families or phase kinds),
+`locator`, `evidence` (`documentation` or `source_inspected`).
 
 ### `[[question]]`
 
@@ -146,3 +170,83 @@ proposed key with ` (proposed)` appended), `offered` (`"yes"`, `"partial"` with 
 | `regression` | evidence to parameters: fitting and its records |
 | `kinetics` | reaction rate laws |
 | `other` | none of the above; say what it is |
+
+## 4. Dispositions
+
+A survey record says what a source holds; it does not say what becomes of what a mapping would lose.
+A **disposition** is that decision, recorded once per construct, so that every stated loss ends in
+exactly one place: the declaration holds it, the mapping declares it, the declaration must change, or
+it is outside the knowledge base.
+
+### When a construct needs one
+
+A construct needs a disposition when its `precision` is not `exact`, or when its `loss` is non-empty
+after trimming and is not a bare "none" (a trailing full stop and letter case are ignored). A
+construct that is exact and states no loss has none, and a disposition for it is refused. The
+residue report (section 5) lists every construct that needs one and has none.
+
+### Format
+
+A file per source, `survey/dispositions/<source id>.toml`, with one entry per construct that needs
+one. It holds only `[[disposition]]` tables, keyed by the construct's `name` exactly as the survey
+writes it:
+
+```toml
+[[disposition]]
+construct = "binary pair record (mixture_binary_pairs.json)"
+disposition = "model_change"        # model_change | mapping_loss | out_of_scope | held_by_model
+ref = "alignment-notes #6"          # what holds it, or what schedules the change
+reason = "One sentence: what is kept, what is lost or assumed, or why it is out of scope."
+```
+
+| Key | Content |
+|---|---|
+| `construct` | the `name` of a construct of this source's survey, matched exactly; one disposition per construct |
+| `disposition` | one of the four kinds below |
+| `ref` | a reference, required except for `out_of_scope` (where it may be left empty); forms below |
+| `reason` | required: one sentence saying which concept holds the construct, what is lost or assumed, what must change, or why it is out of scope |
+
+| Disposition | Meaning | `reason` says |
+|---|---|---|
+| `held_by_model` | the current declaration holds the construct, and the stated loss does not apply or is only a difference of arrangement | which concept holds it |
+| `mapping_loss` | the mapping will declare the loss or assumption | what is lost or assumed |
+| `model_change` | the declaration must change | the change, and what schedules it (or that nothing does yet) |
+| `out_of_scope` | outside the knowledge base | why |
+
+### `ref`
+
+| Form | Names | Checked |
+|---|---|---|
+| `kind:<name>`, `relation:<name>`, `form:<name>`, `enum:<name>` | a construct of the loaded declaration | the declaration has it |
+| `mechanism:<name>` | something that is not a declared construct: a mapping rule, a pipeline stage, a convention | not checked |
+| `alignment-notes #<n>` | item `n` of the numbered table of `docs/alignment-notes.md` | the item exists |
+| `review F<nn>` | finding `F<nn>` of the design review of the core model (`docs/design_review/reviews/design_review_thermo-knowledge-core_2026-09-30.md`) | the finding has a heading there |
+| `unscheduled` | only for `model_change`: the declaration must change and no alignment item or finding schedules it yet | |
+
+A `model_change` is **scheduled** when its `ref` is an alignment-notes item or a review finding. The
+report shows which scheduled change carries the most constructs and lists the model changes that
+name none.
+
+## 5. The loader and the residue report
+
+`thermo_knowledge.survey_index` loads every `survey/*.toml` into typed `msgspec` structs, validates
+each record key by key against this page and loads the dispositions. Every deviation is a
+diagnostic with the file, the table, the record's name, the key, a stable code and a message; the
+loader reports all of them and does not stop at the first. The calculation vocabulary and the model
+constructs a `ref` names come from the loaded declaration (`thermo_knowledge.declaration`), so a
+declaration that cannot be loaded is itself a diagnostic.
+
+```text
+tk survey --check                 validate the surveys and dispositions; exit 1 on any diagnostic
+tk survey --report                write survey/residue-report.md and print a summary
+tk survey --report --strict       exit 1 while any construct that needs a disposition has none
+```
+
+`--report` needs a clean load, so the report is never a partial count. The report is generated from
+the surveys and dispositions alone: it carries no date and no environment, so regenerating it from
+the same inputs is byte-identical, and its header says it is generated and from what. It has, for
+each source, the constructs, their precision, how many need a disposition, how many have each kind
+and how many have none; the totals; a table of the `model_change` dispositions by `ref`; and the
+full list of constructs without a disposition with their precision and `loss`, grouped by source.
+It is committed so that a change in the residue shows in review; edit the surveys or the
+dispositions, never the report.

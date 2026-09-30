@@ -1038,7 +1038,9 @@ locator = "src/thermo/ThermoFactory.cpp line 51 reg('none'); src/thermo/ThermoPh
 class = "other"
 inputs = "T, P or density, composition; no equations"
 parameters = "none"
-composes = "nothing; used for phases that only hold species (kinetics bookkeeping)"
+composes = [
+  { slot = "", accepts = "nothing; used for phases that only hold species (kinetics bookkeeping)", default = "" },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "none bundled; documented thermo list omits this name (phases.md)"
@@ -1049,7 +1051,9 @@ locator = "src/thermo/IdealGasPhase.cpp; include/cantera/thermo/IdealGasPhase.h"
 class = "other"
 inputs = "T, P, mole or mass fractions; intrinsic state T, density, Y"
 parameters = "per species: reference-state thermo (NASA7, NASA9, Shomate, constant-cp, piecewise-Gibbs); no phase parameters"
-composes = "species reference-state models; ideal mixing of ideal gases (standard pressure p0 from the species)"
+composes = [
+  { slot = "", accepts = "species reference-state models; ideal mixing of ideal gases (standard pressure p0 from the species)", default = "" },
+]
 equation_source = "ideal gas law; chemical potential mu_k = mu0_k(T) + RT ln(x_k P/p0) (IdealGasPhase.cpp lines 27-151); no citation"
 closed_form = "yes"
 data = "constructs 'species entry' and the species thermo constructs (124 of 262 phases use it)"
@@ -1060,7 +1064,9 @@ locator = "src/thermo/PlasmaPhase.cpp; EEDFTwoTermApproximation.cpp; include/can
 class = "other"
 inputs = "gas T and P plus an electron energy distribution function and electron temperature"
 parameters = "global (phase): electron-energy-distribution type, shape-factor, mean-electron-energy, energy-levels, distribution, normalize; per target species: electron-collisions cross-section tables"
-composes = "ideal-gas phase; electron-impact rates (electron-collision-plasma) integrate cross sections over the EEDF"
+composes = [
+  { slot = "", accepts = "ideal-gas phase; electron-impact rates (electron-collision-plasma) integrate cross sections over the EEDF", default = "" },
+]
 equation_source = "PlasmaPhase.h cites Gudmundsson 2001, Khalilpour and Foroutan 2020 and Hagelaar and Pitchford 2005 (two-term Boltzmann)"
 closed_form = "procedural"
 data = "constructs 'plasma electron-energy-distribution and electron-collisions'"
@@ -1071,7 +1077,9 @@ locator = "src/thermo/SurfPhase.cpp; src/thermo/EdgePhase.h"
 class = "adsorption"
 inputs = "T, P, site coverages theta_k (surface) or per-length coverages (edge)"
 parameters = "global: site-density; species: sites (occupancy), reference-state thermo; edge uses the same with site density per length"
-composes = "species thermo at the surface reference pressure; ideal mixing on sites; adjacent bulk phases for reactions"
+composes = [
+  { slot = "", accepts = "species thermo at the surface reference pressure; ideal mixing on sites; adjacent bulk phases for reactions", default = "" },
+]
 equation_source = "no citation in the headers; the standard concentration of species k is the site density divided by its site occupancy (SurfPhase.cpp line 120)"
 closed_form = "yes"
 data = "constructs 'phase entry', 'species entry'; 24 ideal-surface and 2 edge phases"
@@ -1082,7 +1090,9 @@ locator = "src/thermo/CoverageDependentSurfPhase.cpp; include/cantera/thermo/Cov
 class = "residual_or_excess_contribution"
 inputs = "T, P and all coverages"
 parameters = "global: site-density, reference-state-coverage; pair (species, species): coverage-dependencies with four models (linear, polynomial, piecewise-linear, interpolative)"
-composes = "ideal-surface phase as the low-coverage limit, plus coverage-dependent excess enthalpy, entropy and heat capacity"
+composes = [
+  { slot = "", accepts = "ideal-surface phase as the low-coverage limit, plus coverage-dependent excess enthalpy, entropy and heat capacity", default = "" },
+]
 equation_source = "class documentation with equations; kinetics study named in covdepsurf.yaml description"
 closed_form = "yes"
 data = "construct 'coverage-dependencies (species)'; 6 phases"
@@ -1093,7 +1103,9 @@ locator = "src/thermo/StoichSubstance.cpp"
 class = "other"
 inputs = "T, P"
 parameters = "species: constant-volume equation-of-state (density, molar-density or molar-volume)"
-composes = "one species with a reference-state thermo model; incompressible"
+composes = [
+  { slot = "", accepts = "one species with a reference-state thermo model; incompressible", default = "" },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "constructs 'species entry', 'equation-of-state constant-volume'; 25 phases"
@@ -1104,7 +1116,9 @@ locator = "src/thermo/MetalPhase.h"
 class = "other"
 inputs = "T, P; one species, the electron"
 parameters = "phase: density"
-composes = "an electron species with reference-state thermo"
+composes = [
+  { slot = "", accepts = "an electron species with reference-state thermo", default = "" },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "phase entry only; 3 phases"
@@ -1115,7 +1129,9 @@ locator = "src/thermo/PureFluidPhase.cpp; src/tpx/*"
 class = "explicit_correlation"
 inputs = "T with P, density or quality; two-phase region supported; property pairs TD, UV, DP, HP, SP, SV, ST, TV, PV, UP, VH, TH, SH, TPQ"
 parameters = "phase: pure-fluid-name (8 substances); species thermo of the named species anchors the enthalpy and entropy datum"
-composes = "a tpx Substance; one species; marked incompatible with MultiPhase (compatibleWithMultiPhase returns false)"
+composes = [
+  { slot = "", accepts = "a tpx Substance; one species; marked incompatible with MultiPhase (compatibleWithMultiPhase returns false)", default = "" },
+]
 equation_source = "Reynolds 1979 TPSI for seven fluids; Tillner-Roth and Baehr 1994 for HFC-134a"
 closed_form = "implicit"
 data = "construct 'tpx pure-fluid substance'; 10 phases in liquidvapor.yaml and fixtures"
@@ -1126,7 +1142,9 @@ locator = "src/thermo/WaterSSTP.cpp; PDSS_Water.cpp; WaterPropsIAPWS.cpp; WaterP
 class = "helmholtz_potential"
 inputs = "T and P (or density); liquid region"
 parameters = "none in the file; coefficients in code: ideal part 9, residual part 57 (WaterPropsIAPWSphi.cpp arrays ni0, ni); dielectric constant and viscosity correlations in WaterProps.cpp"
-composes = "also used as the solvent standard state of Debye-Huckel, HMW and VPSS phases"
+composes = [
+  { slot = "", accepts = "also used as the solvent standard state of Debye-Huckel, HMW and VPSS phases", default = "" },
+]
 equation_source = "Wagner and Pruss 2002 (IAPWS-95), WaterPropsIAPWSphi.h line 28; dielectric-constant and viscosity correlation constants in WaterProps.cpp carry no citation"
 closed_form = "implicit"
 data = "construct 'equation-of-state liquid-water-IAPWS95'; 3 phases"
@@ -1137,7 +1155,9 @@ locator = "src/thermo/LatticePhase.cpp; src/thermo/LatticeSolidPhase.cpp"
 class = "other"
 inputs = "T, P, composition on a fixed-density lattice"
 parameters = "phase: site-density; compound-lattice: composition (component phase names to stoichiometry)"
-composes = "species thermo; compound-lattice composes other lattice phases; element-standard-entropies.yaml for elements"
+composes = [
+  { slot = "", accepts = "species thermo; compound-lattice composes other lattice phases; element-standard-entropies.yaml for elements", default = "" },
+]
 equation_source = "none; both deprecated in 3.2 (phases.md)"
 closed_form = "yes"
 data = "constructs 'phase entry'; 2 lattice and 2 compound-lattice phases (test data only)"
@@ -1148,7 +1168,9 @@ locator = "src/thermo/IdealSolidSolnPhase.cpp"
 class = "other"
 inputs = "T, P, mole fractions; standard concentration basis"
 parameters = "phase: standard-concentration-basis; species: constant-volume molar volume (required)"
-composes = "species reference thermo with constant volume; ideal mixing; ChemEquil element-potential solving supported (setToEquilState)"
+composes = [
+  { slot = "", accepts = "species reference thermo with constant volume; ideal mixing; ChemEquil element-potential solving supported (setToEquilState)", default = "" },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "constructs 'species entry', 'equation-of-state constant-volume', 'ideal-molal and ideal-condensed phase options'; 7 phases"
@@ -1159,7 +1181,9 @@ locator = "src/thermo/IdealSolnGasVPSS.cpp; ThermoFactory.cpp lines 75-76 (two r
 class = "other"
 inputs = "T, P, mole fractions"
 parameters = "phase: standard-concentration-basis; species: equation-of-state with a PDSS model name"
-composes = "VPStandardStateTP: one PDSS model per species (constant-volume, temperature polynomials, HKFT, liquid water)"
+composes = [
+  { slot = "", accepts = "VPStandardStateTP: one PDSS model per species (constant-volume, temperature polynomials, HKFT, liquid water)", default = "" },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "species equation-of-state constructs; 3 phases use ideal-solution-VPSS, none uses ideal-gas-VPSS (documented only for the first)"
@@ -1170,7 +1194,9 @@ locator = "src/thermo/IdealMolalSoln.cpp"
 class = "electrolyte_interaction"
 inputs = "T, P, molalities"
 parameters = "phase: standard-concentration-basis, cutoff (model, gamma_o, gamma_k, X_o, c_0, slope_f, slope_g)"
-composes = "MolalityVPSSTP with PDSS species; all molality activity coefficients equal one"
+composes = [
+  { slot = "", accepts = "MolalityVPSSTP with PDSS species; all molality activity coefficients equal one", default = "" },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "construct 'ideal-molal and ideal-condensed phase options'; 2 phases"
@@ -1181,7 +1207,9 @@ locator = "src/thermo/DebyeHuckel.cpp; include/cantera/thermo/DebyeHuckel.h"
 class = "electrolyte_interaction"
 inputs = "T, P, molalities; ionic strength"
 parameters = "phase: activity-data model and A_Debye, B_Debye, B-dot, max-ionic-strength, default-ionic-radius, use-Helgeson-fixed-form, beta; species: ionic-radius, electrolyte-species-type, weak-acid-charge"
-composes = "MolalityVPSSTP; PDSS standard states (HKFT, constant-volume, water); solvent activity through an osmotic coefficient"
+composes = [
+  { slot = "", accepts = "MolalityVPSSTP; PDSS standard states (HKFT, constant-volume, water); solvent activity through an osmotic coefficient", default = "" },
+]
 equation_source = "class documentation of DebyeHuckel.h (no bibliographic key)"
 closed_form = "yes"
 data = "construct 'Debye-Huckel activity-data and species block'; 12 phases, test data only"
@@ -1192,7 +1220,9 @@ locator = "src/thermo/HMWSoln.cpp; include/cantera/thermo/HMWSoln.h"
 class = "electrolyte_interaction"
 inputs = "T, P, molalities"
 parameters = "phase: temperature-model, A_Debye, max-ionic-strength, cropping-coefficients; interactions of one to three species: beta0, beta1, beta2, Cphi, alpha1, alpha2, theta, lambda, psi, zeta, mu"
-composes = "MolalityVPSSTP; PDSS standard states; water IAPWS for A_Debye variable"
+composes = [
+  { slot = "", accepts = "MolalityVPSSTP; PDSS standard states; water IAPWS for A_Debye variable", default = "" },
+]
 equation_source = "HMWSoln.h cites Silvester and Pitzer 1977 (line 439), Harvie and Weare 1980 (line 546), Pitzer 1975 (line 1992) and Denbigh (MolalityVPSSTP)"
 closed_form = "yes"
 data = "construct 'HMW-electrolyte activity-data interactions'; 5 phases, test data only"
@@ -1203,7 +1233,9 @@ locator = "src/thermo/MargulesVPSSTP.cpp; GibbsExcessVPSSTP.cpp"
 class = "residual_or_excess_contribution"
 inputs = "T, P, mole fractions"
 parameters = "ordered species pairs: excess-enthalpy (2), excess-entropy (2), excess-volume-enthalpy (2), excess-volume-entropy (2)"
-composes = "GibbsExcessVPSSTP over PDSS standard states at pure-component T and P"
+composes = [
+  { slot = "", accepts = "GibbsExcessVPSSTP over PDSS standard states at pure-component T and P", default = "" },
+]
 equation_source = "class documentation of MargulesVPSSTP.h with equations; no bibliographic key"
 closed_form = "yes"
 data = "construct 'Margules and Redlich-Kister interactions'; 3 phases, test data only"
@@ -1214,7 +1246,9 @@ locator = "src/thermo/RedlichKisterVPSSTP.cpp"
 class = "residual_or_excess_contribution"
 inputs = "T, P, mole fractions"
 parameters = "ordered species pairs: excess-enthalpy and excess-entropy coefficient lists of any length"
-composes = "GibbsExcessVPSSTP over PDSS standard states"
+composes = [
+  { slot = "", accepts = "GibbsExcessVPSSTP over PDSS standard states", default = "" },
+]
 equation_source = "class documentation with equations; no bibliographic key"
 closed_form = "yes"
 data = "construct 'Margules and Redlich-Kister interactions'; 3 phases; LiC6 electrode example in samples/data"
@@ -1225,7 +1259,9 @@ locator = "src/thermo/BinarySolutionTabulatedThermo.cpp"
 class = "residual_or_excess_contribution"
 inputs = "T, P, mole fraction of the tabulated species"
 parameters = "phase: tabulated-species, tabulated-thermo (mole-fractions, enthalpy, entropy, optional molar-volume)"
-composes = "IdealSolidSolnPhase with tabulated standard-state corrections interpolated linearly"
+composes = [
+  { slot = "", accepts = "IdealSolidSolnPhase with tabulated standard-state corrections interpolated linearly", default = "" },
+]
 equation_source = "class documentation: open-circuit voltage relation Delta g = -E_eq/(nF)"
 closed_form = "yes"
 data = "construct 'binary-solution-tabulated tabulated-thermo'; 4 phases"
@@ -1236,7 +1272,9 @@ locator = "src/thermo/RedlichKwongMFTP.cpp; MixtureFugacityTP.cpp"
 class = "implicit_constitutive"
 inputs = "T, P or density, mole fractions; molar volume found by a cubic solve (Nickalls method cited at MixtureFugacityTP.h line 492)"
 parameters = "species: a (a0 + a1 T), b, binary-a; or critical-parameters; or critical-properties.yaml"
-composes = "MixtureFugacityTP: species ideal-gas reference thermo plus a departure from the cubic; standard state is an ideal gas at the solution T and P"
+composes = [
+  { slot = "", accepts = "MixtureFugacityTP: species ideal-gas reference thermo plus a departure from the cubic; standard state is an ideal gas at the solution T and P", default = "" },
+]
 equation_source = "class header equation P = RT/(v - b) - a/(sqrt(T) v (v + b)); no bibliographic key"
 closed_form = "implicit"
 data = "construct 'equation-of-state Redlich-Kwong and Peng-Robinson' and the critical-property constructs; 8 phases"
@@ -1247,7 +1285,9 @@ locator = "src/thermo/PengRobinson.cpp"
 class = "implicit_constitutive"
 inputs = "T, P or density, mole fractions; cubic solve"
 parameters = "species: a, b, acentric-factor, binary-a; or critical-parameters or the database; alpha with kappa from acentric factor (two ranges)"
-composes = "MixtureFugacityTP"
+composes = [
+  { slot = "", accepts = "MixtureFugacityTP", default = "" },
+]
 equation_source = "species-thermo.md gives P = RT/(V - b) - a alpha/(V^2 + 2bV - b^2) with kappa piecewise in omega at 0.491; no bibliographic key"
 closed_form = "implicit"
 data = "same constructs as Redlich-Kwong; 5 phases"
@@ -1262,7 +1302,9 @@ locator = "src/thermo/NasaPoly2.cpp; include/cantera/thermo/NasaPoly1.h, NasaPol
 class = "standard_state_species"
 inputs = "T"
 parameters = "species: 7 coefficients per range, range bounds, reference pressure"
-composes = "none; a MultiSpeciesThermo container evaluates it"
+composes = [
+  { slot = "", accepts = "none; a MultiSpeciesThermo container evaluates it", default = "" },
+]
 equation_source = "species-thermo.md (Cp/R, H/RT, S/R polynomial forms); no bibliographic key"
 closed_form = "yes"
 data = "construct 'thermo model NASA7'"
@@ -1273,7 +1315,7 @@ locator = "src/thermo/Nasa9PolyMultiTempRegion.cpp; Nasa9Poly1.cpp"
 class = "standard_state_species"
 inputs = "T"
 parameters = "species: 9 coefficients per region, any number of regions"
-composes = "none"
+composes = []
 equation_source = "McBride et al. 2002 (Nasa9Poly1.h line 27)"
 closed_form = "yes"
 data = "construct 'thermo model NASA9'"
@@ -1284,7 +1326,7 @@ locator = "include/cantera/thermo/ShomatePoly.h"
 class = "standard_state_species"
 inputs = "T (as t = T/1000)"
 parameters = "species: A to G per range"
-composes = "none"
+composes = []
 equation_source = "species-thermo.md; NIST WebBook parameterization"
 closed_form = "yes"
 data = "construct 'thermo model Shomate'"
@@ -1295,7 +1337,7 @@ locator = "src/thermo/ConstCpPoly.cpp"
 class = "standard_state_species"
 inputs = "T"
 parameters = "species: T0, h0, s0, cp0, T-min, T-max"
-composes = "none"
+composes = []
 equation_source = "species-thermo.md equations"
 closed_form = "yes"
 data = "construct 'thermo model constant-cp'"
@@ -1306,7 +1348,7 @@ locator = "src/thermo/Mu0Poly.cpp; include/cantera/thermo/Mu0Poly.h"
 class = "standard_state_species"
 inputs = "T"
 parameters = "species: h0, temperature to mu0 table, dimensionless flag"
-composes = "none"
+composes = []
 equation_source = "class documentation: piecewise constant heat capacity between points (equations in Mu0Poly.h)"
 closed_form = "yes"
 data = "construct 'thermo model piecewise-Gibbs'"
@@ -1321,7 +1363,9 @@ locator = "src/thermo/PDSS_ConstVol.cpp; PDSSFactory.cpp line 20"
 class = "standard_state_species"
 inputs = "T, P"
 parameters = "species: molar-volume, molar-density or density"
-composes = "species reference thermo plus V (P - P0)"
+composes = [
+  { slot = "", accepts = "species reference thermo plus V (P - P0)", default = "" },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "construct 'equation-of-state constant-volume'"
@@ -1332,7 +1376,9 @@ locator = "src/thermo/PDSS_SSVol.cpp; PDSSFactory.cpp lines 27 and 29 (two names
 class = "standard_state_species"
 inputs = "T, P"
 parameters = "species: four coefficients of a cubic in T for density or for molar volume"
-composes = "species reference thermo"
+composes = [
+  { slot = "", accepts = "species reference thermo", default = "" },
+]
 equation_source = "species-thermo.md equations"
 closed_form = "yes"
 data = "construct 'equation-of-state temperature polynomial'"
@@ -1343,7 +1389,9 @@ locator = "src/thermo/PDSS_HKFT.cpp"
 class = "standard_state_species"
 inputs = "T, P"
 parameters = "species: h0, g0, s0, a1 to a4, c1, c2, omega; global: element standard entropies, solvent dielectric properties"
-composes = "water PDSS and dielectric correlation for the Born term"
+composes = [
+  { slot = "", accepts = "water PDSS and dielectric correlation for the Born term", default = "" },
+]
 equation_source = "Johnson et al. 1992 (SUPCRT92), equations 49, 52, 59, 61 cited in PDSS_HKFT.h"
 closed_form = "yes"
 data = "construct 'equation-of-state HKFT'; data/element-standard-entropies.yaml"
@@ -1354,7 +1402,9 @@ locator = "src/thermo/PDSS_Water.cpp"
 class = "helmholtz_potential"
 inputs = "T, P"
 parameters = "none"
-composes = "WaterPropsIAPWS"
+composes = [
+  { slot = "", accepts = "WaterPropsIAPWS", default = "" },
+]
 equation_source = "Wagner and Pruss 2002"
 closed_form = "implicit"
 data = "construct 'equation-of-state liquid-water-IAPWS95'"
@@ -1369,7 +1419,9 @@ locator = "src/kinetics/Arrhenius.cpp; ReactionRateFactory.cpp line 31"
 class = "kinetics"
 inputs = "T; for three-body the third-body concentration"
 parameters = "reaction: A, b, Ea; collider: efficiencies, default-efficiency"
-composes = "ThirdBody concentration factor"
+composes = [
+  { slot = "", accepts = "ThirdBody concentration factor", default = "" },
+]
 equation_source = "rate-constants.md (no citation)"
 closed_form = "yes"
 data = "construct 'rate parameterisation Arrhenius family'"
@@ -1380,7 +1432,9 @@ locator = "src/kinetics/BlowersMaselRate.cpp"
 class = "kinetics"
 inputs = "T and the reaction enthalpy from the species thermo"
 parameters = "reaction: A, b, Ea0, w"
-composes = "species enthalpies (the activation energy depends on the reaction enthalpy)"
+composes = [
+  { slot = "", accepts = "species enthalpies (the activation energy depends on the reaction enthalpy)", default = "" },
+]
 equation_source = "Blowers and Masel 2000 (rate-constants.md)"
 closed_form = "yes"
 data = "construct 'rate parameterisation Arrhenius family'"
@@ -1391,7 +1445,9 @@ locator = "src/kinetics/TwoTempPlasmaRate.cpp"
 class = "kinetics"
 inputs = "gas T and electron temperature"
 parameters = "reaction: A, b, Ea-gas, Ea-electron"
-composes = "PlasmaPhase electron temperature"
+composes = [
+  { slot = "", accepts = "PlasmaPhase electron temperature", default = "" },
+]
 equation_source = "Kossyi et al. 1992 (rate-constants.md)"
 closed_form = "yes"
 data = "construct 'rate parameterisation Arrhenius family'"
@@ -1402,7 +1458,9 @@ locator = "src/kinetics/ElectronCollisionPlasmaRate.cpp"
 class = "kinetics"
 inputs = "electron energy distribution of the phase"
 parameters = "reaction: energy-levels, cross-sections, threshold, kind, product"
-composes = "PlasmaPhase EEDF; integration of the cross section"
+composes = [
+  { slot = "", accepts = "PlasmaPhase EEDF; integration of the cross section", default = "" },
+]
 equation_source = "Hagelaar and Pitchford 2005 (rate-constants.md)"
 closed_form = "procedural"
 data = "construct 'rate parameterisation electron-collision-plasma and custom'"
@@ -1413,7 +1471,9 @@ locator = "src/kinetics/Falloff.cpp; ReactionRateFactory.cpp lines 54-72"
 class = "kinetics"
 inputs = "T and reduced pressure from the collider concentration"
 parameters = "reaction: low-P and high-P Arrhenius, Troe A T3 T1 T2, SRI A B C D E, Tsang A B; chemically-activated variant swaps limits"
-composes = "two Arrhenius rates and a blending function; third-body efficiencies"
+composes = [
+  { slot = "", accepts = "two Arrhenius rates and a blending function; third-body efficiencies", default = "" },
+]
 equation_source = "Lindemann 1922, Gilbert 1983 (Troe), Stewart 1989 and Kee 1989 (SRI), Tsang 1991 (rate-constants.md)"
 closed_form = "yes"
 data = "construct 'rate parameterisation falloff family'"
@@ -1424,7 +1484,9 @@ locator = "src/kinetics/PlogRate.cpp"
 class = "kinetics"
 inputs = "T, P"
 parameters = "reaction: list of (P, A, b, Ea); log-pressure interpolation between groups, end groups repeated outside"
-composes = "Arrhenius rates"
+composes = [
+  { slot = "", accepts = "Arrhenius rates", default = "" },
+]
 equation_source = "Gou et al. 2011 (rate-constants.md)"
 closed_form = "yes"
 data = "construct 'rate parameterisation pressure tables (PLOG, Chebyshev, linear-Burke)'"
@@ -1435,7 +1497,7 @@ locator = "src/kinetics/ChebyshevRate.cpp"
 class = "kinetics"
 inputs = "T, P"
 parameters = "reaction: temperature-range, pressure-range, coefficient matrix"
-composes = "none"
+composes = []
 equation_source = "rate-constants.md (no citation)"
 closed_form = "yes"
 data = "construct 'rate parameterisation pressure tables (PLOG, Chebyshev, linear-Burke)'"
@@ -1446,7 +1508,9 @@ locator = "src/kinetics/LinearBurkeRate.cpp"
 class = "kinetics"
 inputs = "T, P and bath composition"
 parameters = "reaction: colliders with efficiency or eig0 in Arrhenius form, and Troe, PLOG or Chebyshev data per collider"
-composes = "Troe, PLOG and Chebyshev rates as per-collider sub-rates"
+composes = [
+  { slot = "", accepts = "Troe, PLOG and Chebyshev rates as per-collider sub-rates", default = "" },
+]
 equation_source = "Singal et al. 2024 (rate-constants.md, Eq. 8)"
 closed_form = "yes"
 data = "construct 'rate parameterisation pressure tables (PLOG, Chebyshev, linear-Burke)'"
@@ -1457,7 +1521,9 @@ locator = "src/kinetics/InterfaceRate.cpp; ReactionRateFactory.cpp lines 95-115"
 class = "kinetics"
 inputs = "T, surface coverages, site density"
 parameters = "reaction: A, b, Ea (or Ea0, w), coverage-dependencies a, m, E, sticking-coefficient, Motz-Wise, sticking-species, beta"
-composes = "InterfaceKinetics; ideal or coverage-dependent surface phases; electrochemical potential terms for charge transfer"
+composes = [
+  { slot = "", accepts = "InterfaceKinetics; ideal or coverage-dependent surface phases; electrochemical potential terms for charge transfer", default = "" },
+]
 equation_source = "Kee et al. 2003 Eq. 11.113 (reactions.md); rate-constants.md sections on surface and sticking reactions"
 closed_form = "yes"
 data = "construct 'rate parameterisation interface, sticking and electrochemical'"
@@ -1468,7 +1534,9 @@ locator = "src/kinetics/Custom.cpp; ReactionRateDelegator.cpp; ReactionRateFacto
 class = "kinetics"
 inputs = "T (custom-rate-function) or whatever the user code reads"
 parameters = "none in the file beyond a type name"
-composes = "user code through the extension manager"
+composes = [
+  { slot = "", accepts = "user code through the extension manager", default = "" },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "none bundled; two test entries name types that only user code defines"
@@ -1479,7 +1547,9 @@ locator = "src/kinetics/BulkKinetics.cpp; InterfaceKinetics.cpp; KineticsFactory
 class = "kinetics"
 inputs = "phase states and reaction list"
 parameters = "phase: kinetics, reactions; reaction: see constructs"
-composes = "rates of progress from rate constants and activity concentrations; reverse rate constants from the equilibrium constant from species standard-state Gibbs energies (BulkKinetics.cpp line 177)"
+composes = [
+  { slot = "", accepts = "rates of progress from rate constants and activity concentrations; reverse rate constants from the equilibrium constant from species standard-state Gibbs energies (BulkKinetics.cpp line 177)", default = "" },
+]
 equation_source = "reaction-rates.md"
 closed_form = "yes"
 data = "construct 'reaction entry'"
@@ -1494,7 +1564,9 @@ locator = "src/transport/MixTransport.cpp; GasTransport.cpp; MMCollisionInt.cpp;
 class = "transport"
 inputs = "T, P, mole fractions"
 parameters = "species: geometry, diameter, well-depth, dipole, polarizability, rotational-relaxation, acentric-factor; fitted internally: collision integrals degree 8 (degree 6 in -CK), viscosity and conductivity degree 4 (3 in -CK), diffusion degree 4 (3 in -CK)"
-composes = "Monchick-Mason collision-integral tables; Wilke mixing for viscosity; conductivity as half the sum of the mole-fraction arithmetic and harmonic means (MixTransport.h line 77)"
+composes = [
+  { slot = "", accepts = "Monchick-Mason collision-integral tables; Wilke mixing for viscosity; conductivity as half the sum of the mole-fraction arithmetic and harmonic means (MixTransport.h line 77)", default = "" },
+]
 equation_source = "Kee et al. 2003 and 2017; Monchick and Mason 1961; Poling et al. 2001 (Wilke, eq 9-5.13/14); Chapman and Cowling 1970"
 closed_form = "procedural"
 data = "construct 'species transport (gas)'; 27 phases use mixture-averaged and 1 mixture-averaged-CK"
@@ -1505,7 +1577,9 @@ locator = "src/transport/MultiTransport.cpp"
 class = "transport"
 inputs = "T, P, mole fractions"
 parameters = "same species parameters as mixture-averaged"
-composes = "GasTransport fits; solves for multicomponent diffusion and thermal diffusion"
+composes = [
+  { slot = "", accepts = "GasTransport fits; solves for multicomponent diffusion and thermal diffusion", default = "" },
+]
 equation_source = "Dixon-Lewis 1968; Kee et al. 2003 Eq. 12.126 and 12.168"
 closed_form = "procedural"
 data = "construct 'species transport (gas)'"
@@ -1516,7 +1590,9 @@ locator = "src/transport/IonGasTransport.cpp"
 class = "transport"
 inputs = "T, P, mole fractions with charged species"
 parameters = "species: gas parameters plus dispersion-coefficient and quadrupole-polarizability"
-composes = "Stockmayer-(n,6,4) collision integrals for ion-neutral pairs"
+composes = [
+  { slot = "", accepts = "Stockmayer-(n,6,4) collision integrals for ion-neutral pairs", default = "" },
+]
 equation_source = "Selle and Riedel 1999 and 2000, Han et al. 2015, Chiflikian 1995, Viehland 1975, Prager 2005 (IonGasTransport.h)"
 closed_form = "procedural"
 data = "construct 'species transport (gas)'; 9 phases (ionized-gas 5, alias Ion 4)"
@@ -1527,7 +1603,9 @@ locator = "src/transport/WaterTransport.cpp"
 class = "transport"
 inputs = "T, density of a water phase"
 parameters = "none in files; correlation constants in code"
-composes = "own viscosity and conductivity correlations in reduced variables (TStar 647.27 K, WaterTransport.cpp line 41)"
+composes = [
+  { slot = "", accepts = "own viscosity and conductivity correlations in reduced variables (TStar 647.27 K, WaterTransport.cpp line 41)", default = "" },
+]
 equation_source = "no citation in WaterTransport.cpp"
 closed_form = "yes"
 data = "none bundled as files (2 phases select it)"
@@ -1538,7 +1616,9 @@ locator = "src/transport/HighPressureGasTransport.cpp"
 class = "transport"
 inputs = "T, P, composition of a real gas"
 parameters = "species: critical parameters and gas parameters (acentric factor)"
-composes = "corresponding-states viscosity and conductivity; Takahashi diffusion correction"
+composes = [
+  { slot = "", accepts = "corresponding-states viscosity and conductivity; Takahashi diffusion correction", default = "" },
+]
 equation_source = "Lucas method and Chung method (Poling et al. 2001), Takahashi 1975, Ely and Hanley 1981 and 1983 (HighPressureGasTransport.h)"
 closed_form = "procedural"
 data = "construct 'species transport (gas)'; 1 phase in fixtures"
@@ -1549,7 +1629,9 @@ locator = "src/transport/GasTransport.cpp region; DustyGasTransport.cpp; Transpo
 class = "transport"
 inputs = "mixture state; DustyGas also needs porous-medium parameters set through the API"
 parameters = "unity Lewis: none; DustyGas: porosity, tortuosity, pore radius, particle diameter (API only)"
-composes = "DustyGas wraps a MultiTransport"
+composes = [
+  { slot = "", accepts = "DustyGas wraps a MultiTransport", default = "" },
+]
 equation_source = "Zhu and Kee, Mason and Malinauskas, Veldsink et al. (DustyGasTransport.h)"
 closed_form = "procedural"
 data = "none bundled; DustyGas is not registered as a YAML model name"
@@ -1564,7 +1646,9 @@ locator = "src/equil/ChemEquil.cpp (equilibrate switch at line 318); include/can
 class = "other"
 inputs = "T, P, enthalpy, entropy, energy, density pairs; element abundances of the current composition"
 parameters = "solver options: relTolerance 1e-8, absElemTol 1e-70, maxIterations, maxStepSize 10"
-composes = "any phase that implements setToEquilState (IdealGasPhase, IdealSolidSolnPhase, IdealSolnGasVPSS); BasisOptimize for the component species"
+composes = [
+  { slot = "", accepts = "any phase that implements setToEquilState (IdealGasPhase, IdealSolidSolnPhase, IdealSolnGasVPSS); BasisOptimize for the component species", default = "" },
+]
 equation_source = "non-stoichiometric method of Smith and Missen 1982 (ChemEquil.h); Brinkley start (ChemEquil.h line 170)"
 closed_form = "implicit"
 data = "none bundled; uses the phase's thermo"
@@ -1575,7 +1659,9 @@ locator = "src/equil/vcs_solve.cpp; vcs_solve_TP.cpp; vcs_MultiPhaseEquil.cpp; i
 class = "other"
 inputs = "MultiPhase mixture (several phases, single-species and multi-species); T and P fixed in the inner solve, outer loops for HP, UP, SP, TV, UV, SV"
 parameters = "rtol, max steps, estimate_equil flag"
-composes = "MultiPhase of ThermoPhase objects (non-ideal phases through activity coefficients); internal phase-stability test that adds or removes multi-species phases (vcs_phaseStabilityTest, vcs_solve.cpp line 1136)"
+composes = [
+  { slot = "", accepts = "MultiPhase of ThermoPhase objects (non-ideal phases through activity coefficients); internal phase-stability test that adds or removes multi-species phases (vcs_phaseStabilityTest, vcs_solve.cpp line 1136)", default = "" },
+]
 equation_source = "Smith and Missen 1982 (vcs_solve.h lines 360 and 908; vcs_solve_TP.cpp line 3171)"
 closed_form = "implicit"
 data = "none bundled"
@@ -1586,7 +1672,9 @@ locator = "src/equil/MultiPhaseEquil.cpp; MultiPhase.cpp equilibrate_MultiPhaseE
 class = "other"
 inputs = "MultiPhase; TP solved directly, HP, SP and TV by outer iterations"
 parameters = "rtol, max steps, max iterations"
-composes = "MultiPhase of ThermoPhase objects"
+composes = [
+  { slot = "", accepts = "MultiPhase of ThermoPhase objects", default = "" },
+]
 equation_source = "Smith and Missen 1982 (MultiPhaseEquil.h line 17)"
 closed_form = "implicit"
 data = "none bundled"
@@ -1597,7 +1685,9 @@ locator = "src/zeroD/*.cpp (19 reactor names in ReactorFactory.cpp, 4 connector 
 class = "other"
 inputs = "phase states, flow devices, walls, boundary conditions"
 parameters = "not applicable"
-composes = "Solution objects (thermo, kinetics, transport)"
+composes = [
+  { slot = "", accepts = "Solution objects (thermo, kinetics, transport)", default = "" },
+]
 equation_source = "not applicable"
 closed_form = "procedural"
 data = "none bundled"
@@ -1608,7 +1698,9 @@ locator = "src/tpx/Water.cpp, Nitrogen.cpp, Oxygen.cpp, Hydrogen.cpp, Methane.cp
 class = "explicit_correlation"
 inputs = "T and density (pressure-explicit P(rho, T)); any other pair solved iteratively by Substance::Set; output in mass basis"
 parameters = "per fluid: a coefficient array (A, 19 to 70 numbers), saturation-pressure array F, liquid-density array D, a further array G, and scalar constants M, Tmn, Tmx, Tc, Pc, Roc, Tt, Pt, R, u0, s0"
-composes = "internal energy and entropy by integration of the pressure series and an ideal-gas heat capacity part; saturation pressure and liquid density correlations for the two-phase region"
+composes = [
+  { slot = "", accepts = "internal energy and entropy by integration of the pressure series and an ideal-gas heat capacity part; saturation pressure and liquid density correlations for the two-phase region", default = "" },
+]
 equation_source = "Reynolds 1979 (equation labels such as S3, D3 and P-2 are cited in the headers)"
 closed_form = "implicit"
 data = "construct 'tpx pure-fluid substance'; 7 fluids"
@@ -1619,7 +1711,9 @@ locator = "src/tpx/HFC134a.cpp; HFC134a.h"
 class = "helmholtz_potential"
 inputs = "tau = Tc/T and delta = rho/Roc; dimensional output R T (phi_r + phi_0)"
 parameters = "pure: 21 residual terms (arrays a134, t134, d134) in five groups with damping exp(-delta^k), k = 0 to 4; 5 ideal-part coefficients b134; constants M, Tmn, Tmx, Tc, Pc, Roc, R"
-composes = "single residual plus ideal part; saturation pressure and liquid density from fitted correlations in the same file (HFC134a.cpp line 158 onward)"
+composes = [
+  { slot = "", accepts = "single residual plus ideal part; saturation pressure and liquid density from fitted correlations in the same file (HFC134a.cpp line 158 onward)", default = "" },
+]
 equation_source = "Tillner-Roth and Baehr 1994 (HFC134a.h line 16)"
 closed_form = "implicit"
 data = "construct 'tpx pure-fluid substance'; 1 fluid"
@@ -1791,168 +1885,168 @@ documented = "yes"
 
 [[capability]]
 calculation = "flash_tp"
-offered = true
+offered = "yes"
 scope = "ThermoPhase::equilibrate('TP'): ChemEquil, VCS, Gibbs solver; MultiPhase equilibrium; phases that implement setToEquilState for ChemEquil (ideal-gas, ideal-condensed, ideal-solution-VPSS), any non-pure-fluid phase for VCS and Gibbs"
 locator = "src/thermo/ThermoPhase.cpp line 1210; src/equil/ChemEquil.cpp line 318; MultiPhase.cpp line 493; vcs_MultiPhaseEquil.cpp line 366"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_ph"
-offered = true
+offered = "yes"
 scope = "'HP': ChemEquil, VCS, Gibbs solver by outer iteration on T"
 locator = "ChemEquil.cpp line 325; MultiPhase.cpp line 497; vcs_MultiPhaseEquil.cpp line 368"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_ps"
-offered = true
+offered = "yes"
 scope = "'SP': ChemEquil, VCS, Gibbs solver"
 locator = "ChemEquil.cpp line 331; MultiPhase.cpp line 573; vcs_MultiPhaseEquil.cpp line 378"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_uv"
-offered = true
+offered = "yes"
 scope = "'UV': ChemEquil and VCS only (not the Gibbs solver)"
 locator = "ChemEquil.cpp line 348; vcs_MultiPhaseEquil.cpp line 392"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_tv (proposed)"
-offered = true
+offered = "yes"
 scope = "'TV': ChemEquil, VCS and the Gibbs solver"
 locator = "ChemEquil.cpp line 343; vcs_MultiPhaseEquil.cpp line 384; MultiPhase.cpp line 617"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_sv (proposed)"
-offered = true
+offered = "yes"
 scope = "'SV': ChemEquil and VCS"
 locator = "ChemEquil.cpp line 337; vcs_MultiPhaseEquil.cpp line 396"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_up (proposed)"
-offered = true
+offered = "yes"
 scope = "'UP': VCS only (the pair is accepted by _equilflag but ChemEquil and the Gibbs solver reject it)"
 locator = "vcs_MultiPhaseEquil.cpp lines 131-168; ChemEquil.cpp line 35"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "gibbs_minimization"
-offered = true
+offered = "yes"
 scope = "constrained by element abundances; ChemEquil (element potentials), VCS (Smith-Missen, phase add and remove), MultiPhaseEquil (stoichiometric reaction-extent steps); several phases and single-species phases in one MultiPhase"
 locator = "include/cantera/equil/ChemEquil.h, vcs_solve.h, MultiPhaseEquil.h"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "aqueous_speciation"
-offered = true
+offered = "yes"
 scope = "VCS on a MultiPhase with a molality phase (HMW-electrolyte example with a gas and a solid); no dedicated speciation API and no pH-fixed or titration problem"
 locator = "test_problems/VCSnonideal/NaCl_equil/nacl_equil.cpp line 118"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_stability"
-offered = false
+offered = "no"
 scope = "standalone tangent-plane or stability analysis is not offered; VCS contains an internal phase-stability test (vcs_phaseStabilityTest) used only to add multi-species phases during an equilibrium solve"
 locator = "src/equil/vcs_solve.cpp line 1136"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "bubble_dew_point"
-offered = false
+offered = "no"
 scope = "no bubble or dew point for mixtures; saturation exists only for pure fluids and cubic phases at a fixed composition (see the proposed pure saturation record)"
 locator = "src/thermo/MixtureFugacityTP.cpp line 522 (satPressure at the current mixture content)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "saturation_pure (proposed)"
-offered = true
+offered = "yes"
 scope = "tpx pure fluids, liquid water IAPWS95 (WaterSSTP), and Redlich-Kwong or Peng-Robinson phases treated at their current composition; setState_Psat, setState_Tsat, satPressure, satTemperature"
 locator = "include/cantera/thermo/ThermoPhase.h lines 1793-1825; PureFluidPhase.h; MixtureFugacityTP.cpp line 529"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "critical_point"
-offered = true
+offered = "yes"
 scope = "pure fluids (tpx constants) and the cubic phases (critical conditions from the current a and b); no mixture critical point"
 locator = "src/thermo/MixtureFugacityTP.cpp lines 746-771; PureFluidPhase.cpp"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_envelope"
-offered = false
+offered = "no"
 scope = "no phase boundary tracing in any family"
 locator = "not found: no matching symbol in src/equil or src/thermo"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "characterization"
-offered = false
+offered = "no"
 scope = "no pseudo-component generation"
 locator = "not found in src"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "parameter_regression"
-offered = false
+offered = "no"
 scope = "no fitting of model parameters; the converters and the NASA-polynomial continuity validator are not regression"
 locator = "not found in src; NasaPoly2.cpp line 33 validate is a check only"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "group_estimation"
-offered = false
+offered = "no"
 scope = "no group contribution; h2o2.yaml's description mentions Joback and Reid estimation done outside the library"
 locator = "data/h2o2.yaml#/description"
 evidence = "documentation"
 
 [[capability]]
 calculation = "interfacial_profile"
-offered = false
+offered = "no"
 scope = "no density profile or surface tension from a functional"
 locator = "not found in src"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "adsorption_mixture_prediction"
-offered = false
+offered = "no"
 scope = "surface phases are ideal or coverage-dependent site models, not isotherm-based mixture adsorption prediction"
 locator = "src/thermo/SurfPhase.cpp; CoverageDependentSurfPhase.cpp"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "transport_property_evaluation (proposed)"
-offered = true
+offered = "yes"
 scope = "gas viscosity, conductivity, binary and multicomponent diffusion, thermal diffusion, mobility; water; ionized gas; high-pressure gas"
 locator = "src/transport/*.cpp; TransportFactory.cpp lines 29-50"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "reaction_rate_evaluation (proposed)"
-offered = true
+offered = "yes"
 scope = "forward and reverse rate constants, rates of progress and production rates for bulk, interface and edge kinetics"
 locator = "src/kinetics/*.cpp; KineticsFactory.cpp lines 25-37"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "reactor_simulation (proposed)"
-offered = true
+offered = "yes"
 scope = "out of thermodynamic scope: zero-dimensional reactors, flow devices, walls, reactor networks (src/zeroD)"
 locator = "src/zeroD/ReactorFactory.cpp; ConnectorFactory.cpp"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flame_simulation (proposed)"
-offered = true
+offered = "yes"
 scope = "out of thermodynamic scope: one-dimensional flow domains and boundaries, Sim1D free, burner, counterflow and ion flames"
 locator = "src/oneD/DomainFactory.cpp; Sim1D.cpp"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "mechanism_conversion (proposed)"
-offered = true
+offered = "yes"
 scope = "Chemkin, CTI, CTML and LXCat to YAML, and YAML to Chemkin"
 locator = "interfaces/cython/cantera/ck2yaml.py, cti2yaml.py, ctml2yaml.py, lxcat2yaml.py, yaml2ck.py"
 evidence = "documentation"

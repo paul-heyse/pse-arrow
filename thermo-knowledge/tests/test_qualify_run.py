@@ -8,12 +8,16 @@ from __future__ import annotations
 
 import json
 import shutil
+import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
+import msgspec
 import numpy as np
 import psycopg
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 from build_support import count
 from mapping_support import real_declaration
@@ -30,7 +34,7 @@ from qualify_support import (
 from typer.testing import CliRunner
 
 from thermo_knowledge import config, db
-from thermo_knowledge.build import build_database, discover
+from thermo_knowledge.build import SourceInput, build_database, currency, discover
 from thermo_knowledge.canonical import store
 from thermo_knowledge.build.inputs import QUALIFICATION_DIR, discover_qualification
 from thermo_knowledge.cli import app
@@ -458,27 +462,82 @@ def test_a_case_the_declaration_refuses_is_reported_and_records_nothing(env: Env
 
 
 @pytest.mark.parametrize(
-    ("changes", "reason"),
+    ("changes", "typed", "reason"),
     [
-        ({"library": "absent"}, "harness unavailable: the harness"),
-        ({"call": "crash"}, "harness unavailable: the harness exited 3"),
-        ({"call": "wrong_unit"}, "answered in 'bar'"),
-        ({"call": "short"}, "no answer for each of 5 points"),
+        ({"library": "absent"}, "harness_missing", "harness unavailable: the harness"),
+        ({"call": "crash"}, "harness_failed", "harness unavailable: the harness exited 3"),
+        ({"call": "wrong_unit"}, "harness_failed", "answered in 'bar'"),
+        ({"call": "short"}, "harness_failed", "no answer for each of 5 points"),
         (
             {"subjects": 'select = "list"\nkeys = ["nobody"]'},
+            "subjects_not_found",
             "no set in the parameterization for subject(s) nobody",
         ),
-        ({"revision": "zzz"}, "parameterization sat@zzz is not in the database"),
+        (
+            {"subjects": 'select = "sample"\nsize = 9\nseed = 1'},
+            "sample_too_large",
+            "a sample of 9 subjects was asked for, 3 exist",
+        ),
+        (
+            {"revision": "zzz"},
+            "parameterization_missing",
+            "parameterization sat@zzz is not in the database",
+        ),
+        (
+            {"key": "sat_twice", "subjects": 'select = "list"\nkeys = ["sp-a", "sp-b"]'},
+            "ambiguous_occurrence",
+            "occurrences 1, 2",
+        ),
     ],
 )
-def test_a_run_that_cannot_be_carried_out_is_blocked_with_the_reason(
-    env: Env, changes: dict[str, str], reason: str
+def test_a_run_that_cannot_be_carried_out_is_blocked_with_a_typed_reason_and_its_detail(
+    env: Env, changes: dict[str, str], typed: str, reason: str
 ) -> None:
     done = env.run(case_text(**changes))
     assert done.outcome == "blocked" and reason in str(done.report["note"])
+    assert done.blocked_reason == typed == done.report["blocked_reason"]
     row = run_row(env)
     assert row["outcome"] == "blocked" and row["points"] == 0 and reason in str(row["note"])
+    assert row["blocked_reason"] == typed
     assert env.sql("SELECT count(*) FROM qual.run_parameter_set") == [(0,)]
+
+
+def test_a_run_that_compares_nothing_is_blocked_for_that_reason(env: Env) -> None:
+    done = env.run(case_text(call="all_nan", extra_comparison='invalid_points = "exclude"\n'
+                             'invalid_reason = "the library has no answer"'))
+    assert done.outcome == "blocked" and done.blocked_reason == "nothing_compared"
+
+
+def test_only_a_blocked_run_states_a_blocked_reason(env: Env) -> None:
+    done = env.run(case_text())
+    assert done.outcome == "passed" and done.blocked_reason is None
+    assert run_row(env)["blocked_reason"] is None
+    with db.connect(env.database.url) as conn, pytest.raises(psycopg.errors.CheckViolation):
+        conn.execute("UPDATE qual.qualification_run SET blocked_reason = 'no_grid'")
+
+
+def test_the_command_groups_blocked_cases_by_their_typed_reason(
+    env: Env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    for name, changes in (
+        ("a_absent", {"library": "absent"}),
+        ("b_absent", {"library": "absent"}),
+        ("c_zzz", {"revision": "zzz"}),
+    ):
+        (env.tree / "qualification" / f"{name}.toml").write_text(
+            case_text(**changes), encoding="utf-8"
+        )
+    monkeypatch.setenv(config.STORE_ENV, str(env.tree))
+    monkeypatch.setenv(config.DATABASE_URL_ENV, env.database.url)
+    report = tmp_path / "report.json"
+    done = runner.invoke(app, ["qualify", "--report", str(report), "--tree", str(env.tree)])
+    assert done.exit_code == 1
+    assert "blocked (harness_missing): 2 case(s): a_absent, b_absent" in done.output
+    assert "blocked (parameterization_missing): 1 case(s): c_zzz" in done.output
+    assert json.loads(report.read_text())["blocked_by_reason"] == {
+        "harness_missing": ["a_absent", "b_absent"],
+        "parameterization_missing": ["c_zzz"],
+    }
 
 
 def test_a_run_blocked_before_the_library_version_is_known_has_no_reference(env: Env) -> None:
@@ -495,7 +554,10 @@ def test_a_run_blocked_before_the_library_version_is_known_has_no_reference(env:
     assert "unknown" not in " ".join(table_lines(done.report))
     inputs = discover(env.canonical)
     outputs, skipped = discover_qualification(
-        env.canonical, inputs, declaration_fingerprint(env.world.decl, read_physical(env.tree))
+        env.canonical,
+        inputs,
+        env.world.decl,
+        declaration_fingerprint(env.world.decl, read_physical(env.tree)),
     )
     assert [o.source_id for o in outputs] == [f"{QUALIFICATION_DIR}/case"] and skipped == []
     with TestDatabase() as fresh:
@@ -580,11 +642,20 @@ def test_the_parquet_of_a_run_loads_in_a_build_and_survives_it(env: Env, tmp_pat
         "case",
         "library",
         "subjects",
-        "stored",
+        "read",
         "format",
+        "framework",
+        "library:numpy",
+        "library:pint",
+        "library:pyarrow",
+        "library:scipy",
+        "library:sympy",
+        "file:harness",
+        "file:environment:core",
     }
+    assert manifest.read is not None and len(manifest.read.sets) == 3
     inputs = discover(env.canonical)
-    outputs, skipped = discover_qualification(env.canonical, inputs, fingerprint)
+    outputs, skipped = discover_qualification(env.canonical, inputs, env.world.decl, fingerprint)
     assert [o.source_id for o in outputs] == [f"{QUALIFICATION_DIR}/case"] and skipped == []
     with TestDatabase() as fresh:
         result = build_database(fresh.url, env.world.decl, [*inputs, *outputs])
@@ -600,19 +671,24 @@ def test_an_output_is_skipped_with_its_reason_when_its_key_or_its_sets_do_not_fi
     env: Env,
 ) -> None:
     env.run(case_text())
-    fingerprint = declaration_fingerprint(env.world.decl, read_physical(env.tree))
+    decl = env.world.decl
+    fingerprint = declaration_fingerprint(decl, read_physical(env.tree))
     inputs = discover(env.canonical)
-    _, skipped = discover_qualification(env.canonical, inputs, "0" * 64)
+    _, skipped = discover_qualification(env.canonical, inputs, decl, "0" * 64)
     assert len(skipped) == 1 and skipped[0].case == "case"
     assert (
         "made against another declaration" in skipped[0].reason
         and "tk qualify case" in skipped[0].reason
     )
-    outputs, skipped = discover_qualification(env.canonical, [], fingerprint)
-    assert outputs == [] and [s.reason for s in skipped] == [
-        "3 parameter set(s) it evaluated are not in this build"
-    ]
-    assert discover_qualification(env.canonical / "nowhere", inputs, fingerprint) == ([], [])
+    outputs, skipped = discover_qualification(env.canonical, [], decl, fingerprint)
+    assert outputs == [] and len(skipped) == 1
+    # three sets, each a parameter-set row, a slot-group row, three term rows and an envelope,
+    # and the parameterization they belong to
+    assert skipped[0].reason.startswith("19 record(s) it read are not in this build (")
+    assert discover_qualification(env.canonical / "nowhere", inputs, decl, fingerprint) == (
+        [],
+        [],
+    )
 
 
 def test_an_output_that_does_not_match_its_manifest_is_an_error(env: Env) -> None:
@@ -621,7 +697,154 @@ def test_an_output_that_does_not_match_its_manifest_is_an_error(env: Env) -> Non
         b"damaged"
     )
     with pytest.raises(store.CanonicalError, match="does not match its manifest"):
-        discover_qualification(env.canonical, [], "0" * 64)
+        discover_qualification(env.canonical, [], env.world.decl, "0" * 64)
+
+
+# -- currency: a stored run speaks only for the values it evaluated ---------------------------
+
+
+def mapped_change(env: Env, table: str, column: str, where: str, value: uuid.UUID, factor: float) -> None:
+    """Change one stored value in the canonical Parquet of the source `src` and refresh its
+    manifest, as `tk map` does after a mapping fix: the identifiers stay and a value differs."""
+    directory = env.canonical / "src"
+    manifest = store.read_manifest(directory)
+    tables = {name: pq.read_table(directory / record.file) for name, record in manifest.tables.items()}
+    data = tables[table]
+    index = data.schema.get_field_index(column)
+    changed = [
+        held * factor if identifier == value else held
+        for identifier, held in zip(data.column(where).to_pylist(), data.column(column).to_pylist())
+    ]
+    field = data.schema.field(index)
+    tables[table] = data.set_column(index, field, pa.array(changed, type=field.type))
+    records = store.write_tables(directory, tables)
+    store.write_manifest(directory, msgspec.structs.replace(manifest, tables=records))
+
+
+def qualification_outputs(env: Env) -> tuple[list[SourceInput], list[str]]:
+    """The outputs a build of the canonical store would load, and the reasons it skips the rest."""
+    fingerprint = declaration_fingerprint(env.world.decl, read_physical(env.tree))
+    inputs = discover(env.canonical)
+    outputs, skipped = discover_qualification(env.canonical, inputs, env.world.decl, fingerprint)
+    return [*inputs, *outputs], [item.reason for item in skipped]
+
+
+def listed_runs(env: Env, inputs: list[SourceInput]) -> list[tuple[object, ...]]:
+    with TestDatabase() as fresh:
+        build_database(fresh.url, env.world.decl, inputs)
+        with db.connect(fresh.url) as conn:
+            return conn.execute("SELECT run FROM qual.form_qualification").fetchall()
+
+
+SET_TABLE = "param.vapor_pressure_exp_series_tau__pure"
+
+
+@pytest.mark.parametrize(
+    ("table", "column", "where", "what"),
+    [
+        (SET_TABLE, "p_r", "id", "a slot value"),
+        (f"{SET_TABLE}__term", "n", "set_id", "a family row"),
+        ("tk.envelope", "upper", "parameter_set", "an envelope bound"),
+    ],
+)
+def test_a_run_is_skipped_and_not_listed_when_a_mapping_fix_changed_a_value_it_evaluated(
+    env: Env, table: str, column: str, where: str, what: str
+) -> None:
+    done = env.run(case_text())
+    assert done.outcome == "passed"
+    inputs, skipped = qualification_outputs(env)
+    assert skipped == [] and [i.source_id for i in inputs][-1] == f"{QUALIFICATION_DIR}/case"
+    assert len(listed_runs(env, inputs)) == 1, "an unchanged rebuild keeps the run"
+
+    # the same identifiers, one mapped value different, and no `tk qualify` in between
+    mapped_change(env, table, column, where, env.world.sets["sp-a"], 1.5)
+    inputs, skipped = qualification_outputs(env)
+    assert [i.source_id for i in inputs] == ["src"], "the run is not loaded"
+    (reason,) = skipped
+    assert "record(s) it read changed (" in reason and table in reason, what
+    assert reason.endswith("run `tk qualify case`")
+    assert listed_runs(env, inputs) == [], "and no run is listed as current"
+    assert env.sql("SELECT count(*) FROM qual.qualification_run") == [(1,)], "the live rows stay"
+
+    # rebuilding the database from the changed values and qualifying again makes a current run
+    build_database(env.database.url, env.world.decl, inputs)
+    again = env.run(case_text())
+    assert again.status == "ran" and again.outcome == "failed", "the fake library keeps its numbers"
+    inputs, skipped = qualification_outputs(env)
+    assert skipped == [] and inputs[-1].source_id == f"{QUALIFICATION_DIR}/case"
+
+
+def test_a_value_the_run_did_not_read_does_not_retire_it(env: Env) -> None:
+    env.run(case_text(subjects='select = "list"\nkeys = ["sp-a"]'))
+    mapped_change(env, SET_TABLE, "p_r", "id", env.world.sets["sp-c"], 2.0)
+    inputs, skipped = qualification_outputs(env)
+    assert skipped == [] and inputs[-1].source_id == f"{QUALIFICATION_DIR}/case"
+
+
+def test_the_build_hashes_the_records_the_run_hashed_from_the_database(env: Env) -> None:
+    env.run(case_text())
+    manifest = store.read_manifest(env.canonical / QUALIFICATION_DIR / "case")
+    assert manifest.read is not None
+    layout = currency.Layout(env.world.decl)
+    files: dict[str, list[Path]] = {}
+    for item in discover(env.canonical):
+        for table, path in item.files.items():
+            files.setdefault(table, []).append(path)
+    from_parquet = currency.read_records(
+        layout,
+        currency.ParquetRows(files),
+        sets=[uuid.UUID(value) for value in manifest.read.sets],
+        parameterizations=[uuid.UUID(value) for value in manifest.read.parameterizations],
+    )
+    with db.connect(env.database.url) as conn:
+        from_database = currency.read_records(
+            layout,
+            currency.DatabaseRows(conn, layout),
+            sets=[uuid.UUID(value) for value in manifest.read.sets],
+            parameterizations=[uuid.UUID(value) for value in manifest.read.parameterizations],
+        )
+    assert from_parquet == from_database == manifest.read.records
+    assert {name.partition("[")[0] for name in from_parquet} == {
+        "tk.parameter_set",
+        SET_TABLE,
+        f"{SET_TABLE}__term",
+        "tk.envelope",
+        "tk.parameterization",
+    }
+
+
+def test_a_changed_key_is_described_by_the_records_that_differ() -> None:
+    recorded = {"t[a]": "1", "t[b]": "2", "t[c]": "3"}
+    assert currency.differences(recorded, dict(recorded)) is None
+    assert (
+        currency.differences(recorded, {"t[a]": "1", "t[b]": "9", "t[d]": "4"})
+        == "1 record(s) it read changed (t[b]); 1 record(s) it read are not in this build (t[c]); "
+        "1 record(s) it would read are new in this build (t[d])"
+    )
+    assert currency.record_hash("t", {"a": 1, "b": "x"}) == currency.record_hash(
+        "t", {"b": "x", "a": 1}
+    )
+    assert currency.record_hash("t", {"a": 1}) != currency.record_hash("u", {"a": 1})
+    assert currency.record_hash("t", {"a": 1.0}) != currency.record_hash("t", {"a": 1.5})
+
+
+def test_tk_build_reports_a_run_a_mapping_fix_made_stale(
+    env: Env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (env.tree / "qualification" / "case.toml").write_text(case_text(), encoding="utf-8")
+    monkeypatch.setenv(config.STORE_ENV, str(env.tree))
+    monkeypatch.setenv(config.DATABASE_URL_ENV, env.database.url)
+    tree = ["--tree", str(env.tree)]
+    assert runner.invoke(app, ["qualify", *tree]).exit_code == 0
+    kept = runner.invoke(app, ["build", *tree])
+    assert kept.exit_code == 0 and "qualification outputs: 1 loaded, 0 skipped" in kept.output
+    mapped_change(env, SET_TABLE, "p_r", "id", env.world.sets["sp-b"], 1.25)
+    skipped = runner.invoke(app, ["build", *tree])
+    assert skipped.exit_code == 0, skipped.output
+    assert "skipped qualification output case: 1 record(s) it read changed" in skipped.output
+    assert "qualification outputs: 0 loaded, 1 skipped" in skipped.output
+    assert env.sql("SELECT count(*) FROM qual.qualification_run") == [(0,)]
+    assert env.sql("SELECT count(*) FROM qual.form_qualification") == [(0,)]
 
 
 # -- the commands ------------------------------------------------------------------------------

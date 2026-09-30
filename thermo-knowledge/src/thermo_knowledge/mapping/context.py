@@ -7,8 +7,10 @@ A mapping reads mapped rows from the context and emits inside `with ctx.emit(row
 emit:` blocks. A block is one unit of work: the records it emits are written together with the
 rows `row` and `also` as their origins, and if anything in it is refused (validation, an
 ambiguous subject, a value that fits no declared scheme) nothing of it is written and those
-rows end `held` with the reason. The context tracks each row's outcome, which the coverage
-report is computed from; it never decides a state itself.
+rows end `held` with a typed reason (a `held_reason` member) and its detail. The context tracks
+each row's outcome, which the coverage report is computed from, and counts how many mapped rows
+each value rule was applied to (rows that produced a value in a block that wrote records), which
+the run checks after phase 2; it never decides a state itself.
 
 Units, constants and defaults are not given to a mapping: `quantity` returns a value with the
 unit `mapping.toml` declares for its column, and `value` a value with the rule's absent
@@ -28,7 +30,7 @@ from dataclasses import dataclass, field
 
 from thermo_knowledge import pipeline_contract as pc
 from thermo_knowledge.canonical.provenance import CarrierInfo, Origin, SourceRef
-from thermo_knowledge.canonical.values import Quantity
+from thermo_knowledge.canonical.values import Quantity, ValueRefused, convert
 from thermo_knowledge.canonical.writer import (
     CanonicalWriter,
     FamilyRow,
@@ -57,26 +59,40 @@ MAPPED = claims.MAPPED
 
 
 class RowHeld(Exception):
-    """The rows of the block cannot be loaded; the message is the recorded reason."""
+    """The rows of the block cannot be loaded: `reason` is the `held_reason` member recorded for
+    them and the message its detail."""
+
+    def __init__(self, reason: str, detail: str) -> None:
+        if reason not in pc.HELD_REASON.members:
+            raise ValueError(f"`{reason}` is not a held reason: {', '.join(pc.HELD_REASON.members)}")
+        self.reason = reason
+        super().__init__(detail)
 
 
 class SubjectHeld(RowHeld):
     """A subject is unknown or ambiguous."""
 
 
+VALIDATION_FAILED = pc.HELD_REASON.member("validation_failed")
+
+
 @dataclass
 class Outcome:
-    """How one source row fared: emitted (with a loss or not) or held."""
+    """How one source row fared: emitted (with a loss or not) or held, with the held reason and
+    its detail."""
 
     state: str
     lossy: bool
     reason: str | None = None
+    detail: str | None = None
 
 
 @dataclass
 class _Block:
     rows: tuple[SourceRow, ...]
     lossy: set[str] = field(default_factory=set)
+    applied: set[tuple[str, str, str]] = field(default_factory=set)
+    """(table, column, locator) of each value rule application of the block."""
     count: int = 0
 
 
@@ -100,6 +116,7 @@ class RunContext[E]:
         self.classifier = Classifier(tables, spec.tables)
         self.outcomes: dict[tuple[str, str], Outcome] = {}
         self.absent: dict[tuple[str, str, str], int] = {}
+        self._applied: dict[tuple[str, str], set[str]] = {}
         self._block: _Block | None = None
 
     # -- reading ------------------------------------------------------------------------------
@@ -128,9 +145,18 @@ class RunContext[E]:
             raise MappingError(f"table {table}: column `{column}` has no field rule")
         return found
 
-    def _use(self, row: SourceRow, rule: FieldRule) -> None:
-        if rule.loss and self._block is not None:
+    def _use(self, row: SourceRow, column: str, rule: FieldRule) -> None:
+        """Note that `rule`, the rule of `column`, produced a value for `row` in the open block."""
+        if self._block is None:
+            return
+        self._block.applied.add((row.table, column, row.locator))
+        if rule.loss:
             self._block.lossy.add(row.locator)
+
+    def rule_use(self) -> dict[tuple[str, str], int]:
+        """The mapped rows each value rule was applied to, by (table, column): rows for which it
+        produced a value in a block that wrote records."""
+        return {key: len(rows) for key, rows in sorted(self._applied.items())}
 
     def _is_absent(self, table: str, column: str, rule: FieldRule, raw: object) -> bool:
         if raw is None or raw == "":
@@ -153,7 +179,7 @@ class RunContext[E]:
         raw = row[column]
         if self._is_absent(row.table, column, rule, raw):
             return None
-        self._use(row, rule)
+        self._use(row, column, rule)
         return raw  # type: ignore[return-value]
 
     def quantity(self, row: SourceRow, column: str) -> Quantity | None:
@@ -165,8 +191,8 @@ class RunContext[E]:
         if self._is_absent(row.table, column, rule, raw):
             return None
         if isinstance(raw, bool) or not isinstance(raw, (int, float)):
-            raise RowHeld(f"{row.table}.{column}: {raw!r} is not a number")
-        self._use(row, rule)
+            raise RowHeld("not_a_number", f"{row.table}.{column}: {raw!r} is not a number")
+        self._use(row, column, rule)
         return Quantity(float(raw), rule.unit)
 
     def integer(self, row: SourceRow, column: str) -> int | None:
@@ -177,8 +203,8 @@ class RunContext[E]:
         if self._is_absent(row.table, column, rule, raw):
             return None
         if isinstance(raw, bool) or not isinstance(raw, int):
-            raise RowHeld(f"{row.table}.{column}: {raw!r} is not an integer")
-        self._use(row, rule)
+            raise RowHeld("not_an_integer", f"{row.table}.{column}: {raw!r} is not an integer")
+        self._use(row, column, rule)
         return raw + (rule.offset or 0)
 
     def _column_value(self, row: SourceRow, column: str, rule: FieldRule) -> object | None:
@@ -279,22 +305,26 @@ class RunContext[E]:
         try:
             with self._unit():
                 yield self._emitter(block)
-        except (RowHeld, ValidationError) as held:
-            self._hold(block, str(held))
+        except RowHeld as held:
+            self._hold(block, held.reason, str(held))
+        except ValidationError as held:
+            self._hold(block, VALIDATION_FAILED, str(held))
         else:
             if block.count:
                 self._commit(block)
         finally:
             self._block = None
 
-    def _hold(self, block: _Block, reason: str) -> None:
+    def _hold(self, block: _Block, reason: str, detail: str) -> None:
         for row in block.rows:
             key = (row.table, row.locator)
             existing = self.outcomes.get(key)
             if existing is None or existing.state != claims.HELD:
-                self.outcomes[key] = Outcome(claims.HELD, False, reason)
+                self.outcomes[key] = Outcome(claims.HELD, False, reason, detail)
 
     def _commit(self, block: _Block) -> None:
+        for table, column, locator in block.applied:
+            self._applied.setdefault((table, column), set()).add(locator)
         for row in block.rows:
             key = (row.table, row.locator)
             declared = self.classifier.classify(row.table)[row.locator].loss is not None
@@ -345,18 +375,39 @@ class IdentityContext(RunContext["IdentityEmitter"]):
         super().__init__(**kwargs)  # type: ignore[arg-type]
         self.entities: list[claims.EntityClaim] = []
         self.assertions: list[claims.AssertionClaim] = []
+        self.components: list[claims.ComponentClaim] = []
         self._seen: set[tuple[object, ...]] = set()
+        self._declared: dict[tuple[str, str], claims.EntityClaim] = {}
 
     @contextmanager
     def _unit(self) -> Iterator[None]:
-        marks = (len(self.entities), len(self.assertions), set(self._seen))
+        marks = (
+            len(self.entities),
+            len(self.assertions),
+            len(self.components),
+            set(self._seen),
+            dict(self._declared),
+        )
         try:
             yield
         except BaseException:
             del self.entities[marks[0] :]
             del self.assertions[marks[1] :]
-            self._seen = marks[2]
+            del self.components[marks[2] :]
+            self._seen = marks[3]
+            self._declared = marks[4]
             raise
+
+    def entity(self, scope: str, key: str) -> EntityHandle:
+        """The source entity (`scope`, `key`) an earlier block of this run declared, to cite it (as
+        a component of a mixture). An entity not declared holds the rows of the block."""
+        if (scope, key) not in self._declared:
+            raise SubjectHeld(
+                "unknown_subject",
+                f"the source entity ({scope}, {key!r}) of {self.source_id} is not declared by "
+                "this run",
+            )
+        return EntityHandle(scope, key)
 
     def _emitter(self, block: _Block) -> IdentityEmitter:
         return IdentityEmitter(self, block)
@@ -390,14 +441,30 @@ class IdentityEmitter:
             )
         key = self._row[spec.key]
         if not isinstance(key, str) or key == "":
-            raise RowHeld(f"{self._row.table}.{spec.key}: {key!r} is not a usable key")
+            raise RowHeld("unusable_key", f"{self._row.table}.{spec.key}: {key!r} is not a usable key")
+        entity_class = spec.class_of(
+            None if spec.class_by is None else self._row[spec.class_by.column]
+        )
+        form = pc.ENTITY_CLASS.member("species_form")
+        if (entity_class == form) != (aggregation is not None):
+            raise MappingError(
+                f"scope `{scope}`: the entity {key!r} is of class `{entity_class}`, and only an "
+                "entity of class `species_form` states an aggregation (and one of that class "
+                "states it)"
+            )
+        if polymorph is not None and entity_class != form:
+            raise MappingError(f"scope `{scope}`: only a species form states a polymorph")
+        mixture = spec.mixture if entity_class == pc.ENTITY_CLASS.member("defined_mixture") else None
         claim = claims.EntityClaim(
             ctx.source_id,
             scope,
             key,
+            entity_class,
             aggregation,
             polymorph,
             stated_charge,
+            None if mixture is None else mixture.definition,
+            None if mixture is None else mixture.basis == "mole",
             ctx.role_of(self._row),
             self._row.artifact,
             self._row.locator,
@@ -406,8 +473,55 @@ class IdentityEmitter:
         if marker not in ctx._seen:
             ctx._seen.add(marker)
             ctx.entities.append(claim)
+        ctx._declared.setdefault((scope, key), claim)
         self._block.count += 1
         return EntityHandle(scope, key)
+
+    def component(
+        self, mixture: EntityHandle, component: EntityHandle, row: SourceRow, column: str
+    ) -> None:
+        """Claim that `component` is a component of the defined mixture `mixture`, with the
+        fraction `column` of `row` holds on the basis the scope states, converted from the rule's
+        unit and written as exact decimal text. Both entities are declared by this run; a
+        mixture is of class `defined_mixture` or the block is refused with a `MappingError`."""
+        ctx = self._ctx
+        declared = ctx._declared.get((mixture.scope, mixture.local_key))
+        if declared is None or declared.entity_class != pc.ENTITY_CLASS.member("defined_mixture"):
+            raise MappingError(
+                f"({mixture.scope}, {mixture.local_key!r}) is not a declared defined mixture"
+            )
+        rule = ctx.rule(row.table, column)
+        target = pc.MIXTURE_COMPONENT
+        if rule.target != f"{target.declared}.{target.value}" or rule.unit is None:
+            raise MappingError(
+                f"table {row.table}: column `{column}` is not a mixture fraction with a unit"
+            )
+        raw = row[column]
+        if ctx._is_absent(row.table, column, rule, raw):
+            raise RowHeld("not_a_number", f"{row.table}.{column}: the component has no fraction")
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+            raise RowHeld("not_a_number", f"{row.table}.{column}: {raw!r} is not a number")
+        ctx._use(row, column, rule)
+        try:
+            fraction = claims.decimal_text(convert(float(raw), rule.unit, m.DIMENSIONLESS))
+        except ValueRefused as error:
+            raise RowHeld("unit_not_parseable", f"{row.table}.{column}: {error}") from error
+        claim = claims.ComponentClaim(
+            ctx.source_id,
+            mixture.scope,
+            mixture.local_key,
+            component.scope,
+            component.local_key,
+            fraction,
+            ctx.role_of(row),
+            row.artifact,
+            row.locator,
+        )
+        marker = ("component", claim.mixture, claim.component, fraction, row.locator)
+        if marker not in ctx._seen:
+            ctx._seen.add(marker)
+            ctx.components.append(claim)
+        self._block.count += 1
 
     def assertion(self, entity: EntityHandle, column: str, value: object | None = None) -> bool:
         """Assert the value of `column` (or `value`, when a column holds several, such as a list
@@ -429,9 +543,12 @@ class IdentityEmitter:
         assert scheme is not None  # validated
         if rule.pattern is not None and not re.fullmatch(rule.pattern, text):
             if rule.otherwise_scheme is None:
-                raise RowHeld(f"{row.table}.{column}: {text!r} does not match `{rule.pattern}`")
+                raise RowHeld(
+                    "pattern_mismatch",
+                    f"{row.table}.{column}: {text!r} does not match `{rule.pattern}`",
+                )
             scheme = rule.otherwise_scheme
-        ctx._use(row, rule)
+        ctx._use(row, column, rule)
         claim = claims.AssertionClaim(
             ctx.source_id,
             entity.scope,
@@ -485,12 +602,14 @@ class RecordContext(RunContext["RecordEmitter"]):
         info = self._subjects.get((scope, key))
         if info is None:
             raise SubjectHeld(
-                f"no source entity ({scope}, {key!r}) of {self.source_id} was resolved"
+                "unknown_subject",
+                f"no source entity ({scope}, {key!r}) of {self.source_id} was resolved",
             )
         if info.status == pc.RESOLUTION_STATUS.member("ambiguous"):
             raise SubjectHeld(
+                "ambiguous_subject",
                 f"the source entity ({scope}, {key!r}) is ambiguous; candidates: "
-                f"{', '.join(info.candidates) or '(none)'}"
+                f"{', '.join(info.candidates) or '(none)'}",
             )
         return info.target
 

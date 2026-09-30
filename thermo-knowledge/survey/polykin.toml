@@ -382,7 +382,7 @@ class = "residual_or_excess_contribution"
 inputs = "T [K], mole fractions x; g^E = 0"
 parameters = "none"
 composes = []
-variants = ""
+variants = []
 equation_source = "class docstring"
 closed_form = "yes"
 data = "none"
@@ -394,7 +394,9 @@ class = "residual_or_excess_contribution"
 inputs = "T [K], volume, mass or segment fractions phi (the variable used to fit chi), characteristic sizes m (1 for small molecules, degree of polymerization for polymers); Delta g_mix/RT = sum (phi_i/m_i) ln phi_i + sum_{j>i} phi_i phi_j chi_ij per mole of sites; ln a_i = ln phi_i + 1 - m_i (sum phi_j/m_j - sum phi_j chi_ij + sum_{j<k} phi_j phi_k chi_jk); binary solvent activity ln a1 = ln phi1 + (1 - 1/m)(1 - phi1) + chi (1 - phi1)^2"
 parameters = "pair: chi_ij as a + b/T + c ln T + d T + e T^2 (unordered); per component: size m (input of each evaluation)"
 composes = []
-variants = "class FloryHuggins (temperature-dependent chi), function FloryHuggins_activity (given chi), FloryHuggins2_activity (binary, scalar m and chi)."
+variants = [
+  { selector = "", selects = "class FloryHuggins (temperature-dependent chi), function FloryHuggins_activity (given chi), FloryHuggins2_activity (binary, scalar m and chi)." },
+]
 equation_source = "P.J. Flory, Principles of polymer chemistry, 1953; Lindvig et al., Fluid Phase Equilib. 220 (2004) 11-20 (multicomponent activity)"
 closed_form = "yes"
 data = "Flory-Huggins chi matrices construct"
@@ -406,7 +408,9 @@ class = "residual_or_excess_contribution"
 inputs = "T [K], mole fractions; g^E/RT = sum_i x_i (sum_j x_j tau_ji G_ji)/(sum_j x_j G_ji); activity coefficients by symbolic-free differentiation from g^E in the base class or by NRTL_gamma"
 parameters = "pair: tau (a, b, e, f matrices), alpha (c, d matrices)"
 composes = []
-variants = "Aspen-form temperature dependence of tau and alpha."
+variants = [
+  { selector = "", selects = "Aspen-form temperature dependence of tau and alpha." },
+]
 equation_source = "Renon and Prausnitz, AIChE J. 14 (1968) 135-144"
 closed_form = "yes"
 data = "NRTL matrices construct"
@@ -418,7 +422,7 @@ class = "residual_or_excess_contribution"
 inputs = "T [K], mole fractions; g^E/RT = -sum_i x_i ln(sum_j x_j Lambda_ij), Lambda = exp(a + b/T + c ln T + d T)"
 parameters = "pair: Lambda coefficient matrices (ordered)"
 composes = []
-variants = ""
+variants = []
 equation_source = "G.M. Wilson, J. Am. Chem. Soc. 1964, 86, 127"
 closed_form = "yes"
 data = "Wilson parameters construct"
@@ -430,7 +434,7 @@ class = "residual_or_excess_contribution"
 inputs = "T [K], mole fractions; g^E = g^R + g^C with the surface and volume fractions computed from x, q and r"
 parameters = "pure: q, r; pair: tau coefficient matrices (ordered)"
 composes = []
-variants = ""
+variants = []
 equation_source = "Abrams and Prausnitz, AIChE J. 21 (1975) 116-128"
 closed_form = "yes"
 data = "UNIQUAC parameters construct"
@@ -442,7 +446,7 @@ class = "residual_or_excess_contribution"
 inputs = "T [K], mole fractions; ln gamma_i = (v_i/RT)(delta_i - delta_mean)^2 with volume fractions from x and v"
 parameters = "pure: delta, v"
 composes = []
-variants = ""
+variants = []
 equation_source = "Prausnitz, Lichtenthaler, de Azevedo, Molecular Thermodynamics of Fluid-Phase Equilibria, 3rd ed., 1999, p. 325"
 closed_form = "yes"
 data = "Scatchard-Hildebrand parameters construct"
@@ -454,7 +458,9 @@ class = "residual_or_excess_contribution"
 inputs = "segment-based mole fractions xs, degree of polymerization DP, repeating-unit composition F; g^E = R T (gR + gC) with an NRTL residual term on segment mole fractions per mole of segments and a Flory-Huggins combinatorial term"
 parameters = "pair of segments: tau and alpha coefficient matrices (Nseg x Nseg); per segment: size s"
 composes = []
-variants = "Not exported from polykin.thermo.acm (its __init__ imports floryhuggins, ideal, nrtl, scatchard, uniquac, wilson only); README marks Poly-NRTL as not implemented."
+variants = [
+  { selector = "", selects = "Not exported from polykin.thermo.acm (its __init__ imports floryhuggins, ideal, nrtl, scatchard, uniquac, wilson only); README marks Poly-NRTL as not implemented." },
+]
 equation_source = "Renon and Prausnitz (NRTL part, docstring); the combinatorial term is uncited"
 closed_form = "yes"
 data = "polymer component description and NRTL matrices constructs"
@@ -466,7 +472,7 @@ class = "residual_or_excess_contribution"
 inputs = "T, P, mole fractions y; Z = 1"
 parameters = "none"
 composes = []
-variants = ""
+variants = []
 equation_source = "class docstring"
 closed_form = "yes"
 data = "none"
@@ -478,7 +484,9 @@ class = "residual_or_excess_contribution"
 inputs = "T, P, mole fractions y; Z = 1 + B_m P/(RT); B P_c/(R T_c) = B0(Tr) + w B1(Tr) with B0 = 0.083 - 0.422/Tr^1.6 and B1 = 0.139 - 0.172/Tr^4.2; mixture B_m by Prausnitz combining rules for the pair critical temperature (with k_ij from critical volumes), Zc, w, Pc"
 parameters = "pure: Tc, Pc, Zc, w"
 composes = []
-variants = "valid (docstring) for v/vc > 2."
+variants = [
+  { selector = "", selects = "valid (docstring) for v/vc > 2." },
+]
 equation_source = "Reid, Prausnitz, Poling, 4th ed., 1986, pages 40, 80, 145"
 closed_form = "yes"
 data = "gas equation-of-state parameters construct"
@@ -493,7 +501,9 @@ composes = [
   { slot = "mixing_rule", accepts = "quadratic attractive term with k and linear covolume", default = "geometric_interaction_mixing with k, linear bm (overridable in subclasses)" },
   { slot = "alpha", accepts = "dimensionless temperature function", default = "per class: sqrt(Tc/T) (RK), Soave form with Graboski-Daubert f(w) (SRK), Peng-Robinson form (PR)" },
 ]
-variants = "SoaveRedlichKwong(use_graboski=True by default): False selects Soave's original f(w) = 0.48 + 1.574 w - 0.176 w^2, True selects f(w) = 0.48508 + 1.55171 w - 0.1561 w^2. Psat is defined only for single-component systems."
+variants = [
+  { selector = "", selects = "SoaveRedlichKwong(use_graboski=True by default): False selects Soave's original f(w) = 0.48 + 1.574 w - 0.176 w^2, True selects f(w) = 0.48508 + 1.55171 w - 0.1561 w^2. Psat is defined only for single-component systems." },
+]
 equation_source = "Reid, Prausnitz, Poling, 4th ed., 1986, pages 37, 40, 80, 82"
 closed_form = "implicit"
 data = "gas equation-of-state parameters construct"
@@ -507,7 +517,9 @@ parameters = "none of its own; the K-value function supplies all thermodynamics"
 composes = [
   { slot = "Kcalc", accepts = "function returning K-values for given T, P, x, y (for example CubicEoS.K)", default = "none (required argument)" },
 ]
-variants = "flash2_PT (given T and P), flash2_PV (given P and beta, unknown T), flash2_TV (given T and beta, unknown P); K_Wilson is a shortcut K-value used for initial guesses."
+variants = [
+  { selector = "", selects = "flash2_PT (given T and P), flash2_PV (given P and beta, unknown T), flash2_TV (given T and beta, unknown P); K_Wilson is a shortcut K-value used for initial guesses." },
+]
 equation_source = "Michelsen and Mollerup 2007 (PT and Rachford-Rice), Boston and Britt, Comput. Chem. Eng. 2 (1978) 109-122 (PV, TV), Rachford and Rice 1952, Wilson 1969"
 closed_form = "procedural"
 data = "none"
@@ -519,7 +531,9 @@ class = "explicit_correlation"
 inputs = "T [K], P [Pa]; v(T,P) = v(T,0)[1 - C ln(1 + P/B(T))], v(T,0) = A0 + A1 (T - 273.15) + A2 (T - 273.15)^2, B(T) = B0 exp(-B1 (T - 273.15)), C = 0.0894; also the thermal expansion coefficient beta and the isothermal compressibility kappa"
 parameters = "pure: A0, A1, A2, B0, B1 and the validity ranges"
 composes = []
-variants = "Tait.from_database(name) loads one row; vs() converts units and checks ranges."
+variants = [
+  { selector = "", selects = "Tait.from_database(name) loads one row; vs() converts units and checks ranges." },
+]
 equation_source = "Danner and High, Handbook of polymer solution thermodynamics, 2010"
 closed_form = "yes"
 data = "Tait parameter row construct (Tait_parameters.tsv)"
@@ -531,7 +545,9 @@ class = "explicit_correlation"
 inputs = "T, Tc, Pc and either the Rackett compressibility Z_RA or the acentric factor w; v = (R Tc/Pc) Z_RA^(1 + (1 - Tr)^(2/7)), Z_RA = 0.29056 - 0.08775 w when estimated"
 parameters = "pure: Tc, Pc, Z_RA or w"
 composes = []
-variants = "exactly one of ZRA or w must be given."
+variants = [
+  { selector = "", selects = "exactly one of ZRA or w must be given." },
+]
 equation_source = "Reid, Prausnitz, Poling, 4th ed., 1986, p. 67"
 closed_form = "yes"
 data = "none"
@@ -543,7 +559,7 @@ class = "model_component"
 inputs = "composition y (mole or mass fractions), pure or pair property; Q_m = sum y_i y_j Q_ij (full matrix, no symmetry assumed) or sum y_i y_j sqrt(Q_i Q_j)(1 - k_ij); pseudo-critical properties of a mixture"
 parameters = "pair: Q_ij or k_ij"
 composes = []
-variants = ""
+variants = []
 equation_source = "Reid, Prausnitz, Poling, 4th ed., 1986, p. 75"
 closed_form = "yes"
 data = "none"
@@ -555,7 +571,9 @@ class = "explicit_correlation"
 inputs = "T; Antoine log_base P* = A - B/(T + C) (base and units chosen by the user); Wagner ln(P*/Pc) = (a tau + b tau^1.5 + c tau^2.5 (25) or tau^3 (36) + d tau^5 (25) or tau^6 (36))/Tr with tau = 1 - Tr; Pitzer-type estimates from Tc, Pc, w"
 parameters = "pure: A, B, C (Antoine); a, b, c, d with Tc and Pc (Wagner); Tc, Pc, w (estimators)"
 composes = []
-variants = "Wagner 25 (used by the ThermoData Engine) and Wagner 36 (Wagner's original) differ in exponents; estimators Lee-Kesler (f0 and f1), Ambrose-Walton (f0, f1, f2), Wilson (ln(P/Pc) = 5.373(1 + w)(1 - 1/Tr))."
+variants = [
+  { selector = "", selects = "Wagner 25 (used by the ThermoData Engine) and Wagner 36 (Wagner's original) differ in exponents; estimators Lee-Kesler (f0 and f1), Ambrose-Walton (f0, f1, f2), Wilson (ln(P/Pc) = 5.373(1 + w)(1 - 1/Tr))." },
+]
 equation_source = "class docstrings; Reid, Prausnitz, Poling 4th ed. p. 207 (Lee-Kesler); Poling, Prausnitz, O'Connell 5th ed. p. 235 (Ambrose-Walton); Wilson 1969"
 closed_form = "yes"
 data = "property equation instance construct"
@@ -567,7 +585,9 @@ class = "explicit_correlation"
 inputs = "T; 100: polynomial in T to T^4; 101: exp(A + B/T + C ln T + D T^E); 102: A T^B/(1 + C/T + D/T^2); 104: A + B/T + C/T^3 + D/T^8 + E/T^9; 105: A/B^(1 + (1 - T/C)^D); 106: A(1 - Tr)^(B + C Tr + D Tr^2 + E Tr^3); 107: A + B[(C/T)/sinh(C/T)]^2 + D[(E/T)/cosh(E/T)]^2"
 parameters = "pure: A to E (and Tc for 106)"
 composes = []
-variants = "equation number 100 to 107 (no 103 or 114 forms)."
+variants = [
+  { selector = "", selects = "equation number 100 to 107 (no 103 or 114 forms)." },
+]
 equation_source = "class docstrings link the DIPPR equation pages"
 closed_form = "yes"
 data = "property equation instance construct"
@@ -579,7 +599,9 @@ class = "explicit_correlation"
 inputs = "Pitzer acentric method at T: dHv/(R Tc) = 7.08(1 - Tr)^0.354 + 10.95 w (1 - Tr)^0.456 (valid 0.6 < Tr < 1); Vetere at the normal boiling point from Tb, Tc, Pc; Kistiakowsky-Vetere from Tb, M and a compound kind (five entropy-of-vaporization correlations); Watson exponent 0.38 scaling from a reference temperature"
 parameters = "pure: Tc, Pc, w, Tb, M"
 composes = []
-variants = "Kistiakowsky-Vetere argument kind selects one of five correlations."
+variants = [
+  { selector = "", selects = "Kistiakowsky-Vetere argument kind selects one of five correlations." },
+]
 equation_source = "Reid, Prausnitz, Poling, 4th ed., pages 220, 227, 228, 231"
 closed_form = "yes"
 data = "none"
@@ -591,7 +613,9 @@ class = "transport"
 inputs = "T; log_base mu = A + B/T + C T + D T^2 (Andrade when C = D = 0); mixtures: (sum x mu^(1/3))^3 for hydrocarbons and exp(sum x ln mu) otherwise, mole fractions x"
 parameters = "pure: A, B, C, D per substance"
 composes = []
-variants = "hydrocarbons flag selects the mixing rule."
+variants = [
+  { selector = "", selects = "hydrocarbons flag selects the mixing rule." },
+]
 equation_source = "class docstring; Perry's Chemical Engineers' Handbook 7th ed., p. 2-367"
 closed_form = "yes"
 data = "property equation instance construct"
@@ -603,7 +627,9 @@ class = "transport"
 inputs = "MUVPC_Jossi: dense-gas correction as a quartic in reduced density; MUVMXPC_Dean_Stiel: mixture pressure correction; MUV_Lucas and MUVMX_Lucas: T, P, M, Tc, Pc, Zc and polarity dm; MUVMX2_Herning_Zipperer: mixture from pure viscosities, mole fractions and molar masses"
 parameters = "pure: Tc, Pc, Zc, M, dipole moment dm"
 composes = []
-variants = "pure versus mixture functions."
+variants = [
+  { selector = "", selects = "pure versus mixture functions." },
+]
 equation_source = "Reid, Prausnitz, Poling 4th ed. pp. 410, 421, 424, 431; Dean and Stiel, AIChE J. 11 (1965) 526"
 closed_form = "yes"
 data = "none"
@@ -615,7 +641,7 @@ class = "transport"
 inputs = "Li mixing rule for liquids with mass fractions w and densities: k_m = sum_i sum_j phi_i phi_j k_ij, k_ij = 2/(1/k_i + 1/k_j), phi from w and rho; Stiel-Thodos pressure correction for gases; Wassilijewa with Herning-Zipperer simplification: mole-fraction and sqrt(M) weighting"
 parameters = "pure: k (pure conductivities as inputs), Tc, Pc, Zc, M"
 composes = []
-variants = ""
+variants = []
 equation_source = "Reid, Prausnitz, Poling 4th ed. pp. 410, 521, 531, 536, 565"
 closed_form = "yes"
 data = "none"
@@ -627,7 +653,9 @@ class = "transport"
 inputs = "infinite-dilution liquid diffusivity from T, M, density, solvent viscosity and an association factor; Stokes-Einstein D = kB T/(6 pi mu R); gas diffusivity from T, P, M, densities and temperatures of the boiling point; gas mixture dilute-component average"
 parameters = "pure: M, density, viscosity, association factor phi, boiling properties"
 composes = []
-variants = "Hayduk-Minhas method argument selects a correlation; Wilke-Lee takes None boiling data for air."
+variants = [
+  { selector = "", selects = "Hayduk-Minhas method argument selects a correlation; Wilke-Lee takes None boiling data for air." },
+]
 equation_source = "Reid, Prausnitz, Poling 4th ed. pp. 587, 598, 602"
 closed_form = "yes"
 data = "none"
@@ -641,7 +669,9 @@ parameters = "pair: D0, E, v1*, v2*, xi, K11, K12, K21, K22, Tg1, Tg2, gamma, ch
 composes = [
   { slot = "interaction_parameter", accepts = "Flory-Huggins chi for the mass-fraction basis", default = "chi = 0.5 (argument X)" },
 ]
-variants = "selfd=True returns the solvent self-diffusion coefficient D1; otherwise the mutual D."
+variants = [
+  { selector = "", selects = "selfd=True returns the solvent self-diffusion coefficient D1; otherwise the mutual D." },
+]
 equation_source = "Vrentas and Duda, J. Polym. Sci. Polym. Phys. Ed. 1977, 15, 403-416"
 closed_form = "yes"
 data = "Vrentas-Duda parameter set construct"
@@ -653,7 +683,7 @@ class = "other"
 inputs = "number pdf p(k) = (1 - a) a^(k - 1) with a = 1 - 1/DPn (discrete, geometric); moments in closed form through order 4 and by a polylogarithm beyond"
 parameters = "sample: DPn, M0"
 composes = []
-variants = ""
+variants = []
 equation_source = "class docstring (geometric distribution)"
 closed_form = "yes"
 data = "molecular-weight distribution objects construct"
@@ -665,7 +695,7 @@ class = "other"
 inputs = "p(k) = a^(k - 1) e^(-a)/Gamma(k) with a = DPn - 1 (discrete); moments through order 3 closed form and Stirling numbers beyond"
 parameters = "sample: DPn, M0"
 composes = []
-variants = ""
+variants = []
 equation_source = "class docstring"
 closed_form = "yes"
 data = "molecular-weight distribution objects construct"
@@ -677,7 +707,7 @@ class = "other"
 inputs = "continuous number pdf with mu = ln(DPn/sqrt(PDI)) and sigma = sqrt(ln PDI); moments exp(n mu + n^2 sigma^2/2). The source never uses the name Wesslau."
 parameters = "sample: DPn, PDI, M0"
 composes = []
-variants = ""
+variants = []
 equation_source = "class docstring; links to Wolfram and SciPy pages in comments"
 closed_form = "yes"
 data = "molecular-weight distribution objects construct"
@@ -689,7 +719,9 @@ class = "other"
 inputs = "continuous number pdf p(x) = x^(k - 1) e^(-x/theta)/(Gamma(k) theta^k) (Gamma distribution) with k = 1/(PDI - 1) and theta = DPn (PDI - 1) in the code; moments by the Pochhammer symbol"
 parameters = "sample: DPn, PDI, M0"
 composes = []
-variants = "the docstring states different expressions for k and theta (see discrepancy)."
+variants = [
+  { selector = "", selects = "the docstring states different expressions for k and theta (see discrepancy)." },
+]
 equation_source = "class docstring"
 closed_form = "yes"
 data = "molecular-weight distribution objects construct"
@@ -703,7 +735,9 @@ parameters = "sample: tabulated pdf, component weights, M0"
 composes = [
   { slot = "components", accepts = "individual chain-length distributions with weights", default = "none" },
 ]
-variants = "kind 'number', 'mass' or 'gpc' (chain-length weighting orders 0, 1, 2)."
+variants = [
+  { selector = "", selects = "kind 'number', 'mass' or 'gpc' (chain-length weighting orders 0, 1, 2)." },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "molecular-weight distribution objects construct"
@@ -715,7 +749,9 @@ class = "other"
 inputs = "chain length k, v (number-average degree of polymerization including unreacted initiator) and r = kp/ki; p0 from an implicit equation v + r ln p0 + (r - 1)(1 - p0) = 0 solved by Brent's method, then a branched closed form (r > 1 or r < 1) or the Poisson limit for |r - 1| < 1e-3"
 parameters = "global: v, r"
 composes = []
-variants = "a pdf function only (no moments or Distribution subclass); README lists it among distributions."
+variants = [
+  { selector = "", selects = "a pdf function only (no moments or Distribution subclass); README lists it among distributions." },
+]
 equation_source = "Weibull and Nycander 1954 (docstring)"
 closed_form = "implicit"
 data = "none"
@@ -727,7 +763,7 @@ class = "other"
 inputs = "moments of two distributions combined by p_i = sum binom(i,j) q_j r_(i-j); Mark-Houwink conversion M2 = (K1/K2)^(1/(1 + a2)) M1^((1 + a1)/(1 + a2)); Laguerre series of a number distribution from a finite moment set"
 parameters = "Mark-Houwink K1, K2, a1, a2 supplied by the user"
 composes = []
-variants = ""
+variants = []
 equation_source = "Bamford and Tompa (Laguerre series, docstring)"
 closed_form = "yes"
 data = "none"
@@ -739,7 +775,9 @@ class = "kinetics"
 inputs = "T [K]; Arrhenius k0 exp(-(EaR)(1/T - 1/T0)), Eyring (kappa kB T/h) exp(dS/R) exp(-dH/RT)"
 parameters = "reaction: k0, EaR, T0 or DSa, DHa, kappa; both accept arrays"
 composes = []
-variants = "the two classes are alternatives ('See Also' of each)."
+variants = [
+  { selector = "", selects = "the two classes are alternatives ('See Also' of each)." },
+]
 equation_source = "class docstrings (Wikipedia links)"
 closed_form = "yes"
 data = "kinetic coefficient instance construct"
@@ -753,7 +791,7 @@ parameters = "reaction: C, ihalf, icrit, aS, aL plus the base coefficient"
 composes = [
   { slot = "kp or kt11", accepts = "temperature-dependent kinetic coefficient", default = "none (an Arrhenius or Eyring instance)" },
 ]
-variants = ""
+variants = []
 equation_source = "Smith et al., Eur. Polym. J. 41 (2005) 225-230 (propagation); Smith, Russell, Heuts, Macromol. Theory Simul. 12 (2003) 299-314 (termination)"
 closed_form = "yes"
 data = "kinetic coefficient instance construct"
@@ -765,7 +803,9 @@ class = "kinetics"
 inputs = "radical entry coefficients (collision-controlled 4 pi r^2 C N_A, diffusion-controlled with efficiency, reversible diffusion-controlled with a coth factor), desorption (Asua model, Nomura two-film K0), average radicals per particle nbar from Stockmayer-O'Toole, Li-Brooks or Ugelstad-Mork (continued fraction), second moment n2bar, compartmentalisation factor, Smith-Ewart quasi-steady-state pdf"
 parameters = "particle radius, diffusivities, partition coefficient, collision coefficient, dimensionless entry and desorption frequencies"
 composes = []
-variants = "three nbar solutions (exact, approximate, continued fraction)."
+variants = [
+  { selector = "", selects = "three nbar solutions (exact, approximate, continued fraction)." },
+]
 equation_source = "Gardon 1968, Hansen and Ugelstad 1978, Asua et al. 1989, Nomura and Harada 1981, Stockmayer 1957, O'Toole 1965, Li and Brooks 1993, Ugelstad et al. 1967 (docstrings)"
 closed_form = "yes"
 data = "none"
@@ -779,7 +819,9 @@ parameters = "pair of monomers: r1, r2 (terminal); r11, r12, r21, r22, s1, s2 (p
 composes = [
   { slot = "k1, k2", accepts = "homopropagation rate coefficient (Arrhenius)", default = "None (only composition without kp)" },
 ]
-variants = "TerminalModel; PenultimateModel (eight propagation reactions, six cross coefficients); ImplicitPenultimateModel (inherits TerminalModel, same eight reactions with four ratios); the average reactivity ratios enter the terminal equations."
+variants = [
+  { selector = "", selects = "TerminalModel; PenultimateModel (eight propagation reactions, six cross coefficients); ImplicitPenultimateModel (inherits TerminalModel, same eight reactions with four ratios); the average reactivity ratios enter the terminal equations." },
+]
 equation_source = "Mayo and Lewis, J. Am. Chem. Soc. 1944 (link in docstring)"
 closed_form = "yes"
 data = "copolymerization model parameters construct"
@@ -791,7 +833,9 @@ class = "kinetics"
 inputs = "monomer mole fractions f and an N x N reactivity matrix r_ij = k_ii/k_ij; transition probabilities P_ij = (f_j/r_ij)/sum_k (f_k/r_ik); instantaneous composition F from the linear system (P^T - I) F = 0 with sum F = 1; ternary closed forms; radical fractions; drift by ODE integration; sequence-length and n-tuple fractions; Q-e to r conversion"
 parameters = "monomer matrix: r_ij or cross coefficients k_ij (radical fractions need k_ij, not r)"
 composes = []
-variants = "binary, ternary-specific and general-N versions coexist."
+variants = [
+  { selector = "", selects = "binary, ternary-specific and general-N versions coexist." },
+]
 equation_source = "Frensdorff and Pariser 1963; Dotson et al. 1996; Hamielec, MacGregor, Penlidis 1987; Alfrey and Price 1947 (docstrings)"
 closed_form = "yes"
 data = "copolymerization model parameters construct"
@@ -803,7 +847,9 @@ class = "regression"
 inputs = "MayoDataset F1(f1), DriftDataset f1(x) and Fx data; nonlinear least squares (errors in the dependent variable) or orthogonal distance regression (F(f) data only), joint confidence regions by linear and exact methods"
 parameters = "fitted: r1, r2 with standard errors, confidence intervals and covariance"
 composes = []
-variants = "Fineman-Ross (linearised, marked not recommended in its docstring) versus fit_copo_data."
+variants = [
+  { selector = "", selects = "Fineman-Ross (linearised, marked not recommended in its docstring) versus fit_copo_data." },
+]
 equation_source = "Fineman and Ross, J. Polym. Sci. 1950, 5, 259 (docstring)"
 closed_form = "procedural"
 data = "copolymerization dataset construct"
@@ -815,7 +861,7 @@ class = "other"
 inputs = "analytical step-growth Mn and Mw solutions, residence time distributions, pressure drop and relief-valve sizing, rheology (power law, Cross, Carreau-Yasuda, WLF shift), Nusselt correlations, transient diffusion solutions, heat exchanger coefficients, and general root, optimisation and fixed-point solvers"
 parameters = "not inventoried"
 composes = []
-variants = ""
+variants = []
 equation_source = "docstrings not surveyed"
 closed_form = "procedural"
 data = "none"

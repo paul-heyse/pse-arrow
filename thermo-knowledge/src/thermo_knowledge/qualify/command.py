@@ -14,6 +14,7 @@ declaration; 2 a usage error.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated
 
@@ -31,6 +32,15 @@ from thermo_knowledge.qualify.source import SourceError
 
 QUALIFY_HELP = "Qualify forms against oracle harnesses."
 REPORT_NAME = "qualify-report.json"
+
+
+def blocked_by_reason(outcomes: Sequence[CaseOutcome]) -> dict[str, list[str]]:
+    """The blocked cases grouped by their typed reason, reasons in name order."""
+    grouped: dict[str, list[str]] = {}
+    for done in outcomes:
+        if done.blocked_reason is not None:
+            grouped.setdefault(done.blocked_reason, []).append(done.case)
+    return {reason: sorted(names) for reason, names in sorted(grouped.items())}
 
 
 def qualify_command(
@@ -96,13 +106,19 @@ def qualify_command(
         raise typer.Exit(code=1) from error
     target = report if report is not None else config.store_root() / REPORT_NAME
     target.parent.mkdir(parents=True, exist_ok=True)
+    blocked = blocked_by_reason(outcomes)
     target.write_text(
         json.dumps(
-            {"cases": [o.report for o in outcomes]}, indent=2, sort_keys=True, allow_nan=False
+            {"cases": [o.report for o in outcomes], "blocked_by_reason": blocked},
+            indent=2,
+            sort_keys=True,
+            allow_nan=False,
         )
         + "\n",
         encoding="utf-8",
     )
+    for reason, names in blocked.items():
+        typer.echo(f"blocked ({reason}): {len(names)} case(s): {', '.join(names)}")
     bad = [o for o in outcomes if o.outcome != PASSED]
     typer.echo(
         f"{len(outcomes)} case(s), {len(bad)} not passed, {problems} refused; report: {target}"

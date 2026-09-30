@@ -82,7 +82,7 @@ fields = [
   { name = "broadcast_conditions", meaning = "present with value false in 93 of the 94 ZPF files (and in one disabled file); not read by ESPEI", unit = "not applicable (flag)", shape = "scalar", role = "unread" },
   { name = "comment", meaning = "note, present in some files", unit = "not applicable (text)", shape = "scalar", role = "unread" },
 ]
-origin = "digitised from phase-diagram publications (the reference field names them); the digitiser, method and date are not stated; contributors listed in CONTRIBUTORS by system, not by dataset"
+origin = "other (digitised from phase-diagram publications (the reference field names them); the digitiser, method and date are not stated; contributors listed in CONTRIBUTORS by system, not by dataset)"
 conventions = "Tie-line points give compositions for all but one component; regions: 2 phases 1565, 3 phases 36, 1 phase 24; sum of known fractions at most 1; no __HYPERPLANE__ meta-phase is used."
 absence = "null composition: unknown, estimated by ESPEI; the dataset distinguishes null from zero. Missing weight: 1.0 (no dataset sets one)."
 validity = "temperatures of the regions; no range statement"
@@ -106,7 +106,7 @@ fields = [
   { name = "reference_state", meaning = "string SGTE91 on 14 datasets (HM_FORM 8, SM_FORM 3, CPM_FORM 2, SM_EX_FORM 1); not read by ESPEI for these datasets", unit = "not applicable (text)", shape = "scalar", role = "unread" },
   { name = "plot", meaning = "one dataset carries a plot styling dictionary", unit = "not applicable (text)", shape = "table", role = "unread" },
 ]
-origin = "first-principles calculations (DFT, SQS, OQMD in references or file names) and calorimetry, per reference; some datasets are estimates (file names say est. or estimate)"
+origin = "other (first-principles calculations (DFT, SQS, OQMD in references or file names) and calorimetry, per reference; some datasets are estimates (file names say est. or estimate))"
 conventions = "FORM: formation from the elements; MIX: relative to endmembers; bare HM, SM and CPM outputs (9 files) and SM_EX_FORM (1 file) are not among the properties the ESPEI error function lists (see the espei survey discrepancies). Mixing configurations have ideal mixing removed per the ESPEI docs."
 absence = "No excluded_model_contributions in any file: the DFT data are not flagged to drop the ideal mixing or magnetic contribution through the dataset, only (in the ESPEI docs) through tags, and no dataset carries tags."
 validity = "temperatures of the values; values below 298.15 K are discarded by ESPEI"
@@ -126,7 +126,7 @@ fields = [
   { name = "reference_state", meaning = "dict {phases, conditions} with P, T and the composition of the pure reference (X_CR 1.0 or X_CU 0.0)", unit = "Pa, K, mole fraction", shape = "table", role = "input" },
   { name = "values", meaning = "activities", unit = "dimensionless", shape = "table", role = "input" },
 ]
-origin = "digitised from publications named in reference"
+origin = "other (digitised from publications named in reference)"
 conventions = "Five Cr-Ni files are split by temperature (one per file, file names ending -0 to -3 and one without suffix)."
 absence = "not applicable"
 validity = "the single temperature"
@@ -146,7 +146,7 @@ fields = [
   { name = "key", meaning = "entry key matched against a dataset's reference string", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
   { name = "doi", meaning = "DOI where present", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
 ]
-origin = "exported from a reference manager (field names and formatting such as double braces suggest it, inferred)"
+origin = "other (exported from a reference manager (field names and formatting such as double braces suggest it, inferred))"
 conventions = "none stated"
 absence = "a dataset whose reference is free text or an unlisted key has no entry"
 validity = "not applicable"

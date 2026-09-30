@@ -500,7 +500,9 @@ locator = "crates/feos-core/src/equation_of_state/mod.rs lines 13-50 and 120-215
 class = "other"
 inputs = "temperature, volume and mole numbers (state), evaluated with hyper-dual numbers; the ideal part through ln of the cubic thermal wavelength in Angstrom^3 per component"
 parameters = "pure, pair, site and group parameters of the chosen models; none of its own"
-composes = "any IdealGas model (Joback, DIPPR, multiparameter ideal terms) per component with any Residual model; the total is ideal molar Helmholtz energy sum x_i (ln Lambda_i^3 + ln rho_i - 1) plus the residual"
+composes = [
+  { slot = "", accepts = "any IdealGas model (Joback, DIPPR, multiparameter ideal terms) per component with any Residual model; the total is ideal molar Helmholtz energy sum x_i (ln Lambda_i^3 + ln rho_i - 1) plus the residual", default = "" },
+]
 equation_source = "documentation of the traits only; hyper-dual derivatives cite a 2021 paper by DOI in the theory pages"
 closed_form = "yes"
 data = "none bundled; parameter files supply the model records"
@@ -511,7 +513,9 @@ locator = "crates/feos/src/pcsaft/eos/mod.rs; hard_chain.rs; dispersion.rs; pola
 class = "residual_or_excess_contribution"
 inputs = "T, volume, mole numbers; contributions hard sphere, hard chain, dispersion, dipole, quadrupole, dipole-quadrupole cross term (two variants DQ35 and DQ44) and association"
 parameters = "pure: m, sigma, epsilon_k, mu, q, association sites (kappa_ab, epsilon_k_ab, na, nb, nc), viscosity, diffusion, thermal_conductivity arrays; pair: k_ij, binary association; global: the universal dispersion and polar constant tables"
-composes = "hard sphere (BMCSL), hard chain, dispersion, optional polar terms, association with cross-association fallback combining rules; ideal gas part supplied separately"
+composes = [
+  { slot = "", accepts = "hard sphere (BMCSL), hard chain, dispersion, optional polar terms, association with cross-association fallback combining rules; ideal gas part supplied separately", default = "" },
+]
 equation_source = "module doc: Gross and Sadowski 2001, doi 10.1021/ie0003887; the thermal conductivity reference cites equation 4 of doi 10.1021/acs.iecr.9b04289; polar terms are not cited in the code"
 closed_form = "implicit"
 data = "constructs 'PC-SAFT pure parameters', 'association site record', 'binary record'; none of the universal constants is data (const arrays in code)"
@@ -522,7 +526,9 @@ locator = "crates/feos/src/pcsaft/parameters.rs lines 39-110 (FromSegments and F
 class = "group_contribution"
 inputs = "chemical records (segments with counts) and segment records"
 parameters = "group: m, sigma, epsilon_k, mu, q, viscosity, association sites; group pair: k_ij; molecule: group counts"
-composes = "a PC-SAFT pure record built by count-weighted sums and means, then the PC-SAFT family unchanged"
+composes = [
+  { slot = "", accepts = "a PC-SAFT pure record built by count-weighted sums and means, then the PC-SAFT family unchanged", default = "" },
+]
 equation_source = "files rehner2023_homo and sauer2014_homo (Sauer et al. 2014, doi 10.1021/ie502203w per README)"
 closed_form = "procedural"
 data = "constructs 'segment record and binary segment record', 'chemical record'"
@@ -533,7 +539,9 @@ locator = "crates/feos/src/gc_pcsaft/eos/mod.rs; eos/parameter.rs; eos/hard_chai
 class = "group_contribution"
 inputs = "T, volume, mole numbers with segment-resolved packing fractions; bonds between segment instances"
 parameters = "group: m, sigma, epsilon_k, mu, psi_dft (optional), association sites; group pair: k_ij (and a phi correction option); bond records (Bo) per segment pair; molecule: chemical record with bonds"
-composes = "heterosegmented hard chain (bond counts), dispersion over segment pairs, polar term from summed dipole squares, association from segment sites (counts times segment count), ideal gas supplied separately"
+composes = [
+  { slot = "", accepts = "heterosegmented hard chain (bond counts), dispersion over segment pairs, polar term from summed dipole squares, association from segment sites (counts times segment count), ideal gas supplied separately", default = "" },
+]
 equation_source = "module doc: Gross et al. 2003, doi 10.1021/ie020509y, and Sauer et al. 2014, doi 10.1021/ie502203w"
 closed_form = "implicit"
 data = "constructs 'segment record and binary segment record', 'chemical record'; no bond parameter file is shipped (bonds default per segment pair in from_segments_hetero)"
@@ -544,7 +552,9 @@ locator = "crates/feos/src/epcsaft/eos/mod.rs; hard_chain.rs; dispersion.rs; ion
 class = "electrolyte_interaction"
 inputs = "T, volume, mole numbers; charge numbers; relative permittivity as a function of temperature and composition (experimental tables or a perturbation theory)"
 parameters = "pure: m, sigma, epsilon_k, z, permittivity_record, association sites; pair: k_ij with k_ij_1..3; global: hard-coded water diameter function constants"
-composes = "hard chain, dispersion, association, ionic term (module uses the Bjerrum length) and Born term, each with a permittivity model; the Revised variant allows one solvent, the Advanced one several"
+composes = [
+  { slot = "", accepts = "hard chain, dispersion, association, ionic term (module uses the Bjerrum length) and Born term, each with a permittivity model; the Revised variant allows one solvent, the Advanced one several", default = "" },
+]
 equation_source = "no citation in the crates; the README of parameters/epcsaft cites Held et al. 2014 and a 2021 paper by link"
 closed_form = "implicit"
 data = "construct 'ePC-SAFT record (charge and permittivity)'"
@@ -555,7 +565,9 @@ locator = "crates/feos/src/pets/eos/mod.rs; pets/eos/dispersion.rs; pets/paramet
 class = "residual_or_excess_contribution"
 inputs = "T, volume, mole numbers; hard-sphere reference plus an attractive perturbation for the truncated and shifted Lennard-Jones fluid with cut-off 2.5 sigma"
 parameters = "pure: sigma, epsilon_k; pair: k_ij; global: A and B coefficient arrays of 7"
-composes = "hard-sphere reference, attractive perturbation, ideal gas supplied separately"
+composes = [
+  { slot = "", accepts = "hard-sphere reference, attractive perturbation, ideal gas supplied separately", default = "" },
+]
 equation_source = "module doc: Heier et al. 2018, doi 10.1080/00268976.2018.1447153"
 closed_form = "yes"
 data = "none bundled (no PeTS parameter file in the tree)"
@@ -566,7 +578,9 @@ locator = "crates/feos/src/uvtheory/eos/mod.rs; eos/bh/*.rs; eos/wca/*.rs; uvthe
 class = "residual_or_excess_contribution"
 inputs = "T, volume, mole numbers; Mie potential with repulsive and attractive exponents"
 parameters = "pure: rep, att, sigma, epsilon_k; pair: k_ij (as a bare number); global: the CD_BH matrix and combining rules (geometric mean of exponents, arithmetic mean of diameters)"
-composes = "hard-sphere reference with a perturbation chosen among Barker-Henderson, Weeks-Chandler-Andersen and the third-virial variant WCA-B3; ideal gas supplied separately"
+composes = [
+  { slot = "", accepts = "hard-sphere reference with a perturbation chosen among Barker-Henderson, Weeks-Chandler-Andersen and the third-virial variant WCA-B3; ideal gas supplied separately", default = "" },
+]
 equation_source = "module doc: van Westen et al. 2021, doi 10.1063/5.0073572; uv-B3-theory is described as a manuscript submitted (no citation)"
 closed_form = "yes"
 data = "none bundled"
@@ -577,7 +591,9 @@ locator = "crates/feos/src/saftvrmie/eos/mod.rs; eos/dispersion.rs; saftvrmie/pa
 class = "residual_or_excess_contribution"
 inputs = "T, volume, mole numbers; temperature-dependent hard-sphere diameter by numerical integration of the Mie potential (10-point Gauss-Legendre and a Halley search for the lower limit, credited to a method of Aasen et al. and a Clapeyron.jl starting value)"
 parameters = "pure: m, sigma, epsilon_k, lr, la, association rc_ab and epsilon_k_ab; pair: k_ij, gamma_ij; global: PHI 6 by 7 and C 4 by 4 arrays"
-composes = "hard sphere, chain, dispersion, association"
+composes = [
+  { slot = "", accepts = "hard sphere, chain, dispersion, association", default = "" },
+]
 equation_source = "module doc: Lafitte et al. 2013, doi 10.1063/1.4819786"
 closed_form = "procedural"
 data = "construct 'SAFT-VR Mie and SAFT-VRQ Mie records'"
@@ -588,7 +604,9 @@ locator = "crates/feos/src/saftvrqmie/eos/mod.rs; eos/dispersion.rs; eos/hard_sp
 class = "residual_or_excess_contribution"
 inputs = "T, volume, mole numbers; Feynman-Hibbs corrected Mie potential of order 0, 1 or 2 with effective temperature-dependent diameters and a non-additive hard-sphere correction for mixtures"
 parameters = "pure: m = 1, sigma, epsilon_k, lr, la, fh, molar mass (for the thermal de Broglie scale); pair: k_ij, l_ij; global: LAM_COEFF, PHI and 21-point quadrature tables"
-composes = "effective hard sphere, non-additive correction, dispersion, ideal gas supplied separately"
+composes = [
+  { slot = "", accepts = "effective hard sphere, non-additive correction, dispersion, ideal gas supplied separately", default = "" },
+]
 equation_source = "module doc: Aasen et al. 2019, doi 10.1063/1.5111364, and Aasen et al. 2020, doi 10.1063/1.5136079"
 closed_form = "procedural"
 data = "construct 'SAFT-VR Mie and SAFT-VRQ Mie records'"
@@ -599,7 +617,9 @@ locator = "crates/feos/src/multiparameter/mod.rs; residual_function.rs; ideal_ga
 class = "helmholtz_potential"
 inputs = "tau = tc/T and delta = rho/rhoc; one pure component only (construction panics for more)"
 parameters = "pure: tc, rhoc, molar weight, residual term objects (7 types), ideal-gas term objects (10 types)"
-composes = "a sum of residual term rows and a sum of ideal-gas term rows as the two halves of one equation; the ideal half is converted to the thermal-wavelength form by a stated hack"
+composes = [
+  { slot = "", accepts = "a sum of residual term rows and a sum of ideal-gas term rows as the two halves of one equation; the ideal half is converted to the thermal-wavelength form by a stated hack", default = "" },
+]
 equation_source = "none cited in the code; term formulas as in the CoolProp term library (see coolprop.toml)"
 closed_form = "yes"
 data = "constructs 'multiparameter residual term objects' and 'multiparameter ideal-gas term objects'"
@@ -610,7 +630,9 @@ locator = "crates/feos-core/src/cubic.rs"
 class = "helmholtz_potential"
 inputs = "T, volume, mole numbers"
 parameters = "pure: tc (K), pc (Pa), acentric_factor; pair: k_ij"
-composes = "a single residual contribution; the module states it is a reference for implementing an equation of state and follows a web encyclopedia page for the form"
+composes = [
+  { slot = "", accepts = "a single residual contribution; the module states it is a reference for implementing an equation of state and follows a web encyclopedia page for the form", default = "" },
+]
 equation_source = "a Wikipedia article is named in the module documentation; no publication is cited"
 closed_form = "yes"
 data = "none bundled"
@@ -621,7 +643,9 @@ locator = "crates/feos/src/ideal_gas/joback.rs; dippr.rs"
 class = "standard_state_species"
 inputs = "temperature; heat capacity integrated to an ideal-gas thermal wavelength"
 parameters = "pure: Joback a to e, or DIPPR 100, 107 or 127 coefficient lists; global: T0, reference p and V (Joback), gas constants in code"
-composes = "none; group additivity builds Joback coefficients from group counts (from_groups with the 22-group arrays)"
+composes = [
+  { slot = "", accepts = "none; group additivity builds Joback coefficients from group counts (from_groups with the 22-group arrays)", default = "" },
+]
 equation_source = "Joback and Reid 1987, doi 10.1080/00986448708960487 (code comments); DIPPR equations given in the enum documentation without citation"
 closed_form = "yes"
 data = "constructs 'Joback group record' and 'DIPPR records'"
@@ -632,7 +656,9 @@ locator = "crates/feos/src/hard_sphere/mod.rs; hard_sphere/dft.rs"
 class = "spatial_functional"
 inputs = "segment diameters and shapes (spherical, non-spherical or heterosegmented); for DFT the weighted densities"
 parameters = "pure: m, diameter function of temperature per model"
-composes = "BMCSL equation of state for the homogeneous fluid; fundamental measure functional variants WhiteBear, KierlikRosinberg and AntiSymWhiteBear for inhomogeneous fluids"
+composes = [
+  { slot = "", accepts = "BMCSL equation of state for the homogeneous fluid; fundamental measure functional variants WhiteBear, KierlikRosinberg and AntiSymWhiteBear for inhomogeneous fluids", default = "" },
+]
 equation_source = "module documentation: Boublik 1970 (doi 10.1063/1.1673824), Mansoori et al., Roth et al. 2002 (10.1088/0953-8984/14/46/313), Yu and Wu 2002 (10.1063/1.1520530), Kierlik and Rosinberg 1990 (10.1103/PhysRevA.42.3382), Rosenfeld et al. 1997 (10.1103/PhysRevE.55.4245), Kessler et al. 2021 (10.1016/j.micromeso.2021.111263), Rosenfeld 1989 (10.1103/PhysRevLett.63.980)"
 closed_form = "yes"
 data = "none bundled"
@@ -643,7 +669,9 @@ locator = "crates/feos/src/association/mod.rs; association/dft.rs"
 class = "association"
 inputs = "site counts and strengths per site pair; partial densities; temperature"
 parameters = "site: na, nb, nc, kappa_ab or rc_ab, epsilon_k_ab; site pair: binary association parameters or combining rules; options max_iter_cross_assoc and tol_cross_assoc"
-composes = "used by PC-SAFT, gc-PC-SAFT, SAFT-VR Mie and (DFT) through the Yu-Wu association functional"
+composes = [
+  { slot = "", accepts = "used by PC-SAFT, gc-PC-SAFT, SAFT-VR Mie and (DFT) through the Yu-Wu association functional", default = "" },
+]
 equation_source = "DFT functional: Yu and Wu 2002, doi 10.1063/1.1463435 (code comment); the Helmholtz term itself is not cited"
 closed_form = "implicit"
 data = "construct 'association site record'"
@@ -654,7 +682,9 @@ locator = "crates/feos-dft/src/**; functionals in crates/feos/src/pcsaft/dft, gc
 class = "spatial_functional"
 inputs = "density profiles on planar, cylindrical, spherical and Cartesian grids with convolutions by weight functions; external potentials (pores, solvation); a bulk state"
 parameters = "as the equation of state of the functional plus psi_dft for gc-PC-SAFT, plus pore and external-potential parameters"
-composes = "PC-SAFT functional (hard sphere FMT, chain, dispersion, association), heterosegmented gc-PC-SAFT functional, PeTS functional, SAFT-VRQ Mie functional (FMT, non-additive hard sphere, attractive); Euler-Lagrange solvers (DFTSolver); interfaces (surface tension by density profile and by density-gradient theory), adsorption isotherms in pores, solvation and pair-correlation profiles"
+composes = [
+  { slot = "", accepts = "PC-SAFT functional (hard sphere FMT, chain, dispersion, association), heterosegmented gc-PC-SAFT functional, PeTS functional, SAFT-VRQ Mie functional (FMT, non-additive hard sphere, attractive); Euler-Lagrange solvers (DFTSolver); interfaces (surface tension by density profile and by density-gradient theory), adsorption isotherms in pores, solvation and pair-correlation profiles", default = "" },
+]
 equation_source = "theory pages in docs/theory/dft and module documentation; no per-functional citation in the source beyond the hard-sphere and association links above"
 closed_form = "procedural"
 data = "none bundled"
@@ -665,7 +695,9 @@ locator = "crates/feos/src/pcsaft/eos/mod.rs lines 228-360; crates/feos-core/src
 class = "transport"
 inputs = "residual entropy per segment s = s_res/m and temperature; composition"
 parameters = "pure: viscosity (4), diffusion (5) and thermal_conductivity (4) coefficient arrays; Chapman-Enskog references from sigma, epsilon_k and molar mass"
-composes = "a Chapman-Enskog dilute-gas reference (viscosity: a component-pair mixing rule, inferred to be of Wilke type from the expression; diffusion and thermal conductivity: pure components only, other inputs panic) times a polynomial in s: viscosity a + b s + c s^2 + d s^3, thermal conductivity a + b s + c (1 - e^s) + d s^2, diffusion a + b s - c (1 - e^s) s^2 - d s^4 - e s^8"
+composes = [
+  { slot = "", accepts = "a Chapman-Enskog dilute-gas reference (viscosity: a component-pair mixing rule, inferred to be of Wilke type from the expression; diffusion and thermal conductivity: pure components only, other inputs panic) times a polynomial in s: viscosity a + b s + c s^2 + d s^3, thermal conductivity a + b s + c (1 - e^s) + d s^2, diffusion a + b s - c (1 - e^s) s^2 - d s^4 - e s^8", default = "" },
+]
 equation_source = "thermal conductivity reference cites equation 4 of doi 10.1021/acs.iecr.9b04289 in a comment; the viscosity and diffusion forms are not cited; the homosegmented viscosity correction is commented as a difference in Chapman-Enskog reference"
 closed_form = "yes"
 data = "viscosity arrays in loetgeringlin2018 and loetgeringlin2015_homo; none shipped for diffusion or thermal conductivity"
@@ -676,7 +708,9 @@ locator = "crates/feos-core/src/ad/mod.rs; ad/dataset/*.rs; ad/properties/*.rs; 
 class = "regression"
 inputs = "PureDataset and BinaryDataset built from records, CSV files or readers; per-property evaluation with gradients with respect to named model parameters"
 parameters = "global: the list of differentiable parameter names of a ParametersAD model"
-composes = "eight property types (boiling temperature, bubble and dew point pressure, enthalpy of vaporisation, equilibrium liquid density, liquid density, residual isobaric heat capacity, vapor pressure) evaluated in parallel with parameter gradients"
+composes = [
+  { slot = "", accepts = "eight property types (boiling temperature, bubble and dew point pressure, enthalpy of vaporisation, equilibrium liquid density, liquid density, residual isobaric heat capacity, vapor pressure) evaluated in parallel with parameter gradients", default = "" },
+]
 equation_source = "none cited"
 closed_form = "procedural"
 data = "none bundled (user datasets); the older estimator module is compiled out"
@@ -784,134 +818,134 @@ documented = "not stated in words; visible in the CombiningRule implementations"
 
 [[capability]]
 calculation = "flash_tp"
-offered = true
+offered = "yes"
 scope = "PC-SAFT, gc-PC-SAFT, ePC-SAFT, PeTS, uv-theory, SAFT-VR Mie, SAFT-VRQ Mie, multiparameter (pure), cubic: general tp_flash with stability-analysis initialisation and optional non-volatile components; a static-component-count binary version supports automatic differentiation"
 locator = "crates/feos-core/src/phase_equilibria/tp_flash.rs lines 26-160"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_ph"
-offered = true
+offered = "yes"
 scope = "all models with an ideal-gas part"
 locator = "crates/feos-core/src/phase_equilibria/px_flashes.rs line 39 (ph_flash)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_ps"
-offered = true
+offered = "yes"
 scope = "all models with an ideal-gas part"
 locator = "crates/feos-core/src/phase_equilibria/px_flashes.rs line 62 (ps_flash)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "flash_uv"
-offered = false
+offered = "no"
 scope = "a single-phase state from (V, U) and n exists (State::new_nvu, state/mod.rs line 576); no phase-split flash at specified internal energy and volume"
 locator = "crates/feos-core/src/state/mod.rs line 576"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "bubble_dew_point"
-offered = true
+offered = "yes"
 scope = "mixtures of any model, at given T or p; with optional initial guesses and solver options"
 locator = "crates/feos-core/src/phase_equilibria/bubble_dew.rs lines 144 and 165"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_stability"
-offered = true
+offered = "yes"
 scope = "tangent-plane-distance minimisation over trial phases (one per component plus a vapor trial) returning states of negative distance; is_stable"
 locator = "crates/feos-core/src/phase_equilibria/stability_analysis.rs lines 27-90"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "critical_point"
-offered = true
+offered = "yes"
 scope = "pure (critical_point_pure), binary at given T or p (critical_point_binary) and general mixtures at given composition; spinodals"
 locator = "crates/feos-core/src/state/critical_point.rs lines 23, 51, 113 and 414"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "phase_envelope"
-offered = true
+offered = "yes"
 scope = "bubble and dew point lines and spinodal lines of mixtures; binary VLE, LLE and VLLE phase diagrams at T or p, heteroazeotropes and binary azeotropes; pure-component phase diagrams"
 locator = "crates/feos-core/src/phase_equilibria/phase_envelope.rs lines 11-137; phase_diagram_binary.rs lines 21, 146, 416, 498, 786; phase_diagram_pure.rs lines 29-93"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "pure_saturation (proposed new key: vapor-liquid equilibrium of a pure fluid at given temperature or pressure)"
-offered = true
-scope = "all models; vapor pressure and boiling temperature helpers; automatic differentiation of the result"
+calculation = "pure_saturation (proposed)"
+offered = "yes"
+scope = "Proposed key for: vapor-liquid equilibrium of a pure fluid at given temperature or pressure. all models; vapor pressure and boiling temperature helpers; automatic differentiation of the result"
 locator = "crates/feos-core/src/phase_equilibria/vle_pure.rs lines 22-550"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "state_construction (proposed new key: state from specification pairs)"
-offered = true
-scope = "temperature with density, volume and moles, or pressure (with a density-root initialisation option for vapor or liquid); temperature with enthalpy or entropy; pressure with enthalpy or entropy; volume with internal energy"
+calculation = "state_construction (proposed)"
+offered = "yes"
+scope = "Proposed key for: state from specification pairs. temperature with density, volume and moles, or pressure (with a density-root initialisation option for vapor or liquid); temperature with enthalpy or entropy; pressure with enthalpy or entropy; volume with internal energy"
 locator = "crates/feos-core/src/state/mod.rs lines 228-600 (new, new_nvt, new_npt, new_tpvx, new_nth, new_nts, new_nph, new_nps, new_nvu, build_full)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "gibbs_minimization"
-offered = false
+offered = "no"
 scope = "no constrained minimisation over species and phases; phase equilibria are by flash and saturation algorithms only"
 locator = "not applicable: no such routine in crates/feos-core"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "aqueous_speciation"
-offered = false
+offered = "no"
 scope = "no chemical-equilibrium or speciation routine (the ePC-SAFT model has ions as fixed components)"
 locator = "not applicable"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "characterization"
-offered = false
+offered = "no"
 scope = "no pseudo-component generation from assay data"
 locator = "not applicable"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "parameter_regression"
-offered = true
+offered = "yes"
 scope = "datasets of eight property types with parameter gradients by automatic differentiation for PC-SAFT; the older estimator module (binary VLE, liquid density, vapor pressure, viscosity, diffusion and thermal conductivity datasets with loss functions) is compiled out of the pinned crate"
 locator = "crates/feos-core/src/ad/dataset/*.rs; crates/feos/src/estimator/*.rs (not compiled: lib.rs line 38)"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "group_estimation"
-offered = true
+offered = "yes"
 scope = "Joback and Reid ideal-gas heat capacity from group counts; PC-SAFT parameters from group counts (homosegmented and heterosegmented); SMARTS fragmentation of SMILES (Python, rdkit)"
 locator = "crates/feos/src/ideal_gas/joback.rs lines 148-180; crates/feos-core/src/parameter/mod.rs lines 377-798; py-feos/src/parameter/fragmentation.rs"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "interfacial_profile"
-offered = true
+offered = "yes"
 scope = "PC-SAFT, gc-PC-SAFT, PeTS and SAFT-VRQ Mie functionals: planar interface density profile and surface tension, tanh and density-gradient-theory initialisation, equimolar shift, interfacial thickness and enrichment; surface-tension diagrams"
 locator = "crates/feos-dft/src/interface/mod.rs; crates/feos-dft/src/pdgt.rs"
 evidence = "source_inspected"
 
 [[capability]]
 calculation = "adsorption_mixture_prediction"
-offered = false
+offered = "no"
 scope = "not from pure-component isotherms; instead a DFT adsorption isotherm of mixtures in a pore is computed from the molecular model (see the proposed key below)"
 locator = "crates/feos-dft/src/adsorption/mod.rs"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "pore_adsorption_isotherm (proposed new key: adsorption and desorption isotherms, equilibrium isotherm and enthalpy of adsorption of fluids in pores from a DFT functional)"
-offered = true
-scope = "pores of one, two and three dimensions with external potentials (hard wall, three 9-3 Lennard-Jones variants, Steele potential with default or custom combining rules, double well, free-energy averaged and custom), Henry coefficients"
+calculation = "pore_adsorption_isotherm (proposed)"
+offered = "yes"
+scope = "Proposed key for: adsorption and desorption isotherms, equilibrium isotherm and enthalpy of adsorption of fluids in pores from a DFT functional. pores of one, two and three dimensions with external potentials (hard wall, three 9-3 Lennard-Jones variants, Steele potential with default or custom combining rules, double well, free-energy averaged and custom), Henry coefficients"
 locator = "crates/feos-dft/src/adsorption/mod.rs lines 57-380; adsorption/pore.rs"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "entropy_scaling_transport (proposed new key: viscosity, diffusion coefficient and thermal conductivity from residual entropy scaling)"
-offered = true
-scope = "PC-SAFT only (viscosity for mixtures, diffusion and thermal conductivity for pure components, from shipped viscosity coefficients)"
+calculation = "entropy_scaling_transport (proposed)"
+offered = "yes"
+scope = "Proposed key for: viscosity, diffusion coefficient and thermal conductivity from residual entropy scaling. PC-SAFT only (viscosity for mixtures, diffusion and thermal conductivity for pure components, from shipped viscosity coefficients)"
 locator = "crates/feos/src/pcsaft/eos/mod.rs lines 228-360; crates/feos-core/src/state/residual_properties.rs lines 630-713"
 evidence = "source_inspected"
 

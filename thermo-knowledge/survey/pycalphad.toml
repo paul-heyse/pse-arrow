@@ -429,7 +429,7 @@ subject = "A set of keywords."
 fields = [
   { name = "keyword", meaning = "statement name", unit = "not applicable (text)", shape = "enum", role = "unread" },
 ]
-origin = "not applicable"
+origin = "other (not applicable)"
 conventions = "The module docstring says not all listed keywords are fully supported."
 absence = "not applicable"
 validity = "not applicable"
@@ -613,7 +613,9 @@ composes = [
   { slot = "vol", accepts = "volume_energy", default = "zero unless V0 parameters exist" },
   { slot = "ord", accepts = "atomic_ordering_energy (partitioning; must be last)", default = "zero unless the phase is the ordered phase of a pair" },
 ]
-variants = "the Model subclass is ModelMQMQA when the phase has an mqmqa model hint, otherwise Model; users may subclass and override build_phase or the contributions list"
+variants = [
+  { selector = "", selects = "the Model subclass is ModelMQMQA when the phase has an mqmqa model hint, otherwise Model; users may subclass and override build_phase or the contributions list" },
+]
 equation_source = "class docstring cites Sundman, Calphad 15(2) 1991 for the ionic liquid; other contributions cite Hillert, Lukas-Fries-Sundman, Connetable et al 2008, Lu-Selleby-Sundman 2005 and Xiong et al 2012 in their own docstrings"
 closed_form = "yes"
 data = "Database parameter records of the types listed per contribution"
@@ -625,7 +627,7 @@ class = "sublattice_gibbs"
 inputs = "site fractions of each sublattice"
 parameters = "pure (endmember) G parameters with order 0 and one species on every sublattice, per constituent array"
 composes = []
-variants = "none"
+variants = []
 equation_source = "no citation in this function or its docstring"
 closed_form = "yes"
 data = "construct PARAMETER G and L (Gibbs energy and excess)"
@@ -637,7 +639,9 @@ class = "residual_or_excess_contribution"
 inputs = "site fractions, site ratios, T; R = 8.3145"
 parameters = "none"
 composes = []
-variants = "site ratios are constants except in the ionic liquid, where they depend on composition; terms below a site fraction limit (MIN_SITE_FRACTION/10, 1e-15) are set to 0"
+variants = [
+  { selector = "", selects = "site ratios are constants except in the ionic liquid, where they depend on composition; terms below a site fraction limit (MIN_SITE_FRACTION/10, 1e-15) are set to 0" },
+]
 equation_source = "not cited"
 closed_form = "yes"
 data = "none bundled (derived from the constituent lists)"
@@ -649,7 +653,9 @@ class = "residual_or_excess_contribution"
 inputs = "site fractions in the interacting sublattices; constituents in alphabetical order inside a sublattice"
 parameters = "interaction L (or G with mixing): per constituent array and order; binary (two species on one sublattice, power of yi - yj), ternary (three species, order picks the constituent, Muggianu-corrected), reciprocal (two mixing sublattices, order 1 or 2 selects the sublattice), quaternary (four species, product of y, order ignored); wildcard '*' arrays"
 composes = []
-variants = "a single ternary order-0 parameter is treated as order 0, 1 and 2 of equal value; parameters with mixing on more than one sublattice may not exceed binary arity; reciprocal orders above 2 raise"
+variants = [
+  { selector = "", selects = "a single ternary order-0 parameter is treated as order 0, 1 and 2 of equal value; parameters with mixing on more than one sublattice may not exceed binary arity; reciprocal orders above 2 raise" },
+]
 equation_source = "docstring cites Muggianu 1975 and Hillert 1980; reciprocal order convention cites Lukas, Fries and Sundman section 5.8.1 and records that it was confirmed against Thermo-Calc"
 closed_form = "yes"
 data = "construct PARAMETER G and L"
@@ -661,7 +667,9 @@ class = "residual_or_excess_contribution"
 inputs = "site fractions of a single-sublattice phase, species chemical groups"
 parameters = "QKT parameters with exponents per binary or ternary constituent array, plus chemical group per species (phase hint chemical_groups)"
 composes = []
-variants = "binary terms use a Kohler or Toop asymmetry decided by chemical groups; ternary terms use the simple Pelton 2001 Eq. 17 form with a normalisation the code notes is not in the paper; a phase may not mix QKT and RK parameters"
+variants = [
+  { selector = "", selects = "binary terms use a Kohler or Toop asymmetry decided by chemical groups; ternary terms use the simple Pelton 2001 Eq. 17 form with a normalisation the code notes is not in the paper; a phase may not mix QKT and RK parameters" },
+]
 equation_source = "docstring comments cite Pelton 2001 for the ternary form"
 closed_form = "yes"
 data = "construct DAT solution phase models (QKTO)"
@@ -673,7 +681,9 @@ class = "residual_or_excess_contribution"
 inputs = "T, TC, BMAGN, afm factor, structure factor p"
 parameters = "phase-level: afm factor and p (TYPE_DEFINITION); per array: TC and BMAGN (Redlich-Kister sums)"
 composes = []
-variants = "selected when the afm factor is non-zero; TC and BMAGN divided by the afm factor where negative; a 1e-9 shift avoids a singularity at TC = 0"
+variants = [
+  { selector = "", selects = "selected when the afm factor is non-zero; TC and BMAGN divided by the afm factor where negative; a 1e-9 shift avoids a singularity at TC = 0" },
+]
 equation_source = "docstring names the Inden-Hillert-Jarl formulation and cites Xiong et al. Calphad 2012 for the approach"
 closed_form = "yes"
 data = "construct PARAMETER TC, NT and BMAGN"
@@ -685,7 +695,9 @@ class = "residual_or_excess_contribution"
 inputs = "T, TC, NT, BMAGN, structure factor p"
 parameters = "TC, NT, BMAGN per array; structure factor p"
 composes = []
-variants = "selected when the afm factor is 0; separate Curie and Neel tau terms with no afm division"
+variants = [
+  { selector = "", selects = "selected when the afm factor is 0; separate Curie and Neel tau terms with no afm division" },
+]
 equation_source = "Xiong et al. Calphad 2012 (docstring)"
 closed_form = "yes"
 data = "construct PARAMETER TC, NT and BMAGN"
@@ -697,7 +709,7 @@ class = "residual_or_excess_contribution"
 inputs = "T, ln(theta) summed by Redlich-Kister"
 parameters = "THETA per array (natural log of the Einstein temperature)"
 composes = []
-variants = "none"
+variants = []
 equation_source = "not cited"
 closed_form = "yes"
 data = "construct PARAMETER GD and THETA"
@@ -709,7 +721,9 @@ class = "residual_or_excess_contribution"
 inputs = "T, GD"
 parameters = "GD per array"
 composes = []
-variants = "none; evaluates to zero when GD sums to zero"
+variants = [
+  { selector = "", selects = "none; evaluates to zero when GD sums to zero" },
+]
 equation_source = "not cited"
 closed_form = "yes"
 data = "construct PARAMETER GD and THETA"
@@ -723,7 +737,9 @@ parameters = "V0, VA, VK, VC per array"
 composes = [
   { slot = "magnetic volume", accepts = "derivative of the magnetic energy with respect to P", default = "zero when the magnetic contribution has no P dependence" },
 ]
-variants = "high-pressure terms (VK, VC) are queried but not evaluated; VK non-zero triggers a warning"
+variants = [
+  { selector = "", selects = "high-pressure terms (VK, VC) are queried but not evaluated; VK non-zero triggers a warning" },
+]
 equation_source = "Lu, Selleby and Sundman, Calphad 29(1) 2005 (docstring)"
 closed_form = "yes"
 data = "construct PARAMETER V0, VA, VC, VK"
@@ -738,7 +754,9 @@ composes = [
   { slot = "disordered part", accepts = "a Model of the disordered phase evaluated at quasi mole fractions", default = "required by the DISORDERED_PART hint" },
   { slot = "ordered part", accepts = "a Model of the ordered phase; its energy at the disordered limit is subtracted", default = "required" },
 ]
-variants = "never_disorder (NEVER_DISORDER type definition) drops the subtraction and the disordered configurational entropy; physical-property contributions of the ordered phase are not partitioned correctly and trigger a warning"
+variants = [
+  { selector = "", selects = "never_disorder (NEVER_DISORDER type definition) drops the subtraction and the disordered configurational entropy; physical-property contributions of the ordered phase are not partitioned correctly and trigger a warning" },
+]
 equation_source = "Connetable et al., Calphad 2008 eq. 18; Lukas, Fries and Sundman sections 5.8.5 and 5.8.6"
 closed_form = "yes"
 data = "the two phases' parameter sets"
@@ -750,7 +768,9 @@ class = "sublattice_gibbs"
 inputs = "site fractions on a cation and an anion-plus-vacancy-plus-neutral sublattice; charges"
 parameters = "as the CEF; constituent arrays may name only the second sublattice for neutral species; parameters without anions gain an extra Q*y(Va) factor and cation site fractions pair with the vacancy site fraction"
 composes = []
-variants = "selected by the Y phase option (ionic_liquid_2SL hint); second-sublattice constituents are ordered charged, then vacancy, then neutral (not alphabetical); charge balance is automatic so no explicit charge constraint is added"
+variants = [
+  { selector = "", selects = "selected by the Y phase option (ionic_liquid_2SL hint); second-sublattice constituents are ordered charged, then vacancy, then neutral (not alphabetical); charge balance is automatic so no explicit charge constraint is added" },
+]
 equation_source = "Sundman, Calphad 15(2) 1991 (class docstring)"
 closed_form = "yes"
 data = "construct PARAMETER G and L"
@@ -762,7 +782,9 @@ class = "sublattice_gibbs"
 inputs = "as the CEF"
 parameters = "as the CEF; an associate is a SPECIES with a multi-element formula used as a constituent"
 composes = []
-variants = "there is no dedicated associate code path: the normalisation by number of atoms and the moles() function generalise to multi-atom species, and cs_dat allows non-element species only for single-sublattice phases; a test exists (test_equilibrium.py, test_eq_associate) for the case where the number of elements differs from the number of components"
+variants = [
+  { selector = "", selects = "there is no dedicated associate code path: the normalisation by number of atoms and the moles() function generalise to multi-atom species, and cs_dat allows non-element species only for single-sublattice phases; a test exists (test_equilibrium.py, test_eq_associate) for the case where the number of elements differs from the number of components" },
+]
 equation_source = "not cited"
 closed_form = "yes"
 data = "construct SPECIES and PARAMETER G and L"
@@ -778,7 +800,9 @@ composes = [
   { slot = "idmix", accepts = "ideal mixing of constituents, pairs and quadruplets", default = "required" },
   { slot = "xsmix", accepts = "excess terms by Poschmann equations 17, 19-26", default = "zero when no MQMX parameters" },
 ]
-variants = "SUBG and SUBQ differ in the exponent pair used in the quadruplet entropy (1.0 and 1.0 for SUBG, 0.75 and 0.5 for SUBQ), in the fractions feeding the pair entropy and in the coordination-equivalent fraction; mixing code G (Gibbs-weighted) versus Q (quadratic); R for reciprocal terms (added in 0.11.2); coordination numbers missing from MQMZ are computed from the pair values by the Pelton 2001 equations 23 and 24 with the assumptions the code says are what Thermochimica implements"
+variants = [
+  { selector = "", selects = "SUBG and SUBQ differ in the exponent pair used in the quadruplet entropy (1.0 and 1.0 for SUBG, 0.75 and 0.5 for SUBQ), in the fractions feeding the pair entropy and in the coordination-equivalent fraction; mixing code G (Gibbs-weighted) versus Q (quadratic); R for reciprocal terms (added in 0.11.2); coordination numbers missing from MQMZ are computed from the pair values by the Pelton 2001 equations 23 and 24 with the assumptions the code says are what Thermochimica implements" },
+]
 equation_source = "Pelton, Chartrand and Eriksson, Metall. Mater. Trans. A 32 (2001) 1409; Poschmann, Bajpai, Fitzpatrick and Piro, CALPHAD 75 (2021) 102341; Lambotte, J. Chem. Thermodyn. 2011 for the starred pair fractions"
 closed_form = "yes"
 data = "construct DAT solution phase models (SUBG, SUBQ); no TDB syntax exists for it"
@@ -790,7 +814,9 @@ class = "model_component"
 inputs = "an ordered phase flagged F (FCC, sublattices 0-3 equivalent) or B (BCC, groups [0,1] and [2,3])"
 parameters = "existing parameters of the ordered phase; symmetric copies are generated with a _generated_by_symmetry_option flag"
 composes = []
-variants = "F and B only; the flag lets the writer drop generated copies when it rewrites the file"
+variants = [
+  { selector = "", selects = "F and B only; the flag lets the writer drop generated copies when it rewrites the file" },
+]
 equation_source = "not cited"
 closed_form = "procedural"
 data = "construct PARAMETER (syntax) on phases with the :F or :B option"
@@ -804,7 +830,9 @@ parameters = "none: numerical settings MIN_SITE_FRACTION 1e-14, MIN_PHASE_FRACTI
 composes = [
   { slot = "phase model", accepts = "a Model object per phase with gradient and Hessian from code generation", default = "Model unless the phase has an mqmqa hint" },
 ]
-variants = "remove_metastable option of Solver; composition sets are added and removed during iteration"
+variants = [
+  { selector = "", selects = "remove_metastable option of Solver; composition sets are added and removed during iteration" },
+]
 equation_source = "not cited in the files read"
 closed_form = "procedural"
 data = "none bundled"
@@ -818,7 +846,9 @@ parameters = "none"
 composes = [
   { slot = "equilibrium calculation", accepts = "the Gibbs energy minimiser", default = "required" },
 ]
-variants = "binary, ternary, isopleth and step strategies"
+variants = [
+  { selector = "", selects = "binary, ternary, isopleth and step strategies" },
+]
 equation_source = "not cited in the files read"
 closed_form = "procedural"
 data = "none bundled"

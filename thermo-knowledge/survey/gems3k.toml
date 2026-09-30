@@ -925,14 +925,14 @@ locator = "GEMS3K/s_solmod4.cpp, s_solmod5.cpp; DBR results"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "proposed:reaction_kinetics"
+calculation = "reaction_kinetics (proposed)"
 offered = "partial"
 scope = "kinetic and metastability constraints through TKinMet for dissolution and precipitation as parallel reaction terms and for uptake into solid solutions; ion exchange, adsorption and nucleation kinetics classes are declared without implementation"
 locator = "GEMS3K/s_kinmet.cpp"
 evidence = "source_inspected"
 
 [[capability]]
-calculation = "proposed:sorption_equilibrium"
+calculation = "sorption_equilibrium (proposed)"
 offered = "partial"
 scope = "sorption phase data structures and electrostatic model codes exist; only the non-electrostatic surface-complexation class TSCM_NEM is constructed; no example exercises sorption"
 locator = "GEMS3K/s_sorpmod.cpp; ipm_chemical3.cpp line 869"

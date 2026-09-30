@@ -354,6 +354,15 @@ class BlockSolver:
             x = np.asarray(result.x, dtype=float)
         except (ValueError, np.linalg.LinAlgError) as error:
             raise SolveFailure(f"the solver failed: {error}") from None
+        # Why Newton steps follow the SciPy call: neither routine stops on the condition decided
+        # below. `hybr` stops on a relative change of the iterate and `trf` on the change of its
+        # cost, its step or its gradient; none of them says the residual vanishes, and the
+        # status each returns is not read. Newton steps with the analytic Jacobian, kept inside
+        # the bounds, take the iterate to working accuracy (a step of a few ulps), so a root is
+        # not limited by where SciPy happened to stop (the cubic-root tests compare roots with
+        # an independent calculation at a relative 1e-10). They also give the size of the last
+        # step, which the acceptance test after them needs, and the same steps finish
+        # `numpy.roots` results (`newton_polish`).
         x, step = self.polish(x, p, lo, hi)
         with np.errstate(all="ignore"):
             g = self.g(x, p)

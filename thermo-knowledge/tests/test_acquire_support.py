@@ -40,6 +40,20 @@ observed = "2026-09-30"
 """
 
 
+def unseal(directory: Path) -> None:
+    """Make a tree writable again, so a test's temporary store can be removed: a completed
+    acquisition is read-only."""
+    if not directory.exists():
+        return
+    for current, names, files in os.walk(directory, topdown=True, followlinks=False):
+        here = Path(current)
+        here.chmod(here.stat().st_mode | 0o700)
+        for name in (*names, *files):
+            path = here / name
+            if not path.is_symlink():
+                path.chmod(path.stat().st_mode | 0o700)
+
+
 def manifest_text(source_id: str, acquire: str, tier: str = "A") -> str:
     """A valid manifest with the given `[acquire]` body."""
     return (

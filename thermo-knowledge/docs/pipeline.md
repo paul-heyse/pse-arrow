@@ -28,10 +28,48 @@ The model keeps that reference as what it is.
   database file). It is created for every distinct thing a source's records are about.
 - An **identity assertion** is one identifier the source gives for a source entity: a CAS number,
   an InChIKey, a SMILES, a formula, a name. A source entity has any number of them.
+- A source entity has a **class**, the kind of thing its source says the key names: `species`,
+  `species_form`, `defined_mixture`, `material`, `pseudo_component`, `polymer_type` or
+  `undetermined`. The mapping states it for each source entity (section 2.1) and resolution never
+  infers it: the rules that apply to an entity are those of its class, so a blend is never
+  resolved by the rules for a chemical species, and no provisional entity is a species unless its
+  class is `species` (or `species_form`, which has a species).
 - **Resolution** assigns each source entity a target `material_entity` and a status. It is a
-  derived result, recomputed on every run from the assertions and the curated decisions.
+  derived result, recomputed on every run from the assertions, the compositions and the curated
+  decisions.
 
-Resolution rules, applied in this order; the first that applies decides:
+**The rules of each class.**
+
+| Class | Resolves by | Otherwise |
+|---|---|---|
+| `species` | the rules of the list below, in order | a provisional `species` |
+| `species_form` | its species, resolved by the same rules, and the aggregation and polymorph it states | a provisional `species` and form |
+| `defined_mixture` | its composition: the mixture whose canonical key is built from its resolved components (below); unique only when every component is a unique species or species form | a provisional `defined_mixture`, and no components |
+| `material` | a registry identifier in a naming scheme the declaration marks `registry = true` (rule `registry`): one identifier gives the `material` with that key, several are `ambiguous` | a provisional `material` |
+| `polymer_type` | a curated decision only; its class rules come with the wave that needs them | a provisional `polymer_type` |
+| `pseudo_component` | nothing yet: its class rules come with the wave that needs them, and no scope may declare the class, since a provisional pseudo-component needs the `kind` that says why it has no formula, which no source statement carries so far | |
+| `undetermined` | a curated decision only, which states the class that settles it | a provisional `unclassified_entity`: an entity whose class its source does not establish, never joined across carriers |
+
+A curated decision (rule 1 below) states the class of the canonical entity it names and must agree
+with the class the source states for the entity (a `species_form` entity is identified through its
+species: the decision's class is `species`), unless the source states none.
+
+**Defined mixtures.** A mapping's phase 1 claims each component of a mixture (the source entity of
+the component and its fraction, section 2.2) and, for the mixture, whether its composition is by
+definition or by measurement and whether its fractions are mole or mass fractions. A component
+is a species or species form; it must be unique for the mixture to be, and a component listed twice
+makes the mixture provisional. The canonical key of a resolved mixture is `mixture:` and the
+canonical encoding of the basis (`mole` or `mass`) followed, for each component in the order of the
+components' keys, by the canonical key of its resolved entity and its fraction as exact decimal text
+(the shortest decimal that reads back as the source's number, with no exponent or trailing zero).
+The same composition from any number of carriers, in any order, is one mixture; another fraction or
+basis is another. The mixture's `mixture_component` rows are its resolved components and fractions.
+Carriers that give one composition but differ on whether it is by definition or by measurement
+leave it `ambiguous`: the canonical mixture is a candidate of each and none is resolved to it.
+The rule of a mixture resolved this way is `composition`.
+
+**Species and species forms** are resolved by these rules, applied in this order; the first that
+applies decides:
 
 1. **Curated decision.** `identity/decisions.toml` states that a source entity (by carrier
    manifest id, scope and local key) is a named canonical entity, or that two are distinct. A
@@ -46,9 +84,11 @@ Resolution rules, applied in this order; the first that applies decides:
    species by convention (elements, monatomic and simple inorganic ions, and the members of a
    chemical system whose source declares its species by formula), the formula, charge and the
    chemical system resolve it. The scopes this rule applies to are declared per mapping.
-5. **Otherwise provisional.** The source entity gets a provisional `material_entity` whose
-   canonical key is its own (carrier, scope, local key). Its records load and remain usable
-   within that carrier; they are not joined to another carrier's records.
+5. **Otherwise provisional.** The source entity gets a provisional entity of the kind its class
+   says (a `species` for a species, species form; a `defined_mixture`, a `material`, a
+   `polymer_type`, or an `unclassified_entity`, see above) whose canonical key is its own
+   (carrier, scope, local key). Its records load and remain usable within that carrier; they are
+   not joined to another carrier's records.
 
 Statuses: `unique` (rules 1 to 4 gave one target), `ambiguous` (candidates remain; provisional
 target), `unresolved` (no candidate; provisional target), `rejected` (a curated decision says the
@@ -58,8 +98,8 @@ A `species_form` is resolved from its species plus the aggregation and polymorph
 states for the record, never from a suffix in a name. A source that does not state an aggregation
 for a record that needs one leaves the mapping to declare it for that table, as an assumption.
 
-Resolution reports, per carrier: counts by status and rule, and every ambiguous source entity
-with its candidates.
+Resolution reports, per carrier and in total: counts by class, status and rule (and the provisional
+entities by kind), and every ambiguous source entity with its candidates.
 
 ### 1.1 The decisions file
 
@@ -68,10 +108,11 @@ manifest id of its carrier, its scope and its local key.
 
 ```toml
 [[decision]]
-action = "identify"      # the entity is this canonical species
+action = "identify"      # the entity is this canonical entity
 entity = { carrier = "coolprop", scope = "fluids", key = "R1123" }
+class = "species"        # the class of the canonical entity: species, defined_mixture, material or polymer_type
 canonical_key = "ZWQIPCQCAOKXDI-UHFFFAOYSA-N"   # an InChIKey, or another declared canonical key
-charge = 0               # optional, default 0
+charge = 0               # optional, default 0, species only
 reason = "why"
 
 [[decision]]
@@ -88,10 +129,12 @@ entity = { carrier = "coolprop", scope = "fluids", key = "C" }
 reason = "why"
 ```
 
-- `identify` resolves the entity to the species with that canonical key, status `unique`, rule
-  `curated`, whatever its assertions say. The species' `inchikey` is the key when the key has the shape
-  of a standard InChIKey.
-- `reject` gives the entity status `rejected`, rule `curated` and a provisional target.
+- `identify` resolves the entity to the entity of its `class` with that canonical key, status `unique`,
+  rule `curated`, whatever its assertions say. The species' `inchikey` is the key when the key has the
+  shape of a standard InChIKey. The class must agree with the source's (section 1, the table of the classes); `pseudo_component`
+  and `undetermined` cannot be named (an entity of class `undetermined` is settled by a decision
+  whose class is that of the canonical entity).
+- `reject` gives the entity status `rejected`, rule `curated` and a provisional target of its class.
 - `distinct` applies when rules 2 to 4 would resolve both entities to one species: neither is resolved
   by the rule, both are `ambiguous` with that species as their candidate, until an `identify` decision
   settles each.
@@ -102,7 +145,8 @@ reason = "why"
 
 ### 1.2 How the rules apply
 
-- **Which schemes.** The structural schemes and the registry schemes are those the declared
+- **Which schemes.** The structural and formula rules and the registry rule for species apply to
+  entities of class `species` and `species_form`. The structural schemes and the registry schemes are those the declared
   `naming_scheme` entities mark `structural = true` and `registry = true` (`cas` and `pubchem_cid` are
   the registries today); resolution reads them from the declaration, and a structural scheme it cannot
   compute an InChIKey from refuses the run.
@@ -125,21 +169,24 @@ reason = "why"
   of surrounding space and otherwise not parsed, the charge its stated charge (0 when it states none).
   Several different formulas make it `ambiguous`. Outside a declared scope a formula identifies nothing.
 - **Provisional.** The provisional entity's canonical key is `provisional:` and the canonical encoding
-  of the carrier key (`<manifest id>@<resolved pin>`), scope and local key. Its species has
-  `provisional = true`, no InChIKey and the entity's stated charge.
+  of the carrier key (`<manifest id>@<resolved pin>`), scope and local key, whatever its class. A
+  provisional species has `provisional = true`, no InChIKey and the entity's stated charge; a
+  provisional defined mixture has the definition and basis the mapping declares for its scope and
+  no components.
 - **Charge.** An InChIKey encodes its charge, so the structures of one key agree; the species' charge is
   the molecule's formal charge where RDKit builds the molecule, else the stated charge, else 0. An
   entity whose stated charge differs from its species' charge is `ambiguous`.
-- **Species forms.** An entity that states an aggregation gets a `species_form` of its resolved (or
-  provisional) species, whose canonical key is the canonical encoding of the species key, the
-  aggregation name and, when stated, the polymorph; the entity's target is the form.
+- **Species forms.** An entity of class `species_form` (the only class that states an aggregation)
+  gets a `species_form` of its resolved (or provisional) species, whose canonical key is the canonical
+  encoding of the species key, the aggregation name and, when stated, the polymorph; the entity's
+  target is the form.
 - **Label.** The species' `label` is never identity. It is the `name` assertion made by the most
   distinct source entities resolved to the species; ties go to a name that is the local key of one of
   those entities, then to the smaller name in code-point order. With no name it is the smallest
   `formula` assertion, else the smallest local key.
-- **Origins.** A species' origins are the import records of the source entities resolved to it or
-  listing it as a candidate, in the role the mapping declares for those rows; a provisional entity has
-  its entity's.
+- **Origins.** A canonical entity's origins are the import records of the source entities resolved to it
+  or listing it as a candidate, in the role the mapping declares for those rows (a mixture's also those
+  of the rows that state its composition); a provisional entity has its entity's.
 
 ### 1.3 Resolution output
 
@@ -149,10 +196,10 @@ reason = "why"
 | File | Holds |
 |---|---|
 | `tk.source_entity`, `tk.identity_assertion`, `tk.resolution_candidate` | one canonical row per source entity, per claimed identifier and per candidate of an ambiguous entity |
-| `tk.material_entity`, `tk.species`, `tk.species_form` | the canonical and provisional entities |
+| `tk.material_entity`, `tk.species`, `tk.species_form`, `tk.defined_mixture`, `tk.mixture_component`, `tk.material`, `tk.polymer_type`, `tk.unclassified_entity` | the canonical and provisional entities, and the components of the defined mixtures |
 | `prov.*` | the carrier, artifact, import-record, licence and rights rows that the origins cite, and `prov.record` and `prov.record_origin` |
-| `report.json` | counts by carrier, status and rule; every ambiguous entity with its candidates; registry values mapped to several structures; unusable structural identifiers; unmatched decisions |
-| `manifest.json` | the reuse key: the hash of each source's phase-1 manifest, of the decisions file and the declaration fingerprint |
+| `report.json` | counts by carrier, class, status and rule; the provisional entities by kind; every ambiguous entity with its candidates; registry values mapped to several structures; unusable structural identifiers; unmatched decisions |
+| `manifest.json` | the reuse key and its inputs (section 6): the hash of each source's phase-1 manifest, of the decisions file, the declaration fingerprint, the framework files and libraries of the stage |
 
 The result is a pure function of the phase-1 outputs and the decisions file: entities are processed in
 key order, every collection is a set or sorted, and rows are written in identifier order, so running it
@@ -168,15 +215,16 @@ that live together in `mappings/<id>/`:
   `out_of_scope` with a reason, or `deferred` with the wave that will map it); for each mapped
   column or field: the target (a kind attribute, a relation value, or a `form.group.slot`), the
   source unit, the precision (`exact`, `narrower`, `broader`, `close`) and what is lost or
-  assumed. The conventions the source's values assume (which `convention_set`) and the scopes
-  rule 4 applies to are declared here too; so are the convention facts the values assume.
+  assumed. The class of each scope of source entities, the conventions the source's values assume
+  (which `convention_set`) and the scopes rule 4 applies to are declared here too; so are the
+  convention facts the values assume.
 - **`mapping.py`**: the structure the rules cannot express: how nested or repeated source
   structures become sets, families and nested sets; how subjects are keyed. It contains no units,
   no constants and no defaults: those are in `mapping.toml`.
 
-Phase 1 emits source entities and identity assertions only. Phase 2 runs after resolution and
-emits everything else, referring to subjects by source entity; the framework substitutes the
-resolved target.
+Phase 1 emits source entities (each with its class), identity assertions and the component claims
+of defined mixtures, only. Phase 2 runs after resolution and emits everything else, referring to
+subjects by source entity; the framework substitutes the resolved target.
 
 What the framework does, so that no mapping re-implements it:
 
@@ -195,16 +243,27 @@ What the framework does, so that no mapping re-implements it:
   the canonical orientation (the values are kept as the source asserted them, with the arrangement
   recorded; the rule acts on reading).
 - **Coverage.** Every source-faithful row ends in exactly one state: `mapped`, `mapped_with_loss`,
-  `out_of_scope`, `deferred`, `held` (its subject is ambiguous or it failed validation; with the
-  reason) or `unmapped`. The counts per source table and the reasons are the coverage report.
-  A row a mapping read but emitted nothing for is `unmapped`; silence is never coverage.
+  `out_of_scope`, `deferred`, `held` (its subject is ambiguous or unknown, or it failed validation)
+  or `unmapped`. A held or unmapped row has a typed reason (a `held_reason` member:
+  `ambiguous_subject`, `unknown_subject`, `validation_failed`, `unit_not_parseable`,
+  `missing_convention`, `not_a_number`, `not_an_integer`, `unusable_key`, `pattern_mismatch`,
+  `unmapped_by_mapping`) and a detail in words. The counts per source table and state, and the rows
+  not loaded grouped by reason, are the coverage report; nothing parses the detail. A row a mapping
+  read but emitted nothing for is `unmapped`; silence is never coverage.
+- **Rule use.** The context counts, for each value rule, the mapped rows it was applied to: rows
+  for which the rule produced a value in a block that wrote records (a block that was held counts
+  nothing). After phase 2, a value rule of a table that has mapped rows and was applied to none
+  refuses the run, naming the rule: the mapping no longer emits what it declares. A rule declared
+  `optional = true` (a field the source fills only sometimes) is reported instead. The count is
+  `qual.mapping_rule.applied_rows`.
 - **Competing assertions.** When two import records of one carrier would produce the same
   record identity with different content, the mapping is wrong about identity and the run is
   refused, naming both locators.
 
 Output: `.store/canonical/<id>/<schema>.<table>.parquet`, one file per canonical table the mapping
-emits, with a manifest carrying the reuse key (source-faithful manifest, mapping version, declaration
-fingerprint, resolution result). The directory is written beside its destination and renamed into
+emits, with a manifest carrying the reuse key and its inputs (section 6: the source-faithful manifest,
+mapping version, declaration fingerprint, resolution result, framework files and libraries). The
+directory is written beside its destination and renamed into
 place, so a failed run leaves nothing that looks finished; `_identity/` (phase 1) is kept across a
 phase-2 run.
 
@@ -222,7 +281,22 @@ doc = "What the mapping covers."
 [scopes.fluids]                           # a scope of source entities: each row of `table` is one
 table = "fluids"
 key = "NAME"                              # the column holding the local key, verbatim
+class = "species"                         # the class of every entity of the scope (section 1) ...
 doc = "What a key of this scope names."
+
+# ... or, instead of `class`, the class from a column of the row and a value-to-class table:
+[scopes.fluids.class_by]
+column = "CAS"
+default = "species"                       # the class of a row no rule covers
+[[scopes.fluids.class_by.rules]]          # the first rule a value satisfies decides
+pattern = '.+\.[Pp][Pp][Ff]'              # the whole value matches (or `values = ["a", "b"]`, exactly)
+class = "defined_mixture"
+reason = "Why a value of this shape means this class."
+
+[scopes.fluids.mixture]                   # exactly for a scope that has defined mixtures:
+definition = "by_definition"              #   a `mixture_definition` member
+basis = "mole"                            #   `mole` or `mass`: what the source's fractions are
+reason = "Why these, and what is assumed where the source does not say."
 
 [[formula_scope]]                         # optional: scopes resolution rule 4 applies to
 scope = "fluids"
@@ -267,6 +341,7 @@ target = "vapor_pressure_exp_series_tau.pure.T_r"
 unit = "K"                                # the source unit; required for a dimensioned target
 precision = "exact"                       # exact | narrower | broader | close
 loss = "What the rule loses or assumes."
+optional = true                           # a value rule only: the source fills the field only sometimes
 ```
 
 A parameterization is the carrier's collection of parameter sets, and `origin_role` (required) is how the
@@ -276,9 +351,17 @@ is the role of the table or partition its own rows come from (it is the `role` o
 the set's record, and the set has no other home for it), so a collection of `fitted` sets can itself be
 `published`.
 
+The class of a scope states what its source says its keys are, never what resolution would
+conclude. A scope states exactly one of `class` and `class_by`; each class must be an `entity_class`
+member with resolution rules (`pseudo_component` has none yet); a scope that has defined mixtures
+(its `class` or any class of its `class_by` is `defined_mixture`) states `mixture`, which also
+completes the provisional entity of a mixture whose source gives no composition. An entity states an
+aggregation exactly when its class is `species_form`.
+
 A field rule is exactly one of:
 
-- **a value** (`target`): `kind.attribute`, `relation.column`, `form.group.slot` or
+- **a value** (`target`; the rule must be applied to a mapped row of its table, or be declared
+  `optional = true`, section 2): `kind.attribute`, `relation.column`, `form.group.slot` or
   `form.group.family.slot` (a family index is a target too). `unit` is required when the target is a
   quantity (or a `Real` whose unit its record fixes) and must convert to the target's storage unit;
   when the staged column states a unit the rule says the same one, and when it states none the rule's
@@ -287,7 +370,8 @@ A field rule is exactly one of:
   with its `scheme`; `absent` lists the values that mean "no value" in the source (a placeholder is
   never asserted); `pattern` with `otherwise_scheme` asserts a value that does not fit the scheme's
   shape under another scheme (a pseudo-CAS file name as `source_local`), and without
-  `otherwise_scheme` holds the row;
+  `otherwise_scheme` holds the row; a component fraction of a defined mixture is the target
+  `mixture_component.value` with the unit `dimensionless` (or a unit that converts to it);
 - **structure** (`role = "structure"`, with a `reason`): the column keys, selects or indexes rows and
   carries no value of its own;
 - **not mapped** (`disposition = "out_of_scope"` or `"deferred"`, with a `reason`, and a `wave` for
@@ -306,7 +390,7 @@ target exists, units convert, schemes, enum members, observables and roles exist
 partition, column, constant and derivation is written to `qual.mapping_rule` (a partition as
 `partition:<name>`, a constant as `constant:<target>`, a derivation as `derivation:<partition>`), a
 value rule with the conversion factor of its unit (empty for a unit with an offset, and for a `Real`
-target whose unit comes from its record).
+target whose unit comes from its record) and with the number of mapped rows it was applied to.
 
 ### 2.2 `mapping.py`
 
@@ -320,15 +404,20 @@ it names tables, scopes, kinds, slot groups and families, and never a unit, a nu
   `ctx.slot_values(row, group)`, `ctx.family_row(row, family)` and `ctx.attributes(row, kind)` gather
   the columns whose targets lie in a slot group, a family or a kind, and the constants declared for the
   row's table or partition.
-- `ctx.subject(scope, key)` (phase 2) is the material entity a source entity resolved to.
+- `ctx.subject(scope, key)` (phase 2) is the material entity a source entity resolved to;
+  `ctx.entity(scope, key)` (phase 1) is a source entity an earlier block of the run declared, to
+  cite it as the component of a mixture.
 - `with ctx.emit(row, *also) as emit:` is one unit of work whose records have these rows as origins:
-  phase 1 emits `emit.source_entity(scope)` and `emit.assertion(entity, column[, value])`; phase 2
+  phase 1 emits `emit.source_entity(scope)` (its class comes from the scope), `emit.assertion(entity,
+  column[, value])` and `emit.component(mixture, component, row, column)` (the component's fraction,
+  read from `column` of `row` under a `mixture_component.value` rule, converted to a dimensionless
+  number and kept as exact decimal text); phase 2
   emits `emit.parameter_set(...)`, `emit.kind(...)`, `emit.relation(...)` and
   `emit.parameterization(name)` and `emit.derivation(outputs)` (the derivation declared for the block's
   partition, a `fit` when it is one, with a `derivation_output` row per output record and no
   `derivation_input`: a mapping links inputs only when it can name the records). A block is atomic: if validation, an ambiguous or unknown subject or a
   value that fits no scheme refuses anything in it, none of its records is written and its rows end
-  `held` with the reason. A refusal about identity (section 2's competing assertions) is not held: it
+  `held` with the typed reason and its detail. A refusal about identity (section 2's competing assertions) is not held: it
   ends the run.
 
 ### 2.3 Canonical rows
@@ -396,7 +485,17 @@ size of the file), `import_record`, a `licence` where a rights entry gives an SP
 and titled by it), a `rights_determination` per rights entry (ordinal counted per scope), and a
 `record_origin` per origin. A text key that restates a reference (`site_class.host_key`,
 `association_site.carrier_key`) is computed by the writer from the reference the mapping gives, and a
-mapping that gives the key is refused.
+mapping that gives the key is refused. `citation(carrier, key, doi, year, citation)` writes the
+publication a carrier's citation key denotes and the `citation` row that ties the key to it. A
+publication is identified by the work: its key is `doi:` and the lower-case DOI when it has one, so
+two carriers that cite one paper under different keys name one publication, and otherwise
+`carrier:<manifest id>:<key>`; its `title` is its key, its `doi` the lower-case DOI and its `isbn`,
+when stated, the work's. These are its identity-bound attributes, and a carrier that states them
+differently is in conflict with the other, as with any record. What a carrier says about the work
+(its own citation key, the year and the citation text) is per carrier and is kept on the `citation`
+row, keyed by the carrier and the key, so carriers that differ in it still agree on the publication
+and a build accepts them together. The load invariant `publication.key_follows_doi` states the key
+rule.
 
 #### Canonical key encodings
 
@@ -412,7 +511,11 @@ never an element: the encoding refuses one, and no key is built from one.
 | `species.canonical_key`, registry rule | the standard InChIKey of the one structure the registry value maps to |
 | `species.canonical_key`, formula rule | `formula:<formula>:<charge>` and, when the scope declares a discriminator, `:<discriminator>`; the formula is NFC and stripped of surrounding space, the charge a signed decimal integer (`+0`, `+1`, `-2`) |
 | `species.canonical_key`, curated decision | the `canonical_key` of the `identify` decision, verbatim |
-| `species.canonical_key`, provisional entity | `provisional:` followed by the canonical encoding of [carrier key, scope, local key]; a carrier key is `<manifest id>@<resolved pin>` |
+| `canonical_key` of a provisional entity, whatever its class | `provisional:` followed by the canonical encoding of [carrier key, scope, local key]; a carrier key is `<manifest id>@<resolved pin>` |
+| `defined_mixture.canonical_key`, composition rule | `mixture:` followed by the canonical encoding of [`mole` or `mass`, then for each component in key order its canonical key and its fraction as exact decimal text] |
+| `material.canonical_key`, registry rule | `material:` followed by the canonical encoding of [naming scheme, identifier] |
+| `canonical_key` of an entity a curated decision identifies | the `canonical_key` of the decision, verbatim, whatever its class |
+| `publication.key` | `doi:` and the DOI in lower case when it has one, else `carrier:<manifest id>:<the carrier's citation key>` |
 | `species_form.canonical_key` | the canonical encoding of [species key, aggregation name], with the polymorph name appended when the entity states one; a provisional species gives its own key |
 | `parameter_set.subject_key`, top-level set | the canonical encoding of the subject identifiers in the slot group's role order, in the canonical orientation; `[]` for a group with no subject |
 | `parameter_set.subject_key`, nested set | the canonical encoding of [parent set identifier, `parent_slot` identifier, index key] |
@@ -436,14 +539,14 @@ The state of a row follows from the dispositions in `mapping.toml` and what the 
 - a row of an `out_of_scope` or `deferred` table or partition is in that state;
 - a row of a mapped table or partition whose block emitted records is `mapped`, or `mapped_with_loss`
   when a rule it used, or its partition or table, declares a `loss`;
-- a row a block refused is `held`, with the reason; a block refuses a row whose subject is `ambiguous`
+- a row a block refused is `held`, with its typed reason and detail; a block refuses a row whose subject is `ambiguous`
   (an `unresolved`, `rejected` or `unique` subject loads: the records attach to its entity, which is
   provisional unless unique);
 - every other row of a mapped table or partition is `unmapped`.
 
 Phase 1 writes a ledger of the rows it emitted from or held, and phase 2 merges it with its own, so a
 row mapped in either phase is covered. The counts are written to `qual.mapping_coverage`, each held or
-unmapped row to `qual.held_row`.
+unmapped row to `qual.held_row` (its `reason` a `held_reason` member, its `detail` the words).
 
 ## 3. Build
 
@@ -491,6 +594,10 @@ resolution result is always loaded); without it every source with records is bui
 performs the union of step 2 and every refusal above, reports the rows per table (and the identical
 duplicates merged) and touches no database. `tk db status` reports the fingerprint the database records,
 whether it equals the current declaration's, and the sources built.
+
+Qualification outputs under `.store/canonical/_qualification/<case>/` join the union when they are
+current for the values the build holds (section 5.4, Currency); each one left out is reported with its
+reason and the count of those loaded and skipped is printed.
 
 With no canonical Parquet at all, a build yields the empty schema with the reified declaration; there is
 no separate schema-only path.
@@ -654,9 +761,16 @@ parameterization = { key = "k", revision = "r" }
   fails the run or is excluded for the reason stated. A form the evaluator refuses for a subject (a
   value outside its domain) fails the subject's points, with the refusal in the report.
 - **Outcome.** `passed` when every compared point agrees, `failed` otherwise, `blocked` when the run
-  could not be carried out (no such parameterization or subject, a grid that cannot be made, a harness
-  that is missing, cannot run or answers against the protocol, no point compared); the reason is the
-  run's `note`. A blocked run is recorded too and is never reused.
+  could not be carried out. A blocked run states its `blocked_reason`, a typed member, and exactly
+  then (`qual.qualification_run` enforces it), with the detail in the run's `note`:
+  `carrier_not_unique` (the `{pin}` of the case needs a carrier the database holds once),
+  `parameterization_missing`, `no_subjects`, `subject_unidentified` (a subject without exactly one
+  source entity to take the library's key from), `subjects_not_found` (a listed subject the
+  parameterization has no set for), `sample_too_large`, `ambiguous_occurrence`, `no_grid`,
+  `harness_missing` (no script), `harness_failed` (the library is absent, the harness crashed or
+  timed out, or its result breaks the protocol) and `nothing_compared` (no point could be compared).
+  A blocked run is recorded too and is never reused. A database built from another declaration is
+  not a blocked run: the command refuses and records nothing.
 
 ### 5.2 The harness protocol
 
@@ -757,7 +871,9 @@ and where it occurred, then the refusals, invalid points and failing subjects). 
 when a case failed or was blocked or the declaration refused one. The JSON report, written to
 `<store>/qualify-report.json` or to `--report`, holds for each case the outcome, the tolerances, the
 library and version, the worst deviation, and per subject its points, passed, failed and invalid
-counts, worst deviation and where, and any refusal, with every invalid point.
+counts, worst deviation and where, and any refusal, with every invalid point. After the cases the
+command lists the blocked ones grouped by their typed reason, and the report's `blocked_by_reason`
+holds the same grouping.
 
 A run is one `qual.qualification_run` row, with a `qual.run_parameter_set` row for each set
 evaluated:
@@ -765,7 +881,8 @@ evaluated:
 | Column | Holds |
 |---|---|
 | `key` | `<case>/<form>/<parameterization key>@<revision>/<first 16 characters of the declaration fingerprint>` |
-| `form`, `basis`, `outcome`, `note` | the form, the comparison basis, `passed`, `failed` or `blocked`, and the reason or what was excluded |
+| `form`, `basis`, `outcome` | the form, the comparison basis, `passed`, `failed` or `blocked` |
+| `blocked_reason`, `note` | for a blocked run its typed reason, and exactly then; the note is the detail of a blocked run's reason, or what the domain excluded |
 | `expression_hash` | the evaluation hash of the compared output when the run was made (what `qual.form_qualification` compares with the current one); every run has one, a blocked run included |
 | `reference` | the `software_release` of the library version the harness reported |
 | `points` | the points compared (those that failed the run by being invalid included) |
@@ -776,14 +893,76 @@ evaluated:
 `<store>/canonical/_qualification/<case>/` (`qual.qualification_run`, `qual.run_parameter_set`, the
 release's `prov.source` and `prov.software_release`, `manifest.json` of phase `qualification`, and
 the run's `report.json`), so they survive a rebuild that drops schema `qual`. The manifest's reuse
-key covers the declaration fingerprint, the evaluation hash of the compared output, the case file's
-content, the library and its version, the subjects with the identifiers of the sets evaluated, and a
-digest of what the database holds for those sets and their envelopes (an identifier does not change
-with a value, so the identifiers alone would keep a stale result). A case whose key is unchanged is
-reported `current` and not run again (a blocked run always is), and `--force` runs it again.
-`tk build` loads every output that is current: it leaves out, and reports with the reason, an output
-made against another declaration fingerprint (run `tk qualify <case>` again) and one whose parameter
-sets are not in the build. `tk qualify` also loads the run into the live database at once, by the
-build's load of these tables in one transaction that replaces the rows of that case only (the runs
-whose key starts with `<case>/`) and keeps a release row already there.
+key (section 6) covers the declaration fingerprint, the evaluation hash of the compared output, the
+case file's content, the library and its version, the subjects with the identifiers of the sets
+evaluated, a digest of the content hashes of every record the run read, the framework files and
+libraries of the stage, the harness script and the lock of the environment the harness runs in. A
+case whose key is unchanged is reported `current` and not run again (a blocked run always is), and
+`--force` runs it again.
 
+**Currency.** An identifier does not change with a value, so a run is current for a build only while
+the records it read are, row for row, the ones the build holds. The manifest records a content hash
+of every record the run read: each parameter set evaluated (and every set of the parameterizations a
+sub-form choice reads from) with its row in the slot-group table and in the tables of its families,
+the sets it nests and the sets its reference slots name (followed until no more are found), the
+envelopes of each, the parameterizations they belong to with their convention sets (the convention
+facts an evaluation reads) and their sub-form choices. A hash is the SHA-256 of the record's table and
+canonical columns with their values (`thermo_knowledge.build.currency.record_hash`); one function,
+`read_records`, decides which records a run reads and hashes them, for both sides: `tk qualify`
+computes the hashes from the database it reads, and `tk build` recomputes them from the canonical
+Parquet it is about to load. `tk build` loads every output that is current and leaves out, and reports
+with the reason, one made against another declaration fingerprint (run `tk qualify <case>` again) and
+one whose hashes differ: the reason says how many records changed, are no longer in the build or are
+new, and names the first of each. A mapping fix that changes a value under the same identifiers
+therefore retires the earlier run, which is then absent from `qual.form_qualification`; an unchanged
+rebuild keeps it. `tk qualify` also loads the run into the live database at once, by the build's
+load of these tables in one transaction that replaces the rows of that case only (the runs whose key
+starts with `<case>/`) and keeps a release row already there.
+
+## 6. Reuse keys
+
+Every stage that keeps its output (`tk read`, phases 1 and 2 of `tk map`, `tk resolve`, `tk qualify`)
+records a reuse key in its manifest with the inputs the key was made from, and skips a run whose key
+is unchanged. `tk load-src` keeps none of its own: it loads only staged data whose `read` key is
+current. `tk build` keeps none: it replaces the database from current inputs every time.
+
+All keys are built by one function, `thermo_knowledge.reuse.stage_key`, so a stage cannot forget
+what the others cover. A key always includes:
+
+- **the inputs the stage states**: what it reads (the hashes of the manifests upstream, the
+  declaration fingerprint, the content of a mapping, a case or the decisions file) and its format
+  number, which marks only a deliberate change to what a stage writes that none of the other inputs
+  shows;
+- **a digest of the framework source files the stage executes**, from the list declared for the stage
+  in `thermo_knowledge/reuse.py` (paths of packages and modules, relative to the package; the list is
+  declared, not derived from imports, and a path that does not exist is an error): the path and the
+  content of every `.py` and `.toml` file;
+- **the installed version of each third-party library the stage declares as result-affecting**,
+  read from the installed distribution's metadata (one accessor, `installed_version`);
+- **the digest of each file the stage names in addition**: the lock of the environment a side-environment
+  reader runs in; for a qualification case the oracle harness script and the lock of the environment it
+  runs in (the tree's `uv.lock` for `core`, else the lock files of `envs/<name>/`).
+
+| Stage | Framework files it executes | Libraries | In addition |
+|---|---|---|---|
+| `read` (and the staleness check of `load-src`) | `staging`, `acquire`, `config.py` | pyarrow | the reader's own source files; the environment lock of a side reader |
+| `map` (both phases) | the declaration loader, the generator, the canonical writer, `acquire`, identity and orientation rules, the pipeline contract, `mapping`, `staging` | pint, pyarrow | `mapping.toml`, `mapping.py` |
+| `resolve` | the same shared packages, `resolve`, `mapping/claims.py` | rdkit, pyarrow | the decisions file |
+| `qualify` | the same shared packages, `qualify`, `expression`, `build` | sympy, numpy, scipy, pint, pyarrow, and the library under test as the harness reports it | the case file, the harness script, the lock of the harness's environment, the content hashes of the records read (section 5.4) |
+
+A change to a provider's version, to a framework file in a stage's list, to an oracle script or to
+a lock therefore marks the stages that depend on it stale and no others: a stage reports `current`
+only when nothing it declares has changed, and a stage whose input is another stage's output is
+stale when that output was made again.
+
+**Why stages keep their own manifests and one key builder, and do not adopt a workflow engine.**
+Snakemake, DVC and doit track code, parameters, inputs and a per-rule environment, which is what
+the keys above cover. Adopting one would give each stage an engine-owned cache layout beside the
+manifests that already carry its inputs and the verification of its files; a stage whose output is a
+database (`tk build`, the live load of a qualification run) needs a marker file for the engine to
+see; and the engine's metadata would duplicate what the manifests record, leaving two places that
+say whether a stage is current. The stages exchange directories with manifests, which the stages
+already refuse to read when they are stale, so one small builder that puts the missing inputs in
+the key completes what an engine would add. Revisit if the stage graph needs what a manifest cannot
+give: running independent branches in parallel, running part of the graph on a cluster, or
+sharing a cache across machines.

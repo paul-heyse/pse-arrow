@@ -12,15 +12,14 @@
 ```
 
 A directory is built in a temporary sibling and renamed into place when complete, so a failed run
-leaves nothing that looks finished. The manifest's `reuse_key` hashes the run's complete inputs;
-a directory whose recorded key equals the current key is reused. Files are Parquet with zstd
+leaves nothing that looks finished. The manifest's `reuse_key` is the stage's key
+(`thermo_knowledge.reuse`) and its `inputs` record what the key was made from; a directory whose
+recorded key equals the current key is reused. Files are Parquet with zstd
 compression and no timestamp, so the same tables are the same bytes.
 """
 
 from __future__ import annotations
 
-import hashlib
-import json
 import shutil
 import tempfile
 from collections.abc import Mapping
@@ -52,10 +51,21 @@ class FormulaScopeRecord(Struct, forbid_unknown_fields=True):
     discriminator: str | None = None
 
 
+class ReadRecords(Struct, forbid_unknown_fields=True):
+    """What a qualification run read: the parameter sets it evaluated and the parameterizations
+    every set of which it read, and the content hash of each record it read, by record name
+    (`thermo_knowledge.build.currency`)."""
+
+    sets: list[str]
+    parameterizations: list[str]
+    records: dict[str, str]
+
+
 class CanonicalManifest(Struct, forbid_unknown_fields=True):
     """What one canonical directory holds and the inputs it was made from. A phase-1 manifest
     also carries the carrier (with the hash of every file its claims cite) and the formula
-    scopes the mapping declares, so resolution needs no source tree and no mapping."""
+    scopes the mapping declares, so resolution needs no source tree and no mapping; a
+    qualification manifest also carries the records the run read."""
 
     schema: int
     source_id: str
@@ -66,16 +76,11 @@ class CanonicalManifest(Struct, forbid_unknown_fields=True):
     summary: dict[str, int] = {}
     carrier: CarrierInfo | None = None
     formula_scopes: list[FormulaScopeRecord] = []
+    read: ReadRecords | None = None
 
 
 def file_name(table: str) -> str:
     return f"{table}.parquet"
-
-
-def reuse_key(description: Mapping[str, object]) -> str:
-    """SHA-256 over the canonical JSON of the inputs that decide a run's output."""
-    text = json.dumps(description, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(text.encode()).hexdigest()
 
 
 def write_tables(directory: Path, tables: Mapping[str, pa.Table]) -> dict[str, TableRecord]:

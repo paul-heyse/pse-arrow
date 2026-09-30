@@ -36,6 +36,7 @@ the `record_origin` rows. Two records with one identifier and different content 
 from __future__ import annotations
 
 import math
+import unicodedata
 import uuid
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -589,6 +590,54 @@ class CanonicalWriter:
                 at=locator,
             )
         return carrier_id
+
+    def citation(
+        self,
+        carrier: str,
+        key: str,
+        *,
+        doi: str | None = None,
+        year: int | None = None,
+        citation: str | None = None,
+        at: str | None = None,
+    ) -> uuid.UUID:
+        """The publication a carrier's citation `key` denotes, written under the key its identity
+        rule gives, with the `citation` row that ties the carrier's key to it; returns the
+        publication's identifier.
+
+        A publication with a DOI is keyed `doi:` and the DOI in lower case, so two carriers that
+        cite one paper under different keys name one publication; without a DOI it is keyed
+        `carrier:<manifest id>:<key>`. What the carrier says about the work (its `key`, `year`
+        and `citation` text) is per carrier and goes on the `citation` row, so carriers that
+        differ in it still agree on the publication. `carrier` is the manifest id of a carrier
+        the writer knows; its provenance rows are written with the first citation."""
+        locator = at if at is not None else f"citation {carrier}:{key}"
+        if not key.strip():
+            raise ValidationError(locator, ["a citation key is not empty"])
+        cleaned = None if doi is None else unicodedata.normalize("NFC", doi).strip().lower()
+        if cleaned == "":
+            raise ValidationError(locator, ["a DOI, when stated, is not empty"])
+        publication = pc.PUBLICATION
+        link = pc.CITATION
+        with self._atomic():
+            carrier_id = self._ensure_carrier(carrier, locator)
+            text = f"doi:{cleaned}" if cleaned is not None else f"carrier:{carrier}:{key}"
+            found = self.kind(
+                publication.declared,
+                {
+                    pc.SOURCE.key: text,
+                    pc.SOURCE.title: text,
+                    publication.doi: cleaned,
+                },
+                at=locator,
+            )
+            self.relation(
+                link.declared,
+                {link.carrier: carrier_id, link.local_key: key},
+                {link.publication: found, link.year: year, link.citation: citation},
+                at=locator,
+            )
+        return found
 
     def import_record(self, ref: SourceRef) -> uuid.UUID:
         """The `import_record` of a source row, with its `artifact` and `carrier`."""

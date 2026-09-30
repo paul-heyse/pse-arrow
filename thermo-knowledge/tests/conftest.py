@@ -5,7 +5,10 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
+from pathlib import Path
+
 import pytest
+from test_acquire_support import unseal
 
 from thermo_knowledge.testing import TestDatabase
 
@@ -31,3 +34,11 @@ def test_database(request: pytest.FixtureRequest) -> Iterator[TestDatabase]:
         yield database
     finally:
         database.remove(failed=request.node.stash.get(_FAILED, False))
+
+
+@pytest.fixture(autouse=True)
+def _unseal_acquired_stores(tmp_path: Path) -> Iterator[None]:
+    """A completed acquisition is read-only; make what a test acquired writable again so its
+    temporary store can be removed."""
+    yield
+    unseal(tmp_path)

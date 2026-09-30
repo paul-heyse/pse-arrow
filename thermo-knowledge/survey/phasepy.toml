@@ -418,7 +418,9 @@ composes = [
   { slot = "alpha_eos", accepts = "alpha function alpha(T, k, Tc)", default = "alpha_soave (PR, RKS), alpha_sv (PRSV), alpha_rk (RK); alpha_vdw (vdW)" },
   { slot = "volume_translation", accepts = "constant volume shift c", default = "none unless volume_translation=True" },
 ]
-variants = "vdweos: c1 = c2 = 0, Omega_a = 27/64, Omega_b = 1/8, alpha = 1. preos: Peng-Robinson constants c1 = 1 - sqrt 2, c2 = 1 + sqrt 2, k from a quadratic polynomial in w. prsveos: PR constants with SV alpha, k0 from a cubic polynomial in w and k1 = 0 unless ksv is non-zero. rkseos: RK constants c1 = 0, c2 = 1 with Soave alpha and a cubic polynomial in w. rkeos: RK constants with the RK alpha. cubiceos(c1, c2, alpha_eos): Omega_a and Omega_b are solved from c1 and c2 (cubic polynomial root, smallest positive root for omb)."
+variants = [
+  { selector = "", selects = "vdweos: c1 = c2 = 0, Omega_a = 27/64, Omega_b = 1/8, alpha = 1. preos: Peng-Robinson constants c1 = 1 - sqrt 2, c2 = 1 + sqrt 2, k from a quadratic polynomial in w. prsveos: PR constants with SV alpha, k0 from a cubic polynomial in w and k1 = 0 unless ksv is non-zero. rkseos: RK constants c1 = 0, c2 = 1 with Soave alpha and a cubic polynomial in w. rkeos: RK constants with the RK alpha. cubiceos(c1, c2, alpha_eos): Omega_a and Omega_b are solved from c1 and c2 (cubic polynomial root, smallest positive root for omb)." },
+]
 equation_source = "The docs page states P = RT/(v-b) - a/((v+c1 b)(v+c2 b)); no literature citation for the constants or the k correlations (Chaparro and Mejia, J. Comput. Chem. 2020, doi 10.1002/jcc.26405, is the citation request in README)."
 closed_form = "implicit"
 data = "component construct (Tc, Pc, w, ksv, alpha_params); no bundled component data"
@@ -433,7 +435,9 @@ composes = [
   { slot = "alpha_eos", accepts = "alpha function alpha(T, k, Tc)", default = "as the pure EoS of the same name" },
   { slot = "mixrule", accepts = "mixing rule returning a_m and b_m and their derivatives", default = "qmr" },
 ]
-variants = "mixrule string: 'qmr'; 'mhv_nrtl', 'mhv_nrtlt', 'mhv_wilson', 'mhv_unifac', 'mhv_original_unifac', 'mhv_uniquac', 'mhv_rk'; 'mhv1_' plus the same seven; 'ws_nrtl', 'ws_wilson', 'ws_rk', 'ws_unifac', 'ws_original_unifac', 'ws_uniquac' (no 'ws_nrtlt' is dispatched although ws_nrtlt is defined in wongsandler.py). vdwm supports only qmr. volume_translation=True selects the vt* classes."
+variants = [
+  { selector = "", selects = "mixrule string: 'qmr'; 'mhv_nrtl', 'mhv_nrtlt', 'mhv_wilson', 'mhv_unifac', 'mhv_original_unifac', 'mhv_uniquac', 'mhv_rk'; 'mhv1_' plus the same seven; 'ws_nrtl', 'ws_wilson', 'ws_rk', 'ws_unifac', 'ws_original_unifac', 'ws_uniquac' (no 'ws_nrtlt' is dispatched although ws_nrtlt is defined in wongsandler.py). vdwm supports only qmr. volume_translation=True selects the vt* classes." },
+]
 equation_source = "docs/source/models/phasepy.cubic.rst gives the QMR equations; MHV and WS are described qualitatively and by the implicit g^E matching statement; no citation of Huron-Vidal, Michelsen or Wong-Sandler publications in the tree."
 closed_form = "implicit"
 data = "component and mixture constructs with the interaction-table constructs; none bundled"
@@ -447,7 +451,9 @@ parameters = "pure: c (per component); no pair parameter"
 composes = [
   { slot = "base_cubic_eos", accepts = "cubic EoS (c1, c2, Omega_a, Omega_b, alpha)", default = "the EoS selected by the class (PR, PRSV, RK, RKS)" },
 ]
-variants = "volume_translation=True flag on preos, prsveos, rkeos, rkseos, cubiceos; vdW has no translated version."
+variants = [
+  { selector = "", selects = "volume_translation=True flag on preos, prsveos, rkeos, rkseos, cubiceos; vdW has no translated version." },
+]
 equation_source = "docs/source/models/phasepy.cubic.rst: the translated EoS improves liquid density without changing phase equilibrium (qualitative)."
 closed_form = "implicit"
 data = "component construct (field c)"
@@ -459,7 +465,9 @@ class = "model_component"
 inputs = "T, Tc, k; alpha = (1 + k (1 - sqrt(T/Tc)))^2"
 parameters = "pure: k; for PR and RKS the named classes overwrite k by a polynomial in the acentric factor w (quadratic for PR, cubic for RKS) and ignore alpha_params"
 composes = []
-variants = "k correlation differs by EoS class (PR or RKS); custom cubiceos takes k from alpha_params."
+variants = [
+  { selector = "", selects = "k correlation differs by EoS class (PR or RKS); custom cubiceos takes k from alpha_params." },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "component construct (w, alpha_params)"
@@ -471,7 +479,9 @@ class = "model_component"
 inputs = "T, Tc, ksv = (k0, k1); Tr = T/Tc; alpha = (1 + (k0 + k1 (0.7 - Tr)(1 + sqrt Tr))(1 - sqrt Tr))^2"
 parameters = "pure: k0, k1 (from component.ksv); if all ksv are zero, k0 is taken from a cubic polynomial in w and k1 stays zero"
 composes = []
-variants = "ksv non-zero (user values) versus ksv all zero (correlation for k0 only)."
+variants = [
+  { selector = "", selects = "ksv non-zero (user values) versus ksv all zero (correlation for k0 only)." },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "component construct (ksv)"
@@ -483,7 +493,9 @@ class = "model_component"
 inputs = "T, Tc, AAT = (AAT1, AAT2, AAT3); alpha = exp(AAT1 (1 - Tr)|1 - Tr|^(AAT2 - 1) + AAT3 (1/Tr - 1))"
 parameters = "pure: three AAT parameters passed as alpha_params"
 composes = []
-variants = "reachable only through cubiceos(alpha_eos=alpha_aat) with alpha_params set; exported in phasepy.cubic."
+variants = [
+  { selector = "", selects = "reachable only through cubiceos(alpha_eos=alpha_aat) with alpha_params set; exported in phasepy.cubic." },
+]
 equation_source = "none (the name is given in the function comment)"
 closed_form = "yes"
 data = "component construct (alpha_params)"
@@ -495,7 +507,9 @@ class = "model_component"
 inputs = "T, Tc; evaluated as sqrt(T/Tc)**-0.5, which is (T/Tc)^(-1/4); signature alpha_rk(T, Tc) takes no k"
 parameters = "none"
 composes = []
-variants = "rkpure defines a_eos nested inside __init__ (not as a method), while rkmix and vtrkpure define it as a method with the two-argument call."
+variants = [
+  { selector = "", selects = "rkpure defines a_eos nested inside __init__ (not as a method), while rkmix and vtrkpure define it as a method with the two-argument call." },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "none bundled"
@@ -507,7 +521,9 @@ class = "model_component"
 inputs = "X, RT, pure a_i and b_i, order (0, 1 or 2 derivatives), kij matrix; a_m = sum_ij x_i x_j sqrt(a_i a_j)(1 - kij), b_m = sum x_i b_i"
 parameters = "pair: kij (ordered when balanced=False)"
 composes = []
-variants = "kij symmetric (balanced=True) or asymmetric (balanced=False)."
+variants = [
+  { selector = "", selects = "kij symmetric (balanced=True) or asymmetric (balanced=False)." },
+]
 equation_source = "docs/source/models/phasepy.cubic.rst states the equations (no citation)"
 closed_form = "yes"
 data = "quadratic mixing rule kij matrix construct"
@@ -521,7 +537,9 @@ parameters = "pair and group parameters of the embedded activity model; global: 
 composes = [
   { slot = "activity_model", accepts = "excess Gibbs energy model returning ln gamma", default = "none (mixrule string must name one: nrtl, nrtlt, wilson, unifac, original_unifac, uniquac, rk)" },
 ]
-variants = "suffix of the mixrule string selects the activity model (seven options); second-order derivative routines are included."
+variants = [
+  { selector = "", selects = "suffix of the mixrule string selects the activity model (seven options); second-order derivative routines are included." },
+]
 equation_source = "docs/source/models/phasepy.cubic.rst: b_m linear, g^E_EoS = g^E_model; no publication is cited"
 closed_form = "implicit"
 data = "interaction-table constructs of the embedded model"
@@ -535,7 +553,9 @@ parameters = "global: q1 (hard-coded per EoS constants); pair and group paramete
 composes = [
   { slot = "activity_model", accepts = "excess Gibbs energy model returning ln gamma", default = "none (mixrule 'mhv1_' plus a model name)" },
 ]
-variants = "q1 = -0.593 for the RK/RKS constants (c1, c2) in {(0, 1), (1, 0)}; q1 = -0.53 for the PR constants; any other (c1, c2) raises an exception 'Unknown q1 value'."
+variants = [
+  { selector = "", selects = "q1 = -0.593 for the RK/RKS constants (c1, c2) in {(0, 1), (1, 0)}; q1 = -0.53 for the PR constants; any other (c1, c2) raises an exception 'Unknown q1 value'." },
+]
 equation_source = "none (name and q1 values only)"
 closed_form = "yes"
 data = "interaction-table constructs of the embedded model"
@@ -549,7 +569,9 @@ parameters = "pair: Kijws; pair and group parameters of the activity model"
 composes = [
   { slot = "activity_model", accepts = "excess Gibbs energy model returning ln gamma", default = "none (mixrule 'ws_' plus a model name)" },
 ]
-variants = "six dispatched models (nrtl, wilson, rk, unifac, original_unifac, uniquac); ws_nrtlt exists but no mixrule string dispatches to it."
+variants = [
+  { selector = "", selects = "six dispatched models (nrtl, wilson, rk, unifac, original_unifac, uniquac); ws_nrtlt exists but no mixrule string dispatches to it." },
+]
 equation_source = "none"
 closed_form = "yes"
 data = "Wong-Sandler and SAFT kij matrices construct; interaction-table constructs of the embedded model"
@@ -561,7 +583,9 @@ class = "residual_or_excess_contribution"
 inputs = "T [K], mole fractions; tau = g/T + g1, G = exp(-alpha tau); returns ln gamma and its composition derivative; the docstring g^E expression sums x_i (sum_j tau_ji G_ji x_j)/(sum_l G_li x_l)"
 parameters = "pair: alpha (symmetric), g [K], g1 (ordered); ternary: D (three numbers, n = 3 only)"
 composes = []
-variants = "nrtl versus nrtlt (ternary Redlich-Kister style addition, exactly three components)."
+variants = [
+  { selector = "", selects = "nrtl versus nrtlt (ternary Redlich-Kister style addition, exactly three components)." },
+]
 equation_source = "docstring equation for g^E; no citation of Renon and Prausnitz"
 closed_form = "yes"
 data = "NRTL interaction matrices and ternary NRTL correction vector constructs"
@@ -575,7 +599,7 @@ parameters = "pair: A_ij [K]; pure: Tc, Zc, Vc for Rackett volumes"
 composes = [
   { slot = "liquid_molar_volume", accepts = "function T to molar volume [cm3/mol]", default = "mixture.vlrackett" },
 ]
-variants = "none"
+variants = []
 equation_source = "docstring: g^E = sum_i x_i ln(sum_j x_j Lambda_ij); cannot predict LLE (docstring)"
 closed_form = "yes"
 data = "Wilson interaction matrix construct"
@@ -587,7 +611,7 @@ class = "residual_or_excess_contribution"
 inputs = "T, mole fractions x; combinatorial part with Phi = x r/sum x r and theta = x q/sum x q and coordination number 10; residual part with tau = exp(-(a0 + a1 T)/T)"
 parameters = "pure: ri, qi; pair: a0 [K], a1 [Adim]"
 composes = []
-variants = "none"
+variants = []
 equation_source = "docstring: ln gamma = ln gamma_comb + ln gamma_res, a_ij = a0 + a1 T; no citation"
 closed_form = "yes"
 data = "UNIQUAC interaction matrices construct"
@@ -599,7 +623,9 @@ class = "group_contribution"
 inputs = "T, mole fractions x; group matrix Vk (components x subgroups), pure r_i and q_i as Vk times Rk and Qk, combinatorial part with r^(3/4) volume fraction and the Staverman-Guggenheim q correction with coordination number 10, residual part with group mole fractions and surface fractions, psi_mn = exp(-(a0 + a1 T + a2 T^2)/T)"
 parameters = "group: Rk, Qk per subgroup; group pair: a0, a1, a2 per main-group pair; pure: GC dictionary"
 composes = []
-variants = "Reads dortmund-2021.xlsx unconditionally; dortmund-2018.xlsx is carried but never read."
+variants = [
+  { selector = "", selects = "Reads dortmund-2021.xlsx unconditionally; dortmund-2018.xlsx is carried but never read." },
+]
 equation_source = "docstring names the Dortmund public database and the equation ln gamma = comb + res with a_mn = a0 + a1 T + a2 T^2; no publication cited"
 closed_form = "yes"
 data = "UNIFAC subgroup record, main-group interaction cell and component group assignment constructs"
@@ -611,7 +637,9 @@ class = "group_contribution"
 inputs = "T, mole fractions; combinatorial part as UNIQUAC (Phi = x r/sum x r, coordination number 10), residual part with temperature-independent a_mn, psi_mn = exp(-a_mn/T)"
 parameters = "group: Rk, Qk; group pair: a_mn; pure: GC"
 composes = []
-variants = "Reads original-unifac.xlsx unconditionally (sheets RkQk and A0)."
+variants = [
+  { selector = "", selects = "Reads original-unifac.xlsx unconditionally (sheets RkQk and A0)." },
+]
 equation_source = "docstring URL to the DDBST original UNIFAC page; the docstring text is copied from the Dortmund function"
 closed_form = "yes"
 data = "UNIFAC subgroup record, original UNIFAC main-group matrix and component group assignment constructs"
@@ -623,7 +651,9 @@ class = "residual_or_excess_contribution"
 inputs = "T, mole fractions; per-pair polynomial G = C + C1/T in (x_i - x_j); ln gamma_i = g + d g/d x_i - sum x_j d g/d x_j by the dge construction"
 parameters = "pair and order: C [Adim], C1 [K]"
 composes = []
-variants = "rk for any number of components (pairs in combination order); rkb for exactly two components (actmodel='rkb')."
+variants = [
+  { selector = "", selects = "rk for any number of components (pairs in combination order); rkb for exactly two components (actmodel='rkb')." },
+]
 equation_source = "docstring: g^E_ij = x_i x_j sum_k C_k (x_i - x_j)^k, G = C + C1/T"
 closed_form = "yes"
 data = "Redlich-Kister pair polynomials construct"
@@ -635,7 +665,9 @@ class = "residual_or_excess_contribution"
 inputs = "T, mole fractions; second virial coefficient matrix B_ij from B P_c/(R T_c) = B0(Tr) + w B1(Tr) with pair critical properties Tij = sqrt(Tc_i Tc_j)(1 - kij) (kij from critical volumes), Zij and wij arithmetic means, Pij = Zij R Tij/vij; mixture B = sum x_i x_j B_ij, partial B by 2 sum x_j B_ij - B"
 parameters = "pure: Tc, Pc, Zc, Vc, w; no fitted pair parameter (pair values are derived from pure critical constants)"
 composes = []
-variants = "virialmodel 'Tsonopoulos', 'Abbott' or 'ideal_gas' (B = 0); the Tsonopoulos constant in code differs from the docstring and the Abbott B1 differs (see discrepancy)."
+variants = [
+  { selector = "", selects = "virialmodel 'Tsonopoulos', 'Abbott' or 'ideal_gas' (B = 0); the Tsonopoulos constant in code differs from the docstring and the Abbott B1 differs (see discrepancy)." },
+]
 equation_source = "docstrings give the B0 and B1 expressions; no citation"
 closed_form = "yes"
 data = "component construct (critical constants)"
@@ -652,7 +684,9 @@ composes = [
   { slot = "psat", accepts = "pure saturation pressure function of T", default = "mixture.psat (Antoine)" },
   { slot = "liquid_molar_volume", accepts = "function T to molar volume", default = "mixture.vlrackett" },
 ]
-variants = "actmodel 'nrtl', 'nrtlt', 'wilson', 'uniquac', 'rk', 'rkb', 'unifac', 'original_unifac' (the docstring omits 'nrtlt'); the model has no cubic-root solve so the phases are a fixed pair of formulae."
+variants = [
+  { selector = "", selects = "actmodel 'nrtl', 'nrtlt', 'wilson', 'uniquac', 'rk', 'rkb', 'unifac', 'original_unifac' (the docstring omits 'nrtlt'); the model has no cubic-root solve so the phases are a fixed pair of formulae." },
+]
 equation_source = "docs/source/phasepy.rst: gamma-phi discontinuous model; no citation"
 closed_form = "yes"
 data = "mixture construct with Antoine, Rackett inputs and the chosen activity and virial constructs"
@@ -664,7 +698,7 @@ class = "explicit_correlation"
 inputs = "T [K]; ln(P/bar) = A - B/(T + C), natural base, inverse closed form"
 parameters = "pure: A, B, C (Ant)"
 composes = []
-variants = "none"
+variants = []
 equation_source = "docstring equation"
 closed_form = "yes"
 data = "component construct (Ant)"
@@ -676,7 +710,7 @@ class = "explicit_correlation"
 inputs = "T [K]; v = Vc Zc^((1 - Tr)^(2/7)) in cm3/mol"
 parameters = "pure: Vc, Zc, Tc"
 composes = []
-variants = "none"
+variants = []
 equation_source = "docstring equation"
 closed_form = "yes"
 data = "component construct (Vc, Zc, Tc)"
@@ -688,7 +722,7 @@ class = "explicit_correlation"
 inputs = "segment number ms (1..6), Tc, acentric factor w, liquid density at reduced temperature 0.7 (rhol07); rational functions of w and of the van der Waals alpha"
 parameters = "global: six 6 x 6 coefficient tables"
 composes = []
-variants = "none"
+variants = []
 equation_source = "comment cites Mejia et al, 2014 with equation numbers 13 to 18"
 closed_form = "yes"
 data = "SAFT-VR-Mie corresponding-states coefficient tables construct"
@@ -702,7 +736,9 @@ parameters = "none of its own; initial guesses are required arguments"
 composes = [
   { slot = "model", accepts = "any object exposing nc, temperature_aux, logfugef_aux (cubic EoS objects and virialgamma)", default = "none (required)" },
 ]
-variants = "good_initial=True skips the successive-substitution outer loop and uses a Newton solve (scipy root) on (ln K, P or T)."
+variants = [
+  { selector = "", selects = "good_initial=True skips the successive-substitution outer loop and uses a Newton solve (scipy root) on (ln K, P or T)." },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "none bundled"
@@ -716,7 +752,9 @@ parameters = "none of its own (K_tol, nacc)"
 composes = [
   { slot = "model", accepts = "object with logfugef_aux and dlogfugef_aux", default = "none (required)" },
 ]
-variants = "equilibrium 'LV' (liquid-vapour) or 'LL' (liquid-liquid)."
+variants = [
+  { selector = "", selects = "equilibrium 'LV' (liquid-vapour) or 'LL' (liquid-liquid)." },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "none bundled"
@@ -730,7 +768,9 @@ parameters = "none of its own"
 composes = [
   { slot = "model", accepts = "object with logfugef_aux and dlogfugef_aux", default = "none (required)" },
 ]
-variants = "lle wraps multiflash for two liquids and restarts from TPD minima when a stability variable stays positive."
+variants = [
+  { selector = "", selects = "lle wraps multiflash for two liquids and restarts from TPD minima when a stability variable stays positive." },
+]
 equation_source = "docs/source/equilibrium/phasepy.multiflash.rst names Gupta et al without a full citation"
 closed_form = "procedural"
 data = "none bundled"
@@ -744,7 +784,9 @@ parameters = "none of its own"
 composes = [
   { slot = "model", accepts = "object with logfugef_aux", default = "none (required)" },
 ]
-variants = "vlleb binary only (raises for nc != 2); vlle for a binary overall composition warns and updates the temperature."
+variants = [
+  { selector = "", selects = "vlleb binary only (raises for nc != 2); vlle for a binary overall composition warns and updates the temperature." },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "none bundled"
@@ -758,7 +800,9 @@ parameters = "none of its own"
 composes = [
   { slot = "model", accepts = "object with logfugef_aux (and dHf_r, Tf for a solid trial phase)", default = "none (required)" },
 ]
-variants = "trial phase 'S' is accepted by tpd_val (pure solid from the liquid fugacity corrected with dHf and Tf) although the docstrings list only 'L' and 'V'."
+variants = [
+  { selector = "", selects = "trial phase 'S' is accepted by tpd_val (pure solid from the liquid fugacity corrected with dHf and Tf) although the docstrings list only 'L' and 'V'." },
+]
 equation_source = "docstring names Michelsen's dimensionless tangent plane function"
 closed_form = "procedural"
 data = "none bundled"
@@ -772,7 +816,9 @@ parameters = "pure: dHf [J/mol], Tf [K]"
 composes = [
   { slot = "model", accepts = "cubic EoS mixture or virialgamma with dHf_r and Tf attributes", default = "none (required)" },
 ]
-variants = "sle (fluid phases one liquid) versus slle (two liquids); multiflash_solid is the shared solver with ASS and Gibbs minimisation steps."
+variants = [
+  { selector = "", selects = "sle (fluid phases one liquid) versus slle (two liquids); multiflash_solid is the shared solver with ASS and Gibbs minimisation steps." },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "component construct (dHf, Tf)"
@@ -786,7 +832,9 @@ parameters = "pure: cii polynomial (influence parameter) plus the cubic EoS para
 composes = [
   { slot = "bulk_eos", accepts = "cubic EoS object exposing a0ad, muad, dOm, ci, sgt_adim", default = "none (required)" },
 ]
-variants = "ten_fit returns tension for a given T during cii fitting; full_output returns the profile z(rho) and the grand potential density."
+variants = [
+  { selector = "", selects = "ten_fit returns tension for a given T during cii fitting; full_output returns the profile z(rho) and the grand potential density." },
+]
 equation_source = "docs/source/phasepy.sgt.rst gives a = a0 + 1/2 sum c_ij grad rho_i grad rho_j, the Euler-Lagrange equations and the tension integral; van der Waals and Cahn-Hilliard named"
 closed_form = "procedural"
 data = "component construct (cii) and SGT influence parameter construct"
@@ -800,7 +848,9 @@ parameters = "pure: cii; pair: beta must give a singular c_ij, else an exception
 composes = [
   { slot = "bulk_eos", accepts = "cubic EoS mixture exposing muad_aux, dOm_aux, ci, sgt_adim", default = "none (required)" },
 ]
-variants = "method 'reference' (with the reference component index s), 'cornelisse', 'liang'; sgt_linear and sgt_spot (phasepy/sgt/linear_spot.py) are linear-profile and spot approximations."
+variants = [
+  { selector = "", selects = "method 'reference' (with the reference component index s), 'cornelisse', 'liang'; sgt_linear and sgt_spot (phasepy/sgt/linear_spot.py) are linear-profile and spot approximations." },
+]
 equation_source = "docs/source/sgt/sgt.tenbeta0.rst names the reference component method and Cornelisse's doctoral thesis and Liang's path function; no full citation"
 closed_form = "procedural"
 data = "component construct (cii) and SGT influence parameter construct"
@@ -814,7 +864,9 @@ parameters = "pure: cii; pair: beta (non-zero)"
 composes = [
   { slot = "bulk_eos", accepts = "cubic EoS mixture exposing muad_aux, dmuad_aux, dOm_aux, ci, sgt_adim", default = "none (required)" },
 ]
-variants = "sgt_mix iterates the length (inspired by Liang and Michelsen per the docs); sgt_zfixed solves at fixed length; msgt_mix solves the modified (pseudo-time) system of Mu et al."
+variants = [
+  { selector = "", selects = "sgt_mix iterates the length (inspired by Liang and Michelsen per the docs); sgt_zfixed solves at fixed length; msgt_mix solves the modified (pseudo-time) system of Mu et al." },
+]
 equation_source = "docs/source/sgt/sgt.tensgt.rst (Liang and Michelsen; Mu et al named without citation)"
 closed_form = "procedural"
 data = "component construct (cii) and SGT influence parameter construct"
@@ -828,7 +880,7 @@ parameters = "fitted: Ant (3), ksv (2), c (1), cii (polynomial of order 2 by def
 composes = [
   { slot = "model", accepts = "component plus an EoS constructor", default = "prsveos for fit_ksv; eos argument for fit_vt" },
 ]
-variants = "none"
+variants = []
 equation_source = "none"
 closed_form = "procedural"
 data = "none bundled (users supply data)"
@@ -842,7 +894,9 @@ parameters = "fitted: Wilson a12 and a21 [K]; NRTL g (and g1 and alpha) for a bi
 composes = [
   { slot = "model", accepts = "virialgamma (activity models) or a cubic EoS constructor with a mixing rule", default = "virialgamma with virialmodel Tsonopoulos" },
 ]
-variants = "weights vectors per data type; Tdep and alpha_fixed flags on fit_nrtl; the fit_nrtl docstring calls the flag alpha_fit."
+variants = [
+  { selector = "", selects = "weights vectors per data type; Tdep and alpha_fixed flags on fit_nrtl; the fit_nrtl docstring calls the flag alpha_fit." },
+]
 equation_source = "none"
 closed_form = "procedural"
 data = "none bundled (users supply data)"
@@ -854,7 +908,7 @@ class = "other"
 inputs = "number of nodes; Jacobi polynomial roots by a Cython routine; differentiation matrices A and B for first and second derivatives; gdem and dem are vector extrapolations used for accelerated successive substitution"
 parameters = "none"
 composes = []
-variants = "none"
+variants = []
 equation_source = "none"
 closed_form = "procedural"
 data = "none bundled"

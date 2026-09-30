@@ -612,7 +612,7 @@ composes = [
   { slot = "pure-component isotherm", accepts = "PointIsotherm (interpolated) or ModelIsotherm of a model from the IAST-consistent list", default = "none; the caller passes the list" },
 ]
 variants = [
-  { flag = "function", selects = "iast_point for given partial pressures; iast_point_fraction for given gas mole fractions at a total pressure; iast_binary_vle for a composition scan at fixed total pressure; iast_binary_svp for a scan over pressure at fixed composition; reverse_iast for gas composition from adsorbed fractions" },
+  { selector = "function", selects = "iast_point for given partial pressures; iast_point_fraction for given gas mole fractions at a total pressure; iast_binary_vle for a composition scan at fixed total pressure; iast_binary_svp for a scan over pressure at fixed composition; reverse_iast for gas composition from adsorbed fractions" },
 ]
 equation_source = "none: the module has no reference section"
 closed_form = "implicit"

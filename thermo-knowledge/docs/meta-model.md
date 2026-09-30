@@ -29,6 +29,20 @@ Every construct carries `doc` (required, one or more sentences stating meaning, 
 structure) and may carry `traces` (identifiers from the handoff semantic dictionary such as
 `IC-13` or `SI-11`) and `pse` (section 9).
 
+**Why the declaration language, the resolver and the generator are written here and not built on
+an established schema language.** LinkML offers classes, inheritance, enumerations, identifiers and
+generators for SQL and other targets; SQLAlchemy Core can render DDL. Neither states what this
+model is made of: relations keyed by several references whose absence has a declared meaning (a
+missing row is not a zero), transposition rules that act on stored values, contracts with slot
+groups, families and expressions, an enforcement point for every invariant (`ddl`, `load` or
+`verify`, checked in both directions), identifiers computed from declared keys so that a rebuild
+reproduces them, and the declaration reified as rows in the database it describes. A schema
+language would supply the classes and enumerations and leave all of that, with most of the resolver,
+to be written beside it, and its SQL generator would be replaced by ours; the meaning of the model
+would then be coupled to an external metamodel for a small share of the work. Revisit if a schema
+language states keyed relations with absence policies and enforcement points as first-class
+constructs, or if this declaration shrinks to classes, enumerations and identifiers.
+
 ## 2. Types
 
 An attribute, key, column or slot has a type expression:
@@ -482,9 +496,12 @@ role `conventions` may not be used.
 
 The roles above are what the generator needs. The stage code needs more: the canonical writer creates
 `carrier`, `artifact`, `import_record`, `rights_determination` and `subject_subform_choice` rows and the
-text keys that restate references, resolution writes `species`, `species_form`, `source_entity`, `identity_assertion` and
-`resolution_candidate`, the mapping framework writes `derivation`, `fit`, `envelope`, `mapping_rule`,
-`mapping_coverage` and `held_row`, qualification writes `qualification_run` and reads `parameter_set`,
+text keys that restate references, and writes the `publication` a carrier's citation denotes with its
+`citation` row, resolution writes `species`, `species_form`, `defined_mixture` with its `mixture_component` rows,
+`material`, `polymer_type`, `unclassified_entity`, `source_entity` (with its `entity_class`), `identity_assertion` and
+`resolution_candidate`, the mapping framework writes `derivation`, `fit`, `envelope`, `mapping_rule` (with
+the number of rows each rule was applied to), `mapping_coverage` and `held_row` (with a `held_reason`),
+qualification writes `qualification_run` (with a `blocked_reason` when it is blocked) and reads `parameter_set`,
 `parameterization`, `envelope`, `source_entity` and `subject_subform_choice`. That dependency is declared in one file shipped with
 the package, `src/thermo_knowledge/pipeline_contract.toml`, which names each kind, relation and enum
 the code uses directly (the model is this pipeline's model) with:

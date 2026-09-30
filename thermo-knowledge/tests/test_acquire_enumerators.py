@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 
-"""The `janaf` and `iapws` enumerators: real (trimmed) index pages in, pages and stable names out;
-a page that does not have the expected structure is an error naming it."""
+"""The `janaf` and `iapws` enumerators: synthetic index pages with the structure each enumerator
+reads (invented species, codes, titles and slugs, written for these tests) in, pages and stable
+names out; a page that does not have the expected structure is an error naming it."""
 
 from __future__ import annotations
 
@@ -32,23 +33,23 @@ from thermo_knowledge.acquire.pages import SIDECAR_SUFFIX
 ENUMERATOR_FIXTURES = FIXTURES / "enumerators"
 PIN = FIXED_NOW.date().isoformat()
 
-JANAF_INDEX = "https://janaf.nist.gov/formula.html"
-JANAF_CODES = "https://janaf.nist.gov/dat/janaf.json"
-IAPWS_INDEX = "https://iapws.org/technical-guidance/release"
+JANAF_INDEX = "https://tables.example/formula.html"
+JANAF_CODES = "https://tables.example/dat/janaf.json"
+IAPWS_INDEX = "https://documents.example/technical-guidance/release"
 
-JANAF_FORMULA_HTML = (ENUMERATOR_FIXTURES / "janaf-formula.html").read_text()
-JANAF_CODES_JSON = (ENUMERATOR_FIXTURES / "janaf-codes.json").read_text()
-IAPWS_HTML = (ENUMERATOR_FIXTURES / "iapws-release.html").read_text()
+JANAF_FORMULA_HTML = (ENUMERATOR_FIXTURES / "species-index.html").read_text()
+JANAF_CODES_JSON = (ENUMERATOR_FIXTURES / "species-codes.json").read_text()
+IAPWS_HTML = (ENUMERATOR_FIXTURES / "documents-index.html").read_text()
 
 IAPWS_SLUGS = [
-    "D2OThCond",
-    "D2Ovisc",
-    "OceanLiquid",
-    "LiquidWater",
-    "Seawater-Surf",
-    "SBTL",
-    "Advise6",
-    "Advise5",
+    "QuartzCond",
+    "QuartzVisc",
+    "BrineLiquid",
+    "FluxWater",
+    "Brine-Surf",
+    "TBLX",
+    "Note9",
+    "Note8",
 ]
 
 
@@ -95,9 +96,9 @@ def test_janaf_yields_the_index_the_code_list_and_every_table() -> None:
     assert targets[1] == PageTarget(JANAF_CODES, "janaf.json")
     tables = targets[2:]
     assert len(tables) == 12
-    assert tables[0] == PageTarget("https://janaf.nist.gov/tables/Al-001.txt", "Al-001.txt")
-    assert tables[-1] == PageTarget("https://janaf.nist.gov/tables/Al-012.txt", "Al-012.txt")
-    assert [t.name for t in tables] == [f"Al-{n:03d}.txt" for n in range(1, 13)]
+    assert tables[0] == PageTarget("https://tables.example/tables/Zq-001.txt", "Zq-001.txt")
+    assert tables[-1] == PageTarget("https://tables.example/tables/Zq-012.txt", "Zq-012.txt")
+    assert [t.name for t in tables] == [f"Zq-{n:03d}.txt" for n in range(1, 13)]
 
 
 def test_janaf_names_and_urls_are_unique_and_stable() -> None:
@@ -115,12 +116,12 @@ def test_janaf_derives_the_code_list_and_tables_from_the_index_url() -> None:
     pages = {base: JANAF_FORMULA_HTML, "http://127.0.0.1:9/site/dat/janaf.json": JANAF_CODES_JSON}
     targets, _ = enumerate_pages("janaf", pages, base)
     assert targets[1].url == "http://127.0.0.1:9/site/dat/janaf.json"
-    assert targets[2].url == "http://127.0.0.1:9/site/tables/Al-001.txt"
+    assert targets[2].url == "http://127.0.0.1:9/site/tables/Zq-001.txt"
 
 
 @pytest.mark.parametrize(
     "urls",
-    [(), (JANAF_INDEX, "https://janaf.nist.gov/name.html")],
+    [(), (JANAF_INDEX, "https://tables.example/name.html")],
 )
 def test_janaf_needs_exactly_one_index_url(urls: tuple[str, ...]) -> None:
     with pytest.raises(AcquireError, match="exactly one URL"):
@@ -160,7 +161,7 @@ def test_janaf_code_list_must_be_consistent() -> None:
     with pytest.raises(AcquireError, match=r"janaf.json: entry 11 of `index` is '../etc/passwd'"):
         enumerate_pages("janaf", janaf_pages(codes=with_codes(bad_code)), JANAF_INDEX)
     duplicate = {**document, "index": [*document["index"][:-1], document["index"][0]]}
-    with pytest.raises(AcquireError, match="listed more than once: Al-001"):
+    with pytest.raises(AcquireError, match="listed more than once: Zq-001"):
         enumerate_pages("janaf", janaf_pages(codes=with_codes(duplicate)), JANAF_INDEX)
     short = {**document, "display": document["display"][:-1]}
     with pytest.raises(AcquireError, match="`display` has 11 entries but `index` has 12"):
@@ -188,7 +189,7 @@ def test_iapws_yields_the_index_and_every_document_pdf_in_page_order() -> None:
     assert targets[0] == PageTarget(IAPWS_INDEX, "release.html")
     assert [t.name for t in targets[1:]] == [f"{slug}.pdf" for slug in IAPWS_SLUGS]
     assert [t.url for t in targets[1:]] == [
-        f"https://iapws.org/technical-guidance/release/{slug}.download" for slug in IAPWS_SLUGS
+        f"https://documents.example/technical-guidance/release/{slug}.download" for slug in IAPWS_SLUGS
     ]
 
 
@@ -201,7 +202,7 @@ def test_iapws_names_and_urls_are_unique_and_stable() -> None:
     assert all("/" not in t.name and not t.name.startswith(".") for t in first)
 
 
-@pytest.mark.parametrize("urls", [(), (IAPWS_INDEX, "https://iapws.org/technical-guidance")])
+@pytest.mark.parametrize("urls", [(), (IAPWS_INDEX, "https://documents.example/technical-guidance")])
 def test_iapws_needs_exactly_one_index_url(urls: tuple[str, ...]) -> None:
     with pytest.raises(AcquireError, match="exactly one URL"):
         enumerate_pages("iapws", {IAPWS_INDEX: IAPWS_HTML}, *urls)
@@ -229,8 +230,8 @@ def test_iapws_documents_under_an_unknown_heading_are_an_error() -> None:
 
 def test_iapws_a_link_to_another_place_is_an_error() -> None:
     foreign = IAPWS_HTML.replace(
-        'href="https://iapws.org/technical-guidance/release/D2OThCond"',
-        'href="https://example.org/elsewhere/D2OThCond"',
+        'href="https://documents.example/technical-guidance/release/QuartzCond"',
+        'href="https://example.org/elsewhere/QuartzCond"',
     )
     assert foreign != IAPWS_HTML
     with pytest.raises(
@@ -240,8 +241,8 @@ def test_iapws_a_link_to_another_place_is_an_error() -> None:
 
 
 def test_iapws_a_slug_listed_twice_is_an_error() -> None:
-    doubled = IAPWS_HTML.replace("release/D2Ovisc", "release/D2OThCond")
-    with pytest.raises(AcquireError, match="the document slug 'D2OThCond' is listed twice"):
+    doubled = IAPWS_HTML.replace("release/QuartzVisc", "release/QuartzCond")
+    with pytest.raises(AcquireError, match="the document slug 'QuartzCond' is listed twice"):
         enumerate_pages("iapws", {IAPWS_INDEX: doubled}, IAPWS_INDEX)
 
 
@@ -294,10 +295,10 @@ def test_janaf_end_to_end_stores_the_index_the_code_list_and_the_tables(
     files = tree_files(ctx.raw_dir / "janaf_loopback" / PIN / "tree")
     bodies = {name for name in files if not name.endswith(SIDECAR_SUFFIX)}
     assert bodies == {"formula.html", "janaf.json", *(f"{code}.txt" for code in codes)}
-    assert files["Al-005.txt"] == b"T(K)\tCp\n0\tAl-005\n"
+    assert files["Zq-005.txt"] == b"T(K)\tCp\n0\tZq-005\n"
     assert files["formula.html"].decode() == JANAF_FORMULA_HTML
-    sidecar = json.loads(files[f"Al-005.txt{SIDECAR_SUFFIX}"])
-    assert sidecar["url"] == server.url("/tables/Al-005.txt")
+    sidecar = json.loads(files[f"Zq-005.txt{SIDECAR_SUFFIX}"])
+    assert sidecar["url"] == server.url("/tables/Zq-005.txt")
     assert sidecar["status"] == 200
     entry = json.loads(lock.read_text())["sources"]["janaf_loopback"]
     assert entry["file_count"] == 2 * (2 + len(codes))
@@ -334,7 +335,7 @@ def test_iapws_end_to_end_follows_the_download_redirects(
     tmp_path: Path, server: HttpFixture, clock: FakeClock
 ) -> None:
     server.routes["/robots.txt"] = Route(b"User-agent: *\nDisallow: /private/\nDisallow: /admin/\n")
-    html = IAPWS_HTML.replace("https://iapws.org", server.url(""))
+    html = IAPWS_HTML.replace("https://documents.example", server.url(""))
     server.routes["/technical-guidance/release"] = Route(
         html.encode(), headers={"Content-Type": "text/html"}
     )
@@ -354,11 +355,11 @@ def test_iapws_end_to_end_follows_the_download_redirects(
     files = tree_files(ctx.raw_dir / "iapws_loopback" / PIN / "tree")
     bodies = {name for name in files if not name.endswith(SIDECAR_SUFFIX)}
     assert bodies == {"release.html", *(f"{slug}.pdf" for slug in IAPWS_SLUGS)}
-    assert files["SBTL.pdf"] == b"%PDF-1.4 SBTL"
-    sidecar = json.loads(files[f"SBTL.pdf{SIDECAR_SUFFIX}"])
-    assert sidecar["url"] == server.url("/technical-guidance/release/SBTL.download")
+    assert files["TBLX.pdf"] == b"%PDF-1.4 TBLX"
+    sidecar = json.loads(files[f"TBLX.pdf{SIDECAR_SUFFIX}"])
+    assert sidecar["url"] == server.url("/technical-guidance/release/TBLX.download")
     assert sidecar["redirects"] == [sidecar["url"]]
-    assert re.fullmatch(r".*/public/documents/id5/SBTL\.pdf", sidecar["final_url"])
+    assert re.fullmatch(r".*/public/documents/id5/TBLX\.pdf", sidecar["final_url"])
     assert sidecar["status"] == 200
     entry = json.loads(lock.read_text())["sources"]["iapws_loopback"]
     assert entry["file_count"] == 2 * (1 + len(IAPWS_SLUGS))

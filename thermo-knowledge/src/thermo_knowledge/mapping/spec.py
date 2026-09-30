@@ -36,12 +36,70 @@ PROVENANCE_COLUMNS = (staging_schema.ARTIFACT, staging_schema.LOCATOR)
 _STRICT = {"forbid_unknown_fields": True}
 
 
+class ClassRule(Struct, kw_only=True, **_STRICT):
+    """One line of a value-to-class table: a row whose column value is one of `values` (exactly)
+    or matches `pattern` (as a whole) is of class `class`, for the stated `reason`."""
+
+    reason: str
+    entity_class: str = msgspec.field(name="class")
+    values: list[str] = []
+    pattern: str | None = None
+
+    def applies(self, value: object) -> bool:
+        if not isinstance(value, str):
+            return False
+        if self.pattern is not None:
+            return re.fullmatch(self.pattern, value) is not None
+        return value in self.values
+
+
+class ClassBy(Struct, **_STRICT):
+    """The class of each source entity of a scope from a column of its row: the first rule the
+    value satisfies decides, and a value no rule covers (or an absent one) is of class `default`."""
+
+    column: str
+    default: str
+    rules: list[ClassRule]
+
+
+class MixtureSpec(Struct, **_STRICT):
+    """What a scope states about its defined mixtures: whether their composition is fixed by
+    definition or by measurement (`definition`, a `mixture_definition` member), and whether the
+    fractions the source gives are mole or mass fractions (`basis`: `mole` or `mass`)."""
+
+    definition: str
+    basis: Literal["mole", "mass"]
+    reason: str
+
+
 class ScopeSpec(Struct, **_STRICT):
-    """A scope of source entities: each row of `table` is one, keyed by column `key`."""
+    """A scope of source entities: each row of `table` is one, keyed by column `key`, of the class
+    `class` (an `entity_class` member) or of the class `class_by` gives from a column of its row.
+    A scope that has defined mixtures states `mixture`."""
 
     table: str
     key: str
     doc: str
+    entity_class: str | None = msgspec.field(name="class", default=None)
+    class_by: ClassBy | None = None
+    mixture: MixtureSpec | None = None
+
+    def classes(self) -> set[str]:
+        """Every class an entity of the scope can have."""
+        if self.class_by is not None:
+            return {self.class_by.default, *(rule.entity_class for rule in self.class_by.rules)}
+        return {self.entity_class} if self.entity_class is not None else set()
+
+    def class_of(self, value: object) -> str:
+        """The class of an entity whose `class_by` column holds `value` (the scope's class when it
+        has a single one)."""
+        if self.class_by is None:
+            assert self.entity_class is not None  # validated
+            return self.entity_class
+        for rule in self.class_by.rules:
+            if rule.applies(value):
+                return rule.entity_class
+        return self.class_by.default
 
 
 class FormulaScope(Struct, **_STRICT):
@@ -89,6 +147,10 @@ class FieldRule(Struct, **_STRICT):
     Exactly one of: `target` (a value that becomes a canonical value), `role = "structure"` (the
     column keys, selects or indexes rows and carries no value of its own) or `disposition`
     `out_of_scope` / `deferred` (the column is not mapped, with a reason).
+
+    A value rule must be applied to at least one mapped row of its table, or the run is refused;
+    `optional = true` declares a field the source fills only sometimes, whose rule may be applied
+    to none (the run then reports it).
     """
 
     target: str | None = None
@@ -100,6 +162,7 @@ class FieldRule(Struct, **_STRICT):
     pattern: str | None = None
     otherwise_scheme: str | None = None
     offset: int | None = None
+    optional: bool = False
     role: Literal["structure"] | None = None
     disposition: Literal["out_of_scope", "deferred"] | None = None
     reason: str | None = None
@@ -280,6 +343,7 @@ def validate(
             problems.append(f"scope {name}: table `{scope.table}` is not staged")
         elif scope.key not in schema.names:
             problems.append(f"scope {name}: `{scope.key}` is not a column of `{scope.table}`")
+        _scope_class(problems, decl, name, scope, schema)
     for item in spec.formula_scope:
         if item.scope not in spec.scopes:
             problems.append(f"formula_scope: `{item.scope}` is not a declared scope")
@@ -307,6 +371,65 @@ def validate(
                 f"parameterization {name}: `revision` may use only the placeholder {{pin}}"
             )
     return problems
+
+
+UNSUPPORTED_CLASSES = ("pseudo_component",)
+"""Classes that have no resolution rules yet: a pseudo-component's provisional entity needs the
+`kind` that says why it has no formula, which no source statement carries so far; its class rules
+come with the wave that needs them."""
+
+
+def _scope_class(
+    problems: list[str], decl: m.Declaration, name: str, scope: ScopeSpec, schema: pa.Schema | None
+) -> None:
+    """The class declaration of a scope: exactly one of `class` and `class_by`, each class an
+    `entity_class` member the resolver has rules for, and `mixture` exactly for a scope that can
+    have defined mixtures."""
+    where = f"scope {name}"
+    members = {member.name for member in decl.enums[pc.ENTITY_CLASS.declared].members}
+    if (scope.entity_class is None) == (scope.class_by is None):
+        problems.append(
+            f"{where}: state exactly one of `class` (the class of every entity) and `class_by` "
+            "(a column and a value-to-class table)"
+        )
+        return
+    if scope.class_by is not None:
+        by = scope.class_by
+        if schema is not None and by.column not in schema.names:
+            problems.append(f"{where}: class_by column `{by.column}` is not a column of the table")
+        for index, rule in enumerate(by.rules):
+            label = f"{where} class_by rule {index + 1}"
+            if (rule.pattern is None) == (not rule.values):
+                problems.append(f"{label}: state exactly one of `values` and `pattern`")
+            if not rule.reason.strip():
+                problems.append(f"{label}: states its `reason`")
+            if rule.pattern is not None:
+                try:
+                    re.compile(rule.pattern)
+                except re.error as error:
+                    problems.append(f"{label}: `pattern` is not a regular expression: {error}")
+    for entity_class in sorted(scope.classes()):
+        if entity_class not in members:
+            problems.append(f"{where}: `{entity_class}` is not an entity class")
+        elif entity_class in UNSUPPORTED_CLASSES:
+            problems.append(f"{where}: class `{entity_class}` has no resolution rules yet")
+    mixtures = pc.ENTITY_CLASS.member("defined_mixture") in scope.classes()
+    if mixtures and scope.mixture is None:
+        problems.append(
+            f"{where}: the scope has defined mixtures, so it states `mixture` (their `definition` "
+            "and fraction `basis`)"
+        )
+    elif not mixtures and scope.mixture is not None:
+        problems.append(f"{where}: `mixture` belongs to a scope that has defined mixtures")
+    if scope.mixture is not None:
+        definitions = {member.name for member in decl.enums[pc.MIXTURE_DEFINITION.declared].members}
+        if scope.mixture.definition not in definitions:
+            problems.append(
+                f"{where}: mixture definition `{scope.mixture.definition}` is not a "
+                "`mixture_definition`"
+            )
+        if not scope.mixture.reason.strip():
+            problems.append(f"{where}: `mixture` states its `reason`")
 
 
 def _convention_set(
@@ -491,6 +614,8 @@ def _field(
     if sum(kinds) != 1:
         problems.append(f"{where}: give exactly one of `target`, `role` and `disposition`")
         return
+    if rule.optional and rule.target is None:
+        problems.append(f"{where}: `optional` belongs to a value rule (one with a `target`)")
     if rule.role is not None or rule.disposition is not None:
         if rule.disposition is not None:
             _disposition(problems, where, rule.disposition, rule.reason, rule.wave)

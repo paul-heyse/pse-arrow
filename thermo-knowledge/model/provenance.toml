@@ -82,18 +82,35 @@ provenance = "none"
 traces = ["IC-10"]
 
 [kinds.source.attributes]
-key = { type = "Text", doc = "Stable key: the manifest id and resolved pin for a carrier, a citation key for a publication." }
+key = { type = "Text", doc = "Stable key: the manifest id and resolved pin for a carrier; `doi:` and the lower-case DOI for a publication that has one, otherwise `carrier:`, the manifest id of the carrier that cites it, `:` and that carrier's citation key." }
 title = { type = "Text", doc = "Human-readable title." }
 
 [kinds.publication]
-doc = "A published work that content is attributed to."
+doc = """A published work that content is attributed to. Its identity is bound to the work: the key is `doi:` and the lower-case DOI when the work has one, so two carriers citing one paper under different citation keys name one publication, and otherwise `carrier:`, the citing carrier's manifest id, `:` and its citation key. What a carrier says about the work (its citation key, year and citation text) is per carrier and lives on the `citation` relation, so carriers that differ in it still agree on the publication."""
 extends = "source"
 
 [kinds.publication.attributes]
-year = { type = "Integer", optional = true, doc = "Year of publication." }
-doi = { type = "Id<doi>", optional = true, unique = true, doc = "DOI where one exists." }
+doi = { type = "Id<doi>", optional = true, unique = true, doc = "The DOI in lower case, where one exists." }
 isbn = { type = "Id<isbn>", optional = true, doc = "ISBN for a book." }
-citation = { type = "Text", optional = true, doc = "Bibliographic citation as given by the carrier." }
+
+[[kinds.publication.requires]]
+name = "key_follows_doi"
+doc = "The key is `doi:` and the DOI when the publication has one, else `carrier:`, a manifest id, `:` and a citation key."
+enforced = "load"
+
+[relations.citation]
+doc = "The publication a carrier's own citation key denotes, with what that carrier says about it. Several carriers citing one work give one publication and one row each."
+provenance = "none"
+absence = "optional"
+
+[relations.citation.keys]
+carrier = { type = "carrier", doc = "The carrier that cites the work." }
+local_key = { type = "Text", doc = "The carrier's citation key, verbatim." }
+
+[relations.citation.columns]
+publication = { type = "publication", doc = "The work the key denotes." }
+year = { type = "Integer", optional = true, doc = "Year of publication as the carrier states it." }
+citation = { type = "Text", optional = true, doc = "Bibliographic citation as the carrier gives it." }
 
 [kinds.software_release]
 doc = "A released version of a program or library, as the origin of a computation or the reference of a comparison."

@@ -9,9 +9,11 @@ phase-1 output is current for the mapping and the resolution result exists and w
 exactly that phase-1 output; it then runs `records(ctx)`, computes the coverage and writes
 `<canonical>/<id>/`. Each phase is skipped when its reuse key is unchanged.
 
-The reuse key of phase 1 hashes the staged manifest's key, the mapping version (the hash of
-`mapping.toml`, `mapping.py` and the framework's format number) and the declaration fingerprint;
-phase 2 adds the hash of the phase-1 manifest and of the resolution manifest.
+The reuse key of phase 1 is built by the shared key builder (`thermo_knowledge.reuse`) from the
+staged manifest's key, the mapping version (the hash of `mapping.toml`, `mapping.py` and the
+framework's format number), the declaration fingerprint, the framework files the stage executes
+and the installed versions of its libraries; phase 2 adds the hash of the phase-1 manifest and of
+the resolution manifest. A manifest records every input of its key.
 """
 
 from __future__ import annotations
@@ -27,7 +29,7 @@ from types import ModuleType
 
 import pyarrow.parquet as pq
 
-from thermo_knowledge import identity
+from thermo_knowledge import identity, reuse
 from thermo_knowledge import pipeline_contract as pc
 from thermo_knowledge.acquire.lock import read_lock
 from thermo_knowledge.acquire.manifest import (
@@ -56,7 +58,7 @@ from thermo_knowledge.staging.errors import StagingError
 from thermo_knowledge.staging.stage import StageState
 from thermo_knowledge.staging.writer import sha256_file
 
-FORMAT = 1
+FORMAT = 2
 """Bump when the framework's output changes in a way the mapping's files do not show."""
 IDENTITIES = "identities"
 RECORDS = "records"
@@ -90,6 +92,8 @@ class MapOutcome:
     status: str  # "mapped" | "current"
     tables: dict[str, int]
     coverage: coverage.Coverage | None = None
+    unused_optional: tuple[str, ...] = ()
+    """Value rules declared `optional` that were applied to no row: reported, not refused."""
 
 
 def mapping_sources(env: Environment) -> list[str]:
@@ -170,16 +174,26 @@ def _entry_point(module: ModuleType, name: str, source_id: str) -> Callable[...,
     return found  # type: ignore[no-any-return]
 
 
-def _identity_key(prepared: Prepared) -> str:
-    return store.reuse_key(
-        {
-            "phase": "identity",
-            "staged": prepared.staged_key,
-            "mapping": prepared.version,
-            "declaration": prepared.fingerprint,
-            "format": FORMAT,
-        }
-    )
+def _key(prepared: Prepared, phase: str, **upstream: str) -> reuse.Key:
+    """The reuse key of one phase: the mapping's own inputs, then what the phase reads."""
+    try:
+        return reuse.stage_key(
+            "map",
+            {
+                "phase": phase,
+                "staged": prepared.staged_key,
+                "mapping": prepared.version,
+                "declaration": prepared.fingerprint,
+                "format": FORMAT,
+                **upstream,
+            },
+        )
+    except reuse.ReuseError as error:
+        raise MapError(f"{prepared.source_id}: {error}") from error
+
+
+def _identity_key(prepared: Prepared) -> reuse.Key:
+    return _key(prepared, "identity")
 
 
 def _recorded(directory: Path) -> CanonicalManifest | None:
@@ -193,7 +207,13 @@ def _recorded(directory: Path) -> CanonicalManifest | None:
 
 def _claim_records(directory: Path) -> dict[str, store.TableRecord]:
     records: dict[str, store.TableRecord] = {}
-    for file in (claims.SOURCE_ENTITY_FILE, claims.ASSERTION_FILE, claims.LEDGER_FILE):
+    for file in (
+        claims.SOURCE_ENTITY_FILE,
+        claims.ASSERTION_FILE,
+        claims.COMPONENT_FILE,
+        claims.LEDGER_FILE,
+        claims.RULES_FILE,
+    ):
         path = directory / file
         parquet = pq.ParquetFile(path)
         records[file.removesuffix(".parquet")] = store.TableRecord(
@@ -213,7 +233,7 @@ def run_identity(
     key = _identity_key(prepared)
     destination = env.source_dir(source_id) / claims.IDENTITY_DIR
     recorded = _recorded(destination)
-    if not force and recorded is not None and recorded.reuse_key == key:
+    if not force and recorded is not None and recorded.reuse_key == key.digest:
         return MapOutcome(source_id, "identity", "current", _counts(recorded))
     run = _entry_point(load_module(prepared), IDENTITIES, source_id)
     ctx = IdentityContext(
@@ -227,25 +247,28 @@ def run_identity(
     carriers = Carriers()
     carriers.add(prepared.carrier, prepared.tree)
     for artifact in sorted(
-        {c.artifact for c in ctx.entities} | {c.artifact for c in ctx.assertions}
+        {c.artifact for c in ctx.entities}
+        | {c.artifact for c in ctx.assertions}
+        | {c.artifact for c in ctx.components}
     ):
         carriers.artifact(source_id, artifact)
     parent = env.source_dir(source_id)
     work = store.new_work_directory(parent)
     try:
         summary = claims.write_claims(
-            work, ctx.entities, ctx.assertions, coverage.ledger_rows(ctx.outcomes)
+            work,
+            ctx.entities,
+            ctx.assertions,
+            ctx.components,
+            coverage.ledger_rows(ctx.outcomes),
+            ctx.rule_use(),
         )
         manifest = CanonicalManifest(
             schema=store.MANIFEST_SCHEMA,
             source_id=source_id,
             phase="identity",
-            reuse_key=key,
-            inputs={
-                "staged": prepared.staged_key,
-                "mapping": prepared.version,
-                "declaration": prepared.fingerprint,
-            },
+            reuse_key=key.digest,
+            inputs=key.inputs,
             tables=_claim_records(work),
             summary=summary,
             carrier=prepared.carrier,
@@ -308,7 +331,7 @@ def _check_identity(env: Environment, prepared: Prepared) -> tuple[Path, Canonic
             f"{prepared.source_id}: no phase-1 output; run "
             f"`tk map {prepared.source_id} --phase identity`"
         )
-    if recorded.reuse_key != _identity_key(prepared):
+    if recorded.reuse_key != _identity_key(prepared).digest:
         raise MapError(
             f"{prepared.source_id}: the phase-1 output is older than the mapping, the staged "
             f"data or the declaration; run `tk map {prepared.source_id} --phase identity`"
@@ -341,23 +364,13 @@ def run_records(
     identity_dir, _ = _check_identity(env, prepared)
     identity_hash = store.manifest_hash(identity_dir)
     resolution_hash = _check_resolution(env, prepared, identity_hash)
-    key = store.reuse_key(
-        {
-            "phase": "records",
-            "staged": prepared.staged_key,
-            "mapping": prepared.version,
-            "declaration": prepared.fingerprint,
-            "identity": identity_hash,
-            "resolution": resolution_hash,
-            "format": FORMAT,
-        }
-    )
+    key = _key(prepared, "records", identity=identity_hash, resolution=resolution_hash)
     destination = env.source_dir(source_id)
     recorded = _recorded(destination)
     if (
         not force
         and recorded is not None
-        and recorded.reuse_key == key
+        and recorded.reuse_key == key.digest
         and recorded.phase == "records"
     ):
         return MapOutcome(source_id, "records", "current", _counts(recorded))
@@ -377,11 +390,20 @@ def run_records(
     run(ctx)
     outcomes = coverage.merge_outcomes(claims.read_ledger(identity_dir), ctx.outcomes)
     result = coverage.compute(prepared.tables, ctx.classifier, prepared.spec.tables, outcomes)
+    applied = dict(claims.read_rule_use(identity_dir))
+    for rule, rows in ctx.rule_use().items():
+        applied[rule] = applied.get(rule, 0) + rows
+    refused, reported = coverage.check_rule_use(prepared.spec, result, applied)
+    if refused:
+        raise MapError(
+            f"{source_id}: {len(refused)} declared value rule(s) were applied to no row:\n  "
+            + "\n  ".join(refused)
+        )
     coverage.write_rows(
         writer,
         source_id,
         result,
-        coverage.rule_rows(prepared.spec, prepared.decl, prepared.tables.schemas),
+        coverage.rule_rows(prepared.spec, prepared.decl, prepared.tables.schemas, applied),
     )
     work = store.new_work_directory(env.canonical_dir)
     try:
@@ -390,14 +412,8 @@ def run_records(
             schema=store.MANIFEST_SCHEMA,
             source_id=source_id,
             phase="records",
-            reuse_key=key,
-            inputs={
-                "staged": prepared.staged_key,
-                "mapping": prepared.version,
-                "declaration": prepared.fingerprint,
-                "identity": identity_hash,
-                "resolution": resolution_hash,
-            },
+            reuse_key=key.digest,
+            inputs=key.inputs,
             tables=records,
             summary={state: result.total(state) for state in coverage.STATES},
         )
@@ -407,7 +423,9 @@ def run_records(
     except BaseException:
         shutil.rmtree(work, ignore_errors=True)
         raise
-    return MapOutcome(source_id, "records", "mapped", _counts(manifest), result)
+    return MapOutcome(
+        source_id, "records", "mapped", _counts(manifest), result, tuple(reported)
+    )
 
 
 def coverage_lines(result: coverage.Coverage) -> list[str]:
@@ -424,4 +442,9 @@ def coverage_lines(result: coverage.Coverage) -> list[str]:
         f"{'total':<{width}}  "
         + "  ".join(f"{result.total(state):>16}" for state in coverage.STATES)
     )
+    reasons = result.by_reason()
+    if reasons:
+        lines.append("")
+        lines.append("rows not loaded, by reason:")
+        lines.extend(f"  {reason}: {rows}" for reason, rows in reasons.items())
     return lines

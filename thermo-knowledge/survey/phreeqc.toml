@@ -874,7 +874,7 @@ fields = [
   { name = "value 8, 9", meaning = "25 C values that redefine b0 and d1 from b1, b2, d2", unit = "not stated", shape = "list", role = "input" },
   { name = "value 10", meaning = "read into Jones_Dole[9]; no use found in transport.cpp", unit = "not stated", shape = "scalar", role = "unread" },
 ]
-origin = "fitted (Appelo and Parkhurst in preparation, cited as ref. 4/5 in the header)"
+origin = "other (fitted (Appelo and Parkhurst in preparation, cited as ref. 4/5 in the header))"
 conventions = "temperature in degrees Celsius limited to 200 C; ionic strength in mol per kg water; presence of any -viscosity switches viscosity calculation on (print_viscosity)."
 absence = "No -viscosity: species contributes nothing to the ratio; fewer than one number is an input error; missing trailing numbers are 0."
 validity = "tc limited to 200 C in the code; not stated in the data"
@@ -1386,8 +1386,8 @@ composes = [
   { slot = "water properties", accepts = "dielectric constant and density of water as functions of T and P", default = "Bradley-Pitzer dielectric constant and Wagner-Pruss density as coded (calc_dielectrics, calc_rho_0)" },
 ]
 variants = [
-  "charged species without -gamma: Davies log10 gamma = -A z^2 (sqrt(I)/(1 + sqrt(I)) - 0.3 I)",
-  "uncharged species without -gamma: log10 gamma = 0.1 I",
+  { selector = "", selects = "charged species without -gamma: Davies log10 gamma = -A z^2 (sqrt(I)/(1 + sqrt(I)) - 0.3 I)" },
+  { selector = "", selects = "uncharged species without -gamma: log10 gamma = 0.1 I" },
 ]
 equation_source = "Davies form not cited in the code; A from Bradley and Pitzer 1979, JPC 83, 1599 (utilities.cpp line 85)"
 closed_form = "yes"
@@ -1403,7 +1403,7 @@ composes = [
   { slot = "water properties", accepts = "Debye-Hueckel A and B from dielectric constant and density", default = "calc_dielectrics (Bradley-Pitzer, Wagner-Pruss)" },
 ]
 variants = [
-  "with LLNL_AQUEOUS_MODEL_PARAMETERS present the species still uses DH_A and DH_B from calc_dielectrics, which are not updated in that case (see discrepancy)",
+  { selector = "", selects = "with LLNL_AQUEOUS_MODEL_PARAMETERS present the species still uses DH_A and DH_B from calc_dielectrics, which are not updated in that case (see discrepancy)" },
 ]
 equation_source = "not cited"
 closed_form = "yes"
@@ -1419,8 +1419,8 @@ composes = [
   { slot = "temperature interpolation", accepts = "linear interpolation between grid points", default = "linear between bracketing grid temperatures, hard stop outside the grid" },
 ]
 variants = [
-  "-use_phreeqc_dha_dhb true: A and B from calc_dielectrics instead of the grid, bdot still interpolated",
-  "four parameter sets occur in the files (LLNL, Thermoddem, ThermoChimie, IU 180-940 C)",
+  { selector = "", selects = "-use_phreeqc_dha_dhb true: A and B from calc_dielectrics instead of the grid, bdot still interpolated" },
+  { selector = "", selects = "four parameter sets occur in the files (LLNL, Thermoddem, ThermoChimie, IU 180-940 C)" },
 ]
 equation_source = "Drummond (1981) polynomial named in the ThermoChimie and llnl.dat comments; LLNL thermo.com V8.R6.230 named in the llnl.dat header"
 closed_form = "yes"
@@ -1437,10 +1437,10 @@ composes = [
   { slot = "unsymmetrical mixing", accepts = "E-theta terms of Pitzer 1975 from ionic charges", default = "added for every cation-cation and anion-anion pair when use_etheta is true" },
 ]
 variants = [
-  "-MacInnes true (default) rescales activity coefficients to the MacInnes convention via K+ Cl-; false leaves the Pitzer convention",
-  "-use_etheta false drops the E-theta terms",
-  "-redox true keeps H2 and O2 species required",
-  "presence of -APHI replaces the computed A_phi",
+  { selector = "", selects = "-MacInnes true (default) rescales activity coefficients to the MacInnes convention via K+ Cl-; false leaves the Pitzer convention" },
+  { selector = "", selects = "-use_etheta false drops the E-theta terms" },
+  { selector = "", selects = "-redox true keeps H2 and O2 species required" },
+  { selector = "", selects = "presence of -APHI replaces the computed A_phi" },
 ]
 equation_source = "only the equation numbers 'EQUATION (8)', '(A1)', '(A3)' appear in the code comments without a citation; ETHETAS is stated to be revised thanks to Wouter Falkena and the MoReS team (June 2015)"
 closed_form = "implicit"
@@ -1456,7 +1456,7 @@ composes = [
   { slot = "A", accepts = "Debye-Hueckel A from A0", default = "A = 3*A0/ln10 (Grenthe p. 379 per the code comment); B fixed at 1.5" },
 ]
 variants = [
-  "epsilon (epsilon*m), epsilon1 (epsilon*I*m) and epsilon2 (epsilon*log10(I)*m) parameter types; only epsilon occurs in the data",
+  { selector = "", selects = "epsilon (epsilon*m), epsilon1 (epsilon*I*m) and epsilon2 (epsilon*log10(I)*m) parameter types; only epsilon occurs in the data" },
 ]
 equation_source = "'Grenthe p 379' in sit.cpp line 394; the sit-phreeqc.doc prose names the NEA TDB guidelines"
 closed_form = "implicit"
@@ -1472,9 +1472,9 @@ composes = [
   { slot = "molar volumes", accepts = "species volumes (aqueous Redlich form, Millero) and phase volume", default = "zero when absent (no pressure correction)" },
 ]
 variants = [
-  "analytic (any of A1..A6 non-zero) replaces logK_T0 and delta_h",
-  "pressure term only for P above 1 atm",
-  "derived reactions sum every vector entry of their components",
+  { selector = "", selects = "analytic (any of A1..A6 non-zero) replaces logK_T0 and delta_h" },
+  { selector = "", selects = "pressure term only for P above 1 atm" },
+  { selector = "", selects = "derived reactions sum every vector entry of their components" },
 ]
 equation_source = "not cited; the file header gives the pressure term as 'log_k -= delta_v * (P - 1) / (2.3RT)'"
 closed_form = "yes"
@@ -1491,9 +1491,9 @@ composes = [
   { slot = "Debye-Hueckel Av", accepts = "volumetric limiting slope", default = "DH_Av from calc_dielectrics" },
 ]
 variants = [
-  "-Vm takes precedence over -millero",
-  "skipped entirely when LLNL arrays are present without -use_phreeqc_dha_dhb",
-  "a1 equal to 0 disables the -Vm block",
+  { selector = "", selects = "-Vm takes precedence over -millero" },
+  { selector = "", selects = "skipped entirely when LLNL arrays are present without -use_phreeqc_dha_dhb" },
+  { selector = "", selects = "a1 equal to 0 disables the -Vm block" },
 ]
 equation_source = "Redlich and Meyer, Chem. Rev. 64, 221 (prep.cpp line 5333); supcrt92 (Johnson et al. 1992, CG 18, 899) in the database headers; Millero 2000 in basicsubs.cpp"
 closed_form = "yes"
@@ -1507,7 +1507,7 @@ inputs = "T (limited to 350 C), P"
 parameters = "global constants coded in the functions (no data)"
 composes = []
 variants = [
-  "skipped when LLNL arrays are present (unless -use_phreeqc_dha_dhb)",
+  { selector = "", selects = "skipped when LLNL arrays are present (unless -use_phreeqc_dha_dhb)" },
 ]
 equation_source = "Bradley and Pitzer 1979, JPC 83, 1599 (dielectric constant); Wagner and Pruss 2002, JPCRD 31, 387, eq. 2.6 with an interpolation for 0 to 300 C and 0.006 to 1000 atm (density); Huber et al. 2009, JPCRD 38, 101 (viscosity)"
 closed_form = "yes"
@@ -1523,8 +1523,8 @@ composes = [
   { slot = "mixing rule", accepts = "a and b mixing with (1 - kij) on the attractive cross term", default = "hard-coded factors for H2O(g) pairs, else kij 0" },
 ]
 variants = [
-  "ideal gas when T_c or P_c is absent; mixtures of ideal and PR components are an error",
-  "fixed-pressure and fixed-volume gas phases (GAS_PHASE input)",
+  { selector = "", selects = "ideal gas when T_c or P_c is absent; mixtures of ideal and PR components are an error" },
+  { selector = "", selects = "fixed-pressure and fixed-volume gas phases (GAS_PHASE input)" },
 ]
 equation_source = "the code comment states P = RT/(Vm - b) - a*aa/(Vm^2 + 2bVm - b^2) with a = 0.457235 (R Tc)^2/Pc, b = 0.077796 R Tc/Pc and the kappa polynomial in omega; Soreide and Whitson 1992 for the H2O pairs"
 closed_form = "implicit"
@@ -1541,12 +1541,12 @@ composes = [
   { slot = "diffuse layer", accepts = "no diffuse layer, Borkovec-Westall (-diffuse_layer) or Donnan (-donnan)", default = "none unless -diffuse_layer or -donnan is given" },
 ]
 variants = [
-  "-no_edl / -no_electrostatic",
-  "-ddl",
-  "-ccm / -constant_capacitance",
-  "-cd_music (Borkovec-Westall replaced by Donnan with a warning; variable thickness is an error)",
-  "-only_counter_ions",
-  "-sites in absolute or density units",
+  { selector = "", selects = "-no_edl / -no_electrostatic" },
+  { selector = "", selects = "-ddl" },
+  { selector = "", selects = "-ccm / -constant_capacitance" },
+  { selector = "", selects = "-cd_music (Borkovec-Westall replaced by Donnan with a warning; variable thickness is an error)" },
+  { selector = "", selects = "-only_counter_ions" },
+  { selector = "", selects = "-sites in absolute or density units" },
 ]
 equation_source = "'Dzombak and Morel, p 36' for the Debye length in integrate.cpp line 551; database files cite Dzombak and Morel 1990 and Hiemstra and co-workers"
 closed_form = "implicit"
@@ -1562,8 +1562,8 @@ composes = [
   { slot = "cation activity", accepts = "Davies, WATEQ or LLNL form for the exchanged cation", default = "none: equivalent-fraction only (exch_gflag 3)" },
 ]
 variants = [
-  "EXCHANGE -pitzer_exchange_gammas / -exchange_gammas / -gammas true (default) enables the cation corrections",
-  "-gamma with a_f activates the active-fraction correction",
+  { selector = "", selects = "EXCHANGE -pitzer_exchange_gammas / -exchange_gammas / -gammas true (default) enables the cation corrections" },
+  { selector = "", selects = "-gamma with a_f activates the active-fraction correction" },
 ]
 equation_source = "not cited; the code comment mentions Gapon-type equations"
 closed_form = "implicit"
@@ -1579,8 +1579,8 @@ composes = [
   { slot = "end members", accepts = "phases defined in PHASES", default = "required" },
 ]
 variants = [
-  "gugg_nondimensional, gugg_kj, activity_coefficients, distribution_coefficients, miscibility_gap, spinodal_gap, critical_point, alyotropic_point, thompson, margules parameter forms",
-  "ideal when a0 and a1 are zero",
+  { selector = "", selects = "gugg_nondimensional, gugg_kj, activity_coefficients, distribution_coefficients, miscibility_gap, spinodal_gap, critical_point, alyotropic_point, thompson, margules parameter forms" },
+  { selector = "", selects = "ideal when a0 and a1 are zero" },
 ]
 equation_source = "not cited in the code"
 closed_form = "implicit"
@@ -1596,8 +1596,8 @@ composes = [
   { slot = "water viscosity", accepts = "viscosity of pure water and of the solution", default = "Huber et al. 2009 pure water; Jones-Dole ratio when -viscosity is used" },
 ]
 variants = [
-  "H+ with a3 above 24 selects the Onsager-Falkenhagen form (Falkenhagen), otherwise the Appelo 2017 form",
-  "correct_Dw (TRANSPORT -multi_D) adds default Dw for species without -dw",
+  { selector = "", selects = "H+ with a3 above 24 selects the Onsager-Falkenhagen form (Falkenhagen), otherwise the Appelo 2017 form" },
+  { selector = "", selects = "correct_Dw (TRANSPORT -multi_D) adds default Dw for species without -dw" },
 ]
 equation_source = "'the phreeqc equation from Appelo, 2017, CCR 101, 102 with viscosity correction' in basicsubs.cpp line 358; Robinson and Stokes 1959 data cited in transport.cpp line 1919"
 closed_form = "yes"
@@ -1612,7 +1612,7 @@ parameters = "per species: b0, b1, b2, d1, d2, d3, anion factor, optional 25 C v
 composes = [
   { slot = "pure-water viscosity", accepts = "Huber et al. 2009 correlation", default = "as coded" },
 ]
-variants = ["inactive unless some species has -viscosity"]
+variants = [{ selector = "", selects = "inactive unless some species has -viscosity" }]
 equation_source = "'Huber et al., 2009' (pure water) and the code comment block at line 6060; the database headers cite Appelo and Parkhurst in preparation"
 closed_form = "yes"
 data = "construct '-viscosity (Jones-Dole ion parameters)'"
@@ -1627,8 +1627,8 @@ composes = [
   { slot = "integrator", accepts = "embedded Runge-Kutta or CVODE", default = "Runge-Kutta (-runge_kutta) unless -cvode true" },
 ]
 variants = [
-  "-bad_step_max, -step_divide and -tol tune the integrators",
-  "RATE_PK / RATE_SVD / RATE_HERMANSKA table lookups",
+  { selector = "", selects = "-bad_step_max, -step_divide and -tol tune the integrators" },
+  { selector = "", selects = "RATE_PK / RATE_SVD / RATE_HERMANSKA table lookups" },
 ]
 equation_source = "per-program comments (Plummer et al. 1978 calcite; Williamson and Rimstidt 1994 pyrite; Palandri and Kharaka 2004; Sverdrup et al. 2019; Hermanska et al. 2022 and 2023)"
 closed_form = "procedural"
@@ -1643,7 +1643,7 @@ parameters = "per fractionation: 1000*ln(alpha) analytic coefficients (NAMED_EXP
 composes = [
   { slot = "species set", accepts = "explicit isotopologue species in SOLUTION_SPECIES with -mole_balance", default = "required" },
 ]
-variants = ["units permil, pct, pmc, TU, pCi/L for isotopic amounts"]
+variants = [{ selector = "", selects = "units permil, pct, pmc, TU, pCi/L for isotopic amounts" }]
 equation_source = "literature keys in comments of iso.dat (fractionation factors, VSMOW, VPDB standards)"
 closed_form = "implicit"
 data = "constructs ISOTOPES, ISOTOPE_RATIOS, ISOTOPE_ALPHAS, NAMED_EXPRESSIONS, CALCULATE_VALUES"
@@ -1656,8 +1656,8 @@ inputs = "sum of solute moles, mass of water; in Pitzer and SIT the osmotic coef
 parameters = "global constant 0.017 (AH2O_FACTOR)"
 composes = []
 variants = [
-  "default: a(H2O) = 1 - 0.017 * (sum of solute moles) / (mass of water), with an optional tanh damping (dampen_ah2o)",
-  "Pitzer and SIT: a(H2O) = exp(-sum(m) * phi / 55.50837) from the osmotic coefficient",
+  { selector = "", selects = "default: a(H2O) = 1 - 0.017 * (sum of solute moles) / (mass of water), with an optional tanh damping (dampen_ah2o)" },
+  { selector = "", selects = "Pitzer and SIT: a(H2O) = exp(-sum(m) * phi / 55.50837) from the osmotic coefficient" },
 ]
 equation_source = "not cited"
 closed_form = "yes"
@@ -1673,8 +1673,8 @@ composes = [
   { slot = "linear program", accepts = "bounded-variable least squares for phase existence", default = "cl1 (and cl1mp multiprecision for inverse modelling)" },
 ]
 variants = [
-  "Newton-Raphson iteration on mass-action and mass-balance residuals (unknowns are log molalities, log activity of water, ionic strength, pe and surface potentials)",
-  "inverse modelling uses the same linear programming routine in multiple precision",
+  { selector = "", selects = "Newton-Raphson iteration on mass-action and mass-balance residuals (unknowns are log molalities, log activity of water, ionic strength, pe and surface potentials)" },
+  { selector = "", selects = "inverse modelling uses the same linear programming routine in multiple precision" },
 ]
 equation_source = "not cited"
 closed_form = "procedural"

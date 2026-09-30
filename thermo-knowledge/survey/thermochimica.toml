@@ -345,7 +345,9 @@ parameters = "per species: Tmax per interval, A to F, up to three additional (co
 composes = [
   { slot = "magnetic term", accepts = "IHJ magnetic contribution for equation types 13 and 16", default = "absent for types 1 and 4" },
 ]
-variants = "equation types 1, 4, 13, 16 only; the species of the first phase get ln P and the 0.10945/R correction when that phase is an IDMX"
+variants = [
+  { selector = "", selects = "equation types 1, 4, 13, 16 only; the species of the first phase get ln P and the 0.10945/R correction when that phase is an IDMX" },
+]
 equation_source = "ChemApp programmer's manual (cited in comments); the additional-terms convention is stated in the file header comment of CompThermoData.f90"
 closed_form = "yes"
 data = "construct Gibbs-energy equation block"
@@ -357,7 +359,7 @@ class = "residual_or_excess_contribution"
 inputs = "species mole fractions"
 parameters = "none"
 composes = []
-variants = "none"
+variants = []
 equation_source = "not cited"
 closed_form = "yes"
 data = "construct IDMX block"
@@ -369,7 +371,9 @@ class = "residual_or_excess_contribution"
 inputs = "species mole fractions converted to equivalent fractions with per-species factors; chemical groups"
 parameters = "per binary or ternary sub-system: coefficients L (6 terms) and exponents; per species: stoichiometric factor and chemical group; interpolation overrides"
 composes = []
-variants = "Kohler or Toop interpolation per ternary triad, from chemical groups or overrides"
+variants = [
+  { selector = "", selects = "Kohler or Toop interpolation per ternary triad, from chemical groups or overrides" },
+]
 equation_source = "Pelton and Bale, CALPHAD 1(3) (1977) 253-273 (cited in PolyRegularQKTO); the routine description names the model Quasi-chemical Kohler-Toop and gives Kohler interpolation formulas"
 closed_form = "yes"
 data = "construct QKTO block"
@@ -383,7 +387,9 @@ parameters = "binary, ternary and quaternary excess terms with per-order coeffic
 composes = [
   { slot = "magnetic contribution", accepts = "IHJ function of T/Tc and B from mole-fraction averages plus excess terms", default = "present only for RKMPM" },
 ]
-variants = "RKMPM versus RKMP"
+variants = [
+  { selector = "", selects = "RKMPM versus RKMP" },
+]
 equation_source = "Chartrand and Pelton, 'On the Choice of Geometric Thermodynamic Models' (cited in the routine); Hillert and Jarl 1978 and Lukas, Fries and Sundman 2007 for magnetism"
 closed_form = "yes"
 data = "construct RKMP and RKMPM block"
@@ -395,7 +401,9 @@ class = "sublattice_gibbs"
 inputs = "endmember species mole fractions from which site fractions are derived (x_i = product of site fractions); T"
 parameters = "endmember Gibbs equations; excess terms with constituents qualified by sublattice and order; SUBLM magnetic terms"
 composes = []
-variants = "SUBLM adds the magnetic contribution; order-0 ternary expansion into three terms"
+variants = [
+  { selector = "", selects = "SUBLM adds the magnetic contribution; order-0 ternary expansion into three terms" },
+]
 equation_source = "Sundman and Agren 1981; Hillert 2001 (cited in the routine)"
 closed_form = "yes"
 data = "construct SUBL and SUBLM block"
@@ -407,7 +415,9 @@ class = "other"
 inputs = "quadruplet fractions; pair and site equivalent fractions derived"
 parameters = "pair Gibbs energies, zeta, coordination numbers of quadruplets (listed or computed), excess terms with G, Q, R or B mixing codes"
 composes = []
-variants = "SUBG (zeta global) versus SUBQ (zeta per pair); default quadruplet coordination numbers from the Pelton 2001 equations; mixing codes G, Q, R, B"
+variants = [
+  { selector = "", selects = "SUBG (zeta global) versus SUBQ (zeta per pair); default quadruplet coordination numbers from the Pelton 2001 equations; mixing codes G, Q, R, B" },
+]
 equation_source = "Pelton, Degterov, Eriksson, Robelin and Dessureault, Metall. Mater. Trans. B 31B (2000) 651-659; Pelton and Chartrand, Metall. Mater. Trans. B 32A (2001) 1355-1360"
 closed_form = "yes"
 data = "construct SUBG and SUBQ block"
@@ -419,7 +429,9 @@ class = "sublattice_gibbs"
 inputs = "site-fraction-type species fractions on cation and anion sublattices; charges"
 parameters = "endmember Gibbs energies and excess terms, classified into twelve mixing cases (SUBI); excess terms of arity 3 and 4 (SUBM)"
 composes = []
-variants = "SUBM is described as equivalent to SUBI without neutral or vacancy species; SUBI is called IS2L in a comment"
+variants = [
+  { selector = "", selects = "SUBM is described as equivalent to SUBI without neutral or vacancy species; SUBI is called IS2L in a comment" },
+]
 equation_source = "not cited in the routines read"
 closed_form = "yes"
 data = "construct SUBI block and SUBM block"
@@ -431,7 +443,9 @@ class = "residual_or_excess_contribution"
 inputs = "T, critical temperature Tc, mean moment B, structure factor p, afm-related factor"
 parameters = "per species: Tc, B; per phase: two factors; solution Tc and B as mole-fraction averages plus excess terms"
 composes = []
-variants = "a negative critical temperature in the file denotes the antiferromagnetic case and is multiplied by the structure factor (Tc -> -Tc*factor, B -> -B*factor)"
+variants = [
+  { selector = "", selects = "a negative critical temperature in the file denotes the antiferromagnetic case and is multiplied by the structure factor (Tc -> -Tc*factor, B -> -B*factor)" },
+]
 equation_source = "Hillert and Jarl 1978; Dinsdale 1991; Lukas, Fries and Sundman 2007"
 closed_form = "yes"
 data = "magnetic lines of the Gibbs equation block and RKMPM or SUBLM magnetic term lists"
@@ -447,7 +461,9 @@ composes = [
   { slot = "phase-addition test", accepts = "subminimisation of a phase's driving force (Lagrangian in mole fractions, Harvie-Greenberg-Weare)", default = "required; repeated from extreme compositions for miscibility gaps" },
   { slot = "linear algebra", accepts = "LAPACK DGESV on the Hessian; an arrow-matrix solver for structured systems", default = "DGESV" },
 ]
-variants = "an electron is added as a system component for each charged phase so charge neutrality is enforced; phases may be excluded by name; reinitialisation from saved results"
+variants = [
+  { selector = "", selects = "an electron is added as a system component for each charged phase so charge neutrality is enforced; phases may be excluded by name; reinitialisation from saved results" },
+]
 equation_source = "White, Johnson and Dantzig 1958 (GEMNewton); Eriksson and Thompson leveling (LevelingSolver); Harvie, Greenberg and Weare 1987 (Subminimization)"
 closed_form = "procedural"
 data = "none bundled"
@@ -461,7 +477,9 @@ parameters = "initial step 0.25 K adapted (factors 1.5 and 0.6) to a target Gibb
 composes = [
   { slot = "equilibrium calculation", accepts = "the Gibbs energy minimiser at three temperatures", default = "required" },
 ]
-variants = "entropy from a 3-point first derivative, heat capacity from a 3-point second derivative; enthalpy from G plus TS"
+variants = [
+  { selector = "", selects = "entropy from a 3-point first derivative, heat capacity from a 3-point second derivative; enthalpy from G plus TS" },
+]
 equation_source = "not cited"
 closed_form = "procedural"
 data = "none bundled"

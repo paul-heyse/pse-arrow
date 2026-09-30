@@ -9,12 +9,30 @@ source = "coolprop"
 doc = "CoolProp fluid identities and saturation-pressure ancillaries."
 
 # ------------------------------------------------------------------------------------------
-# Source entities: one per fluid, keyed by the name CoolProp keys it with.
+# Source entities: one per fluid, keyed by the name CoolProp keys it with. A fluid is a species
+# unless its INFO/CAS is a file name ending `.ppf`: CoolProp gives a pseudo-pure fluid (a blend
+# of fixed composition that its equation of state treats as one fluid) the name of the REFPROP
+# blend file in place of a registry number (AIR.PPF, R404A.PPF, SES36.ppf); a pure fluid has a
+# registry number or, for a spin isomer, the number with an `o` or `p` suffix.
 
 [scopes.fluids]
 table = "fluids"
 key = "NAME"
 doc = "A fluid of dev/fluids/*.json, keyed by INFO/NAME, which CoolProp requires to be unique per fluid."
+
+[scopes.fluids.class_by]
+column = "CAS"
+default = "species"
+
+[[scopes.fluids.class_by.rules]]
+pattern = '.+\.[Pp][Pp][Ff]'
+class = "defined_mixture"
+reason = "INFO/CAS is the name of a REFPROP pseudo-pure blend file (.ppf) instead of a registry number: the fluid is a fixed-composition blend that the equation of state treats as one fluid."
+
+[scopes.fluids.mixture]
+definition = "by_definition"
+basis = "mole"
+reason = "A pseudo-pure fluid is a blend of fixed composition that CoolProp's fluid file defines, so its composition is by definition. The predefined-mixture table states compositions as mole fractions (mole_fractions); a pseudo-pure fluid that has no entry in it (SES36) takes the same basis as an assumption, which only completes its provisional entity: no composition of it is claimed."
 
 # The CoolProp mapping declares no formula-identified scope: a fluid is identified by its
 # structure identifiers or registry numbers, never by its formula alone.
@@ -379,12 +397,59 @@ reason = "Coefficients of the departure functions."
 [tables.predefined_mixtures]
 disposition = "deferred"
 wave = 2
-reason = "Predefined mixtures are defined mixtures of fluids that need resolved component identities."
+reason = "The predefined mixtures that are not pseudo-pure fluids are defined mixtures of their own, with no fluid file: they need a scope of defined-mixture entities, which the mixture wave declares."
+
+[[tables.predefined_mixtures.partitions]]
+name = "pseudo_pure_compositions"
+where = { name = ["Air", "R404A", "R407C", "R410A", "R507A"] }
+disposition = "mapped"
+origin_role = "published"
+loss = "The table gives the composition of these pseudo-pure fluids, which are fluids of dev/fluids under the same name; the claim attaches the components to that fluid. A component is named as CoolProp's loader resolves names (a fluid's NAME or an alias, compared without regard to case)."
+
+[tables.predefined_mixtures.fields.mixture_index]
+role = "structure"
+reason = "The position of the mixture in the file; it links the mixture to its component rows."
+
+[tables.predefined_mixtures.fields.name]
+role = "structure"
+reason = "Names the pseudo-pure fluid (scope fluids) whose composition this is, and selects the mixtures that are pseudo-pure fluids (partition pseudo_pure_compositions)."
+
+[tables.predefined_mixtures.fields.array_lengths]
+role = "structure"
+reason = "The length of each component array, used to check that the component rows are complete."
 
 [tables.predefined_mixture_components]
 disposition = "deferred"
 wave = 2
-reason = "Components of the predefined mixtures."
+reason = "Components of the predefined mixtures that are not pseudo-pure fluids."
+
+[[tables.predefined_mixture_components.partitions]]
+name = "pseudo_pure_compositions"
+where = { name = ["Air", "R404A", "R407C", "R410A", "R507A"] }
+disposition = "mapped"
+origin_role = "published"
+
+[tables.predefined_mixture_components.fields.mixture_index]
+role = "structure"
+reason = "Links the component row to its mixture."
+
+[tables.predefined_mixture_components.fields.name]
+role = "structure"
+reason = "Names the pseudo-pure fluid the component row belongs to and selects the pseudo-pure fluids (partition pseudo_pure_compositions)."
+
+[tables.predefined_mixture_components.fields.component_index]
+role = "structure"
+reason = "The position of the component in the mixture's arrays; it orders the rows."
+
+[tables.predefined_mixture_components.fields.fluids]
+role = "structure"
+reason = "Names the component fluid, as a NAME or an alias of a fluid of scope fluids; it selects the source entity the fraction is of."
+
+[tables.predefined_mixture_components.fields.mole_fractions]
+target = "mixture_component.value"
+unit = "dimensionless"
+precision = "exact"
+loss = "CoolProp states no unit for the fractions; they are mole fractions, dimensionless, as the field name says."
 
 [tables.cubic_fluids]
 disposition = "deferred"

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 import shutil
 import tomllib
 from collections.abc import Callable
@@ -326,6 +327,13 @@ def test_identity_claims_carry_every_identifier_but_no_placeholder(
     assert {r["state"] for r in ledger} == {"emitted"} and len(ledger) == 6
 
 
+def all_optional(path: Path) -> None:
+    """Declare every value rule of a mapping.toml optional: test scaffolding for a mapping.py
+    that emits less than the fixture's rules declare."""
+    text = path.read_text().replace("optional = true\n", "")
+    path.write_text(re.sub(r"(?m)^(target = .*)$", r"\1\noptional = true", text))
+
+
 def test_a_value_that_fits_no_scheme_holds_the_row(
     fake: tuple[Environment, Workspace], tmp_path: Path
 ) -> None:
@@ -338,7 +346,8 @@ def test_a_value_that_fits_no_scheme_holds_the_row(
         for r in claims.read_ledger(env.canonical_dir / "fake" / claims.IDENTITY_DIR)
     }
     held = ledger["data/species.json#/2"]
-    assert held["state"] == "held" and "does not match" in held["reason"]  # type: ignore[operator]
+    assert held["state"] == "held" and held["reason"] == "pattern_mismatch"
+    assert "does not match" in held["detail"]  # type: ignore[operator]
     assert len(claims.read_entity_claims(env.canonical_dir / "fake" / claims.IDENTITY_DIR)) == 5
 
 
@@ -387,16 +396,24 @@ def test_every_row_ends_in_exactly_one_state_and_the_counts_are_the_report(
     }
     assert written == {(t, s): n for t, c in counts.items() for s, n in c.items()}
     held = {(r["source_table"], r["locator"]): r for r in output(env, "qual.held_row")}
-    assert held[("curves", "data/curves.json#/6")]["state"] == "unmapped"
-    assert "emitted nothing" in held[("curves", "data/curves.json#/6")]["reason"]  # type: ignore[operator]
+    unmapped = held[("curves", "data/curves.json#/6")]
+    assert unmapped["state"] == "unmapped" and unmapped["reason"] == "unmapped_by_mapping"
+    assert "emitted nothing" in unmapped["detail"]  # type: ignore[operator]
     ambiguous = held[("curves", "data/curves.json#/3")]
-    assert ambiguous["state"] == "held" and "ambiguous" in ambiguous["reason"]  # type: ignore[operator]
-    invalid = held[("curves", "data/curves.json#/4")]["reason"]
-    assert invalid.startswith("data/curves.json#/4: ") and "T_r: -5.0 is negative" in invalid  # type: ignore[union-attr]
-    assert (
-        "no source entity (species, 'Nobody')" in held[("curves", "data/curves.json#/5")]["reason"]
-    )  # type: ignore[operator]
+    assert ambiguous["state"] == "held" and ambiguous["reason"] == "ambiguous_subject"
+    assert "ambiguous" in ambiguous["detail"]  # type: ignore[operator]
+    invalid = held[("curves", "data/curves.json#/4")]
+    assert invalid["reason"] == "validation_failed"
+    assert invalid["detail"].startswith("data/curves.json#/4: ")  # type: ignore[union-attr]
+    assert "T_r: -5.0 is negative" in invalid["detail"]  # type: ignore[operator]
+    unknown = held[("curves", "data/curves.json#/5")]
+    assert unknown["reason"] == "unknown_subject"
+    assert "no source entity (species, 'Nobody')" in unknown["detail"]  # type: ignore[operator]
     assert len(held) == 7, "only held and unmapped rows are listed"
+    by_reason = {reason: sum(1 for r in held.values() if r["reason"] == reason) for reason in
+                 {r["reason"] for r in held.values()}}
+    assert outcome.coverage.by_reason() == dict(sorted(by_reason.items()))
+    assert "rows not loaded, by reason:" in "\n".join(runner.coverage_lines(outcome.coverage))
 
 
 def test_a_mapping_that_reads_rows_and_emits_nothing_covers_nothing(tmp_path: Path) -> None:
@@ -408,6 +425,9 @@ def test_a_mapping_that_reads_rows_and_emits_nothing_covers_nothing(tmp_path: Pa
         "def identities(ctx):\n    for row in ctx.rows('species'):\n        pass\n\n\n"
         "def records(ctx):\n    for row in ctx.rows('curves'):\n        pass\n"
     )
+    # a mapping that emits nothing applies no rule; declaring every value rule optional keeps
+    # this test about coverage (the refusal of an unused rule is tested in test_rule_use.py)
+    all_optional(mappings / "fake" / "mapping.toml")
     env, _ = fake_environment(tmp_path / "work", mappings=mappings)
     outcome = run_all(env)
     assert outcome.coverage is not None
@@ -647,6 +667,7 @@ def nasa_mapping(env: Environment, convention: str | None) -> None:
         1,
     )
     (directory / "mapping.py").write_text(kept + NASA_RECORDS)
+    all_optional(directory / "mapping.toml")
     if convention is not None:
         path = directory / "mapping.toml"
         path.write_text(

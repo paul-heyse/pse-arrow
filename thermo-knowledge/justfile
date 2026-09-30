@@ -100,3 +100,7 @@ tk-verify *args:
 [doc('Run the qualification cases of qualification/ against the built database: just tk-qualify [<case>...] [--force] [--report <path>]')]
 tk-qualify *args:
     unset VIRTUAL_ENV; uv run --project {{ quote(tree) }} --locked tk qualify "$@"
+
+[doc('Validate the survey records and dispositions, or write the residue report: just tk-survey [--check] [--report [--strict]]')]
+tk-survey *args:
+    unset VIRTUAL_ENV; uv run --project {{ quote(tree) }} --locked tk survey "$@"

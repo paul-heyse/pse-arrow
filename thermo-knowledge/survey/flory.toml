@@ -160,7 +160,9 @@ class = "residual_or_excess_contribution"
 inputs = "volume fractions phi_i of N_C components (sum to one, incompressible); f_interaction = sum_ij (chi_ij/2) phi_i phi_j; Jacobian phi chi; Hessian chi"
 parameters = "pair: chi_ij (symmetrised); feature form: chi_rs"
 composes = []
-variants = "FloryHugginsInteraction (per component), FloryHugginsBlockInteraction (per feature block)."
+variants = [
+  { selector = "", selects = "FloryHugginsInteraction (per component), FloryHugginsBlockInteraction (per feature block)." },
+]
 equation_source = "README.md and docs/source/theory.rst give the equation; no publication is cited for the model itself"
 closed_form = "yes"
 data = "Flory-Huggins interaction matrix and block interaction constructs"
@@ -172,7 +174,9 @@ class = "residual_or_excess_contribution"
 inputs = "volume fractions; f_entropy = sum_i (nu/nu_i) phi_i ln phi_i = sum_i (phi_i/l_i) ln phi_i ('dimensionless entropic energy'); the Boltzmann factor of component i in compartment m is p_i = exp(-l_i w_r^(m)) with w the conjugate mean field of its feature"
 parameters = "pure: size l_i; feature grouping num_comp_per_feat"
 composes = []
-variants = "IdealGasEntropy: one feature per component; IdealGasPolydispersedEntropy: several components (sizes) per feature sharing one field."
+variants = [
+  { selector = "", selects = "IdealGasEntropy: one feature per component; IdealGasPolydispersedEntropy: several components (sizes) per feature sharing one field." },
+]
 equation_source = "docstrings and docs/source/theory.rst"
 closed_form = "yes"
 data = "component construct"
@@ -187,7 +191,9 @@ composes = [
   { slot = "interaction", accepts = "interaction energy object (InteractionBase)", default = "FloryHugginsInteraction" },
   { slot = "entropy", accepts = "entropy object (EntropyBase)", default = "IdealGasEntropy" },
 ]
-variants = "from_uniform and from_random_normal build the chi matrix."
+variants = [
+  { selector = "", selects = "from_uniform and from_random_normal build the chi matrix." },
+]
 equation_source = "docstring: f = sum (nu/nu_i) phi ln phi + sum chi_ij/2 phi_i phi_j; README and theory pages"
 closed_form = "yes"
 data = "component and Flory-Huggins interaction matrix constructs"
@@ -199,7 +205,9 @@ class = "model_component"
 inputs = "Boltzmann factors p_i^(m) and single-molecule partition functions Q_i; canonical normalisation by mean volume fraction, grand canonical by scaled activity"
 parameters = "global: phi_bar_i or l_i exp(l_i mu_i)"
 composes = []
-variants = "CanonicalEnsemble, GrandCanonicalEnsemble (from_chemical_potential takes mu by volume and sizes)."
+variants = [
+  { selector = "", selects = "CanonicalEnsemble, GrandCanonicalEnsemble (from_chemical_potential takes mu by volume and sizes)." },
+]
 equation_source = "docstrings; docs/notes/grand_canonical.tex and chemical_potential.tex (LaTeX notes in the tree)"
 closed_form = "yes"
 data = "ensemble specification construct"
@@ -211,7 +219,9 @@ class = "model_component"
 inputs = "feature volume fractions in each compartment; Lagrange multipliers xi with a quadratic penalty of elasticity kappa; prepare, potential and evolve steps of the iteration"
 parameters = "global: C (N_A x N_S), T (N_A)"
 composes = []
-variants = "global (mean) versus local (every compartment) versus none."
+variants = [
+  { selector = "", selects = "global (mean) versus local (every compartment) versus none." },
+]
 equation_source = "class docstrings"
 closed_form = "procedural"
 data = "linear constraint construct"
@@ -228,7 +238,9 @@ composes = [
   { slot = "ensemble", accepts = "EnsembleBase", default = "none (required)" },
   { slot = "constraints", accepts = "ConstraintBase or tuple", default = "NoConstraint" },
 ]
-variants = "find_coexisting_phases wraps the canonical Flory-Huggins case, clusters with the default distance 1e-2, sorts and normalises; random initialisation is seeded from the current time unless an rng is supplied."
+variants = [
+  { selector = "", selects = "find_coexisting_phases wraps the canonical Flory-Huggins case, clusters with the default distance 1e-2, sorts and normalises; random initialisation is seeded from the current time unless an rng is supplied." },
+]
 equation_source = "docs/source/theory.rst; JOSS paper (docs/paper/paper.md, doi 10.21105/joss.07388 per the README badge)"
 closed_form = "procedural"
 data = "none bundled"
@@ -240,7 +252,7 @@ class = "other"
 inputs = "compartment compositions; Euclidean distances, centroid-linkage hierarchical clustering cut at a distance (default 1e-2), volume-weighted mean composition per cluster"
 parameters = "global: cut-off distance"
 composes = []
-variants = ""
+variants = []
 equation_source = "none"
 closed_form = "procedural"
 data = "none bundled"

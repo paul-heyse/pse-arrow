@@ -488,7 +488,7 @@ consequence = "The SIT reference temperature (SIT is defined at 25 C) is stated 
 # ---------------------------------------------------------------------------
 
 [[capability]]
-calculation = "proposed:standard_state_properties"
+calculation = "standard_state_properties (proposed)"
 offered = "no"
 scope = "ThermoHub is a data mirror; standard-state evaluation is ThermoFun's (survey/thermofun.toml); no calculation code is in the tree"
 locator = "README.md; repository root"

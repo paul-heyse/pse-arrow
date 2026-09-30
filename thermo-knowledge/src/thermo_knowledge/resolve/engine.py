@@ -9,10 +9,23 @@ resolves to and with what status and rule. It reads no file and no clock, and it
 not depend on the order of its inputs: entities are processed in key order and every
 collection it builds is a set or sorted.
 
-The rules apply in order and the first that applies decides (curated, structural, registry,
-formula-scoped, provisional); no rule ever takes the first of several candidates. An entity
-with conflicting evidence is `ambiguous`: it keeps its candidates, resolves to no canonical
-species and gets a provisional one.
+The rules depend on the class of the source entity (pipeline section 1), which the mapping
+declares and resolution never infers:
+
+- a `species` and a `species_form` go through the rules in order, the first that applies deciding
+  (curated, structural, registry, formula-scoped, provisional); a form then takes the species
+  its entity resolves to and the aggregation it states;
+- a `defined_mixture` resolves to the mixture whose canonical key is built from its components'
+  resolved keys, their fractions as decimal text and the basis, and is unique only when every
+  component is;
+- a `material` resolves by a registry identifier of a scheme declared as a registry;
+- a `pseudo_component` has no rules yet (the mapping refuses the class) and a `polymer_type` is
+  provisional unless a curated decision identifies it;
+- an `undetermined` entity is provisional and unclassified unless a curated decision settles it.
+
+No rule ever takes the first of several candidates. An entity with conflicting evidence is
+`ambiguous`: it keeps its candidates, resolves to no canonical entity and gets a provisional one
+of its own class. No provisional entity is a species unless its class is species.
 """
 
 from __future__ import annotations
@@ -38,6 +51,16 @@ STRUCTURAL = pc.RESOLUTION_RULE.member("structural")
 REGISTRY = pc.RESOLUTION_RULE.member("registry")
 FORMULA_SCOPE = pc.RESOLUTION_RULE.member("formula_scope")
 PROVISIONAL = pc.RESOLUTION_RULE.member("provisional")
+COMPOSITION = pc.RESOLUTION_RULE.member("composition")
+SPECIES = pc.ENTITY_CLASS.member("species")
+SPECIES_FORM = pc.ENTITY_CLASS.member("species_form")
+DEFINED_MIXTURE = pc.ENTITY_CLASS.member("defined_mixture")
+MATERIAL = pc.ENTITY_CLASS.member("material")
+POLYMER_TYPE = pc.ENTITY_CLASS.member("polymer_type")
+UNDETERMINED = pc.ENTITY_CLASS.member("undetermined")
+UNCLASSIFIED = pc.UNCLASSIFIED_ENTITY.declared
+CHEMICAL = frozenset({SPECIES, SPECIES_FORM})
+"""The classes whose entities go through the structural, registry and formula rules."""
 FORMULA_SCHEME = "formula"
 NAME_SCHEME = "name"
 PROVISIONAL_PREFIX = "provisional:"
@@ -86,6 +109,12 @@ class SourceEntityRec:
     stated_charge: int | None
     origins: tuple[Origin, ...]
     assertions: tuple[Assertion, ...]
+    entity_class: str = SPECIES
+    """The class the source entity's mapping declares."""
+    mixture_definition: str | None = None
+    mole_basis: bool | None = None
+    components: tuple[tuple[EntityKey, str], ...] = ()
+    """For a defined mixture: each component's source entity and its fraction as decimal text."""
 
     @property
     def manifest_id(self) -> str:
@@ -129,6 +158,40 @@ class FormRec:
 
 
 @dataclass(frozen=True)
+class MixtureRec:
+    canonical_key: str
+    definition: str
+    mole_basis: bool
+    provisional: bool
+    label: str
+    origins: tuple[Origin, ...]
+    components: tuple[tuple[str, str], ...]
+    """(canonical key of the component's entity, fraction as decimal text), in key order; empty
+    for a provisional mixture and for one no component is known of."""
+
+
+@dataclass(frozen=True)
+class MaterialRec:
+    canonical_key: str
+    registry_key: str | None
+    provisional: bool
+    label: str
+    origins: tuple[Origin, ...]
+
+
+@dataclass(frozen=True)
+class PlainRec:
+    """A provisional or curated entity with nothing but its key and label: a polymer type or an
+    unclassified entity (`kind` names which)."""
+
+    canonical_key: str
+    kind: str
+    provisional: bool
+    label: str
+    origins: tuple[Origin, ...]
+
+
+@dataclass(frozen=True)
 class EntityResult:
     key: EntityKey
     status: str
@@ -138,12 +201,21 @@ class EntityResult:
     species_key: str
     candidates: tuple[str, ...]
     reason: str | None = None
+    entity_class: str = SPECIES
+    """The class resolution applied: the source's, or a curated decision's for an undetermined
+    entity."""
+    target_kind: str = pc.SPECIES.declared
+    """The kind of the entity the records attach to (`species`, `species_form`, `defined_mixture`,
+    `material`, `polymer_type` or `unclassified_entity`)."""
 
 
 @dataclass
 class Resolution:
     species: dict[str, SpeciesRec] = field(default_factory=dict)
     forms: dict[str, FormRec] = field(default_factory=dict)
+    mixtures: dict[str, MixtureRec] = field(default_factory=dict)
+    materials: dict[str, MaterialRec] = field(default_factory=dict)
+    others: dict[str, PlainRec] = field(default_factory=dict)
     entities: dict[EntityKey, EntityResult] = field(default_factory=dict)
     registry_conflicts: dict[tuple[str, str], tuple[str, ...]] = field(default_factory=dict)
     unusable: list[tuple[EntityKey, str, str, str]] = field(default_factory=list)
@@ -179,6 +251,37 @@ def _dedupe(origins: Sequence[Origin]) -> tuple[Origin, ...]:
     )
 
 
+_DECISION_CLASSES: Mapping[str, frozenset[str]] = {
+    SPECIES: frozenset({SPECIES}),
+    SPECIES_FORM: frozenset({SPECIES}),
+    DEFINED_MIXTURE: frozenset({DEFINED_MIXTURE}),
+    MATERIAL: frozenset({MATERIAL}),
+    POLYMER_TYPE: frozenset({POLYMER_TYPE}),
+}
+"""For a class the source states, the classes of canonical entity a curated decision may name."""
+
+
+def _classes(ordered: Sequence[SourceEntityRec], decisions: Decisions) -> dict[EntityKey, str]:
+    """The class resolution applies to each entity: the class its source states, or the class of
+    the curated decision that settles an undetermined one. A decision whose class the source's
+    class does not admit is an error."""
+    classes: dict[EntityKey, str] = {}
+    for entity in ordered:
+        decision = decisions.identify.get(entity.key)
+        if decision is None:
+            classes[entity.key] = entity.entity_class
+        elif entity.entity_class == UNDETERMINED:
+            classes[entity.key] = decision.entity_class
+        elif decision.entity_class in _DECISION_CLASSES.get(entity.entity_class, frozenset()):
+            classes[entity.key] = entity.entity_class
+        else:
+            raise ResolveError(
+                f"the decision that identifies {entity.key} names a `{decision.entity_class}`, "
+                f"and its source states the class `{entity.entity_class}`"
+            )
+    return classes
+
+
 def resolve(
     entities: Sequence[SourceEntityRec],
     decisions: Decisions,
@@ -186,11 +289,36 @@ def resolve(
     structure: Structure,
     schemes: SchemeKinds,
 ) -> Resolution:
-    """Resolve every source entity."""
+    """Resolve every source entity by the rules of its class."""
     result = Resolution()
     ordered = sorted(entities, key=lambda e: e.key)
     by_key = {e.key: e for e in ordered}
     result.unmatched_decisions = sorted(decisions.named() - set(by_key))
+    classes = _classes(ordered, decisions)
+    chemical = [e for e in ordered if classes[e.key] in CHEMICAL]
+    _chemical(result, chemical, classes, decisions, formula_scopes, structure, schemes)
+    _others(
+        result,
+        [e for e in ordered if classes[e.key] not in CHEMICAL],
+        by_key,
+        classes,
+        decisions,
+        schemes,
+    )
+    return result
+
+
+def _chemical(
+    result: Resolution,
+    ordered: Sequence[SourceEntityRec],
+    classes: Mapping[EntityKey, str],
+    decisions: Decisions,
+    formula_scopes: FormulaScopes,
+    structure: Structure,
+    schemes: SchemeKinds,
+) -> None:
+    """Species and species forms: rules 1 to 4 in order, else provisional (section 1)."""
+    by_key = {e.key: e for e in ordered}
 
     # Rule 1 names entities; rules 2 to 4 propose for the rest.
     proposals: dict[EntityKey, _Proposal] = {}
@@ -293,20 +421,30 @@ def resolve(
             needed[decision.canonical_key].append(entity)
             charges.setdefault(decision.canonical_key, decision.charge)
             results[key] = EntityResult(
-                key, UNIQUE, CURATED, decision.canonical_key, decision.canonical_key, ()
+                key,
+                UNIQUE,
+                CURATED,
+                decision.canonical_key,
+                decision.canonical_key,
+                (),
+                None,
+                classes[key],
             )
             continue
         if key in decisions.reject:
-            results[key] = _provisional(entity, REJECTED, CURATED, decisions.reject[key])
+            results[key] = _provisional(
+                entity, classes[key], REJECTED, CURATED, decisions.reject[key]
+            )
             continue
         proposal = proposals.get(key)
         if proposal is None:
-            results[key] = _provisional(entity, UNRESOLVED, PROVISIONAL, None)
+            results[key] = _provisional(entity, classes[key], UNRESOLVED, PROVISIONAL, None)
         elif len(proposal.keys) > 1 or key in merged_away:
             for candidate in proposal.keys:
                 needed[candidate].append(entity)
             results[key] = _provisional(
                 entity,
+                classes[key],
                 AMBIGUOUS,
                 proposal.rule,
                 merged_away.get(key, proposal.reason),
@@ -319,6 +457,7 @@ def resolve(
                 needed[target].append(entity)
                 results[key] = _provisional(
                     entity,
+                    classes[key],
                     AMBIGUOUS,
                     proposal.rule,
                     f"the stated charge {stated:+d} differs from the structure's {charges[target]:+d}",
@@ -326,7 +465,9 @@ def resolve(
                 )
                 continue
             needed[target].append(entity)
-            results[key] = EntityResult(key, UNIQUE, proposal.rule, target, target, ())
+            results[key] = EntityResult(
+                key, UNIQUE, proposal.rule, target, target, (), None, classes[key]
+            )
 
     # Canonical species: members are the entities resolved to them; candidates add origins only.
     members: dict[str, list[SourceEntityRec]] = defaultdict(list)
@@ -371,30 +512,234 @@ def resolve(
                     label=f"{species.label} ({entity.aggregation}{suffix})",
                     origins=(),
                 )
-            outcome = EntityResult(
-                outcome.key,
-                outcome.status,
-                outcome.rule,
-                target,
-                outcome.species_key,
-                outcome.candidates,
-                outcome.reason,
-            )
+            outcome = replace(outcome, target_key=target, target_kind=pc.SPECIES_FORM.declared)
         result.entities[key] = outcome
     for target, found in form_origins.items():
         result.forms[target] = replace(result.forms[target], origins=_dedupe(found))
-    return result
+
+
+def mixture_key(mole_basis: bool, components: Sequence[tuple[str, str]]) -> str:
+    """The canonical key of a defined mixture: `mixture:` and the canonical encoding of the basis
+    (`mole` or `mass`) followed, for each component in key order, by the canonical key of its
+    resolved entity and its fraction as decimal text."""
+    return "mixture:" + identity.canonical_encoding(
+        ["mole" if mole_basis else "mass", *(part for pair in sorted(components) for part in pair)]
+    )
+
+
+def material_key(scheme: str, value: str) -> str:
+    """The canonical key of a material: `material:` and the canonical encoding of the registry
+    scheme and the identifier."""
+    return "material:" + identity.canonical_encoding([scheme, value])
+
+
+def _registry_identifiers(entity: SourceEntityRec, schemes: SchemeKinds) -> list[tuple[str, str]]:
+    return sorted(
+        {(a.scheme, unicodedata.normalize("NFC", a.value)) for a in entity.assertions
+         if a.scheme in schemes.registry}
+    )
+
+
+def _components(
+    entity: SourceEntityRec, resolved: Mapping[EntityKey, EntityResult]
+) -> tuple[tuple[tuple[str, str], ...] | None, str | None]:
+    """The components of a defined mixture as (canonical key, fraction text), or why it has no
+    composition to build a key from: the source states none, or a component is not a unique
+    species or species form of the corpus (or is listed twice)."""
+    if not entity.components:
+        return None, "the source states no composition"
+    found: list[tuple[str, str]] = []
+    for component, fraction in entity.components:
+        outcome = resolved.get(component)
+        if outcome is None or outcome.entity_class not in CHEMICAL:
+            return None, f"the component {component} is not a species or species form"
+        if outcome.status != UNIQUE:
+            return None, f"the component {component} is not unique ({outcome.status})"
+        found.append((outcome.target_key, fraction))
+    if len({key for key, _ in found}) != len(found):
+        return None, "a component is listed twice"
+    return tuple(sorted(found)), None
+
+
+def _others(
+    result: Resolution,
+    ordered: Sequence[SourceEntityRec],
+    by_key: Mapping[EntityKey, SourceEntityRec],
+    classes: Mapping[EntityKey, str],
+    decisions: Decisions,
+    schemes: SchemeKinds,
+) -> None:
+    """Defined mixtures, materials, polymer types and undetermined entities, by the rules of
+    their class; they read the species and forms the chemical pass resolved."""
+    members: dict[tuple[str, str], list[SourceEntityRec]] = defaultdict(list)
+    """(kind, canonical key) to the entities resolved (or left candidates) to it."""
+    chosen: dict[EntityKey, EntityResult] = {}
+    parts: dict[str, tuple[tuple[str, str], ...]] = {}
+    definitions: dict[str, set[str]] = defaultdict(set)
+    for entity in ordered:
+        key, klass = entity.key, classes[entity.key]
+        kind = _TARGET_KINDS[klass]
+        if key in decisions.reject:
+            chosen[key] = _provisional(entity, klass, REJECTED, CURATED, decisions.reject[key])
+            continue
+        decided = decisions.identify.get(key)
+        if klass == DEFINED_MIXTURE:
+            if entity.mixture_definition is None or entity.mole_basis is None:
+                raise ResolveError(
+                    f"the defined mixture {key} states no definition and basis; its mapping "
+                    "declares them for the scope"
+                )
+            found, why = _components(entity, result.entities)
+            if decided is not None:
+                target, status, rule = decided.canonical_key, UNIQUE, CURATED
+            elif found is None:
+                chosen[key] = _provisional(entity, klass, UNRESOLVED, PROVISIONAL, why)
+                continue
+            else:
+                target, status, rule = mixture_key(entity.mole_basis, found), UNIQUE, COMPOSITION
+            if found is not None:
+                if parts.get(target, found) != found:
+                    raise ResolveError(
+                        f"the canonical key {target!r} is given different compositions by "
+                        f"{key} and another entity"
+                    )
+                parts[target] = found
+            definitions[target].add(entity.mixture_definition)
+            members[(kind, target)].append(entity)
+            chosen[key] = EntityResult(key, status, rule, target, target, (), None, klass, kind)
+        elif klass == MATERIAL:
+            registry = _registry_identifiers(entity, schemes)
+            if decided is not None:
+                target = decided.canonical_key
+                members[(kind, target)].append(entity)
+                chosen[key] = EntityResult(
+                    key, UNIQUE, CURATED, target, target, (), None, klass, kind
+                )
+            elif len(registry) == 1:
+                target = material_key(*registry[0])
+                members[(kind, target)].append(entity)
+                chosen[key] = EntityResult(
+                    key, UNIQUE, REGISTRY, target, target, (), None, klass, kind
+                )
+            elif len(registry) > 1:
+                candidates = tuple(sorted(material_key(*item) for item in registry))
+                for candidate in candidates:
+                    members[(kind, candidate)].append(entity)
+                chosen[key] = _provisional(
+                    entity,
+                    klass,
+                    AMBIGUOUS,
+                    REGISTRY,
+                    "several registry identifiers are asserted",
+                    candidates,
+                )
+            else:
+                chosen[key] = _provisional(entity, klass, UNRESOLVED, PROVISIONAL, None)
+        elif decided is not None:  # a polymer type a curated decision identifies
+            target = decided.canonical_key
+            members[(kind, target)].append(entity)
+            chosen[key] = EntityResult(key, UNIQUE, CURATED, target, target, (), None, klass, kind)
+        else:  # a polymer type, or an entity whose class the source does not establish
+            chosen[key] = _provisional(entity, klass, UNRESOLVED, PROVISIONAL, None)
+
+    disagreeing = {target for target, found in definitions.items() if len(found) > 1}
+    for key, outcome in list(chosen.items()):
+        if outcome.target_key in disagreeing and outcome.status == UNIQUE:
+            chosen[key] = _provisional(
+                by_key[key],
+                outcome.entity_class,
+                AMBIGUOUS,
+                outcome.rule,
+                "the entities that give this composition differ on whether it is by definition "
+                "or by measurement",
+                (outcome.target_key,),
+            )
+
+    for (kind, canonical), entities in sorted(members.items()):
+        origins = _dedupe([o for e in entities for o in e.origins])
+        shown = label(entities)
+        if kind == pc.DEFINED_MIXTURE.declared:
+            first = entities[0]
+            assert first.mole_basis is not None and first.mixture_definition is not None
+            result.mixtures[canonical] = MixtureRec(
+                canonical,
+                sorted(definitions[canonical])[0],
+                first.mole_basis,
+                False,
+                shown,
+                origins,
+                parts.get(canonical, ()),
+            )
+        elif kind == pc.MATERIAL.declared:
+            registry = sorted({item for e in entities for item in _registry_identifiers(e, schemes)})
+            own = next((item for item in registry if material_key(*item) == canonical), None)
+            if own is None and len(registry) == 1:
+                own = registry[0]
+            result.materials[canonical] = MaterialRec(
+                canonical, None if own is None else f"{own[0]}:{own[1]}", False, shown, origins
+            )
+        else:
+            result.others[canonical] = PlainRec(canonical, kind, False, shown, origins)
+    for key, outcome in sorted(chosen.items()):
+        entity = by_key[key]
+        if outcome.target_key.startswith(PROVISIONAL_PREFIX):
+            kind = outcome.target_kind
+            origins = _dedupe(entity.origins)
+            if kind == pc.DEFINED_MIXTURE.declared:
+                assert entity.mole_basis is not None and entity.mixture_definition is not None
+                result.mixtures[outcome.target_key] = MixtureRec(
+                    outcome.target_key,
+                    entity.mixture_definition,
+                    entity.mole_basis,
+                    True,
+                    entity.local_key,
+                    origins,
+                    (),
+                )
+            elif kind == pc.MATERIAL.declared:
+                result.materials[outcome.target_key] = MaterialRec(
+                    outcome.target_key, None, True, entity.local_key, origins
+                )
+            else:
+                result.others[outcome.target_key] = PlainRec(
+                    outcome.target_key, kind, True, entity.local_key, origins
+                )
+        result.entities[key] = outcome
 
 
 def _provisional(
     entity: SourceEntityRec,
+    entity_class: str,
     status: str,
     rule: str,
     reason: str | None,
     candidates: tuple[str, ...] = (),
 ) -> EntityResult:
+    """The result of an entity that resolves to no canonical entity: its own provisional entity,
+    of the kind its class says (an undetermined entity's is unclassified)."""
     key = provisional_key(entity.carrier_key, entity.scope, entity.local_key)
-    return EntityResult(entity.key, status, rule, key, key, candidates, reason)
+    return EntityResult(
+        entity.key,
+        status,
+        rule,
+        key,
+        key,
+        candidates,
+        reason,
+        entity_class,
+        _TARGET_KINDS[entity_class],
+    )
+
+
+_TARGET_KINDS: Mapping[str, str] = {
+    SPECIES: pc.SPECIES.declared,
+    SPECIES_FORM: pc.SPECIES.declared,
+    DEFINED_MIXTURE: pc.DEFINED_MIXTURE.declared,
+    MATERIAL: pc.MATERIAL.declared,
+    POLYMER_TYPE: pc.POLYMER_TYPE.declared,
+    UNDETERMINED: UNCLASSIFIED,
+}
+"""The kind of the entity a class's provisional (or curated) target is."""
 
 
 def _charges(
@@ -449,6 +794,9 @@ __all__ = [
     "EntityResult",
     "FormRec",
     "FormulaScopes",
+    "MaterialRec",
+    "MixtureRec",
+    "PlainRec",
     "Resolution",
     "ResolveError",
     "SchemeKinds",
@@ -456,6 +804,8 @@ __all__ = [
     "SpeciesRec",
     "formula_key",
     "label",
+    "material_key",
+    "mixture_key",
     "provisional_key",
     "resolve",
     "scheme_kinds",

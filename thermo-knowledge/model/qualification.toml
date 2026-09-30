@@ -21,6 +21,33 @@ members.passed = { doc = "Every point agreed within the declared tolerance." }
 members.failed = { doc = "At least one point disagreed beyond the tolerance." }
 members.blocked = { doc = "The run could not be carried out; the reason is recorded." }
 
+[enums.blocked_reason]
+doc = "Why a qualification run could not be carried out."
+members.carrier_not_unique = { doc = "The `{pin}` of the case names a carrier that the database does not hold exactly once." }
+members.parameterization_missing = { doc = "The parameterization the case names is not in the database." }
+members.no_subjects = { doc = "The parameterization holds no set of the slot group for any subject." }
+members.subject_unidentified = { doc = "A subject of the parameterization does not have exactly one source entity of the carrier and scope the case takes the library's keys from." }
+members.subjects_not_found = { doc = "The case lists subjects the parameterization holds no set for." }
+members.sample_too_large = { doc = "The case samples more subjects than the parameterization has." }
+members.ambiguous_occurrence = { doc = "A subject has several sets in the parameterization and the case chooses none." }
+members.no_grid = { doc = "No grid of argument values could be made for a subject from its envelope." }
+members.harness_missing = { doc = "The oracle harness script of the library does not exist." }
+members.harness_failed = { doc = "The harness could not produce a result: the library is absent from its environment, it crashed or timed out, or its result breaks the protocol." }
+members.nothing_compared = { doc = "No point could be compared, because the library answered NaN or an error at every point." }
+
+[enums.held_reason]
+doc = "Why a row of a source-faithful table was not loaded."
+members.ambiguous_subject = { doc = "The source entity the row is about is ambiguous: several canonical entities remain candidates." }
+members.unknown_subject = { doc = "The source entity the row is about was not resolved." }
+members.validation_failed = { doc = "A record made from the row failed validation against the declaration." }
+members.unit_not_parseable = { doc = "A value's unit cannot be read as a unit." }
+members.missing_convention = { doc = "The convention facts a form reads are not stated for the record's parameterization." }
+members.not_a_number = { doc = "A value that must be a number is not one." }
+members.not_an_integer = { doc = "A value that must be an integer is not one." }
+members.unusable_key = { doc = "The value that keys a source entity is empty or not text." }
+members.pattern_mismatch = { doc = "An identifier does not have the shape its rule declares and the rule states no other scheme for it." }
+members.unmapped_by_mapping = { doc = "The mapping read the row and emitted nothing for it." }
+
 [enums.capability_evidence]
 doc = "How a capability claim was established."
 members.documentation = { doc = "Stated by the library's documentation." }
@@ -44,7 +71,14 @@ relative_tolerance = { type = "Scalar", doc = "Declared relative tolerance." }
 observable = { type = "observable", optional = true, doc = "The observable of the contract output compared, where the output denotes one." }
 absolute_tolerance = { type = "Real", unit_from = "observable", optional = true, doc = "Declared absolute tolerance in the observable's storage unit." }
 worst_relative_deviation = { type = "Scalar", optional = true, doc = "Largest relative deviation observed." }
-note = { type = "Text", optional = true, doc = "Reason for a blocked run, or what the domain excluded." }
+blocked_reason = { type = "blocked_reason", optional = true, doc = "Why a blocked run could not be carried out; present exactly when the outcome is `blocked`." }
+note = { type = "Text", optional = true, doc = "The detail of a blocked run's reason, or what the domain excluded." }
+
+[[kinds.qualification_run.requires]]
+name = "blocked_reason_iff_blocked"
+doc = "A run states a blocked reason exactly when it is blocked."
+enforced = "ddl"
+check = { present_iff = { column = "blocked_reason", when = "outcome", in = ["blocked"] } }
 
 [[kinds.qualification_run.requires]]
 name = "absolute_tolerance_needs_observable"
@@ -190,6 +224,7 @@ source_unit = { type = "Text", optional = true, doc = "The unit of the source va
 factor = { type = "Real", unit_from = "dimensionless", optional = true, doc = "The factor from the source unit to the target's storage unit." }
 precision = { type = "mapping_precision", optional = true, doc = "How closely the source's meaning matches the target." }
 loss = { type = "Text", optional = true, doc = "What the rule loses or assumes, or why the table is out of scope or deferred." }
+applied_rows = { type = "Integer", optional = true, doc = "For a value rule, the number of mapped rows of its table the mapping applied it to, that is, rows for which it produced a value in a block that wrote records; absent for any other rule." }
 
 [kinds.mapping_coverage]
 doc = "How many rows of a source-faithful table ended in each state in one build."
@@ -218,4 +253,5 @@ manifest_id = { type = "Text", doc = "The source." }
 source_table = { type = "Text", doc = "The source-faithful table." }
 locator = { type = "Text", doc = "The row's locator." }
 state = { type = "row_state", doc = "`held` or `unmapped`." }
-reason = { type = "Text", doc = "Why it was not loaded." }
+reason = { type = "held_reason", doc = "Why it was not loaded." }
+detail = { type = "Text", doc = "The reason in words: what about this row led to it." }

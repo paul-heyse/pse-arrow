@@ -268,7 +268,9 @@ composes = [
   { slot = "potential", accepts = "pair potential object per site-type pair", default = "none (required)" },
   { slot = "omega", accepts = "intramolecular correlation object per site-type pair", default = "none (required)" },
 ]
-variants = "solve(method='krylov' default, options passed to scipy.optimize.root) and solve_picard (mixing step default 0.1, tolerance 1e-6, prints the iteration counter); atomic closures use gamma directly, molecular closures additionally use omega convolutions and reference correlation functions (cr0, hk0)."
+variants = [
+  { selector = "", selects = "solve(method='krylov' default, options passed to scipy.optimize.root) and solve_picard (mixing step default 0.1, tolerance 1e-6, prints the iteration counter); atomic closures use gamma directly, molecular closures additionally use omega convolutions and reference correlation functions (cr0, hk0)." },
+]
 equation_source = "pyPRISM/__init__.py docstring writes the equation; README cites Schweizer and Curro, Phys. Rev. Lett. 1987, 58, 246-249 and Martin et al., Macromolecules 2018, 51, 2906-2922"
 closed_form = "implicit"
 data = "reference correlation tables (for comparison only) and the system constructs"
@@ -280,7 +282,9 @@ class = "model_component"
 inputs = "gamma(r), U(r)/kT, sigma; c = (exp(-U) - 1)(1 + gamma)"
 parameters = "global: apply_hard_core (default False)"
 composes = []
-variants = "apply_hard_core=True sets c = -1 - gamma inside r <= sigma and applies the closure only outside"
+variants = [
+  { selector = "", selects = "apply_hard_core=True sets c = -1 - gamma inside r <= sigma and applies the closure only outside" },
+]
 equation_source = "docstring; Hansen and McDonald, Theory of Simple Liquids, ch. 4"
 closed_form = "yes"
 data = "none bundled"
@@ -292,7 +296,9 @@ class = "model_component"
 inputs = "c = exp(gamma - U) - 1 - gamma"
 parameters = "global: apply_hard_core (code default False; the docstring says True)"
 composes = []
-variants = "two calculate methods are defined in the class (the later one, taking r and gamma, is the one in effect)."
+variants = [
+  { selector = "", selects = "two calculate methods are defined in the class (the later one, taking r and gamma, is the one in effect)." },
+]
 equation_source = "docstring; Hansen and McDonald, ch. 4"
 closed_form = "yes"
 data = "none bundled"
@@ -304,7 +310,9 @@ class = "model_component"
 inputs = "c = -U outside the core (hard core assumed)"
 parameters = "global: apply_hard_core"
 composes = []
-variants = "a warning is issued when apply_hard_core is False"
+variants = [
+  { selector = "", selects = "a warning is issued when apply_hard_core is False" },
+]
 equation_source = "docstring; Hansen and McDonald"
 closed_form = "yes"
 data = "none bundled"
@@ -316,7 +324,9 @@ class = "model_component"
 inputs = "code: c = exp(sqrt(gamma - U + 0.5) - 1) - 1 - gamma; docstring formula differs (see discrepancy)"
 parameters = "global: apply_hard_core"
 composes = []
-variants = "a warning is issued when apply_hard_core is False"
+variants = [
+  { selector = "", selects = "a warning is issued when apply_hard_core is False" },
+]
 equation_source = "docstring references"
 closed_form = "yes"
 data = "none bundled"
@@ -330,7 +340,9 @@ parameters = "global: apply_hard_core; pair: reference c0 and h0 from a solved r
 composes = [
   { slot = "reference_system", accepts = "a solved PRISM object supplying cr0 and hk0 (calculate.refDirectCorr and refTotalCorr)", default = "none (required)" },
 ]
-variants = "the docstring states the closure is not fully implemented and should raise an error; the code evaluates it."
+variants = [
+  { selector = "", selects = "the docstring states the closure is not fully implemented and should raise an error; the code evaluates it." },
+]
 equation_source = "docstring references (Yethiraj and Schweizer 1993)"
 closed_form = "procedural"
 data = "none bundled"
@@ -344,7 +356,9 @@ parameters = "global: apply_hard_core; pair: reference c0"
 composes = [
   { slot = "reference_system", accepts = "a solved PRISM object supplying cr0", default = "none (required)" },
 ]
-variants = "warning when apply_hard_core is False"
+variants = [
+  { selector = "", selects = "warning when apply_hard_core is False" },
+]
 equation_source = "docstring"
 closed_form = "procedural"
 data = "none bundled"
@@ -358,7 +372,9 @@ parameters = "global: apply_hard_core; pair: reference c0 and h0"
 composes = [
   { slot = "reference_system", accepts = "a solved PRISM object supplying cr0 and hk0", default = "none (required)" },
 ]
-variants = "its class docstring repeats the R-MPY text and title."
+variants = [
+  { selector = "", selects = "its class docstring repeats the R-MPY text and title." },
+]
 equation_source = "docstring (copy of R-MPY)"
 closed_form = "procedural"
 data = "none bundled"
@@ -370,7 +386,9 @@ class = "explicit_correlation"
 inputs = "wavenumber k; Gaussian and freely jointed: omega = (1 - E^2 - 2E/N + 2 E^(N+1)/N)/(1 - E)^2 with E = exp(-k^2 sigma^2/6) or sin(k l)/(k l); ring: 1 + (2/N) sum (N - t) exp(-k^2 sigma^2 t (N - t)/(6N)); Koyama: sin(Bk)/(Bk) exp(-A^2 k^2) with A and B from second and fourth moments of the site-site distance distribution; non-overlapping: an excluded-volume correction to the freely jointed chain"
 parameters = "molecule: N (length), sigma or l, persistence length lp"
 composes = []
-variants = "SingleSite (omega = 1 for single-bead molecules), NoIntra (alias InterMolecular, zero), FromArray and FromFile (tabulated)."
+variants = [
+  { selector = "", selects = "SingleSite (omega = 1 for single-bead molecules), NoIntra (alias InterMolecular, zero), FromArray and FromFile (tabulated)." },
+]
 equation_source = "Schweizer and Curro, Macromolecules 1988, 21, 3070 (Gaussian, freely jointed, non-overlapping); Honnell, Curro, Schweizer 1990 (Koyama); Rubinstein and Colby, Polymer Physics"
 closed_form = "yes"
 data = "intramolecular correlation function object construct"
@@ -382,7 +400,9 @@ class = "explicit_correlation"
 inputs = "omega = 1 for every k (single-bead molecules: solvents, particles) or omega = 0 for site pairs that never share a molecule"
 parameters = "none"
 composes = []
-variants = "InterMolecular is an alias of NoIntra."
+variants = [
+  { selector = "", selects = "InterMolecular is an alias of NoIntra." },
+]
 equation_source = "class docstrings"
 closed_form = "yes"
 data = "none"
@@ -394,7 +414,7 @@ class = "explicit_correlation"
 inputs = "omega values on the Fourier grid from a list, array or one or two column text file (a second column of k values triggers a grid check against the Domain)"
 parameters = "data: omega array"
 composes = []
-variants = ""
+variants = []
 equation_source = "none"
 closed_form = "yes"
 data = "reference correlation tables (files may be loaded by the user)"
@@ -406,7 +426,9 @@ class = "explicit_correlation"
 inputs = "distance r: hard sphere U = C_high for r <= sigma else 0; Lennard-Jones 4 eps[(sigma/r)^12 - (sigma/r)^6] with optional cut-off and shift; WCA the same cut and shifted at 2^(1/6) sigma; hard-core LJ eps[(sigma/r)^12 - 2 (sigma/r)^6] for r > sigma and C_high inside (sign of eps free); exponential eps exp(-(r - sigma)/alpha) for r >= sigma and C_high inside"
 parameters = "pair: epsilon, sigma, alpha (exponential), rcut and shift (LJ), high_value"
 composes = []
-variants = "WeeksChandlerAndersen subclasses LennardJones; calculate_attractive in LennardJones returns the tail beyond sigma."
+variants = [
+  { selector = "", selects = "WeeksChandlerAndersen subclasses LennardJones; calculate_attractive in LennardJones returns the tail beyond sigma." },
+]
 equation_source = "class docstrings; Hooper and Schweizer 2006; Yethiraj and Schweizer 1993"
 closed_form = "yes"
 data = "pair potential object construct"
@@ -418,7 +440,9 @@ class = "other"
 inputs = "solved PRISM object; s_alpha,beta(k) = rho_site omega + rho_pair h(k); the normalised form divides by rho_site"
 parameters = "none"
 composes = []
-variants = "normalize flag"
+variants = [
+  { selector = "", selects = "normalize flag" },
+]
 equation_source = "docstring"
 closed_form = "yes"
 data = "none"
@@ -430,7 +454,7 @@ class = "other"
 inputs = "g(r) = h(r) + 1 (intermolecular); w(r) = -kB T ln(h(r) + 1)"
 parameters = "none"
 composes = []
-variants = ""
+variants = []
 equation_source = "docstrings"
 closed_form = "yes"
 data = "none"
@@ -442,7 +466,9 @@ class = "other"
 inputs = "B2_alpha,beta = -0.5 h_alpha,beta(k = 0), by extrapolation to k = 0 (default) or the lowest-k value"
 parameters = "none"
 composes = []
-variants = "extrapolate flag"
+variants = [
+  { selector = "", selects = "extrapolate flag" },
+]
 equation_source = "docstring"
 closed_form = "yes"
 data = "none"
@@ -454,7 +480,9 @@ class = "other"
 inputs = "chi_alpha,beta(k) = (0.5 rho/(R^0.5 phi_alpha + R^-0.5 phi_beta)) (C_alpha,alpha/R + R C_beta,beta - 2 C_alpha,beta) with R = v_alpha/v_beta and volume fractions phi from site densities (as written in the docstring)"
 parameters = "none (uses site volumes from the diameter table)"
 composes = []
-variants = "extrapolate to k = 0 or return chi(k)"
+variants = [
+  { selector = "", selects = "extrapolate to k = 0 or return chi(k)" },
+]
 equation_source = "docstring"
 closed_form = "yes"
 data = "none"
@@ -466,7 +494,9 @@ class = "other"
 inputs = "a determinant-like combination Lambda_alpha,beta of C, omega and site densities for a pair of site types, extrapolated to k = 0; Lambda = 0 marks the spinodal"
 parameters = "none"
 composes = []
-variants = "extrapolate flag"
+variants = [
+  { selector = "", selects = "extrapolate flag" },
+]
 equation_source = "docstring"
 closed_form = "yes"
 data = "none"
@@ -478,7 +508,9 @@ class = "other"
 inputs = "PY: -kT ln(1 + C S C), HNC: -kT C S C, with matrix products of the direct correlation and structure factor MatrixArrays, returned in real space"
 parameters = "global: closure name 'PY' or 'HNC'"
 composes = []
-variants = "closure argument"
+variants = [
+  { selector = "", selects = "closure argument" },
+]
 equation_source = "docstring"
 closed_form = "yes"
 data = "none"
@@ -490,7 +522,7 @@ class = "other"
 inputs = "extract gamma, the direct correlation function or the total correlation function of a solved reference PRISM object as flattened arrays used as cr0, hk0 and initial guess of a molecular-closure solve"
 parameters = "none"
 composes = []
-variants = ""
+variants = []
 equation_source = "none"
 closed_form = "procedural"
 data = "none"
@@ -502,7 +534,9 @@ class = "other"
 inputs = "trajectory coordinates of two site types, molecule index arrays, box; omega_alpha,beta(k) = delta_alpha,beta + (C/N_frame) sum over frames and site pairs within a molecule of sin(k r)/(k r), C = 1/N_alpha for a self pair else 1/(N_alpha + N_beta); parallelised with OpenMP on Linux"
 parameters = "none"
 composes = []
-variants = "selfOmega flag; the docstring states the feature is still under testing."
+variants = [
+  { selector = "", selects = "selfOmega flag; the docstring states the feature is still under testing." },
+]
 equation_source = "docstring"
 closed_form = "procedural"
 data = "none"
@@ -514,7 +548,7 @@ class = "other"
 inputs = "characteristic length, mass and energy (dc, mc, ec) and helpers that convert wavenumbers, lengths and energies using pint; available only when pint is installed"
 parameters = "none"
 composes = []
-variants = ""
+variants = []
 equation_source = "none"
 closed_form = "yes"
 data = "none"

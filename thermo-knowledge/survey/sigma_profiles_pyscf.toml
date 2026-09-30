@@ -1,5 +1,6 @@
 source = "sigma_profiles_pyscf"
 pin = "82099a371bf7"
+additional_pins = { sigma_profiles_pyscf_code = "764075efc394" }
 surveyed = "2026-09-30"
 summary = "The Zenodo deposit 10.5281/zenodo.20672192 (pin 82099a371bf7: two Parquet files and two JSON files) contributes 361,583 three-block COSMO-SAC sigma profiles computed with PySCF (BP86/def2-SVP, COSMO with infinite dielectric constant, PM6 geometries from PubChemQC, Hsieh averaging), an index keyed by PubChem CID with formula, structure notation and a rule-based chemical family, and five refitted COSMO-SAC interaction constants that must be used with these profiles; the generation, refit and validation code and the data dictionary come from the companion code repository (source sigma_profiles_pyscf_code, pin 764075efc394, read as part of this record). It has no name column that is filled, CAS numbers for 2.4 percent of rows, no paper citation yet, and its training and benchmark data (NIST ThermoData Engine) are not included."
 
@@ -240,8 +241,8 @@ composes = [
   { slot = "geometry", accepts = "a PM6 geometry", default = "PubChemQC PM6 coordinates as given; smiles_to_sigma.py builds new molecules with RDKit ETKDGv3 and UFF then MOPAC PM6" },
 ]
 variants = [
-  { flag = "--geom {pm6,uff,none} in smiles_to_sigma.py", selects = "geometry source for a molecule not in PubChemQC (the README notes a new PM6 optimisation will not reproduce a database entry bit for bit)" },
-  { flag = "--df / --no-df", selects = "density fitting on or off in the SCF; validated on 7 molecules with a maximum profile difference of 0.0273 A^2 per bin and a maximum energy difference of 0.001 Ha (comment in run_cosmo_array.sh)" },
+  { selector = "--geom {pm6,uff,none} in smiles_to_sigma.py", selects = "geometry source for a molecule not in PubChemQC (the README notes a new PM6 optimisation will not reproduce a database entry bit for bit)" },
+  { selector = "--df / --no-df", selects = "density fitting on or off in the SCF; validated on 7 molecules with a maximum profile difference of 0.0273 A^2 per bin and a maximum energy difference of 0.001 Ha (comment in run_cosmo_array.sh)" },
 ]
 equation_source = "no equations: README.md and requirements.txt cite PySCF (Sun et al. 2018), PubChemQC (Nakata and Shimazaki 2017), the NIST implementation (Bell et al. 2020) and Hsieh et al. 2010"
 closed_form = "procedural"
@@ -258,7 +259,7 @@ composes = [
   { slot = "objective", accepts = "residual of ln gamma infinity", default = "soft_l1 robust loss with f_scale 0.5 in scipy least_squares (trf)" },
 ]
 variants = [
-  { flag = "stage", selects = "stage 1 A_ES and B_ES on the no-hydrogen-bond subset; stage 2 c_OH_OH and c_OH_OT on the OH subset with stage-1 values held; stage 3 c_OT_OT on the OT subset (the holding order is stated in the script headers; the holding of earlier results was not traced line by line)" },
+  { selector = "stage", selects = "stage 1 A_ES and B_ES on the no-hydrogen-bond subset; stage 2 c_OH_OH and c_OH_OT on the OH subset with stage-1 values held; stage 3 c_OT_OT on the OT subset (the holding order is stated in the script headers; the holding of earlier results was not traced line by line)" },
 ]
 equation_source = "no citation for the fit; the model is Hsieh et al. 2010 by the README references"
 closed_form = "procedural"
