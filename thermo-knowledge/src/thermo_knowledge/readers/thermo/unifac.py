@@ -42,8 +42,8 @@ from pathlib import Path
 
 import pyarrow as pa
 
-from thermo_knowledge.readers.chemicals import tabular
-from thermo_knowledge.readers.chemicals.tabular import (
+from thermo_knowledge.staging import tabular
+from thermo_knowledge.staging.tabular import (
     Col,
     flag,
     index,

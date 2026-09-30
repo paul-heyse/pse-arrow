@@ -14,7 +14,7 @@ the file writes the number without them (then kind `c`, an integer).
 
 from __future__ import annotations
 
-from thermo_knowledge.readers.chemicals.tabular import Delimited, delimited
+from thermo_knowledge.staging.tabular import Delimited, delimited
 
 CHEMICALS_TABLES: tuple[Delimited, ...] = (
     delimited(

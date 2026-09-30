@@ -14,14 +14,14 @@ except `thermo/unifac.py`, which is Python source read only for its data constru
 | `Interaction Parameters/ChemSep/*.ipd` | `ipd` | `ipd_files`, `ipd_rows`, `ipd_lines` |
 | `Misc/*.json` (fitted correlations) | `correlations` | `correlation_leaves`, `correlation_series` |
 | `Phase Change/*interaction parameters*.tsv`, `DDBST UNIFAC assignments.tsv`, `unifac.py` | `unifac` | `unifac_interaction_parameters`, `ddbst_unifac_assignments`, `ddbst_unifac_assignment_pairs`, `unifac_subgroups`, `unifac_main_groups` |
-| `Law/*` (eight inventories) and `Phase Change/Bell 2018 ...tsv` | `thermo_knowledge.readers.chemicals.shared_specs` | `law_*`, `phase_change_bell_2018` |
+| `Law/*` (eight inventories) and `Phase Change/Bell 2018 ...tsv` | `thermo_knowledge.staging.shared_specs` | `law_*`, `phase_change_bell_2018` |
 
 The inventory and Bell files are byte-identical to the ones in the chemicals payload, so both readers
-use the same declarations and the same strict cell rules (`thermo_knowledge.readers.chemicals.tabular`).
-That module and `shared_specs` are therefore inputs of this reader that the reuse key of a stage does
-not see (it hashes this package only); bump `READER_VERSION` when either changes the rows they produce.
-The manifest includes no `.zip`, so `Law/ECHA Tonnage Bands.csv.zip` is not in this payload and its
-table is not declared here. Tables embedded in the other Python modules of the library are outside the
+use the same declarations and the same strict cell rules (`thermo_knowledge.staging.tabular` and
+`thermo_knowledge.staging.shared_specs`, framework code that the reuse key of the read stage covers for
+every reader). The manifest includes no `.zip`, so `Law/ECHA Tonnage Bands.csv.zip` is not in this payload
+and its table is not declared here; the licence texts (`LICENSE.txt`, the ChemSep Artistic licence) are not
+data and are not in it either (the manifest's `notes` say why). Tables embedded in the other Python modules of the library are outside the
 payload (the manifest includes only `thermo/unifac.py`).
 """
 
@@ -31,13 +31,13 @@ from pathlib import Path
 
 import pyarrow as pa
 
-from thermo_knowledge.readers.chemicals.shared_specs import SHARED_TABLES
-from thermo_knowledge.readers.chemicals.tabular import Delimited, Handler, read_delimited, schemas_of
+from thermo_knowledge.staging.shared_specs import SHARED_TABLES
+from thermo_knowledge.staging.tabular import Delimited, Handler, read_delimited, schemas_of
 from thermo_knowledge.readers.thermo import correlations, interaction, ipd, unifac
 from thermo_knowledge.staging.errors import StagingError
 from thermo_knowledge.staging.writer import Writer
 
-READER_VERSION = "1"
+READER_VERSION = "2"
 DATA_ROOT = "thermo"
 
 DELIMITED: tuple[Delimited, ...] = tuple(

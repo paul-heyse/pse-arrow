@@ -6,7 +6,7 @@ title = "thermo"
 tier = "A"
 homepage = "https://github.com/CalebBell/thermo"
 waves = [1, 2, 3]
-notes = "The tag is not on master (master is two commits behind it); the commit is the pin. UNIFAC interaction tables are headerless numeric TSV; group definitions are embedded in thermo/unifac.py."
+notes = "The tag is not on master (master is two commits behind it); the commit is the pin. UNIFAC interaction tables are headerless numeric TSV; group definitions are embedded in thermo/unifac.py. Two files of the checkout are outside the payload on purpose: thermo/Law/ECHA Tonnage Bands.csv.zip (regulatory tonnage bands are outside the knowledge base) and the licence texts, LICENSE.txt and the ChemSep Artistic_license_2_0.txt (recorded as rights determinations in the rights blocks, not data)."
 
 [acquire]
 kind = "git"

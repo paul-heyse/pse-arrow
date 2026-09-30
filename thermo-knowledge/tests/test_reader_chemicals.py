@@ -58,7 +58,7 @@ def meta(table: str, column: str) -> dict[str, str]:
 
 
 def test_every_table_is_declared_with_documented_typed_columns() -> None:
-    assert len(chemicals.TABLES) == 151
+    assert len(chemicals.TABLES) == 153
     schema.check_declared(chemicals.TABLES)
     fields = chemicals.TABLES["critical_psrk_appendix"]
     assert [f.name for f in fields][2:] == ["CAS", "Chemical", "Tc", "Pc", "Vc", "omega"]
@@ -419,6 +419,60 @@ def test_chemsep_refuses_constructs_no_table_declares(tmp_path: Path) -> None:
         run(tmp_path / "c", {CHEMSEP: "<compounds><compound>"})
 
 
+# -- Open Babel element table ------------------------------------------------------------------------------
+
+ELEMENTS = "chemicals/Misc/element.txt"
+_LEGEND = "#Num\tSymb\tARENeg\tRCov\tRBO\tRVdW\tMaxBnd\tMass\tElNeg.\tIonization\tElAffinity\tRed\tGreen\tBlue\tName"
+_ELEMENT_TXT = (
+    "##########\n"
+    "#  Columns represent:\n"
+    "#   - covalent radii (in Angstrom)         1.6 if unknown\n"
+    "\n"
+    + _LEGEND
+    + "\n"
+    "#0\tXx\t0.00\t0.00\t0.00\t0.00\t0\t0\t0.00\t0\t0\t0.07\t0.50\t0.70\tDummy\n"
+    "1\tH\t2.20\t0.31\t0.31\t1.10\t1\t1.00794\t2.20\t13.5984\t0.75420375\t0.75\t0.75\t0.75\tHydrogen\n"
+    "7\tN\t3.07\t0.71\t0.71\t1.55\t4\t14.0067\t3.04\t14.5341\t-0.07\t0.05\t0.05\t1.00\tNitrogen\n"
+)
+
+
+def test_element_txt_keeps_its_own_columns_and_every_non_row_line(tmp_path: Path) -> None:
+    staged = run(tmp_path, {ELEMENTS: _ELEMENT_TXT})
+    hydrogen, nitrogen = staged.rows("misc_element_txt")
+    assert hydrogen["_locator"] == f"{ELEMENTS}#L7" and nitrogen["_locator"] == f"{ELEMENTS}#L8"
+    assert (hydrogen["Num"], hydrogen["Symb"], hydrogen["Name"]) == (1, "H", "Hydrogen")
+    assert hydrogen["Mass"] == 1.00794 and hydrogen["ElAffinity"] == 0.75420375
+    assert hydrogen["MaxBnd"] == 1 and hydrogen["ElNeg"] == 2.2
+    assert nitrogen["ElAffinity"] == -0.07 and nitrogen["Blue"] == 1.0
+    other = staged.rows("misc_element_txt_lines")
+    assert [(line["line"], line["text"][:6]) for line in other] == [
+        (1, "######"),
+        (2, "#  Col"),
+        (3, "#   - "),
+        (4, ""),
+        (5, "#Num\tS"),
+        (6, "#0\tXx\t"),
+    ]
+    assert other[4]["_locator"] == f"{ELEMENTS}#L5"
+    assert meta("misc_element_txt", "Mass")["unit"] == "amu"
+    assert meta("misc_element_txt", "RCov")["unit"] == "Angstrom"
+    assert meta("misc_element_txt", "ElNeg")["source_name"] == "ElNeg."
+    assert meta("misc_element_txt", "Red")["unit"] == "not stated"
+
+
+def test_element_txt_is_strict_about_its_legend_and_rows(tmp_path: Path) -> None:
+    with pytest.raises(StagingError, match=r"differs from the declared one"):
+        run(tmp_path / "a", {ELEMENTS: _ELEMENT_TXT.replace("Symb", "Symbol")})
+    with pytest.raises(StagingError, match=r"15 cells|14 cells"):
+        run(tmp_path / "b", {ELEMENTS: _ELEMENT_TXT.replace("\tHydrogen", "")})
+    with pytest.raises(StagingError, match=r"column Mass: 'heavy' is not a decimal number"):
+        run(tmp_path / "c", {ELEMENTS: _ELEMENT_TXT.replace("1.00794", "heavy")})
+    with pytest.raises(StagingError, match=r"an element row before the legend"):
+        run(tmp_path / "d", {ELEMENTS: _ELEMENT_TXT.replace(_LEGEND + "\n", "")})
+    with pytest.raises(StagingError, match=r"no legend line"):
+        run(tmp_path / "e", {ELEMENTS: "# only a banner\n"})
+
+
 # -- the real tree ---------------------------------------------------------------------------------------
 
 
@@ -466,7 +520,7 @@ def test_every_table_is_staged_and_every_payload_file_accounted(
     assert manifest.pin == PIN
     source = load_sources(default_sources_dir())["chemicals"]
     expected = payload.payload_files(TREE, source.payload.include, source.payload.exclude)
-    assert len(expected) == 154
+    assert len(expected) == 155
     assert sorted(r.path for r in manifest.payload) == expected
     assert all(record.status == "read" for record in manifest.payload)
     assert all(record.rows > 0 for record in manifest.tables.values())
@@ -730,3 +784,50 @@ def test_the_staged_source_loads_into_a_database(staged: Path, test_database: Te
             "WHERE \"Tc\" = 'NaN'"
         ).fetchone()
         assert nan_count == 11
+
+
+@needs_store
+def test_element_txt_counts_match_a_line_scan_of_the_file(
+    manifest: staged_manifest.StagedManifest, staged: Path
+) -> None:
+    all_lines = raw_text(ELEMENTS).split("\n")[:-1]
+    element_rows = [line for line in all_lines if line and not line.startswith("#")]
+    assert len(element_rows) == 118 and len(all_lines) == physical_lines(ELEMENTS) == 153
+    assert manifest.tables["misc_element_txt"].rows == len(element_rows)
+    assert manifest.tables["misc_element_txt_lines"].rows == len(all_lines) - len(element_rows) == 35
+    rows = table(staged, "misc_element_txt").to_pylist()
+    assert [row["Num"] for row in rows] == list(range(1, 119))
+    assert [row["Symb"] for row in rows] == [line.split("\t")[1] for line in element_rows]
+    assert [row["Name"] for row in rows] == [line.split("\t")[14] for line in element_rows]
+    assert [row["Mass"] for row in rows] == [float(line.split("\t")[7]) for line in element_rows]
+    og = rows[-1]
+    assert (og["Symb"], og["Name"], og["Mass"], og["_locator"]) == ("Og", "Oganesson", 294.0, f"{ELEMENTS}#L153")
+    commented = table(staged, "misc_element_txt_lines").to_pylist()
+    assert any(line["text"].startswith("#0\tXx\t") for line in commented)
+    assert next(line for line in commented if line["text"].startswith("#Num"))["line"] == 34 == 1 + next(
+        i for i, line in enumerate(all_lines) if line.startswith("#Num")
+    )
+
+
+@needs_store
+def test_element_txt_rows_and_lines_rebuild_the_source_file(staged: Path) -> None:
+    source = raw_text(ELEMENTS).split("\n")[:-1]
+    rows = {
+        int(row["_locator"].rsplit("#L", 1)[1]): row
+        for row in table(staged, "misc_element_txt").to_pylist()
+    }
+    lines = {row["line"]: row for row in table(staged, "misc_element_txt_lines").to_pylist()}
+    assert set(rows).isdisjoint(lines)
+    assert sorted(set(rows) | set(lines)) == list(range(1, len(source) + 1))
+    names = [field.name for field in chemicals.elements_txt._ELEMENTS]
+    kinds = [field.kind for field in chemicals.elements_txt._ELEMENTS]
+    for number, text in enumerate(source, start=1):
+        if number in lines:
+            assert lines[number]["text"] == text
+            assert lines[number]["_locator"] == f"{ELEMENTS}#L{number}"
+            continue
+        cells = text.split("\t")
+        assert len(cells) == len(names)
+        for name, kind, cell in zip(names, kinds, cells, strict=True):
+            value = rows[number][name]
+            assert value == (cell if kind == "s" else int(cell) if kind == "i" else float(cell)), (number, name)

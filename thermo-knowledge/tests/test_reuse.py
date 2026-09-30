@@ -8,6 +8,7 @@ stale, and a change to nothing it declares does not."""
 
 from __future__ import annotations
 
+import importlib
 import shutil
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from thermo_knowledge import reuse
 from thermo_knowledge.canonical.environment import Environment
 from thermo_knowledge.mapping import runner
 from thermo_knowledge.resolve.command import resolve_all
+from thermo_knowledge.staging import reader as staging_reader
 from thermo_knowledge.staging import stage
 from thermo_knowledge.staging.errors import StagingError
 from thermo_knowledge.staging.stage import StageState
@@ -210,6 +212,41 @@ def test_reading_is_stale_after_a_change_the_stage_declares_and_not_otherwise(
     assert state() is StageState.STALE, "a framework file the stage executes is part of the key"
     assert stage.read_source(ctx, manifest, workspace.entries()).status == "read"
     assert state() is StageState.CURRENT
+
+
+def test_a_change_to_code_the_chemicals_and_thermo_readers_share_marks_both_stale(
+    copied_package: Path,
+) -> None:
+    """The shared table rules and the shared Law and Bell declarations live in the staging
+    package, which the read key covers for every reader, so neither reader's key can miss them."""
+    readers = {
+        name: staging_reader.ResolvedReader.from_module(name, importlib.import_module(f"{package}.{name}"))
+        for name, package in (
+            ("chemicals", "thermo_knowledge.readers"),
+            ("thermo", "thermo_knowledge.readers"),
+        )
+    }
+
+    def keys() -> dict[str, str]:
+        return {
+            name: staging_reader.reuse_key(source_id=name, tree_identity="t", reader=reader)[0]
+            for name, reader in readers.items()
+        }
+
+    before = keys()
+    assert before == keys() and before["chemicals"] != before["thermo"]
+    for module in ("tabular.py", "shared_specs.py"):
+        assert (PACKAGE / "staging" / module).is_file()
+        assert not (PACKAGE / "readers" / "chemicals" / module).exists()
+        previous = keys()
+        with (copied_package / "staging" / module).open("a") as handle:
+            handle.write("\n# a shared reader module changed\n")
+        changed = keys()
+        assert changed["chemicals"] != previous["chemicals"], module
+        assert changed["thermo"] != previous["thermo"], module
+    with (copied_package / "qualify" / "run.py").open("a") as handle:
+        handle.write("\n# not executed by reading\n")
+    assert keys() == changed
 
 
 def test_a_side_reader_is_stale_when_the_lock_of_its_environment_changes(

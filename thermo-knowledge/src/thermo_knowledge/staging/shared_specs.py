@@ -16,7 +16,7 @@ and the zip archive's one member is read; `_locator` counts lines of the decompr
 
 from __future__ import annotations
 
-from thermo_knowledge.readers.chemicals.tabular import Delimited, delimited
+from thermo_knowledge.staging.tabular import Delimited, delimited
 
 _TSCA_FLAGS = "UV;E;F;N;P;S;R;T;XU;SP;TP;Y1;Y2"
 

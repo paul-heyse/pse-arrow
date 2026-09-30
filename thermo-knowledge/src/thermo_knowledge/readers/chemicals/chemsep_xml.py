@@ -30,8 +30,8 @@ from pathlib import Path
 
 import pyarrow as pa
 
-from thermo_knowledge.readers.chemicals import tabular
-from thermo_knowledge.readers.chemicals.tabular import index, integer, number, text
+from thermo_knowledge.staging import tabular
+from thermo_knowledge.staging.tabular import index, integer, number, text
 from thermo_knowledge.staging.errors import StagingError
 from thermo_knowledge.staging.writer import Writer
 

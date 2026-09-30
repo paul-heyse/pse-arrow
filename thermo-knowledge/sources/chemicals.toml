@@ -26,6 +26,7 @@ include = [
   "chemicals/**/*.gz",
   "chemicals/**/*.xml",
   "chemicals/**/*.zip",
+  "chemicals/**/*.txt",
 ]
 exclude = []
 
