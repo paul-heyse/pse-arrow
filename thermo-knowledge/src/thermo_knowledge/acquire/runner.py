@@ -11,7 +11,7 @@ source's check runs local git commands).
 from __future__ import annotations
 
 import shutil
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
@@ -19,7 +19,7 @@ import msgspec
 
 from thermo_knowledge.acquire import download, git, local, none, pages, store
 from thermo_knowledge.acquire.errors import AcquireError, UsageError
-from thermo_knowledge.acquire.lock import LockEntry, read_lock, write_lock
+from thermo_knowledge.acquire.lock import LockEntry, read_lock, record_entry
 from thermo_knowledge.acquire.manifest import (
     ArchiveSpec,
     FileSpec,
@@ -294,14 +294,21 @@ class Result:
 
 @dataclass
 class Acquirer:
-    """One `tk acquire` run: acquires sources and keeps the lock in step, source by source."""
+    """One `tk acquire` run: acquires sources and keeps the lock in step, source by source.
+
+    The run holds no copy of the lock. Every decision reads the file afresh and every record is
+    a locked read-modify-write of one entry (`record_entry`), so runs at the same time keep each
+    other's entries.
+    """
 
     ctx: Context
     lock_path: Path
-    entries: dict[str, LockEntry] = field(init=False)
 
     def __post_init__(self) -> None:
-        self.entries = read_lock(self.lock_path)
+        read_lock(self.lock_path)  # an invalid lock is refused before any source is acquired
+
+    def _current(self, source_id: str) -> LockEntry | None:
+        return read_lock(self.lock_path).get(source_id)
 
     def run(self, manifests: list[Manifest]) -> list[Result]:
         results = []
@@ -313,8 +320,7 @@ class Acquirer:
         return results
 
     def _record(self, source_id: str, entry: LockEntry) -> None:
-        self.entries[source_id] = entry
-        write_lock(self.lock_path, self.entries)
+        record_entry(self.lock_path, source_id, entry)
 
     def _one(self, manifest: Manifest) -> Result:
         spec = manifest.acquire
@@ -335,7 +341,7 @@ class Acquirer:
     def _keep_or_record(
         self, source_id: str, entry: LockEntry, status: str, message: str
     ) -> Result:
-        current = self.entries.get(source_id)
+        current = self._current(source_id)
         if current is not None and _same_resolution(current, entry):
             return Result(source_id, "unchanged", message)
         self._record(source_id, entry)
@@ -343,7 +349,7 @@ class Acquirer:
 
     def _stored(self, manifest: Manifest) -> Result:
         source_id = manifest.id
-        current = self.entries.get(source_id)
+        current = self._current(source_id)
         pin = declared_pin(manifest)
         if pin is not None:
             if store.pin_dir(self.ctx.raw_dir, source_id, pin).is_dir():

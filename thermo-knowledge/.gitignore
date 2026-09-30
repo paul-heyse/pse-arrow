@@ -1,0 +1,2 @@
+# The sidecar file whose flock serialises concurrent `tk acquire` writers of sources.lock.
+sources.lock.flock

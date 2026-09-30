@@ -5,7 +5,10 @@
 
 from __future__ import annotations
 
+import fcntl
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import msgspec
@@ -61,7 +64,42 @@ def encode_lock(entries: dict[str, LockEntry]) -> bytes:
 
 
 def write_lock(path: Path, entries: dict[str, LockEntry]) -> None:
-    """Replace the lock atomically."""
-    temporary = path.with_name(f"{path.name}.tmp")
-    temporary.write_bytes(encode_lock(entries))
-    os.replace(temporary, path)
+    """Replace the lock atomically: write a temporary file beside it, then rename it over the
+    lock, so no reader ever sees a partial file."""
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    try:
+        with temporary.open("wb") as handle:
+            handle.write(encode_lock(entries))
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def lock_guard_path(path: Path) -> Path:
+    """The sidecar file whose `flock` serialises writers of the lock at `path`."""
+    return path.with_name(f"{path.name}.flock")
+
+
+@contextmanager
+def exclusive(path: Path) -> Iterator[None]:
+    """Hold the exclusive lock on the sidecar of the lock at `path`, waiting for other
+    processes that hold it. The lock is released when the block ends or the process dies."""
+    descriptor = os.open(lock_guard_path(path), os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o644)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(descriptor)
+
+
+def record_entry(path: Path, source_id: str, entry: LockEntry) -> None:
+    """Set one source's entry: under the exclusive lock, re-read the current file, replace only
+    this source's entry and write the result atomically. Entries other runs recorded since this
+    process last looked are kept."""
+    with exclusive(path):
+        entries = read_lock(path)
+        entries[source_id] = entry
+        write_lock(path, entries)

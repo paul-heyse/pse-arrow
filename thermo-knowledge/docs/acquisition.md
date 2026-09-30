@@ -145,6 +145,17 @@ in `ACQUISITION.json` in the store. The lock carries a top-level `version`, and 
 the full resolved commit or checksum, the path of a `local` source and the reason of a `none`
 source. An entry keeps its retrieval time when re-verification resolves to the same thing.
 
+Concurrent `tk acquire` runs are safe (for example `tk acquire janaf` and `tk acquire thermoml`
+at the same time). A run keeps no copy of the lock. Recording one source is a read-modify-write
+under an exclusive `flock` on the sidecar file `sources.lock.flock`, next to the lock and
+gitignored by the tree: the run takes the lock, re-reads the current `sources.lock`, sets only
+its own source's entry, writes a temporary file in the same directory and renames it over the
+lock, then releases. Entries other runs recorded meanwhile are kept, the keep-or-record decision
+compares with the entry just read, and the lock is never observable half-written. The file stays
+byte-identical to the sorted JSON above. `flock` is Linux (POSIX) advisory locking: it binds
+processes that use it, which every writer of the lock does, and the operating system releases it
+when a run dies.
+
 ## 5. Commands
 
 | Command | Effect |
