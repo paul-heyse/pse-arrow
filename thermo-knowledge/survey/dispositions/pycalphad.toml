@@ -18,9 +18,9 @@ reason = "A named function becomes a model_component with a parameter set of a t
 
 [[disposition]]
 construct = "TYPE_DEFINITION"
-disposition = "model_change"
-ref = "alignment-notes #25"
-reason = "A MAGNETIC definition maps to the afm-factor and structure-factor slots of a phase-level group of a magnetic form (subject a phase_definition), but DISORDERED_PART and NEVER_DISORDER name the disordered partner of an ordered phase, and the declaration has no relation pairing two phase_definitions and no place for the never-disorder switch that changes the equation. Add a relation keyed by (chemical_system, ordered phase, disordered phase) with a column for the never-disorder switch (alignment-notes #25)."
+disposition = "held_by_model"
+ref = "relation:disordered_partner"
+reason = "A MAGNETIC definition maps to the afm-factor and structure-factor slots of a phase-level group of a magnetic form (subject a phase_definition), and DISORDERED_PART and NEVER_DISORDER name the disordered partner of an ordered phase and the never-disorder switch that changes the equation, which the relation disordered_partner holds (keyed by the ordered and the disordered phase_definition, with a never_disorder column)."
 
 [[disposition]]
 construct = "PHASE"

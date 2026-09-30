@@ -29,9 +29,9 @@ reason = "An initial or reference state (two state variables and a composition, 
 
 [[disposition]]
 construct = "element entry"
-disposition = "model_change"
-ref = "alignment-notes #17"
-reason = "Custom isotopes (the named isotopes of Elements.cpp and the section named isotopes) share an atomic number with an element, but the element kind makes atomic_number unique and conserved_kind has no isotope member, so an isotopically labelled element needs its own conserved_quantity refinement with a mass number and atomic mass; the electron E is converted to the charge quantity by the mapping, and custom atomic weights and entropy298 fit an edition and an evaluated dataset."
+disposition = "held_by_model"
+ref = "kind:isotope"
+reason = "Custom isotopes (the named isotopes of Elements.cpp and the section named isotopes) share an atomic number with an element, so each is a kind isotope (a conserved_quantity refinement with a mass number, an atomic mass and the element it is counted under) beside its element and never a second element; the electron E is converted to the charge quantity by the mapping, and custom atomic weights and entropy298 fit an edition and an evaluated dataset."
 
 [[disposition]]
 construct = "species entry"
@@ -133,7 +133,7 @@ reason = "The one-, two- and three-species entries become groups per species cou
 construct = "Margules and Redlich-Kister interactions"
 disposition = "held_by_model"
 ref = "mechanism:form catalogue"
-reason = "The Margules pair becomes a form whose slot group over an ordered pair declares a linear transposition with matrix [[1, 1], [0, -1]] on (h0, h1), and the Redlich-Kister coefficients a parity transposition by coefficient index, both now in the meta-model (alignment-notes #1), so the stored numbers stay as asserted; an absent entropy or volume key is the documented zero and is written as a stated zero."
+reason = "The Margules pair becomes a form whose slot group over an ordered pair declares a linear transposition with matrix [[1, 1], [0, -1]] on (h0, h1), and the Redlich-Kister coefficients a parity transposition by coefficient index, both in the meta-model, so the stored numbers stay as asserted; an absent entropy or volume key is the documented zero and is written as a stated zero."
 
 [[disposition]]
 construct = "ideal-molal and ideal-condensed phase options"

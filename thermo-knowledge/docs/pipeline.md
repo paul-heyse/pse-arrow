@@ -378,8 +378,8 @@ A field rule is exactly one of:
   deferred).
 
 A `[convention_sets.<name>]` table states attributes of the `convention_set` kind as value rules do: a
-dimensioned fact such as `gas_constant` as `{ value, unit }` with a source unit that converts to its
-storage unit, an enum member by name. A form may declare the convention facts it reads
+dimensioned fact such as `gas_constant`, `boltzmann_constant` or `avogadro_constant` as `{ value, unit }`
+with a source unit that converts to its storage unit, an enum member by name. A form may declare the convention facts it reads
 (`meta-model.md` section 4.2); a mapping that emits a set of such a form under a parameterization
 whose convention set does not state a declared fact is refused, naming the form and the fact, and
 the run writes nothing.
@@ -620,8 +620,9 @@ check that returns the violating rows, plus these structural checks:
 - every record has at least one origin (except the record of a declared entity), and every origin's
   carrier has at least one rights determination (which may be `not_stated`);
 - every row of an abstract kind has exactly one concrete refinement row;
-- reactions conserve every conserved quantity with a composition entry on a participant (the declared
-  invariant `reaction.conserves_declared_quantities`, enforced by one check);
+- reactions conserve every conserved quantity with a composition entry on a participant, the balance of
+  an element counting its isotopes too (the declared invariant `reaction.conserves_declared_quantities`,
+  enforced by one check);
 - nested sets implement the contract their slot accepts;
 - a set-reference slot holds a top-level set of a form that implements the contract the slot names
   (`referenced_set_implements_contract`, read from `meta.slot`);
@@ -642,7 +643,7 @@ The declared invariants of relations are checked the same way as those of kinds:
 verify stage treats both alike. Derivation lineage and dependencies being acyclic are two of them
 (`derivation_input.lineage_acyclic`, `dependency.acyclic`). A check about a property of enum members
 reads the member's facets from `meta`, as the checks of `origin_role` do: the magnitudes of an
-uncertainty against the facets `relative` and `unquantified` of `uncertainty_kind`, and a column
+uncertainty against the facets `relative`, `factor` and `unquantified` of `uncertainty_kind`, and a column
 presented against a reference state against the facet `relative_to_reference_state` of
 `value_presentation`. The relation `subject_subform_choice` has two: the chosen form
 implements the contract its slot accepts, and the ordinals of one slot and subject run from one

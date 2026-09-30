@@ -1,8 +1,8 @@
 [[disposition]]
 construct = "SOLUTION_MASTER_SPECIES"
-disposition = "model_change"
-ref = "alignment-notes #17"
-reason = "enum:conserved_kind has no member for the Alkalinity pseudo-element, so the per-master alk column and the Alkalinity line (species CO3-2 or HCO3-, weight formula such as Ca0.5(CO3)0.5) cannot be composition rows of a declared conserved quantity; add an `alkalinity` member. The master species and their basis and secondary roles are already held by system_member, and the valence-state totals Fe(2) and Fe(3) are kept only as those master species."
+disposition = "held_by_model"
+ref = "enum:conserved_kind"
+reason = "enum:conserved_kind has the member alkalinity for the Alkalinity pseudo-element, so the per-master alk column and the Alkalinity line (species CO3-2 or HCO3-, weight formula such as Ca0.5(CO3)0.5) are composition rows of a declared conserved quantity. The master species and their basis and secondary roles are already held by system_member, and the valence-state totals Fe(2) and Fe(3) are kept only as those master species."
 
 [[disposition]]
 construct = "SOLUTION_SPECIES"
@@ -132,9 +132,9 @@ reason = "Each name is a model_component whose parameter set holds the log K vec
 
 [[disposition]]
 construct = "ISOTOPES, ISOTOPE_RATIOS, ISOTOPE_ALPHAS"
-disposition = "model_change"
-ref = "alignment-notes #17"
-reason = "The isotope master species and isotopologues ([18O], [13C] and similar bracketed element tokens) need composition rows over a conserved quantity for a nuclide, but enum:conserved_kind has only element, charge and site_total and kind element has a unique atomic_number; add an `isotope` member (a conserved_quantity that names its element). The standards and unit tokens (permil, pct, pmc, TU, pCi/L) are values and an enum once it exists."
+disposition = "mapping_loss"
+ref = "kind:isotope"
+reason = "The isotope master species and isotopologues ([18O], [13C] and similar bracketed element tokens) are composition rows over a conserved quantity of the kind isotope, which names its element and is counted in that element's balance. The standards and unit tokens (permil, pct, pmc, TU, pCi/L) are values and an enum once it exists."
 
 [[disposition]]
 construct = "CALCULATE_VALUES"

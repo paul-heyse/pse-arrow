@@ -105,6 +105,16 @@ unit = "J/(mol*K)"
 scale = "absolute"
 production = "GasConstant"
 
+[quantity_types.BoltzmannConstant]
+doc = "The Boltzmann constant as used by a body of data. Its value is a convention of that data: libraries mix editions of the constants."
+unit = "J/K"
+scale = "absolute"
+
+[quantity_types.AvogadroConstant]
+doc = "The Avogadro constant as used by a body of data. Its value is a convention of that data: a library may derive it from the gas constant and the Boltzmann constant."
+unit = "1/mol"
+scale = "absolute"
+
 [quantity_types.Length]
 doc = "A length, such as a segment or collision diameter."
 unit = "m"
@@ -182,3 +192,48 @@ doc = "An amount of substance."
 unit = "mol"
 scale = "absolute"
 production = "Amount"
+
+[quantity_types.QuadrupoleMoment]
+doc = "Electric quadrupole moment; signed."
+unit = "C*m^2"
+scale = "difference"
+
+[quantity_types.PolarizabilityVolume]
+doc = "Polarizability expressed as a volume."
+unit = "m^3"
+scale = "absolute"
+
+[quantity_types.ElectricPotential]
+doc = "Electric potential, or a potential difference such as the potential of a charge-transfer rate."
+unit = "V"
+scale = "difference"
+
+[quantity_types.Wavenumber]
+doc = "Reciprocal wavelength, as vibrational frequencies are stated."
+unit = "1/m"
+scale = "absolute"
+
+[quantity_types.MomentOfInertia]
+doc = "Moment of inertia of a rotor."
+unit = "kg*m^2"
+scale = "absolute"
+
+[quantity_types.ExcessLoading]
+doc = "Surface excess amount adsorbed per mass of adsorbent. Signed: a surface excess can be negative, so `Loading`, which is an absolute amount, cannot hold it."
+unit = "mol/kg"
+scale = "difference"
+
+[quantity_types.KinematicViscosity]
+doc = "Dynamic viscosity over mass density."
+unit = "m^2/s"
+scale = "absolute"
+
+[quantity_types.ThermalDiffusivity]
+doc = "Thermal conductivity over the product of mass density and specific heat capacity."
+unit = "m^2/s"
+scale = "absolute"
+
+[quantity_types.Fluidity]
+doc = "The reciprocal of dynamic viscosity."
+unit = "1/(Pa*s)"
+scale = "absolute"

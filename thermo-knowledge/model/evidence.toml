@@ -45,6 +45,15 @@ members.solute = { doc = "A solute." }
 members.adsorbent = { doc = "The host material." }
 members.adsorbate = { doc = "An adsorbed species." }
 members.catalyst = { doc = "Present but not a participant in the reported equilibrium." }
+members.buffer = { doc = "A buffer." }
+members.inert = { doc = "Present and inert." }
+members.cofactor = { doc = "A cofactor of a biochemical reaction." }
+
+[enums.speciation_state]
+doc = "What a dataset component stands for."
+members.single_species = { doc = "A single species." }
+members.equilibrium_mixture = { doc = "A mixture of species in equilibrium that the compound stands for." }
+members.not_stated = { doc = "The source does not say." }
 
 [enums.branch]
 doc = "The branch of a path-dependent measurement."
@@ -79,6 +88,7 @@ ordinal = { type = "Integer", doc = "Position of the component in the dataset, f
 entity = { type = "material_entity", doc = "The entity." }
 sample = { type = "sample", optional = true, doc = "The physical sample used." }
 function = { type = "component_function", doc = "The part it plays." }
+speciation = { type = "speciation_state", default = "not_stated", doc = "Whether the component stands for one species or for a mixture of species in equilibrium." }
 
 [[kinds.dataset_component.requires]]
 name = "ordinal_from_one"
@@ -96,6 +106,7 @@ dataset = { type = "dataset", doc = "The dataset." }
 ordinal = { type = "Integer", doc = "Position of the phase in the dataset, from one." }
 aggregation = { type = "aggregation", doc = "Its state of aggregation." }
 label = { type = "Text", optional = true, doc = "The phase's name in the source." }
+phase_definition = { type = "phase_definition", optional = true, doc = "The phase definition the dataset reports on, where the source ties the phase to one; a phase role stays local to its dataset either way." }
 
 [[kinds.dataset_phase.requires]]
 name = "ordinal_from_one"
@@ -115,6 +126,7 @@ role = { type = "column_role", doc = "The part it plays." }
 observable = { type = "observable", doc = "What its values are; values are stored in the observable's storage unit." }
 component = { type = "dataset_component", optional = true, doc = "The component the column refers to, where the observable is of a component." }
 phase = { type = "dataset_phase", optional = true, doc = "The phase the column refers to." }
+site_class = { type = "site_class", optional = true, doc = "The sublattice or other site class the column refers to, for a site fraction or a configuration reported per site class. The column's phase then names the phase definition that owns the class." }
 second_phase = { type = "dataset_phase", optional = true, doc = "The other phase, for a transition or interface observable." }
 composition_basis = { type = "composition_basis", optional = true, doc = "The basis, for a composition column." }
 standard_state = { type = "standard_state", optional = true, doc = "The standard state, for a standard-state observable." }
@@ -137,6 +149,11 @@ check = { positive = "ordinal" }
 name = "constraint_has_constant"
 doc = "A constraint column states its constant; variable and property columns do not."
 enforced = "load"
+
+[[kinds.dataset_column.requires]]
+name = "site_class_of_the_phase"
+doc = "A column that names a site class names a phase whose phase definition owns that site class."
+enforced = "verify"
 
 [[kinds.dataset_column.requires]]
 name = "reference_state_kind_when_relative"
@@ -210,7 +227,7 @@ value = { type = "Real", unit_from = "column.observable", optional = true, doc =
 digits = { type = "Integer", optional = true, doc = "Number of significant digits the source reports." }
 
 [relations.datum_uncertainty]
-doc = "The magnitudes of one uncertainty assessment for the value of one point. Both sides are stated: a symmetric uncertainty has equal `minus` and `plus`. A kind stated in the unit of the quantity has `minus` and `plus`; a relative kind has `relative_minus` and `relative_plus`."
+doc = "The magnitudes of one uncertainty assessment for the value of one point. Both sides are stated: a symmetric uncertainty has equal `minus` and `plus`. A kind stated in the unit of the quantity has `minus` and `plus`; a relative kind, and a multiplicative one (the factor f, in both columns), has `relative_minus` and `relative_plus`."
 provenance = "inherit:point"
 absence = "optional"
 
@@ -226,7 +243,7 @@ enforced = "verify"
 
 [[relations.datum_uncertainty.requires]]
 name = "magnitude_matches_kind"
-doc = "The pair of magnitudes that is present is the one the kind of the assessment calls for: both sides in the quantity's unit, both relative sides for a relative kind, none for a kind that states no magnitude."
+doc = "The pair of magnitudes that is present is the one the kind of the assessment calls for: both sides in the quantity's unit, both relative sides for a relative or factor kind, none for a kind that states no magnitude."
 enforced = "verify"
 
 [relations.datum_uncertainty.keys]
@@ -236,8 +253,8 @@ assessment = { type = "uncertainty_assessment", doc = "The assessment." }
 [relations.datum_uncertainty.columns]
 minus = { type = "Real", unit_from = "assessment.column.observable", optional = true, doc = "The magnitude below the value, in the column observable's storage unit." }
 plus = { type = "Real", unit_from = "assessment.column.observable", optional = true, doc = "The magnitude above the value, in the column observable's storage unit." }
-relative_minus = { type = "Scalar", optional = true, doc = "The relative magnitude below the value, as a fraction of it." }
-relative_plus = { type = "Scalar", optional = true, doc = "The relative magnitude above the value, as a fraction of it." }
+relative_minus = { type = "Scalar", optional = true, doc = "The relative magnitude below the value, as a fraction of it, or the factor f of a multiplicative kind." }
+relative_plus = { type = "Scalar", optional = true, doc = "The relative magnitude above the value, as a fraction of it, or the factor f of a multiplicative kind." }
 
 [relations.column_uncertainty]
 doc = "The magnitudes of one uncertainty assessment for the constant of a constraint column, stated as `datum_uncertainty` states them for a value."
@@ -251,7 +268,7 @@ enforced = "verify"
 
 [[relations.column_uncertainty.requires]]
 name = "magnitude_matches_kind"
-doc = "The pair of magnitudes that is present is the one the kind of the assessment calls for: both sides in the quantity's unit, both relative sides for a relative kind, none for a kind that states no magnitude."
+doc = "The pair of magnitudes that is present is the one the kind of the assessment calls for: both sides in the quantity's unit, both relative sides for a relative or factor kind, none for a kind that states no magnitude."
 enforced = "verify"
 
 [relations.column_uncertainty.keys]
@@ -260,5 +277,5 @@ assessment = { type = "uncertainty_assessment", doc = "The assessment." }
 [relations.column_uncertainty.columns]
 minus = { type = "Real", unit_from = "assessment.column.observable", optional = true, doc = "The magnitude below the constant, in the column observable's storage unit." }
 plus = { type = "Real", unit_from = "assessment.column.observable", optional = true, doc = "The magnitude above the constant, in the column observable's storage unit." }
-relative_minus = { type = "Scalar", optional = true, doc = "The relative magnitude below the constant, as a fraction of it." }
-relative_plus = { type = "Scalar", optional = true, doc = "The relative magnitude above the constant, as a fraction of it." }
+relative_minus = { type = "Scalar", optional = true, doc = "The relative magnitude below the constant, as a fraction of it, or the factor f of a multiplicative kind." }
+relative_plus = { type = "Scalar", optional = true, doc = "The relative magnitude above the constant, as a fraction of it, or the factor f of a multiplicative kind." }

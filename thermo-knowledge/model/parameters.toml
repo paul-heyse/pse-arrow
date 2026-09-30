@@ -143,13 +143,13 @@ slot = { type = "Meta<slot>", doc = "The slot." }
 index_key = { type = "Text", doc = "Canonical encoding of the family index, empty for a slot outside any family." }
 kind = { type = "uncertainty_kind", doc = "What the magnitude means." }
 magnitude = { type = "Real", unit_from = "slot", optional = true, doc = "The magnitude of a standard, expanded or interval uncertainty, in the slot's storage unit." }
-relative_magnitude = { type = "Scalar", optional = true, doc = "The magnitude of a relative uncertainty, as a fraction of the value." }
+relative_magnitude = { type = "Scalar", optional = true, doc = "The magnitude of an uncertainty whose kind is dimensionless: a fraction of the value for a relative kind, the factor f for a multiplicative one." }
 coverage_factor = { type = "Scalar", optional = true, doc = "Coverage factor of an expanded uncertainty." }
 confidence_level = { type = "Fraction", optional = true, doc = "Level of confidence of an expanded uncertainty." }
 
 [[kinds.slot_uncertainty.requires]]
 name = "magnitude_matches_kind"
-doc = "A kind with the facet `relative` states a relative magnitude only, a kind with the facet `unquantified` states neither, and every other kind states a magnitude only."
+doc = "A kind with the facet `relative` or `factor` states a relative magnitude only, a kind with the facet `unquantified` states neither, and every other kind states a magnitude only."
 enforced = "verify"
 
 [kinds.tabulated_function]
@@ -269,6 +269,51 @@ enforced = "verify"
 [relations.validity_coverage.keys]
 record = { type = "Record", doc = "The record." }
 kind = { type = "envelope_kind", doc = "The kind of region." }
+
+[enums.accuracy_statistic]
+doc = "What a stated accuracy figure is a statistic of."
+members.bound = { doc = "A stated bound the deviation is claimed not to exceed." }
+members.maximum = { doc = "The largest deviation found." }
+members.rms = { doc = "The root-mean-square deviation." }
+members.mean_bias = { doc = "The mean deviation, signed." }
+members.standard_deviation = { doc = "The standard deviation of the deviations." }
+members.variance = { doc = "The variance of the deviations." }
+
+[relations.accuracy_statement]
+doc = "What a source states about the accuracy of one observable a record gives: over a region of the state space or at a stated condition, against evidence or another record, as a bound or a statistic. IAPWS-95 states percentages per region of temperature and pressure; IF97 states consistency tolerances against the IAPWS-95 formulation; a rate rule states the distribution of the logarithm of the rate at a reference temperature. It is what a source claims, not a qualification result."
+provenance = "inherit:record"
+absence = "optional"
+
+[relations.accuracy_statement.keys]
+record = { type = "Record", doc = "The record the statement is about: a parameter set, a parameterisation or a model assembly." }
+observable = { type = "observable", doc = "The output the statement is about." }
+ordinal = { type = "Integer", doc = "Position among the statements about this observable of the record, from one." }
+
+[relations.accuracy_statement.columns]
+region = { type = "validity_region", optional = true, doc = "The region of conditions the statement holds over; a condition such as a reference temperature is a region with a clause that has one point. Absent when the statement is not limited to a region." }
+against = { type = "Record", optional = true, doc = "The record the deviation is taken against, where the statement is a comparison with another record rather than with evidence." }
+kind = { type = "uncertainty_kind", doc = "What the magnitude means." }
+statistic = { type = "accuracy_statistic", doc = "What statistic of the deviation the magnitude is." }
+magnitude = { type = "Real", unit_from = "observable", optional = true, doc = "The magnitude of a kind stated in the observable's unit, in its storage unit." }
+relative_magnitude = { type = "Scalar", optional = true, doc = "The magnitude of a kind that is dimensionless: a fraction of the value for a relative kind, the factor f for a multiplicative one." }
+sample_size = { type = "Integer", optional = true, doc = "The number of values the statistic was computed from, where the source states it." }
+
+[[relations.accuracy_statement.requires]]
+name = "ordinal_from_one"
+doc = "The statements about one observable of a record are numbered from one."
+enforced = "ddl"
+check = { positive = "ordinal" }
+
+[[relations.accuracy_statement.requires]]
+name = "sample_size_positive"
+doc = "A sample size, where stated, is at least one."
+enforced = "ddl"
+check = { positive = "sample_size" }
+
+[[relations.accuracy_statement.requires]]
+name = "magnitude_matches_kind"
+doc = "A kind with the facet `relative` or `factor` states a relative magnitude only, a kind with the facet `unquantified` states neither, and every other kind states a magnitude only."
+enforced = "verify"
 
 [relations.dependency]
 doc = "One record was obtained assuming another, and is valid only with it."

@@ -116,10 +116,15 @@ members.polymer_type = { doc = "A polymer identified by its repeat units and arc
 members.undetermined = { doc = "The source does not establish the class of the entity." }
 
 [enums.conserved_kind]
-doc = "What kind of thing a formula matrix conserves."
+doc = "What kind of thing a formula matrix conserves. The facet states what a member needs of its quantity: a rule that depends on it reads the facet, never the names of members."
+facets.names_element = { doc = "The quantity is a count of one named element, so it states that element (`of_element`)." }
 members.element = { doc = "A chemical element." }
 members.charge = { doc = "Electric charge." }
 members.site_total = { doc = "A total of exchange, surface or lattice sites." }
+members.isotope = { doc = "A nuclide of an element counted apart from it: an isotopic label such as deuterium or oxygen-18. A reaction's balance of the element also counts it.", facets = ["names_element"] }
+members.alkalinity = { doc = "Acid-neutralising capacity, counted as a pseudo-element." }
+members.decoupled_inventory = { doc = "An amount of an element tracked separately from that element's total, so the element's own balance does not count it.", facets = ["names_element"] }
+members.moiety = { doc = "A ligand or placeholder fragment counted as a unit." }
 
 [enums.pseudo_component_kind]
 doc = "Why an entity has no chemical formula."
@@ -163,11 +168,45 @@ members.mass = { doc = "Mass fraction." }
 members.volume = { doc = "Volume fraction." }
 members.not_stated = { doc = "The source does not say." }
 
+[enums.sample_source]
+doc = "Where a sample came from."
+members.commercial = { doc = "A commercial source." }
+members.synthesized_by_authors = { doc = "Synthesised by the authors of the work that uses it." }
+members.synthesized_by_others = { doc = "Synthesised by others." }
+members.standard_reference_material = { doc = "A standard reference material." }
+members.natural_product = { doc = "Isolated from a natural product." }
+members.no_sample_used = { doc = "No sample was used." }
+members.not_stated = { doc = "The source does not say." }
+
+[enums.sample_status]
+doc = "Whether and where a sample is described."
+members.described = { doc = "The sample is described in the source." }
+members.not_described = { doc = "The source states that the sample is not described." }
+members.described_previously = { doc = "The sample is described in an earlier paper." }
+members.no_sample = { doc = "No sample exists: the values are not measurements of a batch." }
+members.not_stated = { doc = "The source does not say." }
+
+[enums.multicomponent_kind]
+doc = "What kind of multicomponent substance a defined mixture is."
+members.alloy = { doc = "An alloy." }
+members.clathrate = { doc = "A clathrate." }
+members.complex = { doc = "A complex." }
+members.crystal = { doc = "A crystal." }
+members.solution = { doc = "A solution." }
+
 [enums.weighting]
 doc = "How a distribution over a molecular attribute is weighted."
 members.number = { doc = "Number- or mole-weighted." }
 members.mass = { doc = "Mass-weighted." }
 members.area = { doc = "Surface-area-weighted, as in a sigma profile." }
+
+[enums.dispersion_class]
+doc = "The dispersion class of a molecule in the COSMO-SAC dispersion term, which decides the sign of the dispersion weight of each pair of classes. The members are the dispersion flags of the source's sigma-profile files."
+members.nhb = { doc = "Non-hydrogen-bonding (flag NHB)." }
+members.hb_acceptor = { doc = "A hydrogen-bond acceptor only (flag HB-ACCEPTOR)." }
+members.hb_donor_acceptor = { doc = "Both a hydrogen-bond donor and acceptor (flag HB-DONOR-ACCEPTOR)." }
+members.cooh = { doc = "A carboxylic acid (flag COOH)." }
+members.water = { doc = "Water (flag H2O)." }
 
 # ---------------------------------------------------------------- conserved quantities and elements
 
@@ -178,8 +217,14 @@ provenance = "own"
 traces = ["IC-05"]
 
 [kinds.conserved_quantity.attributes]
-key = { type = "Text", doc = "Element symbol, `charge`, or a site label qualified by its chemical system." }
+key = { type = "Text", doc = "Element symbol, `charge`, a site label qualified by its chemical system, or, for an isotope, an alkalinity, a decoupled inventory or a moiety, the identifier the mapping gives it (an isotope's mass number and element symbol, such as `2H`)." }
 kind = { type = "conserved_kind", doc = "What kind of quantity it is." }
+of_element = { type = "element", optional = true, doc = "The element a quantity of a kind with the facet `names_element` counts: the element an isotope is a nuclide of, or the element a decoupled inventory tracks. Absent for every other kind." }
+
+[[kinds.conserved_quantity.requires]]
+name = "of_element_matches_kind"
+doc = "An element is named exactly when the kind of the quantity carries the facet `names_element`."
+enforced = "verify"
 
 [kinds.element]
 doc = "A chemical element. Its standard atomic weight belongs to an atomic-weight edition, not to the element."
@@ -194,6 +239,31 @@ name = "atomic_number_positive"
 doc = "Atomic numbers start at one."
 enforced = "ddl"
 check = { positive = "atomic_number" }
+
+[kinds.isotope]
+doc = "A nuclide of an element counted apart from it, such as deuterium, tritium or oxygen-18. An isotope is not an element: atomic numbers identify elements and one element has several isotopes. A reaction's balance of an element counts the isotopes of that element too."
+extends = "conserved_quantity"
+
+[kinds.isotope.attributes]
+mass_number = { type = "Integer", doc = "The mass number: protons plus neutrons." }
+atomic_mass = { type = "MolarMass", optional = true, doc = "The atomic mass of the nuclide, where the source states it." }
+symbol = { type = "Text", optional = true, doc = "The symbol the source uses for the nuclide where it has one of its own, such as D or T." }
+
+[[kinds.isotope.requires]]
+name = "mass_number_positive"
+doc = "Mass numbers start at one."
+enforced = "ddl"
+check = { positive = "mass_number" }
+
+[[kinds.isotope.requires]]
+name = "kind_is_isotope"
+doc = "The kind of the conserved quantity is `isotope`."
+enforced = "verify"
+
+[[kinds.isotope.requires]]
+name = "nuclide_unique"
+doc = "At most one isotope states a given element and mass number. A database constraint cannot span the quantity and its refinement, so the verify stage states it."
+enforced = "verify"
 
 # ---------------------------------------------------------------- material entities
 
@@ -283,6 +353,7 @@ extends = "material_entity"
 [kinds.defined_mixture.attributes]
 definition = { type = "mixture_definition", doc = "Why the composition is fixed." }
 mole_basis = { type = "Boolean", doc = "True when the component fractions are mole fractions, false for mass fractions." }
+multicomponent_kind = { type = "multicomponent_kind", optional = true, doc = "What kind of multicomponent substance the mixture is, where the source says." }
 
 [relations.mixture_component]
 doc = "The fraction of a component in a defined mixture."
@@ -319,9 +390,75 @@ provenance = "own"
 carrier = { type = "carrier", doc = "The carrier that describes the sample." }
 local_key = { type = "Text", doc = "The sample's key within that carrier." }
 entity = { type = "material_entity", doc = "What the sample is a batch of." }
-purity = { type = "Fraction", optional = true, doc = "Final stated purity." }
-purity_basis = { type = "purity_basis", doc = "Basis of the stated purity." }
-supplier = { type = "Text", optional = true, doc = "Where the sample came from." }
+source = { type = "sample_source", doc = "Where the sample came from: a commercial source, a synthesis, a reference material, a natural product, or not stated." }
+status = { type = "sample_status", doc = "Whether and where the sample is described." }
+supplier = { type = "Text", optional = true, doc = "The name of the supplier, as the source gives it." }
+
+[relations.purity_statement]
+doc = "One statement of the purity of a sample: a purity value on a basis with its significant digits and the analytical method, or the content of one impurity such as water or halide. A sample has as many as its source states, in several bases and after several purification steps."
+provenance = "inherit:sample"
+absence = "optional"
+
+[relations.purity_statement.keys]
+sample = { type = "sample", doc = "The sample." }
+ordinal = { type = "Integer", doc = "Position among the statements about the sample, from one." }
+
+[relations.purity_statement.columns]
+basis = { type = "purity_basis", doc = "The basis of the value." }
+value = { type = "Fraction", optional = true, doc = "The stated fraction, where the source gives a value." }
+digits = { type = "Integer", optional = true, doc = "The number of significant digits the source reports." }
+method = { type = "analysis_method", optional = true, doc = "The analytical method, where the source names one of a listed vocabulary." }
+method_text = { type = "Text", optional = true, doc = "The analytical method as free text, where the source gives none of a listed vocabulary." }
+impurity = { type = "material_entity", optional = true, doc = "The impurity the statement is the content of, such as water or a halide. Absent when the statement is a purity." }
+
+[[relations.purity_statement.requires]]
+name = "ordinal_from_one"
+doc = "The purity statements of a sample are numbered from one."
+enforced = "ddl"
+check = { positive = "ordinal" }
+
+[relations.purification_step]
+doc = "One step of the purification history of a sample, in the order the source lists them."
+provenance = "inherit:sample"
+absence = "optional"
+
+[relations.purification_step.keys]
+sample = { type = "sample", doc = "The sample." }
+step = { type = "Integer", doc = "Position in the purification history, from one." }
+
+[relations.purification_step.columns]
+method = { type = "purification_method", optional = true, doc = "The purification method, where the source names one of a listed vocabulary." }
+method_text = { type = "Text", optional = true, doc = "The method as free text, where the source gives none of a listed vocabulary." }
+
+[[relations.purification_step.requires]]
+name = "step_from_one"
+doc = "The steps of a purification history are numbered from one."
+enforced = "ddl"
+check = { positive = "step" }
+
+[[relations.purification_step.requires]]
+name = "one_method"
+doc = "A step states exactly one of a listed method and a free-text method."
+enforced = "ddl"
+check = { one_of_present = ["method", "method_text"] }
+
+[kinds.analysis_method]
+doc = "An analytical method used to determine a purity, from a vocabulary a mapping declares."
+identity = ["key"]
+provenance = "declaration"
+
+[kinds.analysis_method.attributes]
+key = { type = "Text", doc = "Stable key." }
+name = { type = "Text", doc = "The method's name as its source writes it." }
+
+[kinds.purification_method]
+doc = "A purification method, from a vocabulary a mapping declares."
+identity = ["key"]
+provenance = "declaration"
+
+[kinds.purification_method.attributes]
+key = { type = "Text", doc = "Stable key." }
+name = { type = "Text", doc = "The method's name as its source writes it." }
 
 # ---------------------------------------------------------------- source entities and assertions
 
@@ -399,13 +536,14 @@ role = { type = "group_scheme_role", doc = "What its groups are used for." }
 dataless_rule = { type = "dataless_node_rule", default = "not_applicable", doc = "What an estimator does at a node that holds no data." }
 
 [kinds.group]
-doc = "A structural fragment, or a class of fragments, within a scheme."
-identity = ["scheme", "label"]
+doc = "A structural fragment, or a class of fragments, within a scheme. It is identified by the scheme's own code for it: a scheme can repeat a label under different codes (two subgroups both named CHO), so the label describes the group and never identifies it."
+identity = ["scheme", "code"]
 provenance = "own"
 
 [kinds.group.attributes]
 scheme = { type = "group_scheme", doc = "The scheme the group belongs to." }
-label = { type = "Text", doc = "The group's label in that scheme." }
+code = { type = "Text", doc = "The scheme's own identifier of the group: the subgroup number in UNIFAC; the label where the scheme has no other identifier." }
+label = { type = "Text", doc = "The group's name in that scheme. Several groups of one scheme may share it." }
 role = { type = "group_role", doc = "Fragment or partition class." }
 partition_class = { type = "group", optional = true, doc = "The class this fragment belongs to, such as its main group." }
 parent = { type = "group", optional = true, doc = "The parent node in a hierarchical scheme." }
@@ -424,8 +562,8 @@ doc = "Parent and partition class belong to the same scheme, and the parent rela
 enforced = "verify"
 
 [kinds.group_assignment]
-doc = "One source's decomposition of an entity into the groups of a scheme. Competing decompositions coexist."
-identity = ["entity", "scheme", "asserted_by"]
+doc = "One source's decomposition of an entity into the groups of a scheme. Competing decompositions coexist, and one carrier may assert two decompositions of one entity, told apart by `occurrence`."
+identity = ["entity", "scheme", "asserted_by", "occurrence"]
 provenance = "own"
 
 [kinds.group_assignment.attributes]
@@ -433,6 +571,13 @@ entity = { type = "material_entity", doc = "The entity decomposed." }
 scheme = { type = "group_scheme", doc = "The scheme used." }
 asserted_by = { type = "carrier", doc = "The carrier that states the decomposition." }
 origin = { type = "assignment_origin", doc = "How it was obtained." }
+occurrence = { type = "Integer", default = 1, doc = "Distinguishes repeated assertions of a decomposition of one entity into one scheme by one carrier, from one in source order. One when a mapping does not state it." }
+
+[[kinds.group_assignment.requires]]
+name = "occurrence_from_one"
+doc = "Repeated assertions for one entity, scheme and carrier are numbered from one."
+enforced = "ddl"
+check = { positive = "occurrence" }
 
 [relations.group_count]
 doc = "How many times a group occurs in an assignment."
@@ -447,6 +592,23 @@ group = { type = "group", doc = "A group." }
 [[relations.group_count.requires]]
 name = "group_in_assignment_scheme"
 doc = "The group belongs to the scheme of the assignment."
+enforced = "verify"
+
+[relations.group_bond_count]
+doc = "How many bonds join two groups within one decomposition: heterosegmented models need the bonds between the groups of one molecule. The pair is unordered and may name one group twice, for a bond between two groups of the same kind."
+provenance = "inherit:assignment"
+absence = "optional"
+value = { type = "Count", doc = "The number of bonds between the two groups." }
+transposition = { rule = "symmetric", roles = ["first", "second"], diagonal = "allowed" }
+
+[relations.group_bond_count.keys]
+assignment = { type = "group_assignment", doc = "The assignment." }
+first = { type = "group", doc = "One group of the bond." }
+second = { type = "group", doc = "The other group of the bond." }
+
+[[relations.group_bond_count.requires]]
+name = "groups_in_assignment"
+doc = "Both groups belong to the scheme of the assignment, and each has a group count in the assignment."
 enforced = "verify"
 
 [kinds.site_scheme]

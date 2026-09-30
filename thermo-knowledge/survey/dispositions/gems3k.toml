@@ -5,9 +5,9 @@ reason = "The dimension counts, the node-subset index lists (xic, xdc, xph) and 
 
 [[disposition]]
 construct = "independent components (ICNL, ccIC, ICmm)"
-disposition = "model_change"
-ref = "alignment-notes #17"
-reason = "The list holds components that are not elements, charge or site totals (Nit as a decoupled nitrogen inventory, isotopes, formula-unit components), which enum:conserved_kind cannot hold; add the decoupled-inventory, isotope and moiety members proposed under ThermoHub and PHREEQC. The class letters that mark the h and o components and drive the minimiser's water logic are solver behaviour and are not mapped, and ICmm is kg/mol in the current writer against g/mol in the bundled documentation."
+disposition = "mapping_loss"
+ref = "enum:conserved_kind"
+reason = "The list holds components that are not elements, charge or site totals (Nit as a decoupled nitrogen inventory, isotopes, formula-unit components), which enum:conserved_kind holds as the members decoupled_inventory, isotope and moiety. The class letters that mark the h and o components and drive the minimiser's water logic are solver behaviour and are not mapped, and ICmm is kg/mol in the current writer against g/mol in the bundled documentation."
 
 [[disposition]]
 construct = "dependent components and the formula matrix (DCNL, ccDC, DCmm, A)"

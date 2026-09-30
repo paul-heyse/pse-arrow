@@ -1,5 +1,5 @@
--- invariant: datum_uncertainty.magnitude_matches_kind
--- An uncertainty states a pair of magnitudes its assessment's kind does not allow, or lacks the pair it requires.
+-- invariant: accuracy_statement.magnitude_matches_kind
+-- An accuracy statement states a magnitude its kind does not allow, or lacks the one it requires.
 -- The kinds whose magnitude is dimensionless (a fraction of the value, or a factor) and those that state no magnitude are the members of `uncertainty_kind` with the facets `relative` or `factor` and `unquantified`, so a member with a facet is covered without editing this file. A factor is stored where a relative magnitude is.
 WITH kind_facets AS (
     SELECT m.name AS kind,
@@ -10,22 +10,17 @@ WITH kind_facets AS (
     FROM meta.enum_member m
     WHERE m.enum = 'uncertainty_kind'
 )
-SELECT u.id, loc.locator, a.kind::text AS kind, u.minus, u.plus, u.relative_minus, u.relative_plus
-FROM ev.datum_uncertainty u
-JOIN ev.uncertainty_assessment a ON a.id = u.assessment
-JOIN ev.dataset_column c ON c.id = a."column"
+SELECT a.id, loc.locator, a.kind::text AS kind, a.magnitude, a.relative_magnitude
+FROM tk.accuracy_statement a
 JOIN kind_facets k ON k.kind = a.kind::text
 LEFT JOIN LATERAL (
     SELECT string_agg(i.locator, '; ' ORDER BY i.locator) AS locator
     FROM prov.record_origin o
     JOIN prov.import_record i ON i.id = o.import_record
-    WHERE o.record = c.dataset
+    WHERE o.record = a.record
 ) loc ON true
 WHERE NOT CASE
-    WHEN k.is_unquantified THEN
-        u.minus IS NULL AND u.plus IS NULL AND u.relative_minus IS NULL AND u.relative_plus IS NULL
-    WHEN k.is_relative THEN
-        u.relative_minus IS NOT NULL AND u.relative_plus IS NOT NULL AND u.minus IS NULL AND u.plus IS NULL
-    ELSE
-        u.minus IS NOT NULL AND u.plus IS NOT NULL AND u.relative_minus IS NULL AND u.relative_plus IS NULL
+    WHEN k.is_unquantified THEN a.magnitude IS NULL AND a.relative_magnitude IS NULL
+    WHEN k.is_relative THEN a.relative_magnitude IS NOT NULL AND a.magnitude IS NULL
+    ELSE a.magnitude IS NOT NULL AND a.relative_magnitude IS NULL
 END

@@ -6,9 +6,9 @@ The conventions a body of data assumes. "Reference state" means at least six dif
 across the sources. This module owns three: the standard state that defines a standard chemical
 potential, the energy reference that fixes the zero of enthalpy and entropy, and the reference
 form of each element under that datum. A convention set bundles them with the gas constant,
-temperature scale and atomic-weight edition a coherent body of data was built on. None of these
-is a global: two parameterisations may assume different gas constants, and recomputing one with
-the other's value breaks its verification tables.
+Boltzmann constant, Avogadro constant, temperature scale and atomic-weight edition a coherent body
+of data was built on. None of these is a global: two parameterisations may assume different gas
+constants, and recomputing one with the other's value breaks its verification tables.
 """
 
 [enums.standard_state_kind]
@@ -17,26 +17,31 @@ members.pure_real = { doc = "The pure substance in its real state at the tempera
 members.pure_ideal_gas = { doc = "The pure substance as an ideal gas at the stated pressure." }
 members.infinite_dilution = { doc = "A hypothetical ideal solution at unit concentration, referenced to infinite dilution in a stated solvent on a stated scale." }
 members.site_reference = { doc = "A surface or exchange species referenced to full site coverage or unit equivalent fraction." }
+members.transformed_biochemical = { doc = "The transformed standard state of a biochemical reaction: a standard state at a stated pH, ionic strength and pMg. The conditions are the dataset's constraint columns for them; the observables for them are vocabulary rows the wave that maps the thermodynamic-data exchange format declares, so no requirement ties them to this member yet." }
+members.not_stated = { doc = "The source does not say what the standard state is." }
 
 [enums.pressure_rule]
 doc = "How the pressure of a standard state is fixed."
 members.fixed = { doc = "A stated constant pressure." }
 members.system_pressure = { doc = "The pressure of the system." }
 members.saturation = { doc = "The saturation pressure of the solvent at the temperature." }
+members.not_stated = { doc = "The source states no pressure for the standard state." }
 
 [enums.enthalpy_datum]
-doc = "What fixes the zero of enthalpy."
+doc = "What fixes the zero of enthalpy, or, for a datum that states a value at a state, the energy that is fixed. The facet states what a member needs of its energy reference: a rule that depends on it reads the facet, never the names of members."
+facets.stated_value = { doc = "The datum is a value stated at a named state, zero included: the energy reference states which energy it fixes and exactly one value of it." }
 members.formation_from_elements = { doc = "Enthalpy of formation from the elements in their reference forms at the reference temperature." }
 members.stable_element_reference = { doc = "Relative to the enthalpy of the elements in their stable forms at 298.15 K (the CALPHAD SER)." }
-members.zero_at_state = { doc = "Zero at a named state, as in the refrigeration conventions." }
+members.at_state = { doc = "A stated value, zero included, at a named state: the IIR refrigeration datum fixes the enthalpy of the saturated liquid at 0 degrees Celsius, and IAPWS-95 fixes the internal energy of the liquid at the triple point.", facets = ["stated_value"] }
 members.apparent_helgeson = { doc = "Apparent enthalpy in the Benson-Helgeson convention." }
 members.apparent_berman = { doc = "Apparent enthalpy in the Berman-Brown convention." }
 members.not_stated = { doc = "The source does not say." }
 
 [enums.entropy_datum]
-doc = "What fixes the zero of entropy."
+doc = "What fixes the zero of entropy, or, for a datum that states a value at a state, the entropy that is fixed. The facet states what a member needs of its energy reference."
+facets.stated_value = { doc = "The datum is a value stated at a named state, zero included: the energy reference states exactly one value of the entropy." }
 members.third_law = { doc = "Absolute entropy." }
-members.zero_at_state = { doc = "Zero at a named state." }
+members.at_state = { doc = "A stated value, zero included, at a named state: the IIR refrigeration datum fixes the entropy of the saturated liquid at 0 degrees Celsius.", facets = ["stated_value"] }
 members.conventional_ionic = { doc = "Ionic entropies relative to the hydrogen ion convention." }
 members.not_stated = { doc = "The source does not say." }
 
@@ -45,7 +50,14 @@ doc = "The practical temperature scale data was reported on."
 members.its_90 = { doc = "International Temperature Scale of 1990." }
 members.ipts_68 = { doc = "International Practical Temperature Scale of 1968." }
 members.ipts_48 = { doc = "International Practical Temperature Scale of 1948." }
+members.ept_76 = { doc = "The 1976 Provisional 0.5 K to 30 K Temperature Scale (EPT-76); some sources call it ITS-76." }
+members.its_27 = { doc = "International Temperature Scale of 1927." }
 members.not_stated = { doc = "The source does not say." }
+
+[enums.datum_energy]
+doc = "Which energy a datum that states a value at a state fixes."
+members.enthalpy = { doc = "The enthalpy: the refrigeration conventions fix it." }
+members.internal_energy = { doc = "The internal energy: IAPWS-95 fixes it, not the enthalpy." }
 
 [kinds.standard_state]
 doc = "The state that defines the standard chemical potential used with an activity or a fugacity."
@@ -55,28 +67,44 @@ provenance = "own"
 [kinds.standard_state.attributes]
 key = { type = "Text", doc = "Stable key." }
 kind = { type = "standard_state_kind", doc = "The kind of state." }
-scale = { type = "composition_basis", optional = true, doc = "The composition scale of an infinite-dilution or site reference." }
+scale = { type = "composition_basis", optional = true, doc = "The composition scale of an infinite-dilution or site reference; the basis `not_stated` where the source names none." }
 pressure_rule = { type = "pressure_rule", doc = "How its pressure is fixed." }
 pressure = { type = "Pressure", optional = true, doc = "The pressure, when fixed." }
 solvent = { type = "material_entity", optional = true, doc = "The solvent of an infinite-dilution reference." }
 
 [[kinds.standard_state.requires]]
 name = "dilution_needs_solvent_and_scale"
-doc = "An infinite-dilution standard state names a solvent and a composition scale."
+doc = "An infinite-dilution standard state names a solvent and a composition scale; a source that names no scale states the basis `not_stated`."
 enforced = "load"
 
 [kinds.energy_reference]
-doc = "The zero of enthalpy and of entropy for a body of data."
+doc = "The zero of enthalpy and of entropy for a body of data, or the values it states at a named state."
 identity = ["key"]
 provenance = "own"
 
 [kinds.energy_reference.attributes]
 key = { type = "Text", doc = "Stable key." }
-enthalpy = { type = "enthalpy_datum", doc = "What fixes the zero of enthalpy." }
-entropy = { type = "entropy_datum", doc = "What fixes the zero of entropy." }
+enthalpy = { type = "enthalpy_datum", doc = "What fixes the zero of enthalpy; for a datum that states a value at a state, what `datum_energy` and the energy values then state." }
+entropy = { type = "entropy_datum", doc = "What fixes the zero of entropy; for a datum that states a value at a state, what the entropy values then state." }
 temperature = { type = "Temperature", optional = true, doc = "Reference temperature of the datum." }
 pressure = { type = "Pressure", optional = true, doc = "Reference pressure of the datum." }
-state = { type = "Text", optional = true, doc = "The named state of a zero-at-state datum, as the source describes it." }
+state = { type = "Text", optional = true, doc = "The named state of a datum that states a value at a state, as the source describes it." }
+aggregation = { type = "aggregation", optional = true, doc = "The phase of the named state, such as the liquid of a saturated liquid." }
+datum_energy = { type = "datum_energy", optional = true, doc = "Which energy a datum that states a value at a state fixes: present exactly when the enthalpy datum carries the facet `stated_value`." }
+energy_value = { type = "MolarEnergy", optional = true, doc = "The molar energy stated at the state, `datum_energy` of it." }
+specific_energy_value = { type = "SpecificEnergy", optional = true, doc = "The energy per mass stated at the state, where the source states it per mass. Exactly one of the two energy values is present when the enthalpy datum carries the facet `stated_value`, and neither otherwise." }
+entropy_value = { type = "MolarEntropy", optional = true, doc = "The molar entropy stated at the state." }
+specific_entropy_value = { type = "SpecificEntropy", optional = true, doc = "The entropy per mass stated at the state, where the source states it per mass. Exactly one of the two entropy values is present when the entropy datum carries the facet `stated_value`, and neither otherwise." }
+
+[[kinds.energy_reference.requires]]
+name = "stated_energy_matches_datum"
+doc = "A datum that states an energy at a state (the enthalpy datum carries the facet `stated_value`) names which energy it fixes and states exactly one of the molar and the specific value; any other enthalpy datum names none and states neither."
+enforced = "verify"
+
+[[kinds.energy_reference.requires]]
+name = "stated_entropy_matches_datum"
+doc = "A datum that states an entropy at a state (the entropy datum carries the facet `stated_value`) states exactly one of the molar and the specific value; any other entropy datum states neither."
+enforced = "verify"
 
 [relations.element_reference]
 doc = "The reference form of an element under an energy reference. Formation and stable-element datums name one per element they cover."
@@ -99,6 +127,8 @@ key = { type = "Text", doc = "Stable key." }
 revision = { type = "Text", doc = "Revision." }
 energy_reference = { type = "energy_reference", optional = true, doc = "The energy reference, for data that carry absolute or formation energies." }
 gas_constant = { type = "GasConstant", optional = true, doc = "The value of the gas constant the data was built with." }
+boltzmann_constant = { type = "BoltzmannConstant", optional = true, doc = "The value of the Boltzmann constant the data was built with." }
+avogadro_constant = { type = "AvogadroConstant", optional = true, doc = "The value of the Avogadro constant the data was built with. A library may derive it from the gas constant and the Boltzmann constant, so the three facts of one convention set can differ from the published edition." }
 temperature_scale = { type = "temperature_scale", doc = "The temperature scale." }
 atomic_weights = { type = "source", optional = true, doc = "The atomic-weight edition." }
 

@@ -12,21 +12,21 @@ reason = "doi, isbn and the year map to publication and its citation row, and a 
 
 [[disposition]]
 construct = "Compound and RegNum"
-disposition = "model_change"
-ref = "alignment-notes #31"
-reason = "defined_mixture has no attribute for the MulticomponentSubstance type (alloy, clathrate, complex, crystal, solution) and nothing holds eSpeciationState; both need declared attributes (see those two enumerations). The mapping re-renders nCASRNum with hyphens and check digit, turns the kg/kmol polymer averages into kg/mol constraint columns of each dataset that uses the compound, and declares EC number and PDB identifier as naming schemes."
+disposition = "held_by_model"
+ref = "kind:defined_mixture"
+reason = "defined_mixture states the MulticomponentSubstance type (alloy, clathrate, complex, crystal, solution) as multicomponent_kind, and eSpeciationState is the speciation of a dataset_component. The mapping re-renders nCASRNum with hyphens and check digit, turns the kg/kmol polymer averages into kg/mol constraint columns of each dataset that uses the compound, and declares EC number and PDB identifier as naming schemes."
 
 [[disposition]]
 construct = "Sample (purity and purification)"
-disposition = "model_change"
-ref = "alignment-notes #30"
-reason = "sample holds one purity and its basis, so several purity statements per sample, the stepwise purification history, the water and halide impurity contents, the analytical method, and the sample's source and status need a per-sample relation of purity statements and purification steps plus attributes for source and status. Percent is divided by 100 and nUnknownPerCent maps to purity_basis not_stated."
+disposition = "held_by_model"
+ref = "relation:purity_statement"
+reason = "A sample states its source and status as attributes, its purity statements as purity_statement rows (basis, value, digits, analytical method, impurity content) and its stepwise purification history as purification_step rows, so several purity statements, the water and halide impurity contents, the analytical method and the sample's source and status are held. Percent is divided by 100 and nUnknownPerCent maps to purity_basis not_stated."
 
 [[disposition]]
 construct = "PureOrMixtureData"
-disposition = "model_change"
-ref = "alignment-notes #31"
-reason = "component_function has no member for AuxiliarySubstance's Buffer and Inert (nor Cofactor in reactions), so those components cannot state their function: add buffer, inert and cofactor. The dataset kind and method are per dataset in the model but per Property in ThermoML, so properties with different method choices are split into several datasets."
+disposition = "held_by_model"
+ref = "enum:component_function"
+reason = "component_function has the members buffer, inert and cofactor for AuxiliarySubstance's Buffer and Inert (and Cofactor in reactions), so those components state their function. The dataset kind and method are per dataset in the model but per Property in ThermoML, so properties with different method choices are split into several datasets."
 
 [[disposition]]
 construct = "Property (element of PureOrMixtureData) and Property-MethodID"
@@ -78,9 +78,9 @@ reason = "Solvent and Catalyst components become dataset_component rows with fun
 
 [[disposition]]
 construct = "Biomaterial extensions"
-disposition = "model_change"
-ref = "alignment-notes #32"
-reason = "The biochemical formalism gives transformed (apparent) quantities at a stated pH, ionic strength and pMg, which no reference_relation member or standard-state convention holds: add a transformed relation and the conditions that define the transformed standard state. EC number and PDB identifier become naming schemes, pH, pC and ionic strength observables on Scalar, Molality and MolarDensity, and eBioState a dataset_phase label."
+disposition = "held_by_model"
+ref = "enum:reference_relation"
+reason = "The biochemical formalism gives transformed (apparent) quantities at a stated pH, ionic strength and pMg, which the reference_relation member transformed and the standard_state_kind member transformed_biochemical hold, with the conditions as the dataset's constraint columns for them. EC number and PDB identifier become naming schemes, pH, pC and ionic strength observables on Scalar, Molality and MolarDensity, and eBioState a dataset_phase label."
 
 [[disposition]]
 construct = "Unit embedded in enumeration strings"
@@ -144,9 +144,9 @@ reason = "'Calculated by Gibbs-Duhem equation' and the density, refractive-index
 
 [[disposition]]
 construct = "ePropName (PropertyGroup ActivityFugacityOsmoticProp)"
-disposition = "model_change"
-ref = "alignment-notes #33"
-reason = "The activity-coefficient convention is only implied by eStandardState, which states neither the pressure nor whether 'Pure compound' is a real liquid or an ideal gas, and standard_state requires kind and pressure_rule with no not_stated member: add not_stated to both (see eStandardState). 'Mean ionic activity, (mol/dm3)^n' is stored as a dimensionless number on its stated scale because its unit depends on n."
+disposition = "mapping_loss"
+ref = "enum:standard_state_kind"
+reason = "The activity-coefficient convention is only implied by eStandardState, which states neither the pressure nor whether 'Pure compound' is a real liquid or an ideal gas, and standard_state_kind and pressure_rule have the member not_stated for it (see eStandardState). 'Mean ionic activity, (mol/dm3)^n' is stored as a dimensionless number on its stated scale because its unit depends on n."
 
 [[disposition]]
 construct = "eMethodName (PropertyGroup ActivityFugacityOsmoticProp)"
@@ -168,9 +168,9 @@ reason = "'Derived from speed of sound', 'Derived analytically', 'Derived graphi
 
 [[disposition]]
 construct = "ePropName (PropertyGroup HeatCapacityAndDerivedProp)"
-disposition = "model_change"
-ref = "alignment-notes #33"
-reason = "The Joule-Thomson coefficient, a temperature change with pressure at constant enthalpy, needs a path member isenthalpic, which enum path lacks (none, isobaric, isochoric, isothermal, isentropic, saturation). The unstated enthalpy and entropy datums map to a convention set with enthalpy_datum and entropy_datum not_stated, and the 0 K and 298.15 K references of the enthalpy and Gibbs-energy functions become separate observables."
+disposition = "held_by_model"
+ref = "enum:path"
+reason = "The Joule-Thomson coefficient, a temperature change with pressure at constant enthalpy, has the path member isenthalpic of enum path. The unstated enthalpy and entropy datums map to a convention set with enthalpy_datum and entropy_datum not_stated, and the 0 K and 298.15 K references of the enthalpy and Gibbs-energy functions become separate observables."
 
 [[disposition]]
 construct = "eMethodName (PropertyGroup HeatCapacityAndDerivedProp)"
@@ -180,9 +180,9 @@ reason = "'Derived from speed of sound' and 'Derived from equation of state' des
 
 [[disposition]]
 construct = "ePropName (PropertyGroup ExcessPartialApparentEnergyProp)"
-disposition = "model_change"
-ref = "alignment-notes #33"
-reason = "amount_basis has no member for a quantity per mole of solute, which the schema documents for 'Molar enthalpy of mixing with solvent', 'of solution' and 'of dilution' (per mole of mixture for the excess enthalpy): add a per-solute basis. Relative partial molar quantities are mapped as increments against the infinite-dilution standard state, and solution and dilution enthalpies use initial and final composition columns."
+disposition = "held_by_model"
+ref = "enum:amount_basis"
+reason = "amount_basis has the member per_mole_of_solute for a quantity per mole of solute, which the schema documents for 'Molar enthalpy of mixing with solvent', 'of solution' and 'of dilution' (per mole of mixture for the excess enthalpy). Relative partial molar quantities are mapped as increments against the infinite-dilution standard state, and solution and dilution enthalpies use initial and final composition columns."
 
 [[disposition]]
 construct = "eMethodName (PropertyGroup ExcessPartialApparentEnergyProp)"
@@ -192,9 +192,9 @@ reason = "The fifteen calorimetry and cell strings are kept verbatim in dataset.
 
 [[disposition]]
 construct = "ePropName (PropertyGroup TransportProp)"
-disposition = "model_change"
-ref = "alignment-notes #33"
-reason = "'Binary diffusion coefficient' states no frame, and diffusion_frame has not_applicable (not a diffusion observable) but no not_stated member, so an omitted frame cannot be recorded without an assumption: add not_stated. Kinematic viscosity and thermal diffusivity (quantity types of the dimensions of Diffusivity), fluidity and the conductivities need quantity types and observables declared with the mapping."
+disposition = "held_by_model"
+ref = "enum:diffusion_frame"
+reason = "'Binary diffusion coefficient' states no frame, which diffusion_frame records as the member not_stated, so an omitted frame is recorded without an assumption. Kinematic viscosity, thermal diffusivity and fluidity are the quantity types KinematicViscosity, ThermalDiffusivity and Fluidity, and their observables and those of the conductivities are declared with the mapping."
 
 [[disposition]]
 construct = "eMethodName (PropertyGroup TransportProp)"
@@ -270,45 +270,45 @@ reason = "The language of the cited publication is a bibliographic descriptor wi
 
 [[disposition]]
 construct = "eSpeciationState"
-disposition = "model_change"
-ref = "alignment-notes #31"
-reason = "Nothing holds the flag that a compound stands for an equilibrium mixture of species rather than one species: speciation_map relates apparent and true species within a chemical system and is not a flag on a component. Add a speciation state (single species or equilibrium mixture) to dataset_component."
+disposition = "held_by_model"
+ref = "kind:dataset_component"
+reason = "Whether a compound stands for an equilibrium mixture of species or for one species is the speciation of a dataset_component (single_species, equilibrium_mixture or not_stated); speciation_map relates apparent and true species within a chemical system and is not that flag."
 
 [[disposition]]
 construct = "eFunction (PureOrMixtureData AuxiliarySubstance)"
-disposition = "model_change"
-ref = "alignment-notes #31"
-reason = "Solvent maps to component_function solvent, but Buffer and Inert have no member (catalyst is present but not a participant, which says nothing about a buffer or an inert medium): add buffer and inert."
+disposition = "held_by_model"
+ref = "enum:component_function"
+reason = "Solvent maps to component_function solvent, and Buffer and Inert to the members buffer and inert (catalyst is present but not a participant, which says nothing about a buffer or an inert medium)."
 
 [[disposition]]
 construct = "eFunction (ReactionData AuxiliarySubstance)"
-disposition = "model_change"
-ref = "alignment-notes #31"
-reason = "Cofactor, Buffer and Inert have no component_function member in a reaction dataset: add cofactor, buffer and inert."
+disposition = "held_by_model"
+ref = "enum:component_function"
+reason = "Cofactor, Buffer and Inert are the component_function members cofactor, buffer and inert in a reaction dataset."
 
 [[disposition]]
 construct = "eSampleStatus"
-disposition = "model_change"
-ref = "alignment-notes #30"
-reason = "sample has no status attribute for unknown, notDescribed, previousPaper and noSample, which say whether a sample is described, was described in an earlier paper or was not used: add a status to sample."
+disposition = "held_by_model"
+ref = "kind:sample"
+reason = "sample states its status (described, not_described, described_previously, no_sample or not_stated) for unknown, notDescribed, previousPaper and noSample, which say whether a sample is described, was described in an earlier paper or was not used; unknown maps to not_stated."
 
 [[disposition]]
 construct = "eSampleSource"
-disposition = "model_change"
-ref = "alignment-notes #30"
-reason = "sample.supplier is free text, and the seven source values include 'Standard Reference Material (SRM)' and 'Isolated from a natural product', which are not suppliers: add a separate source attribute to sample."
+disposition = "held_by_model"
+ref = "kind:sample"
+reason = "sample states its source (sample_source) apart from its supplier, which stays the supplier's name: the seven source values include 'Standard Reference Material (SRM)' and 'Isolated from a natural product', which are not suppliers, and 'Not stated in the document' maps to not_stated."
 
 [[disposition]]
 construct = "ePurifMethod"
-disposition = "model_change"
-ref = "alignment-notes #30"
-reason = "sample holds no purification history: a per-sample relation of steps (nStep and the method, one of 25 values or free text) is needed."
+disposition = "held_by_model"
+ref = "relation:purification_step"
+reason = "A sample holds its purification history as purification_step rows (nStep and the method: one of 25 declared purification_method values or free text)."
 
 [[disposition]]
 construct = "ePurityAnalMethod"
-disposition = "model_change"
-ref = "alignment-notes #30"
-reason = "The purity statement has no analytical method: per-sample purity statements need a method attribute (24 values, including 'Stated by supplier' and 'Estimated by the compiler')."
+disposition = "held_by_model"
+ref = "relation:purity_statement"
+reason = "A purity statement states its analytical method as an analysis_method (24 values, including 'Stated by supplier' and 'Estimated by the compiler') or as free text in method_text."
 
 [[disposition]]
 construct = "eExpPurpose"
@@ -330,9 +330,9 @@ reason = "Native and Denaturated are kept only as the phase label, since aggrega
 
 [[disposition]]
 construct = "MulticomponentType"
-disposition = "model_change"
-ref = "alignment-notes #31"
-reason = "defined_mixture has no kind for alloy, clathrate, complex, crystal and solution, which mixture_definition (by_definition, by_measurement) does not express: add a multicomponent kind to defined_mixture."
+disposition = "held_by_model"
+ref = "kind:defined_mixture"
+reason = "defined_mixture states alloy, clathrate, complex, crystal and solution as its multicomponent_kind, which mixture_definition (by_definition, by_measurement) does not express."
 
 [[disposition]]
 construct = "MulticomponentComposition"
@@ -342,9 +342,9 @@ reason = "'mole fraction' and 'mass fraction' set mole_basis, but 'number of mol
 
 [[disposition]]
 construct = "eReactionFormalism"
-disposition = "model_change"
-ref = "alignment-notes #32"
-reason = "The biochemical value makes the dataset's properties transformed quantities at a stated pH and ionic strength, which no declared concept marks: it needs the transformed relation and standard-state conditions proposed for the biomaterial extensions."
+disposition = "held_by_model"
+ref = "enum:reference_relation"
+reason = "The biochemical value makes the dataset's properties transformed quantities at a stated pH and ionic strength, which the reference_relation member transformed and the standard_state_kind member transformed_biochemical hold."
 
 [[disposition]]
 construct = "eReactionType"
@@ -432,9 +432,9 @@ reason = "The kind combined_standard or combined_expanded follows from which mag
 
 [[disposition]]
 construct = "eStandardState"
-disposition = "model_change"
-ref = "alignment-notes #33"
-reason = "standard_state requires kind and pressure_rule and, for infinite dilution, a composition scale and a solvent, but eStandardState states no standard pressure for any of its five values, does not say whether 'Pure compound' is real or ideal gas, and gives 'Infinite dilution solute' no scale: add not_stated to standard_state_kind and pressure_rule and let the infinite-dilution check accept an unstated scale. The molality and amount-concentration values map to infinite_dilution with scale molality and molarity."
+disposition = "held_by_model"
+ref = "enum:standard_state_kind"
+reason = "standard_state requires kind and pressure_rule and, for infinite dilution, a composition scale and a solvent, but eStandardState states no standard pressure for any of its five values, does not say whether 'Pure compound' is real or ideal gas, and gives 'Infinite dilution solute' no scale: standard_state_kind and pressure_rule have the member not_stated, and the infinite-dilution check accepts the composition basis not_stated as an unstated scale. The molality and amount-concentration values map to infinite_dilution with scale molality and molarity."
 
 [[disposition]]
 construct = "ePhaseName"

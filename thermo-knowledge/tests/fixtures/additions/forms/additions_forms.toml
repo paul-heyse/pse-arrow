@@ -1,0 +1,82 @@
+module = "additions_forms"
+uses = ["physical", "provenance", "identity", "systems", "conventions", "observables", "parameters"]
+doc = "Forms that show constructs of the TK2f declaration additions in use: an enum-typed slot of the COSMO-SAC dispersion class, a Flory-Huggins-style pair of slot groups over abstract pseudo-components, and a form that reads the Boltzmann and Avogadro constants of its convention set."
+
+[contracts.additions_pure]
+doc = "A property of one entity."
+roles.i = { type = "material_entity", doc = "The entity." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+outputs.y = { type = "Scalar", doc = "The property." }
+
+[contracts.additions_pair]
+doc = "A property of a pair of entities."
+roles.i = { type = "material_entity", doc = "The first entity." }
+roles.j = { type = "material_entity", doc = "The second entity." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+outputs.y = { type = "Scalar", doc = "The property." }
+
+# -- the dispersion class of a molecule in the COSMO-SAC dispersion term ------------------------
+
+[forms.cosmo_sac_dsp_fixture]
+doc = "The pure-species parameters of the COSMO-SAC dispersion term: the dispersion class and the dispersion energy over the Boltzmann constant."
+implements = "additions_pure"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+
+[forms.cosmo_sac_dsp_fixture.slot_groups.pure]
+doc = "One class and one energy per species."
+subject.i = { type = "species", doc = "The species." }
+
+[forms.cosmo_sac_dsp_fixture.slot_groups.pure.slots]
+dispersion_class = { type = "dispersion_class", doc = "The molecule's dispersion class." }
+energy_over_k = { type = "EnergyTemperature", doc = "The dispersion energy over the Boltzmann constant." }
+
+# -- Flory-Huggins over pseudo-components ------------------------------------------------------
+
+[forms.flory_huggins_fixture]
+doc = "The Flory-Huggins free energy of mixing: a relative size per component and an interaction parameter per pair. Both are relative to the reference volume and the composition basis of the parameterisation that holds them."
+implements = "additions_pair"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+
+[forms.flory_huggins_fixture.slot_groups.pure]
+doc = "The size of one component relative to the reference volume."
+subject.i = { type = "pseudo_component", doc = "The component." }
+
+[forms.flory_huggins_fixture.slot_groups.pure.slots]
+size = { type = "Scalar", doc = "The size of the component as a multiple of the reference volume." }
+
+[forms.flory_huggins_fixture.slot_groups.pair]
+doc = "The interaction parameter of an unordered pair of components."
+subject.i = { type = "pseudo_component", doc = "The first component." }
+subject.j = { type = "pseudo_component", doc = "The second component." }
+transposition = { rule = "symmetric", roles = ["i", "j"], diagonal = "forbidden" }
+
+[forms.flory_huggins_fixture.slot_groups.pair.slots]
+chi = { type = "Scalar", doc = "The interaction parameter, on the composition basis of the parameterisation." }
+
+# -- a form that reads the Boltzmann and Avogadro constants -----------------------------------
+
+[contracts.additions_constants_total]
+doc = "A molar-entropy-valued sum over the components of a mixture."
+sets.components = { type = "species", doc = "The components, in a fixed order." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+outputs.y = { type = "MolarEntropy", doc = "The sum." }
+
+[forms.additions_constants_sum]
+doc = "The product of the Boltzmann and Avogadro constants of the parameterisation (the gas constant it implies) times the sum of one weight per component."
+implements = "additions_constants_total"
+completeness = "fully_declared"
+status = "expressed"
+conventions = ["boltzmann_constant", "avogadro_constant"]
+
+[forms.additions_constants_sum.slot_groups.pure]
+doc = "One weight per component."
+subject.i = { type = "species", doc = "The component." }
+bind = { i = "components" }
+
+[forms.additions_constants_sum.slot_groups.pure.slots]
+w = { type = "Scalar", doc = "The weight." }
+
+[forms.additions_constants_sum.outputs]
+y = "convention.boltzmann_constant * convention.avogadro_constant * sum(pure.w[i] for i in components)"

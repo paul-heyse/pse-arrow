@@ -132,9 +132,9 @@ reason = "Secondary groups map to group rows with the main group as partition_cl
 
 [[disposition]]
 construct = "UNIFACcomp and UNIFACcompUMRPRU (component group assignments)"
-disposition = "model_change"
-ref = "alignment-notes #21"
-reason = "TEG is listed twice in UNIFACcomp with different rows and the first match wins, but the identity of group_assignment is (entity, scheme, asserted_by) and cannot hold two assertions of one carrier for one entity; add an occurrence identity attribute to group_assignment, defaulting to 1, as parameter_set has. The scheme revision of each of the two tables is also not stated, and the _PC rule that assigns CH3 and CH2 counts from the molar mass is a derivation and not data."
+disposition = "mapping_loss"
+ref = "kind:group_assignment"
+reason = "TEG is listed twice in UNIFACcomp with different rows and the first match wins, and the identity of group_assignment is (entity, scheme, asserted_by, occurrence), so both rows are kept as occurrences 1 and 2 of one carrier's assertions. The scheme revision of each of the two tables is also not stated, and the _PC rule that assigns CH3 and CH2 counts from the molar mass is a derivation and not data."
 
 [[disposition]]
 construct = "UNIFAC interaction matrices (a, b, c; classic, UMR, UMR-MC)"

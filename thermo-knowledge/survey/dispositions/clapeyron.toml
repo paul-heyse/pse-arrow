@@ -42,9 +42,9 @@ reason = "Each row gives group_count rows under a group_scheme whose revision an
 
 [[disposition]]
 construct = "intragroups file (group connectivity)"
-disposition = "model_change"
-ref = "alignment-notes #21"
-reason = "The declaration holds group counts (relation group_count keyed by assignment and group) but no bond between two groups of one assignment; add a relation group_bond_count keyed by (assignment, group, group) with a Count value, symmetric with diagonal allowed, provenance inherit:assignment, so the intragroups matrix n_intergroups of the heterosegmented models has a home."
+disposition = "held_by_model"
+ref = "relation:group_bond_count"
+reason = "The declaration holds group counts (relation group_count keyed by assignment and group) and the bonds between two groups of one assignment (relation group_bond_count keyed by assignment, group and group with a Count value, symmetric with the diagonal allowed, provenance inherit:assignment), so the intragroups matrix n_intergroups of the heterosegmented models has a home."
 
 [[disposition]]
 construct = "source column"
@@ -84,9 +84,9 @@ reason = "association_site rows come from the union of site labels in a componen
 
 [[disposition]]
 construct = "GroupParam"
-disposition = "model_change"
-ref = "alignment-notes #21"
-reason = "Group labels and counts map to group_assignment and group_count, but n_intergroups (bond counts between group pairs of one component, from the intragroups file or derived for trivial linear molecules) has no relation in the declaration; it needs the group_bond_count relation proposed for the intragroups file, while counts held as floats for derivative types are representation only."
+disposition = "held_by_model"
+ref = "relation:group_bond_count"
+reason = "Group labels and counts map to group_assignment and group_count, and n_intergroups (bond counts between group pairs of one component, from the intragroups file or derived for trivial linear molecules) maps to group_bond_count, while counts held as floats for derivative types are representation only."
 
 [[disposition]]
 construct = "MixedGCSegmentParam"
@@ -102,9 +102,9 @@ reason = "Only the combining selector (nocombining, cr1, esd/elliott, esd_runtim
 
 [[disposition]]
 construct = "ReferenceState"
-disposition = "model_change"
-ref = "alignment-notes #22"
-reason = "kind energy_reference fixes a zero only as zero_at_state with a Text state, temperature and pressure, which fits ashrae, nbp, stp and ntp, but iir (200 kJ/kg and 1 kJ/(kg*K) at 0 C, saturated liquid) and the H0, S0 of a stated state are nonzero values at a state: add a value_at_state member to enthalpy_datum and entropy_datum with optional attributes for the stated enthalpy and entropy (SpecificEnergy, SpecificEntropy or molar) and the aggregation of the state; the computed offsets a0, a1 are not mapped."
+disposition = "mapping_loss"
+ref = "kind:energy_reference"
+reason = "kind energy_reference states nonzero values at a state as well as zeros: the datum at_state, with the energy it fixes, the stated molar or specific values and the aggregation of the state, holds ashrae, nbp, stp and ntp and also iir (200 kJ/kg and 1 kJ/(kg*K) at 0 C, saturated liquid) and the H0, S0 of a stated state; the computed offsets a0, a1 are not mapped."
 
 [[disposition]]
 construct = "SpecialComp"

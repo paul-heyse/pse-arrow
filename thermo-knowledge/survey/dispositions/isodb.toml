@@ -6,9 +6,9 @@ reason = "The temperature unit is assumed to be K (the file states none; the 36 
 
 [[disposition]]
 construct = "isotherm point"
-disposition = "model_change"
-ref = "alignment-notes #34"
-reason = "adsorbed_amount_excess, and the not-stated adsorbed amount that most ISODB points need, use the quantity type Loading, whose scale is absolute (non-negative), so the 2,549 negative adsorption values are refused although a surface excess can be negative: add a signed loading quantity type (scale difference). The 1,435 negative pressures are invalid for Pressure and are held, and the pressure of a multicomponent point is taken as the total pressure by assumption."
+disposition = "mapping_loss"
+ref = "mechanism:quantity type ExcessLoading"
+reason = "adsorbed_amount_excess, and the not-stated adsorbed amount that most ISODB points need, use the quantity type ExcessLoading (scale difference), so the 2,549 negative adsorption values load while Loading stays non-negative. The 1,435 negative pressures are invalid for Pressure and are held, and the pressure of a multicomponent point is taken as the total pressure by assumption."
 
 [[disposition]]
 construct = "adsorbent record"

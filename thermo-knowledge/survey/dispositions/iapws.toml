@@ -36,9 +36,9 @@ reason = "The forms and 64 coefficients map directly, but the specific gas const
 
 [[disposition]]
 construct = "IAPWS-95 uncertainty statements (Section 6, Figs. 1 to 4)"
-disposition = "model_change"
-ref = "alignment-notes #26"
-reason = "Estimated uncertainties of density, speed of sound, isobaric heat capacity and saturation properties are stated as a percentage per region of the (T, p) plane, and validity_region holds the regions but no magnitude while slot_uncertainty is about a slot value; add a relation accuracy_statement keyed by (record, observable, ordinal) with columns against (Record, optional), region (validity_region, optional), kind (uncertainty_kind; interval fits IAPWS 'tolerance'), statistic (stated bound, maximum or rms), magnitude (Real, unit_from observable, optional) and relative_magnitude (Scalar, optional), under the magnitude-matches-kind rule of slot_uncertainty."
+disposition = "held_by_model"
+ref = "relation:accuracy_statement"
+reason = "Estimated uncertainties of density, speed of sound, isobaric heat capacity and saturation properties are stated as a percentage per region of the (T, p) plane: validity_region holds the regions, and the relation accuracy_statement, keyed by record, observable and ordinal, holds the percentage with its region, an uncertainty kind (interval fits IAPWS 'tolerance'), a statistic (stated bound, maximum or rms) and an absolute or relative magnitude, under the magnitude-matches-kind rule of slot_uncertainty."
 
 [[disposition]]
 construct = "IF97 region structure and boundaries"
@@ -48,9 +48,9 @@ reason = "The region membership predicate is a conditional expression of a wrapp
 
 [[disposition]]
 construct = "IF97 consistency tolerances and estimates"
-disposition = "model_change"
-ref = "alignment-notes #26"
-reason = "IF97 states its consistency requirements as absolute and relative tolerances (25 mK on backward T(p,h), 0.2 kJ/kg on h, 0.05 % on v) with measured maximum and rms differences and uncertainty estimates in figures, and auxiliary_of holds only a max_relative_error against its target; add the accuracy_statement relation described for the IAPWS-95 uncertainty construct, with an observable and a magnitude in its unit, so the absolute tolerances and statistics can be stated."
+disposition = "held_by_model"
+ref = "relation:accuracy_statement"
+reason = "IF97 states its consistency requirements as absolute and relative tolerances (25 mK on backward T(p,h), 0.2 kJ/kg on h, 0.05 % on v) with measured maximum and rms differences and uncertainty estimates in figures, which accuracy_statement holds against a second record with an observable and a magnitude in its unit, where auxiliary_of holds only a max_relative_error against its target."
 
 [[disposition]]
 construct = "IF97 coefficient tables by equation"
@@ -102,9 +102,9 @@ reason = "T_c, p_c and rho_c map to slots of a critical-constants set with slot_
 
 [[disposition]]
 construct = "fundamental constants and basic constants of water (G5-01(2026))"
-disposition = "model_change"
-ref = "alignment-notes #34"
-reason = "G5-01 states the mean static dipole polarizability in cm^3 and model/physical.toml has no quantity type for it (DipoleMoment exists, Volume means a cavity volume); add a quantity type PolarizabilityVolume (storage unit m^3, scale absolute); the atomic-weight, gas-constant and temperature-scale recommendations already map to one convention_set per revision."
+disposition = "held_by_model"
+ref = "mechanism:quantity type PolarizabilityVolume"
+reason = "G5-01 states the mean static dipole polarizability in cm^3, which is a PolarizabilityVolume (storage unit m^3, scale absolute); the atomic-weight, gas-constant and temperature-scale recommendations already map to one convention_set per revision."
 
 [[disposition]]
 construct = "advisory-note content (AN1-03, AN3-07(2018), AN6-16)"

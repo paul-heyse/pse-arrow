@@ -178,13 +178,19 @@ import_record = { type = "import_record", doc = "The import record it came from.
 role = { type = "origin_role", doc = "How the carrier presents the content." }
 
 [relations.attribution]
-doc = "The primary source an import record's content is attributed to, as distinct from the carrier it was read from."
+doc = "The primary source an import record's content is attributed to, as distinct from the carrier it was read from, with where in the primary work the content is where the carrier says."
 provenance = "none"
 absence = "optional"
 
 [relations.attribution.keys]
 import_record = { type = "import_record", doc = "The import record." }
 primary = { type = "source", doc = "The source credited with the content." }
+
+[relations.attribution.columns]
+page = { type = "Text", optional = true, doc = "The page of the primary work the content is on, as the carrier gives it." }
+table = { type = "Text", optional = true, doc = "The table of the primary work the content is in, as the carrier gives it." }
+equation = { type = "Text", optional = true, doc = "The equation of the primary work the content is, as the carrier gives it." }
+figure = { type = "Text", optional = true, doc = "The figure of the primary work the content is in, as the carrier gives it." }
 
 # ---------------------------------------------------------------- rights
 
@@ -225,6 +231,35 @@ observed = { type = "Text", doc = "When and how the claim was established." }
 
 # ---------------------------------------------------------------- derivation
 
+[kinds.level_of_theory]
+doc = "The level of theory of a computed value: the method, basis set, auxiliary basis, solvent model and software release a quantum-chemistry calculation used, or, for a composite, the levels of its frequency and its energy calculation. The key is a canonical rendering of these fields that the mapping builds, so two computations at one level share one row."
+identity = ["key"]
+provenance = "own"
+
+[kinds.level_of_theory.attributes]
+key = { type = "Text", doc = "The canonical rendering of the fields below." }
+method = { type = "Text", doc = "The method or functional, as the source names it." }
+basis = { type = "Text", optional = true, doc = "The basis set." }
+auxiliary_basis = { type = "Text", optional = true, doc = "The auxiliary basis set, for density fitting." }
+cabs = { type = "Text", optional = true, doc = "The complementary auxiliary basis set of an explicitly correlated method." }
+software = { type = "software_release", optional = true, doc = "The release of the program that ran the calculation." }
+solvent = { type = "Text", optional = true, doc = "The solvent, for a calculation in solution." }
+solvation_method = { type = "Text", optional = true, doc = "The solvent model." }
+arguments = { type = "SourceText", optional = true, doc = "The program arguments as the source writes them. Retained; nothing branches on it." }
+frequency_level = { type = "level_of_theory", optional = true, doc = "For a composite level, the level of its frequency calculation." }
+energy_level = { type = "level_of_theory", optional = true, doc = "For a composite level, the level of its energy calculation." }
+
+[[kinds.level_of_theory.requires]]
+name = "key_nonempty"
+doc = "A level of theory has a key."
+enforced = "ddl"
+check = { nonempty = "key" }
+
+[[kinds.level_of_theory.requires]]
+name = "composite_levels_together"
+doc = "A composite states both its frequency level and its energy level, and any other level states neither."
+enforced = "verify"
+
 [kinds.derivation]
 doc = "An activity that produced records from other records."
 identity = ["key"]
@@ -241,6 +276,7 @@ key = { type = "Text", doc = "Stable key assigned by the mapping that records th
 kind = { type = "derivation_kind", doc = "What kind of activity it was." }
 method = { type = "Text", optional = true, doc = "Name of the method, rule or recipe." }
 software = { type = "source", optional = true, doc = "The software that performed it, where known." }
+level_of_theory = { type = "level_of_theory", optional = true, doc = "The level of theory a computation used, where the source names one." }
 
 [relations.derivation_input]
 doc = "A record a derivation used."

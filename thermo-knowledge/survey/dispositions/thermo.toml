@@ -42,9 +42,9 @@ reason = "The 87990 values map to records with origin_role computed and a comput
 
 [[disposition]]
 construct = "ChemSep IPD text row"
-disposition = "model_change"
-ref = "alignment-notes #36"
-reason = "The 23 pairs repeated in nrtl.ipd are kept as separate sets distinguished by occurrence, with the source-order rule (the later row reaches the JSON, inferred) recorded as a selection fact. The temperature and pressure windows and the DECHEMA pages exist only as free text in the comment, so a region needs parsing text (K and bar assumed) and a page has no typed home, since attribution names a source but no page within it."
+disposition = "mapping_loss"
+ref = "relation:attribution"
+reason = "The 23 pairs repeated in nrtl.ipd are kept as separate sets distinguished by occurrence, with the source-order rule (the later row reaches the JSON, inferred) recorded as a selection fact. The temperature and pressure windows exist only as free text in the comment, so a region needs parsing text (K and bar assumed), while the DECHEMA pages are stated on the attribution through its page, table and equation columns."
 
 [[disposition]]
 construct = "ScalarParameterDB table (metadata plus data)"

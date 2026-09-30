@@ -35,10 +35,13 @@ COMMENT ON DOMAIN "meta"."hash" IS 'A 32-byte content hash.';
 CREATE DOMAIN "meta"."finite_real" AS double precision CONSTRAINT "finite_real__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."finite_real" IS 'A finite double precision number: Real and quantity expressions.';
 
+CREATE TYPE "meta"."accuracy_statistic" AS ENUM ('bound', 'maximum', 'rms', 'mean_bias', 'standard_deviation', 'variance');
+COMMENT ON TYPE "meta"."accuracy_statistic" IS 'What a stated accuracy figure is a statistic of.';
+
 CREATE TYPE "meta"."adsorption_kind" AS ENUM ('absolute', 'excess', 'net', 'not_stated', 'not_applicable');
 COMMENT ON TYPE "meta"."adsorption_kind" IS 'Which adsorbed amount is meant.';
 
-CREATE TYPE "meta"."amount_basis" AS ENUM ('molar', 'mass', 'volumetric', 'partial_molar', 'apparent_molar', 'per_host_mass', 'per_host_volume', 'per_host_area', 'per_unit_cell', 'none');
+CREATE TYPE "meta"."amount_basis" AS ENUM ('molar', 'mass', 'volumetric', 'partial_molar', 'apparent_molar', 'per_host_mass', 'per_host_volume', 'per_host_area', 'per_unit_cell', 'per_mole_of_solute', 'none');
 COMMENT ON TYPE "meta"."amount_basis" IS 'What an extensive observable is divided by.';
 
 CREATE TYPE "meta"."assignment_origin" AS ENUM ('published', 'matcher_derived');
@@ -65,17 +68,20 @@ COMMENT ON TYPE "meta"."column_role" IS 'The part a column plays in a dataset.';
 CREATE TYPE "meta"."comparison_basis" AS ENUM ('source_library', 'verification_table', 'independent_evaluation', 'second_carrier');
 COMMENT ON TYPE "meta"."comparison_basis" IS 'What a qualification run compared against.';
 
-CREATE TYPE "meta"."component_function" AS ENUM ('component', 'solvent', 'solute', 'adsorbent', 'adsorbate', 'catalyst');
+CREATE TYPE "meta"."component_function" AS ENUM ('component', 'solvent', 'solute', 'adsorbent', 'adsorbate', 'catalyst', 'buffer', 'inert', 'cofactor');
 COMMENT ON TYPE "meta"."component_function" IS 'The part a component plays in a measured system.';
 
-CREATE TYPE "meta"."conserved_kind" AS ENUM ('element', 'charge', 'site_total');
-COMMENT ON TYPE "meta"."conserved_kind" IS 'What kind of thing a formula matrix conserves.';
+CREATE TYPE "meta"."conserved_kind" AS ENUM ('element', 'charge', 'site_total', 'isotope', 'alkalinity', 'decoupled_inventory', 'moiety');
+COMMENT ON TYPE "meta"."conserved_kind" IS 'What kind of thing a formula matrix conserves. The facet states what a member needs of its quantity: a rule that depends on it reads the facet, never the names of members.';
 
 CREATE TYPE "meta"."dataless_node_rule" AS ENUM ('nearest_ancestor', 'average_of_children', 'not_applicable');
 COMMENT ON TYPE "meta"."dataless_node_rule" IS 'What an estimator does at a node of a hierarchical scheme that holds no data. Such a node is an instruction, not missing data.';
 
 CREATE TYPE "meta"."dataset_kind" AS ENUM ('measured', 'evaluated', 'computed', 'verification');
 COMMENT ON TYPE "meta"."dataset_kind" IS 'What the values of a dataset are.';
+
+CREATE TYPE "meta"."datum_energy" AS ENUM ('enthalpy', 'internal_energy');
+COMMENT ON TYPE "meta"."datum_energy" IS 'Which energy a datum that states a value at a state fixes.';
 
 CREATE TYPE "meta"."datum_state" AS ENUM ('known', 'not_measured', 'censored_below', 'censored_above');
 COMMENT ON TYPE "meta"."datum_state" IS 'Whether a point has a value in a column.';
@@ -86,17 +92,20 @@ COMMENT ON TYPE "meta"."dependency_kind" IS 'How one record depends on another.'
 CREATE TYPE "meta"."derivation_kind" AS ENUM ('fit', 'estimation', 'characterisation', 'computation', 'evaluation', 'transcription', 'conversion');
 COMMENT ON TYPE "meta"."derivation_kind" IS 'What kind of activity produced records from other records.';
 
-CREATE TYPE "meta"."diffusion_frame" AS ENUM ('mole_averaged', 'mass_averaged', 'volume_averaged', 'solvent_fixed', 'self_diffusion', 'not_applicable');
+CREATE TYPE "meta"."diffusion_frame" AS ENUM ('mole_averaged', 'mass_averaged', 'volume_averaged', 'solvent_fixed', 'self_diffusion', 'not_stated', 'not_applicable');
 COMMENT ON TYPE "meta"."diffusion_frame" IS 'The frame of reference of a diffusion coefficient.';
 
-CREATE TYPE "meta"."enthalpy_datum" AS ENUM ('formation_from_elements', 'stable_element_reference', 'zero_at_state', 'apparent_helgeson', 'apparent_berman', 'not_stated');
-COMMENT ON TYPE "meta"."enthalpy_datum" IS 'What fixes the zero of enthalpy.';
+CREATE TYPE "meta"."dispersion_class" AS ENUM ('nhb', 'hb_acceptor', 'hb_donor_acceptor', 'cooh', 'water');
+COMMENT ON TYPE "meta"."dispersion_class" IS 'The dispersion class of a molecule in the COSMO-SAC dispersion term, which decides the sign of the dispersion weight of each pair of classes. The members are the dispersion flags of the source''s sigma-profile files.';
+
+CREATE TYPE "meta"."enthalpy_datum" AS ENUM ('formation_from_elements', 'stable_element_reference', 'at_state', 'apparent_helgeson', 'apparent_berman', 'not_stated');
+COMMENT ON TYPE "meta"."enthalpy_datum" IS 'What fixes the zero of enthalpy, or, for a datum that states a value at a state, the energy that is fixed. The facet states what a member needs of its energy reference: a rule that depends on it reads the facet, never the names of members.';
 
 CREATE TYPE "meta"."entity_class" AS ENUM ('species', 'species_form', 'defined_mixture', 'material', 'pseudo_component', 'polymer_type', 'undetermined');
 COMMENT ON TYPE "meta"."entity_class" IS 'The class of thing a source says one of its keys names. It decides which resolution rules apply: a source entity is never resolved by the rules of another class.';
 
-CREATE TYPE "meta"."entropy_datum" AS ENUM ('third_law', 'zero_at_state', 'conventional_ionic', 'not_stated');
-COMMENT ON TYPE "meta"."entropy_datum" IS 'What fixes the zero of entropy.';
+CREATE TYPE "meta"."entropy_datum" AS ENUM ('third_law', 'at_state', 'conventional_ionic', 'not_stated');
+COMMENT ON TYPE "meta"."entropy_datum" IS 'What fixes the zero of entropy, or, for a datum that states a value at a state, the entropy that is fixed. The facet states what a member needs of its energy reference.';
 
 CREATE TYPE "meta"."envelope_kind" AS ENUM ('fitted_range', 'recommended_range', 'validated_range');
 COMMENT ON TYPE "meta"."envelope_kind" IS 'What a stated region of applicability represents.';
@@ -131,10 +140,13 @@ COMMENT ON TYPE "meta"."mapping_precision" IS 'How closely a source construct ma
 CREATE TYPE "meta"."mixture_definition" AS ENUM ('by_definition', 'by_measurement');
 COMMENT ON TYPE "meta"."mixture_definition" IS 'Why a defined mixture''s composition is fixed.';
 
+CREATE TYPE "meta"."multicomponent_kind" AS ENUM ('alloy', 'clathrate', 'complex', 'crystal', 'solution');
+COMMENT ON TYPE "meta"."multicomponent_kind" IS 'What kind of multicomponent substance a defined mixture is.';
+
 CREATE TYPE "meta"."origin_role" AS ENUM ('published', 'measured', 'evaluated', 'fitted', 'estimated', 'derived', 'computed', 'conventional', 'synthetic', 'oracle_input');
 COMMENT ON TYPE "meta"."origin_role" IS 'How the asserted content of a record came to exist. The facets of its members state what a record in each role has.';
 
-CREATE TYPE "meta"."path" AS ENUM ('none', 'isobaric', 'isochoric', 'isothermal', 'isentropic', 'saturation');
+CREATE TYPE "meta"."path" AS ENUM ('none', 'isobaric', 'isochoric', 'isothermal', 'isentropic', 'isenthalpic', 'saturation');
 COMMENT ON TYPE "meta"."path" IS 'The path or constraint along which an observable is defined.';
 
 CREATE TYPE "meta"."permission" AS ENUM ('yes', 'no', 'with_conditions', 'not_stated');
@@ -143,7 +155,7 @@ COMMENT ON TYPE "meta"."permission" IS 'Whether a source''s terms allow an actio
 CREATE TYPE "meta"."phase_structure" AS ENUM ('none', 'sublattice', 'ionic_two_sublattice', 'quasichemical', 'surface', 'clathrate');
 COMMENT ON TYPE "meta"."phase_structure" IS 'The internal structure a phase definition assumes. A new structure is a new core concept, not an ordinary extension.';
 
-CREATE TYPE "meta"."pressure_rule" AS ENUM ('fixed', 'system_pressure', 'saturation');
+CREATE TYPE "meta"."pressure_rule" AS ENUM ('fixed', 'system_pressure', 'saturation', 'not_stated');
 COMMENT ON TYPE "meta"."pressure_rule" IS 'How the pressure of a standard state is fixed.';
 
 CREATE TYPE "meta"."pseudo_component_kind" AS ENUM ('assay_cut', 'lump', 'abstract_component');
@@ -152,7 +164,7 @@ COMMENT ON TYPE "meta"."pseudo_component_kind" IS 'Why an entity has no chemical
 CREATE TYPE "meta"."purity_basis" AS ENUM ('mole', 'mass', 'volume', 'not_stated');
 COMMENT ON TYPE "meta"."purity_basis" IS 'The basis of a stated purity.';
 
-CREATE TYPE "meta"."reference_relation" AS ENUM ('absolute', 'standard', 'excess', 'residual_tv', 'residual_tp', 'mixing', 'formation', 'increment');
+CREATE TYPE "meta"."reference_relation" AS ENUM ('absolute', 'standard', 'excess', 'residual_tv', 'residual_tp', 'mixing', 'formation', 'increment', 'transformed');
 COMMENT ON TYPE "meta"."reference_relation" IS 'What an observable''s value is relative to.';
 
 CREATE TYPE "meta"."reference_state_kind" AS ENUM ('reference_phase_fixed_tp', 'reference_phase_same_tp', 'reference_phase_fixed_t_same_p', 'reference_phase_same_t_fixed_p', 'ideal_gas_same_density', 'ideal_mixture_same_density', 'equilibrium_phase_same_tp', 'pure_components_fixed_tp', 'pure_components_same_tp', 'pure_solvent_equilibrium_temperature', 'pure_solvent_same_tp', 'pure_solute_same_tp');
@@ -173,10 +185,19 @@ COMMENT ON TYPE "meta"."row_state" IS 'The state a source-faithful row ends in a
 CREATE TYPE "meta"."run_outcome" AS ENUM ('passed', 'failed', 'blocked');
 COMMENT ON TYPE "meta"."run_outcome" IS 'How a qualification run ended.';
 
+CREATE TYPE "meta"."sample_source" AS ENUM ('commercial', 'synthesized_by_authors', 'synthesized_by_others', 'standard_reference_material', 'natural_product', 'no_sample_used', 'not_stated');
+COMMENT ON TYPE "meta"."sample_source" IS 'Where a sample came from.';
+
+CREATE TYPE "meta"."sample_status" AS ENUM ('described', 'not_described', 'described_previously', 'no_sample', 'not_stated');
+COMMENT ON TYPE "meta"."sample_status" IS 'Whether and where a sample is described.';
+
 CREATE TYPE "meta"."site_ratio_kind" AS ENUM ('constant', 'composition_dependent');
 COMMENT ON TYPE "meta"."site_ratio_kind" IS 'Whether a site ratio is a number or follows from composition.';
 
-CREATE TYPE "meta"."standard_state_kind" AS ENUM ('pure_real', 'pure_ideal_gas', 'infinite_dilution', 'site_reference');
+CREATE TYPE "meta"."speciation_state" AS ENUM ('single_species', 'equilibrium_mixture', 'not_stated');
+COMMENT ON TYPE "meta"."speciation_state" IS 'What a dataset component stands for.';
+
+CREATE TYPE "meta"."standard_state_kind" AS ENUM ('pure_real', 'pure_ideal_gas', 'infinite_dilution', 'site_reference', 'transformed_biochemical', 'not_stated');
 COMMENT ON TYPE "meta"."standard_state_kind" IS 'The kind of state that defines a standard chemical potential.';
 
 CREATE TYPE "meta"."subject_shape" AS ENUM ('pure', 'mixture', 'component_in_mixture', 'pair', 'reaction', 'transition', 'interface', 'adsorbate_on_host');
@@ -188,14 +209,14 @@ COMMENT ON TYPE "meta"."system_role" IS 'The part a species form plays in a chem
 CREATE TYPE "meta"."table_disposition" AS ENUM ('mapped', 'out_of_scope', 'deferred');
 COMMENT ON TYPE "meta"."table_disposition" IS 'What a mapping does with a source-faithful table.';
 
-CREATE TYPE "meta"."temperature_scale" AS ENUM ('its_90', 'ipts_68', 'ipts_48', 'not_stated');
+CREATE TYPE "meta"."temperature_scale" AS ENUM ('its_90', 'ipts_68', 'ipts_48', 'ept_76', 'its_27', 'not_stated');
 COMMENT ON TYPE "meta"."temperature_scale" IS 'The practical temperature scale data was reported on.';
 
 CREATE TYPE "meta"."unasserted_policy" AS ENUM ('refuse', 'named_rule', 'stated_default');
 COMMENT ON TYPE "meta"."unasserted_policy" IS 'What a selection policy does when no set is asserted for a required subject.';
 
-CREATE TYPE "meta"."uncertainty_kind" AS ENUM ('standard', 'expanded', 'combined_standard', 'combined_expanded', 'relative', 'interval', 'repeatability_single_biased', 'repeatability_single_unbiased', 'repeatability_of_mean', 'repeatability_other', 'device_specification', 'curve_deviation', 'relative_curve_deviation', 'exact', 'not_stated');
-COMMENT ON TYPE "meta"."uncertainty_kind" IS 'What an uncertainty magnitude means. The facets state what a magnitude of each kind is: a rule that depends on them reads them, never the names of members.';
+CREATE TYPE "meta"."uncertainty_kind" AS ENUM ('standard', 'expanded', 'combined_standard', 'combined_expanded', 'relative', 'interval', 'repeatability_single_biased', 'repeatability_single_unbiased', 'repeatability_of_mean', 'repeatability_other', 'device_specification', 'curve_deviation', 'relative_curve_deviation', 'multiplicative_factor', 'unspecified', 'exact', 'not_stated');
+COMMENT ON TYPE "meta"."uncertainty_kind" IS 'What an uncertainty magnitude means. The facets state what a magnitude of each kind is: a rule that depends on them reads them, never the names of members. A magnitude is a quantity in the value''s unit unless a facet says otherwise; a magnitude with the facet `relative` or `factor` is dimensionless and is stored where the relative magnitude is stored.';
 
 CREATE TYPE "meta"."validity_coverage_state" AS ENUM ('stated', 'not_stated');
 COMMENT ON TYPE "meta"."validity_coverage_state" IS 'Whether a source states any region of one kind for a record.';
@@ -227,6 +248,12 @@ COMMENT ON DOMAIN "meta"."amount" IS 'An amount of substance. Stored in mol.';
 CREATE DOMAIN "meta"."area" AS double precision CONSTRAINT "area__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "area__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."area" IS 'An area, such as a molecular surface area. Stored in m ** 2.';
 
+CREATE DOMAIN "meta"."avogadro_constant" AS double precision CONSTRAINT "avogadro_constant__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "avogadro_constant__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."avogadro_constant" IS 'The Avogadro constant as used by a body of data. Its value is a convention of that data: a library may derive it from the gas constant and the Boltzmann constant. Stored in 1 / mol.';
+
+CREATE DOMAIN "meta"."boltzmann_constant" AS double precision CONSTRAINT "boltzmann_constant__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "boltzmann_constant__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."boltzmann_constant" IS 'The Boltzmann constant as used by a body of data. Its value is a convention of that data: libraries mix editions of the constants. Stored in J / K.';
+
 CREATE DOMAIN "meta"."charge_number" AS double precision CONSTRAINT "charge_number__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."charge_number" IS 'Net charge in units of the elementary charge; signed. Stored in dimensionless.';
 
@@ -239,14 +266,26 @@ COMMENT ON DOMAIN "meta"."diffusivity" IS 'A diffusion coefficient; its frame of
 CREATE DOMAIN "meta"."dipole_moment" AS double precision CONSTRAINT "dipole_moment__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "dipole_moment__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."dipole_moment" IS 'Electric dipole moment. Stored in C * m.';
 
+CREATE DOMAIN "meta"."electric_potential" AS double precision CONSTRAINT "electric_potential__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."electric_potential" IS 'Electric potential, or a potential difference such as the potential of a charge-transfer rate. Stored in V.';
+
 CREATE DOMAIN "meta"."energy_temperature" AS double precision CONSTRAINT "energy_temperature__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."energy_temperature" IS 'An energy expressed as a temperature (energy divided by the Boltzmann constant), as used for dispersion and association energies. Stored in K.';
+
+CREATE DOMAIN "meta"."excess_loading" AS double precision CONSTRAINT "excess_loading__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."excess_loading" IS 'Surface excess amount adsorbed per mass of adsorbent. Signed: a surface excess can be negative, so `Loading`, which is an absolute amount, cannot hold it. Stored in mol / kg.';
+
+CREATE DOMAIN "meta"."fluidity" AS double precision CONSTRAINT "fluidity__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "fluidity__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."fluidity" IS 'The reciprocal of dynamic viscosity. Stored in 1 / Pa / s.';
 
 CREATE DOMAIN "meta"."fraction" AS double precision CONSTRAINT "fraction__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "fraction__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."fraction" IS 'A part of a whole on a stated composition basis, between zero and one. Stored in dimensionless.';
 
 CREATE DOMAIN "meta"."gas_constant" AS double precision CONSTRAINT "gas_constant__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "gas_constant__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."gas_constant" IS 'The molar gas constant as used by a body of data. Its value is a convention of that data, not a global. Stored in J / K / mol.';
+
+CREATE DOMAIN "meta"."kinematic_viscosity" AS double precision CONSTRAINT "kinematic_viscosity__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "kinematic_viscosity__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."kinematic_viscosity" IS 'Dynamic viscosity over mass density. Stored in m ** 2 / s.';
 
 CREATE DOMAIN "meta"."length" AS double precision CONSTRAINT "length__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "length__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."length" IS 'A length, such as a segment or collision diameter. Stored in m.';
@@ -278,8 +317,17 @@ COMMENT ON DOMAIN "meta"."molar_mass" IS 'Mass per amount of substance. Stored i
 CREATE DOMAIN "meta"."molar_volume" AS double precision CONSTRAINT "molar_volume__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."molar_volume" IS 'Volume per amount of substance; signed because co-volumes, translations and excess volumes share it. Stored in m ** 3 / mol.';
 
+CREATE DOMAIN "meta"."moment_of_inertia" AS double precision CONSTRAINT "moment_of_inertia__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "moment_of_inertia__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."moment_of_inertia" IS 'Moment of inertia of a rotor. Stored in kg * m ** 2.';
+
+CREATE DOMAIN "meta"."polarizability_volume" AS double precision CONSTRAINT "polarizability_volume__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "polarizability_volume__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."polarizability_volume" IS 'Polarizability expressed as a volume. Stored in m ** 3.';
+
 CREATE DOMAIN "meta"."pressure" AS double precision CONSTRAINT "pressure__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "pressure__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."pressure" IS 'Absolute pressure. Stored in Pa.';
+
+CREATE DOMAIN "meta"."quadrupole_moment" AS double precision CONSTRAINT "quadrupole_moment__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."quadrupole_moment" IS 'Electric quadrupole moment; signed. Stored in C * m ** 2.';
 
 CREATE DOMAIN "meta"."scalar" AS double precision CONSTRAINT "scalar__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."scalar" IS 'A dimensionless number with no further interpretation. Stored in dimensionless.';
@@ -305,6 +353,9 @@ COMMENT ON DOMAIN "meta"."temperature_difference" IS 'A temperature interval or 
 CREATE DOMAIN "meta"."thermal_conductivity" AS double precision CONSTRAINT "thermal_conductivity__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "thermal_conductivity__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."thermal_conductivity" IS 'Thermal conductivity. Stored in W / K / m.';
 
+CREATE DOMAIN "meta"."thermal_diffusivity" AS double precision CONSTRAINT "thermal_diffusivity__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "thermal_diffusivity__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."thermal_diffusivity" IS 'Thermal conductivity over the product of mass density and specific heat capacity. Stored in m ** 2 / s.';
+
 CREATE DOMAIN "meta"."time" AS double precision CONSTRAINT "time__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "time__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."time" IS 'A duration. Stored in s.';
 
@@ -313,6 +364,9 @@ COMMENT ON DOMAIN "meta"."viscosity" IS 'Dynamic viscosity. Stored in Pa * s.';
 
 CREATE DOMAIN "meta"."volume" AS double precision CONSTRAINT "volume__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "volume__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."volume" IS 'A volume, such as a molecular cavity volume. Stored in m ** 3.';
+
+CREATE DOMAIN "meta"."wavenumber" AS double precision CONSTRAINT "wavenumber__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "wavenumber__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."wavenumber" IS 'Reciprocal wavelength, as vibrational frequencies are stated. Stored in 1 / m.';
 
 CREATE TABLE "meta"."module" (
     "name" text NOT NULL,
@@ -1284,6 +1338,18 @@ COMMENT ON TABLE "tk"."aggregation" IS 'A state of aggregation. `aqueous` is del
 COMMENT ON COLUMN "tk"."aggregation"."id" IS 'Deterministic identifier of the aggregation instance.';
 COMMENT ON COLUMN "tk"."aggregation"."name" IS 'Name of the state.';
 
+CREATE TABLE "tk"."analysis_method" (
+    "id" uuid NOT NULL,
+    "key" text NOT NULL,
+    "name" text NOT NULL,
+    CONSTRAINT "analysis_method__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "analysis_method__identity" UNIQUE ("key")
+);
+COMMENT ON TABLE "tk"."analysis_method" IS 'An analytical method used to determine a purity, from a vocabulary a mapping declares.';
+COMMENT ON COLUMN "tk"."analysis_method"."id" IS 'Deterministic identifier of the analysis_method instance.';
+COMMENT ON COLUMN "tk"."analysis_method"."key" IS 'Stable key.';
+COMMENT ON COLUMN "tk"."analysis_method"."name" IS 'The method''s name as its source writes it.';
+
 CREATE TABLE "prov"."artifact" (
     "id" uuid NOT NULL,
     "carrier" uuid NOT NULL,
@@ -1397,13 +1463,15 @@ CREATE TABLE "tk"."conserved_quantity" (
     "id" uuid NOT NULL,
     "key" text NOT NULL,
     "kind" "meta"."conserved_kind" NOT NULL,
+    "of_element" uuid,
     CONSTRAINT "conserved_quantity__pk" PRIMARY KEY ("id"),
     CONSTRAINT "conserved_quantity__identity" UNIQUE ("key")
 );
 COMMENT ON TABLE "tk"."conserved_quantity" IS 'Anything a formula matrix conserves. A balance may be claimed only over declared quantities.';
 COMMENT ON COLUMN "tk"."conserved_quantity"."id" IS 'Deterministic identifier of the conserved_quantity instance.';
-COMMENT ON COLUMN "tk"."conserved_quantity"."key" IS 'Element symbol, `charge`, or a site label qualified by its chemical system.';
+COMMENT ON COLUMN "tk"."conserved_quantity"."key" IS 'Element symbol, `charge`, a site label qualified by its chemical system, or, for an isotope, an alkalinity, a decoupled inventory or a moiety, the identifier the mapping gives it (an isotope''s mass number and element symbol, such as `2H`).';
 COMMENT ON COLUMN "tk"."conserved_quantity"."kind" IS 'What kind of quantity it is.';
+COMMENT ON COLUMN "tk"."conserved_quantity"."of_element" IS 'The element a quantity of a kind with the facet `names_element` counts: the element an isotope is a nuclide of, or the element a decoupled inventory tracks. Absent for every other kind.';
 
 CREATE TABLE "tk"."constituent_array" (
     "id" uuid NOT NULL,
@@ -1423,6 +1491,8 @@ CREATE TABLE "tk"."convention_set" (
     "revision" text NOT NULL,
     "energy_reference" uuid,
     "gas_constant" "meta"."gas_constant",
+    "boltzmann_constant" "meta"."boltzmann_constant",
+    "avogadro_constant" "meta"."avogadro_constant",
     "temperature_scale" "meta"."temperature_scale" NOT NULL,
     "atomic_weights" uuid,
     CONSTRAINT "convention_set__pk" PRIMARY KEY ("id"),
@@ -1434,6 +1504,8 @@ COMMENT ON COLUMN "tk"."convention_set"."key" IS 'Stable key.';
 COMMENT ON COLUMN "tk"."convention_set"."revision" IS 'Revision.';
 COMMENT ON COLUMN "tk"."convention_set"."energy_reference" IS 'The energy reference, for data that carry absolute or formation energies.';
 COMMENT ON COLUMN "tk"."convention_set"."gas_constant" IS 'The value of the gas constant the data was built with.';
+COMMENT ON COLUMN "tk"."convention_set"."boltzmann_constant" IS 'The value of the Boltzmann constant the data was built with.';
+COMMENT ON COLUMN "tk"."convention_set"."avogadro_constant" IS 'The value of the Avogadro constant the data was built with. A library may derive it from the gas constant and the Boltzmann constant, so the three facts of one convention set can differ from the published edition.';
 COMMENT ON COLUMN "tk"."convention_set"."temperature_scale" IS 'The temperature scale.';
 COMMENT ON COLUMN "tk"."convention_set"."atomic_weights" IS 'The atomic-weight edition.';
 
@@ -1484,6 +1556,7 @@ CREATE TABLE "ev"."dataset_column" (
     "observable" uuid NOT NULL,
     "component" uuid,
     "phase" uuid,
+    "site_class" uuid,
     "second_phase" uuid,
     "composition_basis" uuid,
     "standard_state" uuid,
@@ -1507,6 +1580,7 @@ COMMENT ON COLUMN "ev"."dataset_column"."role" IS 'The part it plays.';
 COMMENT ON COLUMN "ev"."dataset_column"."observable" IS 'What its values are; values are stored in the observable''s storage unit.';
 COMMENT ON COLUMN "ev"."dataset_column"."component" IS 'The component the column refers to, where the observable is of a component.';
 COMMENT ON COLUMN "ev"."dataset_column"."phase" IS 'The phase the column refers to.';
+COMMENT ON COLUMN "ev"."dataset_column"."site_class" IS 'The sublattice or other site class the column refers to, for a site fraction or a configuration reported per site class. The column''s phase then names the phase definition that owns the class.';
 COMMENT ON COLUMN "ev"."dataset_column"."second_phase" IS 'The other phase, for a transition or interface observable.';
 COMMENT ON COLUMN "ev"."dataset_column"."composition_basis" IS 'The basis, for a composition column.';
 COMMENT ON COLUMN "ev"."dataset_column"."standard_state" IS 'The standard state, for a standard-state observable.';
@@ -1526,6 +1600,7 @@ CREATE TABLE "ev"."dataset_component" (
     "entity" uuid NOT NULL,
     "sample" uuid,
     "function" "meta"."component_function" NOT NULL,
+    "speciation" "meta"."speciation_state" NOT NULL DEFAULT 'not_stated',
     CONSTRAINT "dataset_component__pk" PRIMARY KEY ("id"),
     CONSTRAINT "dataset_component__identity" UNIQUE ("dataset", "ordinal"),
     CONSTRAINT "dataset_component__ck__ordinal_from_one" CHECK ("ordinal" > 0)
@@ -1537,6 +1612,7 @@ COMMENT ON COLUMN "ev"."dataset_component"."ordinal" IS 'Position of the compone
 COMMENT ON COLUMN "ev"."dataset_component"."entity" IS 'The entity.';
 COMMENT ON COLUMN "ev"."dataset_component"."sample" IS 'The physical sample used.';
 COMMENT ON COLUMN "ev"."dataset_component"."function" IS 'The part it plays.';
+COMMENT ON COLUMN "ev"."dataset_component"."speciation" IS 'Whether the component stands for one species or for a mixture of species in equilibrium.';
 
 CREATE TABLE "ev"."dataset_phase" (
     "id" uuid NOT NULL,
@@ -1544,6 +1620,7 @@ CREATE TABLE "ev"."dataset_phase" (
     "ordinal" bigint NOT NULL,
     "aggregation" uuid NOT NULL,
     "label" text,
+    "phase_definition" uuid,
     CONSTRAINT "dataset_phase__pk" PRIMARY KEY ("id"),
     CONSTRAINT "dataset_phase__identity" UNIQUE ("dataset", "ordinal"),
     CONSTRAINT "dataset_phase__ck__ordinal_from_one" CHECK ("ordinal" > 0)
@@ -1554,17 +1631,20 @@ COMMENT ON COLUMN "ev"."dataset_phase"."dataset" IS 'The dataset.';
 COMMENT ON COLUMN "ev"."dataset_phase"."ordinal" IS 'Position of the phase in the dataset, from one.';
 COMMENT ON COLUMN "ev"."dataset_phase"."aggregation" IS 'Its state of aggregation.';
 COMMENT ON COLUMN "ev"."dataset_phase"."label" IS 'The phase''s name in the source.';
+COMMENT ON COLUMN "ev"."dataset_phase"."phase_definition" IS 'The phase definition the dataset reports on, where the source ties the phase to one; a phase role stays local to its dataset either way.';
 
 CREATE TABLE "tk"."defined_mixture" (
     "id" uuid NOT NULL,
     "definition" "meta"."mixture_definition" NOT NULL,
     "mole_basis" boolean NOT NULL,
+    "multicomponent_kind" "meta"."multicomponent_kind",
     CONSTRAINT "defined_mixture__pk" PRIMARY KEY ("id")
 );
 COMMENT ON TABLE "tk"."defined_mixture" IS 'A fixed-composition blend that sources treat as one entity, such as air, a refrigerant blend or normal hydrogen.';
 COMMENT ON COLUMN "tk"."defined_mixture"."id" IS 'Deterministic identifier of the defined_mixture instance.';
 COMMENT ON COLUMN "tk"."defined_mixture"."definition" IS 'Why the composition is fixed.';
 COMMENT ON COLUMN "tk"."defined_mixture"."mole_basis" IS 'True when the component fractions are mole fractions, false for mass fractions.';
+COMMENT ON COLUMN "tk"."defined_mixture"."multicomponent_kind" IS 'What kind of multicomponent substance the mixture is, where the source says.';
 
 CREATE TABLE "prov"."derivation" (
     "id" uuid NOT NULL,
@@ -1572,6 +1652,7 @@ CREATE TABLE "prov"."derivation" (
     "kind" "meta"."derivation_kind" NOT NULL,
     "method" text,
     "software" uuid,
+    "level_of_theory" uuid,
     CONSTRAINT "derivation__pk" PRIMARY KEY ("id"),
     CONSTRAINT "derivation__identity" UNIQUE ("key")
 );
@@ -1581,6 +1662,7 @@ COMMENT ON COLUMN "prov"."derivation"."key" IS 'Stable key assigned by the mappi
 COMMENT ON COLUMN "prov"."derivation"."kind" IS 'What kind of activity it was.';
 COMMENT ON COLUMN "prov"."derivation"."method" IS 'Name of the method, rule or recipe.';
 COMMENT ON COLUMN "prov"."derivation"."software" IS 'The software that performed it, where known.';
+COMMENT ON COLUMN "prov"."derivation"."level_of_theory" IS 'The level of theory a computation used, where the source names one.';
 
 CREATE TABLE "tk"."distributed_attribute" (
     "id" uuid NOT NULL,
@@ -1620,17 +1702,29 @@ CREATE TABLE "tk"."energy_reference" (
     "temperature" "meta"."temperature",
     "pressure" "meta"."pressure",
     "state" text,
+    "aggregation" uuid,
+    "datum_energy" "meta"."datum_energy",
+    "energy_value" "meta"."molar_energy",
+    "specific_energy_value" "meta"."specific_energy",
+    "entropy_value" "meta"."molar_entropy",
+    "specific_entropy_value" "meta"."specific_entropy",
     CONSTRAINT "energy_reference__pk" PRIMARY KEY ("id"),
     CONSTRAINT "energy_reference__identity" UNIQUE ("key")
 );
-COMMENT ON TABLE "tk"."energy_reference" IS 'The zero of enthalpy and of entropy for a body of data.';
+COMMENT ON TABLE "tk"."energy_reference" IS 'The zero of enthalpy and of entropy for a body of data, or the values it states at a named state.';
 COMMENT ON COLUMN "tk"."energy_reference"."id" IS 'Deterministic identifier of the energy_reference instance.';
 COMMENT ON COLUMN "tk"."energy_reference"."key" IS 'Stable key.';
-COMMENT ON COLUMN "tk"."energy_reference"."enthalpy" IS 'What fixes the zero of enthalpy.';
-COMMENT ON COLUMN "tk"."energy_reference"."entropy" IS 'What fixes the zero of entropy.';
+COMMENT ON COLUMN "tk"."energy_reference"."enthalpy" IS 'What fixes the zero of enthalpy; for a datum that states a value at a state, what `datum_energy` and the energy values then state.';
+COMMENT ON COLUMN "tk"."energy_reference"."entropy" IS 'What fixes the zero of entropy; for a datum that states a value at a state, what the entropy values then state.';
 COMMENT ON COLUMN "tk"."energy_reference"."temperature" IS 'Reference temperature of the datum.';
 COMMENT ON COLUMN "tk"."energy_reference"."pressure" IS 'Reference pressure of the datum.';
-COMMENT ON COLUMN "tk"."energy_reference"."state" IS 'The named state of a zero-at-state datum, as the source describes it.';
+COMMENT ON COLUMN "tk"."energy_reference"."state" IS 'The named state of a datum that states a value at a state, as the source describes it.';
+COMMENT ON COLUMN "tk"."energy_reference"."aggregation" IS 'The phase of the named state, such as the liquid of a saturated liquid.';
+COMMENT ON COLUMN "tk"."energy_reference"."datum_energy" IS 'Which energy a datum that states a value at a state fixes: present exactly when the enthalpy datum carries the facet `stated_value`.';
+COMMENT ON COLUMN "tk"."energy_reference"."energy_value" IS 'The molar energy stated at the state, `datum_energy` of it.';
+COMMENT ON COLUMN "tk"."energy_reference"."specific_energy_value" IS 'The energy per mass stated at the state, where the source states it per mass. Exactly one of the two energy values is present when the enthalpy datum carries the facet `stated_value`, and neither otherwise.';
+COMMENT ON COLUMN "tk"."energy_reference"."entropy_value" IS 'The molar entropy stated at the state.';
+COMMENT ON COLUMN "tk"."energy_reference"."specific_entropy_value" IS 'The entropy per mass stated at the state, where the source states it per mass. Exactly one of the two entropy values is present when the entropy datum carries the facet `stated_value`, and neither otherwise.';
 
 CREATE TABLE "prov"."fit" (
     "id" uuid NOT NULL,
@@ -1646,6 +1740,7 @@ COMMENT ON COLUMN "prov"."fit"."outcome" IS 'How the fit ended.';
 CREATE TABLE "tk"."group" (
     "id" uuid NOT NULL,
     "scheme" uuid NOT NULL,
+    "code" text NOT NULL,
     "label" text NOT NULL,
     "role" "meta"."group_role" NOT NULL,
     "partition_class" uuid,
@@ -1653,13 +1748,14 @@ CREATE TABLE "tk"."group" (
     "position" bigint,
     "pattern" text,
     CONSTRAINT "group__pk" PRIMARY KEY ("id"),
-    CONSTRAINT "group__identity" UNIQUE ("scheme", "label"),
+    CONSTRAINT "group__identity" UNIQUE ("scheme", "code"),
     CONSTRAINT "group__ck__position_from_one" CHECK ("position" > 0)
 );
-COMMENT ON TABLE "tk"."group" IS 'A structural fragment, or a class of fragments, within a scheme.';
+COMMENT ON TABLE "tk"."group" IS 'A structural fragment, or a class of fragments, within a scheme. It is identified by the scheme''s own code for it: a scheme can repeat a label under different codes (two subgroups both named CHO), so the label describes the group and never identifies it.';
 COMMENT ON COLUMN "tk"."group"."id" IS 'Deterministic identifier of the group instance.';
 COMMENT ON COLUMN "tk"."group"."scheme" IS 'The scheme the group belongs to.';
-COMMENT ON COLUMN "tk"."group"."label" IS 'The group''s label in that scheme.';
+COMMENT ON COLUMN "tk"."group"."code" IS 'The scheme''s own identifier of the group: the subgroup number in UNIFAC; the label where the scheme has no other identifier.';
+COMMENT ON COLUMN "tk"."group"."label" IS 'The group''s name in that scheme. Several groups of one scheme may share it.';
 COMMENT ON COLUMN "tk"."group"."role" IS 'Fragment or partition class.';
 COMMENT ON COLUMN "tk"."group"."partition_class" IS 'The class this fragment belongs to, such as its main group.';
 COMMENT ON COLUMN "tk"."group"."parent" IS 'The parent node in a hierarchical scheme.';
@@ -1672,15 +1768,18 @@ CREATE TABLE "tk"."group_assignment" (
     "scheme" uuid NOT NULL,
     "asserted_by" uuid NOT NULL,
     "origin" "meta"."assignment_origin" NOT NULL,
+    "occurrence" bigint NOT NULL DEFAULT 1,
     CONSTRAINT "group_assignment__pk" PRIMARY KEY ("id"),
-    CONSTRAINT "group_assignment__identity" UNIQUE ("entity", "scheme", "asserted_by")
+    CONSTRAINT "group_assignment__identity" UNIQUE ("entity", "scheme", "asserted_by", "occurrence"),
+    CONSTRAINT "group_assignment__ck__occurrence_from_one" CHECK ("occurrence" > 0)
 );
-COMMENT ON TABLE "tk"."group_assignment" IS 'One source''s decomposition of an entity into the groups of a scheme. Competing decompositions coexist.';
+COMMENT ON TABLE "tk"."group_assignment" IS 'One source''s decomposition of an entity into the groups of a scheme. Competing decompositions coexist, and one carrier may assert two decompositions of one entity, told apart by `occurrence`.';
 COMMENT ON COLUMN "tk"."group_assignment"."id" IS 'Deterministic identifier of the group_assignment instance.';
 COMMENT ON COLUMN "tk"."group_assignment"."entity" IS 'The entity decomposed.';
 COMMENT ON COLUMN "tk"."group_assignment"."scheme" IS 'The scheme used.';
 COMMENT ON COLUMN "tk"."group_assignment"."asserted_by" IS 'The carrier that states the decomposition.';
 COMMENT ON COLUMN "tk"."group_assignment"."origin" IS 'How it was obtained.';
+COMMENT ON COLUMN "tk"."group_assignment"."occurrence" IS 'Distinguishes repeated assertions of a decomposition of one entity into one scheme by one carrier, from one in source order. One when a mapping does not state it.';
 
 CREATE TABLE "tk"."group_scheme" (
     "id" uuid NOT NULL,
@@ -1749,6 +1848,51 @@ COMMENT ON COLUMN "prov"."import_record"."artifact" IS 'The file the assertion w
 COMMENT ON COLUMN "prov"."import_record"."locator" IS 'Position within the file: a row key, JSON pointer, line range or element path.';
 COMMENT ON COLUMN "prov"."import_record"."reader" IS 'The reader that produced the source-faithful row.';
 COMMENT ON COLUMN "prov"."import_record"."reader_version" IS 'Version of that reader.';
+
+CREATE TABLE "tk"."isotope" (
+    "id" uuid NOT NULL,
+    "mass_number" bigint NOT NULL,
+    "atomic_mass" "meta"."molar_mass",
+    "symbol" text,
+    CONSTRAINT "isotope__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "isotope__ck__mass_number_positive" CHECK ("mass_number" > 0)
+);
+COMMENT ON TABLE "tk"."isotope" IS 'A nuclide of an element counted apart from it, such as deuterium, tritium or oxygen-18. An isotope is not an element: atomic numbers identify elements and one element has several isotopes. A reaction''s balance of an element counts the isotopes of that element too.';
+COMMENT ON COLUMN "tk"."isotope"."id" IS 'Deterministic identifier of the isotope instance.';
+COMMENT ON COLUMN "tk"."isotope"."mass_number" IS 'The mass number: protons plus neutrons.';
+COMMENT ON COLUMN "tk"."isotope"."atomic_mass" IS 'The atomic mass of the nuclide, where the source states it.';
+COMMENT ON COLUMN "tk"."isotope"."symbol" IS 'The symbol the source uses for the nuclide where it has one of its own, such as D or T.';
+
+CREATE TABLE "prov"."level_of_theory" (
+    "id" uuid NOT NULL,
+    "key" text NOT NULL,
+    "method" text NOT NULL,
+    "basis" text,
+    "auxiliary_basis" text,
+    "cabs" text,
+    "software" uuid,
+    "solvent" text,
+    "solvation_method" text,
+    "arguments" text,
+    "frequency_level" uuid,
+    "energy_level" uuid,
+    CONSTRAINT "level_of_theory__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "level_of_theory__identity" UNIQUE ("key"),
+    CONSTRAINT "level_of_theory__ck__key_nonempty" CHECK ("key" <> '')
+);
+COMMENT ON TABLE "prov"."level_of_theory" IS 'The level of theory of a computed value: the method, basis set, auxiliary basis, solvent model and software release a quantum-chemistry calculation used, or, for a composite, the levels of its frequency and its energy calculation. The key is a canonical rendering of these fields that the mapping builds, so two computations at one level share one row.';
+COMMENT ON COLUMN "prov"."level_of_theory"."id" IS 'Deterministic identifier of the level_of_theory instance.';
+COMMENT ON COLUMN "prov"."level_of_theory"."key" IS 'The canonical rendering of the fields below.';
+COMMENT ON COLUMN "prov"."level_of_theory"."method" IS 'The method or functional, as the source names it.';
+COMMENT ON COLUMN "prov"."level_of_theory"."basis" IS 'The basis set.';
+COMMENT ON COLUMN "prov"."level_of_theory"."auxiliary_basis" IS 'The auxiliary basis set, for density fitting.';
+COMMENT ON COLUMN "prov"."level_of_theory"."cabs" IS 'The complementary auxiliary basis set of an explicitly correlated method.';
+COMMENT ON COLUMN "prov"."level_of_theory"."software" IS 'The release of the program that ran the calculation.';
+COMMENT ON COLUMN "prov"."level_of_theory"."solvent" IS 'The solvent, for a calculation in solution.';
+COMMENT ON COLUMN "prov"."level_of_theory"."solvation_method" IS 'The solvent model.';
+COMMENT ON COLUMN "prov"."level_of_theory"."arguments" IS 'The program arguments as the source writes them. Retained; nothing branches on it.';
+COMMENT ON COLUMN "prov"."level_of_theory"."frequency_level" IS 'For a composite level, the level of its frequency calculation.';
+COMMENT ON COLUMN "prov"."level_of_theory"."energy_level" IS 'For a composite level, the level of its energy calculation.';
 
 CREATE TABLE "prov"."licence" (
     "id" uuid NOT NULL,
@@ -2052,6 +2196,18 @@ COMMENT ON COLUMN "prov"."publication"."id" IS 'Deterministic identifier of the 
 COMMENT ON COLUMN "prov"."publication"."doi" IS 'The DOI in lower case, where one exists.';
 COMMENT ON COLUMN "prov"."publication"."isbn" IS 'ISBN for a book.';
 
+CREATE TABLE "tk"."purification_method" (
+    "id" uuid NOT NULL,
+    "key" text NOT NULL,
+    "name" text NOT NULL,
+    CONSTRAINT "purification_method__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "purification_method__identity" UNIQUE ("key")
+);
+COMMENT ON TABLE "tk"."purification_method" IS 'A purification method, from a vocabulary a mapping declares.';
+COMMENT ON COLUMN "tk"."purification_method"."id" IS 'Deterministic identifier of the purification_method instance.';
+COMMENT ON COLUMN "tk"."purification_method"."key" IS 'Stable key.';
+COMMENT ON COLUMN "tk"."purification_method"."name" IS 'The method''s name as its source writes it.';
+
 CREATE TABLE "qual"."qualification_run" (
     "id" uuid NOT NULL,
     "key" text NOT NULL,
@@ -2188,8 +2344,8 @@ CREATE TABLE "tk"."sample" (
     "carrier" uuid NOT NULL,
     "local_key" text NOT NULL,
     "entity" uuid NOT NULL,
-    "purity" "meta"."fraction",
-    "purity_basis" "meta"."purity_basis" NOT NULL,
+    "source" "meta"."sample_source" NOT NULL,
+    "status" "meta"."sample_status" NOT NULL,
     "supplier" text,
     CONSTRAINT "sample__pk" PRIMARY KEY ("id"),
     CONSTRAINT "sample__identity" UNIQUE ("carrier", "local_key")
@@ -2199,9 +2355,9 @@ COMMENT ON COLUMN "tk"."sample"."id" IS 'Deterministic identifier of the sample 
 COMMENT ON COLUMN "tk"."sample"."carrier" IS 'The carrier that describes the sample.';
 COMMENT ON COLUMN "tk"."sample"."local_key" IS 'The sample''s key within that carrier.';
 COMMENT ON COLUMN "tk"."sample"."entity" IS 'What the sample is a batch of.';
-COMMENT ON COLUMN "tk"."sample"."purity" IS 'Final stated purity.';
-COMMENT ON COLUMN "tk"."sample"."purity_basis" IS 'Basis of the stated purity.';
-COMMENT ON COLUMN "tk"."sample"."supplier" IS 'Where the sample came from.';
+COMMENT ON COLUMN "tk"."sample"."source" IS 'Where the sample came from: a commercial source, a synthesis, a reference material, a natural product, or not stated.';
+COMMENT ON COLUMN "tk"."sample"."status" IS 'Whether and where the sample is described.';
+COMMENT ON COLUMN "tk"."sample"."supplier" IS 'The name of the supplier, as the source gives it.';
 
 CREATE TABLE "tk"."selection_policy" (
     "id" uuid NOT NULL,
@@ -2293,7 +2449,7 @@ COMMENT ON COLUMN "tk"."slot_uncertainty"."slot" IS 'The slot.';
 COMMENT ON COLUMN "tk"."slot_uncertainty"."index_key" IS 'Canonical encoding of the family index, empty for a slot outside any family.';
 COMMENT ON COLUMN "tk"."slot_uncertainty"."kind" IS 'What the magnitude means.';
 COMMENT ON COLUMN "tk"."slot_uncertainty"."magnitude" IS 'The magnitude of a standard, expanded or interval uncertainty, in the slot''s storage unit.';
-COMMENT ON COLUMN "tk"."slot_uncertainty"."relative_magnitude" IS 'The magnitude of a relative uncertainty, as a fraction of the value.';
+COMMENT ON COLUMN "tk"."slot_uncertainty"."relative_magnitude" IS 'The magnitude of an uncertainty whose kind is dimensionless: a fraction of the value for a relative kind, the factor f for a multiplicative one.';
 COMMENT ON COLUMN "tk"."slot_uncertainty"."coverage_factor" IS 'Coverage factor of an expanded uncertainty.';
 COMMENT ON COLUMN "tk"."slot_uncertainty"."confidence_level" IS 'Level of confidence of an expanded uncertainty.';
 
@@ -2406,7 +2562,7 @@ COMMENT ON TABLE "tk"."standard_state" IS 'The state that defines the standard c
 COMMENT ON COLUMN "tk"."standard_state"."id" IS 'Deterministic identifier of the standard_state instance.';
 COMMENT ON COLUMN "tk"."standard_state"."key" IS 'Stable key.';
 COMMENT ON COLUMN "tk"."standard_state"."kind" IS 'The kind of state.';
-COMMENT ON COLUMN "tk"."standard_state"."scale" IS 'The composition scale of an infinite-dilution or site reference.';
+COMMENT ON COLUMN "tk"."standard_state"."scale" IS 'The composition scale of an infinite-dilution or site reference; the basis `not_stated` where the source names none.';
 COMMENT ON COLUMN "tk"."standard_state"."pressure_rule" IS 'How its pressure is fixed.';
 COMMENT ON COLUMN "tk"."standard_state"."pressure" IS 'The pressure, when fixed.';
 COMMENT ON COLUMN "tk"."standard_state"."solvent" IS 'The solvent of an infinite-dilution reference.';
@@ -2521,17 +2677,55 @@ COMMENT ON COLUMN "param"."vapor_pressure_exp_series_tau__pure"."i" IS 'The flui
 COMMENT ON COLUMN "param"."vapor_pressure_exp_series_tau__pure"."T_r" IS 'Reducing temperature of the curve; the curve is defined up to it.';
 COMMENT ON COLUMN "param"."vapor_pressure_exp_series_tau__pure"."p_r" IS 'Reducing pressure of the curve.';
 
+CREATE TABLE "tk"."accuracy_statement" (
+    "id" uuid NOT NULL,
+    "record" uuid NOT NULL,
+    "observable" uuid NOT NULL,
+    "ordinal" bigint NOT NULL,
+    "region" uuid,
+    "against" uuid,
+    "kind" "meta"."uncertainty_kind" NOT NULL,
+    "statistic" "meta"."accuracy_statistic" NOT NULL,
+    "magnitude" "meta"."finite_real",
+    "relative_magnitude" "meta"."scalar",
+    "sample_size" bigint,
+    CONSTRAINT "accuracy_statement__pk" PRIMARY KEY ("record", "observable", "ordinal"),
+    CONSTRAINT "accuracy_statement__uq__id" UNIQUE ("id"),
+    CONSTRAINT "accuracy_statement__ck__ordinal_from_one" CHECK ("ordinal" > 0),
+    CONSTRAINT "accuracy_statement__ck__sample_size_positive" CHECK ("sample_size" > 0)
+);
+COMMENT ON TABLE "tk"."accuracy_statement" IS 'What a source states about the accuracy of one observable a record gives: over a region of the state space or at a stated condition, against evidence or another record, as a bound or a statistic. IAPWS-95 states percentages per region of temperature and pressure; IF97 states consistency tolerances against the IAPWS-95 formulation; a rate rule states the distribution of the logarithm of the rate at a reference temperature. It is what a source claims, not a qualification result.';
+COMMENT ON COLUMN "tk"."accuracy_statement"."id" IS 'Deterministic identifier of the row, computed from its keys.';
+COMMENT ON COLUMN "tk"."accuracy_statement"."record" IS 'The record the statement is about: a parameter set, a parameterisation or a model assembly.';
+COMMENT ON COLUMN "tk"."accuracy_statement"."observable" IS 'The output the statement is about.';
+COMMENT ON COLUMN "tk"."accuracy_statement"."ordinal" IS 'Position among the statements about this observable of the record, from one.';
+COMMENT ON COLUMN "tk"."accuracy_statement"."region" IS 'The region of conditions the statement holds over; a condition such as a reference temperature is a region with a clause that has one point. Absent when the statement is not limited to a region.';
+COMMENT ON COLUMN "tk"."accuracy_statement"."against" IS 'The record the deviation is taken against, where the statement is a comparison with another record rather than with evidence.';
+COMMENT ON COLUMN "tk"."accuracy_statement"."kind" IS 'What the magnitude means.';
+COMMENT ON COLUMN "tk"."accuracy_statement"."statistic" IS 'What statistic of the deviation the magnitude is.';
+COMMENT ON COLUMN "tk"."accuracy_statement"."magnitude" IS 'The magnitude of a kind stated in the observable''s unit, in its storage unit.';
+COMMENT ON COLUMN "tk"."accuracy_statement"."relative_magnitude" IS 'The magnitude of a kind that is dimensionless: a fraction of the value for a relative kind, the factor f for a multiplicative one.';
+COMMENT ON COLUMN "tk"."accuracy_statement"."sample_size" IS 'The number of values the statistic was computed from, where the source states it.';
+
 CREATE TABLE "prov"."attribution" (
     "id" uuid NOT NULL,
     "import_record" uuid NOT NULL,
     "primary" uuid NOT NULL,
+    "page" text,
+    "table" text,
+    "equation" text,
+    "figure" text,
     CONSTRAINT "attribution__pk" PRIMARY KEY ("import_record", "primary"),
     CONSTRAINT "attribution__uq__id" UNIQUE ("id")
 );
-COMMENT ON TABLE "prov"."attribution" IS 'The primary source an import record''s content is attributed to, as distinct from the carrier it was read from.';
+COMMENT ON TABLE "prov"."attribution" IS 'The primary source an import record''s content is attributed to, as distinct from the carrier it was read from, with where in the primary work the content is where the carrier says.';
 COMMENT ON COLUMN "prov"."attribution"."id" IS 'Deterministic identifier of the row, computed from its keys.';
 COMMENT ON COLUMN "prov"."attribution"."import_record" IS 'The import record.';
 COMMENT ON COLUMN "prov"."attribution"."primary" IS 'The source credited with the content.';
+COMMENT ON COLUMN "prov"."attribution"."page" IS 'The page of the primary work the content is on, as the carrier gives it.';
+COMMENT ON COLUMN "prov"."attribution"."table" IS 'The table of the primary work the content is in, as the carrier gives it.';
+COMMENT ON COLUMN "prov"."attribution"."equation" IS 'The equation of the primary work the content is, as the carrier gives it.';
+COMMENT ON COLUMN "prov"."attribution"."figure" IS 'The figure of the primary work the content is in, as the carrier gives it.';
 
 CREATE TABLE "tk"."auxiliary_of" (
     "id" uuid NOT NULL,
@@ -2600,8 +2794,8 @@ COMMENT ON COLUMN "ev"."column_uncertainty"."id" IS 'Deterministic identifier of
 COMMENT ON COLUMN "ev"."column_uncertainty"."assessment" IS 'The assessment.';
 COMMENT ON COLUMN "ev"."column_uncertainty"."minus" IS 'The magnitude below the constant, in the column observable''s storage unit.';
 COMMENT ON COLUMN "ev"."column_uncertainty"."plus" IS 'The magnitude above the constant, in the column observable''s storage unit.';
-COMMENT ON COLUMN "ev"."column_uncertainty"."relative_minus" IS 'The relative magnitude below the constant, as a fraction of it.';
-COMMENT ON COLUMN "ev"."column_uncertainty"."relative_plus" IS 'The relative magnitude above the constant, as a fraction of it.';
+COMMENT ON COLUMN "ev"."column_uncertainty"."relative_minus" IS 'The relative magnitude below the constant, as a fraction of it, or the factor f of a multiplicative kind.';
+COMMENT ON COLUMN "ev"."column_uncertainty"."relative_plus" IS 'The relative magnitude above the constant, as a fraction of it, or the factor f of a multiplicative kind.';
 
 CREATE TABLE "tk"."composition" (
     "id" uuid NOT NULL,
@@ -2678,14 +2872,14 @@ CREATE TABLE "ev"."datum_uncertainty" (
     CONSTRAINT "datum_uncertainty__pk" PRIMARY KEY ("point", "assessment"),
     CONSTRAINT "datum_uncertainty__uq__id" UNIQUE ("id")
 );
-COMMENT ON TABLE "ev"."datum_uncertainty" IS 'The magnitudes of one uncertainty assessment for the value of one point. Both sides are stated: a symmetric uncertainty has equal `minus` and `plus`. A kind stated in the unit of the quantity has `minus` and `plus`; a relative kind has `relative_minus` and `relative_plus`.';
+COMMENT ON TABLE "ev"."datum_uncertainty" IS 'The magnitudes of one uncertainty assessment for the value of one point. Both sides are stated: a symmetric uncertainty has equal `minus` and `plus`. A kind stated in the unit of the quantity has `minus` and `plus`; a relative kind, and a multiplicative one (the factor f, in both columns), has `relative_minus` and `relative_plus`.';
 COMMENT ON COLUMN "ev"."datum_uncertainty"."id" IS 'Deterministic identifier of the row, computed from its keys.';
 COMMENT ON COLUMN "ev"."datum_uncertainty"."point" IS 'The point.';
 COMMENT ON COLUMN "ev"."datum_uncertainty"."assessment" IS 'The assessment.';
 COMMENT ON COLUMN "ev"."datum_uncertainty"."minus" IS 'The magnitude below the value, in the column observable''s storage unit.';
 COMMENT ON COLUMN "ev"."datum_uncertainty"."plus" IS 'The magnitude above the value, in the column observable''s storage unit.';
-COMMENT ON COLUMN "ev"."datum_uncertainty"."relative_minus" IS 'The relative magnitude below the value, as a fraction of it.';
-COMMENT ON COLUMN "ev"."datum_uncertainty"."relative_plus" IS 'The relative magnitude above the value, as a fraction of it.';
+COMMENT ON COLUMN "ev"."datum_uncertainty"."relative_minus" IS 'The relative magnitude below the value, as a fraction of it, or the factor f of a multiplicative kind.';
+COMMENT ON COLUMN "ev"."datum_uncertainty"."relative_plus" IS 'The relative magnitude above the value, as a fraction of it, or the factor f of a multiplicative kind.';
 
 CREATE TABLE "tk"."dependency" (
     "id" uuid NOT NULL,
@@ -2728,6 +2922,21 @@ COMMENT ON TABLE "prov"."derivation_output" IS 'A record a derivation produced.'
 COMMENT ON COLUMN "prov"."derivation_output"."id" IS 'Deterministic identifier of the row, computed from its keys.';
 COMMENT ON COLUMN "prov"."derivation_output"."derivation" IS 'The derivation.';
 COMMENT ON COLUMN "prov"."derivation_output"."record" IS 'A record it produced.';
+
+CREATE TABLE "tk"."disordered_partner" (
+    "id" uuid NOT NULL,
+    "ordered" uuid NOT NULL,
+    "disordered" uuid NOT NULL,
+    "never_disorder" boolean NOT NULL,
+    CONSTRAINT "disordered_partner__pk" PRIMARY KEY ("ordered", "disordered"),
+    CONSTRAINT "disordered_partner__uq__id" UNIQUE ("id"),
+    CONSTRAINT "disordered_partner__ck__diagonal" CHECK ("ordered" <> "disordered")
+);
+COMMENT ON TABLE "tk"."disordered_partner" IS 'The disordered phase an ordered phase is the ordered form of: a sublattice model of an ordered phase is the disordered phase''s model plus an ordering contribution, so the ordered phase names its partner. The pair is directed and the two phases differ.';
+COMMENT ON COLUMN "tk"."disordered_partner"."id" IS 'Deterministic identifier of the row, computed from its keys.';
+COMMENT ON COLUMN "tk"."disordered_partner"."ordered" IS 'The ordered phase.';
+COMMENT ON COLUMN "tk"."disordered_partner"."disordered" IS 'Its disordered partner.';
+COMMENT ON COLUMN "tk"."disordered_partner"."never_disorder" IS 'True when the source switches the partition off: the ordered phase never disorders, and its energy has no disordered part, which changes the equation.';
 
 CREATE TABLE "tk"."element_reference" (
     "id" uuid NOT NULL,
@@ -2818,6 +3027,23 @@ COMMENT ON COLUMN "prov"."fit_free_parameter"."slot" IS 'The slot, when the reco
 COMMENT ON COLUMN "prov"."fit_free_parameter"."standard_uncertainty" IS 'The standard uncertainty of the fitted value, in the slot''s storage unit.';
 COMMENT ON COLUMN "prov"."fit_free_parameter"."index_key" IS 'Canonical encoding of the family index, empty for a slot outside any family.';
 
+CREATE TABLE "tk"."group_bond_count" (
+    "id" uuid NOT NULL,
+    "assignment" uuid NOT NULL,
+    "first" uuid NOT NULL,
+    "second" uuid NOT NULL,
+    "value" "meta"."count" NOT NULL,
+    CONSTRAINT "group_bond_count__pk" PRIMARY KEY ("assignment", "first", "second"),
+    CONSTRAINT "group_bond_count__uq__id" UNIQUE ("id"),
+    CONSTRAINT "group_bond_count__ck__canonical" CHECK ("first" <= "second")
+);
+COMMENT ON TABLE "tk"."group_bond_count" IS 'How many bonds join two groups within one decomposition: heterosegmented models need the bonds between the groups of one molecule. The pair is unordered and may name one group twice, for a bond between two groups of the same kind.';
+COMMENT ON COLUMN "tk"."group_bond_count"."id" IS 'Deterministic identifier of the row, computed from its keys.';
+COMMENT ON COLUMN "tk"."group_bond_count"."assignment" IS 'The assignment.';
+COMMENT ON COLUMN "tk"."group_bond_count"."first" IS 'One group of the bond.';
+COMMENT ON COLUMN "tk"."group_bond_count"."second" IS 'The other group of the bond.';
+COMMENT ON COLUMN "tk"."group_bond_count"."value" IS 'The number of bonds between the two groups.';
+
 CREATE TABLE "tk"."group_count" (
     "id" uuid NOT NULL,
     "assignment" uuid NOT NULL,
@@ -2885,6 +3111,49 @@ COMMENT ON COLUMN "tk"."policy_precedence"."id" IS 'Deterministic identifier of 
 COMMENT ON COLUMN "tk"."policy_precedence"."policy" IS 'The policy.';
 COMMENT ON COLUMN "tk"."policy_precedence"."parameterization" IS 'A parameterisation it may select from.';
 COMMENT ON COLUMN "tk"."policy_precedence"."value" IS 'The value.';
+
+CREATE TABLE "tk"."purification_step" (
+    "id" uuid NOT NULL,
+    "sample" uuid NOT NULL,
+    "step" bigint NOT NULL,
+    "method" uuid,
+    "method_text" text,
+    CONSTRAINT "purification_step__pk" PRIMARY KEY ("sample", "step"),
+    CONSTRAINT "purification_step__uq__id" UNIQUE ("id"),
+    CONSTRAINT "purification_step__ck__step_from_one" CHECK ("step" > 0),
+    CONSTRAINT "purification_step__ck__one_method" CHECK (num_nonnulls("method", "method_text") = 1)
+);
+COMMENT ON TABLE "tk"."purification_step" IS 'One step of the purification history of a sample, in the order the source lists them.';
+COMMENT ON COLUMN "tk"."purification_step"."id" IS 'Deterministic identifier of the row, computed from its keys.';
+COMMENT ON COLUMN "tk"."purification_step"."sample" IS 'The sample.';
+COMMENT ON COLUMN "tk"."purification_step"."step" IS 'Position in the purification history, from one.';
+COMMENT ON COLUMN "tk"."purification_step"."method" IS 'The purification method, where the source names one of a listed vocabulary.';
+COMMENT ON COLUMN "tk"."purification_step"."method_text" IS 'The method as free text, where the source gives none of a listed vocabulary.';
+
+CREATE TABLE "tk"."purity_statement" (
+    "id" uuid NOT NULL,
+    "sample" uuid NOT NULL,
+    "ordinal" bigint NOT NULL,
+    "basis" "meta"."purity_basis" NOT NULL,
+    "value" "meta"."fraction",
+    "digits" bigint,
+    "method" uuid,
+    "method_text" text,
+    "impurity" uuid,
+    CONSTRAINT "purity_statement__pk" PRIMARY KEY ("sample", "ordinal"),
+    CONSTRAINT "purity_statement__uq__id" UNIQUE ("id"),
+    CONSTRAINT "purity_statement__ck__ordinal_from_one" CHECK ("ordinal" > 0)
+);
+COMMENT ON TABLE "tk"."purity_statement" IS 'One statement of the purity of a sample: a purity value on a basis with its significant digits and the analytical method, or the content of one impurity such as water or halide. A sample has as many as its source states, in several bases and after several purification steps.';
+COMMENT ON COLUMN "tk"."purity_statement"."id" IS 'Deterministic identifier of the row, computed from its keys.';
+COMMENT ON COLUMN "tk"."purity_statement"."sample" IS 'The sample.';
+COMMENT ON COLUMN "tk"."purity_statement"."ordinal" IS 'Position among the statements about the sample, from one.';
+COMMENT ON COLUMN "tk"."purity_statement"."basis" IS 'The basis of the value.';
+COMMENT ON COLUMN "tk"."purity_statement"."value" IS 'The stated fraction, where the source gives a value.';
+COMMENT ON COLUMN "tk"."purity_statement"."digits" IS 'The number of significant digits the source reports.';
+COMMENT ON COLUMN "tk"."purity_statement"."method" IS 'The analytical method, where the source names one of a listed vocabulary.';
+COMMENT ON COLUMN "tk"."purity_statement"."method_text" IS 'The analytical method as free text, where the source gives none of a listed vocabulary.';
+COMMENT ON COLUMN "tk"."purity_statement"."impurity" IS 'The impurity the statement is the content of, such as water or a halide. Absent when the statement is a purity.';
 
 CREATE TABLE "tk"."reaction_participant" (
     "id" uuid NOT NULL,
@@ -3381,6 +3650,8 @@ ALTER TABLE "tk"."chemical_system" ADD CONSTRAINT "chemical_system__fk__id" FORE
 
 ALTER TABLE "tk"."conserved_quantity" ADD CONSTRAINT "conserved_quantity__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "tk"."conserved_quantity" ADD CONSTRAINT "conserved_quantity__fk__of_element" FOREIGN KEY ("of_element") REFERENCES "tk"."element" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."constituent_array" ADD CONSTRAINT "constituent_array__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."constituent_array" ADD CONSTRAINT "constituent_array__fk__phase" FOREIGN KEY ("phase") REFERENCES "tk"."phase_definition" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -3411,6 +3682,8 @@ ALTER TABLE "ev"."dataset_column" ADD CONSTRAINT "dataset_column__fk__component"
 
 ALTER TABLE "ev"."dataset_column" ADD CONSTRAINT "dataset_column__fk__phase" FOREIGN KEY ("phase") REFERENCES "ev"."dataset_phase" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "ev"."dataset_column" ADD CONSTRAINT "dataset_column__fk__site_class" FOREIGN KEY ("site_class") REFERENCES "tk"."site_class" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "ev"."dataset_column" ADD CONSTRAINT "dataset_column__fk__second_phase" FOREIGN KEY ("second_phase") REFERENCES "ev"."dataset_phase" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "ev"."dataset_column" ADD CONSTRAINT "dataset_column__fk__composition_basis" FOREIGN KEY ("composition_basis") REFERENCES "tk"."composition_basis" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -3429,17 +3702,23 @@ ALTER TABLE "ev"."dataset_phase" ADD CONSTRAINT "dataset_phase__fk__dataset" FOR
 
 ALTER TABLE "ev"."dataset_phase" ADD CONSTRAINT "dataset_phase__fk__aggregation" FOREIGN KEY ("aggregation") REFERENCES "tk"."aggregation" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "ev"."dataset_phase" ADD CONSTRAINT "dataset_phase__fk__phase_definition" FOREIGN KEY ("phase_definition") REFERENCES "tk"."phase_definition" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."defined_mixture" ADD CONSTRAINT "defined_mixture__fk__id" FOREIGN KEY ("id") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "prov"."derivation" ADD CONSTRAINT "derivation__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "prov"."derivation" ADD CONSTRAINT "derivation__fk__software" FOREIGN KEY ("software") REFERENCES "prov"."source" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "prov"."derivation" ADD CONSTRAINT "derivation__fk__level_of_theory" FOREIGN KEY ("level_of_theory") REFERENCES "prov"."level_of_theory" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."distributed_attribute" ADD CONSTRAINT "distributed_attribute__fk__support" FOREIGN KEY ("support") REFERENCES "meta"."quantity_type" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."element" ADD CONSTRAINT "element__fk__id" FOREIGN KEY ("id") REFERENCES "tk"."conserved_quantity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."energy_reference" ADD CONSTRAINT "energy_reference__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."energy_reference" ADD CONSTRAINT "energy_reference__fk__aggregation" FOREIGN KEY ("aggregation") REFERENCES "tk"."aggregation" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "prov"."fit" ADD CONSTRAINT "fit__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."derivation" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -3466,6 +3745,16 @@ ALTER TABLE "tk"."identity_assertion" ADD CONSTRAINT "identity_assertion__fk__so
 ALTER TABLE "tk"."identity_assertion" ADD CONSTRAINT "identity_assertion__fk__scheme" FOREIGN KEY ("scheme") REFERENCES "tk"."naming_scheme" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "prov"."import_record" ADD CONSTRAINT "import_record__fk__artifact" FOREIGN KEY ("artifact") REFERENCES "prov"."artifact" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."isotope" ADD CONSTRAINT "isotope__fk__id" FOREIGN KEY ("id") REFERENCES "tk"."conserved_quantity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "prov"."level_of_theory" ADD CONSTRAINT "level_of_theory__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "prov"."level_of_theory" ADD CONSTRAINT "level_of_theory__fk__software" FOREIGN KEY ("software") REFERENCES "prov"."software_release" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "prov"."level_of_theory" ADD CONSTRAINT "level_of_theory__fk__frequency_level" FOREIGN KEY ("frequency_level") REFERENCES "prov"."level_of_theory" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "prov"."level_of_theory" ADD CONSTRAINT "level_of_theory__fk__energy_level" FOREIGN KEY ("energy_level") REFERENCES "prov"."level_of_theory" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."material" ADD CONSTRAINT "material__fk__id" FOREIGN KEY ("id") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -3635,6 +3924,14 @@ ALTER TABLE "param"."vapor_pressure_exp_series_tau__pure" ADD CONSTRAINT "vapor_
 
 ALTER TABLE "param"."vapor_pressure_exp_series_tau__pure" ADD CONSTRAINT "vapor_pressure_exp_series_tau__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "tk"."accuracy_statement" ADD CONSTRAINT "accuracy_statement__fk__record" FOREIGN KEY ("record") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."accuracy_statement" ADD CONSTRAINT "accuracy_statement__fk__observable" FOREIGN KEY ("observable") REFERENCES "tk"."observable" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."accuracy_statement" ADD CONSTRAINT "accuracy_statement__fk__region" FOREIGN KEY ("region") REFERENCES "tk"."validity_region" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."accuracy_statement" ADD CONSTRAINT "accuracy_statement__fk__against" FOREIGN KEY ("against") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "prov"."attribution" ADD CONSTRAINT "attribution__fk__import_record" FOREIGN KEY ("import_record") REFERENCES "prov"."import_record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "prov"."attribution" ADD CONSTRAINT "attribution__fk__primary" FOREIGN KEY ("primary") REFERENCES "prov"."source" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -3689,6 +3986,10 @@ ALTER TABLE "prov"."derivation_output" ADD CONSTRAINT "derivation_output__fk__de
 
 ALTER TABLE "prov"."derivation_output" ADD CONSTRAINT "derivation_output__fk__record" FOREIGN KEY ("record") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "tk"."disordered_partner" ADD CONSTRAINT "disordered_partner__fk__ordered" FOREIGN KEY ("ordered") REFERENCES "tk"."phase_definition" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."disordered_partner" ADD CONSTRAINT "disordered_partner__fk__disordered" FOREIGN KEY ("disordered") REFERENCES "tk"."phase_definition" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."element_reference" ADD CONSTRAINT "element_reference__fk__reference" FOREIGN KEY ("reference") REFERENCES "tk"."energy_reference" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."element_reference" ADD CONSTRAINT "element_reference__fk__element" FOREIGN KEY ("element") REFERENCES "tk"."element" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -3715,6 +4016,12 @@ ALTER TABLE "prov"."fit_free_parameter" ADD CONSTRAINT "fit_free_parameter__fk__
 
 ALTER TABLE "prov"."fit_free_parameter" ADD CONSTRAINT "fit_free_parameter__fk__slot" FOREIGN KEY ("slot") REFERENCES "meta"."slot" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "tk"."group_bond_count" ADD CONSTRAINT "group_bond_count__fk__assignment" FOREIGN KEY ("assignment") REFERENCES "tk"."group_assignment" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."group_bond_count" ADD CONSTRAINT "group_bond_count__fk__first" FOREIGN KEY ("first") REFERENCES "tk"."group" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."group_bond_count" ADD CONSTRAINT "group_bond_count__fk__second" FOREIGN KEY ("second") REFERENCES "tk"."group" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."group_count" ADD CONSTRAINT "group_count__fk__assignment" FOREIGN KEY ("assignment") REFERENCES "tk"."group_assignment" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."group_count" ADD CONSTRAINT "group_count__fk__group" FOREIGN KEY ("group") REFERENCES "tk"."group" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -3736,6 +4043,16 @@ ALTER TABLE "tk"."policy_override" ADD CONSTRAINT "policy_override__fk__paramete
 ALTER TABLE "tk"."policy_precedence" ADD CONSTRAINT "policy_precedence__fk__policy" FOREIGN KEY ("policy") REFERENCES "tk"."selection_policy" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."policy_precedence" ADD CONSTRAINT "policy_precedence__fk__parameterization" FOREIGN KEY ("parameterization") REFERENCES "tk"."parameterization" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."purification_step" ADD CONSTRAINT "purification_step__fk__sample" FOREIGN KEY ("sample") REFERENCES "tk"."sample" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."purification_step" ADD CONSTRAINT "purification_step__fk__method" FOREIGN KEY ("method") REFERENCES "tk"."purification_method" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."purity_statement" ADD CONSTRAINT "purity_statement__fk__sample" FOREIGN KEY ("sample") REFERENCES "tk"."sample" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."purity_statement" ADD CONSTRAINT "purity_statement__fk__method" FOREIGN KEY ("method") REFERENCES "tk"."analysis_method" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."purity_statement" ADD CONSTRAINT "purity_statement__fk__impurity" FOREIGN KEY ("impurity") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."reaction_participant" ADD CONSTRAINT "reaction_participant__fk__reaction" FOREIGN KEY ("reaction") REFERENCES "tk"."reaction" ("id") DEFERRABLE INITIALLY DEFERRED;
 

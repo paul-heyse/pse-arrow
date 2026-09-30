@@ -82,6 +82,9 @@ needs = "charges"
 [entities.composition_basis.site_number_density]
 doc = "Number of sites of a type per volume, the composition coordinate of liquid-state integral-equation theories."
 
+[entities.composition_basis.not_stated]
+doc = "The source does not say on which composition scale a quantity is stated, as for the infinite-dilution solute state of a source that names none."
+
 [entities.composition_basis.loading]
 doc = "Amount adsorbed per mass or site of host."
 needs = "host amount"
@@ -162,6 +165,24 @@ aggregation = { type = "aggregation", doc = "Its state of aggregation." }
 structure = { type = "phase_structure", doc = "The internal structure it assumes." }
 prototype = { type = "Text", optional = true, doc = "A structure prototype or Strukturbericht designation, where the source gives one." }
 source_directives = { type = "SourceText", optional = true, doc = "Uninterpreted source directives attached to the phase, retained verbatim." }
+
+[relations.disordered_partner]
+doc = "The disordered phase an ordered phase is the ordered form of: a sublattice model of an ordered phase is the disordered phase's model plus an ordering contribution, so the ordered phase names its partner. The pair is directed and the two phases differ."
+provenance = "inherit:ordered"
+absence = "optional"
+transposition = { rule = "ordered", roles = ["ordered", "disordered"], diagonal = "forbidden" }
+
+[relations.disordered_partner.keys]
+ordered = { type = "phase_definition", doc = "The ordered phase." }
+disordered = { type = "phase_definition", doc = "Its disordered partner." }
+
+[relations.disordered_partner.columns]
+never_disorder = { type = "Boolean", doc = "True when the source switches the partition off: the ordered phase never disorders, and its energy has no disordered part, which changes the equation." }
+
+[[relations.disordered_partner.requires]]
+name = "same_system"
+doc = "The ordered phase and its disordered partner belong to the same chemical system."
+enforced = "verify"
 
 [kinds.site_class]
 doc = "A sublattice, hydrate cage, surface site type or exchanger: a class of positions that constituents occupy, within a phase definition or on a material."

@@ -6,9 +6,9 @@ reason = "Each ident becomes a source entity with a source_local assertion besid
 
 [[disposition]]
 construct = "structure (element count string)"
-disposition = "model_change"
-ref = "alignment-notes #17"
-reason = "Deuterium appears as its own element D in the count string, but the declared elements are the 118 chemical elements and conserved_kind has no isotope; add an isotope refinement of conserved_quantity (symbol, mass number, parent element; entities D and T) that composition can count beside its element, with a verify invariant tying the isotope to the element balance. The string is also the only composition record and duplicates formula without a stated consistency rule."
+disposition = "mapping_loss"
+ref = "kind:isotope"
+reason = "Deuterium appears as its own element D in the count string, and is the kind isotope (symbol D, mass number 2, the element H; T likewise) that composition counts beside its element, with the reaction conservation checks counting an isotope in its element's balance. The string is also the only composition record and duplicates formula without a stated consistency rule."
 
 [[disposition]]
 construct = "critical (critical point block)"
@@ -42,9 +42,9 @@ reason = "Z_RA maps to an observable value of the species, and the fallback that
 
 [[disposition]]
 construct = "dipole_moment and quadrupole_moment"
-disposition = "model_change"
-ref = "alignment-notes #34"
-reason = "The quadrupole Q is given in Angstrom*Debye but model/physical.toml has a DipoleMoment type and no quadrupole quantity type; add a QuadrupoleMoment quantity type (storage unit C*m^2, signed scale). The dipole maps to DipoleMoment with D converted exactly, and 0.0 meaning none or unknown is a mapping assumption."
+disposition = "mapping_loss"
+ref = "mechanism:quantity type QuadrupoleMoment"
+reason = "The quadrupole Q is given in Angstrom*Debye and is stored typed as a QuadrupoleMoment (storage unit C*m^2, signed scale). The dipole maps to DipoleMoment with D converted exactly, and 0.0 meaning none or unknown is a mapping assumption."
 
 [[disposition]]
 construct = "reference_state (enthalpy and entropy of formation data)"
@@ -95,9 +95,9 @@ reason = "The association scheme is the site_scheme of the parameterization the 
 
 [[disposition]]
 construct = "PC-SAFT pure-component set"
-disposition = "model_change"
-ref = "alignment-notes #34"
-reason = "mu is DipoleMoment but Q is given in Angstrom*Debye and model/physical.toml has no quadrupole quantity type; add a QuadrupoleMoment quantity type (C*m^2). eps_depth_divk (K) is mapped and eps (J/mol, which embeds the library gas constant) is computed and not imported, and the pi/6 convention of beta has to be stated per parameterization by the mapping."
+disposition = "mapping_loss"
+ref = "mechanism:quantity type QuadrupoleMoment"
+reason = "mu is DipoleMoment and Q, given in Angstrom*Debye, is a QuadrupoleMoment (C*m^2). eps_depth_divk (K) is mapped and eps (J/mol, which embeds the library gas constant) is computed and not imported, and the pi/6 convention of beta has to be stated per parameterization by the mapping."
 
 [[disposition]]
 construct = "SAFT-VR Mie pure-component set (including quantum variants)"

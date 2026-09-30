@@ -98,7 +98,9 @@ members.published = { doc = "Stated in a publication and transcribed." }
 
 A rule that depends on a property of members reads the facet, never the member's name: the verify
 checks of `origin_role` select the roles with `requires_derivation` and `requires_fit` from `meta`, so
-giving a new member a facet puts it under the rule with no other edit.
+giving a new member a facet puts it under the rule with no other edit. The enums that carry facets
+are `origin_role`, `uncertainty_kind` (`relative`, `factor`, `unquantified`), `value_presentation`,
+`conserved_kind` (`names_element`) and `enthalpy_datum` and `entropy_datum` (`stated_value`).
 
 Scientific vocabularies that grow with the science (observables, aggregations, group schemes) are
 **kinds with declared entities**, not enums.
@@ -321,8 +323,9 @@ A slot may name the `observable` it denotes (for example a critical temperature 
 a snapshot fill it from evaluated data. Uncertainty is never a slot; it is recorded in the
 framework table `slot_uncertainty`, whose kind of uncertainty is a member of the enum
 `uncertainty_kind`. That enum carries facets that say what a magnitude of each kind is (`relative`: a
-fraction of the value; `unquantified`: no magnitude), and the checks of `slot_uncertainty` and of the
-magnitudes of evidence read them, so a new kind with the right facet is checked with no other edit.
+fraction of the value; `factor`: a dimensionless factor; `unquantified`: no magnitude), and the checks of
+`slot_uncertainty`, of the magnitudes of evidence and of accuracy statements read them, so a new kind
+with the right facet is checked with no other edit.
 
 **Value shapes.** A slot holds one of: a dimensioned scalar or count; an enum member; a reference
 to an entity; a **nested set** (`accepts = "<contract>"`: the value is a parameter set of a form
@@ -368,7 +371,10 @@ never subjects.
 **Convention facts.** A form declares the facts of its parameterization's convention set that its
 expressions read: `conventions = ["gas_constant"]`, each naming a quantity-typed attribute of the kind
 bound to the framework role `convention_set`. An expression reads one as `convention.gas_constant`,
-with the attribute's type (`expressions.md` section 3). A fact has one home, the convention set: a
+with the attribute's type (`expressions.md` section 3). The convention set states the gas constant, the
+Boltzmann constant and the Avogadro constant as three separate facts, because a body of data may mix
+editions of them (a library may take the Avogadro constant as the quotient of the other two); a form
+reads `convention.boltzmann_constant` and `convention.avogadro_constant` as it reads the gas constant. A fact has one home, the convention set: a
 form carries no slot for it, because a coefficient set reproduces its source only with the gas
 constant it was built with. `meta.form_convention` reifies the declaration. The structural check
 `parameterization_has_conventions` requires every parameterization that holds a parameter set of such
@@ -534,13 +540,17 @@ or why there is none.
   the value and its digits.
 - `uncertainty_assessment` is one way the uncertainty of a column's values is assessed, numbered from
   one within the column: its kind (`uncertainty_kind`: standard, expanded, combined, relative, interval,
-  repeatability, device specification, curve deviation, exact or not stated), and as the source states
-  them the coverage factor, the level of confidence, who assessed it and by what method. A column has
-  as many assessments as its source defines.
+  repeatability, device specification, curve deviation, multiplicative factor, unspecified, exact or not
+  stated), and as the source states them the coverage factor, the level of confidence, who assessed it and
+  by what method. A column has as many assessments as its source defines. `unspecified` is a magnitude in
+  the value's unit whose meaning the source does not state (no facet: it is stored like a standard
+  uncertainty and is not assumed to be one); `multiplicative_factor` is a dimensionless factor f, the value
+  lying within x/f to x*f at the stated level, and carries the facet `factor`.
 - `datum_uncertainty`, keyed by a point and an assessment, holds the magnitudes of that assessment for
   that value, both sides: `minus` and `plus` in the unit of the column's observable for a kind stated in
-  the quantity's unit, `relative_minus` and `relative_plus` for a relative kind, none for a kind that
-  states no magnitude. A symmetric uncertainty has equal sides. `column_uncertainty`, keyed by an
+  the quantity's unit, `relative_minus` and `relative_plus` for a relative kind or a factor kind (the
+  factor is dimensionless and is stored where the relative magnitude is, in both columns), none for a kind
+  that states no magnitude. A symmetric uncertainty has equal sides. `column_uncertainty`, keyed by an
   assessment of a constraint column, holds the same for the column's constant, which has its own
   `constant_digits`. No uncertainty is assumed: a value without a row has none stated.
 - A column's `presentation` (`value_presentation`: the property itself, or differences between an upper
@@ -548,6 +558,45 @@ or why there is none.
   difference against a reference state) defaults to the property itself. A column presented against a
   reference state states its `reference_state_kind`, and may state the `reference_temperature`,
   `reference_pressure` and `reference_phase` the kind fixes.
+
+### Accuracy statements
+
+`accuracy_statement` holds what a source claims about the accuracy of one observable a record gives. It
+is keyed by the record (a parameter set, a parameterization or a model assembly), the observable and an
+ordinal from one, and its provenance is inherited from the record (`inherit:record`, as
+`validity_coverage` does). It may name the `region` of conditions it holds over (a validity region of the
+record; a condition such as a reference temperature is a region whose clause has one point) and the record
+it is taken `against`. Its `kind` is an `uncertainty_kind`, its `statistic` an `accuracy_statistic` (bound,
+maximum, rms, mean bias, standard deviation, variance), and it has a `magnitude` in the observable's unit
+or a `relative_magnitude` as the facets of the kind say, checked as the magnitudes of slot uncertainties
+are (`accuracy_statement.magnitude_matches_kind`). It is what a source states, not a qualification result.
+
+### Conserved quantities, groups, reference states and samples
+
+- A `conserved_quantity` is an element, charge, a site total, an isotope, an alkalinity, a decoupled
+  inventory or a moiety (`conserved_kind`). The kinds with the facet `names_element` (isotope and
+  decoupled inventory) state the element they count in `of_element`, and only they
+  (`conserved_quantity.of_element_matches_kind`). An `isotope` refines it with a mass number, an optional
+  atomic mass and symbol; one element and mass number name one isotope (`isotope.nuclide_unique`, a verify
+  invariant because a constraint cannot span the quantity and its refinement). A reaction's balance of an
+  element counts its isotopes as well as the element; the balance of an isotope counts only that isotope
+  (`reaction.conserves_declared_quantities`, `system_reaction.conserves_system_quantities`).
+- A `group` is identified by its scheme and the scheme's own `code` (the subgroup number of UNIFAC; the
+  label where the scheme has no other identifier); its `label` describes it, and a scheme may repeat one.
+  A `group_assignment` adds an `occurrence` to its identity for a carrier that asserts two decompositions
+  of one entity. `group_bond_count` holds the bonds between two groups of one assignment: unordered, with
+  the diagonal allowed, both groups in the assignment's scheme and counted in it.
+- An `energy_reference` fixes the zero of enthalpy and entropy, or states values at a named state: the
+  datum `at_state` (facet `stated_value`) of `enthalpy_datum` states which energy it fixes
+  (`datum_energy`: enthalpy or internal energy) and exactly one value of it, molar or per mass, and that of
+  `entropy_datum` exactly one entropy value; a stated zero is a stated value. The state is described by
+  `state`, `temperature`, `pressure` and the `aggregation` of its phase. Any other datum states no value
+  (`energy_reference.stated_energy_matches_datum`, `energy_reference.stated_entropy_matches_datum`).
+- A `sample` states its `source` and `status`; its purities are `purity_statement` rows (a basis, a value
+  with its digits, an analytical method or free text, and, for the content of an impurity, the impurity)
+  and its history `purification_step` rows, each naming a listed method or free text.
+- A computation names the `level_of_theory` it used; a composite level states both the level of its
+  frequency calculation and that of its energy calculation, or neither.
 
 ### The pipeline contract
 

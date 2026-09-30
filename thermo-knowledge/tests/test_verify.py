@@ -281,7 +281,14 @@ def test_group_parent_is_acyclic_and_in_the_same_scheme(conn: psycopg.Connection
 
     def group(identifier: uuid.UUID, in_scheme: uuid.UUID, label: str, **links: uuid.UUID) -> None:
         insert(
-            conn, "tk.group", id=identifier, scheme=in_scheme, label=label, role="group", **links
+            conn,
+            "tk.group",
+            id=identifier,
+            scheme=in_scheme,
+            code=label,
+            label=label,
+            role="group",
+            **links,
         )
 
     group(root, scheme, "root")
@@ -397,6 +404,8 @@ def test_an_uncertainty_magnitude_matches_its_kind(conn: psycopg.Connection) -> 
         "repeatability_other": ((1.0, None), (None, 0.1)),
         "device_specification": ((1.0, None), (None, None)),
         "curve_deviation": ((1.0, None), (None, 0.1)),
+        "unspecified": ((1.0, None), (None, 2.0)),
+        "multiplicative_factor": ((None, 2.0), (2.0, None)),
         "exact": ((None, None), (1.0, None)),
         "not_stated": ((None, None), (None, 0.1)),
     }
@@ -936,7 +945,7 @@ def test_a_group_count_names_a_group_of_the_assignments_scheme(
     member, foreign = new(), new()
     for identifier, in_scheme, label in ((member, scheme, "m"), (foreign, other, "f")):
         insert(
-            conn, "tk.group", id=identifier, scheme=in_scheme, label=label, role="group"
+            conn, "tk.group", id=identifier, scheme=in_scheme, code=label, label=label, role="group"
         )
     assignment = new()
     insert(
@@ -1111,6 +1120,11 @@ MAGNITUDES = {
     "relative": ((None, None, 0.1, 0.2), [(0.1, 0.1, None, None), (None, None, 0.1, None)]),
     "relative_curve_deviation": ((None, None, 0.1, 0.1), [(None, None, None, None)]),
     "device_specification": ((0.5, 0.5, None, None), [(None, None, 0.5, 0.5)]),
+    "unspecified": ((0.5, 0.5, None, None), [(None, None, 0.5, 0.5), (0.5, None, None, None)]),
+    "multiplicative_factor": (
+        (None, None, 1.5, 1.5),
+        [(1.5, 1.5, None, None), (None, None, 1.5, None), (None, None, None, None)],
+    ),
     "not_stated": ((None, None, None, None), [(0.1, 0.1, None, None)]),
     "exact": ((None, None, None, None), [(None, None, 0.1, 0.1)]),
 }
@@ -2021,3 +2035,545 @@ def test_cli_refuses_a_database_built_from_another_declaration(
     )
     changed = runner.invoke(app, ["verify", "--tree", str(tree)])
     assert changed.exit_code == 1 and "rebuild it with `tk build`" in changed.output
+
+
+# -- declaration additions (plan 24, TK2f) ---------------------------------------------------
+
+
+def quantity(conn: psycopg.Connection, key: str, kind: str, **extra: object) -> uuid.UUID:
+    """A conserved quantity of the given kind (and its refinement row where `extra` makes it an
+    isotope)."""
+    identifier = new()
+    of_element = extra.pop("of_element", None)
+    insert(conn, "tk.conserved_quantity", id=identifier, key=key, kind=kind, of_element=of_element)
+    if "mass_number" in extra:
+        insert(conn, "tk.isotope", id=identifier, **extra)
+    return identifier
+
+
+def test_a_conserved_quantity_names_an_element_exactly_when_its_kind_needs_one(
+    conn: psycopg.Connection,
+) -> None:
+    hydrogen = lookup(conn, "SELECT id FROM tk.conserved_quantity WHERE key = 'H'")
+    good = [
+        quantity(conn, "2H", "isotope", of_element=hydrogen),
+        quantity(conn, "Nit", "decoupled_inventory", of_element=hydrogen),
+        quantity(conn, "alk", "alkalinity"),
+        quantity(conn, "LIGAND", "moiety"),
+    ]
+    bad = [
+        quantity(conn, "18O", "isotope"),
+        quantity(conn, "NitAlone", "decoupled_inventory"),
+        quantity(conn, "alk_of_H", "alkalinity", of_element=hydrogen),
+        quantity(conn, "moiety_of_H", "moiety", of_element=hydrogen),
+    ]
+    provenance(conn, bad[0], "a.json#/21")
+    result = run(conn, "conserved_quantity.of_element_matches_kind")
+    assert violating(result) == ids(*bad) and not set(ids(*good)) & set(violating(result))
+    row = next(dict(zip(result.columns, r)) for r in result.rows if r[0] == str(bad[0]))
+    assert row["locator"] == "a.json#/21" and row["kind"] == "isotope" and not row["of_element"]
+
+
+def test_a_new_kind_with_the_facet_names_an_element_is_held_to_name_one_without_editing_the_check(
+    tmp_path: Path,
+) -> None:
+    model, forms = extended_directories(tmp_path / "decl")
+    module = model / "identity.toml"
+    text = module.read_text()
+    marker = 'members.alkalinity = { doc = "Acid-neutralising capacity'
+    assert marker in text
+    module.write_text(
+        text.replace(
+            marker,
+            'members.enriched_inventory = { doc = "An enriched amount of an element.", '
+            'facets = ["names_element"] }\n' + marker,
+            1,
+        )
+    )
+    decl = load_declaration(model, forms).require()
+    with TestDatabase() as database:
+        build_database(database.url, decl)
+        with psycopg.connect(database.url) as connection:
+            connection.execute("SELECT 1")
+            hydrogen = lookup(connection, "SELECT id FROM tk.conserved_quantity WHERE key = 'H'")
+            good = quantity(connection, "enriched", "enriched_inventory", of_element=hydrogen)
+            bad = quantity(connection, "enriched_alone", "enriched_inventory")
+            found = run_check(connection, CHECKS["conserved_quantity.of_element_matches_kind"])
+            connection.rollback()
+    assert found.error is None and violating(found) == ids(bad) and good not in found.ids
+
+
+def test_an_isotope_is_a_quantity_of_the_kind_isotope(conn: psycopg.Connection) -> None:
+    hydrogen = lookup(conn, "SELECT id FROM tk.conserved_quantity WHERE key = 'H'")
+    good = quantity(conn, "2H", "isotope", of_element=hydrogen, mass_number=2)
+    bad = quantity(conn, "3H", "moiety", of_element=hydrogen, mass_number=3)
+    result = run(conn, "isotope.kind_is_isotope")
+    assert violating(result) == ids(bad) and str(good) not in result.ids
+
+
+def test_one_element_and_mass_number_name_one_isotope(conn: psycopg.Connection) -> None:
+    hydrogen, oxygen = (
+        lookup(conn, "SELECT id FROM tk.conserved_quantity WHERE key = %s", symbol) for symbol in "HO"
+    )
+    deuterium = quantity(conn, "2H", "isotope", of_element=hydrogen, mass_number=2, symbol="D")
+    again = quantity(conn, "D", "isotope", of_element=hydrogen, mass_number=2)
+    quantity(conn, "3H", "isotope", of_element=hydrogen, mass_number=3, symbol="T")
+    quantity(conn, "2O", "isotope", of_element=oxygen, mass_number=2)  # the same number of another element
+    result = run(conn, "isotope.nuclide_unique")
+    assert violating(result) == ids(deuterium, again)
+
+
+def test_an_isotope_takes_a_positive_mass_number_in_the_database(conn: psycopg.Connection) -> None:
+    hydrogen = lookup(conn, "SELECT id FROM tk.conserved_quantity WHERE key = 'H'")
+    with pytest.raises(psycopg.errors.CheckViolation, match="mass_number_positive"):
+        with conn.transaction():
+            quantity(conn, "0H", "isotope", of_element=hydrogen, mass_number=0)
+
+
+def heavy_water_world(conn: psycopg.Connection) -> dict[str, uuid.UUID]:
+    """H2O, D2O and HDO as species forms, with deuterium an isotope of hydrogen, and the elements
+    and the isotope by key."""
+    hydrogen, oxygen = (
+        lookup(conn, "SELECT id FROM tk.conserved_quantity WHERE key = %s", symbol) for symbol in "HO"
+    )
+    deuterium = quantity(conn, "2H", "isotope", of_element=hydrogen, mass_number=2, symbol="D")
+    gas = lookup(conn, "SELECT id FROM tk.aggregation WHERE name = 'gas'")
+    world = {"H": hydrogen, "O": oxygen, "D": deuterium}
+    for name, composition in {
+        "H2O": {hydrogen: 2.0, oxygen: 1.0},
+        "D2O": {deuterium: 2.0, oxygen: 1.0},
+        "HDO": {hydrogen: 1.0, deuterium: 1.0, oxygen: 1.0},
+    }.items():
+        species = new()
+        world[name] = new()
+        insert(conn, "tk.species_form", id=world[name], species=species, aggregation=gas)
+        for each, value in composition.items():
+            insert(conn, "tk.composition", id=new(), entity=species, quantity=each, value=value)
+    return world
+
+
+def reaction_of(
+    conn: psycopg.Connection, world: dict[str, uuid.UUID], key: str, coefficients: dict[str, float]
+) -> uuid.UUID:
+    identifier = new()
+    insert(conn, "tk.reaction", id=identifier, canonical_key=key, extent="as_written")
+    for name, coefficient in coefficients.items():
+        insert(
+            conn,
+            "tk.reaction_participant",
+            id=new(),
+            reaction=identifier,
+            form=world[name],
+            coefficient=coefficient,
+        )
+    return identifier
+
+
+def test_an_isotope_exchange_reaction_conserves_the_element_and_the_isotope(
+    conn: psycopg.Connection,
+) -> None:
+    world = heavy_water_world(conn)
+    balanced = reaction_of(conn, world, "exchange", {"D2O": -1.0, "H2O": -1.0, "HDO": 2.0})
+    # the hydrogen balance counts deuterium: HDO -> H2O keeps the hydrogen total and oxygen in step
+    # but not deuterium, so only the isotope is out of balance
+    lost = reaction_of(conn, world, "lost_deuterium", {"HDO": -1.0, "H2O": 1.0})
+    result = run(conn, "reaction.conserves_declared_quantities")
+    assert violating(result) == ids(lost) and str(balanced) not in result.ids
+    assert [(row[result.columns.index("quantity")], float(row[result.columns.index("net")])) for row in result.rows] == [
+        ("2H", -1.0)
+    ]
+
+
+def test_the_balance_of_an_element_a_system_declares_counts_its_isotopes(
+    conn: psycopg.Connection,
+) -> None:
+    world = heavy_water_world(conn)
+    lost = reaction_of(conn, world, "lost_deuterium", {"HDO": -1.0, "H2O": 1.0})
+    elements, isotopes = new(), new()
+    insert(conn, "tk.system_conserves", id=new(), system=elements, quantity=world["H"])
+    insert(conn, "tk.system_conserves", id=new(), system=isotopes, quantity=world["D"])
+    in_elements, in_isotopes = new(), new()
+    insert(conn, "tk.system_reaction", id=in_elements, system=elements, reaction=lost)
+    insert(conn, "tk.system_reaction", id=in_isotopes, system=isotopes, reaction=lost)
+    result = run(conn, "system_reaction.conserves_system_quantities")
+    assert violating(result) == ids(in_isotopes)
+
+
+def energy_reference(conn: psycopg.Connection, key: str, **columns: object) -> uuid.UUID:
+    identifier = new()
+    columns.setdefault("enthalpy", "not_stated")
+    columns.setdefault("entropy", "not_stated")
+    insert(conn, "tk.energy_reference", id=identifier, key=key, **columns)
+    return identifier
+
+
+def test_an_energy_reference_states_an_energy_value_exactly_when_its_enthalpy_datum_states_one(
+    conn: psycopg.Connection,
+) -> None:
+    good = [
+        energy_reference(conn, "formation", enthalpy="formation_from_elements"),
+        energy_reference(
+            conn,
+            "iir",
+            enthalpy="at_state",
+            datum_energy="enthalpy",
+            specific_energy_value=200000.0,
+        ),
+        energy_reference(
+            conn, "iapws95", enthalpy="at_state", datum_energy="internal_energy", energy_value=0.0
+        ),
+    ]
+    bad = {
+        "no_energy": energy_reference(conn, "no_energy", enthalpy="at_state", datum_energy="enthalpy"),
+        "both_values": energy_reference(
+            conn,
+            "both",
+            enthalpy="at_state",
+            datum_energy="enthalpy",
+            energy_value=1.0,
+            specific_energy_value=1.0,
+        ),
+        "no_value": energy_reference(conn, "no_value", enthalpy="at_state"),
+        "unwanted_energy": energy_reference(
+            conn, "unwanted_energy", enthalpy="formation_from_elements", datum_energy="enthalpy"
+        ),
+        "unwanted_value": energy_reference(
+            conn, "unwanted_value", enthalpy="stable_element_reference", energy_value=0.0
+        ),
+    }
+    provenance(conn, bad["no_value"], "a.json#/22")
+    result = run(conn, "energy_reference.stated_energy_matches_datum")
+    assert violating(result) == ids(*bad.values()) and not set(ids(*good)) & set(violating(result))
+    row = next(dict(zip(result.columns, r)) for r in result.rows if r[0] == str(bad["no_value"]))
+    assert row["locator"] == "a.json#/22" and row["enthalpy"] == "at_state"
+
+
+def test_an_energy_reference_states_an_entropy_value_exactly_when_its_entropy_datum_states_one(
+    conn: psycopg.Connection,
+) -> None:
+    good = [
+        energy_reference(conn, "third_law", entropy="third_law"),
+        energy_reference(conn, "iir", entropy="at_state", specific_entropy_value=1000.0),
+        energy_reference(conn, "iapws95", entropy="at_state", entropy_value=0.0),
+    ]
+    bad = [
+        energy_reference(conn, "no_value", entropy="at_state"),
+        energy_reference(
+            conn, "both", entropy="at_state", entropy_value=1.0, specific_entropy_value=1.0
+        ),
+        energy_reference(conn, "unwanted", entropy="third_law", entropy_value=1.0),
+        energy_reference(conn, "unwanted_specific", entropy="not_stated", specific_entropy_value=0.0),
+    ]
+    result = run(conn, "energy_reference.stated_entropy_matches_datum")
+    assert violating(result) == ids(*bad) and not set(ids(*good)) & set(violating(result))
+
+
+def test_a_new_datum_with_the_facet_stated_value_is_held_to_state_a_value_without_editing_the_check(
+    tmp_path: Path,
+) -> None:
+    model, forms = extended_directories(tmp_path / "decl")
+    module = model / "conventions.toml"
+    text = module.read_text()
+    marker = "members.apparent_helgeson = "
+    assert marker in text
+    module.write_text(
+        text.replace(
+            marker,
+            'members.fixed_at_state = { doc = "Fixed at a state.", facets = ["stated_value"] }\n'
+            + marker,
+            1,
+        )
+    )
+    decl = load_declaration(model, forms).require()
+    with TestDatabase() as database:
+        build_database(database.url, decl)
+        with psycopg.connect(database.url) as connection:
+            connection.execute("SELECT 1")
+            good = energy_reference(
+                connection, "good", enthalpy="fixed_at_state", datum_energy="enthalpy", energy_value=0.0
+            )
+            bad = energy_reference(connection, "bad", enthalpy="fixed_at_state")
+            found = run_check(connection, CHECKS["energy_reference.stated_energy_matches_datum"])
+            connection.rollback()
+    assert found.error is None and violating(found) == ids(bad) and str(good) not in found.ids
+
+
+def test_a_group_bond_joins_groups_of_the_assignments_scheme_that_the_assignment_counts(
+    conn: psycopg.Connection,
+) -> None:
+    scheme, other = new(), new()
+    counted, also_counted, uncounted, foreign = new(), new(), new(), new()
+    for identifier, in_scheme, code in (
+        (counted, scheme, "1"),
+        (also_counted, scheme, "2"),
+        (uncounted, scheme, "3"),
+        (foreign, other, "1"),
+    ):
+        insert(
+            conn, "tk.group", id=identifier, scheme=in_scheme, code=code, label="CHO", role="group"
+        )
+    assignment = new()
+    insert(
+        conn,
+        "tk.group_assignment",
+        id=assignment,
+        entity=new(),
+        scheme=scheme,
+        asserted_by=new(),
+        origin="published",
+    )
+    for group in (counted, also_counted, foreign):
+        insert(conn, "tk.group_count", id=new(), assignment=assignment, group=group, value=1.0)
+
+    def bond(identifier: uuid.UUID, one: uuid.UUID, other_one: uuid.UUID, value: float) -> None:
+        first, second = sorted((one, other_one), key=str)  # the canonical orientation
+        insert(
+            conn,
+            "tk.group_bond_count",
+            id=identifier,
+            assignment=assignment,
+            first=first,
+            second=second,
+            value=value,
+        )
+
+    good = [new(), new()]
+    bond(good[0], counted, also_counted, 1.0)
+    bond(good[1], counted, counted, 2.0)  # a bond between two groups of one kind names one group twice
+    not_counted, other_scheme = new(), new()
+    bond(not_counted, counted, uncounted, 1.0)
+    bond(other_scheme, counted, foreign, 1.0)
+    provenance(conn, assignment, "a.json#/24")
+    result = run(conn, "group_bond_count.groups_in_assignment")
+    assert violating(result) == ids(not_counted, other_scheme)
+    reasons = {row[0]: row[result.columns.index("reason")] for row in result.rows}
+    assert reasons[str(not_counted)] == "a group has no group count in the assignment"
+    assert reasons[str(other_scheme)] == "a group is of another scheme than the assignment"
+    assert {dict(zip(result.columns, r))["locator"] for r in result.rows} == {"a.json#/24"}
+
+
+def test_the_database_orders_a_group_bond_and_allows_the_diagonal(conn: psycopg.Connection) -> None:
+    first, second = sorted((new(), new()), key=str)
+    assignment = new()
+    insert(conn, "tk.group_bond_count", id=new(), assignment=assignment, first=first, second=second, value=1.0)
+    insert(conn, "tk.group_bond_count", id=new(), assignment=assignment, first=first, second=first, value=1.0)
+    with pytest.raises(psycopg.errors.CheckViolation):
+        with conn.transaction():
+            insert(
+                conn, "tk.group_bond_count", id=new(), assignment=assignment, first=second, second=first, value=1.0
+            )
+
+
+def test_one_carrier_may_assert_two_decompositions_of_one_entity_told_apart_by_occurrence(
+    conn: psycopg.Connection,
+) -> None:
+    scheme, entity, carrier_id = new(), new(), new()
+    for occurrence in (1, 2):
+        insert(
+            conn,
+            "tk.group_assignment",
+            id=new(),
+            entity=entity,
+            scheme=scheme,
+            asserted_by=carrier_id,
+            origin="published",
+            occurrence=occurrence,
+        )
+    with pytest.raises(psycopg.errors.UniqueViolation):
+        with conn.transaction():
+            insert(
+                conn,
+                "tk.group_assignment",
+                id=new(),
+                entity=entity,
+                scheme=scheme,
+                asserted_by=carrier_id,
+                origin="published",
+                occurrence=2,
+            )
+    with pytest.raises(psycopg.errors.CheckViolation, match="occurrence_from_one"):
+        with conn.transaction():
+            insert(
+                conn,
+                "tk.group_assignment",
+                id=new(),
+                entity=entity,
+                scheme=scheme,
+                asserted_by=carrier_id,
+                origin="published",
+                occurrence=0,
+            )
+
+
+def test_a_scheme_may_repeat_a_label_under_different_codes(conn: psycopg.Connection) -> None:
+    scheme = new()
+    for code in ("9", "10"):
+        insert(conn, "tk.group", id=new(), scheme=scheme, code=code, label="CHO", role="group")
+    with pytest.raises(psycopg.errors.UniqueViolation):
+        with conn.transaction():
+            insert(conn, "tk.group", id=new(), scheme=scheme, code="9", label="other", role="group")
+
+
+def test_a_column_with_a_site_class_names_a_phase_whose_definition_owns_the_class(
+    conn: psycopg.Connection,
+) -> None:
+    dataset = new()
+    liquid = lookup(conn, "SELECT id FROM tk.aggregation WHERE name = 'liquid'")
+    owner, other = new(), new()
+
+    def site_class(index: int, **host: uuid.UUID) -> uuid.UUID:
+        identifier = new()
+        insert(
+            conn,
+            "tk.site_class",
+            id=identifier,
+            host_key=str(next(iter(host.values()))),
+            index=index,
+            ratio_kind="constant",
+            ratio=1.0,
+            **host,
+        )
+        return identifier
+
+    def phase(ordinal: int, definition: uuid.UUID | None) -> uuid.UUID:
+        identifier = new()
+        insert(
+            conn,
+            "ev.dataset_phase",
+            id=identifier,
+            dataset=dataset,
+            ordinal=ordinal,
+            aggregation=liquid,
+            phase_definition=definition,
+        )
+        return identifier
+
+    owned = site_class(1, phase=owner)
+    hosted = site_class(1, material=new())
+    good = evidence_column(conn, dataset, 1, phase=phase(1, owner), site_class=owned)
+    plain = evidence_column(conn, dataset, 2, phase=phase(2, None))
+    bad = {
+        "no_phase": evidence_column(conn, dataset, 3, site_class=owned),
+        "undefined_phase": evidence_column(conn, dataset, 4, phase=phase(3, None), site_class=owned),
+        "other_definition": evidence_column(conn, dataset, 5, phase=phase(4, other), site_class=owned),
+        "on_a_material": evidence_column(conn, dataset, 6, phase=phase(5, owner), site_class=hosted),
+    }
+    provenance(conn, dataset, "a.json#/25")
+    result = run(conn, "dataset_column.site_class_of_the_phase")
+    assert violating(result) == ids(*bad.values())
+    assert str(good) not in result.ids and str(plain) not in result.ids
+    reasons = {row[0]: row[result.columns.index("reason")] for row in result.rows}
+    assert reasons[str(bad["no_phase"])] == "the column names no phase"
+    assert reasons[str(bad["undefined_phase"])] == "the phase names no phase definition"
+    assert {dict(zip(result.columns, r))["locator"] for r in result.rows} == {"a.json#/25"}
+
+
+def test_a_disordered_partner_belongs_to_the_system_of_the_ordered_phase(
+    conn: psycopg.Connection,
+) -> None:
+    system, other = new(), new()
+    crystalline = lookup(conn, "SELECT id FROM tk.aggregation WHERE name = 'crystalline'")
+    phases = {}
+    for key, owner in (("BCC_B2", system), ("BCC_A2", system), ("FCC_L12", system), ("foreign", other)):
+        phases[key] = new()
+        insert(
+            conn,
+            "tk.phase_definition",
+            id=phases[key],
+            system=owner,
+            key=key,
+            aggregation=crystalline,
+            structure="sublattice",
+        )
+    good, bad = new(), new()
+    insert(conn, "tk.disordered_partner", id=good, ordered=phases["BCC_B2"], disordered=phases["BCC_A2"], never_disorder=False)
+    insert(conn, "tk.disordered_partner", id=bad, ordered=phases["FCC_L12"], disordered=phases["foreign"], never_disorder=True)
+    provenance(conn, phases["FCC_L12"], "a.json#/26")
+    result = run(conn, "disordered_partner.same_system")
+    assert violating(result) == ids(bad)
+    assert dict(zip(result.columns, result.rows[0]))["locator"] == "a.json#/26"
+
+
+def test_the_database_refuses_a_phase_as_its_own_disordered_partner_and_keeps_both_directions(
+    conn: psycopg.Connection,
+) -> None:
+    first, second = new(), new()
+    insert(conn, "tk.disordered_partner", id=new(), ordered=first, disordered=second, never_disorder=False)
+    insert(conn, "tk.disordered_partner", id=new(), ordered=second, disordered=first, never_disorder=False)
+    with pytest.raises(psycopg.errors.CheckViolation, match="diagonal"):
+        with conn.transaction():
+            insert(conn, "tk.disordered_partner", id=new(), ordered=first, disordered=first, never_disorder=False)
+
+
+def test_an_accuracy_statement_states_the_magnitude_its_kind_calls_for(
+    conn: psycopg.Connection,
+) -> None:
+    observable = lookup(conn, "SELECT id FROM tk.observable LIMIT 1")
+    rules = {
+        # kind: (magnitude, relative magnitude) that conforms, then one that does not
+        "interval": ((1.0, None), (None, 0.1)),
+        "unspecified": ((1.0, None), (None, 2.0)),
+        "relative": ((None, 0.1), (1.0, None)),
+        "multiplicative_factor": ((None, 2.0), (2.0, None)),
+        "exact": ((None, None), (1.0, None)),
+    }
+    bad: list[uuid.UUID] = []
+    record = new()
+    ordinal = 0
+    for kind, (good, wrong) in rules.items():
+        for label, (magnitude, relative) in (("good", good), ("wrong", wrong)):
+            ordinal += 1
+            identifier = new()
+            insert(
+                conn,
+                "tk.accuracy_statement",
+                id=identifier,
+                record=record,
+                observable=observable,
+                ordinal=ordinal,
+                kind=kind,
+                statistic="bound",
+                magnitude=magnitude,
+                relative_magnitude=relative,
+            )
+            if label == "wrong":
+                bad.append(identifier)
+    provenance(conn, record, "a.json#/27")
+    result = run(conn, "accuracy_statement.magnitude_matches_kind")
+    assert violating(result) == ids(*bad) and result.violations == len(rules)
+    assert {dict(zip(result.columns, r))["locator"] for r in result.rows} == {"a.json#/27"}
+
+
+def test_the_database_refuses_an_accuracy_statement_with_no_position_or_no_sample(
+    conn: psycopg.Connection,
+) -> None:
+    observable = lookup(conn, "SELECT id FROM tk.observable LIMIT 1")
+    common = {"record": new(), "observable": observable, "kind": "exact", "statistic": "bound"}
+    insert(conn, "tk.accuracy_statement", id=new(), ordinal=1, sample_size=10, **common)
+    for name, extra in (("ordinal_from_one", {"ordinal": 0}), ("sample_size_positive", {"ordinal": 2, "sample_size": 0})):
+        with pytest.raises(psycopg.errors.CheckViolation, match=name):
+            with conn.transaction():
+                insert(conn, "tk.accuracy_statement", id=new(), **common, **extra)
+
+
+def test_a_level_of_theory_states_its_frequency_and_energy_levels_together(
+    conn: psycopg.Connection,
+) -> None:
+    frequency, energy = new(), new()
+    for identifier, key in ((frequency, "b3lyp"), (energy, "ccsd(t)")):
+        insert(conn, "prov.level_of_theory", id=identifier, key=key, method=key)
+    composite, only_frequency, only_energy, plain = new(), new(), new(), new()
+    insert(conn, "prov.level_of_theory", id=composite, key="both", method="composite", frequency_level=frequency, energy_level=energy)
+    insert(conn, "prov.level_of_theory", id=only_frequency, key="f", method="composite", frequency_level=frequency)
+    insert(conn, "prov.level_of_theory", id=only_energy, key="e", method="composite", energy_level=energy)
+    insert(conn, "prov.level_of_theory", id=plain, key="plain", method="m")
+    provenance(conn, only_energy, "a.json#/28")
+    result = run(conn, "level_of_theory.composite_levels_together")
+    assert violating(result) == ids(only_frequency, only_energy)
+    assert {dict(zip(result.columns, r))["locator"] for r in result.rows if r[0] == str(only_energy)} == {"a.json#/28"}
+
+
+def test_the_database_refuses_a_level_of_theory_with_no_key(conn: psycopg.Connection) -> None:
+    with pytest.raises(psycopg.errors.CheckViolation, match="key_nonempty"):
+        with conn.transaction():
+            insert(conn, "prov.level_of_theory", id=new(), key="", method="m")

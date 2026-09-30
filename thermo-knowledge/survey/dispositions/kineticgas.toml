@@ -78,9 +78,9 @@ reason = "The polarizability and ionization_energy keys of AR hold citation stri
 
 [[disposition]]
 construct = "inline constants in code (collision-integral correlation, RDF constants, LJ/s, transfer-length correlation)"
-disposition = "model_change"
-ref = "alignment-notes #28"
-reason = "The library takes k_B from CODATA 2014 (1.38064852e-23), the gas constant from 2018 and derives N_A as their quotient, but convention_set states only gas_constant, so the kinetic forms cannot read the Boltzmann and Avogadro constants as convention facts; add quantity-typed boltzmann_constant and avogadro_constant attributes (types to be declared) to convention_set. The unpublished regression that replaces the published C_coeff_matr is a provenance statement the mapping records as origin fitted and not published."
+disposition = "held_by_model"
+ref = "kind:convention_set"
+reason = "The library takes k_B from CODATA 2014 (1.38064852e-23), the gas constant from 2018 and derives N_A as their quotient, and convention_set states boltzmann_constant and avogadro_constant beside gas_constant, so the kinetic forms read them as convention facts (convention.boltzmann_constant, convention.avogadro_constant). The unpublished regression that replaces the published C_coeff_matr is a provenance statement the mapping records as origin fitted and not published."
 
 [[disposition]]
 construct = "named parameter sets and the 'default' convention"

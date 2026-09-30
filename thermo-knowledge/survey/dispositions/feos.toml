@@ -12,9 +12,9 @@ reason = "The record splits into a molar-mass value, one parameter set per consu
 
 [[disposition]]
 construct = "PC-SAFT pure parameters (PcSaftRecord)"
-disposition = "model_change"
-ref = "alignment-notes #34"
-reason = "The moment q is given in Debye*Angstrom (struct comment) but model/physical.toml has a DipoleMoment type and no quadrupole quantity type, so q cannot be stored typed: add a QuadrupoleMoment quantity type (storage unit C*m^2, signed scale). The default of 0 for mu and q also hides not applicable from a known zero, which the mapping must resolve to a value_state."
+disposition = "mapping_loss"
+ref = "mechanism:quantity type QuadrupoleMoment"
+reason = "The moment q is given in Debye*Angstrom (struct comment) and is stored typed as a QuadrupoleMoment (storage unit C*m^2, signed scale) beside the DipoleMoment of mu. The default of 0 for mu and q also hides not applicable from a known zero, which the mapping must resolve to a value_state."
 
 [[disposition]]
 construct = "association site record (AssociationRecord) and induced-association sites"
@@ -30,9 +30,9 @@ reason = "A binary record with neither model fields nor sites (21 in rehner2023_
 
 [[disposition]]
 construct = "chemical record (gc_substances.json)"
-disposition = "model_change"
-ref = "alignment-notes #21"
-reason = "The heterosegmented model needs the bonds between the groups of one molecule (index pairs into the ordered segments list, a linear chain when absent), but group_count holds only a count per group; add a relation group_bond_count keyed by (assignment, group, group) with a Count value, symmetric with diagonal allowed and provenance inherit:assignment (the same change as for Clapeyron's intragroups file). Which instance bonds to which is then reduced to counts between group types."
+disposition = "mapping_loss"
+ref = "relation:group_bond_count"
+reason = "The heterosegmented model needs the bonds between the groups of one molecule (index pairs into the ordered segments list, a linear chain when absent), which group_bond_count holds (keyed by assignment, group and group with a Count value, symmetric with the diagonal allowed and provenance inherit:assignment) beside the group_count of each group. Which instance bonds to which is then reduced to counts between group types."
 
 [[disposition]]
 construct = "segment record and binary segment record"

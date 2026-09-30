@@ -27,7 +27,7 @@ equation = { type = "SourceText", optional = true, doc = "The reaction as the so
 
 [[kinds.reaction.requires]]
 name = "conserves_declared_quantities"
-doc = "For every conserved quantity with a composition entry on any participant, the coefficient-weighted sum over participants is zero."
+doc = "For every conserved quantity with a composition entry on any participant, the coefficient-weighted sum over participants is zero. The balance of an element counts the isotopes of that element as well as the element itself, and the balance of an isotope counts only that isotope."
 enforced = "verify"
 
 [[kinds.reaction.requires]]
@@ -55,7 +55,7 @@ absence = "optional"
 
 [[relations.system_reaction.requires]]
 name = "conserves_system_quantities"
-doc = "The reaction conserves each conserved quantity its system declares: the coefficient-weighted sum over its participants of the quantity's composition entries is zero."
+doc = "The reaction conserves each conserved quantity its system declares: the coefficient-weighted sum over its participants of the quantity's composition entries is zero, where the balance of an element also counts the isotopes of that element."
 enforced = "verify"
 
 [relations.system_reaction.keys]

@@ -1,10 +1,10 @@
 -- invariant: slot_uncertainty.magnitude_matches_kind
 -- An uncertainty states a magnitude its kind does not allow, or lacks the one it requires.
--- The kinds that are relative and those that state no magnitude are the members of `uncertainty_kind` with the facets `relative` and `unquantified`, so a member with a facet is covered without editing this file.
+-- The kinds whose magnitude is dimensionless (a fraction of the value, or a factor) and those that state no magnitude are the members of `uncertainty_kind` with the facets `relative` or `factor` and `unquantified`, so a member with a facet is covered without editing this file. A factor is stored where a relative magnitude is.
 WITH kind_facets AS (
     SELECT m.name AS kind,
            EXISTS (SELECT 1 FROM meta.enum_member_facet f
-                   WHERE f.enum = 'uncertainty_kind' AND f.member = m.name AND f.facet = 'relative') AS is_relative,
+                   WHERE f.enum = 'uncertainty_kind' AND f.member = m.name AND f.facet IN ('relative', 'factor')) AS is_relative,
            EXISTS (SELECT 1 FROM meta.enum_member_facet f
                    WHERE f.enum = 'uncertainty_kind' AND f.member = m.name AND f.facet = 'unquantified') AS is_unquantified
     FROM meta.enum_member m

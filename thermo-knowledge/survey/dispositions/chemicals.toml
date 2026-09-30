@@ -684,9 +684,9 @@ reason = "Each block maps to a group_assignment of a group_scheme whose groups a
 
 [[disposition]]
 construct = "Temperature-scale difference tables (embedded)"
-disposition = "model_change"
-ref = "alignment-notes #20"
-reason = "The four difference tables need the scales ITS-68, ITS-48, ITS-76 and ITS-27 as temperature_scale members, but the enum has only its_90, ipts_68, ipts_48 and not_stated, so a member for the 1976 low-temperature scale (the source's ITS-76) and for ITS-27 must be added; the tables themselves are tabulated_function data with a cubic_spline interpolation whose form needs a scale-pair subject and no further change."
+disposition = "held_by_model"
+ref = "enum:temperature_scale"
+reason = "The four difference tables need the scales ITS-68, ITS-48, ITS-76 and ITS-27 as temperature_scale members, and the enum has its_90, ipts_68, ipts_48, ept_76 (the source's ITS-76, the 1976 provisional low-temperature scale), its_27 and not_stated; the tables themselves are tabulated_function data with a cubic_spline interpolation whose form needs a scale-pair subject and no further change."
 
 [[disposition]]
 construct = "Optional precomputed constants database (Misc/default.sqlite, not in the tree)"

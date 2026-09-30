@@ -71,9 +71,9 @@ reason = "These classes compute values at run time (McGowan volume from atom cou
 
 [[disposition]]
 construct = "Conformer and statmech modes"
-disposition = "model_change"
-ref = "alignment-notes #34"
-reason = "The mode lists and the thermodynamic functions as sums over modes (translation, rigid and hindered rotors, harmonic oscillators, spin multiplicity, optical isomers, symmetry) are forms of the catalogue, but their slots need quantity types absent from physical.toml: a wavenumber for frequencies and a moment of inertia for rotor modes."
+disposition = "held_by_model"
+ref = "mechanism:quantity type Wavenumber"
+reason = "The mode lists and the thermodynamic functions as sums over modes (translation, rigid and hindered rotors, harmonic oscillators, spin multiplicity, optical isomers, symmetry) are forms of the catalogue, and their slots take the quantity types Wavenumber for frequencies and MomentOfInertia for rotor modes."
 
 [[disposition]]
 construct = "TransportData and CriticalPoint"
@@ -83,9 +83,9 @@ reason = "Lennard-Jones parameters map as in rmg_database, but the Neufeld omega
 
 [[disposition]]
 construct = "LevelOfTheory and CompositeLevelOfTheory"
-disposition = "model_change"
-ref = "alignment-notes #29"
-reason = "A level of theory (method, basis, auxiliary basis, CABS, software release, solvent, solvation method, extra arguments, and a composite of a frequency level and an energy level) needs a declared kind that derivations, fits and parameterizations can reference, because derivation.method is only text and the model has no structured computation-method record."
+disposition = "held_by_model"
+ref = "kind:level_of_theory"
+reason = "A level of theory (method, basis, auxiliary basis, CABS, software release, solvent, solvation method, extra arguments, and a composite of a frequency level and an energy level) is the kind level_of_theory that derivations reference through derivation.level_of_theory, where derivation.method stays the name of the method as text."
 
 [[disposition]]
 construct = "rank to accuracy map"

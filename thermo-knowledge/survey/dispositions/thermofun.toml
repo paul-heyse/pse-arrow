@@ -18,9 +18,9 @@ reason = "The record is split into a species form with composition rows and one 
 
 [[disposition]]
 construct = "property block (values, units, errors)"
-disposition = "model_change"
-ref = "alignment-notes #27"
-reason = "enum:uncertainty_kind has no member for a magnitude whose meaning the source does not state, so a non-zero errors entry (standard, expanded or a bound is not said) can only be asserted as one of those kinds or dropped; add an `unspecified` member with no facet. A zero error, which cannot be told from unknown (322 of 331 in aq17), maps to not_stated."
+disposition = "mapping_loss"
+ref = "enum:uncertainty_kind"
+reason = "enum:uncertainty_kind has the member unspecified, with no facet, so a non-zero errors entry (standard, expanded or a bound is not said) is asserted as a magnitude whose meaning is not stated. A zero error, which cannot be told from unknown (322 of 331 in aq17), maps to not_stated."
 
 [[disposition]]
 construct = "TPMethods entry"

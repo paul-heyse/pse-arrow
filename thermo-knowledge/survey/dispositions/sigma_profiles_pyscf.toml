@@ -1,8 +1,8 @@
 [[disposition]]
 construct = "sigma profile row (main Parquet)"
-disposition = "model_change"
-ref = "alignment-notes #23"
-reason = "Same change as the UD sigma3 file: disp_flag (five values here) needs a dispersion-class enum in model/ for the COSMO-SAC-dsp form's pure slot group, while the three blocks become named series of one tabulated_function. Null disp_e_kB (74,094 rows) maps to a stateful slot state, and an all-zero OH or OT block is stored as a known zero because the source cannot tell an unpopulated block from a missing one."
+disposition = "mapping_loss"
+ref = "enum:dispersion_class"
+reason = "Same holding as the UD sigma3 file: disp_flag (five values here) is a slot of the enum dispersion_class in the COSMO-SAC-dsp form's pure slot group, while the three blocks become named series of one tabulated_function. Null disp_e_kB (74,094 rows) maps to a stateful slot state, and an all-zero OH or OT block is stored as a known zero because the source cannot tell an unpopulated block from a missing one."
 
 [[disposition]]
 construct = "sigma profile index row"

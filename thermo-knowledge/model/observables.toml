@@ -34,6 +34,7 @@ members.per_host_mass = { doc = "Per mass of host or adsorbent." }
 members.per_host_volume = { doc = "Per volume of host or adsorbent." }
 members.per_host_area = { doc = "Per surface area of host or adsorbent." }
 members.per_unit_cell = { doc = "Per crystallographic unit cell of the host." }
+members.per_mole_of_solute = { doc = "Per amount of solute, as an enthalpy of solution or of dilution is stated." }
 members.none = { doc = "Intensive, or not divided by an amount." }
 
 [enums.reference_relation]
@@ -46,6 +47,7 @@ members.residual_tp = { doc = "Relative to the ideal gas at the same temperature
 members.mixing = { doc = "Relative to the unmixed components." }
 members.formation = { doc = "Of formation from the elements in their reference forms." }
 members.increment = { doc = "A difference between two stated states of the same material." }
+members.transformed = { doc = "A transformed, or apparent, quantity: the quantity of a biochemical reaction at a stated pH, ionic strength and pMg, relative to the transformed standard state. The conditions that define it are the dataset's constraint columns for pH, ionic strength and pMg; the observables for them are vocabulary rows the wave that maps the thermodynamic-data exchange format declares, so no requirement ties them to this member yet." }
 
 [enums.path]
 doc = "The path or constraint along which an observable is defined."
@@ -54,6 +56,7 @@ members.isobaric = { doc = "At constant pressure." }
 members.isochoric = { doc = "At constant volume." }
 members.isothermal = { doc = "At constant temperature." }
 members.isentropic = { doc = "At constant entropy." }
+members.isenthalpic = { doc = "At constant enthalpy, as the Joule-Thomson coefficient is defined." }
 members.saturation = { doc = "Along a saturation line." }
 
 [enums.adsorption_kind]
@@ -71,11 +74,13 @@ members.mass_averaged = { doc = "Relative to the barycentric velocity." }
 members.volume_averaged = { doc = "Relative to the volume-average velocity." }
 members.solvent_fixed = { doc = "Relative to the solvent." }
 members.self_diffusion = { doc = "Self-diffusion or tracer diffusion; no frame applies." }
+members.not_stated = { doc = "A diffusion observable whose source does not say which frame it is relative to." }
 members.not_applicable = { doc = "Not a diffusion observable." }
 
 [enums.uncertainty_kind]
-doc = "What an uncertainty magnitude means. The facets state what a magnitude of each kind is: a rule that depends on them reads them, never the names of members."
+doc = "What an uncertainty magnitude means. The facets state what a magnitude of each kind is: a rule that depends on them reads them, never the names of members. A magnitude is a quantity in the value's unit unless a facet says otherwise; a magnitude with the facet `relative` or `factor` is dimensionless and is stored where the relative magnitude is stored."
 facets.relative = { doc = "The magnitude is a fraction of the value, not a quantity in the value's unit." }
+facets.factor = { doc = "The magnitude is a dimensionless factor f: the value lies within x/f to x*f at the stated level. It is stored where a relative magnitude is stored." }
 facets.unquantified = { doc = "The kind states no magnitude." }
 members.standard = { doc = "A standard uncertainty." }
 members.expanded = { doc = "An expanded uncertainty with a coverage factor or confidence level." }
@@ -90,6 +95,8 @@ members.repeatability_other = { doc = "A repeatability stated as a spread of ano
 members.device_specification = { doc = "The uncertainty that the specification of the measuring device gives the value; the method states how the specification was obtained." }
 members.curve_deviation = { doc = "The root-mean-square deviation of the values from a stated curve, in the unit of the value." }
 members.relative_curve_deviation = { doc = "The root-mean-square relative deviation of the values from a stated curve, as a fraction of the value.", facets = ["relative"] }
+members.multiplicative_factor = { doc = "A multiplicative uncertainty factor f: the value lies within x/f to x*f at the stated level.", facets = ["factor"] }
+members.unspecified = { doc = "A magnitude in the value's unit whose meaning the source does not state: not a standard, expanded or interval uncertainty, and not assumed to be one." }
 members.exact = { doc = "Exact by definition or convention.", facets = ["unquantified"] }
 members.not_stated = { doc = "The source gives no uncertainty; this is not zero uncertainty.", facets = ["unquantified"] }
 
@@ -356,9 +363,9 @@ path = "isothermal"
 adsorption = "absolute"
 
 [entities.observable.adsorbed_amount_excess]
-doc = "Excess amount adsorbed per mass of host."
+doc = "Excess amount adsorbed per mass of host. A surface excess can be negative, so it is an `ExcessLoading`."
 key = "adsorbed_amount_excess"
-quantity = "Loading"
+quantity = "ExcessLoading"
 subject = "adsorbate_on_host"
 basis = "per_host_mass"
 relation = "absolute"

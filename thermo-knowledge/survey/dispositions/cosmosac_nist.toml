@@ -12,9 +12,9 @@ reason = "Held as a tabulated_function (axis converted from e/A^2 to C/m^2, seri
 
 [[disposition]]
 construct = "UD sigma3 file (three profiles with dispersion descriptor)"
-disposition = "model_change"
-ref = "alignment-notes #23"
-reason = "The three 51-bin blocks become the named series nhb, oh and ot of one tabulated_function (order taken from the file's comment line and the reader), which the declaration holds; but meta.disp. flag (NHB, HB-ACCEPTOR, HB-DONOR-ACCEPTOR, COOH, H2O) needs a declared vocabulary for the COSMO-SAC-dsp form's pure slot group, and model/ declares none: add a dispersion-class enum. A null disp. e/kB is mapped to a stateful slot state, not to a number."
+disposition = "mapping_loss"
+ref = "enum:dispersion_class"
+reason = "The three 51-bin blocks become the named series nhb, oh and ot of one tabulated_function (order taken from the file's comment line and the reader), which the declaration holds; meta.disp. flag (NHB, HB-ACCEPTOR, HB-DONOR-ACCEPTOR, COOH, H2O) is a slot of the enum dispersion_class in the COSMO-SAC-dsp form's pure slot group. A null disp. e/kB is mapped to a stateful slot state, not to a number."
 
 [[disposition]]
 construct = "complist row"

@@ -66,9 +66,9 @@ reason = "The Wilhoit function (a0 to a3, B, Cp0, CpInf, H0, S0) is a form decla
 
 [[disposition]]
 construct = "quantity tuple and uncertainty syntax"
-disposition = "model_change"
-ref = "alignment-notes #27"
-reason = "uncertainty_kind needs a member for a magnitude in the quantity's unit whose meaning the source does not state (the file gives neither coverage nor distribution, and not_stated carries no magnitude) and a member for a multiplicative factor (a dimensionless factor, relative on a log scale, which slot_uncertainty.relative_magnitude cannot state), each with the facets that say what its magnitude is."
+disposition = "held_by_model"
+ref = "enum:uncertainty_kind"
+reason = "uncertainty_kind has a member for a magnitude in the quantity's unit whose meaning the source does not state (unspecified, with no facet; the file gives neither coverage nor distribution, and not_stated carries no magnitude) and a member for a multiplicative factor (multiplicative_factor, with the facet factor: a dimensionless factor stored where the relative magnitude is, which slot_uncertainty.relative_magnitude then states)."
 
 [[disposition]]
 construct = "thermo group file roles"
@@ -155,9 +155,9 @@ reason = "The twelve coefficients become the slots of a form whose slot group ha
 
 [[disposition]]
 construct = "RateUncertainty"
-disposition = "model_change"
-ref = "alignment-notes #26"
-reason = "A normal distribution of ln k at a reference temperature (bias mu, variance var, sample size N) is an uncertainty of a rule's predicted rate, not of one slot (slot_uncertainty) and not of a dataset point (datum_uncertainty), so an uncertainty attached to a form output at a stated condition (observable, Tref) is needed."
+disposition = "held_by_model"
+ref = "relation:accuracy_statement"
+reason = "A normal distribution of ln k at a reference temperature (bias mu, variance var, sample size N) is an uncertainty of a rule's predicted rate, not of one slot (slot_uncertainty) and not of a dataset point (datum_uncertainty): accuracy_statement holds it for the output observable at the stated condition (a region with a one-point clause on Tref) with the statistics mean_bias and variance and the sample size."
 
 [[disposition]]
 construct = "kinetics family sets and recommended libraries"
@@ -179,9 +179,9 @@ reason = "Epsilon is stored as an EnergyTemperature in kelvin, converted for the
 
 [[disposition]]
 construct = "GroupFrequencies and Conformer (statmech)"
-disposition = "model_change"
-ref = "alignment-notes #34"
-reason = "The mode lists (translation, rigid rotor, hindered rotor, harmonic oscillator) and the characteristic frequency ranges are forms declared in the catalogue, but their slots need quantity types the model lacks: a wavenumber for frequencies (cm^-1) and a moment of inertia for rotor modes, both absent from physical.toml."
+disposition = "held_by_model"
+ref = "mechanism:quantity type Wavenumber"
+reason = "The mode lists (translation, rigid rotor, hindered rotor, harmonic oscillator) and the characteristic frequency ranges are forms declared in the catalogue, and their slots take the quantity types Wavenumber for frequencies (cm^-1) and MomentOfInertia for rotor modes."
 
 [[disposition]]
 construct = "binding energies of metals (surface library)"

@@ -60,9 +60,9 @@ reason = "Maps to group_assignment rows with group_count values, but the scheme 
 
 [[disposition]]
 construct = "UNIFAC subgroup record (RkQk row)"
-disposition = "model_change"
-ref = "alignment-notes #21"
-reason = "Subgroups become group rows of a scheme whose revision comes only from the workbook file name, with Rk and Qk as slots and the main group as partition_class; because a group's identity is (scheme, label), the duplicated names (CHO twice in both Dortmund files, CH3S, CH2S and CHS in original-unifac) cannot keep the bare name, and the mapping qualifies the label by main group. Rk and Qk carry no unit and are taken as dimensionless."
+disposition = "mapping_loss"
+ref = "kind:group"
+reason = "Subgroups become group rows of a scheme whose revision comes only from the workbook file name, with Rk and Qk as slots and the main group as partition_class; a group's identity is (scheme, code) and the workbook has no subgroup number, so the duplicated names (CHO twice in both Dortmund files, CH3S, CH2S and CHS in original-unifac) keep their bare name as label and the mapping states the code as the label qualified by main group. Rk and Qk carry no unit and are taken as dimensionless."
 
 [[disposition]]
 construct = "UNIFAC main-group interaction cell (Dortmund A0, A1, A2)"

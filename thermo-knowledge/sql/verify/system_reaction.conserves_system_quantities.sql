@@ -8,8 +8,17 @@ WITH contribution AS (
     JOIN tk.species_form f ON f.id = p.form
     JOIN tk.composition c ON c.entity IN (f.id, f.species)
     ORDER BY p.reaction, p.form, c.quantity, (c.entity = f.id) DESC
+), counted AS (
+    -- what a participant counts for a quantity, and, for an isotope, for its element as well
+    SELECT reaction, quantity, amount FROM contribution
+    UNION ALL
+    SELECT c.reaction, q.of_element, c.amount
+    FROM contribution c
+    JOIN tk.isotope i ON i.id = c.quantity
+    JOIN tk.conserved_quantity q ON q.id = i.id
+    WHERE q.of_element IS NOT NULL
 ), balance AS (
-    SELECT reaction, quantity, sum(amount) AS net FROM contribution GROUP BY reaction, quantity
+    SELECT reaction, quantity, sum(amount) AS net FROM counted GROUP BY reaction, quantity
 )
 SELECT sr.id, loc.locator, sr.system, sr.reaction, q.key AS quantity, b.net
 FROM tk.system_reaction sr

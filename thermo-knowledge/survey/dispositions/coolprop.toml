@@ -132,9 +132,9 @@ reason = "The five Aly-Lee coefficients are kept as the source form in the order
 
 [[disposition]]
 construct = "IdealGasHelmholtzEnthalpyEntropyOffset"
-disposition = "model_change"
-ref = "alignment-notes #22"
-reason = "The IIR reference (h = 200 kJ/kg and s = 1 kJ/(kg K) for saturated liquid at 273.15 K) is a datum with nonzero values at a named state, which energy_reference cannot state because zero_at_state means zero and the state is only text; add a datum member with optional stated values (enthalpy_at_state and entropy_at_state, with their amount basis) to energy_reference, while OTH and CUSTOM, defined nowhere in the source, map to not_stated."
+disposition = "mapping_loss"
+ref = "kind:energy_reference"
+reason = "The IIR reference (h = 200 kJ/kg and s = 1 kJ/(kg K) for saturated liquid at 273.15 K) is a datum with nonzero values at a named state, which energy_reference states with the datum at_state, the specific energy and entropy values and the aggregation of the state, while OTH and CUSTOM, defined nowhere in the source, map to not_stated."
 
 [[disposition]]
 construct = "ANCILLARIES pS / pL / pV (saturation pressure)"

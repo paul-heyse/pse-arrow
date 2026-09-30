@@ -1,0 +1,69 @@
+module = "additions_vocabulary"
+schema = "tk"
+uses = ["physical", "provenance", "identity", "observables", "systems"]
+doc = "Vocabulary rows a mapping would declare, for the tests of the TK2f declaration additions: analytical and purification methods, and observables that use the members and quantity types the additions introduce."
+
+[entities.analysis_method.gas_chromatography]
+doc = "Gas chromatography."
+key = "gas_chromatography"
+name = "Gas chromatography"
+
+[entities.purification_method.fractional_distillation]
+doc = "Fractional distillation."
+key = "fractional_distillation"
+name = "Fractional distillation"
+
+[entities.observable.fixture_joule_thomson_coefficient]
+doc = "Joule-Thomson coefficient: the temperature change with pressure along an isenthalpic path."
+key = "fixture_joule_thomson_coefficient"
+quantity = "TemperatureDifference"
+subject = "mixture"
+basis = "none"
+relation = "absolute"
+path = "isenthalpic"
+
+[entities.observable.fixture_enthalpy_of_solution]
+doc = "Molar enthalpy of solution, per mole of solute."
+key = "fixture_enthalpy_of_solution"
+quantity = "MolarEnergy"
+subject = "mixture"
+basis = "per_mole_of_solute"
+relation = "increment"
+path = "none"
+
+[entities.observable.fixture_transformed_gibbs_energy]
+doc = "Transformed molar Gibbs energy of a biochemical reaction at a stated pH, ionic strength and pMg."
+key = "fixture_transformed_gibbs_energy"
+quantity = "MolarEnergy"
+subject = "reaction"
+basis = "molar"
+relation = "transformed"
+path = "none"
+
+[entities.observable.fixture_binary_diffusion]
+doc = "Binary diffusion coefficient of a source that states no frame of reference."
+key = "fixture_binary_diffusion"
+quantity = "Diffusivity"
+subject = "pair"
+basis = "none"
+relation = "absolute"
+path = "none"
+diffusion = "not_stated"
+
+[entities.observable.fixture_kinematic_viscosity]
+doc = "Kinematic viscosity."
+key = "fixture_kinematic_viscosity"
+quantity = "KinematicViscosity"
+subject = "mixture"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.fixture_quadrupole_moment]
+doc = "Electric quadrupole moment of a molecule."
+key = "fixture_quadrupole_moment"
+quantity = "QuadrupoleMoment"
+subject = "pure"
+basis = "none"
+relation = "absolute"
+path = "none"

@@ -30,9 +30,9 @@ reason = "The survey's candidate is wrong: the 9-value blocks a1..a7, b1, b2 are
 
 [[disposition]]
 construct = "element vertex"
-disposition = "model_change"
-ref = "alignment-notes #17"
-reason = "LIGAND and OTHER_EC elements and the decoupled nitrogen Nit are conserved quantities that are not chemical elements, charge or site totals, which enum:conserved_kind cannot hold; add members for a decoupled inventory of an element and for a moiety or ligand placeholder. The isotope_mass and isotope_abundance fields need the isotope member proposed for PHREEQC ISOTOPES, and the reference-form entropy belongs to the energy reference of the convention set."
+disposition = "mapping_loss"
+ref = "kind:isotope"
+reason = "LIGAND and OTHER_EC elements and the decoupled nitrogen Nit are conserved quantities that are not chemical elements, charge or site totals, which enum:conserved_kind holds as the members moiety and decoupled_inventory (Nit naming the element N). The isotope_mass field is the atomic_mass of an isotope, and isotope_abundance has no attribute of kind isotope and is not kept; the reference-form entropy belongs to the energy reference of the convention set."
 
 [[disposition]]
 construct = "thermodataset vertex and reactionset vertex"
