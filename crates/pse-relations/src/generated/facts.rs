@@ -59,8 +59,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            9u8, 67u8, 131u8, 55u8, 65u8, 51u8, 181u8, 88u8, 61u8, 255u8, 192u8, 119u8,
-            126u8, 241u8, 98u8, 82u8,
+            198u8, 20u8, 207u8, 112u8, 127u8, 204u8, 130u8, 18u8, 189u8, 52u8, 146u8,
+            32u8, 151u8, 69u8, 173u8, 161u8,
         ])
     {
         return Ok(

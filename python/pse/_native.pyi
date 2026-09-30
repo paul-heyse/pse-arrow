@@ -498,6 +498,7 @@ class NativeModelingPackage:
         derivative_step: float = 1e-6,
         derivative_tolerance: float = 1e-4,
         fixtures: Sequence[str] | None = None,
+        diagnostics: ModelingDiagnosticSettings | None = None,
     ) -> NativeModelingConformance: ...
     def declarations(self, /) -> bytes: ...
     def diagnose(

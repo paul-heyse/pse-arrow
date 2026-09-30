@@ -72,6 +72,8 @@ path = [
   "python/pse/_native*.so",
   "python/pse/_native*.pyd",
   "**/__pycache__/**",
+  # lu-resolve's own build directory (gitignored; the library-catalog resolver).
+  "tools/*/target/**",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Paul Heyse"

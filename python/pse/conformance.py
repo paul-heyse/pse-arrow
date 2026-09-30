@@ -26,6 +26,7 @@ import pyarrow.ipc
 from pse import (
     EngineSettings,
     ModelingConformance,
+    ModelingDiagnosticSettings,
     ModelingLimits,
     Runtime,
     SolveControls,
@@ -62,6 +63,9 @@ class RunSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     derivative_cells: int = 100000
     derivative_step: float = 1e-6
     derivative_tolerance: float = 1e-4
+    #: The numerical diagnostic threshold profile (JSON), relative to the manifest; a
+    #: fixture that expects diagnostic findings needs one.
+    diagnostics: str | None = None
 
 
 class ConformanceRun(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -123,6 +127,15 @@ def load_manifest(path: Path) -> ConformanceManifest:
             if not (path.parent / root / "package.toml").is_file():
                 message = f"{path}: run {run.name} names {root}, which has no package.toml"
                 raise ValueError(message)
+    if manifest.settings.diagnostics is not None:
+        profile = path.parent / manifest.settings.diagnostics
+        if not profile.is_file():
+            message = f"{path}: diagnostics names {profile}, which is not a file"
+            raise ValueError(message)
+        manifest = msgspec.structs.replace(
+            manifest,
+            settings=msgspec.structs.replace(manifest.settings, diagnostics=str(profile)),
+        )
     return manifest
 
 
@@ -215,6 +228,13 @@ def run_once(  # noqa: PLR0913 - one run's name, roots, execution, settings and 
                 derivative_step=settings.derivative_step,
                 derivative_tolerance=settings.derivative_tolerance,
                 fixtures=fixtures,
+                diagnostics=(
+                    None
+                    if settings.diagnostics is None
+                    else ModelingDiagnosticSettings.from_json(
+                        Path(settings.diagnostics).read_text(encoding="utf-8")
+                    )
+                ),
             )
         if report is not None:
             _write(report, result)
@@ -301,6 +321,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--expansion-depth", type=int)
     parser.add_argument("--report", type=Path)
     parser.add_argument(
+        "--diagnostics",
+        type=Path,
+        help="numerical diagnostic threshold profile (JSON) for expected findings",
+    )
+    parser.add_argument(
         "--fixture",
         type=fixture_id,
         action="append",
@@ -332,6 +357,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         derivative_cells=args.derivative_cells,
         derivative_step=args.derivative_step,
         derivative_tolerance=args.derivative_tolerance,
+        diagnostics=None if args.diagnostics is None else str(args.diagnostics),
     )
     summary = run_once(
         args.package.name,

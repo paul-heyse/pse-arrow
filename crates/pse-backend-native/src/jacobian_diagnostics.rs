@@ -302,6 +302,8 @@ fn rank(
             parallel_tolerance: 0.,
             rank_absolute: policy.tolerance,
             rank_relative: policy.rank_relative,
+            // Only the rank is read; no mode names members.
+            singular_vector: 0.,
         },
         &execution.cancel,
     )?

@@ -605,6 +605,7 @@ async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
         maximum_fixtures: 10,
         maximum_checks: 50,
         fixtures: Default::default(),
+        diagnostics: None,
     };
     policy.solver.intent = SolveIntent::Optimize;
     let report = package

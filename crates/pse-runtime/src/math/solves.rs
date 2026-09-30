@@ -887,6 +887,17 @@ impl MathService {
             settings: &profile.backend,
             sensitivity: profile.sensitivity.is_some(),
         };
+        // A root intent over equalities whose count is not square has no root route. Its
+        // structural analysis names the over- and underdetermined members, which is the
+        // attributable refusal (PS-04), not the absence of an eligible route.
+        if matches!(profile.intent, SolveIntent::Root | SolveIntent::Initialize)
+            && f.equalities
+            && !f.objective
+            && f.variables > 0
+            && f.rows != f.variables
+        {
+            native::structural::admit(prepared.structure(), native::structural::Mode::Roots)?;
+        }
         let route = requirements.select(profile.selection)?;
         let eligibility = requirements.eligibility();
         // An authored realization's structural requirement selects the method it needs on

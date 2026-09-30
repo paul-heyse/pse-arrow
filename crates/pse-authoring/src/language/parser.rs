@@ -1697,6 +1697,7 @@ impl Cursor<'_> {
                         Vec::<AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem>::new();
                     let mut initialization = None;
                     let mut expected_failure = None;
+                    let mut diagnostics = Vec::new();
                     while !self.eat("}") {
                         // ADR-0119 Outcome 3: `mode <name> [facts(<fact> = <bool>, ...)];`
                         // declares a same-layout mode; the events after it belong to it.
@@ -1969,6 +1970,24 @@ impl Cursor<'_> {
                             );
                             continue;
                         }
+                        // Plan 23 CT-S13: `diagnose "<rule>" at(<member>, ...);` expects a
+                        // numerical diagnostic finding naming each member at the solved point.
+                        if self.eat("diagnose") {
+                            let rule = self.word()?;
+                            self.expect("at")?;
+                            let members = self.expressions()?;
+                            if members.is_empty() {
+                                return Err(self.error("a diagnosed member"));
+                            }
+                            self.expect(";")?;
+                            diagnostics.push(
+                                AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem {
+                                    rule,
+                                    members,
+                                },
+                            );
+                            continue;
+                        }
                         // Plan 23 H5: `failure <class> validity(<layer>) [form(<path>)]
                         // [set(<expression>, ...)] variable(<argument or member>, ...);` or
                         // `failure <class> members(<member>, ...);` names the failure's typed
@@ -2062,6 +2081,7 @@ impl Cursor<'_> {
                         modes,
                         shooting,
                         expected_failure,
+                        diagnostics,
                         specifications,
                     })
                 } else {

@@ -452,6 +452,46 @@ fn fixture_intent_parses_and_renders() {
     }
 }
 
+/// Plan 23 CT-S13: a fixture's expected diagnostics, each a rule and the member paths its
+/// finding names, parse and render back to the same declaration.
+#[test]
+fn fixture_diagnostics_parse_and_render() {
+    let source = "package p { def D { var x[i in s]: Scalar; eq e[i in s]: x[i] == 1; } test t fixture { dof 0; run steady; diagnose \"jacobian.parallel_rows\" at(root.e[a], root.e[b]); diagnose \"jacobian.numerical_rank_deficiency\" at(root.x); } { child root: D = D(); } }";
+    let rows = parse_named(source);
+    let fixture = rows
+        .iter()
+        .find(|r| r.name == "t")
+        .and_then(|r| r.value.scope.as_ref())
+        .and_then(|s| s.fixture.clone())
+        .unwrap();
+    assert_eq!(fixture.diagnostics.len(), 2);
+    assert_eq!(fixture.diagnostics[0].rule, "jacobian.parallel_rows");
+    assert_eq!(fixture.diagnostics[0].members, ["root.e[a]", "root.e[b]"]);
+    assert_eq!(fixture.diagnostics[1].members, ["root.x"]);
+    let printed = render(&rows).unwrap();
+    let again = parse(
+        &printed,
+        SemanticId::NIL,
+        IdentityPolicy::Explicit,
+        ParseBudget::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
+        again.iter().map(|r| &r.value).collect::<Vec<_>>()
+    );
+    // A diagnosis names at least one member.
+    assert!(
+        parse(
+            &source.replace(" at(root.x)", " at()"),
+            SemanticId::NIL,
+            IdentityPolicy::Named,
+            ParseBudget::default()
+        )
+        .is_err()
+    );
+}
+
 /// ADR-0119: a fixture's execution policy is typed fixture data, printed in one canonical
 /// order and parsed back to the same declaration.
 #[test]

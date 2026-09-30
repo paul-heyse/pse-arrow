@@ -1902,6 +1902,7 @@ mod tests {
             maximum_fixtures: 4,
             maximum_checks: 64,
             fixtures: Default::default(),
+            diagnostics: None,
             derivatives: pse_backend_native::derivative_diagnostics::Policy {
                 perturbation: 1e-6,
                 relative_tolerance: 1e-4,

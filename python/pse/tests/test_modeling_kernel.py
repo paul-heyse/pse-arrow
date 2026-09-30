@@ -37,6 +37,9 @@ def test_conformance_runs_the_declared_reference_set(
     # The declared reference set names existing package roots.
     reference = load_manifest(root / "packages/reference/conformance.toml")
     assert reference.runs
+    # Its diagnostic thresholds resolve beside the manifest.
+    assert reference.settings.diagnostics is not None
+    assert Path(reference.settings.diagnostics).is_file()
     # A tiny synthetic set: one pure run whose fixture declares its own allowance.
     package = tmp_path / "pure"
     (package / "models").mkdir(parents=True)
@@ -88,6 +91,7 @@ execution = "pure"
         text.replace("maximum_checks", "maximum_check"),
         text + text[text.index("[[runs]]") :],
         text.replace('package = "pure"', 'package = "absent"'),
+        text.replace("maximum_checks = 32", 'maximum_checks = 32\ndiagnostics = "absent.json"'),
     ):
         manifest.write_text(invalid)
         with pytest.raises((msgspec.ValidationError, ValueError)):
@@ -413,6 +417,7 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
             "parallel_tolerance": 1e-8,
             "rank_absolute": 1e-12,
             "rank_relative": 1e-8,
+            "singular_vector": 0.1,
         },
         "terms": {
             "zero": 1e-10,

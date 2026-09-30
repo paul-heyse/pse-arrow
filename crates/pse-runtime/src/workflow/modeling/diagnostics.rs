@@ -762,10 +762,32 @@ impl ModelingPackage {
                             );
                         }
                         if matrix.rank < row_ids.len().min(columns.len()) {
+                            // The deficiency names the equations and variables that carry
+                            // its near-null modes: those whose component of a left or right
+                            // singular vector below the cutoff exceeds the profile's
+                            // singular-vector threshold.
+                            let threshold = policy.matrix.singular_vector;
+                            let mut members = std::collections::BTreeSet::new();
+                            for mode in matrix.modes.iter().filter(|m| m.value <= matrix.cutoff) {
+                                members.extend(
+                                    mode.left
+                                        .iter()
+                                        .zip(row_ids.iter())
+                                        .filter(|(v, _)| v.abs() > threshold)
+                                        .map(|(_, id)| *id),
+                                );
+                                members.extend(
+                                    mode.right
+                                        .iter()
+                                        .zip(columns.iter())
+                                        .filter(|(v, _)| v.abs() > threshold)
+                                        .map(|(_, id)| *id),
+                                );
+                            }
                             report.push(
                                 finding(
                                     "jacobian.numerical_rank_deficiency",
-                                    row_ids.iter().chain(&columns).copied(),
+                                    members,
                                     Some(matrix.rank as f64),
                                     Some(matrix.cutoff),
                                 ),
@@ -1088,6 +1110,7 @@ mod tests {
                 parallel_tolerance: 1e-8,
                 rank_absolute: 1e-12,
                 rank_relative: 1e-8,
+                singular_vector: 0.1,
             },
             terms: TermPolicy {
                 zero: 1e-10,

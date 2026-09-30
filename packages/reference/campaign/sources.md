@@ -75,3 +75,17 @@ phases, the lever rule for V/F), and the recycle is (1 - purge)(F - V)/purge.
 `recycle_flash_failure_restores_specification` selects a tear stage whose 500 K recycle
 estimate exceeds the BTIdeal temperature bound: the stage fails, nothing is committed, and
 the unchanged specification solves from its own starts to the same steady state.
+
+`models/flash-diagnostics.pse` holds the diagnostics scenarios. `flash_overspecified`
+fixes the outlet temperature of the IDAES `test_flash` BTIdeal flash in addition to its
+inlet, duty and pressure change: one equation too many. The root solve is refused
+structurally before any route is chosen (`invalid_model`, `native.structural`), naming the
+over-determined equations. `EquilibriumCascade` is a minimal cascade of ideal equilibrium
+stages with a total condenser and a total reboiler under constant molar overflow; its stage
+set and the links between adjacent stages are its arguments. Two stages with 100 mol/s
+boilup, fed 1e-6 mol/s and drawing half of it as distillate, run near total reflux: the two
+stages' balances of each component are near-parallel and the Jacobian is numerically rank
+deficient under the `idaes-2.13` thresholds, and
+`cascade_near_singular_diagnostics_name_members` expects both findings naming those
+balances. Its state is compared with the analytic total-reflux limit (the reflux is the top
+vapor, the boilup the bottom liquid, and y1 + x2 = 1 for benzene).

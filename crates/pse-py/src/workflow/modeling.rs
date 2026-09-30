@@ -1166,7 +1166,7 @@ impl NativeModelingPackage {
         clippy::too_many_arguments,
         reason = "one parameter per argument of the Python method signature"
     )]
-    #[pyo3(signature=(settings, *, maximum_fixtures=1024, maximum_checks=16384, derivative_cells=100000, derivative_step=1e-6, derivative_tolerance=1e-4, fixtures=None))]
+    #[pyo3(signature=(settings, *, maximum_fixtures=1024, maximum_checks=16384, derivative_cells=100000, derivative_step=1e-6, derivative_tolerance=1e-4, fixtures=None, diagnostics=None))]
     fn conform(
         &self,
         py: Python<'_>,
@@ -1177,6 +1177,7 @@ impl NativeModelingPackage {
         derivative_step: f64,
         derivative_tolerance: f64,
         fixtures: Option<Vec<String>>,
+        diagnostics: Option<&ModelingDiagnosticSettings>,
     ) -> PyResult<NativeModelingConformance> {
         let settings = settings::solve_profile(py, settings)?;
         let fixtures = fixture_selection(py, fixtures)?;
@@ -1194,6 +1195,7 @@ impl NativeModelingPackage {
             maximum_fixtures,
             maximum_checks,
             fixtures,
+            diagnostics: diagnostics.map(|d| d.policy.clone()),
         };
         let inner = blocking(py, &self.owner, self.inner.conform(policy, &cancel), || {
             cancel.cancel()

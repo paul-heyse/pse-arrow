@@ -1060,3 +1060,40 @@ fn stage_overrides_an_equation_its_definition_inherits() {
         assert!(error.to_string().contains(message), "{error}");
     }
 }
+#[test]
+fn fixture_diagnostics_resolve_members_once() {
+    // An expected diagnostic names members by path: an equation coordinate names its row, a
+    // member without coordinates every coordinate; a path that names no equation or
+    // variable is refused at specialization, and only steady or initialized fixtures
+    // diagnose a solved point.
+    let text = r#"package p {
+ entity kind item {} entity item a {} entity item b {}
+ set items: Set<item> = {a, b};
+ def D { var x[i in items]: Scalar; eq e[i in items]: x[i] == 1; }
+ test t fixture { dof 0; run steady; diagnose "jacobian.parallel_rows" at(root.e[a], root.x); } { child root: D = D(); }
+ }"#;
+    let model = run(text, "p.t", Bindings::default()).unwrap();
+    let fixture = model.fixtures.values().next().unwrap();
+    let [expected] = fixture.diagnostics.as_slice() else {
+        panic!("one expected diagnostic");
+    };
+    assert_eq!(expected.rule, "jacobian.parallel_rows");
+    let (path, rows) = &expected.members[0];
+    assert_eq!(path, "root.e[a]");
+    assert_eq!(rows.len(), 1);
+    assert!(model.equations.iter().any(|row| rows.contains(&row.id)
+        && row.lineage.path.ends_with("root.e")));
+    let (_, variables) = &expected.members[1];
+    assert_eq!(variables.len(), 2);
+    assert!(variables.iter().all(|id| model.symbols.contains_key(id)));
+    for (invalid, message) in [
+        (text.replace("root.e[a], root.x", "root.absent"), "unknown"),
+        (
+            text.replace("run steady;", "run pure;"),
+            "fixture execution metadata disagrees with its route",
+        ),
+    ] {
+        let error = run(&invalid, "p.t", Bindings::default()).unwrap_err();
+        assert!(error.to_string().contains(message), "{error}");
+    }
+}

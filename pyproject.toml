@@ -195,6 +195,9 @@ extend-exclude = [
   ".agents/skills/**",
   # Reference material kept until the thermodynamics work lands; not product source.
   "thermodynamics_complete_conversation_handoff/**",
+  # The library-utilization catalog tooling: a maintainer script set, developed on 3.14 syntax.
+  "scripts/library_*.py",
+  "scripts/tests/test_library_*.py",
 ]
 
 [tool.ruff.format]
@@ -347,6 +350,8 @@ project-excludes = [
   "external/**",
   "build/**",
   "thermodynamics_complete_conversation_handoff/**",
+  "scripts/library_*.py",
+  "scripts/tests/test_library_*.py",
 ]
 search-path = ["python", "python/stubs"]
 # Check against the floor, not the 3.14 we develop on.

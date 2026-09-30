@@ -7,7 +7,8 @@ the resulting settings to the modeling package's diagnostic operation.
 
 The threshold values come from the public configuration behavior of IDAES-PSE 2.13.0's
 `DiagnosticsToolbox` and `SVDToolbox`. The Jacobian thresholds select its caution levels;
-the rank cutoff selects its absolute small-singular-value threshold. The source references
+the rank cutoff selects its absolute small-singular-value threshold, and the singular-vector
+threshold its size cutoff for the equations and variables a small singular value names. The source references
 are [diagnostics toolbox](https://github.com/IDAES/idaes-pse/blob/2.13.0/idaes/core/util/diagnostics_tools/diagnostics_toolbox.py)
 and [SVD toolbox](https://github.com/IDAES/idaes-pse/blob/2.13.0/idaes/core/util/diagnostics_tools/svd_toolbox.py).
 The values were read from the pinned local source; no upstream implementation was copied

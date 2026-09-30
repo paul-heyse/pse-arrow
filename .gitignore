@@ -66,3 +66,5 @@ lcov.info
 # Logs, except the committed evidence receipts
 *.log
 !docs/capability-maps/evidence/**/*.log
+# lu-resolve (rust-analyzer resolver behind the library catalog) builds in its own target
+/tools/*/target/

@@ -29,8 +29,8 @@ use std::collections::{BTreeMap, BTreeSet};
 pub use value::{Environment, Value};
 mod fixture;
 pub use fixture::{
-    ExpectedFailure, ExpectedLineage, Fixture, FixtureEvent, FixtureMode, FixtureValue, IntegrationFixture, ScheduleControl,
-    ScheduleFixture, ShootingFixture,
+    ExpectedFailure, ExpectedLineage, Fixture, FixtureDiagnostic, FixtureEvent, FixtureMode, FixtureValue,
+    IntegrationFixture, ScheduleControl, ScheduleFixture, ShootingFixture,
 };
 mod regimes;
 pub use regimes::{Regime, RegimeSelection};
@@ -566,6 +566,31 @@ pub fn specialize_with_discretizer(
     Ok(engine.model)
 }
 impl Engine<'_, '_> {
+    /// The owner and declaration of an equation member reached through child segments, or
+    /// `None` when the path names no equation member.
+    fn equation_member(
+        &self,
+        instance: InstanceId,
+        at: DeclarationId,
+        prefix: &[PathSegment],
+        name: &str,
+        env: &Environment,
+    ) -> Option<(InstanceId, DeclarationId)> {
+        let mut owner = instance;
+        for segment in prefix {
+            owner = if segment.name == "parent" && segment.indices.is_empty() {
+                self.states[&owner].parent?
+            } else {
+                self.child_instance(owner, at, segment, env).ok()?
+            };
+        }
+        let member = self.states[&owner].members.get(name).copied()?;
+        self.p.declarations[&member]
+            .value
+            .equation
+            .is_some()
+            .then_some((owner, member))
+    }
     pub(crate) fn annotation_targets(
         &mut self,
         instance: InstanceId,
@@ -575,6 +600,39 @@ impl Engine<'_, '_> {
         ports: bool,
     ) -> Result<Vec<(SemanticId, Type, Environment)>> {
         let expression = dsl::parse_expr(source).map_err(|e| invalid(at, e.to_string()))?;
+        // One coordinate of an indexed equation member names that equation row.
+        if let ExprKind::Path(path) = &expression.kind
+            && let Some((last, prefix)) = path.segments.split_last()
+            && !last.indices.is_empty()
+            && let Some((owner, member)) = self.equation_member(instance, at, prefix, &last.name, env)
+        {
+            let values = last
+                .indices
+                .iter()
+                .map(|index| self.eval(at, env, &dsl::render_expr(index), None))
+                .collect::<Result<Vec<_>>>()?;
+            let coordinates = self.member_coordinates(owner, member, values)?;
+            let row = self.p.declarations[&member].clone();
+            let ty = crate::annotation::target_type(
+                self.p,
+                self.c,
+                member,
+                &row.name,
+                &self.source_types(member, &self.states[&owner].env)?,
+            )?;
+            let local = coordinates_env(env, &coordinates);
+            let equation = row
+                .value
+                .equation
+                .as_ref()
+                .ok_or_else(|| invalid(at, "equation payload"))?;
+            let equation =
+                dsl::parse_equation(&equation.expression).map_err(|e| invalid(at, e.to_string()))?;
+            if !self.equation_defined(&equation, &local)? {
+                return Ok(Vec::new());
+            }
+            return Ok(vec![(member_id(owner, member, &coordinates), ty, local)]);
+        }
         let mut owner = instance;
         let mut family = None;
         if let ExprKind::Path(path) = &expression.kind

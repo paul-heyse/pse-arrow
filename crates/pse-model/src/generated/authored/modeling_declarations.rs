@@ -551,6 +551,31 @@ impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFai
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem {
+    ///rule
+    pub r#rule: String,
+    ///members
+    pub r#members: Vec<String>,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#rule, &other.r#rule)
+            && crate::SemanticEq::semantic_eq(&self.r#members, &other.r#members)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem {
     ///target
     pub r#target: String,
@@ -606,6 +631,10 @@ pub struct AuthoredModelingDeclarationsFieldValueScopeFixture {
     pub r#expected_failure: Option<
         AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure,
     >,
+    ///diagnostics
+    pub r#diagnostics: Vec<
+        AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem,
+    >,
     ///specifications
     pub r#specifications: Vec<
         AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem,
@@ -631,6 +660,7 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeFixture {
                 &self.r#expected_failure,
                 &other.r#expected_failure,
             )
+            && crate::SemanticEq::semantic_eq(&self.r#diagnostics, &other.r#diagnostics)
             && crate::SemanticEq::semantic_eq(
                 &self.r#specifications,
                 &other.r#specifications,
@@ -6922,6 +6952,23 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure {
     }
 }
 impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#rule));
+        crate::SemanticFrame::frame(&self.r#rule, hash);
+        hash.str(stringify!(r#members));
+        crate::SemanticFrame::frame(&self.r#members, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#rule))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#members))
+    }
+}
+impl crate::SemanticFrame
 for AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#target));
@@ -6963,6 +7010,8 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueScopeFixture
         crate::SemanticFrame::frame(&self.r#shooting, hash);
         hash.str(stringify!(r#expected_failure));
         crate::SemanticFrame::frame(&self.r#expected_failure, hash);
+        hash.str(stringify!(r#diagnostics));
+        crate::SemanticFrame::frame(&self.r#diagnostics, hash);
         hash.str(stringify!(r#specifications));
         crate::SemanticFrame::frame(&self.r#specifications, hash);
     }
@@ -6980,6 +7029,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixture {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#modes))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#shooting))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#expected_failure))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#diagnostics))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#specifications))
     }
 }

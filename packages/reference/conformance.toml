@@ -19,6 +19,8 @@ body_occurrences = 65536
 derivative_cells = 1000000
 derivative_step = 1e-6
 derivative_tolerance = 1e-4
+# Numerical diagnostic thresholds for fixtures that expect diagnostic findings.
+diagnostics = "diagnostics/idaes-2.13.json"
 
 # campaign depends on seed-data, process, thermodynamics, methods, domain and physical, so
 # one native run discovers every campaign, seed and physical fixture exactly once.

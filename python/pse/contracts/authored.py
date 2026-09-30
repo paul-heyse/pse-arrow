@@ -261,6 +261,14 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem:
+    """Declared relation row or nested value."""
+
+    rule: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    members: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem:
     """Declared relation row or nested value."""
 
@@ -283,6 +291,7 @@ class AuthoredModelingDeclarationsFieldValueScopeFixture:
     modes: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     shooting: AuthoredModelingDeclarationsFieldValueScopeFixtureShooting | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureShooting)))
     expected_failure: AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure)))
+    diagnostics: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     specifications: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 

@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "library-catalog": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "fastmcp==4.0.5",
+        "python",
+        "scripts/library_catalog_mcp.py"
+      ],
+      "env": { "FASTMCP_CHECK_FOR_UPDATES": "off" }
+    }
+  }
+}

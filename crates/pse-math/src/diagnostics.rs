@@ -19,6 +19,9 @@ pub struct MatrixPolicy {
     pub rank_absolute: f64,
     /// Singular-value cutoff relative to the largest singular value; in [0, 1).
     pub rank_relative: f64,
+    /// Magnitude above which a row or column's component of a singular vector below the
+    /// rank cutoff names it as a member of that near-null mode; in [0, 1).
+    pub singular_vector: f64,
 }
 impl MatrixPolicy {
     /// Validate explicit classification and work bounds before allocating an analysis.
@@ -31,6 +34,8 @@ impl MatrixPolicy {
             || self.rank_absolute < 0.0
             || !self.rank_relative.is_finite()
             || !(0.0..1.0).contains(&self.rank_relative)
+            || !self.singular_vector.is_finite()
+            || !(0.0..1.0).contains(&self.singular_vector)
         {
             return Err(MathError::Contract("diagnostic matrix policy".into()));
         }
@@ -246,6 +251,7 @@ mod tests {
             parallel_tolerance: 1e-8,
             rank_absolute: 1e-12,
             rank_relative: 1e-8,
+            singular_vector: 0.1,
         };
         let flag = AtomicBool::new(false);
         let r: Report = analyze_matrix(a.as_ref(), &[1.; 3], &[1.; 2], p, &flag).unwrap();

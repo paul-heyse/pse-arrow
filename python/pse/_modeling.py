@@ -962,6 +962,7 @@ class ModelingPackage:
         derivative_step: float = 1e-6,
         derivative_tolerance: float = 1e-4,
         fixtures: Collection[DeclarationId] | None = None,
+        diagnostics: ModelingDiagnosticSettings | None = None,
     ) -> ModelingConformance:
         """Discover authored tests and run bounded shared checks without IDAES.
 
@@ -969,6 +970,8 @@ class ModelingPackage:
         policy replaces a setting for that fixture only. ``fixtures`` selects test
         declarations by identity: only those run, an identity that names no authored test
         is refused before any fixture runs, and the run assesses no package coverage.
+        ``diagnostics`` are the run's numerical diagnostic thresholds; a fixture that
+        expects diagnostic findings needs them.
         """
         return ModelingConformance(
             self._handle.conform(
@@ -979,5 +982,6 @@ class ModelingPackage:
                 derivative_step=derivative_step,
                 derivative_tolerance=derivative_tolerance,
                 fixtures=_selection(fixtures),
+                diagnostics=diagnostics,
             )
         )

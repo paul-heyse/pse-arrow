@@ -858,6 +858,11 @@ fmt:
     "{{ ruff }}" format
 
 [group('mutating')]
+[doc('Regenerate the library-utilization catalog (docs/library-utilization.jsonl) and the usage index behind the library-catalog MCP server; run last, after tests and checks')]
+library-catalog:
+    "{{ py }}" scripts/library_utilization.py --write
+
+[group('mutating')]
 [doc('Regenerate relations, Python contracts, docs/generated, the store schema and statements, the Ipopt bindings and the cargo-hakari workspace-hack')]
 codegen *args:
     bash scripts/native_exec.sh cargo xtask codegen {{ args }}

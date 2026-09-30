@@ -17,9 +17,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    66u8, 118u8, 161u8, 135u8, 20u8, 49u8, 250u8, 198u8, 142u8, 176u8, 214u8, 220u8,
-    44u8, 62u8, 253u8, 217u8, 177u8, 114u8, 124u8, 39u8, 90u8, 38u8, 226u8, 168u8, 244u8,
-    67u8, 21u8, 174u8, 142u8, 109u8, 197u8, 38u8,
+    13u8, 175u8, 35u8, 213u8, 13u8, 195u8, 178u8, 141u8, 41u8, 196u8, 31u8, 157u8, 212u8,
+    12u8, 11u8, 161u8, 94u8, 233u8, 123u8, 250u8, 240u8, 159u8, 164u8, 17u8, 148u8, 4u8,
+    247u8, 123u8, 148u8, 66u8, 10u8, 206u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceBasesRow {
     fn append(

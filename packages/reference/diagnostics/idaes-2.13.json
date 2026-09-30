@@ -15,7 +15,8 @@
     "findings": 256,
     "parallel_tolerance": 0.00000001,
     "rank_absolute": 0.000001,
-    "rank_relative": 0.0
+    "rank_relative": 0.0,
+    "singular_vector": 0.1
   },
   "terms": {
     "zero": 0.0000000001,

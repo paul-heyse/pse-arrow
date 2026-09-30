@@ -55,6 +55,11 @@ impl Engine<'_, '_> {
                 .iter()
                 .map(|i| (i.name.as_str(), i.domain.as_str()))
                 .collect()
+        } else if let Some(e) = &declaration.value.equation {
+            e.indices
+                .iter()
+                .map(|i| (i.name.as_str(), i.domain.as_str()))
+                .collect()
         } else {
             Vec::new()
         };

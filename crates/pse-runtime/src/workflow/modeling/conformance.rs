@@ -107,6 +107,11 @@ fn fixture_policy(
             MathRuntimeError::from(error)
         ))
     })?;
+    if authored.is_some_and(|f| !f.diagnostics.is_empty()) && run.diagnostics.is_none() {
+        return Err(contract(format!(
+            "fixture {fixture} expects diagnostic findings; the run states no diagnostic thresholds"
+        )));
+    }
     Ok(ModelingConformancePolicy {
         compiler: run.compiler,
         solver,
@@ -116,6 +121,7 @@ fn fixture_policy(
         maximum_fixtures: run.maximum_fixtures,
         maximum_checks: run.maximum_checks,
         fixtures: run.fixtures.clone(),
+        diagnostics: run.diagnostics.clone(),
     })
 }
 /// The fixture of package-level checks that belong to no authored fixture (coverage).
@@ -187,6 +193,9 @@ pub struct ModelingConformancePolicy {
     pub maximum_checks: usize,
     /// The fixtures the run executes.
     pub fixtures: ModelingFixtureSelection,
+    /// The numerical diagnostic thresholds of the run, a named knowledge profile; a fixture
+    /// that expects diagnostic findings needs them.
+    pub diagnostics: Option<ModelingDiagnosticPolicy>,
 }
 /// Shared check outcomes retain their pool owner and original solver results.
 #[derive(Debug)]
@@ -613,6 +622,88 @@ impl ModelingConformanceReport {
         let check = self.checks.len();
         self.record_fixture(fixture, kind, status, error.to_string(), oracle, cap);
         self.attach_failure(check, diagnostic);
+    }
+    /// Each expected diagnostic passes when a finding of its rule names every expected
+    /// member, one of the member's equations or variables at least; the matching finding is
+    /// retained with the check.
+    fn expected_diagnostics(
+        &mut self,
+        fixture: DeclarationId,
+        expected: &[pse_modeling::specialize::FixtureDiagnostic],
+        diagnosed: Result<ModelingDiagnostics, WorkflowError>,
+        oracle: Option<DeclarationId>,
+        cap: usize,
+    ) {
+        let diagnostics = match diagnosed {
+            Ok(diagnostics) => diagnostics,
+            Err(error) => {
+                self.failed(fixture, Kind::Expectation, &error, None, oracle, cap);
+                return;
+            }
+        };
+        for expectation in expected {
+            let members = expectation
+                .members
+                .iter()
+                .map(|(path, _)| path.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let found = diagnostics.findings.iter().find(|finding| {
+                finding.rule == expectation.rule
+                    && expectation
+                        .members
+                        .iter()
+                        .all(|(_, ids)| finding.sources.iter().any(|s| ids.contains(s)))
+            });
+            let check = self.checks.len();
+            match found {
+                Some(finding) => {
+                    let mut named = finding
+                        .locations
+                        .iter()
+                        .map(|l| l.path.as_str())
+                        .collect::<Vec<_>>();
+                    named.sort_unstable();
+                    named.dedup();
+                    self.record_fixture(
+                        fixture,
+                        Kind::Expectation,
+                        Status::Passed,
+                        format!(
+                            "{} names {members} (profile {}; the finding names {})",
+                            expectation.rule,
+                            diagnostics.profile,
+                            named.join(", ")
+                        ),
+                        oracle,
+                        cap,
+                    );
+                    self.attach_failure(check, finding.clone());
+                }
+                None => self.record_fixture(
+                    fixture,
+                    Kind::Expectation,
+                    if diagnostics.complete {
+                        Status::Failed
+                    } else {
+                        Status::Inconclusive
+                    },
+                    format!(
+                        "no {} finding names {members} (profile {}; {} findings{})",
+                        expectation.rule,
+                        diagnostics.profile,
+                        diagnostics.findings.len(),
+                        if diagnostics.complete {
+                            ""
+                        } else {
+                            "; the analysis is incomplete"
+                        }
+                    ),
+                    oracle,
+                    cap,
+                ),
+            }
+        }
     }
     fn model_checks(
         &mut self,
@@ -1329,6 +1420,11 @@ impl ModelingPackage {
                     }
                 }
             }
+            // A fixture that expects diagnostic findings diagnoses its solved point under
+            // the same bindings and case (Plan 23 CT-S13).
+            let expected_diagnostics = data.map(|f| f.diagnostics.clone()).unwrap_or_default();
+            let diagnostic_inputs =
+                (!expected_diagnostics.is_empty()).then(|| (bindings.clone(), case.clone()));
             let resolution = match self
                 .resolve_case(
                     fixture,
@@ -1439,9 +1535,17 @@ impl ModelingPackage {
                             cap,
                         );
                     }
-                    Err(error) => {
-                        report.failed(fixture, Kind::Derivatives, &error, None, oracle, cap)
-                    }
+                    // A derivative inspection refused for the fixture's expected reason,
+                    // such as the structural refusal of an over-specified model, observes
+                    // that expected failure.
+                    Err(error) => report.failed(
+                        fixture,
+                        Kind::Derivatives,
+                        &error,
+                        expected_failure,
+                        oracle,
+                        cap,
+                    ),
                 }
             }
             let ranges = resolution
@@ -1579,6 +1683,23 @@ impl ModelingPackage {
                         cap,
                     );
                     report.model_checks(fixture, &result.checks, oracle, cap);
+                    if let Some((bindings, case)) = diagnostic_inputs {
+                        let diagnosed = if result.accepted {
+                            self.diagnose_solution(
+                                fixture, bindings, case, solve_order, &policy, &result, cancel,
+                            )
+                            .await
+                        } else {
+                            Err(contract("no accepted solution to diagnose"))
+                        };
+                        report.expected_diagnostics(
+                            fixture,
+                            &expected_diagnostics,
+                            diagnosed,
+                            oracle,
+                            cap,
+                        );
+                    }
                     if expected_failure.is_some() {
                         report.record_fixture(
                             fixture,
@@ -1606,6 +1727,48 @@ impl ModelingPackage {
             report.complete = false;
         }
         Ok(report)
+    }
+    /// Numerical diagnostics at a fixture's accepted solution, under its bindings, case and
+    /// the run's diagnostic thresholds: the solved values replace the specification's
+    /// values of the same coordinates.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one fixture's bindings, case, derivative order, policy and result"
+    )]
+    async fn diagnose_solution(
+        &self,
+        fixture: DeclarationId,
+        bindings: Bindings,
+        case: ModelingCaseBindings,
+        order: DerivativeOrder,
+        policy: &ModelingConformancePolicy,
+        result: &ModelingResult,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingDiagnostics, WorkflowError> {
+        let thresholds = policy
+            .diagnostics
+            .clone()
+            .ok_or_else(|| contract("the run states no diagnostic thresholds"))?;
+        let analysis = ModelingAnalysis {
+            root: fixture,
+            instance: pse_modeling::specialize::root_instance(fixture),
+            bindings,
+            limits: policy.limits,
+            case,
+            order,
+            compiler: policy.compiler,
+            solver: policy.solver.clone(),
+            numerical: policy.numerical.clone(),
+        };
+        let prepared = self.prepare_diagnostics(&analysis, cancel).await?;
+        let mut values = prepared.model.values.clone();
+        for (id, value) in &mut values.scalars {
+            if let Some(solved) = result.values.scalars.get(id) {
+                *value = *solved;
+            }
+        }
+        self.diagnose_case(prepared, values, thresholds, policy.compiler, cancel)
+            .await
     }
     async fn conform_integrated(
         &self,
@@ -1996,6 +2159,7 @@ mod tests {
             maximum_fixtures: 10,
             maximum_checks: 50,
             fixtures: Default::default(),
+            diagnostics: None,
         }
     }
     /// Every check of a fixture that names an oracle carries the oracle's source entity
@@ -2255,6 +2419,94 @@ mod tests {
         assert_eq!(initialization.attempts.len(), 2);
         assert!(initialization.attempts[0].accepted());
         assert!(!initialization.attempts[1].accepted());
+    }
+    /// A fixture's expected diagnostics are checked at its accepted solution under the run's
+    /// thresholds: two nearly parallel equations are reported as near-parallel rows, and the
+    /// rank deficiency they cause names them and the variables of its near-null mode.
+    #[cfg(feature = "solver-ipopt")]
+    #[tokio::test]
+    async fn fixture_expects_diagnostic_findings_naming_members() {
+        let source = r#"package p {
+ def D {var x:Scalar; var y:Scalar; eq a:x+y==2; eq b:x+1.000001*y==2.000001;
+   annotation start x(0.5); annotation start y(0.5);}
+ test near fixture {dof 0; run steady; EXPECTED} {child root:D=D(); expect root.x==1 tolerance 1e-4;}
+ }"#;
+        let thresholds: ModelingDiagnosticPolicy = serde_json::from_str(include_str!(
+            "../../../../../packages/reference/diagnostics/idaes-2.13.json"
+        ))
+        .unwrap();
+        let run = |expected: &str, diagnostics: Option<ModelingDiagnosticPolicy>| {
+            let p = package(&source.replace("EXPECTED", expected));
+            async move {
+                p.conform(
+                    ModelingConformancePolicy {
+                        diagnostics,
+                        ..policy()
+                    },
+                    &crate::CancelSource::new(),
+                )
+                .await
+            }
+        };
+        let named = "diagnose \"jacobian.parallel_rows\" at(root.a, root.b); diagnose \"jacobian.numerical_rank_deficiency\" at(root.a, root.b, root.x, root.y);";
+        let report = run(named, Some(thresholds.clone())).await.unwrap();
+        assert!(report.passed(), "{:?}", report.checks);
+        let diagnosed = report
+            .checks
+            .iter()
+            .filter(|c| c.kind == Kind::Expectation && c.message.contains("jacobian."))
+            .collect::<Vec<_>>();
+        assert_eq!(diagnosed.len(), 2);
+        assert!(
+            diagnosed
+                .iter()
+                .all(|c| c.status == Status::Passed && c.failure_ordinal.is_some())
+        );
+        // A finding that does not name the expected member fails the fixture.
+        let unnamed = run(
+            "diagnose \"jacobian.parallel_rows\" at(root.a, root.x);",
+            Some(thresholds.clone()),
+        )
+        .await
+        .unwrap();
+        assert!(!unnamed.passed());
+        // Expected findings need the run's thresholds.
+        assert!(run(named, None).await.is_err());
+    }
+    /// An over-specified root model is refused structurally before any route is selected,
+    /// naming its over-determined equations; its fixture expects that typed refusal, which
+    /// the derivative inspection observes as well.
+    #[cfg(feature = "solver-ipopt")]
+    #[tokio::test]
+    async fn overspecified_root_is_refused_structurally_naming_members() {
+        let source = r#"package p {
+ def D {var x:Scalar; var y:Scalar; eq a:x==1; eq b:y==2; eq c:x+y==3; annotation start x(0); annotation start y(0);}
+ test over fixture {dof -1; run steady;FAILURE} {child root:D=D();}
+ }"#;
+        let p = package(&source.replace("FAILURE", " failure invalid_model \"native.structural\";"));
+        let report = p
+            .conform(policy(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert!(report.passed(), "{:?}", report.checks);
+        assert!(report.results.is_empty());
+        let refusals = report
+            .failures
+            .iter()
+            .filter(|f| f.rule == "native.structural")
+            .collect::<Vec<_>>();
+        assert!(!refusals.is_empty());
+        // The three equations over two variables form the over-determined part.
+        assert!(refusals.iter().all(|f| f.sources.len() == 3), "{refusals:?}");
+        assert!(report.checks.iter().any(|c| c.kind == Kind::StartToSolve
+            && c.status == Status::Passed
+            && c.message.contains("structural deficiency")));
+        // Unexpected, the same refusal fails the fixture.
+        let unexpected = package(&source.replace("FAILURE", ""))
+            .conform(policy(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert!(!unexpected.passed());
     }
     /// An initialized fixture that expects its initialization to fail asserts that the
     /// failure leaves the specification intact: nothing is committed, and the unchanged

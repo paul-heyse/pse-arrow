@@ -48,6 +48,17 @@ pub struct Fixture {
     pub shooting: Option<ShootingFixture>,
     /// Failure the fixture expects instead of a result, its lineage resolved (Plan 23 H5).
     pub expected_failure: Option<ExpectedFailure>,
+    /// Numerical diagnostic findings the fixture expects at its solved point (Plan 23 CT-S13).
+    pub diagnostics: Vec<FixtureDiagnostic>,
+}
+/// A numerical diagnostic finding a fixture expects: its rule and the members it names,
+/// each resolved once to the equations or variables of every coordinate of the member.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FixtureDiagnostic {
+    /// The diagnostics rule, such as a near-parallel or rank-deficiency finding.
+    pub rule: String,
+    /// Each named member: its authored path and its equation or variable identities.
+    pub members: Vec<(String, BTreeSet<SemanticId>)>,
 }
 /// The failure a fixture expects instead of a result (Plan 23 H5): its typed class and its
 /// lineage, resolved once to identities. A failure is the expected one only when both agree;
@@ -466,6 +477,38 @@ impl Engine<'_, '_> {
         } else {
             None
         };
+        // Expected diagnostics name members by path; each resolves once to every coordinate
+        // of an equation or variable member of the fixture's instance.
+        let mut diagnostics = Vec::with_capacity(contract.diagnostics.len());
+        for expected in &contract.diagnostics {
+            if expected.rule.is_empty() || expected.members.is_empty() {
+                return Err(invalid(at, "an expected diagnostic names its rule and members"));
+            }
+            let mut members = Vec::with_capacity(expected.members.len());
+            for path in &expected.members {
+                let ids = self
+                    .annotation_targets(instance, path, env, at, false)?
+                    .into_iter()
+                    .map(|(id, ..)| id)
+                    .filter(|id| {
+                        self.model.symbols.contains_key(id)
+                            || self.model.equations.iter().any(|row| row.id == *id)
+                    })
+                    .collect::<BTreeSet<_>>();
+                if ids.is_empty() {
+                    return Err(invalid(
+                        at,
+                        format!("expected diagnostic member {path} names no equation or variable"),
+                    ));
+                }
+                members.push((path.clone(), ids));
+            }
+            self.reserve(1 + members.len())?;
+            diagnostics.push(FixtureDiagnostic {
+                rule: expected.rule.clone(),
+                members,
+            });
+        }
         let mut specifications = BTreeMap::<String, FixtureValue>::new();
         let mut seen = BTreeSet::new();
         for s in &contract.specifications {
@@ -588,6 +631,7 @@ impl Engine<'_, '_> {
                     nodes,
                 }),
                 expected_failure,
+                diagnostics,
             },
         );
         Ok(())

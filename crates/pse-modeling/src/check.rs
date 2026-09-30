@@ -649,6 +649,14 @@ fn check_declarations(
                     || execution != Execution::Initialized
                         && (!fixture.stages.is_empty() || fixture.initialization.is_some())
                     || fixture.stages.iter().any(|s| s.is_empty())
+                    // Expected diagnostics describe a solved point of the steady or
+                    // initialized route.
+                    || !fixture.diagnostics.is_empty()
+                        && !matches!(execution, Execution::Steady | Execution::Initialized)
+                    || fixture
+                        .diagnostics
+                        .iter()
+                        .any(|d| d.rule.trim().is_empty() || d.members.is_empty())
                 {
                     return Err(invalid(
                         row.declaration_id,

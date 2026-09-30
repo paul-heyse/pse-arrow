@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0f068fdfc75a08bdfd268df6a78f1") package flash_diagnostics {
+@id("01a0f068fdfc75a08bdfd2696916ed9c") use provenance @"1.0.0";
+@id("01a0f068fdfc75a08bdfd26a1a20966d") use campaign_references @"1.0.0";
+@id("01a0f068fdfc75a08bdfd26ba39972f9") use kinds @"1.0.0";
+@id("01a0f068fdfc75a08bdfd26c5d8c79f5") use chemistry @"1.0.0";
+@id("01a0f068fdfc75a08bdfd26dd845da2e") use chem @"1.0.0";
+@id("01a0f068fdfc75a08bdfd26e0fe78e4e") use equilibrium @"1.0.0";
+@id("01a0f068fdfc75a08bdfd26ff2ed5e34") use flashing @"1.0.0";
+@id("01a0f068fdfc75a08bdfd27080bba3b8") use bt_ideal @"1.0.0";
+// A countercurrent cascade of equilibrium stages with a total condenser and a total
+// reboiler under constant molar overflow. The stages and the links between adjacent stages
+// (upper, lower) are the definition's arguments, so n is the size of the stage set. Each
+// stage balances the liquid from the stage above (the condensed top vapor at the top), the
+// vapor from the stage below (the reboiled bottom liquid at the bottom) and, at the bottom,
+// the liquid feed; the distillate leaves the condenser and the bottoms the reboiler.
+@id("01a0f076dd1876e1afc46033f109cdfb") def EquilibriumCascade(stages:Set<kinds.stage>,links:Set<Tuple<kinds.stage,kinds.stage>>,top:kinds.stage,bottom:kinds.stage,vapor_pressure:Fn(T:Temperature,j:chemistry.species)->Pressure) {
+@id("01a0f076dd1876e1afc46034d4b9ac7e") param components:Set<chemistry.species>=chem.aromatics;
+@id("01a0f076dd1876e1afc460353e5b57b3") var feed:Flow;
+@id("01a0f076dd1876e1afc4603637d87527") var feed_composition[j in components]:MoleFraction;
+@id("01a0f076dd1876e1afc460370643ae3e") var distillate:Flow;
+@id("01a0f076dd1876e1afc46038f6bfd569") var boilup:Flow;
+@id("01a0f076dd1876e1afc460395ce17c1d") var pressure:Pressure;
+@id("01a0f076dd1876e1afc4603a6ab9de82") var x[i in stages,j in components]:MoleFraction;
+@id("01a0f076dd1876e1afc4603b1f9feea3") var y[i in stages,j in components]:MoleFraction;
+@id("01a0f076dd1876e1afc4603c7fb8e0a7") var T[i in stages]:Temperature;
+@id("01a0f076dd1876e1afc4603d68b42807") let reflux:Flow=boilup-distillate;
+@id("01a0f076dd1876e1afc4603e1c8e561d") let bottoms:Flow=feed-distillate;
+@id("01a0f076dd1876e1afc4603f492347eb") let liquid_in[i in stages,j in components]:ComponentFlow=sum(l in links where at(l,1)==i | reflux*x[at(l,0),j])+sum(t in stages where t==top and t==i | reflux*y[t,j]);
+@id("01a0f076dd1876e1afc46040d9d7b677") let vapor_in[i in stages,j in components]:ComponentFlow=sum(l in links where at(l,0)==i | boilup*y[at(l,1),j])+sum(b in stages where b==bottom and b==i | boilup*x[b,j]);
+@id("01a0f076dd1876e1afc4604167adf5c4") let feed_in[i in stages,j in components]:ComponentFlow=sum(b in stages where b==bottom and b==i | feed*feed_composition[j]);
+@id("01a0f076dd1876e1afc46042139a3101") let liquid_out[i in stages]:Flow=reflux+sum(b in stages where b==bottom and b==i | feed);
+@id("01a0f076dd1876e1afc460438568405d") eq material[i in stages,j in components]:liquid_in[i,j]+vapor_in[i,j]+feed_in[i,j]==liquid_out[i]*x[i,j]+boilup*y[i,j];
+@id("01a0f076dd1876e1afc46044096384d0") eq equilibrium[i in stages,j in components]:y[i,j]/equilibrium.fraction_unit()==(vapor_pressure(T[i],j)/pressure)*(x[i,j]/equilibrium.fraction_unit());
+@id("01a0f076dd1876e1afc460456494c97d") eq summation[i in stages]:sum(j in components | y[i,j]/equilibrium.fraction_unit())==1;
+@id("01a0f076dd1876e1afc46046813da431") annotation start x(0.5{1});
+@id("01a0f076dd1876e1afc460479cc61e1a") annotation start y(0.5{1});
+@id("01a0f076dd1876e1afc460485b72aad3") annotation bounds x(0{1},1{1});
+@id("01a0f076dd1876e1afc460495894d452") annotation bounds y(0{1},1{1});
+@id("01a0f076dd1876e1afc4604a5ba60b88") annotation start T(368{K});
+@id("01a0f076dd1876e1afc4604b96a31e61") annotation bounds T(300{K},450{K});
+@id("01a0f076dd1876e1afc4604cc60434aa") annotation nominal T(368{K});
+@id("01a0f076dd1876e1afc4604dcdd73c66") annotation nominal boilup(100{mol/s});
+@id("01a0f076dd1876e1afc4604e913d62da") annotation report T("stage temperature");
+}
+@id("01a0f068fdfc75a08bdfd29565bcb349") entity kinds.stage tray_1 {}
+@id("01a0f068fdfc75a08bdfd29666d88265") entity kinds.stage tray_2 {}
+@id("01a0f07702427104927e4f2899a20df7") set trays:Set<kinds.stage>={tray_1,tray_2};
+@id("01a0f07702427104927e4f29254c597f") table descends[upper:kinds.stage,lower:kinds.stage]:Scalar missing optional;
+@id("01a0f07702427104927e4f2afc38115e") dataset tray_order:descends provenance(campaign_references.analytic_total_reflux_cascade, provenance.Role.synthetic) {
+[tray_1,tray_2]=[1];
+}
+// A flash of the IDAES test_flash BTIdeal specification (inlet, zero duty and pressure
+// change fixed) whose outlet temperature is fixed as well: one equation too many. The root
+// solve is refused structurally before any route is chosen, and the refusal names the
+// over-determined equations; the derivative inspection observes the same refusal.
+@id("01a0f068fdfc75a08bdfd2a200159013") test flash_overspecified oracle campaign_references.analytic_overspecified_flash fixture {dof -1; run steady; failure invalid_model "native.structural"; fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa}; fix root.outlet.T=368{K};} {
+@id("01a0f068fdfc75a08bdfd2a3cdbe2102") child root:flashing.Flash=flashing.Flash(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false));
+}
+// Two equilibrium stages at 101325 Pa with 100 mol/s boilup, fed 1e-6 mol/s of equimolar
+// benzene/toluene and drawing half of it as distillate: external flows 1e-8 of the internal
+// ones, near total reflux. Each stage's balance is then nearly the negative of the other's,
+// since their sum is the column balance, whose coefficients are the external flows. The
+// idaes-2.13 thresholds find the two stages' balances of each component near-parallel and
+// the Jacobian numerically rank deficient, the deficiency carried by those balances. The
+// state is the total-reflux limit: the reflux is the top vapor, the boilup the bottom
+// liquid, and the overall balance makes y1 + x2 = 1 for benzene.
+@id("01a0f07702427104927e4f2b77e7ea5d") test cascade_near_singular_diagnostics_name_members oracle campaign_references.analytic_total_reflux_cascade fixture {dof 0; run steady; diagnose "jacobian.parallel_rows" at(root.material[tray_1,chem.benzene], root.material[tray_2,chem.benzene]); diagnose "jacobian.parallel_rows" at(root.material[tray_1,chem.toluene], root.material[tray_2,chem.toluene]); diagnose "jacobian.numerical_rank_deficiency" at(root.material); fix root.feed=0.000001{mol/s}; fix root.feed_composition[chem.benzene]=0.5{1}; fix root.feed_composition[chem.toluene]=0.5{1}; fix root.distillate=0.0000005{mol/s}; fix root.boilup=100{mol/s}; fix root.pressure=101325{Pa};} {
+@id("01a0f07702427104927e4f2c4edcde14") child root:EquilibriumCascade=EquilibriumCascade(stages=trays,links=keys(descends),top=tray_1,bottom=tray_2,vapor_pressure=bt_ideal.psat);
+@id("01a0f0825b1773e7a4249396ebce4074") expect root.y[tray_1,chem.benzene]==0.71137987{1} tolerance 0.000001{1};
+@id("01a0f0825b1773e7a42493979d19d447") expect root.x[tray_1,chem.benzene]==0.49720822{1} tolerance 0.000001{1};
+@id("01a0f0825b1773e7a42493988b5782d1") expect root.x[tray_2,chem.benzene]==0.28862013{1} tolerance 0.000001{1};
+@id("01a0f0825b1773e7a42493996a06d601") expect root.T[tray_1]==365.428990{K} tolerance 0.0001{K};
+@id("01a0f0825b1773e7a424939a254eba33") expect root.T[tray_2]==372.099218{K} tolerance 0.0001{K};
+}
+}
