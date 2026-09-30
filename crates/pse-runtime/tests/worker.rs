@@ -328,7 +328,10 @@ async fn durable_job_round_trips_a_package_with_a_data_document() {
         study: None,
     };
     // The stored bundle is the package's exact bytes, its Parquet document included.
-    assert_eq!(operations.sources(&job.modeling[0]).await.unwrap(), modeling);
+    assert_eq!(
+        operations.sources(&job.modeling[0]).await.unwrap(),
+        modeling
+    );
     let enqueued = operations
         .enqueue(&job, "data-document-square", RetryPolicy::ONCE, 0)
         .await

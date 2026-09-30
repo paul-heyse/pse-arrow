@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0f138a8b070c4903dab4f80845794") package correlations {
+@id("01a0f138a8b070c4903dab506c22f114") use properties @"1.0.0";
+@id("01a0f138a8b070c4903dab5129005e13") entity kind dippr100 extends properties.caloric_set {
+@id("01a0f138a8b070c4903dab52ecbb9627") attribute c1: MolarCp storage {J/(mol*K)};
+@id("01a0f138a8b070c4903dab530ab0c799") attribute c2: MolarCp/Temperature storage {J/(mol*K^2)};
+@id("01a0f138a8b070c4903dab54ec98b412") attribute c3: MolarCp/Temperature^2 storage {J/(mol*K^3)};
+@id("01a0f138a8b070c4903dab557503dde3") attribute c4: MolarCp/Temperature^3 storage {J/(mol*K^4)};
+@id("01a0f138a8b070c4903dab56ce2a5c75") attribute c5: MolarCp/Temperature^4 storage {J/(mol*K^5)};
+@id("01a0f138a8b070c4903dab576f0e578e") cp = dippr100_cp;
+@id("01a0f138a8b070c4903dab584b12f0e5") dh = dippr100_dh;
+@id("01a0f138a8b070c4903dab59acd6c279") ds = dippr100_ds;
+}
+@id("01a0f138a8b070c4903dab5a5739ced0") fn dippr100_cp(T: Temperature, s: dippr100) -> MolarCp guards(s.T:T) = s.c1 + s.c2*T + s.c3*T^2 + s.c4*T^3 + s.c5*T^4;
+@id("01a0f138a8b070c4903dab5bb381b195") fn dippr100_dh(T0: Temperature, T: Temperature, s: dippr100) -> DeltaH guards(s.T:[T0,T]) = s.c1*(T-T0) + s.c2*T^2/2 - s.c2*T0^2/2 + s.c3*T^3/3 - s.c3*T0^3/3 + s.c4*T^4/4 - s.c4*T0^4/4 + s.c5*T^5/5 - s.c5*T0^5/5;
+@id("01a0f138a8b070c4903dab5c0ed9bc3b") fn dippr100_ds(T0: Temperature, T: Temperature, s: dippr100) -> DeltaS guards(s.T:[T0,T]) = s.c1*log(T/T0) + (s.c2*T + s.c3*T*T/2 + s.c3*T*T0/2 + s.c4*T*T*T/3 + s.c4*T*T*T0/3 + s.c4*T*T0*T0/3 + s.c5*T*T*T*T/4 + s.c5*T*T*T*T0/4 + s.c5*T*T*T0*T0/4 + s.c5*T*T0*T0*T0/4)*r where r=(T-T0)/T;
+@id("01a0f138a8b070c4903dab5de8b413a7") entity kind rpp4_cp extends properties.caloric_set {
+@id("01a0f138a8b070c4903dab5ebd0c1b18") attribute a: MolarCp storage {J/(mol*K)};
+@id("01a0f138a8b070c4903dab5fd4d6ced3") attribute b: MolarCp/Temperature storage {J/(mol*K^2)};
+@id("01a0f138a8b070c4903dab6046f6b97c") attribute c: MolarCp/Temperature^2 storage {J/(mol*K^3)};
+@id("01a0f138a8b070c4903dab6197d429fe") attribute d: MolarCp/Temperature^3 storage {J/(mol*K^4)};
+@id("01a0f138a8b070c4903dab62f22807fb") cp = rpp4_cp_cp;
+@id("01a0f138a8b070c4903dab63baea9bc0") dh = rpp4_cp_dh;
+@id("01a0f138a8b070c4903dab64e9f7737f") ds = rpp4_cp_ds;
+}
+@id("01a0f138a8b070c4903dab65d588fafe") fn rpp4_cp_cp(T: Temperature, s: rpp4_cp) -> MolarCp guards(s.T:T) = s.a + s.b*T + s.c*T^2 + s.d*T^3;
+@id("01a0f138a8b070c4903dab668d668694") fn rpp4_cp_dh(T0: Temperature, T: Temperature, s: rpp4_cp) -> DeltaH guards(s.T:[T0,T]) = s.a*(T-T0) + s.b*T^2/2 - s.b*T0^2/2 + s.c*T^3/3 - s.c*T0^3/3 + s.d*T^4/4 - s.d*T0^4/4;
+@id("01a0f138a8b070c4903dab67108eee2a") fn rpp4_cp_ds(T0: Temperature, T: Temperature, s: rpp4_cp) -> DeltaS guards(s.T:[T0,T]) = s.a*log(T/T0) + (s.b*T + s.c*T*T/2 + s.c*T*T0/2 + s.d*T*T*T/3 + s.d*T*T*T0/3 + s.d*T*T0*T0/3)*r where r=(T-T0)/T;
+@id("01a0f138a8b070c4903dab6894eeeffb") entity kind shomate extends properties.caloric_set {
+@id("01a0f138a8b070c4903dab6924744865") attribute a: MolarCp storage {J/(mol*K)};
+@id("01a0f138a8b070c4903dab6abda6fe04") attribute b: MolarCp/Temperature storage {J/(mol*K^2)};
+@id("01a0f138a8b070c4903dab6b77df4af6") attribute c: MolarCp/Temperature^2 storage {J/(mol*K^3)};
+@id("01a0f138a8b070c4903dab6c442de2cf") attribute d: MolarCp/Temperature^3 storage {J/(mol*K^4)};
+@id("01a0f138a8b070c4903dab6defcbf026") attribute e: MolarCp*Temperature^2 storage {J*K/mol};
+@id("01a0f138a8b070c4903dab6e9efd6a94") cp = shomate_cp;
+@id("01a0f138a8b070c4903dab6f7da88637") dh = shomate_dh;
+@id("01a0f138a8b070c4903dab70ffa6c732") ds = shomate_ds;
+}
+@id("01a0f138a8b070c4903dab7145f82fe9") fn shomate_cp(T: Temperature, s: shomate) -> MolarCp guards(s.T:T) = s.a + s.b*T + s.c*T^2 + s.d*T^3 + s.e/T^2;
+@id("01a0f138a8b070c4903dab7217791b60") fn shomate_dh(T0: Temperature, T: Temperature, s: shomate) -> DeltaH guards(s.T:[T0,T]) = s.a*(T-T0) + s.b*T^2/2 - s.b*T0^2/2 + s.c*T^3/3 - s.c*T0^3/3 + s.d*T^4/4 - s.d*T0^4/4 - s.e/T + s.e/T0;
+@id("01a0f138a8b070c4903dab733f4fe0f0") fn shomate_ds(T0: Temperature, T: Temperature, s: shomate) -> DeltaS guards(s.T:[T0,T]) = s.a*log(T/T0) + (s.b*T + s.c*T*T/2 + s.c*T*T0/2 + s.d*T*T*T/3 + s.d*T*T*T0/3 + s.d*T*T0*T0/3 + s.e/(2*T0^2) + s.e/(2*T*T0))*r where r=(T-T0)/T;
+@id("01a0f138a8b070c4903dab741e8544dc") entity kind constant extends properties.caloric_set {
+@id("01a0f138a8b070c4903dab75e9d57403") attribute c0: MolarCp storage {J/(mol*K)};
+@id("01a0f138a8b070c4903dab76e328a05b") cp = constant_cp;
+@id("01a0f138a8b070c4903dab77406c7dea") dh = constant_dh;
+@id("01a0f138a8b070c4903dab7801e837ff") ds = constant_ds;
+}
+@id("01a0f138a8b070c4903dab79d66b1339") fn constant_cp(T: Temperature, s: constant) -> MolarCp guards(s.T:T) = s.c0;
+@id("01a0f138a8b070c4903dab7ab081985b") fn constant_dh(T0: Temperature, T: Temperature, s: constant) -> DeltaH guards(s.T:[T0,T]) = s.c0*(T-T0);
+@id("01a0f138a8b070c4903dab7b0f4ed2e7") fn constant_ds(T0: Temperature, T: Temperature, s: constant) -> DeltaS guards(s.T:[T0,T]) = s.c0*log(T/T0);
+@id("01a0f138a8b070c4903dab7c93cb991d") entity kind dippr105 extends properties.liquid_density_set {
+@id("01a0f138a8b070c4903dab7d92c344f7") attribute a: MolarDensity storage {mol/m^3};
+@id("01a0f138a8b070c4903dab7eeca8ebd3") attribute b: Scalar storage {1};
+@id("01a0f138a8b070c4903dab7f784569c7") attribute tc: TemperatureScale storage {K};
+@id("01a0f138a8b070c4903dab80fac85e20") attribute d: Scalar storage {1};
+@id("01a0f138a8b070c4903dab816abbd891") density = dippr105_density;
+}
+@id("01a0f138a8b070c4903dab82b87de6dc") fn dippr105_density(T:Temperature,s:dippr105)->MolarDensity guards(s.T:T) valid(T/s.tc<1 and s.b>0) = s.a*exp(-(1+exp(s.d*log(1-T/s.tc)))*log(s.b));
+@id("01a0f138a8b070c4903dab83370702a6") entity kind rpp4_wagner extends properties.vapor_pressure_set {
+@id("01a0f138a8b070c4903dab84a0743a60") attribute a: Scalar storage {1};
+@id("01a0f138a8b070c4903dab85c3042bfd") attribute b: Scalar storage {1};
+@id("01a0f138a8b070c4903dab862a03515f") attribute c: Scalar storage {1};
+@id("01a0f138a8b070c4903dab87bdfa9324") attribute d: Scalar storage {1};
+@id("01a0f138a8b070c4903dab8831b5ba13") attribute tc: TemperatureScale storage {K};
+@id("01a0f138a8b070c4903dab89e2b33180") attribute pc: Pressure storage {Pa};
+@id("01a0f138a8b070c4903dab8a15cfa535") psat = rpp4_wagner_psat;
+}
+@id("01a0f138a8b070c4903dab8b9eb406b0") fn rpp4_wagner_psat(T:Temperature,s:rpp4_wagner)->Pressure guards(s.T:T) valid(T/s.tc<1 and T/s.tc>0) = s.pc*exp((s.a*tau+s.b*tau^(3/2)+s.c*tau^3+s.d*tau^6)/(1-tau)) where tau=1-T/s.tc;
+@id("01a0f138a8b070c4903dab8c645c1103") entity kind antoine extends properties.vapor_pressure_set {
+@id("01a0f138a8b070c4903dab8d17185c14") attribute a: Scalar storage {1};
+@id("01a0f138a8b070c4903dab8e48575791") attribute b: DeltaTemperature storage {K};
+@id("01a0f138a8b070c4903dab8fab419683") attribute offset: Temperature storage {K};
+@id("01a0f138a8b070c4903dab9070b321c4") attribute c: DeltaTemperature storage {K};
+@id("01a0f138a8b070c4903dab912d28c1b1") attribute pressure_scale: Pressure storage {Pa};
+@id("01a0f138a8b070c4903dab9215cf322e") psat = antoine_psat;
+}
+@id("01a0f138a8b070c4903dab93d0e9cd4c") fn antoine_psat(T:Temperature,s:antoine)->Pressure guards(s.T:T) valid((T-s.offset)+s.c>0{K}) = s.pressure_scale*10^(s.a-s.b/((T-s.offset)+s.c));
+@id("01a0f1955e96736397df7b486ffbad8f") entity kind constant_density extends properties.liquid_density_set {
+@id("01a0f1955e96736397df7b4929ad2005") attribute c0:MolarDensity storage {mol/m^3};
+@id("01a0f19b7f5175c6a6ac98315b988a8d") density = constant_density_value;
+}
+@id("01a0f1955e96736397df7b4a532e517d") fn constant_density_value(T:Temperature,s:constant_density)->MolarDensity guards(s.T:T)=s.c0;
+@id("2916913ac91043eb80488891cc8740be") entity kind rpp5_cp extends dippr100 {}
+}

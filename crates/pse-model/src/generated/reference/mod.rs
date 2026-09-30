@@ -15,8 +15,6 @@ pub mod r#artifact_profiles;
 ///Generated relation contract.
 pub mod r#bases;
 ///Generated relation contract.
-pub mod r#constants;
-///Generated relation contract.
 pub mod r#conversion_rules;
 ///Generated relation contract.
 pub mod r#dimensions;

@@ -22,6 +22,7 @@ from pse._build import (
     _NativeModelingElasticAttempt,
     _NativeModelingInitialization,
     _NativeModelingInitializationAttempt,
+    _NativeModelingKnowledge,
     _NativeModelingNativeAnalysis,
     _NativeModelingNonlinearExplanation,
     _NativeModelingPackage,
@@ -33,10 +34,8 @@ from pse._inspection import TableStream
 from pse._runs import PreparedOperation, StudyHandle, Workspace
 from pse._strategies import PreparedFlow, PreparedStrategy, _AnalysisDocument
 from pse.contracts.authored import (
-    AuthoredDatasetsRow,
     AuthoredFitCasesRow,
     AuthoredModelingDeclarationsRow,
-    AuthoredObservationsRow,
 )
 from pse.contracts.documents import (
     FitUncertainty,
@@ -60,10 +59,8 @@ class _DeclarationEdit(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
     declarations: tuple[dict[str, object], ...]
 
 
-class _FitData(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+class _FitDeclarations(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
     fits: tuple[dict[str, object], ...]
-    observations: tuple[dict[str, object], ...]
-    datasets: tuple[dict[str, object], ...]
 
 
 @attrs.frozen
@@ -200,8 +197,8 @@ class ModelingConformance:
     @classmethod
     def pure(
         cls,
-        documents: Sequence[Mapping[str, str]],
-        physical: Mapping[str, str],
+        documents: Sequence[Mapping[str, str | bytes]],
+        physical: Mapping[str, str | bytes],
         settings: EngineSettings,
         *,
         maximum_fixtures: int = 1024,
@@ -211,7 +208,8 @@ class ModelingConformance:
     ) -> "ModelingConformance":
         """Run explicit pure fixtures without creating a workflow Runtime.
 
-        ``fixtures`` selects test declarations by identity; see ``ModelingPackage.conform``.
+        ``fixtures`` selects test declarations by identity;
+        see ``ModelingPackage.conform``.
         """
         return cls(
             _NativeModelingConformance.pure(
@@ -235,7 +233,10 @@ class ModelingConformance:
 
     @property
     def selected(self) -> bool:
-        """Whether the run executed a fixture selection, which assesses no package coverage."""
+        """Whether the run executed a fixture selection.
+
+        A selection assesses no package coverage.
+        """
         return self._handle.selected
 
     def table(self) -> TableStream:
@@ -245,7 +246,7 @@ class ModelingConformance:
         return TableStream(self._handle.findings())
 
     def parity(self) -> TableStream:
-        """Oracle parity: every oracle fixture's checks by unit and oracle, with its release."""
+        """Oracle parity by unit, oracle and release for every oracle fixture."""
         return TableStream(self._handle.parity())
 
     def failure(self, ordinal: int) -> DiagnosticReport:
@@ -498,6 +499,25 @@ class ModelingDiagnosticSamples:
 
 
 @attrs.frozen
+class ModelingKnowledge:
+    """Read-only admitted cells retaining their exact source revision."""
+
+    _handle: _NativeModelingKnowledge
+
+    @property
+    def source_revision(self) -> ContentHash:
+        return ContentHash.from_prefixed(self._handle.source_revision)
+
+    def table(self) -> TableStream:
+        """Generated runtime.modeling_knowledge rows in canonical units."""
+        return TableStream(self._handle.table())
+
+    def query(self, sql: str) -> TableStream:
+        """Bounded native SQL over workspace.runtime.modeling_knowledge."""
+        return TableStream(self._handle.query(sql))
+
+
+@attrs.frozen
 class ModelingPackage:
     """Immutable authored package.
 
@@ -506,22 +526,33 @@ class ModelingPackage:
 
     _handle: _NativeModelingPackage
 
-    def with_fit_data(
+    def knowledge(
         self,
-        fits: tuple[AuthoredFitCasesRow, ...],
-        observations: tuple[AuthoredObservationsRow, ...],
-        datasets: tuple[AuthoredDatasetsRow, ...],
+        owner_id: DeclarationId | None = None,
+        *,
+        maximum_cells: int = 100000,
+        maximum_bytes: int = 64 << 20,
+    ) -> ModelingKnowledge:
+        """Inspect admitted records, constants and tables."""
+        return ModelingKnowledge(
+            self._handle.knowledge(
+                None if owner_id is None else owner_id.to_hex(),
+                maximum_cells=maximum_cells,
+                maximum_bytes=maximum_bytes,
+            )
+        )
+
+    def with_fit_declarations(
+        self, fits: tuple[AuthoredFitCasesRow, ...]
     ) -> "ModelingPackage":
-        """Admit registry-owned measurement bindings in an immutable package view."""
+        """Attach fit selection intent; measurements remain admitted typed records."""
         converter = codec.converter()
         converter.register_unstructure_hook(SemanticId, SemanticId.to_hex)
         converter.register_unstructure_hook(ContentHash, ContentHash.to_prefixed)
-        data = _FitData(
-            tuple(converter.unstructure(row) for row in fits),
-            tuple(converter.unstructure(row) for row in observations),
-            tuple(converter.unstructure(row) for row in datasets),
+        data = _FitDeclarations(tuple(converter.unstructure(row) for row in fits))
+        return ModelingPackage(
+            self._handle.with_fit_declarations(codec.encode_json(data))
         )
-        return ModelingPackage(self._handle.with_fit_data(codec.encode_json(data)))
 
     def prepare_fit(
         self,
@@ -966,10 +997,10 @@ class ModelingPackage:
     ) -> ModelingConformance:
         """Discover authored tests and run bounded shared checks without IDAES.
 
-        The settings and derivative policy are the run's; a fixture's declared execution
-        policy replaces a setting for that fixture only. ``fixtures`` selects test
-        declarations by identity: only those run, an identity that names no authored test
-        is refused before any fixture runs, and the run assesses no package coverage.
+        The run owns settings and derivative policy; a fixture's declared policy
+        replaces a setting for that fixture only. ``fixtures`` selects test
+        declarations by identity. An identity naming no authored test is refused
+        before any fixture runs; the run assesses no package coverage.
         ``diagnostics`` are the run's numerical diagnostic thresholds; a fixture that
         expects diagnostic findings needs them.
         """

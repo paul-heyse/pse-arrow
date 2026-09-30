@@ -5,8 +5,6 @@
 /// Typed relation values at the synchronous/relational compiler boundary.
 #[derive(Clone, Debug, PartialEq)]
 pub enum FactBatch {
-    #[doc = stringify!(r#AuthoredDatasets)]
-    r#AuthoredDatasets(Vec<super::r#authored::r#datasets::Row>),
     #[doc = stringify!(r#AuthoredDocuments)]
     r#AuthoredDocuments(Vec<super::r#authored::r#documents::Row>),
     #[doc = stringify!(r#AuthoredEntities)]
@@ -19,8 +17,6 @@ pub enum FactBatch {
     r#AuthoredNumericalRequirements(
         Vec<super::r#authored::r#numerical_requirements::Row>,
     ),
-    #[doc = stringify!(r#AuthoredObservations)]
-    r#AuthoredObservations(Vec<super::r#authored::r#observations::Row>),
     #[doc = stringify!(r#AuthoredPackageUnitSets)]
     r#AuthoredPackageUnitSets(Vec<super::r#authored::r#package_unit_sets::Row>),
     #[doc = stringify!(r#AuthoredPackages)]
@@ -45,8 +41,6 @@ pub enum FactBatch {
     r#ReferenceArtifactProfiles(Vec<super::r#reference::r#artifact_profiles::Row>),
     #[doc = stringify!(r#ReferenceBases)]
     r#ReferenceBases(Vec<super::r#reference::r#bases::Row>),
-    #[doc = stringify!(r#ReferenceConstants)]
-    r#ReferenceConstants(Vec<super::r#reference::r#constants::Row>),
     #[doc = stringify!(r#ReferenceConversionRules)]
     r#ReferenceConversionRules(Vec<super::r#reference::r#conversion_rules::Row>),
     #[doc = stringify!(r#ReferenceDimensions)]
@@ -125,6 +119,8 @@ pub enum FactBatch {
     r#RuntimeFitParameters(Vec<super::r#runtime::r#fit_parameters::Row>),
     #[doc = stringify!(r#RuntimeFitVariables)]
     r#RuntimeFitVariables(Vec<super::r#runtime::r#fit_variables::Row>),
+    #[doc = stringify!(r#RuntimeFittedParameterCells)]
+    r#RuntimeFittedParameterCells(Vec<super::r#runtime::r#fitted_parameter_cells::Row>),
     #[doc = stringify!(r#RuntimeIncumbents)]
     r#RuntimeIncumbents(Vec<super::r#runtime::r#incumbents::Row>),
     #[doc = stringify!(r#RuntimeInfeasibilityCertificates)]
@@ -158,6 +154,12 @@ pub enum FactBatch {
     #[doc = stringify!(r#RuntimeModelingJacobianOptimization)]
     r#RuntimeModelingJacobianOptimization(
         Vec<super::r#runtime::r#modeling_jacobian_optimization::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeModelingKnowledge)]
+    r#RuntimeModelingKnowledge(Vec<super::r#runtime::r#modeling_knowledge::Row>),
+    #[doc = stringify!(r#RuntimeModelingKnowledgeNames)]
+    r#RuntimeModelingKnowledgeNames(
+        Vec<super::r#runtime::r#modeling_knowledge_names::Row>,
     ),
     #[doc = stringify!(r#RuntimeModelingLinearDiagnostics)]
     r#RuntimeModelingLinearDiagnostics(
@@ -304,12 +306,6 @@ impl FactBatch {
     /// Exact declared relation identity.
     pub fn relation(&self) -> pse_ids::SemanticId {
         match self {
-            Self::r#AuthoredDatasets(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    59u8, 236u8, 185u8, 228u8, 41u8, 208u8, 184u8, 126u8, 236u8, 177u8,
-                    250u8, 248u8, 114u8, 233u8, 153u8, 26u8,
-                ])
-            }
             Self::r#AuthoredDocuments(_) => {
                 pse_ids::SemanticId::from_bytes([
                     169u8, 137u8, 17u8, 254u8, 21u8, 234u8, 253u8, 79u8, 101u8, 32u8,
@@ -324,26 +320,20 @@ impl FactBatch {
             }
             Self::r#AuthoredFitCases(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    112u8, 123u8, 225u8, 163u8, 40u8, 77u8, 121u8, 209u8, 186u8, 173u8,
-                    149u8, 126u8, 128u8, 1u8, 60u8, 180u8,
+                    159u8, 102u8, 219u8, 118u8, 20u8, 21u8, 204u8, 5u8, 49u8, 85u8,
+                    109u8, 200u8, 220u8, 211u8, 102u8, 81u8,
                 ])
             }
             Self::r#AuthoredModelingDeclarations(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    198u8, 20u8, 207u8, 112u8, 127u8, 204u8, 130u8, 18u8, 189u8, 52u8,
-                    146u8, 32u8, 151u8, 69u8, 173u8, 161u8,
+                    76u8, 18u8, 79u8, 96u8, 240u8, 199u8, 57u8, 23u8, 251u8, 42u8, 134u8,
+                    138u8, 227u8, 14u8, 202u8, 69u8,
                 ])
             }
             Self::r#AuthoredNumericalRequirements(_) => {
                 pse_ids::SemanticId::from_bytes([
                     241u8, 148u8, 69u8, 225u8, 139u8, 74u8, 50u8, 54u8, 64u8, 108u8,
                     59u8, 29u8, 109u8, 40u8, 45u8, 165u8,
-                ])
-            }
-            Self::r#AuthoredObservations(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    250u8, 146u8, 75u8, 84u8, 139u8, 195u8, 104u8, 203u8, 38u8, 108u8,
-                    18u8, 169u8, 98u8, 155u8, 27u8, 96u8,
                 ])
             }
             Self::r#AuthoredPackageUnitSets(_) => {
@@ -416,12 +406,6 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     107u8, 174u8, 249u8, 2u8, 238u8, 137u8, 218u8, 183u8, 48u8, 225u8,
                     186u8, 211u8, 34u8, 57u8, 223u8, 13u8,
-                ])
-            }
-            Self::r#ReferenceConstants(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    232u8, 57u8, 136u8, 160u8, 238u8, 38u8, 4u8, 120u8, 236u8, 170u8,
-                    148u8, 142u8, 156u8, 103u8, 219u8, 233u8,
                 ])
             }
             Self::r#ReferenceConversionRules(_) => {
@@ -634,6 +618,12 @@ impl FactBatch {
                     170u8, 2u8, 231u8, 180u8, 178u8, 86u8,
                 ])
             }
+            Self::r#RuntimeFittedParameterCells(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    63u8, 184u8, 186u8, 87u8, 87u8, 150u8, 30u8, 27u8, 125u8, 222u8,
+                    193u8, 209u8, 255u8, 96u8, 59u8, 174u8,
+                ])
+            }
             Self::r#RuntimeIncumbents(_) => {
                 pse_ids::SemanticId::from_bytes([
                     150u8, 195u8, 178u8, 84u8, 182u8, 133u8, 141u8, 177u8, 209u8, 159u8,
@@ -704,6 +694,18 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     67u8, 214u8, 232u8, 97u8, 187u8, 7u8, 242u8, 54u8, 208u8, 27u8,
                     246u8, 164u8, 130u8, 240u8, 62u8, 233u8,
+                ])
+            }
+            Self::r#RuntimeModelingKnowledge(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    229u8, 158u8, 113u8, 230u8, 244u8, 35u8, 123u8, 7u8, 176u8, 95u8,
+                    252u8, 168u8, 93u8, 130u8, 236u8, 65u8,
+                ])
+            }
+            Self::r#RuntimeModelingKnowledgeNames(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    242u8, 193u8, 161u8, 238u8, 48u8, 39u8, 214u8, 121u8, 184u8, 252u8,
+                    29u8, 168u8, 236u8, 171u8, 105u8, 163u8,
                 ])
             }
             Self::r#RuntimeModelingLinearDiagnostics(_) => {
@@ -1017,13 +1019,11 @@ impl FactBatch {
     /// Number of values, preserving empty relation membership.
     pub fn len(&self) -> usize {
         match self {
-            Self::r#AuthoredDatasets(rows) => rows.len(),
             Self::r#AuthoredDocuments(rows) => rows.len(),
             Self::r#AuthoredEntities(rows) => rows.len(),
             Self::r#AuthoredFitCases(rows) => rows.len(),
             Self::r#AuthoredModelingDeclarations(rows) => rows.len(),
             Self::r#AuthoredNumericalRequirements(rows) => rows.len(),
-            Self::r#AuthoredObservations(rows) => rows.len(),
             Self::r#AuthoredPackageUnitSets(rows) => rows.len(),
             Self::r#AuthoredPackages(rows) => rows.len(),
             Self::r#NormalizedPackageGraph(rows) => rows.len(),
@@ -1036,7 +1036,6 @@ impl FactBatch {
             Self::r#ReferenceAliases(rows) => rows.len(),
             Self::r#ReferenceArtifactProfiles(rows) => rows.len(),
             Self::r#ReferenceBases(rows) => rows.len(),
-            Self::r#ReferenceConstants(rows) => rows.len(),
             Self::r#ReferenceConversionRules(rows) => rows.len(),
             Self::r#ReferenceDimensions(rows) => rows.len(),
             Self::r#ReferenceEngineProfiles(rows) => rows.len(),
@@ -1072,6 +1071,7 @@ impl FactBatch {
             Self::r#RuntimeFitObservations(rows) => rows.len(),
             Self::r#RuntimeFitParameters(rows) => rows.len(),
             Self::r#RuntimeFitVariables(rows) => rows.len(),
+            Self::r#RuntimeFittedParameterCells(rows) => rows.len(),
             Self::r#RuntimeIncumbents(rows) => rows.len(),
             Self::r#RuntimeInfeasibilityCertificates(rows) => rows.len(),
             Self::r#RuntimeLocalValidity(rows) => rows.len(),
@@ -1084,6 +1084,8 @@ impl FactBatch {
             Self::r#RuntimeModelingFixtureStatus(rows) => rows.len(),
             Self::r#RuntimeModelingInitializations(rows) => rows.len(),
             Self::r#RuntimeModelingJacobianOptimization(rows) => rows.len(),
+            Self::r#RuntimeModelingKnowledge(rows) => rows.len(),
+            Self::r#RuntimeModelingKnowledgeNames(rows) => rows.len(),
             Self::r#RuntimeModelingLinearDiagnostics(rows) => rows.len(),
             Self::r#RuntimeModelingNonlinearExplanations(rows) => rows.len(),
             Self::r#RuntimeModelingParity(rows) => rows.len(),
@@ -1147,11 +1149,6 @@ impl FactBatch {
         let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::TypedFactsV1);
         hash.id(&self.relation()).u64(self.len() as u64);
         match self {
-            Self::r#AuthoredDatasets(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
             Self::r#AuthoredDocuments(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -1173,11 +1170,6 @@ impl FactBatch {
                 }
             }
             Self::r#AuthoredNumericalRequirements(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredObservations(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1238,11 +1230,6 @@ impl FactBatch {
                 }
             }
             Self::r#ReferenceBases(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#ReferenceConstants(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1422,6 +1409,11 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeFittedParameterCells(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeIncumbents(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -1478,6 +1470,16 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeModelingJacobianOptimization(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeModelingKnowledge(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeModelingKnowledgeNames(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1743,9 +1745,6 @@ impl FactBatch {
     /// One exact generated row, retaining its relation identity.
     pub fn row(&self, index: usize) -> Option<Self> {
         match self {
-            Self::r#AuthoredDatasets(rows) => {
-                rows.get(index).map(|row| Self::r#AuthoredDatasets(vec![row.clone()]))
-            }
             Self::r#AuthoredDocuments(rows) => {
                 rows.get(index).map(|row| Self::r#AuthoredDocuments(vec![row.clone()]))
             }
@@ -1762,10 +1761,6 @@ impl FactBatch {
             Self::r#AuthoredNumericalRequirements(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#AuthoredNumericalRequirements(vec![row.clone()]))
-            }
-            Self::r#AuthoredObservations(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredObservations(vec![row.clone()]))
             }
             Self::r#AuthoredPackageUnitSets(rows) => {
                 rows.get(index)
@@ -1810,9 +1805,6 @@ impl FactBatch {
             }
             Self::r#ReferenceBases(rows) => {
                 rows.get(index).map(|row| Self::r#ReferenceBases(vec![row.clone()]))
-            }
-            Self::r#ReferenceConstants(rows) => {
-                rows.get(index).map(|row| Self::r#ReferenceConstants(vec![row.clone()]))
             }
             Self::r#ReferenceConversionRules(rows) => {
                 rows.get(index)
@@ -1953,6 +1945,10 @@ impl FactBatch {
             Self::r#RuntimeFitVariables(rows) => {
                 rows.get(index).map(|row| Self::r#RuntimeFitVariables(vec![row.clone()]))
             }
+            Self::r#RuntimeFittedParameterCells(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeFittedParameterCells(vec![row.clone()]))
+            }
             Self::r#RuntimeIncumbents(rows) => {
                 rows.get(index).map(|row| Self::r#RuntimeIncumbents(vec![row.clone()]))
             }
@@ -2005,6 +2001,14 @@ impl FactBatch {
                     .map(|row| Self::r#RuntimeModelingJacobianOptimization(
                         vec![row.clone()],
                     ))
+            }
+            Self::r#RuntimeModelingKnowledge(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingKnowledge(vec![row.clone()]))
+            }
+            Self::r#RuntimeModelingKnowledgeNames(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingKnowledgeNames(vec![row.clone()]))
             }
             Self::r#RuntimeModelingLinearDiagnostics(rows) => {
                 rows.get(index)
@@ -2237,14 +2241,6 @@ impl FactBatch {
     /// Full canonical semantic comparison without allocating row copies.
     pub fn same_row(&self, index: usize, other: &Self, other_index: usize) -> bool {
         match (self, other) {
-            (Self::r#AuthoredDatasets(left), Self::r#AuthoredDatasets(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
             (Self::r#AuthoredDocuments(left), Self::r#AuthoredDocuments(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -2284,14 +2280,6 @@ impl FactBatch {
                 Self::r#AuthoredNumericalRequirements(left),
                 Self::r#AuthoredNumericalRequirements(right),
             ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredObservations(left), Self::r#AuthoredObservations(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(left, right)
@@ -2409,14 +2397,6 @@ impl FactBatch {
                 }
             }
             (Self::r#ReferenceBases(left), Self::r#ReferenceBases(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#ReferenceConstants(left), Self::r#ReferenceConstants(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(left, right)
@@ -2785,6 +2765,17 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (
+                Self::r#RuntimeFittedParameterCells(left),
+                Self::r#RuntimeFittedParameterCells(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
             (Self::r#RuntimeIncumbents(left), Self::r#RuntimeIncumbents(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -2903,6 +2894,28 @@ impl FactBatch {
             (
                 Self::r#RuntimeModelingJacobianOptimization(left),
                 Self::r#RuntimeModelingJacobianOptimization(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingKnowledge(left),
+                Self::r#RuntimeModelingKnowledge(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingKnowledgeNames(left),
+                Self::r#RuntimeModelingKnowledgeNames(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -3460,13 +3473,6 @@ impl FactBatch {
     /// Conservative clone extent, checked before allocating a one-row batch.
     pub fn row_bytes(&self, index: usize) -> Option<usize> {
         match self {
-            Self::r#AuthoredDatasets(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
             Self::r#AuthoredDocuments(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -3496,13 +3502,6 @@ impl FactBatch {
                     })
             }
             Self::r#AuthoredNumericalRequirements(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredObservations(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -3587,13 +3586,6 @@ impl FactBatch {
                     })
             }
             Self::r#ReferenceBases(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#ReferenceConstants(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -3845,6 +3837,13 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeFittedParameterCells(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeIncumbents(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -3923,6 +3922,20 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeModelingJacobianOptimization(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeModelingKnowledge(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeModelingKnowledgeNames(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -4291,17 +4304,6 @@ impl FactBatch {
     /// Complete primary-key equality; hash collisions do not merge keys.
     pub fn same_key(&self, index: usize, other: &Self, other_index: usize) -> bool {
         match (self, other) {
-            (Self::r#AuthoredDatasets(left), Self::r#AuthoredDatasets(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#dataset_id,
-                            &right.r#dataset_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
             (Self::r#AuthoredDocuments(left), Self::r#AuthoredDocuments(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -4355,17 +4357,6 @@ impl FactBatch {
                         crate::SemanticEq::semantic_eq(
                             &left.r#requirement_id,
                             &right.r#requirement_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredObservations(left), Self::r#AuthoredObservations(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#observation_id,
-                            &right.r#observation_id,
                         )
                     }
                     _ => false,
@@ -4513,17 +4504,6 @@ impl FactBatch {
                         crate::SemanticEq::semantic_eq(
                             &left.r#basis_id,
                             &right.r#basis_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#ReferenceConstants(left), Self::r#ReferenceConstants(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#constant_id,
-                            &right.r#constant_id,
                         )
                     }
                     _ => false,
@@ -5014,6 +4994,21 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (
+                Self::r#RuntimeFittedParameterCells(left),
+                Self::r#RuntimeFittedParameterCells(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#parameter_id,
+                                &right.r#parameter_id,
+                            )
+                    }
+                    _ => false,
+                }
+            }
             (Self::r#RuntimeIncumbents(left), Self::r#RuntimeIncumbents(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -5200,6 +5195,46 @@ impl FactBatch {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingKnowledge(left),
+                Self::r#RuntimeModelingKnowledge(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#source_revision,
+                            &right.r#source_revision,
+                        )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#owner_id,
+                                &right.r#owner_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#row_index,
+                                &right.r#row_index,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#slot,
+                                &right.r#slot,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingKnowledgeNames(left),
+                Self::r#RuntimeModelingKnowledgeNames(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#source_revision,
+                            &right.r#source_revision,
+                        ) && crate::SemanticEq::semantic_eq(&left.r#name, &right.r#name)
                     }
                     _ => false,
                 }
@@ -6087,10 +6122,6 @@ impl FactBatch {
         let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::TypedRowKeyV1);
         hash.id(&self.relation());
         match self {
-            Self::r#AuthoredDatasets(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#dataset_id, &mut hash);
-            }
             Self::r#AuthoredDocuments(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#document_id, &mut hash);
@@ -6110,10 +6141,6 @@ impl FactBatch {
             Self::r#AuthoredNumericalRequirements(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#requirement_id, &mut hash);
-            }
-            Self::r#AuthoredObservations(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#observation_id, &mut hash);
             }
             Self::r#AuthoredPackageUnitSets(rows) => {
                 let row = rows.get(index)?;
@@ -6164,10 +6191,6 @@ impl FactBatch {
             Self::r#ReferenceBases(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#basis_id, &mut hash);
-            }
-            Self::r#ReferenceConstants(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#constant_id, &mut hash);
             }
             Self::r#ReferenceConversionRules(rows) => {
                 let row = rows.get(index)?;
@@ -6325,6 +6348,11 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#experiment_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#symbol_id, &mut hash);
             }
+            Self::r#RuntimeFittedParameterCells(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#parameter_id, &mut hash);
+            }
             Self::r#RuntimeIncumbents(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
@@ -6388,6 +6416,18 @@ impl FactBatch {
             Self::r#RuntimeModelingJacobianOptimization(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+            }
+            Self::r#RuntimeModelingKnowledge(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#source_revision, &mut hash);
+                crate::SemanticFrame::frame(&row.r#owner_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#row_index, &mut hash);
+                crate::SemanticFrame::frame(&row.r#slot, &mut hash);
+            }
+            Self::r#RuntimeModelingKnowledgeNames(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#source_revision, &mut hash);
+                crate::SemanticFrame::frame(&row.r#name, &mut hash);
             }
             Self::r#RuntimeModelingLinearDiagnostics(rows) => {
                 let row = rows.get(index)?;
@@ -6675,10 +6715,6 @@ impl FactBatch {
     /// The incoming relation identity differs.
     pub fn append(&mut self, other: Self) -> Result<(), crate::ModelError> {
         match (self, other) {
-            (Self::r#AuthoredDatasets(left), Self::r#AuthoredDatasets(mut right)) => {
-                left.append(&mut right);
-                Ok(())
-            }
             (Self::r#AuthoredDocuments(left), Self::r#AuthoredDocuments(mut right)) => {
                 left.append(&mut right);
                 Ok(())
@@ -6701,13 +6737,6 @@ impl FactBatch {
             (
                 Self::r#AuthoredNumericalRequirements(left),
                 Self::r#AuthoredNumericalRequirements(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredObservations(left),
-                Self::r#AuthoredObservations(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -6781,13 +6810,6 @@ impl FactBatch {
                 Ok(())
             }
             (Self::r#ReferenceBases(left), Self::r#ReferenceBases(mut right)) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#ReferenceConstants(left),
-                Self::r#ReferenceConstants(mut right),
-            ) => {
                 left.append(&mut right);
                 Ok(())
             }
@@ -7030,6 +7052,13 @@ impl FactBatch {
                 left.append(&mut right);
                 Ok(())
             }
+            (
+                Self::r#RuntimeFittedParameterCells(left),
+                Self::r#RuntimeFittedParameterCells(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
             (Self::r#RuntimeIncumbents(left), Self::r#RuntimeIncumbents(mut right)) => {
                 left.append(&mut right);
                 Ok(())
@@ -7107,6 +7136,20 @@ impl FactBatch {
             (
                 Self::r#RuntimeModelingJacobianOptimization(left),
                 Self::r#RuntimeModelingJacobianOptimization(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeModelingKnowledge(left),
+                Self::r#RuntimeModelingKnowledge(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeModelingKnowledgeNames(left),
+                Self::r#RuntimeModelingKnowledgeNames(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -7469,7 +7512,6 @@ impl FactBatch {
 impl crate::HeapUsage for FactBatch {
     fn heap_bytes(&self) -> usize {
         match self {
-            Self::r#AuthoredDatasets(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredDocuments(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredEntities(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredFitCases(rows) => crate::HeapUsage::heap_bytes(rows),
@@ -7479,7 +7521,6 @@ impl crate::HeapUsage for FactBatch {
             Self::r#AuthoredNumericalRequirements(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
-            Self::r#AuthoredObservations(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredPackageUnitSets(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredPackages(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#NormalizedPackageGraph(rows) => crate::HeapUsage::heap_bytes(rows),
@@ -7494,7 +7535,6 @@ impl crate::HeapUsage for FactBatch {
             Self::r#ReferenceAliases(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceArtifactProfiles(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceBases(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#ReferenceConstants(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceConversionRules(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceDimensions(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceEngineProfiles(rows) => crate::HeapUsage::heap_bytes(rows),
@@ -7552,6 +7592,9 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeFitObservations(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeFitParameters(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeFitVariables(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeFittedParameterCells(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeIncumbents(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeInfeasibilityCertificates(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
@@ -7578,6 +7621,10 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeModelingJacobianOptimization(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeModelingKnowledge(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeModelingKnowledgeNames(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeModelingLinearDiagnostics(rows) => {

@@ -113,6 +113,12 @@ parent = { type = "parameter_set", optional = true, doc = "The set this one is a
 parent_slot = { type = "Meta<slot>", optional = true, doc = "The slot of the parent this set is the value of." }
 
 [[kinds.parameter_set.requires]]
+name = "occurrence_from_one"
+doc = "Repeated assertions for one subject are numbered from one."
+enforced = "ddl"
+check = { positive = "occurrence" }
+
+[[kinds.parameter_set.requires]]
 name = "nested_has_both"
 doc = "A nested set names both its parent and the parent's slot; a top-level set names neither."
 enforced = "load"
@@ -168,6 +174,12 @@ axis_type = { type = "Meta<quantity_type>", doc = "Quantity type of the axis." }
 points = { type = "Array<Real>", unit_from = "axis_type", doc = "Axis values in the axis type's storage unit." }
 
 [[kinds.tabulated_axis.requires]]
+name = "ordinal_from_one"
+doc = "The axes of a tabulated function are numbered from one."
+enforced = "ddl"
+check = { positive = "ordinal" }
+
+[[kinds.tabulated_axis.requires]]
 name = "points_ascending"
 doc = "Axis values are strictly ascending."
 enforced = "verify"
@@ -200,6 +212,11 @@ traces = ["IC-15", "SI-13"]
 record = { type = "Record", doc = "The parameter set, parameterisation or model assembly the region is stated for." }
 kind = { type = "envelope_kind", doc = "What the region represents." }
 ordinal = { type = "Integer", doc = "Position among the regions of this kind on the record, from one." }
+
+[[kinds.validity_region.requires]]
+name = "has_a_clause"
+doc = "A region has at least one clause."
+enforced = "verify"
 
 [[kinds.validity_region.requires]]
 name = "ordinal_from_one"
@@ -316,6 +333,12 @@ path = { type = "Text", doc = "Path of sub-form slot names from the root to this
 ordinal = { type = "Integer", doc = "Position among the choices of a slot with multiplicity many; one otherwise." }
 slot = { type = "Meta<subform_slot>", doc = "The sub-form slot filled." }
 form = { type = "Meta<form>", doc = "The form chosen." }
+
+[[kinds.assembly_choice.requires]]
+name = "ordinal_from_one"
+doc = "The choices of a sub-form slot are numbered from one."
+enforced = "ddl"
+check = { positive = "ordinal" }
 
 [relations.phase_model]
 doc = "The model assembly that describes a phase definition. One equation of state may describe several phases."

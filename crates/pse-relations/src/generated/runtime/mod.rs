@@ -27,6 +27,8 @@ pub mod r#fit_parameters;
 ///Generated relation contract.
 pub mod r#fit_variables;
 ///Generated relation contract.
+pub mod r#fitted_parameter_cells;
+///Generated relation contract.
 pub mod r#incumbents;
 ///Generated relation contract.
 pub mod r#infeasibility_certificates;
@@ -50,6 +52,10 @@ pub mod r#modeling_fixture_status;
 pub mod r#modeling_initializations;
 ///Generated relation contract.
 pub mod r#modeling_jacobian_optimization;
+///Generated relation contract.
+pub mod r#modeling_knowledge;
+///Generated relation contract.
+pub mod r#modeling_knowledge_names;
 ///Generated relation contract.
 pub mod r#modeling_linear_diagnostics;
 ///Generated relation contract.

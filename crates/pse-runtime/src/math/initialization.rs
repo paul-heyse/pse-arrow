@@ -407,7 +407,9 @@ impl MathService {
                     compiler.prepare_bound_initialization(case.compiled(), profile, &flag)?;
                 let bytes = products
                     .iter()
-                    .try_fold(numerical_bytes, |n, p| n.checked_add(p.plan.retained_bytes()))
+                    .try_fold(numerical_bytes, |n, p| {
+                        n.checked_add(p.plan.retained_bytes())
+                    })
                     .ok_or(MathRuntimeError::Limit("initialization product extent"))?;
                 Ok((products, bytes))
             });

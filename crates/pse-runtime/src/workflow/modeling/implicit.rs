@@ -590,9 +590,7 @@ mod tests {
                 .find(|r| r.name == "Root")
                 .unwrap()
                 .declaration_id;
-            let package = rt
-                .modeling_package(rows, physical.clone())
-                .unwrap();
+            let package = rt.modeling_package(rows, physical.clone()).unwrap();
             let compiler = super::super::super::tests::compiler_profile();
             let cancel = crate::CancelSource::new();
             let mut solver = super::super::super::tests::profile();
@@ -762,12 +760,14 @@ mod tests {
             .events
             .iter()
             .filter(|e| e.phase == "ipopt.iteration")
-            .map(|e| match (&e.values["iteration"], &e.values["regime.crossings"]) {
-                (Metric::Integer(iteration), Metric::Integer(crossings)) => {
-                    (*iteration, *crossings)
-                }
-                other => panic!("{other:?}"),
-            })
+            .map(
+                |e| match (&e.values["iteration"], &e.values["regime.crossings"]) {
+                    (Metric::Integer(iteration), Metric::Integer(crossings)) => {
+                        (*iteration, *crossings)
+                    }
+                    other => panic!("{other:?}"),
+                },
+            )
             .collect::<BTreeMap<_, _>>();
         assert_eq!(
             by_iteration.keys().copied().collect::<Vec<_>>(),
@@ -777,8 +777,7 @@ mod tests {
         assert_eq!(by_iteration[&0], 0);
         assert!(by_iteration[&1] > 0, "{by_iteration:?}");
         assert!(
-            by_iteration.values().sum::<i64>()
-                <= i64::try_from(callback.regime_crossings).unwrap()
+            by_iteration.values().sum::<i64>() <= i64::try_from(callback.regime_crossings).unwrap()
         );
     }
     #[tokio::test]

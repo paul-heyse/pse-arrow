@@ -3,7 +3,7 @@
 """Command surface for native, data-authored model conformance.
 
 One package runs ad hoc; ``--manifest`` runs every run a reference set declares (for
-example ``packages/reference/conformance.toml``) once, under the manifest's run settings.
+example ``packages/reference/conformance.toml``) once, under its run settings.
 A fixture's execution policy is authored in the fixture itself; it is never
 command-line data. Repeated ``--fixture <declaration-id>`` selects test declarations by
 identity: only those run, an identity that names no authored test is refused before any
@@ -40,7 +40,9 @@ from pse.contracts.values import SemanticId
 AUTOMATIC = "auto"
 
 
-class RunSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class RunSettings(
+    msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True
+):
     """The execution settings of one conformance run, for every fixture it discovers.
 
     A fixture's declared execution policy replaces a setting for that fixture only.
@@ -68,7 +70,9 @@ class RunSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     diagnostics: str | None = None
 
 
-class ConformanceRun(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class ConformanceRun(
+    msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True
+):
     """One declared run: package roots relative to the manifest, and its execution.
 
     A pure run executes only explicit pure fixtures, without solver services.
@@ -103,6 +107,7 @@ class RunSummary(msgspec.Struct, frozen=True):
     statuses: dict[str, int]
 
     def line(self) -> str:
+        """Render the bounded run summary."""
         counts = ", ".join(f"{k} {v}" for k, v in sorted(self.statuses.items()))
         return (
             f"{self.name}: passed={self.passed} complete={self.complete} "
@@ -112,7 +117,7 @@ class RunSummary(msgspec.Struct, frozen=True):
 
 
 def load_manifest(path: Path) -> ConformanceManifest:
-    """Decode a manifest; run names are unique file stems and every root is a package."""
+    """Decode unique run names and package roots from a manifest."""
     manifest = msgspec.toml.decode(path.read_bytes(), type=ConformanceManifest)
     names = [run.name for run in manifest.runs]
     if (
@@ -125,7 +130,9 @@ def load_manifest(path: Path) -> ConformanceManifest:
     for run in manifest.runs:
         for root in (run.package, run.physical, *run.dependencies):
             if not (path.parent / root / "package.toml").is_file():
-                message = f"{path}: run {run.name} names {root}, which has no package.toml"
+                message = (
+                    f"{path}: run {run.name} names {root}, which has no package.toml"
+                )
                 raise ValueError(message)
     if manifest.settings.diagnostics is not None:
         profile = path.parent / manifest.settings.diagnostics
@@ -134,7 +141,9 @@ def load_manifest(path: Path) -> ConformanceManifest:
             raise ValueError(message)
         manifest = msgspec.structs.replace(
             manifest,
-            settings=msgspec.structs.replace(manifest.settings, diagnostics=str(profile)),
+            settings=msgspec.structs.replace(
+                manifest.settings, diagnostics=str(profile)
+            ),
         )
     return manifest
 
@@ -144,19 +153,20 @@ def fixture_id(text: str) -> DeclarationId:
     return DeclarationId(SemanticId.from_hex(text))
 
 
-def _documents(root: Path) -> dict[str, str]:
+def _documents(root: Path) -> dict[str, str | bytes]:
     if not (root / "package.toml").is_file():
         message = f"missing package.toml in {root}"
         raise ValueError(message)
     return {
-        path.relative_to(root).as_posix(): path.read_text()
+        path.relative_to(root).as_posix(): path.read_bytes()
         for path in root.rglob("*")
-        if path.is_file() and path.suffix in {".toml", ".yaml", ".yml", ".pse"}
+        if path.is_file()
+        and path.suffix in {".toml", ".yaml", ".yml", ".pse", ".parquet"}
     }
 
 
 def _write(report: Path, result: ModelingConformance) -> None:
-    """Write the checks, fixture inventory, findings and oracle parity beside each other."""
+    """Write checks, fixture inventory, findings and oracle parity."""
     for path, payload in (
         (report, pa.table(result.table())),
         (report.with_suffix(".fixtures.arrow"), pa.table(result.fixture_statuses())),
@@ -170,7 +180,7 @@ def _write(report: Path, result: ModelingConformance) -> None:
             writer.write_table(payload)
 
 
-def run_once(  # noqa: PLR0913 - one run's name, roots, execution, settings and report
+def run_once(
     name: str,
     package: Path,
     dependencies: Sequence[Path],
@@ -181,8 +191,10 @@ def run_once(  # noqa: PLR0913 - one run's name, roots, execution, settings and 
     report: Path | None,
     fixtures: Sequence[DeclarationId] | None = None,
 ) -> RunSummary:
-    """Run every fixture of a package and its dependencies once, or the selected
-    ``fixtures``, and summarize it."""
+    """Run package fixtures or the selected identities and summarize the result.
+
+    Dependencies participate in package coverage.
+    """
     limits = ModelingLimits(
         items=settings.expansion_items,
         members=settings.expansion_members,
@@ -253,20 +265,27 @@ def run_manifest(
     path: Path,
     report_dir: Path | None,
     fixtures: Sequence[DeclarationId] | None = None,
+    run_name: str | None = None,
 ) -> tuple[RunSummary, ...]:
     """Run every declared run once, in order, writing its reports as ``<name>.arrow``.
 
-    A fixture selection needs a manifest of one run, so an identity outside that run is
-    refused before any fixture runs.
+    ``run_name`` selects one declared run. A fixture selection needs exactly one run,
+    so an identity outside that run is refused before any fixture runs.
     """
     manifest = load_manifest(path)
-    if fixtures is not None and len(manifest.runs) != 1:
+    runs = manifest.runs
+    if run_name is not None:
+        runs = tuple(run for run in runs if run.name == run_name)
+        if not runs:
+            message = f"{path}: unknown run {run_name!r}"
+            raise ValueError(message)
+    if fixtures is not None and len(runs) != 1:
         message = f"{path}: a fixture selection needs a manifest that declares one run"
         raise ValueError(message)
     if report_dir is not None:
         report_dir.mkdir(parents=True, exist_ok=True)
     summaries = []
-    for run in manifest.runs:
+    for run in runs:
         summary = run_once(
             run.name,
             path.parent / run.package,
@@ -285,13 +304,14 @@ def run_manifest(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run one package or a manifest's runs; exit 0 only if every run passed completely."""
+    """Run package conformance; exit zero only when every run passed completely."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("package", type=Path, nargs="?")
     parser.add_argument(
         "--manifest", type=Path, help="run every run a reference set declares"
     )
     parser.add_argument("--report-dir", type=Path)
+    parser.add_argument("--run", help="select one named run from --manifest")
     parser.add_argument("--physical", type=Path)
     parser.add_argument("--dependency", type=Path, action="append", default=[])
     parser.add_argument("--memory-limit-bytes", type=int)
@@ -336,10 +356,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.manifest is not None:
         if args.package is not None or args.report is not None:
             parser.error("--manifest runs its declared packages into --report-dir")
-        summaries = run_manifest(args.manifest, args.report_dir, fixtures)
+        summaries = run_manifest(args.manifest, args.report_dir, fixtures, args.run)
         return 0 if all(s.passed and s.complete for s in summaries) else 1
+    if args.run is not None:
+        parser.error("--run requires --manifest")
     if args.package is None or args.physical is None or args.memory_limit_bytes is None:
-        parser.error("a package run needs a package, --physical and --memory-limit-bytes")
+        parser.error(
+            "a package run needs a package, --physical and --memory-limit-bytes"
+        )
     settings = RunSettings(
         memory_limit_bytes=args.memory_limit_bytes,
         threads=args.threads,

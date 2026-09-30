@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1b4f611717da49a9268ae84b41b") package bt_pr {
+@id("2e7eb81f56ba439bb9b2a8a82e825e87") use eos_data @"1.0.0";
+
+@id("01a0f14ead4d7118a57e3664098407de") use constants @"1.0.0";
+@id("a5dc8a3a7f074c179277c890758ff8bc") use compatibility @"1.0.0";
+@id("01a0f13d55af72e69b131205233ca285") use correlations @"1.0.0";
+@id("01a0f13d55af72e69b1312046e448394") use properties @"1.0.0";
 @id("01a0ef604fdf73c68b36e126bd42210b") use provenance @"1.0.0";
 @id("01a0ef604fdf73c68b36e12738a6e4c8") use references @"1.0.0";
 @id("01a0ee04daa773329a4687db457c50f4") use chemistry @"1.0.0";
@@ -12,23 +18,24 @@
 @id("01a0e1b4f611717da49a926f22a030a5") use equilibrium @"1.0.0";
 @id("01a0e1b4f611717da49a9270067ac1c7") use helmholtz @"1.0.0";
 @id("01a0eeced80374ab83c0820a4034adce") use nested_equilibrium @"1.0.0";
-@id("01a0e1b4f611717da49a92713ed6ca46") table reference[j:chemistry.species]:{gas_fit:caloric.fit,h:PrOracleEnthalpy,s:PrOracleEntropy} complete_over(j in chem.aromatics);
+@id("01a0e1b4f611717da49a92713ed6ca46") table reference[j:chemistry.species]:{h:PrOracleEnthalpy,s:PrOracleEntropy} complete_over(j in bt_ideal.aromatics);
 @id("01a0e1b4f611717da49a9272a559d6a6") dataset reference_values:reference provenance(references.idaes_bt_pr, provenance.Role.oracle_input) {
-[chem.benzene]=[caloric_data.benzene_gas_rpp4_oracle,82900{J/mol},-269{J/(mol*K)}];
-[chem.toluene]=[caloric_data.toluene_gas_rpp4_oracle,50100{J/mol},-321{J/(mol*K)}];
+[chem.benzene]=[82900{J/mol},-269{J/(mol*K)}];
+[chem.toluene]=[50100{J/mol},-321{J/(mol*K)}];
 }
-@id("01a0e1b4f611717da49a92733d46726d") fn source_h_zero()->PrOracleEnthalpy=0{J/mol};
-@id("01a0e1b4f611717da49a92746cf62f24") fn source_h_unit()->PrOracleDeltaH=1{J/mol};
-@id("01a0e1b4f611717da49a927599ea7fa8") fn source_s_zero()->PrOracleEntropy=0{J/(mol*K)};
-@id("01a0e1b4f611717da49a92764aeb5711") fn source_s_unit()->PrOracleDeltaS=1{J/(mol*K)};
-@id("01a0e1b4f611717da49a9277ee0cda0d") fn reference_T()->Temperature=298.15{K};
-@id("01a0e1b4f611717da49a927833f4d3d9") fn reference_P()->Pressure=101325{Pa};
-@id("01a0e1b4f611717da49a9279038f6687") fn gas_h(T:Temperature,j:chemistry.species)->MolarEnthalpy=equilibrium.enthalpy_datum()+caloric.polynomial_h_primitive(T,caloric.polynomial[reference[j].gas_fit])-caloric.polynomial_h_primitive(reference_T(),caloric.polynomial[reference[j].gas_fit]);
-@id("01a0e1b4f611717da49a927a3d93aefe") fn gas_s(T:Temperature,j:chemistry.species)->MolarEntropy=equilibrium.entropy_datum()+caloric.polynomial_s_primitive(T,caloric.polynomial[reference[j].gas_fit])-caloric.polynomial_s_primitive(reference_T(),caloric.polynomial[reference[j].gas_fit]);
+@id("463175a54c394984bc8ea892900044f5") constant oracle_enthalpy_zero:PrOracleEnthalpy=0{J/mol} provenance(references.idaes_bt_pr,provenance.Role.oracle_input);
+@id("5a5c8aa28a814069a9d7c3ba9838386f") constant oracle_enthalpy_increment_unit:PrOracleDeltaH=1{J/mol} provenance(references.idaes_bt_pr,provenance.Role.oracle_input);
+@id("d6debac275df4f5ba1ba96f3b5b55962") constant oracle_entropy_zero:PrOracleEntropy=0{J/(mol*K)} provenance(references.idaes_bt_pr,provenance.Role.oracle_input);
+@id("56585b4c3353424ba1eaeed65788df4a") constant oracle_entropy_increment_unit:PrOracleDeltaS=1{J/(mol*K)} provenance(references.idaes_bt_pr,provenance.Role.oracle_input);
+@id("01a0e1b4f611717da49a9279038f6687") fn gas_h(T:Temperature,j:chemistry.species)->MolarEnthalpy=properties.component_enthalpy(bt_pr_idaes,chemistry.vapor,j,T);
+@id("01a0e1b4f611717da49a927a3d93aefe") fn gas_s(T:Temperature,j:chemistry.species)->MolarEntropy=properties.component_entropy(bt_pr_idaes,chemistry.vapor,j,T);
 @id("01a0e1b4f611717da49a927b8ced04f1") def BT_PR(defined_state:Boolean=true,minimum:Temperature=350{K},maximum:Temperature=400{K},formulation:equilibrium.VleFormulation=equilibrium.VleFormulation.smooth):pr_equilibrium.SmoothPR {
+@id("e79fa9fc0a1e4d92824498ab8f0ff6fc") override param eos_package:properties.property_package=eos_data.bt_pr_parameters;
+@id("51ea00c3f9be4ba0b690173bb1b2fa76") override param eos_potential:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=eos_data.potential;
+
 @id("e5066feedc994f50b82c7a5e05569a15") override param defined:Boolean=defined_state;
-@id("01a0e1b4f611717da49a927c9b92fa31") override param components:Set<chemistry.species>=chem.aromatics;
-@id("01a0e1b4f611717da49a927de67a6ef2") override param psat:Fn(T:Temperature,j:chemistry.species)->Pressure=bt_ideal.psat;
+@id("01a0e1b4f611717da49a927c9b92fa31") override param components:Set<chemistry.species>=bt_ideal.aromatics;
+@id("01a0e1b4f611717da49a927de67a6ef2") override param psat:Fn(T:Temperature,j:chemistry.species)->Pressure=bt_pr.psat;
 @id("01a0e1b4f611717da49a927ed0b8a92b") override param liquid_enthalpy:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=gas_h;
 @id("01a0e1b4f611717da49a927f2e75c933") override param vapor_enthalpy:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=gas_h;
 @id("01a0e1b4f611717da49a9280671a1c99") override param ideal_entropy:Fn(T:Temperature,j:chemistry.species)->MolarEntropy=gas_s;
@@ -36,14 +43,14 @@
 @id("01a0e1b4f611717da49a9282c0816d92") override param maximum_temperature:Temperature=maximum;
 @id("01a0e1b4f611717da49a9283d7e5bb29") override param bubble_start:Temperature=365{K};
 @id("01a0e1b4f611717da49a928413df3651") override param dew_start:Temperature=370{K};
-@id("01a0e1b4f611717da49a9285e0b7f6d5") let oracle_h_liquid:PrOracleEnthalpy=source_h_zero()+source_h_unit()*((h_liquid-equilibrium.enthalpy_datum())/caloric.h_unit()+sum(j in components | (x[j]/equilibrium.fraction_unit())*((reference[j].h-source_h_zero())/source_h_unit())));
-@id("01a0e1b4f611717da49a92863a6d1dc5") let oracle_s_liquid:PrOracleEntropy=source_s_zero()+source_s_unit()*((s_liquid-equilibrium.entropy_datum())/caloric.s_unit()+helmholtz.reduced_gas_constant()*log(reference_P()/pr_equilibrium.reference_pressure())+sum(j in components | (x[j]/equilibrium.fraction_unit())*((reference[j].s-source_s_zero())/source_s_unit())));
-@id("01a0e1b4f611717da49a92879be8970c") let oracle_h_vapor:PrOracleEnthalpy=source_h_zero()+source_h_unit()*((h_vapor-equilibrium.enthalpy_datum())/caloric.h_unit()+sum(j in components | (y[j]/equilibrium.fraction_unit())*((reference[j].h-source_h_zero())/source_h_unit())));
-@id("01a0e1b4f611717da49a9288957882c3") let oracle_s_vapor:PrOracleEntropy=source_s_zero()+source_s_unit()*((s_vapor-equilibrium.entropy_datum())/caloric.s_unit()+helmholtz.reduced_gas_constant()*log(reference_P()/pr_equilibrium.reference_pressure())+sum(j in components | (y[j]/equilibrium.fraction_unit())*((reference[j].s-source_s_zero())/source_s_unit())));
+@id("01a0e1b4f611717da49a9285e0b7f6d5") let oracle_h_liquid:PrOracleEnthalpy=oracle_enthalpy_zero+oracle_enthalpy_increment_unit*((h_liquid-constants.standard_enthalpy_datum)/constants.enthalpy_increment_unit+sum(j in components | (x[j]/equilibrium.fraction_unit())*((reference[j].h-oracle_enthalpy_zero)/oracle_enthalpy_increment_unit)));
+@id("01a0e1b4f611717da49a92863a6d1dc5") let oracle_s_liquid:PrOracleEntropy=oracle_entropy_zero+oracle_entropy_increment_unit*((s_liquid-constants.standard_entropy_datum)/constants.entropy_increment_unit+helmholtz.reduced_gas_constant()*log(bt_pr_oracle.pressure/constants.standard_pressure)+sum(j in components | (x[j]/equilibrium.fraction_unit())*((reference[j].s-oracle_entropy_zero)/oracle_entropy_increment_unit)));
+@id("01a0e1b4f611717da49a92879be8970c") let oracle_h_vapor:PrOracleEnthalpy=oracle_enthalpy_zero+oracle_enthalpy_increment_unit*((h_vapor-constants.standard_enthalpy_datum)/constants.enthalpy_increment_unit+sum(j in components | (y[j]/equilibrium.fraction_unit())*((reference[j].h-oracle_enthalpy_zero)/oracle_enthalpy_increment_unit)));
+@id("01a0e1b4f611717da49a9288957882c3") let oracle_s_vapor:PrOracleEntropy=oracle_entropy_zero+oracle_entropy_increment_unit*((s_vapor-constants.standard_entropy_datum)/constants.entropy_increment_unit+helmholtz.reduced_gas_constant()*log(bt_pr_oracle.pressure/constants.standard_pressure)+sum(j in components | (y[j]/equilibrium.fraction_unit())*((reference[j].s-oracle_entropy_zero)/oracle_entropy_increment_unit)));
 @id("01a0e1b4f611717da49a9289db1e3f2c") annotation valid T(minimum_temperature,maximum_temperature,reject);
 @id("01a0e1b4f611717da49a928a09891d4a") annotation valid pressure(80000{Pa},120000{Pa},reject);
 @id("01a0eed1000d7436b90c08550d1c0196") when formulation==equilibrium.VleFormulation.complementarity {
-@id("01a0eeced80374ab83c0820cd5bb1246") child closure:nested_equilibrium.FlashSplit=pr_equilibrium.ComplementarityPR(selected=chem.aromatics,vapor_pressure=bt_ideal.psat,minimum=minimum,maximum=maximum,bubble=365{K},dew=370{K});
+@id("01a0eeced80374ab83c0820cd5bb1246") child closure:nested_equilibrium.FlashSplit=pr_equilibrium.ComplementarityPR(selected=bt_ideal.aromatics,pkg=eos_package,law=eos_potential,family=eos_family,vapor_pressure=bt_pr.psat,minimum=minimum,maximum=maximum,bubble=365{K},dew=370{K});
 @id("01a0eeced80374ab83c0820dd9a03750") eq bind_temperature:closure.T==T;
 @id("01a0eeced80374ab83c0820ed5549345") eq bind_pressure:closure.pressure==pressure;
 @id("01a0eeced80374ab83c0820f90e5029b") eq bind_feed[j in components]:closure.z[j]==z[j];
@@ -55,7 +62,7 @@
 @id("01a0eeced80374ab83c08215149d3695") override eq fugacity[j in components]:y[j]==closure.y[j];
 }
 @id("01a0eed1000d7436b90c0856218645d7") when formulation==equilibrium.VleFormulation.nested {
-@id("01a0eed1000d7436b90c085796f805ba") child closure:nested_equilibrium.FlashSplit=nested_equilibrium.NestedPRFlash(selected=chem.aromatics,vapor_pressure=bt_ideal.psat);
+@id("01a0eed1000d7436b90c085796f805ba") child closure:nested_equilibrium.FlashSplit=nested_equilibrium.NestedPRFlash(selected=bt_ideal.aromatics,pkg=eos_package,family=eos_family,vapor_pressure=bt_pr.psat);
 @id("01a0eed189fc72d7af4d92af16a1ff4a") eq bind_temperature:closure.T==T;
 @id("01a0eed189fc72d7af4d92b06aec2d0f") eq bind_pressure:closure.pressure==pressure;
 @id("01a0eed189fc72d7af4d92b1aa1eaa17") eq bind_feed[j in components]:closure.z[j]==z[j];
@@ -87,5 +94,20 @@
 @id("01a0e1c6a64b7167adfc3a97e41fc4c3") expect root.x[chem.benzene]==0.4012128{1} tolerance 0.000005{1};
 @id("01a0e1c6a64b7167adfc3a98d2872c2e") expect root.y[chem.benzene]==0.6141738{1} tolerance 0.000007{1};
 @id("01a0e1c6a64b7167adfc3a996e99da70") expect root.oracle_h_liquid==38235.1{J/mol} tolerance 0.4{J/mol};
+}
+@id("14a11319a3fd43ddadf8b835a0055305") entity properties.property_package bt_pr_idaes {}
+@id("e572ffcd08d140748d2aed097703e4bb") fn psat(T:Temperature,j:chemistry.species)->Pressure=properties.psat(bt_pr_idaes,chemistry.liquid,j,T);
+@id("ed3260cfafc0494d83bc2552ca026af8") dataset property_selection:properties.selection complete_over(k in binding_packages,j in bt_ideal.aromatics,p in properties.caloric_properties,t in properties.vapor_types) provenance(references.idaes_bt_pr,provenance.Role.oracle_input) {
+[bt_pr_idaes,chem.benzene,properties.heat_capacity,compatibility.PhaseType.vaporPhase]=[correlations.rpp4_cp[chem.benzene, properties.heat_capacity, compatibility.PhaseType.vaporPhase, references.idaes_bt_ideal]];
+[bt_pr_idaes,chem.toluene,properties.heat_capacity,compatibility.PhaseType.vaporPhase]=[correlations.rpp4_cp[chem.toluene, properties.heat_capacity, compatibility.PhaseType.vaporPhase, references.idaes_bt_ideal]];
+}
+@id("7489d5a422a5419b96cff76e461fe3ab") dataset property_selection_liquid_vapor_pressure:properties.selection complete_over(k in binding_packages,j in bt_ideal.aromatics,p in properties.vapor_pressure_properties,t in properties.liquid_types) provenance(references.idaes_bt_pr,provenance.Role.oracle_input) {
+[bt_pr_idaes,chem.benzene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase]=[correlations.rpp4_wagner[chem.benzene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_test_rpp4]];
+[bt_pr_idaes,chem.toluene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase]=[correlations.rpp4_wagner[chem.toluene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_test_rpp4]];
+}
+@id("6ac9cf79cfd54b3c8356589e19419f7f") set binding_packages:Set<properties.property_package>={bt_pr_idaes};
+@id("5b16541585814ba7b21bd4c1e1eb9fa4") dataset datum_selection:properties.caloric_basis complete_over(k in binding_packages,t in properties.vapor_types,j in bt_ideal.aromatics) provenance(references.idaes_bt_pr,provenance.Role.oracle_input) {
+[bt_pr_idaes,compatibility.PhaseType.vaporPhase,chem.benzene]=[stock,chemistry.vapor,0{J/mol},0{J/(mol*K)}];
+[bt_pr_idaes,compatibility.PhaseType.vaporPhase,chem.toluene]=[stock,chemistry.vapor,0{J/mol},0{J/(mol*K)}];
 }
 }

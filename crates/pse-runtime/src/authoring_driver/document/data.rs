@@ -10,6 +10,7 @@
 //! type is refused with the column named. A column's `unit` metadata is carried as stated;
 //! admission refuses it unless it is the declared storage unit, so it is never a second
 //! authority.
+use super::allocation::{Allocation, add, mul};
 use super::load::contract;
 use crate::authoring_driver::DriverError;
 use datafusion::arrow::array::{Array, AsArray};
@@ -27,11 +28,60 @@ pub const UNIT_METADATA: &str = "unit";
 /// # Errors
 /// Bytes that are not Parquet, a nested or unsupported Arrow type, or a dictionary whose
 /// values are not `Utf8` member names.
-pub(super) fn decode(path: &str, bytes: &bytes::Bytes) -> Result<RowSet, DriverError> {
+pub(super) fn decode(
+    path: &str,
+    bytes: &bytes::Bytes,
+    budget: pse_authoring::ParseBudget,
+    mut allocation: Option<&mut Allocation<'_>>,
+) -> Result<RowSet, DriverError> {
     let refuse = |reason: String| contract(None, &format!("data document {path}: {reason}"));
+    let start = allocation.as_ref().map_or(0, |funds| funds.size());
+    // Metadata and compressed-page storage are bounded before the reader is constructed.
+    if let Some(funds) = allocation.as_deref_mut() {
+        funds.grow(mul(bytes.len(), 8)?)?;
+    }
     let builder = ParquetRecordBatchReaderBuilder::try_new(bytes.clone())
         .map_err(|e| refuse(format!("not a Parquet document: {e}")))?;
     let schema = builder.schema().clone();
+    let rows = u64::try_from(builder.metadata().file_metadata().num_rows())
+        .map_err(|_| refuse("negative row count".into()))?;
+    if rows > budget.max_data_rows {
+        return Err(DriverError::Authoring(
+            pse_authoring::AuthoringError::Budget {
+                limit: "data document rows",
+                allowed: budget.max_data_rows,
+                needed: rows,
+            },
+        ));
+    }
+    const BATCH_ROWS: usize = 1024;
+    let batch_rows = BATCH_ROWS
+        .min(usize::try_from(rows).map_err(|_| refuse("row count exceeds address space".into()))?);
+    // A text value cannot exceed its entire uncompressed column chunk. This deliberately
+    // overestimates dictionary expansion while charging only one bounded output batch.
+    let mut transient = 0;
+    for group in builder.metadata().row_groups() {
+        let mut group_bytes = 0;
+        for (column, field) in group.columns().iter().zip(schema.fields()) {
+            let decoded = usize::try_from(column.uncompressed_size())
+                .map_err(|_| refuse("invalid uncompressed column size".into()))?;
+            let text = matches!(
+                field.data_type(),
+                DataType::Utf8 | DataType::LargeUtf8 | DataType::Dictionary(_, _)
+            );
+            group_bytes = add(
+                group_bytes,
+                add(
+                    mul(decoded, 4)?,
+                    mul(batch_rows, if text { add(decoded, 128)? } else { 128 })?,
+                )?,
+            )?;
+        }
+        transient = transient.max(group_bytes);
+    }
+    if let Some(funds) = allocation.as_deref_mut() {
+        funds.grow(add(mul(transient, 4)?, mul(schema.fields().len(), 1024)?)?)?;
+    }
     let mut columns = schema
         .fields()
         .iter()
@@ -66,17 +116,45 @@ pub(super) fn decode(path: &str, bytes: &bytes::Bytes) -> Result<RowSet, DriverE
         })
         .collect::<Result<Vec<_>, DriverError>>()?;
     let reader = builder
+        .with_batch_size(BATCH_ROWS)
         .build()
         .map_err(|e| refuse(format!("unreadable Parquet: {e}")))?;
     for batch in reader {
+        if let Some(funds) = allocation.as_deref_mut() {
+            funds.cancel.checkpoint()?;
+        }
         let batch = batch.map_err(|e| refuse(format!("unreadable Parquet: {e}")))?;
         for ((column, members), array) in columns.iter_mut().zip(batch.columns()) {
-            append(column, members, array.as_ref()).map_err(|reason| {
-                refuse(format!("column {}: {reason}", column.name))
-            })?;
+            // Charge every owned vector growth and string/dictionary copy before append.
+            let growth = append_extent(array.as_ref())?;
+            if let Some(funds) = allocation.as_deref_mut() {
+                funds.grow(growth)?;
+            }
+            append(column, members, array.as_ref())
+                .map_err(|reason| refuse(format!("column {}: {reason}", column.name)))?;
         }
     }
-    RowSet::new(columns.into_iter().map(|(column, _)| column).collect()).map_err(refuse)
+    let rows =
+        RowSet::new(columns.into_iter().map(|(column, _)| column).collect()).map_err(refuse)?;
+    if let Some(funds) = allocation {
+        funds.retain(start, rows.retained_bytes())?;
+    }
+    Ok(rows)
+}
+
+fn append_extent(array: &dyn Array) -> Result<usize, DriverError> {
+    let strings = if let Some(values) = array.as_string_opt::<i32>() {
+        (0..values.len()).try_fold(0, |sum, row| add(sum, values.value(row).len()))?
+    } else if let Some(values) = array.as_string_opt::<i64>() {
+        (0..values.len()).try_fold(0, |sum, row| add(sum, values.value(row).len()))?
+    } else if let Some(dictionary) = array.as_any_dictionary_opt() {
+        append_extent(dictionary.values().as_ref())?
+    } else {
+        0
+    };
+    // Doubling covers Vec capacity growth; 128 bytes per row covers Option payloads,
+    // dictionary names, keys and hash-map buckets in addition to copied string bytes.
+    mul(add(mul(array.len(), 128)?, strings)?, 2)
 }
 
 /// Append one batch's values of a column, by its Arrow type.
@@ -131,10 +209,14 @@ fn append(
                 .ok_or_else(|| "a dictionary column is not a dictionary".to_owned())?;
             let dictionary = array.values();
             let names = if let Some(names) = dictionary.as_string_opt::<i32>() {
-                (0..names.len()).map(|i| names.value(i).to_owned()).collect::<Vec<_>>()
+                (0..names.len())
+                    .map(|i| names.value(i).to_owned())
+                    .collect::<Vec<_>>()
             } else {
                 let names = dictionary.as_string::<i64>();
-                (0..names.len()).map(|i| names.value(i).to_owned()).collect()
+                (0..names.len())
+                    .map(|i| names.value(i).to_owned())
+                    .collect()
             };
             // Each batch may carry its own dictionary; members are one list by name.
             let global = names
@@ -153,12 +235,87 @@ fn append(
                 keys.push(if nulls.as_ref().is_some_and(|n| n.is_null(row)) {
                     None
                 } else {
-                    Some(*global.get(key).ok_or_else(|| {
-                        format!("row {row} indexes outside its dictionary")
-                    })?)
+                    Some(
+                        *global
+                            .get(key)
+                            .ok_or_else(|| format!("row {row} indexes outside its dictionary"))?,
+                    )
                 });
             }
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use datafusion::arrow::array::{RecordBatch, StringArray};
+    use datafusion::arrow::datatypes::{Field, Schema};
+    use pse_columnar::{CancellationToken, GreedyMemoryPool, MemoryPool};
+    use std::sync::Arc;
+
+    #[test]
+    fn compressed_data_is_charged_for_decoded_growth_and_releases_failed_reservations() {
+        let schema = Arc::new(Schema::new(vec![Field::new("text", DataType::Utf8, false)]));
+        let text = "x".repeat(1024);
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(StringArray::from(vec![text.as_str(); 3000]))],
+        )
+        .unwrap();
+        let mut bytes = Vec::new();
+        let mut writer = parquet::arrow::ArrowWriter::try_new(&mut bytes, schema, None).unwrap();
+        writer.write(&batch).unwrap();
+        writer.close().unwrap();
+        let bytes = bytes::Bytes::from(bytes);
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(512 << 20));
+        let cancel = CancellationToken::new();
+        let mut funds = Allocation::new(&pool, &cancel);
+        let rows = decode(
+            "bank.parquet",
+            &bytes,
+            pse_authoring::ParseBudget::default(),
+            Some(&mut funds),
+        )
+        .unwrap();
+        assert_eq!(rows.rows(), 3000);
+        assert!(rows.retained_bytes() > bytes.len() * 10);
+        assert_eq!(pool.reserved(), rows.retained_bytes());
+        let lease = funds.finish();
+        drop(rows);
+        drop(lease);
+        assert_eq!(pool.reserved(), 0);
+        let small: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(bytes.len() * 16 + 65536));
+        let mut funds = Allocation::new(&small, &cancel);
+        assert!(
+            decode(
+                "bank.parquet",
+                &bytes,
+                pse_authoring::ParseBudget::default(),
+                Some(&mut funds)
+            )
+            .is_err()
+        );
+        drop(funds);
+        assert_eq!(small.reserved(), 0);
+        let mut funds = Allocation::new(&pool, &cancel);
+        let budget = pse_authoring::ParseBudget {
+            max_data_rows: 2999,
+            ..pse_authoring::ParseBudget::default()
+        };
+        assert!(
+            decode("bank.parquet", &bytes, budget, Some(&mut funds))
+                .unwrap_err()
+                .to_string()
+                .contains("data document rows")
+        );
+        drop(funds);
+        assert_eq!(pool.reserved(), 0);
+        cancel.cancel();
+        let mut funds = Allocation::new(&pool, &cancel);
+        assert!(decode("bank.parquet", &bytes, budget, Some(&mut funds)).is_err());
+        drop(funds);
+        assert_eq!(pool.reserved(), 0);
+    }
 }

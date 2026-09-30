@@ -70,11 +70,7 @@ mod store {
 
     /// PostgreSQL `bytea`.
     impl ToSql for Bytes {
-        fn to_sql(
-            &self,
-            ty: &Type,
-            out: &mut BytesMut,
-        ) -> Result<IsNull, BoxError> {
+        fn to_sql(&self, ty: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
             self.as_slice().to_sql(ty, out)
         }
         fn accepts(ty: &Type) -> bool {

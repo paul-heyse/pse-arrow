@@ -18,7 +18,6 @@ pub fn declare(builder: &mut RegistryBuilder) {
     declare_reference_quantity_types(builder);
     declare_reference_conversion_rules(builder);
     declare_reference_quantity_operations(builder);
-    declare_reference_constants(builder);
     for (path, members) in pse_quantity::enums::dictionaries() {
         super::declarations::sourced_enumeration(builder, path, members);
     }
@@ -310,26 +309,5 @@ fn declare_reference_quantity_operations(builder: &mut RegistryBuilder) {
             column("precondition_invariant_ids", T::list(T::id())),
         ],
         "blueprint §6.2 physical type: quantity_operations.",
-    );
-}
-
-fn declare_reference_constants(builder: &mut RegistryBuilder) {
-    relation(
-        builder,
-        N::Reference,
-        "constants",
-        S::Model,
-        &["constant_id"],
-        vec![
-            column("constant_id", T::id()),
-            column("name", T::native(arrow_schema::DataType::Utf8)),
-            column("idaes_name", T::native(arrow_schema::DataType::Utf8)).optional(),
-            column("value", T::native(arrow_schema::DataType::Float64)),
-            column("unit_id", T::id()).with_fk("reference.units", "unit_id"),
-            column("quantity_kind_id", T::id())
-                .with_fk("reference.quantity_kinds", "quantity_kind_id"),
-            column("doc", T::native(arrow_schema::DataType::Utf8)),
-        ],
-        "blueprint §6.2 physical type: constants.",
     );
 }

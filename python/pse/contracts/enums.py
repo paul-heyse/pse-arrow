@@ -689,11 +689,14 @@ class ModelingDataFacet(StrEnum):
 
     TEST_ONLY = "test_only"
     REQUIRES_LINEAGE = "requires_lineage"
+    MEASURED = "measured"
+    REQUIRES_FIT = "requires_fit"
 
 
 class ModelingDeclarationKind(StrEnum):
     """The declared ModelingDeclarationKind enumeration."""
 
+    TEMPORAL = "temporal"
     RELAXATION = "relaxation"
     CONTINUATION = "continuation"
     PACKAGE = "package"
@@ -843,6 +846,28 @@ class ModelingKindFacet(StrEnum):
 
     PROVENANCE = "provenance"
     RELEASE = "release"
+    ABSTRACT = "abstract"
+
+
+class ModelingKnowledgeValueKind(StrEnum):
+    """The declared ModelingKnowledgeValueKind enumeration."""
+
+    MISSING = "missing"
+    BOOLEAN = "boolean"
+    INTEGER = "integer"
+    QUANTITY = "quantity"
+    COORDINATE = "coordinate"
+    TEXT = "text"
+    ENTITY = "entity"
+    ENUMERATION = "enumeration"
+    IDENTIFIER = "identifier"
+    DEFINITION = "definition"
+    FUNCTION = "function"
+    ROW = "row"
+    SET = "set"
+    TUPLE = "tuple"
+    QUANTITY_TYPE = "quantity_type"
+    REFERENCE_STATE = "reference_state"
 
 
 class ModelingLineageKind(StrEnum):
@@ -850,6 +875,7 @@ class ModelingLineageKind(StrEnum):
 
     DATASET = "dataset"
     SOURCE = "source"
+    FIT = "fit"
 
 
 class ModelingMissingPolicy(StrEnum):

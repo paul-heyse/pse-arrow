@@ -22,10 +22,8 @@ from pse.contracts.enums import (
     StudyState,
 )
 from pse.contracts.identities import DeclarationId
-from pse.contracts.values import SemanticId
 
-
-#: A manifest dependency on the physical primitives fixture, whose physical document names
+#: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
 PRIMITIVES = (
     'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
@@ -169,16 +167,13 @@ def test_durable_study_cancel_and_its_refusals(
     # A workspace selects a durable study; a package changed in memory has no authored
     # sources.
     with pytest.raises(ValueError, match="durable study"):
-        # pyrefly: ignore[no-matching-overload] -- the overloads reject this call; its
+        # pyrefly: ignore[unexpected-keyword] -- the overloads reject this call; its
         # runtime refusal is what is under test
         package.study((case,), settings, workspace=workspace)
     with pytest.raises(pse.InspectionError, match="changed in memory"):
         package.with_limits(pse.ModelingLimits()).study(
             (case,), settings, runtime=runtime, workspace=workspace
         )
-
-
-FLASH_BT_IDEAL = DeclarationId(SemanticId.from_hex("3ca89c2ae2704e21a11e3512bf3cdb7e"))
 
 
 @pytest.mark.integration
@@ -189,11 +184,12 @@ def test_flash_sweep_prepares_structure_once(
     runtime = pse.Runtime(inspection_settings)
     reference = Path(__file__).resolve().parents[3] / "packages/reference"
 
-    def documents(path: Path) -> dict[str, str]:
+    def documents(path: Path) -> dict[str, str | bytes]:
         return {
-            p.relative_to(path).as_posix(): p.read_text()
+            p.relative_to(path).as_posix(): p.read_bytes()
             for p in path.rglob("*")
-            if p.is_file() and p.suffix in {".toml", ".yaml", ".yml", ".pse"}
+            if p.is_file()
+            and p.suffix in {".toml", ".yaml", ".yml", ".pse", ".parquet"}
         }
 
     physical = runtime.physical_from_documents(documents(reference / "physical"))
@@ -201,7 +197,18 @@ def test_flash_sweep_prepares_structure_once(
         [
             documents(reference / name)
             for name in (
+                "data/oracles/teqp-0.23.1",
+                "data/oracles/feos-0.10.1",
+                "data/gross-sadowski-2001",
+                "data/references",
+                "data/nist",
+                "data/perry7",
+                "data/poling2000",
+                "data/oracles/idaes-2.13",
+                "data/species",
+                "data/ciaaw",
                 "seed-data",
+                "campaign",
                 "process",
                 "thermodynamics",
                 "methods",
@@ -211,24 +218,31 @@ def test_flash_sweep_prepares_structure_once(
         ],
         physical,
     )
-    temperatures = (366.0, 367.0, 368.0, 369.0)
+    case = next(
+        row.declaration_id
+        for row in package.declarations()
+        if row.name == "measurement_value_sweep"
+    )
+    temperatures = tuple(360.0 + 10.0 * index / 999 for index in range(1000))
     study = package.study(
-        tuple(FLASH_BT_IDEAL for _ in temperatures),
+        tuple(case for _ in temperatures),
         pse.SolveSettings(
             backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT
         ),
         overlays=tuple(PointOverlay(values={"root.inlet.T": t}) for t in temperatures),
+        maximum_points=len(temperatures),
     )
     assert study.count == len(temperatures)
     values = []
-    for index, temperature in enumerate(temperatures):
+    for index in range(len(temperatures)):
         result = study.result(index)
         assert result is not None, study.failure(index)
-        # Every point converges; the fixture's IDAES expectations hold at 368 K only.
+        # Independent points retain physical checks; the original oracle fixture remains
+        # qualified separately at its single 368 K feed.
         attempt = result.attempt()
         assert attempt is not None
         assert attempt.termination == NativeTermination.SUCCESS, attempt.termination
-        assert result.accepted == (temperature == 368.0), result.failure()
+        assert result.accepted, result.failure()
         values.append(attempt.primal())
     # Each point solved its own feed temperature ...
     assert values[0] != values[-1]

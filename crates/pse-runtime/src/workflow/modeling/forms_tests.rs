@@ -574,7 +574,7 @@ async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
     // provenance module (ADR-0123 Outcome 5).
     let rows = [
         include_str!("../../../../../packages/reference/seed-data/models/gdp.pse"),
-        include_str!("../../../../../packages/reference/seed-data/models/references.pse"),
+        include_str!("../../../../../packages/reference/data/references/models/references.pse"),
         include_str!("../../../../../packages/reference/domain/models/provenance.pse"),
     ]
     .into_iter()
@@ -589,9 +589,7 @@ async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
     })
     .collect::<Vec<_>>();
     let physical = fixture::physical();
-    let package = fixture::runtime()
-        .modeling_package(rows, physical)
-        .unwrap();
+    let package = fixture::runtime().modeling_package(rows, physical).unwrap();
     let mut policy = ModelingConformancePolicy {
         compiler: fixture::compiler_profile(),
         solver: profile(SolverSelection::Auto),

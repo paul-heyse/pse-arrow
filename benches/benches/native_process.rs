@@ -16,6 +16,7 @@ mod phases;
 use criterion::{Criterion, criterion_group, criterion_main};
 use fixture::*;
 use pse_backend_native::solve::{Backend, Metric, Termination};
+use pse_model::generated::identities::DeclarationId;
 use pse_runtime::{
     CancelSource,
     workflow::{ModelingPackage, RunReport},
@@ -31,15 +32,12 @@ fn mark(phases: &mut BTreeMap<String, f64>, name: &str, started: Instant) {
     *phases.entry(name.into()).or_default() += started.elapsed().as_secs_f64();
 }
 /// Vary instance count by composing the authored unit, without restating its equations.
-fn heater_blocks(
-    package: &ModelingPackage,
-    blocks: usize,
-) -> (ModelingPackage, pse_ids::SemanticId) {
+fn heater_blocks(package: &ModelingPackage, blocks: usize) -> (ModelingPackage, DeclarationId) {
     let mut fixture = String::new();
     let mut children = String::new();
     for i in 0..blocks {
         fixture.push_str(&format!("fix block{i}.duty=16204.445642740735{{W}};"));
-        children.push_str(&format!("child block{i}:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=chem.alkanes,law=pcsaft.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction); expect block{i}.phase.T==350{{K}} tolerance 0.00001{{K}}; expect block{i}.recycle==5{{mol/s}} tolerance 0.000001{{mol/s}};"));
+        children.push_str(&format!("child block{i}:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction); expect block{i}.phase.T==350{{K}} tolerance 0.00001{{K}}; expect block{i}.recycle==5{{mol/s}} tolerance 0.000001{{mol/s}};"));
     }
     let source = format!(
         "@id(\"b70ab2554b57594e8d2b75288e80da8e\") package homogeneous_fixtures {{test workload fixture {{dof 0; run steady; {fixture}}} {{{children}}} }}"
@@ -87,7 +85,9 @@ fn process(c: &mut Criterion) {
         .enable_all()
         .build()
         .unwrap();
-    let flash = pse_ids::SemanticId::parse_hex("040af20814bc57abb565c3c7f680be05").unwrap();
+    let flash = DeclarationId::from_id(
+        pse_ids::SemanticId::parse_hex("040af20814bc57abb565c3c7f680be05").unwrap(),
+    );
     // Only durable runs publish (ADR-0112 Outcome 16): publication runs are attempts in an
     // isolated operational store; the other operations stay ephemeral.
     let store = (operation == "publication").then(|| {
@@ -113,7 +113,7 @@ fn process(c: &mut Criterion) {
         let prepared = executor
             .block_on(seed_prepare(
                 &package,
-                case,
+                case.into(),
                 profile(Backend::Ipopt, false),
                 &CancelSource::new(),
             ))
@@ -152,7 +152,7 @@ fn process(c: &mut Criterion) {
         };
         if reuse=="specialization" {
             let mut rows=package.declarations().to_vec();
-            let row=rows.iter_mut().find(|r|r.declaration_id==pse_ids::SemanticId::parse_hex("0ed2b62ea07d570bb1db5f48ec53354e").unwrap()).unwrap();
+            let row=rows.iter_mut().find(|r|r.declaration_id==DeclarationId::from_id(pse_ids::SemanticId::parse_hex("0ed2b62ea07d570bb1db5f48ec53354e").unwrap())).unwrap();
             row.value.contribution.as_mut().unwrap().expression=format!("{}*fraction*recycle",1.0+(iterations+1) as f64*1e-10);
             package=package.with_declarations(rows).unwrap();
         }
@@ -205,18 +205,19 @@ fn process(c: &mut Criterion) {
                 let begin=Instant::now();
                 let directory=tempfile::tempdir().unwrap();
                 let base=url::Url::from_directory_path(directory.path()).unwrap();
+                let workspace=executor.block_on(runtime(owner).register_workspace(&format!("bench-{}-{iterations}",id),base)).unwrap();
                 let mut parent = None;
                 for _ in 0..spec["publications"].as_u64().unwrap_or(1) {
-                    let command=result.prepare_publication(base.clone(),case,parent,&owner.cancel).unwrap();
+                    let command=result.prepare_publication(&workspace,parent,None,&owner.cancel).unwrap();
                     let ticket=command.ticket.clone();
                     parent=Some(command.publication_id);
                     let committed=executor.block_on(command.commit(&owner.cancel)).unwrap();
-                    let reopened=executor.block_on(runtime(owner).open(committed.clone(),&owner.cancel)).unwrap();
-                    assert_eq!(reopened.root().version,committed.version);
+                    let reopened=executor.block_on(runtime(owner).open(committed.publication_id,&owner.cancel)).unwrap();
+                    assert_eq!(reopened.publication_id(),committed.publication_id);
                     if spec["publications"].is_number() {
                         for _ in 0..2 {
-                            assert_eq!(executor.block_on(runtime(owner).settle_publication(&ticket,&owner.cancel)),
-                                pse_runtime::workflow::PublicationSettlement::Committed{root:committed.clone()});
+                            assert_eq!(executor.block_on(runtime(owner).settle_publication(&ticket)),
+                                pse_runtime::workflow::PublicationSettlement::Committed{publication_id:committed.publication_id});
                         }
                     }
                 }

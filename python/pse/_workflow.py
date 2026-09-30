@@ -14,6 +14,7 @@ from pse import codec
 from pse._build import (
     EngineSettings,
     OperationalStore,
+    ResourceReport,
     _NativePhysicalContext,
     _NativeRuntime,
 )
@@ -75,6 +76,10 @@ class Runtime:
     def durable(self) -> bool:
         """Whether runs are durable attempts in an operational store."""
         return self._handle.durable
+
+    def resource_usage(self) -> ResourceReport:
+        """Observe the shared deployment's accounted pool and process memory."""
+        return self._handle.resource_usage()
 
     def runs(
         self,
@@ -221,14 +226,14 @@ class Runtime:
         return self._handle.work(jobs=jobs)
 
     def physical_from_documents(
-        self, documents: Mapping[str, str]
+        self, documents: Mapping[str, str | bytes]
     ) -> "PhysicalContext":
         """Admit actual physical package rows using the native source loader."""
         return PhysicalContext(self._handle.physical_from_documents(dict(documents)))
 
     def modeling_from_documents(
         self,
-        documents: Sequence[Mapping[str, str]],
+        documents: Sequence[Mapping[str, str | bytes]],
         physical: "PhysicalContext",
     ) -> ModelingPackage:
         """Admit an exact package closure with manifest-owned physical type aliases."""

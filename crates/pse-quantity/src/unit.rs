@@ -13,8 +13,8 @@
 //! identity is [`unit_product_id`] over its canonical factors, so no spelling of a
 //! composite unit needs registering.
 
-use crate::ids::UnitId;
 use crate::Ratio;
+use crate::ids::UnitId;
 use crate::{DimensionVector as Dimension, QuantityError as Error};
 
 /// One canonical factor of a unit product: an atomic unit and its nonzero rational
@@ -178,9 +178,7 @@ impl Unit {
         let detail = if self.symbol.is_empty() {
             Some("unit symbol is empty")
         } else if self.definition.is_some()
-            && (self.is_affine
-                || self.offset_to_canonical != 0.0
-                || self.reference_state.is_some())
+            && (self.is_affine || self.offset_to_canonical != 0.0 || self.reference_state.is_some())
         {
             Some("a unit product has no offset or datum restriction")
         } else if !self.scale_to_canonical.is_finite() || self.scale_to_canonical <= 0.0 {

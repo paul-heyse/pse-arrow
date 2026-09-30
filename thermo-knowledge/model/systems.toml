@@ -248,6 +248,12 @@ position = { type = "Integer", doc = "Position of the species among those the ar
 [relations.constituent_array_member.columns]
 species = { type = "species", doc = "The species at that position." }
 
+[[relations.constituent_array_member.requires]]
+name = "position_from_one"
+doc = "The species an array places on a site class are numbered from one."
+enforced = "ddl"
+check = { positive = "position" }
+
 [kinds.speciation_map]
 doc = "The relation between an apparent description of a material and its true species within a chemical system. Apparent and true are two descriptions of one material account, never two inventories."
 identity = ["system", "key"]

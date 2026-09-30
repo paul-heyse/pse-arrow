@@ -29,7 +29,7 @@ pub struct DynamicSample {
     /// box: backward at an upper bound, forward at a lower one.
     pub bounds: Vec<(f64, f64)>,
 }
-/// Compare raw state/parameter partials and declared sparsity with POUNCE's checker.
+/// Compare raw state/parameter partials and declared sparsity with bounded library differences.
 /// This is local numerical evidence; it does not establish smoothness across mode changes.
 pub fn analyze_dynamic(
     oracle: Box<dyn dynamics::Oracle>,

@@ -292,10 +292,9 @@ impl Engine<'_, '_> {
                 AnnotationKind::Bounds => {
                     AnnotationValue::Bounds(expression(self, 0)?, expression(self, 1)?)
                 }
-                AnnotationKind::Scale => AnnotationValue::Scale(
-                    a.scheme
-                        .ok_or_else(|| invalid(at, "scaling scheme"))?,
-                ),
+                AnnotationKind::Scale => {
+                    AnnotationValue::Scale(a.scheme.ok_or_else(|| invalid(at, "scaling scheme"))?)
+                }
                 AnnotationKind::Report => AnnotationValue::Report(label(&a.arguments[0], at)?),
                 AnnotationKind::Valid => AnnotationValue::Valid {
                     lower: expression(self, 0)?,

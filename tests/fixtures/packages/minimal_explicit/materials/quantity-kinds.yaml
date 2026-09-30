@@ -1,0 +1,8 @@
+quantity_kinds:
+  - id: "01991d6a-13a0-7000-8000-000000000002"
+    name: probe
+    dimension: [{num: 0, den: 1}, {num: 0, den: 1}, {num: 0, den: 1}, {num: 0, den: 1}, {num: 0, den: 1}, {num: 0, den: 1}, {num: 0, den: 1}, {num: 0, den: 1}]
+    category: count
+    extensive: false
+    addition_kind: additive
+    doc: Synthetic parser fixture.

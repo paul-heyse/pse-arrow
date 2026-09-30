@@ -1,0 +1,47 @@
+[[disposition]]
+construct = "index (janaf.json)"
+disposition = "mapping_loss"
+ref = "kind:source_entity"
+reason = "The index gives a file code and a display string but neither the formula nor the JCODE, so its entries become source entities keyed by the file code that carry only a name assertion until the table files supply the formula; the join to formula.html is made on the table files, not the index."
+
+[[disposition]]
+construct = "formula index (formula.html)"
+disposition = "mapping_loss"
+ref = "kind:source_entity"
+reason = "Each JCODE row becomes a species_form source entity resolved by the formula-identified scope rule (formula, stated charge, aggregation from the designator), an assumption because neither JANAF file carries CAS or InChI; the explicit counts of 1 and the trailing charge sign are parsed by the mapping."
+
+[[disposition]]
+construct = "table file (title and header)"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "A dataset of kind evaluated is written per table, but every source unit (Cp, S, H-H(Tr), delta-f H, delta-f G) and the 1 bar standard-state pressure are assumptions because the file states only T(K), and the kind, the formation-from-elements energy reference, the 298.15 K reference temperature Tr and entropy third_law are inferred; title, method, uncertainty and citation do not exist in the file and are not invented."
+
+[[disposition]]
+construct = "column meaning and observables needed"
+disposition = "mapping_loss"
+ref = "kind:observable"
+reason = "Four columns need observables the starting set lacks (Gibbs energy function, enthalpy increment, Gibbs energy of formation, enthalpy difference from Tr), which are vocabulary entities added with the mapping, with H-H(Tr) carried as a difference_from_reference presentation with reference_temperature; the column units and the value of Tr are assumed and only the header text is kept as source_name."
+
+[[disposition]]
+construct = "phase designator"
+disposition = "mapping_loss"
+ref = "kind:species_form"
+reason = "The designator is decoded by a mapping table to aggregation (g to gas, cr to crystalline, l to liquid, fl to fluid), while ref (element reference form), cr,l and l,g (two aggregations in one table) have no single aggregation and are split by segment or mapped to the element reference; the pressure of the five water tables is parsed from the title text as a pressure constraint column, and duplicated split and combined tables are both imported with their overlap left to an equivalence assessment."
+
+[[disposition]]
+construct = "transition and phase-change marker rows"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "A table with a phase change is split into one dataset per phase segment because dataset_column.phase is per column, so the two rows at the transition temperature land in different datasets; the marker texts (phase names, Cp LAMBDA MAXIMUM, UNDEFINED, FUGACITY = 1 bar) are kept only as untyped source text, the lambda and UNDEFINED meanings are not interpreted, and the transition enthalpy and entropy are not imported as values."
+
+[[disposition]]
+construct = "special values: INFINITE, zeros at 0 K, fused numbers"
+disposition = "mapping_loss"
+ref = "kind:datum"
+reason = "The divergent cell (INFINITE at T = 0 in the Gibbs energy function and in log Kf) has no datum state that means a divergence, and not_measured would say something false, so the mapping writes no datum row for it and the statement that the value diverges (with the sign, which the file does not give) is not kept; the 4 fused T and Cp numbers are split by fixed column width, an assumption."
+
+[[disposition]]
+construct = "table used directly as a model"
+disposition = "mapping_loss"
+ref = "kind:tabulated_function"
+reason = "Each table can be one tabulated_function with axis Temperature and one series per column (several series on one grid are supported), but the interpolation rule is not stated and is recorded as not_stated, a phase transition (two values at one temperature) needs one function per phase segment, and a series cannot hold a blank cell so the 862 temperature-only rows and the partly blank rows must be cut from the grid; the form that reads it is declared in the form catalogue when the source is mapped."

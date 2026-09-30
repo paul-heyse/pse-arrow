@@ -20,6 +20,14 @@ workspace = true
 
 [features]
 default = ["package-fixtures"]
+thermodynamic-oracles = [
+  "dep:feos",
+  "dep:feos-core",
+  "dep:quantity",
+  "dep:nalgebra",
+  "dep:parquet",
+  "dep:datafusion",
+]
 # The bootstrap registry generator must compile without its generated DTO consumers.
 package-fixtures = [
   "dep:datafusion",
@@ -34,6 +42,11 @@ package-fixtures = [
 ]
 
 [dependencies]
+feos = { workspace = true, optional = true }
+feos-core = { workspace = true, optional = true }
+quantity = { workspace = true, optional = true }
+nalgebra = { workspace = true, optional = true }
+parquet = { workspace = true, optional = true }
 pse-columnar.workspace = true
 pse-codegen.workspace = true
 pse-engine = { workspace = true, optional = true }

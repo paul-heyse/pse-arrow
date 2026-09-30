@@ -76,7 +76,7 @@ note = { type = "Text", optional = true, doc = "The detail of a blocked run's re
 validity_kind = { type = "envelope_kind", optional = true, doc = "The kind of validity region the counts of points below are taken against; stated by a case that names one." }
 inside_points = { type = "Integer", optional = true, doc = "Grid points that lay inside a region of that kind on every record the evaluation read that states one." }
 outside_points = { type = "Integer", optional = true, doc = "Grid points that lay outside one, including those a case excluded for it." }
-undetermined_points = { type = "Integer", optional = true, doc = "Grid points a region of that kind could not decide, because a clause is about a component or a phase or limits an observable no argument of the contract names." }
+undetermined_points = { type = "Integer", optional = true, doc = "Grid points that are outside no region of that kind and inside none, because a clause cannot be decided from the arguments: it is about a component or a phase or limits an observable no argument of the contract names." }
 
 [[kinds.qualification_run.requires]]
 name = "blocked_reason_iff_blocked"

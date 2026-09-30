@@ -413,6 +413,12 @@ position = { type = "Integer", optional = true, doc = "Position among the childr
 pattern = { type = "SourceText", optional = true, doc = "The structural pattern in the source's own pattern language. Retained; nothing branches on it." }
 
 [[kinds.group.requires]]
+name = "position_from_one"
+doc = "A position among the children of a parent counts from one, where one is stated."
+enforced = "ddl"
+check = { positive = "position" }
+
+[[kinds.group.requires]]
 name = "parent_acyclic_same_scheme"
 doc = "Parent and partition class belong to the same scheme, and the parent relation has no cycle."
 enforced = "verify"

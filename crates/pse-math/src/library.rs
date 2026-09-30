@@ -249,15 +249,18 @@ fn instruction_bytes(export: &ExportedInstructions<f64>) -> Option<usize> {
             _ => 0,
         })
     })?;
-    export.sub_evaluators.iter().try_fold(arguments, |bytes, sub| {
-        let own = &sub.instructions;
-        let numeric = own
-            .input_count
-            .checked_add(own.constants.len())?
-            .checked_add(own.temporary_count)?
-            .checked_mul(size_of::<f64>())?;
-        bytes
-            .checked_add(numeric)?
-            .checked_add(instruction_bytes(own)?)
-    })
+    export
+        .sub_evaluators
+        .iter()
+        .try_fold(arguments, |bytes, sub| {
+            let own = &sub.instructions;
+            let numeric = own
+                .input_count
+                .checked_add(own.constants.len())?
+                .checked_add(own.temporary_count)?
+                .checked_mul(size_of::<f64>())?;
+            bytes
+                .checked_add(numeric)?
+                .checked_add(instruction_bytes(own)?)
+        })
 }

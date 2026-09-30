@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("575166cc6a2b47a199768431593b942c") package phase_stability {
+@id("01a0f14ead4e761899b3c3aaf2068f70") use constants @"1.0.0";
 @id("01a0ee04daaa77568ef4eee5865a5e3f") use chemistry @"1.0.0";
 @id("9979e313cae34cf0bab68ec561f382f4") use helmholtz @"1.0.0";
 @id("043576baf0f247acb82a7a9fddfc1bc1") def TangentPlaneStability(selected:Set<chemistry.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar,feed:Fn(j:chemistry.species)->Scalar) {
@@ -16,10 +17,10 @@
 @id("447058ea639f4de197cd3e3e7a2cc145") child trial:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=selected,law=law);
 @id("ca8c7ce1acb24030b1f76382c4baf79b") eq reference_temperature:reference.T==temperature;
 @id("2d3115b902c14e12891a0c42f3f23e07") eq reference_pressure:reference.pressure==pressure;
-@id("1fd44bad57794bef9d966ea5206b459f") eq reference_composition[j in components]:reference.amount[j]==helmholtz.amount_unit()*feed(j);
+@id("1fd44bad57794bef9d966ea5206b459f") eq reference_composition[j in components]:reference.amount[j]==constants.amount_unit*feed(j);
 @id("5bac52ae262740c6b0b8ff88e52d7aef") eq trial_temperature:trial.T==temperature;
 @id("976d45d856214af2863d0107774411c0") eq trial_pressure:trial.pressure==pressure;
-@id("7e69861b5a304f2eab2c2261b0612944") eq trial_normalization:sum(j in components | trial.amount[j]/helmholtz.amount_unit())==1;
+@id("7e69861b5a304f2eab2c2261b0612944") eq trial_normalization:sum(j in components | trial.amount[j]/constants.amount_unit)==1;
 @id("3f22a6f06f334dcbabb53a6d9feebb1e") let tpd:Scalar=sum(j in components | trial.n[j]*(log(trial.n[j])+trial.ln_phi[j]-log(feed(j))-reference.ln_phi[j]));
 @id("26851b7bf5fd4c049f5a54ecd55e2357") annotation objective tpd(minimize);
 @id("cf7deebc57f244f8a52ec8e924140225") annotation check tpd(tpd>-tolerance);
@@ -31,8 +32,8 @@
 @id("5091afe080fb436ba2d7f36c4a989b10") annotation bounds trial.amount(0.000001{mol},1{mol});
 @id("bb3f8997d408454f9d3dc9e3def078d2") annotation start reference.T(temperature);
 @id("b3de75a134fd4c97ab2931b1477002b4") annotation start trial.T(temperature);
-@id("1a5339f7b902454d8edd1c6898aad2a4") annotation start reference.amount(helmholtz.amount_unit()*feed(j));
-@id("2337bb9b8e8942b186b80a9f11a39364") annotation start trial.amount(helmholtz.amount_unit()*feed(j));
+@id("1a5339f7b902454d8edd1c6898aad2a4") annotation start reference.amount(constants.amount_unit*feed(j));
+@id("2337bb9b8e8942b186b80a9f11a39364") annotation start trial.amount(constants.amount_unit*feed(j));
 @id("d6d52caa9dbd4244b08597db37e05596") annotation start reference.rho(12000{mol/m^3});
 @id("cf60fb39aa7a421f9b1d156ae7923ef3") annotation start trial.rho(12000{mol/m^3});
 @id("972493efc6dd492c9e5a5d40710cce66") annotation nominal reference.rho(1000{mol/m^3});

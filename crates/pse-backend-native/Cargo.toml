@@ -55,6 +55,7 @@ diffsol = { workspace = true, optional = true }
 diffsol-la = { workspace = true, optional = true }
 pounce-nlp.workspace = true
 pounce-common.workspace = true
+finitediff.workspace = true
 pounce-presolve.workspace = true
 pse-ids.workspace = true
 pse-diagnostics.workspace = true

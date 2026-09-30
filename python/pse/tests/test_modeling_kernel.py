@@ -5,13 +5,15 @@
 import subprocess
 import sys
 from pathlib import Path
+from typing import cast
 
 import msgspec
 import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 
 import pse
-from pse.conformance import load_manifest
+from pse.conformance import RunSummary, load_manifest
 from pse.conformance import main as conformance_main
 from pse.contracts.enums import NativeBackend, NativeSolveIntent
 from pse.contracts.identities import DeclarationId
@@ -25,7 +27,6 @@ def identity(n: int) -> SemanticId:
 def declaration(n: int) -> DeclarationId:
     """The identity an authored `@id` gives a case or fixture declaration."""
     return DeclarationId(identity(n))
-
 
 
 @pytest.mark.unit
@@ -91,7 +92,9 @@ execution = "pure"
         text.replace("maximum_checks", "maximum_check"),
         text + text[text.index("[[runs]]") :],
         text.replace('package = "pure"', 'package = "absent"'),
-        text.replace("maximum_checks = 32", 'maximum_checks = 32\ndiagnostics = "absent.json"'),
+        text.replace(
+            "maximum_checks = 32", 'maximum_checks = 32\ndiagnostics = "absent.json"'
+        ),
     ):
         manifest.write_text(invalid)
         with pytest.raises((msgspec.ValidationError, ValueError)):
@@ -104,8 +107,10 @@ execution = "pure"
 def test_conformance_runs_only_selected_fixtures(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Repeated ``--fixture`` runs only those test declarations, selected by identity, in
-    the manifest and the single-package forms; unknown identities are refused."""
+    """Run only the selected test declarations.
+
+    Both manifest and single-package forms refuse unknown identities.
+    """
     root = Path(__file__).resolve().parents[3]
     physical_root = root / "tests/fixtures/packages/physical-primitives"
     package = tmp_path / "pure"
@@ -171,17 +176,73 @@ execution = "pure"
     ]
     assert conformance_main([*single, "--fixture", second.to_hex()]) == 0
     assert "coverage=selected checks=" in capsys.readouterr().out
-    # An identity that names no authored test is refused before any fixture runs, in both
+    # An identity that names no authored test is refused before any fixture runs, in
+    # both
     # forms; a malformed identity is refused by the command line.
     unknown = declaration(204)
     for form in (run, single):
         with pytest.raises(pse.InspectionError, match=unknown.to_hex()):
-            conformance_main([*form, "--fixture", first.to_hex(), "--fixture", unknown.to_hex()])
+            conformance_main(
+                [*form, "--fixture", first.to_hex(), "--fixture", unknown.to_hex()]
+            )
     with pytest.raises(SystemExit):
         conformance_main([*single, "--fixture", "not-an-identity"])
 
 
-#: A manifest dependency on the physical primitives fixture, whose physical document names
+@pytest.mark.unit
+def test_conformance_selects_one_manifest_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Run selection precedes fixture selection; invalid selection executes nothing."""
+    root = Path(__file__).resolve().parents[3]
+    physical_root = root / "tests/fixtures/packages/physical-primitives"
+    manifest = tmp_path / "conformance.toml"
+    manifest.write_text(
+        f"""[settings]
+memory_limit_bytes = {8 << 30}
+[[runs]]
+name = "first"
+package = "{physical_root}"
+physical = "{physical_root}"
+execution = "pure"
+[[runs]]
+name = "second"
+package = "{physical_root}"
+physical = "{physical_root}"
+execution = "pure"
+"""
+    )
+    called: list[str] = []
+
+    def record(name: str, *args: object, **kwargs: object) -> RunSummary:
+        called.append(name)
+        coverage = "selected" if kwargs["fixtures"] is not None else "package"
+        return RunSummary(name, True, True, coverage, 1, {"passed": 1})
+
+    monkeypatch.setattr("pse.conformance.run_once", record)
+    arguments = ["--manifest", str(manifest), "--run", "second"]
+    assert conformance_main(arguments) == 0
+    assert called == ["second"]
+    assert capsys.readouterr().out.startswith(
+        "second: passed=True complete=True coverage=package"
+    )
+    called.clear()
+    assert conformance_main([*arguments, "--fixture", declaration(201).to_hex()]) == 0
+    assert called == ["second"]
+    assert "coverage=selected" in capsys.readouterr().out
+    called.clear()
+    with pytest.raises(ValueError, match="unknown run"):
+        conformance_main(["--manifest", str(manifest), "--run", "absent"])
+    with pytest.raises(ValueError, match="one run"):
+        conformance_main(
+            ["--manifest", str(manifest), "--fixture", declaration(201).to_hex()]
+        )
+    with pytest.raises(SystemExit):
+        conformance_main(["--run", "second"])
+    assert called == []
+
+
+#: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar` and `Time` (ADR-0123 Outcome 6).
 PRIMITIVES = (
     'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
@@ -206,6 +267,55 @@ def physical(runtime: pse.Runtime) -> pse.PhysicalContext:
             if path.is_file()
         }
     )
+
+
+@pytest.mark.unit
+def test_binary_documents_admit_keyed_rows_and_reject_integer_sequences(
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    root = Path(__file__).resolve().parents[3]
+    physical_root = root / "tests/fixtures/packages/physical-primitives"
+    physical_documents = {
+        str(path.relative_to(physical_root)): path.read_bytes()
+        for path in physical_root.rglob("*")
+        if path.is_file()
+    }
+    manifest = on_primitives(
+        (root / "tests/fixtures/packages/minimal_named/package.toml").read_text()
+    )
+    source = """package binary {
+      identifier scheme cas;
+      entity kind item {attribute cas:Id<cas> unique;}
+      entity item a {cas=Id<cas>("71-43-2")}
+      entity kind source provenance {} entity source origin {}
+      enum role {published}
+      entity kind form {key subject:item by cas; attribute value:Time storage {s};}
+      dataset bank:form provenance(origin,role.published) from "data/bank.parquet";
+      test converted fixture {dof 0; run pure;} {
+        expect form[a].value==1{s} tolerance 1e-12{s};
+      }
+    }"""
+    sink = pa.BufferOutputStream()
+    pq.write_table(pa.table({"subject": ["71-43-2"], "value": [1.0]}), sink)
+    binary = sink.getvalue().to_pybytes()
+    documents: dict[str, str | bytes] = {
+        "package.toml": manifest,
+        "models/bank.pse": source.encode(),
+        "data/bank.parquet": binary,
+    }
+    result = pse.ModelingConformance.pure(
+        [documents], physical_documents, inspection_settings
+    )
+    assert result.passed
+    assert result.complete
+    # A bytes object is preserved; iterable integer values are not a binary document.
+    invalid = {**documents, "data/bank.parquet": cast("str | bytes", [1, 2, 3])}
+    with pytest.raises(TypeError, match="document content must be str or bytes"):
+        pse.ModelingConformance.pure([invalid], physical_documents, inspection_settings)
+    runtime = pse.Runtime(inspection_settings)
+    usage = runtime.resource_usage()
+    assert usage.limit_bytes == inspection_settings.memory_limit_bytes
+    assert usage.pool_peak_bytes >= usage.pool_reserved_now >= 0
 
 
 @pytest.mark.unit
@@ -774,7 +884,8 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
     assert isolated_rows[2]["predecessor"] == 1
     assert not isolated_rows[2]["accepted"]
     assert reports.column("value").to_pylist() == [2.0]
-    # ADR-0123 Outcome 4: a validity check names its layer; an annotated range is closure.
+    # ADR-0123 Outcome 4: a validity check names its layer; an annotated range is
+    # closure.
     assert any(
         row["within_validity"] is False
         and row["extrapolation_allowed"] is True
@@ -922,10 +1033,11 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
         if path.is_file()
     }
     manifest = (
-        root / "tests/fixtures/packages/minimal_explicit/package.toml"
-    ).read_text().replace(
-        'id_policy = "explicit"', 'id_policy = "named"'
-    ).replace("dependencies = []", PRIMITIVES)
+        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
+        .read_text()
+        .replace('id_policy = "explicit"', 'id_policy = "named"')
+        .replace("dependencies = []", PRIMITIVES)
+    )
     source = """package pure {
       fn square(x:Scalar)->Scalar=x*x;
       fn root(x:Scalar)->Scalar valid(x >= 0) = x;
@@ -1011,3 +1123,47 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
     assert command.returncode == 0, command.stdout + command.stderr
     assert (tmp_path / "checks.fixtures.arrow").is_file()
     assert (tmp_path / "checks.findings.arrow").is_file()
+
+
+@pytest.mark.unit
+def test_knowledge_inspects_admitted_values_and_refuses_writes(
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    runtime = pse.Runtime(inspection_settings)
+    root = Path(__file__).resolve().parents[3]
+    manifest = on_primitives(
+        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
+        .read_text()
+        .replace('id_policy = "explicit"', 'id_policy = "named"')
+    )
+    source = """package knowledge {
+      entity kind source provenance { attribute title:Text; }
+      enum role { measured }
+      entity source origin { title="synthetic inspection test" }
+      entity kind sample { attribute value:Scalar; }
+      entity sample a provenance(origin,role.measured) { value=2.5 ± relative(0.1) }
+    }"""
+    package = runtime.modeling_from_documents(
+        [{"package.toml": manifest, "models/knowledge.pse": source}], physical(runtime)
+    )
+    sample = next(
+        row.declaration_id for row in package.declarations() if row.name == "a"
+    )
+    knowledge = package.knowledge(sample, maximum_cells=1)
+    row = pa.table(knowledge.table()).to_pylist()[0]
+    assert row["owner_id"] == bytes(sample)
+    assert row["value"][-1]["magnitude"] == 2.5
+    assert row["value"][-1]["quantity_type_id"] is not None
+    assert row["uncertainty"] == {"kind": "relative", "magnitude": 0.1}
+    assert row["source_id"] is not None
+    assert row["source_revision"] == bytes(knowledge.source_revision)
+    answer = pa.table(
+        knowledge.query(
+            "SELECT slot, test_only FROM workspace.runtime.modeling_knowledge"
+        )
+    ).to_pylist()
+    assert answer == [{"slot": "value", "test_only": False}]
+    with pytest.raises(pse.InspectionError):
+        knowledge.query("DELETE FROM workspace.runtime.modeling_knowledge")
+    with pytest.raises(pse.InspectionError, match="maximum_bytes"):
+        package.knowledge(sample, maximum_bytes=128)

@@ -11,6 +11,8 @@ use pse_model::generated::identities::DeclarationId;
 use std::collections::{BTreeMap, BTreeSet};
 use winnow::stream::LocatingSlice;
 
+type Parameter = (String, Vec<TypeNode>, Option<String>);
+
 type Result<T> = std::result::Result<T, AuthoringError>;
 /// The internal keyword of a kind-level binding `name = cell;`; no source spells it.
 const BIND: &str = "=bind";
@@ -343,7 +345,7 @@ impl Cursor<'_> {
             self.expect("(")?;
             loop {
                 let kind = self.vocabulary::<pse_model::generated::enums::ModelingLineageKind>(
-                    "lineage kind dataset or source",
+                    "lineage kind dataset, source or fit",
                 )?;
                 lineage.push(ModelingLineageEntry {
                     kind,
@@ -679,7 +681,9 @@ impl Cursor<'_> {
                 CellValue::from_references(CellReferences { paths })
             }
             _ if self.tokens.get(self.pos).map(|t| t.kind) == Some(Kind::Quoted) => {
-                CellValue::from_text(CellText { value: self.word()? })
+                CellValue::from_text(CellText {
+                    value: self.word()?,
+                })
             }
             _ if self.peek() == "-"
                 || self.tokens.get(self.pos).map(|t| t.kind) == Some(Kind::Number) =>
@@ -707,9 +711,9 @@ impl Cursor<'_> {
                             }
                         })
                         .ok_or_else(|| {
-                        self.pos = start;
-                        self.error("number with a unit literal")
-                    })?;
+                            self.pos = start;
+                            self.error("number with a unit literal")
+                        })?;
                     CellValue::from_quantity(CellQuantity {
                         magnitude,
                         unit: Some(unit_factors(&unit)),
@@ -719,7 +723,13 @@ impl Cursor<'_> {
                         .text
                         .parse::<i64>()
                         .ok()
-                        .and_then(|v| if magnitude < 0. { v.checked_neg() } else { Some(v) })
+                        .and_then(|v| {
+                            if magnitude < 0. {
+                                v.checked_neg()
+                            } else {
+                                Some(v)
+                            }
+                        })
                         .ok_or_else(|| {
                             self.pos = start;
                             self.error("64-bit integer")
@@ -802,11 +812,13 @@ impl Cursor<'_> {
         } else {
             None
         };
-        Ok((unit.is_some() || scheme.is_some()).then(|| ModelingColumnStorage {
-            name: name.to_owned(),
-            storage_unit: unit,
-            scheme,
-        }))
+        Ok(
+            (unit.is_some() || scheme.is_some()).then(|| ModelingColumnStorage {
+                name: name.to_owned(),
+                storage_unit: unit,
+                scheme,
+            }),
+        )
     }
     /// A bracketed list of cells, `[` and `]` included; `[]` is empty.
     fn cells(&mut self) -> Result<Vec<Cell>> {
@@ -987,12 +999,15 @@ impl Cursor<'_> {
     /// [foreign_bytes(n)]; }` states the fixture's execution policy over the run's. Every
     /// setting is optional and at most once; an unknown or repeated setting is refused where
     /// it is written.
-    fn fixture_policy(&mut self) -> Result<AuthoredModelingDeclarationsFieldValueScopeFixturePolicy> {
+    fn fixture_policy(
+        &mut self,
+    ) -> Result<AuthoredModelingDeclarationsFieldValueScopeFixturePolicy> {
         use pse_model::generated::enums::{NativeBackend, PresolvePolicyKind};
         self.expect("{")?;
         let mut policy = AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
             backend: None,
             presolve: None,
+            native_options: Vec::new(),
             derivative_step: None,
             derivative_tolerance: None,
             derivative_cells: None,
@@ -1013,15 +1028,32 @@ impl Cursor<'_> {
             let setting = self.peek().to_owned();
             if !matches!(
                 setting.as_str(),
-                "backend" | "presolve" | "derivatives" | "limits"
+                "backend" | "presolve" | "derivatives" | "limits" | "options"
             ) {
-                return Err(self.error("backend, presolve, derivatives or limits"));
+                return Err(self.error("backend, presolve, derivatives, limits or options"));
             }
             if !seen.insert(setting.clone()) {
                 return Err(self.error(&format!("one {setting} setting")));
             }
             self.pos += 1;
             match setting.as_str() {
+                "options" => {
+                    self.expect("{")?;
+                    let mut names = BTreeSet::new();
+                    while !self.eat("}") {
+                        let name = self.word()?;
+                        if !names.insert(name.clone()) {
+                            return Err(self.error("one value per native option"));
+                        }
+                        self.expect("=")?;
+                        let value = self.cell()?;
+                        self.expect(";")?;
+                        policy.native_options.push(AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem {name, value});
+                    }
+                    if names.is_empty() {
+                        return Err(self.error("a native option"));
+                    }
+                }
                 "backend" => {
                     policy.backend = Some(self.vocabulary::<NativeBackend>("native backend")?);
                 }
@@ -1113,7 +1145,7 @@ impl Cursor<'_> {
         }
         Ok(names)
     }
-    fn parameters(&mut self) -> Result<Vec<(String, Vec<TypeNode>, Option<String>)>> {
+    fn parameters(&mut self) -> Result<Vec<Parameter>> {
         if !self.eat("(") {
             return Ok(Vec::new());
         }
@@ -1323,6 +1355,20 @@ impl Cursor<'_> {
         };
         let mut child_block = false;
         let value = match keyword.as_str() {
+            "evolve" => {
+                self.expect("on")?;
+                let target = self.path()?;
+                self.expect("using")?;
+                let axis = self.path()?;
+                self.expect("bind")?;
+                let argument = self.path()?;
+                self.expect(";")?;
+                Value::from_temporal(AuthoredModelingDeclarationsFieldValueTemporal {
+                    target,
+                    axis,
+                    argument,
+                })
+            }
             "relax" => {
                 self.expect("on")?;
                 let target = self.path()?;
@@ -2031,7 +2077,9 @@ impl Cursor<'_> {
                             } else if self.eat("members") {
                                 (None, self.expressions()?)
                             } else {
-                                return Err(self.error("failure lineage validity(...) or members(...)"));
+                                return Err(
+                                    self.error("failure lineage validity(...) or members(...)")
+                                );
                             };
                             self.expect(";")?;
                             expected_failure = Some(
@@ -2124,9 +2172,9 @@ impl Cursor<'_> {
                 let at = self.pos;
                 let written = self.word()?;
                 let version = exact_requirement(&written).ok_or_else(|| {
-                        self.pos = at;
-                        self.error("exact package version")
-                    })?;
+                    self.pos = at;
+                    self.error("exact package version")
+                })?;
                 let alias = if self.eat("as") {
                     Some(self.word()?)
                 } else {
@@ -2173,7 +2221,7 @@ impl Cursor<'_> {
                             if !self.eat(")") {
                                 loop {
                                     let facet = self.vocabulary::<pse_model::generated::enums::ModelingDataFacet>(
-                                        "data facet test_only or requires_lineage",
+                                        "declared data role facet",
                                     )?;
                                     if facets.contains(&facet) {
                                         return Err(self.error("distinct data facets"));
@@ -2186,11 +2234,13 @@ impl Cursor<'_> {
                                 }
                             }
                         }
-                        members.push(AuthoredModelingDeclarationsFieldValueEnumerationMembersItem {
-                            member_id,
-                            name: member,
-                            facets,
-                        });
+                        members.push(
+                            AuthoredModelingDeclarationsFieldValueEnumerationMembersItem {
+                                member_id,
+                                name: member,
+                                facets,
+                            },
+                        );
                         if self.eat("}") {
                             break;
                         }
@@ -2203,15 +2253,26 @@ impl Cursor<'_> {
             // ADR-0123 Outcome 2: attribute values are cells, typed at admission.
             "entity" => {
                 let kind_name = entity_kind.ok_or_else(|| self.error("entity kind"))?;
+                let provenance = if self.peek() == "provenance" {
+                    Some(self.provenance()?)
+                } else {
+                    None
+                };
                 self.expect("{")?;
                 let mut attributes = Vec::new();
                 while !self.eat("}") {
                     let name = self.word()?;
                     self.expect("=")?;
                     let value = self.cell()?;
+                    let provenance = if self.peek() == "provenance" {
+                        Some(self.provenance()?)
+                    } else {
+                        None
+                    };
                     attributes.push(AuthoredModelingDeclarationsFieldValueEntityAttributesItem {
                         name,
                         value,
+                        provenance,
                     });
                     if self.eat("}") {
                         break;
@@ -2223,6 +2284,7 @@ impl Cursor<'_> {
                 self.eat(";");
                 Value::from_entity(AuthoredModelingDeclarationsFieldValueEntity {
                     kind_name,
+                    provenance,
                     attributes,
                 })
             }
@@ -2233,6 +2295,7 @@ impl Cursor<'_> {
             "attribute" | "key" | "derived" => {
                 self.expect(":")?;
                 let r#type = Some(self.type_expr()?);
+                let storage = self.storage(&name)?.into_iter().collect();
                 let unique = self.eat("unique");
                 let (value, derived) = if keyword == "derived" {
                     self.expect("=")?;
@@ -2249,6 +2312,7 @@ impl Cursor<'_> {
                     value,
                     unique,
                     derived,
+                    storage,
                 })
             }
             BIND => {
@@ -2261,6 +2325,7 @@ impl Cursor<'_> {
                     value,
                     unique: false,
                     derived: None,
+                    storage: Vec::new(),
                 })
             }
             // `identifier scheme name;`: values of the scheme are opaque (ADR-0123 Outcome 2).

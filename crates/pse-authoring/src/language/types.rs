@@ -115,7 +115,11 @@ impl<'a> TypeTree<'a> {
             return Err(TypeArenaViolation::Detached { node });
         }
         if nodes[root].kind == TypeNodeKind::Argument {
-            return Err(malformed(root, TypeNodeKind::Argument, "an argument is not a type"));
+            return Err(malformed(
+                root,
+                TypeNodeKind::Argument,
+                "an argument is not a type",
+            ));
         }
         Ok(Self { nodes })
     }
@@ -469,8 +473,14 @@ mod tests {
             ("MolarCp / (Temperature ^ (2))", "MolarCp/Temperature^2"),
             ("Temperature^(-1/2)", "Temperature^(-1/2)"),
             ("Temperature^-2", "Temperature^-2"),
-            ("Scalar[chemistry.species, kinds.phase]", "Scalar[chemistry.species, kinds.phase]"),
-            ("Fn(T:Temperature,j:chemistry.species)->DeltaH", "Fn(T: Temperature, j: chemistry.species)->DeltaH"),
+            (
+                "Scalar[chemistry.species, kinds.phase]",
+                "Scalar[chemistry.species, kinds.phase]",
+            ),
+            (
+                "Fn(T:Temperature,j:chemistry.species)->DeltaH",
+                "Fn(T: Temperature, j: chemistry.species)->DeltaH",
+            ),
             ("Δ<Q>", "Delta<Q>"),
             ("Set<Row<t>>", "Set<Row<t>>"),
             ("Tuple<Mass,Q?>", "Tuple<Mass, Q?>"),
@@ -483,10 +493,20 @@ mod tests {
         let arena = parse_type("Fn(x: Q)->Q^2", &["Q"]).unwrap();
         let kinds = arena.iter().map(|n| n.kind).collect::<Vec<_>>();
         use TypeNodeKind as K;
-        assert_eq!(kinds, [K::Variable, K::Argument, K::Variable, K::Power, K::Function]);
+        assert_eq!(
+            kinds,
+            [K::Variable, K::Argument, K::Variable, K::Power, K::Function]
+        );
         // Without `Q` in scope the same spelling names a declaration.
         assert_eq!(parse_type("Q", &[]).unwrap()[0].kind, K::Named);
-        for invalid in ["Set<Mass", "Mass^2.5", "Mass^(1/0)", "Fn(x: A, x: B)->C", "Mass Time", ""] {
+        for invalid in [
+            "Set<Mass",
+            "Mass^2.5",
+            "Mass^(1/0)",
+            "Fn(x: A, x: B)->C",
+            "Mass Time",
+            "",
+        ] {
             assert!(parse_type(invalid, &[]).is_err(), "{invalid}");
         }
     }
@@ -549,7 +569,10 @@ mod tests {
             ],
         ] {
             assert!(
-                matches!(TypeTree::new(&malformed), Err(TypeArenaViolation::Malformed { .. })),
+                matches!(
+                    TypeTree::new(&malformed),
+                    Err(TypeArenaViolation::Malformed { .. })
+                ),
                 "{malformed:?}"
             );
         }

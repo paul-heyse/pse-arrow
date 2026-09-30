@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("b70ab2554b57594e8d2b75288e80da8e") package homogeneous_fixtures {
+@id("01a0f1868dd574f8b4c3bf3933a27c43") use pcsaft_data @"1.0.0";
 @id("01a0ef604fdf73c68b36e132d75ef01e") use provenance @"1.0.0";
 @id("01a0ef604fdf73c68b36e13301b9a175") use references @"1.0.0";
 @id("c20a7be84295574ab0f3dc6a01d23dd6") use homogeneous_units @"1.0.0";
@@ -8,7 +9,7 @@
 @id("51ba5bfff6125fe19fa1d61672957286") use chem @"1.0.0";
 @id("7d61ec65c0dc57a7a0d329e08d7336cb") use pcsaft @"1.0.0";
 @id("3de3c2c4a1e056d0a6e7bda53153e94a") use vessel_fixtures @"1.0.0";
-@id("1ed20825f84a5ba8a90bb89b0fc0cfba") table guesses[j:chemistry.species]:{liquid:Scalar,vapor:Scalar} complete_over(j in chem.alkanes);
+@id("1ed20825f84a5ba8a90bb89b0fc0cfba") table guesses[j:chemistry.species]:{liquid:Scalar,vapor:Scalar} complete_over(j in vessel_fixtures.alkanes);
 @id("3d4ac79ad5df593b8f5ca829e6b87fa1") dataset phase_starts:guesses provenance(references.synthetic_starts, provenance.Role.synthetic) {
 [chem.methane]=[0.06,0.4];
 [chem.ethane]=[0.27,0.34];
@@ -17,13 +18,13 @@
 @id("71747aed2c285d6e89870567c438e0f4") fn liquid_start(j:chemistry.species)->Scalar=guesses[j].liquid;
 @id("cc890829eff55918a0539029d375e2c6") fn vapor_start(j:chemistry.species)->Scalar=guesses[j].vapor;
 @id("68ba8dc2d6b05d9a9fe1b1a3625d8015") test heater_recycle oracle references.plan14_thermo_reference fixture {dof 0; run steady; fix root.duty=16204.445642740735{W};} {
-@id("0036670f422252b0b8bba9f4709d0cb3") child root:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=chem.alkanes,law=pcsaft.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction);
+@id("0036670f422252b0b8bba9f4709d0cb3") child root:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction);
 @id("964b1c0ea202559c8488c703872008f2") expect root.phase.T==350{K} tolerance 0.00001{K};
 @id("73792f4040a15d0caf4a3bab8f0e6541") expect root.phase.rho==34.565566349336066{mol/m^3} tolerance 0.00001{mol/m^3};
 @id("23f779ec23815d84b4611b52f9b3d5f0") expect root.recycle==5{mol/s} tolerance 0.000001{mol/s};
 }
 @id("040af20814bc57abb565c3c7f680be05") test pcsaft_flash oracle references.plan14_thermo_reference fixture {dof 0; run steady;} {
-@id("316d5055b07151bc9e81cd760e65d0f1") child root:homogeneous_units.HomogeneousFlash=homogeneous_units.HomogeneousFlash(selected=chem.alkanes,law=pcsaft.potential,feed=vessel_fixtures.fraction,liquid_initial=liquid_start,vapor_initial=vapor_start);
+@id("316d5055b07151bc9e81cd760e65d0f1") child root:homogeneous_units.HomogeneousFlash=homogeneous_units.HomogeneousFlash(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,feed=vessel_fixtures.fraction,liquid_initial=liquid_start,vapor_initial=vapor_start);
 @id("ef1ee24f0a72563a99e9c1103539f146") expect root.liquid.rho==12417.555686826916{mol/m^3} tolerance 0.001{mol/m^3};
 @id("02eb3c83eb2558b5adf8dd8f73a95f39") expect root.vapor.rho==1035.7196973606667{mol/m^3} tolerance 0.0001{mol/m^3};
 @id("a9dde691978b579b8b4322a8471c9cbf") expect root.liquid.amount[chem.methane]==0.06344616613614536{mol} tolerance 0.000001{mol};
@@ -35,15 +36,17 @@
 @id("e46c760e47bb5f418e7ecb4fc48f23f4") expect root.beta==0.4097336824998727 tolerance 0.000001;
 }
 @id("079a378ba3ce46728b32c87f4fe6a3df") test heater_optimization oracle references.plan14_thermo_reference fixture {dof 1; run steady; intent optimize; value root.phase.T=363.15{K};} {
-@id("9c1f72c683de425fba4e1c7bcd48ddfa") child root:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=chem.alkanes,law=pcsaft.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction);
+@id("9c1f72c683de425fba4e1c7bcd48ddfa") child root:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction);
 @id("de201fc5c15d451288ec3cd777e8dbb3") eq minimum_temperature:root.phase.T>=350{K};
 @id("b2770e183c0e4582ba2e5121c1f1b02f") annotation objective root.enthalpy(minimize);
 @id("8a0eb78ad0ba4567b85066be65a10c77") expect root.phase.T==350{K} tolerance 0.00001{K};
 @id("5d245e5012684108b260df7ac93b0568") expect root.phase.rho==34.565566349336066{mol/m^3} tolerance 0.00001{mol/m^3};
 @id("0efb8581a934401d8bb6abf547dc6dc2") expect root.duty==16204.445642740735{W} tolerance 0.001{W};
 }
-@id("e0d4fbe894134e60bb4e364dddae9c5f") test heater_optimization_certified oracle references.plan14_thermo_reference fixture {dof 1; run steady; intent certify; policy { limits foreign_bytes(2147483648); } value root.phase.T=363.15{K};} {
-@id("223664523f9740148df331660748bf88") child root:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=chem.alkanes,law=pcsaft.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction);
+// SCIP's default presolve cuts off the independently feasible PC-SAFT solution.
+// The isolated run without presolve proves the unchanged global optimum.
+@id("e0d4fbe894134e60bb4e364dddae9c5f") test heater_optimization_certified oracle references.plan14_thermo_reference fixture {dof 1; run steady; intent certify; policy { options { "presolving/maxrounds" = 0; }; limits foreign_bytes(2147483648); } value root.phase.T=363.15{K};} {
+@id("223664523f9740148df331660748bf88") child root:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction);
 @id("de6c5a0b7b154e0682e178b6af998dd4") eq minimum_temperature:root.phase.T>=350{K};
 @id("8508d2aa12464631a2c7bc266b329c79") annotation objective root.enthalpy(minimize);
 @id("1270b08fbebf4f63b48da3244039488a") annotation bounds root.phase.T(350{K},450{K});

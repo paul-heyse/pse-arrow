@@ -97,7 +97,9 @@ fn value(route: Route) -> Value {
 }
 /// The route a member identity denotes.
 fn route_of(member: SemanticId) -> Option<Route> {
-    Route::ALL.into_iter().find(|route| route_member(*route) == member)
+    Route::ALL
+        .into_iter()
+        .find(|route| route_member(*route) == member)
 }
 /// A route member read as `analysis.<route>`.
 fn route_constant(path: &str) -> Option<Route> {
@@ -138,8 +140,9 @@ pub(crate) fn facts(input: &BTreeMap<Fact, Value>) -> Result<Environment> {
         Some(Value::Enum {
             enumeration,
             member,
-        }) if *enumeration == route_id() => route_of(*member)
-            .ok_or_else(|| invalid(SemanticId::NIL, "unknown analysis route"))?,
+        }) if *enumeration == route_id() => {
+            route_of(*member).ok_or_else(|| invalid(SemanticId::NIL, "unknown analysis route"))?
+        }
         _ => {
             return Err(invalid(
                 SemanticId::NIL,
@@ -218,7 +221,10 @@ mod tests {
             Fact::Stage("coast".into()),
         ] {
             assert_eq!(Fact::from_path(&fact.path()), Some(fact.clone()));
-            assert_eq!(Fact::new(fact.namespace(), fact.member()), Some(fact.clone()));
+            assert_eq!(
+                Fact::new(fact.namespace(), fact.member()),
+                Some(fact.clone())
+            );
         }
         assert_eq!(Fact::Route.path(), "analysis.route");
         assert_eq!(Fact::ObjectiveLevel.path(), "objective.level");

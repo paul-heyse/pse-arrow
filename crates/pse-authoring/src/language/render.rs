@@ -55,7 +55,9 @@ fn completeness(entries: &[super::ModelingCompleteness]) -> Result<String, Autho
                 (None, Some(range)) => format!("{} in {}", name(&entry.key), range_text(range)),
                 (None, None) => name(&entry.key),
                 (Some(_), Some(_)) => {
-                    return Err(bad("a completeness entry is over a set or a range, not both"));
+                    return Err(bad(
+                        "a completeness entry is over a set or a range, not both",
+                    ));
                 }
             })
         })
@@ -64,7 +66,11 @@ fn completeness(entries: &[super::ModelingCompleteness]) -> Result<String, Autho
 }
 /// A path as its segments, each a plain identifier when it is one.
 fn path(segments: &[String]) -> String {
-    segments.iter().map(|s| name(s)).collect::<Vec<_>>().join(".")
+    segments
+        .iter()
+        .map(|s| name(s))
+        .collect::<Vec<_>>()
+        .join(".")
 }
 /// ADR-0125: ` storage {unit}` and ` by scheme`, each when declared.
 fn storage(
@@ -138,9 +144,17 @@ fn guards(guards: &[super::ModelingEnvelopeGuard]) -> Result<String, AuthoringEr
             let covered = match (g.extent, g.arguments.as_slice()) {
                 (Extent::Point, [argument]) => name(argument),
                 (Extent::Interval, [start, end]) => format!("[{}, {}]", name(start), name(end)),
-                _ => return Err(bad("a guard covers one argument or an interval between two")),
+                _ => {
+                    return Err(bad(
+                        "a guard covers one argument or an interval between two",
+                    ));
+                }
             };
-            Ok(format!("{}.{}: {covered}", name(&g.carrier), name(&g.envelope)))
+            Ok(format!(
+                "{}.{}: {covered}",
+                name(&g.carrier),
+                name(&g.envelope)
+            ))
         })
         .collect::<Result<Vec<_>, AuthoringError>>()?;
     Ok(format!(" guards({})", entries.join(", ")))
@@ -165,7 +179,7 @@ fn parameters<'a>(
 /// A fixture's execution policy clause, settings and options in their canonical order.
 fn fixture_policy(
     policy: &super::AuthoredModelingDeclarationsFieldValueScopeFixturePolicy,
-) -> String {
+) -> Result<String, AuthoringError> {
     fn options<const N: usize>(values: [(&str, Option<String>); N]) -> Option<String> {
         let written = values
             .into_iter()
@@ -180,22 +194,42 @@ fn fixture_policy(
     if let Some(presolve) = policy.presolve {
         settings.push(format!("presolve {};", presolve.as_str()));
     }
+    if !policy.native_options.is_empty() {
+        let options = policy
+            .native_options
+            .iter()
+            .map(|option| {
+                Ok(format!(
+                    "{} = {};",
+                    quoted(&option.name),
+                    super::render_cell(&option.value)?
+                ))
+            })
+            .collect::<Result<Vec<_>, AuthoringError>>()?;
+        settings.push(format!("options {{ {} }};", options.join(" ")));
+    }
     if let Some(derivatives) = options([
         ("step", policy.derivative_step.map(|v| format!("{v:?}"))),
-        ("tolerance", policy.derivative_tolerance.map(|v| format!("{v:?}"))),
+        (
+            "tolerance",
+            policy.derivative_tolerance.map(|v| format!("{v:?}")),
+        ),
         ("cells", policy.derivative_cells.map(|v| v.to_string())),
     ]) {
         settings.push(format!("derivatives {derivatives};"));
     }
     if let Some(limits) = options([
         ("items", policy.items.map(|v| v.to_string())),
-        ("body_occurrences", policy.body_occurrences.map(|v| v.to_string())),
+        (
+            "body_occurrences",
+            policy.body_occurrences.map(|v| v.to_string()),
+        ),
         ("body_slots", policy.body_slots.map(|v| v.to_string())),
         ("foreign_bytes", policy.foreign_bytes.map(|v| v.to_string())),
     ]) {
         settings.push(format!("limits {limits};"));
     }
-    format!("policy {{ {} }}", settings.join(" "))
+    Ok(format!("policy {{ {} }}", settings.join(" ")))
 }
 fn bad(reason: impl Into<String>) -> AuthoringError {
     AuthoringError::Contract {
@@ -260,6 +294,7 @@ fn print_block(
         let mut block = false;
         let value = row.value.selected().map_err(|e| bad(e.to_string()))?;
         let text = match value {
+            Selected::Temporal(v) => format!("evolve {n} on {} using {} bind {};",v.target,v.axis,v.argument),
             Selected::Relaxation(v) => format!("relax {n} on {} nominal {};", v.target, v.nominal),
             Selected::Continuation(v) => format!(
                 "continue {n} on {} from {} to {};",
@@ -387,11 +422,11 @@ fn print_block(
                     v.selection.as_ref().map_or_else(String::new,|s|format!(" select minimum({}, {})",s.criterion,s.tolerance)),
                     v.eligibility.as_ref().map_or_else(String::new,|e|format!(" eligible({e})")),
                     v.oracle.as_ref().map_or_else(String::new,|o|format!(" oracle {}",path(o))),
-                    v.fixture.as_ref().map_or_else(String::new, |f| {
+                    v.fixture.as_ref().map_or_else(|| Ok(String::new()), |f| {
                         let mut statements = vec![format!("dof {};", f.degrees_of_freedom)];
                         if let Some(execution) = f.execution { statements.push(format!("run {};", execution.as_str())); }
                         if let Some(intent) = f.intent { statements.push(format!("intent {};", intent.as_str())); }
-                        if let Some(policy) = &f.policy { statements.push(fixture_policy(policy)); }
+                        if let Some(policy) = &f.policy { statements.push(fixture_policy(policy)?); }
                         if !f.stages.is_empty() { statements.push(format!("stages({});", f.stages.iter().map(|s| quoted(s)).collect::<Vec<_>>().join(", "))); }
                         if let Some(policy) = &f.initialization { statements.push(format!("initialize homotopy({}) step({}) minimum({}) growth({}) attempts({}) seconds({});", policy.homotopy, policy.initial_step, policy.minimum_step, policy.growth, policy.maximum_attempts, policy.time_limit_seconds)); }
                         if let Some(integration) = &f.integration {
@@ -445,8 +480,8 @@ fn print_block(
                         }
                         statements.extend(f.diagnostics.iter().map(|d| format!("diagnose {} at({});", quoted(&d.rule), d.members.join(", "))));
                         statements.extend(f.specifications.iter().map(|s|format!("{} {}{};",s.kind.as_str(),s.target,s.expression.as_ref().map_or_else(String::new,|e|format!(" = {e}")))));
-                        format!(" fixture {{ {} }}", statements.join(" "))
-                    })
+                        Ok::<_,AuthoringError>(format!(" fixture {{ {} }}", statements.join(" ")))
+                    })?
                 )
             }
             Selected::Parameter(v)
@@ -545,11 +580,12 @@ fn print_block(
                     .join(", ")
             ),
             Selected::Entity(v) => format!(
-                "entity {} {n} {{ {} }}",
+                "entity {} {n}{} {{ {} }}",
                 v.kind_name,
+                v.provenance.as_ref().map_or_else(String::new, |p| format!(" {}", provenance(p))),
                 v.attributes
                     .iter()
-                    .map(|a| Ok(format!("{} = {}", name(&a.name), super::render_cell(&a.value)?)))
+                    .map(|a| Ok(format!("{} = {}{}", name(&a.name), super::render_cell(&a.value)?, a.provenance.as_ref().map_or_else(String::new, |p| format!(" {}", provenance(p))))))
                     .collect::<Result<Vec<_>, AuthoringError>>()?
                     .join(", ")
             ),
@@ -557,13 +593,14 @@ fn print_block(
             // unique or derived attribute.
             Selected::Attribute(v) => {
                 let unique = if v.unique { " unique" } else { "" };
+                let stored = v.storage.iter().map(|entry| storage(entry.storage_unit.as_deref(), entry.scheme.as_deref())).collect::<Result<Vec<_>, AuthoringError>>()?.join("");
                 match (&v.r#type, v.key, &v.value, &v.derived) {
                     (Some(ty), false, None, Some(expression)) => format!(
                         "derived {n}: {}{unique} = {expression};",
                         super::render_type(ty)?
                     ),
                     (Some(ty), key, value, None) => format!(
-                        "{} {n}: {}{unique}{};",
+                        "{} {n}: {}{stored}{unique}{};",
                         if key { "key" } else { "attribute" },
                         super::render_type(ty)?,
                         value

@@ -1,24 +1,44 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e178d29871ca9ccbc71eb7e96800") package pcsaft_data {
-@id("01a0ef604fdf73c68b36e134e96479a2") use provenance @"1.0.0";
-@id("01a0ef604fdf73c68b36e1350782cd32") use references @"1.0.0";
-@id("01a0e178d29871ca9ccbc71fe91a5ac0") use chem @"1.0.0";
-@id("01a0e178d29871ca9ccbc72097819efb") use pcsaft @"1.0.0";
-@id("01a0e178d29871ca9ccbc7210ce65429") dataset alkanes:pcsaft.segments complete_over(j in chem.alkanes) provenance(pcsaft.gross_sadowski_2001, provenance.Role.published, lineage(source references.feos_gross2001_json)) {
-[chem.methane]=[1,3.7039,150.03{K}];
-[chem.ethane]=[1.6069,3.5206,191.42{K}];
-[chem.propane]=[2.002,3.6184,208.11{K}];
+@id("c9d610e23e0547a8b57a854d94b2b207") use interactions @"1.0.0";
+
+@id("01a0f1868dd475edadc0e45047287470") use chemistry @"1.0.0";
+@id("01a0f1868dd475edadc0e451cfe0fe61") use properties @"1.0.0";
+@id("01a0f1868dd475edadc0e452749d1ec7") use compatibility @"1.0.0";
+@id("01a0f1868dd475edadc0e45379437d1f") use gross2001 @"1.0.0";
+@id("01a0f1868dd475edadc0e4546305ddc6") use pcsaft_parameters @"1.0.0";
+@id("01a0f1868dd475edadc0e455a23ef6ab") use pcsaft @"1.0.0";
+@id("01a0f1868dd475edadc0e456dd44beb3") use provenance @"1.0.0";
+@id("01a0f1868dd475edadc0e4575572c698") use references @"1.0.0";
+@id("01a0f1868dd475edadc0e4580ab03bd7") entity properties.property_package gross2001_package {}
+@id("01a0f1868dd475edadc0e4599ce2ecb0") set packages:Set<properties.property_package>={gross2001_package};
+@id("01a0f1868dd475edadc0e45a714b7f83") set segment_properties:Set<properties.property>={pcsaft_parameters.segments};
+@id("01a0e178d29871ca9ccbc7210ce65429") dataset alkanes:properties.selection complete_over(k in packages,j in gross2001.normal_alkanes,p in segment_properties,t in properties.vapor_types) provenance(references.gross_sadowski_2001, provenance.Role.derived, lineage(dataset gross2001.parameters)) {
+[gross2001_package,chem.methane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.methane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.ethane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.ethane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.propane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.propane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.butane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.butane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.pentane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.pentane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.hexane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.hexane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.heptane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.heptane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.octane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.octane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.nonane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.nonane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.decane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.decane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.undecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.undecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.dodecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.dodecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.tridecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.tridecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.tetradecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.tetradecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.pentadecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.pentadecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.hexadecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.hexadecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.heptadecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.heptadecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.octadecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.octadecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.nonadecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.nonadecane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
+[gross2001_package,chem.eicosane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.eicosane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
 }
-@id("01a0e178d29871ca9ccbc7223f564e0c") dataset interactions:pcsaft.interaction complete_over(i in chem.alkanes,j in chem.alkanes) provenance(references.plan14_thermo_reference, provenance.Role.synthetic) {
-[chem.methane,chem.methane]=[0];
-[chem.methane,chem.ethane]=[0];
-[chem.methane,chem.propane]=[0];
-[chem.ethane,chem.methane]=[0];
-[chem.ethane,chem.ethane]=[0];
-[chem.ethane,chem.propane]=[0];
-[chem.propane,chem.methane]=[0];
-[chem.propane,chem.ethane]=[0];
-[chem.propane,chem.propane]=[0];
-}
+@id("01a0f1868dd475edadc0e45b100fdc3f") use chem @"1.0.0";
+@id("01a0f1868dd475edadc0e45cd74d6481") fn potential(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=pcsaft.potential(t,r,n,members,gross2001_package);
+@id("bce6c5d896ba4d4185e8f0668ccf69a6") dataset selected_pair_source:interactions.pair_selection complete_over(k in packages,p in pair_properties) provenance(references.gross_sadowski_2001,provenance.Role.published) { [gross2001_package,pcsaft_parameters.binary_interaction]=[references.gross_sadowski_2001]; }
+@id("d6e05f91c9dc4aafa4b20dc2478e1aa6") dataset predictive_pair_policy:interactions.absence_policy complete_over(k in packages,p in pair_properties) provenance(references.gross_sadowski_2001,provenance.Role.published) { [gross2001_package,pcsaft_parameters.binary_interaction]=[interactions.PairAbsence.predictiveZero]; }
+@id("c9aee314ca1548b8a13ad27bbdf08727") set pair_properties:Set<properties.property>={pcsaft_parameters.binary_interaction};
 }

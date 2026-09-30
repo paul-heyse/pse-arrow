@@ -14,7 +14,7 @@ use std::collections::{BTreeMap, BTreeSet};
 mod structure;
 
 /// A fully explicit structural value.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Value {
     /// Predicate.
     Boolean(bool),
@@ -422,22 +422,30 @@ impl Evaluator<'_, '_> {
             crate::Selected::Entity(_) => match self.package.types.get(&id) {
                 Some(Type::Entity(kind)) => self
                     .reader
-                    .read(self.package, saved_at, self.package.is_test_only(id), || {
-                        format!("entity {} referencing test-only data", row.name)
-                    })
+                    .read(
+                        self.package,
+                        saved_at,
+                        self.package.is_test_only(id),
+                        || format!("entity {} referencing test-only data", row.name),
+                    )
                     .map(|()| Value::Entity { id, kind: *kind }),
                 _ => Err(invalid(id, "entity kind")),
             },
             // ADR-0123 Outcome 2: a typed constant is admitted data.
             crate::Selected::Constant(_) => self
                 .reader
-                .read(self.package, saved_at, self.package.is_test_only(id), || {
-                    format!(
-                        "constant {} {}",
-                        row.name,
-                        crate::provenance::supplied_by(self.package, id)
-                    )
-                })
+                .read(
+                    self.package,
+                    saved_at,
+                    self.package.is_test_only(id),
+                    || {
+                        format!(
+                            "constant {} {}",
+                            row.name,
+                            crate::provenance::supplied_by(self.package, id)
+                        )
+                    },
+                )
                 .and_then(|()| {
                     self.package
                         .constants
@@ -549,7 +557,9 @@ impl Evaluator<'_, '_> {
                     }
                     v
                 }
-                None => default.clone().ok_or_else(|| invalid(self.at, "key default"))?,
+                None => default
+                    .clone()
+                    .ok_or_else(|| invalid(self.at, "key default"))?,
             });
         }
         let row = self
@@ -559,8 +569,11 @@ impl Evaluator<'_, '_> {
         // ADR-0123 Outcome 5: a root outside a test fixture reads no test-only row.
         if let Value::Entity { id, .. } = &row {
             let origin = self.package.record(*id).map(|r| r.origin);
-            self.reader
-                .read(self.package, self.at, self.package.is_test_only(*id), || {
+            self.reader.read(
+                self.package,
+                self.at,
+                self.package.is_test_only(*id),
+                || {
                     format!(
                         "{} {}",
                         crate::data::display(self.package, &row),
@@ -568,13 +581,14 @@ impl Evaluator<'_, '_> {
                             crate::provenance::supplied_by(self.package, origin)
                         })
                     )
-                })?;
+                },
+            )?;
         }
         Ok(row)
     }
     /// A reference state's typed condition, in its quantity type's canonical unit
     /// (ADR-0123 Outcome 6).
-    fn reference_condition(
+    pub(crate) fn reference_condition(
         &self,
         state: pse_quantity::ReferenceStateId,
         attribute: &str,
@@ -621,7 +635,8 @@ impl Evaluator<'_, '_> {
         // At admission, a reduction over a kind ranges over its extent (Plan 23 D0).
         if matches!(self.reader, crate::provenance::Reader::Admission(_)) {
             e.walk(|node| {
-                if let ExprKind::Reduce { binder, .. } | ExprKind::Fold { binder, .. } = &node.kind {
+                if let ExprKind::Reduce { binder, .. } | ExprKind::Fold { binder, .. } = &node.kind
+                {
                     let name = dsl::render_path(&binder.domain);
                     if let Some(kind) = self
                         .package
@@ -655,8 +670,7 @@ impl Evaluator<'_, '_> {
                 }
             }
         }
-        let ty =
-            crate::expression::infer(e, &env, self.package, self.physical, self.at, expected)?;
+        let ty = crate::expression::infer(e, &env, self.package, self.physical, self.at, expected)?;
         match ty {
             Type::Quantity(Scheme::Concrete(quantity)) => Ok(Value::Number {
                 bits: result.to_bits(),
@@ -854,10 +868,33 @@ impl Evaluator<'_, '_> {
                             }
                         }
                     });
-                    let (count, mut value) = match definition_prefix.or(physical_prefix) {
-                        Some(value) => value,
-                        None => (1, self.reference(&first.name, depth + 1)?),
+                    // A qualified entity is an immutable record, just as a lexical
+                    // entity binding is. Resolve its longest declaration prefix before
+                    // traversing attributes; the enclosing package is only a scope.
+                    let entity_prefix = if lexical {
+                        None
+                    } else {
+                        (2..path.segments.len()).rev().find_map(|count| {
+                            let prefix = path.segments[..count]
+                                .iter()
+                                .map(|s| s.name.as_str())
+                                .collect::<Vec<_>>()
+                                .join(".");
+                            let id = self.package.resolve(self.at, &prefix)?;
+                            matches!(self.package.types.get(&id), Some(Type::Entity(_)))
+                                .then_some((count, prefix))
+                        })
                     };
+                    let entity_prefix = entity_prefix
+                        .map(|(count, prefix)| {
+                            self.reference(&prefix, depth + 1).map(|v| (count, v))
+                        })
+                        .transpose()?;
+                    let (count, mut value) =
+                        match definition_prefix.or(physical_prefix).or(entity_prefix) {
+                            Some(value) => value,
+                            None => (1, self.reference(&first.name, depth + 1)?),
+                        };
                     for segment in &path.segments[count..] {
                         if !segment.indices.is_empty() {
                             return Err(invalid(

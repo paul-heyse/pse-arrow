@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Mechanical public workflow projection; all mathematical policy remains native.
+mod documents;
 mod modeling;
+use documents::DocumentContent;
 mod routes;
 mod settings;
 pub(crate) use modeling::{
     ModelingDiagnosticSettings, ModelingLimits, NativeModelingConformance,
     NativeModelingDiagnosticSamples, NativeModelingDiagnostics, NativeModelingElasticAttempt,
-    NativeModelingInitialization, NativeModelingInitializationAttempt,
+    NativeModelingInitialization, NativeModelingInitializationAttempt, NativeModelingKnowledge,
     NativeModelingNativeAnalysis, NativeModelingNonlinearExplanation, NativeModelingPackage,
     NativeModelingResult, NativeModelingStudy, NativeModelingTrajectory,
 };
@@ -123,7 +125,7 @@ impl NativeRuntime {
     fn modeling_from_documents(
         &self,
         py: Python<'_>,
-        documents: Vec<std::collections::BTreeMap<String, String>>,
+        documents: Vec<std::collections::BTreeMap<String, DocumentContent>>,
         physical: &NativePhysicalContext,
     ) -> PyResult<NativeModelingPackage> {
         modeling::from_documents(self, py, documents, physical)
@@ -196,6 +198,14 @@ impl NativeRuntime {
     fn durable(&self) -> bool {
         matches!(self.inner.durability(), native::Durability::Durable(_))
     }
+    /// Observe the existing deployment pool and process memory report.
+    fn resource_usage(&self, py: Python<'_>) -> PyResult<inspection::ResourceReport> {
+        self.owner
+            .shared
+            .report()
+            .map(Into::into)
+            .map_err(|error| errors::diagnostic(py, &error))
+    }
     /// Durable attempts of the store, newest first, as `runtime.operational_attempts`:
     /// optionally those of one run and in the given registry `AttemptState` names.
     #[pyo3(signature = (*, run_id=None, states=Vec::new(), limit=100))]
@@ -220,7 +230,7 @@ impl NativeRuntime {
     fn physical_from_documents(
         &self,
         py: Python<'_>,
-        documents: std::collections::BTreeMap<String, String>,
+        documents: std::collections::BTreeMap<String, DocumentContent>,
     ) -> PyResult<NativePhysicalContext> {
         let documents = document_bytes(documents);
         let cancel = CancelSource::new();
@@ -683,6 +693,11 @@ impl NativeRunResult {
             .map(inspection::TableStream::from_batch)
             .map_err(|e| errors::diagnostic(py, e.as_ref()))
     }
+    fn export_fit_parameters(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
+        py.detach(|| self.inner.export_fit_parameters())
+            .map(inspection::TableStream::from_batch)
+            .map_err(|error| errors::diagnostic(py, &error))
+    }
     /// Prepare the publication of this durable attempt's results in a registered
     /// workspace (JSON) against the exact expected parent; performs no write.
     #[pyo3(signature=(workspace, *, parent=None, publication_id=None))]
@@ -764,15 +779,13 @@ pub(crate) struct NativePhysicalContext {
     /// workers.
     documents: Arc<std::collections::BTreeMap<String, Vec<u8>>>,
 }
-/// The documents this boundary receives, each text by path, as the exact bytes the loader
-/// reads. The boundary carries text documents only; package data documents (ADR-0125) enter
-/// through the Rust loaders.
+/// Normalize text and binary documents once, preserving the exact durable byte payload.
 pub(crate) fn document_bytes(
-    documents: std::collections::BTreeMap<String, String>,
+    documents: std::collections::BTreeMap<String, DocumentContent>,
 ) -> std::collections::BTreeMap<String, Vec<u8>> {
     documents
         .into_iter()
-        .map(|(path, text)| (path, text.into_bytes()))
+        .map(|(path, content)| (path, content.0))
         .collect()
 }
 

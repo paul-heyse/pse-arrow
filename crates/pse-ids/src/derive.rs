@@ -341,6 +341,9 @@ frames! {
         /// A modeling fit's execution.
         ModelingFitExecutionV1 => "pse.modeling.fit-execution.v1",
         /// A modeling fit's source.
+        /// Typed measured records belong to the admitted source revision; fitting selections are framed separately.
+        ModelingFitSourceV2 => "pse.modeling.fit-source.v2",
+        /// Historical fitting source with external observations; retained only as an immutable frame vocabulary.
         ModelingFitSourceV1 => "pse.modeling.fit-source.v1",
         /// Implicit trial hints.
         ModelingImplicitTrialHintsV1 => "pse.modeling.implicit-trial-hints.v1",
@@ -348,6 +351,8 @@ frames! {
         /// document's identity and byte-level content hash, the physical inventory identity
         /// and the admitted physical name bindings (ADR-0123 Outcome 8, ADR-0125).
         ModelingSourceRevisionV3 => "pse.modeling.source-revision.v3",
+        /// Source revision over temporal-composition declaration schema (ADR-0132).
+        ModelingSourceRevisionV4 => "pse.modeling.source-revision.v4",
         /// A prepared numerical cone request.
         NumericalConeV1 => "pse.numerical.cone.v1",
         /// A publication request's algorithms.

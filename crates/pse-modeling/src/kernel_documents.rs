@@ -25,8 +25,7 @@ impl Documents for Direct<'_> {
         self.inventory.resolve(source, path)
     }
     fn admit(&self, plan: &Arc<DocumentPlan>, document: SemanticId) -> Result<Arc<DocumentTable>> {
-        document::admit(plan, &self.inventory.documents[&document], self.quantities)
-            .map(Arc::new)
+        document::admit(plan, &self.inventory.documents[&document], self.quantities).map(Arc::new)
     }
 }
 
@@ -100,6 +99,91 @@ fn bank() -> Vec<DocumentColumn> {
     ]
 }
 
+#[test]
+fn keyed_kind_document_rows_equal_inline_records_and_resolve_identifier_keys() {
+    let source = r#"package p {
+ identifier scheme cas;
+ entity kind item { attribute cas: Id<cas> unique; }
+ entity item a { cas = Id<cas>("71-43-2") }
+ entity item b { cas = Id<cas>("108-88-3") }
+ entity kind source provenance {} entity source s {} enum role { given }
+ entity kind form { key subject: item by cas; key variant: Integer = 1; attribute h: Energy storage {kJ}; attribute note: Text?; }
+ dataset banked: form provenance(s, role.given) from "data/bank.parquet";
+}"#;
+    let columns = || {
+        vec![
+            column("subject", text(&[Some("71-43-2"), Some("108-88-3")])),
+            column("h", Values::Magnitude(vec![Some(1.5), Some(-2.0)])),
+            column("note", text(&[Some("first"), None])),
+        ]
+    };
+    let p = admitted(source, columns()).unwrap();
+    let inline = source.replace(
+        "from \"data/bank.parquet\";",
+        "{[a]=[1.5{kJ}, \"first\"]; [b]=[-2{kJ}, missing];}",
+    );
+    let plain = admitted(&inline, columns()).unwrap();
+    assert_eq!(p.entities, plain.entities);
+    assert_eq!(p.provenance, plain.provenance);
+    assert_eq!(
+        p.entities
+            .values()
+            .filter(|r| r.origin == p.names["p.banked"])
+            .count(),
+        2
+    );
+    let mut duplicate = columns();
+    duplicate[0].values = text(&[Some("71-43-2"), Some("71-43-2")]);
+    assert!(refusal(source, duplicate).contains("already admitted"));
+    let mut unknown = columns();
+    unknown[0].values = text(&[Some("unknown"), Some("108-88-3")]);
+    assert!(refusal(source, unknown).contains("unknown"));
+    let mut extra = columns();
+    extra.push(column(
+        "undeclared",
+        Values::Integer(vec![Some(0), Some(0)]),
+    ));
+    assert!(refusal(source, extra).contains("does not declare"));
+    let mut wrong = columns();
+    wrong[1].values = text(&[Some("1.5"), Some("-2.0")]);
+    assert!(refusal(source, wrong).contains("column h"));
+    let mut wrong_unit = columns();
+    wrong_unit[1].unit = Some("kg".into());
+    assert!(refusal(source, wrong_unit).contains("declared storage unit"));
+}
+
+#[test]
+fn keyed_document_references_use_the_complete_identity_index() {
+    let source = r#"package p {
+ entity kind source provenance {} entity source s {} enum role { given }
+ entity kind node {key n:Integer; attribute parent:node?;}
+ dataset nodes:node provenance(s,role.given) from "data/bank.parquet";
+}"#;
+    let kind = try_source(source)
+        .unwrap()
+        .iter()
+        .find(|row| row.name == "node")
+        .unwrap()
+        .declaration_id;
+    let identity = |n| entity::keyed_identity(kind, &[Value::Integer(n)]);
+    let columns = |parent| {
+        vec![
+            column("n", Values::Integer(vec![Some(1), Some(2)])),
+            column("parent", Values::Identity(vec![Some(parent), None])),
+        ]
+    };
+    let p = admitted(source, columns(identity(2).as_id())).unwrap();
+    assert_eq!(
+        p.record(identity(1)).unwrap().values["parent"],
+        Value::Entity {
+            id: identity(2),
+            kind
+        }
+    );
+    assert!(refusal(source, columns(identity(1).as_id())).contains("cycle"));
+    assert!(refusal(source, columns(SemanticId::NIL)).contains("no admitted entity"));
+}
+
 /// A document's columns are typed once each through the table's plan: identifier-scheme
 /// references resolve through the identifier index, a dictionary names members, magnitudes
 /// convert from the declared storage unit, and a null of an optional column is absence.
@@ -141,7 +225,15 @@ fn document_rows_admit_through_the_plan() {
     assert_eq!(row.cells[1], Value::Missing);
     assert_eq!(row.origin, p.names["p.banked"]);
     // The dataset carries no cells: the document is the rows.
-    assert!(p.declarations[&p.names["p.banked"]].value.dataset.as_ref().unwrap().rows.is_empty());
+    assert!(
+        p.declarations[&p.names["p.banked"]]
+            .value
+            .dataset
+            .as_ref()
+            .unwrap()
+            .rows
+            .is_empty()
+    );
 }
 
 /// A reference by identity names an admitted entity of the declared kind.
@@ -162,9 +254,15 @@ fn document_identity_references_name_admitted_entities() {
     );
     let p = admitted(&text, columns.clone()).unwrap();
     assert_eq!(p.tables[&p.names["p.bank"]].rows.len(), 2);
-    columns[0] = column("j", Values::Identity(vec![Some(a), Some(SemanticId::from_bytes([3; 16]))]));
+    columns[0] = column(
+        "j",
+        Values::Identity(vec![Some(a), Some(SemanticId::from_bytes([3; 16]))]),
+    );
     let error = refusal(&text, columns);
-    assert!(error.contains("column j") && error.contains("no admitted entity"), "{error}");
+    assert!(
+        error.contains("column j") && error.contains("no admitted entity"),
+        "{error}"
+    );
 }
 
 fn admitted_names(text: &str) -> std::collections::BTreeMap<String, DeclarationId> {
@@ -187,30 +285,81 @@ fn admitted_names(text: &str) -> std::collections::BTreeMap<String, DeclarationI
 /// quantity column without a storage unit.
 #[test]
 fn document_refusals_name_the_column_and_declared_type() {
-    let cases: Vec<(Box<dyn Fn(&mut Vec<DocumentColumn>)>, &str)> = vec![
-        (Box::new(|c| {
-            c.remove(4);
-        }), "has no column n"),
-        (Box::new(|c| c.push(column("extra", Values::Integer(vec![Some(1), Some(2)])))), "has column extra"),
-        (Box::new(|c| c[4] = column("n", Values::Magnitude(vec![Some(1.0), Some(2.0)]))), "stores it as Float64, where Int64 is expected"),
-        (Box::new(|c| c[2].unit = Some("J".into())), "states unit J, which disagrees with the declared storage unit"),
-        (Box::new(|c| c[4].unit = Some("K".into())), "only a quantity column has one"),
-        (Box::new(|c| c[5] = column("note", text(&[Some("x"), None]))), "row 1 is null"),
-        (Box::new(|c| c[0] = column("j", text(&[Some("71-43-2"), Some("0-00-0")]))), "\"0-00-0\", which no admitted entity"),
-        (Box::new(|c| c[1] = column("ph", Values::Member { members: vec!["solid".into()], keys: vec![Some(0), Some(0)] })), "names solid, which is not a member"),
-        (Box::new(|c| c[2] = column("h", Values::Magnitude(vec![Some(f64::NAN), Some(1.0)]))), "nonfinite magnitude"),
+    type Mutation = Box<dyn Fn(&mut Vec<DocumentColumn>)>;
+    let cases: Vec<(Mutation, &str)> = vec![
+        (
+            Box::new(|c| {
+                c.remove(4);
+            }),
+            "has no column n",
+        ),
+        (
+            Box::new(|c| c.push(column("extra", Values::Integer(vec![Some(1), Some(2)])))),
+            "has column extra",
+        ),
+        (
+            Box::new(|c| c[4] = column("n", Values::Magnitude(vec![Some(1.0), Some(2.0)]))),
+            "stores it as Float64, where Int64 is expected",
+        ),
+        (
+            Box::new(|c| c[2].unit = Some("J".into())),
+            "states unit J, which disagrees with the declared storage unit",
+        ),
+        (
+            Box::new(|c| c[4].unit = Some("K".into())),
+            "only a quantity column has one",
+        ),
+        (
+            Box::new(|c| c[5] = column("note", text(&[Some("x"), None]))),
+            "row 1 is null",
+        ),
+        (
+            Box::new(|c| c[0] = column("j", text(&[Some("71-43-2"), Some("0-00-0")]))),
+            "\"0-00-0\", which no admitted entity",
+        ),
+        (
+            Box::new(|c| {
+                c[1] = column(
+                    "ph",
+                    Values::Member {
+                        members: vec!["solid".into()],
+                        keys: vec![Some(0), Some(0)],
+                    },
+                )
+            }),
+            "names solid, which is not a member",
+        ),
+        (
+            Box::new(|c| c[2] = column("h", Values::Magnitude(vec![Some(f64::NAN), Some(1.0)]))),
+            "nonfinite magnitude",
+        ),
     ];
     for (edit, expected) in cases {
         let mut columns = bank();
         edit(&mut columns);
         let error = refusal(BANK, columns);
         assert!(error.contains(expected), "{expected}: {error}");
-        assert!(error.contains("declared") || error.contains("declare"), "{error}");
+        assert!(
+            error.contains("declared") || error.contains("declare"),
+            "{error}"
+        );
     }
     let error = refusal(&BANK.replace("Energy storage {kJ}", "Energy"), bank());
-    assert!(error.contains("column h declared") && error.contains("declares no storage unit"), "{error}");
-    let error = refusal(&BANK.replace("n: Integer,", "n: Integer storage {kJ},"), bank());
+    assert!(
+        error.contains("column h declared") && error.contains("declares no storage unit"),
+        "{error}"
+    );
+    let error = refusal(
+        &BANK.replace("n: Integer,", "n: Integer storage {kJ},"),
+        bank(),
+    );
     assert!(error.contains("only a quantity has"), "{error}");
-    let error = refusal(&BANK.replace("data/bank.parquet", "data/other.parquet"), bank());
-    assert!(error.contains("which its package does not carry"), "{error}");
+    let error = refusal(
+        &BANK.replace("data/bank.parquet", "data/other.parquet"),
+        bank(),
+    );
+    assert!(
+        error.contains("which its package does not carry"),
+        "{error}"
+    );
 }

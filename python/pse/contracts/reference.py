@@ -96,19 +96,6 @@ class ReferenceBasesRow:
 
 
 @attrs.frozen(kw_only=True)
-class ReferenceConstantsRow:
-    """Declared relation row or nested value."""
-
-    constant_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    idaes_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    value: b.float = attrs.field(validator=v.finite_float)
-    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    quantity_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-
-@attrs.frozen(kw_only=True)
 class ReferenceConversionRulesRow:
     """Declared relation row or nested value."""
 

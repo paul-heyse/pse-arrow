@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("43c6eff8b13f44f385c20c21d5278b50") package cubic {
+@id("1bcb8995b285493a8726f5c15e216d59") use chemistry @"1.0.0";
+@id("84b50d9084cd43dc88b7816b69acddc0") use properties @"1.0.0";
+@id("d8a41a6a53c84051bb8609ddaf326c0c") use interactions @"1.0.0";
+@id("6e6a8ab0eae94f1a96479f2f86ac9902") use compatibility @"1.0.0";
+
+@id("2a6a9f39638f40e1a11eeb1bf9d49f69") use provenance @"1.0.0";
+@id("e6021e3d04dc466e899cf31d11698977") entity provenance.publication peng_robinson_1976 { title="A New Two-Constant Equation of State (Peng and Robinson), Industrial & Engineering Chemistry Fundamentals 15, 59–64", year=1976, doi=Id<provenance.doi>("10.1021/i160057a011") }
+@id("07ebaab6863842a6983c104d7f702439") entity kind cubic_family {
+@id("b61a8222a9004daf9b30549ed5cc02bb") attribute omega_a:Scalar storage {1};
+@id("90e76d64065c4817ae0b68cee179107f") attribute omega_b:Scalar storage {1};
+@id("18fa79137d9b4c0bb1ae81e3c47bf46f") attribute u:Scalar storage {1};
+@id("a070df2a1c4348088620722ad0db3bfd") attribute w:Scalar storage {1};
+}
+@id("d2ab7e7565724f7cba14f9d74ae42627") entity cubic_family pr provenance(peng_robinson_1976,provenance.Role.published) { omega_a=0.45724,omega_b=0.07780,u=2,w=-1 }
+@id("4c9bf09918ba41eca5aee1d4a3d76b21") table kappa[f:cubic_family,k:0..2]:Scalar complete_over(f,k in 0..2);
+@id("3bd285b648464588b3dda9adfeb91c78") dataset pr_kappa:kappa complete_over(f in pr_families) provenance(peng_robinson_1976,provenance.Role.published) {
+[pr,0]=[0.37464];
+[pr,1]=[1.54226];
+[pr,2]=[-0.26992];
+}
+@id("0636d020b8434a8ca55084a5925049a7") set pr_families:Set<cubic_family>={pr};
+@id("f37bd9d1ea4b470a914467cb1eb2c6b8") entity properties.property critical_parameters { quantity=Scalar,shape=properties.IndexShape.pure,applies={compatibility.PhaseType.vaporPhase} }
+@id("f45665bc826448539694ddc25a52cbd9") entity properties.property binary_interaction { quantity=Scalar,shape=properties.IndexShape.pair,applies={compatibility.PhaseType.liquidPhase,compatibility.PhaseType.vaporPhase} }
+@id("fbd29039bf374e42ab49e94bf56afcef") entity kind critical_point extends properties.parameter_set {
+@id("b0dca44553e942818eb9b21717bf3338") attribute tc:TemperatureScale storage {K};
+@id("9040273df27d415f9e9bf19fe1e28b32") attribute pc:Pressure storage {Pa};
+@id("4910bc90387c48378f36eee818c861cf") attribute omega:Scalar storage {1};
+@id("84e4790db84a4a6a85507e7dc032cd3b") require property==critical_parameters and tc>0{K} and pc>0{Pa} : "critical parameters have positive temperature and pressure";
+}
+@id("89a16b24937f48ff970efde7438347dd") fn selected_tc(k:properties.property_package,j:chemistry.species)->TemperatureScale=c.tc where s=properties.selection[k,j,critical_parameters,compatibility.PhaseType.vaporPhase],c=critical_point[s.subject,s.property,s.phase_type,s.source,s.variant];
+@id("4bc6664f91c249f08aff033753630b49") fn selected_pc(k:properties.property_package,j:chemistry.species)->Pressure=c.pc where s=properties.selection[k,j,critical_parameters,compatibility.PhaseType.vaporPhase],c=critical_point[s.subject,s.property,s.phase_type,s.source,s.variant];
+@id("556f31a761be4f7e9187332f12195a43") fn selected_omega(k:properties.property_package,j:chemistry.species)->Scalar=c.omega where s=properties.selection[k,j,critical_parameters,compatibility.PhaseType.vaporPhase],c=critical_point[s.subject,s.property,s.phase_type,s.source,s.variant];
+@id("39abcc27e541428f93b28c312dc071f9") table directional_pair[s:provenance.source,p:properties.property,i:chemistry.species,j:chemistry.species]:Scalar missing optional require p.shape==properties.IndexShape.pair;
+@id("756ffe3db8b947339407c67319218f7e") fn directional_parameter(k:properties.property_package,p:properties.property,i:chemistry.species,j:chemistry.species)->Scalar valid(i==j or present(directional_pair[interactions.pair_selection[k,p],p,i,j]) or interactions.absence_policy[k,p]==interactions.PairAbsence.predictiveZero)=if i==j then 0 else if present(directional_pair[interactions.pair_selection[k,p],p,i,j]) then directional_pair[interactions.pair_selection[k,p],p,i,j] else 0;
+@id("7a59ed817917433591ea6df8cb34a229") entity provenance.publication soave_1972 { title="Equilibrium constants from a modified Redlich-Kwong equation of state (Soave), Chemical Engineering Science 27, 1197–1203",year=1972,doi=Id<provenance.doi>("10.1016/0009-2509(72)80096-4") }
+@id("673d74fcfeba452b8b88c22688f056e2") entity cubic_family srk provenance(soave_1972,provenance.Role.published) { omega_a=0.42748,omega_b=0.08664,u=1,w=0 }
+@id("e80cf711a1ed44f9ad27f491f9708e20") set srk_families:Set<cubic_family>={srk};
+@id("7837a01ae59045dc96d837ba5eafc016") dataset srk_kappa:kappa complete_over(f in srk_families) provenance(soave_1972,provenance.Role.published) { [srk,0]=[0.48]; [srk,1]=[1.574]; [srk,2]=[-0.176]; }
+}

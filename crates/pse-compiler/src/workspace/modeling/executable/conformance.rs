@@ -64,7 +64,12 @@ impl PreparedModeling {
         self.model
             .annotations
             .iter()
-            .filter(|a| matches!(a.value, pse_modeling::annotation::AnnotationValue::Valid { .. }))
+            .filter(|a| {
+                matches!(
+                    a.value,
+                    pse_modeling::annotation::AnnotationValue::Valid { .. }
+                )
+            })
             .flat_map(|a| {
                 [
                     ModelingOutput::Member(a.target),
@@ -95,7 +100,9 @@ impl PreparedModeling {
                 .get(&output.row_id())
                 .copied()
                 .filter(|v| v.is_finite())
-                .ok_or_else(|| CompileError::Missing("validity observation absent or nonfinite".into()))
+                .ok_or_else(|| {
+                    CompileError::Missing("validity observation absent or nonfinite".into())
+                })
         };
         let mut results = Vec::new();
         for a in &self.model.annotations {
@@ -118,15 +125,20 @@ impl PreparedModeling {
                 extrapolation: *policy == ExtrapolationPolicy::Extrapolate,
             });
         }
-        results.extend(self.model.observations.iter().map(|o| ModelingValidityResult {
-            target: o.id,
-            source: o.lineage.declaration,
-            layer: ModelingValidityLayer::Data,
-            value: o.value,
-            lower: o.lower,
-            upper: o.upper,
-            extrapolation: true,
-        }));
+        results.extend(
+            self.model
+                .observations
+                .iter()
+                .map(|o| ModelingValidityResult {
+                    target: o.id,
+                    source: o.lineage.declaration,
+                    layer: ModelingValidityLayer::Data,
+                    value: o.value,
+                    lower: o.lower,
+                    upper: o.upper,
+                    extrapolation: true,
+                }),
+        );
         Ok(results)
     }
     /// Select the physical and dimensionless observations for every authored test.

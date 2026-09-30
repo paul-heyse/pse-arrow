@@ -9,6 +9,33 @@
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct AuthoredModelingDeclarationsFieldValueTemporal {
+    ///target
+    pub r#target: String,
+    ///axis
+    pub r#axis: String,
+    ///argument
+    pub r#argument: String,
+}
+impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueTemporal {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#target, &other.r#target)
+            && crate::SemanticEq::semantic_eq(&self.r#axis, &other.r#axis)
+            && crate::SemanticEq::semantic_eq(&self.r#argument, &other.r#argument)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueTemporal {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct AuthoredModelingDeclarationsFieldValueRelaxation {
     ///target
     pub r#target: String,
@@ -114,11 +141,41 @@ impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeSelection {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem {
+    ///name
+    pub r#name: String,
+    ///value
+    pub r#value: crate::generated::structures::ModelingCell,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+    }
+}
+impl PartialEq
+for AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
     ///backend
     pub r#backend: Option<crate::generated::enums::NativeBackend>,
     ///presolve
     pub r#presolve: Option<crate::generated::enums::PresolvePolicyKind>,
+    ///native_options
+    pub r#native_options: Vec<
+        AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem,
+    >,
     ///derivative_step
     pub r#derivative_step: Option<f64>,
     ///derivative_tolerance
@@ -138,6 +195,10 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeFixturePol
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#backend, &other.r#backend)
             && crate::SemanticEq::semantic_eq(&self.r#presolve, &other.r#presolve)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#native_options,
+                &other.r#native_options,
+            )
             && crate::SemanticEq::semantic_eq(
                 &self.r#derivative_step,
                 &other.r#derivative_step,
@@ -1453,6 +1514,8 @@ pub struct AuthoredModelingDeclarationsFieldValueAttribute {
     pub r#unique: bool,
     ///derived
     pub r#derived: Option<String>,
+    ///storage
+    pub r#storage: Vec<crate::generated::structures::ModelingColumnStorage>,
 }
 impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueAttribute {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -1461,6 +1524,7 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueAttribute {
             && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
             && crate::SemanticEq::semantic_eq(&self.r#unique, &other.r#unique)
             && crate::SemanticEq::semantic_eq(&self.r#derived, &other.r#derived)
+            && crate::SemanticEq::semantic_eq(&self.r#storage, &other.r#storage)
     }
 }
 impl PartialEq for AuthoredModelingDeclarationsFieldValueAttribute {
@@ -1566,11 +1630,14 @@ pub struct AuthoredModelingDeclarationsFieldValueEntityAttributesItem {
     pub r#name: String,
     ///value
     pub r#value: crate::generated::structures::ModelingCell,
+    ///provenance
+    pub r#provenance: Option<crate::generated::structures::ModelingProvenance>,
 }
 impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueEntityAttributesItem {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
             && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+            && crate::SemanticEq::semantic_eq(&self.r#provenance, &other.r#provenance)
     }
 }
 impl PartialEq for AuthoredModelingDeclarationsFieldValueEntityAttributesItem {
@@ -1588,12 +1655,15 @@ impl PartialEq for AuthoredModelingDeclarationsFieldValueEntityAttributesItem {
 pub struct AuthoredModelingDeclarationsFieldValueEntity {
     ///kind_name
     pub r#kind_name: String,
+    ///provenance
+    pub r#provenance: Option<crate::generated::structures::ModelingProvenance>,
     ///attributes
     pub r#attributes: Vec<AuthoredModelingDeclarationsFieldValueEntityAttributesItem>,
 }
 impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueEntity {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#kind_name, &other.r#kind_name)
+            && crate::SemanticEq::semantic_eq(&self.r#provenance, &other.r#provenance)
             && crate::SemanticEq::semantic_eq(&self.r#attributes, &other.r#attributes)
     }
 }
@@ -2195,6 +2265,8 @@ impl PartialEq for AuthoredModelingDeclarationsFieldValueRealization {
 pub struct AuthoredModelingDeclarationsFieldValue {
     ///kind
     pub r#kind: crate::generated::enums::ModelingDeclarationKind,
+    ///temporal
+    pub r#temporal: Option<AuthoredModelingDeclarationsFieldValueTemporal>,
     ///relaxation
     pub r#relaxation: Option<AuthoredModelingDeclarationsFieldValueRelaxation>,
     ///continuation
@@ -2267,6 +2339,7 @@ pub struct AuthoredModelingDeclarationsFieldValue {
 impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValue {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#temporal, &other.r#temporal)
             && crate::SemanticEq::semantic_eq(&self.r#relaxation, &other.r#relaxation)
             && crate::SemanticEq::semantic_eq(
                 &self.r#continuation,
@@ -2428,6 +2501,8 @@ pub enum AuthoredModelingDeclarationsFieldValueSelected<'a> {
     Stage(&'a AuthoredModelingDeclarationsFieldValueScope),
     ///table
     Table(&'a AuthoredModelingDeclarationsFieldValueTable),
+    ///temporal
+    Temporal(&'a AuthoredModelingDeclarationsFieldValueTemporal),
     ///test
     Test(&'a AuthoredModelingDeclarationsFieldValueScope),
     ///variable
@@ -2478,6 +2553,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "alias", " arm with every other arm absent.")]
@@ -2516,6 +2592,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!(
@@ -2558,6 +2635,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: Some(value),
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "annotation", " arm with every other arm absent.")]
@@ -2598,6 +2676,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "atleast", " arm with every other arm absent.")]
@@ -2638,6 +2717,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "atmost", " arm with every other arm absent.")]
@@ -2678,6 +2758,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "attribute", " arm with every other arm absent.")]
@@ -2718,6 +2799,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "case", " arm with every other arm absent.")]
@@ -2756,6 +2838,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: Some(value),
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "child", " arm with every other arm absent.")]
@@ -2794,6 +2877,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!(
@@ -2838,6 +2922,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!(
@@ -2882,6 +2967,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "connection", " arm with every other arm absent.")]
@@ -2922,6 +3008,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "constant", " arm with every other arm absent.")]
@@ -2960,6 +3047,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!(
@@ -3004,6 +3092,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "continuous", " arm with every other arm absent.")]
@@ -3044,6 +3133,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!(
@@ -3088,6 +3178,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "dataset", " arm with every other arm absent.")]
@@ -3126,6 +3217,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "definition", " arm with every other arm absent.")]
@@ -3164,6 +3256,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: Some(value),
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!(
@@ -3208,6 +3301,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!(
@@ -3252,6 +3346,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!(
@@ -3294,6 +3389,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: Some(value),
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "entity", " arm with every other arm absent.")]
@@ -3332,6 +3428,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!(
@@ -3374,6 +3471,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: Some(value),
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "enum", " arm with every other arm absent.")]
@@ -3412,6 +3510,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "envelope", " arm with every other arm absent.")]
@@ -3450,6 +3549,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "equation", " arm with every other arm absent.")]
@@ -3488,6 +3588,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "exactly", " arm with every other arm absent.")]
@@ -3528,6 +3629,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!(
@@ -3572,6 +3674,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!(
@@ -3616,6 +3719,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "function", " arm with every other arm absent.")]
@@ -3654,6 +3758,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!(
@@ -3696,6 +3801,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "implicit", " arm with every other arm absent.")]
@@ -3734,6 +3840,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: Some(value),
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "import", " arm with every other arm absent.")]
@@ -3772,6 +3879,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "interface", " arm with every other arm absent.")]
@@ -3810,6 +3918,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: Some(value),
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "let", " arm with every other arm absent.")]
@@ -3848,6 +3957,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "logic", " arm with every other arm absent.")]
@@ -3886,6 +3996,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "package", " arm with every other arm absent.")]
@@ -3924,6 +4035,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: Some(value),
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "parameter", " arm with every other arm absent.")]
@@ -3962,6 +4074,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "piecewise", " arm with every other arm absent.")]
@@ -4002,6 +4115,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "port", " arm with every other arm absent.")]
@@ -4040,6 +4154,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "preset", " arm with every other arm absent.")]
@@ -4078,6 +4193,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!(
@@ -4122,6 +4238,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "regime", " arm with every other arm absent.")]
@@ -4160,6 +4277,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: Some(value),
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "relaxation", " arm with every other arm absent.")]
@@ -4200,6 +4318,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!(
@@ -4244,6 +4363,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: Some(value),
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!(
@@ -4288,6 +4408,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "set", " arm with every other arm absent.")]
@@ -4326,6 +4447,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "sos1", " arm with every other arm absent.")]
@@ -4364,6 +4486,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "sos2", " arm with every other arm absent.")]
@@ -4402,6 +4525,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "stage", " arm with every other arm absent.")]
@@ -4440,6 +4564,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: Some(value),
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "table", " arm with every other arm absent.")]
@@ -4478,6 +4603,46 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: Some(value),
+            r#temporal: None,
+        }
+    }
+    #[doc = concat!("Construct the ", "temporal", " arm with every other arm absent.")]
+    pub fn from_temporal(value: AuthoredModelingDeclarationsFieldValueTemporal) -> Self {
+        Self {
+            r#kind: crate::generated::enums::ModelingDeclarationKind::Temporal,
+            r#accumulator: None,
+            r#annotation: None,
+            r#attribute: None,
+            r#binding: None,
+            r#cardinality: None,
+            r#collocation_scheme: None,
+            r#complementarity: None,
+            r#connection: None,
+            r#constant: None,
+            r#continuation: None,
+            r#continuous: None,
+            r#contribution: None,
+            r#dataset: None,
+            r#difference_scheme: None,
+            r#discretization: None,
+            r#entity: None,
+            r#enumeration: None,
+            r#envelope: None,
+            r#equation: None,
+            r#expectation: None,
+            r#extrapolation: None,
+            r#function: None,
+            r#guard: None,
+            r#import: None,
+            r#logic: None,
+            r#ordered_set: None,
+            r#piecewise: None,
+            r#realization: None,
+            r#relaxation: None,
+            r#requirement: None,
+            r#scope: None,
+            r#table: None,
+            r#temporal: Some(value),
         }
     }
     #[doc = concat!("Construct the ", "test", " arm with every other arm absent.")]
@@ -4516,6 +4681,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: Some(value),
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "variable", " arm with every other arm absent.")]
@@ -4554,6 +4720,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     #[doc = concat!("Construct the ", "when", " arm with every other arm absent.")]
@@ -4592,6 +4759,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#scope: None,
             r#table: None,
+            r#temporal: None,
         }
     }
     /// Select exactly the declared payload.
@@ -4634,10 +4802,12 @@ impl AuthoredModelingDeclarationsFieldValue {
             self.r#requirement.as_ref(),
             self.r#scope.as_ref(),
             self.r#table.as_ref(),
+            self.r#temporal.as_ref(),
         ) {
             (
                 "accumulator",
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -4704,6 +4874,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Alias(value)),
             (
                 "alternative",
@@ -4739,11 +4910,13 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 Some(value),
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Alternative(value)),
             (
                 "annotation",
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -4809,6 +4982,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Atleast(value)),
             (
                 "atmost",
@@ -4844,12 +5018,14 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Atmost(value)),
             (
                 "attribute",
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -4914,6 +5090,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 Some(value),
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Case(value)),
             (
                 "child",
@@ -4921,6 +5098,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -4958,6 +5136,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -5025,6 +5204,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => {
                 Ok(
                     AuthoredModelingDeclarationsFieldValueSelected::Complementarity(
@@ -5042,6 +5222,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -5101,6 +5282,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Constant(value)),
             (
                 "continuation",
@@ -5114,6 +5296,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -5171,6 +5354,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Continuous(value)),
             (
                 "contribution",
@@ -5186,6 +5370,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -5241,6 +5426,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Dataset(value)),
             (
                 "definition",
@@ -5276,6 +5462,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 Some(value),
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Definition(value)),
             (
                 "difference_scheme",
@@ -5293,6 +5480,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -5352,6 +5540,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => {
                 Ok(AuthoredModelingDeclarationsFieldValueSelected::Discretization(value))
             }
@@ -5389,6 +5578,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 Some(value),
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Disjunction(value)),
             (
                 "entity",
@@ -5408,6 +5598,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -5459,6 +5650,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 Some(value),
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::EntityKind(value)),
             (
                 "enum",
@@ -5479,6 +5671,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -5529,6 +5722,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Envelope(value)),
             (
                 "equation",
@@ -5564,6 +5758,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Equation(value)),
             (
                 "exactly",
@@ -5572,6 +5767,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -5634,6 +5830,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Expectation(value)),
             (
                 "extrapolation",
@@ -5658,6 +5855,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -5704,9 +5902,11 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Function(value)),
             (
                 "identifier_scheme",
+                None,
                 None,
                 None,
                 None,
@@ -5774,6 +5974,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 Some(value),
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Implicit(value)),
             (
                 "import",
@@ -5801,6 +6002,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -5844,6 +6046,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 Some(value),
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Interface(value)),
             (
                 "let",
@@ -5851,6 +6054,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -5914,6 +6118,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Logic(value)),
             (
                 "package",
@@ -5949,6 +6154,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 Some(value),
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Package(value)),
             (
                 "parameter",
@@ -5956,6 +6162,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -6019,6 +6226,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Piecewise(value)),
             (
                 "port",
@@ -6026,6 +6234,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -6089,6 +6298,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Preset(value)),
             (
                 "realization",
@@ -6120,6 +6330,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -6159,6 +6370,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 Some(value),
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Regime(value)),
             (
                 "relaxation",
@@ -6191,6 +6403,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -6229,6 +6442,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 Some(value),
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Requirement(value)),
             (
                 "scope_value",
@@ -6236,6 +6450,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -6299,6 +6514,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Set(value)),
             (
                 "sos1",
@@ -6328,6 +6544,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -6369,6 +6586,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Sos2(value)),
             (
                 "stage",
@@ -6403,6 +6621,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Stage(value)),
             (
@@ -6439,7 +6658,44 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Table(value)),
+            (
+                "temporal",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(value),
+            ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Temporal(value)),
             (
                 "test",
                 None,
@@ -6474,6 +6730,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 Some(value),
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Test(value)),
             (
                 "variable",
@@ -6481,6 +6738,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -6544,6 +6802,7 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::When(value)),
             _ => Err(crate::malformed("tagged value requires exactly its selected arm")),
         }
@@ -6598,6 +6857,24 @@ impl PartialEq for AuthoredModelingDeclarationsRow {
 }
 /// The concrete generated relation row.
 pub type Row = AuthoredModelingDeclarationsRow;
+impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueTemporal {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#target));
+        crate::SemanticFrame::frame(&self.r#target, hash);
+        hash.str(stringify!(r#axis));
+        crate::SemanticFrame::frame(&self.r#axis, hash);
+        hash.str(stringify!(r#argument));
+        crate::SemanticFrame::frame(&self.r#argument, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueTemporal {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#axis))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#argument))
+    }
+}
 impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueRelaxation {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#target));
@@ -6664,12 +6941,31 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeSelection {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#tolerance))
     }
 }
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#value));
+        crate::SemanticFrame::frame(&self.r#value, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+    }
+}
 impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#backend));
         crate::SemanticFrame::frame(&self.r#backend, hash);
         hash.str(stringify!(r#presolve));
         crate::SemanticFrame::frame(&self.r#presolve, hash);
+        hash.str(stringify!(r#native_options));
+        crate::SemanticFrame::frame(&self.r#native_options, hash);
         hash.str(stringify!(r#derivative_step));
         crate::SemanticFrame::frame(&self.r#derivative_step, hash);
         hash.str(stringify!(r#derivative_tolerance));
@@ -6691,6 +6987,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixturePoli
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#backend))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#presolve))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#native_options))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#derivative_step))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#derivative_tolerance))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#derivative_cells))
@@ -7560,6 +7857,8 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueAttribute {
         crate::SemanticFrame::frame(&self.r#unique, hash);
         hash.str(stringify!(r#derived));
         crate::SemanticFrame::frame(&self.r#derived, hash);
+        hash.str(stringify!(r#storage));
+        crate::SemanticFrame::frame(&self.r#storage, hash);
     }
 }
 impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueAttribute {
@@ -7570,6 +7869,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueAttribute {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unique))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#derived))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#storage))
     }
 }
 impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueDatasetBindingsItem {
@@ -7636,6 +7936,8 @@ for AuthoredModelingDeclarationsFieldValueEntityAttributesItem {
         crate::SemanticFrame::frame(&self.r#name, hash);
         hash.str(stringify!(r#value));
         crate::SemanticFrame::frame(&self.r#value, hash);
+        hash.str(stringify!(r#provenance));
+        crate::SemanticFrame::frame(&self.r#provenance, hash);
     }
 }
 impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueEntityAttributesItem {
@@ -7643,12 +7945,15 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueEntityAttributes
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#provenance))
     }
 }
 impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueEntity {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#kind_name));
         crate::SemanticFrame::frame(&self.r#kind_name, hash);
+        hash.str(stringify!(r#provenance));
+        crate::SemanticFrame::frame(&self.r#provenance, hash);
         hash.str(stringify!(r#attributes));
         crate::SemanticFrame::frame(&self.r#attributes, hash);
     }
@@ -7657,6 +7962,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueEntity {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind_name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#provenance))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attributes))
     }
 }
@@ -8044,6 +8350,8 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValue {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#kind));
         crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#temporal));
+        crate::SemanticFrame::frame(&self.r#temporal, hash);
         hash.str(stringify!(r#relaxation));
         crate::SemanticFrame::frame(&self.r#relaxation, hash);
         hash.str(stringify!(r#continuation));
@@ -8114,6 +8422,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValue {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#temporal))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#relaxation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#continuation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scope))

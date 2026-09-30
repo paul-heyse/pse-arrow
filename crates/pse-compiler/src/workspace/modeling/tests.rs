@@ -48,6 +48,158 @@ fn admit(workspace: &mut CompilerWorkspace, root: DeclarationId) -> Arc<Admitted
         )
         .unwrap()
 }
+
+#[test]
+fn document_record_defaults_are_refused_before_bulk_admission_and_retry_releases_budget() {
+    use pse_modeling::document::{DocumentColumn, RowSet, Values};
+    let text = r#"package p {
+      entity kind source provenance {} entity source s {} enum role {published}
+      entity kind node {key n:Integer; attribute payload:Text = "$DEFAULT";}
+      dataset bank:node provenance(s,role.published) from "data/bank.parquet";
+      def Root {}
+    }"#;
+    let package = SemanticId::from_bytes([82; 16]);
+    let document = pse_ids::named_id(package, "data/bank.parquet");
+    let documents = Arc::new(DocumentInventory {
+        packages: [(SemanticId::from_bytes([81; 16]), package)].into(),
+        documents: [(
+            document,
+            Arc::new(DataDocument {
+                id: document,
+                path: "data/bank.parquet".into(),
+                content_hash: pse_ids::encoding_checksum(b"keys").content_hash(),
+                rows: RowSet::new(vec![DocumentColumn {
+                    name: "n".into(),
+                    unit: None,
+                    values: Values::Integer((0..1000).map(Some).collect()),
+                }])
+                .unwrap(),
+            }),
+        )]
+        .into(),
+    });
+    let events = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let observed = Arc::clone(&events);
+    let mut workspace = CompilerWorkspace::with_events(
+        super::super::tests::inputs(),
+        WorkspaceLimits {
+            input_bytes: 5 << 20,
+            ..WorkspaceLimits::default()
+        },
+        Some(Box::new(move |event| {
+            if matches!(event.kind, salsa::EventKind::WillExecute { .. }) {
+                observed.fetch_add(1, Ordering::Relaxed);
+            }
+        })),
+    )
+    .unwrap();
+    let oversized = source(&text.replace("$DEFAULT", &"x".repeat(4096)));
+    let error = workspace
+        .publish_modeling_with(oversized, PhysicalScope::default(), Arc::clone(&documents))
+        .unwrap_err();
+    assert!(error.to_string().contains("before expansion"), "{error}");
+    assert_eq!(events.load(Ordering::Relaxed), 0);
+    assert!(workspace.modeling.is_none());
+    let small = source(&text.replace("$DEFAULT", "small"));
+    workspace.db.cancel.store(true, Ordering::Relaxed);
+    assert!(matches!(
+        workspace.publish_modeling_with(
+            small.clone(),
+            PhysicalScope::default(),
+            Arc::clone(&documents)
+        ),
+        Err(CompileError::Modeling(
+            pse_modeling::ModelingError::Cancelled
+        ))
+    ));
+    assert_eq!(events.load(Ordering::Relaxed), 0);
+    workspace.db.cancel.store(false, Ordering::Relaxed);
+    let admitted = workspace
+        .publish_modeling_with(small, PhysicalScope::default(), documents)
+        .unwrap();
+    let kind = admitted.checked().entry("p.node").unwrap();
+    let id = pse_modeling::entity::keyed_identity(
+        kind,
+        &[pse_modeling::specialize::Value::Integer(999)],
+    );
+    assert_eq!(
+        admitted.checked().record(id).unwrap().values["payload"],
+        pse_modeling::specialize::Value::Text("small".into())
+    );
+}
+
+#[test]
+fn keyed_document_republication_matches_clean_admission_and_preserves_old_snapshots() {
+    use pse_modeling::document::{DocumentColumn, RowSet, Values};
+    let rows = source(
+        r#"package p {
+      entity kind source provenance {} entity source s {} enum role {published}
+      entity kind node {key n:Integer; attribute value:Text;}
+      dataset bank:node provenance(s,role.published) from "data/bank.parquet";
+      def Root {}
+    }"#,
+    );
+    let package = SemanticId::from_bytes([82; 16]);
+    let source = SemanticId::from_bytes([81; 16]);
+    let document = pse_ids::named_id(package, "data/bank.parquet");
+    let inventory = |value: &str| {
+        Arc::new(DocumentInventory {
+            packages: [(source, package)].into(),
+            documents: [(
+                document,
+                Arc::new(DataDocument {
+                    id: document,
+                    path: "data/bank.parquet".into(),
+                    content_hash: pse_ids::encoding_checksum(value.as_bytes()).content_hash(),
+                    rows: RowSet::new(vec![
+                        DocumentColumn {
+                            name: "n".into(),
+                            unit: None,
+                            values: Values::Integer(vec![Some(1)]),
+                        },
+                        DocumentColumn {
+                            name: "value".into(),
+                            unit: None,
+                            values: Values::Text(vec![Some(value.into())]),
+                        },
+                    ])
+                    .unwrap(),
+                }),
+            )]
+            .into(),
+        })
+    };
+    let mut workspace =
+        CompilerWorkspace::new(super::super::tests::inputs(), WorkspaceLimits::default()).unwrap();
+    let first = workspace
+        .publish_modeling_with(rows.clone(), PhysicalScope::default(), inventory("first"))
+        .unwrap();
+    let again = workspace
+        .publish_modeling_with(rows.clone(), PhysicalScope::default(), inventory("first"))
+        .unwrap();
+    assert!(Arc::ptr_eq(&first, &again));
+    let changed = workspace
+        .publish_modeling_with(rows.clone(), PhysicalScope::default(), inventory("changed"))
+        .unwrap();
+    let mut clean = CompilerWorkspace::new(workspace.inputs.clone(), workspace.limits).unwrap();
+    let rebuilt = clean
+        .publish_modeling_with(rows, PhysicalScope::default(), inventory("changed"))
+        .unwrap();
+    let record = |revision: &ModelingRevision| {
+        let kind = revision.checked().entry("p.node").unwrap();
+        let id = pse_modeling::entity::keyed_identity(
+            kind,
+            &[pse_modeling::specialize::Value::Integer(1)],
+        );
+        revision.checked().record(id).unwrap().clone()
+    };
+    assert_eq!(record(&changed), record(&rebuilt));
+    assert_ne!(record(&first), record(&changed));
+    assert_eq!(
+        record(&first).values["value"],
+        pse_modeling::specialize::Value::Text("first".into())
+    );
+}
 #[test]
 fn kernel_body_construction_limits_are_tracked_without_changing_mathematics() {
     let (mut workspace, _, _, root) = setup(
@@ -820,7 +972,12 @@ fn package_declared_axis_indexes_a_sum_without_a_registered_shaped_type() {
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    assert!(inputs.quantities.entity_kinds().all(|k| k.id.as_id() != axis));
+    assert!(
+        inputs
+            .quantities
+            .entity_kinds()
+            .all(|k| k.id.as_id() != axis)
+    );
     assert!(
         inputs
             .quantities
@@ -842,7 +999,12 @@ fn package_declared_axis_indexes_a_sum_without_a_registered_shaped_type() {
     let mut worker = compiled.worker();
     let mut residual = |values: &[f64]| {
         worker
-            .evaluate(values, DerivativeOrder::Value, &mut BTreeMap::new(), &cancel)
+            .evaluate(
+                values,
+                DerivativeOrder::Value,
+                &mut BTreeMap::new(),
+                &cancel,
+            )
             .unwrap()
             .equations(&admitted)
     };
@@ -1651,8 +1813,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
         )
         .is_err()
     );
-    w.publish_modeling(rows, PhysicalScope::default())
-        .unwrap();
+    w.publish_modeling(rows, PhysicalScope::default()).unwrap();
     let mut changed = spec;
     changed.data = revision;
     let mut input = w.inputs.clone();
@@ -2105,18 +2266,19 @@ fn kernel_expectations_combine_physical_and_relative_tolerances() {
         .unwrap()
         .declaration_id;
     let run = |workspace: &mut CompilerWorkspace| {
-        workspace.check_modeling_point(
-            test,
-            root_instance(test),
-            Bindings::default(),
-            Limits::default(),
-            &CaseValues {
-                scalars: BTreeMap::new(),
-            },
-            Profile::default(),
-            Arc::new(AtomicBool::new(false)),
-        )
-        .map(|checks| checks.expectations)
+        workspace
+            .check_modeling_point(
+                test,
+                root_instance(test),
+                Bindings::default(),
+                Limits::default(),
+                &CaseValues {
+                    scalars: BTreeMap::new(),
+                },
+                Profile::default(),
+                Arc::new(AtomicBool::new(false)),
+            )
+            .map(|checks| checks.expectations)
     };
     let results = run(&mut workspace).unwrap();
     assert_eq!(results.iter().filter(|r| r.passed).count(), 2);
@@ -2167,16 +2329,17 @@ fn kernel_pure_expectations_apply_authored_fixture_values_without_solving() {
         .unwrap();
     let x = model.model.paths["root.x"];
     let run = |workspace: &mut CompilerWorkspace, scalars, cancelled| {
-        workspace.check_modeling_point(
-            test,
-            instance,
-            Bindings::default(),
-            Limits::default(),
-            &CaseValues { scalars },
-            Profile::default(),
-            Arc::new(AtomicBool::new(cancelled)),
-        )
-        .map(|checks| checks.expectations)
+        workspace
+            .check_modeling_point(
+                test,
+                instance,
+                Bindings::default(),
+                Limits::default(),
+                &CaseValues { scalars },
+                Profile::default(),
+                Arc::new(AtomicBool::new(cancelled)),
+            )
+            .map(|checks| checks.expectations)
     };
     let result = run(&mut workspace, BTreeMap::new(), false).unwrap();
     assert_eq!(result.len(), 1);
@@ -2297,7 +2460,7 @@ fn kernel_authored_math_replaces_composite_native_functions() {
                 Profile::default(),
                 Arc::new(AtomicBool::new(false)),
             )
-        .map(|checks| checks.expectations)
+            .map(|checks| checks.expectations)
             .unwrap_or_else(|e| panic!("{expectation}: {e}"));
         assert_eq!(result.len(), 1);
         assert!(result.iter().all(|r| r.passed), "{expectation}: {result:?}");
@@ -2812,7 +2975,7 @@ fn kernel_immutable_function_data_is_visible_differentiable_and_invalidated() {
                 Profile::default(),
                 Arc::new(AtomicBool::new(false)),
             )
-        .map(|checks| checks.expectations)
+            .map(|checks| checks.expectations)
             .unwrap()
     };
     assert!(evaluate(&mut workspace).iter().all(|check| check.passed));
@@ -2949,10 +3112,7 @@ fn kernel_explicit_primitive_functions_preserve_references_and_derivative_checks
         .unwrap()
         .body = Some("2*x+x*x".into());
     workspace
-        .publish_modeling(
-            bad,
-            PhysicalScope::default(),
-        )
+        .publish_modeling(bad, PhysicalScope::default())
         .unwrap();
     let results = workspace
         .check_modeling_point(
@@ -3027,10 +3187,7 @@ fn kernel_function_slots_select_overrides_indexed_methods_and_forward_arguments(
         .unwrap()
         .expression = Some("alias".into());
     workspace
-        .publish_modeling(
-            cyclic,
-            PhysicalScope::default(),
-        )
+        .publish_modeling(cyclic, PhysicalScope::default())
         .unwrap();
     let error = workspace
         .check_modeling_point(
@@ -3045,7 +3202,9 @@ fn kernel_function_slots_select_overrides_indexed_methods_and_forward_arguments(
         .map(|checks| checks.expectations)
         .unwrap_err();
     assert!(
-        error.to_string().contains("recursive function parameter"),
+        error
+            .to_string()
+            .contains("runtime value alias (parameter) cannot select model structure"),
         "{error}"
     );
     let _ = root;
@@ -3204,16 +3363,17 @@ fn kernel_generic_normalization_requires_the_concrete_physical_operation() {
             .declaration_id;
         let mut workspace = CompilerWorkspace::new(inputs, WorkspaceLimits::default()).unwrap();
         workspace.publish_modeling(rows, names).unwrap();
-        let result = workspace.check_modeling_point(
-            id,
-            root_instance(id),
-            Bindings::default(),
-            Limits::default(),
-            &CaseValues::default(),
-            Profile::default(),
-            Arc::new(AtomicBool::new(false)),
-        )
-        .map(|checks| checks.expectations);
+        let result = workspace
+            .check_modeling_point(
+                id,
+                root_instance(id),
+                Bindings::default(),
+                Limits::default(),
+                &CaseValues::default(),
+                Profile::default(),
+                Arc::new(AtomicBool::new(false)),
+            )
+            .map(|checks| checks.expectations);
         if accepted {
             assert!(result.unwrap().iter().all(|check| check.passed));
         } else {
@@ -3321,13 +3481,14 @@ fn kernel_finite_reductions_retain_domains_prototypes_and_derivatives() {
         .replace("ComponentFlow", "Temperature")
         .replace("{mol/s}", "{K}");
     let mut other = CompilerWorkspace::new(inputs, WorkspaceLimits::default()).unwrap();
-    assert!(other.publish_modeling(source(&invalid), names.clone()).is_err());
+    assert!(
+        other
+            .publish_modeling(source(&invalid), names.clone())
+            .is_err()
+    );
     let static_source = text.replace("def Root {", "entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = \"synthetic component values\" } table flow_data[j:species]:ComponentFlow complete_over(j in species_set); dataset values_data:flow_data provenance(s, role.given) {[a]=[2{mol/s}];[b]=[2{mol/s}];} def Root {param total_static:Flow=sum(j in species_set | flow_data[j]); param empty_static:Flow=sum(j in empty | flow_data[j]);");
     workspace
-        .publish_modeling(
-            source(&static_source),
-            PhysicalScope::default(),
-        )
+        .publish_modeling(source(&static_source), PhysicalScope::default())
         .unwrap();
     let model = workspace
         .specialize_modeling(
@@ -3372,16 +3533,17 @@ fn kernel_finite_folds_compose_source_functions_and_library_partials() {
         .unwrap()
         .declaration_id;
     let run = |workspace: &mut CompilerWorkspace| {
-        workspace.check_modeling_point(
-            case,
-            root_instance(case),
-            Bindings::default(),
-            Limits::default(),
-            &CaseValues::default(),
-            Profile::default(),
-            Arc::new(AtomicBool::new(false)),
-        )
-        .map(|checks| checks.expectations)
+        workspace
+            .check_modeling_point(
+                case,
+                root_instance(case),
+                Bindings::default(),
+                Limits::default(),
+                &CaseValues::default(),
+                Profile::default(),
+                Arc::new(AtomicBool::new(false)),
+            )
+            .map(|checks| checks.expectations)
     };
     let checks = run(&mut workspace).unwrap();
     assert_eq!(checks.len(), 6);
@@ -4013,14 +4175,27 @@ fn increment_guards_its_integration_interval() {
 }}"
     );
     let rows = source(&text);
-    let table = rows.iter().find(|r| r.name == "cp_data").unwrap().declaration_id;
+    let table = rows
+        .iter()
+        .find(|r| r.name == "cp_data")
+        .unwrap()
+        .declaration_id;
     let mut evaluate = evaluate_named(&text);
     for (t0, t) in [(300., 350.), (380., 260.), (250., 400.)] {
         evaluate(&[("T0", t0), ("T", t)]).unwrap_or_else(|e| panic!("[{t0}, {t}]: {e}"));
     }
-    for (t0, t) in [(298.15 - 60., 350.), (300., 410.), (410., 300.), (200., 450.)] {
+    for (t0, t) in [
+        (298.15 - 60., 350.),
+        (300., 410.),
+        (410., 300.),
+        (200., 450.),
+    ] {
         let error = evaluate(&[("T0", t0), ("T", t)]).expect_err("outside the envelope");
-        assert_eq!(domain_source(&error), Some(table.as_id()), "[{t0}, {t}]: {error}");
+        assert_eq!(
+            domain_source(&error),
+            Some(table.as_id()),
+            "[{t0}, {t}]: {error}"
+        );
     }
 }
 
@@ -4051,9 +4226,16 @@ fn layers_intersect_and_form_never_extrapolates() {
     let mut rejecting = evaluate_named(&text.replace("extrapolation data extrapolate; ", ""));
     rejecting(&[("T", 300.)]).unwrap();
     let error = rejecting(&[("T", 420.)]).expect_err("the data layer rejects by default");
-    assert_eq!(domain_source(&error), Some(id("cp_data").as_id()), "{error}");
+    assert_eq!(
+        domain_source(&error),
+        Some(id("cp_data").as_id()),
+        "{error}"
+    );
     // The form layer is not selectable.
-    for selection in ["extrapolation form extrapolate;", "extrapolation form reject;"] {
+    for selection in [
+        "extrapolation form extrapolate;",
+        "extrapolation form reject;",
+    ] {
         let mut workspace =
             CompilerWorkspace::new(super::super::tests::inputs(), WorkspaceLimits::default())
                 .unwrap();
@@ -4063,6 +4245,11 @@ fn layers_intersect_and_form_never_extrapolates() {
                 PhysicalScope::default(),
             )
             .expect_err("form layer selection");
-        assert!(error.to_string().contains("the form layer never extrapolates"), "{error}");
+        assert!(
+            error
+                .to_string()
+                .contains("the form layer never extrapolates"),
+            "{error}"
+        );
     }
 }

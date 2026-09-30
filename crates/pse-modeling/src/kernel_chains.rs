@@ -20,7 +20,11 @@ const DELTA_S: &str = "a9c45d0c2b764f4e87d1b95d5bc15da6";
 /// `DeltaS` (ADR-0123 Outcome 6).
 fn names() -> (QuantityRegistry, BTreeMap<String, QuantityTypeId>) {
     let (registry, names) = physical();
-    for (name, expected) in [("MolarCp", MOLAR_CP), ("DeltaH", DELTA_H), ("DeltaS", DELTA_S)] {
+    for (name, expected) in [
+        ("MolarCp", MOLAR_CP),
+        ("DeltaH", DELTA_H),
+        ("DeltaS", DELTA_S),
+    ] {
         assert_eq!(names[name], id(expected), "{name}");
     }
     (registry, names)
@@ -279,7 +283,10 @@ fn ds_increment_types_as_entropy_difference() {
     let at = DeclarationId::from(SemanticId::NIL);
     let empty = check(&source("package q {}"), &context).unwrap();
     let temperature = Type::Quantity(Scheme::Concrete(id("c64b96975a4a59755f8711d3bf628bc9")));
-    let env = BTreeMap::from([("T0".into(), temperature.clone()), ("T".into(), temperature)]);
+    let env = BTreeMap::from([
+        ("T0".into(), temperature.clone()),
+        ("T".into(), temperature),
+    ]);
     let increment = |text: &str| {
         let expression = pse_authoring::dsl::parse_expr(text).unwrap();
         expression::infer(&expression, &env, &empty, &context, at, None).unwrap()
@@ -290,7 +297,10 @@ fn ds_increment_types_as_entropy_difference() {
         };
         registry.quantity_type(*q).unwrap().key.kind
     };
-    assert_eq!(kind(&increment("log(T/T0)")), kind(&increment("(T - T0)/T")));
+    assert_eq!(
+        kind(&increment("log(T/T0)")),
+        kind(&increment("(T - T0)/T"))
+    );
     assert_ne!(kind(&increment("T/T0")), kind(&increment("log(T/T0)")));
 }
 

@@ -32,5 +32,5 @@
 @id("01a0ef5e6c16730593968f2b0f108a08") attribute tools: Set<software_release>;
 @id("01a0ef5e6c16730593968f2c866f792d") attribute locator: Text?;
 }
-@id("01a0ef5e6c16730593968f2d67a6156c") enum Role {@id("01a0ef5e6c16730593968f2ee048ab67") published, @id("01a0ef5e6c16730593968f2f20430874") measured, @id("01a0ef5e6c16730593968f3078be4034") derived facets(requires_lineage), @id("01a0ef5e6c16730593968f31bc74589a") fitted facets(requires_lineage), @id("01a0ef5e6c16730593968f3290f8a2ef") synthetic facets(test_only), @id("01a0ef5e6c16730593968f333164291c") oracle_input facets(test_only)}
+@id("01a0ef5e6c16730593968f2d67a6156c") enum Role {@id("01a0ef5e6c16730593968f2ee048ab67") published, @id("01a0ef5e6c16730593968f2f20430874") measured facets(measured), @id("01a0ef5e6c16730593968f3078be4034") derived facets(requires_lineage), @id("01a0ef5e6c16730593968f31bc74589a") fitted facets(requires_lineage,requires_fit), @id("01a0ef5e6c16730593968f3290f8a2ef") synthetic facets(test_only), @id("01a0ef5e6c16730593968f333164291c") oracle_input facets(test_only)}
 }

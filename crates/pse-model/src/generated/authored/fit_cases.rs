@@ -101,7 +101,11 @@ impl PartialEq for AuthoredFitCasesFieldExperimentsItem {
 )]
 pub struct AuthoredFitCasesFieldObservationsItem {
     ///observation_id
-    pub r#observation_id: pse_ids::SemanticId,
+    pub r#observation_id: crate::generated::identities::DeclarationId,
+    ///value_attribute
+    pub r#value_attribute: String,
+    ///standard_deviation_attribute
+    pub r#standard_deviation_attribute: Option<String>,
     ///experiment_id
     pub r#experiment_id: crate::generated::identities::InstanceId,
     ///output_path
@@ -120,6 +124,14 @@ pub struct AuthoredFitCasesFieldObservationsItem {
 impl crate::SemanticEq for AuthoredFitCasesFieldObservationsItem {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#observation_id, &other.r#observation_id)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#value_attribute,
+                &other.r#value_attribute,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#standard_deviation_attribute,
+                &other.r#standard_deviation_attribute,
+            )
             && crate::SemanticEq::semantic_eq(
                 &self.r#experiment_id,
                 &other.r#experiment_id,
@@ -241,6 +253,10 @@ impl crate::SemanticFrame for AuthoredFitCasesFieldObservationsItem {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#observation_id));
         crate::SemanticFrame::frame(&self.r#observation_id, hash);
+        hash.str(stringify!(r#value_attribute));
+        crate::SemanticFrame::frame(&self.r#value_attribute, hash);
+        hash.str(stringify!(r#standard_deviation_attribute));
+        crate::SemanticFrame::frame(&self.r#standard_deviation_attribute, hash);
         hash.str(stringify!(r#experiment_id));
         crate::SemanticFrame::frame(&self.r#experiment_id, hash);
         hash.str(stringify!(r#output_path));
@@ -261,6 +277,10 @@ impl crate::HeapUsage for AuthoredFitCasesFieldObservationsItem {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#observation_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value_attribute))
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#standard_deviation_attribute),
+            )
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#experiment_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#output_path))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#time))

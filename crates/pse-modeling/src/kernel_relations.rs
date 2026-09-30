@@ -72,11 +72,18 @@ fn row_reference_requires_existing_target_row() {
     specialized(&text).unwrap();
     // An entity without a row of the target table.
     let error = refusal(&text.replace("[a] = [base[b], ", "[a] = [base[c], "));
-    assert!(error.contains("row reference base[c] names no admitted row of base"), "{error}");
-    // An undeclared entity, and a row of another table.
-    assert!(refusal(&text.replace("base[b], \"first\"", "base[z], \"first\"")).contains("unknown entity z"));
     assert!(
-        refusal(&text.replace("base[b], \"first\"", "link[b], \"first\"")).contains("is not a row of table base")
+        error.contains("row reference base[c] names no admitted row of base"),
+        "{error}"
+    );
+    // An undeclared entity, and a row of another table.
+    assert!(
+        refusal(&text.replace("base[b], \"first\"", "base[z], \"first\""))
+            .contains("unknown entity z")
+    );
+    assert!(
+        refusal(&text.replace("base[b], \"first\"", "link[b], \"first\""))
+            .contains("is not a row of table base")
     );
     // A keyed-row reference names an admitted keyed row.
     let keyed = r#"package p { entity kind item {} entity item a {}
@@ -114,7 +121,10 @@ fn self_referential_lineage_admits_and_cycles_are_refused() {
             kind
         }
     );
-    assert_eq!(p.record(row("base")).unwrap().values["lineage"], Value::Missing);
+    assert_eq!(
+        p.record(row("base")).unwrap().values["lineage"],
+        Value::Missing
+    );
     let error = refusal(&lineage.replace("[missing, 1.0]", "[parameter_set[\"refit\"], 1.0]"));
     for name in [
         "rows reference one another in a cycle",
@@ -140,7 +150,10 @@ fn self_referential_lineage_admits_and_cycles_are_refused() {
         [Value::Integer(0), Value::Integer(1), Value::Integer(2)]
     );
     let error = refusal(&tree.replace("[a] = [missing]", "[a] = [tree[c]]"));
-    assert!(error.contains("rows reference one another in a cycle"), "{error}");
+    assert!(
+        error.contains("rows reference one another in a cycle"),
+        "{error}"
+    );
     for row in ["tree[a]", "tree[b]", "tree[c]"] {
         assert!(error.contains(row), "{row}: {error}");
     }
@@ -166,7 +179,9 @@ fn completeness_over_declared_sets_checked_at_admission() {
     assert_eq!(p.tables[&p.names["p.t"]].rows.len(), 9);
     let error = refusal(&text.replace("[b, vapor, 1] = [1.0];", ""));
     assert!(
-        error.contains("t is declared complete over its sets by t, but no row has the keys [b, vapor, 1]"),
+        error.contains(
+            "t is declared complete over its sets by t, but no row has the keys [b, vapor, 1]"
+        ),
         "{error}"
     );
     // An open key is claimed by each dataset over its own rows.
@@ -194,8 +209,17 @@ fn completeness_over_declared_sets_checked_at_admission() {
     };
     assert_eq!(claims.len(), 2);
     // A dataset claims only open keys, and names each of them.
-    assert!(refusal(&text.replace("dataset d: t provenance", "dataset d: t complete_over(j in items) provenance")).contains("claims only open keys"));
-    assert!(refusal(&open.replace("complete_over(j in first)", "complete_over(k in first)")).contains("not an open key"));
+    assert!(
+        refusal(&text.replace(
+            "dataset d: t provenance",
+            "dataset d: t complete_over(j in items) provenance"
+        ))
+        .contains("claims only open keys")
+    );
+    assert!(
+        refusal(&open.replace("complete_over(j in first)", "complete_over(k in first)"))
+            .contains("not an open key")
+    );
     // A completeness set's members are keys of the key's type.
     assert!(refusal(&text.replace("q in Phase", "q in items")).contains("is not a key q"));
 }
@@ -207,22 +231,37 @@ fn required_without_completeness_refused() {
     let base = format!("package p {{ {ITEMS} table t[j: item]: Scalar POLICY; }}");
     for policy in ["", "missing required"] {
         let error = refusal(&base.replace("POLICY", policy));
-        assert!(error.contains("t is required but declares no completeness"), "{error}");
+        assert!(
+            error.contains("t is required but declares no completeness"),
+            "{error}"
+        );
     }
     // An open key needs no dataset; a closed completeness needs its rows.
-    for policy in ["missing optional", "missing default 0.0", "complete_over(j)"] {
+    for policy in [
+        "missing optional",
+        "missing default 0.0",
+        "complete_over(j)",
+    ] {
         admitted(&base.replace("POLICY", policy)).unwrap();
     }
-    assert!(refusal(&base.replace("POLICY", "complete_over(j in items)")).contains("no row has the keys [a]"));
+    assert!(
+        refusal(&base.replace("POLICY", "complete_over(j in items)"))
+            .contains("no row has the keys [a]")
+    );
     for policy in [
         "complete_over(j in items) missing optional",
         "complete_over(j in items) missing default 0.0",
     ] {
-        assert!(refusal(&base.replace("POLICY", policy)).contains("completeness belongs to a required table"));
+        assert!(
+            refusal(&base.replace("POLICY", policy))
+                .contains("completeness belongs to a required table")
+        );
     }
     // Completeness names every key exactly once.
     let pair = format!("package p {{ {ITEMS} table t[i: item, j: item]: Scalar COMPLETE; }}");
-    assert!(refusal(&pair.replace("COMPLETE", "complete_over(i in items)")).contains("names every key"));
+    assert!(
+        refusal(&pair.replace("COMPLETE", "complete_over(i in items)")).contains("names every key")
+    );
     assert!(refusal(&pair.replace("COMPLETE", "complete_over(i in items, i)")).contains("twice"));
 }
 
@@ -257,7 +296,10 @@ fn symmetric_pair_answers_both_orientations() {
     let error = specialized(&required.replace("pair[a, b] == pair[b, a]", "pair[a, a] == 0.5"))
         .unwrap_err()
         .to_string();
-    assert!(error.contains("outside the completeness of pair"), "{error}");
+    assert!(
+        error.contains("outside the completeness of pair"),
+        "{error}"
+    );
     // With the diagonal allowed, completeness covers it.
     let error = refusal(&required.replace("diagonal excluded", "diagonal allowed"));
     assert!(error.contains("no row has the keys [a, a]"), "{error}");
@@ -285,10 +327,16 @@ fn symmetric_pair_with_both_orientations_refused() {
         text.replace("[c, a] = [0.1];", "[b, a] = [0.5];"),
     ] {
         let error = refusal(&changed);
-        assert!(error.contains("symmetric pair kij[a, b] is written in both orientations"), "{error}");
+        assert!(
+            error.contains("symmetric pair kij[a, b] is written in both orientations"),
+            "{error}"
+        );
     }
     let error = refusal(&text.replace("[c, a] = [0.1];", "[c, c] = [0.1];"));
-    assert!(error.contains("lies on the diagonal, which kij excludes"), "{error}");
+    assert!(
+        error.contains("lies on the diagonal, which kij excludes"),
+        "{error}"
+    );
     // The same orientation twice is a duplicate, not a symmetry violation.
     let error = refusal(&text.replace("[c, a] = [0.1];", "[a, b] = [0.1];"));
     assert!(error.contains("kij[a, b] is supplied twice"), "{error}");
@@ -306,13 +354,21 @@ fn unique_constraint_rejects_duplicate_tuple() {
 }}"#
     );
     admitted(&text).unwrap();
-    admitted(&text.replace("[c] = [missing, 2]", "[c] = [missing, 3]").replace("\"108-88-3\"", "missing")).unwrap();
+    admitted(
+        &text
+            .replace("[c] = [missing, 2]", "[c] = [missing, 3]")
+            .replace("\"108-88-3\"", "missing"),
+    )
+    .unwrap();
     let error = refusal(&text.replace("\"108-88-3\"", "\"71-43-2\""));
     assert!(
         error.contains("rows code[a] and code[b] share (cas) = (\"71-43-2\"), which unique(cas) declares unique"),
         "{error}"
     );
-    assert!(refusal(&text.replace("unique(cas)", "unique(weight)")).contains("names no key or supplied column"));
+    assert!(
+        refusal(&text.replace("unique(cas)", "unique(weight)"))
+            .contains("names no key or supplied column")
+    );
 }
 
 /// A derived column is evaluated once per row at admission, with the row's keys and
@@ -333,17 +389,31 @@ fn derived_column_evaluated_once_per_row() {
     let table = &p.tables[&p.names["p.total"]];
     let row = |name: &str| table.rows[&vec![entity(&p, name, "p.item")]].cells.to_vec();
     // The derived values are stored in the admitted rows: a lookup reads them.
-    assert_eq!(row("p.a"), [Value::Integer(1), Value::Integer(6), Value::Integer(3)]);
-    assert_eq!(row("p.b"), [Value::Integer(2), Value::Integer(16), Value::Integer(8)]);
+    assert_eq!(
+        row("p.a"),
+        [Value::Integer(1), Value::Integer(6), Value::Integer(3)]
+    );
+    assert_eq!(
+        row("p.b"),
+        [Value::Integer(2), Value::Integer(16), Value::Integer(8)]
+    );
     specialized(&text).unwrap();
     // A dataset supplies only the columns that are not derived.
-    assert!(refusal(&text.replace("[a] = [1];", "[a] = [1, 6, 3];")).contains("supplies 1 columns"));
+    assert!(
+        refusal(&text.replace("[a] = [1];", "[a] = [1, 6, 3];")).contains("supplies 1 columns")
+    );
     // Derived columns that read one another in a cycle are refused with their names.
     let error = refusal(&text.replace("n * factor[j].k", "doubled + n"));
-    assert!(error.contains("derived columns doubled, scaled of total derive from one another"), "{error}");
+    assert!(
+        error.contains("derived columns doubled, scaled of total derive from one another"),
+        "{error}"
+    );
     // Tables deriving from one another are refused with their names.
     let error = refusal(&text.replace("base + 1", "base + total[j].n"));
-    assert!(error.contains("tables factor, total derive their values from one another"), "{error}");
+    assert!(
+        error.contains("tables factor, total derive their values from one another"),
+        "{error}"
+    );
     // A derived value of the wrong type is refused before any row is evaluated.
     let error = refusal(&text.replace("base + 1", "1.5"));
     assert!(error.contains("derived column k of factor is "), "{error}");
@@ -467,14 +537,37 @@ fn keyed_row_reference_cell_resolves_by_key() {
     );
     specialized(text).unwrap();
     // The row must exist, with keys of the key-declaring kind's types.
-    let error = refusal(&text.replace("constant_cp[benzene, liquid]", "constant_cp[benzene, vapor]"));
-    assert!(error.contains("no constant_cp row has the keys [benzene, vapor, 1]"), "{error}");
-    assert!(refusal(&text.replace("constant_cp[benzene, liquid]", "constant_cp[liquid, benzene]")).contains("unknown entity liquid"));
+    let error = refusal(&text.replace(
+        "constant_cp[benzene, liquid]",
+        "constant_cp[benzene, vapor]",
+    ));
+    assert!(
+        error.contains("no constant_cp row has the keys [benzene, vapor, 1]"),
+        "{error}"
+    );
+    assert!(
+        refusal(&text.replace(
+            "constant_cp[benzene, liquid]",
+            "constant_cp[liquid, benzene]"
+        ))
+        .contains("unknown entity liquid")
+    );
     // The row requirement checks the reference against its keys.
-    let error = refusal(&text.replace("[toluene] = [parameter_set[toluene, liquid, 2]]", "[toluene] = [constant_cp[benzene, liquid]]"));
-    assert!(error.contains("row selection[toluene] of dataset chosen violates the requirement `value.subject == j`"), "{error}");
+    let error = refusal(&text.replace(
+        "[toluene] = [parameter_set[toluene, liquid, 2]]",
+        "[toluene] = [constant_cp[benzene, liquid]]",
+    ));
+    assert!(
+        error.contains(
+            "row selection[toluene] of dataset chosen violates the requirement `value.subject == j`"
+        ),
+        "{error}"
+    );
     // A kind without keys, and a declared entity, are not keyed rows.
-    assert!(refusal(&text.replace("constant_cp[benzene, liquid]", "species[benzene]")).contains("has no keys"));
+    assert!(
+        refusal(&text.replace("constant_cp[benzene, liquid]", "species[benzene]"))
+            .contains("has no keys")
+    );
 }
 
 /// An integer-range key admits only its declared integers, in rows, completeness and
@@ -489,19 +582,33 @@ fn integer_range_key_admits_declared_range_only() {
  def Root { require kappa[pr, INDEX] < 0 : "the quadratic coefficient"; }
 }"#;
     let p = admitted(&text.replace("INDEX", "2")).unwrap();
-    assert_eq!(
-        p.tables[&p.names["p.kappa"]].keys[1].range,
-        Some((0, 2))
-    );
+    assert_eq!(p.tables[&p.names["p.kappa"]].keys[1].range, Some((0, 2)));
     specialized(&text.replace("INDEX", "2")).unwrap();
-    let error = refusal(&text.replace("[pr, 2] = [-0.26992];", "[pr, 2] = [-0.26992]; [pr, 3] = [0.1];"));
-    assert!(error.contains("key k = 3 of kappa is outside its declared range 0..2"), "{error}");
-    let error = specialized(&text.replace("INDEX", "3")).unwrap_err().to_string();
-    assert!(error.contains("key k = 3 of table kappa is outside its declared range 0..2"), "{error}");
+    let error = refusal(&text.replace(
+        "[pr, 2] = [-0.26992];",
+        "[pr, 2] = [-0.26992]; [pr, 3] = [0.1];",
+    ));
+    assert!(
+        error.contains("key k = 3 of kappa is outside its declared range 0..2"),
+        "{error}"
+    );
+    let error = specialized(&text.replace("INDEX", "3"))
+        .unwrap_err()
+        .to_string();
+    assert!(
+        error.contains("key k = 3 of table kappa is outside its declared range 0..2"),
+        "{error}"
+    );
     // Completeness over a range lies within the key's range, and the claim is checked.
-    assert!(refusal(&text.replace("k in 0..2)", "k in 0..3)")).contains("lies outside the key's integers"));
+    assert!(
+        refusal(&text.replace("k in 0..2)", "k in 0..3)"))
+            .contains("lies outside the key's integers")
+    );
     let error = refusal(&text.replace(" [pr, 1] = [1.54226];", ""));
-    assert!(error.contains("no row of dataset pr_kappa has the keys [pr, 1]"), "{error}");
+    assert!(
+        error.contains("no row of dataset pr_kappa has the keys [pr, 1]"),
+        "{error}"
+    );
     // Only an integer key is complete over a range.
     assert!(
         refusal("package p { table g[x: Text]: Scalar complete_over(x in 0..1); }")

@@ -195,6 +195,8 @@ extend-exclude = [
   ".agents/skills/**",
   # Reference material kept until the thermodynamics work lands; not product source.
   "thermodynamics_complete_conversation_handoff/**",
+  # Standalone tree (Plan 24): own environment and configuration; it lints itself.
+  "thermo-knowledge/**",
   # The library-utilization catalog tooling: a maintainer script set, developed on 3.14 syntax.
   "scripts/library_*.py",
   "scripts/tests/test_library_*.py",
@@ -350,6 +352,8 @@ project-excludes = [
   "external/**",
   "build/**",
   "thermodynamics_complete_conversation_handoff/**",
+  # Standalone tree (Plan 24): own environment and configuration; it checks itself.
+  "thermo-knowledge/**",
   "scripts/library_*.py",
   "scripts/tests/test_library_*.py",
 ]
@@ -376,6 +380,15 @@ replace-imports-with-any = ["teqp"]
 [[tool.pyrefly.sub-config]]
 matches = "scripts/pr_stability_reference.py"
 replace-imports-with-any = ["teqp", "scipy", "scipy.*"]
+
+# Independent IDAES generators execute only in the isolated parity interpreter.
+[[tool.pyrefly.sub-config]]
+matches = "scripts/idaes_*_reference.py"
+replace-imports-with-any = ["idaes.*", "pyomo.*"]
+
+[[tool.pyrefly.sub-config]]
+matches = "scripts/thermodynamic_feeds.py"
+replace-imports-with-any = ["scipy", "scipy.*"]
 
 [tool.importlinter]
 root_packages = ["pse"]

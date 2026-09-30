@@ -14,9 +14,12 @@ pub mod envelope;
 pub mod expression;
 mod extent;
 pub mod external;
+pub mod knowledge;
 pub mod logic;
+pub mod measurement;
 pub mod provenance;
 pub mod specialize;
+mod temporal;
 pub mod types;
 
 pub use check::{CheckedPackage, FiniteReduction, Function, check, check_with};
@@ -549,20 +552,20 @@ mod kernel_types;
 mod kernel_chains;
 
 #[cfg(test)]
+mod domain_schema;
+#[cfg(test)]
 mod kernel_continuous;
 #[cfg(test)]
-mod kernel_specialization;
-#[cfg(test)]
-mod kernel_entities;
-#[cfg(test)]
-mod kernel_relations;
-#[cfg(test)]
-mod kernel_provenance;
-#[cfg(test)]
-mod kernel_envelopes;
+mod kernel_documents;
 #[cfg(test)]
 mod kernel_domain;
 #[cfg(test)]
-mod domain_schema;
+mod kernel_entities;
 #[cfg(test)]
-mod kernel_documents;
+mod kernel_envelopes;
+#[cfg(test)]
+mod kernel_provenance;
+#[cfg(test)]
+mod kernel_relations;
+#[cfg(test)]
+mod kernel_specialization;

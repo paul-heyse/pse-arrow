@@ -107,19 +107,30 @@ fn kind_derived_attribute_is_evaluated_once_per_entity() {
     let error = refusal(
         "package p { entity kind k { derived a: Scalar = b + 1; derived b: Scalar = a + 1; } entity k z {} }",
     );
-    assert!(error.contains("derived attributes k.a, k.b derive from one another"), "{error}");
+    assert!(
+        error.contains("derived attributes k.a, k.b derive from one another"),
+        "{error}"
+    );
     // One derivation may read another, of its own entity or of another.
     let chained = admitted(
         "package p { entity kind k { attribute v: Scalar; derived b: Scalar = a + v; derived a: Scalar = 2 * v; } entity k z { v = 1 } }",
     )
     .unwrap();
-    assert_eq!(magnitude(&chained.record(chained.names["p.z"]).unwrap().values["b"]), 3.);
+    assert_eq!(
+        magnitude(&chained.record(chained.names["p.z"]).unwrap().values["b"]),
+        3.
+    );
     // A table's derived column is evaluated before the kinds' derived attributes.
     let error = refusal(&FORMULA.replace(
         "entity species unknown {}",
         "entity species unknown {} table heavy[j: species]: {derived m: MolarMass? = j.mass} complete_over(j); dataset hv: heavy provenance(s, role.given) { [water] = []; }",
     ));
-    assert!(error.contains("derived attribute mass of kind species is evaluated once every table is admitted"), "{error}");
+    assert!(
+        error.contains(
+            "derived attribute mass of kind species is evaluated once every table is admitted"
+        ),
+        "{error}"
+    );
     // A kind's extent is admission data; a root's model does not range over it.
     let error = specialized(
         &FORMULA.replace(
@@ -132,9 +143,8 @@ fn kind_derived_attribute_is_evaluated_once_per_entity() {
     .to_string();
     assert!(error.contains("reduction domain"), "{error}");
     // `missing` needs an optional context.
-    let error = refusal(
-        "package p { entity kind k { derived a: Scalar = missing; } entity k z {} }",
-    );
+    let error =
+        refusal("package p { entity kind k { derived a: Scalar = missing; } entity k z {} }");
     assert!(error.contains("derived attribute a of kind k"), "{error}");
 }
 
@@ -197,12 +207,17 @@ fn kind_requirement_names_the_entity_and_clause() {
     }
     let error = refusal(&text.replace("[\"a\"] = [1, 2];", "[\"a\"] = [1, 2]; [\"b\"] = [3, 2];"));
     assert!(
-        error.contains("band[\"b\"] of kind band violates the requirement `low < high`: bounds are ordered"),
+        error.contains(
+            "band[\"b\"] of kind band violates the requirement `low < high`: bounds are ordered"
+        ),
         "{error}"
     );
     // Typed before any entity is checked.
     let error = refusal(&text.replace("require low < high", "require lower < high"));
-    assert!(error.contains("requirement `lower < high` of kind band"), "{error}");
+    assert!(
+        error.contains("requirement `lower < high` of kind band"),
+        "{error}"
+    );
 }
 
 /// An attribute declared unique holds distinct values across every entity of its kind and
@@ -225,12 +240,20 @@ fn attribute_unique_rejects_a_shared_value() {
         (
             "symbol = \"D\"",
             "symbol = \"H\"",
-            &["h and d", "d and h", "share symbol = \"H\", which kind element declares unique"][..],
+            &[
+                "h and d",
+                "d and h",
+                "share symbol = \"H\", which kind element declares unique",
+            ][..],
         ),
         (
             "[\"b\"] = [2]",
             "[\"b\"] = [1]",
-            &["form[\"a\"] and form[\"b\"]", "form[\"b\"] and form[\"a\"]", "share code = 1, which kind form declares unique"],
+            &[
+                "form[\"a\"] and form[\"b\"]",
+                "form[\"b\"] and form[\"a\"]",
+                "share code = 1, which kind form declares unique",
+            ],
         ),
         (
             "attribute z: Integer? unique;",
@@ -240,7 +263,10 @@ fn attribute_unique_rejects_a_shared_value() {
     ] {
         let error = refusal(&text.replacen(from, to, 1));
         let (pair, rest) = expected.split_at(expected.len().saturating_sub(1).min(2));
-        assert!(pair.is_empty() || pair.iter().any(|p| error.contains(p)), "{to}: {error}");
+        assert!(
+            pair.is_empty() || pair.iter().any(|p| error.contains(p)),
+            "{to}: {error}"
+        );
         assert!(rest.iter().all(|p| error.contains(p)), "{to}: {error}");
     }
 }

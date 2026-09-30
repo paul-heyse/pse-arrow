@@ -84,7 +84,7 @@ pub(super) fn storage(array: ArrayRef) -> Result<ArrayRef> {
     }
 }
 
-/// An internal equality view, never an admitted/output declaration. Native Arrow
+/// A temporary cast/equality view, never an admitted/output declaration. Native Arrow
 /// equality ignores parent-masked slots, but its array construction must first
 /// permit those slots (notably fixed-size-list -> list null-row placeholders).
 pub(super) fn comparison_type(data_type: &DataType) -> DataType {

@@ -67,9 +67,8 @@ pub fn balanced(expr: Expr) -> Result<Expr> {
             .into_iter()
             .map(balanced)
             .collect::<Result<Vec<_>>>()?;
-        let tree = balance(operands, op).ok_or_else(|| {
-            DataFusionError::Internal("a binary chain has operands".into())
-        })?;
+        let tree = balance(operands, op)
+            .ok_or_else(|| DataFusionError::Internal("a binary chain has operands".into()))?;
         Ok(Transformed::new(tree, true, TreeNodeRecursion::Jump))
     })
     .data()
@@ -147,8 +146,8 @@ fn field_violations(
     let mut present = vec![];
     value_violations(registry, field, &value, depth, descendants, &mut present)?;
     if let Some(violated) = disjunction(present) {
-        let present = crate::native::logical_expr::when(value.is_null(), lit(false))
-            .otherwise(violated)?;
+        let present =
+            crate::native::logical_expr::when(value.is_null(), lit(false)).otherwise(violated)?;
         out.push(present);
     }
     Ok(())
@@ -212,14 +211,7 @@ fn value_violations(
                 .is_not_true(),
         );
     }
-    storage_violations(
-        registry,
-        field.data_type(),
-        value,
-        depth,
-        descendants,
-        out,
-    )?;
+    storage_violations(registry, field.data_type(), value, depth, descendants, out)?;
     match field
         .metadata()
         .get(pse_schema::arrow::KEY_EXTENSION_NAME)

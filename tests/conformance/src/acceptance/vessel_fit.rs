@@ -54,6 +54,66 @@ async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifi
         );
         assert!(!report.checks.is_empty());
         assert_eq!(report.estimate_qualified(), kind != "unidentifiable");
+        if report.estimate_qualified() {
+            use pse_relations::{
+                columnar::RelationRow, generated::runtime::fitted_parameter_cells,
+            };
+            let exported =
+                fitted_parameter_cells::Row::rows(&result.export_fit_parameters().unwrap())
+                    .unwrap();
+            assert_eq!(exported.len(), 1);
+            let cell = &exported[0];
+            assert_eq!(cell.run_id, result.run_id);
+            assert_eq!(cell.fit_id, id);
+            near(cell.value, 10., 2e-3);
+            if kind == "steady" {
+                // Publication is an explicit new admission with its fit/run/source receipt;
+                // the fitted bank never mutates the measurements or the solved revision.
+                let bank = format!(
+                    "package fitted_bank {{identifier scheme run;identifier scheme fit;identifier scheme revision;entity kind receipt provenance {{attribute run_id:Id<run>;attribute fit_id:Id<fit>;attribute source_revision:Id<revision>;attribute fit_source:Id<revision>;}} enum role {{fitted facets(requires_fit)}} entity receipt qualified {{run_id=Id<run>(\"{}\"),fit_id=Id<fit>(\"{}\"),source_revision=Id<revision>(\"{}\"),fit_source=Id<revision>(\"{}\")}} entity kind heat_parameter {{attribute value:Power;}} entity heat_parameter estimate provenance(qualified,role.fitted,lineage(fit qualified)) {{value={}{{W}}}} }}",
+                    cell.run_id, cell.fit_id, cell.source_revision, cell.fit_source, cell.value
+                );
+                let declarations = |text: &str| {
+                    pse_authoring::language::parse(
+                        text,
+                        pse_ids::SemanticId::NIL,
+                        pse_authoring::language::IdentityPolicy::Named,
+                        Default::default(),
+                    )
+                    .unwrap()
+                };
+                let physical = physical(&owner).await;
+                let admitted = runtime(&owner)
+                    .modeling_package(declarations(&bank), physical.clone())
+                    .unwrap();
+                let knowledge = admitted
+                    .knowledge(None, 128, 1 << 20, &owner.cancel)
+                    .unwrap();
+                let cells = pse_relations::generated::runtime::modeling_knowledge::Row::rows(
+                    knowledge.table(),
+                )
+                .unwrap();
+                let fitted = cells.iter().find(|row| row.slot == "value").unwrap();
+                assert_eq!(
+                    fitted.value.last().unwrap().quantity_type_id,
+                    Some(cell.quantity_type_id)
+                );
+                assert_eq!(fitted.value.last().unwrap().magnitude, Some(cell.value));
+                assert_eq!(fitted.lineage.len(), 1);
+                assert_eq!(
+                    fitted.lineage[0].kind,
+                    pse_model::generated::enums::ModelingLineageKind::Fit
+                );
+                let refused = bank.replace(",lineage(fit qualified)", "");
+                assert!(
+                    runtime(&owner)
+                        .modeling_package(declarations(&refused), physical)
+                        .is_err()
+                );
+            }
+        } else {
+            assert!(result.export_fit_parameters().is_err());
+        }
         assert!(
             result.usable(),
             "a checked prediction remains usable when a parameter is unidentifiable"

@@ -24,7 +24,7 @@ fn authored_fixture(
     row: &Declaration,
 ) -> Option<
     &pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixture,
-> {
+>{
     row.value.scope.as_ref().and_then(|s| s.fixture.as_ref())
 }
 /// The specialization limits one fixture runs under: the run's, with each allowance its
@@ -55,23 +55,19 @@ pub(super) fn fixture_limits(row: &Declaration, run: Limits) -> Result<Limits, W
         ..run
     })
 }
-/// The policy one fixture runs under (ADR-0119): the run's, with the solve intent and each
-/// execution-policy setting its declaration states, for this fixture only; a declared
-/// foreign allowance becomes its solves' control. The time limit and every other control
-/// stay the run's. The fixture's derivative policy is validated
-/// here, so a caller that resolves every fixture first refuses before any runs.
-fn fixture_policy(
+/// Resolve a declaration's solver policy once for both conformance and declared analyses.
+/// Authored settings override caller defaults only for this fixture.
+pub(super) fn fixture_solver(
     row: &Declaration,
-    run: &ModelingConformancePolicy,
-) -> Result<ModelingConformancePolicy, WorkflowError> {
+    run: &SolverProfile,
+) -> Result<SolverProfile, WorkflowError> {
     use pse_backend_native::presolve::{Policy as Presolve, PolicyKind};
     let fixture = row.declaration_id;
     let authored = authored_fixture(row);
-    let mut solver = run.solver.clone();
+    let mut solver = run.clone();
     if let Some(intent) = authored.and_then(|f| f.intent) {
         solver.intent = intent;
     }
-    let mut derivatives = run.derivatives;
     if let Some(declared) = authored.and_then(|f| f.policy.as_ref()) {
         if let Some(backend) = declared.backend {
             solver.selection = pse_backend_native::solve::SolverSelection::Explicit(backend);
@@ -86,19 +82,67 @@ fn fixture_policy(
             }
             None => {}
         }
+        for option in &declared.native_options {
+            use pse_authoring::language::CellSelected;
+            use pse_backend_native::solve::OptionValue;
+            let value = match option
+                .value
+                .value
+                .selected()
+                .map_err(|error| contract(error.to_string()))?
+            {
+                CellSelected::Boolean(value) => OptionValue::Bool(value.value),
+                CellSelected::Integer(value) => OptionValue::Integer(
+                    i32::try_from(value.value)
+                        .map_err(|_| contract("native option integer extent"))?,
+                ),
+                CellSelected::Quantity(value)
+                    if value.unit.as_ref().is_none_or(Vec::is_empty)
+                        && value.magnitude.is_finite() =>
+                {
+                    OptionValue::Real(value.magnitude)
+                }
+                CellSelected::Text(value) => OptionValue::Text(value.value.clone()),
+                _ => return Err(contract("native fixture option is not a primitive")),
+            };
+            if option.value.uncertainty.is_some() {
+                return Err(contract("native fixture options have no uncertainty"));
+            }
+            solver.controls.options.insert(option.name.clone(), value);
+        }
+        if let Some(bytes) = declared.foreign_bytes {
+            solver.controls.foreign_bytes =
+                Some(usize::try_from(bytes).map_err(|_| {
+                    contract(format!("fixture {fixture} policy foreign allowance"))
+                })?);
+        }
+    }
+    Ok(solver)
+}
+/// The policy one fixture runs under (ADR-0119): the run's, with the solve intent and each
+/// execution-policy setting its declaration states, for this fixture only; a declared
+/// foreign allowance becomes its solves' control. The time limit and every other control
+/// stay the run's. The fixture's derivative policy is validated
+/// here, so a caller that resolves every fixture first refuses before any runs.
+fn fixture_policy(
+    row: &Declaration,
+    run: &ModelingConformancePolicy,
+) -> Result<ModelingConformancePolicy, WorkflowError> {
+    let fixture = row.declaration_id;
+    let authored = authored_fixture(row);
+    let solver = fixture_solver(row, &run.solver)?;
+    let mut derivatives = run.derivatives;
+    if let Some(declared) = authored.and_then(|f| f.policy.as_ref()) {
         derivatives.perturbation = declared.derivative_step.unwrap_or(derivatives.perturbation);
         derivatives.relative_tolerance = declared
             .derivative_tolerance
             .unwrap_or(derivatives.relative_tolerance);
         if let Some(cells) = declared.derivative_cells {
             derivatives.maximum_cells = usize::try_from(cells).map_err(|_| {
-                contract(format!("fixture {fixture} policy derivative cell allowance"))
+                contract(format!(
+                    "fixture {fixture} policy derivative cell allowance"
+                ))
             })?;
-        }
-        if let Some(bytes) = declared.foreign_bytes {
-            solver.controls.foreign_bytes = Some(usize::try_from(bytes).map_err(|_| {
-                contract(format!("fixture {fixture} policy foreign allowance"))
-            })?);
         }
     }
     derivatives.allowance().map_err(|error| {
@@ -468,7 +512,11 @@ impl ModelingConformanceReport {
         self.export(&rows)
     }
     /// Note the oracle a fixture names and its release (Plan 23 H6).
-    pub(super) fn note_oracle(&mut self, oracle: Option<DeclarationId>, release: impl FnOnce(DeclarationId) -> Option<DeclarationId>) {
+    pub(super) fn note_oracle(
+        &mut self,
+        oracle: Option<DeclarationId>,
+        release: impl FnOnce(DeclarationId) -> Option<DeclarationId>,
+    ) {
         if let Some(oracle) = oracle
             && !self.releases.contains_key(&oracle)
         {
@@ -476,7 +524,11 @@ impl ModelingConformanceReport {
         }
     }
     /// Note the definitions a prepared fixture's root instantiates directly (Plan 23 H6).
-    pub(super) fn note_units(&mut self, fixture: DeclarationId, model: &pse_modeling::specialize::SpecializedModel) {
+    pub(super) fn note_units(
+        &mut self,
+        fixture: DeclarationId,
+        model: &pse_modeling::specialize::SpecializedModel,
+    ) {
         let root = pse_modeling::specialize::root_instance(fixture);
         self.units.insert(
             fixture,
@@ -1686,7 +1738,13 @@ impl ModelingPackage {
                     if let Some((bindings, case)) = diagnostic_inputs {
                         let diagnosed = if result.accepted {
                             self.diagnose_solution(
-                                fixture, bindings, case, solve_order, &policy, &result, cancel,
+                                fixture,
+                                bindings,
+                                case,
+                                solve_order,
+                                &policy,
+                                &result,
+                                cancel,
                             )
                             .await
                         } else {
@@ -2181,14 +2239,22 @@ mod tests {
             .await
             .unwrap();
         let (compared, analytic) = (id("compared"), id("analytic"));
-        let checks = |fixture| report.checks.iter().filter(move |c| c.fixture_id == fixture);
+        let checks = |fixture| {
+            report
+                .checks
+                .iter()
+                .filter(move |c| c.fixture_id == fixture)
+        };
         assert!(checks(compared).count() > 0 && checks(analytic).count() > 0);
         assert!(checks(compared).all(|c| c.oracle_source_id == Some(id("upstream"))));
         assert!(checks(analytic).all(|c| c.oracle_source_id.is_none()));
         let table = report.table().unwrap();
         let rows = ModelingConformanceCheck::rows(&table).unwrap();
         assert_eq!(rows, report.checks);
-        assert!(rows.iter().any(|c| c.oracle_source_id == Some(id("upstream"))));
+        assert!(
+            rows.iter()
+                .any(|c| c.oracle_source_id == Some(id("upstream")))
+        );
     }
     #[tokio::test]
     async fn kernel_conformance_discovers_pure_tests_and_reports_uncovered_definitions() {
@@ -2282,7 +2348,10 @@ mod tests {
         // A definition, an unknown identity or an empty selection is refused, naming it.
         let unknown = DeclarationId::from_bytes([7; 16]);
         for (selection, named) in [
-            (BTreeSet::from([id("first"), id("Missing")]), Some(id("Missing"))),
+            (
+                BTreeSet::from([id("first"), id("Missing")]),
+                Some(id("Missing")),
+            ),
             (BTreeSet::from([unknown]), Some(unknown)),
             (BTreeSet::new(), None),
         ] {
@@ -2483,7 +2552,10 @@ mod tests {
  def D {var x:Scalar; var y:Scalar; eq a:x==1; eq b:y==2; eq c:x+y==3; annotation start x(0); annotation start y(0);}
  test over fixture {dof -1; run steady;FAILURE} {child root:D=D();}
  }"#;
-        let p = package(&source.replace("FAILURE", " failure invalid_model \"native.structural\";"));
+        let p = package(&source.replace(
+            "FAILURE",
+            " failure invalid_model members(root.a, root.b, root.c);",
+        ));
         let report = p
             .conform(policy(), &crate::CancelSource::new())
             .await
@@ -2497,7 +2569,10 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(!refusals.is_empty());
         // The three equations over two variables form the over-determined part.
-        assert!(refusals.iter().all(|f| f.sources.len() == 3), "{refusals:?}");
+        assert!(
+            refusals.iter().all(|f| f.sources.len() == 3),
+            "{refusals:?}"
+        );
         assert!(report.checks.iter().any(|c| c.kind == Kind::StartToSolve
             && c.status == Status::Passed
             && c.message.contains("structural deficiency")));
@@ -2534,11 +2609,11 @@ mod tests {
         assert!(!initialization.completed && initialization.committed.is_none());
         assert_eq!(initialization.attempts.len(), 1);
         let failure = &unexpected.failures[0];
-        let expected = format!(
-            " failure {} \"{}\";",
-            failure.class.as_str(),
-            failure.rule
+        assert!(!failure.sources.is_empty(), "{failure:?}");
+        assert!(
+            matches!(failure.observations.get("stage"), Some(pse_model::diagnostic::Observation::Text(stage)) if stage == "out_of_range")
         );
+        let expected = format!(" failure {} members(root.e);", failure.class.as_str());
         // Expected, the failure passes and the intact specification is solved and checked.
         let intact = run(source.replace("FAILURE", &expected)).await;
         assert!(intact.passed(), "{:?}", intact.checks);
@@ -2560,13 +2635,17 @@ mod tests {
         .await;
         assert!(!wrong.passed());
         // A different expected failure is not observed; the specification is not solved.
-        let other = run(source.replace(
-            "FAILURE",
-            " failure invalid_model \"compiler.missing\";",
-        ))
-        .await;
+        let other = run(source.replace("FAILURE", " failure invalid_model members(root.e);")).await;
         assert!(!other.passed());
         assert!(other.results.is_empty());
+        // Matching the class with an unrelated member must not hide the failed stage.
+        let unrelated = run(source.replace(
+            "FAILURE",
+            &format!(" failure {} members(root.x);", failure.class.as_str()),
+        ))
+        .await;
+        assert!(!unrelated.passed());
+        assert!(unrelated.results.is_empty());
     }
     /// Each fixture runs under the run's policy with the solve intent and execution policy
     /// its declaration states, for that fixture only (ADR-0119); the specialized kernel
@@ -2576,11 +2655,15 @@ mod tests {
         use pse_backend_native::presolve::Policy as Presolve;
         use pse_backend_native::solve::{Backend, SolveIntent as Intent, SolverSelection};
         let p = package(
-            "package p { def D { var x:Scalar; eq e:x==1; } test declared fixture {dof 0; run steady; intent certify; policy { backend ipopt; presolve off; derivatives step(1e-7) cells(64); limits items(12) body_occurrences(4096) foreign_bytes(2147483648); }} {child root:D=D();} test open fixture {dof 0; run steady;} {child root:D=D();} }",
+            "package p { def D { var x:Scalar; eq e:x==1; } test declared fixture {dof 0; run steady; intent certify; policy { backend ipopt; presolve off; options { \"print_level\" = 0; }; derivatives step(1e-7) cells(64); limits items(12) body_occurrences(4096) foreign_bytes(2147483648); }} {child root:D=D();} test open fixture {dof 0; run steady;} {child root:D=D();} }",
         );
         let rows = p.declarations();
         let row = |name: &str| rows.iter().find(|r| r.name == name).unwrap();
-        let run = policy();
+        let mut run = policy();
+        run.solver.controls.options.insert(
+            "print_level".into(),
+            pse_backend_native::solve::OptionValue::Integer(5),
+        );
         let declared = fixture_policy(row("declared"), &run).unwrap();
         assert_eq!(declared.solver.intent, Intent::Certify);
         assert_eq!(
@@ -2604,13 +2687,13 @@ mod tests {
         );
         // The declared foreign allowance becomes its solves' control; the time limit and
         // every other control stay the run's.
-        assert_eq!(
-            declared.solver.controls,
-            pse_backend_native::solve::Controls {
-                foreign_bytes: Some(2 << 30),
-                ..run.solver.controls.clone()
-            }
+        let mut expected = run.solver.controls.clone();
+        expected.foreign_bytes = Some(2 << 30);
+        expected.options.insert(
+            "print_level".into(),
+            pse_backend_native::solve::OptionValue::Integer(0),
         );
+        assert_eq!(declared.solver.controls, expected);
         let open = fixture_policy(row("open"), &run).unwrap();
         assert_eq!(open.solver.controls, run.solver.controls);
         assert_eq!(open.solver.intent, run.solver.intent);
@@ -2634,10 +2717,33 @@ mod tests {
             let id = row(name).declaration_id;
             let instance = pse_modeling::specialize::root_instance(id);
             let model = p
-                .prepare(id, instance, Bindings::default(), Limits::default(), &cancel)
+                .prepare(
+                    id,
+                    instance,
+                    Bindings::default(),
+                    Limits::default(),
+                    &cancel,
+                )
                 .await
                 .unwrap();
             assert_eq!(model.compiled().model.fixtures[&instance].intent, expected);
+            let analysis = p
+                .declared_analysis(
+                    id,
+                    Route::Steady,
+                    Default::default(),
+                    run.solver.clone(),
+                    Default::default(),
+                    run.limits,
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            let resolved = fixture_policy(row(name), &run).unwrap();
+            assert_eq!(analysis.solver.controls, resolved.solver.controls);
+            assert_eq!(analysis.solver.intent, resolved.solver.intent);
+            assert_eq!(analysis.solver.selection, resolved.solver.selection);
+            assert_eq!(analysis.limits, resolved.limits);
         }
         // A declared allowance applies to its own fixture only.
         let p = package(
@@ -2840,7 +2946,10 @@ mod tests {
  dataset bank: cp_data provenance(s, role.given) { [a] = [75{J/(mol*K)}, 250{K}, 400{K}]; [b] = [80{J/(mol*K)}, 300{K}, 500{K}]; }
  fn cp(T: Temperature, p: Row<cp_data>) -> MolarCp guards(p.T: T) valid(T > 0{K}) = p.c;
  fn dh(T0: Temperature, T: Temperature, p: Row<cp_data>) -> DeltaH guards(p.T: [T0, T]) = p.c*(T - T0);"#;
-    fn statuses(p: &ModelingPackage, report: &ModelingConformanceReport) -> BTreeMap<String, Status> {
+    fn statuses(
+        p: &ModelingPackage,
+        report: &ModelingConformanceReport,
+    ) -> BTreeMap<String, Status> {
         p.declarations()
             .iter()
             .filter(|r| r.value.kind == DeclarationKind::Test)
@@ -2870,7 +2979,12 @@ mod tests {
         )
         .unwrap();
         let rendered = pse_authoring::language::render(&rows).unwrap();
-        assert!(rendered.contains("failure trial_rejected validity(data) form(dh) set(cp_data[b]) variable(T0, T);"), "{rendered}");
+        assert!(
+            rendered.contains(
+                "failure trial_rejected validity(data) form(dh) set(cp_data[b]) variable(T0, T);"
+            ),
+            "{rendered}"
+        );
         let roundtrip = pse_authoring::language::parse(
             &rendered,
             SemanticId::NIL,
@@ -2883,14 +2997,26 @@ mod tests {
             roundtrip.iter().map(|r| &r.value).collect::<Vec<_>>()
         );
         let p = package(&source);
-        let report = p.conform(policy(), &crate::CancelSource::new()).await.unwrap();
+        let report = p
+            .conform(policy(), &crate::CancelSource::new())
+            .await
+            .unwrap();
         assert!(report.passed(), "{:?}", report.checks);
         assert!(statuses(&p, &report).values().all(|s| *s == Status::Passed));
-        let id = |name: &str| p.declarations().iter().find(|r| r.name == name).unwrap().declaration_id;
+        let id = |name: &str| {
+            p.declarations()
+                .iter()
+                .find(|r| r.name == name)
+                .unwrap()
+                .declaration_id
+        };
         let row = |key: &str| {
             pse_modeling::data::row_identity(
                 id("cp_data"),
-                &[pse_modeling::specialize::Value::Entity { id: id(key), kind: id("item") }],
+                &[pse_modeling::specialize::Value::Entity {
+                    id: id(key),
+                    kind: id("item"),
+                }],
             )
         };
         let lineages = report
@@ -2898,26 +3024,52 @@ mod tests {
             .iter()
             .map(|f| {
                 assert_eq!(f.class, pse_model::diagnostic::BoundaryClass::TrialRejected);
-                let v = f.validity.clone().expect("a validity rejection carries its lineage");
+                let v = f
+                    .validity
+                    .clone()
+                    .expect("a validity rejection carries its lineage");
                 (v.layer, v.source, v.form, v.sets, v.variables)
             })
             .collect::<BTreeSet<_>>();
         assert_eq!(
             lineages,
             BTreeSet::from([
-                (Layer::Data, id("cp_data").as_id(), Some(id("cp").as_id()), vec![row("a")], vec![0]),
-                (Layer::Data, id("cp_data").as_id(), Some(id("dh").as_id()), vec![row("b")], vec![0, 1]),
-                (Layer::Form, id("cp").as_id(), Some(id("cp").as_id()), vec![], vec![0]),
+                (
+                    Layer::Data,
+                    id("cp_data").as_id(),
+                    Some(id("cp").as_id()),
+                    vec![row("a")],
+                    vec![0]
+                ),
+                (
+                    Layer::Data,
+                    id("cp_data").as_id(),
+                    Some(id("dh").as_id()),
+                    vec![row("b")],
+                    vec![0, 1]
+                ),
+                (
+                    Layer::Form,
+                    id("cp").as_id(),
+                    Some(id("cp").as_id()),
+                    vec![],
+                    vec![0]
+                ),
             ])
         );
         // The published findings keep the lineage.
         let findings = report.findings_table().unwrap();
-        let published = pse_model::generated::runtime::modeling_findings::Row::rows(&findings).unwrap();
+        let published =
+            pse_model::generated::runtime::modeling_findings::Row::rows(&findings).unwrap();
         assert_eq!(published.iter().filter(|f| f.validity.is_some()).count(), 3);
-        assert!(published.iter().any(|f| f.validity.as_ref().is_some_and(|v| v.layer == Layer::Data
-            && v.form_id == Some(id("dh").as_id())
-            && v.set_ids == [row("b")]
-            && v.variables == [0, 1])));
+        assert!(
+            published.iter().any(
+                |f| f.validity.as_ref().is_some_and(|v| v.layer == Layer::Data
+                    && v.form_id == Some(id("dh").as_id())
+                    && v.set_ids == [row("b")]
+                    && v.variables == [0, 1])
+            )
+        );
     }
     /// Plan 23 H5: a failure of the expected class whose lineage differs fails its fixture,
     /// whichever part differs: the layer, the form, the parameter set or the variable. A
@@ -2927,11 +3079,31 @@ mod tests {
     async fn expected_failure_with_wrong_lineage_fails_the_fixture() {
         let call = "expect cp(450{K}, cp_data[a]) == 75{J/(mol*K)} tolerance 1e-9{J/(mol*K)};";
         let fixtures = [
-            ("right", "validity(data) form(cp) set(cp_data[a]) variable(T)", Status::Passed),
-            ("wrong_layer", "validity(form) form(cp) set(cp_data[a]) variable(T)", Status::Failed),
-            ("wrong_form", "validity(data) form(dh) set(cp_data[a]) variable(T)", Status::Failed),
-            ("wrong_set", "validity(data) form(cp) set(cp_data[b]) variable(T)", Status::Failed),
-            ("wrong_variable", "validity(data) form(cp) set(cp_data[a]) variable(p)", Status::Failed),
+            (
+                "right",
+                "validity(data) form(cp) set(cp_data[a]) variable(T)",
+                Status::Passed,
+            ),
+            (
+                "wrong_layer",
+                "validity(form) form(cp) set(cp_data[a]) variable(T)",
+                Status::Failed,
+            ),
+            (
+                "wrong_form",
+                "validity(data) form(dh) set(cp_data[a]) variable(T)",
+                Status::Failed,
+            ),
+            (
+                "wrong_set",
+                "validity(data) form(cp) set(cp_data[b]) variable(T)",
+                Status::Failed,
+            ),
+            (
+                "wrong_variable",
+                "validity(data) form(cp) set(cp_data[a]) variable(p)",
+                Status::Failed,
+            ),
         ];
         let tests = fixtures
             .iter()
@@ -2944,7 +3116,10 @@ mod tests {
             "package p {{ {ENVELOPE_BANK}\n{tests}\n test unobserved fixture {{ dof 0; run pure; failure trial_rejected validity(data) form(cp) set(cp_data[a]) variable(T); }} {{ expect cp(300{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }} }}"
         );
         let p = package(&source);
-        let report = p.conform(policy(), &crate::CancelSource::new()).await.unwrap();
+        let report = p
+            .conform(policy(), &crate::CancelSource::new())
+            .await
+            .unwrap();
         let statuses = statuses(&p, &report);
         for (name, _, expected) in fixtures {
             assert_eq!(statuses[name], expected, "{name}: {:?}", report.checks);
@@ -2990,10 +3165,19 @@ mod tests {
 }}"#
         );
         let p = package(&source);
-        let report = p.conform(policy(), &crate::CancelSource::new()).await.unwrap();
+        let report = p
+            .conform(policy(), &crate::CancelSource::new())
+            .await
+            .unwrap();
         assert!(report.passed(), "{:?}", report.checks);
         assert!(statuses(&p, &report).values().all(|s| *s == Status::Passed));
-        let id = |name: &str| p.declarations().iter().find(|r| r.name == name).unwrap().declaration_id;
+        let id = |name: &str| {
+            p.declarations()
+                .iter()
+                .find(|r| r.name == name)
+                .unwrap()
+                .declaration_id
+        };
         let envelopes = |fixture: &str| {
             report
                 .checks
@@ -3019,14 +3203,22 @@ mod tests {
             Status::Passed,
             "data-layer value 450 outside [250, 400]; extrapolation selected".into()
         )));
-        assert!(member.iter().any(|(source, status, message)| *source != id("cp_data")
-            && *status == Status::Passed
-            && message == "closure-layer value 450 within [200, 600]"));
+        assert!(
+            member
+                .iter()
+                .any(|(source, status, message)| *source != id("cp_data")
+                    && *status == Status::Passed
+                    && message == "closure-layer value 450 within [200, 600]")
+        );
         // A rejecting closure range refuses the evaluation, naming the member it bounds.
         let closure = report
             .failures
             .iter()
-            .find_map(|f| f.validity.clone().filter(|v| v.layer == pse_model::generated::enums::ModelingValidityLayer::Closure))
+            .find_map(|f| {
+                f.validity.clone().filter(|v| {
+                    v.layer == pse_model::generated::enums::ModelingValidityLayer::Closure
+                })
+            })
             .expect("the closure rejection carries its lineage");
         assert_eq!(closure.form, None);
         assert_eq!(closure.members.len(), 1);
@@ -3057,22 +3249,53 @@ mod tests {
  test analytic fixture { dof 0; run pure; } { expect positive(1) == 1 tolerance 1e-9; }
 }"#,
         );
-        let id = |name: &str| p.declarations().iter().find(|r| r.name == name).unwrap().declaration_id;
-        let report = p.conform(policy(), &crate::CancelSource::new()).await.unwrap();
+        let id = |name: &str| {
+            p.declarations()
+                .iter()
+                .find(|r| r.name == name)
+                .unwrap()
+                .declaration_id
+        };
+        let report = p
+            .conform(policy(), &crate::CancelSource::new())
+            .await
+            .unwrap();
         assert!(report.passed(), "{:?}", report.checks);
         let table = report.parity_table().unwrap();
         let rows = Row::rows(&table).unwrap();
         // Every oracle fixture, and only those, with its oracle and release.
         let fixtures = rows
             .iter()
-            .map(|r| (r.fixture_id, r.definition_id, r.oracle_source_id, r.release_id))
+            .map(|r| {
+                (
+                    r.fixture_id,
+                    r.definition_id,
+                    r.oracle_source_id,
+                    r.release_id,
+                )
+            })
             .collect::<BTreeSet<_>>();
         assert_eq!(
             fixtures,
             BTreeSet::from([
-                (id("unit_fixture"), id("Unit"), id("upstream_test"), Some(id("upstream"))),
-                (id("release_fixture"), id("release_fixture"), id("upstream"), Some(id("upstream"))),
-                (id("handbook_fixture"), id("handbook_fixture"), id("handbook"), None),
+                (
+                    id("unit_fixture"),
+                    id("Unit"),
+                    id("upstream_test"),
+                    Some(id("upstream"))
+                ),
+                (
+                    id("release_fixture"),
+                    id("release_fixture"),
+                    id("upstream"),
+                    Some(id("upstream"))
+                ),
+                (
+                    id("handbook_fixture"),
+                    id("handbook_fixture"),
+                    id("handbook"),
+                    None
+                ),
             ])
         );
         assert!(rows.iter().all(|r| r.status != Status::NotApplicable
@@ -3114,7 +3337,12 @@ mod tests {
             .unwrap(),
             super::super::super::tests::physical(),
         );
-        assert!(refused.unwrap_err().to_string().contains("which are sources"));
+        assert!(
+            refused
+                .unwrap_err()
+                .to_string()
+                .contains("which are sources")
+        );
     }
     /// The authored price-taker package fixture runs through admission, routing, HiGHS and
     /// the original-model checks; its optimum differs from the linear relaxation (85 W).
@@ -3129,7 +3357,7 @@ mod tests {
         // domain's provenance module (ADR-0123 Outcome 5).
         let rows = [
             include_str!("../../../../../packages/reference/seed-data/models/price-taker.pse"),
-            include_str!("../../../../../packages/reference/seed-data/models/references.pse"),
+            include_str!("../../../../../packages/reference/data/references/models/references.pse"),
             include_str!("../../../../../packages/reference/domain/models/provenance.pse"),
         ]
         .into_iter()

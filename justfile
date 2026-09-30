@@ -626,12 +626,12 @@ python-stubs *args:
 [group('local')]
 [doc('ruff format in check mode')]
 fmt-py-check:
-    "{{ ruff }}" format --check
+    "{{ ruff }}" format --config pyproject.toml --check
 
 [group('local')]
 [doc('ruff check (no --fix; the baseline is zero)')]
 lint-py:
-    "{{ ruff }}" check
+    "{{ ruff }}" check --config pyproject.toml
 
 [group('local')]
 [doc('pyrefly type check, including warnings (the baseline is zero)')]
@@ -855,7 +855,7 @@ register-check:
 fmt:
     cargo fmt --all
     "{{ taplo }}" fmt
-    "{{ ruff }}" format
+    "{{ ruff }}" format --config pyproject.toml
 
 [group('mutating')]
 [doc('Regenerate the library-utilization catalog (docs/library-utilization.jsonl) and the usage index behind the library-catalog MCP server; run last, after tests and checks')]
@@ -951,7 +951,7 @@ skills-check:
 [group('local')]
 [doc('Behavioral tests for repository setup and agent guards (stdlib only)')]
 setup-test:
-    python3 -m unittest discover -s scripts/tests -t . -p 'test_*.py' -v
+    {{ py }} -m scripts.setup_report build/setup-tests
 
 [group('local')]
 [doc('Same isolated setup controls with library-owned JUnit and selected-case evidence')]
@@ -987,7 +987,7 @@ lint-typos:
 [group('local')]
 [doc('License headers with the project-pinned tool')]
 lint-license:
-    "{{ reuse }}" lint
+    "{{ py }}" -m scripts.reuse_lint
 
 [group('manual')]
 [doc('Manually qualify all wheel platforms and the sdist on GitHub, without publishing')]
@@ -1090,10 +1090,44 @@ unit-dynamics-fitting:
 [group('mutating')]
 [doc('Regenerate independent PC-SAFT and Peng-Robinson references in an isolated locked Python 3.12 environment')]
 plan14-reference:
-    UV_PROJECT_ENVIRONMENT=build/plan14-reference uv sync --locked --python 3.12 --only-group thermo-reference
+    UV_PROJECT_ENVIRONMENT=build/plan14-reference uv sync --locked --python 3.12 --no-default-groups --group thermo-reference --no-install-project
     build/plan14-reference/bin/python scripts/plan14_reference.py
     build/plan14-reference/bin/python -m scripts.feos_entropy_reference
     build/plan14-reference/bin/python scripts/pr_stability_reference.py
+
+[group('mutating')]
+[doc('Freeze seven independent FeOS 0.10.1 PC-SAFT states into the typed oracle bank')]
+feos-reference:
+    bash scripts/native_exec.sh cargo run --package xtask --locked --features thermodynamic-oracles -- feos-reference packages/reference/data/oracles/feos-0.10.1/data
+
+[group('mutating')]
+[doc('Freeze the declared 200 paired Latin-hypercube thermodynamic campaign feeds')]
+thermodynamic-feeds:
+    .venv/bin/python -m scripts.thermodynamic_feeds
+
+[group('manual')]
+[doc('Measure every paired flash or 1000-point value-study outcome in a fresh directory')]
+thermodynamic-campaign phase output:
+    bash scripts/native_exec.sh .venv/bin/python -m scripts.thermodynamic_campaign {{phase}} {{output}}
+
+[group('manual')]
+[doc('Freeze the declared IDAES 2.13.0 SRK oracle observations through the isolated parity environment')]
+srk-reference:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-execution-env.sh
+    UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --group parity --no-install-project --python 3.13
+    export PATH="$IPOPT_DIR/bin:$PATH"
+    bash scripts/memory-cap.sh .venv-parity/bin/python scripts/idaes_srk_reference.py
+
+[group('manual')]
+[doc('Freeze the declared binary NRTL defaults through IDAES 2.13.0 equality evaluation')]
+nrtl-reference:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-execution-env.sh
+    UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --group parity --no-install-project --python 3.13
+    bash scripts/memory-cap.sh .venv-parity/bin/python scripts/idaes_nrtl_reference.py
 
 [group('local')]
 [doc('Bit-exact source-to-generated physical fixture equivalence; no solver workflow')]

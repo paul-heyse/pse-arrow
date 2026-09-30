@@ -299,6 +299,12 @@ standard_uncertainty = { type = "Real", unit_from = "slot", optional = true, doc
 index_key = { type = "Text", default = "", doc = "Canonical encoding of the family index, empty for a slot outside any family." }
 
 [[relations.fit_free_parameter.requires]]
+name = "ordinal_from_one"
+doc = "The parameters of a fit's parameter vector are numbered from one."
+enforced = "ddl"
+check = { positive = "ordinal" }
+
+[[relations.fit_free_parameter.requires]]
 name = "uncertainty_needs_slot"
 doc = "A standard uncertainty is stated only for a parameter that names its slot, since the slot fixes its unit."
 enforced = "load"
@@ -316,6 +322,18 @@ b = { type = "Integer", doc = "Position of the other free parameter." }
 
 [relations.fit_correlation.columns]
 coefficient = { type = "Scalar", doc = "The correlation coefficient." }
+
+[[relations.fit_correlation.requires]]
+name = "a_from_one"
+doc = "A position in the fit's parameter vector counts from one."
+enforced = "ddl"
+check = { positive = "a" }
+
+[[relations.fit_correlation.requires]]
+name = "b_from_one"
+doc = "A position in the fit's parameter vector counts from one."
+enforced = "ddl"
+check = { positive = "b" }
 
 [[relations.fit_correlation.requires]]
 name = "coefficient_in_range"

@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("d3a206b076bc40779a98f04b3e3c362a") package flash_campaign {
+@id("e56fa0457d724da8a0f33fdddf0f60f0") use provenance @"1.0.0";
+@id("ce121342641547b28f32f2a0e8d54ed7") use chem @"1.0.0";
+@id("b786f0701044491a9c17fb05766f16ec") use equilibrium @"1.0.0";
+@id("ee4a5a8da16c431a8276d7feb036a6c0") use flashing @"1.0.0";
+@id("02a7b7b02762436ea2c3143e816c999e") use bt_pr @"1.0.0";
+@id("54919981f3cc4e20beab32e68945b7b4") use bt_ideal @"1.0.0";
+@id("b883449d08d44a1c86f9a2690eae1a56") entity provenance.source sampling_plan {title="Plan 23 M2/M3: 200 paired strength-one scrambled Latin-hypercube feeds, generator seed 23, no optimization; 350–400 K, 80–120 kPa, benzene fraction 0.05–0.95"}
+@id("cc0519c6495943a79a6246f067e8112c") table feed[index:Integer]:{temperature:Temperature storage {K},pressure:Pressure storage {Pa},benzene:MoleFraction storage {1}} missing optional;
+@id("28b063d62fdc44e58b36c8b9bfc20a04") dataset feeds:feed provenance(sampling_plan,provenance.Role.synthetic) from "data/flash-feeds.parquet";
+// These workloads retain the units' original physical obligations. Numeric oracle
+// expectations for the single 368 K reference feed stay in bt_pr_formulations.
+@id("42690477e6fc42078670a0dc999cfbc8") test measurement_smooth fixture {dof 0;run steady;fix root.inlet.flow=1{mol/s};fix root.inlet.T=368{K};fix root.inlet.pressure=101325{Pa};fix root.inlet.z[chem.benzene]=0.5{1};fix root.inlet.z[chem.toluene]=0.5{1};fix root.heat=0{W};fix root.delta_pressure=0{Pa};} {
+@id("06ea43b64b5d4500a821e5c090eea037") child root:flashing.Flash=flashing.Flash(inlet_pkg=bt_pr.BT_PR(defined_state=true,formulation=equilibrium.VleFormulation.smooth),outlet_pkg=bt_pr.BT_PR(defined_state=false,formulation=equilibrium.VleFormulation.smooth));
+}
+@id("de697862d4084e61a5f04f4e5d7c49a7") test measurement_nested fixture {dof 0;run steady;fix root.inlet.flow=1{mol/s};fix root.inlet.T=368{K};fix root.inlet.pressure=101325{Pa};fix root.inlet.z[chem.benzene]=0.5{1};fix root.inlet.z[chem.toluene]=0.5{1};fix root.heat=0{W};fix root.delta_pressure=0{Pa};} {
+@id("87c8ef2cc651456196f3d34b7db6ae66") child root:flashing.Flash=flashing.Flash(inlet_pkg=bt_pr.BT_PR(defined_state=true,formulation=equilibrium.VleFormulation.nested),outlet_pkg=bt_pr.BT_PR(defined_state=false,formulation=equilibrium.VleFormulation.nested));
+}
+@id("0b09b709785c4d3c9fa1eebf42160aa1") test measurement_value_sweep fixture {dof 0;run steady;fix root.inlet.flow=1{mol/s};fix root.inlet.T=368{K};fix root.inlet.pressure=101325{Pa};fix root.inlet.z[chem.benzene]=0.5{1};fix root.inlet.z[chem.toluene]=0.5{1};fix root.heat=0{W};fix root.delta_pressure=0{Pa};} {
+@id("d9877efea0d0454a85d7f6c74885295b") child root:flashing.Flash=flashing.Flash(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false));
+}
+}

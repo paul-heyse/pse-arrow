@@ -6,7 +6,7 @@
 //! An entity kind is a record schema: typed attributes with defaults, at most one refined
 //! kind, and key attributes declared by one kind of its lineage. A refinement may bind an
 //! inherited attribute, a function included, for itself and its own refinements. Data are
-//! cells, typed once here at admission: [`typed`] is the only reading of a cell, so no
+//! cells, typed once here at admission: `typed` is the only reading of a cell, so no
 //! consumer re-reads an attribute value. Declared entities and the rows of keyed kinds
 //! become [`Record`]s. A keyed row's identity is framed over the key-declaring kind and its
 //! ordered, typed key values, defaults included ([`keyed_identity`]); the concrete
@@ -25,6 +25,8 @@ use pse_authoring::language::{Cell, CellSelected};
 use pse_ids::FramedHasher;
 use pse_model::generated::enums::{ModelingDeclarationKind as K, ModelingUncertaintyKind};
 use std::collections::{BTreeMap, BTreeSet};
+
+type KeyField = (String, Type, Option<Value>);
 
 /// A cell's uncertainty in its value's canonical unit, or as a fraction for a relative one.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -47,6 +49,8 @@ pub struct Typed {
 /// A checked entity kind.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Kind {
+    /// Whether this kind itself prohibits records; a refinement declares its own marker.
+    pub is_abstract: bool,
     /// The one kind this kind refines.
     pub base: Option<DeclarationId>,
     /// Every attribute and its declaring row, inherited ones first, in declaration order.
@@ -98,6 +102,17 @@ pub struct ModelingIdentifierScope {
     values: BTreeMap<(DeclarationId, String), DeclarationId>,
 }
 impl ModelingIdentifierScope {
+    /// Conservative owned identifier index storage.
+    pub(crate) fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + self
+                .values
+                .keys()
+                .map(|(_, value)| {
+                    value.capacity() + size_of::<(DeclarationId, String, DeclarationId)>() + 64
+                })
+                .sum::<usize>()
+    }
     /// The entity holding `value` of `scheme`; values are compared byte-exactly.
     pub fn entity(&self, scheme: DeclarationId, value: &str) -> Option<DeclarationId> {
         self.values.get(&(scheme, value.to_owned())).copied()
@@ -153,12 +168,16 @@ impl CheckedPackage {
         if kind.release {
             return Some(oracle);
         }
-        kind.attributes.iter().find_map(|(name, _)| match record.values.get(name) {
-            Some(Value::Entity { id, kind }) if self.kinds.get(kind).is_some_and(|k| k.release) => {
-                Some(*id)
-            }
-            _ => None,
-        })
+        kind.attributes
+            .iter()
+            .find_map(|(name, _)| match record.values.get(name) {
+                Some(Value::Entity { id, kind })
+                    if self.kinds.get(kind).is_some_and(|k| k.release) =>
+                {
+                    Some(*id)
+                }
+                _ => None,
+            })
     }
     /// Whether `kind` is `ancestor` or one of its refinements.
     pub(crate) fn refines(&self, mut kind: DeclarationId, ancestor: DeclarationId) -> bool {
@@ -179,9 +198,7 @@ impl CheckedPackage {
         match (expected, actual) {
             (Type::Entity(expected), Type::Entity(actual)) => self.refines(*actual, *expected),
             (Type::Set(expected), Type::Set(actual))
-            | (Type::Optional(expected), Type::Optional(actual)) => {
-                self.subsumes(expected, actual)
-            }
+            | (Type::Optional(expected), Type::Optional(actual)) => self.subsumes(expected, actual),
             (Type::Optional(expected), actual) => self.subsumes(expected, actual),
             _ => expected == actual,
         }
@@ -191,10 +208,7 @@ impl CheckedPackage {
         self.entities.get(&entity)
     }
     /// A keyed kind's key-declaring kind and its keys: name, type and typed default.
-    pub(crate) fn keys(
-        &self,
-        kind: DeclarationId,
-    ) -> Option<(DeclarationId, Vec<(String, Type, Option<Value>)>)> {
+    pub(crate) fn keys(&self, kind: DeclarationId) -> Option<(DeclarationId, Vec<KeyField>)> {
         let record = self.kinds.get(&kind)?;
         let key_kind = record.key_kind?;
         let keys = record
@@ -281,7 +295,10 @@ pub(crate) fn typed(
     let (value, scale) = match (selected, ty) {
         (CellSelected::Missing, Type::Optional(_)) => (Value::Missing, None),
         (CellSelected::Missing, _) => {
-            return Err(invalid(at, format!("missing value where {ty:?} is required")));
+            return Err(invalid(
+                at,
+                format!("missing value where {ty:?} is required"),
+            ));
         }
         (_, Type::Optional(inner)) => return typed(p, c, at, cell, inner, rows),
         (CellSelected::Row(v), Type::Entity(expected)) => {
@@ -301,8 +318,8 @@ pub(crate) fn typed(
             (value, Some(scale))
         }
         (CellSelected::Quantity(v), Type::Quantity(_)) => {
-            let unit = pse_authoring::language::unit_product(v)
-                .map_err(|e| invalid(at, e.to_string()))?;
+            let unit =
+                pse_authoring::language::unit_product(v).map_err(|e| invalid(at, e.to_string()))?;
             let number = pse_authoring::dsl::Number {
                 value: v.magnitude,
                 exact_integer: None,
@@ -313,8 +330,12 @@ pub(crate) fn typed(
                 crate::data::context(
                     e,
                     &format!(
-                        "{} is not a {}",
+                        "{} (actual quantity {}) is not a {}",
                         pse_authoring::language::render_cell(cell).unwrap_or_default(),
+                        crate::expression::number_type(&number, c, at, None).map_or_else(
+                            |_| "not uniquely determined from the written unit".into(),
+                            |actual| quantity_name(c, &actual)
+                        ),
                         quantity_name(c, ty)
                     ),
                 )
@@ -342,11 +363,15 @@ pub(crate) fn typed(
                 None,
             )
         }
-        (CellSelected::Reference(v), _) => (reference(p, at, &v.path, ty)?, None),
+        (CellSelected::Reference(v), _) => {
+            let value = reference(p, c, at, &v.path, ty)?;
+            let scale = matches!(value, Value::Number { .. }).then_some(1.);
+            (value, scale)
+        }
         (CellSelected::References(v), Type::Set(element)) => {
             let mut values = Vec::new();
             for path in &v.paths {
-                let value = reference(p, at, &path.path, element)?;
+                let value = reference(p, c, at, &path.path, element)?;
                 if values.contains(&value) {
                     return Err(invalid(at, "duplicate member of a set cell"));
                 }
@@ -444,7 +469,8 @@ fn keyed_reference(
             ),
         ));
     }
-    if reference.keys.len() > keys.len() || keys[reference.keys.len()..].iter().any(|k| k.2.is_none())
+    if reference.keys.len() > keys.len()
+        || keys[reference.keys.len()..].iter().any(|k| k.2.is_none())
     {
         return Err(invalid(
             at,
@@ -470,7 +496,9 @@ fn keyed_reference(
         Rows::Unavailable => {
             return Err(invalid(
                 at,
-                format!("a keyed-row reference to {path} is resolved against admitted rows; a kind's default or binding names none"),
+                format!(
+                    "a keyed-row reference to {path} is resolved against admitted rows; a kind's default or binding names none"
+                ),
             ));
         }
         Rows::Identity => named,
@@ -480,7 +508,11 @@ fn keyed_reference(
                     at,
                     format!(
                         "no {path} row has the keys [{}]",
-                        values.iter().map(|v| crate::data::display(p, v)).collect::<Vec<_>>().join(", ")
+                        values
+                            .iter()
+                            .map(|v| crate::data::display(p, v))
+                            .collect::<Vec<_>>()
+                            .join(", ")
                     ),
                 )
             })?;
@@ -489,7 +521,11 @@ fn keyed_reference(
                     at,
                     format!(
                         "the {path} row [{}] is of kind {}, not an entity of kind {}",
-                        values.iter().map(|v| crate::data::display(p, v)).collect::<Vec<_>>().join(", "),
+                        values
+                            .iter()
+                            .map(|v| crate::data::display(p, v))
+                            .collect::<Vec<_>>()
+                            .join(", "),
                         p.declarations[&kind].name,
                         p.declarations[&expected].name
                     ),
@@ -502,9 +538,38 @@ fn keyed_reference(
 }
 
 /// A reference cell's path, resolved once against the expected type.
-fn reference(p: &CheckedPackage, at: DeclarationId, path: &[String], ty: &Type) -> Result<Value> {
+fn reference(
+    p: &CheckedPackage,
+    c: &TypeContext<'_>,
+    at: DeclarationId,
+    path: &[String],
+    ty: &Type,
+) -> Result<Value> {
     let name = path.join(".");
     match ty {
+        Type::Quantity(_) => {
+            let (attribute, owner) = path
+                .split_last()
+                .ok_or_else(|| invalid(at, "empty quantity path"))?;
+            let Some(pse_quantity::PhysicalName::ReferenceState(state)) =
+                p.physical_name(at, &owner.join("."))
+            else {
+                return Err(invalid(
+                    at,
+                    format!("{name} is not a named reference-state condition"),
+                ));
+            };
+            value::Evaluator {
+                package: p,
+                physical: c,
+                at,
+                env: &BTreeMap::new(),
+                limit: crate::data::EVALUATION_LIMIT,
+                stack: Vec::new(),
+                reader: crate::provenance::Reader::Admission(None),
+            }
+            .reference_condition(state, attribute)
+        }
         // A member by name, bare or qualified by its enumeration.
         Type::Enum(enumeration) => {
             let (member, owner) = path
@@ -537,10 +602,7 @@ fn reference(p: &CheckedPackage, at: DeclarationId, path: &[String], ty: &Type) 
                     ),
                 ));
             }
-            Ok(Value::Entity {
-                id,
-                kind: *actual,
-            })
+            Ok(Value::Entity { id, kind: *actual })
         }
         Type::QuantityType | Type::ReferenceState => {
             let value = match p.physical_name(at, &name) {
@@ -570,7 +632,10 @@ fn reference(p: &CheckedPackage, at: DeclarationId, path: &[String], ty: &Type) 
             }
             Ok(value)
         }
-        _ => Err(invalid(at, format!("a reference cell where {ty:?} is expected"))),
+        _ => Err(invalid(
+            at,
+            format!("a reference cell where {ty:?} is expected"),
+        )),
     }
 }
 
@@ -622,8 +687,101 @@ fn key_type(ty: &Type) -> bool {
 /// constant, entity attribute and row value against those identities, so references need
 /// no declaration order; the rows each kind's rows reference within their own kind must
 /// then be acyclic.
-pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
+pub(crate) fn admit(
+    p: &mut CheckedPackage,
+    c: &TypeContext<'_>,
+    documents: &dyn crate::document::Documents,
+) -> Result<()> {
+    // Refinements copy their inherited schema, defaults and bindings. Charge the
+    // declaration payload for every inheriting owner before constructing those copies.
+    for id in p.kinds.keys().copied() {
+        let mut cursor = Some(id);
+        let mut bytes = size_of::<Kind>();
+        while let Some(owner) = cursor {
+            for child in p.children.get(&owner).into_iter().flatten() {
+                bytes = bytes
+                    .saturating_add(
+                        pse_model::HeapUsage::owned_bytes(&p.declarations[child]).saturating_mul(4),
+                    )
+                    .saturating_add(4 * (size_of::<Typed>() + size_of::<Type>() + 64));
+            }
+            cursor = p.kinds[&owner].base;
+        }
+        documents.preflight(id, bytes)?;
+    }
     admit_kinds(p, c)?;
+    // Budget expanded records, keys, identifier indexes and phase-local copies before
+    // admitting the first row. Default payload is multiplied by row count, not source size.
+    for row in p.declarations.values() {
+        let (kind, count, payload) = if row.value.entity.is_some() {
+            let Some(Type::Entity(kind)) = p.types.get(&row.declaration_id) else {
+                continue;
+            };
+            (*kind, 1, 0)
+        } else if let Some(data) = &row.value.dataset {
+            let Some(kind) = p
+                .resolve(row.declaration_id, &data.target)
+                .filter(|kind| p.kinds.contains_key(kind))
+            else {
+                continue;
+            };
+            if let Some(path) = &data.document {
+                let document = documents.resolve(row.document_id, path).ok_or_else(|| {
+                    invalid(row.declaration_id, "package data document is not supplied")
+                })?;
+                (
+                    kind,
+                    documents.rows(document).unwrap_or(0),
+                    documents.bytes(document),
+                )
+            } else {
+                (kind, data.rows.len(), 0)
+            }
+        } else {
+            continue;
+        };
+        let schema = &p.kinds[&kind];
+        let per_record = size_of::<Record>()
+            + 6 * (size_of::<DeclarationId>() + 64)
+            + schema
+                .attributes
+                .iter()
+                .map(|(name, _)| size_of::<(String, Value)>() + name.capacity() + 64)
+                .sum::<usize>()
+            + schema
+                .defaults
+                .values()
+                .map(|value| value.value.retained_bytes())
+                .sum::<usize>()
+            + schema
+                .bound
+                .values()
+                .map(|(value, _)| value.value.retained_bytes())
+                .sum::<usize>();
+        documents.preflight(
+            row.declaration_id,
+            count
+                .saturating_mul(per_record)
+                .saturating_mul(4)
+                .saturating_add(payload.saturating_mul(4)),
+        )?;
+    }
+    // Identifier-bearing declared entities precede document key resolution. Their row
+    // references are revalidated against the complete identity index below.
+    let declared_identifiers = p
+        .declarations
+        .values()
+        .filter_map(|row| {
+            row.value
+                .entity
+                .as_ref()
+                .map(|entity| (row.declaration_id, entity))
+        })
+        .map(|(id, entity)| Ok((id, declared(p, c, id, entity, Rows::Identity)?)))
+        .collect::<Result<Vec<_>>>()?;
+    for (id, record) in &declared_identifiers {
+        register_identifiers(p, *id, record)?;
+    }
     let datasets = p
         .declarations
         .values()
@@ -635,19 +793,28 @@ pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
             Some((row.declaration_id, kind, dataset))
         })
         .collect::<Vec<_>>();
-    if let Some((dataset, kind, _)) = datasets.iter().find(|(_, _, d)| d.document.is_some()) {
-        return Err(invalid(
-            *dataset,
-            format!(
-                "a data document supplies the rows of a table (ADR-0125); the rows of keyed kind {} are written inline",
-                p.declarations[kind].name
-            ),
-        ));
-    }
     // Phase 1: identities from keys.
     let mut index = BTreeMap::<DeclarationId, (DeclarationId, DeclarationId)>::new();
+    let mut document_keys = BTreeMap::new();
     for (dataset, kind, data) in &datasets {
-        for id in identities(p, c, *dataset, *kind, data)? {
+        let ids = if let Some(path) = &data.document {
+            let known = index.iter().map(|(id, (kind, _))| (*id, *kind)).collect();
+            let keys = document_rows(p, c, *dataset, *kind, data, path, documents, &known, true)?;
+            let layout = layout(p, c, *dataset, *kind, data, Rows::Identity)?;
+            let ids = keys
+                .keys
+                .iter()
+                .map(|keys| {
+                    complete_document_keys(&layout, keys)
+                        .map(|keys| keyed_identity(layout.key_kind, &keys))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            document_keys.insert(*dataset, keys);
+            ids
+        } else {
+            identities(p, c, *dataset, *kind, data)?
+        };
+        for id in ids {
             if let Some((previous_kind, previous)) = index.insert(id, (*kind, *dataset)) {
                 return Err(invalid(
                     *dataset,
@@ -695,24 +862,36 @@ pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
         }
     }
     for (dataset, kind, data) in &datasets {
-        records.extend(rows(p, c, *dataset, *kind, data, resolved)?);
-    }
-    for (id, record) in records {
-        for value in record.values.values() {
-            if let Value::Identifier { scheme, value } = value
-                && let Err(holder) = p.identifiers.insert(*scheme, value, id)
-            {
+        if let Some(path) = &data.document {
+            let document = document_rows(
+                p, c, *dataset, *kind, data, path, documents, &admitted, false,
+            )?;
+            let layout = layout(p, c, *dataset, *kind, data, resolved)?;
+            let identities = |table: &crate::document::DocumentTable| {
+                table
+                    .keys
+                    .iter()
+                    .map(|keys| {
+                        complete_document_keys(&layout, keys)
+                            .map(|keys| keyed_identity(layout.key_kind, &keys))
+                    })
+                    .collect::<Result<Vec<_>>>()
+            };
+            if identities(&document)? != identities(&document_keys[dataset])? {
                 return Err(invalid(
-                    record.origin,
-                    format!(
-                        "identifier {} \"{value}\" is held by {} and by {}; identifier values are unique within the package closure",
-                        p.declarations[scheme].name,
-                        p.label(holder),
-                        label(p, id, &record),
-                    ),
+                    *dataset,
+                    "document key identities changed between identity and value admission",
                 ));
             }
+            records.extend(document_records(
+                p, c, *dataset, *kind, data, &document, resolved,
+            )?);
+        } else {
+            records.extend(rows(p, c, *dataset, *kind, data, resolved)?);
         }
+    }
+    for (id, record) in records {
+        register_identifiers(p, id, &record)?;
         p.entities.insert(id, record);
     }
     // ADR-0123 Outcome 4: every entity orders the bounds of its kind's envelopes.
@@ -737,6 +916,32 @@ pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
         }
     }
     lineage(p)
+}
+
+fn register_identifiers(p: &mut CheckedPackage, id: DeclarationId, record: &Record) -> Result<()> {
+    for value in record.values.values() {
+        if let Value::Identifier { scheme, value } = value {
+            if p.identifiers.entity(*scheme, value) == Some(id) {
+                continue;
+            }
+            if let Err(holder) = p.identifiers.insert(*scheme, value, id) {
+                let holder = p
+                    .declarations
+                    .get(&holder)
+                    .map_or_else(|| p.label(holder), |d| d.name.clone());
+                return Err(invalid(
+                    record.origin,
+                    format!(
+                        "identifier {} \"{value}\" is held by {} and by {}; identifier values are unique within the package closure",
+                        p.declarations[scheme].name,
+                        holder,
+                        label(p, id, record)
+                    ),
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// The rows of each key-declaring kind that its rows reference form an acyclic lineage: a
@@ -830,6 +1035,7 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
         };
         kind.provenance |= facet(pse_model::generated::enums::ModelingKindFacet::Provenance);
         kind.release |= facet(pse_model::generated::enums::ModelingKindFacet::Release);
+        kind.is_abstract = facet(pse_model::generated::enums::ModelingKindFacet::Abstract);
         if kind.release && !kind.provenance {
             return Err(invalid(
                 id,
@@ -866,8 +1072,7 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                 .map(|(_, row)| *row);
             match (&attribute.r#type, attribute.key) {
                 (Some(_), key) => {
-                    if let Some(owner) = inherited.and_then(|row| p.declarations[&row].parent_id)
-                    {
+                    if let Some(owner) = inherited.and_then(|row| p.declarations[&row].parent_id) {
                         return Err(invalid(
                             child,
                             format!(
@@ -884,6 +1089,21 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                         .get(&child)
                         .cloned()
                         .ok_or_else(|| invalid(child, "attribute type absent"))?;
+                    if attribute.storage.len() > 1
+                        || attribute.storage.iter().any(|s| s.name != name)
+                    {
+                        return Err(invalid(
+                            child,
+                            "an attribute declares its storage once, under its own name",
+                        ));
+                    }
+                    if attribute.derived.is_some() && !attribute.storage.is_empty() {
+                        return Err(invalid(
+                            child,
+                            "a derived attribute is evaluated at admission and declares no document storage",
+                        ));
+                    }
+                    crate::data::storage(p, c, child, &name, &ty, attribute.storage.first())?;
                     if key {
                         if !key_type(&ty) {
                             return Err(invalid(
@@ -902,7 +1122,9 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                         if !key_type(inner) {
                             return Err(invalid(
                                 child,
-                                format!("unique attribute {name} is a reference, an enumeration member, an integer, text, a Boolean, an identifier or a quantity"),
+                                format!(
+                                    "unique attribute {name} is a reference, an enumeration member, an integer, text, a Boolean, an identifier or a quantity"
+                                ),
                             ));
                         }
                         kind.unique.push((name.clone(), child));
@@ -948,8 +1170,14 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                             ),
                         ));
                     }
-                    if attribute.unique || attribute.derived.is_some() {
-                        return Err(invalid(child, "a binding declares neither uniqueness nor a derivation"));
+                    if attribute.unique
+                        || attribute.derived.is_some()
+                        || !attribute.storage.is_empty()
+                    {
+                        return Err(invalid(
+                            child,
+                            "a binding declares neither uniqueness nor a derivation",
+                        ));
                     }
                     if let Some((_, previous)) = kind.bound.get(&name)
                         && !row.is_override
@@ -998,7 +1226,9 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                 .as_ref()
                 .ok_or_else(|| invalid(child, "envelope payload"))?;
             if let Some(previous) = kind.envelopes.iter().find(|e| e.axis == row.name) {
-                let owner = p.declarations[&previous.owner].parent_id.unwrap_or(previous.owner);
+                let owner = p.declarations[&previous.owner]
+                    .parent_id
+                    .unwrap_or(previous.owner);
                 return Err(invalid(
                     child,
                     format!(
@@ -1007,7 +1237,12 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                     ),
                 ));
             }
-            let ty = c.resolve(&declared.r#type, &BTreeSet::new(), &p.named_types(child), child)?;
+            let ty = c.resolve(
+                &declared.r#type,
+                &BTreeSet::new(),
+                &p.named_types(child),
+                child,
+            )?;
             let envelope = crate::envelope::resolve(
                 c,
                 child,
@@ -1031,7 +1266,10 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                 .iter()
                 .any(|e| e.lower == *name || e.upper == *name)
         }) {
-            return Err(invalid(*row, format!("derived attribute {name} bounds no envelope")));
+            return Err(invalid(
+                *row,
+                format!("derived attribute {name} bounds no envelope"),
+            ));
         }
         p.kinds.insert(id, kind);
     }
@@ -1117,9 +1355,8 @@ fn declared(
                 format!("duplicate entity attribute {}", attribute.name),
             ));
         }
-        let value = typed(p, c, id, &attribute.value, &p.types[&declaring], rows).map_err(|e| {
-            crate::data::context(e, &format!("attribute {}", attribute.name))
-        })?;
+        let value = typed(p, c, id, &attribute.value, &p.types[&declaring], rows)
+            .map_err(|e| crate::data::context(e, &format!("attribute {}", attribute.name)))?;
         supplied.insert(attribute.name.clone(), value);
     }
     record(p, kind, id, supplied)
@@ -1181,6 +1418,15 @@ fn record(
 ) -> Result<Record> {
     let schema = &p.kinds[&kind];
     let mut values = BTreeMap::new();
+    if schema.is_abstract {
+        return Err(invalid(
+            origin,
+            format!(
+                "abstract kind {} cannot supply an entity or keyed row; instantiate a concrete refinement",
+                p.declarations[&kind].name
+            ),
+        ));
+    }
     let mut uncertainties = BTreeMap::new();
     for (name, declaring) in &schema.attributes {
         // A derived attribute's value is evaluated once every table is admitted.
@@ -1237,6 +1483,182 @@ impl Layout<'_> {
             .filter(|(name, _, _)| !self.bound.contains_key(name))
     }
 }
+
+#[allow(
+    clippy::too_many_arguments,
+    reason = "identity and value phases share the document adapter"
+)]
+fn document_rows(
+    p: &CheckedPackage,
+    c: &TypeContext<'_>,
+    dataset: DeclarationId,
+    kind: DeclarationId,
+    data: &pse_authoring::language::AuthoredModelingDeclarationsFieldValueDataset,
+    path: &str,
+    documents: &dyn crate::document::Documents,
+    identities: &BTreeMap<DeclarationId, DeclarationId>,
+    keys_only: bool,
+) -> Result<std::sync::Arc<crate::document::DocumentTable>> {
+    if !data.rows.is_empty() {
+        return Err(invalid(
+            dataset,
+            "a dataset supplies inline rows or a document, not both",
+        ));
+    }
+    let schema = &p.kinds[&kind];
+    documents.preflight(
+        dataset,
+        schema.attributes.len().saturating_mul(
+            p.entities
+                .len()
+                .saturating_add(identities.len())
+                .saturating_mul(2 * size_of::<DeclarationId>() + 64)
+                .saturating_add(p.identifiers.retained_bytes()),
+        ),
+    )?;
+    let layout = layout(
+        p,
+        c,
+        dataset,
+        kind,
+        data,
+        if keys_only {
+            Rows::Identity
+        } else {
+            Rows::Admitted(identities)
+        },
+    )?;
+    let label = format!(
+        "dataset {} of kind {}",
+        p.declarations[&dataset].name, p.declarations[&kind].name
+    );
+    let slot = |name: &str, declaring: DeclarationId| {
+        let attribute = p.declarations[&declaring]
+            .value
+            .attribute
+            .as_ref()
+            .ok_or_else(|| invalid(dataset, "attribute declaration absent"))?;
+        let storage = crate::data::storage(
+            p,
+            c,
+            declaring,
+            name,
+            &p.types[&declaring],
+            attribute.storage.first(),
+        )?;
+        let mut slot = crate::data::document_slot(
+            p,
+            dataset,
+            &label,
+            name,
+            &p.types[&declaring],
+            storage,
+            Some(identities),
+        )?;
+        slot.default = p.kinds[&kind]
+            .defaults
+            .get(name)
+            .map(|value| value.value.clone())
+            .or_else(|| slot.optional.then_some(Value::Missing));
+        if let crate::document::Target::Entity { deferred, .. } = &mut slot.target {
+            *deferred = keys_only;
+        }
+        Ok(slot)
+    };
+    let keys = layout
+        .unbound()
+        .map(|(name, _, _)| {
+            let declaring = p.kinds[&kind]
+                .attributes
+                .iter()
+                .find(|(n, _)| n == name)
+                .map(|(_, id)| *id)
+                .ok_or_else(|| invalid(dataset, "key declaration absent"))?;
+            slot(name, declaring)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let values = if keys_only {
+        Vec::new()
+    } else {
+        layout
+            .values
+            .iter()
+            .map(|(name, declaring)| slot(name, *declaring))
+            .collect::<Result<Vec<_>>>()?
+    };
+    let plan = std::sync::Arc::new(crate::document::DocumentPlan {
+        dataset,
+        label,
+        keys,
+        values,
+        keys_only,
+    });
+    let document = documents
+        .resolve(p.declarations[&dataset].document_id, path)
+        .ok_or_else(|| {
+            invalid(
+                dataset,
+                format!("package data document {path} is not supplied"),
+            )
+        })?;
+    documents.admit(&plan, document)
+}
+
+fn complete_document_keys(layout: &Layout<'_>, supplied: &[Value]) -> Result<Vec<Value>> {
+    let mut supplied = supplied.iter();
+    layout
+        .keys
+        .iter()
+        .map(|(name, _, _)| {
+            layout
+                .bound
+                .get(name)
+                .map(|t| t.value.clone())
+                .or_else(|| supplied.next().cloned())
+                .ok_or_else(|| invalid(layout.key_kind, format!("document omits key {name}")))
+        })
+        .collect()
+}
+
+fn document_records(
+    p: &CheckedPackage,
+    c: &TypeContext<'_>,
+    dataset: DeclarationId,
+    kind: DeclarationId,
+    data: &pse_authoring::language::AuthoredModelingDeclarationsFieldValueDataset,
+    document: &crate::document::DocumentTable,
+    rows: Rows<'_>,
+) -> Result<Vec<(DeclarationId, Record)>> {
+    let layout = layout(p, c, dataset, kind, data, rows)?;
+    document
+        .keys
+        .iter()
+        .zip(&document.values)
+        .map(|(keys, values)| {
+            let keys = complete_document_keys(&layout, keys)?;
+            let supplied = layout
+                .keys
+                .iter()
+                .map(|(name, _, _)| name)
+                .zip(&keys)
+                .chain(layout.values.iter().map(|(name, _)| name).zip(values))
+                .map(|(name, value)| {
+                    (
+                        name.clone(),
+                        Typed {
+                            value: value.clone(),
+                            uncertainty: None,
+                        },
+                    )
+                })
+                .collect();
+            Ok((
+                keyed_identity(layout.key_kind, &keys),
+                record(p, kind, dataset, supplied)?,
+            ))
+        })
+        .collect()
+}
 fn layout<'a>(
     p: &'a CheckedPackage,
     c: &TypeContext<'_>,
@@ -1246,6 +1668,15 @@ fn layout<'a>(
     rows: Rows<'_>,
 ) -> Result<Layout<'a>> {
     let schema = &p.kinds[&kind];
+    if schema.is_abstract {
+        return Err(invalid(
+            dataset,
+            format!(
+                "abstract kind {} cannot supply an entity or keyed row",
+                p.declarations[&kind].name
+            ),
+        ));
+    }
     let Some((key_kind, keys)) = p.keys(kind) else {
         return Err(invalid(
             dataset,
@@ -1279,7 +1710,10 @@ fn layout<'a>(
             )
             .is_some()
         {
-            return Err(invalid(dataset, format!("duplicate binding {}", binding.name)));
+            return Err(invalid(
+                dataset,
+                format!("duplicate binding {}", binding.name),
+            ));
         }
     }
     let values = schema
@@ -1339,12 +1773,17 @@ fn key_values(
                     if key.uncertainty.is_some() {
                         return Err(invalid(
                             dataset,
-                            format!("{}: key {name} carries no uncertainty", row_label(p, dataset, index)),
+                            format!(
+                                "{}: key {name} carries no uncertainty",
+                                row_label(p, dataset, index)
+                            ),
                         ));
                     }
                     Ok(key.value)
                 }
-                None => default.clone().ok_or_else(|| invalid(dataset, "key default")),
+                None => default
+                    .clone()
+                    .ok_or_else(|| invalid(dataset, "key default")),
             }
         })
         .collect()
@@ -1399,7 +1838,11 @@ fn rows(
                     row_label(p, dataset, index),
                     row.values.len(),
                     p.declarations[&kind].name,
-                    layout.values.iter().map(|(name, _)| name).collect::<Vec<_>>()
+                    layout
+                        .values
+                        .iter()
+                        .map(|(name, _)| name)
+                        .collect::<Vec<_>>()
                 ),
             ));
         }
@@ -1443,7 +1886,10 @@ pub(crate) fn extent_types(p: &CheckedPackage, at: DeclarationId) -> BTreeMap<St
     types
         .into_iter()
         .filter(|(_, ty)| matches!(ty, Type::Set(element) if matches!(**element, Type::Entity(_))))
-        .filter(|(name, _)| p.resolve(at, name).is_some_and(|id| p.kinds.contains_key(&id)))
+        .filter(|(name, _)| {
+            p.resolve(at, name)
+                .is_some_and(|id| p.kinds.contains_key(&id))
+        })
         .collect()
 }
 
@@ -1474,7 +1920,11 @@ pub(crate) fn extent(p: &CheckedPackage, kind: DeclarationId) -> Vec<Value> {
 
 /// What an expression of `kind` binds: the visible kinds' extents, then the kind's
 /// attributes by name and `self`, the entity itself.
-fn kind_types(p: &CheckedPackage, kind: DeclarationId, at: DeclarationId) -> BTreeMap<String, Type> {
+fn kind_types(
+    p: &CheckedPackage,
+    kind: DeclarationId,
+    at: DeclarationId,
+) -> BTreeMap<String, Type> {
     let mut env = extent_types(p, at);
     for (name, row) in &p.kinds[&kind].attributes {
         if let Some(ty) = p.types.get(row) {
@@ -1548,18 +1998,28 @@ pub(crate) fn derive(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> 
                 },
             )?;
         }
-        let Some(expression) = row.value.attribute.as_ref().and_then(|a| a.derived.as_ref())
+        let Some(expression) = row
+            .value
+            .attribute
+            .as_ref()
+            .and_then(|a| a.derived.as_ref())
         else {
             continue;
         };
         let (Some(kind), Some(ty)) = (kind, p.types.get(&at).cloned()) else {
             return Err(invalid(at, "a derived attribute belongs to an entity kind"));
         };
-        let what = || format!("derived attribute {} of kind {}", row.name, p.declarations[&kind].name);
+        let what = || {
+            format!(
+                "derived attribute {} of kind {}",
+                row.name, p.declarations[&kind].name
+            )
+        };
         let expression =
             pse_authoring::dsl::parse_expr(expression).map_err(|e| invalid(at, e.to_string()))?;
-        let actual = crate::expression::infer(&expression, &kind_types(p, kind, at), p, c, at, Some(&ty))
-            .map_err(|e| crate::data::context(e, &what()))?;
+        let actual =
+            crate::expression::infer(&expression, &kind_types(p, kind, at), p, c, at, Some(&ty))
+                .map_err(|e| crate::data::context(e, &what()))?;
         if !p.subsumes(&ty, &actual) {
             return Err(invalid(
                 at,
@@ -1598,7 +2058,13 @@ pub(crate) fn derive(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> 
                     &format!(
                         "derived attribute {} of {}",
                         derivation.name,
-                        crate::data::display(p, &Value::Entity { id, kind: record.kind })
+                        crate::data::display(
+                            p,
+                            &Value::Entity {
+                                id,
+                                kind: record.kind
+                            }
+                        )
                     ),
                 )
             })?;
@@ -1608,7 +2074,13 @@ pub(crate) fn derive(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> 
                     format!(
                         "derived attribute {} of {} is not a {:?}",
                         derivation.name,
-                        crate::data::display(p, &Value::Entity { id, kind: record.kind }),
+                        crate::data::display(
+                            p,
+                            &Value::Entity {
+                                id,
+                                kind: record.kind
+                            }
+                        ),
                         derivation.ty
                     ),
                 ));
@@ -1665,8 +2137,13 @@ fn derivation_order(p: &CheckedPackage, derivations: &[Derivation]) -> Result<Ve
                 .collect::<Vec<_>>();
             names.sort();
             invalid(
-                cycle.first().map_or(derivations[0].row, |n| derivations[graph[*n]].row),
-                format!("derived attributes {} derive from one another", names.join(", ")),
+                cycle
+                    .first()
+                    .map_or(derivations[0].row, |n| derivations[graph[*n]].row),
+                format!(
+                    "derived attributes {} derive from one another",
+                    names.join(", ")
+                ),
             )
         })
 }
@@ -1704,7 +2181,13 @@ pub(crate) fn verify(p: &CheckedPackage) -> Result<()> {
                         record.origin,
                         format!(
                             "{} of kind {kind_name} violates the requirement `{}`: {}",
-                            crate::data::display(p, &Value::Entity { id, kind: record.kind }),
+                            crate::data::display(
+                                p,
+                                &Value::Entity {
+                                    id,
+                                    kind: record.kind
+                                }
+                            ),
                             requirement.predicate,
                             requirement.message
                         ),

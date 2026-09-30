@@ -72,9 +72,7 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime
-        .modeling_package(rows, physical)
-        .unwrap();
+    let package = runtime.modeling_package(rows, physical).unwrap();
     let original = package.revision.identity();
     let cancel = crate::CancelSource::new();
     let analysis = package
@@ -152,9 +150,7 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime
-        .modeling_package(rows, physical)
-        .unwrap();
+    let package = runtime.modeling_package(rows, physical).unwrap();
     let cancel = crate::CancelSource::new();
     let mut analysis = package
         .declared_analysis(

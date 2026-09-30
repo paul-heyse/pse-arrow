@@ -92,7 +92,7 @@ pub struct Lowered {
 impl ConicProblem {
     /// Lower a continuous linear or convex quadratic coefficient program: each equality
     /// row to a zero-cone row and each finite side of the other rows to a nonnegative row
-    /// ([`layout`]), a maximization to the minimization of the negated objective, and the
+    /// (`layout`), a maximization to the minimization of the negated objective, and the
     /// quadratic to its upper triangle with evidence for exactly that matrix. Variable
     /// bounds stay on the contract; the cone adapter appends them as rows.
     ///
@@ -152,7 +152,7 @@ fn upper(q: &faer::sparse::SparseColMat<usize, f64>, factor: f64) -> SparseMatri
     }
     SparseMatrix::new(n, n, column_starts, row_indices, values)
 }
-/// The cone form of `p` over [`layout`], with `quadratic` as its upper-triangle objective.
+/// The cone form of `p` over `layout`, with `quadratic` as its upper-triangle objective.
 fn lower(
     p: &CoefficientProblem,
     quadratic: SparseMatrix,

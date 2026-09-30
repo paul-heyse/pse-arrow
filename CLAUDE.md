@@ -14,9 +14,12 @@ space and runtime configuration are writable, under the scope AGENTS.md describe
 Hook timeouts are seconds. Shell writes remain governed by AGENTS.md; the edit hook
 is not a shell sandbox. Do not ask again for actions already authorized by the user.
 
-Path-scoped guidance is in `.claude/rules/`. The nine role definitions in
+Path-scoped guidance is in `.claude/rules/`. The role definitions in
 `.claude/agents/` are canonical; `just agent-config-sync` produces Codex's native TOML
-roles. Skills are canonical in `.codex/skills/`, exposed through `.claude/skills` and
+roles. Delegate every code change through the `implementer` role, which runs on
+Sonnet 5.5: never hand edits to a general-purpose agent or a fork, and never pass a model
+override when spawning it. `design-reviewer` runs on Opus; the built-in exploring and
+planning agents keep their defaults. Skills are canonical in `.codex/skills/`, exposed through `.claude/skills` and
 `.agents/skills`; library skills there are local-only and gitignored. On Windows, run
 `just agent-config-sync` to materialize aliases when symlinks are unavailable.
 `just lint-agents` checks drift and `just setup-test` checks behavior.

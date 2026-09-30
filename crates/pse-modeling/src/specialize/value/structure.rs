@@ -142,10 +142,15 @@ impl Evaluator<'_, '_> {
             .copied()
             .filter(|member| {
                 self.package.declarations[member].value.kind == Kind::Parameter
-                    && !matches!(
-                        self.package.types.get(member),
-                        Some(Type::Quantity(_) | Type::Function { .. })
-                    )
+                    && !matches!(self.package.types.get(member), Some(Type::Quantity(_)))
+                    && (!matches!(self.package.types.get(member), Some(Type::Function { .. }))
+                        || self.package.declarations[member]
+                            .value
+                            .binding
+                            .as_ref()
+                            .is_some_and(|binding| {
+                                binding.indices.is_empty() && binding.expression.is_some()
+                            }))
             })
             .collect::<Vec<_>>();
         if pending.len().saturating_add(env.len()) > self.limit {
@@ -218,10 +223,7 @@ impl Evaluator<'_, '_> {
             .copied()
             .ok_or_else(|| invalid(definition, format!("definition has no member {name}")))?;
         if self.package.declarations[&member].value.kind != Kind::Parameter
-            || matches!(
-                self.package.types.get(&member),
-                Some(Type::Quantity(_) | Type::Function { .. })
-            )
+            || matches!(self.package.types.get(&member), Some(Type::Quantity(_)))
         {
             return Err(invalid(
                 member,

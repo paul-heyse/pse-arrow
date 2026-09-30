@@ -347,7 +347,7 @@ impl RunResult {
                 certificates.finish().map_err(relation)?,
             ),
         ]);
-        batches.extend(source.fit_data.tables(registry)?);
+        batches.extend(source.fit_declarations.tables(registry)?);
         use pse_relations::generated::runtime::{modeling_checks, modeling_reports};
         let mut checks = modeling_checks::Builder::with_registry(registry, 0).map_err(relation)?;
         let mut reports =
@@ -685,4 +685,71 @@ fn finish(
             directions.finish().map_err(relation)?,
         ),
     ]))
+}
+
+impl RunResult {
+    /// Explicitly export canonical typed parameter values from this run's qualified fit.
+    /// Retains producing identities; publication into an authored bank is a separate action.
+    pub fn export_fit_parameters(&self) -> Result<FieldCheckedBatch, WorkflowError> {
+        use pse_relations::generated::runtime::fitted_parameter_cells as cells;
+        let (RunRequest::Fit(prepared), Ok(RunReport::Fit(report))) = (&self.request, &self.report)
+        else {
+            return Err(contract(
+                "parameter publication requires a completed fitting run",
+            ));
+        };
+        if !report.estimate_qualified() {
+            return Err(contract(
+                "parameter publication requires a freshly qualified, locally identifiable fit",
+            ));
+        }
+        let problem = &prepared.problem;
+        let count = problem.declaration.parameters.len();
+        let bytes = count
+            .checked_mul(512)
+            .and_then(|n| n.checked_add(4096))
+            .ok_or_else(|| contract("fitted parameter export extent"))?;
+        let _scratch = self
+            .runtime
+            .shared
+            .math()
+            .reserve("fit:parameter-export", bytes)?;
+        let pool = self.runtime.shared.pool();
+        let cancel = pse_columnar::CancellationToken::default();
+        let mut builder =
+            pse_relations::columnar::Collection::new(&self.runtime.registry, &pool, &cancel);
+        builder.ensure::<cells::Row>().map_err(relation)?;
+        for (i, parameter) in problem.declaration.parameters.iter().enumerate() {
+            let value = if parameter.fixed {
+                parameter.value
+            } else {
+                report
+                    .candidate
+                    .as_ref()
+                    .and_then(|values| {
+                        problem.parameter_columns[i]
+                            .and_then(|column| values.get(column.get()).copied())
+                    })
+                    .ok_or_else(|| contract("qualified fitting candidate absent"))?
+            };
+            builder
+                .push(cells::Row {
+                    run_id: self.run_id,
+                    fit_id: problem.declaration.fit_id,
+                    source_revision: prepared.source.revision.identity(),
+                    fit_source: problem.source_identity,
+                    parameter_id: parameter.symbol_id,
+                    quantity_type_id: problem.parameter_ports[i].quantity.as_id(),
+                    unit_id: problem.parameter_ports[i].unit.as_id(),
+                    value,
+                })
+                .map_err(relation)?;
+        }
+        builder
+            .finish()
+            .map_err(relation)?
+            .into_values()
+            .next()
+            .ok_or_else(|| contract("fitted parameter export relation absent"))
+    }
 }

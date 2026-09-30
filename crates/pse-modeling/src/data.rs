@@ -109,7 +109,8 @@ impl Domain {
         match self {
             Self::Set(members) => members.len(),
             Self::Range(lower, upper) => {
-                usize::try_from(upper.saturating_sub(*lower).saturating_add(1)).unwrap_or(usize::MAX)
+                usize::try_from(upper.saturating_sub(*lower).saturating_add(1))
+                    .unwrap_or(usize::MAX)
             }
         }
     }
@@ -343,7 +344,10 @@ impl Table {
                     ));
                 }
                 row.map(|row| self.value(table, row)).ok_or_else(|| {
-                    invalid(table, "an admitted completeness claim lacks one of its rows")
+                    invalid(
+                        table,
+                        "an admitted completeness claim lacks one of its rows",
+                    )
                 })
             }
             Absence::Optional => Ok(row.map_or(Value::Missing, |row| self.value(table, row))),
@@ -382,7 +386,11 @@ impl Table {
                 .iter()
                 .map(|c| c.name.capacity() + ty(&c.ty) + size_of::<Column>())
                 .sum::<usize>()
-            + self.names.iter().map(|n| n.capacity() + size_of::<String>()).sum::<usize>()
+            + self
+                .names
+                .iter()
+                .map(|n| n.capacity() + size_of::<String>())
+                .sum::<usize>()
             + self
                 .envelopes
                 .iter()
@@ -610,8 +618,58 @@ pub(crate) fn admit(
                     ),
                 )
             })?;
+            let schema = &declared[table].table;
+            documents.preflight(
+                *dataset,
+                schema
+                    .keys
+                    .len()
+                    .saturating_add(schema.columns.len())
+                    .saturating_mul(
+                        p.entities
+                            .len()
+                            .saturating_mul(2 * size_of::<DeclarationId>() + 64),
+                    ),
+            )?;
             let plan = Arc::new(document_plan(p, &declared[table], *dataset)?);
             supplied.insert(*dataset, documents.admit(&plan, document)?);
+        }
+    }
+    // Keys, staged cells, positions and the final relation coexist during the three
+    // phases. Precharge their fixed row containers before any bulk clone or map insertion.
+    for (table, sources) in &datasets {
+        for dataset in sources {
+            let row = &p.declarations[dataset];
+            let data = row
+                .value
+                .dataset
+                .as_ref()
+                .ok_or_else(|| invalid(*dataset, "dataset declaration absent"))?;
+            let count = supplied
+                .get(dataset)
+                .map_or(data.rows.len(), |document| document.keys.len());
+            let schema = &declared[table].table;
+            let per_row = size_of::<Staged>()
+                + size_of::<Row>()
+                + 4 * (size_of::<Vec<Value>>() + 64)
+                + schema.keys.len().saturating_mul(4 * size_of::<Value>())
+                + schema
+                    .columns
+                    .len()
+                    .saturating_mul(2 * size_of::<Pending>() + size_of::<Value>());
+            let payload = supplied.get(dataset).map_or(0, |document| {
+                document.keys.iter().chain(&document.values).flatten()
+                    // Inline Value slots are already included in per_row. Only their
+                    // separately owned payload expands when the staged keys/cells clone.
+                    .map(|value| value.retained_bytes().saturating_sub(size_of::<Value>()))
+                    .fold(0usize, usize::saturating_add)
+            });
+            documents.preflight(
+                *dataset,
+                count
+                    .saturating_mul(per_row)
+                    .saturating_add(payload.saturating_mul(4)),
+            )?;
         }
     }
     // Phase 1: row identities from keys.
@@ -709,13 +767,19 @@ fn envelopes(p: &CheckedPackage, id: DeclarationId) -> Result<()> {
             return Err(invalid(id, "envelope bounds are columns"));
         };
         for (keys, row) in &table.rows {
-            crate::envelope::ordered(envelope, &row.cells[lower], &row.cells[upper], row.origin, || {
-                format!(
-                    "row {}[{}]",
-                    p.declarations[&id].name,
-                    display_keys(p, keys)
-                )
-            })?;
+            crate::envelope::ordered(
+                envelope,
+                &row.cells[lower],
+                &row.cells[upper],
+                row.origin,
+                || {
+                    format!(
+                        "row {}[{}]",
+                        p.declarations[&id].name,
+                        display_keys(p, keys)
+                    )
+                },
+            )?;
         }
     }
     Ok(())
@@ -782,7 +846,10 @@ fn schema(
             let what = format!("column {} of {table_name}", column.name);
             let storage = if column.derived.is_some() {
                 if stored(&column.name).is_some() {
-                    return Err(invalid(id, format!("{what} is derived, and a derived column is never stored")));
+                    return Err(invalid(
+                        id,
+                        format!("{what} is derived, and a derived column is never stored"),
+                    ));
                 }
                 Storage::default()
             } else {
@@ -842,7 +909,12 @@ fn schema(
                 c.resolve(&e.r#type, &variables, &names, id)?,
                 &e.lower,
                 &e.upper,
-                |name| columns.iter().find(|col| col.name == name).map(|col| col.ty.clone()),
+                |name| {
+                    columns
+                        .iter()
+                        .find(|col| col.name == name)
+                        .map(|col| col.ty.clone())
+                },
             )
         })
         .collect::<Result<Vec<_>>>()?;
@@ -857,7 +929,14 @@ fn schema(
         }
     };
     let value_storage = if columns.is_empty() {
-        storage(p, c, id, &format!("the value of {table_name}"), &result, stored("value"))?
+        storage(
+            p,
+            c,
+            id,
+            &format!("the value of {table_name}"),
+            &result,
+            stored("value"),
+        )?
     } else {
         Storage::default()
     };
@@ -894,7 +973,10 @@ fn schema(
         (Missing::Optional, None, true) => Absence::Optional,
         (Missing::Default, Some(cell), true) => {
             if !columns.is_empty() {
-                return Err(invalid(id, "a default is one value; a table with columns has none"));
+                return Err(invalid(
+                    id,
+                    "a default is one value; a table with columns has none",
+                ));
             }
             let value = typed(p, c, id, cell, &result, rows)?;
             if value.uncertainty.is_some() {
@@ -919,7 +1001,10 @@ fn schema(
             else {
                 return Err(invalid(id, "a symmetric pair names two keys of the table"));
             };
-            if first == second || keys[first].ty != keys[second].ty || keys[first].range != keys[second].range {
+            if first == second
+                || keys[first].ty != keys[second].ty
+                || keys[first].range != keys[second].range
+            {
                 return Err(invalid(
                     id,
                     "a symmetric pair names two distinct keys of one type",
@@ -942,14 +1027,20 @@ fn schema(
             let slots = constraint
                 .names
                 .iter()
-                .map(|name| match (position(name), columns.iter().position(|c| c.name == *name)) {
-                    (Some(key), _) => Ok(Slot::Key(key)),
-                    (None, Some(column)) if !columns[column].derived => Ok(Slot::Column(column)),
-                    _ => Err(invalid(
-                        id,
-                        format!("unique({name}) names no key or supplied column of {table_name}"),
-                    )),
-                })
+                .map(
+                    |name| match (position(name), columns.iter().position(|c| c.name == *name)) {
+                        (Some(key), _) => Ok(Slot::Key(key)),
+                        (None, Some(column)) if !columns[column].derived => {
+                            Ok(Slot::Column(column))
+                        }
+                        _ => Err(invalid(
+                            id,
+                            format!(
+                                "unique({name}) names no key or supplied column of {table_name}"
+                            ),
+                        )),
+                    },
+                )
                 .collect::<Result<Vec<_>>>()?;
             Ok((constraint.names.clone(), slots))
         })
@@ -968,10 +1059,19 @@ fn schema(
     let mut named = vec![false; keys.len()];
     for entry in &declaration.complete_over {
         let key = position(&entry.key).ok_or_else(|| {
-            invalid(id, format!("complete_over names {}, not a key of {table_name}", entry.key))
+            invalid(
+                id,
+                format!(
+                    "complete_over names {}, not a key of {table_name}",
+                    entry.key
+                ),
+            )
         })?;
         if std::mem::replace(&mut named[key], true) {
-            return Err(invalid(id, format!("complete_over names key {} twice", entry.key)));
+            return Err(invalid(
+                id,
+                format!("complete_over names key {} twice", entry.key),
+            ));
         }
         if entry.set.is_some() || entry.range.is_some() {
             completeness[key] = Some(entry.clone());
@@ -1009,7 +1109,7 @@ fn schema(
 /// How a data document stores a key, a column or a value (ADR-0125): a storage unit
 /// belongs to a quantity and composes to an admitted unit; an identifier scheme belongs to
 /// an entity reference and names a declared scheme.
-fn storage(
+pub(crate) fn storage(
     p: &CheckedPackage,
     c: &TypeContext<'_>,
     id: DeclarationId,
@@ -1031,14 +1131,13 @@ fn storage(
                     format!("{what} declares a storage unit, which only a quantity has"),
                 ));
             }
-            let product = pse_authoring::language::unit_product(
-                &pse_authoring::language::CellQuantity {
+            let product =
+                pse_authoring::language::unit_product(&pse_authoring::language::CellQuantity {
                     magnitude: 1.0,
                     unit: Some(factors.to_vec()),
-                },
-            )
-            .map_err(|e| invalid(id, format!("{what}: {e}")))?
-            .ok_or_else(|| invalid(id, format!("{what}: a storage unit is a unit literal")))?;
+                })
+                .map_err(|e| invalid(id, format!("{what}: {e}")))?
+                .ok_or_else(|| invalid(id, format!("{what}: a storage unit is a unit literal")))?;
             let unit = c
                 .quantities
                 .compose(&product)
@@ -1051,7 +1150,9 @@ fn storage(
             if !matches!(inner, Type::Entity(_)) {
                 return Err(invalid(
                     id,
-                    format!("{what} declares an identifier scheme, which only an entity reference has"),
+                    format!(
+                        "{what} declares an identifier scheme, which only an entity reference has"
+                    ),
                 ));
             }
             let name = path.join(".");
@@ -1126,7 +1227,13 @@ fn row_types(p: &CheckedPackage, table: &Declared) -> BTreeMap<String, Type> {
             .iter()
             .map(|k| (k.name.clone(), k.ty.clone())),
     );
-    env.extend(table.table.columns.iter().map(|c| (c.name.clone(), c.ty.clone())));
+    env.extend(
+        table
+            .table
+            .columns
+            .iter()
+            .map(|c| (c.name.clone(), c.ty.clone())),
+    );
     if table.table.columns.is_empty() {
         env.insert("value".into(), table.table.result.clone());
     }
@@ -1155,8 +1262,11 @@ fn expressions(p: &CheckedPackage, c: &TypeContext<'_>, table: &Declared) -> Res
         let column = &table.table.columns[*position];
         let actual = crate::expression::infer(expression, &env, p, c, table.id, Some(&column.ty))
             .map_err(|e| {
-                context(e, &format!("derived column {} of {}", column.name, table.name(p)))
-            })?;
+            context(
+                e,
+                &format!("derived column {} of {}", column.name, table.name(p)),
+            )
+        })?;
         if !p.subsumes(&column.ty, &actual) {
             return Err(invalid(
                 table.id,
@@ -1393,7 +1503,10 @@ fn values(
 
 /// Phase 2 for a data document's rows: the supplied values, already typed, in column
 /// order; a derived column awaits phase 3.
-fn supplied_values(table: &Declared, document: &crate::document::DocumentTable) -> Vec<Vec<Pending>> {
+fn supplied_values(
+    table: &Declared,
+    document: &crate::document::DocumentTable,
+) -> Vec<Vec<Pending>> {
     document
         .values
         .iter()
@@ -1429,104 +1542,11 @@ fn document_plan(
     table: &Declared,
     dataset: DeclarationId,
 ) -> Result<crate::document::DocumentPlan> {
-    use crate::document::{DocumentPlan, Slot, Target};
-    let c = p.context();
+    use crate::document::DocumentPlan;
     let table_name = table.name(p);
     let label = format!("dataset {} of {table_name}", p.declarations[&dataset].name);
-    let slot = |name: &str, ty: &Type, storage: Storage| -> Result<Slot> {
-        let (optional, inner) = match ty {
-            Type::Optional(inner) => (true, inner.as_ref()),
-            other => (false, other),
-        };
-        let declared = format!("{inner:?}");
-        let unsupported = || {
-            invalid(
-                dataset,
-                format!(
-                    "{label}: column {name} declared {declared} cannot be supplied by a data document; a document supplies quantities, entity references, identifiers, text, integers, Booleans and enumeration members"
-                ),
-            )
-        };
-        let target = match inner {
-            Type::Quantity(pse_quantity::scheme::Scheme::Concrete(quantity)) => {
-                let unit = storage.unit.ok_or_else(|| {
-                    invalid(
-                        dataset,
-                        format!(
-                            "{label}: column {name} declared {declared} declares no storage unit; a data document's magnitudes are in the storage unit its column declares"
-                        ),
-                    )
-                })?;
-                let target = c
-                    .quantities
-                    .quantity_type(*quantity)
-                    .map_err(|e| invalid(dataset, e.to_string()))?;
-                let conversion = pse_quantity::convert_spec_for_type(
-                    c.quantities.unit(unit).map_err(|e| invalid(dataset, e.to_string()))?,
-                    c.quantities
-                        .unit(target.canonical_unit)
-                        .map_err(|e| invalid(dataset, e.to_string()))?,
-                    &target.key,
-                )
-                .map_err(|e| {
-                    invalid(
-                        dataset,
-                        format!("{label}: column {name} declared {declared}: storage unit: {e}"),
-                    )
-                })?;
-                Target::Quantity {
-                    quantity: *quantity,
-                    storage: unit,
-                    scale: conversion.scale.to_bits(),
-                    offset: conversion.offset.to_bits(),
-                }
-            }
-            Type::Entity(kind) => {
-                let entities = p
-                    .entities
-                    .iter()
-                    .filter(|(_, record)| p.refines(record.kind, *kind))
-                    .map(|(id, record)| (*id, record.kind))
-                    .collect::<BTreeMap<_, _>>();
-                let scheme = storage.scheme.map(|scheme| {
-                    (
-                        scheme,
-                        Arc::new(
-                            p.identifiers
-                                .of(scheme)
-                                .filter(|(_, entity)| entities.contains_key(entity))
-                                .map(|(value, entity)| (value.to_owned(), entity))
-                                .collect(),
-                        ),
-                    )
-                });
-                Target::Entity {
-                    kind: *kind,
-                    entities: Arc::new(entities),
-                    scheme,
-                }
-            }
-            Type::Identifier(scheme) => Target::Identifier(*scheme),
-            Type::Text => Target::Text,
-            Type::Integer => Target::Integer,
-            Type::Boolean => Target::Boolean,
-            Type::Enum(enumeration) => Target::Enum {
-                enumeration: *enumeration,
-                members: p.declarations[enumeration]
-                    .value
-                    .enumeration
-                    .as_ref()
-                    .map(|e| e.members.iter().map(|m| (m.name.clone(), m.member_id)).collect())
-                    .unwrap_or_default(),
-            },
-            _ => return Err(unsupported()),
-        };
-        Ok(Slot {
-            name: name.to_owned(),
-            declared,
-            optional,
-            target,
-        })
+    let slot = |name: &str, ty: &Type, storage: Storage| {
+        document_slot(p, dataset, &label, name, ty, storage, None)
     };
     let keys = table
         .table
@@ -1535,7 +1555,11 @@ fn document_plan(
         .map(|k| slot(&k.name, &k.ty, k.storage))
         .collect::<Result<Vec<_>>>()?;
     let values = if table.table.columns.is_empty() {
-        vec![slot("value", &table.table.result, table.table.value_storage)?]
+        vec![slot(
+            "value",
+            &table.table.result,
+            table.table.value_storage,
+        )?]
     } else {
         table
             .table
@@ -1550,11 +1574,153 @@ fn document_plan(
         label,
         keys,
         values,
+        keys_only: false,
+    })
+}
+
+/// One declaration-owned document slot, shared by tables and keyed entity kinds.
+pub(crate) fn document_slot(
+    p: &CheckedPackage,
+    dataset: DeclarationId,
+    label: &str,
+    name: &str,
+    ty: &Type,
+    storage: Storage,
+    identities: Option<&BTreeMap<DeclarationId, DeclarationId>>,
+) -> Result<crate::document::Slot> {
+    use crate::document::{Slot, Target};
+    let c = p.context();
+    let (optional, inner) = match ty {
+        Type::Optional(inner) => (true, inner.as_ref()),
+        other => (false, other),
+    };
+    let declared = format!("{inner:?}");
+    let unsupported = || {
+        invalid(
+            dataset,
+            format!(
+                "{label}: column {name} declared {declared} cannot be supplied by a data document; a document supplies quantities, entity references, identifiers, text, integers, Booleans and enumeration members"
+            ),
+        )
+    };
+    let target = match inner {
+        Type::Quantity(pse_quantity::scheme::Scheme::Concrete(quantity)) => {
+            let unit = storage.unit.ok_or_else(|| {
+                invalid(
+                    dataset,
+                    format!(
+                        "{label}: column {name} declared {declared} declares no storage unit; a data document's magnitudes are in the storage unit its column declares"
+                    ),
+                )
+            })?;
+            let target = c
+                .quantities
+                .quantity_type(*quantity)
+                .map_err(|e| invalid(dataset, e.to_string()))?;
+            let conversion = pse_quantity::convert_spec_for_type(
+                c.quantities
+                    .unit(unit)
+                    .map_err(|e| invalid(dataset, e.to_string()))?,
+                c.quantities
+                    .unit(target.canonical_unit)
+                    .map_err(|e| invalid(dataset, e.to_string()))?,
+                &target.key,
+            )
+            .map_err(|e| {
+                invalid(
+                    dataset,
+                    format!("{label}: column {name} declared {declared}: storage unit: {e}"),
+                )
+            })?;
+            Target::Quantity {
+                quantity: *quantity,
+                storage: unit,
+                scale: conversion.scale.to_bits(),
+                offset: conversion.offset.to_bits(),
+            }
+        }
+        Type::Entity(kind) => {
+            let entities = p
+                .types
+                .iter()
+                .filter_map(|(id, ty)| match ty {
+                    Type::Entity(actual)
+                        if p.declarations
+                            .get(id)
+                            .is_some_and(|d| d.value.entity.is_some())
+                            && p.refines(*actual, *kind) =>
+                    {
+                        Some((*id, *actual))
+                    }
+                    _ => None,
+                })
+                .chain(
+                    p.entities
+                        .iter()
+                        .filter(|(_, record)| p.refines(record.kind, *kind))
+                        .map(|(id, record)| (*id, record.kind)),
+                )
+                .chain(
+                    identities
+                        .into_iter()
+                        .flat_map(|index| index.iter())
+                        .filter(|(_, actual)| p.refines(**actual, *kind))
+                        .map(|(id, actual)| (*id, *actual)),
+                )
+                .collect::<BTreeMap<_, _>>();
+            let scheme = storage.scheme.map(|scheme| {
+                (
+                    scheme,
+                    Arc::new(
+                        p.identifiers
+                            .of(scheme)
+                            .filter(|(_, entity)| entities.contains_key(entity))
+                            .map(|(value, entity)| (value.to_owned(), entity))
+                            .collect(),
+                    ),
+                )
+            });
+            Target::Entity {
+                deferred: false,
+                kind: *kind,
+                entities: Arc::new(entities),
+                scheme,
+            }
+        }
+        Type::Identifier(scheme) => Target::Identifier(*scheme),
+        Type::Text => Target::Text,
+        Type::Integer => Target::Integer,
+        Type::Boolean => Target::Boolean,
+        Type::Enum(enumeration) => Target::Enum {
+            enumeration: *enumeration,
+            members: p.declarations[enumeration]
+                .value
+                .enumeration
+                .as_ref()
+                .map(|e| {
+                    e.members
+                        .iter()
+                        .map(|m| (m.name.clone(), m.member_id))
+                        .collect()
+                })
+                .unwrap_or_default(),
+        },
+        _ => return Err(unsupported()),
+    };
+    Ok(Slot {
+        name: name.to_owned(),
+        declared,
+        optional,
+        default: None,
+        target,
     })
 }
 
 /// A value cell of a table row: a row reference to a table with columns, or any cell.
-#[allow(clippy::too_many_arguments, reason = "the admission state of one phase")]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the admission state of one phase"
+)]
 fn reference(
     p: &CheckedPackage,
     c: &TypeContext<'_>,
@@ -1569,7 +1735,10 @@ fn reference(
     while let Type::Optional(inner) = target {
         target = inner;
     }
-    let selected = cell.value.selected().map_err(|e| invalid(at, e.to_string()))?;
+    let selected = cell
+        .value
+        .selected()
+        .map_err(|e| invalid(at, e.to_string()))?;
     let (Type::Row(table), CellSelected::Row(row)) = (target, selected) else {
         return Ok(Pending::Value(scalar(p, c, at, cell, ty, rows)?));
     };
@@ -1590,7 +1759,10 @@ fn reference(
     if row.keys.len() != schema.keys.len() {
         return Err(invalid(
             at,
-            format!("a {path} row is referenced by its {} keys", schema.keys.len()),
+            format!(
+                "a {path} row is referenced by its {} keys",
+                schema.keys.len()
+            ),
         ));
     }
     let values = row
@@ -1680,7 +1852,9 @@ fn domain(
             } else {
                 return Err(invalid(
                     at,
-                    format!("completeness names {name}, which is neither a declared set nor an enumeration"),
+                    format!(
+                        "completeness names {name}, which is neither a declared set nor an enumeration"
+                    ),
                 ));
             };
             if let Some(member) = members.iter().find(|m| !conforms(m, &key.ty, p)) {
@@ -1717,7 +1891,12 @@ fn completeness(
         .completeness
         .iter()
         .zip(&table.table.keys)
-        .map(|(entry, key)| entry.as_ref().map(|e| domain(p, table.id, e, key)).transpose())
+        .map(|(entry, key)| {
+            entry
+                .as_ref()
+                .map(|e| domain(p, table.id, e, key))
+                .transpose()
+        })
         .collect::<Result<Vec<_>>>()?;
     if required && open.is_empty() {
         let domains = closed.into_iter().flatten().collect::<Vec<_>>();
@@ -1734,7 +1913,9 @@ fn completeness(
             {
                 return Err(invalid(
                     *dataset,
-                    format!("{name} declares its completeness itself; a dataset claims only open keys"),
+                    format!(
+                        "{name} declares its completeness itself; a dataset claims only open keys"
+                    ),
                 ));
             }
         }
@@ -1765,20 +1946,32 @@ fn completeness(
                     .ok_or_else(|| {
                         invalid(
                             *dataset,
-                            format!("complete_over names {}, which is not an open key of {name}", entry.key),
+                            format!(
+                                "complete_over names {}, which is not an open key of {name}",
+                                entry.key
+                            ),
                         )
                     })?;
                 if domains[key].is_some() {
-                    return Err(invalid(*dataset, format!("complete_over names key {} twice", entry.key)));
+                    return Err(invalid(
+                        *dataset,
+                        format!("complete_over names key {} twice", entry.key),
+                    ));
                 }
                 domains[key] = Some(domain(p, *dataset, entry, &table.table.keys[key])?);
             }
-            let domains = domains.into_iter().collect::<Option<Vec<_>>>().ok_or_else(|| {
-                invalid(
-                    *dataset,
-                    format!("complete_over of dataset {} names every open key of {name}", p.declarations[dataset].name),
-                )
-            })?;
+            let domains = domains
+                .into_iter()
+                .collect::<Option<Vec<_>>>()
+                .ok_or_else(|| {
+                    invalid(
+                        *dataset,
+                        format!(
+                            "complete_over of dataset {} names every open key of {name}",
+                            p.declarations[dataset].name
+                        ),
+                    )
+                })?;
             claims.push(Claim {
                 origin: *dataset,
                 domains,
@@ -1807,13 +2000,20 @@ fn verify(
         .ok_or_else(|| {
             invalid(
                 claim.origin,
-                format!("the completeness of {} exceeds {CLAIM_LIMIT} key tuples", table.name(p)),
+                format!(
+                    "the completeness of {} exceeds {CLAIM_LIMIT} key tuples",
+                    table.name(p)
+                ),
             )
         })?;
     if size == 0 {
         return Ok(());
     }
-    let members = claim.domains.iter().map(Domain::members).collect::<Vec<_>>();
+    let members = claim
+        .domains
+        .iter()
+        .map(Domain::members)
+        .collect::<Vec<_>>();
     let mut odometer = vec![0_usize; members.len()];
     loop {
         let keys = odometer
@@ -1954,7 +2154,11 @@ fn table_order(
             }
         }
         if let Some(declaration) = &p.declarations[id].value.table {
-            for column in declaration.columns.iter().filter_map(|c| c.derived.as_ref()) {
+            for column in declaration
+                .columns
+                .iter()
+                .filter_map(|c| c.derived.as_ref())
+            {
                 reads.extend(tables_read(p, *id, column));
             }
         }
@@ -1971,7 +2175,10 @@ fn table_order(
         names.sort();
         invalid(
             graph[cycle(&graph)[0]],
-            format!("tables {} derive their values from one another", names.join(", ")),
+            format!(
+                "tables {} derive their values from one another",
+                names.join(", ")
+            ),
         )
     })?;
     Ok(order.into_iter().map(|n| graph[n]).collect())
@@ -1992,7 +2199,10 @@ fn row_order(
         .collect::<BTreeMap<_, _>>();
     for (keys, row) in rows {
         for cell in &row.cells {
-            if let Pending::Row { table: target, keys: to } = cell
+            if let Pending::Row {
+                table: target,
+                keys: to,
+            } = cell
                 && *target == table.id
                 && let Some(from) = nodes.get(to)
             {
@@ -2008,7 +2218,10 @@ fn row_order(
         names.sort();
         invalid(
             rows[graph[cycle(&graph)[0]]].origin,
-            format!("rows reference one another in a cycle: {}", names.join(", ")),
+            format!(
+                "rows reference one another in a cycle: {}",
+                names.join(", ")
+            ),
         )
     })?;
     Ok(order.into_iter().map(|n| graph[n].clone()).collect())
@@ -2032,7 +2245,10 @@ fn derive(
         .iter()
         .map(|cell| match cell {
             Pending::Value(value) => Ok(value.clone()),
-            Pending::Row { table: target, keys } => {
+            Pending::Row {
+                table: target,
+                keys,
+            } => {
                 let source = if *target == table.id {
                     partial
                 } else {

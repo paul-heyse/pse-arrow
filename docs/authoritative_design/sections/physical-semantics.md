@@ -362,8 +362,10 @@ species or element as their result subject, and both finite reductions range ove
 Its `kinds` package keeps the mesh and structural kinds (time, length, port set, stage,
 cell, face, node and custom). Seed packages supply chemical entities, attributes,
 composition and coefficient tables. IDs distinguish members independently of
-names or formula strings. All 21 previously shipped element masses are retained in authored
-chemistry data. Molecular-weight and element-closure checks consume those actual rows.
+names or formula strings. The species catalog supplies CAS/InChIKey identifiers and
+formula composition; the separate CIAAW bank supplies all 21 element masses. Molecular
+weights derive from those admitted rows, while unformulated pseudo-components may omit
+them. Molecular-weight and element-closure checks consume the actual records.
 Package requirements express valid memberships and stoichiometric constraints. There is
 no separate `pse-material` authority or scientific foreign-key schema.
 
@@ -379,12 +381,19 @@ authored equation; every analysis still consumes the same checked definitions.
 
 ### 9.3 Property method data
 
-The `methods` bundle owns Shomate, polynomial, constant-property, Perry density and
-RPP4 vapor-pressure equations. The `seed-data` bundle owns their coefficients, physical
-scales, reference values and provenance. `CaloricReference` defaults subtract explicit
-enthalpy/entropy primitives evaluated at the reference temperature and add the supplied
-datum. Derivative fixtures check those primitives against heat capacity; this does not
-presume arbitrary symbolic antiderivatives.
+The `methods` bundle owns typed Shomate, DIPPR100/105, RPP4/Wagner, Antoine and
+constant-property forms. Source-attributed data distributions own coefficients and named
+caloric reference conditions; `seed-data` selects sets and property packages. Caloric
+increments evaluate the declared forms between the selected reference and state, with
+explicit enthalpy/entropy datum conditions. Derivative fixtures check those increments
+against heat capacity; this does not presume arbitrary symbolic antiderivatives.
+
+Published banks and oracle-input banks have distinct provenance and eligibility. Cubic
+families, their kappa forms and missing-pair policies are selected package records.
+The published Gross–Sadowski bank carries 20 CAS-keyed species with dimensioned PC-SAFT
+parameters. The generic kernel contains no species parameters or scientific constants.
+The authored SRK and NRTL examples demonstrate package extension; NRTL activity
+coefficients derive from the extensive excess-Gibbs potential.
 
 Published values, IDAES comparison inputs and derived interpolation examples remain
 separate. Authored fixture tolerances reflect their actual source and precision. The

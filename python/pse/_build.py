@@ -55,6 +55,7 @@ _NativeModelingDiagnostics = _native.NativeModelingDiagnostics
 _NativeModelingDiagnosticSamples = _native.NativeModelingDiagnosticSamples
 _NativeModelingTrajectory = _native.NativeModelingTrajectory
 _NativeModelingPackage = _native.NativeModelingPackage
+_NativeModelingKnowledge = _native.NativeModelingKnowledge
 _NativeModelingConformance = _native.NativeModelingConformance
 _NativeModelingResult = _native.NativeModelingResult
 _NativeModelingInitialization = _native.NativeModelingInitialization

@@ -118,9 +118,9 @@ impl ExpectedFailure {
                         && observed_variables == *variables
                         && sorted(lineage.members.clone()) == *members
                 }),
-                ExpectedLineage::Members(members) => {
-                    members.iter().all(|member| observed.sources.contains(member))
-                }
+                ExpectedLineage::Members(members) => members
+                    .iter()
+                    .all(|member| observed.sources.contains(member)),
             }
     }
 }
@@ -482,7 +482,10 @@ impl Engine<'_, '_> {
         let mut diagnostics = Vec::with_capacity(contract.diagnostics.len());
         for expected in &contract.diagnostics {
             if expected.rule.is_empty() || expected.members.is_empty() {
-                return Err(invalid(at, "an expected diagnostic names its rule and members"));
+                return Err(invalid(
+                    at,
+                    "an expected diagnostic names its rule and members",
+                ));
             }
             let mut members = Vec::with_capacity(expected.members.len());
             for path in &expected.members {

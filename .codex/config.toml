@@ -3,3 +3,21 @@
 # Personal model, approval and sandbox settings remain inherited.
 [agents]
 enabled = true
+
+# Mirrors `.mcp.json` (Claude Code): a read-only stdio lookup over the library-utilization catalog.
+# Codex starts stdio servers in the session's working directory, so the script path is relative
+# to the repository root.
+[mcp_servers.library-catalog]
+command = "uv"
+args = [
+  "run",
+  "--no-project",
+  "--with",
+  "fastmcp==4.0.5",
+  "python",
+  "scripts/library_catalog_mcp.py",
+]
+startup_timeout_sec = 120
+
+[mcp_servers.library-catalog.env]
+FASTMCP_CHECK_FOR_UPDATES = "off"

@@ -1,6 +1,6 @@
 ---
 title: Thermodynamic domain model and integrated kernel campaign
-status: in-progress
+status: done
 date: 2026-09-29
 adrs: [ADR-0123, ADR-0124, ADR-0125, ADR-0127]
 review_sources: [docs/design_review/reviews/design_review_idaes-capability-target_2026-09-26.md]
@@ -9,9 +9,10 @@ scenario_sources: [docs/design_review/reviews/design_review_idaes-capability-tar
 
 # Thermodynamic domain model and integrated kernel campaign
 
-**Status: authorized 2026-09-29; P0 in progress.** This plan owns the typed domain model,
-the Plan 21 K9 campaign (transferred here, re-scoped) and the open Plan 20 finding
-dispositions F01–F13.
+**Status: done, 2026-09-30.** The maintainer closed this plan after implementation
+of the typed thermodynamic domain model and the transferred Plan 21 K9 functional
+campaign. The [Outcome](#outcome-recorded-after-implementation) records the completed
+scope, production execution evidence and measurement limits.
 
 ## Context
 
@@ -236,42 +237,42 @@ and after.
 | CT-S05 Steady → dynamic | `ControlVolume0D` generates holdup and `d/dt` under `analysis.dynamic`; a missing mechanism is a kernel gap | `cstr_integrated`, `cstr_simultaneous` unchanged; `cstr_steady_dynamic_same_definition` | Fixture-authored rate links and `cell[i in t]` children | done (on main; campaign package `pse.campaign`). `ControlVolume0D` generates its holdup rates under `analysis.dynamic`, and one `reactors.CSTR` solves steady and dynamic (`cstr_steady_dynamic_same_definition`, `cstr_steady_same_definition`). Kernel gap: a derivative along a replicated coordinate reads its neighbour replicas (`replica_derivative_*`). Open decision: the flowsheet still replicates the unit over time (`child reactor[i in t]`); implicit lifting of lumped state over the analysis time domain would need a composition-semantics ADR |
 | CT-S06 PFR order | Study over 5/10/20/40 elements, backward FD and Radau-3 | `pfr_order_backward`, `pfr_order_radau`; IDAES `test_pfr` TestInitializers oracle | — | done (on main). Backward FD observed order 0.913/0.955 over 5/10/20/40 elements. Radau-3 observed order 4.57/4.87 over 1/2/4/8 elements; at 20 and 40 the differences fall below solver tolerance and are refused by the typed opaque-derivative-support limit. `pfr_initializers_oracle` checks the IDAES `test_pfr` values |
 | CT-S07 BT_PR formulation switch | `ComplementarityPR`, `NestedPRFlash`, `formulation` parameter; tangent-plane stability as `annotation check` | `bt_pr_flash_smooth`, `bt_pr_flash_complementarity`, `bt_pr_flash_nested` against IDAES `test_BT_PR` and `TestInitializersCubicModularBTX` | — | done (on main). Kernel gap: per-instance constraint-form realizations. `bt_pr_liquid_stability`: a real export defect is fixed, since SCIP rows are now exported in normalized coordinates (`64f3713f`). SCIP 10's convex nonlinear handler still falsely proves the model infeasible, reproduced outside our code. The fixture therefore asserts tpd = 0 and records a typed expected refusal with its reason (decision, register R-52; H10 adds the contradiction check). `--fixture` typed selection added (`76d563b8`) |
-| CT-S09 Hard start | `RecycleFlash` (Feed → Mixer → Heater → Flash → Separator, liquid recycle tear, no value starts) | `recycle_flash_converges_from_defaults` over sampled feeds; `recycle_flash_failure_restores_specification` | — | pending |
-| CT-S12 Costing | `HeatExchangerCost` reads the solved area of the BT co-current exchanger | `hx_costing_solved_area` (SSLW oracle, accounting closure) | Fixed 1000 m² fixture | pending |
-| CT-S13 Diagnostics | Over-specified flash; minimal `EquilibriumCascade(n)` near total reflux | `flash_overspecified` (structural refusal naming members); `cascade_near_singular_diagnostics_name_members` | — | pending |
+| CT-S09 Hard start | `RecycleFlash` (Feed → Mixer → Heater → Flash → Separator, liquid recycle tear, no value starts) | `recycle_flash_converges_from_defaults` over sampled feeds; `recycle_flash_failure_restores_specification` | — | done; Tested in the local whole-seed/native campaign (Outcome) |
+| CT-S12 Costing | `HeatExchangerCost` reads the solved area of the BT co-current exchanger | `hx_costing_solved_area` (SSLW oracle, accounting closure) | Fixed 1000 m² fixture | done; Tested in the local whole-seed/native campaign (Outcome) |
+| CT-S13 Diagnostics | Over-specified flash; minimal `EquilibriumCascade(n)` near total reflux | `flash_overspecified` (structural refusal naming members); `cascade_near_singular_diagnostics_name_members` | — | done; Tested in the local whole-seed/native campaign (Outcome) |
 
 ### Track D — domain schema and seed migration (sequential)
 
 | Packet | Responsibility / dependencies | Acceptance | Deletion | Status |
 |---|---|---|---|---|
 | D0 Domain schema; KR4–KR8 | The schema above without rows (the chemistry kinds already moved in SM0); refusal corpus `tests/fixtures/domain-refusals/` | `domain_schema_refusals_name_the_violated_constraint` (duplicate CAS, unknown formula element, selection subject mismatch, missing pair selection, oracle row in a production root, conflicting symmetric pair rows, coefficient-unit mismatch, reaction element closure, apparent electroneutrality, cation charge); `derived_molar_mass`, `two_group_unifac_admission` | — | done (on main; `authored.modeling_declarations` version 14). Chemical core in `pse.physical` chemistry: identifier schemes, charge, formula, derived molar mass, apparent species with electroneutrality, stoichiometry closure, phase type. `pse.domain`: `properties` (property, keyed parameter sets, caloric, vapor-pressure and liquid-density families with envelopes, `property_package`, `selection`, `component_role`, operation contracts `cp`, `enthalpy_increment`, `entropy_increment`, `psat` and `liquid_density`, ADR-0128); `interactions` (symmetric `pair`, `pair_selection`, groups); `constants` (`gas_constant: GasConstant`, CODATA 2018). Kernel gaps closed: kind-level derived attributes, kind-level `require`, attribute `unique`. The refusal corpus covers 10 cases with controls. Pure fixtures live in `pse.domain-fixtures` (a `domain` run) |
-| SM1 Chemistry; D0 | `chem` splits into the `data/species` catalogue (CAS, InChIKey, formula, charge) and `data/ciaaw` elements; component sets move to the packages that bind them | `formula_weights` as a derived-attribute check | `atoms`, `atomic_mass` free tables | not started. The identifiers are verified in PubChem and the NIST Chemistry WebBook (DOI 10.18434/T4D303), both agreeing, and the formulas match today's atom counts: benzene 71-43-2 UHOVQNZJYSORNB-UHFFFAOYSA-N; toluene 108-88-3 YXFVVABEGXRONW-UHFFFAOYSA-N; water 7732-18-5 XLYOFNOQVPJJNP-UHFFFAOYSA-N; nitrogen 7727-37-9 IJGRMHOSHXDMSA-UHFFFAOYSA-N; methane 74-82-8 VNWKTOKETHGBQD-UHFFFAOYSA-N; ethane 74-84-0 OTMSDBZUPAUEDD-UHFFFAOYSA-N; propane 74-98-6 ATUOYWHBWRKTHZ-UHFFFAOYSA-N; ethyl acetate 141-78-6 XEKOWRVHYACXOJ-UHFFFAOYSA-N; sodium hydroxide 1310-73-2 HEMHJVSKTPXQMS-UHFFFAOYSA-M; sodium acetate 127-09-3 VMHLLURERBWHNL-UHFFFAOYSA-M; ethanol 64-17-5 LFQSCWFLJHTTHZ-UHFFFAOYSA-N. Decisions: `molar_mass` stays optional, because pseudo-components have no formula (the `pr_oracle` a/b/c/asym and domain-fixtures `unformulated`), and a package that needs it states its own `require`. `data/species` depends on `data/ciaaw`. `aromatics` moves to `bt_ideal` and `alkanes` to `vessel_fixtures`. First step, a kernel gap: declared entities carry typed provenance, so the catalogue can cite the database behind its identifiers |
-| SM2 Provenance as data; SM1 | Source entities (NIST Chase 1998, Perry 7 tables 2-196/2-30, RPP4, Poling 2000, Gross–Sadowski 2001, CIAAW 2024, IDAES 2.13 and its tests, teqp 0.23.1, FeOS 0.10.1, derived SciPy references); every dataset and test typed; reference scripts emit oracle Parquet | H1 unchanged | Every `source`/`revision` string, data prose in `sources.md`, `crates/pse-kernels/data/*`, `tests/fixtures/plan14/thermo-reference.json` once unread | provenance part done with KR6, on main: `pse.domain` with provenance kinds and roles, 57 source entities, typed sources on every seed dataset and seed-data test. Remaining: oracle Parquet generation, and deleting `crates/pse-kernels/data/*` and `thermo-reference.json` (after KR9) |
-| SM3 Pure-component forms; SM2 | Forms `shomate`, `dippr100`, `dippr105`, `rpp4_cp`, `rpp4_wagner`, `antoine`, `constant`; increments `dh(T0,T)`, `ds(T0,T)`; rows to banks | Caloric (8) and phase-data (3) fixtures; indexed `∂dh/∂T == cp` over every caloric set | `fit` kind, `polynomial`/`scale`, species-keyed `shomate`, 13 name-encoded fits, unit helper functions, entropy-coordinate helpers, `PolynomialLiquid/Gas`, `liquid_density`/`vapor_pressure` tables | pending |
-| SM4 Constants, reference states, EoS parameters; SM3 | Domain constants (R typed with the existing gas-constant kind); `cubic_family pr` and `kappa`; critical points as `oracle_input` sets with lineage; symmetric kᵢⱼ with package `missing zero`; PC-SAFT `sigma: Length`, constants keyed 0..6; named oracle reference states | eos (6), pcsaft (5), pr-oracle (3), homogeneous (4) fixtures unchanged | `gas_constant_value()`, PR digits, `6.02214076e-7`, pcsaft `pi()`, p0..p6/`power`, 13 zero kᵢⱼ rows, registry `reference.constants`, `enthalpy_datum()`, `stock_reference_temperature()` | pending |
-| SM5 Property packages as selection; SM4 | `bt_ideal_idaes`, `bt_pr_idaes`, `saponification_idaes`, `vessel_light_hydrocarbons` with `selection` and roles; generic dispatching `component_enthalpy`, `psat`, `density`; phase slots; `component_role` | bt-ideal (16), bt-pr (2), unit (19), control (7), saponification (3) fixtures | Per-package property functions, binding tables, phase and solvent identity branches | pending |
-| SM6 Reactions; SM5 | Stoichiometry relation with element and charge closure at admission; Arrhenius parameter sets | Saponification fixtures | Closure `expect`s in chemistry; saponification `stoichiometry` table | pending |
+| SM1 Chemistry; D0 | `chem` splits into the `data/species` catalogue (CAS, InChIKey, formula, charge) and `data/ciaaw` elements; component sets move to the packages that bind them | `formula_weights` as a derived-attribute check | `atoms`, `atomic_mass` free tables | done; catalogue split implemented and formula-weight fixture passes. Species and CIAAW records preserve their original identities and carry published provenance; CAS and InChIKey are unique within the admitted closure. The identifiers are verified in PubChem and the NIST Chemistry WebBook (DOI 10.18434/T4D303), both agreeing, and the formulas match today's atom counts: benzene 71-43-2 UHOVQNZJYSORNB-UHFFFAOYSA-N; toluene 108-88-3 YXFVVABEGXRONW-UHFFFAOYSA-N; water 7732-18-5 XLYOFNOQVPJJNP-UHFFFAOYSA-N; nitrogen 7727-37-9 IJGRMHOSHXDMSA-UHFFFAOYSA-N; methane 74-82-8 VNWKTOKETHGBQD-UHFFFAOYSA-N; ethane 74-84-0 OTMSDBZUPAUEDD-UHFFFAOYSA-N; propane 74-98-6 ATUOYWHBWRKTHZ-UHFFFAOYSA-N; ethyl acetate 141-78-6 XEKOWRVHYACXOJ-UHFFFAOYSA-N; sodium hydroxide 1310-73-2 HEMHJVSKTPXQMS-UHFFFAOYSA-M; sodium acetate 127-09-3 VMHLLURERBWHNL-UHFFFAOYSA-M; ethanol 64-17-5 LFQSCWFLJHTTHZ-UHFFFAOYSA-N. Decisions: `molar_mass` stays optional, because pseudo-components have no formula (the `pr_oracle` a/b/c/asym and domain-fixtures `unformulated`), and a package that needs it states its own `require`. `data/species` depends on `data/ciaaw`. `aromatics` moves to `bt_ideal` and `alkanes` to `vessel_fixtures`. First step, a kernel gap: declared entities carry typed provenance, so the catalogue can cite the database behind its identifiers |
+| SM2 Provenance as data; SM1 | Source entities (NIST Chase 1998, Perry 7 tables 2-196/2-30, RPP4, Poling 2000, Gross–Sadowski 2001, CIAAW 2024, IDAES 2.13 and its tests, teqp 0.23.1, FeOS 0.10.1, derived SciPy references); every dataset and test typed; reference scripts emit oracle Parquet | H1 unchanged | Every `source`/`revision` string, data prose in `sources.md`, `crates/pse-kernels/data/*`, `tests/fixtures/plan14/thermo-reference.json` once unread | done; typed provenance and oracle Parquet banks implemented; obsolete kernel JSON and observation carriers deleted; whole seed passes |
+| SM3 Pure-component forms; SM2 | Forms `shomate`, `dippr100`, `dippr105`, `rpp4_cp`, `rpp4_wagner`, `antoine`, `constant`; increments `dh(T0,T)`, `ds(T0,T)`; rows to banks | Caloric (8) and phase-data (3) fixtures; indexed `∂dh/∂T == cp` over every caloric set | `fit` kind, `polynomial`/`scale`, species-keyed `shomate`, 13 name-encoded fits, unit helper functions, entropy-coordinate helpers, `PolynomialLiquid/Gas`, `liquid_density`/`vapor_pressure` tables | done; forms and bank rows implemented; replaced mechanisms deleted. The selected 30-fixture run passes all caloric, derivative, phase-data and envelope fixtures with their original tolerances |
+| SM4 Constants, reference states, EoS parameters; SM3 | Domain constants (R typed with the existing gas-constant kind); `cubic_family pr` and `kappa`; critical points as `oracle_input` sets with lineage; symmetric kᵢⱼ with package `missing zero`; PC-SAFT `sigma: Length`, constants keyed 0..6; named oracle reference states | eos (6), pcsaft (5), pr-oracle (3), homogeneous (4) fixtures unchanged | `gas_constant_value()`, PR digits, `6.02214076e-7`, pcsaft `pi()`, p0..p6/`power`, 13 zero kᵢⱼ rows, registry `reference.constants`, `enthalpy_datum()`, `stock_reference_temperature()` | done; Tested in the local whole-seed/native campaign (Outcome) |
+| SM5 Property packages as selection; SM4 | `bt_ideal_idaes`, `bt_pr_idaes`, `saponification_idaes`, `vessel_light_hydrocarbons` with `selection` and roles; generic dispatching `component_enthalpy`, `psat`, `density`; phase slots; `component_role` | bt-ideal (16), bt-pr (2), unit (19), control (7), saponification (3) fixtures | Per-package property functions, binding tables, phase and solvent identity branches | done; Tested in the local whole-seed/native campaign (Outcome) |
+| SM6 Reactions; SM5 | Stoichiometry relation with element and charge closure at admission; Arrhenius parameter sets | Saponification fixtures | Closure `expect`s in chemistry; saponification `stoichiometry` table | chemical-core stoichiometry and keyed Arrhenius forms implemented; all three targeted saponification fixtures pass |
 
 ### Track S — scenarios on the domain model
 
 | Packet | Responsibility | Acceptance | Status |
 |---|---|---|---|
-| CT-S01 Add a correlation | `rpp5_cp` and `antoine` (pressure unit and Celsius offset as typed attributes); water in `data/poling2000` | IDAES `test_RPP5` values (cp 33.518, h with and without formation, s 191.769, psat 3173.066); diff touches only `packages/` | pending |
-| CT-S02 Add a unit | `flash_bt_ideal` on the domain binding | Recorded evidence | pending |
-| CT-S03 Add an EoS | FeOS oracle bank (Parquet, `oracle_input`): p, h_res, s_res, cp_res, ln φ for the alkanes at five states | `pcsaft_properties_from_defaults_match_feos` | pending |
-| CT-S10 Envelope | Form (Perry cp), data/package (BTIdeal 300–450 K) and closure (nested flash) failures | Matched with H5 lineage | pending |
-| CT-S11 Local tests | Pure fixtures in H1 | No runtime or native startup | pending |
-| DM1–DM6 | Domain scenarios above; DM1 `data/gross-sadowski-2001`, DM2 IDAES oracle and Poling 2000 Appendix A benzene, DM5 NRTL from IDAES `test_ideal_NRTL.py`, DM6 vessel fit | As defined above | pending |
-| M1 Preparation scaling | H2 bench over DM1 and DM2 data | Measured; a typed refusal at 20 components is a truthful result | pending |
-| M2 Flash convergence | 200 Latin-hypercube BT_PR feeds (Parquet case set), smooth versus nested flash | Measured success rate, iterations, time | pending |
-| M3 Regime crossings | H4 counters over the M2 sample | Measured | pending |
+| CT-S01 Add a correlation | `rpp5_cp` and `antoine` (pressure unit and Celsius offset as typed attributes); water in `data/poling2000` | IDAES `test_RPP5` values (cp 33.518, h with and without formation, s 191.769, psat 3173.066); diff touches only `packages/` | done; targeted water fixture passes all nine expectations |
+| CT-S02 Add a unit | `flash_bt_ideal` on the domain binding | Recorded evidence | done; Tested in the local whole-seed/native campaign (Outcome) |
+| CT-S03 Add an EoS | FeOS oracle bank (Parquet, `oracle_input`): p, h_res, s_res, cp_res, ln φ for the alkanes at five states | `pcsaft_properties_from_defaults_match_feos` | done; Tested in the local whole-seed/native campaign (Outcome) |
+| CT-S10 Envelope | Form (Perry cp), data/package (BTIdeal 300–450 K) and closure (nested flash) failures | Matched with H5 lineage | done; Tested in the local whole-seed/native campaign (Outcome) |
+| CT-S11 Local tests | Pure fixtures in H1 | No runtime or native startup | done; Tested in the local whole-seed/native campaign (Outcome) |
+| DM1–DM6 | Domain scenarios above; DM1 `data/gross-sadowski-2001`, DM2 IDAES oracle and Poling 2000 Appendix A benzene, DM5 NRTL from IDAES `test_ideal_NRTL.py`, DM6 vessel fit | As defined above | done; Tested in the local whole-seed/native campaign (Outcome) |
+| M1 Preparation scaling | H2 bench over DM1 and DM2 data | Measured; a typed refusal at 20 components is a truthful result | implemented; preparation and admission correctness tested; timing campaign unrun at closure |
+| M2 Flash convergence | 200 Latin-hypercube BT_PR feeds (Parquet case set), smooth versus nested flash | Measured success rate, iterations, time | implemented; Measured smooth: 199/200 accepted; nested report incomplete at closure (Outcome) |
+| M3 Regime crossings | H4 counters over the M2 sample | Measured | implemented and counters tested; paired nested measurement incomplete at closure |
 
 ### W5 — coordinator
 
 | Packet | Responsibility | Acceptance | Status |
 |---|---|---|---|
-| AUD Knowledge-boundary audit | Reasoned review (`design-review`, `design-review-process-simulator`) of every `crates/` change in this plan: kernel gap with row and synthetic test, or violation; no scientific concept in Rust or the registry | Review recorded; no new lint or validator | pending |
-| Q Qualification and closure | Verification below; Outcome; architecture owners; retirement | Actual results against zero | pending |
+| AUD Knowledge-boundary audit | Reasoned review (`design-review`, `design-review-process-simulator`) of every `crates/` change in this plan: kernel gap with row and synthetic test, or violation; no scientific concept in Rust or the registry | Review recorded; no new lint or validator | done; scoped architectural assessment and production evidence recorded in the boundary audit |
+| Q Qualification and closure | Verification below; Outcome; architecture owners; retirement | Actual results against zero | done; maintainer closure with local production results and measurement limits in Outcome |
 
 ### Waves and coordination
 
@@ -296,48 +297,56 @@ Critical path: KR1 → KR9, then D0 → SM6.
 
 ## Finding dispositions
 
+The functional corrections below are resolved by the implemented mechanisms and local
+whole-seed/native acceptance results recorded in the Outcome. Historical review scope
+is unchanged. The SCIP liquid tangent-plane limitation remains owned by register R-52.
+
 Transferred from Plan 21 on 2026-09-29. K8 evidence alone closes none of them; each
 closes with the acceptance of the named scenarios.
 
 | Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |
 |---|---|---|---|---|
-| [F01](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f01) provider fuses model and algorithm | CT-S03 | scheduled | CT-S03 | — |
-| [F02](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f02) no demand derivation | CT-S01, CT-S02 | scheduled | CT-S01, CT-S02 | — |
-| [F03](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f03) method data never executes | CT-S01, CT-S02 | scheduled | SM3, CT-S01 | — |
-| [F04](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f04) scalar-only laws | CT-S02, CT-S12 | scheduled | CT-S02, CT-S12 | — |
-| [F05](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f05) no formulation primitives | CT-S07 | scheduled | CT-S07 | — |
-| [F06](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f06) composition cannot express the library | CT-S02, CT-S06 | scheduled | CT-S02, CT-S06 | — |
-| [F07](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f07) semantics in the runtime | CT-S08, CT-S11 | scheduled | H3, CT-S11 | — |
-| [F08](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f08) steady and dynamic authored apart | CT-S05 | scheduled | CT-S05 | — |
-| [F09](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f09) no continuous domains | CT-S06 | scheduled | CT-S06 | — |
-| [F10](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f10) no initialization knowledge | CT-S09 | scheduled | CT-S09 | — |
-| [F11](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f11) no derived nominals | CT-S08 | scheduled | H3 | — |
-| [F12](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f12) diagnostics incomplete | CT-S13 | scheduled | CT-S13 | — |
-| [F13](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f13) FeOS cannot own the scope | CT-S03 | scheduled | CT-S03, SM2 | — |
+| [F01](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f01) provider fuses model and algorithm | CT-S03 | resolved | CT-S03 | — |
+| [F02](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f02) no demand derivation | CT-S01, CT-S02 | resolved | CT-S01, CT-S02 | — |
+| [F03](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f03) method data never executes | CT-S01, CT-S02 | resolved | SM3, CT-S01 | — |
+| [F04](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f04) scalar-only laws | CT-S02, CT-S12 | resolved | CT-S02, CT-S12 | — |
+| [F05](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f05) no formulation primitives | CT-S07 | resolved | CT-S07 | — |
+| [F06](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f06) composition cannot express the library | CT-S02, CT-S06 | resolved | CT-S02, CT-S06 | — |
+| [F07](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f07) semantics in the runtime | CT-S08, CT-S11 | resolved | H3, CT-S11 | — |
+| [F08](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f08) steady and dynamic authored apart | CT-S05 | resolved | CT-S05 | — |
+| [F09](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f09) no continuous domains | CT-S06 | resolved | CT-S06 | — |
+| [F10](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f10) no initialization knowledge | CT-S09 | resolved | CT-S09 | — |
+| [F11](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f11) no derived nominals | CT-S08 | resolved | H3 | — |
+| [F12](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f12) diagnostics incomplete | CT-S13 | resolved | CT-S13 | — |
+| [F13](../design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#f13) FeOS cannot own the scope | CT-S03 | resolved | CT-S03, SM2 | — |
 
 The [typed-domain review](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md)
-findings are resolved in the text of ADR-0123 to ADR-0125 and ADR-0127 (review §13; §13.1 corrects F07). Each closes when
-its implementation evidence exists:
+findings are implemented under ADR-0123 to ADR-0125 and ADR-0127 (review §13;
+§13.1 corrects F07). The named tests below and the completed local native/default suites
+provide the implementation evidence:
 
 | Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |
 |---|---|---|---|---|
-| [Typed-domain F01](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f01) source revision preimage | DM1, S01 | scheduled | KR3, KR9 | revision-identity tests (ADR-0123 Outcome 8) |
-| [Typed-domain F02](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f02) chain leaf eligibility and result policy | CT-S01, DM3 | scheduled | KR2 | `seed_forms_type_without_intermediate_kinds`, `nonzero_datum_leaf_is_refused_with_its_factor` |
-| [Typed-domain F03](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f03) keyed identity | DM2 | scheduled | KR4 | `keyed_identity_is_the_key_declaring_kind_and_typed_keys`, `same_key_in_two_forms_is_refused` |
-| [Typed-domain F04](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f04) test-only taint granularity | DM4 | scheduled | KR6 | `production_root_reading_an_oracle_row_is_refused`, `shared_relation_with_oracle_rows_keeps_production_roots_admissible` |
-| [Typed-domain F05](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f05) admission order and self-reference | DM6 | scheduled | KR5 | `self_referential_lineage_admits_and_cycles_are_refused` |
-| [Typed-domain F06](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f06) pair and phase-model selection | DM2, DM5 | scheduled | D0 | missing pair selection refusal; DM2 pairs |
-| [Typed-domain F07](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f07) chemistry kinds' placement | — | scheduled | SM0, ADR-0127 | shaped types deleted; subject kinds stay in `pse.physical` (review §13.1) |
-| [Typed-domain F08](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f08) datum stated twice | CT-S10 | scheduled | D0, KR8 | parameter sets carry no reference attribute |
-| [Typed-domain F09](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f09) binary documents across text contracts | DM1 | scheduled | KR9 | `durable_job_round_trips_a_package_with_a_data_document`, `parquet_metadata_unit_disagreement_is_refused` |
-| [Typed-domain F10](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f10) admitted-table reuse owner | S01 | scheduled | KR9 | `unchanged_dataset_reuses_admitted_table` (incremental equals clean) |
-| [Typed-domain F11](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f11) extrapolation owner and increment guards | CT-S10 | scheduled | KR7 | `increment_guards_its_integration_interval`, `consumer_selects_extrapolation_per_layer` |
-| [Typed-domain F12](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f12) closed role taxonomy | DM4 | scheduled | KR6 | `new_role_is_a_package_only_edit` |
-| [Typed-domain F13](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f13) static `Ref` precondition | CT-S01 | scheduled | KR4 | `non_static_ref_is_refused` |
-| [Typed-domain F14](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f14) unit-product identity | — | scheduled | KR1 | `unit_product_is_order_independent`, `report_in_a_composite_unit_carries_its_identity` |
-| [Typed-domain F15](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f15) gas-constant kind | — | scheduled | SM4 | eos and homogeneous fixtures unchanged (H1) |
+| [Typed-domain F01](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f01) source revision preimage | DM1, S01 | resolved | KR3, KR9 | revision-identity tests (ADR-0123 Outcome 8) |
+| [Typed-domain F02](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f02) chain leaf eligibility and result policy | CT-S01, DM3 | resolved | KR2 | `seed_forms_type_without_intermediate_kinds`, `nonzero_datum_leaf_is_refused_with_its_factor` |
+| [Typed-domain F03](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f03) keyed identity | DM2 | resolved | KR4 | `keyed_identity_is_the_key_declaring_kind_and_typed_keys`, `same_key_in_two_forms_is_refused` |
+| [Typed-domain F04](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f04) test-only taint granularity | DM4 | resolved | KR6 | `production_root_reading_an_oracle_row_is_refused`, `shared_relation_with_oracle_rows_keeps_production_roots_admissible` |
+| [Typed-domain F05](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f05) admission order and self-reference | DM6 | resolved | KR5 | `self_referential_lineage_admits_and_cycles_are_refused` |
+| [Typed-domain F06](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f06) pair and phase-model selection | DM2, DM5 | resolved | D0 | missing pair selection refusal; DM2 pairs |
+| [Typed-domain F07](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f07) chemistry kinds' placement | — | resolved | SM0, ADR-0127 | shaped types deleted; subject kinds stay in `pse.physical` (review §13.1) |
+| [Typed-domain F08](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f08) datum stated twice | CT-S10 | resolved | D0, KR8 | parameter sets carry no reference attribute |
+| [Typed-domain F09](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f09) binary documents across text contracts | DM1 | resolved | KR9 | `durable_job_round_trips_a_package_with_a_data_document`, `parquet_metadata_unit_disagreement_is_refused` |
+| [Typed-domain F10](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f10) admitted-table reuse owner | S01 | resolved | KR9 | `unchanged_dataset_reuses_admitted_table` (incremental equals clean) |
+| [Typed-domain F11](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f11) extrapolation owner and increment guards | CT-S10 | resolved | KR7 | `increment_guards_its_integration_interval`, `consumer_selects_extrapolation_per_layer` |
+| [Typed-domain F12](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f12) closed role taxonomy | DM4 | resolved | KR6 | `new_role_is_a_package_only_edit` |
+| [Typed-domain F13](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f13) static `Ref` precondition | CT-S01 | resolved | KR4 | `non_static_ref_is_refused` |
+| [Typed-domain F14](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f14) unit-product identity | — | resolved | KR1 | `unit_product_is_order_independent`, `report_in_a_composite_unit_carries_its_identity` |
+| [Typed-domain F15](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md#f15) gas-constant kind | — | resolved | SM4 | eos and homogeneous fixtures unchanged (H1) |
 
 ## Verification
+
+**Tested:** completed local production checks, commands and conditions are recorded in
+the Outcome. The following describes the execution procedure used during the plan.
 
 Mid-plan, each packet runs only targeted checks:
 - `just unit-package <pkg> '<filter>'` for its own tests;
@@ -363,7 +372,13 @@ offline link checking, `just test`, `just native-test`, `just doctest`,
 `just seed-conformance` (every fixture in one run, pool recorded), `just bench-production`
 and `just case-measure` for M1–M3 and 10⁵-row admission, and the AUD review.
 
-## Open items
+Maintainer scope clarification (2026-09-30): Windows validation and CI validation
+are excluded from closure. Finish the relevant local Linux checks already running,
+the planned M1–M3 measurements and the closure assessment. The local Nextest
+`ci` profile is a test configuration, not a CI workflow run; no further CI workflow
+or configuration validation is required.
+
+## Execution constraints and supported limits
 
 - Selection rests on static `Ref`s: a call through a `Ref` specializes per resolved
   most-derived function on the existing function-specialization path, and a `Ref` that
@@ -374,11 +389,24 @@ and `just case-measure` for M1–M3 and 10⁵-row admission, and the AUD review.
 - M1 at 20 components may exceed memory; that is a Measured refusal, not a blocker.
 - Whole-seed pools (64–128 GiB) are recorded as run conditions.
 
-## Current checkpoint
+## Current execution
 
-**2026-09-30, handoff.** Read this whole section before resuming. The packet rows above
-record each packet's evidence. This section states repository state, what is functionally
-implemented, what is not, and exactly how to resume.
+**Done, 2026-09-30, at the maintainer's direction.** E0–E5 and the remaining
+functional scenarios are implemented. Local full default Rust, native Rust, native
+Python, whole-seed conformance and the expanded native acceptance tests pass.
+The Outcome owns final completion and production execution evidence.
+
+Production measurements are reported only to their actual scope. The smooth flash
+sample is complete; the nested sample has not produced a completed report. Preparation
+scaling and the separate 100,000-row admission timing campaign have no completed
+measurement receipt. Their implementations and targeted correctness checks exist;
+these measurement limits do not leave Plan 23 open or establish performance claims.
+
+## Historical checkpoint
+
+**2026-09-30, earlier handoff.** The following checkpoint preserves the state before
+completion. Its remaining-work lists and resumption instructions are superseded by the
+Outcome and completed packet dispositions above.
 
 ### Repository state at handoff
 
@@ -726,8 +754,84 @@ Architecture text owed:
 
 ## Outcome (recorded after implementation)
 
+**Done, 2026-09-30.** The maintainer closes Plan 23 with the functional scope complete.
+The production execution results below retain their actual conditions and limits.
+
 ### What was built
+
+**Implemented:** one typed package model for species, formula-derived molar mass,
+provenance, dimensioned correlation forms, reference conditions, parameter banks and
+property selection. Published PC-SAFT data, NRTL and package-only SRK extend the same
+admission and evaluation path. Obsolete kernel JSON data, empty constant records and the
+separate measurement/observation API are deleted. Modeling declarations are version 20;
+binary documents and admitted rows participate in source revision identity.
+
+**Implemented:** bounded Parquet admission, keyed/refined records, cross-document
+references, read-only admitted-knowledge inspection, measured-attribute fitting and
+explicit qualified fitted-set export/readmission with fit/run/source lineage. Analysis
+owns the shared physical clock and initialization. Native derivative checks consume the
+owned sampling policy through library differences; authored native options enter adapter
+validation. The enduring contracts are in blueprint §§5.3, 6.10, 6.15.1, 9.1, 9.3, 13.1,
+19.4, 21.5 and 22.1.
+
+**Tested, zero failures in each named run:**
+
+- `just seed-conformance`: 115/115 seed fixtures (4,046 checks) and 6/6 domain fixtures
+  (53 checks), complete package coverage; local Linux, 128 GiB engine pool, one native
+  thread, 600 seconds per solve and a 120G OS memory cap.
+- `just test --profile ci`: 1,991/1,991 tests; `just native-test --profile ci`:
+  2,306/2,306 tests. Both run locally with explicit Arrow force-validation and at most
+  16 test processes. Their selections exclude 23 and two tests respectively as declared
+  by the recipes; these are separate default and native modes. Logs are in
+  `build/plan23-q-bounded/`.
+- `just native-test acceptance:: --profile ci --test-threads=2`: 17/17 expanded native
+  acceptance tests, including vessel fitted-set export/readmission, authored fixture
+  policy, heater certification and qualified refusal behavior; local Linux, force-validation
+  and memory cap.
+- `just native-python build/plan23-q-bounded`: 173/173 assertions with the linked native
+  extension and memory cap. For this run only, the checkout cleanup plugin was disabled
+  because concurrent edits were attributed to tests; test selection and assertions remained
+  active.
+- `just publication-test --profile ci`: 9/9 publication tests. The final native suite
+  also passes publication after required nested-list storage was repaired.
+- The public 1,000-point value-only study passes its native Python acceptance: one
+  structural view, 999 rebuilt/shared preparations and distinct endpoint results.
+  The 100,000-row admission and budget-refusal/retry correctness units pass.
+
+**Measured:** `PSE_ACCEPTANCE_OUTPUT=build/plan23-production-measure just bench-production`
+completes successfully with the native cache and consolidation workloads; results retain
+Criterion conditions in `build/plan23-production-measure/`.
+
+**Measured:** the smooth half of the paired campaign,
+`just thermodynamic-measure flash build/plan23-flash-measure-complete`, retains all
+200 frozen Latin-hypercube feeds (seed 23, 350–400 K, 80–120 kPa, benzene fraction
+0.05–0.95). With default independent starts, a 48 GiB pool, one native thread,
+600 seconds per solve and 120G OS cap, 199/200 attempts are accepted and native-successful
+in 511.457 seconds. Feed 17 is retained as an infeasible outcome. Pool high-water is
+29,008,912,576 bytes; process RSS high-water is 8,388,173,824 bytes. No progress events
+were dropped. Results are in `build/plan23-flash-measure-complete/measurement_smooth.*`.
+The nested half has no completed report at closure, so no paired convergence or
+nested-regime performance conclusion is claimed. M1 preparation-scaling/admission timing
+has no completed receipt; an unrun 20-component workload is not a measured refusal.
 
 ### A mistake made and corrected
 
+The shared native test loader initially omitted binary package documents, and fit
+readmission used an obsolete physical inventory. Both now load the same supplied text
+and Parquet packages and the owned physical inventory. The expanded acceptance suite
+passes. A production publication defect also exposed masked null children in fixed-size
+lists: Arrow normalization now compacts masked containers before restoring required
+storage types. Sliced round-trip tests and the full native suite pass without weakening
+the declared schema.
+
 ### Deviations from the plan, deliberate
+
+`molar_mass` remains optional for pseudo-components; consumers that need it declare a
+requirement. Heater certification uses an explicit authored SCIP presolve option and
+accepts a qualified gap terminal status only with the original independent certificate
+checks. The BT_PR liquid tangent-plane SCIP contradiction remains a typed expected
+refusal with its reproducer and register R-52. Scientific tolerances are unchanged.
+
+Closure records the completed functional scope and available production measurements;
+uncompleted timing campaigns are not prerequisites to the maintainer's completion
+decision. This Outcome establishes no performance result for those uncompleted campaigns.

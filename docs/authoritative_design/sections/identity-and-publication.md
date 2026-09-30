@@ -188,9 +188,9 @@ JSON value whose key order depends on the build graph
 (`job_request_identity_independent_of_key_order`).
 
 **Modeling source identity.** A modeling source revision's identity
-(`pse-runtime::math::modeling::source_revision`, frame `pse.modeling.source-revision.v2`)
-frames the structured declaration rows in order, the identity of the physical inventory
-they are admitted against (`pse.math.physical-inventory.v5`,
+(`pse-runtime::math::modeling::source_revision`, frame `pse.modeling.source-revision.v4`)
+frames the structured declaration rows in order, each binary document identity and
+content hash, and the identity of the physical inventory they are admitted against (`pse.math.physical-inventory.v5`,
 [§8](physical-semantics.md#section-8)) and the physical name bindings admission resolved
 them with, each name with the identity it denotes. Binding a name to another type, admitting
 the same rows against another inventory, or changing a row is another revision; unchanged

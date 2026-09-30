@@ -54,3 +54,11 @@ parsed expressions and independently sourced values or thermodynamic identities.
 Caloric definitions bind temperature and reference temperature explicitly. Interface
 defaults subtract the primitive at the reference temperature and add the supplied
 enthalpy or entropy datum. Their physical contracts are checked before specialization.
+
+The NRTL extensive dimensionless excess potential is authored in `nrtl.pse`, following
+[Renon and Prausnitz (1968)](https://doi.org/10.1002/aic.690140124). Its activity
+coefficients and Gibbs-Duhem residuals are demanded derivatives of that one potential.
+A property package selects the directional interaction source through `pair_selection`.
+The present family consumes fixed dimensionless tau and alpha; temperature dependence
+requires an explicitly extended parameter contract. The binary closed form is an
+independent expression used for qualification, not a production alternative.

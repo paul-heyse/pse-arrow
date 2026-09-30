@@ -71,8 +71,11 @@
 @id("01a0f014fa44727ba187db675bb722f8") set binaries: Set<properties.property> = {binary};
 @id("01a0f014fa44727ba187db683f552e9a") set sources: Set<provenance.source> = {schema_fixture_data};
 @id("01a0f014fa44727ba187db6999c6f3ef") set pair_species: Set<chemistry.species> = {light_heavy, heavy_pair};
-@id("01a0f014fa44727ba187db6a938a3873") dataset binary_values: interactions.pair complete_over(s in sources, p in binaries, i in pair_species, j in pair_species) provenance(schema_fixture_data, provenance.Role.synthetic) { [schema_fixture_data, binary, light_heavy, heavy_pair] = [0.25]; }
+@id("01a0f014fa44727ba187db6a938a3873") dataset binary_values: interactions.pair provenance(schema_fixture_data, provenance.Role.synthetic) { [schema_fixture_data, binary, light_heavy, heavy_pair] = [0.25]; }
 @id("01a0f014fa44727ba187db6be0ccf048") dataset binary_sources: interactions.pair_selection complete_over(k in packages, p in binaries) provenance(schema_fixture_data, provenance.Role.synthetic) { [fixture_package, binary] = [schema_fixture_data]; }
+@id("0cbd076602bc47f8aaaef567d0833247") dataset pair_policies: interactions.absence_policy complete_over(k in packages,p in binaries) provenance(schema_fixture_data,provenance.Role.synthetic) {
+ [fixture_package,binary]=[interactions.PairAbsence.required];
+}
 @id("01a0f014fa44727ba187db6c12cf8da2") test property_operations_read_the_selected_form oracle schema_fixture_data fixture {dof 0; run pure;} {
 @id("01a0f014fa44727ba187db6deec53e04") expect properties.cp(fixture_package, chemistry.liquid, light_heavy, 300{K}) == 100{J/(mol*K)} tolerance 1e-12{J/(mol*K)};
 @id("01a0f014fa44727ba187db6e45631edd") expect properties.enthalpy_increment(fixture_package, chemistry.liquid, light_heavy, 298.15{K}, 300{K}) == 185{J/mol} tolerance 1e-9{J/mol};

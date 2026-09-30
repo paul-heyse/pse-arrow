@@ -368,7 +368,10 @@ impl Lower<'_, '_> {
         }
         self.validating.push(name.into());
         // The closure layer's range names the member it bounds (Plan 23 H5).
-        self.hash.str("validity").id(&range.source).id(&range.target);
+        self.hash
+            .str("validity")
+            .id(&range.source)
+            .id(&range.target);
         let lower =
             self.expression_expected(&range.lower, builder, depth + 1, Some(value.quantity()))?;
         let upper =
@@ -444,10 +447,16 @@ impl Lower<'_, '_> {
                 power: self.expression_expected(rhs, builder, depth + 1, None)?,
                 source,
             },
-            (BinaryOp::Div, _) => {
-                ChainTree::Div(left, Box::new(self.chain_node(rhs, builder, depth + 1)?), source)
-            }
-            _ => ChainTree::Mul(left, Box::new(self.chain_node(rhs, builder, depth + 1)?), source),
+            (BinaryOp::Div, _) => ChainTree::Div(
+                left,
+                Box::new(self.chain_node(rhs, builder, depth + 1)?),
+                source,
+            ),
+            _ => ChainTree::Mul(
+                left,
+                Box::new(self.chain_node(rhs, builder, depth + 1)?),
+                source,
+            ),
         })
     }
     fn expression(
@@ -931,9 +940,9 @@ impl Lower<'_, '_> {
             for i in partial {
                 self.hash.u64(i as u64);
             }
-            let value = assumptions
-                .iter()
-                .fold(value, |value, assumption| builder.with_assumption(value, assumption));
+            let value = assumptions.iter().fold(value, |value, assumption| {
+                builder.with_assumption(value, assumption)
+            });
             return builder.bind(value);
         }
         let scope = builder.function_scope();
@@ -1019,9 +1028,9 @@ impl Lower<'_, '_> {
                 .collect::<Result<Vec<_>, MathError>>()?;
             value = builder.partial(scope, value, &variables, source)?;
         }
-        let value = assumptions
-            .iter()
-            .fold(value, |value, assumption| builder.with_assumption(value, assumption));
+        let value = assumptions.iter().fold(value, |value, assumption| {
+            builder.with_assumption(value, assumption)
+        });
         builder.bind(value)
     }
     fn group(
@@ -1509,7 +1518,9 @@ mod tests {
         let quantity = |hex| QuantityTypeId::from_id(SemanticId::parse_hex(hex).unwrap());
         let temperature = quantity("c64b96975a4a59755f8711d3bf628bc9");
         let coefficient = Scheme::Quotient(
-            Box::new(Scheme::Concrete(quantity("cd653ba98fa94d16b5d66b363f21c3d6"))),
+            Box::new(Scheme::Concrete(quantity(
+                "cd653ba98fa94d16b5d66b363f21c3d6",
+            ))),
             Box::new(Scheme::Power(
                 Box::new(Scheme::Concrete(temperature)),
                 Ratio::new(2, 1).unwrap(),
@@ -1566,11 +1577,16 @@ mod tests {
         )
         .resolve_with_evidence(&registry, &Substitution::new(), &StandardInvariantChecker)
         .unwrap();
-        let formals = [("T0", temperature), ("T", temperature), ("c1", cp), ("c2", per_temperature)]
-            .map(|(path, quantity)| Formal {
-                path: path.into(),
-                quantity,
-            });
+        let formals = [
+            ("T0", temperature),
+            ("T", temperature),
+            ("c1", cp),
+            ("c2", per_temperature),
+        ]
+        .map(|(path, quantity)| Formal {
+            path: path.into(),
+            quantity,
+        });
         let body = compile(
             "c1*log(T/T0) + c2*T*r where r = (T - T0)/T",
             &formals,
@@ -1591,8 +1607,16 @@ mod tests {
             )
             .unwrap();
         // 10·ln(4/3) + 0.5·100, and ∂/∂T = c1/T + c2.
-        assert!((jet.values[0] - 52.876_820_724_517_81).abs() < 1e-9, "{}", jet.values[0]);
-        assert!((jet.jacobian[1] - 0.525).abs() < 1e-12, "{}", jet.jacobian[1]);
+        assert!(
+            (jet.values[0] - 52.876_820_724_517_81).abs() < 1e-9,
+            "{}",
+            jet.values[0]
+        );
+        assert!(
+            (jet.jacobian[1] - 0.525).abs() < 1e-12,
+            "{}",
+            jet.jacobian[1]
+        );
         // A heat-capacity increment is not an entropy difference.
         let heat = compile("c2*(T - T0)", &formals, DerivativeOrder::First).unwrap();
         assert_eq!(heat.prepared.quantities, [cp]);

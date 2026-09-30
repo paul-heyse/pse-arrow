@@ -32,9 +32,9 @@ fn sources() -> BTreeMap<String, String> {
     BTreeMap::from([
         ("package.toml".to_owned(), header()),
         (
-            "materials/constants.yaml".to_owned(),
+            "materials/quantity-kinds.yaml".to_owned(),
             include_str!(
-                "../../../tests/fixtures/packages/minimal_explicit/materials/constants.yaml"
+                "../../../tests/fixtures/packages/minimal_explicit/materials/quantity-kinds.yaml"
             )
             .to_owned(),
         ),
@@ -218,7 +218,7 @@ fn cancellation_after_reservation_releases_every_phase() {
 fn parser_aliases_are_preserved_and_their_expanded_rows_are_validated() {
     let registry = pse_engine::validation::registry().unwrap();
     let mut texts = sources();
-    let constants = texts.get_mut("materials/constants.yaml").unwrap();
+    let constants = texts.get_mut("materials/quantity-kinds.yaml").unwrap();
     *constants = constants
         .replace("name: probe", "name: &name probe")
         .replace("doc: Synthetic parser fixture.", "doc: *name");
@@ -343,12 +343,12 @@ fn a_clone_iterator_cannot_understate_actual_source_allocation() {
 #[test]
 fn long_qualified_names_reserve_expansion_before_identity_hydration() {
     let registry = pse_engine::validation::registry().unwrap();
-    let mut constants = String::from("constants:\n");
+    let mut constants = String::from("quantity_kinds:\n");
     for ordinal in 0..24 {
         assert!(
             write!(
                 constants,
-                "  - name: C{ordinal}{}\n    value: 1.0\n    unit_id: '00000000000000000000000000000011'\n    quantity_kind_id: '00000000000000000000000000000021'\n    doc: ''\n",
+                "  - name: C{ordinal}{}\n    dimension: [{{num: 0, den: 1}}, {{num: 0, den: 1}}, {{num: 0, den: 1}}, {{num: 0, den: 1}}, {{num: 0, den: 1}}, {{num: 0, den: 1}}, {{num: 0, den: 1}}, {{num: 0, den: 1}}]\n    category: count\n    extensive: false\n    addition_kind: additive\n    doc: ''\n",
                 "x".repeat(2048)
             )
             .is_ok()
@@ -359,7 +359,7 @@ fn long_qualified_names_reserve_expansion_before_identity_hydration() {
             "package.toml".to_owned(),
             header().replace("id_policy = \"explicit\"", "id_policy = \"named\""),
         ),
-        ("materials/constants.yaml".to_owned(), constants),
+        ("materials/quantity-kinds.yaml".to_owned(), constants),
     ]);
     let small: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(4 * 1024 * 1024));
     let error = load_package_documents_owned(

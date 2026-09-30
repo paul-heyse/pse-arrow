@@ -22,8 +22,7 @@ concrete question being assessed.
 - **Location:** `docs/design_review/reviews/design_review_{slug}_{YYYY-MM-DD}.md`; supporting
   evidence files under `docs/design_review/evidence/`.
 - **Skills:** `design-review` (core method) with `design-review-process-simulator` (profile
-  lenses). The `design-reviewer` agent applies both with this binding; the
-  `library-leverage-reviewer` agent can assist with slot 8.
+  lenses). The `design-reviewer` agent applies both with this binding.
 - **Default purpose:** design reviews default to **target** purpose (template, *Tier and purpose*): the
   aim is the best-in-class simulator design, and blueprint, ADR, plan or policy text that blocks
   it is recorded in slot 11 as a required change with its route. Change reviews within an

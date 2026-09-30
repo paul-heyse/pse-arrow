@@ -6,4 +6,23 @@
 @id("01a0f00c1fbc7251b799a7b807ecdc01") entity provenance.publication codata_2018 { title = "CODATA recommended values of the fundamental physical constants: 2018", year = 2021, doi = Id<provenance.doi>("10.1103/RevModPhys.93.025010") }
 // The molar gas constant, exact since the 2019 SI redefinition: R = N_A k.
 @id("01a0f00c1fbc7251b799a7b988b5cf2e") constant gas_constant: GasConstant = 8.31446261815324{J/(mol*K)} provenance(codata_2018, provenance.Role.published);
+@id("01a0f14ead437587972abbf17b59c0ed") entity provenance.source reference_conventions { title="Authored ideal-gas reference convention: enthalpy and entropy zero at 298.15 K and 100000 Pa; no formation or third-law claim" }
+@id("01a0f14ead437587972abbf2bef380fe") constant temperature_scale:TemperatureScale=1{K} provenance(codata_2018,provenance.Role.published);
+@id("01a0f14ead437587972abbf3f6f570fd") constant absolute_zero:Temperature=0{K} provenance(codata_2018,provenance.Role.published);
+@id("01a0f14ead437587972abbf48a66c0ee") constant heat_capacity_unit:MolarCp=1{J/(mol*K)} provenance(codata_2018,provenance.Role.published);
+@id("01a0f14ead437587972abbf509ada6d8") constant enthalpy_increment_unit:DeltaH=1{J/mol} provenance(codata_2018,provenance.Role.published);
+@id("01a0f14ead437587972abbf6ac0e59c7") constant entropy_increment_unit:DeltaS=1{J/(mol*K)} provenance(codata_2018,provenance.Role.published);
+@id("01a0f14ead437587972abbf7ada76f32") constant pressure_unit:Pressure=1{Pa} provenance(codata_2018,provenance.Role.published);
+@id("01a0f14ead437587972abbf88019f36e") constant density_unit:Density=1{mol/m^3} provenance(codata_2018,provenance.Role.published);
+@id("01a0f14ead437587972abbf95b86334e") constant amount_unit:Amount=1{mol} provenance(codata_2018,provenance.Role.published);
+@id("01a0f14ead437587972abbfa7b60b67d") constant gas_constant_unit:GasConstant=1{J/(mol*K)} provenance(codata_2018,provenance.Role.published);
+@id("01a0f14ead437587972abbfb903ced9b") constant segment_length:Length=1e-10{m} provenance(codata_2018,provenance.Role.published);
+@id("01a0f14ead437587972abbfc265a5411") constant avogadro:ReciprocalAmount=6.02214076e23{1/mol} provenance(codata_2018,provenance.Role.published);
+@id("01a0f14ead437587972abbfd3977c196") constant pi:Scalar=3.1415926535897932384626433832795 provenance(codata_2018,provenance.Role.published);
+@id("01a0f14ead437587972abbfed270e11d") constant standard_temperature:Temperature=stock.temperature provenance(reference_conventions,provenance.Role.published);
+@id("01a0f14ead437587972abbff2b0ba39b") constant standard_pressure:Pressure=stock.pressure provenance(reference_conventions,provenance.Role.published);
+@id("01a0f14ead437587972abc00118e8162") constant standard_enthalpy_datum:MolarEnthalpy=0{J/mol} provenance(reference_conventions,provenance.Role.published);
+@id("01a0f14ead437587972abc01ea5e1f77") constant standard_entropy_datum:MolarEntropy=0{J/(mol*K)} provenance(reference_conventions,provenance.Role.published);
+@id("c9b608c2e1d246f29d0e717af6a426ee") constant length_unit:Length=1{m} provenance(codata_2018,provenance.Role.published);
+@id("9691dc27a334464c9bac595c8612a13d") constant reciprocal_amount_unit:ReciprocalAmount=1{1/mol} provenance(codata_2018,provenance.Role.published);
 }

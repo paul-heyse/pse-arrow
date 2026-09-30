@@ -529,9 +529,10 @@ def test_several_regions_of_one_kind_are_a_union(env: Env) -> None:
 def test_a_region_that_needs_more_than_the_arguments_know_leaves_its_points_undetermined(
     env: Env,
 ) -> None:
-    """sp-b's region has a pressure clause and sp-c's a clause about a component: the pressure
-    is no argument of the saturation contract, and a component cannot be decided from the
-    arguments, so neither region says inside or outside for any point."""
+    """sp-b's region has a temperature clause (300 to 519 K) and a pressure clause, and sp-c's only a
+    clause about a component: the pressure is no argument of the saturation contract, and a component
+    cannot be decided from the arguments. So 260 K, which fails sp-b's temperature clause, is
+    outside, and every other point is undetermined."""
     done = env.run(
         case_text(
             key="sat_regions",
@@ -544,8 +545,8 @@ def test_a_region_that_needs_more_than_the_arguments_know_leaves_its_points_unde
     assert validity_columns(env) == {
         "validity_kind": "fitted_range",
         "inside_points": 0,
-        "outside_points": 0,
-        "undetermined_points": 4,
+        "outside_points": 1,
+        "undetermined_points": 3,
     }
 
 

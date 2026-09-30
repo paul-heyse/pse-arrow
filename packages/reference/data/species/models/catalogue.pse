@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0e1461e93764398a669e379a0c459") package chem {
+@id("01a0f12be01772878d8a9c21c6a93366") use provenance @"1.0.0";
+@id("01a0f12be01772878d8a9c228bf8d930") use chemistry @"1.0.0";
+@id("01a0f12be01772878d8a9c238cc5fd1e") use ciaaw @"1.0.0";
+@id("01a0f12be01772878d8a9c24d2b3b0f3") entity provenance.source pubchem_webbook { title = "PubChem and NIST Chemistry WebBook verified seed identifiers" }
+@id("01a0ef5f693f74888be59669b7363db0") entity provenance.source molecular_formulas { title = "Molecular formulas of the seed species as neutral formula units, not dissociated aqueous ions" }
+@id("01a0e1461e93764398a669ea78d82d27") entity chemistry.species benzene provenance(pubchem_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("71-43-2"), inchikey = Id<chemistry.inchikey>("UHOVQNZJYSORNB-UHFFFAOYSA-N") }
+@id("01a0e1461e93764398a669eb046f4eaf") entity chemistry.species toluene provenance(pubchem_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("108-88-3"), inchikey = Id<chemistry.inchikey>("YXFVVABEGXRONW-UHFFFAOYSA-N") }
+@id("01a0e1461e93764398a669ec398dd8a0") entity chemistry.species water provenance(pubchem_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("7732-18-5"), inchikey = Id<chemistry.inchikey>("XLYOFNOQVPJJNP-UHFFFAOYSA-N") }
+@id("01a0e1461e93764398a669eda0966d99") entity chemistry.species nitrogen provenance(pubchem_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("7727-37-9"), inchikey = Id<chemistry.inchikey>("IJGRMHOSHXDMSA-UHFFFAOYSA-N") }
+@id("01a0e1461e93764398a669ee491806c6") entity chemistry.species methane provenance(pubchem_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("74-82-8"), inchikey = Id<chemistry.inchikey>("VNWKTOKETHGBQD-UHFFFAOYSA-N") }
+@id("01a0e1461e93764398a669ef76e30f69") entity chemistry.species ethane provenance(pubchem_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("74-84-0"), inchikey = Id<chemistry.inchikey>("OTMSDBZUPAUEDD-UHFFFAOYSA-N") }
+@id("01a0e1461e93764398a669f099714f13") entity chemistry.species propane provenance(pubchem_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("74-98-6"), inchikey = Id<chemistry.inchikey>("ATUOYWHBWRKTHZ-UHFFFAOYSA-N") }
+@id("01a0e1461e93764398a669f1c287283e") entity chemistry.species ethyl_acetate provenance(pubchem_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("141-78-6"), inchikey = Id<chemistry.inchikey>("XEKOWRVHYACXOJ-UHFFFAOYSA-N") }
+@id("01a0e1461e93764398a669f2264addb2") entity chemistry.species sodium_hydroxide provenance(pubchem_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("1310-73-2"), inchikey = Id<chemistry.inchikey>("HEMHJVSKTPXQMS-UHFFFAOYSA-M") }
+@id("01a0e1461e93764398a669f3f073acf1") entity chemistry.species sodium_acetate provenance(pubchem_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("127-09-3"), inchikey = Id<chemistry.inchikey>("VMHLLURERBWHNL-UHFFFAOYSA-M") }
+@id("01a0e1461e93764398a669f485d31290") entity chemistry.species ethanol provenance(pubchem_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("64-17-5"), inchikey = Id<chemistry.inchikey>("LFQSCWFLJHTTHZ-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351ea3ea3e7a83") entity provenance.publication nist_webbook { title = "NIST Chemistry WebBook, SRD 69, verified normal-alkane identifiers", year = 2026, doi = Id<provenance.doi>("10.18434/T4D303") }
+@id("01a0f1868dd277ab8e351ea491d7f99b") entity chemistry.species butane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("106-97-8"), inchikey = Id<chemistry.inchikey>("IJDNQMDRQITEOD-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351ea5d7bd6dfe") entity chemistry.species pentane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("109-66-0"), inchikey = Id<chemistry.inchikey>("OFBQJSOFQDEBGM-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351ea6ded57053") entity chemistry.species hexane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("110-54-3"), inchikey = Id<chemistry.inchikey>("VLKZOEOYAKHREP-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351ea7156bd72a") entity chemistry.species heptane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("142-82-5"), inchikey = Id<chemistry.inchikey>("IMNFDUFMRHMDMM-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351ea84e550824") entity chemistry.species octane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("111-65-9"), inchikey = Id<chemistry.inchikey>("TVMXDCGIABBOFY-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351ea9e513c21d") entity chemistry.species nonane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("111-84-2"), inchikey = Id<chemistry.inchikey>("BKIMMITUMNQMOS-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351eaa8a145179") entity chemistry.species decane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("124-18-5"), inchikey = Id<chemistry.inchikey>("DIOQZVSQGTUSAI-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351eab6a016f3a") entity chemistry.species undecane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("1120-21-4"), inchikey = Id<chemistry.inchikey>("RSJKGSCJYJTIGS-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351eac52b9a2a0") entity chemistry.species dodecane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("112-40-3"), inchikey = Id<chemistry.inchikey>("SNRUBQQJIBEYMU-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351ead77bfd16f") entity chemistry.species tridecane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("629-50-5"), inchikey = Id<chemistry.inchikey>("IIYFAKIEWZDVMP-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351eaebefc1ad3") entity chemistry.species tetradecane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("629-59-4"), inchikey = Id<chemistry.inchikey>("BGHCVCJVXZWKCC-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351eafde54cf58") entity chemistry.species pentadecane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("629-62-9"), inchikey = Id<chemistry.inchikey>("YCOZIPAWZNQLMR-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351eb0d262d55e") entity chemistry.species hexadecane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("544-76-3"), inchikey = Id<chemistry.inchikey>("DCAYPVUWAIABOU-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351eb1659954b5") entity chemistry.species heptadecane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("629-78-7"), inchikey = Id<chemistry.inchikey>("NDJKXXJCMXVBJW-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351eb289c4d023") entity chemistry.species octadecane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("593-45-3"), inchikey = Id<chemistry.inchikey>("RZJRJXONCZWCBN-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351eb36578f9d8") entity chemistry.species nonadecane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("629-92-5"), inchikey = Id<chemistry.inchikey>("LQERIDTXQFOHKA-UHFFFAOYSA-N") }
+@id("01a0f1868dd277ab8e351eb442c14794") entity chemistry.species eicosane provenance(nist_webbook, provenance.Role.published) { cas = Id<chemistry.cas>("112-95-8"), inchikey = Id<chemistry.inchikey>("CBFCDTFDPHXCNY-UHFFFAOYSA-N") }
+@id("01a0e1461e94708a831388181e66cbca") dataset elemental_composition:chemistry.formula provenance(molecular_formulas, provenance.Role.published) {
+[benzene,ciaaw.C]=[6{1}];
+[benzene,ciaaw.H]=[6{1}];
+[toluene,ciaaw.C]=[7{1}];
+[toluene,ciaaw.H]=[8{1}];
+[water,ciaaw.H]=[2{1}];
+[water,ciaaw.O]=[1{1}];
+[nitrogen,ciaaw.N]=[2{1}];
+[methane,ciaaw.C]=[1{1}];
+[methane,ciaaw.H]=[4{1}];
+[ethane,ciaaw.C]=[2{1}];
+[ethane,ciaaw.H]=[6{1}];
+[propane,ciaaw.C]=[3{1}];
+[propane,ciaaw.H]=[8{1}];
+[ethyl_acetate,ciaaw.C]=[4{1}];
+[ethyl_acetate,ciaaw.H]=[8{1}];
+[ethyl_acetate,ciaaw.O]=[2{1}];
+[sodium_hydroxide,ciaaw.Na]=[1{1}];
+[sodium_hydroxide,ciaaw.O]=[1{1}];
+[sodium_hydroxide,ciaaw.H]=[1{1}];
+[sodium_acetate,ciaaw.Na]=[1{1}];
+[sodium_acetate,ciaaw.C]=[2{1}];
+[sodium_acetate,ciaaw.H]=[3{1}];
+[sodium_acetate,ciaaw.O]=[2{1}];
+[ethanol,ciaaw.C]=[2{1}];
+[ethanol,ciaaw.H]=[6{1}];
+[ethanol,ciaaw.O]=[1{1}];
+[butane,ciaaw.C]=[4{1}];
+[butane,ciaaw.H]=[10{1}];
+[pentane,ciaaw.C]=[5{1}];
+[pentane,ciaaw.H]=[12{1}];
+[hexane,ciaaw.C]=[6{1}];
+[hexane,ciaaw.H]=[14{1}];
+[heptane,ciaaw.C]=[7{1}];
+[heptane,ciaaw.H]=[16{1}];
+[octane,ciaaw.C]=[8{1}];
+[octane,ciaaw.H]=[18{1}];
+[nonane,ciaaw.C]=[9{1}];
+[nonane,ciaaw.H]=[20{1}];
+[decane,ciaaw.C]=[10{1}];
+[decane,ciaaw.H]=[22{1}];
+[undecane,ciaaw.C]=[11{1}];
+[undecane,ciaaw.H]=[24{1}];
+[dodecane,ciaaw.C]=[12{1}];
+[dodecane,ciaaw.H]=[26{1}];
+[tridecane,ciaaw.C]=[13{1}];
+[tridecane,ciaaw.H]=[28{1}];
+[tetradecane,ciaaw.C]=[14{1}];
+[tetradecane,ciaaw.H]=[30{1}];
+[pentadecane,ciaaw.C]=[15{1}];
+[pentadecane,ciaaw.H]=[32{1}];
+[hexadecane,ciaaw.C]=[16{1}];
+[hexadecane,ciaaw.H]=[34{1}];
+[heptadecane,ciaaw.C]=[17{1}];
+[heptadecane,ciaaw.H]=[36{1}];
+[octadecane,ciaaw.C]=[18{1}];
+[octadecane,ciaaw.H]=[38{1}];
+[nonadecane,ciaaw.C]=[19{1}];
+[nonadecane,ciaaw.H]=[40{1}];
+[eicosane,ciaaw.C]=[20{1}];
+[eicosane,ciaaw.H]=[42{1}];
+}
+@id("01a0e1461e94708a83138819c156f1bc") test formula_weights oracle ciaaw.ciaaw_2024 fixture {dof 0; run pure;} {
+@id("01a0e1461e94708a8313881a6114d017") expect if present(benzene.molar_mass) then benzene.molar_mass else 0{kg/mol}==0.078114{kg/mol} tolerance 1e-12{kg/mol};
+@id("01a0e1461e94708a8313881b23d74d45") expect if present(toluene.molar_mass) then toluene.molar_mass else 0{kg/mol}==0.092141{kg/mol} tolerance 1e-12{kg/mol};
+@id("01a0e1461e94708a8313881cd92832a5") expect if present(methane.molar_mass) then methane.molar_mass else 0{kg/mol}==0.016043{kg/mol} tolerance 1e-12{kg/mol};
+@id("01a0e1461e94708a8313881d8b906241") expect chemistry.formula[ethyl_acetate,ciaaw.H]+chemistry.formula[sodium_hydroxide,ciaaw.H]==chemistry.formula[sodium_acetate,ciaaw.H]+chemistry.formula[ethanol,ciaaw.H] tolerance 1e-12{1};
+@id("01a0e1461e94708a8313881ec53658ec") expect chemistry.formula[ethyl_acetate,ciaaw.C]+chemistry.formula[sodium_hydroxide,ciaaw.C]==chemistry.formula[sodium_acetate,ciaaw.C]+chemistry.formula[ethanol,ciaaw.C] tolerance 1e-12{1};
+@id("01a0e1461e94708a8313881fa9068f91") expect chemistry.formula[ethyl_acetate,ciaaw.N]+chemistry.formula[sodium_hydroxide,ciaaw.N]==chemistry.formula[sodium_acetate,ciaaw.N]+chemistry.formula[ethanol,ciaaw.N] tolerance 1e-12{1};
+@id("01a0e1461e94708a83138820bdddc67c") expect chemistry.formula[ethyl_acetate,ciaaw.O]+chemistry.formula[sodium_hydroxide,ciaaw.O]==chemistry.formula[sodium_acetate,ciaaw.O]+chemistry.formula[ethanol,ciaaw.O] tolerance 1e-12{1};
+@id("01a0e1461e94708a8313882132c245dc") expect chemistry.formula[ethyl_acetate,ciaaw.Na]+chemistry.formula[sodium_hydroxide,ciaaw.Na]==chemistry.formula[sodium_acetate,ciaaw.Na]+chemistry.formula[ethanol,ciaaw.Na] tolerance 1e-12{1};
+}
+}

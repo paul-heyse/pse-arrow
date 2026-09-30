@@ -1309,7 +1309,8 @@ CREATE TABLE "tk"."assembly_choice" (
     "slot" uuid NOT NULL,
     "form" uuid NOT NULL,
     CONSTRAINT "assembly_choice__pk" PRIMARY KEY ("id"),
-    CONSTRAINT "assembly_choice__identity" UNIQUE ("assembly", "path", "ordinal")
+    CONSTRAINT "assembly_choice__identity" UNIQUE ("assembly", "path", "ordinal"),
+    CONSTRAINT "assembly_choice__ck__ordinal_from_one" CHECK ("ordinal" > 0)
 );
 COMMENT ON TABLE "tk"."assembly_choice" IS 'The form an assembly puts in one sub-form slot. A slot with multiplicity many has several choices, ordered.';
 COMMENT ON COLUMN "tk"."assembly_choice"."id" IS 'Deterministic identifier of the assembly_choice instance.';
@@ -1442,7 +1443,8 @@ CREATE TABLE "ev"."data_point" (
     "index" bigint NOT NULL,
     "branch" "meta"."branch" NOT NULL DEFAULT 'not_applicable',
     CONSTRAINT "data_point__pk" PRIMARY KEY ("id"),
-    CONSTRAINT "data_point__identity" UNIQUE ("dataset", "index")
+    CONSTRAINT "data_point__identity" UNIQUE ("dataset", "index"),
+    CONSTRAINT "data_point__ck__index_from_one" CHECK ("index" > 0)
 );
 COMMENT ON TABLE "ev"."data_point" IS 'One row of a dataset.';
 COMMENT ON COLUMN "ev"."data_point"."id" IS 'Deterministic identifier of the data_point instance.';
@@ -1494,7 +1496,8 @@ CREATE TABLE "ev"."dataset_column" (
     "reference_phase" uuid,
     "source_name" text,
     CONSTRAINT "dataset_column__pk" PRIMARY KEY ("id"),
-    CONSTRAINT "dataset_column__identity" UNIQUE ("dataset", "ordinal")
+    CONSTRAINT "dataset_column__identity" UNIQUE ("dataset", "ordinal"),
+    CONSTRAINT "dataset_column__ck__ordinal_from_one" CHECK ("ordinal" > 0)
 );
 COMMENT ON TABLE "ev"."dataset_column" IS 'One typed column of a dataset.';
 COMMENT ON COLUMN "ev"."dataset_column"."id" IS 'Deterministic identifier of the dataset_column instance.';
@@ -1524,7 +1527,8 @@ CREATE TABLE "ev"."dataset_component" (
     "sample" uuid,
     "function" "meta"."component_function" NOT NULL,
     CONSTRAINT "dataset_component__pk" PRIMARY KEY ("id"),
-    CONSTRAINT "dataset_component__identity" UNIQUE ("dataset", "ordinal")
+    CONSTRAINT "dataset_component__identity" UNIQUE ("dataset", "ordinal"),
+    CONSTRAINT "dataset_component__ck__ordinal_from_one" CHECK ("ordinal" > 0)
 );
 COMMENT ON TABLE "ev"."dataset_component" IS 'An entity present in the system a dataset describes.';
 COMMENT ON COLUMN "ev"."dataset_component"."id" IS 'Deterministic identifier of the dataset_component instance.';
@@ -1541,7 +1545,8 @@ CREATE TABLE "ev"."dataset_phase" (
     "aggregation" uuid NOT NULL,
     "label" text,
     CONSTRAINT "dataset_phase__pk" PRIMARY KEY ("id"),
-    CONSTRAINT "dataset_phase__identity" UNIQUE ("dataset", "ordinal")
+    CONSTRAINT "dataset_phase__identity" UNIQUE ("dataset", "ordinal"),
+    CONSTRAINT "dataset_phase__ck__ordinal_from_one" CHECK ("ordinal" > 0)
 );
 COMMENT ON TABLE "ev"."dataset_phase" IS 'A phase role local to a dataset, such as the liquid in equilibrium with a vapour. It is not a phase definition and has no meaning outside its dataset.';
 COMMENT ON COLUMN "ev"."dataset_phase"."id" IS 'Deterministic identifier of the dataset_phase instance.';
@@ -1648,7 +1653,8 @@ CREATE TABLE "tk"."group" (
     "position" bigint,
     "pattern" text,
     CONSTRAINT "group__pk" PRIMARY KEY ("id"),
-    CONSTRAINT "group__identity" UNIQUE ("scheme", "label")
+    CONSTRAINT "group__identity" UNIQUE ("scheme", "label"),
+    CONSTRAINT "group__ck__position_from_one" CHECK ("position" > 0)
 );
 COMMENT ON TABLE "tk"."group" IS 'A structural fragment, or a class of fragments, within a scheme.';
 COMMENT ON COLUMN "tk"."group"."id" IS 'Deterministic identifier of the group instance.';
@@ -1954,7 +1960,8 @@ CREATE TABLE "tk"."parameter_set" (
     "parent_slot" uuid,
     CONSTRAINT "parameter_set__pk" PRIMARY KEY ("id"),
     CONSTRAINT "parameter_set__identity" UNIQUE ("parameterization", "slot_group", "subject_key", "occurrence"),
-    CONSTRAINT "parameter_set__uq__id_slot_group" UNIQUE ("id", "slot_group")
+    CONSTRAINT "parameter_set__uq__id_slot_group" UNIQUE ("id", "slot_group"),
+    CONSTRAINT "parameter_set__ck__occurrence_from_one" CHECK ("occurrence" > 0)
 );
 COMMENT ON TABLE "tk"."parameter_set" IS 'One source''s coherent values for one slot group and one subject tuple, with its indexed children. Each slot group is a refinement of this kind.';
 COMMENT ON COLUMN "tk"."parameter_set"."id" IS 'Deterministic identifier of the parameter_set instance.';
@@ -2086,7 +2093,7 @@ COMMENT ON COLUMN "qual"."qualification_run"."note" IS 'The detail of a blocked 
 COMMENT ON COLUMN "qual"."qualification_run"."validity_kind" IS 'The kind of validity region the counts of points below are taken against; stated by a case that names one.';
 COMMENT ON COLUMN "qual"."qualification_run"."inside_points" IS 'Grid points that lay inside a region of that kind on every record the evaluation read that states one.';
 COMMENT ON COLUMN "qual"."qualification_run"."outside_points" IS 'Grid points that lay outside one, including those a case excluded for it.';
-COMMENT ON COLUMN "qual"."qualification_run"."undetermined_points" IS 'Grid points a region of that kind could not decide, because a clause is about a component or a phase or limits an observable no argument of the contract names.';
+COMMENT ON COLUMN "qual"."qualification_run"."undetermined_points" IS 'Grid points that are outside no region of that kind and inside none, because a clause cannot be decided from the arguments: it is about a component or a phase or limits an observable no argument of the contract names.';
 
 CREATE TABLE "tk"."reaction" (
     "id" uuid NOT NULL,
@@ -2412,7 +2419,8 @@ CREATE TABLE "tk"."tabulated_axis" (
     "points" "meta"."finite_real"[] NOT NULL,
     CONSTRAINT "tabulated_axis__pk" PRIMARY KEY ("id"),
     CONSTRAINT "tabulated_axis__identity" UNIQUE ("function", "ordinal"),
-    CONSTRAINT "tabulated_axis__ck__points__no_null" CHECK (array_position("points", NULL) IS NULL)
+    CONSTRAINT "tabulated_axis__ck__points__no_null" CHECK (array_position("points", NULL) IS NULL),
+    CONSTRAINT "tabulated_axis__ck__ordinal_from_one" CHECK ("ordinal" > 0)
 );
 COMMENT ON TABLE "tk"."tabulated_axis" IS 'One axis of a tabulated function.';
 COMMENT ON COLUMN "tk"."tabulated_axis"."id" IS 'Deterministic identifier of the tabulated_axis instance.';
@@ -2616,7 +2624,8 @@ CREATE TABLE "tk"."constituent_array_member" (
     "position" bigint NOT NULL,
     "species" uuid NOT NULL,
     CONSTRAINT "constituent_array_member__pk" PRIMARY KEY ("array", "site_class", "position"),
-    CONSTRAINT "constituent_array_member__uq__id" UNIQUE ("id")
+    CONSTRAINT "constituent_array_member__uq__id" UNIQUE ("id"),
+    CONSTRAINT "constituent_array_member__ck__position_from_one" CHECK ("position" > 0)
 );
 COMMENT ON TABLE "tk"."constituent_array_member" IS 'A species an array places on a site class.';
 COMMENT ON COLUMN "tk"."constituent_array_member"."id" IS 'Deterministic identifier of the row, computed from its keys.';
@@ -2775,6 +2784,8 @@ CREATE TABLE "prov"."fit_correlation" (
     "coefficient" "meta"."scalar" NOT NULL,
     CONSTRAINT "fit_correlation__pk" PRIMARY KEY ("fit", "a", "b"),
     CONSTRAINT "fit_correlation__uq__id" UNIQUE ("id"),
+    CONSTRAINT "fit_correlation__ck__a_from_one" CHECK ("a" > 0),
+    CONSTRAINT "fit_correlation__ck__b_from_one" CHECK ("b" > 0),
     CONSTRAINT "fit_correlation__ck__coefficient_in_range" CHECK ("coefficient" >= -1.0 AND "coefficient" <= 1.0),
     CONSTRAINT "fit_correlation__ck__canonical" CHECK ("a" <= "b"),
     CONSTRAINT "fit_correlation__ck__diagonal" CHECK ("a" <> "b")
@@ -2795,7 +2806,8 @@ CREATE TABLE "prov"."fit_free_parameter" (
     "standard_uncertainty" "meta"."finite_real",
     "index_key" text NOT NULL DEFAULT '',
     CONSTRAINT "fit_free_parameter__pk" PRIMARY KEY ("fit", "ordinal"),
-    CONSTRAINT "fit_free_parameter__uq__id" UNIQUE ("id")
+    CONSTRAINT "fit_free_parameter__uq__id" UNIQUE ("id"),
+    CONSTRAINT "fit_free_parameter__ck__ordinal_from_one" CHECK ("ordinal" > 0)
 );
 COMMENT ON TABLE "prov"."fit_free_parameter" IS 'A parameter a fit was free to vary, addressed down to the coefficient. Uncertainties and correlations are stated over these, by position.';
 COMMENT ON COLUMN "prov"."fit_free_parameter"."id" IS 'Deterministic identifier of the row, computed from its keys.';

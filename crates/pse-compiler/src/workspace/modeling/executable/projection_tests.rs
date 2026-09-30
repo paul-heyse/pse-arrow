@@ -23,7 +23,11 @@ fn projected(cells: usize) -> Arc<Projection> {
         ParseBudget::default(),
     )
     .unwrap();
-    let root = rows.iter().find(|r| r.name == "Root").unwrap().declaration_id;
+    let root = rows
+        .iter()
+        .find(|r| r.name == "Root")
+        .unwrap()
+        .declaration_id;
     let input = crate::workspace::tests::inputs();
     let mut workspace = CompilerWorkspace::new(input, WorkspaceLimits::default()).unwrap();
     workspace

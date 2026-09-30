@@ -1,18 +1,29 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e16f32a3739a874c1279c0bb4b35") package eos_data {
+@id("9a2a625994b34e4496d416bcda94cdb7") use chemistry @"1.0.0";
+@id("ca679c85475f49cf827ce44c727bde85") use properties @"1.0.0";
+@id("e9c1acec96e642098f0bf212b6608a7b") use interactions @"1.0.0";
+@id("2a9c16c1321b4efc9db7088cdc0ebe31") use cubic @"1.0.0";
+@id("b232161467fa461ca64f33b5b7ef8144") use compatibility @"1.0.0";
+
+@id("01a0f12be01970a7bc46738218278f90") use bt_ideal @"1.0.0";
 @id("01a0ef604fdf73c68b36e12eba57f6bb") use provenance @"1.0.0";
 @id("01a0ef604fdf73c68b36e12fc7943478") use references @"1.0.0";
 @id("01a0e16f32a3739a874c127a25168daa") use chem @"1.0.0";
 @id("01a0e16f32a3739a874c127b9803d848") use peng_robinson @"1.0.0";
-@id("01a0e16f32a3739a874c127cae43c1ee") dataset bt_critical:peng_robinson.critical complete_over(j in chem.aromatics) provenance(references.idaes_bt_pr, provenance.Role.oracle_input) {
-[chem.benzene]=[562.2{K},4890000{Pa},0.212];
-[chem.toluene]=[591.8{K},4100000{Pa},0.263];
+@id("93ea4ca624b6470590f79038ef3c4420") entity properties.property_package bt_pr_parameters {}
+@id("36ccdb7835a446258fecd72502edcb49") set bt_pr_parameters_set:Set<properties.property_package>={bt_pr_parameters};
+@id("46ed12dd806247949689f6afc170cff0") set bt_pr_parameters_critical:Set<properties.property>={cubic.critical_parameters};
+@id("75bfaf89328d421a9b3e4ff17cd92581") set bt_pr_parameters_pair:Set<properties.property>={cubic.binary_interaction};
+@id("8b609bd78c364ea2be923db43e6f9166") dataset bt_pr_parameters_selection:properties.selection complete_over(k in bt_pr_parameters_set,j in bt_ideal.aromatics,p in bt_pr_parameters_critical,t in properties.vapor_types) provenance(references.idaes_bt_pr,provenance.Role.oracle_input) {
+[bt_pr_parameters,chem.benzene,cubic.critical_parameters,compatibility.PhaseType.vaporPhase]=[cubic.critical_point[chem.benzene,cubic.critical_parameters,compatibility.PhaseType.vaporPhase,references.idaes_bt_pr]];
+[bt_pr_parameters,chem.toluene,cubic.critical_parameters,compatibility.PhaseType.vaporPhase]=[cubic.critical_point[chem.toluene,cubic.critical_parameters,compatibility.PhaseType.vaporPhase,references.idaes_bt_pr]];
 }
-@id("01a0e16f32a3739a874c127d71e83629") dataset bt_interactions:peng_robinson.interaction complete_over(i in chem.aromatics,j in chem.aromatics) provenance(references.idaes_bt_pr, provenance.Role.oracle_input) {
-[chem.benzene,chem.benzene]=[0];
-[chem.benzene,chem.toluene]=[0];
-[chem.toluene,chem.benzene]=[0];
-[chem.toluene,chem.toluene]=[0];
-}
+@id("3a525996388b4487b54d47c957f94e0b") dataset bt_pr_parameters_source:interactions.pair_selection complete_over(k in bt_pr_parameters_set,p in bt_pr_parameters_pair) provenance(references.idaes_bt_pr,provenance.Role.oracle_input) { [bt_pr_parameters,cubic.binary_interaction]=[references.idaes_bt_pr]; }
+@id("e922c1f5a32c4cf6aaf39a37a744f614") dataset bt_pr_parameters_absence:interactions.absence_policy complete_over(k in bt_pr_parameters_set,p in bt_pr_parameters_pair) provenance(references.idaes_bt_pr,provenance.Role.oracle_input) { [bt_pr_parameters,cubic.binary_interaction]=[interactions.PairAbsence.predictiveZero]; }
+@id("870227a4f9db4a0d9e6d69f2be173f02") dataset bt_pr_parameters_method:interactions.pair_method complete_over(k in bt_pr_parameters_set,p in bt_pr_parameters_pair) provenance(references.idaes_bt_pr,provenance.Role.oracle_input) { [bt_pr_parameters,cubic.binary_interaction]=[interactions.pair_parameter]; }
+@id("11609b22f93a4d1c948d7dd6f06fac49") fn potential(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=peng_robinson.potential(t,r,n,members,bt_pr_parameters,cubic.pr);
+@id("85eac3abbaae454e817f8cff1fdf9949") fn pressure_coordinate(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=peng_robinson.pressure_coordinate(t,r,n,members,bt_pr_parameters,cubic.pr);
+@id("7bc8b499c1e649f392e4097f79ded983") fn srk_potential(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=peng_robinson.potential(t,r,n,members,bt_pr_parameters,cubic.srk);
 }

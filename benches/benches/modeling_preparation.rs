@@ -8,7 +8,7 @@
 //! `smoke` ones once. `PSE_PREPARATION_CASE` selects one workload (one case per process gives
 //! a per-case peak RSS) and `PSE_PREPARATION_OUTPUT` names a directory for the per-case
 //! records, which are also printed. Each iteration admits a fresh runtime and seed closure
-//! untimed, so every timed preparation is cold; only the process-global Symbolica formal
+//! untimed, then measures cold, warm, value and structural preparations; the Symbolica formal
 //! pool persists. The timed path is solver-independent, so its derivative programs are
 //! first order; the nested realization needs the KINSOL capability (`native-process`), and
 //! without it that workload records an infrastructure refusal. A typed resource refusal,
@@ -19,6 +19,12 @@
     clippy::panic,
     clippy::print_stdout,
     reason = "a standalone measurement harness fails on invalid setup and emits its records"
+)]
+#[path = "native_process/phases.rs"]
+mod phases;
+#[allow(
+    dead_code,
+    reason = "shared test runtime exposes constructors unused by this benchmark"
 )]
 #[path = "../../tests/support/workflow_runtime.rs"]
 mod workflow_runtime;
@@ -36,9 +42,7 @@ use std::{
 };
 use workflow_runtime::WorkflowRuntime;
 
-/// The bench's own authored test package. It is never a reference package: its synthetic
-/// species and parameter rows exist only to scale the seed PC-SAFT state beyond the seed's
-/// own species until the DM1 data bank supplies real ones.
+/// The bench owns only finite subsets and state cases of the published bank.
 const PACKAGE: &str = "d4afeb91b5874b5087403590c363a6c1";
 /// Seed state of the homogeneous PC-SAFT fixtures: 350 K and 1 bar.
 const TEMPERATURE: &str = "350{K}";
@@ -90,6 +94,16 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
         .modeling_from_documents(
             &documents(
                 &[
+                    "data/oracles/teqp-0.23.1",
+                    "data/oracles/feos-0.10.1",
+                    "data/gross-sadowski-2001",
+                    "data/references",
+                    "data/nist",
+                    "data/perry7",
+                    "data/poling2000",
+                    "data/oracles/idaes-2.13",
+                    "data/species",
+                    "data/ciaaw",
                     "seed-data",
                     "process",
                     "thermodynamics",
@@ -104,49 +118,47 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
         .unwrap()
 }
 
-/// The seed PC-SAFT segment rows, keyed by species, in declaration order, read from the
-/// seed-data package's source IR without admitting the closure.
-fn seed_segments(registry: &pse_schema::Registry) -> Vec<(String, Vec<String>)> {
-    use pse_relations::{columnar::RelationRow, generated::authored::modeling_declarations as wire};
+/// Ordered membership of the published bank, read from its authored set declaration.
+fn bank_members(registry: &pse_schema::Registry) -> Vec<String> {
+    use pse_authoring::language::{StaticValue, parse_static};
+    use pse_relations::{
+        columnar::RelationRow, generated::authored::modeling_declarations as wire,
+    };
     let bundle = pse_runtime::authoring_driver::document::load_package(
-        &repository().join("packages/reference/seed-data"),
+        &repository().join("packages/reference/data/gross-sadowski-2001"),
         registry,
         Default::default(),
     )
     .unwrap();
-    wire::Row::rows(&bundle.batches[&wire::RELATION_ID])
+    let row = wire::Row::rows(&bundle.batches[&wire::RELATION_ID])
         .unwrap()
         .into_iter()
-        .filter_map(|row| row.value.dataset)
-        .filter(|dataset| dataset.target == "pcsaft.segments")
-        .flat_map(|dataset| {
-            dataset.rows.into_iter().map(|row| {
-                let cell = |cell| pse_authoring::language::render_cell(cell).unwrap();
-                (cell(&row.keys[0]), row.values.iter().map(cell).collect())
-            })
+        .find(|row| row.name == "normal_alkanes")
+        .unwrap();
+    let StaticValue::Set(values) =
+        parse_static(row.value.binding.unwrap().expression.as_deref().unwrap()).unwrap()
+    else {
+        panic!("bank membership is not explicit");
+    };
+    values
+        .into_iter()
+        .map(|value| {
+            let StaticValue::Expression(expression) = value else {
+                panic!("a bank member is not a reference");
+            };
+            pse_authoring::dsl::render_expr(&expression)
         })
         .collect()
 }
-
-/// Scale a numeric cell, keeping its unit literal.
-fn scaled(cell: &str, factor: f64) -> String {
-    let (number, unit) = cell.split_at(cell.find('{').unwrap_or(cell.len()));
-    format!("{}{unit}", number.trim().parse::<f64>().unwrap() * factor)
-}
-
-/// The `n` members of an N-component state: the seed species first, then synthetic ones.
-fn members(seed: &[(String, Vec<String>)], n: usize) -> Vec<String> {
-    seed.iter()
-        .map(|(key, _)| key.clone())
-        .chain((seed.len() + 1..).map(|k| format!("synthetic_{k:02}")))
-        .take(n)
-        .collect()
+fn members(bank: &[String], n: usize) -> Vec<String> {
+    assert!(n <= bank.len(), "the workload exceeds the published bank");
+    bank[..n].to_vec()
 }
 
 /// The bench package's documents: its manifest, whose dependency on `pse.physical` lets its
 /// model name the physical quantity types, and its authored model and tests for the
 /// registered workloads.
-fn bench_package(seed: &[(String, Vec<String>)], workloads: &[Value]) -> BTreeMap<String, String> {
+fn bench_package(seed: &[String], workloads: &[Value]) -> BTreeMap<String, String> {
     let manifest = format!(
         "[package]\n\
          package_id = \"{PACKAGE}\"\n\
@@ -161,7 +173,7 @@ fn bench_package(seed: &[(String, Vec<String>)], workloads: &[Value]) -> BTreeMa
          {{ package_id = \"b27409be5572b8712e47db271fae28cd\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
          {{ package_id = \"01a0ef5e3bc973bb9bcd6df429506c6a\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
          ]\n\
-         doc = \"M1 preparation-scaling bench package (Plan 23 H2); synthetic rows are not physical data.\"\n"
+         doc = \"M1 preparation-scaling bench package (Plan 23 H2); published normal-alkane prefixes, with no synthetic parameters.\"\n"
     );
     BTreeMap::from([
         ("package.toml".to_owned(), manifest),
@@ -173,47 +185,12 @@ fn bench_package(seed: &[(String, Vec<String>)], workloads: &[Value]) -> BTreeMa
 }
 
 /// Authored source of the bench package for the registered workloads.
-fn bench_source(seed: &[(String, Vec<String>)], workloads: &[Value]) -> String {
-    let largest = workloads
-        .iter()
-        .filter_map(|w| w["components"].as_u64())
-        .max()
-        .unwrap_or(0) as usize;
-    let all = members(seed, largest.max(seed.len()));
-    let mut s = format!(
-        "package preparation_bench {{\n\
-         use chemistry @\"1.0.0\";\nuse chem @\"1.0.0\";\nuse helmholtz @\"1.0.0\";\n\
-         use pcsaft @\"1.0.0\";\nuse peng_robinson @\"1.0.0\";\nuse provenance @\"1.0.0\";\n\
-         entity provenance.source bench_rows {{ title = \"SYNTHETIC M1 preparation-bench rows: deterministic perturbations of the seed PC-SAFT segment rows and zero binary interactions, as in the seed; not physical data\" }}\n"
-    );
-    let synthetic = &all[seed.len()..];
-    for name in synthetic {
-        s.push_str(&format!("entity chemistry.species {name} {{}}\n"));
-    }
-    if !synthetic.is_empty() {
-        // Species k repeats seed row (k-1) mod |seed|, every cell scaled by 1+0.005·(k-|seed|).
-        s.push_str("dataset synthetic_segments:pcsaft.segments provenance(bench_rows, provenance.Role.synthetic) {\n");
-        for (i, name) in synthetic.iter().enumerate() {
-            let (_, base) = &seed[i % seed.len()];
-            let factor = 1.0 + 0.005 * (i + 1) as f64;
-            let cells: Vec<_> = base.iter().map(|c| scaled(c, factor)).collect();
-            s.push_str(&format!("[{name}]=[{}];\n", cells.join(",")));
-        }
-        s.push_str("}\n");
-        s.push_str("dataset synthetic_interactions:pcsaft.interaction provenance(bench_rows, provenance.Role.synthetic) {\n");
-        for i in &all {
-            for j in &all {
-                if synthetic.contains(i) || synthetic.contains(j) {
-                    s.push_str(&format!("[{i},{j}]=[0];\n"));
-                }
-            }
-        }
-        s.push_str("}\n");
-    }
+fn bench_source(seed: &[String], workloads: &[Value]) -> String {
+    let mut s = "package preparation_bench {\nuse chemistry @\"1.0.0\";\nuse chem @\"1.0.0\";\nuse helmholtz @\"1.0.0\";\nuse pcsaft_data @\"1.0.0\";\nuse bt_ideal @\"1.0.0\";\nuse peng_robinson @\"1.0.0\";\n".to_owned();
     s.push_str(&format!(
         "def PcSaftState(selected:Set<chemistry.species>) {{\n\
          param components:Set<chemistry.species>=selected;\n\
-         child phase:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=selected,law=pcsaft.potential);\n\
+         child phase:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=selected,law=pcsaft_data.potential);\n\
          param pressure:Pressure={PRESSURE};\n\
          var h_residual:DeltaH;\n\
          var ln_phi[j in components]:Scalar;\n\
@@ -252,7 +229,7 @@ fn bench_source(seed: &[(String, Vec<String>)], workloads: &[Value]) -> String {
                 };
                 s.push_str(&format!(
                     "test {name} fixture {{dof 0; run steady; fix root.T=450{{K}}; fix root.target_pressure={PRESSURE}; fix root.amount[chem.benzene]=0.5{{mol}}; fix root.amount[chem.toluene]=0.5{{mol}}; value root.density_lower=1; value root.density_upper=100; value root.density_start=27;}} {{\n\
-                     child root:peng_robinson.DensityRoot=peng_robinson.{realization}(selected=chem.aromatics);\n}}\n"
+                     child root:peng_robinson.DensityRoot=peng_robinson.{realization}(selected=bt_ideal.aromatics,pkg=eos_data.bt_pr_parameters,law=eos_data.potential);\n}}\n"
                 ));
             }
             other => panic!("unregistered model {other}"),
@@ -296,6 +273,8 @@ async fn prepare(
     package: &ModelingPackage,
     case: pse_modeling::DeclarationId,
     workload: &Value,
+    stage: &str,
+    phases: &phases::Phases,
 ) -> (Duration, Value) {
     let limits = pse_modeling::Limits {
         items: 1_000_000,
@@ -305,10 +284,12 @@ async fn prepare(
     };
     let cancel = CancelSource::new();
     owner.runtime.reset_observation_peak();
+    let before = owner.runtime.math().preparations();
+    phases.reset();
     let mut seconds = serde_json::Map::new();
     let started = Instant::now();
     let outcome: Result<Value, (&str, WorkflowError)> = async {
-        let analysis = package
+        let mut analysis = package
             .declared_analysis(
                 case,
                 pse_relations::generated::enums::ModelingAnalysisRoute::Steady,
@@ -320,6 +301,27 @@ async fn prepare(
             )
             .await
             .map_err(|e| ("specialization_lowering", e))?;
+        if stage == "value" {
+            let path = if workload["model"] == "pcsaft" {
+                "root.pressure"
+            } else {
+                "root.target_pressure"
+            };
+            analysis.case.values.insert(path.into(), 100100.);
+        }
+        if stage == "structural" {
+            let path = if workload["model"] == "pcsaft" {
+                "root.phase.rho"
+            } else {
+                "root.rho"
+            };
+            analysis
+                .case
+                .variables
+                .entry(path.into())
+                .or_default()
+                .upper = Some(Some(50000.));
+        }
         seconds.insert(
             "specialization_lowering".into(),
             started.elapsed().as_secs_f64().into(),
@@ -373,16 +375,25 @@ async fn prepare(
     }
     .await;
     let elapsed = started.elapsed();
+    let after = owner.runtime.math().preparations();
     seconds.insert("total".into(), elapsed.as_secs_f64().into());
     let mut record = json!({
         "experiment": "modeling_preparation",
         "id": workload["id"],
+        "stage": stage,
+        "compiler_phases": phases.report(1),
+        "preparations": {
+            "views": after.views - before.views,
+            "observations": after.observations - before.observations,
+            "rebuilt": after.rebuilt - before.rebuilt,
+            "shared": after.shared - before.shared,
+        },
         "workload": workload,
         "seconds": seconds,
         "derivative_order": "first",
         "pool_peak_bytes": count(owner.runtime.observation_peak_bytes()),
         "process_peak_rss_bytes": owner.runtime.report().unwrap().process_peak_rss_bytes,
-        "scope": "cold specialization, lowering, case resolution (starts, nested registrations, bound structure) and first-order derivative program assembly; no solve",
+        "scope": "specialization, lowering, case resolution and first-order derivative program assembly; ordered cold, warm, value and structural changes; no solve",
         "memory_scope": "pool observation of this preparation; process-lifetime VmHWM, per case only when PSE_PREPARATION_CASE selects one case per process",
     });
     match outcome {
@@ -403,6 +414,12 @@ async fn prepare(
 }
 
 fn preparation(c: &mut Criterion) {
+    use tracing_subscriber::prelude::*;
+    let phases = phases::Phases::default();
+    tracing_subscriber::registry()
+        .with(phases.clone())
+        .try_init()
+        .unwrap();
     let registered: Value = serde_json::from_str(
         &std::fs::read_to_string(repository().join(".config/preparation-cases.json")).unwrap(),
     )
@@ -420,13 +437,13 @@ fn preparation(c: &mut Criterion) {
     let measuring = std::env::args().any(|a| a == "--bench");
     let output = std::env::var_os("PSE_PREPARATION_OUTPUT").map(PathBuf::from);
     let executor = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(2)
+        .worker_threads(1)
         .enable_all()
         .build()
         .unwrap();
-    // The synthetic rows derive from the seed's own PC-SAFT rows, read once.
+    // Workloads take deterministic prefixes of one declared published bank.
     let bench = bench_package(
-        &seed_segments(&pse_schema::shared_registry().unwrap()),
+        &bank_members(&pse_schema::shared_registry().unwrap()),
         &workloads,
     );
     let mut group = c.benchmark_group("modeling_preparation");
@@ -445,13 +462,21 @@ fn preparation(c: &mut Criterion) {
             b.iter_custom(|iterations| {
                 let mut timed = Duration::ZERO;
                 for _ in 0..iterations {
-                    let owner = WorkflowRuntime::new().unwrap();
+                    let owner =
+                        WorkflowRuntime::with_threads(std::num::NonZeroUsize::new(1).unwrap())
+                            .unwrap();
                     let package = executor.block_on(seed(&owner, &bench));
                     let case = case(&package, workload);
-                    let (elapsed, record) =
-                        executor.block_on(prepare(&owner, &package, case, workload));
-                    timed += elapsed;
-                    records.push(record);
+                    let mut stages = Vec::new();
+                    for stage in ["cold", "warm", "value", "structural"] {
+                        let (elapsed, record) = executor
+                            .block_on(prepare(&owner, &package, case, workload, stage, &phases));
+                        timed += elapsed;
+                        stages.push(record);
+                    }
+                    records.push(
+                        json!({"experiment":"modeling_preparation", "id":id, "stages":stages}),
+                    );
                 }
                 timed
             });
@@ -459,12 +484,19 @@ fn preparation(c: &mut Criterion) {
         // Structure and outcome are deterministic; phase clocks average every iteration,
         // Criterion's warm-up included. Criterion's own report holds the timing statistics.
         let mut record = records.last().unwrap().clone();
-        for (phase, value) in record["seconds"].as_object_mut().unwrap() {
-            let clocks: Vec<_> = records
-                .iter()
-                .filter_map(|r| r["seconds"][phase.as_str()].as_f64())
-                .collect();
-            *value = (clocks.iter().sum::<f64>() / clocks.len() as f64).into();
+        for (index, stage) in record["stages"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .enumerate()
+        {
+            for (phase, value) in stage["seconds"].as_object_mut().unwrap() {
+                let clocks: Vec<_> = records
+                    .iter()
+                    .filter_map(|r| r["stages"][index]["seconds"][phase.as_str()].as_f64())
+                    .collect();
+                *value = (clocks.iter().sum::<f64>() / clocks.len() as f64).into();
+            }
         }
         record["iterations"] = records.len().into();
         println!("{record}");
@@ -480,5 +512,13 @@ fn preparation(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, preparation);
+fn configuration() -> Criterion {
+    match std::env::var_os("PSE_PREPARATION_OUTPUT") {
+        Some(output) => {
+            Criterion::default().output_directory(&PathBuf::from(output).join("criterion"))
+        }
+        None => Criterion::default(),
+    }
+}
+criterion_group! {name=benches;config=configuration();targets=preparation}
 criterion_main!(benches);

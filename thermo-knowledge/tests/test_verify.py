@@ -8,6 +8,7 @@ deferrable, so a row need not have its referents), and the framework's own refus
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import uuid
 from collections.abc import Iterator
@@ -1517,6 +1518,123 @@ def test_the_database_enforces_that_a_conversion_is_named_exactly_for_the_level_
                     level=level,
                     conversion=named,
                 )
+
+
+def test_a_validity_region_has_a_clause(conn: psycopg.Connection) -> None:
+    observable = lookup(conn, "SELECT id FROM tk.observable LIMIT 1")
+    with_clause, empty = new(), new()
+    record = new()
+    for ordinal, identifier in enumerate((with_clause, empty), 1):
+        insert(
+            conn, "tk.validity_region", id=identifier, record=record, kind="fitted_range", ordinal=ordinal
+        )
+    insert(
+        conn,
+        "tk.region_clause",
+        id=new(),
+        region=with_clause,
+        ordinal=1,
+        observable=observable,
+        lower=1.0,
+    )
+    provenance(conn, empty, "a.json#/17")
+    result = run(conn, "validity_region.has_a_clause")
+    assert violating(result) == ids(empty)
+    assert dict(zip(result.columns, result.rows[0]))["locator"] == "a.json#/17"
+
+
+def test_an_uncertainty_qualifies_a_value_that_exists(conn: psycopg.Connection) -> None:
+    dataset = new()
+    point = new()
+    insert(conn, "ev.data_point", id=point, dataset=dataset, index=1)
+    cases = {
+        # name: (datum state and value or None for no datum, conforms)
+        "known": (("known", 1.0), True),
+        "censored_below": (("censored_below", 1.0), True),
+        "censored_above": (("censored_above", 1.0), True),
+        "not_measured": (("not_measured", None), False),
+        "no_datum": (None, False),
+    }
+    bad: list[uuid.UUID] = []
+    for ordinal, (name, (datum, conforms)) in enumerate(cases.items(), 1):
+        column = evidence_column(conn, dataset, ordinal)
+        if datum is not None:
+            insert(
+                conn,
+                "ev.datum",
+                id=new(),
+                point=point,
+                column=column,
+                state=datum[0],
+                value=datum[1],
+            )
+        identifier = new()
+        insert(
+            conn,
+            "ev.datum_uncertainty",
+            id=identifier,
+            point=point,
+            assessment=assessment(conn, column, 1, "standard"),
+            minus=0.1,
+            plus=0.1,
+        )
+        if not conforms:
+            bad.append(identifier)
+    provenance(conn, dataset, "a.json#/18")
+    result = run(conn, "datum_uncertainty.datum_exists")
+    assert violating(result) == ids(*bad)
+    assert {dict(zip(result.columns, r))["locator"] for r in result.rows} == {"a.json#/18"}
+
+
+FROM_ONE = (
+    ("tk.parameter_set", "occurrence", "occurrence_from_one"),
+    ("ev.data_point", "index", "index_from_one"),
+    ("ev.dataset_column", "ordinal", "ordinal_from_one"),
+    ("ev.dataset_component", "ordinal", "ordinal_from_one"),
+    ("ev.dataset_phase", "ordinal", "ordinal_from_one"),
+    ("ev.uncertainty_assessment", "ordinal", "ordinal_from_one"),
+    ("tk.tabulated_axis", "ordinal", "ordinal_from_one"),
+    ("tk.assembly_choice", "ordinal", "ordinal_from_one"),
+    ("tk.group", "position", "position_from_one"),
+    ("tk.validity_region", "ordinal", "ordinal_from_one"),
+    ("tk.region_clause", "ordinal", "ordinal_from_one"),
+    ("tk.constituent_array_member", "position", "position_from_one"),
+    ("prov.fit_free_parameter", "ordinal", "ordinal_from_one"),
+    ("prov.fit_correlation", "a", "a_from_one"),
+    ("prov.fit_correlation", "b", "b_from_one"),
+)
+
+
+@pytest.mark.parametrize(("table", "column", "requirement"), FROM_ONE)
+def test_a_position_documented_as_starting_at_one_is_checked_positive(
+    conn: psycopg.Connection, table: str, column: str, requirement: str
+) -> None:
+    schema, name = table.split(".")
+    owner = real_declaration().kinds.get(name) or real_declaration().relations[name]
+    (declared,) = [r for r in owner.requires if r.name == requirement]
+    assert (declared.enforced, declared.rule, declared.attributes) == ("ddl", "positive", (column,))
+    found = conn.execute(
+        "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = %s",
+        (f"{name}__ck__{requirement}",),
+    ).fetchone()
+    assert found is not None and re.search(rf'"?{column}"? > 0', found[0]), found
+
+
+def test_a_position_of_zero_is_refused_by_the_database(conn: psycopg.Connection) -> None:
+    with pytest.raises(psycopg.errors.CheckViolation, match="index_from_one"):
+        with conn.transaction():
+            insert(conn, "ev.data_point", id=new(), dataset=new(), index=0)
+    with pytest.raises(psycopg.errors.CheckViolation, match="a_from_one"):
+        with conn.transaction():
+            insert(
+                conn,
+                "prov.fit_correlation",
+                id=new(),
+                fit=new(),
+                a=0,
+                b=1,
+                coefficient=0.5,
+            )
 
 
 def test_the_subject_key_of_a_set_encodes_its_subjects(conn: psycopg.Connection) -> None:

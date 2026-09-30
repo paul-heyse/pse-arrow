@@ -223,10 +223,15 @@ fn reference_package_admission_scientific_units() {
         .expect("datum");
     // Typed conditions, read in their quantity types' canonical units (ADR-0123 Outcome 6).
     let condition = |value: Option<pse_quantity::ReferenceCondition>| {
-        units.reference_condition(&value.expect("typed condition")).expect("condition")
+        units
+            .reference_condition(&value.expect("typed condition"))
+            .expect("condition")
     };
     assert_eq!(
-        (condition(reference.temperature), condition(reference.pressure)),
+        (
+            condition(reference.temperature),
+            condition(reference.pressure)
+        ),
         (298.15, 101_325.0)
     );
     let unit_set = units

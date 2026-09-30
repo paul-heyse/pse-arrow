@@ -23,6 +23,37 @@ fn run(text: &str, root: &str, bindings: Bindings) -> Result<SpecializedModel> {
 }
 
 #[test]
+fn static_optional_row_guards_specialize_in_the_function_source_frame() {
+    let text = "package p {
+      entity kind item {} entity item a {} entity item b {}
+      entity kind source provenance {} entity source origin {}
+      enum Role { published }
+      table coefficients[j:item]:{value:Scalar} missing optional;
+      dataset values:coefficients provenance(origin,Role.published) { [a]=[3]; }
+      fn coefficient(j:item,x:Scalar)->Scalar valid(present(coefficients[j])) =
+        if present(coefficients[j]) then coefficients[j].value*x else 0;
+      def Root { var x:Scalar; eq e:coefficient(a,x)==6; }
+    }";
+    let model = run(text, "p.Root", Bindings::default()).unwrap();
+    assert!(model.functions.values().any(|f| {
+        f.validity
+            .as_ref()
+            .is_some_and(|p| matches!(p.kind, pse_authoring::dsl::PredicateKind::Bool(true)))
+    }));
+    let missing = run(
+        &text.replace("coefficient(a,x)", "coefficient(b,x)"),
+        "p.Root",
+        Bindings::default(),
+    )
+    .unwrap();
+    assert!(missing.functions.values().any(|f| {
+        f.validity
+            .as_ref()
+            .is_some_and(|p| matches!(p.kind, pse_authoring::dsl::PredicateKind::Bool(false)))
+    }));
+}
+
+#[test]
 fn implicit_members_remain_addressable_through_child_paths_and_indexed_arguments() {
     let text = "package p {
         entity kind item {}
@@ -911,7 +942,9 @@ fn annotation_kind_dispatch_is_exhaustive() {
             V::Objective(_) => Kind::Objective,
         })
         .collect::<std::collections::BTreeSet<_>>();
-    let mut expected = Kind::ALL.into_iter().collect::<std::collections::BTreeSet<_>>();
+    let mut expected = Kind::ALL
+        .into_iter()
+        .collect::<std::collections::BTreeSet<_>>();
     expected.remove(&Kind::Connectivity);
     assert_eq!(values, expected);
     assert_eq!(model.connectivity.len(), 1);
@@ -984,15 +1017,24 @@ fn reference_state_attributes_are_typed() {
     assert!(registry.physical_name("stock").is_some());
     for (from, to) in [
         // A condition keeps its declared type: a temperature is not a pressure.
-        ("param t0: Temperature = datum.temperature;", "param t0: Pressure = datum.temperature;"),
+        (
+            "param t0: Temperature = datum.temperature;",
+            "param t0: Pressure = datum.temperature;",
+        ),
         // A reference state has exactly its typed conditions.
-        ("param t0: Temperature = datum.temperature;", "param t0: Temperature = datum.volume;"),
+        (
+            "param t0: Temperature = datum.temperature;",
+            "param t0: Temperature = datum.volume;",
+        ),
         // A quantity type is not a reference state.
         ("Child(datum = stock)", "Child(datum = Temperature)"),
         ("Child(datum = stock)", "Child(datum = unknown_state)"),
     ] {
         let refused = text.replace(from, to);
-        assert!(run(&refused, "p.Root", Bindings::default()).is_err(), "{to}");
+        assert!(
+            run(&refused, "p.Root", Bindings::default()).is_err(),
+            "{to}"
+        );
     }
 }
 
@@ -1081,8 +1123,12 @@ fn fixture_diagnostics_resolve_members_once() {
     let (path, rows) = &expected.members[0];
     assert_eq!(path, "root.e[a]");
     assert_eq!(rows.len(), 1);
-    assert!(model.equations.iter().any(|row| rows.contains(&row.id)
-        && row.lineage.path.ends_with("root.e")));
+    assert!(
+        model
+            .equations
+            .iter()
+            .any(|row| rows.contains(&row.id) && row.lineage.path.ends_with("root.e"))
+    );
     let (_, variables) = &expected.members[1];
     assert_eq!(variables.len(), 2);
     assert!(variables.iter().all(|id| model.symbols.contains_key(id)));
@@ -1096,4 +1142,41 @@ fn fixture_diagnostics_resolve_members_once() {
         let error = run(&invalid, "p.t", Bindings::default()).unwrap_err();
         assert!(error.to_string().contains(message), "{error}");
     }
+}
+
+#[test]
+fn inherited_function_selection_passes_to_child_construction() {
+    let text = "package p {
+        fn identity(x:Scalar)->Scalar=x;
+        fn twice(x:Scalar)->Scalar=2*x;
+        def Child(law:Fn(x:Scalar)->Scalar) { var x:Scalar; eq e:x==law(3); }
+        interface Parent {
+            param law:Fn(x:Scalar)->Scalar;
+            child child:Child=Child(law=law);
+        }
+        def Selected:Parent { override param law:Fn(x:Scalar)->Scalar=twice; }
+        def Root { child first:Selected=Selected; child second:Child=Child(law=identity); }
+    }";
+    let model = run(text, "p.Root", Bindings::default()).unwrap();
+    assert_eq!(model.equations.len(), 2);
+    assert_eq!(model.functions.len(), 2);
+}
+
+#[test]
+fn presence_guard_retains_the_required_lookup_refusal() {
+    let text = "package p {
+      entity kind item {} entity item a {}
+      entity kind source provenance {} entity source origin {}
+      enum Role {published}
+      table selected[j:item]:source complete_over(j);
+      table coefficient[s:source]:Scalar missing optional;
+      fn value(j:item,x:Scalar)->Scalar valid(present(coefficient[selected[j]])) =
+        if present(coefficient[selected[j]]) then coefficient[selected[j]]*x else 0;
+      def Root {var x:Scalar; eq e:value(a,x)==1;}
+    }";
+    let error = run(text, "p.Root", Bindings::default())
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("lookup selected[a] is outside"), "{error}");
+    assert!(!error.contains("missing static binding present"), "{error}");
 }

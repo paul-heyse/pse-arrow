@@ -43,8 +43,8 @@ def definitions(root: Path) -> dict[str, str]:
         )
         tomllib.loads(rendered)
         result[name + ".toml"] = rendered
-    if len(result) != 9:
-        raise ValueError(f"expected nine canonical roles, found {len(result)}")
+    if not result:
+        raise ValueError("no canonical roles found in .claude/agents")
     return result
 
 

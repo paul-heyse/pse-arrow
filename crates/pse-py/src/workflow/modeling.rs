@@ -90,7 +90,7 @@ fn relation(py: Python<'_>, name: &str) -> PyResult<SemanticId> {
 pub(super) fn from_documents(
     runtime: &NativeRuntime,
     py: Python<'_>,
-    documents: Vec<BTreeMap<String, String>>,
+    documents: Vec<BTreeMap<String, DocumentContent>>,
     physical: &NativePhysicalContext,
 ) -> PyResult<NativeModelingPackage> {
     let documents = documents
@@ -227,16 +227,16 @@ impl NativeModelingPackage {
             sources: None,
         })
     }
-    fn with_fit_data(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
+    fn with_fit_declarations(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
         if source.len() > self.owner.shared.budget().math.workspace_bytes / 2 {
             return Err(invalid(py, "fit source extent"));
         }
-        let data: native::FitData =
+        let data: native::FitDeclarations =
             serde_json::from_slice(source).map_err(|e| invalid(py, e.to_string()))?;
         let inner = self
             .inner
             .clone()
-            .with_fit_data(data)
+            .with_fit_declarations(data)
             .map_err(|e| errors::diagnostic(py, &e))?;
         Ok(Self {
             owner: self.owner.clone(),
@@ -1162,6 +1162,27 @@ impl NativeModelingPackage {
         py.detach(|| serde_json::to_vec(self.inner.declarations()))
             .map_err(|e| invalid(py, e.to_string()))
     }
+    #[pyo3(signature=(owner_id=None, *, maximum_cells=100000, maximum_bytes=67108864))]
+    fn knowledge(
+        &self,
+        py: Python<'_>,
+        owner_id: Option<&str>,
+        maximum_cells: usize,
+        maximum_bytes: usize,
+    ) -> PyResult<NativeModelingKnowledge> {
+        let selected = owner_id.map(|id| declaration(py, id)).transpose()?;
+        let cancel = pse_columnar::CancellationToken::new();
+        let inner = py
+            .detach(|| {
+                self.inner
+                    .knowledge(selected, maximum_cells, maximum_bytes, &cancel)
+            })
+            .map_err(|error| errors::diagnostic(py, &error))?;
+        Ok(NativeModelingKnowledge {
+            owner: self.owner.clone(),
+            inner: Arc::new(inner),
+        })
+    }
     #[expect(
         clippy::too_many_arguments,
         reason = "one parameter per argument of the Python method signature"
@@ -1455,6 +1476,46 @@ impl ModelingDiagnosticSettings {
     }
     fn to_json(&self, py: Python<'_>) -> PyResult<String> {
         serde_json::to_string(&self.policy).map_err(|e| invalid(py, e.to_string()))
+    }
+}
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeModelingKnowledge {
+    owner: Arc<runtime::Runtime>,
+    inner: Arc<native::ModelingKnowledge>,
+}
+#[pymethods]
+impl NativeModelingKnowledge {
+    #[getter]
+    fn source_revision(&self) -> String {
+        self.inner.source_revision().to_prefixed()
+    }
+    fn table(&self) -> inspection::TableStream {
+        inspection::TableStream::from_batch(self.inner.table().clone())
+    }
+    fn query(&self, py: Python<'_>, sql: &str) -> PyResult<inspection::TableStream> {
+        let cancel = pse_columnar::CancellationToken::new();
+        let batch_size =
+            std::num::NonZeroUsize::new(self.owner.shared.budget().execution.batch_size)
+                .ok_or_else(|| invalid(py, "batch size must be positive"))?;
+        let reader = blocking(
+            py,
+            &self.owner,
+            async {
+                let session = self.inner.query_session(&cancel)?;
+                Ok::<_, native::WorkflowError>(
+                    pse_catalog::inspection::TableReader::query(
+                        &session,
+                        sql,
+                        batch_size,
+                        cancel.clone(),
+                    )
+                    .await?,
+                )
+            },
+            || cancel.cancel(),
+        )?;
+        Ok(inspection::TableStream::new(reader, self.owner.clone()))
     }
 }
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
@@ -1781,8 +1842,8 @@ impl NativeModelingConformance {
     #[pyo3(signature=(documents, physical, settings, *, maximum_fixtures=1024, maximum_checks=16384, limits=None, fixtures=None))]
     fn pure(
         py: Python<'_>,
-        documents: Vec<BTreeMap<String, String>>,
-        physical: BTreeMap<String, String>,
+        documents: Vec<BTreeMap<String, DocumentContent>>,
+        physical: BTreeMap<String, DocumentContent>,
         settings: &inspection::EngineSettings,
         maximum_fixtures: usize,
         maximum_checks: usize,

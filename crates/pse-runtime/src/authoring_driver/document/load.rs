@@ -213,11 +213,8 @@ pub(super) fn load_reusing(
             let content = if let Some(prior) = prior {
                 prior.content.clone()
             } else {
-                if let Some(funds) = allocation.as_deref_mut() {
-                    funds.grow(memory::mul(bytes.len(), 4)?)?;
-                }
                 let bytes = bytes::Bytes::from(bytes);
-                let rows = super::data::decode(&path, &bytes)?;
+                let rows = super::data::decode(&path, &bytes, budget, allocation.as_deref_mut())?;
                 Content::Data {
                     bytes,
                     document: Arc::new(pse_modeling::document::DataDocument {

@@ -286,6 +286,7 @@ fn smoothing_never_selects_tolerance_by_dimension_instead_of_exact_kind_basis_an
         .quantity_type(ids::quantity("temperature.point"))
         .unwrap()
         .clone();
+    point.name = None;
     point.id = ids::quantity("referenced_temperature.point");
     point.key.reference_state = Some(ids::reference("standard"));
     let point_id = point.id;

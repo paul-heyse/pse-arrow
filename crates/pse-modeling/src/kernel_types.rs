@@ -69,7 +69,8 @@ fn polymorphic_smoothing_and_complete_substitution() {
         .unwrap();
     assert!(q.bind(names["Flow"], &registry, &mut bindings).is_err());
     let mut bindings = Substitution::new();
-    q.bind(names["MolarEnthalpy"], &registry, &mut bindings).unwrap();
+    q.bind(names["MolarEnthalpy"], &registry, &mut bindings)
+        .unwrap();
     assert!(
         q.bind(names["PrOracleEnthalpy"], &registry, &mut bindings)
             .is_err()
@@ -391,7 +392,11 @@ fn physical_names_are_scoped_by_document() {
         )
         .unwrap()
     };
-    for ty in ["Temperature", "pse.physical.Temperature", "Delta<Temperature>"] {
+    for ty in [
+        "Temperature",
+        "pse.physical.Temperature",
+        "Delta<Temperature>",
+    ] {
         let text = format!("package a {{ fn f(x: {ty}) -> {ty} = x; }}");
         let checked = check(&rows(seen, &text), &context).unwrap();
         if ty != "Delta<Temperature>" {
@@ -402,7 +407,10 @@ fn physical_names_are_scoped_by_document() {
             );
         }
         let refused = check(&rows(unseen, &text), &context).unwrap_err();
-        assert!(refused.to_string().contains("unknown type"), "{ty}: {refused}");
+        assert!(
+            refused.to_string().contains("unknown type"),
+            "{ty}: {refused}"
+        );
     }
 }
 
@@ -427,7 +435,13 @@ fn ambiguous_quantity_name_refused() {
         assert!(error.contains("ambiguous name"), "{declaration}: {error}");
     }
     // Control: a member of a definition is lexical and shadows the physical name.
-    assert!(check(&source("package p { def D { param Temperature: Scalar = 1; } }"), &context).is_ok());
+    assert!(
+        check(
+            &source("package p { def D { param Temperature: Scalar = 1; } }"),
+            &context
+        )
+        .is_ok()
+    );
 }
 
 #[test]

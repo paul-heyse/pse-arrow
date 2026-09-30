@@ -690,11 +690,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `test_only` | `` | false |
 | `requires_lineage` | `` | false |
+| `measured` | `` | false |
+| `requires_fit` | `` | false |
 
 ## `ModelingDeclarationKind`
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
+| `temporal` | `` | false |
 | `relaxation` | `` | false |
 | `continuation` | `` | false |
 | `package` | `` | false |
@@ -844,6 +847,28 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `provenance` | `` | false |
 | `release` | `` | false |
+| `abstract` | `` | false |
+
+## `ModelingKnowledgeValueKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `missing` | `` | false |
+| `boolean` | `` | false |
+| `integer` | `` | false |
+| `quantity` | `` | false |
+| `coordinate` | `` | false |
+| `text` | `` | false |
+| `entity` | `` | false |
+| `enumeration` | `` | false |
+| `identifier` | `` | false |
+| `definition` | `` | false |
+| `function` | `` | false |
+| `row` | `` | false |
+| `set` | `` | false |
+| `tuple` | `` | false |
+| `quantity_type` | `` | false |
+| `reference_state` | `` | false |
 
 ## `ModelingLineageKind`
 
@@ -851,6 +876,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `dataset` | `` | false |
 | `source` | `` | false |
+| `fit` | `` | false |
 
 ## `ModelingMissingPolicy`
 

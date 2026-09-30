@@ -2358,9 +2358,7 @@ mod tests {
             .find(|r| r.name == "evented")
             .unwrap()
             .declaration_id;
-        let package = runtime
-            .modeling_package(rows, physical.clone())
-            .unwrap();
+        let package = runtime.modeling_package(rows, physical.clone()).unwrap();
         let cancel = crate::CancelSource::new();
         let error = package
             .prepare(
@@ -2426,9 +2424,7 @@ mod tests {
                 .find(|r| r.name == "Root")
                 .unwrap()
                 .declaration_id;
-            let package = runtime
-                .modeling_package(rows, physical.clone())
-                .unwrap();
+            let package = runtime.modeling_package(rows, physical.clone()).unwrap();
             let profile = native::Profile {
                 method,
                 end: 2.,
@@ -2553,6 +2549,49 @@ mod tests {
         }
     }
     #[tokio::test]
+    async fn temporal_composition_refuses_missing_or_competing_endpoint_initialization() {
+        let runtime = super::super::super::tests::runtime();
+        let source = "package p {def Cell(times:Set<Time>={}) {var x:Time;eq rate[i in times]:d(x)/di==1;} def Root {domain t:Time from 0{s} to 2{s};discretize grid on t using integrated(elements=1,order=1);child cell:Cell=Cell();evolve time_state on cell using t bind times;eq initial:cell[0{s}].x==0{s};}}";
+        for text in [
+            source.replace("eq initial:cell[0{s}].x==0{s};", ""),
+            source.replace("eq initial:", "eq competing:cell[0{s}].x==1{s};eq initial:"),
+        ] {
+            let rows = pse_authoring::language::parse(
+                &text,
+                SemanticId::NIL,
+                pse_authoring::language::IdentityPolicy::Named,
+                pse_authoring::ParseBudget::default(),
+            )
+            .unwrap();
+            let root = rows
+                .iter()
+                .find(|row| row.name == "Root")
+                .unwrap()
+                .declaration_id;
+            let package = runtime.modeling_package(rows, physical()).unwrap();
+            let error = package
+                .prepare_simulation(
+                    root,
+                    pse_modeling::specialize::root_instance(root),
+                    Bindings::default(),
+                    Limits::default(),
+                    ModelingCaseBindings::default(),
+                    super::super::super::tests::compiler_profile(),
+                    native::Profile {
+                        end: 2.,
+                        samples: vec![0., 2.],
+                        ..Default::default()
+                    },
+                    DerivativeOrder::First,
+                    &crate::CancelSource::new(),
+                )
+                .await
+                .unwrap_err();
+            assert!(error.to_string().contains("initial"), "{error}");
+        }
+    }
+
+    #[tokio::test]
     async fn kernel_integrated_sample_checks_share_model_semantics_and_owned_rows() {
         let runtime = super::super::super::tests::runtime();
         let physical = physical();
@@ -2560,6 +2599,7 @@ mod tests {
         for (text, accepted) in [
             (source.to_string(), false),
             (source.replace("x[i] <= 4{s}", "x[i] <= 6{s}"), true),
+            (source.replace("x[i] <= 4{s}", "(i!=0{s} or x[i]==1{s}) and (i!=1{s} or abs(x[i]-3{s})<0.00001{s}) and (i!=2{s} or abs(x[i]-5{s})<0.00001{s})"),true),
         ] {
             let declarations = pse_authoring::language::parse(
                 &text,
@@ -2663,9 +2703,7 @@ mod tests {
                 .find(|r| r.name == "Root")
                 .unwrap()
                 .declaration_id;
-            let package = runtime
-                .modeling_package(rows, physical.clone())
-                .unwrap();
+            let package = runtime.modeling_package(rows, physical.clone()).unwrap();
             let result = package
                 .prepare_simulation(
                     root,
@@ -3087,9 +3125,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime
-            .modeling_package(rows, physical)
-            .unwrap();
+        let package = runtime.modeling_package(rows, physical).unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let profile = native::Profile {
@@ -3175,9 +3211,9 @@ mod tests {
         );
         let guarded = package
             .with_declarations(parse(&source.replace(
-                    "annotation start x(0{s});",
-                    "annotation start x(0{s}); annotation valid x(0{s},2{s},reject);",
-                )))
+                "annotation start x(0{s});",
+                "annotation start x(0{s}); annotation valid x(0{s},2{s},reject);",
+            )))
             .unwrap();
         let prepared = guarded
             .prepare_simulation(
@@ -3233,9 +3269,9 @@ mod tests {
         assert!(result.report.samples.iter().all(|s| s.outputs[xi] <= 2.));
         let bounded = package
             .with_declarations(parse(&source.replace(
-                    "annotation start x(0{s});",
-                    "annotation start x(0{s}); annotation bounds x(0{s},2{s});",
-                )))
+                "annotation start x(0{s});",
+                "annotation start x(0{s}); annotation bounds x(0{s},2{s});",
+            )))
             .unwrap();
         let profile = prepared.profile.clone();
         let case = ModelingCaseBindings {

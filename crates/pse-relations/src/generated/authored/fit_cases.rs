@@ -11,20 +11,20 @@ pub use pse_model::generated::r#authored::r#fit_cases::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    112u8, 123u8, 225u8, 163u8, 40u8, 77u8, 121u8, 209u8, 186u8, 173u8, 149u8, 126u8,
-    128u8, 1u8, 60u8, 180u8,
+    159u8, 102u8, 219u8, 118u8, 20u8, 21u8, 204u8, 5u8, 49u8, 85u8, 109u8, 200u8, 220u8,
+    211u8, 102u8, 81u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "fit_cases";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 3u32;
+pub const VERSION: u32 = 4u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    83u8, 165u8, 11u8, 245u8, 28u8, 151u8, 227u8, 0u8, 137u8, 24u8, 88u8, 33u8, 90u8,
-    0u8, 108u8, 74u8, 34u8, 49u8, 142u8, 179u8, 176u8, 181u8, 133u8, 171u8, 167u8, 226u8,
-    167u8, 179u8, 192u8, 74u8, 42u8, 43u8,
+    206u8, 116u8, 177u8, 207u8, 205u8, 181u8, 59u8, 225u8, 198u8, 78u8, 109u8, 17u8,
+    195u8, 181u8, 80u8, 209u8, 75u8, 155u8, 113u8, 136u8, 176u8, 10u8, 84u8, 138u8,
+    235u8, 26u8, 189u8, 226u8, 99u8, 97u8, 138u8, 160u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredFitCasesFieldParametersItem {
     fn append(
@@ -242,29 +242,37 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldObservationsItem {
             children[0usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#experiment_id,
+            &self.r#value_attribute,
             children[1usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#output_path,
+            &self.r#standard_deviation_attribute,
             children[2usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#time, children[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#time_basis,
+            &self.r#experiment_id,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#output_path,
             children[4usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#time, children[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#time_unit_id,
-            children[5usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#included,
+            &self.r#time_basis,
             children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#importance,
+            &self.r#time_unit_id,
             children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#included,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#importance,
+            children[9usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -276,24 +284,28 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldObservationsItem {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::DeclarationId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <crate::generated::identities::InstanceId as crate::columnar::ArrowValue>::append_null(
-            children[1usize].as_mut(),
+            children[3usize].as_mut(),
         )?;
-        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <Option<
             f64,
-        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <Option<
             crate::generated::enums::ObservationTimeBasis,
-        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Option<
             pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
-        <f64 as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -304,42 +316,52 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldObservationsItem {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#observation_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#observation_id: <crate::generated::identities::DeclarationId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#experiment_id: <crate::generated::identities::InstanceId as crate::columnar::ArrowValue>::read(
+            r#value_attribute: <String as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#output_path: <String as crate::columnar::ArrowValue>::read(
+            r#standard_deviation_attribute: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#experiment_id: <crate::generated::identities::InstanceId as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#output_path: <String as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
                 index,
             )?,
             r#time: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
+                input.column(5usize).as_ref(),
                 index,
             )?,
             r#time_basis: <Option<
                 crate::generated::enums::ObservationTimeBasis,
             > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
+                input.column(6usize).as_ref(),
                 index,
             )?,
             r#time_unit_id: <Option<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(7usize).as_ref(),
                 index,
             )?,
             r#included: <bool as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
+                input.column(8usize).as_ref(),
                 index,
             )?,
             r#importance: <f64 as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
+                input.column(9usize).as_ref(),
                 index,
             )?,
         })
@@ -516,10 +538,10 @@ impl crate::columnar::RelationRow for AuthoredFitCasesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        57_344_usize + size_of::<Self::Builder>()
+        61_440_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        448usize
+        480usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -646,6 +668,26 @@ impl crate::columnar::RelationRow for AuthoredFitCasesRow {
                             bytes = crate::columnar::allocation_add(
                                 bytes,
                                 Ok::<usize, crate::RelationError>(16usize)?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                crate::columnar::allocation_add(
+                                    8,
+                                    ((item).r#value_attribute).len(),
+                                )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                if let Some(value) = ((item).r#standard_deviation_attribute)
+                                    .as_ref()
+                                {
+                                    crate::columnar::allocation_add(
+                                        1,
+                                        crate::columnar::allocation_add(8, (value).len())?,
+                                    )
+                                } else {
+                                    Ok::<usize, crate::RelationError>(1)
+                                }?,
                             )?;
                             bytes = crate::columnar::allocation_add(
                                 bytes,

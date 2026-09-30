@@ -25,6 +25,7 @@ from thermo_knowledge import transposition as transposition_module
 from thermo_knowledge.declaration import model as m
 from thermo_knowledge.declaration import schema as s
 from thermo_knowledge.declaration.diagnostics import Code, Diagnostic
+from thermo_knowledge.expression.units import describe, from_info, type_dimension
 from thermo_knowledge.declaration.types import (
     META_CONSTRUCTS,
     PRIMITIVES,
@@ -2667,13 +2668,41 @@ class Resolver:
         if m.OBSERVABLE_ROLE not in self.framework:
             return
         kind = self.framework[m.OBSERVABLE_ROLE]
+        quantity_names = {
+            identifier: name for name, identifier in declaration.meta_ids()["quantity_type"].items()
+        }
+        quantity_attributes = [
+            a.name
+            for a in declaration.attributes_of(kind)
+            if a.type.container == "scalar"
+            and a.type.element_kind == "meta"
+            and a.type.element == "quantity_type"
+        ]
         for module, field_ in self._observable_fields():
-            if declaration.observable_entity(field_.observable or "") is None:
+            entity = declaration.observable_entity(field_.observable or "")
+            if entity is None:
                 self.err(
                     module,
                     f"{field_.construct}.observable",
                     Code.UNKNOWN_NAME,
                     f"`{field_.observable}` is not a declared entity of kind `{kind}`",
+                )
+                continue
+            if field_.construct.startswith("forms.") or len(quantity_attributes) != 1:
+                continue  # a slot holds a reference to an observable; the writer checks its set
+            named = quantity_names.get(entity.values.get(quantity_attributes[0]))  # type: ignore[arg-type]
+            if named is None:
+                continue
+            expected = from_info(declaration.units[declaration.quantity_types[named].unit])
+            found = type_dimension(declaration, field_.type)
+            if found is not None and expected != found:
+                self.err(
+                    module,
+                    f"{field_.construct}.observable",
+                    Code.OBSERVABLE_DIMENSION,
+                    f"`{field_.observable}` is a `{named}` ({describe(expected)}) and "
+                    f"`{field_.name}` is a {field_.type.text} ({describe(found)}): an argument "
+                    "or output that names an observable has its quantity type's dimension",
                 )
 
     # -- composition bases -----------------------------------------------------------------

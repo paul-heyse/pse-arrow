@@ -1853,6 +1853,58 @@
       "extensive": false,
       "addition_kind": "additive",
       "doc": "An increment of the logarithm of absolute temperature: ln(T/T0), or a temperature difference over an absolute temperature."
+    },
+    {
+      "quantity_kind_id": "993357d4aeef4a459a7535f33168ca8b",
+      "name": "reciprocal_amount",
+      "extensive": false,
+      "addition_kind": "additive",
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "4ae5c1106e204702a2fe6cb653624850",
+            "num": -1,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "08bc9ba4b72e1ddbd3ff4c3a8adfde80",
+        "basis_id": null,
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": null
+      },
+      "doc": "Reciprocal amount: particles per mole, used in the PC-SAFT number-density conversion."
+    },
+    {
+      "quantity_kind_id": "3f94d990dae74295879e1f87a9d9a02e",
+      "name": "molar_entropy_per_temperature",
+      "extensive": false,
+      "addition_kind": "additive",
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "416d532069c4436c95ea708605e4327f",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "01a0ee03d43674589ac9f749f527cd8c",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
+            "num": -1,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "42a671644390a59b1fc2c76bb60193fa",
+        "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": null
+      },
+      "doc": "Temperature derivative of a molar entropy increment; its logarithmic temperature increment meaning is retained."
     }
   ],
   "quantity_operations": [
@@ -4146,6 +4198,58 @@
       "result_reference_state_id": null,
       "input_conversions": [],
       "precondition_invariant_ids": []
+    },
+    {
+      "operation_id": "74c4b50e0b0b4065ba47c243415cd889",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "5d58ab2cfbbcd19fd27bf2de1442d2ec",
+        "5d58ab2cfbbcd19fd27bf2de1442d2ec"
+      ],
+      "result_kind_id": "244ab9399bc477e20aa4d0780b5b0d43",
+      "basis_rule": "cancel",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "require_equal",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "1b4576d740ff42f7a863cbdfe9243105"
+      ]
+    },
+    {
+      "operation_id": "1e213962b2a044f1a318b24a9003671b",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "993357d4aeef4a459a7535f33168ca8b",
+        "993357d4aeef4a459a7535f33168ca8b"
+      ],
+      "result_kind_id": "244ab9399bc477e20aa4d0780b5b0d43",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "require_equal",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "ec4278e9be9b4ba8a3fb2619cab13aba"
+      ]
     }
   ],
   "quantity_types": [
@@ -5722,6 +5826,32 @@
       "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
       "doc": "Logarithmic temperature increment."
+    },
+    {
+      "quantity_type_id": "4982871a5ff5489bb0baba5983412f6c",
+      "name": "ReciprocalAmount",
+      "quantity_kind_id": "993357d4aeef4a459a7535f33168ca8b",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "08bc9ba4b72e1ddbd3ff4c3a8adfde80",
+      "nominal_magnitude": null,
+      "doc": "Exact reciprocal amount physical contract."
+    },
+    {
+      "quantity_type_id": "5745448bdfec4e0ea2e521bdc9995af8",
+      "name": "EntropyTemperatureDerivative",
+      "quantity_kind_id": "3f94d990dae74295879e1f87a9d9a02e",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "42a671644390a59b1fc2c76bb60193fa",
+      "nominal_magnitude": null,
+      "doc": "Complete contract for d(ds)/dT."
     }
   ],
   "reference_states": [
@@ -7036,6 +7166,21 @@
       ],
       "system": "SI",
       "doc": "Defined unit: its dimension and scale are derived from the composition (ADR-0124)."
+    },
+    {
+      "unit_id": "08bc9ba4b72e1ddbd3ff4c3a8adfde80",
+      "symbol": "1/mol",
+      "name": "reciprocal mole",
+      "reference_state_id": null,
+      "definition": [
+        {
+          "unit_id": "251f95b98b987a2bc752342c7d386fea",
+          "num": -1,
+          "den": 1
+        }
+      ],
+      "system": "SI",
+      "doc": "Reciprocal amount for the exact Avogadro constant."
     }
   ],
   "math_context": [
@@ -8092,6 +8237,28 @@
       ],
       "required_basis_id": null,
       "required_quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "1b4576d740ff42f7a863cbdfe9243105",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0,
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "e61574b6363397441bcbe123a28a1351",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "ec4278e9be9b4ba8a3fb2619cab13aba",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0,
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "4982871a5ff5489bb0baba5983412f6c",
       "match_shape": false
     }
   ],

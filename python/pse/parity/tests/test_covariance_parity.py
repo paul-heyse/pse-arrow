@@ -20,8 +20,8 @@ import pse
 from pse import modeling as w
 from pse.contracts import authored as a
 from pse.contracts.enums import ModelingAnalysisRoute, NativeSolveIntent
-from pse.contracts.identities import FitId, InstanceId
-from pse.contracts.values import ContentHash, SemanticId, SourceSpan
+from pse.contracts.identities import DeclarationId, FitId, InstanceId
+from pse.contracts.values import SemanticId
 
 from . import support
 
@@ -31,7 +31,16 @@ SIGMA = 0.5
 LINE = (
     "package parity { def Line { param a: Scalar = 1; param b: Scalar = 1; "
     + " ".join(f"let y{k}: Scalar = a + b*{x};" for k, x in enumerate(X))
-    + " } }"
+    + " } entity kind origin provenance {attribute title:Text;} "
+    'entity origin experiment {title="weighted analytic line"} '
+    "enum role {measured facets(measured)} "
+    "entity kind reading {attribute value:Scalar?;attribute sigma:Scalar?;} "
+    + " ".join(
+        f'@id("{bytes([160 + k]).hex() * 16}") entity reading measured{k} '
+        f"provenance(experiment,role.measured) {{value={y},sigma={SIGMA}}}"
+        for k, y in enumerate(Y)
+    )
+    + " }"
 )
 
 
@@ -85,26 +94,6 @@ def pse_estimate(
     case = declarations["Line"]
     parameters = {"a": identity(151), "b": identity(152)}
     experiment = InstanceId(identity(159))
-    dataset = a.AuthoredDatasetsRow(
-        dataset_id=identity(156),
-        name="line",
-        source="parity",
-        content_hash=ContentHash(bytes([2]) * 32),
-    )
-    observations = tuple(
-        a.AuthoredObservationsRow(
-            observation_id=identity(160 + k),
-            dataset_id=identity(156),
-            target=f"y{k}",
-            value=y,
-            unit_id=SemanticId(bytes([0x0A]) * 16),
-            std_dev=SIGMA,
-            timestamp=None,
-            tag=None,
-            source_span=SourceSpan(document_id=identity(156), start=0, end=0),
-        )
-        for k, y in enumerate(Y)
-    )
     fit = w.FitDeclaration(
         fit_id=FitId(identity(158)),
         parameters=tuple(
@@ -133,7 +122,9 @@ def pse_estimate(
         ),
         observations=tuple(
             a.AuthoredFitCasesFieldObservationsItem(
-                observation_id=identity(160 + k),
+                observation_id=DeclarationId(identity(160 + k)),
+                value_attribute="value",
+                standard_deviation_attribute="sigma",
                 experiment_id=experiment,
                 output_path=f"y{k}",
                 time=None,
@@ -145,7 +136,7 @@ def pse_estimate(
             for k in range(len(Y))
         ),
     )
-    authored = authored.with_fit_data((fit,), observations, (dataset,))
+    authored = authored.with_fit_declarations((fit,))
     result = (
         authored.prepare_fit(
             FitId(identity(158)), pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE)

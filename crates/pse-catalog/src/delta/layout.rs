@@ -341,14 +341,17 @@ fn restore_array_classified(
     } else {
         array
     };
-    let converted = cast_with_options(
-        &array,
-        target.data_type(),
-        &CastOptions {
-            safe: false,
-            ..CastOptions::default()
-        },
-    )?;
+    let array = if decode {
+        array
+    } else {
+        // Fixed-size null containers have masked child slots. Arrow's conversion
+        // to List retains those placeholders, which cannot satisfy a required
+        // element field until null-container ranges have been compacted. Permit
+        // them only in this temporary view; restore the declared schema below.
+        let temporary = visibility::comparison_type(target.data_type());
+        visibility::storage(cast_with_options(&array, &temporary, &options)?)?
+    };
+    let converted = cast_with_options(&array, target.data_type(), &options)?;
     if !target.is_nullable() && converted.null_count() != 0 {
         return Err(DataFusionError::Execution(format!(
             "required durable field {} contains nulls",

@@ -195,3 +195,7 @@ pse.modeling.finite-function.v5
 pse.math.typed-definition.v5
 pse.modeling.implicit-residual.v4
 pse.modeling.table-row.v1
+
+# Plan 23 explicitly versions typed fit input and analysis-owned source revisions.
+pse.modeling.fit-source.v2
+pse.modeling.source-revision.v4

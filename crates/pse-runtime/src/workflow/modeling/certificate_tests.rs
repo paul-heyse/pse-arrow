@@ -30,9 +30,7 @@ fn package(text: &str) -> (ModelingPackage, DeclarationId) {
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = fixture::runtime()
-        .modeling_package(rows, physical)
-        .unwrap();
+    let package = fixture::runtime().modeling_package(rows, physical).unwrap();
     (package, root)
 }
 fn analysis(root: DeclarationId, selection: SolverSelection) -> ModelingAnalysis {

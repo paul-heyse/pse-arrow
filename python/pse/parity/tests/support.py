@@ -65,12 +65,12 @@ def package(
     return authored, {row.name: row.declaration_id for row in authored.declarations()}
 
 
-def documents(path: Path) -> dict[str, str]:
+def documents(path: Path) -> dict[str, str | bytes]:
     """A package directory's documents by relative path."""
     return {
-        p.relative_to(path).as_posix(): p.read_text()
+        p.relative_to(path).as_posix(): p.read_bytes()
         for p in path.rglob("*")
-        if p.is_file() and p.suffix in {".toml", ".yaml", ".yml", ".pse"}
+        if p.is_file() and p.suffix in {".toml", ".yaml", ".yml", ".pse", ".parquet"}
     }
 
 
@@ -89,8 +89,10 @@ version = "1.0.0"
 kind = "model"
 id_policy = "named"
 dependencies = [
-  { package_id = "12104e13f2494492ba75de08955299a6", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
-  { package_id = "b27409be5572b8712e47db271fae28cd", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "12104e13f2494492ba75de08955299a6", version_req = {
+      operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "b27409be5572b8712e47db271fae28cd", version_req = {
+      operator = "exact", major = 1, minor = 0, patch = 0 } },
 ]
 doc = "Parity comparison models."
 """
@@ -98,7 +100,14 @@ doc = "Parity comparison models."
         [{"package.toml": manifest, "models/parity.pse": text}]
         + [
             documents(reference / name)
-            for name in ("process", "thermodynamics", "methods", "domain", "physical")
+            for name in (
+                "data/references",
+                "process",
+                "thermodynamics",
+                "methods",
+                "domain",
+                "physical",
+            )
         ],
         physical,
     )

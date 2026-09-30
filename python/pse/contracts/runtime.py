@@ -246,6 +246,20 @@ class RuntimeFitVariablesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeFittedParameterCellsRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    fit_id: i.FitId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    source_revision: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    fit_source: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    parameter_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    value: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeIncumbentsRow:
     """Declared relation row or nested value."""
 
@@ -708,6 +722,35 @@ class RuntimeModelingJacobianOptimizationRow:
     degenerate: b.tuple[RuntimeModelingJacobianOptimizationFieldDegenerateItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingJacobianOptimizationFieldDegenerateItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     attempts: b.tuple[RuntimeModelingJacobianOptimizationFieldAttemptsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingJacobianOptimizationFieldAttemptsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     unavailable: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeModelingKnowledgeRow:
+    """Declared relation row or nested value."""
+
+    source_revision: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    owner_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    row_index: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    slot: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    record_kind_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    origin_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    keys: b.tuple[s.ModelingKnowledgeValueNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingKnowledgeValueNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    value: b.tuple[s.ModelingKnowledgeValueNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingKnowledgeValueNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    uncertainty: s.ModelingKnowledgeUncertainty | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(s.ModelingKnowledgeUncertainty)))
+    source_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    role_enumeration_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    role_member_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    lineage: b.tuple[s.ModelingKnowledgeLineage, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingKnowledgeLineage), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    test_only: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeModelingKnowledgeNamesRow:
+    """Declared relation row or nested value."""
+
+    source_revision: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    declaration_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
 @attrs.frozen(kw_only=True)

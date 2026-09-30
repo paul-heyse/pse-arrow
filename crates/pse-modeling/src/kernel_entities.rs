@@ -49,6 +49,124 @@ fn rows_of(p: &CheckedPackage, kind: &str) -> Vec<(DeclarationId, entity::Record
         .collect()
 }
 
+#[test]
+fn constants_admit_named_reference_conditions_in_their_declared_quantity_types() {
+    let text = r#"package p {
+        entity kind source provenance {}
+        entity source convention {}
+        enum role { published }
+        constant t0: Temperature = stock.temperature provenance(convention, role.published);
+        constant p0: Pressure = stock.pressure provenance(convention, role.published);
+        fn condition() -> Temperature = stock.temperature;
+        def Root {
+            require t0 == 298.15{K} and p0 == 100000{Pa} : "named conditions";
+            var temperature: Temperature;
+            eq named_condition: temperature == condition();
+        }
+    }"#;
+    specialized(text).unwrap();
+    for invalid in [
+        text.replace("t0: Temperature", "t0: Pressure"),
+        text.replace("stock.temperature", "stock.volume"),
+        text.replace("stock.pressure", "unknown.pressure"),
+    ] {
+        assert!(admitted(&invalid).is_err());
+    }
+}
+
+#[test]
+fn coefficient_unit_refusal_names_attribute_expected_and_actual_quantity() {
+    let error = refusal(
+        r#"package p {
+        entity kind form { attribute coefficient: Energy; }
+        entity form invalid { coefficient = 1{s} }
+    }"#,
+    );
+    for detail in [
+        "attribute coefficient",
+        "Energy",
+        "actual quantity Time",
+        "1.0{s}",
+    ] {
+        assert!(error.contains(detail), "{detail}: {error}");
+    }
+}
+
+#[test]
+fn native_fixture_options_admit_only_exact_primitives() {
+    let source = |value: &str| {
+        format!(
+            "package p {{ def D {{var x:Scalar; eq e:x==1;}} test t fixture {{dof 0; run steady; policy {{options {{\"setting\" = {value};}};}}}} {{child root:D=D();}} }}"
+        )
+    };
+    for value in ["0", "false", "1e-3", "\"method\""] {
+        admitted(&source(value)).unwrap();
+    }
+    for value in [
+        "1{s}",
+        "1.0 ± standard(0.1)",
+        "2147483648",
+        "missing",
+        "p.D",
+    ] {
+        assert!(refusal(&source(value)).contains("requires a unique name and an exact Boolean"));
+    }
+    assert!(refusal(&source("0").replace("run steady", "run pure")).contains("pure fixture"));
+}
+
+#[test]
+fn qualified_record_attributes_resolve_the_record_and_preserve_lexical_shadowing() {
+    specialized(
+        r#"package p {
+        entity kind family { attribute omega: Scalar; }
+        entity family pr { omega = 0.45724 }
+        fn coefficient() -> Scalar = p.pr.omega;
+        def Child(p: family) {
+            require p.omega == 0.45724 : "the lexical record shadows its package name";
+        }
+        def Root {
+            require p.pr.omega == 0.45724 : "a qualified record's attribute";
+            child binding: Child = Child(p = pr);
+            var omega: Scalar;
+            eq coefficient_binding: omega == coefficient();
+        }
+    }"#,
+    )
+    .unwrap();
+}
+
+#[test]
+fn abstract_kinds_refuse_records_without_poisoning_concrete_refinements() {
+    let text = r#"package p {
+ entity kind base abstract { attribute value: Scalar; }
+ entity kind concrete extends base {}
+ entity concrete admitted { value = 1 }
+ entity kind keyed abstract { key name: Text; attribute value: Scalar; }
+ entity kind row extends keyed {}
+ entity kind source provenance {} entity source origin {}
+ enum role { published }
+ dataset bank: row provenance(origin, role.published) { ["a"] = [2]; }
+}"#;
+    let p = admitted(text).unwrap();
+    assert!(p.kinds[&p.names["p.base"]].is_abstract);
+    assert!(!p.kinds[&p.names["p.concrete"]].is_abstract);
+    assert_eq!(rows_of(&p, "p.keyed").len(), 1);
+    for invalid in [
+        text.replace("entity concrete admitted", "entity base admitted"),
+        text.replace("bank: row", "bank: keyed"),
+        text.replace(
+            "concrete extends base {}",
+            "concrete extends base abstract {}",
+        ),
+    ] {
+        let error = refusal(&invalid);
+        assert!(
+            error.contains("abstract kind") && error.contains("cannot supply"),
+            "{error}"
+        );
+    }
+}
+
 /// A kind refines one kind and inherits its attributes; a member of the refinement is a
 /// member of every kind it refines: in a set, as a function argument and as a coordinate.
 #[test]
@@ -150,7 +268,11 @@ package app {
         Some(p.names["app.toluene"])
     );
     let error = refusal(&text.replace("108-88-3", "71-43-2"));
-    for part in ["identifier cas \"71-43-2\" is held by", "benzene", "toluene"] {
+    for part in [
+        "identifier cas \"71-43-2\" is held by",
+        "benzene",
+        "toluene",
+    ] {
         assert!(error.contains(part), "{part}: {error}");
     }
     // Keyed rows share the scope.
@@ -247,11 +369,23 @@ fn attribute_cells_type_checked_at_admission() {
         ("m = 1{J}, peer", "m = 1{s}, peer", "unit"),
         ("peer = a,", "peer = z,", "not an entity of kind k"),
         ("m = 1{J}, peer", "m = \"1 J\", peer", "a text cell"),
-        ("m = 1{J}, peer", "mass = 1{J}, peer", "unknown attribute mass"),
-        ("{first, Choice.second}", "{first, third}", "third is not a member of Choice"),
+        (
+            "m = 1{J}, peer",
+            "mass = 1{J}, peer",
+            "unknown attribute mass",
+        ),
+        (
+            "{first, Choice.second}",
+            "{first, third}",
+            "third is not a member of Choice",
+        ),
         ("± standard(1)", "± bound(-1)", "finite and nonnegative"),
         // A bare number is the neutral scalar; a written `{1}` takes the expected type.
-        ("MoleFraction = 0.5{1};", "MoleFraction = 0.5;", "does not satisfy"),
+        (
+            "MoleFraction = 0.5{1};",
+            "MoleFraction = 0.5;",
+            "does not satisfy",
+        ),
         (
             "attribute peer: k? = missing;",
             "attribute peer: k? = missing; attribute n: Energy = 2{s};",
@@ -295,7 +429,10 @@ fn missing_required_attribute_refused_at_admission() {
 }"#;
     admitted(keyed).unwrap();
     let error = refusal(&keyed.replace("[1{J}]", "[]"));
-    assert!(error.contains("missing attribute m of kind form"), "{error}");
+    assert!(
+        error.contains("missing attribute m of kind form"),
+        "{error}"
+    );
 }
 
 const KEYED: &str = r#"package p {
@@ -335,24 +472,28 @@ fn keyed_identity_is_the_key_declaring_kind_and_typed_keys() {
         constant_cp,
         &[benzene.clone(), liquid.clone(), Value::Integer(1)]
     )));
-    assert!(!p.entities.contains_key(&entity::keyed_identity(
-        parameter_set,
-        &[benzene, liquid]
-    )));
+    assert!(
+        !p.entities
+            .contains_key(&entity::keyed_identity(parameter_set, &[benzene, liquid]))
+    );
     // The declared lookup finds both rows (a pure fixture of static requirements).
     specialized(KEYED).unwrap();
     // A default is part of the identity; an explicit key equal to it is the same row.
-    let changed = admitted(&KEYED.replace("key variant: Integer = 1;", "key variant: Integer = 3;"))
-        .unwrap();
+    let changed =
+        admitted(&KEYED.replace("key variant: Integer = 1;", "key variant: Integer = 3;")).unwrap();
     assert!(!changed.entities.contains_key(&identity));
-    let explicit = admitted(&KEYED.replace("[benzene, liquid] =", "[benzene, liquid, 1] =")).unwrap();
+    let explicit =
+        admitted(&KEYED.replace("[benzene, liquid] =", "[benzene, liquid, 1] =")).unwrap();
     assert!(explicit.entities.contains_key(&identity));
     // Renaming a member that has an identity re-keys nothing.
     let renamed = admitted(
         &KEYED
             .replace(") liquid,", ") fluid,")
             .replace("[benzene, liquid] =", "[benzene, fluid] =")
-            .replace("constant_cp[benzene, Phase.liquid]", "constant_cp[benzene, Phase.fluid]"),
+            .replace(
+                "constant_cp[benzene, Phase.liquid]",
+                "constant_cp[benzene, Phase.fluid]",
+            ),
     )
     .unwrap();
     assert!(renamed.entities.contains_key(&identity));
@@ -363,8 +504,11 @@ fn keyed_identity_is_the_key_declaring_kind_and_typed_keys() {
     );
     // One kind of a lineage declares the keys.
     assert!(
-        refusal(&KEYED.replace("attribute c: Scalar;", "attribute c: Scalar; key extra: Text;"))
-            .contains("declared by one kind, here parameter_set")
+        refusal(&KEYED.replace(
+            "attribute c: Scalar;",
+            "attribute c: Scalar; key extra: Text;"
+        ))
+        .contains("declared by one kind, here parameter_set")
     );
 }
 
@@ -386,11 +530,17 @@ fn same_key_in_two_forms_is_refused() {
     }
     // Twice in one dataset.
     let error = refusal(&FORMS.replace("{ [a] = []; }", "{ [a] = []; [a] = []; }"));
-    assert!(error.contains("supplies one key of kind form twice"), "{error}");
+    assert!(
+        error.contains("supplies one key of kind form twice"),
+        "{error}"
+    );
     // A dataset-supplied key is a declared binding of a key.
     assert!(
-        refusal(&FORMS.replace("bind(source = \"bank\") provenance(s, role.given) { [a]", "bind(label = \"x\") provenance(s, role.given) { [a]"))
-            .contains("binding label names no key of kind form")
+        refusal(&FORMS.replace(
+            "bind(source = \"bank\") provenance(s, role.given) { [a]",
+            "bind(label = \"x\") provenance(s, role.given) { [a]"
+        ))
+        .contains("binding label names no key of kind form")
     );
     // The binding is part of the key: another source is another row.
     admitted(&FORMS.replace(
@@ -440,7 +590,9 @@ fn refined_kind_binds_inherited_function_attribute() {
     let p = admitted(BINDINGS).unwrap();
     let (_, row) = rows_of(&p, "p.form").remove(0);
     assert_eq!(row.values["cp"], Value::Function(p.names["p.linear_cp"]));
-    assert!(matches!(row.values["slope"], Value::Number { bits, .. } if f64::from_bits(bits) == 2.0));
+    assert!(
+        matches!(row.values["slope"], Value::Number { bits, .. } if f64::from_bits(bits) == 2.0)
+    );
     let steep = BINDINGS.replace(
         "dataset rows: linear",
         "entity kind steep extends linear { override cp = steep_cp; } fn steep_cp(x: Scalar, s: steep) -> Scalar = 2 * s.slope * x; dataset rows: steep",
@@ -449,11 +601,31 @@ fn refined_kind_binds_inherited_function_attribute() {
     let (_, row) = rows_of(&p, "p.form").remove(0);
     assert_eq!(row.values["cp"], Value::Function(p.names["p.steep_cp"]));
     for (from, to, expected) in [
-        ("override cp = steep_cp;", "cp = steep_cp;", "requires override"),
-        ("cp = linear_cp;", "cp = scaled;", "does not have the bound attribute's signature"),
-        ("cp = linear_cp;", "cp = linear_cp; heat = linear_cp;", "binds no attribute inherited"),
-        ("cp = linear_cp;", "cp = unrelated;", "does not have the bound attribute's signature"),
-        ("cp = linear_cp;", "cp = linear_cp; subject = a;", "supplied by each row"),
+        (
+            "override cp = steep_cp;",
+            "cp = steep_cp;",
+            "requires override",
+        ),
+        (
+            "cp = linear_cp;",
+            "cp = scaled;",
+            "does not have the bound attribute's signature",
+        ),
+        (
+            "cp = linear_cp;",
+            "cp = linear_cp; heat = linear_cp;",
+            "binds no attribute inherited",
+        ),
+        (
+            "cp = linear_cp;",
+            "cp = unrelated;",
+            "does not have the bound attribute's signature",
+        ),
+        (
+            "cp = linear_cp;",
+            "cp = linear_cp; subject = a;",
+            "supplied by each row",
+        ),
     ] {
         let source = steep.replace(
             "dataset rows:",
@@ -468,7 +640,10 @@ fn refined_kind_binds_inherited_function_attribute() {
     let error = refusal(
         "package p { entity kind form { attribute cp: Fn(x: Scalar) -> Scalar; } entity kind linear extends form { cp = f; } fn f(x: Scalar) -> Scalar = x; fn g(x: Scalar) -> Scalar = x; entity linear z { cp = g } }",
     );
-    assert!(error.contains("attribute cp is bound by kind linear"), "{error}");
+    assert!(
+        error.contains("attribute cp is bound by kind linear"),
+        "{error}"
+    );
 }
 
 const DISPATCH: &str = r#"package p {
@@ -523,9 +698,16 @@ fn constants_are_typed_declarations() {
     let constant = &p.constants[&m0];
     assert!(matches!(constant.value, Value::Number { bits, .. } if f64::from_bits(bits) == 2000.0));
     assert_eq!(constant.uncertainty.unwrap().magnitude, 1000.0);
-    assert!(!p.functions.contains_key(&m0), "a constant is not a function");
+    assert!(
+        !p.functions.contains_key(&m0),
+        "a constant is not a function"
+    );
     assert_eq!(specialized(text).unwrap().equations.len(), 1);
-    for (value, expected) in [("2{s}", "unit"), ("\"2 kJ\"", "a text cell"), ("x", "a reference cell")] {
+    for (value, expected) in [
+        ("2{s}", "unit"),
+        ("\"2 kJ\"", "a text cell"),
+        ("x", "not a named reference-state condition"),
+    ] {
         let error = refusal(&text.replace("2{kJ} ± standard(1)", value));
         assert!(error.contains(expected), "{value}: {error}");
     }

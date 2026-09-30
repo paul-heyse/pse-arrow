@@ -4,10 +4,12 @@
 
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#authored::r#modeling_declarations::{
+    AuthoredModelingDeclarationsFieldValueTemporal,
     AuthoredModelingDeclarationsFieldValueRelaxation,
     AuthoredModelingDeclarationsFieldValueContinuation,
     AuthoredModelingDeclarationsFieldValueScopeParametersItem,
     AuthoredModelingDeclarationsFieldValueScopeSelection,
+    AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem,
     AuthoredModelingDeclarationsFieldValueScopeFixturePolicy,
     AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization,
     AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem,
@@ -80,21 +82,74 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    198u8, 20u8, 207u8, 112u8, 127u8, 204u8, 130u8, 18u8, 189u8, 52u8, 146u8, 32u8,
-    151u8, 69u8, 173u8, 161u8,
+    76u8, 18u8, 79u8, 96u8, 240u8, 199u8, 57u8, 23u8, 251u8, 42u8, 134u8, 138u8, 227u8,
+    14u8, 202u8, 69u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_declarations";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 17u32;
+pub const VERSION: u32 = 20u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    61u8, 65u8, 76u8, 138u8, 201u8, 181u8, 75u8, 158u8, 223u8, 46u8, 234u8, 237u8, 209u8,
-    169u8, 220u8, 80u8, 40u8, 40u8, 115u8, 250u8, 53u8, 163u8, 253u8, 192u8, 188u8, 82u8,
-    169u8, 40u8, 138u8, 16u8, 239u8, 190u8,
+    166u8, 183u8, 86u8, 79u8, 119u8, 127u8, 111u8, 37u8, 147u8, 225u8, 245u8, 23u8,
+    208u8, 193u8, 163u8, 71u8, 84u8, 158u8, 27u8, 200u8, 118u8, 254u8, 59u8, 2u8, 179u8,
+    254u8, 110u8, 6u8, 157u8, 214u8, 72u8, 128u8,
 ]);
+impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueTemporal {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#target, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#axis, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#argument,
+            children[2usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#target: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#axis: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#argument: <String as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueRelaxation {
     fn append(
         &self,
@@ -303,6 +358,53 @@ for AuthoredModelingDeclarationsFieldValueScopeSelection {
     }
 }
 impl crate::columnar::ArrowValue
+for AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#value, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <crate::generated::structures::ModelingCell as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#value: <crate::generated::structures::ModelingCell as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
 for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
     fn append(
         &self,
@@ -318,29 +420,33 @@ for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
             children[1usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#derivative_step,
+            &self.r#native_options,
             children[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#derivative_tolerance,
+            &self.r#derivative_step,
             children[3usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#derivative_cells,
+            &self.r#derivative_tolerance,
             children[4usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#items, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#derivative_cells,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#items, children[6usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#body_occurrences,
-            children[6usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#body_slots,
             children[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#foreign_bytes,
+            &self.r#body_slots,
             children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#foreign_bytes,
+            children[9usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -358,14 +464,14 @@ for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
         <Option<
             crate::generated::enums::PresolvePolicyKind,
         > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <Option<
-            f64,
+        <Vec<
+            AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem,
         > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <Option<
             f64,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Option<
-            i64,
+            f64,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <Option<
             i64,
@@ -379,6 +485,9 @@ for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
         <Option<
             i64,
         > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -401,46 +510,52 @@ for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#derivative_step: <Option<
-                f64,
+            r#native_options: <Vec<
+                AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem,
             > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#derivative_tolerance: <Option<
+            r#derivative_step: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#derivative_cells: <Option<
-                i64,
+            r#derivative_tolerance: <Option<
+                f64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#items: <Option<
+            r#derivative_cells: <Option<
                 i64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#body_occurrences: <Option<
+            r#items: <Option<
                 i64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
                 index,
             )?,
-            r#body_slots: <Option<
+            r#body_occurrences: <Option<
                 i64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#foreign_bytes: <Option<
+            r#body_slots: <Option<
                 i64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#foreign_bytes: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
                 index,
             )?,
         })
@@ -3191,6 +3306,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueAttri
         crate::columnar::ArrowValue::append(&self.r#value, children[2usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#unique, children[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#derived, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#storage, children[5usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -3212,6 +3328,9 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueAttri
         <Option<
             String,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Vec<
+            crate::generated::structures::ModelingColumnStorage,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -3246,6 +3365,12 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueAttri
                 String,
             > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#storage: <Vec<
+                crate::generated::structures::ModelingColumnStorage,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
                 index,
             )?,
         })
@@ -3461,6 +3586,10 @@ for AuthoredModelingDeclarationsFieldValueEntityAttributesItem {
         let children = output.field_builders_mut();
         crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#value, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#provenance,
+            children[2usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -3475,6 +3604,9 @@ for AuthoredModelingDeclarationsFieldValueEntityAttributesItem {
         <crate::generated::structures::ModelingCell as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
+        <Option<
+            crate::generated::structures::ModelingProvenance,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -3491,6 +3623,12 @@ for AuthoredModelingDeclarationsFieldValueEntityAttributesItem {
             )?,
             r#value: <crate::generated::structures::ModelingCell as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#provenance: <Option<
+                crate::generated::structures::ModelingProvenance,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
                 index,
             )?,
         })
@@ -3510,8 +3648,12 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueEntit
             children[0usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#attributes,
+            &self.r#provenance,
             children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#attributes,
+            children[2usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -3524,9 +3666,12 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueEntit
         >(output)?;
         let children = output.field_builders_mut();
         <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Option<
+            crate::generated::structures::ModelingProvenance,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <Vec<
             AuthoredModelingDeclarationsFieldValueEntityAttributesItem,
-        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -3541,10 +3686,16 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueEntit
                 input.column(0usize).as_ref(),
                 index,
             )?,
+            r#provenance: <Option<
+                crate::generated::structures::ModelingProvenance,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
             r#attributes: <Vec<
                 AuthoredModelingDeclarationsFieldValueEntityAttributesItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
+                input.column(2usize).as_ref(),
                 index,
             )?,
         })
@@ -4820,111 +4971,115 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValue {
         let children = output.field_builders_mut();
         crate::columnar::ArrowValue::append(&self.r#kind, children[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#relaxation,
+            &self.r#temporal,
             children[1usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#continuation,
+            &self.r#relaxation,
             children[2usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#scope, children[3usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#binding, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#continuation,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#scope, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#binding, children[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#function,
-            children[5usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#equation,
             children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#ordered_set,
+            &self.r#equation,
             children[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#cardinality,
+            &self.r#ordered_set,
             children[8usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#piecewise,
+            &self.r#cardinality,
             children[9usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#logic, children[10usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#piecewise,
+            children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#logic, children[11usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#complementarity,
-            children[11usize].as_mut(),
+            children[12usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#table, children[12usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#table, children[13usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#envelope,
-            children[13usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#extrapolation,
             children[14usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#attribute,
+            &self.r#extrapolation,
             children[15usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#dataset,
+            &self.r#attribute,
             children[16usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#entity, children[17usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#dataset,
+            children[17usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#entity, children[18usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#enumeration,
-            children[18usize].as_mut(),
+            children[19usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#constant,
-            children[19usize].as_mut(),
+            children[20usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#import, children[20usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#guard, children[21usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#import, children[21usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#guard, children[22usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#accumulator,
-            children[22usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#contribution,
             children[23usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#connection,
+            &self.r#contribution,
             children[24usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#annotation,
+            &self.r#connection,
             children[25usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#requirement,
+            &self.r#annotation,
             children[26usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#expectation,
+            &self.r#requirement,
             children[27usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#continuous,
+            &self.r#expectation,
             children[28usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#difference_scheme,
+            &self.r#continuous,
             children[29usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#collocation_scheme,
+            &self.r#difference_scheme,
             children[30usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#discretization,
+            &self.r#collocation_scheme,
             children[31usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#realization,
+            &self.r#discretization,
             children[32usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#realization,
+            children[33usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -4940,101 +5095,104 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValue {
             children[0usize].as_mut(),
         )?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueRelaxation,
+            AuthoredModelingDeclarationsFieldValueTemporal,
         > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueContinuation,
+            AuthoredModelingDeclarationsFieldValueRelaxation,
         > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueScope,
+            AuthoredModelingDeclarationsFieldValueContinuation,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueBinding,
+            AuthoredModelingDeclarationsFieldValueScope,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueFunction,
+            AuthoredModelingDeclarationsFieldValueBinding,
         > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueEquation,
+            AuthoredModelingDeclarationsFieldValueFunction,
         > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueOrderedSet,
+            AuthoredModelingDeclarationsFieldValueEquation,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueCardinality,
+            AuthoredModelingDeclarationsFieldValueOrderedSet,
         > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValuePiecewise,
+            AuthoredModelingDeclarationsFieldValueCardinality,
         > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueLogic,
+            AuthoredModelingDeclarationsFieldValuePiecewise,
         > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueComplementarity,
+            AuthoredModelingDeclarationsFieldValueLogic,
         > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueTable,
+            AuthoredModelingDeclarationsFieldValueComplementarity,
         > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueEnvelope,
+            AuthoredModelingDeclarationsFieldValueTable,
         > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueExtrapolation,
+            AuthoredModelingDeclarationsFieldValueEnvelope,
         > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueAttribute,
+            AuthoredModelingDeclarationsFieldValueExtrapolation,
         > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueDataset,
+            AuthoredModelingDeclarationsFieldValueAttribute,
         > as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueEntity,
+            AuthoredModelingDeclarationsFieldValueDataset,
         > as crate::columnar::ArrowValue>::append_null(children[17usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueEnumeration,
+            AuthoredModelingDeclarationsFieldValueEntity,
         > as crate::columnar::ArrowValue>::append_null(children[18usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueConstant,
+            AuthoredModelingDeclarationsFieldValueEnumeration,
         > as crate::columnar::ArrowValue>::append_null(children[19usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueImport,
+            AuthoredModelingDeclarationsFieldValueConstant,
         > as crate::columnar::ArrowValue>::append_null(children[20usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueGuard,
+            AuthoredModelingDeclarationsFieldValueImport,
         > as crate::columnar::ArrowValue>::append_null(children[21usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueAccumulator,
+            AuthoredModelingDeclarationsFieldValueGuard,
         > as crate::columnar::ArrowValue>::append_null(children[22usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueContribution,
+            AuthoredModelingDeclarationsFieldValueAccumulator,
         > as crate::columnar::ArrowValue>::append_null(children[23usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueConnection,
+            AuthoredModelingDeclarationsFieldValueContribution,
         > as crate::columnar::ArrowValue>::append_null(children[24usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueAnnotation,
+            AuthoredModelingDeclarationsFieldValueConnection,
         > as crate::columnar::ArrowValue>::append_null(children[25usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueRequirement,
+            AuthoredModelingDeclarationsFieldValueAnnotation,
         > as crate::columnar::ArrowValue>::append_null(children[26usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueExpectation,
+            AuthoredModelingDeclarationsFieldValueRequirement,
         > as crate::columnar::ArrowValue>::append_null(children[27usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueContinuous,
+            AuthoredModelingDeclarationsFieldValueExpectation,
         > as crate::columnar::ArrowValue>::append_null(children[28usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueDifferenceScheme,
+            AuthoredModelingDeclarationsFieldValueContinuous,
         > as crate::columnar::ArrowValue>::append_null(children[29usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueCollocationScheme,
+            AuthoredModelingDeclarationsFieldValueDifferenceScheme,
         > as crate::columnar::ArrowValue>::append_null(children[30usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueDiscretization,
+            AuthoredModelingDeclarationsFieldValueCollocationScheme,
         > as crate::columnar::ArrowValue>::append_null(children[31usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueRealization,
+            AuthoredModelingDeclarationsFieldValueDiscretization,
         > as crate::columnar::ArrowValue>::append_null(children[32usize].as_mut())?;
+        <Option<
+            AuthoredModelingDeclarationsFieldValueRealization,
+        > as crate::columnar::ArrowValue>::append_null(children[33usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -5049,196 +5207,202 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValue {
                 input.column(0usize).as_ref(),
                 index,
             )?,
+            r#temporal: <Option<
+                AuthoredModelingDeclarationsFieldValueTemporal,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
             r#relaxation: <Option<
                 AuthoredModelingDeclarationsFieldValueRelaxation,
             > as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
+                input.column(2usize).as_ref(),
                 index,
             )?,
             r#continuation: <Option<
                 AuthoredModelingDeclarationsFieldValueContinuation,
             > as crate::columnar::ArrowValue>::read(
-                input.column(2usize).as_ref(),
+                input.column(3usize).as_ref(),
                 index,
             )?,
             r#scope: <Option<
                 AuthoredModelingDeclarationsFieldValueScope,
             > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
+                input.column(4usize).as_ref(),
                 index,
             )?,
             r#binding: <Option<
                 AuthoredModelingDeclarationsFieldValueBinding,
             > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
+                input.column(5usize).as_ref(),
                 index,
             )?,
             r#function: <Option<
                 AuthoredModelingDeclarationsFieldValueFunction,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(6usize).as_ref(),
                 index,
             )?,
             r#equation: <Option<
                 AuthoredModelingDeclarationsFieldValueEquation,
             > as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
+                input.column(7usize).as_ref(),
                 index,
             )?,
             r#ordered_set: <Option<
                 AuthoredModelingDeclarationsFieldValueOrderedSet,
             > as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
+                input.column(8usize).as_ref(),
                 index,
             )?,
             r#cardinality: <Option<
                 AuthoredModelingDeclarationsFieldValueCardinality,
             > as crate::columnar::ArrowValue>::read(
-                input.column(8usize).as_ref(),
+                input.column(9usize).as_ref(),
                 index,
             )?,
             r#piecewise: <Option<
                 AuthoredModelingDeclarationsFieldValuePiecewise,
             > as crate::columnar::ArrowValue>::read(
-                input.column(9usize).as_ref(),
+                input.column(10usize).as_ref(),
                 index,
             )?,
             r#logic: <Option<
                 AuthoredModelingDeclarationsFieldValueLogic,
             > as crate::columnar::ArrowValue>::read(
-                input.column(10usize).as_ref(),
+                input.column(11usize).as_ref(),
                 index,
             )?,
             r#complementarity: <Option<
                 AuthoredModelingDeclarationsFieldValueComplementarity,
             > as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
+                input.column(12usize).as_ref(),
                 index,
             )?,
             r#table: <Option<
                 AuthoredModelingDeclarationsFieldValueTable,
             > as crate::columnar::ArrowValue>::read(
-                input.column(12usize).as_ref(),
+                input.column(13usize).as_ref(),
                 index,
             )?,
             r#envelope: <Option<
                 AuthoredModelingDeclarationsFieldValueEnvelope,
             > as crate::columnar::ArrowValue>::read(
-                input.column(13usize).as_ref(),
+                input.column(14usize).as_ref(),
                 index,
             )?,
             r#extrapolation: <Option<
                 AuthoredModelingDeclarationsFieldValueExtrapolation,
             > as crate::columnar::ArrowValue>::read(
-                input.column(14usize).as_ref(),
+                input.column(15usize).as_ref(),
                 index,
             )?,
             r#attribute: <Option<
                 AuthoredModelingDeclarationsFieldValueAttribute,
             > as crate::columnar::ArrowValue>::read(
-                input.column(15usize).as_ref(),
+                input.column(16usize).as_ref(),
                 index,
             )?,
             r#dataset: <Option<
                 AuthoredModelingDeclarationsFieldValueDataset,
             > as crate::columnar::ArrowValue>::read(
-                input.column(16usize).as_ref(),
+                input.column(17usize).as_ref(),
                 index,
             )?,
             r#entity: <Option<
                 AuthoredModelingDeclarationsFieldValueEntity,
             > as crate::columnar::ArrowValue>::read(
-                input.column(17usize).as_ref(),
+                input.column(18usize).as_ref(),
                 index,
             )?,
             r#enumeration: <Option<
                 AuthoredModelingDeclarationsFieldValueEnumeration,
             > as crate::columnar::ArrowValue>::read(
-                input.column(18usize).as_ref(),
+                input.column(19usize).as_ref(),
                 index,
             )?,
             r#constant: <Option<
                 AuthoredModelingDeclarationsFieldValueConstant,
             > as crate::columnar::ArrowValue>::read(
-                input.column(19usize).as_ref(),
+                input.column(20usize).as_ref(),
                 index,
             )?,
             r#import: <Option<
                 AuthoredModelingDeclarationsFieldValueImport,
             > as crate::columnar::ArrowValue>::read(
-                input.column(20usize).as_ref(),
+                input.column(21usize).as_ref(),
                 index,
             )?,
             r#guard: <Option<
                 AuthoredModelingDeclarationsFieldValueGuard,
             > as crate::columnar::ArrowValue>::read(
-                input.column(21usize).as_ref(),
+                input.column(22usize).as_ref(),
                 index,
             )?,
             r#accumulator: <Option<
                 AuthoredModelingDeclarationsFieldValueAccumulator,
             > as crate::columnar::ArrowValue>::read(
-                input.column(22usize).as_ref(),
+                input.column(23usize).as_ref(),
                 index,
             )?,
             r#contribution: <Option<
                 AuthoredModelingDeclarationsFieldValueContribution,
             > as crate::columnar::ArrowValue>::read(
-                input.column(23usize).as_ref(),
+                input.column(24usize).as_ref(),
                 index,
             )?,
             r#connection: <Option<
                 AuthoredModelingDeclarationsFieldValueConnection,
             > as crate::columnar::ArrowValue>::read(
-                input.column(24usize).as_ref(),
+                input.column(25usize).as_ref(),
                 index,
             )?,
             r#annotation: <Option<
                 AuthoredModelingDeclarationsFieldValueAnnotation,
             > as crate::columnar::ArrowValue>::read(
-                input.column(25usize).as_ref(),
+                input.column(26usize).as_ref(),
                 index,
             )?,
             r#requirement: <Option<
                 AuthoredModelingDeclarationsFieldValueRequirement,
             > as crate::columnar::ArrowValue>::read(
-                input.column(26usize).as_ref(),
+                input.column(27usize).as_ref(),
                 index,
             )?,
             r#expectation: <Option<
                 AuthoredModelingDeclarationsFieldValueExpectation,
             > as crate::columnar::ArrowValue>::read(
-                input.column(27usize).as_ref(),
+                input.column(28usize).as_ref(),
                 index,
             )?,
             r#continuous: <Option<
                 AuthoredModelingDeclarationsFieldValueContinuous,
             > as crate::columnar::ArrowValue>::read(
-                input.column(28usize).as_ref(),
+                input.column(29usize).as_ref(),
                 index,
             )?,
             r#difference_scheme: <Option<
                 AuthoredModelingDeclarationsFieldValueDifferenceScheme,
             > as crate::columnar::ArrowValue>::read(
-                input.column(29usize).as_ref(),
+                input.column(30usize).as_ref(),
                 index,
             )?,
             r#collocation_scheme: <Option<
                 AuthoredModelingDeclarationsFieldValueCollocationScheme,
             > as crate::columnar::ArrowValue>::read(
-                input.column(30usize).as_ref(),
+                input.column(31usize).as_ref(),
                 index,
             )?,
             r#discretization: <Option<
                 AuthoredModelingDeclarationsFieldValueDiscretization,
             > as crate::columnar::ArrowValue>::read(
-                input.column(31usize).as_ref(),
+                input.column(32usize).as_ref(),
                 index,
             )?,
             r#realization: <Option<
                 AuthoredModelingDeclarationsFieldValueRealization,
             > as crate::columnar::ArrowValue>::read(
-                input.column(32usize).as_ref(),
+                input.column(33usize).as_ref(),
                 index,
             )?,
         })
@@ -5464,10 +5628,10 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        1_457_152_usize + size_of::<Self::Builder>()
+        1_597_440_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        11384usize
+        12480usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -5520,6 +5684,38 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
                         8,
                         ((self.r#value).r#kind).as_str().len(),
                     )?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if let Some(value) = ((self.r#value).r#temporal).as_ref() {
+                        crate::columnar::allocation_add(
+                            1,
+                            {
+                                let mut bytes = 1usize;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    crate::columnar::allocation_add(
+                                        8,
+                                        ((value).r#target).len(),
+                                    )?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    crate::columnar::allocation_add(8, ((value).r#axis).len())?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    crate::columnar::allocation_add(
+                                        8,
+                                        ((value).r#argument).len(),
+                                    )?,
+                                )?;
+                                Ok::<usize, crate::RelationError>(bytes)
+                            }?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
                 )?;
                 bytes = crate::columnar::allocation_add(
                     bytes,
@@ -5856,6 +6052,501 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
                                                                     } else {
                                                                         Ok::<usize, crate::RelationError>(1)
                                                                     }?,
+                                                                )?;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    ((value).r#native_options)
+                                                                        .iter()
+                                                                        .try_fold(
+                                                                            8usize,
+                                                                            |bytes, item| crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                {
+                                                                                    let mut bytes = 1usize;
+                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                        bytes,
+                                                                                        crate::columnar::allocation_add(8, ((item).r#name).len())?,
+                                                                                    )?;
+                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                        bytes,
+                                                                                        {
+                                                                                            let mut bytes = 1usize;
+                                                                                            bytes = crate::columnar::allocation_add(
+                                                                                                bytes,
+                                                                                                {
+                                                                                                    let mut bytes = 1usize;
+                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                        bytes,
+                                                                                                        crate::columnar::allocation_add(
+                                                                                                            8,
+                                                                                                            ((((item).r#value).r#value).r#kind).as_str().len(),
+                                                                                                        )?,
+                                                                                                    )?;
+                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                        bytes,
+                                                                                                        if ((((item).r#value).r#value).r#boolean).is_some() {
+                                                                                                            crate::columnar::allocation_add(
+                                                                                                                1,
+                                                                                                                {
+                                                                                                                    let mut bytes = 1usize;
+                                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                                        bytes,
+                                                                                                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                                                    )?;
+                                                                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                }?,
+                                                                                                            )
+                                                                                                        } else {
+                                                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                                                        }?,
+                                                                                                    )?;
+                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                        bytes,
+                                                                                                        if ((((item).r#value).r#value).r#integer).is_some() {
+                                                                                                            crate::columnar::allocation_add(
+                                                                                                                1,
+                                                                                                                {
+                                                                                                                    let mut bytes = 1usize;
+                                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                                        bytes,
+                                                                                                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                                                    )?;
+                                                                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                }?,
+                                                                                                            )
+                                                                                                        } else {
+                                                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                                                        }?,
+                                                                                                    )?;
+                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                        bytes,
+                                                                                                        if let Some(value) = ((((item).r#value).r#value).r#quantity)
+                                                                                                            .as_ref()
+                                                                                                        {
+                                                                                                            crate::columnar::allocation_add(
+                                                                                                                1,
+                                                                                                                {
+                                                                                                                    let mut bytes = 1usize;
+                                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                                        bytes,
+                                                                                                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                                                    )?;
+                                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                                        bytes,
+                                                                                                                        if let Some(value) = ((value).r#unit).as_ref() {
+                                                                                                                            crate::columnar::allocation_add(
+                                                                                                                                1,
+                                                                                                                                (value)
+                                                                                                                                    .iter()
+                                                                                                                                    .try_fold(
+                                                                                                                                        8usize,
+                                                                                                                                        |bytes, item| crate::columnar::allocation_add(
+                                                                                                                                            bytes,
+                                                                                                                                            {
+                                                                                                                                                let mut bytes = 1usize;
+                                                                                                                                                bytes = crate::columnar::allocation_add(
+                                                                                                                                                    bytes,
+                                                                                                                                                    crate::columnar::allocation_add(8, ((item).r#symbol).len())?,
+                                                                                                                                                )?;
+                                                                                                                                                bytes = crate::columnar::allocation_add(
+                                                                                                                                                    bytes,
+                                                                                                                                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                                                                                )?;
+                                                                                                                                                bytes = crate::columnar::allocation_add(
+                                                                                                                                                    bytes,
+                                                                                                                                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                                                                                )?;
+                                                                                                                                                Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                                            }?,
+                                                                                                                                        ),
+                                                                                                                                    )?,
+                                                                                                                            )
+                                                                                                                        } else {
+                                                                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                                                                        }?,
+                                                                                                                    )?;
+                                                                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                }?,
+                                                                                                            )
+                                                                                                        } else {
+                                                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                                                        }?,
+                                                                                                    )?;
+                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                        bytes,
+                                                                                                        if let Some(value) = ((((item).r#value).r#value).r#text)
+                                                                                                            .as_ref()
+                                                                                                        {
+                                                                                                            crate::columnar::allocation_add(
+                                                                                                                1,
+                                                                                                                {
+                                                                                                                    let mut bytes = 1usize;
+                                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                                        bytes,
+                                                                                                                        crate::columnar::allocation_add(8, ((value).r#value).len())?,
+                                                                                                                    )?;
+                                                                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                }?,
+                                                                                                            )
+                                                                                                        } else {
+                                                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                                                        }?,
+                                                                                                    )?;
+                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                        bytes,
+                                                                                                        if let Some(value) = ((((item).r#value).r#value)
+                                                                                                            .r#identifier)
+                                                                                                            .as_ref()
+                                                                                                        {
+                                                                                                            crate::columnar::allocation_add(
+                                                                                                                1,
+                                                                                                                {
+                                                                                                                    let mut bytes = 1usize;
+                                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                                        bytes,
+                                                                                                                        ((value).r#scheme)
+                                                                                                                            .iter()
+                                                                                                                            .try_fold(
+                                                                                                                                8usize,
+                                                                                                                                |bytes, item| crate::columnar::allocation_add(
+                                                                                                                                    bytes,
+                                                                                                                                    crate::columnar::allocation_add(8, (item).len())?,
+                                                                                                                                ),
+                                                                                                                            )?,
+                                                                                                                    )?;
+                                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                                        bytes,
+                                                                                                                        crate::columnar::allocation_add(8, ((value).r#value).len())?,
+                                                                                                                    )?;
+                                                                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                }?,
+                                                                                                            )
+                                                                                                        } else {
+                                                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                                                        }?,
+                                                                                                    )?;
+                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                        bytes,
+                                                                                                        if let Some(value) = ((((item).r#value).r#value)
+                                                                                                            .r#reference)
+                                                                                                            .as_ref()
+                                                                                                        {
+                                                                                                            crate::columnar::allocation_add(
+                                                                                                                1,
+                                                                                                                {
+                                                                                                                    let mut bytes = 1usize;
+                                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                                        bytes,
+                                                                                                                        ((value).r#path)
+                                                                                                                            .iter()
+                                                                                                                            .try_fold(
+                                                                                                                                8usize,
+                                                                                                                                |bytes, item| crate::columnar::allocation_add(
+                                                                                                                                    bytes,
+                                                                                                                                    crate::columnar::allocation_add(8, (item).len())?,
+                                                                                                                                ),
+                                                                                                                            )?,
+                                                                                                                    )?;
+                                                                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                }?,
+                                                                                                            )
+                                                                                                        } else {
+                                                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                                                        }?,
+                                                                                                    )?;
+                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                        bytes,
+                                                                                                        if let Some(value) = ((((item).r#value).r#value)
+                                                                                                            .r#references)
+                                                                                                            .as_ref()
+                                                                                                        {
+                                                                                                            crate::columnar::allocation_add(
+                                                                                                                1,
+                                                                                                                {
+                                                                                                                    let mut bytes = 1usize;
+                                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                                        bytes,
+                                                                                                                        ((value).r#paths)
+                                                                                                                            .iter()
+                                                                                                                            .try_fold(
+                                                                                                                                8usize,
+                                                                                                                                |bytes, item| crate::columnar::allocation_add(
+                                                                                                                                    bytes,
+                                                                                                                                    {
+                                                                                                                                        let mut bytes = 1usize;
+                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                            bytes,
+                                                                                                                                            ((item).r#path)
+                                                                                                                                                .iter()
+                                                                                                                                                .try_fold(
+                                                                                                                                                    8usize,
+                                                                                                                                                    |bytes, item| crate::columnar::allocation_add(
+                                                                                                                                                        bytes,
+                                                                                                                                                        crate::columnar::allocation_add(8, (item).len())?,
+                                                                                                                                                    ),
+                                                                                                                                                )?,
+                                                                                                                                        )?;
+                                                                                                                                        Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                                    }?,
+                                                                                                                                ),
+                                                                                                                            )?,
+                                                                                                                    )?;
+                                                                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                }?,
+                                                                                                            )
+                                                                                                        } else {
+                                                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                                                        }?,
+                                                                                                    )?;
+                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                        bytes,
+                                                                                                        if let Some(value) = ((((item).r#value).r#value).r#row)
+                                                                                                            .as_ref()
+                                                                                                        {
+                                                                                                            crate::columnar::allocation_add(
+                                                                                                                1,
+                                                                                                                {
+                                                                                                                    let mut bytes = 1usize;
+                                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                                        bytes,
+                                                                                                                        ((value).r#target)
+                                                                                                                            .iter()
+                                                                                                                            .try_fold(
+                                                                                                                                8usize,
+                                                                                                                                |bytes, item| crate::columnar::allocation_add(
+                                                                                                                                    bytes,
+                                                                                                                                    crate::columnar::allocation_add(8, (item).len())?,
+                                                                                                                                ),
+                                                                                                                            )?,
+                                                                                                                    )?;
+                                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                                        bytes,
+                                                                                                                        ((value).r#keys)
+                                                                                                                            .iter()
+                                                                                                                            .try_fold(
+                                                                                                                                8usize,
+                                                                                                                                |bytes, item| crate::columnar::allocation_add(
+                                                                                                                                    bytes,
+                                                                                                                                    {
+                                                                                                                                        let mut bytes = 1usize;
+                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                            bytes,
+                                                                                                                                            crate::columnar::allocation_add(
+                                                                                                                                                8,
+                                                                                                                                                ((item).r#kind).as_str().len(),
+                                                                                                                                            )?,
+                                                                                                                                        )?;
+                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                            bytes,
+                                                                                                                                            if ((item).r#boolean).is_some() {
+                                                                                                                                                crate::columnar::allocation_add(
+                                                                                                                                                    1,
+                                                                                                                                                    {
+                                                                                                                                                        let mut bytes = 1usize;
+                                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                                            bytes,
+                                                                                                                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                                                                                        )?;
+                                                                                                                                                        Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                                                    }?,
+                                                                                                                                                )
+                                                                                                                                            } else {
+                                                                                                                                                Ok::<usize, crate::RelationError>(1)
+                                                                                                                                            }?,
+                                                                                                                                        )?;
+                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                            bytes,
+                                                                                                                                            if ((item).r#integer).is_some() {
+                                                                                                                                                crate::columnar::allocation_add(
+                                                                                                                                                    1,
+                                                                                                                                                    {
+                                                                                                                                                        let mut bytes = 1usize;
+                                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                                            bytes,
+                                                                                                                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                                                                                        )?;
+                                                                                                                                                        Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                                                    }?,
+                                                                                                                                                )
+                                                                                                                                            } else {
+                                                                                                                                                Ok::<usize, crate::RelationError>(1)
+                                                                                                                                            }?,
+                                                                                                                                        )?;
+                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                            bytes,
+                                                                                                                                            if let Some(value) = ((item).r#quantity).as_ref() {
+                                                                                                                                                crate::columnar::allocation_add(
+                                                                                                                                                    1,
+                                                                                                                                                    {
+                                                                                                                                                        let mut bytes = 1usize;
+                                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                                            bytes,
+                                                                                                                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                                                                                        )?;
+                                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                                            bytes,
+                                                                                                                                                            if let Some(value) = ((value).r#unit).as_ref() {
+                                                                                                                                                                crate::columnar::allocation_add(
+                                                                                                                                                                    1,
+                                                                                                                                                                    (value)
+                                                                                                                                                                        .iter()
+                                                                                                                                                                        .try_fold(
+                                                                                                                                                                            8usize,
+                                                                                                                                                                            |bytes, item| crate::columnar::allocation_add(
+                                                                                                                                                                                bytes,
+                                                                                                                                                                                {
+                                                                                                                                                                                    let mut bytes = 1usize;
+                                                                                                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                                                                                                        bytes,
+                                                                                                                                                                                        crate::columnar::allocation_add(8, ((item).r#symbol).len())?,
+                                                                                                                                                                                    )?;
+                                                                                                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                                                                                                        bytes,
+                                                                                                                                                                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                                                                                                                    )?;
+                                                                                                                                                                                    bytes = crate::columnar::allocation_add(
+                                                                                                                                                                                        bytes,
+                                                                                                                                                                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                                                                                                                    )?;
+                                                                                                                                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                                                                                }?,
+                                                                                                                                                                            ),
+                                                                                                                                                                        )?,
+                                                                                                                                                                )
+                                                                                                                                                            } else {
+                                                                                                                                                                Ok::<usize, crate::RelationError>(1)
+                                                                                                                                                            }?,
+                                                                                                                                                        )?;
+                                                                                                                                                        Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                                                    }?,
+                                                                                                                                                )
+                                                                                                                                            } else {
+                                                                                                                                                Ok::<usize, crate::RelationError>(1)
+                                                                                                                                            }?,
+                                                                                                                                        )?;
+                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                            bytes,
+                                                                                                                                            if let Some(value) = ((item).r#text).as_ref() {
+                                                                                                                                                crate::columnar::allocation_add(
+                                                                                                                                                    1,
+                                                                                                                                                    {
+                                                                                                                                                        let mut bytes = 1usize;
+                                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                                            bytes,
+                                                                                                                                                            crate::columnar::allocation_add(8, ((value).r#value).len())?,
+                                                                                                                                                        )?;
+                                                                                                                                                        Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                                                    }?,
+                                                                                                                                                )
+                                                                                                                                            } else {
+                                                                                                                                                Ok::<usize, crate::RelationError>(1)
+                                                                                                                                            }?,
+                                                                                                                                        )?;
+                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                            bytes,
+                                                                                                                                            if let Some(value) = ((item).r#identifier).as_ref() {
+                                                                                                                                                crate::columnar::allocation_add(
+                                                                                                                                                    1,
+                                                                                                                                                    {
+                                                                                                                                                        let mut bytes = 1usize;
+                                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                                            bytes,
+                                                                                                                                                            ((value).r#scheme)
+                                                                                                                                                                .iter()
+                                                                                                                                                                .try_fold(
+                                                                                                                                                                    8usize,
+                                                                                                                                                                    |bytes, item| crate::columnar::allocation_add(
+                                                                                                                                                                        bytes,
+                                                                                                                                                                        crate::columnar::allocation_add(8, (item).len())?,
+                                                                                                                                                                    ),
+                                                                                                                                                                )?,
+                                                                                                                                                        )?;
+                                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                                            bytes,
+                                                                                                                                                            crate::columnar::allocation_add(8, ((value).r#value).len())?,
+                                                                                                                                                        )?;
+                                                                                                                                                        Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                                                    }?,
+                                                                                                                                                )
+                                                                                                                                            } else {
+                                                                                                                                                Ok::<usize, crate::RelationError>(1)
+                                                                                                                                            }?,
+                                                                                                                                        )?;
+                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                            bytes,
+                                                                                                                                            if let Some(value) = ((item).r#reference).as_ref() {
+                                                                                                                                                crate::columnar::allocation_add(
+                                                                                                                                                    1,
+                                                                                                                                                    {
+                                                                                                                                                        let mut bytes = 1usize;
+                                                                                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                                                                                            bytes,
+                                                                                                                                                            ((value).r#path)
+                                                                                                                                                                .iter()
+                                                                                                                                                                .try_fold(
+                                                                                                                                                                    8usize,
+                                                                                                                                                                    |bytes, item| crate::columnar::allocation_add(
+                                                                                                                                                                        bytes,
+                                                                                                                                                                        crate::columnar::allocation_add(8, (item).len())?,
+                                                                                                                                                                    ),
+                                                                                                                                                                )?,
+                                                                                                                                                        )?;
+                                                                                                                                                        Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                                                    }?,
+                                                                                                                                                )
+                                                                                                                                            } else {
+                                                                                                                                                Ok::<usize, crate::RelationError>(1)
+                                                                                                                                            }?,
+                                                                                                                                        )?;
+                                                                                                                                        Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                                    }?,
+                                                                                                                                ),
+                                                                                                                            )?,
+                                                                                                                    )?;
+                                                                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                                                                }?,
+                                                                                                            )
+                                                                                                        } else {
+                                                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                                                        }?,
+                                                                                                    )?;
+                                                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                                                }?,
+                                                                                            )?;
+                                                                                            bytes = crate::columnar::allocation_add(
+                                                                                                bytes,
+                                                                                                if let Some(value) = (((item).r#value).r#uncertainty)
+                                                                                                    .as_ref()
+                                                                                                {
+                                                                                                    crate::columnar::allocation_add(
+                                                                                                        1,
+                                                                                                        {
+                                                                                                            let mut bytes = 1usize;
+                                                                                                            bytes = crate::columnar::allocation_add(
+                                                                                                                bytes,
+                                                                                                                crate::columnar::allocation_add(
+                                                                                                                    8,
+                                                                                                                    ((value).r#kind).as_str().len(),
+                                                                                                                )?,
+                                                                                                            )?;
+                                                                                                            bytes = crate::columnar::allocation_add(
+                                                                                                                bytes,
+                                                                                                                Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                                            )?;
+                                                                                                            Ok::<usize, crate::RelationError>(bytes)
+                                                                                                        }?,
+                                                                                                    )
+                                                                                                } else {
+                                                                                                    Ok::<usize, crate::RelationError>(1)
+                                                                                                }?,
+                                                                                            )?;
+                                                                                            Ok::<usize, crate::RelationError>(bytes)
+                                                                                        }?,
+                                                                                    )?;
+                                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                                }?,
+                                                                            ),
+                                                                        )?,
                                                                 )?;
                                                                 bytes = crate::columnar::allocation_add(
                                                                     bytes,
@@ -9183,6 +9874,78 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
                                         Ok::<usize, crate::RelationError>(1)
                                     }?,
                                 )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    ((value).r#storage)
+                                        .iter()
+                                        .try_fold(
+                                            8usize,
+                                            |bytes, item| crate::columnar::allocation_add(
+                                                bytes,
+                                                {
+                                                    let mut bytes = 1usize;
+                                                    bytes = crate::columnar::allocation_add(
+                                                        bytes,
+                                                        crate::columnar::allocation_add(8, ((item).r#name).len())?,
+                                                    )?;
+                                                    bytes = crate::columnar::allocation_add(
+                                                        bytes,
+                                                        if let Some(value) = ((item).r#storage_unit).as_ref() {
+                                                            crate::columnar::allocation_add(
+                                                                1,
+                                                                (value)
+                                                                    .iter()
+                                                                    .try_fold(
+                                                                        8usize,
+                                                                        |bytes, item| crate::columnar::allocation_add(
+                                                                            bytes,
+                                                                            {
+                                                                                let mut bytes = 1usize;
+                                                                                bytes = crate::columnar::allocation_add(
+                                                                                    bytes,
+                                                                                    crate::columnar::allocation_add(8, ((item).r#symbol).len())?,
+                                                                                )?;
+                                                                                bytes = crate::columnar::allocation_add(
+                                                                                    bytes,
+                                                                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                )?;
+                                                                                bytes = crate::columnar::allocation_add(
+                                                                                    bytes,
+                                                                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                )?;
+                                                                                Ok::<usize, crate::RelationError>(bytes)
+                                                                            }?,
+                                                                        ),
+                                                                    )?,
+                                                            )
+                                                        } else {
+                                                            Ok::<usize, crate::RelationError>(1)
+                                                        }?,
+                                                    )?;
+                                                    bytes = crate::columnar::allocation_add(
+                                                        bytes,
+                                                        if let Some(value) = ((item).r#scheme).as_ref() {
+                                                            crate::columnar::allocation_add(
+                                                                1,
+                                                                (value)
+                                                                    .iter()
+                                                                    .try_fold(
+                                                                        8usize,
+                                                                        |bytes, item| crate::columnar::allocation_add(
+                                                                            bytes,
+                                                                            crate::columnar::allocation_add(8, (item).len())?,
+                                                                        ),
+                                                                    )?,
+                                                            )
+                                                        } else {
+                                                            Ok::<usize, crate::RelationError>(1)
+                                                        }?,
+                                                    )?;
+                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                }?,
+                                            ),
+                                        )?,
+                                )?;
                                 Ok::<usize, crate::RelationError>(bytes)
                             }?,
                         )
@@ -10819,6 +11582,78 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
                                 )?;
                                 bytes = crate::columnar::allocation_add(
                                     bytes,
+                                    if let Some(value) = ((value).r#provenance).as_ref() {
+                                        crate::columnar::allocation_add(
+                                            1,
+                                            {
+                                                let mut bytes = 1usize;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    ((value).r#source)
+                                                        .iter()
+                                                        .try_fold(
+                                                            8usize,
+                                                            |bytes, item| crate::columnar::allocation_add(
+                                                                bytes,
+                                                                crate::columnar::allocation_add(8, (item).len())?,
+                                                            ),
+                                                        )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    ((value).r#role)
+                                                        .iter()
+                                                        .try_fold(
+                                                            8usize,
+                                                            |bytes, item| crate::columnar::allocation_add(
+                                                                bytes,
+                                                                crate::columnar::allocation_add(8, (item).len())?,
+                                                            ),
+                                                        )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    ((value).r#lineage)
+                                                        .iter()
+                                                        .try_fold(
+                                                            8usize,
+                                                            |bytes, item| crate::columnar::allocation_add(
+                                                                bytes,
+                                                                {
+                                                                    let mut bytes = 1usize;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        crate::columnar::allocation_add(
+                                                                            8,
+                                                                            ((item).r#kind).as_str().len(),
+                                                                        )?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        ((item).r#path)
+                                                                            .iter()
+                                                                            .try_fold(
+                                                                                8usize,
+                                                                                |bytes, item| crate::columnar::allocation_add(
+                                                                                    bytes,
+                                                                                    crate::columnar::allocation_add(8, (item).len())?,
+                                                                                ),
+                                                                            )?,
+                                                                    )?;
+                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                }?,
+                                                            ),
+                                                        )?,
+                                                )?;
+                                                Ok::<usize, crate::RelationError>(bytes)
+                                            }?,
+                                        )
+                                    } else {
+                                        Ok::<usize, crate::RelationError>(1)
+                                    }?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
                                     ((value).r#attributes)
                                         .iter()
                                         .try_fold(
@@ -11305,6 +12140,78 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
                                                                 }?,
                                                             )?;
                                                             Ok::<usize, crate::RelationError>(bytes)
+                                                        }?,
+                                                    )?;
+                                                    bytes = crate::columnar::allocation_add(
+                                                        bytes,
+                                                        if let Some(value) = ((item).r#provenance).as_ref() {
+                                                            crate::columnar::allocation_add(
+                                                                1,
+                                                                {
+                                                                    let mut bytes = 1usize;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        ((value).r#source)
+                                                                            .iter()
+                                                                            .try_fold(
+                                                                                8usize,
+                                                                                |bytes, item| crate::columnar::allocation_add(
+                                                                                    bytes,
+                                                                                    crate::columnar::allocation_add(8, (item).len())?,
+                                                                                ),
+                                                                            )?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        ((value).r#role)
+                                                                            .iter()
+                                                                            .try_fold(
+                                                                                8usize,
+                                                                                |bytes, item| crate::columnar::allocation_add(
+                                                                                    bytes,
+                                                                                    crate::columnar::allocation_add(8, (item).len())?,
+                                                                                ),
+                                                                            )?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        ((value).r#lineage)
+                                                                            .iter()
+                                                                            .try_fold(
+                                                                                8usize,
+                                                                                |bytes, item| crate::columnar::allocation_add(
+                                                                                    bytes,
+                                                                                    {
+                                                                                        let mut bytes = 1usize;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            crate::columnar::allocation_add(
+                                                                                                8,
+                                                                                                ((item).r#kind).as_str().len(),
+                                                                                            )?,
+                                                                                        )?;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            ((item).r#path)
+                                                                                                .iter()
+                                                                                                .try_fold(
+                                                                                                    8usize,
+                                                                                                    |bytes, item| crate::columnar::allocation_add(
+                                                                                                        bytes,
+                                                                                                        crate::columnar::allocation_add(8, (item).len())?,
+                                                                                                    ),
+                                                                                                )?,
+                                                                                        )?;
+                                                                                        Ok::<usize, crate::RelationError>(bytes)
+                                                                                    }?,
+                                                                                ),
+                                                                            )?,
+                                                                    )?;
+                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                }?,
+                                                            )
+                                                        } else {
+                                                            Ok::<usize, crate::RelationError>(1)
                                                         }?,
                                                     )?;
                                                     Ok::<usize, crate::RelationError>(bytes)

@@ -19,8 +19,7 @@ from pse.contracts.enums import (
 )
 from pse.contracts.values import SemanticId
 
-
-#: A manifest dependency on the physical primitives fixture, whose physical document names
+#: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
 PRIMITIVES = (
     'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '

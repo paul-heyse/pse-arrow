@@ -95,7 +95,12 @@ impl<'r> Body<'r> {
     fn c(&mut self, value: f64) -> TypedValue {
         let unit = self
             .registry
-            .unit(self.registry.quantity_type(neutral()).unwrap().canonical_unit)
+            .unit(
+                self.registry
+                    .quantity_type(neutral())
+                    .unwrap()
+                    .canonical_unit,
+            )
             .unwrap();
         self.b
             .literal(
@@ -517,7 +522,12 @@ fn rows_are_exported_in_their_normalized_coordinate() {
     let case = case(
         &registry,
         body,
-        &[(ModelingVariableDomain::Continuous, Some(1.0), Some(2.0), 1.0)],
+        &[(
+            ModelingVariableDomain::Continuous,
+            Some(1.0),
+            Some(2.0),
+            1.0,
+        )],
         &[(0.0, 0.0)],
         None,
         DerivativeOrder::Second,
@@ -543,7 +553,12 @@ fn rows_are_exported_in_their_normalized_coordinate() {
         .unwrap()
     };
     let report = solve(1e9);
-    assert_eq!(report.termination.category, Termination::Success, "{:?}", report.termination);
+    assert_eq!(
+        report.termination.category,
+        Termination::Success,
+        "{:?}",
+        report.termination
+    );
     let x = report.candidate.as_ref().unwrap().primal[0];
     assert!((x - std::f64::consts::SQRT_2).abs() < 1e-12, "{x}");
     // The native model reads back as the program: the scaled constraint and its sides.
@@ -1570,8 +1585,7 @@ fn scip_falsely_proves_the_bt_pr_liquid_tpd_infeasible() {
         ("x6", 0.5843),
     ];
     let (accepted, status) =
-        scip::testing::check_then_solve(&path, &accuracy, &Controls::default(), &liquid)
-            .unwrap();
+        scip::testing::check_then_solve(&path, &accuracy, &Controls::default(), &liquid).unwrap();
     assert!(accepted, "SCIP's own check rejects the liquid root");
     assert_eq!(
         status,
@@ -1580,14 +1594,10 @@ fn scip_falsely_proves_the_bt_pr_liquid_tpd_infeasible() {
     );
     // The convex nonlinear handler is the cause: without it SCIP finds a solution.
     let without = Controls {
-        options: BTreeMap::from([(
-            "nlhdlr/convex/enabled".to_owned(),
-            OptionValue::Bool(false),
-        )]),
+        options: BTreeMap::from([("nlhdlr/convex/enabled".to_owned(), OptionValue::Bool(false))]),
         ..Controls::default()
     };
-    let (_, status) =
-        scip::testing::check_then_solve(&path, &accuracy, &without, &liquid).unwrap();
+    let (_, status) = scip::testing::check_then_solve(&path, &accuracy, &without, &liquid).unwrap();
     assert_eq!(status, Status::Optimal);
 }
 

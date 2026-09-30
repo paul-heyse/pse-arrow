@@ -9,7 +9,7 @@
 //! finalization, wait (job state `waiting`, attempt `planned`).
 //!
 //! **A point follows its job.** Every repository function that moves a job — a claim, a
-//! finished try, the stale sweep, a cancellation — calls [`job_changed`] in its own
+//! finished try, the stale sweep, a cancellation — calls `job_changed` in its own
 //! transaction, so a point is pending while its job is waiting or queued, assigned while a
 //! try runs, and completed, failed or cancelled with its job. A completed point's result
 //! members are recorded in that same transaction.

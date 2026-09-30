@@ -381,6 +381,7 @@ mod tests {
     #[test]
     fn hostile_yaml_is_refused_by_explicit_parser_budgets() {
         let budget = ParseBudget {
+            max_data_rows: ParseBudget::default().max_data_rows,
             max_depth: 4,
             max_aliases: 1,
             max_bytes: 1000,

@@ -14,6 +14,51 @@ fn input(field: Field) -> Arc<dyn ExecutionPlan> {
     Arc::new(EmptyExec::new(Arc::new(Schema::new(vec![field]))))
 }
 
+#[test]
+fn null_fixed_size_struct_lists_roundtrip_with_required_elements() {
+    use datafusion::arrow::{
+        array::{Array, ArrayRef, FixedSizeListArray, Int16Array, StructArray},
+        buffer::NullBuffer,
+    };
+    let fields = vec![
+        Arc::new(Field::new("num", DataType::Int16, false)),
+        Arc::new(Field::new("den", DataType::Int16, false)),
+    ]
+    .into();
+    let child = Arc::new(StructArray::new(
+        fields,
+        vec![
+            Arc::new(Int16Array::from(vec![0, 0, 1, 2, 0, 0])),
+            Arc::new(Int16Array::from(vec![0, 0, 1, 1, 0, 0])),
+        ],
+        Some(NullBuffer::from(vec![
+            false, false, true, true, false, false,
+        ])),
+    ));
+    let element = Arc::new(Field::new("element", child.data_type().clone(), false));
+    let source = FixedSizeListArray::new(
+        element,
+        2,
+        child,
+        Some(NullBuffer::from(vec![false, true, false])),
+    );
+    let execution = Arc::new(Field::new("dimension", source.data_type().clone(), true));
+    let layout = super::DurableLayout::new(Arc::new(Schema::new(vec![execution.clone()]))).unwrap();
+    let storage = layout.storage_schema().fields()[0].clone();
+    for (offset, length) in [(0, 3), (1, 2), (1, 1)] {
+        let original: ArrayRef = Arc::new(source.slice(offset, length));
+        original.to_data().validate_full().unwrap();
+        let encoded =
+            super::restore_array(&original, execution.data_type(), &storage, false).unwrap();
+        encoded.to_data().validate_full().unwrap();
+        assert_eq!(encoded.data_type(), storage.data_type());
+        let decoded =
+            super::restore_array(&encoded, storage.data_type(), &execution, true).unwrap();
+        decoded.to_data().validate_full().unwrap();
+        assert_eq!(decoded.to_data(), original.to_data());
+    }
+}
+
 #[tokio::test]
 async fn nested_leaf_extraction_preserves_same_named_durable_conversion() {
     use datafusion::{

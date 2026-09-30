@@ -89,7 +89,7 @@ pub async fn conform_pure_documents(
         &token,
     )
     .await?;
-    let (rows, names, _fit_data, _sources, data_documents) = document_inputs(
+    let (rows, names, _fit_declarations, _sources, data_documents) = document_inputs(
         &load(&documents)?,
         &registry,
         &physical,

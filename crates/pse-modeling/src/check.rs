@@ -132,6 +132,8 @@ pub struct CheckedPackage {
     pub(crate) functions: BTreeMap<DeclarationId, Function>,
     /// Effective members, including inherited interface defaults and overrides.
     pub(crate) members: BTreeMap<DeclarationId, BTreeMap<String, DeclarationId>>,
+    /// Child coordinate contracts mechanically derived from their analysis-owned policy.
+    pub(crate) temporal: BTreeMap<DeclarationId, (DeclarationId, DeclarationId, String)>,
     /// Admitted immutable table values, indexed by complete typed keys.
     pub(crate) tables: BTreeMap<DeclarationId, crate::data::Table>,
     /// Full interface extension/implementation closure.
@@ -147,6 +149,9 @@ pub struct CheckedPackage {
     pub(crate) constants: BTreeMap<DeclarationId, crate::entity::Typed>,
     /// The checked provenance of every dataset and constant (ADR-0123 Outcome 5).
     pub(crate) provenance: BTreeMap<DeclarationId, crate::provenance::Provenance>,
+    /// Explicit attribute origins, which override a record's default origin for attribution.
+    pub(crate) attribute_provenance:
+        BTreeMap<(DeclarationId, String), crate::provenance::Provenance>,
     /// The source entity each test names as its oracle.
     pub(crate) oracles: BTreeMap<DeclarationId, DeclarationId>,
     /// Test-only entities, keyed rows and constants; table rows carry their own taint.
@@ -421,6 +426,9 @@ impl CheckedPackage {
         let mut names = self
             .names
             .iter()
+            // Untyped declarations cannot contribute to this environment. Avoid
+            // resolving their names again for every declaration in the closure.
+            .filter(|(_, id)| self.types.contains_key(*id))
             .filter(|(name, id)| self.resolve(owner, name) == Some(**id))
             .filter_map(|(name, id)| self.types.get(id).map(|ty| (name.clone(), ty.clone())))
             .collect::<BTreeMap<_, _>>();
@@ -511,6 +519,7 @@ fn check_declarations(
         types: BTreeMap::new(),
         functions: BTreeMap::new(),
         members: BTreeMap::new(),
+        temporal: BTreeMap::new(),
         tables: BTreeMap::new(),
         interfaces: BTreeMap::new(),
         kinds: BTreeMap::new(),
@@ -518,6 +527,7 @@ fn check_declarations(
         identifiers: crate::entity::ModelingIdentifierScope::default(),
         constants: BTreeMap::new(),
         provenance: BTreeMap::new(),
+        attribute_provenance: BTreeMap::new(),
         oracles: BTreeMap::new(),
         test_only: BTreeSet::new(),
         test_only_data: BTreeSet::new(),
@@ -624,7 +634,8 @@ fn check_declarations(
             }
             // ADR-0123 Outcome 5: facets belong to entity kinds.
             if !scope.facets.is_empty()
-                && row.value.kind != pse_model::generated::enums::ModelingDeclarationKind::EntityKind
+                && row.value.kind
+                    != pse_model::generated::enums::ModelingDeclarationKind::EntityKind
             {
                 return Err(invalid(row.declaration_id, "facets belong to entity kinds"));
             }
@@ -768,7 +779,34 @@ fn check_declarations(
                         || policy.derivative_step.is_some()
                         || policy.derivative_tolerance.is_some()
                         || policy.derivative_cells.is_some()
-                        || policy.foreign_bytes.is_some();
+                        || policy.foreign_bytes.is_some()
+                        || !policy.native_options.is_empty();
+                    let mut names = BTreeSet::new();
+                    for option in &policy.native_options {
+                        use pse_authoring::language::CellSelected;
+                        let primitive = match option.value.value.selected() {
+                            Ok(CellSelected::Boolean(_) | CellSelected::Text(_)) => true,
+                            Ok(CellSelected::Integer(value)) => i32::try_from(value.value).is_ok(),
+                            Ok(CellSelected::Quantity(value)) => {
+                                value.magnitude.is_finite()
+                                    && value.unit.as_ref().is_none_or(Vec::is_empty)
+                            }
+                            _ => false,
+                        };
+                        if option.name.is_empty()
+                            || !names.insert(&option.name)
+                            || option.value.uncertainty.is_some()
+                            || !primitive
+                        {
+                            return Err(invalid(
+                                row.declaration_id,
+                                format!(
+                                    "native option {} requires a unique name and an exact Boolean, bounded integer, finite unitless real or text",
+                                    option.name
+                                ),
+                            ));
+                        }
+                    }
                     let allowances = [
                         policy.derivative_cells,
                         policy.items,
@@ -1026,6 +1064,7 @@ fn check_declarations(
             );
         }
     }
+    crate::temporal::admit(&mut p, context)?;
     // Interface and definition dependencies are explicit graphs, never Salsa recovery.
     let mut inheritance = DiGraph::<DeclarationId, ()>::new();
     let inode = p
@@ -1039,7 +1078,8 @@ fn check_declarations(
     use pse_model::generated::enums::ModelingDeclarationKind as DeclarationKind;
     for row in rows {
         if row.value.kind == DeclarationKind::EntityKind {
-            p.kinds.insert(row.declaration_id, crate::entity::Kind::default());
+            p.kinds
+                .insert(row.declaration_id, crate::entity::Kind::default());
         }
     }
     for row in rows {
@@ -1052,9 +1092,9 @@ fn check_declarations(
                 ));
             }
             for name in &scope.bases {
-                let base = p.resolve(row.declaration_id, name).ok_or_else(|| {
-                    invalid(row.declaration_id, format!("unknown base {name}"))
-                })?;
+                let base = p
+                    .resolve(row.declaration_id, name)
+                    .ok_or_else(|| invalid(row.declaration_id, format!("unknown base {name}")))?;
                 match (kind, p.kinds.contains_key(&base)) {
                     (true, true) => {
                         if let Some(record) = p.kinds.get_mut(&row.declaration_id) {
@@ -1064,7 +1104,9 @@ fn check_declarations(
                     (true, false) => {
                         return Err(invalid(
                             row.declaration_id,
-                            format!("only an entity kind is the base of an entity kind; {name} is not one"),
+                            format!(
+                                "only an entity kind is the base of an entity kind; {name} is not one"
+                            ),
                         ));
                     }
                     (false, true) => {
@@ -1094,9 +1136,7 @@ fn check_declarations(
         .into_iter()
         .find(|c| c.len() > 1 || c.first().is_some_and(|n| inheritance.contains_edge(*n, *n)))
     {
-        let kinds = cycle
-            .iter()
-            .all(|n| p.kinds.contains_key(&inheritance[*n]));
+        let kinds = cycle.iter().all(|n| p.kinds.contains_key(&inheritance[*n]));
         return Err(invalid(
             inheritance[cycle[0]],
             format!(
@@ -1569,7 +1609,7 @@ fn check_declarations(
             }
         }
     }
-    crate::entity::admit(&mut p, context)?;
+    crate::entity::admit(&mut p, context, documents)?;
     crate::provenance::admit(&mut p)?;
     // Tables, then the kinds' derived attributes, which may read them; requirements read
     // both (Plan 23 D0). A dataset naming a data document has its rows admitted by
@@ -1737,6 +1777,12 @@ impl CheckedPackage {
             if let Some(v) = &row.value.entity {
                 texts.push(&v.kind_name);
                 cells.extend(v.attributes.iter().map(|a| &a.value));
+                paths.extend(v.provenance.iter().flat_map(provenance_paths));
+                paths.extend(
+                    v.attributes
+                        .iter()
+                        .flat_map(|a| a.provenance.iter().flat_map(provenance_paths)),
+                );
             }
             if let Some(v) = &row.value.attribute {
                 types.extend(v.r#type.as_ref());
@@ -1833,6 +1879,9 @@ impl CheckedPackage {
             if let Some(v) = &row.value.realization {
                 texts.push(&v.target);
             }
+            if let Some(v) = &row.value.temporal {
+                texts.extend([v.target.as_str(), v.axis.as_str()]);
+            }
             if let Some(v) = &row.value.relaxation {
                 texts.extend([v.target.as_str(), v.nominal.as_str()]);
             }
@@ -1903,6 +1952,9 @@ impl CheckedPackage {
             members.retain(|id| selected.contains(id));
         }
         p.members.retain(|id, _| selected.contains(id));
+        p.temporal.retain(|target, (policy, axis, _)| {
+            selected.contains(target) && selected.contains(policy) && selected.contains(axis)
+        });
         for members in p.members.values_mut() {
             members.retain(|_, id| selected.contains(id));
         }
@@ -1913,6 +1965,8 @@ impl CheckedPackage {
         p.kinds.retain(|id, _| selected.contains(id));
         p.constants.retain(|id, _| selected.contains(id));
         p.provenance.retain(|id, _| selected.contains(id));
+        p.attribute_provenance
+            .retain(|(id, _), _| selected.contains(id));
         p.oracles.retain(|id, _| selected.contains(id));
         // A record stays with the declaration that admitted it: its entity or its dataset.
         p.entities

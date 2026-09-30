@@ -179,7 +179,8 @@ async fn native_unit_contract_capture_records_no_plan_text() {
     assert!(
         spans
             .iter()
-            .all(|s| !s.fields.contains_key("logical_plan") && !s.fields.contains_key("physical_plan")),
+            .all(|s| !s.fields.contains_key("logical_plan")
+                && !s.fields.contains_key("physical_plan")),
         "{spans:?}"
     );
     assert!(spans.iter().any(|s| s.name == "Phase"), "{spans:?}");

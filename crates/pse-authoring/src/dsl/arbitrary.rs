@@ -137,7 +137,11 @@ enum TypeShape {
     Tuple(Vec<TypeShape>),
     Indexed(Box<TypeShape>, Vec<Vec<String>>),
     Function(Vec<TypeShape>, Box<TypeShape>),
-    Binary(crate::language::TypeNodeKind, Box<TypeShape>, Box<TypeShape>),
+    Binary(
+        crate::language::TypeNodeKind,
+        Box<TypeShape>,
+        Box<TypeShape>,
+    ),
     Power(Box<TypeShape>, pse_quantity::Ratio),
 }
 
@@ -245,9 +249,8 @@ pub fn type_arenas() -> impl Strategy<Value = Vec<crate::language::TypeNode>> {
             prop::collection::vec(inner.clone(), 1..3).prop_map(TypeShape::Tuple),
             (inner.clone(), prop::collection::vec(type_path(), 1..3))
                 .prop_map(|(element, axes)| TypeShape::Indexed(Box::new(element), axes)),
-            (prop::collection::vec(inner.clone(), 0..3), inner.clone()).prop_map(
-                |(arguments, result)| TypeShape::Function(arguments, Box::new(result))
-            ),
+            (prop::collection::vec(inner.clone(), 0..3), inner.clone())
+                .prop_map(|(arguments, result)| TypeShape::Function(arguments, Box::new(result))),
             (
                 prop::sample::select(vec![K::Product, K::Quotient]),
                 inner.clone(),
@@ -297,8 +300,8 @@ fn cell_path() -> impl Strategy<Value = Vec<String>> {
 /// Scalar cell values: the arms a key cell of a keyed-row reference may take.
 fn scalar_values() -> impl Strategy<Value = crate::language::CellValue> {
     use crate::language::{
-        CellBoolean, CellIdentifier, CellInteger, CellQuantity, CellReference, CellText,
-        CellValue, unit_factors,
+        CellBoolean, CellIdentifier, CellInteger, CellQuantity, CellReference, CellText, CellValue,
+        unit_factors,
     };
     let magnitude = prop_oneof![
         prop::num::f64::NORMAL | prop::num::f64::SUBNORMAL | prop::num::f64::ZERO,
@@ -360,7 +363,8 @@ pub fn cells() -> impl Strategy<Value = crate::language::Cell> {
 
 /// A plain name for a key, a column or a set path segment.
 fn plain_name() -> impl Strategy<Value = String> {
-    prop::sample::select(vec!["j", "k", "a_b", "x1", "value", "species", "s"]).prop_map(str::to_owned)
+    prop::sample::select(vec!["j", "k", "a_b", "x1", "value", "species", "s"])
+        .prop_map(str::to_owned)
 }
 
 /// Well-formed table declarations over every relation constraint (ADR-0123 Outcome 3,
@@ -405,13 +409,8 @@ pub fn tables()
             prop::option::of(prop::collection::vec(plain_name(), 1..3)),
         )
     };
-    let key = (
-        plain_name(),
-        prop::option::of(range()),
-        ty(),
-        storage(),
-    )
-        .prop_map(|(name, range, r#type, storage)| {
+    let key = (plain_name(), prop::option::of(range()), ty(), storage()).prop_map(
+        |(name, range, r#type, storage)| {
             (
                 Key {
                     name,
@@ -424,11 +423,16 @@ pub fn tables()
                 },
                 storage,
             )
-        });
+        },
+    );
     let column = (
         plain_name(),
         ty(),
-        prop::option::of(prop::sample::select(vec!["2 * v", "sum(i in s | x[i])", "a.b + 1{kg}"])),
+        prop::option::of(prop::sample::select(vec![
+            "2 * v",
+            "sum(i in s | x[i])",
+            "a.b + 1{kg}",
+        ])),
         storage(),
     )
         .prop_map(|(name, r#type, derived, storage)| {
@@ -486,10 +490,24 @@ pub fn tables()
         prop::collection::vec(envelope, 0..3),
     )
         .prop_map(
-            |(keys, (value_type, value_storage, columns), symmetry, unique, complete_over, policy, default, requirements, envelopes)| {
+            |(
+                keys,
+                (value_type, value_storage, columns),
+                symmetry,
+                unique,
+                complete_over,
+                policy,
+                default,
+                requirements,
+                envelopes,
+            )| {
                 let mut seen = std::collections::BTreeSet::new();
                 let mut storage = Vec::new();
-                let mut store = |name: &str, (unit, scheme): (Option<Vec<crate::language::CellUnitFactor>>, Option<Vec<String>>)| {
+                let mut store = |name: &str,
+                                 (unit, scheme): (
+                    Option<Vec<crate::language::CellUnitFactor>>,
+                    Option<Vec<String>>,
+                )| {
                     if seen.insert(name.to_owned()) && (unit.is_some() || scheme.is_some()) {
                         storage.push(crate::language::ModelingColumnStorage {
                             name: name.to_owned(),

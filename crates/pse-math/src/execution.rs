@@ -165,10 +165,7 @@ impl PreparedBody {
         stages: Vec<Stage>,
         smooth: DerivativeOrder,
     ) -> Result<Self, MathError> {
-        if slots == 0
-            || inputs > slots
-            || outputs.is_empty()
-            || outputs.iter().any(|&i| i >= slots)
+        if slots == 0 || inputs > slots || outputs.is_empty() || outputs.iter().any(|&i| i >= slots)
         {
             return Err(MathError::Contract("prepared body layout".into()));
         }
@@ -925,7 +922,9 @@ fn compile_stages(
                 let storage = library::storage(&evaluator)?;
                 allowance.entries = allowance
                     .entries
-                    .checked_add(input_len + output_len + components.len() + storage.numeric_entries)
+                    .checked_add(
+                        input_len + output_len + components.len() + storage.numeric_entries,
+                    )
                     .ok_or(MathError::Limit("evaluator scratch"))?;
                 limits.allocation(allowance.entries)?;
                 allowance.instructions = allowance

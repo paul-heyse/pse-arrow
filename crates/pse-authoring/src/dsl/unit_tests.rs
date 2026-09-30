@@ -134,7 +134,12 @@ fn rational_unit_exponents_canonicalize() {
             .unwrap()
     );
     // Rendering is canonical and parses back to the same product.
-    for text in ["1{m^(3/2)/(K*mol^2)}", "1{1/m^(1/2)}", "1{1}", "1{mol*J^(2/3)}"] {
+    for text in [
+        "1{m^(3/2)/(K*mol^2)}",
+        "1{1/m^(1/2)}",
+        "1{1}",
+        "1{mol*J^(2/3)}",
+    ] {
         let rendered = render_expr(&parse_expr(text).unwrap());
         assert_eq!(unit_of(&rendered), unit_of(text), "{text} -> {rendered}");
     }

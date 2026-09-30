@@ -384,23 +384,31 @@ mod tests {
         let cancel = CancellationToken::new();
         let texts = BTreeMap::from([
             ("package.toml".to_owned(), include_bytes!("../../../../../tests/fixtures/packages/minimal_explicit/package.toml").to_vec()),
-            ("materials/constants.yaml".to_owned(), include_bytes!("../../../../../tests/fixtures/packages/minimal_explicit/materials/constants.yaml").to_vec()),
+            ("materials/quantity-kinds.yaml".to_owned(), include_bytes!("../../../../../tests/fixtures/packages/minimal_explicit/materials/quantity-kinds.yaml").to_vec()),
             ("models/library.pse".to_owned(), b"@id(\"00000000000000000000000000000031\") package library { @id(\"00000000000000000000000000000032\") enum Choice { @id(\"00000000000000000000000000000033\") one, @id(\"00000000000000000000000000000034\") two } }".to_vec()),
         ]);
-        let part =
-            load_package_documents_owned(&texts, registry, ParseBudget::default(), &budget, &cancel)?;
+        let part = load_package_documents_owned(
+            &texts,
+            registry,
+            ParseBudget::default(),
+            &budget,
+            &cancel,
+        )?;
         let original = OwnedDocumentSet::try_from_bundles(vec![part], &budget, &cancel)?;
         let source = original.bundles()[0]
             .documents
             .iter()
-            .find(|document| document.path == "materials/constants.yaml")
+            .find(|document| document.path == "materials/quantity-kinds.yaml")
             .ok_or_else(|| contract(None, "fixture source absent"))?;
         let edited = original.edit(
             &[super::super::DocumentEdit {
                 document_id: source.id,
                 path: source.path.clone(),
                 before: source.text().unwrap_or_default().to_owned(),
-                after: source.text().unwrap_or_default().replace("name: probe", "name: changed"),
+                after: source
+                    .text()
+                    .unwrap_or_default()
+                    .replace("name: probe", "name: changed"),
             }],
             registry,
             ParseBudget::default(),
@@ -417,12 +425,12 @@ mod tests {
                 .ok_or_else(|| contract(None, "edited fixture document absent"))?;
             assert_eq!(
                 Arc::ptr_eq(&prior.syntax, &next.syntax),
-                prior.path != "materials/constants.yaml"
+                prior.path != "materials/quantity-kinds.yaml"
             );
         }
-        let rows = pse_relations::generated::reference::constants::View::from_checked(
+        let rows = pse_relations::generated::reference::quantity_kinds::View::from_checked(
             &edited.bundles()[0].batches
-                [&pse_relations::generated::reference::constants::RELATION_ID],
+                [&pse_relations::generated::reference::quantity_kinds::RELATION_ID],
         )?
         .rows()?;
         assert_eq!(rows[0].name, "changed");

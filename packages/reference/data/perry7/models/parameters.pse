@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0f14331d9760dbe4d342df80560bc") package perry7_data {
+@id("01a0f14331d9760dbe4d342ec2d12c63") use properties @"1.0.0";
+@id("01a0f14331d9760dbe4d342fc1d25eff") use correlations @"1.0.0";
+@id("01a0f14331d9760dbe4d343013c56334") use compatibility @"1.0.0";
+@id("01a0f14331d9760dbe4d343116ad69e1") use provenance @"1.0.0";
+@id("01a0f14331d9760dbe4d343294980db0") use references @"1.0.0";
+@id("01a0f14331d9760dbe4d3433f6c76d6b") use chem @"1.0.0";
+@id("01a0e1550b117611b1f5a230f9f88967") dataset perry_liquid:correlations.dippr100 bind(property=properties.heat_capacity, source=references.perry7_table_2_196) provenance(references.perry7_table_2_196, provenance.Role.published) from "data/perry_liquid.parquet";
+@id("01a0e15d9eff71b98e7519fca5226d2f") dataset perry_densities:correlations.dippr105 bind(property=properties.liquid_molar_density,source=references.perry7_table_2_30) provenance(references.perry7_table_2_30, provenance.Role.published) from "data/perry_densities.parquet";
+}

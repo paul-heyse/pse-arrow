@@ -250,6 +250,14 @@ class RunResult:
         """Declared result and reconstruction-source relation names."""
         return tuple(self._handle.tables())
 
+    def export_fit_parameters(self) -> TableStream:
+        """Export canonical typed cells with producing fit/run/source identities.
+
+        Requires a freshly qualified, locally identifiable estimate. The export
+        can be admitted into a fitted bank with fit lineage; it performs no write.
+        """
+        return TableStream(self._handle.export_fit_parameters())
+
     def table(self, name: str) -> TableStream:
         """Return a one-consumption stream owning its final Arrow buffers."""
         return TableStream(self._handle.table(name))

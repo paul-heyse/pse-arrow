@@ -1,0 +1,7 @@
+quantity_kinds:
+  - name: probe
+    dimension: [{num: 0, den: 1}, {num: 0, den: 1}, {num: 0, den: 1}, {num: 0, den: 1}, {num: 0, den: 1}, {num: 0, den: 1}, {num: 0, den: 1}, {num: 0, den: 1}]
+    category: count
+    extensive: false
+    addition_kind: additive
+    doc: Synthetic parser fixture.

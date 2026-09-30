@@ -17,8 +17,8 @@
 // A species: its identifiers and charge are data; its molar mass is derived from its formula
 // and the standard atomic weights of its elements, and is absent without a formula.
 @id("1c998211e5d74955863f377662f56526") entity kind species {
-@id("01a0f00baca572638a494b058360aedf") attribute cas: Id<cas>?;
-@id("01a0f00baca572638a494b06a4b56f4f") attribute inchikey: Id<inchikey>?;
+@id("01a0f00baca572638a494b058360aedf") attribute cas: Id<cas>? unique;
+@id("01a0f00baca572638a494b06a4b56f4f") attribute inchikey: Id<inchikey>? unique;
 @id("01a0f00baca572638a494b079c5cc336") attribute charge: ChargeNumber = 0{1};
 @id("01a0f00baca572638a494b0850df2605") derived molar_mass: MolarMass? = if sum(e in element | formula[self, e]) > 0{1} then sum(e in element | if present(e.standard_atomic_weight) then formula[self, e] * e.standard_atomic_weight else 0{kg/mol}) else missing;
 }

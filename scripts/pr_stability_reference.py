@@ -10,12 +10,14 @@ exact constants, then evaluated at the authored ones; both minima are recorded.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pyarrow.parquet as pq
 import scipy
 import teqp
 from scipy.optimize import brentq
@@ -25,11 +27,17 @@ if TYPE_CHECKING:
 
     from numpy.typing import NDArray
 
-# The authored benzene/toluene dataset `eos_data.bt_critical` (IDAES 2.13 BT_PR values,
-# attributed there to RPP4) with every binary interaction zero (`eos_data.bt_interactions`).
-CRITICAL_TEMPERATURE = np.array([562.2, 591.8])
-CRITICAL_PRESSURE = np.array([4890000.0, 4100000.0])
-ACENTRIC_FACTOR = np.array([0.212, 0.263])
+# Read the same admitted bank selected by the BT_PR package. Binary interactions
+# use that package's declared predictive-zero policy.
+BANK_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "packages/reference/data/oracles/idaes-2.13/data/bt_critical.parquet"
+)
+BANK = {row["subject"]: row for row in pq.read_table(BANK_PATH).to_pylist()}
+COMPONENTS = [BANK[cas] for cas in ["71-43-2", "108-88-3"]]
+CRITICAL_TEMPERATURE = np.array([row["tc"] for row in COMPONENTS])
+CRITICAL_PRESSURE = np.array([row["pc"] for row in COMPONENTS])
+ACENTRIC_FACTOR = np.array([row["omega"] for row in COMPONENTS])
 TEMPERATURE, PRESSURE = 368.0, 101325.0
 FEED = np.array([0.5, 0.5])
 VAPOR, LIQUID = (1.0, 200.0), (5000.0, 9800.0)
@@ -160,6 +168,10 @@ def main() -> None:
                     "version": teqp.__version__,
                     "model": "canonical_PR",
                     "scipy": scipy.__version__,
+                    "parameter_bank": str(BANK_PATH.relative_to(root)),
+                    "parameter_bank_sha256": hashlib.sha256(
+                        BANK_PATH.read_bytes()
+                    ).hexdigest(),
                 },
                 "components": ["benzene", "toluene"],
                 "critical_temperature": CRITICAL_TEMPERATURE.tolist(),

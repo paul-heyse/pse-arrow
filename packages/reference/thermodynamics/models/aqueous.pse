@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1db89d8722baac398dad77ff4a3") package aqueous {
+@id("01a0f1955e96736397df7b521f3807a2") use compatibility @"1.0.0";
+@id("01a0f14ead4e761899b3c3a81487627a") use constants @"1.0.0";
 @id("01a0ede58ece70f380fb0a5410fa4d73") use chemistry @"1.0.0";
 @id("01a0e1db89d8722baac398dc283f9e89") use equilibrium @"1.0.0";
 @id("01a0e1db89d8722baac398dd3ce60598") use helmholtz @"1.0.0";
 @id("01a0e1db89d8722baac398b7943e4b30") fn concentration_unit()->MolarDensity=1{mol/m^3};
 @id("01a0e1db89d8722baac398b849aaf90f") interface DiluteLiquid extends equilibrium.ThermoPackage {
+@id("01a0f1955e96736397df7b5332e270eb") param liquid_phase:chemistry.phase=chemistry.liquid;
+@id("01a0f1955e96736397df7b54c0ab7a32") require liquid_phase.type==compatibility.PhaseType.liquidPhase : "the dilute liquid phase slot is liquid";
 @id("9381ae6d45054233b6d89f641f8f47d1") let phase_enthalpy[p in phases]:MolarEnthalpy=h;
-@id("e79a4c09af7949adb56bdc03fe6e8239") override param phases:Set<chemistry.phase>={chemistry.liquid};
+@id("e79a4c09af7949adb56bdc03fe6e8239") override param phases:Set<chemistry.phase>={liquid_phase};
 @id("14b6cb2644874af18e9f15894efe84b2") let phase_flow[p in phases]:Flow=flow;
 @id("c653b8238ad94642aefb12f239276701") let phase_component_flow[p in phases,j in components]:ComponentFlow=component_flow[j];
 @id("01a0e1db89d8722baac398b96c1b0ffc") param solvent:chemistry.species;
@@ -21,10 +25,10 @@
 @id("01a0e1db89d8722baac398c247815d86") var concentration[j in components]:MolarDensity;
 @id("01a0e1db89d8722baac398c3092bf2b6") let total_density:Density=sum(j in components | concentration[j]);
 @id("01a0e1db89d8722baac398c429ae852c") eq molar_flow:flow==volume_flow*total_density;
-@id("01a0e1db89d8722baac398c5163c1dcd") eq composition[j in components]:z[j]==equilibrium.fraction_unit()*(concentration[j]/concentration_unit())/(total_density/helmholtz.density_unit());
-@id("01a0e1db89d8722baac398c61801dabe") eq caloric:h==equilibrium.enthalpy_datum()+(solvent_density/total_density)*solvent_cp*(T-reference_temperature);
+@id("01a0e1db89d8722baac398c5163c1dcd") eq composition[j in components]:z[j]==equilibrium.fraction_unit()*(concentration[j]/concentration_unit())/(total_density/constants.density_unit);
+@id("01a0e1db89d8722baac398c61801dabe") eq caloric:h==constants.standard_enthalpy_datum+(solvent_density/total_density)*solvent_cp*(T-reference_temperature);
 @id("01a0e1db89d8722baac398c7627f5f04") when not defined {
-@id("01a0e1db89d8722baac398c8f8bbe9d9") eq solvent_concentration:concentration[solvent]==concentration_unit()*(solvent_density/helmholtz.density_unit());
+@id("01a0e1db89d8722baac398c8f8bbe9d9") eq solvent_concentration:concentration[solvent]==concentration_unit()*(solvent_density/constants.density_unit);
 }
 @id("01a0e1db89d8722baac398c9a449c86d") annotation bounds concentration(0{mol/m^3},100000{mol/m^3});
 @id("01a0e1db89d8722baac398cabd7cb5cd") annotation start concentration(100{mol/m^3});

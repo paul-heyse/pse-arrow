@@ -77,7 +77,8 @@ fn value(revision: &ModelingRevision, table: &str, item: &str) -> f64 {
         id: p.entry(item).unwrap(),
         kind: p.entry("p.item").unwrap(),
     }];
-    let pse_modeling::specialize::Value::Number { bits, .. } = p.table(id).unwrap().rows[&key].cells[0]
+    let pse_modeling::specialize::Value::Number { bits, .. } =
+        p.table(id).unwrap().rows[&key].cells[0]
     else {
         panic!("a quantity value")
     };
@@ -105,7 +106,11 @@ fn unchanged_dataset_reuses_admitted_table() {
     .unwrap();
     let scope = PhysicalScope::default();
     let original = workspace
-        .publish_modeling_with(rows(TEXT), scope.clone(), inventory(&[1.0, 2.0], &[3.0, 4.0]))
+        .publish_modeling_with(
+            rows(TEXT),
+            scope.clone(),
+            inventory(&[1.0, 2.0], &[3.0, 4.0]),
+        )
         .unwrap();
     assert_eq!(executions.load(Ordering::Relaxed), 2);
     assert_eq!(value(&original, "p.first", "p.a"), 1000.0);
@@ -180,10 +185,24 @@ fn document_rows_are_charged_to_the_workspace_limits() {
         .publish_modeling_with(rows(&text), PhysicalScope::default(), big(10))
         .unwrap();
     assert!(small.retained_bytes() > small.documents().retained_bytes());
-    assert_eq!(small.checked.table(small.checked.entry("p.big").unwrap()).unwrap().rows.len(), 10);
-    let refused = workspace.publish_modeling_with(rows(&text), PhysicalScope::default(), big(200_000));
+    assert_eq!(
+        small
+            .checked
+            .table(small.checked.entry("p.big").unwrap())
+            .unwrap()
+            .rows
+            .len(),
+        10
+    );
+    let refused =
+        workspace.publish_modeling_with(rows(&text), PhysicalScope::default(), big(200_000));
     assert!(
-        matches!(refused, Err(CompileError::Limit("modeling input bytes"))),
+        matches!(
+            refused,
+            Err(CompileError::Modeling(pse_modeling::ModelingError::Budget(
+                _
+            )))
+        ),
         "{refused:?}"
     );
 }

@@ -3,11 +3,13 @@
 //! Public finite modeling packages are immutable inputs to the existing compiler service.
 pub(super) mod cases;
 mod conformance;
+mod knowledge;
 mod pure;
 pub use conformance::{
     ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
     ModelingFixtureSelection,
 };
+pub use knowledge::ModelingKnowledge;
 pub use pure::conform_pure_documents;
 pub(super) mod dynamics;
 pub use dynamics::{ModelingSimulation, ModelingTrajectory};
@@ -80,7 +82,7 @@ pub struct ModelingPackage {
     pub(in crate::workflow) workspace: Workspace,
     pub(in crate::workflow) revision: ModelingRevision,
     document_sources: std::sync::Arc<crate::authoring_driver::document::Batches>,
-    pub(in crate::workflow) fit_data: std::sync::Arc<super::fitting::FitData>,
+    pub(in crate::workflow) fit_declarations: std::sync::Arc<super::fitting::FitDeclarations>,
     accelerators: std::sync::Arc<pse_math::implicit::accelerators::Accelerators>,
     providers: std::sync::Arc<BTreeMap<String, pse_kernels::Registration>>,
     pub(in crate::workflow) physical: PhysicalContext,
@@ -120,7 +122,7 @@ fn compiler_inputs(
 type DocumentInputs = (
     Vec<Declaration>,
     PhysicalScope,
-    super::FitData,
+    super::FitDeclarations,
     crate::authoring_driver::document::Batches,
     std::sync::Arc<pse_modeling::document::DocumentInventory>,
 );
@@ -193,7 +195,7 @@ fn document_inputs(
     Ok((
         rows,
         scope,
-        super::FitData::from_batches(&batches)?,
+        super::FitDeclarations::from_batches(&batches)?,
         context,
         std::sync::Arc::new(data_documents(documents)),
     ))
@@ -213,7 +215,7 @@ impl Runtime {
         )?;
         let mut package = self
             .modeling_package_scoped(rows, physical, scope, inventory, BTreeMap::new())?
-            .with_fit_data(data)?;
+            .with_fit_declarations(data)?;
         let pool = self.shared.pool();
         let cancel = pse_columnar::CancellationToken::new();
         package.document_sources = std::sync::Arc::new(
@@ -268,7 +270,7 @@ impl Runtime {
             workspace,
             revision,
             document_sources: Default::default(),
-            fit_data: std::sync::Arc::new(super::fitting::FitData::default()),
+            fit_declarations: std::sync::Arc::new(super::fitting::FitDeclarations::default()),
             accelerators: std::sync::Arc::new(
                 pse_math::implicit::accelerators::Accelerators::standard(),
             ),
@@ -507,6 +509,13 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingAnalysis, WorkflowError> {
+        let row = self
+            .declarations()
+            .iter()
+            .find(|row| row.declaration_id == root)
+            .ok_or_else(|| contract(format!("missing declared analysis root {root}")))?;
+        let limits = conformance::fixture_limits(row, limits)?;
+        let solver = conformance::fixture_solver(row, &solver)?;
         let (bindings, case) = self.declared_case(root, route, limits, cancel).await?;
         let order =
             if solver.controls.hessian == pse_backend_native::solve::HessianMode::LimitedMemory {
@@ -637,7 +646,7 @@ impl ModelingPackage {
             runtime: self.runtime.clone(),
             workspace: self.workspace.clone(),
             revision,
-            fit_data: self.fit_data.clone(),
+            fit_declarations: self.fit_declarations.clone(),
             accelerators: std::sync::Arc::new(
                 pse_math::implicit::accelerators::Accelerators::standard(),
             ),
@@ -748,7 +757,8 @@ mod tests {
         let texts = BTreeMap::from([
             (
                 "package.toml".into(),
-                include_bytes!("../../../../tests/fixtures/packages/minimal_explicit/package.toml").to_vec(),
+                include_bytes!("../../../../tests/fixtures/packages/minimal_explicit/package.toml")
+                    .to_vec(),
             ),
             ("models/kernel.pse".into(), source.into_bytes()),
         ]);
@@ -851,15 +861,14 @@ mod import_tests {
     fn primitives() -> BTreeMap<String, Vec<u8>> {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../tests/fixtures/packages/physical-primitives");
-        ["package.toml", "materials/physical.yaml", "materials/time.yaml"]
-            .into_iter()
-            .map(|path| {
-                (
-                    path.to_owned(),
-                    std::fs::read(root.join(path)).unwrap(),
-                )
-            })
-            .collect()
+        [
+            "package.toml",
+            "materials/physical.yaml",
+            "materials/time.yaml",
+        ]
+        .into_iter()
+        .map(|path| (path.to_owned(), std::fs::read(root.join(path)).unwrap()))
+        .collect()
     }
     fn load(
         rt: &Runtime,
@@ -874,11 +883,13 @@ mod import_tests {
             &pool,
             &token,
         )?;
-        Ok(crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
-            vec![bundle],
-            &pool,
-            &token,
-        )?)
+        Ok(
+            crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
+                vec![bundle],
+                &pool,
+                &token,
+            )?,
+        )
     }
 
     /// ADR-0123 Outcome 6: quantity types are named once, in the physical document. The
@@ -900,14 +911,14 @@ mod import_tests {
             ))
         );
         assert!(named("Length").is_some() && named("Time").is_some());
-        // The reference inventory (the generated standard registry) names 44 quantity
-        // types (the 42 former manifest aliases plus D0's ChargeNumber and GasConstant)
+        // The reference inventory (the generated standard registry) names 46 quantity
+        // types (the original 44 plus atomic mass and heat-capacity slope)
         // and its four reference states.
         let standard = pse_quantity::standard::standard_registry().unwrap();
         let (types, states): (Vec<_>, Vec<_>) = standard
             .physical_names()
             .partition(|(_, n)| matches!(n, pse_quantity::PhysicalName::QuantityType(_)));
-        assert_eq!((types.len(), states.len()), (44, 4));
+        assert_eq!((types.len(), states.len()), (46, 4));
         assert_eq!(
             standard.physical_name("MolarCp"),
             Some(pse_quantity::PhysicalName::QuantityType(
@@ -951,7 +962,8 @@ mod import_tests {
             .physical_from_documents(&load(&rt, &primitives()).unwrap(), &token)
             .await
             .unwrap();
-        let manifest = include_str!("../../../../tests/fixtures/packages/minimal_named/package.toml");
+        let manifest =
+            include_str!("../../../../tests/fixtures/packages/minimal_named/package.toml");
         let dependent = manifest.replace(
             "dependencies = []",
             r#"dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]"#,
@@ -1011,7 +1023,12 @@ mod import_tests {
                 SemanticId::from_bytes([id; 16])
             )
         };
-        let library = package(81, "lib", "", "package lib {fn twice(x:Scalar)->Scalar=2*x;}");
+        let library = package(
+            81,
+            "lib",
+            "",
+            "package lib {fn twice(x:Scalar)->Scalar=2*x;}",
+        );
         let application = package(
             82,
             "app",
@@ -1084,7 +1101,12 @@ mod import_tests {
             )
             .unwrap()
         };
-        let library = package(91, "lib", &[], "package lib {fn twice(x:Scalar)->Scalar=2*x;}");
+        let library = package(
+            91,
+            "lib",
+            &[],
+            "package lib {fn twice(x:Scalar)->Scalar=2*x;}",
+        );
         let other = package(93, "other", &[], "package other {}");
         let application = |dependencies: &[(u8, i64)]| {
             package(
@@ -1101,11 +1123,22 @@ mod import_tests {
             .unwrap();
             rt.modeling_from_documents(&documents, physical.clone())
         };
-        assert!(admit(vec![library.clone(), other.clone(), application(&[(91, 1)])]).is_ok());
+        assert!(
+            admit(vec![
+                library.clone(),
+                other.clone(),
+                application(&[(91, 1)])
+            ])
+            .is_ok()
+        );
         // The same version, depended on under another identity, is not the target.
-        let refused = admit(vec![library.clone(), other.clone(), application(&[(93, 1)])])
-            .unwrap_err()
-            .to_string();
+        let refused = admit(vec![
+            library.clone(),
+            other.clone(),
+            application(&[(93, 1)]),
+        ])
+        .unwrap_err()
+        .to_string();
         assert!(refused.contains("exact manifest dependency"), "{refused}");
         // The typed requirement is checked against the manifest version.
         assert!(admit(vec![library, other, application(&[(91, 2)])]).is_err());
@@ -1127,7 +1160,10 @@ mod import_tests {
             let texts = BTreeMap::from([
                 (
                     "package.toml".into(),
-                    include_bytes!("../../../../tests/fixtures/packages/minimal_explicit/package.toml").to_vec(),
+                    include_bytes!(
+                        "../../../../tests/fixtures/packages/minimal_explicit/package.toml"
+                    )
+                    .to_vec(),
                 ),
                 ("models/kernel.pse".into(), source.into_bytes()),
             ]);

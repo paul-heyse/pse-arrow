@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("70868ba6da7c43dab7a8d05bbec3441c") package nrtl {
+@id("4770c95390c84f978eb581e1b23497c8") use chemistry @"1.0.0";
+@id("45fbd6aad65042ccb97764532730e87a") use provenance @"1.0.0";
+@id("77680433a9b34552ae0ced8a261c80bb") use properties @"1.0.0";
+@id("cccecfe21d5146e2ab14ca39d623c072") use compatibility @"1.0.0";
+@id("12504e4bf5554e52aeee205a6187124b") use interactions @"1.0.0";
+@id("9f2755b2140c4cd88a5885c1856a2172") entity provenance.publication renon_prausnitz_1968 {title="Renon and Prausnitz, Local compositions in thermodynamic excess functions for liquid mixtures",year=1968,doi=Id<provenance.doi>("10.1002/aic.690140124")}
+@id("a11b2a8afdf245a194fa908e7119620c") entity properties.property interaction_parameters {quantity=Scalar,shape=properties.IndexShape.pair,applies={compatibility.PhaseType.liquidPhase}}
+@id("f87957b65ebd44b1879c9aabb99f5553") table parameters[s:provenance.source,i:chemistry.species by chemistry.cas,j:chemistry.species by chemistry.cas]:{tau:Scalar storage {1},alpha:Scalar storage {1}} complete_over(s,i,j);
+@id("406d64cdc035499aa1ee4a7939b52165") fn tau(k:properties.property_package,i:chemistry.species,j:chemistry.species)->Scalar=if i==j then 0 else parameters[interactions.pair_selection[k,interaction_parameters],i,j].tau;
+@id("56212a3a7b694b2f88eb1bf0c7eda4df") fn weight(k:properties.property_package,i:chemistry.species,j:chemistry.species)->Scalar=if i==j then 1 else exp(-parameters[interactions.pair_selection[k,interaction_parameters],i,j].alpha*tau(k,i,j));
+@id("1c130c6802594c79bc3a7620217cdbee") fn extensive(n:Scalar[chemistry.species],members:Set<chemistry.species>,k:properties.property_package)->Scalar=sum(i in members | n[i]*(sum(j in members | n[j]*tau(k,j,i)*weight(k,j,i)))/(sum(j in members | n[j]*weight(k,j,i))));
+@id("eb3b0eda9e824ccfad71e4af91d8c86a") fn binary(x:Scalar,tau12:Scalar,tau21:Scalar,alpha12:Scalar,alpha21:Scalar)->Scalar=x*(1-x)*(tau21*exp(-alpha21*tau21)/(x+(1-x)*exp(-alpha21*tau21))+tau12*exp(-alpha12*tau12)/((1-x)+x*exp(-alpha12*tau12)));
+}

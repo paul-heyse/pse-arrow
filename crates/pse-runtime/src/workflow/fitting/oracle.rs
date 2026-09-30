@@ -1183,6 +1183,14 @@ mod tests {
         source_text(fixed, &format!("package p {{ def Root {{ {body} }} }}"))
     }
     fn source_text(fixed: bool, text: &str) -> crate::workflow::ModelingPackage {
+        source_measured(fixed, text, 3., 2.)
+    }
+    fn source_measured(
+        fixed: bool,
+        text: &str,
+        value: f64,
+        sigma: f64,
+    ) -> crate::workflow::ModelingPackage {
         let mut physical = physical();
         physical.preconditions = Arc::new(
             pse_quantity::PhysicalPreconditions::new(
@@ -1190,14 +1198,7 @@ mod tests {
             )
             .unwrap(),
         );
-        let quantity = physical.quantities.neutral_dimensionless().unwrap();
-        let unit = physical
-            .quantities
-            .quantity_type(quantity)
-            .unwrap()
-            .canonical_unit
-            .as_id();
-        let rows = pse_authoring::language::parse(
+        let mut rows = pse_authoring::language::parse(
             text,
             id(20),
             pse_authoring::language::IdentityPolicy::Named,
@@ -1209,14 +1210,18 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let mut data = FitData::default();
-        data.datasets.push(serde_json::from_value(serde_json::json!({"dataset_id":id(30),"name":"synthetic","source":"unit","content_hash":ContentHash::from_bytes([1;32])})).unwrap());
-        data.observations.push(serde_json::from_value(serde_json::json!({"observation_id":id(31),"dataset_id":id(30),"target":"x squared","value":3.0,"unit_id":unit,"std_dev":2.0,"timestamp":null,"tag":null,"source_span":{"document_id":id(30),"start":0,"end":0}})).unwrap());
-        data.fits.push(serde_json::from_value(serde_json::json!({"fit_id":id(32),"parameters":[{"symbol_id":id(1),"fixed":fixed,"value":2.0,"lower":0.1,"upper":10.0,"scale":2.0}],"experiments":[{"experiment_id":id(33),"case_id":root,"route":"steady","bindings":[{"parameter_id":id(1),"path":"p"}]}],"observations":[{"observation_id":id(31),"experiment_id":id(33),"output_path":"y","time":null,"included":true,"importance":4.0}]})).unwrap());
+        rows.extend(measured_rows(&[(
+            id(31),
+            "Scalar",
+            Some(value),
+            Some(sigma),
+        )]));
+        let mut data = FitDeclarations::default();
+        data.fits.push(serde_json::from_value(serde_json::json!({"fit_id":id(32),"parameters":[{"symbol_id":id(1),"fixed":fixed,"value":2.0,"lower":0.1,"upper":10.0,"scale":2.0}],"experiments":[{"experiment_id":id(33),"case_id":root,"route":"steady","bindings":[{"parameter_id":id(1),"path":"p"}]}],"observations":[{"value_attribute":"value","standard_deviation_attribute":"sigma","observation_id":id(31),"experiment_id":id(33),"output_path":"y","time":null,"included":true,"importance":4.0}]})).unwrap());
         runtime()
             .modeling_package(rows, physical)
             .unwrap()
-            .with_fit_data(data)
+            .with_fit_declarations(data)
             .unwrap()
     }
     fn profile(_fixed: bool) -> FitProfile {
@@ -1599,8 +1604,12 @@ mod tests {
     }
     #[tokio::test]
     async fn invalid_uncertainty_and_unbound_observations_fail_admission() {
-        let mut b = source(false);
-        Arc::make_mut(&mut b.fit_data).observations[0].std_dev = Some(0.0);
+        let b = source_measured(
+            false,
+            "package p {def Root {param p:Scalar=2;let y:Scalar=p*p;}}",
+            3.,
+            0.,
+        );
         let r = b;
         let error = r
             .prepare_fit_problem(
@@ -1616,7 +1625,8 @@ mod tests {
             matches!(error, WorkflowError::Contract(ref message) if message == "included observations require finite values, positive difference-unit standard deviations and importance")
         );
         let mut b = source(false);
-        Arc::make_mut(&mut b.fit_data).fits[0].observations[0].experiment_id = id(99).into();
+        Arc::make_mut(&mut b.fit_declarations).fits[0].observations[0].experiment_id =
+            id(99).into();
         let r = b;
         let error = r
             .prepare_fit_problem(
@@ -1752,7 +1762,8 @@ mod tests {
     #[tokio::test]
     async fn authored_fit_can_observe_a_parameter_without_an_alias() {
         let mut package = source(true);
-        Arc::make_mut(&mut package.fit_data).fits[0].observations[0].output_path = "p".into();
+        Arc::make_mut(&mut package.fit_declarations).fits[0].observations[0].output_path =
+            "p".into();
         let result = package
             .prepare_fit(
                 id(32).into(),
@@ -1799,6 +1810,7 @@ mod tests {
         assert!(report.checks.iter().any(|c| !c.satisfied));
         assert!(!result.usable());
         assert!(!report.estimate_qualified());
+        assert!(result.export_fit_parameters().is_err());
         assert_eq!(
             result
                 .table("runtime.modeling_checks")
@@ -1837,9 +1849,12 @@ mod tests {
         assert_eq!(first.source_identity, second.source_identity);
         assert_ne!(first.profile_key, second.profile_key);
         assert_ne!(first.key, second.key);
-        let mut data = (*package.fit_data).clone();
-        data.observations[0].value = Some(5.);
-        let edited = package.clone().with_fit_data(data).unwrap();
+        let edited = source_measured(
+            true,
+            "package p {def Root {param p: Scalar = 2; let y: Scalar = p*p; annotation check p(p > 0);}}",
+            5.,
+            2.,
+        );
         let (third, _) = edited
             .prepare_fit_problem(
                 id(32).into(),
@@ -1851,10 +1866,23 @@ mod tests {
             .await
             .unwrap();
         assert_ne!(first.source_identity, third.source_identity);
-        assert_eq!(package.fit_data.observations[0].value, Some(3.));
-        let mut data = (*package.fit_data).clone();
+        assert_eq!(
+            package
+                .revision
+                .checked()
+                .measurement(
+                    package.fit_declarations.fits[0].experiments[0].case_id,
+                    id(31).into(),
+                    "value",
+                    Some("sigma")
+                )
+                .unwrap()
+                .value,
+            Some(3.)
+        );
+        let mut data = (*package.fit_declarations).clone();
         data.fits[0].parameters[0].value = 2.5;
-        let changed = package.clone().with_fit_data(data).unwrap();
+        let changed = package.clone().with_fit_declarations(data).unwrap();
         let (fourth, _) = changed
             .prepare_fit_problem(
                 id(32).into(),
@@ -1869,10 +1897,10 @@ mod tests {
             first.source_identity, fourth.source_identity,
             "fit declaration belongs to source identity"
         );
-        let mut data = (*package.fit_data).clone();
+        let mut data = (*package.fit_declarations).clone();
         let binding = data.fits[0].experiments[0].bindings[0].clone();
         data.fits[0].experiments[0].bindings.push(binding);
-        let invalid = package.with_fit_data(data).unwrap();
+        let invalid = package.with_fit_declarations(data).unwrap();
         assert!(
             invalid
                 .prepare_fit_problem(

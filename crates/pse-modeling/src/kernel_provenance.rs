@@ -58,6 +58,66 @@ const SCHEMA: &str = r#"
  set items: Set<item> = {a, b}; set first: Set<item> = {a}; set second: Set<item> = {b};
  table cp[j: item]: Scalar complete_over(j);"#;
 
+#[test]
+fn entity_and_attribute_origins_are_retained_and_cannot_launder_oracle_data() {
+    let text = format!(
+        r#"package p {{ {SCHEMA}
+ entity kind datum {{ attribute value: Scalar; }}
+ entity datum good provenance(handbook, role.published) {{ value = 2 }}
+ entity datum explicit {{ value = 3 provenance(handbook, role.published) }}
+ entity datum oracle provenance(upstream, role.oracle_input) {{ value = 4 provenance(handbook, role.published) }}
+ entity datum attributed provenance(handbook, role.published) {{ value = 5 provenance(upstream, role.oracle_input) }}
+ entity kind holder {{ attribute held: datum; }}
+ entity holder laundering provenance(handbook, role.published) {{ held = oracle }}
+ entity source derived_origin provenance(handbook, role.published, lineage(source upstream)) {{ title = "derived" }}
+ def Good {{ require good.value + explicit.value > 0 : "positive"; }}
+ def Oracle {{ require oracle.value > 0 : "positive"; }}
+ def Attributed {{ require attributed.value > 0 : "positive"; }}
+ def Laundering {{ require laundering.held.value > 0 : "positive"; }}
+ test compared {{ require good.value + oracle.value + attributed.value > 0 : "positive"; }}
+}}"#
+    );
+    let p = admitted(&text).unwrap();
+    let published = p.names["p.handbook"];
+    assert_eq!(p.provenance(p.names["p.good"]).unwrap().source, published);
+    assert_eq!(
+        p.attribute_provenance(p.names["p.good"], "value")
+            .unwrap()
+            .source,
+        published
+    );
+    assert_eq!(
+        p.attribute_provenance(p.names["p.oracle"], "value")
+            .unwrap()
+            .source,
+        published
+    );
+    assert_eq!(
+        p.attribute_provenance(p.names["p.attributed"], "value")
+            .unwrap()
+            .source,
+        p.names["p.upstream"]
+    );
+    root(&text, "Good").unwrap();
+    for name in ["Oracle", "Attributed", "Laundering"] {
+        refused(&text, name);
+    }
+    root(&text, "compared").unwrap();
+    // Selection retains entity and attribute source/role dependencies.
+    let selected = p.select(p.names["p.explicit"]).unwrap();
+    assert!(selected.declarations.contains_key(&published));
+    assert!(
+        selected
+            .attribute_provenance(selected.names["p.explicit"], "value")
+            .is_some()
+    );
+    let error = refusal(&text.replace(
+        "value = 3 provenance(handbook",
+        "value = 3 provenance(remark",
+    ));
+    assert!(error.contains("does not"), "{error}");
+}
+
 /// A dataset names a source entity whose kind, or an ancestor kind, carries the provenance
 /// facet, and a role that is a member of a declared enumeration.
 #[test]
@@ -81,12 +141,30 @@ fn dataset_source_requires_provenance_kind() {
     }]];
     assert_eq!(p.origin_role(row.origin), Some(&data.role));
     for (spelling, expected) in [
-        ("provenance(remark, role.published)", "remark is a note, which does not"),
-        ("provenance(items, role.published)", "items is not an entity"),
-        ("provenance(nowhere, role.published)", "unknown entity nowhere"),
-        ("provenance(handbook, role.estimated)", "estimated is not a member of role"),
-        ("provenance(handbook, published)", "a role names its enumeration and member"),
-        ("provenance(handbook, handbook.published)", "is not a member of a declared enumeration"),
+        (
+            "provenance(remark, role.published)",
+            "remark is a note, which does not",
+        ),
+        (
+            "provenance(items, role.published)",
+            "items is not an entity",
+        ),
+        (
+            "provenance(nowhere, role.published)",
+            "unknown entity nowhere",
+        ),
+        (
+            "provenance(handbook, role.estimated)",
+            "estimated is not a member of role",
+        ),
+        (
+            "provenance(handbook, published)",
+            "a role names its enumeration and member",
+        ),
+        (
+            "provenance(handbook, handbook.published)",
+            "is not a member of a declared enumeration",
+        ),
     ] {
         let error = refusal(&text.replace("provenance(handbook, role.published)", spelling));
         assert!(error.contains(expected), "{spelling}: {error}");
@@ -132,7 +210,10 @@ fn production_root_reading_an_oracle_row_is_refused() {
         kind: p.names["p.item"],
     };
     for table in ["p.cp", "p.choice", "p.doubled"] {
-        assert!(p.tables[&p.names[table]].rows[&vec![a.clone()]].test_only, "{table}");
+        assert!(
+            p.tables[&p.names[table]].rows[&vec![a.clone()]].test_only,
+            "{table}"
+        );
     }
     assert!(p.is_test_only(p.names["p.h"]) && p.is_test_only(p.names["p.c0"]));
     // A literal key resolves its row statically, a bound key at specialization.
@@ -149,11 +230,21 @@ fn production_root_reading_an_oracle_row_is_refused() {
     assert!(refused(&text, "Referenced").contains("row choice[a] supplied by chosen"));
     assert!(refused(&text, "Derived").contains("row doubled[a]"));
     assert!(refused(&text, "Held").contains("entity h referencing test-only data"));
-    assert!(refused(&text, "Constant").contains("constant c0 supplied by c0 with role oracle_input"));
+    assert!(
+        refused(&text, "Constant").contains("constant c0 supplied by c0 with role oracle_input")
+    );
     root(&text, "fixture").unwrap();
     // The same roots read the same data once its role is not test-only.
     let published = text.replace("role.oracle_input", "role.published");
-    for name in ["Literal", "Bound", "Keyed", "Referenced", "Derived", "Held", "Constant"] {
+    for name in [
+        "Literal",
+        "Bound",
+        "Keyed",
+        "Referenced",
+        "Derived",
+        "Held",
+        "Constant",
+    ] {
         root(&published, name).unwrap();
     }
 }
@@ -177,7 +268,10 @@ fn shared_relation_with_oracle_rows_keeps_production_roots_admissible() {
     assert_eq!(rows.values().filter(|row| row.test_only).count(), 1);
     root(&text, "Production").unwrap();
     let error = refused(&text, "Leaky");
-    assert!(error.contains("row cp[b] supplied by oracle with role oracle_input"), "{error}");
+    assert!(
+        error.contains("row cp[b] supplied by oracle with role oracle_input"),
+        "{error}"
+    );
     root(&text, "compared").unwrap();
 }
 
@@ -193,7 +287,12 @@ fn lineage_facet_requires_acyclic_lineage() {
     );
     let p = admitted(&text).unwrap();
     let refit = p.provenance(p.names["p.refit"]).unwrap();
-    assert!(refit.role.facets.contains(&ModelingDataFacet::RequiresLineage));
+    assert!(
+        refit
+            .role
+            .facets
+            .contains(&ModelingDataFacet::RequiresLineage)
+    );
     assert_eq!(
         refit.lineage,
         [
@@ -202,21 +301,33 @@ fn lineage_facet_requires_acyclic_lineage() {
         ]
     );
     let error = refusal(&text.replace(", lineage(dataset base, source upstream)", ""));
-    assert!(error.contains("role role.fitted requires lineage; refit names none"), "{error}");
+    assert!(
+        error.contains("role role.fitted requires lineage; refit names none"),
+        "{error}"
+    );
     // A cycle, through another dataset or directly, is refused with its datasets named.
     let cycle = text.replace(
         "provenance(handbook, role.published)",
         "provenance(handbook, role.published, lineage(dataset refit))",
     );
     let error = refusal(&cycle);
-    assert!(error.contains("lineage is cyclic: base, refit derive from one another"), "{error}");
+    assert!(
+        error.contains("lineage is cyclic: base, refit derive from one another"),
+        "{error}"
+    );
     let error = refusal(&text.replace("lineage(dataset base,", "lineage(dataset refit,"));
     assert!(error.contains("lineage is cyclic: refit"), "{error}");
     // Entries name what their kind says.
     let error = refusal(&text.replace("dataset base,", "dataset items,"));
-    assert!(error.contains("lineage entry items is not a dataset"), "{error}");
+    assert!(
+        error.contains("lineage entry items is not a dataset"),
+        "{error}"
+    );
     let error = refusal(&text.replace("source upstream)", "source remark)"));
-    assert!(error.contains("remark is a note, which does not"), "{error}");
+    assert!(
+        error.contains("remark is a note, which does not"),
+        "{error}"
+    );
 }
 
 /// Data derived from test-only data is test-only, whatever its own role: a dataset whose
@@ -246,26 +357,39 @@ fn lineage_from_test_only_data_is_test_only() {
 }}"#
     );
     let p = admitted(&text).unwrap();
-    for data in ["p.frozen", "p.derived", "p.again", "p.forms", "p.summarized", "p.k"] {
+    for data in [
+        "p.frozen",
+        "p.derived",
+        "p.again",
+        "p.forms",
+        "p.summarized",
+        "p.k",
+    ] {
         assert!(p.supplies_test_only(p.names[data]), "{data}");
     }
     assert!(p.is_test_only(p.names["p.summary"]) && p.is_test_only(p.names["p.k"]));
     // Each root outside a fixture reading derived data is refused, naming its dataset.
     let error = refused(&text, "Derived");
     assert!(
-        error.contains("row fit[a] supplied by derived with role fitted, whose lineage reaches test-only data"),
+        error.contains(
+            "row fit[a] supplied by derived with role fitted, whose lineage reaches test-only data"
+        ),
         "{error}"
     );
-    assert!(refused(&text, "Again").contains("row refit[a] supplied by again with role published, whose lineage reaches test-only data"));
+    assert!(refused(&text, "Again").contains(
+        "row refit[a] supplied by again with role published, whose lineage reaches test-only data"
+    ));
     assert!(refused(&text, "Summarized").contains("row fit[b] supplied by summarized"));
     assert!(refused(&text, "Constant").contains("constant k supplied by k with role fitted"));
     root(&text, "fixture").unwrap();
     // Lineage to published data taints nothing.
     let published = text.replace("role.oracle_input", "role.published");
     let p = admitted(&published).unwrap();
-    assert!(["p.derived", "p.again", "p.summarized", "p.k"]
-        .iter()
-        .all(|data| !p.supplies_test_only(p.names[*data])));
+    assert!(
+        ["p.derived", "p.again", "p.summarized", "p.k"]
+            .iter()
+            .all(|data| !p.supplies_test_only(p.names[*data]))
+    );
     for name in ["Derived", "Again", "Summarized", "Constant"] {
         root(&published, name).unwrap();
     }
@@ -316,11 +440,23 @@ fn constants_carry_provenance() {
     );
     root(&text, "Root").unwrap();
     let error = refusal(&text.replace(", lineage(source upstream)", ""));
-    assert!(error.contains("requires lineage; fitted names none"), "{error}");
+    assert!(
+        error.contains("requires lineage; fitted names none"),
+        "{error}"
+    );
     let error = refusal(&text.replace(" provenance(handbook, role.published);", ";"));
     assert!(error.contains("provenance"), "{error}");
-    let error = refusal(&text.replace("provenance(handbook, role.published)", "provenance(remark, role.published)"));
-    assert!(error.contains("remark is a note, which does not"), "{error}");
-    let frozen = text.replace("provenance(handbook, role.published)", "provenance(upstream, role.oracle_input)");
+    let error = refusal(&text.replace(
+        "provenance(handbook, role.published)",
+        "provenance(remark, role.published)",
+    ));
+    assert!(
+        error.contains("remark is a note, which does not"),
+        "{error}"
+    );
+    let frozen = text.replace(
+        "provenance(handbook, role.published)",
+        "provenance(upstream, role.oracle_input)",
+    );
     assert!(refused(&frozen, "Root").contains("constant r supplied by r with role oracle_input"));
 }

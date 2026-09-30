@@ -7,6 +7,17 @@ version = "1.0.0"
 kind = "reference"
 id_policy = "explicit"
 dependencies = [
+  { package_id = "99873fb6986946b2a8350166b16a5c2d", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f19e1d7d74efbbf1a15fd1243254", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f1868dd372eeb1f0f3a53dcbc69d", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f14331d9760dbe4d34232814d24a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f14331d9760dbe4d34246c100803", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f14331d9760dbe4d342c9a291d90", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f14331d9760dbe4d3434898d76b7", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f14331d9760dbe4d343cdceec631", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+
+  { package_id = "01a0f12be021704f9c94b091c341dfc3", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f12be021704f9c94b0903d83ca1a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
   { package_id = "12104e13f2494492ba75de08955299a6", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
   { package_id = "01a0e169482c760bbd985b849a06417d", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
   { package_id = "b27409be5572b8712e47db271fae28cd", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },

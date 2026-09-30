@@ -16,7 +16,7 @@
 // vapor from the stage below (the reboiled bottom liquid at the bottom) and, at the bottom,
 // the liquid feed; the distillate leaves the condenser and the bottoms the reboiler.
 @id("01a0f076dd1876e1afc46033f109cdfb") def EquilibriumCascade(stages:Set<kinds.stage>,links:Set<Tuple<kinds.stage,kinds.stage>>,top:kinds.stage,bottom:kinds.stage,vapor_pressure:Fn(T:Temperature,j:chemistry.species)->Pressure) {
-@id("01a0f076dd1876e1afc46034d4b9ac7e") param components:Set<chemistry.species>=chem.aromatics;
+@id("01a0f076dd1876e1afc46034d4b9ac7e") param components:Set<chemistry.species>=bt_ideal.aromatics;
 @id("01a0f076dd1876e1afc460353e5b57b3") var feed:Flow;
 @id("01a0f076dd1876e1afc4603637d87527") var feed_composition[j in components]:MoleFraction;
 @id("01a0f076dd1876e1afc460370643ae3e") var distillate:Flow;
@@ -55,7 +55,7 @@
 // change fixed) whose outlet temperature is fixed as well: one equation too many. The root
 // solve is refused structurally before any route is chosen, and the refusal names the
 // over-determined equations; the derivative inspection observes the same refusal.
-@id("01a0f068fdfc75a08bdfd2a200159013") test flash_overspecified oracle campaign_references.analytic_overspecified_flash fixture {dof -1; run steady; failure invalid_model "native.structural"; fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa}; fix root.outlet.T=368{K};} {
+@id("01a0f068fdfc75a08bdfd2a200159013") test flash_overspecified oracle campaign_references.analytic_overspecified_flash fixture {dof -1; run steady; failure invalid_model members(root.outlet.fugacity); fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa}; fix root.outlet.T=368{K};} {
 @id("01a0f068fdfc75a08bdfd2a3cdbe2102") child root:flashing.Flash=flashing.Flash(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false));
 }
 // Two equilibrium stages at 101325 Pa with 100 mol/s boilup, fed 1e-6 mol/s of equimolar

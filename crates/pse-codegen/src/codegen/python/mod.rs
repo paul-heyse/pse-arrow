@@ -229,57 +229,6 @@ fn structures(reg: &Registry) -> Result<String, SchemaError> {
     Ok(source)
 }
 
-#[cfg(test)]
-mod tests {
-    #![allow(clippy::unwrap_used, reason = "assertions over a small test registry")]
-
-    use crate::model::{Authority, FieldContract as F, Namespace, RelationDecl, SnapshotClass};
-    use arrow_schema::DataType;
-
-    /// A named structure is declared after every named structure it nests, whatever their
-    /// names; alphabetical order would define `Alpha` before the `Zulu` it validates with.
-    #[test]
-    fn nested_named_structures_are_declared_in_dependency_order() {
-        let zulu = || {
-            F::structure(vec![F::native(DataType::Utf8).with_name("symbol")]).named("Zulu")
-        };
-        let alpha = F::structure(vec![
-            F::native(DataType::Int64).with_name("count"),
-            F::list(zulu()).with_name("factors"),
-        ])
-        .named("Alpha");
-        let middle = F::structure(vec![alpha.clone().with_name("inner")]).named("Middle");
-        let mut builder = crate::RegistryBuilder::new();
-        builder.declare_relation(
-            RelationDecl::new(
-                Namespace::Authored,
-                "nested",
-                1,
-                Authority::Authored,
-                SnapshotClass::Model,
-                "Nested named structure test relation",
-            )
-            .pk(&["id"])
-            .columns(vec![
-                F::key("id", F::native(DataType::Int64), "Key"),
-                F::payload("middle", middle, "Middle"),
-                F::payload("zulus", F::list(zulu()), "Zulus"),
-            ]),
-        );
-        let registry = builder.build().unwrap();
-        assert_eq!(
-            super::dependency_order(registry.structures()).unwrap(),
-            ["Zulu", "Alpha", "Middle"]
-        );
-        let source = super::structures(&registry).unwrap();
-        let position = |name: &str| source.find(&format!("class {name}:")).unwrap();
-        assert!(position("Zulu") < position("Alpha"), "{source}");
-        assert!(position("Alpha") < position("Middle"), "{source}");
-        // Nested structures refer to one another locally, never through the package.
-        assert!(!source.contains("s.Zulu") && source.contains("instance_of(Zulu)"), "{source}");
-    }
-}
-
 /// Whether a value nested in the column names an entity identity.
 fn carries_identity(column: &crate::model::FieldContract) -> bool {
     column.extension().is_none()
@@ -392,4 +341,57 @@ fn values() -> Result<String, SchemaError> {
     // local names instead of importing itself through the public package.
     source.push_str(&declarations.replace("v.", ""));
     Ok(source)
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, reason = "assertions over a small test registry")]
+
+    use crate::model::{Authority, FieldContract as F, Namespace, RelationDecl, SnapshotClass};
+    use arrow_schema::DataType;
+
+    /// A named structure is declared after every named structure it nests, whatever their
+    /// names; alphabetical order would define `Alpha` before the `Zulu` it validates with.
+    #[test]
+    fn nested_named_structures_are_declared_in_dependency_order() {
+        let zulu =
+            || F::structure(vec![F::native(DataType::Utf8).with_name("symbol")]).named("Zulu");
+        let alpha = F::structure(vec![
+            F::native(DataType::Int64).with_name("count"),
+            F::list(zulu()).with_name("factors"),
+        ])
+        .named("Alpha");
+        let middle = F::structure(vec![alpha.clone().with_name("inner")]).named("Middle");
+        let mut builder = crate::RegistryBuilder::new();
+        builder.declare_relation(
+            RelationDecl::new(
+                Namespace::Authored,
+                "nested",
+                1,
+                Authority::Authored,
+                SnapshotClass::Model,
+                "Nested named structure test relation",
+            )
+            .pk(&["id"])
+            .columns(vec![
+                F::key("id", F::native(DataType::Int64), "Key"),
+                F::payload("middle", middle, "Middle"),
+                F::payload("zulus", F::list(zulu()), "Zulus"),
+            ]),
+        );
+        let registry = builder.build().unwrap();
+        assert_eq!(
+            super::dependency_order(registry.structures()).unwrap(),
+            ["Zulu", "Alpha", "Middle"]
+        );
+        let source = super::structures(&registry).unwrap();
+        let position = |name: &str| source.find(&format!("class {name}:")).unwrap();
+        assert!(position("Zulu") < position("Alpha"), "{source}");
+        assert!(position("Alpha") < position("Middle"), "{source}");
+        // Nested structures refer to one another locally, never through the package.
+        assert!(
+            !source.contains("s.Zulu") && source.contains("instance_of(Zulu)"),
+            "{source}"
+        );
+    }
 }

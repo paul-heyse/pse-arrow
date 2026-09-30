@@ -573,13 +573,8 @@ impl Engine<'_, '_> {
             .unwrap_or_default();
         // The data layer: guards specialized in the frame under the consumer's policy
         // (ADR-0123 Outcome 4).
-        let guards = self.specialize_guards(
-            instance,
-            function,
-            &contract,
-            &statics,
-            &scalar_formals,
-        );
+        let guards =
+            self.specialize_guards(instance, function, &contract, &statics, &scalar_formals);
         let nested = self.close_lifts();
         self.function_stack.pop();
         self.lexical = saved_lexical;

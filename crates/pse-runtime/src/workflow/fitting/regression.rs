@@ -60,18 +60,11 @@ pub(in crate::workflow) fn package_with(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
             .unwrap(),
     );
-    let quantity = physical.quantities.neutral_dimensionless().unwrap();
-    let unit = physical
-        .quantities
-        .quantity_type(quantity)
-        .unwrap()
-        .canonical_unit
-        .as_id();
     let intercept = if offset { "(a + d)" } else { "a" };
     let outputs = (1..=4)
         .map(|i| format!("let y{i}: Scalar = {intercept} + b*{i};"))
         .collect::<String>();
-    let rows = pse_authoring::language::parse(
+    let mut rows = pse_authoring::language::parse(
         &format!(
             "package p {{ def Root {{ param a: Scalar = 1; param b: Scalar = 1; param d: Scalar = 0; {outputs} }} }}"
         ),
@@ -85,13 +78,16 @@ pub(in crate::workflow) fn package_with(
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let mut data = FitData::default();
-    data.datasets.push(serde_json::from_value(serde_json::json!({"dataset_id":id(30),"name":"regression","source":"unit","content_hash":ContentHash::from_bytes([1;32])})).unwrap());
+    rows.extend(measured_rows(
+        &(0..4)
+            .map(|i| (id(40 + i as u8), "Scalar", Some(Y[i]), sigma[i]))
+            .collect::<Vec<_>>(),
+    ));
+    let mut data = FitDeclarations::default();
     let mut observations = Vec::new();
-    for i in 0..4 {
+    for (i, weight) in importance.iter().enumerate() {
         let observation = id(40 + i as u8);
-        data.observations.push(serde_json::from_value(serde_json::json!({"observation_id":observation,"dataset_id":id(30),"target":"y","value":Y[i],"unit_id":unit,"std_dev":sigma[i],"timestamp":null,"tag":null,"source_span":{"document_id":id(30),"start":0,"end":0}})).unwrap());
-        observations.push(serde_json::json!({"observation_id":observation,"experiment_id":id(33),"output_path":format!("y{}", i + 1),"time":null,"included":true,"importance":importance[i]}));
+        observations.push(serde_json::json!({"value_attribute":"value","standard_deviation_attribute":"sigma","observation_id":observation,"experiment_id":id(33),"output_path":format!("y{}", i + 1),"time":null,"included":true,"importance":weight}));
     }
     let mut parameters = vec![
         serde_json::json!({"symbol_id":id(A),"fixed":false,"value":1.0,"lower":-100.0,"upper":100.0,"scale":SCALES[0]}),
@@ -111,7 +107,7 @@ pub(in crate::workflow) fn package_with(
     runtime()
         .modeling_package(rows, physical)
         .unwrap()
-        .with_fit_data(data)
+        .with_fit_declarations(data)
         .unwrap()
 }
 pub(in crate::workflow) fn declared() -> [Option<f64>; 4] {

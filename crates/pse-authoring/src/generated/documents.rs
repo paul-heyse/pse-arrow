@@ -30,12 +30,6 @@ pub struct AssertionsDocument {
 pub struct CasesDocument {
     ///Typed rows under the declared relation contract.
     #[serde(default)]
-    pub r#datasets: Vec<pse_model::generated::r#authored::r#datasets::Row>,
-    ///Typed rows under the declared relation contract.
-    #[serde(default)]
-    pub r#observations: Vec<pse_model::generated::r#authored::r#observations::Row>,
-    ///Typed rows under the declared relation contract.
-    #[serde(default)]
     pub r#fit_cases: Vec<pse_model::generated::r#authored::r#fit_cases::Row>,
 }
 ///Package sections use declared relation fields; identity and provenance are resolved before typed decoding.
@@ -92,9 +86,6 @@ pub struct MaterialsDocument {
     pub r#quantity_preconditions: Vec<
         pse_model::generated::r#reference::r#quantity_preconditions::Row,
     >,
-    ///Typed rows under the declared relation contract.
-    #[serde(default)]
-    pub r#constants: Vec<pse_model::generated::r#reference::r#constants::Row>,
     ///Typed rows under the declared relation contract.
     #[serde(default)]
     pub r#math_context: Vec<pse_model::generated::r#reference::r#math_context::Row>,

@@ -11,6 +11,6 @@ package refusal {
  use provenance @"1.0.0";
  entity properties.property kij { quantity = Scalar, shape = properties.IndexShape.pair, applies = {liquidPhase, vaporPhase} }
  set kijs: Set<properties.property> = {kij};
- dataset kij_values: interactions.pair complete_over(s in corpus.banks, p in kijs, i in corpus.aromatics, j in corpus.aromatics) provenance(corpus.bank, provenance.Role.published) { [corpus.bank, kij, corpus.benzene, corpus.toluene] = [0.01]; }
+ dataset kij_values: interactions.pair provenance(corpus.bank, provenance.Role.published) { [corpus.bank, kij, corpus.benzene, corpus.toluene] = [0.01]; }
  def Root { var k: Scalar; eq e: k == interactions.pair_parameter(corpus.pkg, kij, corpus.toluene, corpus.benzene); }
 }

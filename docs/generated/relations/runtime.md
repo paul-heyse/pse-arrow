@@ -253,6 +253,23 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, experiment_id, symb
 | `lower` | `Float64` | true | `payload` | — | — |
 | `upper` | `Float64` | true | `payload` | — | — |
 
+## `fitted_parameter_cells`
+
+Explicit export from a freshly qualified, locally identifiable fit. Values use canonical units and retain their full physical quantity convention and producing fit, run and source revision. This read-only export never mutates a parameter bank; an authored fitted set names its fit receipt through fit lineage.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, parameter_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `fit_id` | `semantic_id` | false | `payload` | — | — |
+| `source_revision` | `content_hash` | false | `payload` | — | — |
+| `fit_source` | `content_hash` | false | `payload` | — | — |
+| `parameter_id` | `semantic_id` | false | `key` | — | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `value` | `Float64` | false | `payload` | — | — |
+
 ## `incumbents`
 
 The incumbent stream of a durable run as the operational store holds it when the attempt ends (Plan 22 I13): each improving feasible point of a branch-and-bound search with the bound at that time, numbered `seq` by the producer, with the step, the phase and `elapsed_seconds` of the event that reported it. `solution_id` names the captured point stored for resumption; the store prunes captures with their stream, so the published row outlives it. An ephemeral run keeps its retained incumbents in runtime.solve_metrics instead.
@@ -612,6 +629,74 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
 | `attempts.item.validation_error` | `Utf8` | true | `payload` | — | — |
 | `unavailable` | `List` | false | `payload` | — | — |
 | `unavailable.item` | `Utf8` | false | `payload` | — | — |
+
+## `modeling_knowledge`
+
+Read-only admitted cells of one immutable source revision. Records use their admitted identity, constants their declaration, and table rows their canonical-order index within that revision. Keys and values are post-order typed arenas: children precede parents, the last node is the root. Canonical quantity types accompany numeric values; references are resolved identities, not source spellings. Declared uncertainty and origin source, role, lineage and transitive test-only status are preserved. This derived relation authorizes no scientific read or mutation.
+
+Version: 1. Snapshot class: `derived`. Primary key: `source_revision, owner_id, row_index, slot`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `source_revision` | `content_hash` | false | `key` | — | — |
+| `owner_id` | `semantic_id` | false | `key` | — | — |
+| `row_index` | `Int64` | false | `key` | — | — |
+| `slot` | `Utf8` | false | `key` | — | — |
+| `record_kind_id` | `semantic_id` | true | `payload` | — | — |
+| `origin_id` | `semantic_id` | false | `payload` | — | — |
+| `keys` | `List` | false | `payload` | — | — |
+| `keys.item` | `Struct ModelingKnowledgeValueNode` | false | `payload` | — | — |
+| `keys.item.kind` | `enum:ModelingKnowledgeValueKind` | false | `payload` | — | — |
+| `keys.item.boolean` | `Boolean` | true | `payload` | — | — |
+| `keys.item.integer` | `Int64` | true | `payload` | — | — |
+| `keys.item.magnitude` | `Float64` | true | `payload` | — | — |
+| `keys.item.quantity_type_id` | `semantic_id` | true | `payload` | — | — |
+| `keys.item.canonical_unit_id` | `semantic_id` | true | `payload` | — | — |
+| `keys.item.reference_id` | `semantic_id` | true | `payload` | — | — |
+| `keys.item.type_id` | `semantic_id` | true | `payload` | — | — |
+| `keys.item.text` | `Utf8` | true | `payload` | — | — |
+| `keys.item.labels` | `List` | false | `payload` | — | — |
+| `keys.item.labels.item` | `Utf8` | false | `payload` | — | — |
+| `keys.item.children` | `List` | false | `payload` | — | — |
+| `keys.item.children.item` | `UInt32` | false | `payload` | — | — |
+| `value` | `List` | false | `payload` | — | — |
+| `value.item` | `Struct ModelingKnowledgeValueNode` | false | `payload` | — | — |
+| `value.item.kind` | `enum:ModelingKnowledgeValueKind` | false | `payload` | — | — |
+| `value.item.boolean` | `Boolean` | true | `payload` | — | — |
+| `value.item.integer` | `Int64` | true | `payload` | — | — |
+| `value.item.magnitude` | `Float64` | true | `payload` | — | — |
+| `value.item.quantity_type_id` | `semantic_id` | true | `payload` | — | — |
+| `value.item.canonical_unit_id` | `semantic_id` | true | `payload` | — | — |
+| `value.item.reference_id` | `semantic_id` | true | `payload` | — | — |
+| `value.item.type_id` | `semantic_id` | true | `payload` | — | — |
+| `value.item.text` | `Utf8` | true | `payload` | — | — |
+| `value.item.labels` | `List` | false | `payload` | — | — |
+| `value.item.labels.item` | `Utf8` | false | `payload` | — | — |
+| `value.item.children` | `List` | false | `payload` | — | — |
+| `value.item.children.item` | `UInt32` | false | `payload` | — | — |
+| `uncertainty` | `Struct ModelingKnowledgeUncertainty` | true | `payload` | — | — |
+| `uncertainty.kind` | `enum:ModelingUncertaintyKind` | false | `payload` | — | — |
+| `uncertainty.magnitude` | `Float64` | false | `payload` | — | — |
+| `source_id` | `semantic_id` | true | `payload` | — | — |
+| `role_enumeration_id` | `semantic_id` | true | `payload` | — | — |
+| `role_member_id` | `semantic_id` | true | `payload` | — | — |
+| `lineage` | `List` | false | `payload` | — | — |
+| `lineage.item` | `Struct ModelingKnowledgeLineage` | false | `payload` | — | — |
+| `lineage.item.kind` | `enum:ModelingLineageKind` | false | `payload` | — | — |
+| `lineage.item.target_id` | `semantic_id` | false | `payload` | — | — |
+| `test_only` | `Boolean` | false | `payload` | — | — |
+
+## `modeling_knowledge_names`
+
+Resolved names of the immutable admitted modeling revision. Aliases name the same declaration; this projection introduces no independent authority.
+
+Version: 1. Snapshot class: `derived`. Primary key: `source_revision, name`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `source_revision` | `content_hash` | false | `key` | — | — |
+| `name` | `Utf8` | false | `key` | — | — |
+| `declaration_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `modeling_linear_diagnostics`
 

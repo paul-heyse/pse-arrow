@@ -208,12 +208,20 @@ fn neutral_binding_rejects_composition_obligations() {
 }
 /// A registry with absolute temperature and pressure types (K and Pa, and degC as an
 /// affine temperature unit) and a gauge-pressure type with a datum.
+#[allow(
+    clippy::unwrap_used,
+    reason = "small exact dimensions in a test fixture"
+)]
 fn conditions() -> QuantityRegistryBuilder {
     let base = DimensionVector::base;
     let pressure = base(BaseDimension::Mass)
         .div(&base(BaseDimension::Length))
         .unwrap()
-        .div(&base(BaseDimension::Time).pow(Ratio::new(2, 1).unwrap()).unwrap())
+        .div(
+            &base(BaseDimension::Time)
+                .pow(Ratio::new(2, 1).unwrap())
+                .unwrap(),
+        )
         .unwrap();
     let mut b = builder();
     let typed = |n: u8, kind: u8, unit: u8, reference: Option<u8>| QuantityType {
@@ -341,7 +349,9 @@ fn physical_names_are_unique_identifiers() {
     );
     assert_eq!(
         registry.physical_name("gauge"),
-        Some(PhysicalName::ReferenceState(ReferenceStateId::from_id(raw(9))))
+        Some(PhysicalName::ReferenceState(ReferenceStateId::from_id(
+            raw(9)
+        )))
     );
     assert_eq!(registry.physical_name("Scalar"), None);
     for (name, other) in [("gauge", "Scalar3"), ("two words", "x"), ("Twice", "Twice")] {

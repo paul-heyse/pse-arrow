@@ -21,7 +21,7 @@
 //! resolved references: an entity, keyed row, table row or constant that references
 //! test-only data is itself test-only. A relation holding rows of several datasets is
 //! tainted row by row, so its production rows stay readable. A specialization root outside a
-//! test fixture that reads test-only data is refused where it reads it ([`Reader`]): a
+//! test fixture that reads test-only data is refused where it reads it (`Reader`): a
 //! lookup whose keys are literal resolves its row statically, any other lookup once
 //! specialization binds its keys.
 use crate::specialize::value::Value;
@@ -63,9 +63,22 @@ impl Provenance {
 }
 
 impl CheckedPackage {
-    /// The checked provenance of a dataset or a constant.
+    /// The checked provenance of a dataset, constant or declared entity.
     pub fn provenance(&self, data: DeclarationId) -> Option<&Provenance> {
         self.provenance.get(&data)
+    }
+    /// An attribute's explicit provenance, or the provenance of the record's origin.
+    pub fn attribute_provenance(
+        &self,
+        entity: DeclarationId,
+        attribute: &str,
+    ) -> Option<&Provenance> {
+        self.attribute_provenance
+            .get(&(entity, attribute.to_owned()))
+            .or_else(|| {
+                self.record(entity)
+                    .and_then(|record| self.provenance(record.origin))
+            })
     }
     /// The role of the dataset or constant that supplied data: a row's origin role, which
     /// the kernel provides rather than a declared attribute.
@@ -197,6 +210,7 @@ fn member_name(p: &CheckedPackage, role: &Role) -> String {
 /// are admitted and before tables are, which taint their rows as they admit them.
 pub(crate) fn admit(p: &mut CheckedPackage) -> Result<()> {
     let mut provenance = BTreeMap::new();
+    let mut attribute_provenance = BTreeMap::new();
     let mut oracles = BTreeMap::new();
     for row in p.declarations.values() {
         let id = row.declaration_id;
@@ -205,9 +219,23 @@ pub(crate) fn admit(p: &mut CheckedPackage) -> Result<()> {
             .dataset
             .as_ref()
             .map(|d| &d.provenance)
-            .or_else(|| row.value.constant.as_ref().map(|c| &c.provenance));
+            .or_else(|| row.value.constant.as_ref().map(|c| &c.provenance))
+            .or_else(|| {
+                row.value
+                    .entity
+                    .as_ref()
+                    .and_then(|e| e.provenance.as_ref())
+            });
         if let Some(declared) = declared {
             provenance.insert(id, resolve(p, id, declared)?);
+        }
+        if let Some(entity) = &row.value.entity {
+            for attribute in &entity.attributes {
+                if let Some(declared) = &attribute.provenance {
+                    attribute_provenance
+                        .insert((id, attribute.name.clone()), resolve(p, id, declared)?);
+                }
+            }
         }
         if let Some(path) = row.value.scope.as_ref().and_then(|s| s.oracle.as_ref()) {
             oracles.insert(id, source(p, id, path, "an oracle")?);
@@ -215,13 +243,18 @@ pub(crate) fn admit(p: &mut CheckedPackage) -> Result<()> {
     }
     acyclic(p, &provenance)?;
     p.provenance = provenance;
+    p.attribute_provenance = attribute_provenance;
     p.oracles = oracles;
     taint(p);
     Ok(())
 }
 
 /// A dataset's or constant's provenance, each path resolved once.
-fn resolve(p: &CheckedPackage, at: DeclarationId, declared: &ModelingProvenance) -> Result<Provenance> {
+fn resolve(
+    p: &CheckedPackage,
+    at: DeclarationId,
+    declared: &ModelingProvenance,
+) -> Result<Provenance> {
     let origin = source(p, at, &declared.source, "a provenance source")?;
     let role = role(p, at, &declared.role)?;
     let lineage = declared
@@ -238,6 +271,7 @@ fn resolve(p: &CheckedPackage, at: DeclarationId, declared: &ModelingProvenance)
                         })?
                 }
                 Lineage::Source => source(p, at, &entry.path, "a lineage source")?,
+                Lineage::Fit => source(p, at, &entry.path, "a fit receipt source")?,
             };
             Ok((entry.kind, target))
         })
@@ -252,6 +286,14 @@ fn resolve(p: &CheckedPackage, at: DeclarationId, declared: &ModelingProvenance)
             ),
         ));
     }
+    if role.facets.contains(&Facet::RequiresFit)
+        && !lineage.iter().any(|(kind, _)| *kind == Lineage::Fit)
+    {
+        return Err(invalid(
+            at,
+            "the selected role requires lineage to a fit receipt",
+        ));
+    }
     Ok(Provenance {
         source: origin,
         role,
@@ -260,13 +302,20 @@ fn resolve(p: &CheckedPackage, at: DeclarationId, declared: &ModelingProvenance)
 }
 
 /// A source: a declared entity whose kind or an ancestor kind carries the provenance facet.
-fn source(p: &CheckedPackage, at: DeclarationId, path: &[String], what: &str) -> Result<DeclarationId> {
+fn source(
+    p: &CheckedPackage,
+    at: DeclarationId,
+    path: &[String],
+    what: &str,
+) -> Result<DeclarationId> {
     let name = path.join(".");
     let id = p
         .resolve(at, &name)
         .ok_or_else(|| invalid(at, format!("{what} names unknown entity {name}")))?;
     match (p.declarations[&id].value.kind, p.types.get(&id)) {
-        (K::Entity, Some(Type::Entity(kind))) if p.kinds.get(kind).is_some_and(|k| k.provenance) => {
+        (K::Entity, Some(Type::Entity(kind)))
+            if p.kinds.get(kind).is_some_and(|k| k.provenance) =>
+        {
             Ok(id)
         }
         (K::Entity, Some(Type::Entity(kind))) => Err(invalid(
@@ -278,7 +327,9 @@ fn source(p: &CheckedPackage, at: DeclarationId, path: &[String], what: &str) ->
         )),
         _ => Err(invalid(
             at,
-            format!("{what} is an entity whose kind carries the provenance facet; {name} is not an entity"),
+            format!(
+                "{what} is an entity whose kind carries the provenance facet; {name} is not an entity"
+            ),
         )),
     }
 }
@@ -289,12 +340,20 @@ fn role(p: &CheckedPackage, at: DeclarationId, path: &[String]) -> Result<Role> 
     let (member, owner) = path
         .split_last()
         .filter(|(_, owner)| !owner.is_empty())
-        .ok_or_else(|| invalid(at, format!("a role names its enumeration and member; {name} does not")))?;
+        .ok_or_else(|| {
+            invalid(
+                at,
+                format!("a role names its enumeration and member; {name} does not"),
+            )
+        })?;
     let enumeration = p
         .resolve(at, &owner.join("."))
         .filter(|id| p.declarations[id].value.enumeration.is_some())
         .ok_or_else(|| {
-            invalid(at, format!("role {name} is not a member of a declared enumeration"))
+            invalid(
+                at,
+                format!("role {name} is not a member of a declared enumeration"),
+            )
         })?;
     let declared = p.declarations[&enumeration]
         .value
@@ -342,10 +401,17 @@ fn acyclic(p: &CheckedPackage, provenance: &BTreeMap<DeclarationId, Provenance>)
             .map(|n| p.declarations[&graph[*n]].name.clone())
             .collect::<Vec<_>>();
         names.sort();
-        let first = cycle.iter().map(|n| graph[*n]).min().unwrap_or(graph[cycle[0]]);
+        let first = cycle
+            .iter()
+            .map(|n| graph[*n])
+            .min()
+            .unwrap_or(graph[cycle[0]]);
         return Err(invalid(
             first,
-            format!("lineage is cyclic: {} derive from one another", names.join(", ")),
+            format!(
+                "lineage is cyclic: {} derive from one another",
+                names.join(", ")
+            ),
         ));
     }
     Ok(())
@@ -356,76 +422,90 @@ fn acyclic(p: &CheckedPackage, provenance: &BTreeMap<DeclarationId, Provenance>)
 /// references test-only data. A lineage source is test-only data when its entity is, so the
 /// two closures are taken together until neither grows.
 fn taint(p: &mut CheckedPackage) {
-    let mut data = p
-        .provenance
-        .iter()
-        .filter(|(_, provenance)| provenance.test_only())
-        .map(|(id, _)| *id)
-        .collect::<BTreeSet<_>>();
-    loop {
-        let tainted = referenced(p, &data);
-        let derived = p
-            .provenance
-            .iter()
-            .filter(|(id, provenance)| {
-                !data.contains(*id)
-                    && provenance.lineage.iter().any(|(kind, target)| match kind {
-                        Lineage::Dataset => data.contains(target),
-                        Lineage::Source => tainted.contains(target),
-                    })
-            })
-            .map(|(id, _)| *id)
-            .collect::<Vec<_>>();
-        if derived.is_empty() {
-            p.test_only = tainted;
-            p.test_only_data = data;
-            return;
-        }
-        data.extend(derived);
-    }
+    taint_graph(p, &BTreeSet::new());
 }
 
-/// Taint the entities whose derived attributes read test-only data (Plan 23 D0), then every
-/// entity, constant and table row that references them.
+/// One dependency graph owns both lineage and reference reachability. Legal reference
+/// cycles terminate in the library visitor; lineage cycles are refused separately.
+fn taint_graph(p: &mut CheckedPackage, additional: &BTreeSet<DeclarationId>) {
+    let mut graph = petgraph::graphmap::DiGraphMap::<DeclarationId, ()>::new();
+    let mut seeds = additional.clone();
+    for (id, record) in &p.entities {
+        graph.add_edge(record.origin, *id, ());
+        for value in record.values.values() {
+            let mut targets = Vec::new();
+            entity_references(value, &mut targets);
+            for target in targets {
+                graph.add_edge(target, *id, ());
+            }
+        }
+    }
+    for (id, constant) in &p.constants {
+        graph.add_node(*id);
+        let mut targets = Vec::new();
+        entity_references(&constant.value, &mut targets);
+        for target in targets {
+            graph.add_edge(target, *id, ());
+        }
+    }
+    let origins = p
+        .provenance
+        .iter()
+        .map(|(id, provenance)| (*id, provenance))
+        .chain(
+            p.attribute_provenance
+                .iter()
+                .map(|((id, _), provenance)| (*id, provenance)),
+        );
+    for (id, provenance) in origins {
+        graph.add_edge(provenance.source, id, ());
+        for (_, target) in &provenance.lineage {
+            graph.add_edge(*target, id, ());
+        }
+        if provenance.test_only() {
+            seeds.insert(id);
+        }
+    }
+    for id in &seeds {
+        graph.add_node(*id);
+    }
+    let mut dfs = petgraph::visit::Dfs::empty(&graph);
+    dfs.stack.extend(seeds);
+    let mut reached = BTreeSet::new();
+    while let Some(id) = dfs.next(&graph) {
+        reached.insert(id);
+    }
+    p.test_only_data = p
+        .provenance
+        .keys()
+        .copied()
+        .chain(p.attribute_provenance.keys().map(|(id, _)| *id))
+        .filter(|id| reached.contains(id))
+        .collect();
+    p.test_only = p
+        .entities
+        .keys()
+        .chain(p.constants.keys())
+        .copied()
+        .filter(|id| reached.contains(id))
+        .collect();
+}
+
+/// Derived reads seed the same graph; materialized table rows retain their own taint.
 pub(crate) fn taint_derived(p: &mut CheckedPackage, derived: BTreeSet<DeclarationId>) {
-    let mut pending = derived
-        .into_iter()
-        .filter(|id| p.test_only.insert(*id))
-        .collect::<Vec<_>>();
-    if pending.is_empty() {
+    if derived.is_empty() {
         return;
     }
-    let mut referrers = BTreeMap::<DeclarationId, Vec<DeclarationId>>::new();
-    let values = p
-        .entities
-        .iter()
-        .flat_map(|(id, record)| record.values.values().map(move |v| (*id, v)))
-        .chain(p.constants.iter().map(|(id, c)| (*id, &c.value)));
-    for (id, value) in values {
-        let mut targets = Vec::new();
-        entity_references(value, &mut targets);
-        for target in targets {
-            referrers.entry(target).or_default().push(id);
-        }
-    }
-    while let Some(id) = pending.pop() {
-        for referrer in referrers.get(&id).into_iter().flatten() {
-            if p.test_only.insert(*referrer) {
-                pending.push(*referrer);
-            }
-        }
-    }
+    let seeds = p.test_only.union(&derived).copied().collect();
+    taint_graph(p, &seeds);
     let test_only = p.test_only.clone();
-    let references = |value: &Value| {
-        let mut targets = Vec::new();
-        entity_references(value, &mut targets);
-        targets.iter().any(|id| test_only.contains(id))
-    };
     for table in p.tables.values_mut() {
         for row in table.rows.values_mut() {
-            if !row.test_only && row.cells.iter().any(&references) {
-                row.test_only = true;
+            let mut targets = Vec::new();
+            for value in row.cells.iter() {
+                entity_references(value, &mut targets);
             }
+            row.test_only |= targets.iter().any(|id| test_only.contains(id));
         }
     }
 }
@@ -446,44 +526,4 @@ fn entity_references(value: &Value, out: &mut Vec<DeclarationId>) {
         }
         _ => {}
     }
-}
-
-/// The entities, keyed rows and constants that `data` supplies or that reference test-only
-/// data.
-fn referenced(p: &CheckedPackage, data: &BTreeSet<DeclarationId>) -> BTreeSet<DeclarationId> {
-    let mut tainted = BTreeSet::new();
-    let mut referrers = BTreeMap::<DeclarationId, Vec<DeclarationId>>::new();
-    let references = entity_references;
-    let supplied = |origin: &DeclarationId| data.contains(origin);
-    for (id, record) in &p.entities {
-        if supplied(&record.origin) {
-            tainted.insert(*id);
-        }
-        let mut targets = Vec::new();
-        for value in record.values.values() {
-            references(value, &mut targets);
-        }
-        for target in targets {
-            referrers.entry(target).or_default().push(*id);
-        }
-    }
-    for (id, constant) in &p.constants {
-        if supplied(id) {
-            tainted.insert(*id);
-        }
-        let mut targets = Vec::new();
-        references(&constant.value, &mut targets);
-        for target in targets {
-            referrers.entry(target).or_default().push(*id);
-        }
-    }
-    let mut pending = tainted.iter().copied().collect::<Vec<_>>();
-    while let Some(id) = pending.pop() {
-        for referrer in referrers.get(&id).into_iter().flatten() {
-            if tainted.insert(*referrer) {
-                pending.push(*referrer);
-            }
-        }
-    }
-    tainted
 }

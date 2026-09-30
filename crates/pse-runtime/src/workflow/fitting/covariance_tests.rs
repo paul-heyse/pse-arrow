@@ -50,6 +50,16 @@ async fn linear_regression_covariance_analytic() {
                 "{hessian:?} {candidate:?}"
             );
         }
+        let exported = pse_relations::generated::runtime::fitted_parameter_cells::Row::rows(
+            &result.export_fit_parameters().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(exported.len(), 2);
+        for (cell, expected) in exported.iter().zip(estimate) {
+            assert!(close(cell.value, expected, 1e-6));
+            assert_eq!(cell.source_revision, package.revision.identity());
+            assert_eq!(cell.run_id, result.run_id);
+        }
         let covariance = report.covariance.as_ref().unwrap();
         assert_eq!(covariance.approximation, approximation);
         assert_eq!(covariance.parameters, vec![id(A), id(B)]);

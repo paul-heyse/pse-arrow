@@ -47,7 +47,6 @@ impl ModelingRevision {
         self.admitted.documents()
     }
     /// The admitted package: checked declarations, entities and tables.
-    #[cfg(test)]
     pub(crate) fn checked(&self) -> &pse_modeling::CheckedPackage {
         self.admitted.checked()
     }
@@ -73,7 +72,7 @@ pub(crate) fn source_revision(
     names: &BTreeMap<String, SemanticId>,
 ) -> pse_ids::ContentHash {
     use pse_model::SemanticFrame;
-    let mut source = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingSourceRevisionV3);
+    let mut source = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingSourceRevisionV4);
     source.u64(rows.len() as u64);
     for row in rows {
         row.frame(&mut source);
@@ -707,7 +706,7 @@ mod tests {
 
     /// ADR-0123 Outcome 8: the same rows, data documents, physical inventory and name
     /// bindings reproduce the identity; the frozen vector pins the preimage layout of
-    /// `pse.modeling.source-revision.v3` over no rows, no documents, a zero inventory and no
+    /// `pse.modeling.source-revision.v4` over no rows, no documents, a zero inventory and no
     /// names.
     #[test]
     fn unchanged_inputs_reproduce_the_source_revision() {
@@ -725,7 +724,7 @@ mod tests {
                 &BTreeMap::new()
             )
             .to_hex(),
-            "d5dc3697baef05e2b2c608809fffcaa886b72eb2bddfe71e37b79960af00c033"
+            "30df31c5f268df111f7875c912d9c492bca249e249b07cbd27dc49b719372401"
         );
     }
 
@@ -741,7 +740,10 @@ mod tests {
             base,
             source_revision(&rows(), &data, &ContentHash::from_bytes([4; 32]), &names(1))
         );
-        assert_ne!(base, source_revision(&rows()[..1], &data, &physical, &names(1)));
+        assert_ne!(
+            base,
+            source_revision(&rows()[..1], &data, &physical, &names(1))
+        );
     }
 
     /// ADR-0123 Outcome 8, ADR-0125: one changed byte of a data document is another source

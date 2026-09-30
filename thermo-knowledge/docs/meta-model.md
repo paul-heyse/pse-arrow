@@ -175,6 +175,9 @@ Rules:
   entity names another declared entity of the referenced kind.
 - `unique = true` on an attribute, or `[[kinds.K.unique]] attributes = [...]`, declares a
   uniqueness constraint in addition to identity.
+- An ordinal, index or position that a construct documents as counting from one (the ordinal of a
+  clause, the index of a data point, a set's `occurrence`) declares a `ddl` `positive` check. A `doc`
+  states contiguity only where a `verify` requirement checks it.
 
 ### 3.5 Relation
 
@@ -617,7 +620,8 @@ and a message (DP-21). At least:
   `within` with no bound or with its lower bound above its upper
 - a contract argument whose `basis` names no declared entity of the `composition_basis` kind, or is
   used without that role; a contract argument, output or slot whose `observable` names no declared
-  entity of the `observable` kind, or is used without that role
+  entity of the `observable` kind, or is used without that role; a contract argument or output whose
+  type has another dimension than the quantity type of the observable it names
 - a declaration that differs from the pipeline contract (above)
 - any projected PostgreSQL identifier longer than 63 bytes
 

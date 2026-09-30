@@ -124,7 +124,10 @@ impl crate::HeapUsage for BoundaryDiagnostic {
             + self.rule.capacity()
             + self.sources.capacity() * size_of::<SemanticId>()
             + self.locations.capacity() * size_of::<SourceLocation>()
-            + self.validity.as_ref().map_or(0, ValidityLineage::heap_bytes)
+            + self
+                .validity
+                .as_ref()
+                .map_or(0, ValidityLineage::heap_bytes)
             + self
                 .locations
                 .iter()

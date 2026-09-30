@@ -130,8 +130,8 @@ async fn native_query_binding_rejects_hidden_missing_and_unused_inputs() {
         ("SELECT 1", vec![spec.key]),
         ("DELETE FROM authored.packages", vec![spec.key]),
         (
-            "SELECT * FROM authored.datasets",
-            vec![registry.relation("authored.datasets").unwrap().key],
+            "SELECT * FROM authored.fit_cases",
+            vec![registry.relation("authored.fit_cases").unwrap().key],
         ),
     ] {
         assert!(

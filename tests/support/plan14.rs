@@ -30,21 +30,99 @@ pub(crate) fn runtime(owner: &WorkflowRuntime) -> Runtime {
         owner.sessions.clone(),
     )
 }
+fn reference_documents(root: &std::path::Path) -> BTreeMap<String, Vec<u8>> {
+    fn visit(
+        root: &std::path::Path,
+        path: &std::path::Path,
+        texts: &mut BTreeMap<String, Vec<u8>>,
+    ) {
+        for entry in std::fs::read_dir(path).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                visit(root, &path, texts);
+            } else if matches!(
+                path.extension().and_then(|s| s.to_str()),
+                Some("toml" | "yaml" | "yml" | "pse" | "parquet")
+            ) {
+                if path.extension().and_then(|s| s.to_str()) == Some("parquet") {
+                    texts.insert(
+                        path.strip_prefix(root).unwrap().to_str().unwrap().into(),
+                        std::fs::read(&path).unwrap(),
+                    );
+                    continue;
+                }
+                let mut text = std::fs::read_to_string(&path).unwrap();
+                if path.extension().and_then(|s| s.to_str()) == Some("pse") {
+                    // Select workload fixtures through the language IR. Production
+                    // definitions, functions, tables and measurements remain intact.
+                    let mut rows = pse_authoring::language::parse(
+                        &text,
+                        SemanticId::NIL,
+                        pse_authoring::language::IdentityPolicy::Explicit,
+                        Default::default(),
+                    )
+                    .unwrap();
+                    let selected = [
+                        "29dd6a1a3e444acfbf14992087f9d32c",
+                        "f1b94720fef75b3bab2e29090ef0c315",
+                        "68ba8dc2d6b05d9a9fe1b1a3625d8015",
+                        "040af20814bc57abb565c3c7f680be05",
+                        "079a378ba3ce46728b32c87f4fe6a3df",
+                        "e0d4fbe894134e60bb4e364dddae9c5f",
+                        "f622163224f64cecaa98b10d0952aa16",
+                        "fc52409793e44e61adb3eff88946fdb6",
+                        "efcd1d0ad288438daf6764b4ab25a2a6",
+                        "8c22c4a4f87141b083bfc0d9442d382c",
+                        "d84e844726e64a2c9b23d96a4039b4f9",
+                        "f767847e54e547d396cf0190032aa9d4",
+                    ]
+                    .map(|id| SemanticId::parse_hex(id).unwrap());
+                    let mut removed = rows
+                        .iter()
+                        .filter(|r| {
+                            r.value.kind.as_str() == "test"
+                                && !selected.contains(&r.declaration_id.as_id())
+                        })
+                        .map(|r| r.declaration_id)
+                        .collect::<std::collections::BTreeSet<_>>();
+                    loop {
+                        let descendants = rows
+                            .iter()
+                            .filter(|r| r.parent_id.is_some_and(|p| removed.contains(&p)))
+                            .map(|r| r.declaration_id)
+                            .collect::<Vec<_>>();
+                        let old = removed.len();
+                        removed.extend(descendants);
+                        if old == removed.len() {
+                            break;
+                        }
+                    }
+                    rows.retain(|r| !removed.contains(&r.declaration_id));
+                    text = pse_authoring::language::render(&rows).unwrap();
+                }
+                texts.insert(
+                    path.strip_prefix(root)
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .replace('\\', "/"),
+                    text.into_bytes(),
+                );
+            }
+        }
+    }
+    let mut texts = BTreeMap::new();
+    visit(root, root, &mut texts);
+    texts
+}
 pub(crate) async fn physical(owner: &WorkflowRuntime) -> pse_runtime::workflow::PhysicalContext {
     let runtime = runtime(owner);
-    let texts = BTreeMap::from([
-        (
-            "package.toml".into(),
-            std::fs::read(fixture("../packages/physical-primitives/package.toml")).unwrap(),
-        ),
-        (
-            "materials/physical.yaml".into(),
-            std::fs::read(fixture(
-                "../packages/physical-primitives/materials/physical.yaml",
-            ))
-            .unwrap(),
-        ),
-    ]);
+    let root = fixture("")
+        .ancestors()
+        .find(|p| p.join("packages/reference").is_dir())
+        .unwrap()
+        .join("packages/reference/physical");
+    let texts = reference_documents(&root);
     let pool = owner.runtime.pool();
     let bundle = pse_runtime::authoring_driver::document::load_package_documents_owned(
         &texts,
@@ -124,105 +202,25 @@ pub(crate) async fn seed_package_on(
     runtime: Runtime,
 ) -> pse_runtime::workflow::ModelingPackage {
     use pse_runtime::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
-    fn documents(root: &std::path::Path) -> BTreeMap<String, Vec<u8>> {
-        fn visit(
-            root: &std::path::Path,
-            path: &std::path::Path,
-            texts: &mut BTreeMap<String, Vec<u8>>,
-        ) {
-            for entry in std::fs::read_dir(path).unwrap() {
-                let path = entry.unwrap().path();
-                if path.is_dir() {
-                    visit(root, &path, texts);
-                } else if matches!(
-                    path.extension().and_then(|s| s.to_str()),
-                    Some("toml" | "yaml" | "yml" | "pse")
-                ) {
-                    let mut text = std::fs::read_to_string(&path).unwrap();
-                    if path.extension().and_then(|s| s.to_str()) == Some("pse") {
-                        // Select workload fixtures through the language IR. Production
-                        // definitions, functions, tables and measurements remain intact.
-                        let mut rows = pse_authoring::language::parse(
-                            &text,
-                            SemanticId::NIL,
-                            pse_authoring::language::IdentityPolicy::Explicit,
-                            Default::default(),
-                        )
-                        .unwrap();
-                        let selected = [
-                            "29dd6a1a3e444acfbf14992087f9d32c",
-                            "f1b94720fef75b3bab2e29090ef0c315",
-                            "68ba8dc2d6b05d9a9fe1b1a3625d8015",
-                            "040af20814bc57abb565c3c7f680be05",
-                            "079a378ba3ce46728b32c87f4fe6a3df",
-                            "e0d4fbe894134e60bb4e364dddae9c5f",
-                            "f622163224f64cecaa98b10d0952aa16",
-                            "fc52409793e44e61adb3eff88946fdb6",
-                            "efcd1d0ad288438daf6764b4ab25a2a6",
-                            "8c22c4a4f87141b083bfc0d9442d382c",
-                            "d84e844726e64a2c9b23d96a4039b4f9",
-                            "f767847e54e547d396cf0190032aa9d4",
-                        ]
-                        .map(|id| SemanticId::parse_hex(id).unwrap());
-                        let mut removed = rows
-                            .iter()
-                            .filter(|r| {
-                                r.value.kind.as_str() == "test"
-                                    && !selected.contains(&r.declaration_id.as_id())
-                            })
-                            .map(|r| r.declaration_id)
-                            .collect::<std::collections::BTreeSet<_>>();
-                        loop {
-                            let descendants = rows
-                                .iter()
-                                .filter(|r| r.parent_id.is_some_and(|p| removed.contains(&p)))
-                                .map(|r| r.declaration_id)
-                                .collect::<Vec<_>>();
-                            let old = removed.len();
-                            removed.extend(descendants);
-                            if old == removed.len() {
-                                break;
-                            }
-                        }
-                        rows.retain(|r| !removed.contains(&r.declaration_id));
-                        text = pse_authoring::language::render(&rows).unwrap();
-                    }
-                    texts.insert(
-                        path.strip_prefix(root)
-                            .unwrap()
-                            .to_str()
-                            .unwrap()
-                            .replace('\\', "/"),
-                        text.into_bytes(),
-                    );
-                }
-            }
-        }
-        let mut texts = BTreeMap::new();
-        visit(root, root, &mut texts);
-        texts
-    }
+
     let root = fixture("")
         .ancestors()
         .find(|p| p.join("packages/reference").is_dir())
         .unwrap()
         .join("packages/reference");
     let pool = owner.runtime.pool();
-    let physical_bundle = load_package_documents_owned(
-        &documents(&root.join("physical")),
-        &owner.registry,
-        Default::default(),
-        &pool,
-        &owner.cancel,
-    )
-    .unwrap();
-    let physical_documents =
-        OwnedDocumentSet::try_from_bundles(vec![physical_bundle], &pool, &owner.cancel).unwrap();
-    let physical = runtime
-        .physical_from_documents(&physical_documents, &owner.cancel)
-        .await
-        .unwrap();
+    let physical = physical(owner).await;
     let bundles = [
+        "data/oracles/teqp-0.23.1",
+        "data/oracles/feos-0.10.1",
+        "data/gross-sadowski-2001",
+        "data/references",
+        "data/nist",
+        "data/perry7",
+        "data/poling2000",
+        "data/oracles/idaes-2.13",
+        "data/species",
+        "data/ciaaw",
         "seed-data",
         "process",
         "thermodynamics",
@@ -233,7 +231,7 @@ pub(crate) async fn seed_package_on(
     .into_iter()
     .map(|name| {
         load_package_documents_owned(
-            &documents(&root.join(name)),
+            &reference_documents(&root.join(name)),
             &owner.registry,
             Default::default(),
             &pool,

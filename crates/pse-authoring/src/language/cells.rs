@@ -64,19 +64,21 @@ pub fn key_cell(cell: &Cell) -> Result<KeyCell, AuthoringError> {
     if cell.uncertainty.is_some() {
         return Err(bad("a key cell carries no uncertainty"));
     }
-    Ok(match cell.value.selected().map_err(|e| bad(e.to_string()))? {
-        CellSelected::Boolean(v) => KeyCell::from_boolean(v.clone()),
-        CellSelected::Integer(v) => KeyCell::from_integer(v.clone()),
-        CellSelected::Quantity(v) => KeyCell::from_quantity(v.clone()),
-        CellSelected::Text(v) => KeyCell::from_text(v.clone()),
-        CellSelected::Identifier(v) => KeyCell::from_identifier(v.clone()),
-        CellSelected::Reference(v) => KeyCell::from_reference(v.clone()),
-        CellSelected::Missing | CellSelected::References(_) | CellSelected::Row(_) => {
-            return Err(bad(
-                "a key cell is a Boolean, an integer, a quantity, text, an identifier or a reference",
-            ));
-        }
-    })
+    Ok(
+        match cell.value.selected().map_err(|e| bad(e.to_string()))? {
+            CellSelected::Boolean(v) => KeyCell::from_boolean(v.clone()),
+            CellSelected::Integer(v) => KeyCell::from_integer(v.clone()),
+            CellSelected::Quantity(v) => KeyCell::from_quantity(v.clone()),
+            CellSelected::Text(v) => KeyCell::from_text(v.clone()),
+            CellSelected::Identifier(v) => KeyCell::from_identifier(v.clone()),
+            CellSelected::Reference(v) => KeyCell::from_reference(v.clone()),
+            CellSelected::Missing | CellSelected::References(_) | CellSelected::Row(_) => {
+                return Err(bad(
+                    "a key cell is a Boolean, an integer, a quantity, text, an identifier or a reference",
+                ));
+            }
+        },
+    )
 }
 
 /// The cell a key cell stands for, typed as any cell is.
@@ -84,14 +86,16 @@ pub fn key_cell(cell: &Cell) -> Result<KeyCell, AuthoringError> {
 /// # Errors
 /// A malformed tagged key cell.
 pub fn key_cell_value(key: &KeyCell) -> Result<Cell, AuthoringError> {
-    Ok(cell(match key.selected().map_err(|e| bad(e.to_string()))? {
-        KeyCellSelected::Boolean(v) => CellValue::from_boolean(v.clone()),
-        KeyCellSelected::Integer(v) => CellValue::from_integer(v.clone()),
-        KeyCellSelected::Quantity(v) => CellValue::from_quantity(v.clone()),
-        KeyCellSelected::Text(v) => CellValue::from_text(v.clone()),
-        KeyCellSelected::Identifier(v) => CellValue::from_identifier(v.clone()),
-        KeyCellSelected::Reference(v) => CellValue::from_reference(v.clone()),
-    }))
+    Ok(cell(
+        match key.selected().map_err(|e| bad(e.to_string()))? {
+            KeyCellSelected::Boolean(v) => CellValue::from_boolean(v.clone()),
+            KeyCellSelected::Integer(v) => CellValue::from_integer(v.clone()),
+            KeyCellSelected::Quantity(v) => CellValue::from_quantity(v.clone()),
+            KeyCellSelected::Text(v) => CellValue::from_text(v.clone()),
+            KeyCellSelected::Identifier(v) => CellValue::from_identifier(v.clone()),
+            KeyCellSelected::Reference(v) => CellValue::from_reference(v.clone()),
+        },
+    ))
 }
 
 /// The canonical unit product of a quantity cell; `None` for a bare number, which is the
@@ -271,11 +275,17 @@ mod tests {
             ("chem.benzene", "chem.benzene"),
             ("{ a , b.c }", "{a, b.c}"),
             ("{}", "{}"),
-            ("caloric_set[chem.benzene, 1, \"a\"]", "caloric_set[chem.benzene, 1, \"a\"]"),
+            (
+                "caloric_set[chem.benzene, 1, \"a\"]",
+                "caloric_set[chem.benzene, 1, \"a\"]",
+            ),
             ("element[ \"C\" ]", "element[\"C\"]"),
             ("missing", "missing"),
             ("true", "true"),
-            ("12.011{g/mol} ± standard(0.0008)", "12.011{g/mol} ± standard(0.0008)"),
+            (
+                "12.011{g/mol} ± standard(0.0008)",
+                "12.011{g/mol} ± standard(0.0008)",
+            ),
         ] {
             assert_eq!(canonical(text), expected, "{text}");
         }
@@ -284,10 +294,7 @@ mod tests {
         assert_eq!(parse_cell("6{kg}").unwrap().value.kind, CellKind::Quantity);
         // A written dimensionless unit is kept apart from a bare number.
         assert_ne!(parse_cell("0.5{1}").unwrap(), parse_cell("0.5").unwrap());
-        assert_eq!(
-            parse_cell("kind[a, 2]").unwrap().value.kind,
-            CellKind::Row
-        );
+        assert_eq!(parse_cell("kind[a, 2]").unwrap().value.kind, CellKind::Row);
         for invalid in [
             "",
             "1+2",

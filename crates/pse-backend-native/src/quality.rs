@@ -884,10 +884,7 @@ mod qualification_tests {
             (false, Assurance::ProvenInfeasible),
             (true, Assurance::ExactCertificate),
         ] {
-            r.evidence.global = Some(GlobalEvidence {
-                exact,
-                ..concluded
-            });
+            r.evidence.global = Some(GlobalEvidence { exact, ..concluded });
             r.evidence.contradiction = None;
             qualify(&mut r, &accuracy);
             assert_eq!(r.termination.assurance, assurance);

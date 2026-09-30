@@ -201,7 +201,11 @@ async fn retained_programs_do_not_hold_the_foreign_allowance_while_idle() {
         .await
         .unwrap();
     let case = s.assemble(prepared.clone()).await.unwrap();
-    let programs = case._artifacts.iter().map(|a| a.lease.size()).sum::<usize>();
+    let programs = case
+        ._artifacts
+        .iter()
+        .map(|a| a.lease.size())
+        .sum::<usize>();
     assert!(!case._artifacts.is_empty());
     assert_eq!(
         programs,
@@ -1362,7 +1366,11 @@ async fn sequential_native_solves_keep_retained_reservations_bounded() {
     // worker share; each retained fixture far less than one foreign allowance.
     let running = policy.stack_bytes + foreign + policy.inner_session_bytes + policy.worker_bytes;
     let (fixtures, retained) = (24, foreign / 4);
-    let s = service_with(policy.workspace_bytes + running + fixtures * retained, foreign).0;
+    let s = service_with(
+        policy.workspace_bytes + running + fixtures * retained,
+        foreign,
+    )
+    .0;
     let mut kept = Vec::new();
     let mut idle = 0;
     for k in 1..=fixtures {

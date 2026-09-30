@@ -44,8 +44,8 @@ fn explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans()
         ParseBudget::default(),
     )
     .unwrap();
-    let constant = reference::constants::View::from_checked(
-        &explicit.batches[&reference::constants::RELATION_ID],
+    let constant = reference::quantity_kinds::View::from_checked(
+        &explicit.batches[&reference::quantity_kinds::RELATION_ID],
     )
     .unwrap()
     .row(0)
@@ -57,9 +57,9 @@ fn explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans()
             .rows()
             .unwrap()
             .into_iter()
-            .find(|entity| entity.entity_id == constant.constant_id)
+            .find(|entity| entity.entity_id == constant.quantity_kind_id)
             .unwrap();
-    assert_eq!(entity.entity_id, constant.constant_id);
+    assert_eq!(entity.entity_id, constant.quantity_kind_id);
     assert_eq!(entity.qualified_name, "minimal.probe");
     let span = entity.source_span.unwrap();
     let document = explicit
@@ -73,7 +73,7 @@ fn explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans()
         original.contains("name: probe"),
         "row span: {original:?}; {span:?}"
     );
-    assert!(original.contains("value: 2.0"));
+    assert!(original.contains("extensive: false"));
     let named = load_package(&fixture("minimal_named"), registry, ParseBudget::default()).unwrap();
     let entity =
         authored::entities::View::from_checked(&named.batches[&authored::entities::RELATION_ID])
@@ -92,7 +92,7 @@ fn missing_ids_unknown_fields_duplicate_keys_and_wrong_package_context_fail() {
     let registry_owner = support::registry();
     let registry = registry_owner.as_ref();
     let original = texts("minimal_explicit");
-    let document = std::str::from_utf8(&original["materials/constants.yaml"]).unwrap();
+    let document = std::str::from_utf8(&original["materials/quantity-kinds.yaml"]).unwrap();
     let variants = [
         document.replace(
             "id: \"01991d6a-13a0-7000-8000-000000000002\"",
@@ -106,12 +106,15 @@ fn missing_ids_unknown_fields_duplicate_keys_and_wrong_package_context_fail() {
         ),
         document.replace(
             "name: probe",
-            "name: probe\n    constant_id: '00000000000000000000000000000000'",
+            "name: probe\n    quantity_kind_id: '00000000000000000000000000000000'",
         ),
     ];
     for text in variants {
         let mut inputs = original.clone();
-        inputs.insert("materials/constants.yaml".to_owned(), text.into_bytes());
+        inputs.insert(
+            "materials/quantity-kinds.yaml".to_owned(),
+            text.into_bytes(),
+        );
         assert!(load_package_documents(inputs, registry, ParseBudget::default()).is_err());
     }
 }

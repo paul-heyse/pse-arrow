@@ -96,6 +96,8 @@ pub struct ParseBudget {
     pub max_aliases: u32,
     /// The largest document, in bytes.
     pub max_bytes: u64,
+    /// The most rows a binary package data document may decode.
+    pub max_data_rows: u64,
 }
 
 impl ParseBudget {
@@ -116,6 +118,7 @@ impl Default for ParseBudget {
             max_depth: Self::DEFAULT_MAX_DEPTH,
             max_aliases: Self::DEFAULT_MAX_ALIASES,
             max_bytes: Self::DEFAULT_MAX_BYTES,
+            max_data_rows: 1_000_000,
         }
     }
 }

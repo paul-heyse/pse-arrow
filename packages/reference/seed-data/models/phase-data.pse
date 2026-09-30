@@ -1,42 +1,28 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e15d9eff71b98e7519f362a7ba3d") package phase_data {
+@id("d0fe95036d0c4f85b3150e13f3438dbe") use compatibility @"1.0.0";
+@id("01a0f13f1dda7370bf417d8ce1f338da") use correlations @"1.0.0";
+@id("01a0f13f1dda7370bf417d8ba0e40d3b") use chem @"1.0.0";
+@id("01a0f13d55b07622b0ebf7c1ddcb3db8") use properties @"1.0.0";
 @id("01a0ef604fe0732189b9372de5c7a0e9") use provenance @"1.0.0";
 @id("01a0ef604fe0732189b9372e7100d056") use references @"1.0.0";
 @id("01a0e15d9eff71b98e7519f4efdb5ad8") use caloric @"1.0.0";
 @id("01a0e15d9eff71b98e7519f5332e09da") use pure_properties @"1.0.0";
-@id("01a0e15d9eff71b98e7519f61596e937") entity caloric.fit benzene_perry_density {}
-@id("01a0e15d9eff71b98e7519f7bff05cff") entity caloric.fit toluene_perry_density {}
-@id("01a0e15d9eff71b98e7519f81d919c04") entity caloric.fit water_perry_oracle {}
-@id("01a0e15d9eff71b98e7519f917c7805e") entity caloric.fit benzene_rpp4_oracle {}
-@id("01a0e15d9eff71b98e7519fa526ae0b6") entity caloric.fit toluene_rpp4_oracle {}
-@id("01a0e15d9eff71b98e7519fba701c2e8") entity caloric.fit water_rpp4_oracle {}
-@id("29e135168bb24916a90e68552a7663eb") set perry_density_fits:Set<caloric.fit>={benzene_perry_density,toluene_perry_density};
-@id("01a0e15d9eff71b98e7519fca5226d2f") dataset perry_densities:pure_properties.liquid_density complete_over(j in perry_density_fits) provenance(references.perry7_table_2_30, provenance.Role.published) {
-[benzene_perry_density]=[1.0162,0.2655,562.16{K},0.28212,278.68{K},562.16{K}];
-[toluene_perry_density]=[0.8488,0.26655,591.8{K},0.2878,178.18{K},591.8{K}];
-}
-@id("77b97eb020274cb4b288032a12e3ed79") set water_density_fits:Set<caloric.fit>={water_perry_oracle};
-@id("01a0e15d9eff71b98e7519fd9901ed7a") dataset water_density_oracle:pure_properties.liquid_density complete_over(j in water_density_fits) provenance(references.idaes_test_perrys, provenance.Role.oracle_input) {
-[water_perry_oracle]=[5.459,0.30542,647.13{K},0.081,273.16{K},333.15{K}];
-}
-@id("78fde1a68bff44b58a88214000882b5d") set rpp4_pressure_fits:Set<caloric.fit>={benzene_rpp4_oracle,toluene_rpp4_oracle,water_rpp4_oracle};
-@id("01a0e15d9eff71b98e7519fe3b8d583e") dataset rpp4_pressure_oracles:pure_properties.vapor_pressure complete_over(j in rpp4_pressure_fits) provenance(references.idaes_test_rpp4, provenance.Role.oracle_input) {
-[benzene_rpp4_oracle]=[-6.98273,1.33213,-2.62863,-3.33399,562.2{K},4890000{Pa},298.15{K},500{K}];
-[toluene_rpp4_oracle]=[-7.28607,1.38091,-2.83433,-2.79168,591.8{K},4100000{Pa},298.15{K},500{K}];
-[water_rpp4_oracle]=[-7.76451,1.45838,-2.77580,-1.23303,647.3{K},22120000{Pa},298.15{K},373.15{K}];
-}
+
+
+
 @id("01a0e15d9eff71b98e7519ff51aff28f") test water_source_oracles oracle references.idaes_2_13 fixture {dof 0; run pure;} {
-@id("01a0e15d9eff71b98e751a00a736373f") expect pure_properties.perry_density(273.16{K},pure_properties.liquid_density[water_perry_oracle])==55583{mol/m^3} tolerance 0{mol/m^3} relative 1e-4;
-@id("01a0e15d9eff71b98e751a012d6427b3") expect pure_properties.perry_density(333.15{K},pure_properties.liquid_density[water_perry_oracle])==54703{mol/m^3} tolerance 0{mol/m^3} relative 1e-4;
-@id("01a0e15d9eff71b98e751a02cd650678") expect pure_properties.rpp4_pressure(298.15{K},pure_properties.vapor_pressure[water_rpp4_oracle])==3171.4391{Pa} tolerance 0.001{Pa};
-@id("01a0e15d9eff71b98e751a03fb0e887b") expect pure_properties.rpp4_pressure(373.15{K},pure_properties.vapor_pressure[water_rpp4_oracle])==101378{Pa} tolerance 0{Pa} relative 1e-4;
+@id("01a0e15d9eff71b98e751a00a736373f") expect properties.saturated_density(correlations.dippr105[chem.water, properties.liquid_molar_density, compatibility.PhaseType.liquidPhase, references.idaes_test_perrys],273.16{K})==55583{mol/m^3} tolerance 0{mol/m^3} relative 1e-4;
+@id("01a0e15d9eff71b98e751a012d6427b3") expect properties.saturated_density(correlations.dippr105[chem.water, properties.liquid_molar_density, compatibility.PhaseType.liquidPhase, references.idaes_test_perrys],333.15{K})==54703{mol/m^3} tolerance 0{mol/m^3} relative 1e-4;
+@id("01a0e15d9eff71b98e751a02cd650678") expect properties.saturation_pressure(correlations.rpp4_wagner[chem.water, properties.vapor_pressure, compatibility.PhaseType.liquidPhase, references.idaes_test_rpp4],298.15{K})==3171.4391{Pa} tolerance 0.001{Pa};
+@id("01a0e15d9eff71b98e751a03fb0e887b") expect properties.saturation_pressure(correlations.rpp4_wagner[chem.water, properties.vapor_pressure, compatibility.PhaseType.liquidPhase, references.idaes_test_rpp4],373.15{K})==101378{Pa} tolerance 0{Pa} relative 1e-4;
 }
 @id("01a0e15d9eff71b98e751a045545b291") test pressure_interface oracle references.idaes_test_rpp4 fixture {dof 0; run pure; value root.T=373.15{K};} {
-@id("01a0e15d9eff71b98e751a05327478aa") child root:pure_properties.VaporPressure=pure_properties.Rpp4VaporPressure(p=pure_properties.vapor_pressure[water_rpp4_oracle]);
+@id("01a0e15d9eff71b98e751a05327478aa") child root:pure_properties.VaporPressure=pure_properties.VaporPressureSet(s=correlations.rpp4_wagner[chem.water, properties.vapor_pressure, compatibility.PhaseType.liquidPhase, references.idaes_test_rpp4]);
 @id("01a0e15d9eff71b98e751a06aab4b497") expect root.pressure==101378{Pa} tolerance 0{Pa} relative 1e-4;
 }
-@id("01a0e16127e470a5896844b4731c4f7c") test critical_endpoint_rejected oracle references.rpp4 fixture {dof 0; run pure; failure trial_rejected validity(form) form(pure_properties.rpp4_pressure) set(pure_properties.vapor_pressure[benzene_rpp4_oracle]) variable(T);} {
-@id("01a0e16127e470a5896844b51e6733d6") expect pure_properties.rpp4_pressure(562.2{K},pure_properties.vapor_pressure[benzene_rpp4_oracle])==4890000{Pa} tolerance 1{Pa};
+@id("01a0e16127e470a5896844b4731c4f7c") test critical_endpoint_rejected oracle references.rpp4 fixture {dof 0; run pure; failure trial_rejected validity(form) form(correlations.rpp4_wagner_psat) set(correlations.rpp4_wagner[chem.benzene, properties.vapor_pressure, compatibility.PhaseType.liquidPhase, references.idaes_test_rpp4]) variable(T);} {
+@id("01a0e16127e470a5896844b51e6733d6") expect correlations.rpp4_wagner_psat(562.2{K},correlations.rpp4_wagner[chem.benzene, properties.vapor_pressure, compatibility.PhaseType.liquidPhase, references.idaes_test_rpp4])==4890000{Pa} tolerance 1{Pa};
 }
 }

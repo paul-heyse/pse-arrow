@@ -1,0 +1,13 @@
+{
+  "invariant": "runtime.modeling_knowledge_names:unique:pk",
+  "rows": {
+    "runtime.modeling_knowledge_names": [
+      {
+        "declaration_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "source_revision": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

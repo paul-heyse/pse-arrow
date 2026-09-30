@@ -27,7 +27,7 @@ diagnostics = "diagnostics/idaes-2.13.json"
 [[runs]]
 name = "seed"
 package = "campaign"
-dependencies = ["seed-data", "process", "thermodynamics", "methods", "domain", "physical"]
+dependencies = ["data/oracles/teqp-0.23.1", "data/oracles/feos-0.10.1", "data/gross-sadowski-2001", "data/references", "data/nist", "data/perry7", "data/poling2000", "data/oracles/idaes-2.13", "data/species", "data/ciaaw", "seed-data", "process", "thermodynamics", "methods", "domain", "physical"]
 physical = "physical"
 execution = "native"
 

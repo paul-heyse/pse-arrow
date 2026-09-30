@@ -8,9 +8,11 @@ import hashlib
 import json
 from decimal import Decimal, localcontext
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, TypedDict
 
 import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
 import scipy
 import teqp
 from scipy.optimize import least_squares
@@ -34,11 +36,11 @@ class FlashModel(Protocol):
 
 
 def caloric(coefficients: list[float], temperature: float) -> tuple[float, float]:
-    """Integrate the declared DIPPR100 Cp polynomial and Cp/T, J/(kmol K) -> SI."""
+    """Integrate the declared DIPPR100 Cp polynomial and Cp/T, SI coefficient magnitudes."""
     with localcontext() as context:
         context.prec = 60
         t, t0 = Decimal(str(temperature)), Decimal("298.15")
-        c = [Decimal(str(value)) / 1000 for value in coefficients]
+        c = [Decimal(str(value)) for value in coefficients]
         h = sum(a * (t ** (i + 1) - t0 ** (i + 1)) / (i + 1) for i, a in enumerate(c))
         s = c[0] * (t / t0).ln() + sum(
             a * (t**i - t0**i) / i for i, a in enumerate(c) if i
@@ -108,22 +110,38 @@ def flash_reference(model: FlashModel) -> dict:
     }
 
 
+class ReferenceCase(TypedDict):
+    """One independent homogeneous reference state."""
+
+    input: list[float]
+    pressure: float
+    enthalpy: float
+    ln_phi: list[float]
+    ideal_enthalpy: float
+    gas_constant: float
+
+
 def main() -> None:
 
     root = Path(__file__).resolve().parents[1]
-    data = root / "crates/pse-kernels/data"
-    pc_path = data / "pcsaft-light-hydrocarbons.json"
-    ig_path = data / "ideal-gas-light-hydrocarbons.json"
-    pc, ig = json.loads(pc_path.read_text()), json.loads(ig_path.read_text())
+    pc_path = (
+        root / "packages/reference/data/gross-sadowski-2001/data/parameters.parquet"
+    )
+    ig_path = root / "packages/reference/data/poling2000/data/vessel_caloric.parquet"
+    subjects = ["74-82-8", "74-84-0", "74-98-6"]
+    pc_rows = {row["subject"]: row for row in pq.read_table(pc_path).to_pylist()}
+    ig_rows = {row["subject"]: row for row in pq.read_table(ig_path).to_pylist()}
+    pc = [pc_rows[subject] for subject in subjects]
+    ig = [ig_rows[subject] for subject in subjects]
     coeffs = []
     for row in pc:
         coefficient = teqp.SAFTCoeffs()
         coefficient.m = row["m"]
-        coefficient.sigma_Angstrom = row["sigma"]
-        coefficient.epsilon_over_k = row["epsilon_k"]
+        coefficient.sigma_Angstrom = row["sigma"] * 1e10
+        coefficient.epsilon_over_k = row["epsilon"]
         coeffs.append(coefficient)
     model = teqp.PCSAFTEOS(coeffs, np.zeros((3, 3)))
-    cases = []
+    cases: list[ReferenceCase] = []
     # Finite homogeneous states, not implicit claims of global phase stability.
     for temperature, density, composition in [
         (300.0, 10.0, [0.2, 0.3, 0.5]),
@@ -137,7 +155,7 @@ def main() -> None:
         ar01 = model.get_Ar01(temperature, density, x)
         ar10 = model.get_Ar10(temperature, density, x)
         h0 = sum(
-            z * caloric(row["DIPPR100"], temperature)[0]
+            z * caloric([row[f"c{i}"] for i in range(1, 6)], temperature)[0]
             for z, row in zip(composition, ig, strict=True)
         )
         cases.append(
@@ -201,10 +219,86 @@ def main() -> None:
         "cases": cases,
         "flash": flash_reference(model),
     }
-    destination = root / "tests/fixtures/plan14/thermo-reference.json"
-    destination.write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
+    destination = root / "packages/reference/data/oracles/teqp-0.23.1/data"
+    write_reference(
+        destination / "states.parquet",
+        [
+            {
+                "case": i,
+                "T": case["input"][0],
+                "rho": case["input"][1],
+                "pressure": case["pressure"],
+                "enthalpy": case["enthalpy"],
+                "ideal_enthalpy": case["ideal_enthalpy"],
+                "h_residual": case["enthalpy"] - case["ideal_enthalpy"],
+            }
+            for i, case in enumerate(cases)
+        ],
+        {"case": pa.int64()},
+        result["generator"],
+    )
+    write_reference(
+        destination / "components.parquet",
+        [
+            {"case": i, "subject": subjects[j], "ln_phi": value}
+            for i, case in enumerate(cases)
+            for j, value in enumerate(case["ln_phi"])
+        ],
+        {"case": pa.int64(), "subject": pa.string()},
+        result["generator"],
+    )
+    flash = result["flash"]
+    write_reference(
+        destination / "flash.parquet",
+        [
+            {
+                "case": 0,
+                "T": flash["temperature"],
+                "pressure": flash["pressure"],
+                "liquid_density": flash["liquid_density"],
+                "vapor_density": flash["vapor_density"],
+                "beta": flash["beta"],
+                "maximum_scaled_residual": flash["maximum_scaled_residual"],
+            }
+        ],
+        {"case": pa.int64()},
+        result["generator"],
+    )
+    write_reference(
+        destination / "flash_components.parquet",
+        [
+            {
+                "subject": subject,
+                "feed": flash["feed"][j],
+                "liquid": flash["liquid"][j],
+                "vapor": flash["vapor"][j],
+            }
+            for j, subject in enumerate(subjects)
+        ],
+        {"subject": pa.string()},
+        result["generator"],
+    )
     print(
-        f"Wrote {len(cases)} independent reference states to {destination.relative_to(root)}"
+        f"Wrote {len(cases)} independent states and one flash to {destination.relative_to(root)}"
+    )
+
+
+def write_reference(
+    path: Path, rows: list[dict], types: dict[str, pa.DataType], metadata: dict
+) -> None:
+    """Explicit schemas: identifiers and integer keys, otherwise SI Float64 observations."""
+    schema = pa.schema(
+        [
+            pa.field(name, types.get(name, pa.float64()), nullable=False)
+            for name in rows[0]
+        ],
+        metadata={b"oracle": json.dumps(metadata).encode()},
+    )
+    pq.write_table(
+        pa.Table.from_pylist(rows, schema=schema),
+        path,
+        compression="zstd",
+        version="2.6",
     )
 
 

@@ -130,6 +130,8 @@ pub struct ModelingInitializationAttempt {
     pub result: Result<ModelingResult, Arc<WorkflowError>>,
     /// Deadline or cancellation that stopped the attempt.
     pub interruption: Option<BoundaryDiagnostic>,
+    /// Original member identities replaced by this stage, retained even without a candidate.
+    stage_sources: Vec<SemanticId>,
 }
 impl ModelingInitializationAttempt {
     /// Structured cause of an interrupted or rejected attempt.
@@ -137,21 +139,32 @@ impl ModelingInitializationAttempt {
         if self.accepted() {
             return None;
         }
-        Some(
-            self.interruption
-                .clone()
-                .unwrap_or_else(|| match &self.result {
-                    Err(error) => error.boundary_diagnostic(),
-                    Ok(result) => result.diagnostic().unwrap_or_else(|| {
-                        BoundaryDiagnostic::new(
-                            BoundaryClass::Internal,
-                            "initialization",
-                            [],
-                            "modeling.initialization.outcome",
-                        )
-                    }),
+        let mut diagnostic = self
+            .interruption
+            .clone()
+            .unwrap_or_else(|| match &self.result {
+                Err(error) => error.boundary_diagnostic(),
+                Ok(result) => result.diagnostic().unwrap_or_else(|| {
+                    BoundaryDiagnostic::new(
+                        BoundaryClass::Internal,
+                        "initialization",
+                        [],
+                        "modeling.initialization.outcome",
+                    )
                 }),
-        )
+            });
+        if let ModelingInitializationStep::Stage(stage) = &self.step {
+            diagnostic.observations.insert(
+                "stage".into(),
+                pse_model::diagnostic::Observation::Text(stage.clone()),
+            );
+            if diagnostic.rule == "modeling.qualification.rejected" {
+                diagnostic.sources.extend(&self.stage_sources);
+                diagnostic.sources.sort_unstable();
+                diagnostic.sources.dedup();
+            }
+        }
+        Some(diagnostic)
     }
     /// The attempt ran to completion and its candidate is a result.
     pub fn accepted(&self) -> bool {
@@ -559,9 +572,19 @@ impl ModelingPackage {
             .iter()
             .try_fold(0usize, |n, s| n.checked_add(s.len()))
             .ok_or_else(|| contract("initialization name extent"))?;
+        let stage_bytes = base
+            .compiled()
+            .model
+            .equations
+            .len()
+            .checked_add(base.compiled().model.symbols.len())
+            .and_then(|n| n.checked_add(names))
+            .and_then(|n| n.checked_mul(80))
+            .ok_or_else(|| contract("initialization stage lineage extent"))?;
         let bytes = policy
             .maximum_attempts
             .checked_mul(size_of::<ModelingInitializationAttempt>() + 4096)
+            .and_then(|n| n.checked_add(stage_bytes.checked_mul(policy.maximum_attempts)?))
             .and_then(|n| n.checked_add(names))
             .and_then(|n| n.checked_add(base.compiled().admitted.inputs.len().checked_mul(128)?))
             .and_then(|n| n.checked_add(assignment.len().checked_mul(64)?))
@@ -579,6 +602,7 @@ impl ModelingPackage {
             cancel,
             staged: Staged::open(&self.runtime, None)?,
             accepted: None,
+            original: base.compiled().model.clone(),
             report: ModelingInitializationReport {
                 run_id: pse_operations::mint_id(),
                 runtime: self.runtime.clone(),
@@ -608,6 +632,8 @@ struct Initializer<'a> {
     staged: Staged,
     /// The last accepted attempt, which seeds the next one.
     accepted: Option<usize>,
+    /// Unmodified members used to attribute a stage's replacements.
+    original: Arc<pse_modeling::specialize::SpecializedModel>,
     report: ModelingInitializationReport,
 }
 impl Initializer<'_> {
@@ -652,10 +678,17 @@ impl Initializer<'_> {
                 self.cancel,
             )
             .await;
+        let stage_sources = match (&step, &record.result) {
+            (ModelingInitializationStep::Stage(stage), Ok(result)) => {
+                self.stage_sources(stage, &result.prepared.model.model.compiled().model)
+            }
+            _ => Vec::new(),
+        };
         let attempt = ModelingInitializationAttempt {
             step,
             result: record.result,
             interruption: record.interruption,
+            stage_sources,
         };
         let (accepted, retryable) = (attempt.accepted(), attempt.retryable());
         if accepted {
@@ -663,6 +696,58 @@ impl Initializer<'_> {
         }
         self.report.attempts.push(attempt);
         Some((accepted, retryable))
+    }
+    fn stage_sources(
+        &self,
+        stage: &str,
+        selected: &pse_modeling::specialize::SpecializedModel,
+    ) -> Vec<SemanticId> {
+        use pse_model::generated::enums::ModelingDeclarationKind as Kind;
+        let checked = self.package.revision.checked();
+        let mut sources = std::collections::BTreeSet::new();
+        for (id, instance) in &selected.instances {
+            let Some(original) = self.original.instances.get(id) else {
+                continue;
+            };
+            for (name, replacement) in &instance.members {
+                let Some(row) = checked.declaration(*replacement) else {
+                    continue;
+                };
+                if !row.is_override {
+                    continue;
+                }
+                let mut parent = row.parent_id;
+                let mut stage_id = None;
+                while let Some(owner) = parent.and_then(|owner| checked.declaration(owner)) {
+                    if owner.value.kind == Kind::Stage {
+                        if owner.name == stage {
+                            stage_id = Some(owner.declaration_id);
+                        }
+                        break;
+                    }
+                    parent = owner.parent_id;
+                }
+                let (Some(stage_id), Some(member)) = (stage_id, original.members.get(name)) else {
+                    continue;
+                };
+                sources.insert(stage_id.as_id());
+                sources.extend(
+                    self.original
+                        .equations
+                        .iter()
+                        .filter(|r| r.lineage.instance == *id && r.lineage.declaration == *member)
+                        .map(|r| r.id),
+                );
+                sources.extend(
+                    self.original
+                        .symbols
+                        .values()
+                        .filter(|s| s.lineage.instance == *id && s.lineage.declaration == *member)
+                        .map(|s| s.id),
+                );
+            }
+        }
+        sources.into_iter().collect()
     }
     /// `overlay` with the discrete assignment fixed: every stage and homotopy step runs
     /// with it, and the original specification without it.

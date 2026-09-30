@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0f14331d9760dbe4d343d23b6ae80") package idaes_thermo {
+@id("d03818534a924d55b2c9fa3522d0bb71") use cubic @"1.0.0";
+@id("017a555f5a7e4b51980df24d6a31ba77") use chemistry @"1.0.0";
+@id("01a0f14331d9760dbe4d343ea390bcbb") use properties @"1.0.0";
+@id("01a0f14331d9760dbe4d343f5ae2a909") use correlations @"1.0.0";
+@id("01a0f14331d9760dbe4d3440294b7fb6") use compatibility @"1.0.0";
+@id("01a0f14331d9760dbe4d3441ca9f4700") use provenance @"1.0.0";
+@id("01a0f14331d9760dbe4d34421ce4944b") use references @"1.0.0";
+@id("01a0f14331d9760dbe4d3443ba158898") use chem @"1.0.0";
+@id("01a0e159fa9673b48608c5bc8713a574") dataset rpp4_oracle:correlations.rpp4_cp bind(property=properties.heat_capacity, source=references.idaes_bt_ideal) provenance(references.idaes_bt_ideal, provenance.Role.oracle_input) from "data/rpp4_oracle.parquet";
+@id("01a0e1971f9075519925981b9829c48a") dataset liquid_idaes_oracle:correlations.dippr100 bind(property=properties.heat_capacity, source=references.idaes_bt_ideal) provenance(references.idaes_bt_ideal, provenance.Role.oracle_input) from "data/liquid_idaes_oracle.parquet";
+@id("01a0e15d9eff71b98e7519fd9901ed7a") dataset water_density_oracle:correlations.dippr105 bind(property=properties.liquid_molar_density,source=references.idaes_test_perrys) provenance(references.idaes_test_perrys, provenance.Role.oracle_input) from "data/water_density_oracle.parquet";
+@id("01a0e15d9eff71b98e7519fe3b8d583e") dataset rpp4_pressure_oracles:correlations.rpp4_wagner bind(property=properties.vapor_pressure,source=references.idaes_test_rpp4) provenance(references.idaes_test_rpp4, provenance.Role.oracle_input) from "data/rpp4_pressure_oracles.parquet";
+@id("01a0e16f32a3739a874c127cae43c1ee") dataset bt_critical:cubic.critical_point bind(property=cubic.critical_parameters,phase_type=compatibility.PhaseType.vaporPhase,source=references.idaes_bt_pr) provenance(references.idaes_bt_pr, provenance.Role.oracle_input) from "data/bt_critical.parquet";
+@id("b3d08c295db9417ebae7e86e54316673") entity provenance.oracle_test srk_vapor { title="Independent IDAES SRK equimolar benzene/toluene vapor at 450 K and 1 bar",release=references.idaes_2_13,locator="scripts/idaes_srk_reference.py" }
+@id("74ed9dfcff7a4ec4879d9d63fd20ddc2") table srk_state[case:0..0]:{T:Temperature storage {K},rho:Density storage {mol/m^3},pressure:Pressure storage {Pa},Z:Scalar storage {1}} complete_over(case in 0..0);
+@id("f394a6a2b9cc45f9a674219d49455d31") table srk_component[j:chemistry.species by chemistry.cas]:{fraction:Scalar storage {1},ln_phi:Scalar storage {1}} complete_over(j in srk_members);
+@id("17b98b2632e24053b04826cbd032528c") dataset srk_states:srk_state provenance(srk_vapor,provenance.Role.oracle_input,lineage(source references.idaes_bt_pr)) from "data/srk_state.parquet";
+@id("fa529185f14c4bb3bb5752c89be64e8e") dataset srk_components:srk_component provenance(srk_vapor,provenance.Role.oracle_input,lineage(source references.idaes_bt_pr)) from "data/srk_components.parquet";
+@id("dc7dc5e8212046e1b426cea75cf81b1b") set srk_members:Set<chemistry.species>={chem.benzene,chem.toluene};
+}

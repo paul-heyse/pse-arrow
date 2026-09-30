@@ -38,8 +38,6 @@ pse_ids::semantic_id_newtype! {
     /// Identifies a registered quantity operation — the §8.3 composition policy
     /// (`reference.quantity_operations`).
     OperationId,
-    /// Identifies a physical constant (`reference.constants`).
-    ConstantId,
     /// Identifies a domain: what an index ranges over (`authored.domains`, §6.3).
     DomainId,
     /// Identifies a bound index — one binding occurrence of a domain in an expression,

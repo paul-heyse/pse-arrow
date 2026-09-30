@@ -193,11 +193,7 @@ fn the_unit_product_identity_is_frozen() {
 fn the_structured_ir_frame_variants_are_frozen() {
     for (frame, spelling, vector) in STRUCTURED_IR_FRAMES {
         assert_eq!(frame.as_str(), spelling);
-        assert_eq!(
-            derive_hash(frame, &[b"pse"]).to_hex(),
-            vector,
-            "{spelling}"
-        );
+        assert_eq!(derive_hash(frame, &[b"pse"]).to_hex(), vector, "{spelling}");
     }
 }
 
@@ -205,23 +201,27 @@ fn the_structured_ir_frame_variants_are_frozen() {
 fn the_data_document_frame_variants_are_frozen() {
     for (frame, spelling, vector) in DATA_DOCUMENT_FRAMES {
         assert_eq!(frame.as_str(), spelling);
-        assert_eq!(
-            derive_hash(frame, &[b"pse"]).to_hex(),
-            vector,
-            "{spelling}"
-        );
+        assert_eq!(derive_hash(frame, &[b"pse"]).to_hex(), vector, "{spelling}");
     }
+}
+
+#[test]
+fn the_temporal_source_revision_frame_is_frozen() {
+    assert_eq!(
+        Frame::ModelingSourceRevisionV4.as_str(),
+        "pse.modeling.source-revision.v4"
+    );
+    assert_eq!(
+        derive_hash(Frame::ModelingSourceRevisionV4, &[b"pse"]).to_hex(),
+        "0dabc8d408098da4566df7df64b226a20727d55eebc9184b9d208571e52ecd14"
+    );
 }
 
 #[test]
 fn the_lineage_frame_variants_are_frozen() {
     for (frame, spelling, vector) in LINEAGE_FRAMES {
         assert_eq!(frame.as_str(), spelling);
-        assert_eq!(
-            derive_hash(frame, &[b"pse"]).to_hex(),
-            vector,
-            "{spelling}"
-        );
+        assert_eq!(derive_hash(frame, &[b"pse"]).to_hex(), vector, "{spelling}");
     }
 }
 
@@ -229,11 +229,7 @@ fn the_lineage_frame_variants_are_frozen() {
 fn the_entity_record_frame_variants_are_frozen() {
     for (frame, spelling, vector) in ENTITY_RECORD_FRAMES {
         assert_eq!(frame.as_str(), spelling);
-        assert_eq!(
-            derive_hash(frame, &[b"pse"]).to_hex(),
-            vector,
-            "{spelling}"
-        );
+        assert_eq!(derive_hash(frame, &[b"pse"]).to_hex(), vector, "{spelling}");
     }
     let parts: &[&[u8]] = &[
         &[0x01; 16],
@@ -377,4 +373,16 @@ fn the_canonical_float_bits_are_frozen() {
     assert_eq!(canonical_f64_bits(f64::INFINITY), 0x7ff0_0000_0000_0000);
     assert_eq!(canonical_f64_bits(f64::NEG_INFINITY), 0xfff0_0000_0000_0000);
     assert_eq!(canonical_f32_bits(1.0), 0x3f80_0000);
+}
+
+#[test]
+fn the_typed_measurement_fit_source_frame_is_frozen() {
+    assert_eq!(
+        Frame::ModelingFitSourceV2.as_str(),
+        "pse.modeling.fit-source.v2"
+    );
+    assert_eq!(
+        derive_hash(Frame::ModelingFitSourceV2, &[b"pse"]).to_hex(),
+        "657a54ea407541c67db2b03675a75c5f17ec1e5241591f922c5ab28788cb19fc"
+    );
 }

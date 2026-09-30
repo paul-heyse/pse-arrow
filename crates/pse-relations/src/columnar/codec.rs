@@ -4,14 +4,14 @@
 //! Direct codecs used by generated types; no row-shaped intermediate representation.
 
 use arrow_array::builder::{
-    ArrayBuilder, BinaryBuilder, BooleanBuilder, FixedSizeBinaryBuilder, FixedSizeListBuilder, Float64Builder,
-    Int16Builder, Int32Builder, Int64Builder, ListBuilder, StringBuilder,
+    ArrayBuilder, BinaryBuilder, BooleanBuilder, FixedSizeBinaryBuilder, FixedSizeListBuilder,
+    Float64Builder, Int16Builder, Int32Builder, Int64Builder, ListBuilder, StringBuilder,
     TimestampMicrosecondBuilder, TimestampNanosecondBuilder, UInt8Builder, UInt16Builder,
     UInt32Builder, UInt64Builder,
 };
 use arrow_array::{
-    Array, BinaryArray, BooleanArray, FixedSizeBinaryArray, FixedSizeListArray, Float64Array, Int16Array,
-    Int32Array, Int64Array, ListArray, StringArray, TimestampMicrosecondArray,
+    Array, BinaryArray, BooleanArray, FixedSizeBinaryArray, FixedSizeListArray, Float64Array,
+    Int16Array, Int32Array, Int64Array, ListArray, StringArray, TimestampMicrosecondArray,
     TimestampNanosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
 };
 use pse_ids::{ContentHash, SemanticId};
@@ -142,7 +142,9 @@ impl ArrowValue for pse_model::Bytes {
     }
     fn read(input: &dyn Array, index: usize) -> Result<Self, RelationError> {
         visible(input, index)?;
-        Ok(Self::new(array::<BinaryArray>(input)?.value(index).to_vec()))
+        Ok(Self::new(
+            array::<BinaryArray>(input)?.value(index).to_vec(),
+        ))
     }
 }
 

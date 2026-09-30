@@ -816,7 +816,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         b,
         N::Authored,
         "fit_cases",
-        3,
+        4,
         S::Case,
         &["fit_id"],
         vec![
@@ -847,7 +847,9 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
             column(
                 "observations",
                 T::list(record(vec![
-                    ("observation_id", T::id()),
+                    ("observation_id", T::id().with_identity("declaration")),
+                    ("value_attribute", text()),
+                    ("standard_deviation_attribute", text().optional()),
                     ("experiment_id", T::id().with_identity("instance")),
                     ("output_path", text()),
                     ("time", real().optional()),
@@ -861,7 +863,25 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
                 ])),
             ),
         ],
-        "Shared-parameter fitting over authored modeling cases. Each experiment binds shared parameter identities to local source paths in canonical physical units. Observation paths select original members. Elapsed time is relative to the integration start; model_clock is the authored axis coordinate. Measurement values, units and uncertainty remain authored.observations.",
+        "Shared-parameter fitting over authored modeling cases. Each experiment binds shared parameter identities to local source paths in canonical physical units. Observation paths select original members. Elapsed time is relative to the integration start; model_clock is the authored axis coordinate. Measurement values, full quantity conventions, uncertainty and provenance are selected from admitted typed record attributes; fit declarations carry only experiment and attribute selection intent.",
+    );
+    relation(
+        b,
+        N::Runtime,
+        "fitted_parameter_cells",
+        S::Derived,
+        &["run_id", "parameter_id"],
+        vec![
+            run_id(),
+            column("fit_id", T::id().with_identity("fit")),
+            column("source_revision", T::hash()),
+            column("fit_source", T::hash()),
+            column("parameter_id", T::id()),
+            column("quantity_type_id", T::id()),
+            column("unit_id", T::id()),
+            column("value", real()),
+        ],
+        "Explicit export from a freshly qualified, locally identifiable fit. Values use canonical units and retain their full physical quantity convention and producing fit, run and source revision. This read-only export never mutates a parameter bank; an authored fitted set names its fit receipt through fit lineage.",
     );
     relation_version(
         b,

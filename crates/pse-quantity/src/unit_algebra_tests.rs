@@ -101,7 +101,7 @@ fn builder() -> QuantityRegistryBuilder {
         })
         .unit(Unit {
             reference_state: Some(ReferenceStateId::from_id(raw(GAUGE))),
-            ..atomic(10, "psig", pressure(), 6894.757_293_168)
+            ..atomic(10, "psig", pressure(), 6_894.757_293_168)
         })
         .reference_state(ReferenceState {
             id: ReferenceStateId::from_id(raw(GAUGE)),
@@ -167,10 +167,16 @@ fn composite_literal_needs_no_registered_whole_unit() {
     let canonical = registry
         .unit(registry.quantity_type(molar_cp).unwrap().canonical_unit)
         .unwrap();
-    let conversion =
-        convert_spec_for_type(&literal, canonical, &registry.quantity_type(molar_cp).unwrap().key)
-            .unwrap();
-    assert_eq!(convert_value(&conversion, 75.3).to_bits(), 75.3_f64.to_bits());
+    let conversion = convert_spec_for_type(
+        &literal,
+        canonical,
+        &registry.quantity_type(molar_cp).unwrap().key,
+    )
+    .unwrap();
+    assert_eq!(
+        convert_value(&conversion, 75.3).to_bits(),
+        75.3_f64.to_bits()
+    );
     // J/(mol*K) composes to the defined canonical unit itself.
     let spelled = registry
         .compose(&product(&[("J", 1, 1), ("mol", -1, 1), ("K", -1, 1)]))
@@ -190,7 +196,10 @@ fn affine_unit_only_as_sole_factor() {
     assert_eq!(celsius.id, uid(9));
     assert_eq!(celsius.offset_to_canonical.to_bits(), 273.15_f64.to_bits());
     let gauge = registry.compose(&UnitProduct::symbol("psig")).unwrap();
-    assert_eq!(gauge.reference_state, Some(ReferenceStateId::from_id(raw(GAUGE))));
+    assert_eq!(
+        gauge.reference_state,
+        Some(ReferenceStateId::from_id(raw(GAUGE)))
+    );
     for refused in [
         product(&[("degC", 1, 1), ("s", -1, 1)]),
         product(&[("degC", 2, 1)]),
@@ -206,7 +215,11 @@ fn affine_unit_only_as_sole_factor() {
             "{refused}"
         );
     }
-    assert!(registry.compose(&product(&[("K", 1, 1), ("s", -1, 1)])).is_ok());
+    assert!(
+        registry
+            .compose(&product(&[("K", 1, 1), ("s", -1, 1)]))
+            .is_ok()
+    );
     // A defined unit cannot take an affine or datum-restricted factor either.
     for bad in [9, 10] {
         let composition = vec![factor(bad, 1), factor(7, -1)];
@@ -272,16 +285,24 @@ fn defined_unit_dimension_and_scale_are_derived() {
     assert_eq!(kj_per_kmol.dimension, molar_energy);
     assert_eq!(kj_per_kmol.scale_to_canonical.to_bits(), 1.0_f64.to_bits());
     assert_eq!(kj_per_kmol.definition, Some(canonical(per_kmol)));
-    let kj_per_mol = registry
-        .unit(unit_product_id(&canonical(per_mol)))
-        .unwrap();
-    assert_eq!(kj_per_mol.scale_to_canonical.to_bits(), 1000.0_f64.to_bits());
+    let kj_per_mol = registry.unit(unit_product_id(&canonical(per_mol))).unwrap();
+    assert_eq!(
+        kj_per_mol.scale_to_canonical.to_bits(),
+        1000.0_f64.to_bits()
+    );
     let per_area = registry.unit(unit_product_id(&per_area_atomic)).unwrap();
-    assert_eq!(per_area.definition.as_deref(), Some(per_area_atomic.as_slice()));
+    assert_eq!(
+        per_area.definition.as_deref(),
+        Some(per_area_atomic.as_slice())
+    );
     assert_eq!(
         per_area.dimension,
         energy()
-            .div(&DimensionVector::base(BaseDimension::Length).pow(r(2, 1)).unwrap())
+            .div(
+                &DimensionVector::base(BaseDimension::Length)
+                    .pow(r(2, 1))
+                    .unwrap()
+            )
             .unwrap()
     );
     // The spelling of a defined unit composes back to the same unit.
@@ -295,7 +316,8 @@ fn defined_unit_dimension_and_scale_are_derived() {
     );
     // The declared identity must be the product identity; aliases, cycles and a
     // registered spelling of the empty product as an atomic `1` are refused.
-    let refusals: [(&str, Box<dyn Fn(&mut QuantityRegistryBuilder)>); 4] = [
+    type Mutation = Box<dyn Fn(&mut QuantityRegistryBuilder)>;
+    let refusals: [(&str, Mutation); 4] = [
         (
             "unit.defined_identity",
             Box::new(|b| {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("302da51bb005408280715645c335f6b5") package pressure_change {
+@id("01a0f14ead4c77ab98c5380cbe36acc5") use constants @"1.0.0";
 @id("a725f06a48ea4fbcaffc3d7325e56d44") use caloric @"1.0.0";
 @id("a169e92da111405fb7cdae5ac895b217") use equilibrium @"1.0.0";
 @id("5488e742a20444799876441900c8aa28") use aqueous @"1.0.0";
@@ -46,7 +47,7 @@
 @id("bafd35b7cbaf4acc95001b35b9aee0f2") eq reference_pressure:reference.pressure==outlet.pressure;
 @id("e895f3a59c754709905024a97e7e0aaf") eq reference_composition[j in components]:reference.z[j]==inlet.z[j];
 @id("f69e9a7ba5224530ac02879b8185a5b1") eq reference_entropy:reference.s==inlet.s;
-@id("89c7fe37901a4804be4f8e50e97ee2e7") eq reversible_work:work_fluid==power_unit()*(inlet.flow/equilibrium.flow_unit())*((reference.h-inlet.h)/caloric.h_unit());
+@id("89c7fe37901a4804be4f8e50e97ee2e7") eq reversible_work:work_fluid==power_unit()*(inlet.flow/equilibrium.flow_unit())*((reference.h-inlet.h)/constants.enthalpy_increment_unit);
 }
 @id("34829c0bb68444ab89c43cc39c5ccc2d") def PressureChanger(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,assumption:PressureAssumption,compressor:Boolean=true) {
 @id("f0a5c3551d0b42e1ae2cb073164d5873") child control:PressureAssumption=assumption(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg,compression=compressor);

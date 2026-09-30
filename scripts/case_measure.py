@@ -83,6 +83,101 @@ def require_functional(root: Path, path: Path) -> dict:
     return {"path": str(report.resolve()), "digest": validation_receipts.digest(report)}
 
 
+def preparation_campaign(output: Path, profile: str) -> dict:
+    """Build untimed, then isolate every declared M1 workload and the 100k-row admission."""
+    command = [
+        "cargo",
+        "bench",
+        "-p",
+        "pse-benches",
+        "--bench",
+        "modeling_preparation",
+        "--bench",
+        "document_admission",
+        "--locked",
+        "--profile",
+        profile,
+        "--features",
+        "native-process,pse-relations/force-validate",
+        "--no-run",
+        "--message-format=json",
+    ]
+    build = subprocess.run(
+        command, cwd=ROOT, check=True, text=True, stdout=subprocess.PIPE
+    )
+    binaries = {
+        row["target"]["name"]: row["executable"]
+        for line in build.stdout.splitlines()
+        if line.startswith("{")
+        for row in [json.loads(line)]
+        if row.get("reason") == "compiler-artifact"
+        and row.get("executable")
+        and row.get("target", {}).get("name")
+        in {"modeling_preparation", "document_admission"}
+    }
+    if set(binaries) != {"modeling_preparation", "document_admission"}:
+        raise ValueError(
+            "both preparation and admission benchmark artifacts are required"
+        )
+    declaration = json.loads((ROOT / ".config/preparation-cases.json").read_text())
+    cases = []
+    for workload in declaration["workloads"]:
+        name = workload["id"]
+        directory = output / "preparation" / name
+        directory.mkdir(parents=True, exist_ok=False)
+        env = {
+            **os.environ,
+            "PSE_PREPARATION_CASE": name,
+            "PSE_PREPARATION_OUTPUT": str(directory),
+        }
+        with (directory / "process.log").open("w") as log:
+            subprocess.run(
+                [binaries["modeling_preparation"], "--bench"],
+                cwd=ROOT,
+                env=env,
+                check=True,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+            )
+        cases.append(
+            {
+                **json.loads((directory / f"{name}.json").read_text()),
+                **samples(
+                    directory / "criterion/modeling_preparation" / name / "new/raw.csv"
+                ),
+            }
+        )
+    directory = output / "admission"
+    directory.mkdir(parents=True, exist_ok=False)
+    with (directory / "process.log").open("w") as log:
+        subprocess.run(
+            [binaries["document_admission"], "--bench"],
+            cwd=ROOT,
+            env={**os.environ, "PSE_ADMISSION_OUTPUT": str(directory)},
+            check=True,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+        )
+    admission = json.loads((directory / "admission.json").read_text())
+    admission["samples"] = {
+        phase: samples(
+            directory / "criterion/document_admission" / phase / "100000/new/raw.csv"
+        )
+        for phase in ("load_and_decode", "admit")
+    }
+    return {
+        "native": native_provenance(
+            {
+                "cargo_profile": profile,
+                "features": ["native-process", "pse-relations/force-validate"],
+            },
+            list(binaries.values()),
+        ),
+        "cases": cases,
+        "admission": admission,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
@@ -182,6 +277,11 @@ def main() -> int:
         },
         "cases": cases,
     }
+    report["thermodynamic_preparation"] = preparation_campaign(
+        output, profile["cargo_profile"]
+    )
+    if source_digest(ROOT) != before:
+        raise ValueError("sources changed during preparation measurement")
     validation.write_json(output / "case-measure.json", report)
     return 0
 

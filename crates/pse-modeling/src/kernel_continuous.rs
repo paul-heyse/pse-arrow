@@ -22,6 +22,212 @@ fn run(text: &str) -> Result<SpecializedModel> {
 }
 const MODEL: &str = "package p { difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0.5,0.5); difference forward order(1) offsets(0,1) weights(-1,1) quadrature(0.5,0.5); def D { domain t: Scalar from 0 to 2; discretize mesh on t using backward(elements = 4, order = 1); var x[i in t]: Scalar; eq ode[i in t]: d(x[i])/di == 2; eq initial: x[0] == 0; let area: Scalar = integral(i in t | x[i]); eq output: area == 4; } }";
 
+const TEMPORAL: &str = "package p { difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0,1); def Cell(times:Set<Time>={}) {param gain:Scalar=2; var x:Time; when analysis.dynamic {eq ode[i in times]:d(x)/di==gain;} when not analysis.dynamic {eq stationary:x==gain*1{s};} port out:Time=x;} def D {domain t:Time from 0{s} to 2{s}; when analysis.route==analysis.steady {discretize mesh on t using stationary(elements=1,order=1);} when analysis.route==analysis.integrated {discretize mesh on t using integrated(elements=1,order=1);} when analysis.route==analysis.simultaneous {discretize mesh on t using backward(elements=2,order=1);} child cell:Cell=Cell(); evolve time_state on cell using t bind times; when analysis.dynamic {eq initial:cell[0{s}].x==0{s};} let endpoint:Time=cell[2{s}].x;} }";
+
+fn temporal(text: &str, route: analysis::Route) -> Result<SpecializedModel> {
+    let (registry, _) = physical();
+    let context = TypeContext {
+        quantities: &registry,
+        preconditions: &pse_quantity::PhysicalPreconditions::new(
+            pse_quantity::generated::standard_preconditions(),
+        )
+        .unwrap(),
+        scope: &PhysicalScope::default(),
+    };
+    let package = check(&kernel_types::try_source(text)?, &context)?;
+    specialize(
+        &package,
+        package.names["p.D"],
+        InstanceId::from_id(SemanticId::NIL),
+        &Bindings::default().with_analysis(route),
+        Limits::default(),
+    )
+}
+
+#[test]
+fn temporal_composition_lifts_states_and_ports_and_shares_scalar_parameters() {
+    use crate::analysis::Route;
+    use pse_model::generated::enums::ModelingDeclarationKind as Kind;
+    for (route, states) in [
+        (Route::Steady, 1),
+        (Route::Integrated, 1),
+        (Route::Simultaneous, 3),
+    ] {
+        let model = temporal(
+            &TEMPORAL.replace("let endpoint:Time=cell[2{s}].x;", ""),
+            route,
+        )
+        .unwrap();
+        assert_eq!(
+            model
+                .symbols
+                .values()
+                .filter(|symbol| symbol.role == Kind::Variable
+                    && !model
+                        .derivatives
+                        .values()
+                        .any(|derivative| derivative.rate == symbol.id))
+                .count(),
+            states
+        );
+        assert_eq!(
+            model
+                .symbols
+                .values()
+                .filter(|symbol| symbol.role == Kind::Parameter
+                    && symbol.lineage.path.ends_with(".gain"))
+                .count(),
+            1
+        );
+        assert_eq!(model.ports.len(), states);
+        assert_eq!(model.meshes.len(), 1);
+        assert_eq!(
+            model.integrated.len(),
+            usize::from(route == Route::Integrated)
+        );
+    }
+    let spatial = TEMPORAL
+        .replace(
+            "child cell:Cell=Cell();",
+            "set sites:Set<Scalar>={0,1}; child cell[j in sites]:Cell=Cell();",
+        )
+        .replace("cell[0{s}].x", "cell[0{s},0].x")
+        .replace("let endpoint:Time=cell[2{s}].x;", "");
+    let model = temporal(&spatial, Route::Simultaneous).unwrap();
+    assert_eq!(
+        model
+            .symbols
+            .values()
+            .filter(|symbol| symbol.role == Kind::Variable)
+            .count(),
+        6
+    );
+    assert_eq!(
+        model
+            .symbols
+            .values()
+            .filter(
+                |symbol| symbol.role == Kind::Parameter && symbol.lineage.path.ends_with(".gain")
+            )
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn temporal_composition_refuses_competing_axes_bindings_and_wrong_quantity() {
+    use crate::analysis::Route;
+    for text in [
+        TEMPORAL.replace(
+            "evolve time_state",
+            "evolve other on cell using t bind times; evolve time_state",
+        ),
+        TEMPORAL.replace("bind times", "bind absent"),
+        TEMPORAL.replace("Cell(); evolve", "Cell(times={0{s}}); evolve"),
+        TEMPORAL.replace("domain t:Time", "domain t:Scalar"),
+        TEMPORAL.replace(
+            "using integrated(elements=1,order=1)",
+            "using stationary(elements=1,order=1)",
+        ),
+    ] {
+        assert!(
+            temporal(
+                &text.replace("let endpoint:Time=cell[2{s}].x;", ""),
+                Route::Integrated
+            )
+            .is_err(),
+            "{text}"
+        );
+    }
+}
+
+#[test]
+fn temporal_composition_shares_nested_parameters_and_refuses_two_global_time_axes() {
+    let nested = TEMPORAL
+        .replace(
+            "def Cell",
+            "def Nested {param coefficient:Scalar=3;var y:Scalar;} def Cell",
+        )
+        .replace(
+            "param gain:Scalar=2;",
+            "param gain:Scalar=2;child inner:Nested=Nested();",
+        )
+        .replace("let endpoint:Time=cell[2{s}].x;", "");
+    let model = temporal(&nested, analysis::Route::Simultaneous).unwrap();
+    assert_eq!(
+        model
+            .symbols
+            .values()
+            .filter(|symbol| symbol.role
+                == pse_model::generated::enums::ModelingDeclarationKind::Parameter
+                && symbol.lineage.path.ends_with(".coefficient"))
+            .count(),
+        1
+    );
+    assert_eq!(
+        model
+            .symbols
+            .values()
+            .filter(|symbol| symbol.lineage.path.ends_with(".y"))
+            .count(),
+        3
+    );
+    let two_axes=TEMPORAL.replace("child cell:Cell=Cell();", "domain u:Time from 0{s} to 2{s};discretize other_mesh on u using backward(elements=2,order=1);child other:Cell=Cell();evolve other_time on other using u bind times;child cell:Cell=Cell();")
+        .replace("let endpoint:Time=cell[2{s}].x;", "");
+    let refusal = temporal(&two_axes, analysis::Route::Simultaneous)
+        .unwrap_err()
+        .to_string();
+    assert!(refusal.contains("temporal axis"), "{refusal}");
+}
+
+#[test]
+fn integrated_checks_and_numerical_conditionals_keep_the_runtime_clock() {
+    let text=TEMPORAL.replace("let endpoint:Time=cell[2{s}].x;",
+        "let observed[i in t]:Time=if i==0{s} then 0{s} else cell[i].x;annotation check observed(i!=0{s} or observed[i]==0{s});annotation check observed(i!=1{s} or observed[i]==2{s});");
+    let model = temporal(&text, analysis::Route::Integrated).unwrap();
+    let time = specialize::symbol_name(model.integrated.values().next().unwrap().time);
+    let checks = model
+        .annotations
+        .iter()
+        .filter_map(|a| match &a.value {
+            annotation::AnnotationValue::Check(predicate) => {
+                Some(pse_authoring::dsl::render_predicate(predicate))
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(checks.len(), 2);
+    assert!(
+        checks.iter().all(|predicate| predicate.contains(&time)),
+        "{checks:?}"
+    );
+    let observed = model
+        .symbols
+        .values()
+        .filter_map(|symbol| symbol.expression.as_ref())
+        .map(pse_authoring::dsl::render_expr)
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(observed.contains(&format!("{time} ==")), "{observed}");
+}
+
+#[test]
+fn temporal_composition_refuses_time_varying_scalar_defaults() {
+    let text = TEMPORAL
+        .replace(
+            "param gain:Scalar=2;",
+            "param gain:Scalar=sum(i in times | i/1{s});",
+        )
+        .replace("let endpoint:Time=cell[2{s}].x;", "");
+    let error = temporal(&text, analysis::Route::Simultaneous).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("scalar temporal parameter defaults must agree"),
+        "{error}"
+    );
+}
+
 #[test]
 fn continuous_child_literals_resolve_the_admitted_coordinate() {
     let text = "package p { difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0,1); def Cell {var x:Scalar;} def D {domain t:Scalar from 0 to 2; discretize grid on t using backward(elements=2,order=1); child cell[i in t]:Cell=Cell(); eq ode[i in t]:d(cell[i].x)/di==1; eq initial:cell[0].x==0; let endpoint:Scalar=cell[2].x;} }";
@@ -178,7 +384,9 @@ fn replica_derivative_reads_the_sibling_replica_at_each_stencil_point() {
             let states = inside
                 .symbols
                 .values()
-                .filter(|s| s.lineage.path.ends_with(".x") && text.contains(&specialize::symbol_name(s.id)))
+                .filter(|s| {
+                    s.lineage.path.ends_with(".x") && text.contains(&specialize::symbol_name(s.id))
+                })
                 .map(|s| s.lineage.instance)
                 .collect::<std::collections::BTreeSet<_>>();
             assert_eq!(states.len(), 2, "{scheme}: {text}");

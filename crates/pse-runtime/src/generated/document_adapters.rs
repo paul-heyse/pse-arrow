@@ -66,28 +66,6 @@ impl IntoBatches for pse_authoring::generated::documents::CasesDocument {
             pse_ids::SemanticId,
             Vec<pse_relations::columnar::FieldCheckedBatch>,
         > = std::collections::BTreeMap::new();
-        let mut builder = pse_relations::generated::r#authored::r#datasets::Builder::with_registry(
-            registry,
-            self.r#datasets.len(),
-        )?;
-        for row in self.r#datasets {
-            builder.push(row)?;
-        }
-        batches
-            .entry(pse_relations::generated::r#authored::r#datasets::RELATION_ID)
-            .or_default()
-            .push(builder.finish()?);
-        let mut builder = pse_relations::generated::r#authored::r#observations::Builder::with_registry(
-            registry,
-            self.r#observations.len(),
-        )?;
-        for row in self.r#observations {
-            builder.push(row)?;
-        }
-        batches
-            .entry(pse_relations::generated::r#authored::r#observations::RELATION_ID)
-            .or_default()
-            .push(builder.finish()?);
         let mut builder = pse_relations::generated::r#authored::r#fit_cases::Builder::with_registry(
             registry,
             self.r#fit_cases.len(),
@@ -250,17 +228,6 @@ impl IntoBatches for pse_authoring::generated::documents::MaterialsDocument {
             .entry(
                 pse_relations::generated::r#reference::r#quantity_preconditions::RELATION_ID,
             )
-            .or_default()
-            .push(builder.finish()?);
-        let mut builder = pse_relations::generated::r#reference::r#constants::Builder::with_registry(
-            registry,
-            self.r#constants.len(),
-        )?;
-        for row in self.r#constants {
-            builder.push(row)?;
-        }
-        batches
-            .entry(pse_relations::generated::r#reference::r#constants::RELATION_ID)
             .or_default()
             .push(builder.finish()?);
         let mut builder = pse_relations::generated::r#reference::r#math_context::Builder::with_registry(

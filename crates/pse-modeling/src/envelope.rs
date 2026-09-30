@@ -23,7 +23,9 @@
 //! each observation names the data layer, so extrapolation is never silent. Extrapolation is
 //! allowed only where every violated layer's policy allows it.
 use crate::{CheckedPackage, DeclarationId, Function, Result, Type, TypeContext, invalid};
-use pse_authoring::dsl::{CompareOp, Expr, ExprKind, Path, PathSegment, Predicate, PredicateKind, Span};
+use pse_authoring::dsl::{
+    CompareOp, Expr, ExprKind, Path, PathSegment, Predicate, PredicateKind, Span,
+};
 use pse_authoring::language::ModelingEnvelopeGuard;
 use pse_ids::SemanticId;
 use pse_model::generated::enums::{ExtrapolationPolicy, ModelingEnvelopeExtent as Extent};
@@ -146,7 +148,8 @@ impl StaticObservation {
 /// A quantity type as a refusal names it: its physical-document name when it has one.
 pub(crate) fn type_name(c: &TypeContext<'_>, ty: &Type) -> String {
     if let Type::Quantity(scheme) = ty
-        && let Ok(id) = scheme.resolve_with_evidence(c.quantities, &BTreeMap::new(), c.preconditions)
+        && let Ok(id) =
+            scheme.resolve_with_evidence(c.quantities, &BTreeMap::new(), c.preconditions)
         && let Ok(quantity) = c.quantities.quantity_type(id)
         && let Some(name) = &quantity.name
     {
@@ -174,7 +177,10 @@ pub(crate) fn resolve(
     if !matches!(ty, Type::Quantity(_)) {
         return Err(invalid(
             owner,
-            format!("envelope {axis} of {what} bounds a quantity; {} is not one", type_name(c, &ty)),
+            format!(
+                "envelope {axis} of {what} bounds a quantity; {} is not one",
+                type_name(c, &ty)
+            ),
         ));
     }
     if lower == upper {
@@ -245,7 +251,10 @@ pub(crate) fn ordered(
 pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
     let mut resolved = BTreeMap::new();
     for (id, function) in &p.functions {
-        let Some(declared) = p.declarations.get(id).and_then(|row| row.value.function.as_ref())
+        let Some(declared) = p
+            .declarations
+            .get(id)
+            .and_then(|row| row.value.function.as_ref())
         else {
             continue;
         };
@@ -253,8 +262,11 @@ pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
         let mut guards = Vec::new();
         for declared in &declared.guards {
             let guard = guard(p, c, *id, function, declared)?;
-            if !seen.insert((guard.envelope.owner, guard.carrier.clone(), guard.arguments.clone()))
-            {
+            if !seen.insert((
+                guard.envelope.owner,
+                guard.carrier.clone(),
+                guard.arguments.clone(),
+            )) {
                 return Err(invalid(
                     *id,
                     format!(
@@ -298,7 +310,10 @@ fn guard(
     let carrier = argument(&declared.carrier).ok_or_else(|| {
         invalid(
             id,
-            format!("{name} guards an envelope of {}, which is not one of its arguments", declared.carrier),
+            format!(
+                "{name} guards an envelope of {}, which is not one of its arguments",
+                declared.carrier
+            ),
         )
     })?;
     let (envelopes, what) = match carrier {
@@ -328,7 +343,10 @@ fn guard(
         .ok_or_else(|| {
             invalid(
                 id,
-                format!("{name} guards envelope {} of {what}, which declares none", declared.envelope),
+                format!(
+                    "{name} guards envelope {} of {what}, which declares none",
+                    declared.envelope
+                ),
             )
         })?;
     let arity = match declared.extent {
@@ -348,7 +366,10 @@ fn guard(
     }
     for guarded in &declared.arguments {
         let ty = argument(guarded).ok_or_else(|| {
-            invalid(id, format!("{name} guards {guarded}, which is not one of its arguments"))
+            invalid(
+                id,
+                format!("{name} guards {guarded}, which is not one of its arguments"),
+            )
         })?;
         if *ty != envelope.ty || *guarded == declared.carrier {
             return Err(invalid(

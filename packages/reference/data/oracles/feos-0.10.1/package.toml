@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+[package]
+package_id = "01a0f19e1d7d74efbbf1a15fd1243254"
+name = "pse.data.oracles.feos-0.10.1"
+version = "1.0.0"
+kind = "reference"
+id_policy = "explicit"
+dependencies = [
+  { package_id = "b27409be5572b8712e47db271fae28cd", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0ef5e3bc973bb9bcd6df429506c6a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "ce317b088cc74ac89873845b0c086ea8", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f12be021704f9c94b091c341dfc3", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f14331d9760dbe4d34232814d24a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+]
+doc = "Typed property parameter rows with declared sources and roles."

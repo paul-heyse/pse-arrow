@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1db89d8722baac398ee550708de") package reactions {
+@id("01a0f14ead4e761899b3c3ae1d4f1c2e") use constants @"1.0.0";
 @id("01a0ee04daaa77568ef4eee76c5b410e") use chemistry @"1.0.0";
 @id("01a0e1db89d8722baac398f0fcb5c70e") use caloric @"1.0.0";
 @id("01a0e1db89d8722baac398f174bd89ab") use helmholtz @"1.0.0";
 @id("01a0e1db89d8722baac398f231ae9216") use aqueous @"1.0.0";
-@id("01a0e1db89d8722baac398dee47d35cc") fn rate_constant_unit()->SecondOrderRateConstant=1{m^3/(mol*s)};
-@id("01a0e1db89d8722baac398df1319943e") fn activation_unit()->ActivationEnergy=1{J/mol};
-@id("01a0e1db89d8722baac398e0544080af") fn rate_unit()->VolumetricReactionRate=1{mol/(m^3*s)};
-@id("01a0e1db89d8722baac398e1d154a385") fn arrhenius(T:Temperature,k0:SecondOrderRateConstant,E:ActivationEnergy)->SecondOrderRateConstant valid(T>caloric.absolute_zero() and k0>=0{m^3/(mol*s)} and E>=0{J/mol})=k0*exp(-(E/activation_unit())/(helmholtz.reduced_gas_constant()*(T/caloric.kelvin())));
-@id("01a0e1db89d8722baac398e213e1c3fa") fn second_order(T:Temperature,a:MolarDensity,b:MolarDensity,k0:SecondOrderRateConstant,E:ActivationEnergy)->VolumetricReactionRate valid(a>=0{mol/m^3} and b>=0{mol/m^3})=rate_unit()*(arrhenius(T,k0,E)/rate_constant_unit())*(a/aqueous.concentration_unit())*(b/aqueous.concentration_unit());
 @id("01a0e1db89d8722baac398e3f53e64ef") interface RateLaw {
 @id("01a0e1db89d8722baac398e4e335ce0d") param components:Set<chemistry.species>;
 @id("01a0e1db89d8722baac398e5988e7028") param reactions:Set<chemistry.reaction>;

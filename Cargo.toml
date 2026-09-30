@@ -245,6 +245,7 @@ diffsol-la = { version = "=0.1.1", default-features = false, features = [
 pounce-presolve = "=0.12.0"
 pounce-nlp = "=0.12.0"
 pounce-common = "=0.12.0"
+finitediff = "=0.2.0"
 pounce-rs = { version = "=0.12.0", features = ["qp", "convex"] }
 pounce-feral = "=0.12.0"
 # The sensitivity core's backsolver contract over a FERAL KKT factor (Plan 22 S0, I1).

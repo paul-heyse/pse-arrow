@@ -33,10 +33,7 @@ Version: `1`. Determinism: `deterministic`. Native effects: {Read}.
 | output | `quantity_types` | `reference.quantity_types` |
 | output | `conversion_rules` | `reference.conversion_rules` |
 | output | `quantity_operations` | `reference.quantity_operations` |
-| output | `constants` | `reference.constants` |
 | output | `function_capabilities` | `reference.function_capabilities` |
-| output | `datasets` | `authored.datasets` |
-| output | `observations` | `authored.observations` |
 | output | `algorithm_specs` | `reference.algorithm_specs` |
 | output | `algorithm_arguments` | `reference.algorithm_arguments` |
 | output | `algorithm_results` | `reference.algorithm_results` |

@@ -10,23 +10,19 @@ use pse_model::{HeapUsage, generated::enums::ModelingAnalysisRoute as Route};
 use pse_modeling::Limits;
 use pse_relations::{
     columnar::{FieldCheckedBatch, RelationRow},
-    generated::authored::{datasets, fit_cases, observations},
+    generated::authored::fit_cases,
 };
 
-/// Registry-owned fit and measurement relations accompanying modeling declarations.
+/// Registry-owned experiment and parameter selection intent; measurements belong to typed records.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct FitData {
+pub struct FitDeclarations {
     /// Declared fits with their parameters, experiments and observation selections.
     pub fits: Vec<fit_cases::Row>,
-    /// Measured observations referenced by fits.
-    pub observations: Vec<observations::Row>,
-    /// Datasets the observations come from.
-    pub datasets: Vec<datasets::Row>,
     #[serde(skip)]
     owner: Option<Arc<pse_columnar::AllocationLease>>,
 }
-impl FitData {
+impl FitDeclarations {
     pub(crate) fn from_batches(
         batches: &BTreeMap<SemanticId, FieldCheckedBatch>,
     ) -> Result<Self, WorkflowError> {
@@ -34,18 +30,6 @@ impl FitData {
             fits: batches
                 .get(&fit_cases::RELATION_ID)
                 .map(fit_cases::Row::rows)
-                .transpose()
-                .map_err(super::super::relation)?
-                .unwrap_or_default(),
-            observations: batches
-                .get(&observations::RELATION_ID)
-                .map(observations::Row::rows)
-                .transpose()
-                .map_err(super::super::relation)?
-                .unwrap_or_default(),
-            datasets: batches
-                .get(&datasets::RELATION_ID)
-                .map(datasets::Row::rows)
                 .transpose()
                 .map_err(super::super::relation)?
                 .unwrap_or_default(),
@@ -71,8 +55,6 @@ impl FitData {
             }};
         }
         relation!(fit_cases, &self.fits);
-        relation!(observations, &self.observations);
-        relation!(datasets, &self.datasets);
         Ok(result)
     }
 }
@@ -104,34 +86,23 @@ fn port(model: &ModelingPreparation, id: SemanticId) -> Result<Port, WorkflowErr
         .ok_or_else(|| contract("a shared fit parameter must bind a numerical parameter member"))
 }
 impl ModelingPackage {
-    /// Attach generated measurement relations to this immutable source revision.
-    pub fn with_fit_data(mut self, mut data: FitData) -> Result<Self, WorkflowError> {
+    /// Attach generated fitting declarations to this immutable source revision.
+    pub fn with_fit_declarations(
+        mut self,
+        mut data: FitDeclarations,
+    ) -> Result<Self, WorkflowError> {
         let unique = |ids: Vec<SemanticId>| ids.iter().collect::<BTreeSet<_>>().len() == ids.len();
-        if !unique(data.fits.iter().map(|r| r.fit_id.as_id()).collect())
-            || !unique(data.observations.iter().map(|r| r.observation_id).collect())
-            || !unique(data.datasets.iter().map(|r| r.dataset_id).collect())
-            || data
-                .observations
-                .iter()
-                .any(|o| !data.datasets.iter().any(|d| d.dataset_id == o.dataset_id))
-        {
-            return Err(contract(
-                "duplicate fit data identity or absent observation dataset",
-            ));
+        if !unique(data.fits.iter().map(|r| r.fit_id.as_id()).collect()) {
+            return Err(contract("duplicate fit declaration identity"));
         }
-        let bytes = data
-            .fits
-            .owned_bytes()
-            .checked_add(data.observations.owned_bytes())
-            .and_then(|n| n.checked_add(data.datasets.owned_bytes()))
-            .ok_or_else(|| contract("fit source extent"))?;
+        let bytes = data.fits.owned_bytes();
         data.owner = Some(
             self.runtime
                 .shared
                 .math()
                 .reserve("modeling:fit-data", bytes)?,
         );
-        self.fit_data = Arc::new(data);
+        self.fit_declarations = Arc::new(data);
         Ok(self)
     }
     /// Compile authored case paths once; trial parameter values never enter source queries.
@@ -184,7 +155,7 @@ impl ModelingPackage {
         let reservation = datafusion::execution::memory_pool::MemoryConsumer::new("fit:prepared")
             .register(&self.runtime.shared.pool());
         let d = self
-            .fit_data
+            .fit_declarations
             .fits
             .iter()
             .find(|d| d.fit_id == id)
@@ -394,16 +365,10 @@ impl ModelingPackage {
             .checked_add(256 * 1024)
             .ok_or_else(|| contract("fit report extent"))?;
         let mut physical_cells = 0usize;
-        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFitSourceV1);
+        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFitSourceV2);
         identity.hash(&self.physical.key);
         identity.hash(&self.revision.identity());
         let mut execution_identity = FramedHasher::new(pse_ids::Frame::ModelingFitExecutionV1);
-        for row in &self.fit_data.observations {
-            row.frame(&mut identity);
-        }
-        for row in &self.fit_data.datasets {
-            row.frame(&mut identity);
-        }
         for (ei, (e, (bindings, case, model, local))) in
             d.experiments.iter().zip(sources).enumerate()
         {
@@ -773,11 +738,15 @@ impl ModelingPackage {
             };
             for binding in local_observations {
                 let observation = self
-                    .fit_data
-                    .observations
-                    .iter()
-                    .find(|o| o.observation_id == binding.observation_id)
-                    .ok_or_else(|| contract("missing authored observation"))?;
+                    .revision
+                    .checked()
+                    .measurement(
+                        e.case_id,
+                        binding.observation_id,
+                        &binding.value_attribute,
+                        binding.standard_deviation_attribute.as_deref(),
+                    )
+                    .map_err(|error| contract(error.to_string()))?;
                 let output = ModelingOutput::Member(member(&model, &binding.output_path)?).row_id();
                 let (row, port) = match &experiment {
                     Experiment::Steady(s) => {
@@ -815,17 +784,18 @@ impl ModelingPackage {
                         (i, s.output_ports[i].clone())
                     }
                 };
-                let ty = q.quantity_type(port.quantity).map_err(math)?;
-                let conversion = pse_quantity::convert_spec_for_type(
-                    q.unit(UnitId::from_id(observation.unit_id)).map_err(math)?,
-                    q.unit(port.unit).map_err(math)?,
-                    &ty.key,
-                )
-                .map_err(math)?;
-                let value = observation
-                    .value
-                    .map(|v| v * conversion.scale + conversion.offset);
-                let sigma = observation.std_dev.map(|s| s * conversion.scale.abs());
+                if observation.quantity != port.quantity {
+                    return Err(contract(format!(
+                        "measured attribute {}.{} has quantity {}, observed output {} requires {}",
+                        binding.observation_id,
+                        binding.value_attribute,
+                        observation.quantity.as_id(),
+                        binding.output_path,
+                        port.quantity.as_id()
+                    )));
+                }
+                let value = observation.value;
+                let sigma = observation.standard_deviation;
                 if !binding.importance.is_finite()
                     || binding.importance <= 0.
                     || value.is_some_and(|v| !v.is_finite())
@@ -838,7 +808,7 @@ impl ModelingPackage {
                     ));
                 }
                 measurements.push(Measurement {
-                    id: binding.observation_id,
+                    id: binding.observation_id.as_id(),
                     experiment: ei,
                     row,
                     time: bound_times.get(&binding.observation_id).copied(),

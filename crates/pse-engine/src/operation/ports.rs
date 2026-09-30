@@ -584,7 +584,7 @@ mod integrated_performance_unit {
     use pse_columnar::CancellationToken;
     use pse_relations::{
         columnar::RelationRow,
-        generated::reference::{constants, math_context},
+        generated::{reference::math_context, runtime::solve_metrics},
     };
 
     #[test]
@@ -648,7 +648,10 @@ mod integrated_performance_unit {
     impl Producer for Fake {
         fn declarations(&self) -> BTreeMap<String, pse_ids::SemanticId> {
             BTreeMap::from([
-                ("values".into(), constants::spec(&self.registry).unwrap().id),
+                (
+                    "values".into(),
+                    solve_metrics::spec(&self.registry).unwrap().id,
+                ),
                 (
                     "empty".into(),
                     math_context::spec(&self.registry).unwrap().id,
@@ -694,21 +697,26 @@ mod integrated_performance_unit {
                         .map(datafusion::arrow::array::RecordBatch::num_rows)
                         .sum::<usize>();
                 }
-                let mut builder = constants::Row::builder(&registry, 1).unwrap();
-                constants::Row::push(
+                let mut builder = solve_metrics::Row::builder(&registry, 1).unwrap();
+                solve_metrics::Row::push(
                     &mut builder,
-                    constants::Row {
-                        constant_id: pse_ids::SemanticId::from_bytes([1; 16]),
+                    solve_metrics::Row {
+                        run_id: pse_relations::generated::identities::RunId::from_id(
+                            pse_ids::SemanticId::from_bytes([1; 16]),
+                        ),
+                        step: 0,
+                        namespace: "producer".into(),
                         name: "rows".into(),
-                        idaes_name: None,
-                        value: rows as f64,
-                        unit_id: pse_ids::SemanticId::from_bytes([2; 16]),
-                        quantity_kind_id: pse_ids::SemanticId::from_bytes([3; 16]),
-                        doc: "Synthetic producer result".into(),
+                        kind: pse_relations::generated::enums::NativeMetricKind::Real,
+                        real: Some(rows as f64),
+                        integer: None,
+                        boolean: None,
+                        text: None,
+                        unavailable: None,
                     },
                 )
                 .unwrap();
-                let values = constants::Row::finish(builder).unwrap();
+                let values = solve_metrics::Row::finish(builder).unwrap();
                 let empty = FieldCheckedBatch::concat(
                     &registry,
                     math_context::spec(&registry).unwrap(),

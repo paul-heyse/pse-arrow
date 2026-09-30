@@ -258,6 +258,39 @@ class ModelingEnvelopeGuard:
 
 
 @attrs.frozen(kw_only=True)
+class ModelingKnowledgeLineage:
+    """Declared relation row or nested value."""
+
+    kind: e.ModelingLineageKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingLineageKind))
+    target_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingKnowledgeUncertainty:
+    """Declared relation row or nested value."""
+
+    kind: e.ModelingUncertaintyKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingUncertaintyKind))
+    magnitude: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
+class ModelingKnowledgeValueNode:
+    """Declared relation row or nested value."""
+
+    kind: e.ModelingKnowledgeValueKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingKnowledgeValueKind))
+    boolean: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    integer: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+    magnitude: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    quantity_type_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    canonical_unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    reference_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    type_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    labels: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    children: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 4294967295), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class ModelingLineageEntry:
     """Declared relation row or nested value."""
 

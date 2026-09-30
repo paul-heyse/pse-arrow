@@ -262,11 +262,7 @@ impl Node {
         }
     }
     /// The quantity chain when every factor has a concrete complete type.
-    fn concrete<'a>(
-        &self,
-        context: &TypeContext<'_>,
-        indices: &'a IndexSet,
-    ) -> Option<Chain<'a>> {
+    fn concrete<'a>(&self, context: &TypeContext<'_>, indices: &'a IndexSet) -> Option<Chain<'a>> {
         let operand = |ty: &Type| match ty {
             Type::Quantity(s) => concrete(s, context).map(|quantity_type| Operand {
                 quantity_type,
@@ -1025,10 +1021,7 @@ fn declaration_environment(
         if let Some(scope) = &p.declarations[&current].value.scope {
             vars.extend(scope.type_parameters.iter().cloned());
             for a in &scope.parameters {
-                env.insert(
-                    a.name.clone(),
-                    context.resolve(&a.r#type, &vars, &env, id)?,
-                );
+                env.insert(a.name.clone(), context.resolve(&a.r#type, &vars, &env, id)?);
             }
         }
     }
@@ -1254,7 +1247,7 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
             if !matches!(p.types.get(&target), Some(Type::Continuous(..))) {
                 return Err(invalid(*id, "discretization target must be continuous"));
             }
-            if grid.scheme != "integrated" {
+            if !matches!(grid.scheme.as_str(), "integrated" | "stationary") {
                 crate::continuous::scheme(p, *id, &grid.scheme)?;
             }
             for source in [&grid.elements, &grid.order] {
@@ -1450,7 +1443,15 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                                 p.declarations[&parent].value.kind == K::Package
                             })
                         });
-                    if !explicit && !immutable {
+                    let physical = (1..=path.segments.len()).any(|end| {
+                        let name = path.segments[..end]
+                            .iter()
+                            .map(|s| s.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(".");
+                        p.physical_name(*id, &name).is_some()
+                    });
+                    if !explicit && !immutable && !physical {
                         return Err(invalid(
                             *id,
                             "pure function requires explicit runtime arguments or immutable package data",
@@ -1675,7 +1676,9 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
         }
         // A kind's requirement binds its entity and attributes; entity admission types it
         // (Plan 23 D0).
-        let kind_requirement = row.parent_id.is_some_and(|parent| p.kinds.contains_key(&parent));
+        let kind_requirement = row
+            .parent_id
+            .is_some_and(|parent| p.kinds.contains_key(&parent));
         for source in row
             .value
             .guard

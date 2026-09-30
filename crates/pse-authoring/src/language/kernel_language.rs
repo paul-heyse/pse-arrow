@@ -19,9 +19,9 @@ fn roundtrip_all_declarations_and_explicit_identity() {
  use other @ "1.0.0";
  identifier scheme cas;
  entity kind component { attribute mass: Mass; attribute cas: Id<cas>? = missing; attribute tags: Set<Choice> = {first}; attribute symbol: Text? unique; derived double: Mass unique = 2*mass; require mass > 0{kg} : "positive"; }
- entity kind parameter_set { key subject: component; key variant: Integer = 1; attribute cp: Fn(x: Mass)->Mass; attribute low: Temperature; attribute high: Temperature; envelope T: Temperature in low..high; }
+ entity kind parameter_set abstract { key subject: component by cas; key variant: Integer = 1; attribute cp: Fn(x: Mass)->Mass; attribute low: Temperature storage {K}; attribute high: Temperature storage {K}; envelope T: Temperature in low..high; }
  entity kind linear extends parameter_set { attribute slope: Scalar = 0.5 ± relative(0.01); cp = identity; }
- entity component a { mass = 2{kg}, cas = Id<cas>("71-43-2") }
+ entity component a provenance(upstream, Role.published) { mass = 2{kg} provenance(upstream, Role.fitted, lineage(dataset values)), cas = Id<cas>("71-43-2") }
  enum Choice { first, @id("0123456789abcdef0123456789abcdef") second }
  entity kind source provenance { attribute title: Text; }
  entity kind release extends source { attribute version: Text; }
@@ -63,6 +63,7 @@ fn roundtrip_all_declarations_and_explicit_identity() {
  collocation radau alpha(1) beta(0) right(true);
  difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0.5,0.5);
  discretize time_mesh on time using radau(elements = 5, order = 3);
+ evolve temporal_state on c using time bind times;
  realize density_policy on density using nested;
  realize accelerated_policy on density using accelerated("cubic_roots");
  relax feasibility on residual nominal 1{kg};
@@ -88,15 +89,30 @@ fn roundtrip_all_declarations_and_explicit_identity() {
     assert!(!attribute("mass").unique);
     // ADR-0125: a dataset names its data document; keys, columns and values declare how a
     // document stores them.
-    let banked = rows.iter().find_map(|r| r.value.dataset.as_ref().filter(|d| d.document.is_some())).unwrap();
-    assert_eq!((banked.document.as_deref(), banked.rows.len()), (Some("data/bank.parquet"), 0));
+    let banked = rows
+        .iter()
+        .find_map(|r| r.value.dataset.as_ref().filter(|d| d.document.is_some()))
+        .unwrap();
+    assert_eq!(
+        (banked.document.as_deref(), banked.rows.len()),
+        (Some("data/bank.parquet"), 0)
+    );
     let storage = |name: &str| {
-        rows.iter().find(|r| r.name == name).and_then(|r| r.value.table.as_ref()).unwrap().storage.iter()
-            .map(|e| (
-                e.name.clone(),
-                e.storage_unit.as_ref().map(|u| u.iter().map(|f| f.symbol.clone()).collect::<Vec<_>>()),
-                e.scheme.clone(),
-            ))
+        rows.iter()
+            .find(|r| r.name == name)
+            .and_then(|r| r.value.table.as_ref())
+            .unwrap()
+            .storage
+            .iter()
+            .map(|e| {
+                (
+                    e.name.clone(),
+                    e.storage_unit
+                        .as_ref()
+                        .map(|u| u.iter().map(|f| f.symbol.clone()).collect::<Vec<_>>()),
+                    e.scheme.clone(),
+                )
+            })
             .collect::<Vec<_>>()
     };
     assert_eq!(
@@ -118,26 +134,72 @@ fn roundtrip_all_declarations_and_explicit_identity() {
     use pse_model::generated::enums::{
         ExtrapolationPolicy, ModelingEnvelopeExtent, ModelingValidityLayer,
     };
-    let band = rows.iter().find_map(|r| r.value.table.as_ref().filter(|t| !t.envelopes.is_empty())).unwrap();
+    let band = rows
+        .iter()
+        .find_map(|r| r.value.table.as_ref().filter(|t| !t.envelopes.is_empty()))
+        .unwrap();
     assert_eq!(
-        band.envelopes.iter().map(|e| (e.name.as_str(), e.lower.as_str(), e.upper.as_str())).collect::<Vec<_>>(),
+        band.envelopes
+            .iter()
+            .map(|e| (e.name.as_str(), e.lower.as_str(), e.upper.as_str()))
+            .collect::<Vec<_>>(),
         [("T", "low", "high"), ("P", "plow", "phigh")]
     );
-    let guards = &rows.iter().find_map(|r| r.value.function.as_ref().filter(|f| !f.guards.is_empty())).unwrap().guards;
+    let guards = &rows
+        .iter()
+        .find_map(|r| r.value.function.as_ref().filter(|f| !f.guards.is_empty()))
+        .unwrap()
+        .guards;
     assert_eq!(
-        guards.iter().map(|g| (g.carrier.as_str(), g.envelope.as_str(), g.extent, g.arguments.clone())).collect::<Vec<_>>(),
+        guards
+            .iter()
+            .map(|g| (
+                g.carrier.as_str(),
+                g.envelope.as_str(),
+                g.extent,
+                g.arguments.clone()
+            ))
+            .collect::<Vec<_>>(),
         [
-            ("p", "T", ModelingEnvelopeExtent::Interval, vec!["T0".to_owned(), "T".to_owned()]),
-            ("p", "P", ModelingEnvelopeExtent::Point, vec!["P".to_owned()]),
-            ("s", "T", ModelingEnvelopeExtent::Point, vec!["T".to_owned()]),
+            (
+                "p",
+                "T",
+                ModelingEnvelopeExtent::Interval,
+                vec!["T0".to_owned(), "T".to_owned()]
+            ),
+            (
+                "p",
+                "P",
+                ModelingEnvelopeExtent::Point,
+                vec!["P".to_owned()]
+            ),
+            (
+                "s",
+                "T",
+                ModelingEnvelopeExtent::Point,
+                vec!["T".to_owned()]
+            ),
         ]
     );
-    assert!(rows.iter().any(|r| r.name == "T" && r.value.envelope.as_ref().is_some_and(|e| (e.lower.as_str(), e.upper.as_str()) == ("low", "high"))));
-    let selections = rows.iter().filter_map(|r| r.value.extrapolation.as_ref()).map(|e| (e.layer, e.policy)).collect::<Vec<_>>();
+    assert!(rows.iter().any(|r| {
+        r.name == "T"
+            && r.value
+                .envelope
+                .as_ref()
+                .is_some_and(|e| (e.lower.as_str(), e.upper.as_str()) == ("low", "high"))
+    }));
+    let selections = rows
+        .iter()
+        .filter_map(|r| r.value.extrapolation.as_ref())
+        .map(|e| (e.layer, e.policy))
+        .collect::<Vec<_>>();
     assert_eq!(
         selections,
         [
-            (ModelingValidityLayer::Data, ExtrapolationPolicy::Extrapolate),
+            (
+                ModelingValidityLayer::Data,
+                ExtrapolationPolicy::Extrapolate
+            ),
             (ModelingValidityLayer::Data, ExtrapolationPolicy::Reject),
         ]
     );
@@ -152,7 +214,13 @@ fn roundtrip_all_declarations_and_explicit_identity() {
         "package p { def D { extrapolation everywhere extrapolate; } }",
     ] {
         assert!(
-            parse(malformed, SemanticId::NIL, IdentityPolicy::Named, ParseBudget::default()).is_err(),
+            parse(
+                malformed,
+                SemanticId::NIL,
+                IdentityPolicy::Named,
+                ParseBudget::default()
+            )
+            .is_err(),
             "{malformed}"
         );
     }
@@ -549,6 +617,14 @@ fn fixture_policy_parses_and_renders() {
         (None, None, None, None)
     );
     assert!(roundtrip(&rows).contains("policy { presolve auto; }"));
+    let rows = parse_named(&source(
+        "policy { options { \"presolving/maxrounds\" = 0; \"enabled\" = false; \"factor\" = 1e-3; \"method\" = \"default\"; }; }",
+    ));
+    assert_eq!(
+        fixture(&rows).policy.as_ref().unwrap().native_options.len(),
+        4
+    );
+    assert!(roundtrip(&rows).contains("\"presolving/maxrounds\" = 0;"));
     // Control: without the clause the fixture carries no policy and prints none.
     let rows = parse_named(&source(""));
     assert_eq!(fixture(&rows).policy, None);
@@ -558,19 +634,51 @@ fn fixture_policy_parses_and_renders() {
 #[test]
 fn kernel_conformance_refuses_unknown_fixture_policy_setting() {
     for (policy, at, expected) in [
-        ("policy { time_limit(600); }", "time_limit", "backend, presolve, derivatives or limits"),
-        ("policy { backend ipopt; backend kinsol; }", "backend kinsol", "one backend setting"),
+        (
+            "policy { time_limit(600); }",
+            "time_limit",
+            "backend, presolve, derivatives, limits or options",
+        ),
+        (
+            "policy { backend ipopt; backend kinsol; }",
+            "backend kinsol",
+            "one backend setting",
+        ),
         ("policy { backend newton; }", "newton", "native backend"),
         ("policy { presolve explicit; }", "explicit", "auto or off"),
-        ("policy { derivatives step(1e-9) step(1e-6); }", "step(1e-6)", "one step option"),
-        ("policy { derivatives cells(-1); }", "-1", "nonnegative integer"),
+        (
+            "policy { derivatives step(1e-9) step(1e-6); }",
+            "step(1e-6)",
+            "one step option",
+        ),
+        (
+            "policy { derivatives cells(-1); }",
+            "-1",
+            "nonnegative integer",
+        ),
         ("policy { derivatives step(small); }", "small", "number"),
         ("policy { derivatives; }", ";", "step, tolerance, cells"),
-        ("policy { limits members(10); }", "members", "items, body_occurrences, body_slots, foreign_bytes"),
-        ("policy { limits foreign_bytes(1024) foreign_bytes(2048); }", "foreign_bytes(2048)", "one foreign_bytes option"),
-        ("policy { limits foreign_bytes(-1); }", "-1", "nonnegative integer"),
+        (
+            "policy { limits members(10); }",
+            "members",
+            "items, body_occurrences, body_slots, foreign_bytes",
+        ),
+        (
+            "policy { limits foreign_bytes(1024) foreign_bytes(2048); }",
+            "foreign_bytes(2048)",
+            "one foreign_bytes option",
+        ),
+        (
+            "policy { limits foreign_bytes(-1); }",
+            "-1",
+            "nonnegative integer",
+        ),
         ("policy { }", "}", "a fixture policy setting"),
-        ("policy { presolve off; } policy { presolve auto; }", "policy { presolve auto", "one fixture policy"),
+        (
+            "policy { presolve off; } policy { presolve auto; }",
+            "policy { presolve auto",
+            "one fixture policy",
+        ),
     ] {
         let text = format!(
             "package p {{ def D {{ var x: Scalar; }} test t fixture {{ dof 0; run steady; {policy} }} {{ child root: D = D(); }} }}"
@@ -925,10 +1033,7 @@ fn import_requirement_is_typed() {
     use pse_model::generated::enums::ModelingVersionOperator as Operator;
     for written in ["\"1.2.3\"", "\"=1.2.3\""] {
         let rows = parse_named(&format!("package p {{ use other @{written} as o; }}"));
-        let import = rows
-            .iter()
-            .find_map(|r| r.value.import.clone())
-            .unwrap();
+        let import = rows.iter().find_map(|r| r.value.import.clone()).unwrap();
         assert_eq!(
             (
                 import.version.operator,
@@ -939,7 +1044,11 @@ fn import_requirement_is_typed() {
             ),
             (Operator::Exact, 1, 2, 3, Some("o"))
         );
-        assert!(render(&rows).unwrap().contains("use other @ \"1.2.3\" as o;"));
+        assert!(
+            render(&rows)
+                .unwrap()
+                .contains("use other @ \"1.2.3\" as o;")
+        );
     }
     assert_eq!(Operator::ALL.map(Operator::as_str), ["exact"]);
     for refused in ["\"^1.0\"", "\"1.0.0-rc.1\"", "\"latest\"", "\">=1.0.0\""] {
@@ -991,7 +1100,10 @@ fn annotation_kinds_parse_typed_members() {
     );
     let of = |kind| annotations.iter().find(|a| a.kind == kind).unwrap();
     assert_eq!(of(A::Valid).arguments, ["0{kg}", "5{kg}"]);
-    assert_eq!(of(A::Valid).extrapolation, Some(ExtrapolationPolicy::Extrapolate));
+    assert_eq!(
+        of(A::Valid).extrapolation,
+        Some(ExtrapolationPolicy::Extrapolate)
+    );
     assert_eq!(
         (of(A::Scale).arguments.len(), of(A::Scale).scheme),
         (0, Some(ConstraintScalingScheme::InverseSum))
@@ -1008,7 +1120,10 @@ fn annotation_kinds_parse_typed_members() {
     }
     assert_eq!(
         rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
-        parse_named(&printed).iter().map(|r| &r.value).collect::<Vec<_>>()
+        parse_named(&printed)
+            .iter()
+            .map(|r| &r.value)
+            .collect::<Vec<_>>()
     );
     for invalid in [
         "package p { def D { annotation clamp x(1); } }",
@@ -1111,13 +1226,25 @@ mod relations {
     /// where it is written.
     #[test]
     fn integer_range_keys_parse_as_bounds() {
-        let rows = parse_named("package p { table kappa[f: k, j: -1..2, n: 0..0]: Scalar complete_over(f, j in -1..2, n) missing required; }");
+        let rows = parse_named(
+            "package p { table kappa[f: k, j: -1..2, n: 0..0]: Scalar complete_over(f, j in -1..2, n) missing required; }",
+        );
         let table = rows[1].value.table.clone().unwrap();
         assert_eq!(
-            table.keys.iter().map(|k| k.range.as_ref().map(|r| (r.lower, r.upper))).collect::<Vec<_>>(),
+            table
+                .keys
+                .iter()
+                .map(|k| k.range.as_ref().map(|r| (r.lower, r.upper)))
+                .collect::<Vec<_>>(),
             [None, Some((-1, 2)), Some((0, 0))]
         );
-        assert_eq!(table.complete_over[1].range.as_ref().map(|r| (r.lower, r.upper)), Some((-1, 2)));
+        assert_eq!(
+            table.complete_over[1]
+                .range
+                .as_ref()
+                .map(|r| (r.lower, r.upper)),
+            Some((-1, 2))
+        );
         assert!(table.complete_over[0].set.is_none() && table.complete_over[0].range.is_none());
         let error = parse(
             "package p { table t[k: 2..1]: Scalar; }",

@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("37958c8b41f8422aa4cc866fc68b82bf") package vessel_measurements {
+@id("bb8fa90a46754aa2a3210ede86eac61a") use provenance @"1.0.0";
+@id("4e353905d12355358aba9e599823fb30") entity provenance.source analytic {title="Closed inventory analytic balance U(t)=1202.3168203660216 J + 10 W*t, and direct heat observation 10 W. Synthetic standard uncertainties 1 J and 1 W. No statistical coverage claim."}
+@id("a00a1089d6fa4cf586e31697712f2fcf") entity kind power_reading {
+@id("64e1207d1d634b1e8e596b3b3ea72cda") attribute value:Power;
+}
+@id("def04b11ba57409891142ef2a880b42a") entity kind energy_reading {
+@id("6477ac3a72f5420db4839ef7faafbdd1") attribute value:Energy;
+}
+@id("cc754cdf034d5f3eaf87909ed6dbf09c") entity power_reading sample0 provenance(analytic,provenance.Role.measured) {value=10.0{W} ± standard(1.0)}
+@id("3523f2ab606e55f0bb2868728fe91ec2") entity energy_reading sample1 provenance(analytic,provenance.Role.measured) {value=1212.3168203660216{J} ± standard(1.0)}
+@id("48f3414cc55e532a87d829ad6e469fa2") entity power_reading sample2 provenance(analytic,provenance.Role.measured) {value=10.0{W} ± standard(1.0)}
+@id("ffa96ecb83275875a48c1e7c623cde2c") entity energy_reading sample3 provenance(analytic,provenance.Role.measured) {value=1212.3168203660216{J} ± standard(1.0)}
+@id("60a142a025e55f3da898c629281a51ef") entity energy_reading sample4 provenance(analytic,provenance.Role.measured) {value=1212.3168203660216{J} ± standard(1.0)}
+}

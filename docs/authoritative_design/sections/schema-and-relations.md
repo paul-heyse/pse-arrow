@@ -609,10 +609,12 @@ integrators consume them as described in
 [§13.5](workflows-and-results.md#section-13-5)–[§13.6](workflows-and-results.md#section-13-6);
 the runtime- and Python-only mode and event inputs are removed.
 
-`authored.datasets` and `authored.observations` supply measurements. `authored.fit_cases`
-binds authored modeling experiments and source paths to the existing sparse fitting engine.
-Null measurements remain absent. Targets resolve through the admitted model, including
-indexed membership; the legacy template target parser and `dynamic_cases` are removed.
+Measured-role modeling entities or relation rows supply typed measurement attributes and
+canonical standard deviations. `authored.fit_cases` selects their declaration identities
+and value attributes, and binds authored experiments and prediction paths to the existing
+sparse fitting engine. Missing measurements remain absent. The replaced
+`authored.datasets` and `authored.observations` relations are removed. Targets resolve
+through the admitted model, including indexed membership.
 Studies and sequences keep each requested solve and its observations distinct (§19).
 
 ### 6.11 Numerical requirements and native algorithm signatures
@@ -718,7 +720,7 @@ guards. Unresolved configuration refuses rather than selecting a default. Finite
 and body construction have explicit resource policies; exhaustion never silently truncates
 a model.
 
-**Structured IR.** `authored.modeling_declarations` version 9 stores every type as a
+**Structured IR.** `authored.modeling_declarations` version 20 stores every type as a
 post-order arena (`ModelingTypeArenaNode`): each node's children precede it, and the last
 node is the root. Parameter, argument, binding, return, table key, column and value,
 accumulator and continuous types all use it. The registry enum `ModelingTypeNode` names the

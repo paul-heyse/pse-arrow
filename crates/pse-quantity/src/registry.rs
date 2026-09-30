@@ -590,7 +590,9 @@ impl QuantityRegistry {
     }
     /// Every declared physical name, in name order.
     pub fn physical_names(&self) -> impl ExactSizeIterator<Item = (&str, PhysicalName)> {
-        self.by_name.iter().map(|(name, value)| (name.as_str(), *value))
+        self.by_name
+            .iter()
+            .map(|(name, value)| (name.as_str(), *value))
     }
     /// A typed reference condition's value in its quantity type's canonical unit.
     ///
@@ -615,7 +617,13 @@ impl QuantityRegistry {
         let declared = self
             .quantity_types
             .values()
-            .filter_map(|ty| Some((ty.name.as_deref()?, PhysicalName::QuantityType(ty.id), ty.id.as_id())))
+            .filter_map(|ty| {
+                Some((
+                    ty.name.as_deref()?,
+                    PhysicalName::QuantityType(ty.id),
+                    ty.id.as_id(),
+                ))
+            })
             .chain(self.reference_states.values().map(|state| {
                 (
                     state.name.as_str(),
@@ -869,7 +877,11 @@ impl QuantityRegistry {
                 "difference is reserved for origin-sensitive kinds",
             )?;
             let mut result = false;
-            for ty in self.quantity_types.values().filter(|ty| ty.key.kind == kind.id) {
+            for ty in self
+                .quantity_types
+                .values()
+                .filter(|ty| ty.key.kind == kind.id)
+            {
                 require(
                     ty.canonical_unit == definition.canonical_unit,
                     "quantity_kind.canonical_unit",
@@ -880,7 +892,9 @@ impl QuantityRegistry {
                     && ty.key.scale_kind == definition.scale_kind
                     && ty.key.shape.is_empty()
                     && ty.key.subject_kind == definition.subject_kind
-                    && definition.basis.is_none_or(|basis| ty.key.basis == Some(basis));
+                    && definition
+                        .basis
+                        .is_none_or(|basis| ty.key.basis == Some(basis));
             }
             require(
                 result,
@@ -1182,13 +1196,12 @@ fn admit_defined(
                 unit.id.as_id(),
                 &format!("a defined unit's identity is its product identity {derived}"),
             )?;
-            let (dimension, scale_to_canonical) =
-                crate::unit::derived_measure(&factors, |id| {
-                    atomic.get(&id).ok_or(QuantityError::UnknownId {
-                        kind: "unit",
-                        id: id.as_id(),
-                    })
-                })?;
+            let (dimension, scale_to_canonical) = crate::unit::derived_measure(&factors, |id| {
+                atomic.get(&id).ok_or(QuantityError::UnknownId {
+                    kind: "unit",
+                    id: id.as_id(),
+                })
+            })?;
             Ok(Unit {
                 id: unit.id,
                 symbol: unit.symbol,

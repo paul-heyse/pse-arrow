@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e18b78db742e8fd36e110ff14989") package equilibrium {
+@id("01a0f1955e96736397df7b58f77f6f9c") use compatibility @"1.0.0";
+@id("01a0f14ead4e761899b3c3a9dc2b6f7f") use constants @"1.0.0";
 @id("01a0ede58ecf75039afc471668012ddd") use chemistry @"1.0.0";
 @id("01a0e18b78db742e8fd36e1308c99e5c") use math @"1.0.0";
 @id("01a0e18b78db742e8fd36e14a5a5f8b3") use caloric @"1.0.0";
@@ -9,7 +11,7 @@
 @id("56a9a222e4c048fc8c76aa9017ae3413") fn component_flow_unit()->ComponentFlow=1{mol/s};
 @id("4695e4aa4fc843eba60c3a122a932b9c") fn flow_unit()->Flow=1{mol/s};
 @id("01a0e18b78db742e8fd36e16de242b6d") fn fraction_unit()->MoleFraction=1{1};
-@id("01a0e1ad3a7f706c8439ef48ad021285") fn log_fugacity(x:MoleFraction,pure_fugacity:Pressure)->Scalar=log(x/fraction_unit())+log(pure_fugacity/pure_properties.pressure_unit());
+@id("01a0e1ad3a7f706c8439ef48ad021285") fn log_fugacity(x:MoleFraction,pure_fugacity:Pressure)->Scalar=log(x/fraction_unit())+log(pure_fugacity/constants.pressure_unit);
 @id("01a0e18b78db742e8fd36e17b5a6be89") interface MaterialState {
 @id("01a0e1db89d8722baac398bf7f110f21") param defined:Boolean=true;
 @id("01a0e18b78db742e8fd36e18c7e3ae74") param components:Set<chemistry.species>;
@@ -51,7 +53,7 @@
 @id("01a0e18b78db742e8fd36e2f9415a08c") var bubble:Temperature;
 @id("01a0e18b78db742e8fd36e30344c517f") var dew:Temperature;
 @id("01a0e18b78db742e8fd36e310fe29b12") var equilibrium_temperature:Temperature;
-@id("01a0e18b78db742e8fd36e326c35c691") eq bubble_point:sum(j in components | z[j]/fraction_unit()*(psat(bubble,j)/pure_properties.pressure_unit()))==pressure/pure_properties.pressure_unit();
+@id("01a0e18b78db742e8fd36e326c35c691") eq bubble_point:sum(j in components | z[j]/fraction_unit()*(psat(bubble,j)/constants.pressure_unit))==pressure/constants.pressure_unit;
 @id("01a0e18b78db742e8fd36e33e2347c1d") eq dew_point:sum(j in components | z[j]/fraction_unit()*(pressure/psat(dew,j)))==1;
 @id("01a0e18b78db742e8fd36e34de742536") eq equilibrium_temperature_binding:equilibrium_temperature==math.smooth_min(math.smooth_max(T,bubble,epsilon_bubble),dew,epsilon_dew);
 @id("01a0e19bbec57004aabdabb974cf6de8") let initial_K[j in components]:Scalar=psat(T,j)/pressure;
@@ -147,7 +149,6 @@
 @id("4f53a191e0ac432b80a68cdb5806334a") realize liquid_realization on liquid_disappearance using penalty(l1);
 @id("72ec4b9d05c64c6fae63704237cd02a3") realize vapor_realization on vapor_disappearance using penalty(l1);
 }
-@id("01a0e1971f9075519925980c1db041c9") fn enthalpy_datum()->MolarEnthalpy=0{J/mol};
 @id("01a0e1db89d774f6b2eec0873293f7a4") interface ThermoPackage extends MaterialState {
 @id("ba9aee1d2f2545f681e4e11603c10e4f") let phase_enthalpy[p in phases]:MolarEnthalpy;
 @id("1a4771793c444fb48d4f61dcd9f74b98") let phase_energy_flow[p in phases]:Power=phase_flow[p]*phase_enthalpy[p];
@@ -158,15 +159,18 @@
 @id("01a0e1db89d774f6b2eec088e3c2ac5b") let energy_flow:Power=flow*h;
 }
 @id("01a0e1971f9075519925980d433ab742") interface EquilibriumThermoPackage extends SmoothVLE,ThermoPackage {
-@id("d7f2b6e8992440dfb04edcf868375ecd") let phase_enthalpy[p in phases]:MolarEnthalpy=if p==chemistry.liquid then h_liquid else h_vapor;
-@id("e35c912ebc5541b590703da681ccbe68") override param phases:Set<chemistry.phase>={chemistry.liquid,chemistry.vapor};
-@id("fbaa44f3b30b474f8aac6758b0d54f70") let phase_flow[p in phases]:Flow=if p==chemistry.liquid then liquid_flow else vapor_flow;
-@id("4f5d3eeebb87436c90f556fb9937bb98") let phase_component_flow[p in phases,j in components]:ComponentFlow=phase_flow[p]*(if p==chemistry.liquid then x[j] else y[j]);
+@id("01a0f195c3f4775da30eb8fc2b964ff4") param liquid_phase:chemistry.phase=chemistry.liquid;
+@id("01a0f195c3f4775da30eb8fdc0cdb610") param vapor_phase:chemistry.phase=chemistry.vapor;
+@id("01a0f195c3f4775da30eb8fe2c7e746b") require liquid_phase.type==compatibility.PhaseType.liquidPhase and vapor_phase.type==compatibility.PhaseType.vaporPhase : "the two phase slots have their declared phase types";
+@id("d7f2b6e8992440dfb04edcf868375ecd") let phase_enthalpy[p in phases]:MolarEnthalpy=if p==liquid_phase then h_liquid else h_vapor;
+@id("e35c912ebc5541b590703da681ccbe68") override param phases:Set<chemistry.phase>={liquid_phase,vapor_phase};
+@id("fbaa44f3b30b474f8aac6758b0d54f70") let phase_flow[p in phases]:Flow=if p==liquid_phase then liquid_flow else vapor_flow;
+@id("4f5d3eeebb87436c90f556fb9937bb98") let phase_component_flow[p in phases,j in components]:ComponentFlow=phase_flow[p]*(if p==liquid_phase then x[j] else y[j]);
 @id("01a0e1971f9075519925980eee091dae") param liquid_enthalpy:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy;
 @id("01a0e1971f9075519925980f4248144b") param vapor_enthalpy:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy;
-@id("01a0e1971f90755199259810f02e67ef") let h_liquid:MolarEnthalpy=enthalpy_datum()+sum(j in components | (x[j]/fraction_unit())*(liquid_enthalpy(T,j)-enthalpy_datum()));
-@id("01a0e1971f9075519925981122f9c576") let h_vapor:MolarEnthalpy=enthalpy_datum()+sum(j in components | (y[j]/fraction_unit())*(vapor_enthalpy(T,j)-enthalpy_datum()));
-@id("01a0e1971f9075519925981361bc4e59") eq enthalpy_binding:h==enthalpy_datum()+(1-beta)*(h_liquid-enthalpy_datum())+beta*(h_vapor-enthalpy_datum());
+@id("01a0e1971f90755199259810f02e67ef") let h_liquid:MolarEnthalpy=constants.standard_enthalpy_datum+sum(j in components | (x[j]/fraction_unit())*(liquid_enthalpy(T,j)-constants.standard_enthalpy_datum));
+@id("01a0e1971f9075519925981122f9c576") let h_vapor:MolarEnthalpy=constants.standard_enthalpy_datum+sum(j in components | (y[j]/fraction_unit())*(vapor_enthalpy(T,j)-constants.standard_enthalpy_datum));
+@id("01a0e1971f9075519925981361bc4e59") eq enthalpy_binding:h==constants.standard_enthalpy_datum+(1-beta)*(h_liquid-constants.standard_enthalpy_datum)+beta*(h_vapor-constants.standard_enthalpy_datum);
 @id("01a0e1971f907551992598147f124064") annotation start h(50000{J/mol});
 @id("01a0e1971f907551992598150db963e1") annotation nominal h(50000{J/mol});
 @id("01a0e1971f9075519925981681c3d748") annotation start T(bubble_start+(dew_start-bubble_start)/2);
@@ -177,5 +181,4 @@
 @id("60dd59149a4147eea537f55651a41240") interface EntropyThermoPackage extends ThermoPackage {
 @id("76271ec7559245fd85acb649a5256ba9") let s:MolarEntropy;
 }
-@id("01a0e1b4f60e71eab3418879641baa89") fn entropy_datum()->MolarEntropy=0{J/(mol*K)};
 }

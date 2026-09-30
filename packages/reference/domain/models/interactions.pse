@@ -10,11 +10,11 @@
 @id("01a0f00c1fbc7251b799a7aca85d29ea") use provenance @"1.0.0";
 // One source's value of a symmetric pair property for two distinct species, written once per
 // unordered pair; either order reads it.
-@id("01a0f00c1fbc7251b799a7adb78eefe6") table pair[s: provenance.source, p: properties.property, i: chemistry.species, j: chemistry.species]: Scalar symmetric(i, j) diagonal excluded complete_over(s, p, i, j) require p.shape == properties.IndexShape.pair;
+@id("01a0f00c1fbc7251b799a7adb78eefe6") table pair[s: provenance.source, p: properties.property, i: chemistry.species, j: chemistry.species]: Scalar symmetric(i, j) diagonal excluded missing optional require p.shape == properties.IndexShape.pair;
 // The source of a package's pair or group data for one property. A lookup without a row is
 // refused, naming the package and the property.
 @id("01a0f00c1fbc7251b799a7aee600e53a") table pair_selection[k: properties.property_package, p: properties.property]: provenance.source complete_over(k, p) require p.shape != properties.IndexShape.pure;
-@id("01a0f00c1fbc7251b799a7aff055a612") fn pair_parameter(k: properties.property_package, p: properties.property, i: chemistry.species, j: chemistry.species) -> Scalar = pair[pair_selection[k, p], p, i, j];
+@id("01a0f00c1fbc7251b799a7aff055a612") fn pair_parameter(k: properties.property_package, p: properties.property, i: chemistry.species, j: chemistry.species) -> Scalar valid(i==j or present(pair[pair_selection[k,p],p,i,j]) or absence_policy[k,p]==PairAbsence.predictiveZero) = if i==j then 0 else if present(pair[pair_selection[k,p],p,i,j]) then pair[pair_selection[k,p],p,i,j] else 0;
 // Group contribution: main groups, their subgroups with volume and surface parameters, and the
 // subgroup counts of each species.
 @id("01a0f00c1fbc7251b799a7b0f3d2041b") entity kind main_group {}
@@ -24,4 +24,8 @@
 @id("01a0f00c1fbc7251b799a7b45def587b") attribute q: Scalar;
 }
 @id("01a0f00c1fbc7251b799a7b53a61c973") table group_count[j: chemistry.species, g: subgroup]: Count missing default 0{1};
+@id("3379d9c4dd2646aebb059936d089defa") enum PairAbsence { @id("1ae66c31e688467fb6284a0bee239953") required, @id("31a8d2c1fda4475d8bea4ed1351efd66") predictiveZero }
+@id("a523ca0ee21d46509b92c25536f13711") table absence_policy[k:properties.property_package,p:properties.property]:PairAbsence complete_over(k,p) require p.shape==properties.IndexShape.pair;
+@id("5216f78e204c433d8c48cdec53212541") table pair_method[k:properties.property_package,p:properties.property]:Fn(k:properties.property_package,p:properties.property,i:chemistry.species,j:chemistry.species)->Scalar complete_over(k,p);
+@id("d8692641f7e043738db32c3a75677a2e") fn selected_pair(k:properties.property_package,p:properties.property,i:chemistry.species,j:chemistry.species)->Scalar=pair_method[k,p](k,p,i,j);
 }

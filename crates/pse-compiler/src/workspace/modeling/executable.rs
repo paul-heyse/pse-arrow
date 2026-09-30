@@ -12,10 +12,10 @@ mod derived;
 mod factorable;
 mod grouped;
 mod implicit;
-mod solve;
 #[cfg(test)]
 #[path = "executable/projection_tests.rs"]
 mod projection_tests;
+mod solve;
 pub use conformance::{ModelingExpectationResult, ModelingPointChecks, ModelingValidityResult};
 pub use derived::{Derivation, Derived};
 pub use implicit::{AdmittedImplicit, ImplicitAlgorithm, ImplicitScale};

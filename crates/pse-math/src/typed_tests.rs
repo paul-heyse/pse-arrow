@@ -439,7 +439,12 @@ fn formal_pool_extends_to_the_declared_limit_and_refuses_beyond() {
                 occurrences: 16384,
             },
         )?;
-        let x = builder.input(inputs - 1, ids::quantity("neutral"), IndexSet::new(), source())?;
+        let x = builder.input(
+            inputs - 1,
+            ids::quantity("neutral"),
+            IndexSet::new(),
+            source(),
+        )?;
         builder.prepare(&[x])
     };
     assert!(matches!(
@@ -462,7 +467,10 @@ fn formal_pool_extends_to_the_declared_limit_and_refuses_beyond() {
     assert_eq!(body.occurrence_count(), 1);
     // The pool grew in whole chunks to cover the declared allowance.
     let pool = crate::library::formal_pool_len().unwrap();
-    assert!(pool >= declared && pool % FORMAL_CHUNK == 0, "{pool}");
+    assert!(
+        pool >= declared && pool.is_multiple_of(FORMAL_CHUNK),
+        "{pool}"
+    );
     let mut values = vec![0.0; inputs];
     values[inputs - 1] = 2.5;
     let jet = body
@@ -498,7 +506,9 @@ fn formal_symbols_are_stable_across_pool_extension() {
     // Concurrent first requests beyond the pool extend it once, in its fixed order.
     let far = 3 * FORMAL_CHUNK + 7;
     let jobs: Vec<_> = (0..4)
-        .map(|i| std::thread::spawn(move || (formal_symbol(far - i), formal_symbol(FORMAL_CHUNK + i))))
+        .map(|i| {
+            std::thread::spawn(move || (formal_symbol(far - i), formal_symbol(FORMAL_CHUNK + i)))
+        })
         .collect();
     let extended: Vec<_> = jobs.into_iter().map(|job| job.join().unwrap()).collect();
     for (i, (far_symbol, next_symbol)) in extended.into_iter().enumerate() {

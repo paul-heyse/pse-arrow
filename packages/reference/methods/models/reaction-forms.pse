@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("cf22e8f48d1649e896cfe836814372ab") package reaction_forms {
+@id("84abf9e94745461d925fabf7be5c24ca") use chemistry @"1.0.0";
+@id("af4f0db8ed794f9393d124f8773704a1") use provenance @"1.0.0";
+@id("32511987de27489a9647ab74127a63fd") use constants @"1.0.0";
+@id("4ff4acf6bb374d99a3d6faa8356a3ad0") entity kind reaction_set abstract {
+@id("8ac3e195febe4636b458140d74ea4b93") key reaction:chemistry.reaction;
+@id("93a8483ef9ed47f9b684d5773b8cfecb") key source:provenance.source;
+@id("0faba70407fa42b49314a1b5c071ee9e") key variant:Integer = 1;
+@id("2cf3ef0d25754e93a8ab6c816c4f34c3") attribute k0:SecondOrderRateConstant storage {m^3/(mol*s)};
+@id("da91d7c9f2b04e87a4cdb4742d2848bf") attribute E:ActivationEnergy storage {J/mol};
+@id("ee644305645f483a95ef93b62a9314b1") attribute heat:ReactionHeat storage {J/mol};
+@id("158d4696f6cd4d5a9d353d22f36b8823") attribute first:chemistry.species;
+@id("2769d61d98ff45f7b7baa0053e513661") attribute second:chemistry.species;
+@id("75fa3701baa54bf68248a1b8d159cc29") attribute rate_constant:Fn(T:Temperature,s:reaction_set)->SecondOrderRateConstant;
+@id("bb667303fc5c43dab2820d6f2862b2dd") require k0>=0{m^3/(mol*s)} and E>=0{J/mol}:"Arrhenius prefactor and activation energy are nonnegative";
+}
+@id("2ac7dec2ee3f43a085cb425a69566de7") entity kind arrhenius_second_order extends reaction_set {
+@id("19001649b1d548d595ad32a13d1e7b89") rate_constant=arrhenius;
+}
+@id("d1bed15ec6a244798894c11e852dbc58") constant activation_energy_unit:ActivationEnergy=1{J/mol} provenance(constants.codata_2018,provenance.Role.published);
+@id("8f5112417b6d446c9c880acc3ab3dc21") constant rate_constant_unit:SecondOrderRateConstant=1{m^3/(mol*s)} provenance(constants.codata_2018,provenance.Role.published);
+@id("0f63d0648159494e928778796900676c") constant volumetric_rate_unit:VolumetricReactionRate=1{mol/(m^3*s)} provenance(constants.codata_2018,provenance.Role.published);
+@id("0201ef420b6245c3bb829f0fac6abe19") constant concentration_unit:MolarDensity=1{mol/m^3} provenance(constants.codata_2018,provenance.Role.published);
+@id("48b4c403b28d43ada0242571d0e29c12") fn arrhenius(T:Temperature,s:arrhenius_second_order)->SecondOrderRateConstant valid(T>constants.absolute_zero)=s.k0*exp(-(s.E/activation_energy_unit)/((constants.gas_constant/constants.gas_constant_unit)*(T/constants.temperature_scale)));
+@id("6abaf0468a334fbab91a337422c7200b") fn second_order(T:Temperature,a:MolarDensity,b:MolarDensity,s:arrhenius_second_order)->VolumetricReactionRate valid(a>=0{mol/m^3} and b>=0{mol/m^3})=volumetric_rate_unit*(s.rate_constant(T,s)/rate_constant_unit)*(a/concentration_unit)*(b/concentration_unit);
+}

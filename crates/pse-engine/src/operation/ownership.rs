@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Transparent native readers retain supplied owners through rewrites and IO.
+use crate::cache_service::load::PredicateGuard;
 use crate::provider::witness::ExecutionOwner;
 use datafusion::{
     arrow::datatypes::SchemaRef,
@@ -17,7 +18,6 @@ use datafusion::{
         stream::RecordBatchStreamAdapter,
     },
 };
-use crate::cache_service::load::PredicateGuard;
 use futures_util::StreamExt;
 use std::{
     fmt,
@@ -161,7 +161,9 @@ impl RetainedExec {
             .session_config()
             .get_extension::<crate::cache_service::NativeCacheService>()
             .ok_or_else(|| {
-                DataFusionError::Plan("predicate cache requires its aggregate admission owner".into())
+                DataFusionError::Plan(
+                    "predicate cache requires its aggregate admission owner".into(),
+                )
             })?;
         let predicate = service.admit_predicates(bytes)?;
         let reservation =
@@ -354,7 +356,10 @@ mod tests {
         let fanned =
             Arc::new(RepartitionExec::try_new(reader, Partitioning::RoundRobinBatch(4)).unwrap());
         let lease = RetainedExec::new(fanned, Arc::new(()), 64);
-        assert_eq!(lease.properties().output_partitioning().partition_count(), 4);
+        assert_eq!(
+            lease.properties().output_partitioning().partition_count(),
+            4
+        );
         assert_eq!(reader_partitions(&lease.inner), 1);
         // Every output partition of one execution shares its one reader's allowance.
         let first = execution(&service);

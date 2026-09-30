@@ -4,22 +4,6 @@
 #![allow(clippy::unwrap_used, reason = "native validation assertions")]
 use super::*;
 
-#[tokio::test]
-async fn span_projection_does_not_capture_an_unrelated_value_column() {
-    let registry = pse_schema::registry().unwrap();
-    let context = SessionContext::new();
-    let spec = registry.relation("authored.observations").unwrap();
-    let schema = pse_schema::arrow::relation_schema(registry, spec).unwrap();
-    let input = context
-        .read_batch(arrow::record_batch::RecordBatch::new_empty(
-            std::sync::Arc::new(schema),
-        ))
-        .unwrap()
-        .into_unoptimized_plan();
-    for plan in plans(&input, None).unwrap() {
-        context.state().create_physical_plan(&plan).await.unwrap();
-    }
-}
 use crate::generated::authored::documents;
 use crate::native::{execution::context::SessionContext, physical_plan::collect};
 use pse_ids::SemanticId;

@@ -995,6 +995,113 @@ impl ModelingKeyCell {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct ModelingKnowledgeLineage {
+    ///kind
+    pub r#kind: crate::generated::enums::ModelingLineageKind,
+    ///target_id
+    pub r#target_id: pse_ids::SemanticId,
+}
+impl crate::SemanticEq for ModelingKnowledgeLineage {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#target_id, &other.r#target_id)
+    }
+}
+impl PartialEq for ModelingKnowledgeLineage {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ModelingKnowledgeUncertainty {
+    ///kind
+    pub r#kind: crate::generated::enums::ModelingUncertaintyKind,
+    ///magnitude
+    pub r#magnitude: f64,
+}
+impl crate::SemanticEq for ModelingKnowledgeUncertainty {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#magnitude, &other.r#magnitude)
+    }
+}
+impl PartialEq for ModelingKnowledgeUncertainty {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ModelingKnowledgeValueNode {
+    ///kind
+    pub r#kind: crate::generated::enums::ModelingKnowledgeValueKind,
+    ///boolean
+    pub r#boolean: Option<bool>,
+    ///integer
+    pub r#integer: Option<i64>,
+    ///magnitude
+    pub r#magnitude: Option<f64>,
+    ///quantity_type_id
+    pub r#quantity_type_id: Option<pse_ids::SemanticId>,
+    ///canonical_unit_id
+    pub r#canonical_unit_id: Option<pse_ids::SemanticId>,
+    ///reference_id
+    pub r#reference_id: Option<pse_ids::SemanticId>,
+    ///type_id
+    pub r#type_id: Option<pse_ids::SemanticId>,
+    ///text
+    pub r#text: Option<String>,
+    ///labels
+    pub r#labels: Vec<String>,
+    ///children
+    pub r#children: Vec<u32>,
+}
+impl crate::SemanticEq for ModelingKnowledgeValueNode {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#boolean, &other.r#boolean)
+            && crate::SemanticEq::semantic_eq(&self.r#integer, &other.r#integer)
+            && crate::SemanticEq::semantic_eq(&self.r#magnitude, &other.r#magnitude)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#quantity_type_id,
+                &other.r#quantity_type_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#canonical_unit_id,
+                &other.r#canonical_unit_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#reference_id,
+                &other.r#reference_id,
+            ) && crate::SemanticEq::semantic_eq(&self.r#type_id, &other.r#type_id)
+            && crate::SemanticEq::semantic_eq(&self.r#text, &other.r#text)
+            && crate::SemanticEq::semantic_eq(&self.r#labels, &other.r#labels)
+            && crate::SemanticEq::semantic_eq(&self.r#children, &other.r#children)
+    }
+}
+impl PartialEq for ModelingKnowledgeValueNode {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct ModelingLineageEntry {
     ///kind
     pub r#kind: crate::generated::enums::ModelingLineageKind,
@@ -1589,6 +1696,78 @@ impl crate::HeapUsage for ModelingKeyCell {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#text))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#identifier))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reference))
+    }
+}
+impl crate::SemanticFrame for ModelingKnowledgeLineage {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#target_id));
+        crate::SemanticFrame::frame(&self.r#target_id, hash);
+    }
+}
+impl crate::HeapUsage for ModelingKnowledgeLineage {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target_id))
+    }
+}
+impl crate::SemanticFrame for ModelingKnowledgeUncertainty {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#magnitude));
+        crate::SemanticFrame::frame(&self.r#magnitude, hash);
+    }
+}
+impl crate::HeapUsage for ModelingKnowledgeUncertainty {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#magnitude))
+    }
+}
+impl crate::SemanticFrame for ModelingKnowledgeValueNode {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#boolean));
+        crate::SemanticFrame::frame(&self.r#boolean, hash);
+        hash.str(stringify!(r#integer));
+        crate::SemanticFrame::frame(&self.r#integer, hash);
+        hash.str(stringify!(r#magnitude));
+        crate::SemanticFrame::frame(&self.r#magnitude, hash);
+        hash.str(stringify!(r#quantity_type_id));
+        crate::SemanticFrame::frame(&self.r#quantity_type_id, hash);
+        hash.str(stringify!(r#canonical_unit_id));
+        crate::SemanticFrame::frame(&self.r#canonical_unit_id, hash);
+        hash.str(stringify!(r#reference_id));
+        crate::SemanticFrame::frame(&self.r#reference_id, hash);
+        hash.str(stringify!(r#type_id));
+        crate::SemanticFrame::frame(&self.r#type_id, hash);
+        hash.str(stringify!(r#text));
+        crate::SemanticFrame::frame(&self.r#text, hash);
+        hash.str(stringify!(r#labels));
+        crate::SemanticFrame::frame(&self.r#labels, hash);
+        hash.str(stringify!(r#children));
+        crate::SemanticFrame::frame(&self.r#children, hash);
+    }
+}
+impl crate::HeapUsage for ModelingKnowledgeValueNode {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#boolean))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#integer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#magnitude))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity_type_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#canonical_unit_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reference_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#type_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#text))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#labels))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#children))
     }
 }
 impl crate::SemanticFrame for ModelingLineageEntry {

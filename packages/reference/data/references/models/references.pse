@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// The sources the seed's datasets and tests cite (ADR-0123 Outcome 5). Titles, locators
+// and identifiers are data, never parsed. A role on each dataset states how its values
+// were obtained; the qualification boundaries are in sources.md.
+@id("01a0ef5f693f74888be5964017529d60") package references {
+@id("01a0ef5f693f74888be59641ea14b27d") use provenance @"1.0.0";
+
+// Publications.
+@id("01a0ef5f693f74888be5964251c01ed2") entity provenance.publication nist_chase_1998 { title = "NIST-JANAF Thermochemical Tables, fourth edition (Chase 1998); nitrogen Shomate parameters, January 2009 fit, from the NIST Chemistry WebBook", year = 1998, locator = "https://webbook.nist.gov/cgi/cbook.cgi?ID=C7727379&Table=on&Type=JANAFG" }
+@id("01a0ef5f693f74888be596435e1ab546") entity provenance.publication perry7_table_2_196 { title = "Perry's Chemical Engineers' Handbook, seventh edition (Perry and Green), Table 2-196, equation 1: liquid heat capacity in J/(kmol K)", year = 1997, locator = "https://schneider.cheme.cmu.edu/Files/Perry%27s%20Chemical%20Engineers%27%20Handbook%207th%20Edition/2.%20Physical%20and%20Chemical%20Data.pdf" }
+@id("01a0ef5f693f74888be596448dab7686") entity provenance.publication perry7_table_2_30 { title = "Perry's Chemical Engineers' Handbook, seventh edition (Perry and Green), Table 2-30, equation 1: liquid density in kmol/m3", year = 1997, locator = "https://schneider.cheme.cmu.edu/Files/Perry%27s%20Chemical%20Engineers%27%20Handbook%207th%20Edition/2.%20Physical%20and%20Chemical%20Data.pdf" }
+@id("01a0ef5f693f74888be59645345f3014") entity provenance.publication rpp4 { title = "The Properties of Gases and Liquids, fourth edition (Reid, Prausnitz and Poling), McGraw-Hill", year = 1987, isbn = Id<provenance.isbn>("9780070517998") }
+@id("01a0ef5f693f74888be59646693d669b") entity provenance.publication poling2000 { title = "The Properties of Gases and Liquids, fifth edition (Poling, Prausnitz and O'Connell), McGraw-Hill", year = 2000 }
+@id("01a0ef5f693f74888be59648d8d240bd") entity provenance.publication sslw_3 { title = "Product and Process Design Principles, third edition (Seider, Seader, Lewin and Widagdo); heat exchanger purchase cost correlations", year = 2009 }
+
+// Software releases and their located files.
+@id("01a0ef5f693f74888be59649a96b60c4") entity provenance.software_release idaes_2_13 { title = "IDAES-PSE", version = "2.13.0", locator = "https://github.com/IDAES/idaes-pse/releases/tag/2.13.0" }
+@id("01a0ef5f693f74888be5964ace22e2ec") entity provenance.software_release teqp_0_23_1 { title = "teqp", version = "0.23.1", locator = "https://github.com/usnistgov/teqp/releases/tag/v0.23.1" }
+@id("01a0ef5f693f74888be5964be27f8790") entity provenance.software_release feos_0_10_1 { title = "FeOS", version = "0.10.1", locator = "https://github.com/feos-org/feos/tree/c658aeab484f7a7096bfbf5425e40effd60da167" }
+@id("01a0ef5f693f74888be5964c12deb279") entity provenance.software_release scipy_1_18_1 { title = "SciPy", version = "1.18.1" }
+@id("01a0ef5f693f74888be5964d621d5c15") entity provenance.release_artifact feos_poling2000_json { title = "FeOS DIPPR100 ideal-gas heat capacity parameters", release = feos_0_10_1, locator = "parameters/ideal_gas/poling2000.json" }
+@id("01a0ef5f693f74888be5964e396eac01") entity provenance.release_artifact feos_gross2001_json { title = "FeOS PC-SAFT pure-component parameters (sigma in angstrom, epsilon/k in kelvin)", release = feos_0_10_1, locator = "parameters/pcsaft/gross2001.json" }
+@id("01a0ef5f693f74888be5964fb02bced6") entity provenance.release_artifact idaes_bt_ideal { title = "IDAES BT_ideal modular property configuration", release = idaes_2_13, locator = "idaes/models/properties/modular_properties/examples/BT_ideal.py" }
+@id("01a0ef5f693f74888be596502d627b70") entity provenance.release_artifact idaes_bt_pr { title = "IDAES BT_PR modular property configuration", release = idaes_2_13, locator = "idaes/models/properties/modular_properties/examples/BT_PR.py" }
+@id("01a0ef5f693f74888be59651e2f53e97") entity provenance.release_artifact idaes_saponification_thermo { title = "IDAES saponification property package: dilute-water solvent approximation, 298.15 K reference", release = idaes_2_13, locator = "idaes/models/properties/examples/saponification_thermo.py" }
+@id("01a0ef5f693f74888be59652746df312") entity provenance.release_artifact idaes_saponification_reactions { title = "IDAES saponification reaction package: Arrhenius parameters and stoichiometry", release = idaes_2_13, locator = "idaes/models/properties/examples/saponification_reactions.py" }
+
+// IDAES tests whose inputs and printed results the fixtures compare with.
+@id("01a0ef5f693f74888be59653c8ec3520") entity provenance.oracle_test idaes_test_btideal { title = "IDAES BTIdeal state block at 368 K", release = idaes_2_13, locator = "idaes/models/properties/modular_properties/examples/tests/test_BTIdeal.py::TestStateBlockLegacyScaling::test_solution" }
+@id("01a0ef5f693f74888be59654eb3df4ac") entity provenance.oracle_test idaes_test_btideal_fphx { title = "IDAES BTIdeal FPhx state block", release = idaes_2_13, locator = "idaes/models/properties/modular_properties/examples/tests/test_BTIdeal_FPhx.py::TestStateBlockLegacyScaler::test_solution" }
+@id("01a0ef5f693f74888be59655b39f3212") entity provenance.oracle_test idaes_test_bt_pr_368 { title = "IDAES BT_PR state at 368 K, 1 bar, equimolar", release = idaes_2_13, locator = "idaes/models/properties/modular_properties/examples/tests/test_BT_PR.py::TestBTExampleLegacyScaling::test_T368_P1_x5" }
+@id("01a0ef5f693f74888be5965635cd9b42") entity provenance.oracle_test idaes_test_bt_pr_450 { title = "IDAES BT_PR vapor at 450 K, 1 bar, equimolar", release = idaes_2_13, locator = "idaes/models/properties/modular_properties/examples/tests/test_BT_PR.py::TestBTExampleLegacyScaling::test_T450_P1_x5" }
+@id("01a0ef5f693f74888be59657cee3f70d") entity provenance.oracle_test idaes_test_ceos_pr { title = "IDAES generic cubic EoS tests with fictitious Peng-Robinson components", release = idaes_2_13, locator = "idaes/models/properties/modular_properties/eos/tests/test_ceos_PR.py" }
+@id("01a0ef5f693f74888be596584dd3ec5a") entity provenance.oracle_test idaes_test_rpp4 { title = "IDAES RPP4 pure-component method tests", release = idaes_2_13, locator = "idaes/models/properties/modular_properties/pure/tests/test_RPP4.py" }
+@id("01a0ef5f693f74888be59659ca8177f4") entity provenance.oracle_test idaes_test_perrys { title = "IDAES Perry pure-component method tests", release = idaes_2_13, locator = "idaes/models/properties/modular_properties/pure/tests/test_Perrys.py" }
+@id("01a0ef5f693f74888be5965a88dd9d4d") entity provenance.oracle_test idaes_test_cstr { title = "IDAES CSTR with saponification", release = idaes_2_13, locator = "idaes/models/unit_models/tests/test_cstr.py::TestSaponification::test_solution" }
+@id("01a0ef5f693f74888be5965bddcf8aef") entity provenance.oracle_test idaes_test_heater_bt { title = "IDAES heater with BT_PR", release = idaes_2_13, locator = "idaes/models/unit_models/tests/test_heater.py::TestBT_Generic::test_solution" }
+@id("01a0ef5f693f74888be5965cfcedea99") entity provenance.oracle_test idaes_test_heater_saponification { title = "IDAES heater with saponification", release = idaes_2_13, locator = "idaes/models/unit_models/tests/test_heater.py::TestSaponification::test_solution" }
+@id("01a0ef5f693f74888be5965d531ab282") entity provenance.oracle_test idaes_test_mixer_saponification { title = "IDAES mixer with saponification", release = idaes_2_13, locator = "idaes/models/unit_models/tests/test_mixer.py::TestSaponificationLegacyScaling::test_solution" }
+@id("01a0ef5f693f74888be5965e2e5a274d") entity provenance.oracle_test idaes_test_flash_bt { title = "IDAES flash with modular BTIdeal", release = idaes_2_13, locator = "idaes/models/unit_models/tests/test_flash.py::TestBTIdealModular::test_solution" }
+@id("01a0ef5f693f74888be5965f1536c7fe") entity provenance.oracle_test idaes_test_separator_saponification { title = "IDAES separator with saponification", release = idaes_2_13, locator = "idaes/models/unit_models/tests/test_separator.py::TestSaponification::test_solution" }
+@id("01a0ef5f693f74888be59660f64e0f7a") entity provenance.oracle_test idaes_test_pressure_changer_saponification { title = "IDAES pressure changer with saponification", release = idaes_2_13, locator = "idaes/models/unit_models/tests/test_pressure_changer.py::TestSaponification::test_solution" }
+@id("01a0ef5f693f74888be59661dc473f0a") entity provenance.oracle_test idaes_test_heat_exchanger_bt { title = "IDAES cocurrent heat exchanger with BT_PR", release = idaes_2_13, locator = "idaes/models/unit_models/tests/test_heat_exchanger.py::TestBT_Generic_cocurrent::test_solution" }
+@id("01a0ef5f693f74888be596624264bcdb") entity provenance.oracle_test idaes_test_pfr_saponification { title = "IDAES PFR with saponification, 20 backward finite elements", release = idaes_2_13, locator = "idaes/models/unit_models/tests/test_pfr.py::TestSaponification::test_solution" }
+
+// References computed in this repository with pinned software.
+@id("01a0ef5f693f74888be5966494d7e432") entity provenance.computation plan14_thermo_reference { title = "Plan 14 thermodynamic reference: homogeneous PC-SAFT states and a two-phase flash, and Decimal DIPPR100 enthalpy integrals", tools = {teqp_0_23_1, scipy_1_18_1}, locator = "packages/reference/data/oracles/teqp-0.23.1/data" }
+@id("01a0ef5f693f74888be5966542709387") entity provenance.computation pr_stability_reference { title = "Peng-Robinson two-phase reference for an equimolar benzene/toluene feed at 368 K and 101325 Pa", tools = {teqp_0_23_1}, locator = "tests/fixtures/pr-stability-reference.json" }
+@id("01a0ef5f693f74888be596669b250c2b") entity provenance.computation pfr_reference { title = "Independent reduced adiabatic PFR ODE, integrated with DOP853 and Radau at rtol = atol = 1e-12", tools = {scipy_1_18_1} }
+@id("01a0ef5f693f74888be59667d5d0e6a4") entity provenance.computation cstr_controller_reference { title = "Independent reduced incompressible CSTR and controller ODE, integrated with DOP853 and Radau at rtol = 1e-11 and atol = 1e-12", tools = {scipy_1_18_1} }
+@id("01a0ef5f693f74888be59668c7775758") entity provenance.computation decay_fit_reference { title = "Bounded multistart least squares of y = a exp(-k t) through five synthetic observations at t = 0..4", tools = {scipy_1_18_1} }
+
+// Analytic derivations and synthetic inputs of the seed itself.
+@id("01a0ef5f693f74888be5966a1a5695dc") entity provenance.source analytic_identities { title = "Calculus and thermodynamic identities of the parsed forms: primitive derivatives, reference subtraction and definite integrals" }
+@id("01a0ef5f693f74888be5966bc2472ed3") entity provenance.source analytic_first_order_lag { title = "Closed-form trajectories and optima of the first-order lag lag dx/dt = u - x from rest over 2 s" }
+@id("01a0ef5f693f74888be5966c8b12d3ca") entity provenance.source analytic_antiwindup { title = "Back-calculation PID in the IDAES 2.13 gain parameterization; analytic saturation recovery I(t) = exp(-2t) s" }
+@id("01a0ef5f693f74888be5966d81e032a0") entity provenance.source analytic_perfect_gas { title = "Calorically perfect single ideal gas with cp/R = 3.5 and Ts/Tin = (Pout/Pin)^(2/7); a synthetic property approximation" }
+@id("01a0ef5f693f74888be5966e171e4397") entity provenance.source analytic_hydraulic_work { title = "Incompressible hydraulic work and shaft efficiency on the dilute-liquid saponification state" }
+@id("01a0ef5f693f74888be5966f0e1b9d25") entity provenance.source analytic_temperature_differences { title = "Analytic mean temperature differences in kelvin" }
+@id("01a0ef5f693f74888be596706d57e72d") entity provenance.source analytic_stream_identity { title = "Material stream identity through typed component-flow, temperature and pressure connections" }
+@id("01a0ef5f693f74888be59671875b5370") entity provenance.source analytic_partition { title = "Phase-component material partition with an additive caloric identity" }
+@id("01a0ef5f693f74888be59672a6cf6c51") entity provenance.source analytic_single_component_balance { title = "Single-component water material and enthalpy conservation for each balance basis" }
+@id("01a0ef5f693f74888be59673fa9bc7a3") entity provenance.source analytic_ideal_tangent_plane { title = "The tangent-plane distance of an ideal mixture is the Kullback-Leibler divergence of the trial from the feed, zero at the feed" }
+@id("01a0ef5f693f74888be5967437fb96f2") entity provenance.source analytic_vessel_balance { title = "Fixed-composition PC-SAFT/DIPPR100 vessel: closed amount, energy U(t) = U0 + 10 W t, and terminal conservation under directional valve flow" }
+@id("01a0ef5f693f74888be59675d8a11b8a") entity provenance.source analytic_cubic_fugacity { title = "Cubic fugacity: the symmetric mixture derivative against the ordered-row delta convention on a synthetic asymmetric control" }
+@id("01a0ef5f693f74888be59676f4a9359d") entity provenance.source synthetic_price_taker { title = "Synthetic price-taker: price weights relative to marginal cost; the optimum enumerates the eight on/off assignments; not market data" }
+@id("01a0ef5f693f74888be5967753d21167") entity provenance.source synthetic_unit_selection { title = "Synthetic unit selection; the optimum enumerates the three alternatives at 60 W demand" }
+@id("01a0ef5f693f74888be59678a6fa5638") entity provenance.source synthetic_heat_meter { title = "Synthetic direct heat measurement of 10 W with a 1 W standard uncertainty" }
+@id("01a0ef5f693f74888be5967900811048") entity provenance.source synthetic_starts { title = "Rounded liquid and vapor composition starts near the solutions; not reference answers" }
+@id("01a0ef5fa28670bab2c02c75d6d53f39") entity provenance.publication gross_sadowski_2001 { title = "Perturbed-Chain SAFT: An Equation of State Based on a Perturbation Theory for Chain Molecules (Gross and Sadowski), Industrial & Engineering Chemistry Research 40, 1244-1260", year = 2001, doi = Id<provenance.doi>("10.1021/ie0003887") }
+@id("72adaa4d8f204103a9bf8a78cc002b30") entity provenance.oracle_test idaes_test_rpp5 { title="IDAES RPP5 water method tests (Poling fifth-edition coefficients)", release=idaes_2_13, locator="idaes/models/properties/modular_properties/pure/tests/test_RPP5.py" }
+}

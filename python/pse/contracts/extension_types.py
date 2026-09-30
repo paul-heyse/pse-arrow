@@ -192,7 +192,7 @@ class PseOrdinalRef(_PseExtensionType):
     _extension_name = "pse.ordinal_ref"
     _metadata_version = 1
     _binding_key = "target_relation_id"
-    _prototype_binding = "3becb9e429d0b87eecb1faf872e9991a"
+    _prototype_binding = "a98911fe15eafd4f6520725e5b50f7d1"
 
     @classmethod
     def _declared_storage(cls) -> pa.DataType:

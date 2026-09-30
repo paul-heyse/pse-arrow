@@ -1,0 +1,80 @@
+[[disposition]]
+construct = "thermo.inp file frame"
+disposition = "mapping_loss"
+ref = "kind:parameterization"
+reason = "The file becomes one parameterization with a convention_set whose gas constant (8314.51 J/kmol/K, from the code), enthalpy datum and temperature scale are not stated in the data; the header's reference-date legend and change log (2021 range revisions, added fuels) are not kept as typed data, and the file-level grid line, which the compiler hard-codes again, is not mapped because each record states its own ranges."
+
+[[disposition]]
+construct = "species record, first line (name and notes)"
+disposition = "mapping_loss"
+ref = "kind:source_entity"
+reason = "Each record name becomes a species_form source entity with a name assertion (source_local scheme) and the 65-character note as attribution text; the phase suffix and embedded comment stay inside the name, there is no other identifier, so identity rests on the formula-identified scope rule, and same-name records are imported as repeated assertions distinguished by occurrence."
+
+[[disposition]]
+construct = "species record, second line (formula, phase flag, molecular weight, heat of formation)"
+disposition = "mapping_loss"
+ref = "kind:species_form"
+reason = "The phase flag is decoded by a mapping table into aggregation and polymorph (its stepping rule is interpreted, not stated), the pseudo-element E is converted to the charge quantity with a sign the mapping must fix, the heat of formation is taken as J/mol by inference and the molecular weight as g/mol, and hf is only a redundant check against the coefficients for records that have them."
+
+[[disposition]]
+construct = "fit interval header line"
+disposition = "mapping_loss"
+ref = "form:nasa9"
+reason = "Intervals map to family piece rows of nasa9 with Tlow and Thigh taken as K (unit not stated), the exponent list is checked against the fixed nasa9 set rather than stored, and the derived, unread H(298.15)-H(0) increment is dropped; a reactant-only record's reused line gives T_ref, which goes to the assigned-enthalpy mapping."
+
+[[disposition]]
+construct = "fit coefficient lines"
+disposition = "mapping_loss"
+ref = "form:nasa9"
+reason = "The coefficients map exactly to nasa9 pure.piece slots, but they reproduce the source only with the gas constant 8314.51 J/kmol/K that lives in the code, not the file, so the convention set must assert it as an assumption, and b1 and b2 carry an enthalpy datum and entropy zero the source does not state (enthalpy_datum and entropy_datum not_stated)."
+
+[[disposition]]
+construct = "condensed-phase records and transitions"
+disposition = "mapping_loss"
+ref = "kind:species_form"
+reason = "Consecutive condensed records become species_forms of aggregation crystalline or liquid whose polymorph text is the name suffix verbatim, each with its own parameter set and validity region, with the aggregation inferred from suffix and flag; the same-name records of a lambda transition are repeated assertions distinguished by occurrence, and the transitions, which the source leaves implicit in adjacent ranges, are not stated as facts."
+
+[[disposition]]
+construct = "reactant-only record"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "A record with ntl = 0 maps to a parameter set of a constant-enthalpy form (declared with the mapping) holding the enthalpy at T_ref, so cp and s are simply not asserted rather than zero; the +/-10 K window and the zero cp and s belong to the program code, not the file, and the reactant-versus-product role is dropped; the two n-Butanol records with different hf are both imported as occurrences."
+
+[[disposition]]
+construct = "compiled thermo library (thermo.lib) and its derived fits"
+disposition = "out_of_scope"
+reason = "The compiled library is derived content generated at build time by the program (forced 200 to 20000 K grid, synthesised third fit, interval choice at a boundary): the knowledge is the thermo.inp record mapped under constructs 3 to 5, and the runtime difference is a survey discrepancy that matters to qualification cases against the program (alignment-notes #15, #47), not to mapped data."
+
+[[disposition]]
+construct = "trans.inp entry header"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The pure and binary entries map to parameter sets of a transport-fit form, the binary one on an ordered species pair declared symmetric so the asserted order is not kept (no pair occurs in both orders); the five pure entries whose names match no thermo species stay provisional, the reference is kept as free text, and the program's estimate for a species with no entry is a rule-derived value a selection policy would state, not data of the file."
+
+[[disposition]]
+construct = "trans.inp coefficient rows"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The rows map to a family piece of a form declared for ln(property) = A ln T + B/T + C/T^2 + D with the observable dynamic_viscosity or thermal_conductivity, but the equation, the exponential and the units (micropoise and a further 1e-3 scale, inferred from code lines) exist only in code comments and are mapping assumptions; the Fortran exponent spelling with a space is normalised on import."
+
+[[disposition]]
+construct = "problem dataset"
+disposition = "out_of_scope"
+reason = "A problem dataset is a calculation request (case type, state schedules, mixture ratios, options), not knowledge; it belongs to qualification cases and capability records."
+
+[[disposition]]
+construct = "reactants, only, omit, insert and output datasets"
+disposition = "out_of_scope"
+reason = "Reactant amounts, only, omit and insert lists and output options are the inputs of one calculation case, not thermodynamic knowledge; none of it describes material, a model or a reaction."
+
+[[disposition]]
+construct = "legacy output tables"
+disposition = "held_by_model"
+ref = "kind:dataset"
+reason = "A printed report of CEA2 results is a dataset of kind computed whose records have origin role oracle_input (facet not_knowledge), and its limited printed precision is datum.digits; nothing else is lost because the table is only held to compare against another system."
+
+[[disposition]]
+construct = "atomic data table"
+disposition = "mapping_loss"
+ref = "kind:convention_set"
+reason = "The weights become the atomic-weight data of a convention_set edition (parameter sets of an atomic-weight form), but the edition is identified only by inference (older than CIAAW 2017) and g/mol is not stated; the valence column, used only for the program's equivalence ratio, and the inert copies IH, IC and IO have no model counterpart and are not mapped."

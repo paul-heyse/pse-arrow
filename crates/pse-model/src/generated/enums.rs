@@ -6176,6 +6176,12 @@ pub enum ModelingDataFacet {
     ///requires_lineage
     #[serde(rename = "requires_lineage")]
     RequiresLineage,
+    ///measured
+    #[serde(rename = "measured")]
+    Measured,
+    ///requires_fit
+    #[serde(rename = "requires_fit")]
+    RequiresFit,
 }
 impl crate::SemanticEq for ModelingDataFacet {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -6184,12 +6190,19 @@ impl crate::SemanticEq for ModelingDataFacet {
 }
 impl ModelingDataFacet {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::TestOnly, Self::RequiresLineage];
+    pub const ALL: [Self; 4usize] = [
+        Self::TestOnly,
+        Self::RequiresLineage,
+        Self::Measured,
+        Self::RequiresFit,
+    ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::TestOnly => "test_only",
             Self::RequiresLineage => "requires_lineage",
+            Self::Measured => "measured",
+            Self::RequiresFit => "requires_fit",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -6197,6 +6210,8 @@ impl ModelingDataFacet {
         match self {
             Self::TestOnly => 0usize,
             Self::RequiresLineage => 1usize,
+            Self::Measured => 2usize,
+            Self::RequiresFit => 3usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -6209,6 +6224,8 @@ impl ModelingDataFacet {
         match self {
             Self::TestOnly => None,
             Self::RequiresLineage => None,
+            Self::Measured => None,
+            Self::RequiresFit => None,
         }
     }
 }
@@ -6223,7 +6240,8 @@ impl schemars::JsonSchema for ModelingDataFacet {
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
-            { "type" : "string", "enum" : ["test_only", "requires_lineage"] }
+            { "type" : "string", "enum" : ["test_only", "requires_lineage", "measured",
+            "requires_fit"] }
         )
     }
 }
@@ -6233,6 +6251,8 @@ impl core::str::FromStr for ModelingDataFacet {
         match value {
             "test_only" => Ok(Self::TestOnly),
             "requires_lineage" => Ok(Self::RequiresLineage),
+            "measured" => Ok(Self::Measured),
+            "requires_fit" => Ok(Self::RequiresFit),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingDataFacet).to_owned(),
@@ -6261,6 +6281,9 @@ impl core::str::FromStr for ModelingDataFacet {
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
 pub enum ModelingDeclarationKind {
+    ///temporal
+    #[serde(rename = "temporal")]
+    Temporal,
     ///relaxation
     #[serde(rename = "relaxation")]
     Relaxation,
@@ -6431,7 +6454,8 @@ impl crate::SemanticEq for ModelingDeclarationKind {
 }
 impl ModelingDeclarationKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 54usize] = [
+    pub const ALL: [Self; 55usize] = [
+        Self::Temporal,
         Self::Relaxation,
         Self::Continuation,
         Self::Package,
@@ -6490,6 +6514,7 @@ impl ModelingDeclarationKind {
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::Temporal => "temporal",
             Self::Relaxation => "relaxation",
             Self::Continuation => "continuation",
             Self::Package => "package",
@@ -6549,60 +6574,61 @@ impl ModelingDeclarationKind {
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
         match self {
-            Self::Relaxation => 0usize,
-            Self::Continuation => 1usize,
-            Self::Package => 2usize,
-            Self::EntityKind => 3usize,
-            Self::Interface => 4usize,
-            Self::Definition => 5usize,
-            Self::Case => 6usize,
-            Self::Test => 7usize,
-            Self::Stage => 8usize,
-            Self::Implicit => 9usize,
-            Self::Regime => 10usize,
-            Self::Disjunction => 11usize,
-            Self::Alternative => 12usize,
-            Self::Parameter => 13usize,
-            Self::Variable => 14usize,
-            Self::Let => 15usize,
-            Self::Alias => 16usize,
-            Self::Set => 17usize,
-            Self::Child => 18usize,
-            Self::Port => 19usize,
-            Self::Preset => 20usize,
-            Self::ScopeValue => 21usize,
-            Self::Function => 22usize,
-            Self::Equation => 23usize,
-            Self::Sos1 => 24usize,
-            Self::Sos2 => 25usize,
-            Self::Atmost => 26usize,
-            Self::Atleast => 27usize,
-            Self::Exactly => 28usize,
-            Self::Piecewise => 29usize,
-            Self::Logic => 30usize,
-            Self::Complementarity => 31usize,
-            Self::Table => 32usize,
-            Self::Envelope => 33usize,
-            Self::Extrapolation => 34usize,
-            Self::Attribute => 35usize,
-            Self::Dataset => 36usize,
-            Self::Entity => 37usize,
-            Self::Enum => 38usize,
-            Self::Constant => 39usize,
-            Self::Import => 40usize,
-            Self::When => 41usize,
-            Self::Accumulator => 42usize,
-            Self::Contribution => 43usize,
-            Self::Connection => 44usize,
-            Self::Annotation => 45usize,
-            Self::Requirement => 46usize,
-            Self::Expectation => 47usize,
-            Self::Continuous => 48usize,
-            Self::DifferenceScheme => 49usize,
-            Self::CollocationScheme => 50usize,
-            Self::Discretization => 51usize,
-            Self::Realization => 52usize,
-            Self::IdentifierScheme => 53usize,
+            Self::Temporal => 0usize,
+            Self::Relaxation => 1usize,
+            Self::Continuation => 2usize,
+            Self::Package => 3usize,
+            Self::EntityKind => 4usize,
+            Self::Interface => 5usize,
+            Self::Definition => 6usize,
+            Self::Case => 7usize,
+            Self::Test => 8usize,
+            Self::Stage => 9usize,
+            Self::Implicit => 10usize,
+            Self::Regime => 11usize,
+            Self::Disjunction => 12usize,
+            Self::Alternative => 13usize,
+            Self::Parameter => 14usize,
+            Self::Variable => 15usize,
+            Self::Let => 16usize,
+            Self::Alias => 17usize,
+            Self::Set => 18usize,
+            Self::Child => 19usize,
+            Self::Port => 20usize,
+            Self::Preset => 21usize,
+            Self::ScopeValue => 22usize,
+            Self::Function => 23usize,
+            Self::Equation => 24usize,
+            Self::Sos1 => 25usize,
+            Self::Sos2 => 26usize,
+            Self::Atmost => 27usize,
+            Self::Atleast => 28usize,
+            Self::Exactly => 29usize,
+            Self::Piecewise => 30usize,
+            Self::Logic => 31usize,
+            Self::Complementarity => 32usize,
+            Self::Table => 33usize,
+            Self::Envelope => 34usize,
+            Self::Extrapolation => 35usize,
+            Self::Attribute => 36usize,
+            Self::Dataset => 37usize,
+            Self::Entity => 38usize,
+            Self::Enum => 39usize,
+            Self::Constant => 40usize,
+            Self::Import => 41usize,
+            Self::When => 42usize,
+            Self::Accumulator => 43usize,
+            Self::Contribution => 44usize,
+            Self::Connection => 45usize,
+            Self::Annotation => 46usize,
+            Self::Requirement => 47usize,
+            Self::Expectation => 48usize,
+            Self::Continuous => 49usize,
+            Self::DifferenceScheme => 50usize,
+            Self::CollocationScheme => 51usize,
+            Self::Discretization => 52usize,
+            Self::Realization => 53usize,
+            Self::IdentifierScheme => 54usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -6613,6 +6639,7 @@ impl ModelingDeclarationKind {
     )]
     pub const fn idaes_name(self) -> Option<&'static str> {
         match self {
+            Self::Temporal => None,
             Self::Relaxation => None,
             Self::Continuation => None,
             Self::Package => None,
@@ -6683,8 +6710,8 @@ impl schemars::JsonSchema for ModelingDeclarationKind {
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
-            { "type" : "string", "enum" : ["relaxation", "continuation", "package",
-            "entity_kind", "interface", "definition", "case", "test", "stage",
+            { "type" : "string", "enum" : ["temporal", "relaxation", "continuation",
+            "package", "entity_kind", "interface", "definition", "case", "test", "stage",
             "implicit", "regime", "disjunction", "alternative", "parameter", "variable",
             "let", "alias", "set", "child", "port", "preset", "scope_value", "function",
             "equation", "sos1", "sos2", "atmost", "atleast", "exactly", "piecewise",
@@ -6700,6 +6727,7 @@ impl core::str::FromStr for ModelingDeclarationKind {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
+            "temporal" => Ok(Self::Temporal),
             "relaxation" => Ok(Self::Relaxation),
             "continuation" => Ok(Self::Continuation),
             "package" => Ok(Self::Package),
@@ -7874,6 +7902,9 @@ pub enum ModelingKindFacet {
     ///release
     #[serde(rename = "release")]
     Release,
+    ///abstract
+    #[serde(rename = "abstract")]
+    Abstract,
 }
 impl crate::SemanticEq for ModelingKindFacet {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -7882,12 +7913,13 @@ impl crate::SemanticEq for ModelingKindFacet {
 }
 impl ModelingKindFacet {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Provenance, Self::Release];
+    pub const ALL: [Self; 3usize] = [Self::Provenance, Self::Release, Self::Abstract];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Provenance => "provenance",
             Self::Release => "release",
+            Self::Abstract => "abstract",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -7895,6 +7927,7 @@ impl ModelingKindFacet {
         match self {
             Self::Provenance => 0usize,
             Self::Release => 1usize,
+            Self::Abstract => 2usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -7907,6 +7940,7 @@ impl ModelingKindFacet {
         match self {
             Self::Provenance => None,
             Self::Release => None,
+            Self::Abstract => None,
         }
     }
 }
@@ -7920,7 +7954,9 @@ impl schemars::JsonSchema for ModelingKindFacet {
         std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ModelingKindFacet)))
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!({ "type" : "string", "enum" : ["provenance", "release"] })
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["provenance", "release", "abstract"] }
+        )
     }
 }
 impl core::str::FromStr for ModelingKindFacet {
@@ -7929,10 +7965,221 @@ impl core::str::FromStr for ModelingKindFacet {
         match value {
             "provenance" => Ok(Self::Provenance),
             "release" => Ok(Self::Release),
+            "abstract" => Ok(Self::Abstract),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingKindFacet).to_owned(),
                     enumeration: stringify!(ModelingKindFacet).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum ModelingKnowledgeValueKind {
+    ///missing
+    #[serde(rename = "missing")]
+    Missing,
+    ///boolean
+    #[serde(rename = "boolean")]
+    Boolean,
+    ///integer
+    #[serde(rename = "integer")]
+    Integer,
+    ///quantity
+    #[serde(rename = "quantity")]
+    Quantity,
+    ///coordinate
+    #[serde(rename = "coordinate")]
+    Coordinate,
+    ///text
+    #[serde(rename = "text")]
+    Text,
+    ///entity
+    #[serde(rename = "entity")]
+    Entity,
+    ///enumeration
+    #[serde(rename = "enumeration")]
+    Enumeration,
+    ///identifier
+    #[serde(rename = "identifier")]
+    Identifier,
+    ///definition
+    #[serde(rename = "definition")]
+    Definition,
+    ///function
+    #[serde(rename = "function")]
+    Function,
+    ///row
+    #[serde(rename = "row")]
+    Row,
+    ///set
+    #[serde(rename = "set")]
+    Set,
+    ///tuple
+    #[serde(rename = "tuple")]
+    Tuple,
+    ///quantity_type
+    #[serde(rename = "quantity_type")]
+    QuantityType,
+    ///reference_state
+    #[serde(rename = "reference_state")]
+    ReferenceState,
+}
+impl crate::SemanticEq for ModelingKnowledgeValueKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingKnowledgeValueKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 16usize] = [
+        Self::Missing,
+        Self::Boolean,
+        Self::Integer,
+        Self::Quantity,
+        Self::Coordinate,
+        Self::Text,
+        Self::Entity,
+        Self::Enumeration,
+        Self::Identifier,
+        Self::Definition,
+        Self::Function,
+        Self::Row,
+        Self::Set,
+        Self::Tuple,
+        Self::QuantityType,
+        Self::ReferenceState,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Missing => "missing",
+            Self::Boolean => "boolean",
+            Self::Integer => "integer",
+            Self::Quantity => "quantity",
+            Self::Coordinate => "coordinate",
+            Self::Text => "text",
+            Self::Entity => "entity",
+            Self::Enumeration => "enumeration",
+            Self::Identifier => "identifier",
+            Self::Definition => "definition",
+            Self::Function => "function",
+            Self::Row => "row",
+            Self::Set => "set",
+            Self::Tuple => "tuple",
+            Self::QuantityType => "quantity_type",
+            Self::ReferenceState => "reference_state",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Missing => 0usize,
+            Self::Boolean => 1usize,
+            Self::Integer => 2usize,
+            Self::Quantity => 3usize,
+            Self::Coordinate => 4usize,
+            Self::Text => 5usize,
+            Self::Entity => 6usize,
+            Self::Enumeration => 7usize,
+            Self::Identifier => 8usize,
+            Self::Definition => 9usize,
+            Self::Function => 10usize,
+            Self::Row => 11usize,
+            Self::Set => 12usize,
+            Self::Tuple => 13usize,
+            Self::QuantityType => 14usize,
+            Self::ReferenceState => 15usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Missing => None,
+            Self::Boolean => None,
+            Self::Integer => None,
+            Self::Quantity => None,
+            Self::Coordinate => None,
+            Self::Text => None,
+            Self::Entity => None,
+            Self::Enumeration => None,
+            Self::Identifier => None,
+            Self::Definition => None,
+            Self::Function => None,
+            Self::Row => None,
+            Self::Set => None,
+            Self::Tuple => None,
+            Self::QuantityType => None,
+            Self::ReferenceState => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingKnowledgeValueKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingKnowledgeValueKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingKnowledgeValueKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["missing", "boolean", "integer", "quantity",
+            "coordinate", "text", "entity", "enumeration", "identifier", "definition",
+            "function", "row", "set", "tuple", "quantity_type", "reference_state"] }
+        )
+    }
+}
+impl core::str::FromStr for ModelingKnowledgeValueKind {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "missing" => Ok(Self::Missing),
+            "boolean" => Ok(Self::Boolean),
+            "integer" => Ok(Self::Integer),
+            "quantity" => Ok(Self::Quantity),
+            "coordinate" => Ok(Self::Coordinate),
+            "text" => Ok(Self::Text),
+            "entity" => Ok(Self::Entity),
+            "enumeration" => Ok(Self::Enumeration),
+            "identifier" => Ok(Self::Identifier),
+            "definition" => Ok(Self::Definition),
+            "function" => Ok(Self::Function),
+            "row" => Ok(Self::Row),
+            "set" => Ok(Self::Set),
+            "tuple" => Ok(Self::Tuple),
+            "quantity_type" => Ok(Self::QuantityType),
+            "reference_state" => Ok(Self::ReferenceState),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingKnowledgeValueKind).to_owned(),
+                    enumeration: stringify!(ModelingKnowledgeValueKind).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -7963,6 +8210,9 @@ pub enum ModelingLineageKind {
     ///source
     #[serde(rename = "source")]
     Source,
+    ///fit
+    #[serde(rename = "fit")]
+    Fit,
 }
 impl crate::SemanticEq for ModelingLineageKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -7971,12 +8221,13 @@ impl crate::SemanticEq for ModelingLineageKind {
 }
 impl ModelingLineageKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Dataset, Self::Source];
+    pub const ALL: [Self; 3usize] = [Self::Dataset, Self::Source, Self::Fit];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Dataset => "dataset",
             Self::Source => "source",
+            Self::Fit => "fit",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -7984,6 +8235,7 @@ impl ModelingLineageKind {
         match self {
             Self::Dataset => 0usize,
             Self::Source => 1usize,
+            Self::Fit => 2usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -7996,6 +8248,7 @@ impl ModelingLineageKind {
         match self {
             Self::Dataset => None,
             Self::Source => None,
+            Self::Fit => None,
         }
     }
 }
@@ -8011,7 +8264,9 @@ impl schemars::JsonSchema for ModelingLineageKind {
         )
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!({ "type" : "string", "enum" : ["dataset", "source"] })
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["dataset", "source", "fit"] }
+        )
     }
 }
 impl core::str::FromStr for ModelingLineageKind {
@@ -8020,6 +8275,7 @@ impl core::str::FromStr for ModelingLineageKind {
         match value {
             "dataset" => Ok(Self::Dataset),
             "source" => Ok(Self::Source),
+            "fit" => Ok(Self::Fit),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingLineageKind).to_owned(),
@@ -17418,6 +17674,16 @@ impl crate::HeapUsage for ModelingKindFacet {
     }
 }
 impl crate::SemanticFrame for ModelingKindFacet {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ModelingKnowledgeValueKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingKnowledgeValueKind {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

@@ -453,9 +453,7 @@ async fn shooting_fixture_needs_authored_controls() {
         let text = format!(
             "package p {{ {def} test shot fixture {{dof 0; {fixture}}} {{child root:Root=Root();}} }}"
         );
-        let Err(error) =
-            runtime.modeling_package(parse(&text).unwrap(), physical.clone())
-        else {
+        let Err(error) = runtime.modeling_package(parse(&text).unwrap(), physical.clone()) else {
             panic!("admitted: {fixture}");
         };
         assert!(error.to_string().contains(refusal), "{fixture}: {error}");

@@ -48,7 +48,11 @@ fn dimension(length: i32, mass: i32) -> DimensionVector {
     DimensionVector::base(BaseDimension::Length)
         .pow(r(length, 1))
         .unwrap()
-        .mul(&DimensionVector::base(BaseDimension::Mass).pow(r(mass, 1)).unwrap())
+        .mul(
+            &DimensionVector::base(BaseDimension::Mass)
+                .pow(r(mass, 1))
+                .unwrap(),
+        )
         .unwrap()
 }
 fn unit(n: u8, symbol: &str, dimension: DimensionVector) -> Unit {
@@ -155,7 +159,13 @@ fn q(n: u8) -> QuantityTypeId {
 fn basis_must_agree_or_be_declared() {
     let registry = builder().build().unwrap();
     let scalar = IndexSet::new();
-    let product = |a, b| infer_chain(&mul(leaf(a, &scalar), leaf(b, &scalar)), &registry, &NoInvariantFacts);
+    let product = |a, b| {
+        infer_chain(
+            &mul(leaf(a, &scalar), leaf(b, &scalar)),
+            &registry,
+            &NoInvariantFacts,
+        )
+    };
     // Equal bases: the derived kind's result takes the factors' basis.
     let inferred = product(q(40), q(42)).unwrap();
     assert_eq!(inferred.result, q(43));
@@ -214,7 +224,10 @@ fn undeclared_monomial_is_refused_with_factors() {
     let registry = builder().build().unwrap();
     let scalar = IndexSet::new();
     // A²·B names no declared kind, and none is synthesized.
-    let chain = mul(mul(leaf(q(40), &scalar), leaf(q(40), &scalar)), leaf(q(42), &scalar));
+    let chain = mul(
+        mul(leaf(q(40), &scalar), leaf(q(40), &scalar)),
+        leaf(q(42), &scalar),
+    );
     let error = infer_chain(&chain, &registry, &NoInvariantFacts).unwrap_err();
     let QuantityError::UndeclaredMonomial { factors } = &error else {
         panic!("{error}");
@@ -233,8 +246,14 @@ fn undeclared_monomial_is_refused_with_factors() {
         ]
     );
     let message = error.to_string();
-    assert!(message.contains(&format!("{}^2", QuantityKindId::from_id(raw(A)))), "{message}");
-    assert!(message.contains(&format!("{}^1", QuantityKindId::from_id(raw(B)))), "{message}");
+    assert!(
+        message.contains(&format!("{}^2", QuantityKindId::from_id(raw(A)))),
+        "{message}"
+    );
+    assert!(
+        message.contains(&format!("{}^1", QuantityKindId::from_id(raw(B)))),
+        "{message}"
+    );
     // A cancelled monomial names no declared kind either.
     let cancelled = div(leaf(q(40), &scalar), leaf(q(40), &scalar));
     assert!(matches!(
@@ -305,7 +324,9 @@ fn rule_and_chain_disagreement_is_refused() {
 #[test]
 fn derived_kinds_are_admitted_acyclic_unique_and_derived() {
     let registry = builder().build().unwrap();
-    let product = registry.kind(QuantityKindId::from_id(raw(PRODUCT))).unwrap();
+    let product = registry
+        .kind(QuantityKindId::from_id(raw(PRODUCT)))
+        .unwrap();
     assert_eq!(product.dimension, dimension(1, 1));
     assert_eq!(
         registry.kind_by_monomial(&product.definition.as_ref().unwrap().monomial),
@@ -327,10 +348,25 @@ fn derived_kinds_are_admitted_acyclic_unique_and_derived() {
         },
     };
     for (rule, kinds) in [
-        ("quantity_kind.definition_cycle", vec![derived(60, vec![(61, 1)]), derived(61, vec![(60, 1), (A, 1)])]),
-        ("quantity_kind.monomial_unique", vec![derived(60, vec![(B, 1), (A, 1)])]),
-        ("quantity_kind.definition_alias", vec![derived(60, vec![(A, 1)])]),
-        ("quantity_kind.pure_number_factor", vec![derived(60, vec![(A, 1), (NEUTRAL, 1)])]),
+        (
+            "quantity_kind.definition_cycle",
+            vec![
+                derived(60, vec![(61, 1)]),
+                derived(61, vec![(60, 1), (A, 1)]),
+            ],
+        ),
+        (
+            "quantity_kind.monomial_unique",
+            vec![derived(60, vec![(B, 1), (A, 1)])],
+        ),
+        (
+            "quantity_kind.definition_alias",
+            vec![derived(60, vec![(A, 1)])],
+        ),
+        (
+            "quantity_kind.pure_number_factor",
+            vec![derived(60, vec![(A, 1), (NEUTRAL, 1)])],
+        ),
     ] {
         let mut b = builder();
         for kind in kinds {
@@ -389,12 +425,12 @@ mod standard {
         // Each factor multiplies a coefficient; no rule types the product, so only its
         // eligibility decides whether the chain is refused before its monomial is looked up.
         for (factor, eligible) in [
-            (MOLAR_CP, true),       // point of an additive kind, no datum
-            (TEMPERATURE, true),    // absolute temperature: true-zero ratio point
-            (PRESSURE, true),       // absolute pressure: true-zero ratio point
-            (DELTA_T, true),        // difference
-            (DELTA_H, true),        // difference with a datum
-            (MOLE_FRACTION, true),  // dimensionless
+            (MOLAR_CP, true),        // point of an additive kind, no datum
+            (TEMPERATURE, true),     // absolute temperature: true-zero ratio point
+            (PRESSURE, true),        // absolute pressure: true-zero ratio point
+            (DELTA_T, true),         // difference
+            (DELTA_H, true),         // difference with a datum
+            (MOLE_FRACTION, true),   // dimensionless
             (MOLAR_ENTHALPY, false), // point with a nonzero datum
             (GAUGE_PRESSURE, false), // point with the gauge datum
         ] {
@@ -417,11 +453,17 @@ mod standard {
         };
         // c3·T³ alone resolves; with a datum-bearing enthalpy point the whole chain is
         // refused, never partly resolved, and the refusal names that factor.
-        let increment = mul(leaf(c3, &scalar), pow(leaf(temperature, &scalar), 3, neutral));
+        let increment = mul(
+            leaf(c3, &scalar),
+            pow(leaf(temperature, &scalar), 3, neutral),
+        );
         assert!(infer_chain(&increment, &registry, &StandardInvariantChecker).is_ok());
         for datum in [MOLAR_ENTHALPY, GAUGE_PRESSURE] {
             let chain = mul(
-                mul(leaf(c3, &scalar), pow(leaf(temperature, &scalar), 3, neutral)),
+                mul(
+                    leaf(c3, &scalar),
+                    pow(leaf(temperature, &scalar), 3, neutral),
+                ),
                 leaf(id(datum), &scalar),
             );
             let error = infer_chain(&chain, &registry, &StandardInvariantChecker).unwrap_err();

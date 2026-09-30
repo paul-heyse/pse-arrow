@@ -962,7 +962,11 @@ fn automatic_presolve_declines_propagation_that_leaves_constant_nonlinear_rows()
     assert!(!report.diagnostics.contains_key("structure.declined"));
     let fbbt = &report.passes[&Pass::Fbbt];
     assert!(fbbt.requested && fbbt.eligible && !fbbt.applied);
-    assert!(fbbt.reason.as_deref().is_some_and(|r| r.contains("propagation")));
+    assert!(
+        fbbt.reason
+            .as_deref()
+            .is_some_and(|r| r.contains("propagation"))
+    );
     assert!(!report.effective.fbbt);
     assert!(report.passes[&Pass::AffineElimination].applied);
     assert_eq!(
@@ -1101,7 +1105,9 @@ fn automatic_presolve_propagates_an_affine_row_by_its_proof() {
     let report = pipeline.report();
     assert!(report.proof.is_none());
     assert!(
-        !report.diagnostics.contains_key("infeasibility.confirmation"),
+        !report
+            .diagnostics
+            .contains_key("infeasibility.confirmation"),
         "{:?}",
         report.diagnostics
     );

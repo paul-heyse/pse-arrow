@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0f14331d9760dbe4d3425f2790b5e") package nist_data {
+@id("01a0f14331d9760dbe4d3426b1410c19") use properties @"1.0.0";
+@id("01a0f14331d9760dbe4d34272e3d0396") use correlations @"1.0.0";
+@id("01a0f14331d9760dbe4d34283f47406c") use compatibility @"1.0.0";
+@id("01a0f14331d9760dbe4d3429c410e97e") use provenance @"1.0.0";
+@id("01a0f14331d9760dbe4d342a2eecb60d") use references @"1.0.0";
+@id("01a0f14331d9760dbe4d342b88cd86b5") use chem @"1.0.0";
+@id("01a0e1484fb87705b3f22bd4297dde3d") dataset nitrogen_shomate:correlations.shomate bind(property=properties.heat_capacity, source=references.nist_chase_1998) provenance(references.nist_chase_1998, provenance.Role.published) from "data/nitrogen_shomate.parquet";
+}

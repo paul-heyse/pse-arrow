@@ -818,7 +818,13 @@ mod tests {
                 .filter(|c| c.layer == Some(layer))
                 .map(|c| {
                     assert_eq!(c.kind, CheckKind::Validity);
-                    (c.source_id, c.value, c.within_validity, c.extrapolation_allowed, c.satisfied)
+                    (
+                        c.source_id,
+                        c.value,
+                        c.within_validity,
+                        c.extrapolation_allowed,
+                        c.satisfied,
+                    )
                 })
                 .collect::<Vec<_>>()
         };
@@ -826,7 +832,12 @@ mod tests {
         // and is within it at the static argument, both sourced by the relation.
         let range = rows
             .iter()
-            .find(|r| r.value.annotation.as_ref().is_some_and(|a| a.extrapolation.is_some()))
+            .find(|r| {
+                r.value
+                    .annotation
+                    .as_ref()
+                    .is_some_and(|a| a.extrapolation.is_some())
+            })
             .unwrap()
             .declaration_id;
         assert_eq!(
@@ -842,12 +853,17 @@ mod tests {
                 (bank, 2.0, Some(false), Some(true), true),
             ]
         );
-        assert!(validity(Layer::Form).is_empty(), "the form layer never extrapolates");
-        assert!(result
-            .checks
-            .iter()
-            .filter(|c| c.kind != CheckKind::Validity)
-            .all(|c| c.layer.is_none()));
+        assert!(
+            validity(Layer::Form).is_empty(),
+            "the form layer never extrapolates"
+        );
+        assert!(
+            result
+                .checks
+                .iter()
+                .filter(|c| c.kind != CheckKind::Validity)
+                .all(|c| c.layer.is_none())
+        );
         let expected = result.checks.clone();
         let mut tables = result.tables().unwrap();
         let checks = tables

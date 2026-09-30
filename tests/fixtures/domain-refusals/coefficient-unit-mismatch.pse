@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 // A form's coefficient is stated in its declared quantity.
-// refusal: row 0 of dataset ethane_sets: attribute c0: 70.0{J/(K*kg)} is not a MolarCp
+// refusal: row 0 of dataset ethane_sets: attribute c0: 70.0{J/(K*kg)}
+// refusal: is not a MolarCp
 // control: 70{J/(kg*K)} => 70{J/(mol*K)}
 package refusal {
  use corpus @"1.0.0";

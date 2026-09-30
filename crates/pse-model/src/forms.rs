@@ -6,7 +6,7 @@
 //! A native realization keeps the authored structure instead of a linear reformulation.
 //! Only a backend with the matching handler may execute it; every other route refuses the
 //! case. Identities are specialized symbol and row identities. The handler each form needs
-//! is the registry enumeration [`NativeConstraintForm`], which backend capability records
+//! is the registry enumeration `NativeConstraintForm`, which backend capability records
 //! also publish.
 use crate::generated::enums::NativeConstraintForm;
 use pse_ids::SemanticId;

@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0f1868dd372eeb1f0f39c9ecd9b0e") package pcsaft_parameters {
+@id("01a0f1868dd372eeb1f0f39da02514f6") use properties @"1.0.0";
+@id("01a0f1868dd372eeb1f0f39e00243afa") use compatibility @"1.0.0";
+@id("01a0f1868dd372eeb1f0f39f50ddb29e") entity properties.property segments { quantity = Scalar, shape = properties.IndexShape.pure, applies = {compatibility.PhaseType.liquidPhase,compatibility.PhaseType.vaporPhase} }
+@id("01a0f1868dd372eeb1f0f3a079cba243") entity kind nonassociating extends properties.parameter_set {
+@id("01a0f1868dd372eeb1f0f3a1f3988565") attribute m:Scalar storage {1};
+@id("01a0f1868dd372eeb1f0f3a26ce2de59") attribute sigma:Length storage {m};
+@id("01a0f1868dd372eeb1f0f3a3bb232226") attribute epsilon:TemperatureScale storage {K};
+@id("01a0f1868dd372eeb1f0f3a47635d56b") require property == segments and m >= 1 and sigma > 0{m} and epsilon > 0{K} : "nonassociating segment parameters are positive and parameterize segments";
+}
+@id("fb9c91dbd093453386ee95376dc0838b") entity properties.property binary_interaction { quantity=Scalar,shape=properties.IndexShape.pair,applies={compatibility.PhaseType.liquidPhase,compatibility.PhaseType.vaporPhase} }
+}

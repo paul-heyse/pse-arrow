@@ -72,7 +72,11 @@ pub(super) fn accessors(
             } else {
                 super::types::logical
             };
-            let payload = render(arm_field, &format!("{stem}{}", pascal(arm)), &mut Vec::new())?;
+            let payload = render(
+                arm_field,
+                &format!("{stem}{}", pascal(arm)),
+                &mut Vec::new(),
+            )?;
             variants.push(quote!(#[doc = #tag] #variant(&'a #payload)));
             selections.push(quote!((#tag, #(#patterns,)*) => Ok(#selected::#variant(value))));
             quote!(value: #payload)

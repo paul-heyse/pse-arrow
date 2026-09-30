@@ -73,7 +73,10 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
                 &mut h,
                 d.reference_state.map(pse_quantity::ReferenceStateId::as_id),
             );
-            id(&mut h, d.subject_kind.map(pse_quantity::EntityKindId::as_id));
+            id(
+                &mut h,
+                d.subject_kind.map(pse_quantity::EntityKindId::as_id),
+            );
         }
     }
     h.str("bases").u64(r.bases().len() as u64);
@@ -322,8 +325,14 @@ mod tests {
             "3cb659a221309cab9089ed95234e53059e6cdda15ce2dc7e024c5370b7daf981"
         );
         // Two inventories that differ only in a derived kind's declared result basis.
-        assert_ne!(identity(&registry(false, None), &none), identity(&registry(true, None), &none));
-        assert_eq!(identity(&registry(true, None), &none), identity(&registry(true, None), &none));
+        assert_ne!(
+            identity(&registry(false, None), &none),
+            identity(&registry(true, None), &none)
+        );
+        assert_eq!(
+            identity(&registry(true, None), &none),
+            identity(&registry(true, None), &none)
+        );
         // Naming the one quantity type, or naming it differently, is another inventory.
         let named = |name| identity(&registry(true, name), &none);
         assert_ne!(named(None), named(Some("Named")));

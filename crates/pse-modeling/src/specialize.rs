@@ -29,8 +29,8 @@ use std::collections::{BTreeMap, BTreeSet};
 pub use value::{Environment, Value};
 mod fixture;
 pub use fixture::{
-    ExpectedFailure, ExpectedLineage, Fixture, FixtureDiagnostic, FixtureEvent, FixtureMode, FixtureValue,
-    IntegrationFixture, ScheduleControl, ScheduleFixture, ShootingFixture,
+    ExpectedFailure, ExpectedLineage, Fixture, FixtureDiagnostic, FixtureEvent, FixtureMode,
+    FixtureValue, IntegrationFixture, ScheduleControl, ScheduleFixture, ShootingFixture,
 };
 mod regimes;
 pub use regimes::{Regime, RegimeSelection};
@@ -358,7 +358,10 @@ struct State {
     stack: Vec<DeclarationId>,
     /// The data layer's extrapolation policy for this instance and the declaration that
     /// selected it: the nearest instance that selects one decides (ADR-0123 Outcome 4).
-    extrapolation: Option<(pse_model::generated::enums::ExtrapolationPolicy, DeclarationId)>,
+    extrapolation: Option<(
+        pse_model::generated::enums::ExtrapolationPolicy,
+        DeclarationId,
+    )>,
 }
 /// One deferred equation occurrence: its instance, declaration, coordinates and scope.
 #[derive(Clone)]
@@ -374,6 +377,9 @@ pub(crate) struct Engine<'a, 'b> {
     limits: Limits,
     pub(crate) model: SpecializedModel,
     states: BTreeMap<InstanceId, State>,
+    /// Time-independent numerical parameter owner of each temporal descendant.
+    temporal_owners: BTreeMap<InstanceId, InstanceId>,
+    temporal_axis: Option<SemanticId>,
     stack: Vec<DeclarationId>,
     count: usize,
     lexical: BTreeMap<String, Expr>,
@@ -501,6 +507,8 @@ pub fn specialize_with_discretizer(
         limits,
         model: SpecializedModel::default(),
         states: BTreeMap::new(),
+        temporal_owners: BTreeMap::new(),
+        temporal_axis: None,
         stack: Vec::new(),
         count: 0,
         lexical: BTreeMap::new(),
@@ -604,7 +612,8 @@ impl Engine<'_, '_> {
         if let ExprKind::Path(path) = &expression.kind
             && let Some((last, prefix)) = path.segments.split_last()
             && !last.indices.is_empty()
-            && let Some((owner, member)) = self.equation_member(instance, at, prefix, &last.name, env)
+            && let Some((owner, member)) =
+                self.equation_member(instance, at, prefix, &last.name, env)
         {
             let values = last
                 .indices
@@ -626,8 +635,8 @@ impl Engine<'_, '_> {
                 .equation
                 .as_ref()
                 .ok_or_else(|| invalid(at, "equation payload"))?;
-            let equation =
-                dsl::parse_equation(&equation.expression).map_err(|e| invalid(at, e.to_string()))?;
+            let equation = dsl::parse_equation(&equation.expression)
+                .map_err(|e| invalid(at, e.to_string()))?;
             if !self.equation_defined(&equation, &local)? {
                 return Ok(Vec::new());
             }
@@ -903,8 +912,9 @@ impl Engine<'_, '_> {
             .values()
             .filter(|id| {
                 self.p.declarations[id].value.kind == Kind::Stage
-                    && env.get(&crate::analysis::Fact::Stage(self.p.declarations[id].name.clone()).path())
-                        == Some(&Value::Boolean(true))
+                    && env.get(
+                        &crate::analysis::Fact::Stage(self.p.declarations[id].name.clone()).path(),
+                    ) == Some(&Value::Boolean(true))
             })
             .count();
         if stages > 1 {
@@ -1068,6 +1078,10 @@ impl Engine<'_, '_> {
                     &env,
                     b.indices
                         .iter()
+                        .filter(|index| {
+                            index.name != crate::temporal::COORDINATE
+                                || self.temporal_active(id, *member)
+                        })
                         .map(|i| (i.name.as_str(), i.domain.as_str())),
                 )? {
                     let value = self.eval(
@@ -1080,11 +1094,67 @@ impl Engine<'_, '_> {
                     )?;
                     let Value::Definition {
                         id: target,
-                        bindings,
+                        mut bindings,
                     } = value
                     else {
                         return Err(invalid(*member, "child requires a definition"));
                     };
+                    let temporal = self
+                        .p
+                        .temporal
+                        .get(member)
+                        .filter(|_| self.temporal_active(id, *member));
+                    if let Some((policy, _, argument)) = temporal {
+                        let point = coordinates
+                            .first()
+                            .map(|(_, point)| point.clone())
+                            .ok_or_else(|| invalid(*policy, "temporal coordinate absent"))?;
+                        let (mesh, _) = self.coordinate_mesh(&point)?;
+                        let axis = mesh.id;
+                        if self.temporal_axis.is_some_and(|selected| selected != axis) {
+                            return Err(invalid(
+                                *policy,
+                                "one analysis-owned temporal axis is required",
+                            ));
+                        }
+                        self.temporal_axis = Some(axis);
+                        if bindings.contains_key(argument) {
+                            return Err(invalid(
+                                *policy,
+                                "the analysis owns the instantaneous time argument",
+                            ));
+                        }
+                        let definition = self.p.preset_definition(target)?;
+                        let parameter = self.p.declarations[&definition]
+                            .value
+                            .scope
+                            .as_ref()
+                            .and_then(|scope| {
+                                scope
+                                    .parameters
+                                    .iter()
+                                    .find(|parameter| parameter.name == *argument)
+                            })
+                            .ok_or_else(|| {
+                                invalid(*policy, "temporal constructor argument absent")
+                            })?;
+                        let expected = self.c.resolve(
+                            &parameter.r#type,
+                            &BTreeSet::new(),
+                            &self.p.named_types(definition),
+                            definition,
+                        )?;
+                        let supplied = Value::Set(vec![point]);
+                        if !matches!(expected, Type::Set(_))
+                            || !value::conforms(&supplied, &expected, self.p)
+                        {
+                            return Err(invalid(
+                                *policy,
+                                "temporal argument must be a set of the axis's physical time quantity",
+                            ));
+                        }
+                        bindings.insert(argument.clone(), supplied);
+                    }
                     if let Some(ty) = self.p.types.get(member) {
                         self.compatible(
                             &Value::Definition {
@@ -1096,6 +1166,16 @@ impl Engine<'_, '_> {
                         )?;
                     }
                     let child = InstanceId::from(member_id(id, *member, &coordinates));
+                    if temporal.is_some() || self.temporal_owners.contains_key(&id) {
+                        let parent = self.temporal_owners.get(&id).copied().unwrap_or(id);
+                        let spatial = if temporal.is_some() {
+                            &coordinates[1..]
+                        } else {
+                            &coordinates[..]
+                        };
+                        self.temporal_owners
+                            .insert(child, InstanceId::from(member_id(parent, *member, spatial)));
+                    }
                     let ids = coordinates
                         .iter()
                         .map(|(_, v)| v.identity())
@@ -1144,6 +1224,10 @@ impl Engine<'_, '_> {
                     .cloned()
                     .unwrap_or(Realization::Inline);
                 let child = InstanceId::from(member_id(id, *member, &[]));
+                if let Some(owner) = self.temporal_owners.get(&id).copied() {
+                    self.temporal_owners
+                        .insert(child, InstanceId::from(member_id(owner, *member, &[])));
+                }
                 let name = row.name.clone();
                 self.states
                     .get_mut(&id)
@@ -1656,8 +1740,15 @@ impl Engine<'_, '_> {
             return symbol_reference(&target)
                 .ok_or_else(|| invalid(member, "port target must name a symbol"));
         }
-        self.reserve(1)?;
-        let id = member_id(instance, member, coordinates);
+        let owner = if row.value.kind == Kind::Parameter && b.indices.is_empty() {
+            self.temporal_owners
+                .get(&instance)
+                .copied()
+                .unwrap_or(instance)
+        } else {
+            instance
+        };
+        let id = member_id(owner, member, coordinates);
         let ty = self
             .p
             .types
@@ -1665,6 +1756,28 @@ impl Engine<'_, '_> {
             .cloned()
             .ok_or_else(|| invalid(member, "demanded member type absent"))?;
         let env = coordinates_env(&self.states[&instance].env, coordinates);
+        if owner != instance
+            && let Some(existing) = self.model.symbols.get(&id)
+        {
+            let initial = b
+                .expression
+                .as_ref()
+                .map(|source| self.eval(member, &env, source, Some(&ty)))
+                .transpose()?;
+            if existing.ty != ty || existing.initial != initial {
+                return Err(invalid(
+                    member,
+                    "scalar temporal parameter defaults must agree; time changes belong to an analysis schedule",
+                ));
+            }
+            self.states
+                .get_mut(&instance)
+                .ok_or_else(|| invalid(instance, "temporal instance absent"))?
+                .symbols
+                .insert(key, id);
+            return Ok(id);
+        }
+        self.reserve(1)?;
         let mut demand = chain.to_vec();
         demand.push(member);
         // ADR-0103: a variable carries its declared domain; every other symbol is continuous.

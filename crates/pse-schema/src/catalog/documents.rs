@@ -84,23 +84,13 @@ fn declare_materials(builder: &mut RegistryBuilder) {
             "reference.quantity_operations",
             "reference.quantity_operation_reductions",
             "reference.quantity_preconditions",
-            "reference.constants",
             "reference.math_context",
         ],
     );
 }
 
 fn declare_cases(builder: &mut RegistryBuilder) {
-    entities(
-        builder,
-        "cases",
-        "cases/*.yaml",
-        &[
-            "authored.datasets",
-            "authored.observations",
-            "authored.fit_cases",
-        ],
-    );
+    entities(builder, "cases", "cases/*.yaml", &["authored.fit_cases"]);
 }
 
 fn entities(
@@ -146,14 +136,11 @@ fn projection(relation: &str) -> Projection {
             Some("name"),
             None,
         ),
-        "reference.constants" => (Some("constant_id"), Some("constant"), Some("name"), None),
-        "authored.datasets" => (Some("dataset_id"), Some("dataset"), Some("name"), None),
         "reference.bases" => (Some("basis_id"), None, None, None),
         "reference.reference_states" => (Some("reference_state_id"), None, None, None),
         "reference.quantity_types" => (Some("quantity_type_id"), None, None, None),
         "reference.conversion_rules" => (Some("conversion_id"), None, None, None),
         "reference.quantity_operations" => (Some("operation_id"), None, None, None),
-        "authored.observations" => (Some("observation_id"), None, None, None),
         "provenance.assertions" => (Some("assertion_id"), None, None, None),
         _ => (None, None, None, None),
     }

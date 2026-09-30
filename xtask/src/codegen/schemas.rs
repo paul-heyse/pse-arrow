@@ -153,14 +153,10 @@ mod tests {
                 .sum::<usize>()
         );
         assert!(enumerations > 0);
-        // Hydration-owned fields a source never states: the reason the emitter stays.
-        assert!(
-            hydration_only
-                .iter()
-                .any(|field| field.ends_with(".source_span")
-                    || field.ends_with(".package_checksum")
-                    || field.contains("span")),
-            "{hydration_only:?}"
+        // The package's computed content hash is required only after hydration.
+        assert_eq!(
+            hydration_only,
+            BTreeSet::from(["package_header.package.content_hash".to_owned()])
         );
     }
 }

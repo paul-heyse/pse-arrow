@@ -23,28 +23,28 @@ pub use pse_model::generated::r#enums::{
     ModelingDiscreteInitialization, ModelingElasticObservation, ModelingEnvelopeExtent,
     ModelingFactNamespace, ModelingFixtureBinding, ModelingFixtureExecution,
     ModelingInitializationStep, ModelingKeyCellKind, ModelingKindFacet,
-    ModelingLineageKind, ModelingMissingPolicy, ModelingObjectiveRoute,
-    ModelingRealValueKind, ModelingRealizationPolicy, ModelingStructuralRequirement,
-    ModelingTypeNode, ModelingUncertaintyKind, ModelingValidityLayer,
-    ModelingVariableDomain, ModelingVersionOperator, MuStrategy, MumpsOrdering,
-    Namespace, NativeAssurance, NativeBackend, NativeBoundaryClass, NativeCandidateKind,
-    NativeCertificateAccuracy, NativeCertificateKind, NativeConstraintForm,
-    NativeDependencyEvidenceKind, NativeDependencyKind, NativeDerivativeCapability,
-    NativeIneligibility, NativeInfeasibilityWitness, NativeMetricKind,
-    NativeObjectiveSense, NativeProblemClass, NativeQualification, NativeRayCoordinate,
-    NativeRunState, NativeSolveIntent, NativeStartPolicy, NativeTermination,
-    NativeWarmCapability, NumericalCoordinates, NumericalProvenanceField,
-    NumericalSource, NumericalTarget, ObservationTimeBasis, Opcode, OperationEffect,
-    PackageKind, PardisoMatching, PardisoOrdering, PounceMethod, Preconditioner,
-    PresolvePass, PresolvePolicyKind, PublicationKind, PublicationMemberRole,
-    QuantityAdditionKind, QuantityKindCategory, QuantityPreconditionKind,
-    QuantityScaleRule, QuantityShapeRule, RateBasis, ReductionKind, ReferenceRule,
-    ReferenceStateKind, RetentionPhase, RetentionReason, ReusePolicy, RuntimeTermination,
-    ScaleKind, SensitivityCorrector, SettlementOutcome, Severity, ShootingMethod,
-    SnapshotClass, SpralOrdering, SpralPivot, SpralScaling, Stability, StateSign,
-    StoredSeedKind, StoredSolutionOrigin, StudyPointState, StudyState, SubjectRule,
-    TearMethod, TerminationClass, TimeCoordinateKind, TrajectoryTermination, TrialPolicy,
-    TruthValue, WeightNormalization, WithheldReason,
+    ModelingKnowledgeValueKind, ModelingLineageKind, ModelingMissingPolicy,
+    ModelingObjectiveRoute, ModelingRealValueKind, ModelingRealizationPolicy,
+    ModelingStructuralRequirement, ModelingTypeNode, ModelingUncertaintyKind,
+    ModelingValidityLayer, ModelingVariableDomain, ModelingVersionOperator, MuStrategy,
+    MumpsOrdering, Namespace, NativeAssurance, NativeBackend, NativeBoundaryClass,
+    NativeCandidateKind, NativeCertificateAccuracy, NativeCertificateKind,
+    NativeConstraintForm, NativeDependencyEvidenceKind, NativeDependencyKind,
+    NativeDerivativeCapability, NativeIneligibility, NativeInfeasibilityWitness,
+    NativeMetricKind, NativeObjectiveSense, NativeProblemClass, NativeQualification,
+    NativeRayCoordinate, NativeRunState, NativeSolveIntent, NativeStartPolicy,
+    NativeTermination, NativeWarmCapability, NumericalCoordinates,
+    NumericalProvenanceField, NumericalSource, NumericalTarget, ObservationTimeBasis,
+    Opcode, OperationEffect, PackageKind, PardisoMatching, PardisoOrdering, PounceMethod,
+    Preconditioner, PresolvePass, PresolvePolicyKind, PublicationKind,
+    PublicationMemberRole, QuantityAdditionKind, QuantityKindCategory,
+    QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis,
+    ReductionKind, ReferenceRule, ReferenceStateKind, RetentionPhase, RetentionReason,
+    ReusePolicy, RuntimeTermination, ScaleKind, SensitivityCorrector, SettlementOutcome,
+    Severity, ShootingMethod, SnapshotClass, SpralOrdering, SpralPivot, SpralScaling,
+    Stability, StateSign, StoredSeedKind, StoredSolutionOrigin, StudyPointState,
+    StudyState, SubjectRule, TearMethod, TerminationClass, TimeCoordinateKind,
+    TrajectoryTermination, TrialPolicy, TruthValue, WeightNormalization, WithheldReason,
 };
 impl crate::columnar::ArrowValue for ArtifactReconstruction {
     fn append(
@@ -1595,6 +1595,25 @@ impl crate::columnar::ArrowValue for ModelingKeyCellKind {
     }
 }
 impl crate::columnar::ArrowValue for ModelingKindFacet {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for ModelingKnowledgeValueKind {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

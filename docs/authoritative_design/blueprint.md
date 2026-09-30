@@ -54,6 +54,8 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | 83 | 2026-09-30 | ADR-0129: core/template 3.3 and process-simulator guidance 1.3 scope domain-model assessment to bounded design/review periods and make flow tracing optional for concrete uncertainties. Remove the standing AGENTS mandate; retain AP-04/G9 and scientific criteria. §24.4, reviewer and process guidance align. | Maintainer-authorized policy change; `PSE_DESIGN_EDIT=1` |
 
+| 84 | 2026-09-30 | Plan 23 implemented contracts: source-attributed species/data banks and typed correlations (§9.1–9.3); bounded binary admission and read-only admitted knowledge (§22.1); source revision v4 (§5.3), relation v20 and measured-attribute fitting (§6.10, §6.15.1); analysis-owned time (§13.1); explicit qualified fit export and exact binary Python documents (§19.4, §21.5). Qualification remains owned by the active plan until its final Outcome. | ADR-0130–0134 proposed; scheduled boundary audit; `PSE_DESIGN_EDIT=1` |
+
 ## Former anchors
 
 Links into the former single-file blueprint land on a row below; follow it to the current

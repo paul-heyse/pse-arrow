@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("5e8ff6278a5143e584ed0a8fc7debca8") package pressure_fixtures {
+@id("01a0f14ead4d7118a57e3663b390e8aa") use constants @"1.0.0";
 @id("01a0ef604fe0732189b937316c4c667e") use references @"1.0.0";
 @id("01a0ee04daa874fc9167381793df0548") use chemistry @"1.0.0";
 @id("babd01d3c2d44ea799e563b2a79a4670") use chem @"1.0.0";
@@ -11,9 +12,9 @@
 @id("b6999de11a8f458d91c77a91e06df1ce") use pressure_change @"1.0.0";
 @id("862ea0fe7c814087a86af6f4c73231cf") use saponification @"1.0.0";
 @id("a50b21dfc31447c99619b8b8dd16bd49") fn reference_temperature()->Temperature=300{K};
-@id("d432ed93187940b3adb0a271d3ef1ff1") fn cp()->MolarCp=caloric.cp_unit()*3.5*helmholtz.reduced_gas_constant();
-@id("7cdb64f2f1fd4173a0ed0cd040b17806") fn molar_h(T:Temperature,j:chemistry.species)->MolarEnthalpy=equilibrium.enthalpy_datum()+cp()*(T-reference_temperature());
-@id("3266ba88061448708f4f377c31842e50") fn molar_s(T:Temperature,j:chemistry.species)->MolarEntropy=equilibrium.entropy_datum()+caloric.s_unit()*(cp()/caloric.cp_unit())*log((T/caloric.kelvin())/(reference_temperature()/caloric.kelvin()));
+@id("d432ed93187940b3adb0a271d3ef1ff1") fn cp()->MolarCp=constants.heat_capacity_unit*3.5*helmholtz.reduced_gas_constant();
+@id("7cdb64f2f1fd4173a0ed0cd040b17806") fn molar_h(T:Temperature,j:chemistry.species)->MolarEnthalpy=constants.standard_enthalpy_datum+cp()*(T-reference_temperature());
+@id("3266ba88061448708f4f377c31842e50") fn molar_s(T:Temperature,j:chemistry.species)->MolarEntropy=constants.standard_entropy_datum+constants.entropy_increment_unit*(cp()/constants.heat_capacity_unit)*log((T/constants.temperature_scale)/(reference_temperature()/constants.temperature_scale));
 @id("c4b4a61f230b4e179b25ecae7b67bcac") def PerfectNitrogen(defined_state:Boolean):ideal_caloric_state.IdealGasState {
 @id("a337869f1cc74dfa857318470bb1a216") override param defined:Boolean=defined_state;
 @id("c104ce24cfe046bc8b45147e21c0070d") override param components:Set<chemistry.species>={chem.nitrogen};

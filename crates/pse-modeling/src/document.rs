@@ -226,6 +226,8 @@ pub enum Target {
     },
     /// An entity of `kind` or a refinement, by identity or by a value of `scheme`.
     Entity {
+        /// Identity projection forms keys first; full admission validates the reference.
+        deferred: bool,
         /// The declared kind.
         kind: DeclarationId,
         /// Each admitted entity of the kind, or of a refinement, and its concrete kind.
@@ -260,6 +262,8 @@ pub struct Slot {
     pub declared: String,
     /// Whether a null is admitted, as explicit absence.
     pub optional: bool,
+    /// The declaration-owned value when a column is absent; null remains explicit absence.
+    pub default: Option<Value>,
     /// What the column's values become.
     pub target: Target,
 }
@@ -268,6 +272,8 @@ pub struct Slot {
 /// resolved from the declarations. Two equal plans over one document admit the same rows.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct DocumentPlan {
+    /// Identity admission projects keys first; full admission validates every column.
+    pub keys_only: bool,
     /// The dataset declaration.
     pub dataset: DeclarationId,
     /// The dataset and table names as refusals name them.
@@ -278,12 +284,40 @@ pub struct DocumentPlan {
     pub values: Vec<Slot>,
 }
 impl DocumentPlan {
+    /// Upper bound for the typed columns and row tuples simultaneously owned by admission.
+    /// Includes expansion of declaration defaults and the document's variable-width payload.
+    pub fn admission_bytes(&self, document: &DataDocument) -> usize {
+        let rows = document.rows.rows();
+        let slots = self.keys.iter().chain(&self.values);
+        let mut cells = 0usize;
+        let mut payload = 0usize;
+        for slot in slots {
+            cells = cells.saturating_add(1);
+            if let Some(column) = document
+                .rows
+                .columns()
+                .iter()
+                .find(|column| column.name == slot.name)
+            {
+                if matches!(slot.target, Target::Text | Target::Identifier(_)) {
+                    payload = payload.saturating_add(column.values.retained_bytes());
+                }
+            } else if let Some(default) = &slot.default {
+                payload = payload.saturating_add(rows.saturating_mul(default.retained_bytes()));
+            }
+        }
+        rows.saturating_mul(
+            4 * size_of::<Vec<Value>>() + 2 * cells.saturating_mul(size_of::<Value>()),
+        )
+        .saturating_add(2 * payload)
+    }
     /// Conservative owned storage; shared indexes are counted where they are held.
     pub fn retained_bytes(&self) -> usize {
         let slot = |s: &Slot| {
             size_of::<Slot>()
                 + s.name.capacity()
                 + s.declared.capacity()
+                + s.default.as_ref().map_or(0, Value::retained_bytes)
                 + match &s.target {
                     Target::Entity {
                         entities, scheme, ..
@@ -329,6 +363,22 @@ impl DocumentTable {
 
 /// The package data documents admission reads (ADR-0125).
 pub trait Documents {
+    /// Precharge owned expansion before allocating it. Standalone pure checks have no
+    /// workspace owner; engine consumers enforce their workspace allowance here.
+    ///
+    /// # Errors
+    /// Insufficient admission allowance or cancellation.
+    fn preflight(&self, _: DeclarationId, _: usize) -> Result<()> {
+        Ok(())
+    }
+    /// Number of rows in a resolved document, for record expansion before admission.
+    fn rows(&self, _: SemanticId) -> Option<usize> {
+        None
+    }
+    /// Variable-width input storage of a resolved document.
+    fn bytes(&self, _: SemanticId) -> usize {
+        0
+    }
     /// The identity of the data document a declaration of source document `source` names
     /// by `path`.
     fn resolve(&self, source: SemanticId, path: &str) -> Option<SemanticId>;
@@ -381,7 +431,13 @@ pub fn admit(
         })
     };
     for column in columns {
-        if !plan.keys.iter().chain(&plan.values).any(|s| s.name == column.name) {
+        if !plan.keys_only
+            && !plan
+                .keys
+                .iter()
+                .chain(&plan.values)
+                .any(|s| s.name == column.name)
+        {
             return Err(invalid(
                 at,
                 format!(
@@ -394,7 +450,14 @@ pub fn admit(
     let typed = |slots: &[Slot]| {
         slots
             .iter()
-            .map(|slot| column(plan, document, slot, find(slot)?, quantities))
+            .map(|slot| {
+                if !columns.iter().any(|c| c.name == slot.name)
+                    && let Some(default) = &slot.default
+                {
+                    return Ok(vec![default.clone(); document.rows.rows()]);
+                }
+                column(plan, document, slot, find(slot)?, quantities)
+            })
             .collect::<Result<Vec<_>>>()
     };
     let keys = typed(&plan.keys)?;
@@ -458,7 +521,9 @@ fn column(
         if slot.optional {
             Ok(Value::Missing)
         } else {
-            Err(refuse(format!("row {row} is null where a value is required")))
+            Err(refuse(format!(
+                "row {row} is null where a value is required"
+            )))
         }
     };
     let values = match (&slot.target, &column.values) {
@@ -486,7 +551,7 @@ fn column(
                 .collect::<Result<Vec<_>>>()?
         }
         (Target::Quantity { .. }, _) => return Err(mismatch("Float64 magnitudes")),
-        (Target::Entity { entities, .. }, Values::Identity(values)) => values
+        (Target::Entity { entities, kind, deferred, .. }, Values::Identity(values)) => values
             .iter()
             .enumerate()
             .map(|(row, v)| match v {
@@ -496,6 +561,7 @@ fn column(
                     entities
                         .get(&id)
                         .map(|kind| Value::Entity { id, kind: *kind })
+                        .or_else(|| deferred.then_some(Value::Entity { id, kind: *kind }))
                         .ok_or_else(|| {
                             refuse(format!("row {row} names {id}, which is no admitted entity of the declared kind"))
                         })

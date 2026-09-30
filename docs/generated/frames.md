@@ -158,9 +158,11 @@ Derived in: pse-runtime.
 | `ModelingDynamicModesV1` | `pse.modeling.dynamic-modes.v1` | Compiled simulation modes. |
 | `ModelingDynamicV2` | `pse.modeling.dynamic.v2` | A modeling dynamic simulation, with the derivative order of its functions, its integration parameter values, event directions and state signs. |
 | `ModelingFitExecutionV1` | `pse.modeling.fit-execution.v1` | A modeling fit's execution. |
-| `ModelingFitSourceV1` | `pse.modeling.fit-source.v1` | A modeling fit's source. |
+| `ModelingFitSourceV2` | `pse.modeling.fit-source.v2` | A modeling fit's source. Typed measured records belong to the admitted source revision; fitting selections are framed separately. |
+| `ModelingFitSourceV1` | `pse.modeling.fit-source.v1` | Historical fitting source with external observations; retained only as an immutable frame vocabulary. |
 | `ModelingImplicitTrialHintsV1` | `pse.modeling.implicit-trial-hints.v1` | Implicit trial hints. |
 | `ModelingSourceRevisionV3` | `pse.modeling.source-revision.v3` | A modeling source revision: the structured declaration rows, each package data document's identity and byte-level content hash, the physical inventory identity and the admitted physical name bindings (ADR-0123 Outcome 8, ADR-0125). |
+| `ModelingSourceRevisionV4` | `pse.modeling.source-revision.v4` | Source revision over temporal-composition declaration schema (ADR-0132). |
 | `NumericalConeV1` | `pse.numerical.cone.v1` | A prepared numerical cone request. |
 | `RunAlgorithmsV1` | `pse.run.algorithms.v1` | A publication request's algorithms. |
 | `RunSourceV1` | `pse.run.source.v1` | A publication request's source. |

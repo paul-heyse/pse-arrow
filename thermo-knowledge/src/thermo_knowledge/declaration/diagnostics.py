@@ -62,6 +62,7 @@ class Code(StrEnum):
     BAD_FAMILY = "bad-family"
     BAD_BINDING = "bad-binding"
     BAD_OUTPUT_OBSERVABLE = "bad-output-observable"
+    OBSERVABLE_DIMENSION = "observable-dimension"
     BAD_CONVENTION = "bad-convention"
     # Expressions (expressions.md section 4).
     EXPRESSION_SYNTAX = "expression-syntax"

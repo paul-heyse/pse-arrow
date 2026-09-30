@@ -123,13 +123,19 @@ fn relation_envelope_generates_function_guard() {
         let guard = &f.envelopes[0];
         assert_eq!(guard.policy, ExtrapolationPolicy::Reject);
         assert_eq!(guard.selection, None);
-        (guard.envelope.owner, dsl::render_predicate(&guard.predicate))
+        (
+            guard.envelope.owner,
+            dsl::render_predicate(&guard.predicate),
+        )
     };
     // The form layer stays the function's own domain; the data layer is generated.
     assert!(p.functions[&p.names["p.cp"]].validity.is_some());
     assert_eq!(
         guard("p.cp"),
-        (p.names["p.cp_data"], "((T >= p.low) and (T <= p.high))".to_owned())
+        (
+            p.names["p.cp_data"],
+            "((T >= p.low) and (T <= p.high))".to_owned()
+        )
     );
     // An increment guards its whole integration interval: both endpoints.
     assert_eq!(
@@ -142,7 +148,10 @@ fn relation_envelope_generates_function_guard() {
     // A kind's envelope is its declaration; a refinement inherits it.
     assert_eq!(
         guard("p.band_cp"),
-        (p.names["p.band.T"], "((T >= s.low) and (T <= s.high))".to_owned())
+        (
+            p.names["p.band.T"],
+            "((T >= s.low) and (T <= s.high))".to_owned()
+        )
     );
     assert_eq!(
         p.kinds[&p.names["p.narrow"]].envelopes,
@@ -156,9 +165,11 @@ fn relation_envelope_generates_function_guard() {
         .flat_map(|f| &f.envelopes)
         .collect::<Vec<_>>();
     assert_eq!(guards.len(), 3);
-    assert!(guards
-        .iter()
-        .all(|g| g.policy == ExtrapolationPolicy::Reject && g.selection.is_none()));
+    assert!(
+        guards
+            .iter()
+            .all(|g| g.policy == ExtrapolationPolicy::Reject && g.selection.is_none())
+    );
     assert!(observations(&model).is_empty() && model.observations.is_empty());
     // Columns named minimum and maximum are ordinary columns: no envelope, no guard.
     let conventional = r#"package p { entity kind item {} entity item a {} set items: Set<item> = {a};
@@ -171,12 +182,36 @@ fn relation_envelope_generates_function_guard() {
     // A guard names an argument carrying a row or entity, an envelope it declares, and
     // arguments of the axis type, one or the two endpoints of an interval.
     for (from, to, expected) in [
-        ("guards(p.T: T) valid", "guards(q.T: T) valid", "q, which is not one of its arguments"),
-        ("guards(p.T: T) valid", "guards(p.P: T) valid", "guards envelope P of table cp_data, which declares none"),
-        ("guards(p.T: T) valid", "guards(T.T: T) valid", "neither a row nor an entity argument"),
-        ("guards(p.T: [T0, T])", "guards(p.T: [T, T])", "two distinct arguments"),
-        ("guards(p.T: T) valid", "guards(p.T: T, p.T: T) valid", "twice"),
-        ("guards(p.T: T) valid", "guards(p.T: x) valid", "x, which is not one of its arguments"),
+        (
+            "guards(p.T: T) valid",
+            "guards(q.T: T) valid",
+            "q, which is not one of its arguments",
+        ),
+        (
+            "guards(p.T: T) valid",
+            "guards(p.P: T) valid",
+            "guards envelope P of table cp_data, which declares none",
+        ),
+        (
+            "guards(p.T: T) valid",
+            "guards(T.T: T) valid",
+            "neither a row nor an entity argument",
+        ),
+        (
+            "guards(p.T: [T0, T])",
+            "guards(p.T: [T, T])",
+            "two distinct arguments",
+        ),
+        (
+            "guards(p.T: T) valid",
+            "guards(p.T: T, p.T: T) valid",
+            "twice",
+        ),
+        (
+            "guards(p.T: T) valid",
+            "guards(p.T: x) valid",
+            "x, which is not one of its arguments",
+        ),
     ] {
         let error = refusal(&text.replace(from, to));
         assert!(error.contains(expected), "{to}: {error}");
@@ -187,7 +222,9 @@ fn relation_envelope_generates_function_guard() {
     );
     let error = refusal(&pressure);
     assert!(
-        error.contains("guards P by envelope T of table cp_data, whose axis is a Temperature; P is a Pressure"),
+        error.contains(
+            "guards P by envelope T of table cp_data, whose axis is a Temperature; P is a Pressure"
+        ),
         "{error}"
     );
 }
@@ -293,7 +330,13 @@ fn consumer_selects_extrapolation_per_layer() {
             .functions
             .iter()
             .filter(|(_, f)| f.id == p.names["p.cp"])
-            .map(|(name, f)| (name.clone(), f.envelopes[0].policy, f.envelopes[0].selection))
+            .map(|(name, f)| {
+                (
+                    name.clone(),
+                    f.envelopes[0].policy,
+                    f.envelopes[0].selection,
+                )
+            })
             .collect::<Vec<_>>()
     };
     // No selection rejects: the guard is a domain predicate and nothing is observed.
@@ -340,7 +383,12 @@ fn consumer_selects_extrapolation_per_layer() {
         panic!("{:?}", analysis.observations);
     };
     assert_eq!(
-        (observed.value, observed.lower, observed.upper, observed.within()),
+        (
+            observed.value,
+            observed.lower,
+            observed.upper,
+            observed.within()
+        ),
         (500., 250., 400., false)
     );
     assert_eq!(observed.selection, selection("p.analysis"));
@@ -359,7 +407,11 @@ fn consumer_selects_extrapolation_per_layer() {
     );
     // An extrapolation that cannot be observed where it is evaluated is refused.
     let error = root(&text, "Local").unwrap_err().to_string();
-    assert!(error.contains("neither a model member, a static value nor an argument passed on unchanged"), "{error}");
+    assert!(
+        error
+            .contains("neither a model member, a static value nor an argument passed on unchanged"),
+        "{error}"
+    );
     let error = root(&text, "Branch").unwrap_err().to_string();
     assert!(error.contains("inside a conditional branch"), "{error}");
 }
@@ -394,15 +446,27 @@ fn selection_is_the_data_layer_of_a_consumer_scope() {
     assert_eq!(
         layers,
         [
-            (ModelingValidityLayer::Data, ExtrapolationPolicy::Extrapolate),
+            (
+                ModelingValidityLayer::Data,
+                ExtrapolationPolicy::Extrapolate
+            ),
             (ModelingValidityLayer::Closure, ExtrapolationPolicy::Reject),
         ]
         .into()
     );
     for (to, expected) in [
-        ("extrapolation form extrapolate;", "the form layer never extrapolates"),
-        ("extrapolation form reject;", "the form layer never extrapolates"),
-        ("extrapolation closure extrapolate;", "stated by its validity annotation"),
+        (
+            "extrapolation form extrapolate;",
+            "the form layer never extrapolates",
+        ),
+        (
+            "extrapolation form reject;",
+            "the form layer never extrapolates",
+        ),
+        (
+            "extrapolation closure extrapolate;",
+            "stated by its validity annotation",
+        ),
         (
             "extrapolation data extrapolate; extrapolation data reject;",
             "one extrapolation policy per scope selects the data layer",
@@ -418,6 +482,9 @@ fn selection_is_the_data_layer_of_a_consumer_scope() {
         "def W { when true { extrapolation data extrapolate; } }",
     ] {
         let error = refusal(&text.replace("def Root", &format!("{placement} def Root")));
-        assert!(error.contains("selects an extrapolation policy"), "{placement}: {error}");
+        assert!(
+            error.contains("selects an extrapolation policy"),
+            "{placement}: {error}"
+        );
     }
 }

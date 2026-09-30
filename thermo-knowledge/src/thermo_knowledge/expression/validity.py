@@ -11,9 +11,10 @@ component and no aggregation; every other clause cannot be decided from the argu
 
 For one region, a point is
 
-* `INSIDE` when every clause of the region is decidable and holds;
-* `OUTSIDE` when every clause is decidable and one fails;
-* `UNDETERMINED` when the region has a clause that cannot be decided.
+* `OUTSIDE` when a decidable clause fails, whatever the clauses that cannot be decided say (a
+  conjunction with a false conjunct is false);
+* `UNDETERMINED` when no decidable clause fails and some clause cannot be decided;
+* `INSIDE` when every clause is decidable and holds.
 
 For one record, which states regions of the kind, a point is inside when it is inside some region,
 otherwise undetermined when some region is, otherwise outside. For an evaluation, which reads
@@ -53,18 +54,21 @@ def _holds(clause: RegionClause, value: np.ndarray) -> np.ndarray:
 
 def _region(
     region: ValidityRegion, observed: Mapping[str, np.ndarray], shape: tuple[int, ...]
-) -> np.ndarray | None:
-    """Whether each point is inside the region, or `None` when a clause cannot be decided."""
-    inside = np.ones(shape, dtype=bool)
+) -> tuple[np.ndarray, bool]:
+    """For each point whether a decidable clause of the region fails, and whether the region has a
+    clause that cannot be decided."""
+    fails = np.zeros(shape, dtype=bool)
+    undecided = False
     for clause in region.clauses:
         if (
             clause.component is not None
             or clause.aggregation is not None
             or clause.observable not in observed
         ):
-            return None
-        inside &= _holds(clause, observed[clause.observable])
-    return inside
+            undecided = True
+            continue
+        fails |= ~_holds(clause, observed[clause.observable])
+    return fails, undecided
 
 
 def membership(
@@ -82,14 +86,13 @@ def membership(
     outside = np.zeros(shape, dtype=bool)
     undetermined = np.zeros(shape, dtype=bool)
     for record in stated:
-        found = [_region(region, observed, shape) for region in record.regions]
         inside_any = np.zeros(shape, dtype=bool)
-        for inside in found:
-            if inside is not None:
-                inside_any |= inside
-        undecided = any(inside is None for inside in found)
-        outside |= ~inside_any & (not undecided)
-        undetermined |= ~inside_any & undecided
+        undetermined_any = np.zeros(shape, dtype=bool)
+        for fails, undecided in (_region(region, observed, shape) for region in record.regions):
+            inside_any |= ~fails & (not undecided)
+            undetermined_any |= ~fails & undecided
+        undetermined |= ~inside_any & undetermined_any
+        outside |= ~inside_any & ~undetermined_any
     codes = np.full(shape, Membership.INSIDE, dtype=np.int8)
     codes[undetermined] = Membership.UNDETERMINED
     codes[outside] = Membership.OUTSIDE

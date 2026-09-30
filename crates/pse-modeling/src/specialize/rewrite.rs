@@ -5,6 +5,36 @@ use pse_authoring::dsl::{Predicate, PredicateKind, ReduceKind};
 /// The owning instance, the member declaration and the member's index coordinates.
 type ResolvedPath = (InstanceId, DeclarationId, Vec<(String, Value)>);
 impl Engine<'_, '_> {
+    // Integrated coordinates are runtime inputs for numerical conditions. Their
+    // admitted lower endpoint still selects topology, but cannot fold a check or
+    // a numerical conditional for the entire trajectory.
+    fn numerical_guard_environment<'a>(
+        &self,
+        env: &'a Environment,
+    ) -> std::borrow::Cow<'a, Environment> {
+        let runtime = |value: &Value| {
+            matches!(value, Value::Coordinate { id, .. }
+            if self.model.integrated.values().any(|axis| axis.coordinate == *id))
+        };
+        if env.values().any(runtime) {
+            std::borrow::Cow::Owned(
+                env.iter()
+                    .filter(|(_, value)| !runtime(value))
+                    .map(|(name, value)| (name.clone(), value.clone()))
+                    .collect(),
+            )
+        } else {
+            std::borrow::Cow::Borrowed(env)
+        }
+    }
+    pub(super) fn temporal_active(&self, instance: InstanceId, member: DeclarationId) -> bool {
+        self.p.temporal.get(&member).is_some_and(|(policy, _, _)| {
+            self.states[&instance]
+                .members
+                .values()
+                .any(|active| active == policy)
+        })
+    }
     pub(super) fn child_instance(
         &self,
         instance: InstanceId,
@@ -48,6 +78,10 @@ impl Engine<'_, '_> {
         let indices = if let Some(v) = &declaration.value.binding {
             v.indices
                 .iter()
+                .filter(|index| {
+                    index.name != crate::temporal::COORDINATE
+                        || self.temporal_active(instance, member)
+                })
                 .map(|i| (i.name.as_str(), i.domain.as_str()))
                 .collect::<Vec<_>>()
         } else if let Some(v) = &declaration.value.accumulator {
@@ -451,17 +485,11 @@ impl Engine<'_, '_> {
                     )?;
                     // A structural binding, a `Ref` above all, is a static value: a call
                     // through it selects its body at specialization (ADR-0123 Outcome 2).
-                    if !matches!(
-                        ty,
-                        Type::Quantity(_) | Type::Integer | Type::Indexed { .. }
-                    ) {
+                    if !matches!(ty, Type::Quantity(_) | Type::Integer | Type::Indexed { .. }) {
                         let value = self
                             .eval(at, &env, &dsl::render_expr(value), Some(&ty))
                             .map_err(|e| {
-                                invalid(
-                                    at,
-                                    format!("{name} must be static at specialization: {e}"),
-                                )
+                                invalid(at, format!("{name} must be static at specialization: {e}"))
                             })?;
                         self.lexical.remove(name);
                         env.insert(name.clone(), value);
@@ -501,11 +529,12 @@ impl Engine<'_, '_> {
                 then,
                 otherwise,
             } => {
+                let static_env = self.numerical_guard_environment(&env);
                 let static_guard = Evaluator {
                     package: self.p,
                     physical: self.c,
                     at,
-                    env: &env,
+                    env: &static_env,
                     limit: self.limits.members,
                     stack: Vec::new(),
                     reader: self.reader,
@@ -637,6 +666,29 @@ impl Engine<'_, '_> {
         env: &Environment,
         chain: &[DeclarationId],
     ) -> Result<Predicate> {
+        // Immutable guards (including optional-row presence) are decided in the same
+        // source frame as a function body. Only guards with runtime inputs survive.
+        let at = chain
+            .last()
+            .copied()
+            .unwrap_or(self.states[&instance].definition);
+        let static_env = self.numerical_guard_environment(env);
+        if let Ok(value) = (Evaluator {
+            package: self.p,
+            physical: self.c,
+            at,
+            env: &static_env,
+            limit: self.limits.members,
+            stack: Vec::new(),
+            reader: self.reader,
+        })
+        .predicate(p)
+        {
+            return Ok(Predicate {
+                kind: PredicateKind::Bool(value),
+                span: Span::default(),
+            });
+        }
         let kind = match &p.kind {
             PredicateKind::Compare { op, lhs, rhs } => PredicateKind::Compare {
                 op: *op,
@@ -644,6 +696,24 @@ impl Engine<'_, '_> {
                 rhs: Box::new(self.rewrite(instance, rhs, env, chain)?),
             },
             PredicateKind::Atom(e) => {
+                // Presence is a static query. A missing dependency of that query is
+                // its actual refusal, rather than an unresolved function named present.
+                if matches!(&e.kind, ExprKind::NamedCall { name, .. } if name == "present") {
+                    return (Evaluator {
+                        package: self.p,
+                        physical: self.c,
+                        at,
+                        env: &static_env,
+                        limit: self.limits.members,
+                        stack: Vec::new(),
+                        reader: self.reader,
+                    })
+                    .predicate(p)
+                    .map(|value| Predicate {
+                        kind: PredicateKind::Bool(value),
+                        span: Span::default(),
+                    });
+                }
                 PredicateKind::Atom(Box::new(self.rewrite(instance, e, env, chain)?))
             }
             PredicateKind::And(a, b) => PredicateKind::And(

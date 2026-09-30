@@ -665,7 +665,7 @@ fn settings_identity_is_type_name_independent() {
         ),
         (
             "controls",
-            "blake3:34a548735d2bb3735d9ba941b0e5bcea59456bac0efa542d5339d3c9aa4ed8c1",
+            "blake3:392947a1762675c7145fc532eceb57c1a52a352640c5a2d50a5b85384de8abc2",
         ),
     ]
     .into_iter()

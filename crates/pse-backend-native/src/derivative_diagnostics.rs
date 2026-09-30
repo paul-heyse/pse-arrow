@@ -8,9 +8,8 @@ use crate::{
     tnlp::Adapter,
 };
 pub use dynamic::{DynamicSample, analyze_dynamic};
-use pounce_nlp::derivative_test::{
-    self, DerivativeTest, DerivativeTestOptions, DerivativeTestReport,
-};
+use pounce_nlp::derivative_test::DerivativeTestReport;
+use pounce_nlp::tnlp::{BoundsInfo, SparsityRequest, TNLP};
 use pse_math::normalization::Normalization;
 
 /// First derivative and sparsity sample policy, in normalized coordinates.
@@ -134,16 +133,7 @@ pub fn analyze(
         duals: None,
         solution: None,
     };
-    let sample = derivative_test::run(
-        &mut adapter,
-        &DerivativeTestOptions {
-            mode: DerivativeTest::FirstOrder,
-            perturbation: policy.perturbation,
-            tol: policy.relative_tolerance,
-            first_index: -2,
-            print_all: false,
-        },
-    );
+    let sample = bounded_sample(&mut adapter, policy);
     let terminal = adapter
         .state
         .terminal
@@ -163,9 +153,190 @@ pub fn analyze(
     })
 }
 
+/// The library owns the differences. A one-dimensional chart supplies exactly the
+/// declared normalized step; central differences apply inside the box, and forward
+/// differences point inward at an active bound. No analytic derivative enters the
+/// library's value callback, including for structurally absent entries.
+fn bounded_sample(adapter: &mut Adapter, policy: Policy) -> Option<DerivativeTestReport> {
+    let n = adapter.initial.len();
+    let m = adapter.oracle.contract().rows.len();
+    let mut x = adapter
+        .normalization
+        .normalized_point(&adapter.initial)
+        .ok()?;
+    let (mut lower, mut upper) = (vec![0.; n], vec![0.; n]);
+    let (mut gl, mut gu) = (vec![0.; m], vec![0.; m]);
+    if !adapter.get_bounds_info(BoundsInfo {
+        x_l: &mut lower,
+        x_u: &mut upper,
+        g_l: &mut gl,
+        g_u: &mut gu,
+    }) {
+        return None;
+    }
+    for i in 0..n {
+        x[i] = x[i].clamp(lower[i], upper[i]);
+    }
+    let mut gradient = vec![0.; n];
+    let mut jacobian = vec![0.; adapter.jac.rows.len()];
+    if adapter.eval_f(&x, true).is_none()
+        || !adapter.eval_grad_f(&x, false, &mut gradient)
+        || !adapter.eval_jac_g(
+            Some(&x),
+            false,
+            SparsityRequest::Values {
+                values: &mut jacobian,
+            },
+        )
+    {
+        return None;
+    }
+    let entries = adapter
+        .jac
+        .rows
+        .iter()
+        .zip(&adapter.jac.columns)
+        .enumerate()
+        .map(|(index, (row, column))| {
+            Some((
+                (usize::try_from(*row).ok()?, usize::try_from(*column).ok()?),
+                index,
+            ))
+        })
+        .collect::<Option<std::collections::BTreeMap<_, _>>>()?;
+    let mut report = DerivativeTestReport {
+        evaluations: 3,
+        ..Default::default()
+    };
+    report.lines.push(format!("Library derivative sample: central inside bounds, forward inward at active bounds; normalized perturbation {:.1e}, tolerance {:.1e}.",policy.perturbation,policy.relative_tolerance));
+    for column in 0..n {
+        if lower[column] == upper[column] {
+            continue;
+        }
+        let h = policy.perturbation * x[column].abs().max(1.);
+        let up = x[column] + h <= upper[column] && x[column] + h != x[column];
+        let down = x[column] - h >= lower[column] && x[column] - h != x[column];
+        if !up && !down {
+            continue;
+        }
+        let central = up && down;
+        let epsilon = if central {
+            f64::EPSILON.cbrt()
+        } else {
+            f64::EPSILON.sqrt()
+        };
+        let signed = if up { h } else { -h };
+        let calls = std::cell::Cell::new(0usize);
+        let numeric = {
+            let callback = std::cell::RefCell::new(&mut *adapter);
+            let values = |offset: &Vec<f64>| {
+                let mut point = x.clone();
+                point[column] += offset[0];
+                let mut adapter = callback.borrow_mut();
+                calls.set(calls.get() + 1 + usize::from(m > 0));
+                let Some(objective) = adapter.eval_f(&point, true) else {
+                    return Err(std::io::Error::other("derivative value callback rejected").into());
+                };
+                let mut result = vec![0.; m + 1];
+                result[0] = objective;
+                if m > 0 && !adapter.eval_g(&point, false, &mut result[1..]) {
+                    return Err(std::io::Error::other("derivative row callback rejected").into());
+                }
+                Ok(result)
+            };
+            let direction = vec![signed / epsilon];
+            if central {
+                finitediff::vec::central_jacobian_vec_prod(&values)(&vec![0.], &direction)
+            } else {
+                finitediff::vec::forward_jacobian_vec_prod(&values)(&vec![0.], &direction)
+            }
+        }
+        .ok()?;
+        report.evaluations += calls.get();
+        if numeric.len() != m + 1 {
+            return None;
+        }
+        let numeric = numeric
+            .into_iter()
+            .map(|value| value * epsilon / signed)
+            .collect::<Vec<_>>();
+        if !numeric
+            .iter()
+            .chain(&gradient)
+            .chain(&jacobian)
+            .all(|value| value.is_finite())
+        {
+            return None;
+        }
+        comparison(
+            &mut report,
+            format!("grad_f[{column:5}]"),
+            gradient[column],
+            numeric[0],
+            policy.relative_tolerance,
+        );
+        for row in 0..m {
+            if let Some(index) = entries.get(&(row, column)) {
+                comparison(
+                    &mut report,
+                    format!("jac_g [{row:5},{column:5}]"),
+                    jacobian[*index],
+                    numeric[row + 1],
+                    policy.relative_tolerance,
+                );
+            } else if numeric[row + 1].abs() > policy.relative_tolerance {
+                report.missing_structure += 1;
+                report.lines.push(format!(
+                    "! jac_g [{row:5},{column:5}] is absent from sparsity, sampled {:.6e}",
+                    numeric[row + 1]
+                ));
+            }
+        }
+    }
+    Some(report)
+}
+fn comparison(
+    report: &mut DerivativeTestReport,
+    label: String,
+    analytic: f64,
+    numeric: f64,
+    tolerance: f64,
+) {
+    report.checked += 1;
+    let relative = (analytic - numeric).abs() / numeric.abs().max(1.);
+    if relative > tolerance {
+        report.suspicious += 1;
+        report.lines.push(format!(
+            "* {label} = {analytic:.16e} ~ {numeric:.16e} [{relative:.3e}]"
+        ));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn interior_central_sample_avoids_forward_truncation_bias() {
+        // For x^3 at x=2, a forward step of 2e-4 incurs O(h) relative bias;
+        // the declared central sample incurs O(h^2), below the same strict tolerance.
+        let report = analyze(
+            Box::new(crate::solver_tests::Polynomial::new()),
+            vec![2.],
+            Normalization::identity(1, 1),
+            Policy {
+                perturbation: 1e-4,
+                relative_tolerance: 1e-8,
+                maximum_cells: 2,
+            },
+            Execution::new(
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                &Default::default(),
+            ),
+        )
+        .unwrap();
+        assert!(report.passed(), "{}", report.summary());
+        assert_eq!(report.sample.unwrap().checked, 2);
+    }
     #[test]
     fn derivative_sample_budget_refusal_is_not_an_invalid_model() {
         let run = |initial| {
@@ -296,7 +467,13 @@ mod tests {
             out.copy_from_slice(&[x[1], x[0]]);
             Ok(())
         }
-        fn hessian(&mut self, _: &[f64], _: f64, _: &[f64], _: &mut [f64]) -> Result<(), ProblemError> {
+        fn hessian(
+            &mut self,
+            _: &[f64],
+            _: f64,
+            _: &[f64],
+            _: &mut [f64],
+        ) -> Result<(), ProblemError> {
             Err(ProblemError::Contract("first-order sample".into()))
         }
     }

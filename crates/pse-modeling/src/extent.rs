@@ -164,7 +164,10 @@ fn function(v: &Function) -> usize {
                     + g.envelope.lower.capacity()
                     + g.envelope.upper.capacity()
                     + ty(&g.envelope.ty)
-                    + g.arguments.iter().map(|a| a.capacity() + size_of::<String>()).sum::<usize>()
+                    + g.arguments
+                        .iter()
+                        .map(|a| a.capacity() + size_of::<String>())
+                        .sum::<usize>()
             })
             .sum::<usize>()
         + v.external
@@ -234,24 +237,67 @@ impl CheckedPackage {
             + map(&self.types, |_, v| ty(v))
             + map(&self.functions, |_, v| function(v))
             + map(&self.members, |_, v| map(v, |n, _| n.capacity()))
+            + map(&self.temporal, |_, (_, _, argument)| argument.capacity())
             + map(&self.interfaces, |_, v| {
                 v.len() * (size_of::<pse_ids::SemanticId>() + 64)
             })
             + map(&self.tables, |_, v| v.retained_bytes(ty))
             + map(&self.kinds, |_, k| {
-                k.attributes
-                    .iter()
-                    .map(|(n, _)| n.capacity() + size_of::<(String, pse_ids::SemanticId)>())
-                    .sum::<usize>()
+                k.attributes.capacity() * size_of::<(String, pse_ids::SemanticId)>()
+                    + k.attributes
+                        .iter()
+                        .map(|(n, _)| n.capacity() + size_of::<(String, pse_ids::SemanticId)>())
+                        .sum::<usize>()
                     + map(&k.defaults, |n, t| n.capacity() + t.value.retained_bytes())
-                    + map(&k.bound, |n, (t, _)| n.capacity() + t.value.retained_bytes())
+                    + map(&k.bound, |n, (t, _)| {
+                        n.capacity() + t.value.retained_bytes()
+                    })
                     + k.keys.iter().map(String::capacity).sum::<usize>()
+                    + k.keys.capacity() * size_of::<String>()
+                    + k.envelopes.capacity() * size_of::<crate::envelope::Envelope>()
+                    + k.envelopes
+                        .iter()
+                        .map(|envelope| {
+                            envelope.axis.capacity()
+                                + envelope.lower.capacity()
+                                + envelope.upper.capacity()
+                                + ty(&envelope.ty)
+                        })
+                        .sum::<usize>()
+                    + (k.derived.capacity() + k.unique.capacity())
+                        * size_of::<(String, pse_ids::SemanticId)>()
+                    + k.derived
+                        .iter()
+                        .chain(&k.unique)
+                        .map(|(name, _)| name.capacity())
+                        .sum::<usize>()
+                    + k.requirements.capacity() * size_of::<pse_ids::SemanticId>()
             })
             + map(&self.entities, |_, r| {
                 map(&r.values, |n, v| n.capacity() + v.retained_bytes())
                     + map(&r.uncertainties, |n, _| n.capacity() + 16)
             })
             + map(&self.constants, |_, t| t.value.retained_bytes())
+            + self.identifiers.retained_bytes()
+            + map(&self.provenance, |_, p| {
+                p.role.facets.len() * 64
+                    + p.lineage.capacity()
+                        * size_of::<(
+                            pse_model::generated::enums::ModelingLineageKind,
+                            pse_ids::SemanticId,
+                        )>()
+            })
+            + map(&self.attribute_provenance, |(_, name), p| {
+                name.capacity()
+                    + p.role.facets.len() * 64
+                    + p.lineage.capacity()
+                        * size_of::<(
+                            pse_model::generated::enums::ModelingLineageKind,
+                            pse_ids::SemanticId,
+                        )>()
+            })
+            + (self.test_only.len() + self.test_only_data.len()) * 80
+            + map(&self.oracles, |_, _| 0)
     }
 }
 impl SpecializedModel {

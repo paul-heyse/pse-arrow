@@ -4,6 +4,7 @@
 use super::*;
 use pse_backend_native::{self as native, solve::Controls};
 use pse_ids::{SemanticId, named_id};
+use pse_model::generated::identities::{DeclarationId, FitId};
 use pse_runtime::workflow;
 use serde_json::{Value, json};
 
@@ -30,7 +31,7 @@ async fn algebraic(
     owner: &WorkflowRuntime,
     quadratic: bool,
     mixed: bool,
-) -> (workflow::ModelingPackage, SemanticId) {
+) -> (workflow::ModelingPackage, DeclarationId) {
     let physical = physical(owner).await;
     let (q, _) = neutral(&physical);
     let (a, b) = if mixed { (1e-6, 1e6) } else { (2.0, 3.0) };
@@ -55,9 +56,7 @@ async fn algebraic(
         .unwrap()
         .declaration_id;
     (
-        runtime(owner)
-            .modeling_package(rows, physical)
-            .unwrap(),
+        runtime(owner).modeling_package(rows, physical).unwrap(),
         root,
     )
 }
@@ -101,9 +100,7 @@ async fn recycle(owner: &WorkflowRuntime) {
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime(owner)
-        .modeling_package(rows, physical)
-        .unwrap();
+    let package = runtime(owner).modeling_package(rows, physical).unwrap();
     let cancel = CancelSource::new();
     let analysis = package
         .declared_analysis(
@@ -120,7 +117,7 @@ async fn recycle(owner: &WorkflowRuntime) {
     let model = package
         .prepare(
             root,
-            root,
+            pse_modeling::specialize::root_instance(root),
             analysis.bindings.clone(),
             analysis.limits,
             &cancel,
@@ -138,7 +135,7 @@ async fn recycle(owner: &WorkflowRuntime) {
     };
     let (input, output) = (port("inlet"), port("outlet"));
     let selection = pse_compiler::workspace::ModelingFlowSelection {
-        nodes: std::collections::BTreeSet::from([root]),
+        nodes: std::collections::BTreeSet::from([pse_modeling::specialize::root_instance(root)]),
         connections: product
             .connections
             .keys()
@@ -176,12 +173,12 @@ async fn recycle(owner: &WorkflowRuntime) {
     let request = workflow::RecycleRequest {
         tears: selected.decisions,
         units: vec![workflow::CausalUnitRequest {
-            node: root,
+            node: pse_modeling::specialize::root_instance(root).into(),
             inputs: std::collections::BTreeSet::from([input]),
             outputs: std::collections::BTreeSet::from([output]),
         }],
         anderson: 1,
-        damping: 1.0,
+        damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
     };
     let prepared = package
         .prepare_recycle(&analysis, selection, request, &cancel)
@@ -198,9 +195,9 @@ async fn recycle(owner: &WorkflowRuntime) {
 
 async fn sparse_fit(owner: &WorkflowRuntime, n: usize) {
     let physical = physical(owner).await;
-    let (q, u) = neutral(&physical);
     let source = format!(
-        "package benchmark {{ def Identity {{ {} }} }}",
+        "package benchmark {{ entity kind source provenance {{}} entity source analytic {{}} enum Role {{ measured facets(measured) }} entity kind measurement {{attribute observed:Scalar;}} {} def Identity {{ {} }} }}",
+        (0..n).map(|i|format!("@id(\"{}\") entity measurement reading{i} provenance(analytic,Role.measured) {{observed=2.0 ± standard(1.0)}}",id(4000+i as u32))).collect::<String>(),
         (0..n)
             .map(|i| format!("param p{i}:Scalar=1; "))
             .collect::<String>()
@@ -217,25 +214,21 @@ async fn sparse_fit(owner: &WorkflowRuntime, n: usize) {
         .find(|r| r.name == "Identity")
         .unwrap()
         .declaration_id;
-    let mut data = workflow::FitData::default();
-    data.datasets.push(serde_json::from_value(json!({"dataset_id":id(70),"name":"independent","source":"analytic identity responses","content_hash":pse_ids::ContentHash::from_bytes([1;32])})).unwrap());
-    for i in 0..n {
-        data.observations.push(serde_json::from_value(json!({"observation_id":id(4000+i as u32),"dataset_id":id(70),"target":"identity","value":2.,"unit_id":u,"std_dev":1.,"timestamp":null,"tag":null,"source_span":{"document_id":id(70),"start":0,"end":0}})).unwrap());
-    }
+    let mut data = workflow::FitDeclarations::default();
     data.fits.push(serde_json::from_value(json!({"fit_id":id(73),
         "parameters":(0..n).map(|i|json!({"symbol_id":id(1000+i as u32),"fixed":false,"value":1.,"lower":null,"upper":null,"scale":1.})).collect::<Vec<_>>(),
         "experiments":[{"experiment_id":id(74),"case_id":root,"route":"steady","bindings":(0..n).map(|i|json!({"parameter_id":id(1000+i as u32),"path":format!("p{i}")})).collect::<Vec<_>>()}],
-        "observations":(0..n).map(|i|json!({"observation_id":id(4000+i as u32),"experiment_id":id(74),"output_path":format!("p{i}"),"time":null,"included":true,"importance":1.})).collect::<Vec<_>>()})).unwrap());
+        "observations":(0..n).map(|i|json!({"observation_id":id(4000+i as u32),"experiment_id":id(74),"value_attribute":"observed","standard_deviation_attribute":null,"output_path":format!("p{i}"),"time":null,"included":true,"importance":1.})).collect::<Vec<_>>()})).unwrap());
     let package = runtime(owner)
         .modeling_package(rows, physical)
         .unwrap()
-        .with_fit_data(data)
+        .with_fit_declarations(data)
         .unwrap();
     let mut solver = profile(Backend::Ipopt, true);
     solver.presolve = native::presolve::Policy::Off;
     let prepared = package
         .prepare_fit(
-            id(73),
+            FitId::from_id(id(73)),
             workflow::FitProfile {
                 solver,
                 simulations: BTreeMap::new(),
@@ -330,7 +323,9 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
 
         "vessel" | "dynamic-rebind" => {
             let package = seed_package(owner).await;
-            let root = SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c").unwrap();
+            let root = DeclarationId::from_id(
+                SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c").unwrap(),
+            );
             let cancel = CancelSource::new();
             let prepared = package
                 .declared_simulation(root, compiler(), None, seed_limits(), &cancel)
@@ -359,7 +354,7 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
                     let rebound = package
                         .prepare_simulation(
                             root,
-                            root,
+                            pse_modeling::specialize::root_instance(root),
                             analysis.bindings.clone(),
                             seed_limits(),
                             case,
@@ -379,7 +374,9 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
             let package = seed_package(owner).await;
             let (fit, mut selected) = heat_fit(&package, "transient").await;
             if operation == "evented-fit" {
-                let root = SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c").unwrap();
+                let root = DeclarationId::from_id(
+                    SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c").unwrap(),
+                );
                 let simulation = package
                     .declared_simulation(
                         root,
@@ -403,7 +400,7 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
                     })
                     .collect();
                 let experiment = SemanticId::parse_hex("b39f24e05b7d5490904f6138b4d7e080").unwrap();
-                selected.simulations.insert(experiment, integration);
+                selected.simulations.insert(experiment.into(), integration);
             }
             let result = package
                 .prepare_fit(

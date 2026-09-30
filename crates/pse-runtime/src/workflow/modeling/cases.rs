@@ -1323,9 +1323,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = fixture::runtime()
-            .modeling_package(rows, physical)
-            .unwrap();
+        let package = fixture::runtime().modeling_package(rows, physical).unwrap();
         let fixed = ModelingCaseBindings {
             values: BTreeMap::new(),
             variables: BTreeMap::from([(
@@ -1352,7 +1350,11 @@ mod tests {
             .await
             .unwrap();
         let result = package
-            .solve_case(prepared, fixture::compiler_profile(), &crate::CancelSource::new())
+            .solve_case(
+                prepared,
+                fixture::compiler_profile(),
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         let report = result.reports.iter().find(|r| r.label == "cp").unwrap();
@@ -1364,7 +1366,11 @@ mod tests {
             else {
                 panic!("{text}");
             };
-            quantities.compose(&number.unit.unwrap()).unwrap().id.as_id()
+            quantities
+                .compose(&number.unit.unwrap())
+                .unwrap()
+                .id
+                .as_id()
         };
         let canonical = quantities.quantity_type(molar_cp).unwrap().canonical_unit;
         assert_eq!(report.unit_id, canonical.as_id());

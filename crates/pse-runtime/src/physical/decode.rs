@@ -8,11 +8,11 @@ use crate::physical::PhysicalError;
 use pse_columnar::CancellationToken;
 use pse_ids::SemanticId;
 use pse_quantity::{
-    Basis, BasisId, ConversionId, ConversionRule, DimensionVector, EntityKind, EntityKindId,
-    InputConversion, InvariantId, OperationId, QuantityKind, QuantityKindId, QuantityOperation,
-    QuantityRegistry, QuantityRegistryBuilder, QuantityType, QuantityTypeId, QuantityTypeKey,
-    Ratio, ReferenceState, ReferenceStateId, Unit, UnitFactor, UnitId, UnitSet, UnitSetId,
-    DefinedUnit, DerivedKind, KindDefinition, KindFactor,
+    Basis, BasisId, ConversionId, ConversionRule, DefinedUnit, DerivedKind, DimensionVector,
+    EntityKind, EntityKindId, InputConversion, InvariantId, KindDefinition, KindFactor,
+    OperationId, QuantityKind, QuantityKindId, QuantityOperation, QuantityRegistry,
+    QuantityRegistryBuilder, QuantityType, QuantityTypeId, QuantityTypeKey, Ratio, ReferenceState,
+    ReferenceStateId, Unit, UnitFactor, UnitId, UnitSet, UnitSetId,
 };
 use pse_relations::{
     columnar::FieldCheckedBatch,
@@ -80,7 +80,13 @@ pub(super) fn inventory(
             row.offset_to_canonical,
             row.is_affine,
         ) {
-            (None, Some(value), Some(scale_to_canonical), Some(offset_to_canonical), Some(is_affine)) => {
+            (
+                None,
+                Some(value),
+                Some(scale_to_canonical),
+                Some(offset_to_canonical),
+                Some(is_affine),
+            ) => {
                 builder.unit(Unit {
                     id,
                     symbol: row.symbol,

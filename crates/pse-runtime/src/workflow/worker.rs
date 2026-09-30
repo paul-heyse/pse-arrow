@@ -290,8 +290,7 @@ impl Operations {
         let stored = self.store().sources().get(&(*bundle).into()).await?;
         let mut sources = BTreeMap::new();
         for document in stored.documents {
-            if pse_ids::encoding_checksum(&document.content).content_hash()
-                != document.content_hash
+            if pse_ids::encoding_checksum(&document.content).content_hash() != document.content_hash
             {
                 return Err(contract(format!(
                     "source document `{}` of bundle {} does not match its content hash",

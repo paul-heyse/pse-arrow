@@ -3,26 +3,42 @@
 """Independent homogeneous entropy from teqp residuals and Decimal Cp/T integrals."""
 
 import hashlib
-import json
 import sys
 from decimal import Decimal, localcontext
 from pathlib import Path
+from typing import TypedDict
 
 import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
 import teqp
 
-from scripts.plan14_reference import caloric
+from scripts.plan14_reference import caloric, write_reference
+
+
+class ReferenceCase(TypedDict):
+    """One independent homogeneous reference state."""
+
+    cas: list[str]
+    fractions: list[float]
+    input: list[float]
+    entropy: float
+    ideal_entropy: float
+    residual_entropy: float
 
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
-    data = root / "crates/pse-kernels/data"
     paths = [
-        data / "pcsaft-light-hydrocarbons.json",
-        data / "ideal-gas-light-hydrocarbons.json",
+        root / "packages/reference/data/gross-sadowski-2001/data/parameters.parquet",
+        root / "packages/reference/data/poling2000/data/vessel_caloric.parquet",
     ]
-    pc, ig = (json.loads(p.read_text()) for p in paths)
-    cases = []
+    subjects = ["74-82-8", "74-84-0", "74-98-6"]
+    keyed = [
+        {row["subject"]: row for row in pq.read_table(p).to_pylist()} for p in paths
+    ]
+    pc, ig = ([rows[subject] for subject in subjects] for rows in keyed)
+    cases: list[ReferenceCase] = []
     for indices, temperature, density, fractions in [
         ([0], 298.15, 1e-4, [1.0]),
         ([1, 0], 350.0, 30.0, [0.3, 0.7]),
@@ -35,8 +51,8 @@ def main() -> None:
             row = pc[index]
             coefficient = teqp.SAFTCoeffs()
             coefficient.m = row["m"]
-            coefficient.sigma_Angstrom = row["sigma"]
-            coefficient.epsilon_over_k = row["epsilon_k"]
+            coefficient.sigma_Angstrom = row["sigma"] * 1e10
+            coefficient.epsilon_over_k = row["epsilon"]
             coefficients.append(coefficient)
         model = teqp.PCSAFTEOS(coefficients, np.zeros((len(indices), len(indices))))
         x = np.array(fractions)
@@ -57,13 +73,14 @@ def main() -> None:
                 ).ln()
             )
             thermal = sum(
-                z * caloric(ig[i]["DIPPR100"], temperature)[1]
+                z * caloric([ig[i][f"c{k}"] for k in range(1, 6)], temperature)[1]
                 for z, i in zip(fractions, indices, strict=True)
             )
             ideal = thermal + float(mixing + pressure)
         cases.append(
             {
-                "cas": [pc[i]["identifier"]["cas"] for i in indices],
+                "cas": [pc[i]["subject"] for i in indices],
+                "fractions": fractions,
                 "input": [temperature, density, *fractions[:-1]],
                 "entropy": ideal + gas * (ar10 - ar00),
                 "ideal_entropy": ideal,
@@ -93,10 +110,35 @@ def main() -> None:
         },
         "cases": cases,
     }
-    path = root / "tests/fixtures/thermo-entropy-reference.json"
-    path.write_text(json.dumps(output, indent=2, allow_nan=False) + "\n")
+    path = root / "packages/reference/data/oracles/teqp-0.23.1/data/entropy.parquet"
+    write_reference(
+        path,
+        [
+            {
+                "case": i,
+                "T": case["input"][0],
+                "rho": case["input"][1],
+                "entropy": case["entropy"],
+                "ideal_entropy": case["ideal_entropy"],
+                "residual_entropy": case["residual_entropy"],
+            }
+            for i, case in enumerate(cases)
+        ],
+        {"case": pa.int64()},
+        output,
+    )
+    write_reference(
+        path.with_name("entropy_components.parquet"),
+        [
+            {"case": i, "subject": subject, "fraction": fraction}
+            for i, case in enumerate(cases)
+            for subject, fraction in zip(case["cas"], case["fractions"], strict=True)
+        ],
+        {"case": pa.int64(), "subject": pa.string()},
+        output,
+    )
     print(
-        f"Wrote {len(cases)} independent homogeneous entropy states; derived raw offset {offset}"
+        f"Wrote {len(cases)} independent homogeneous entropy states to {path.relative_to(root)}"
     )
 
 

@@ -55,8 +55,41 @@ struct TrackedDocuments<'a> {
     documents: &'a DocumentInventory,
     inputs: &'a BTreeMap<SemanticId, DataDocumentInput>,
     pending: Option<&'a QuantityRegistry>,
+    admission_bytes: std::cell::Cell<usize>,
+    admission_limit: usize,
+    memo_bytes: std::cell::Cell<usize>,
+    memo_limit: usize,
 }
 impl pse_modeling::document::Documents for TrackedDocuments<'_> {
+    fn preflight(
+        &self,
+        _at: DeclarationId,
+        bytes: usize,
+    ) -> std::result::Result<(), pse_modeling::ModelingError> {
+        if self.db.cancel.load(Ordering::Relaxed) {
+            return Err(pse_modeling::ModelingError::Cancelled);
+        }
+        let next = self.admission_bytes.get().saturating_add(bytes);
+        if next > self.admission_limit {
+            return Err(pse_modeling::ModelingError::Budget(
+                "modeling admission bytes exceed the workspace allowance before expansion".into(),
+            ));
+        }
+        self.admission_bytes.set(next);
+        Ok(())
+    }
+    fn rows(&self, document: SemanticId) -> Option<usize> {
+        self.documents
+            .documents
+            .get(&document)
+            .map(|document| document.rows.rows())
+    }
+    fn bytes(&self, document: SemanticId) -> usize {
+        self.documents
+            .documents
+            .get(&document)
+            .map_or(0, |document| document.retained_bytes())
+    }
     fn resolve(&self, source: SemanticId, path: &str) -> Option<SemanticId> {
         self.documents.resolve(source, path)
     }
@@ -65,18 +98,34 @@ impl pse_modeling::document::Documents for TrackedDocuments<'_> {
         plan: &Arc<DocumentPlan>,
         document: SemanticId,
     ) -> std::result::Result<Arc<DocumentTable>, pse_modeling::ModelingError> {
-        let input = self.inputs.get(&document).ok_or_else(|| {
-            pse_modeling::ModelingError::Contract {
-                declaration: plan.dataset.into(),
-                message: format!("data document {document} is not published"),
-            }
-        })?;
+        let input =
+            self.inputs
+                .get(&document)
+                .ok_or_else(|| pse_modeling::ModelingError::Contract {
+                    declaration: plan.dataset.into(),
+                    message: format!("data document {document} is not published"),
+                })?;
+        let projection = plan.admission_bytes(input.document(self.db));
+        self.preflight(plan.dataset, projection)?;
+        let next_memo = self
+            .memo_bytes
+            .get()
+            .saturating_add(plan.retained_bytes())
+            .saturating_add(projection);
+        if self.pending.is_none() && next_memo > self.memo_limit {
+            return Err(pse_modeling::ModelingError::Contract {
+                declaration: plan.dataset.into(), message: "modeling document plan and memo bytes exceed the workspace allowance before retention".into(),
+            });
+        }
+        self.memo_bytes.set(next_memo);
         if let Some(quantities) = self.pending {
             let document = input.document(self.db);
             return pse_modeling::document::admit(plan, document, quantities).map(Arc::new);
         }
         let key = PlanKey::new(self.db, Arc::clone(plan));
-        salsa::Cancelled::catch(|| document_table(self.db, self.inventory, key, *input))
+        let db = self.db;
+        let inventory = self.inventory;
+        salsa::Cancelled::catch(|| document_table(db, inventory, key, *input))
             .map_err(|_| pse_modeling::ModelingError::Cancelled)?
             .map_err(|error| match error {
                 CompileError::Modeling(error) => error,
@@ -319,6 +368,8 @@ impl CompilerWorkspace {
         documents: &DocumentInventory,
         physical: Option<(&QuantityRegistry, &PhysicalPreconditions)>,
     ) -> Result<CheckedPackage> {
+        use pse_model::HeapUsage;
+        let retained_bytes = self.retention_usage().1;
         for (id, document) in &documents.documents {
             match self.documents.get(id) {
                 Some(input) if input.document(&self.db).content_hash == document.content_hash => {}
@@ -346,7 +397,27 @@ impl CompilerWorkspace {
             documents,
             inputs: &self.documents,
             pending: physical.map(|(quantities, _)| quantities),
+            admission_bytes: std::cell::Cell::new(
+                rows.iter()
+                    .map(HeapUsage::owned_bytes)
+                    .sum::<usize>()
+                    .saturating_add(documents.retained_bytes())
+                    .saturating_add(scope_bytes(scope)),
+            ),
+            admission_limit: self.limits.input_bytes,
+            memo_bytes: std::cell::Cell::new(retained_bytes),
+            memo_limit: self.limits.retained_bytes,
         };
+        // Source indexing, checked declarations and parsed contracts coexist with the
+        // immutable source. Reserve their copies before constructing the checked package.
+        pse_modeling::document::Documents::preflight(
+            &tracked,
+            DeclarationId::from_id(SemanticId::NIL),
+            rows.iter()
+                .map(HeapUsage::owned_bytes)
+                .fold(0usize, usize::saturating_add)
+                .saturating_mul(3),
+        )?;
         Ok(pse_modeling::check_with(rows, &context, &tracked)?)
     }
     /// Select an already admitted revision without rechecking its declarations.

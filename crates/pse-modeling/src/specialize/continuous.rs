@@ -61,6 +61,38 @@ impl Engine<'_, '_> {
                 .ok()
                 .filter(|n| *n > 0)
                 .ok_or_else(|| invalid(*policy_id, "positive interpolation order required"))?;
+            if policy.scheme == "stationary" {
+                if count != 1
+                    || order != 1
+                    || env.get(&crate::analysis::Fact::Dynamic.path())
+                        != Some(&Value::Boolean(false))
+                {
+                    return Err(invalid(
+                        *policy_id,
+                        "stationary realization requires the steady route, elements=1 and order=1",
+                    ));
+                }
+                let quantity = crate::temporal::time_quantity(&ty, self.c, *member)?;
+                let id = member_id(instance, *member, &[]);
+                let point = Value::Coordinate {
+                    id: pse_ids::named_id(id, "stationary-coordinate"),
+                    bits: a.to_bits(),
+                    quantity,
+                };
+                self.reserve(1)?;
+                self.model.meshes.insert(
+                    id,
+                    Mesh {
+                        id,
+                        points: vec![point.clone()],
+                        derivative: vec![vec![]],
+                        integral: vec![0.],
+                        continuity: vec![],
+                    },
+                );
+                env.insert(row.name.clone(), Value::Set(vec![point]));
+                continue;
+            }
             if policy.scheme == "integrated" {
                 if count != 1 || order != 1 {
                     return Err(invalid(
@@ -267,7 +299,7 @@ impl Engine<'_, '_> {
         Ok(())
     }
 
-    fn coordinate_mesh(&self, value: &Value) -> Result<(&Mesh, usize)> {
+    pub(super) fn coordinate_mesh(&self, value: &Value) -> Result<(&Mesh, usize)> {
         let Value::Coordinate { id, .. } = value else {
             return Err(invalid(
                 SemanticId::NIL,
@@ -552,14 +584,30 @@ impl Engine<'_, '_> {
                 self.reserve(1)?;
                 let rhs = binary(
                     BinaryOp::Sub,
-                    self.shifted(instance, body, env, &name, &points[endpoint], replica.as_ref(), chain)?,
+                    self.shifted(
+                        instance,
+                        body,
+                        env,
+                        &name,
+                        &points[endpoint],
+                        replica.as_ref(),
+                        chain,
+                    )?,
                     baseline.clone(),
                 );
                 let mut terms = Vec::new();
                 for (j, w) in coefficients {
                     let delta = binary(
                         BinaryOp::Sub,
-                        self.shifted(instance, body, env, &name, &points[j], replica.as_ref(), chain)?,
+                        self.shifted(
+                            instance,
+                            body,
+                            env,
+                            &name,
+                            &points[j],
+                            replica.as_ref(),
+                            chain,
+                        )?,
                         baseline.clone(),
                     );
                     let factor = self.constant(
@@ -586,8 +634,15 @@ impl Engine<'_, '_> {
         }
         let mut terms = Vec::new();
         for (index, weight) in weights {
-            let shifted =
-                self.shifted(instance, body, env, &name, &points[index], replica.as_ref(), chain)?;
+            let shifted = self.shifted(
+                instance,
+                body,
+                env,
+                &name,
+                &points[index],
+                replica.as_ref(),
+                chain,
+            )?;
             let delta = binary(BinaryOp::Sub, shifted, baseline.clone());
             terms.push(binary(
                 BinaryOp::Mul,

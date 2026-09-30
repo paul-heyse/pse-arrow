@@ -60,9 +60,9 @@ pub use horizon::{
 mod shooting;
 pub use dynamics::SimulationProfile;
 pub use fitting::{
-    Covariance, FitData, FitDeclaration, FitDerivatives, FitDiagnostic, FitProfile, FitReport,
-    FitRule, FitUncertainty, FitWithheld, Interval, IntervalBound, PreparedFit, ProfileChain,
-    ProfileControls, ProfilePoint,
+    Covariance, FitDeclaration, FitDeclarations, FitDerivatives, FitDiagnostic, FitProfile,
+    FitReport, FitRule, FitUncertainty, FitWithheld, Interval, IntervalBound, PreparedFit,
+    ProfileChain, ProfileControls, ProfilePoint,
 };
 #[cfg(feature = "solver-diffsol")]
 pub use shooting::{
@@ -80,13 +80,16 @@ pub use modeling::{
     ModelingDiagnosticPolicy, ModelingDiagnosticPreparation, ModelingDiagnosticSamples,
     ModelingDiagnostics, ModelingElasticAttempt, ModelingFixtureSelection,
     ModelingInfeasibilityCertificate, ModelingInitialization, ModelingInitializationAttempt,
-    ModelingInitializationReport, ModelingInitializationStep, ModelingNonlinearExplanation,
-    ModelingNonlinearPolicy, ModelingObservations, ModelingPackage, ModelingReport, ModelingResult,
-    ModelingSimulation, ModelingSolvePreparation, ModelingStudyPoint, ModelingStudyReport,
-    ModelingTrajectory, StartSource, conform_pure_documents,
+    ModelingInitializationReport, ModelingInitializationStep, ModelingKnowledge,
+    ModelingNonlinearExplanation, ModelingNonlinearPolicy, ModelingObservations, ModelingPackage,
+    ModelingReport, ModelingResult, ModelingSimulation, ModelingSolvePreparation,
+    ModelingStudyPoint, ModelingStudyReport, ModelingTrajectory, StartSource,
+    conform_pure_documents,
 };
 #[cfg(feature = "solver-highs")]
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
+#[cfg(test)]
+mod data_documents_tests;
 #[cfg(test)]
 mod durable_tests;
 mod local_analysis;
@@ -99,8 +102,6 @@ mod run;
 mod simulation_results;
 #[cfg(test)]
 mod study_tests;
-#[cfg(test)]
-mod data_documents_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

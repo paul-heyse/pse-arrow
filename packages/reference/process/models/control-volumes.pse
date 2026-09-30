@@ -37,7 +37,7 @@
 @id("4fee7b020ea94caaae04d6d470202852") param material_basis:MaterialBalance=MaterialBalance.componentTotal;
 @id("9b5e8a73656444e1b1db2b41a049c162") param phases:Set<chemistry.phase>=outlet_package.phases;
 @id("0fecf4a5ef1b476e9d7e154dc118c3bb") param elements:Set<chemistry.element>={};
-@id("eb6a112a2c7c426b99ce4d5f023bf714") param atoms:Fn(j:chemistry.species,e:chemistry.element)->Scalar;
+@id("eb6a112a2c7c426b99ce4d5f023bf714") param atoms:Fn(j:chemistry.species,e:chemistry.element)->Count;
 
 @id("106bd81f5f93497884ab1374afebc60e") param inlet_package:equilibrium.ThermoPackage;
 @id("c3d86eece83048a186ad684765daed71") param outlet_package:equilibrium.ThermoPackage;

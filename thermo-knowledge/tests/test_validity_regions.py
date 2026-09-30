@@ -116,6 +116,55 @@ def test_an_argument_observable_needs_the_observable_role(tmp_path: Path) -> Non
     ), found
 
 
+DIMENSIONS = """
+module = "zz_dim"
+uses = ["physical", "identity", "framework", "vocab"]
+doc = "An observable whose dimension the argument or output must have."
+
+[contracts.curve]
+doc = "d"
+arguments.T = {{ type = "{argument}", observable = "critical_temperature", doc = "d" }}
+outputs.p = {{ type = "{output}", observable = "vapor_pressure", doc = "d" }}
+"""
+
+
+def load_dimensions(tmp_path: Path, argument: str, output: str) -> list[tuple[str, str, str]]:
+    tree = copy_full(tmp_path)
+    (tree / "forms" / "zz_dim.toml").write_text(
+        DIMENSIONS.format(argument=argument, output=output), encoding="utf-8"
+    )
+    found = load_declaration(tree / "model", tree / "forms", contract=None).diagnostics
+    return [(d.code, d.construct, d.message) for d in found]
+
+
+def test_an_argument_or_output_that_names_an_observable_has_its_dimension(tmp_path: Path) -> None:
+    assert load_dimensions(tmp_path / "ok", "Temperature", "Pressure") == []
+
+
+def test_an_argument_of_another_dimension_than_its_observable_is_a_located_diagnostic(
+    tmp_path: Path,
+) -> None:
+    ((code, construct, message),) = load_dimensions(tmp_path, "Pressure", "Pressure")
+    assert (code, construct) == ("observable-dimension", "contracts.curve.arguments.T.observable")
+    assert "`critical_temperature` is a `Temperature`" in message and "`T` is a Pressure" in message
+
+
+def test_an_output_of_another_dimension_than_its_observable_is_a_located_diagnostic(
+    tmp_path: Path,
+) -> None:
+    ((code, construct, message),) = load_dimensions(tmp_path, "Temperature", "Temperature")
+    assert (code, construct) == ("observable-dimension", "contracts.curve.outputs.p.observable")
+    assert "`vapor_pressure` is a `Pressure`" in message and "`p` is a Temperature" in message
+
+
+def test_both_a_wrong_argument_and_a_wrong_output_are_reported(tmp_path: Path) -> None:
+    found = load_dimensions(tmp_path, "Pressure", "Temperature")
+    assert sorted(construct for _, construct, _ in found) == [
+        "contracts.curve.arguments.T.observable",
+        "contracts.curve.outputs.p.observable",
+    ]
+
+
 # -- a region, its clauses and its coverage load and verify -----------------------------------
 
 
@@ -395,14 +444,21 @@ def test_the_clauses_of_a_region_all_hold() -> None:
     assert membership([stated(both)]) == [OUTSIDE, INSIDE, INSIDE, OUTSIDE, OUTSIDE]
 
 
-def test_a_clause_no_argument_names_leaves_the_point_undetermined_never_inside_or_outside() -> None:
-    # the pressure is no argument of the contract, so the region cannot be decided, inside its
-    # temperature range or outside it
+def test_a_clause_no_argument_names_leaves_a_point_undetermined_unless_a_decidable_clause_fails() -> None:
+    # the pressure is no argument of the contract: inside the temperature clause the region cannot be
+    # decided, and outside it the region is false whatever the pressure is
     coupled = (clause(), clause("pressure", 1e5, 4e6))
-    assert membership([stated(coupled)]) == [UNDETERMINED] * 5
+    assert membership([stated(coupled)]) == [OUTSIDE, UNDETERMINED, UNDETERMINED, UNDETERMINED, OUTSIDE]
+    assert membership([stated((clause(component=SP), clause()))]) == [
+        OUTSIDE,
+        UNDETERMINED,
+        UNDETERMINED,
+        UNDETERMINED,
+        OUTSIDE,
+    ]
 
 
-def test_a_clause_about_a_component_or_a_phase_leaves_the_point_undetermined() -> None:
+def test_a_region_whose_only_clause_is_about_a_component_or_a_phase_is_undetermined() -> None:
     assert membership([stated((clause(component=SP),))]) == [UNDETERMINED] * 5
     assert membership([stated((clause(aggregation="gas"),))]) == [UNDETERMINED] * 5
 
@@ -485,7 +541,9 @@ def test_two_arguments_that_name_observables_each_decide_their_clause(fixtures: 
     assert [int(code) for code in codes] == [OUTSIDE, INSIDE, OUTSIDE, OUTSIDE, OUTSIDE]
     # one argument is enough for the clauses on its observable, and the others are undetermined
     only = bound.validity("y", "fitted_range", T=temperature)
-    assert [int(code) for code in only] == [UNDETERMINED] * 5, "the pressure clause has no value"
+    assert [int(code) for code in only] == [OUTSIDE, UNDETERMINED, UNDETERMINED, UNDETERMINED, OUTSIDE], (
+        "the pressure clause has no value: undetermined inside the temperature range, outside it"
+    )
 
 
 def test_an_observable_that_two_arguments_name_binds_to_neither(fixtures: Declaration) -> None:

@@ -105,7 +105,10 @@ fn every_stored_field_check_keeps_protobuf_depth_headroom() {
             checked += 1;
         }
     }
-    assert!(checked > 0, "the registry declares collection-valued fields");
+    assert!(
+        checked > 0,
+        "the registry declares collection-valued fields"
+    );
 }
 
 fn fixture() -> (Arc<Registry>, DeclaredCheck) {

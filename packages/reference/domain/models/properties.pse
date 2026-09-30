@@ -5,6 +5,7 @@
 // the generic operations that read a property through that selection. A parameter set has
 // no reference attribute: the datum of what it computes is its form's result type.
 @id("01a0f00c1fbb76f19ac7c8046ca7927c") package properties {
+@id("b189fbd0318f49468995e3ba4d9b9aef") use constants @"1.0.0";
 @id("01a0f00c1fbb76f19ac7c805b7932988") use chemistry @"1.0.0";
 @id("01a0f00c1fbb76f19ac7c8069dccbd04") use compatibility @"1.0.0";
 @id("01a0f00c1fbb76f19ac7c8071b1c6a79") use provenance @"1.0.0";
@@ -22,8 +23,8 @@
 // One source's parameterization of one pure-component property of one species in one phase
 // type. Its identity is its keys, whatever form refines it; a form adds dimensioned
 // coefficients and binds its functions.
-@id("01a0f00c1fbb76f19ac7c8147dcefbfa") entity kind parameter_set {
-@id("01a0f00c1fbb76f19ac7c815f8471b7e") key subject: chemistry.species;
+@id("01a0f00c1fbb76f19ac7c8147dcefbfa") entity kind parameter_set abstract {
+@id("01a0f00c1fbb76f19ac7c815f8471b7e") key subject: chemistry.species by chemistry.cas;
 @id("01a0f00c1fbb76f19ac7c8163a1c40e3") key property: property;
 @id("01a0f00c1fbb76f19ac7c8179ab8e717") key phase_type: compatibility.PhaseType;
 @id("01a0f00c1fbb76f19ac7c8189d4d8448") key source: provenance.source;
@@ -32,23 +33,23 @@
 @id("01a0f00c1fbb76f19ac7c81b10aa675d") require property.shape == IndexShape.pure : "a parameter set parameterizes a pure-component property";
 }
 // A correlation in temperature, valid over the range its data states.
-@id("01a0f00c1fbb76f19ac7c81c28af9f08") entity kind temperature_correlation extends parameter_set {
-@id("01a0f00c1fbb76f19ac7c81db95a5cd5") attribute minimum_temperature: Temperature;
-@id("01a0f00c1fbb76f19ac7c81ee8549c4f") attribute maximum_temperature: Temperature;
+@id("01a0f00c1fbb76f19ac7c81c28af9f08") entity kind temperature_correlation extends parameter_set abstract {
+@id("01a0f00c1fbb76f19ac7c81db95a5cd5") attribute minimum_temperature: Temperature storage {K};
+@id("01a0f00c1fbb76f19ac7c81ee8549c4f") attribute maximum_temperature: Temperature storage {K};
 @id("01a0f00c1fbb76f19ac7c81f71157cbd") envelope T: Temperature in minimum_temperature..maximum_temperature;
 }
 // Heat capacity, and the enthalpy and entropy increments between two temperatures.
-@id("01a0f00c1fbb76f19ac7c820944fcc27") entity kind caloric_set extends temperature_correlation {
+@id("01a0f00c1fbb76f19ac7c820944fcc27") entity kind caloric_set extends temperature_correlation abstract {
 @id("01a0f00c1fbb76f19ac7c821f44ae9b3") attribute cp: Fn(T: Temperature, s: caloric_set) -> MolarCp;
 @id("01a0f00c1fbb76f19ac7c8225bd62227") attribute dh: Fn(T0: Temperature, T: Temperature, s: caloric_set) -> DeltaH;
 @id("01a0f00c1fbb76f19ac7c823d352e7f2") attribute ds: Fn(T0: Temperature, T: Temperature, s: caloric_set) -> DeltaS;
 @id("01a0f00c1fbb76f19ac7c8249667f4bc") require property == heat_capacity : "a caloric set parameterizes heat capacity";
 }
-@id("01a0f00c1fbb76f19ac7c825d3fd2b42") entity kind vapor_pressure_set extends temperature_correlation {
+@id("01a0f00c1fbb76f19ac7c825d3fd2b42") entity kind vapor_pressure_set extends temperature_correlation abstract {
 @id("01a0f00c1fbb76f19ac7c8268ab9eaaa") attribute psat: Fn(T: Temperature, s: vapor_pressure_set) -> Pressure;
 @id("01a0f00c1fbb76f19ac7c827d8234d79") require property == vapor_pressure : "a vapor pressure set parameterizes vapor pressure";
 }
-@id("01a0f00c1fbb76f19ac7c828f06a78ce") entity kind liquid_density_set extends temperature_correlation {
+@id("01a0f00c1fbb76f19ac7c828f06a78ce") entity kind liquid_density_set extends temperature_correlation abstract {
 @id("01a0f00c1fbb76f19ac7c829c1b4f5e5") attribute density: Fn(T: Temperature, s: liquid_density_set) -> MolarDensity;
 @id("01a0f00c1fbb76f19ac7c82a55d5bffe") require property == liquid_molar_density : "a liquid density set parameterizes liquid molar density";
 }
@@ -72,4 +73,14 @@
 @id("01a0f00c1fbb76f19ac7c835016ba69f") fn entropy_increment(k: property_package, p: chemistry.phase, j: chemistry.species, T0: Temperature, T: Temperature) -> DeltaS = caloric_ds(c, T0, T) where s = selection[k, j, heat_capacity, p.type], c = caloric_set[s.subject, s.property, s.phase_type, s.source, s.variant];
 @id("01a0f00c1fbb76f19ac7c83687be5644") fn psat(k: property_package, p: chemistry.phase, j: chemistry.species, T: Temperature) -> Pressure = saturation_pressure(v, T) where s = selection[k, j, vapor_pressure, p.type], v = vapor_pressure_set[s.subject, s.property, s.phase_type, s.source, s.variant];
 @id("01a0f00c1fbb76f19ac7c8377ca6f8bd") fn liquid_density(k: property_package, p: chemistry.phase, j: chemistry.species, T: Temperature) -> MolarDensity = saturated_density(d, T) where s = selection[k, j, liquid_molar_density, p.type], d = liquid_density_set[s.subject, s.property, s.phase_type, s.source, s.variant];
+@id("d948914d1ede40c8935a70c21ec3d79d") set caloric_properties:Set<property>={heat_capacity};
+@id("e48401c23f0d4f18b251bfccaaf52dfc") set vapor_pressure_properties:Set<property>={vapor_pressure};
+@id("ea7d0447ce204e898f2ff64ef7f9eb35") set liquid_types:Set<compatibility.PhaseType>={compatibility.PhaseType.liquidPhase};
+@id("7385f491f57f4e39ac990eba13bdcaf0") set vapor_types:Set<compatibility.PhaseType>={compatibility.PhaseType.vaporPhase};
+@id("01a0f1955e96736397df7b4b34edfe06") set density_properties:Set<property>={liquid_molar_density};
+// A package selects its phase caloric operation explicitly; no phase identity determines it.
+@id("45ecf0dd860440a696c85df0f95cd437") table caloric_basis[k:property_package,t:compatibility.PhaseType,j:chemistry.species]:{reference:ReferenceState,datum_phase:chemistry.phase,h_offset:DeltaH storage {J/mol},s_offset:DeltaS storage {J/(mol*K)}} complete_over(k,t,j);
+@id("8079d2c912054938ba824c5f2f810def") fn component_enthalpy(k:property_package,p:chemistry.phase,j:chemistry.species,T:Temperature)->MolarEnthalpy=constants.standard_enthalpy_datum+b.h_offset+enthalpy_increment(k,p,j,b.reference.temperature,T)+enthalpy_increment(k,b.datum_phase,j,constants.standard_temperature,b.reference.temperature) where b=caloric_basis[k,p.type,j];
+@id("2c6ce9d151a54bfd89e987feadf04bac") fn component_entropy(k:property_package,p:chemistry.phase,j:chemistry.species,T:Temperature)->MolarEntropy=constants.standard_entropy_datum+b.s_offset+entropy_increment(k,p,j,b.reference.temperature,T)+entropy_increment(k,b.datum_phase,j,constants.standard_temperature,b.reference.temperature) where b=caloric_basis[k,p.type,j];
+@id("eddc70275bf14ef6a3236a00ef3b7c4a") fn dilute_component_enthalpy(k:property_package,p:chemistry.phase,j:chemistry.species,T:Temperature)->MolarEnthalpy valid(p.type==compatibility.PhaseType.liquidPhase)=if component_role[k,j]==compatibility.ComponentType.Solvent then component_enthalpy(k,p,j,T) else constants.standard_enthalpy_datum;
 }

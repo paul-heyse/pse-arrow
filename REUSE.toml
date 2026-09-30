@@ -88,11 +88,20 @@ precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Paul Heyse"
 SPDX-License-Identifier = "MIT OR Apache-2.0"
 
+# thermo-knowledge (Plan 24) commits only the project's own files; third-party data is
+# acquired into the gitignored store and never committed, so nothing here needs its own
+# licence annotation.
+[[annotations]]
+path = ["thermo-knowledge/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Paul Heyse"
+SPDX-License-Identifier = "MIT OR Apache-2.0"
+
 # Selected upstream parameter records; source revisions and hashes accompany the data.
 [[annotations]]
 path = [
-  "crates/pse-kernels/data/pcsaft-light-hydrocarbons.json",
-  "crates/pse-kernels/data/ideal-gas-light-hydrocarbons.json",
+  "packages/reference/data/gross-sadowski-2001/data/gross2001.json",
+  "packages/reference/data/poling2000/data/vessel_caloric.parquet",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "FeOS contributors"

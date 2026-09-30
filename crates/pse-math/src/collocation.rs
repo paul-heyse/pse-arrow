@@ -97,7 +97,7 @@ pub fn element(order: usize, alpha: f64, beta: f64, right: bool) -> Result<Stenc
 
 /// Roots of the shifted Jacobi polynomial `P_n^(alpha,beta)(2*x-1)`.
 /// The family parameters are caller data, not a named-method dispatch. Exact
-/// polynomial construction follows NIST DLMF 18.5.8 (https://dlmf.nist.gov/18.5.E8);
+/// polynomial construction follows NIST DLMF 18.5.8 (<https://dlmf.nist.gov/18.5.E8>);
 /// Symbolica owns polynomial arithmetic and certified real-root isolation.
 /// # Errors
 /// Orders above the resource bound, parameters outside the orthogonality domain,

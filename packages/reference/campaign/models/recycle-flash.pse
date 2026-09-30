@@ -25,7 +25,7 @@
 @id("01a0f053c2807589b9b24cdcf3747f60") interface RecycleLoop {
 @id("01a0f053c2807589b9b24cdda52461b5") param purge:Scalar;
 @id("01a0f053c2807589b9b24cdea005f07d") param flash_temperature:Temperature;
-@id("01a0f042b660738c8ffef7191e27e353") param components:Set<chemistry.species>=chem.aromatics;
+@id("01a0f042b660738c8ffef7191e27e353") param components:Set<chemistry.species>=bt_ideal.aromatics;
 @id("01a0f042b660738c8ffef71a3a3b632a") child feed:units.Feed=units.Feed(pkg=bt_ideal.BTIdeal(defined_state=true));
 @id("01a0f042b660738c8ffef71b7e420960") child mixer:mixing.Mixer=mixing.Mixer(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false),inlets=mixer_inlets,momentum_mixing=compatibility.MomentumMixingType.none);
 @id("01a0f042b660738c8ffef71c32a65c83") child heater:units.Heater=units.Heater(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false));
@@ -154,7 +154,7 @@
 // attempt commits nothing, and the unchanged specification, RecycleFlash's at the IDAES
 // test_BTIdeal feed (1 mol/s, equimolar, 368 K, 101325 Pa) with a quarter purged, is solved
 // from its own starts and answers to the same steady state.
-@id("01a0f053f157702a825ee1acc5a50f11") test recycle_flash_failure_restores_specification oracle campaign_references.analytic_recycle_flash fixture {dof 0; run initialized; stages("overheated_tear"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); failure trial_rejected "modeling.qualification.rejected"; fix root.feed.state.flow=1{mol/s}; fix root.feed.state.T=368{K}; fix root.feed.state.pressure=101325{Pa}; fix root.feed.state.z[chem.benzene]=0.5{1}; fix root.feed.state.z[chem.toluene]=0.5{1};} {
+@id("01a0f053f157702a825ee1acc5a50f11") test recycle_flash_failure_restores_specification oracle campaign_references.analytic_recycle_flash fixture {dof 0; run initialized; stages("overheated_tear"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); failure trial_rejected members(root.recycle_temperature); fix root.feed.state.flow=1{mol/s}; fix root.feed.state.T=368{K}; fix root.feed.state.pressure=101325{Pa}; fix root.feed.state.z[chem.benzene]=0.5{1}; fix root.feed.state.z[chem.toluene]=0.5{1};} {
 @id("01a0f05f996477f09a4b59bf39131cec") child root:OverheatedTear=OverheatedTear;
 @id("01a0f05f996477f09a4b59c0cd740ceb") expect root.flash.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
 @id("01a0f05f996477f09a4b59c1a7dff362") expect root.flash.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};

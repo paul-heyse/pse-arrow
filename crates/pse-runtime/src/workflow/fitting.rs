@@ -7,7 +7,7 @@ mod oracle;
 mod preparation;
 mod profile;
 pub use covariance::{Covariance, FitWithheld, Interval, IntervalBound};
-pub use modeling::FitData;
+pub use modeling::FitDeclarations;
 pub use profile::{ProfileChain, ProfilePoint};
 #[cfg(test)]
 pub(in crate::workflow) mod regression;
@@ -423,4 +423,36 @@ fn alias(experiment: InstanceId, source: SemanticId) -> SemanticId {
     let mut h = FramedHasher::new(pse_ids::Frame::FitCoordinateV1);
     h.id(&experiment.as_id()).id(&source);
     h.finish_id()
+}
+
+#[cfg(test)]
+fn measured_rows(
+    cells: &[(SemanticId, &str, Option<f64>, Option<f64>)],
+) -> Vec<pse_authoring::language::Declaration> {
+    let mut text = String::from(
+        "package measurements { entity kind origin provenance {attribute title:Text;} entity origin experiment {title=\"analytic measurement fixture\"} enum role {measured facets(measured)} ",
+    );
+    for (i, (id, ty, value, sigma)) in cells.iter().enumerate() {
+        let literal = |value: Option<f64>| {
+            value.map_or_else(
+                || "missing".to_owned(),
+                |value| {
+                    if *ty == "Time" {
+                        format!("{value}{{s}}")
+                    } else {
+                        format!("{value}")
+                    }
+                },
+            )
+        };
+        text.push_str(&format!("entity kind sample{i} {{attribute value:{ty}?; attribute sigma:{ty}?;}} @id(\"{id}\") entity sample{i} observation{i} provenance(experiment,role.measured) {{value={},sigma={}}} ",literal(*value),literal(*sigma)));
+    }
+    text.push('}');
+    pse_authoring::language::parse(
+        &text,
+        SemanticId::from_bytes([222; 16]),
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    )
+    .unwrap()
 }

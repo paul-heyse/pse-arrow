@@ -67,7 +67,8 @@ alpha_r = { type = "Scalar", observable = "molar_residual_helmholtz_energy", doc
 - An argument may name the observable it is a value of:
   `arguments.T = { type = "Temperature", observable = "temperature", doc = "..." }`. The observable is a
   declared entity of the kind bound to the framework role `observable`, checked as an output's is and
-  reified in `meta.contract_argument.observable`. A clause of a validity region limits an observable
+  reified in `meta.contract_argument.observable`. The argument's type has the dimension of the
+  observable's quantity type, as an output's does. A clause of a validity region limits an observable
   (meta-model section 5); the argument that names the observable is the one the clause limits, so the
   binding of a region's clause to an argument is stated here, in the contract, and a qualification
   case does not have to say it. An observable that two arguments name binds to neither. The contracts
@@ -251,7 +252,8 @@ refusals:
 - an unknown name, a convention fact the form does not declare included; a slot subscripted with the
   wrong number or kinds of subject
 - an index variable used outside its `for`; a sum over something that is not an index set
-- an argument, output or slot whose `observable` is no declared entity of the `observable` kind
+- an argument, output or slot whose `observable` is no declared entity of the `observable` kind; an
+  argument or output whose type has another dimension than the quantity type of its observable
 - a dimension mismatch, stating both dimensions; a transcendental function of a dimensioned
   argument; a non-integer power of a dimensioned base
 - an output whose dimension differs from the contract's
@@ -343,10 +345,11 @@ arguments):
 - a clause is **decidable** when it limits an observable that exactly one argument of the contract
   names and has a value here, and is about no component and no aggregation; it holds when the
   argument's value lies in its closed interval;
-- a region is **inside** for a point when all its clauses are decidable and hold, **outside** when they
-  are all decidable and one fails, and **undetermined** when one cannot be decided from the arguments (a
-  clause on a component or an aggregation, on an observable no argument names, or on one named by
-  two arguments), never inside or outside;
+- a region is a conjunction of its clauses, so for a point it is **outside** when a decidable clause
+  fails, whatever the clauses that cannot be decided say; else **undetermined** when some clause
+  cannot be decided from the arguments (a clause on a component or an aggregation, on an observable no
+  argument names, or on one named by two arguments); else **inside**, all its clauses being decidable
+  and holding;
 - for a record that states regions of the kind, the point is **inside** when it is inside some region
   (the regions are alternatives), else **undetermined** when some region is, else **outside**; for the
   evaluation, which reads several records, it is **outside** when it is outside a record that states

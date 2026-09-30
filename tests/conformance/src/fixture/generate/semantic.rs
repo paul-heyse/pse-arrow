@@ -94,7 +94,10 @@ fn packages(registry: &Registry, valid: &mut Rows, invalid: &mut Rows) {
     let dependency = |major| {
         serde_json::json!([
             "list",
-            vec![serde_json::json!(["struct", vec![id(2), requirement(major)]])]
+            vec![serde_json::json!([
+                "struct",
+                vec![id(2), requirement(major)]
+            ])]
         ])
     };
     set(valid, relation, "dependencies", dependency(1));

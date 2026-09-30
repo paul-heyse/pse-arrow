@@ -1,5 +1,5 @@
 {
-  "description": "M1 preparation-scaling workloads (Plan 23 H2) of the modeling_preparation Criterion group. PC-SAFT states above three components use the bench package's synthetic rows until the DM1 data bank replaces them. `smoke` workloads run once when Criterion tests rather than measures (just bench-smoke); the nested realization needs the KINSOL capability (the native-process feature).",
+  "description": "M1 preparation workloads use deterministic 2/5/10/20-component prefixes of the published CAS-keyed Gross-Sadowski 2001 bank. Each process records attempted preparation, including typed resource refusals; the nested realization requires KINSOL.",
   "workloads": [
     {
       "id": "pcsaft-02",

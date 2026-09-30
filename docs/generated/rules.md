@@ -6,9 +6,6 @@
 
 | Relation | Invariant | Native SQL |
 |---|---|---|
-| `authored.datasets` | `closure:entity_fields` | `SELECT s."dataset_id" FROM "authored"."datasets" s JOIN authored.entities e ON s."dataset_id" = e.entity_id WHERE (s."name" IS DISTINCT FROM e.name) OR (NULL IS DISTINCT FROM e.parent_entity_id)` |
-| `authored.datasets` | `closure:entity_registered` | `SELECT s."dataset_id" FROM "authored"."datasets" s WHERE NOT EXISTS (SELECT 1 FROM authored.entities e WHERE e.entity_id = s."dataset_id" AND e.kind = 'dataset')` |
-| `authored.datasets` | `unique:pk` | `SELECT s."dataset_id" FROM "authored"."datasets" s GROUP BY s."dataset_id" HAVING COUNT(*) > 1` |
 | `authored.documents` | `foreign_key:package_id` | `SELECT DISTINCT s."document_id" FROM (SELECT * FROM (SELECT s."document_id", s."package_id" AS "__pse_value" FROM "authored"."documents" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "authored"."packages" t WHERE s."__pse_value" = t."package_id")` |
 | `authored.documents` | `unique:pk` | `SELECT s."document_id" FROM "authored"."documents" s GROUP BY s."document_id" HAVING COUNT(*) > 1` |
 | `authored.entities` | `acyclic:parents` | `WITH RECURSIVE ancestors(origin, next) AS (                 SELECT "entity_id", "parent_entity_id" FROM "authored"."entities" WHERE "parent_entity_id" IS NOT NULL                 UNION SELECT a.origin, s."parent_entity_id" FROM ancestors a JOIN "authored"."entities" s ON a.next = s."entity_id"                     WHERE s."parent_entity_id" IS NOT NULL)                 SELECT DISTINCT origin AS "entity_id" FROM ancestors WHERE origin = next` |
@@ -18,7 +15,6 @@
 | `authored.fit_cases` | `unique:pk` | `SELECT s."fit_id" FROM "authored"."fit_cases" s GROUP BY s."fit_id" HAVING COUNT(*) > 1` |
 | `authored.modeling_declarations` | `unique:pk` | `SELECT s."declaration_id" FROM "authored"."modeling_declarations" s GROUP BY s."declaration_id" HAVING COUNT(*) > 1` |
 | `authored.numerical_requirements` | `unique:pk` | `SELECT s."requirement_id" FROM "authored"."numerical_requirements" s GROUP BY s."requirement_id" HAVING COUNT(*) > 1` |
-| `authored.observations` | `unique:pk` | `SELECT s."observation_id" FROM "authored"."observations" s GROUP BY s."observation_id" HAVING COUNT(*) > 1` |
 | `authored.package_unit_sets` | `foreign_key:package_id` | `SELECT DISTINCT s."package_id" FROM (SELECT * FROM (SELECT s."package_id", s."package_id" AS "__pse_value" FROM "authored"."package_unit_sets" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "authored"."packages" t WHERE s."__pse_value" = t."package_id")` |
 | `authored.package_unit_sets` | `foreign_key:unit_set_id` | `SELECT DISTINCT s."package_id" FROM (SELECT * FROM (SELECT s."package_id", s."unit_set_id" AS "__pse_value" FROM "authored"."package_unit_sets" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "reference"."unit_sets" t WHERE s."__pse_value" = t."unit_set_id")` |
 | `authored.package_unit_sets` | `unique:pk` | `SELECT s."package_id" FROM "authored"."package_unit_sets" s GROUP BY s."package_id" HAVING COUNT(*) > 1` |
@@ -41,11 +37,6 @@
 | `reference.artifact_profiles` | `unique:pk` | `SELECT s."kind" FROM "reference"."artifact_profiles" s GROUP BY s."kind" HAVING COUNT(*) > 1` |
 | `reference.bases` | `foreign_key:reference_conditions_id` | `SELECT DISTINCT s."basis_id" FROM (SELECT * FROM (SELECT s."basis_id", s."reference_conditions_id" AS "__pse_value" FROM "reference"."bases" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "reference"."reference_states" t WHERE s."__pse_value" = t."reference_state_id")` |
 | `reference.bases` | `unique:pk` | `SELECT s."basis_id" FROM "reference"."bases" s GROUP BY s."basis_id" HAVING COUNT(*) > 1` |
-| `reference.constants` | `closure:entity_fields` | `SELECT s."constant_id" FROM "reference"."constants" s JOIN authored.entities e ON s."constant_id" = e.entity_id WHERE (s."name" IS DISTINCT FROM e.name) OR (NULL IS DISTINCT FROM e.parent_entity_id)` |
-| `reference.constants` | `closure:entity_registered` | `SELECT s."constant_id" FROM "reference"."constants" s WHERE NOT EXISTS (SELECT 1 FROM authored.entities e WHERE e.entity_id = s."constant_id" AND e.kind = 'constant')` |
-| `reference.constants` | `foreign_key:quantity_kind_id` | `SELECT DISTINCT s."constant_id" FROM (SELECT * FROM (SELECT s."constant_id", s."quantity_kind_id" AS "__pse_value" FROM "reference"."constants" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "reference"."quantity_kinds" t WHERE s."__pse_value" = t."quantity_kind_id")` |
-| `reference.constants` | `foreign_key:unit_id` | `SELECT DISTINCT s."constant_id" FROM (SELECT * FROM (SELECT s."constant_id", s."unit_id" AS "__pse_value" FROM "reference"."constants" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "reference"."units" t WHERE s."__pse_value" = t."unit_id")` |
-| `reference.constants` | `unique:pk` | `SELECT s."constant_id" FROM "reference"."constants" s GROUP BY s."constant_id" HAVING COUNT(*) > 1` |
 | `reference.conversion_rules` | `foreign_key:from_quantity_type_id` | `SELECT DISTINCT s."conversion_id" FROM (SELECT * FROM (SELECT s."conversion_id", s."from_quantity_type_id" AS "__pse_value" FROM "reference"."conversion_rules" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "reference"."quantity_types" t WHERE s."__pse_value" = t."quantity_type_id")` |
 | `reference.conversion_rules` | `foreign_key:to_quantity_type_id` | `SELECT DISTINCT s."conversion_id" FROM (SELECT * FROM (SELECT s."conversion_id", s."to_quantity_type_id" AS "__pse_value" FROM "reference"."conversion_rules" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "reference"."quantity_types" t WHERE s."__pse_value" = t."quantity_type_id")` |
 | `reference.conversion_rules` | `unique:pk` | `SELECT s."conversion_id" FROM "reference"."conversion_rules" s GROUP BY s."conversion_id" HAVING COUNT(*) > 1` |
@@ -120,6 +111,7 @@
 | `runtime.fit_observations` | `unique:pk` | `SELECT s."run_id", s."observation_id" FROM "runtime"."fit_observations" s GROUP BY s."run_id", s."observation_id" HAVING COUNT(*) > 1` |
 | `runtime.fit_parameters` | `unique:pk` | `SELECT s."run_id", s."parameter_id" FROM "runtime"."fit_parameters" s GROUP BY s."run_id", s."parameter_id" HAVING COUNT(*) > 1` |
 | `runtime.fit_variables` | `unique:pk` | `SELECT s."run_id", s."experiment_id", s."symbol_id" FROM "runtime"."fit_variables" s GROUP BY s."run_id", s."experiment_id", s."symbol_id" HAVING COUNT(*) > 1` |
+| `runtime.fitted_parameter_cells` | `unique:pk` | `SELECT s."run_id", s."parameter_id" FROM "runtime"."fitted_parameter_cells" s GROUP BY s."run_id", s."parameter_id" HAVING COUNT(*) > 1` |
 | `runtime.incumbents` | `unique:pk` | `SELECT s."run_id", s."seq" FROM "runtime"."incumbents" s GROUP BY s."run_id", s."seq" HAVING COUNT(*) > 1` |
 | `runtime.infeasibility_certificates` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."infeasibility_certificates" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
 | `runtime.local_validity` | `unique:pk` | `SELECT s."run_id", s."step", s."quantity" FROM "runtime"."local_validity" s GROUP BY s."run_id", s."step", s."quantity" HAVING COUNT(*) > 1` |
@@ -132,6 +124,8 @@
 | `runtime.modeling_fixture_status` | `unique:pk` | `SELECT s."run_id", s."fixture_id" FROM "runtime"."modeling_fixture_status" s GROUP BY s."run_id", s."fixture_id" HAVING COUNT(*) > 1` |
 | `runtime.modeling_initializations` | `unique:pk` | `SELECT s."run_id" FROM "runtime"."modeling_initializations" s GROUP BY s."run_id" HAVING COUNT(*) > 1` |
 | `runtime.modeling_jacobian_optimization` | `unique:pk` | `SELECT s."run_id" FROM "runtime"."modeling_jacobian_optimization" s GROUP BY s."run_id" HAVING COUNT(*) > 1` |
+| `runtime.modeling_knowledge` | `unique:pk` | `SELECT s."source_revision", s."owner_id", s."row_index", s."slot" FROM "runtime"."modeling_knowledge" s GROUP BY s."source_revision", s."owner_id", s."row_index", s."slot" HAVING COUNT(*) > 1` |
+| `runtime.modeling_knowledge_names` | `unique:pk` | `SELECT s."source_revision", s."name" FROM "runtime"."modeling_knowledge_names" s GROUP BY s."source_revision", s."name" HAVING COUNT(*) > 1` |
 | `runtime.modeling_linear_diagnostics` | `unique:pk` | `SELECT s."run_id" FROM "runtime"."modeling_linear_diagnostics" s GROUP BY s."run_id" HAVING COUNT(*) > 1` |
 | `runtime.modeling_nonlinear_explanations` | `unique:pk` | `SELECT s."run_id" FROM "runtime"."modeling_nonlinear_explanations" s GROUP BY s."run_id" HAVING COUNT(*) > 1` |
 | `runtime.modeling_parity` | `unique:pk` | `SELECT s."run_id", s."definition_id", s."oracle_source_id", s."fixture_id", s."sample_index", s."target_id", s."source_id", s."kind" FROM "runtime"."modeling_parity" s GROUP BY s."run_id", s."definition_id", s."oracle_source_id", s."fixture_id", s."sample_index", s."target_id", s."source_id", s."kind" HAVING COUNT(*) > 1` |

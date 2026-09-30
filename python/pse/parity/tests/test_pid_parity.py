@@ -14,7 +14,10 @@ The loop is linear, so the exact response is a matrix exponential. Both integrat
 agree with it, and with each other, to their tolerances.
 """
 
-import gc
+from contextlib import ExitStack
+from pathlib import Path
+from typing import TextIO
+from unittest.mock import patch
 
 import numpy as np
 import pyomo.dae as dae
@@ -99,25 +102,37 @@ def petsc_response() -> list[float]:
     m.fs.ctrl.mv_ref.fix(BIAS)
     m.fs.ctrl.mv_integral_component[0].fix(0.0)
     m.fs.y[0].fix(START)
-    result = petsc.petsc_dae_by_time_element(
-        m,
-        time=m.fs.time,
-        ts_options={
-            "--ts_type": "bdf",
-            "--ts_bdf_order": 3,
-            "--ts_adapt_type": "basic",
-            "--ts_rtol": 1e-10,
-            "--ts_atol": 1e-12,
-            "--ts_dt": 1e-3,
-            "--ts_save_trajectory": 1,
-        },
-    )
+    reader = petsc.petsc_binary_io()
+    assert reader is not None
+    handles: list[TextIO] = []
+
+    def reader_open(name: str) -> TextIO:
+        # PETSc's helper consumes each file before opening the next, but never
+        # closes it. Retain ownership here without changing the upstream reader.
+        if handles:
+            handles.pop().close()
+        handle = Path(name).open()  # noqa: SIM115 -- ownership closes before the next read and at ExitStack exit
+        handles.append(handle)
+        return handle
+
+    with ExitStack() as ownership:
+        ownership.callback(lambda: [handle.close() for handle in handles])
+        ownership.enter_context(patch.object(reader, "open", reader_open, create=True))
+        result = petsc.petsc_dae_by_time_element(
+            m,
+            time=m.fs.time,
+            ts_options={
+                "--ts_type": "bdf",
+                "--ts_bdf_order": 3,
+                "--ts_adapt_type": "basic",
+                "--ts_rtol": 1e-10,
+                "--ts_atol": 1e-12,
+                "--ts_dt": 1e-3,
+                "--ts_save_trajectory": 1,
+            },
+        )
     trajectory = result.trajectory.interpolate(list(SAMPLES))
-    response = [float(v) for v in trajectory.get_vec(m.fs.y[END])]
-    # Release the trajectory reader's open result files within this test.
-    del result, trajectory
-    gc.collect()
-    return response
+    return [float(v) for v in trajectory.get_vec(m.fs.y[END])]
 
 
 def pse_response(runtime: pse.Runtime) -> list[float]:
@@ -155,8 +170,6 @@ def pse_response(runtime: pse.Runtime) -> list[float]:
 
 @pytest.mark.integration
 @pytest.mark.parity
-# IDAES's PETSc trajectory reader leaves its temporary result files open.
-@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 def test_pi_loop_agrees_with_petsc(runtime: pse.Runtime) -> None:
     """The pse and PETSc responses are within 1e-6 of the exact one and each other."""
     reference = exact()

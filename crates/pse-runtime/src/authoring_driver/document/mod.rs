@@ -22,8 +22,7 @@ pub use load::{
     package_checksum,
 };
 pub use owned::{
-    OwnedDocumentBundle, OwnedDocumentSet, load_package_documents_owned,
-    load_package_sources_owned,
+    OwnedDocumentBundle, OwnedDocumentSet, load_package_documents_owned, load_package_sources_owned,
 };
 
 pub use edit::{DocumentEdit, apply_edits, assign_ids};

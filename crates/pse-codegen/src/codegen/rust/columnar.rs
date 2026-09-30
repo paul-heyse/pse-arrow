@@ -85,9 +85,7 @@ fn allocation_field(
 
 fn allocation_reads_value(ty: &DataType) -> bool {
     match ty {
-        DataType::Utf8 | DataType::Binary | DataType::List(_) | DataType::FixedSizeList(..) => {
-            true
-        }
+        DataType::Utf8 | DataType::Binary | DataType::List(_) | DataType::FixedSizeList(..) => true,
         DataType::Struct(fields) => fields
             .iter()
             .any(|field| field.is_nullable() || allocation_reads_value(field.data_type())),

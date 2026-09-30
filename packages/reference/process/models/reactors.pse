@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("b79a061e0dd9457b8249f2afcee73e1d") package reactors {
+@id("01a0f14ead4c77ab98c5380de3c8b420") use constants @"1.0.0";
 @id("73e9f7cd1f0d417a9f88db56742be3d6") use caloric @"1.0.0";
 @id("2659777aab884fbb9b22d3a06e0812d9") use helmholtz @"1.0.0";
 @id("01a0ee04daa670cda7ed74b1f6c21a55") use chemistry @"1.0.0";
 @id("cc4293f7a9a24deeb0160f9804ebf817") use equilibrium @"1.0.0";
 @id("c6f7b655191549fb8f4819344cabafd8") use aqueous @"1.0.0";
 @id("fa1a7c1344694910a9a4d8e8e4cd347a") use reactions @"1.0.0";
+@id("214a0301740d42d182d6ceab968018f6") use reaction_forms @"1.0.0";
 @id("1d34bc92921f4656bfb3c19c980f17ce") use control_volumes @"1.0.0";
 @id("6ba1eaf7ae4042aeb81dc761ce52e574") fn volume_unit()->Volume=1{m^3};
 @id("73d2637eb9c74b6585ae042562d66d14") fn power_unit()->Power=1{W};
 @id("4b6effccc1a64c338c4915767a4288b6") fn reaction_heat_unit()->ReactionHeat=1{J/mol};
-@id("ecb3aec4215b4aed87fb9f5bd8c81f71") fn stored_energy(volume:Volume,density:Density,enthalpy:MolarEnthalpy,pressure:Pressure)->Energy=1{J}*(volume/volume_unit())*((density/helmholtz.density_unit())*((enthalpy-equilibrium.enthalpy_datum())/caloric.h_unit())-(pressure-100000{Pa})/equilibrium.pressure_difference_unit());
+@id("ecb3aec4215b4aed87fb9f5bd8c81f71") fn stored_energy(volume:Volume,density:Density,enthalpy:MolarEnthalpy,pressure:Pressure)->Energy=1{J}*(volume/volume_unit())*((density/constants.density_unit)*((enthalpy-constants.standard_enthalpy_datum)/constants.enthalpy_increment_unit)-(pressure-100000{Pa})/equilibrium.pressure_difference_unit());
 @id("b176836e913849d69b3597b74930af5b") def CSTR(inlet_pkg:aqueous.DiluteLiquid,outlet_pkg:aqueous.DiluteLiquid,reaction_pkg:reactions.RateLaw,holdup:Boolean=false,times:Set<Time>={}):control_volumes.ControlVolume0D {
 @id("01a0ee398db8733eb490d0d9240cd2a2") override param time:Set<Time>=times;
 @id("01a0ee398db8733eb490d0da956665a6") override param constant_inventory:Set<chemistry.species>={outlet_pkg.solvent};
@@ -31,7 +33,7 @@
 @id("74b5b1ab7850440aa06bc96702b4ff53") eq no_work:work==0{W};
 @id("890eeb5934e44ebfaba2d7dc69323a7a") eq reaction_temperature:reaction.T==outlet.T;
 @id("0e9713dada6a412d90dd6973920bcb77") eq reaction_concentration[j in components]:reaction.concentration[j]==outlet.concentration[j];
-@id("7698bf5614144e809115bbf0344a1b7b") let extent[r in reaction_set]:Scalar=(volume/volume_unit())*(reaction.rate[r]/reactions.rate_unit());
+@id("7698bf5614144e809115bbf0344a1b7b") let extent[r in reaction_set]:Scalar=(volume/volume_unit())*(reaction.rate[r]/reaction_forms.volumetric_rate_unit);
 @id("7e7946177bf341dd8e5bcc6ded1b6913") contribute [r in reaction_set,j in components] material[j] role positive=equilibrium.component_flow_unit()*extent[r]*reaction.stoich[r,j];
 @id("088ad63dc48a420eb0627deb45cd79e5") contribute [r in reaction_set] energy role positive=-power_unit()*extent[r]*(reaction.heat[r]/reaction_heat_unit());
 @id("32def9d5a822404089c2e688c67df190") when has_holdup {
@@ -70,7 +72,7 @@
 @id("50113ce2906d4df2b02ce17f19f461aa") eq pressure_distribution[i in x]:pressure_gradient[i]==delta_pressure;
 @id("c9b34c6f9b3841abbcf00741ddd7914e") eq reaction_temperature[i in x]:reaction[i].T==state[i].T;
 @id("b7e502200a124a15a658f63d6c371954") eq reaction_concentration[i in x,j in components]:reaction[i].concentration[j]==state[i].concentration[j];
-@id("0ebcdd27f1544627aa7572acd5b5b0d4") let reaction_extent[i in x,r in reaction_set]:Scalar=(volume/volume_unit())*(reaction[i].rate[r]/reactions.rate_unit());
+@id("0ebcdd27f1544627aa7572acd5b5b0d4") let reaction_extent[i in x,r in reaction_set]:Scalar=(volume/volume_unit())*(reaction[i].rate[r]/reaction_forms.volumetric_rate_unit);
 @id("4a54526c0701428b8e50134e16308634") contribute [i in x,r in reaction_set,j in components] material_source[i,j] role positive=equilibrium.component_flow_unit()*reaction_extent[i,r]*reaction[i].stoich[r,j];
 @id("6c859f627f434a3a86917b0251b4cb93") contribute [i in x,r in reaction_set] energy_source[i] role positive=-power_unit()*reaction_extent[i,r]*(reaction[i].heat[r]/reaction_heat_unit());
 @id("01a0ee4526767673ae25bd155abea012") let heat_of_reaction:Power=integral(i in x | -power_unit()*sum(r in reaction_set | reaction_extent[i,r]*(reaction[i].heat[r]/reaction_heat_unit())));

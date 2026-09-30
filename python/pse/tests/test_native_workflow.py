@@ -30,10 +30,9 @@ from pse.contracts.enums import (
     PresolvePolicyKind,
 )
 from pse.contracts.identities import DeclarationId, FitId, InstanceId, PublicationId
-from pse.contracts.values import ContentHash, SemanticId, SourceSpan
+from pse.contracts.values import SemanticId
 
-
-#: A manifest dependency on the physical primitives fixture, whose physical document names
+#: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
 PRIMITIVES = (
     'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
@@ -399,7 +398,15 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
                 "package.toml": manifest,
                 "models/fit.pse": (
                     "package fitting { def Measurement { param length:Length=2{m}; "
-                    "annotation check length(length>0{m}); } }"
+                    "annotation check length(length>0{m}); } "
+                    "entity kind origin provenance {attribute title:Text;} "
+                    'entity origin experiment {title="known length"} '
+                    "enum role {measured facets(measured)} "
+                    "entity kind reading {attribute value:Length?;"
+                    "attribute sigma:Length?;} "
+                    '@id("9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d") '
+                    "entity reading measured provenance(experiment,role.measured) "
+                    "{value=2{m},sigma=0.1{m}} }"
                 ),
             }
         ],
@@ -409,23 +416,6 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
         row.declaration_id
         for row in package.declarations()
         if row.name == "Measurement"
-    )
-    dataset = a.AuthoredDatasetsRow(
-        dataset_id=identity(156),
-        name="known",
-        source="unit",
-        content_hash=ContentHash(bytes([2]) * 32),
-    )
-    observation = a.AuthoredObservationsRow(
-        observation_id=identity(157),
-        dataset_id=identity(156),
-        target="length",
-        value=2.0,
-        unit_id=identity(1),
-        std_dev=0.1,
-        timestamp=None,
-        tag=None,
-        source_span=SourceSpan(document_id=identity(156), start=0, end=0),
     )
     fit = w.FitDeclaration(
         fit_id=FitId(identity(158)),
@@ -453,7 +443,9 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
         ),
         observations=(
             a.AuthoredFitCasesFieldObservationsItem(
-                observation_id=identity(157),
+                observation_id=DeclarationId(identity(157)),
+                value_attribute="value",
+                standard_deviation_attribute="sigma",
                 experiment_id=InstanceId(identity(159)),
                 output_path="length",
                 time=None,
@@ -464,7 +456,7 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
             ),
         ),
     )
-    package = package.with_fit_data((fit,), (observation,), (dataset,))
+    package = package.with_fit_declarations((fit,))
     job = package.prepare_fit(
         FitId(identity(158)),
         pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE),

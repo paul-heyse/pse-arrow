@@ -71,16 +71,32 @@ fn domain_schema_admits_without_data_rows() {
     let species = p.names["chemistry.species"];
     let kind = &p.kinds[&species];
     assert_eq!(
-        kind.attributes.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>(),
+        kind.attributes
+            .iter()
+            .map(|(n, _)| n.as_str())
+            .collect::<Vec<_>>(),
         ["cas", "inchikey", "charge", "molar_mass"]
     );
-    assert_eq!(kind.derived.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>(), ["molar_mass"]);
+    assert_eq!(
+        kind.derived
+            .iter()
+            .map(|(n, _)| n.as_str())
+            .collect::<Vec<_>>(),
+        ["molar_mass"]
+    );
     let element = &p.kinds[&p.names["chemistry.element"]];
     assert_eq!(
-        element.unique.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>(),
+        element
+            .unique
+            .iter()
+            .map(|(n, _)| n.as_str())
+            .collect::<Vec<_>>(),
         ["symbol", "atomic_number"]
     );
-    assert_eq!(p.kinds[&p.names["chemistry.apparent"]].requirements.len(), 1);
+    assert_eq!(
+        p.kinds[&p.names["chemistry.apparent"]].requirements.len(),
+        1
+    );
     assert!(p.refines(p.names["chemistry.apparent"], species));
     // The canonical phases carry their types.
     let liquid = p.record(p.names["chemistry.liquid"]).unwrap();
@@ -99,7 +115,10 @@ fn domain_schema_admits_without_data_rows() {
         ))
     );
     assert!((p.constants[&r].value.scalar(r).unwrap() - 8.31446261815324).abs() < 1e-14);
-    assert_eq!(p.provenance(r).unwrap().source, p.names["constants.codata_2018"]);
+    assert_eq!(
+        p.provenance(r).unwrap().source,
+        p.names["constants.codata_2018"]
+    );
     // The parameter set is keyed and abstract; its families refine it.
     let (key_kind, keys) = p.keys(p.names["properties.caloric_set"]).unwrap();
     assert_eq!(key_kind, p.names["properties.parameter_set"]);
@@ -174,7 +193,9 @@ fn outcome(body: &str, root: Option<&str>) -> std::result::Result<(), String> {
         .map_err(|e| e.to_string())
     };
     let mut rows = schema();
-    rows.extend(parse(&std::fs::read_to_string(corpus_directory().join("scaffold.pse")).unwrap())?);
+    rows.extend(parse(
+        &std::fs::read_to_string(corpus_directory().join("scaffold.pse")).unwrap(),
+    )?);
     rows.extend(parse(body)?);
     let p = admitted(&rows).map_err(|e| e.to_string())?;
     if let Some(root) = root {
@@ -218,11 +239,23 @@ fn domain_schema_refusals_name_the_violated_constraint() {
             .unwrap_or_else(|| panic!("{} admitted", case.name));
         assert!(!case.refusals.is_empty(), "{}", case.name);
         for part in &case.refusals {
-            assert!(error.contains(part.as_str()), "{}: expected {part}: {error}", case.name);
+            assert!(
+                error.contains(part.as_str()),
+                "{}: expected {part}: {error}",
+                case.name
+            );
         }
         let (from, to) = &case.control;
-        assert_eq!(case.body.matches(from.as_str()).count(), 1, "{}: control {from}", case.name);
-        if let Err(error) = outcome(&case.body.replacen(from.as_str(), to, 1), case.root.as_deref()) {
+        assert_eq!(
+            case.body.matches(from.as_str()).count(),
+            1,
+            "{}: control {from}",
+            case.name
+        );
+        if let Err(error) = outcome(
+            &case.body.replacen(from.as_str(), to, 1),
+            case.root.as_deref(),
+        ) {
             panic!("{}: the control is refused: {error}", case.name);
         }
     }
@@ -249,7 +282,7 @@ const OPERATIONS: &str = r#"package operations {
  }
  entity properties.property kij { quantity = Scalar, shape = properties.IndexShape.pair, applies = {liquidPhase, vaporPhase} }
  set kijs: Set<properties.property> = {kij};
- dataset kij_values: interactions.pair complete_over(s in corpus.banks, p in kijs, i in corpus.aromatics, j in corpus.aromatics) provenance(corpus.bank, provenance.Role.published) { [corpus.bank, kij, corpus.benzene, corpus.toluene] = [0.01]; }
+ dataset kij_values: interactions.pair provenance(corpus.bank, provenance.Role.published) { [corpus.bank, kij, corpus.benzene, corpus.toluene] = [0.01]; }
  dataset kij_source: interactions.pair_selection complete_over(k in corpus.packages, p in kijs) provenance(corpus.bank, provenance.Role.published) { [corpus.pkg, kij] = [corpus.bank]; }
  def Root {
   var c: MolarCp; var h: DeltaH; var s: DeltaS; var p: Pressure; var d: MolarDensity; var k: Scalar;
@@ -304,8 +337,14 @@ fn domain_fixtures_admit_and_specialize() {
         "property_operations_read_the_selected_form",
     ] {
         let root = p.names[&format!("schema_fixtures.{test}")];
-        specialize(&p, root, InstanceId::from_bytes([7; 16]), &Bindings::default(), Limits::default())
-            .unwrap_or_else(|e| panic!("{test}: {e}"));
+        specialize(
+            &p,
+            root,
+            InstanceId::from_bytes([7; 16]),
+            &Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap_or_else(|e| panic!("{test}: {e}"));
     }
     // Synthetic data taints what derives from it: the formula rows make the molar masses of
     // the formulated species test-only.

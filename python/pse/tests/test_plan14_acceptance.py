@@ -35,11 +35,12 @@ def test_public_native_process_and_exact_results(
     runtime = pse.Runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3] / "packages/reference"
 
-    def documents(path: Path) -> dict[str, str]:
+    def documents(path: Path) -> dict[str, str | bytes]:
         return {
-            p.relative_to(path).as_posix(): p.read_text()
+            p.relative_to(path).as_posix(): p.read_bytes()
             for p in path.rglob("*")
-            if p.is_file() and p.suffix in {".toml", ".yaml", ".yml", ".pse"}
+            if p.is_file()
+            and p.suffix in {".toml", ".yaml", ".yml", ".pse", ".parquet"}
         }
 
     physical = runtime.physical_from_documents(documents(root / "physical"))
@@ -47,6 +48,16 @@ def test_public_native_process_and_exact_results(
         [
             documents(root / name)
             for name in (
+                "data/oracles/teqp-0.23.1",
+                "data/oracles/feos-0.10.1",
+                "data/gross-sadowski-2001",
+                "data/references",
+                "data/nist",
+                "data/perry7",
+                "data/poling2000",
+                "data/oracles/idaes-2.13",
+                "data/species",
+                "data/ciaaw",
                 "seed-data",
                 "process",
                 "thermodynamics",
@@ -133,7 +144,11 @@ def test_public_dynamic_and_transient_fit(
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest = manifest.replace("dependencies = []", PRIMITIVES)
+    manifest = manifest.replace(
+        "dependencies = []",
+        'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
+        'version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]',
+    )
     package = runtime.modeling_from_documents(
         [
             {
@@ -148,6 +163,14 @@ def test_public_dynamic_and_transient_fit(
           let observed[i in t]:Time=total[i];
           annotation report observed("measurement");
           annotation check total(total[i]>=2{s});
+        }
+        entity kind origin provenance {attribute title:Text;}
+        entity origin experiment {title="analytic total(t)=2 s+3*t"}
+        enum role {measured facets(measured)}
+        entity kind reading {attribute value:Time?;attribute sigma:Time?;}
+        @id("68686868686868686868686868686868")
+        entity reading measured provenance(experiment,role.measured) {
+          value=5{s},sigma=1{s}
         } }""",
             }
         ],
@@ -228,6 +251,8 @@ def test_public_dynamic_and_transient_fit(
             "observations": [
                 {
                     "observation_id": identity(104),
+                    "value_attribute": "value",
+                    "standard_deviation_attribute": "sigma",
                     "experiment_id": identity(103),
                     "output_path": "observed[0{s}]",
                     "time": 1.0,
@@ -240,30 +265,7 @@ def test_public_dynamic_and_transient_fit(
         },
         authored.AuthoredFitCasesRow,
     )
-    observation = converter.structure(
-        {
-            "observation_id": identity(104),
-            "dataset_id": identity(105),
-            "target": "analytic total at 1 s",
-            "value": 5.0,
-            "unit_id": identity(3),
-            "std_dev": 1.0,
-            "timestamp": None,
-            "tag": None,
-            "source_span": {"document_id": identity(105), "start": 0, "end": 0},
-        },
-        authored.AuthoredObservationsRow,
-    )
-    dataset = converter.structure(
-        {
-            "dataset_id": identity(105),
-            "name": "analytic accumulation",
-            "source": "total(t)=2 s+3*t",
-            "content_hash": "blake3:" + "03" * 32,
-        },
-        authored.AuthoredDatasetsRow,
-    )
-    package = package.with_fit_data((fit,), (observation,), (dataset,))
+    package = package.with_fit_declarations((fit,))
     result = (
         package.prepare_fit(
             fit.fit_id,
@@ -286,6 +288,10 @@ def test_public_dynamic_and_transient_fit(
     assert run[0]["termination"] in {"success", "acceptable"}
     assert run[0]["error"] is None
     assert run[0]["estimate_qualified"]
+    exported = pa.table(result.export_fit_parameters()).to_pylist()
+    assert len(exported) == 1
+    assert exported[0]["value"] == pytest.approx(3.0, abs=1e-5)
+    assert exported[0]["run_id"] == bytes(result.run_id)
     assert result.completion.computation == converter.structure(
         run[0], runtime_contracts.RuntimeComputationRunsRow
     )
@@ -307,7 +313,7 @@ sys.meta_path.insert(0, NoPyomo())
 import pse
 
 
-#: A manifest dependency on the physical primitives fixture, whose physical document names
+#: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
 PRIMITIVES = (
     'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '

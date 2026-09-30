@@ -18,6 +18,10 @@ pub enum Type {
     /// Text or label.
     Text,
     /// A named quantity type of the physical document (ADR-0123 Outcome 6).
+    #[allow(
+        clippy::enum_variant_names,
+        reason = "the value names a physical quantity type"
+    )]
     QuantityType,
     /// A named reference state of the physical document, with its typed conditions
     /// (ADR-0123 Outcome 6).
@@ -142,7 +146,9 @@ impl TypeContext<'_> {
                 }
             }
             K::Argument => return Err(invalid(at, "an argument is not a type")),
-            K::Optional => Type::Optional(Box::new(self.node(only(node)?, variables, names, at)?)),
+            K::Optional => {
+                Type::Optional(Box::new(self.node(only(node)?, variables, names, at)?))
+            }
             K::Set => Type::Set(Box::new(self.node(only(node)?, variables, names, at)?)),
             K::Row | K::Table => match self.node(only(node)?, variables, names, at)? {
                 Type::Table(id) if node.kind() == K::Row => Type::Row(id),

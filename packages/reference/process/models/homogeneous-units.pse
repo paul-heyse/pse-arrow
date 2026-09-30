@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("58446734fc0a5b67a26804f7e94fd975") package homogeneous_units {
+@id("01a0f14ead4c77ab98c5380ed6bb4ed2") use constants @"1.0.0";
 @id("01a0ee04daa670cda7ed74af139a9a12") use chemistry @"1.0.0";
 @id("41d6ef942c9852b48bf8e9d69db9bf9c") use helmholtz @"1.0.0";
 @id("56a1658c0f5056a2941a2014c9dd7022") use caloric @"1.0.0";
@@ -17,8 +18,8 @@
 @id("1c6c844041e24fbd84c74d6a046b6828") annotation start duty(16000{W});
 @id("77cbf2c9eaf24365b4d9b3c60d560ab2") annotation nominal duty(16000{W});
 @id("d9b2bb862d0b5794953425910c7d0fee") var recycle:Flow;
-@id("89d10c125b585424944288464b702f0f") let enthalpy:MolarEnthalpy=equilibrium.enthalpy_datum()+sum(j in components | composition(j)*ideal_h(phase.T,j))+phase.h_residual;
-@id("7113433fe9485ccd8019fd9311ef726d") eq composition_binding[j in components]:phase.amount[j]==helmholtz.amount_unit()*composition(j);
+@id("89d10c125b585424944288464b702f0f") let enthalpy:MolarEnthalpy=constants.standard_enthalpy_datum+sum(j in components | composition(j)*ideal_h(phase.T,j))+phase.h_residual;
+@id("7113433fe9485ccd8019fd9311ef726d") eq composition_binding[j in components]:phase.amount[j]==constants.amount_unit*composition(j);
 @id("22e13fab9fb75e96b8cb2bcf4e06495f") eq pressure_binding:phase.pressure==pressure;
 @id("ebf52965a78d5655b88cac808e48260b") accumulate material:Flow conservation tolerance 1e-7{mol/s};
 @id("7e3054b0e8415aac8fd22042aa493d46") contribute material role inflow=feed;
@@ -31,7 +32,7 @@
 @id("b83048504b5756cda535bd343868d2f6") contribute energy role outflow=recycle*enthalpy;
 @id("62323d61ca1e5a25aaff01950d942cbf") annotation start phase.T(313.15{K});
 @id("e7a755327d6c5fae9214437b92007051") annotation start phase.rho(80{mol/m^3});
-@id("bf63253b04d75b5ebab4023a24167bb3") annotation start phase.amount(helmholtz.amount_unit()*composition(j));
+@id("bf63253b04d75b5ebab4023a24167bb3") annotation start phase.amount(constants.amount_unit*composition(j));
 @id("87080b90310a58f2bc55377ea8ad3194") annotation nominal phase.T(350{K});
 @id("f04ade403fe650e5a04e34d5b0398ee8") annotation nominal phase.rho(40{mol/m^3});
 @id("a19e40c89de55f5781b012f8f311cb54") annotation nominal phase.amount(1{mol});
@@ -53,9 +54,9 @@
 @id("80210938b7035c15a1ed08efc4dc4364") eq temperature_v:vapor.T==temperature;
 @id("d96a9befbd37541486bf258e1510267b") eq pressure_l:liquid.pressure==pressure;
 @id("6cc7ec6ee0035f79afba64bf2ad0b251") eq pressure_v:vapor.pressure==pressure;
-@id("6394f92b3e1e5bac855e958f8a95d947") eq material[j in components]:(1-beta)*liquid.amount[j]+beta*vapor.amount[j]==helmholtz.amount_unit()*feed(j);
-@id("b51f339a9a47583cbb237fcb57bb1f38") eq normalization:sum(j in components | liquid.amount[j]/helmholtz.amount_unit()-vapor.amount[j]/helmholtz.amount_unit())==0;
-@id("21196aa63a3c598994337a7353ea1f3b") eq fugacity[j in components]:log(liquid.amount[j]/helmholtz.amount_unit())+liquid.ln_phi[j]==log(vapor.amount[j]/helmholtz.amount_unit())+vapor.ln_phi[j];
+@id("6394f92b3e1e5bac855e958f8a95d947") eq material[j in components]:(1-beta)*liquid.amount[j]+beta*vapor.amount[j]==constants.amount_unit*feed(j);
+@id("b51f339a9a47583cbb237fcb57bb1f38") eq normalization:sum(j in components | liquid.amount[j]/constants.amount_unit-vapor.amount[j]/constants.amount_unit)==0;
+@id("21196aa63a3c598994337a7353ea1f3b") eq fugacity[j in components]:log(liquid.amount[j]/constants.amount_unit)+liquid.ln_phi[j]==log(vapor.amount[j]/constants.amount_unit)+vapor.ln_phi[j];
 @id("d947b85154a85ab092619fb7265ad0d5") annotation start liquid.T(temperature);
 @id("7b1fde953a725f31b8602313537e335e") annotation start vapor.T(temperature);
 @id("b0905728db36588cbd5d4b7d5123aefe") annotation nominal liquid.T(temperature);
@@ -64,8 +65,8 @@
 @id("5034ec090e0c5715af21914feb88e251") annotation start vapor.rho(1000{mol/m^3});
 @id("c5172c72bae8579ba607dd3906b2f8aa") annotation nominal liquid.rho(12400{mol/m^3});
 @id("29d3b889685b565ca1db68606c3e4216") annotation nominal vapor.rho(1000{mol/m^3});
-@id("314c1d4cbe955e41a95855bc65109f82") annotation start liquid.amount(helmholtz.amount_unit()*liquid_initial(j));
-@id("21e475192a0e5af7a9eeb94b97bebdc5") annotation start vapor.amount(helmholtz.amount_unit()*vapor_initial(j));
+@id("314c1d4cbe955e41a95855bc65109f82") annotation start liquid.amount(constants.amount_unit*liquid_initial(j));
+@id("21e475192a0e5af7a9eeb94b97bebdc5") annotation start vapor.amount(constants.amount_unit*vapor_initial(j));
 @id("db715d883a1759b28d6bd14c30be016f") annotation nominal liquid.amount(1{mol});
 @id("aae3246518c6555b8ac85b285eb3fc12") annotation nominal vapor.amount(1{mol});
 @id("cf1e78dc0c5e53ad96643ca23394b8fd") annotation bounds liquid.amount(1e-8{mol},1{mol});

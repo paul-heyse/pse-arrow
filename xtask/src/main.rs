@@ -32,6 +32,8 @@ use serde::Deserialize;
 
 mod codegen;
 mod dependency_ceilings;
+#[cfg(feature = "thermodynamic-oracles")]
+mod feos_reference;
 #[cfg(feature = "package-fixtures")]
 mod inspection_fixture;
 #[path = "../../scripts/workspace.rs"]
@@ -57,6 +59,9 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
+    /// Freeze independent FeOS PC-SAFT properties as typed oracle Parquet banks.
+    #[cfg(feature = "thermodynamic-oracles")]
+    FeosReference { output: PathBuf },
     /// Publish and reopen a fresh current store for inspection tests.
     #[cfg(feature = "package-fixtures")]
     InspectionFixture {
@@ -140,6 +145,8 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let root = workspace_root()?;
     match cli.command {
+        #[cfg(feature = "thermodynamic-oracles")]
+        Cmd::FeosReference { output } => feos_reference::run(&root, &output),
         #[cfg(feature = "package-fixtures")]
         Cmd::InspectionFixture { output } => inspection_fixture::run(&output),
         #[cfg(feature = "package-fixtures")]

@@ -7,10 +7,9 @@ use crate::literal::{LiteralContext, resolve_literal};
 use crate::{
     BoundIndexRef, ConversionId, DimensionVector, EntityKindId, IncompatibilityReason, IndexSet,
     InvariantId, KindFactor, Opcode, OperationId, QuantityAdditionKind, QuantityError,
-    QuantityKindId, QuantityOperation,
-    QuantityRegistry, QuantityScaleRule, QuantityShapeRule, QuantityType, QuantityTypeId,
-    QuantityTypeKey, Ratio, ReductionKind, ScaleKind, UnitConvertSpec, UnitId, WeightNormalization,
-    admission, convert_spec_for_type,
+    QuantityKindId, QuantityOperation, QuantityRegistry, QuantityScaleRule, QuantityShapeRule,
+    QuantityType, QuantityTypeId, QuantityTypeKey, Ratio, ReductionKind, ScaleKind,
+    UnitConvertSpec, UnitId, WeightNormalization, admission, convert_spec_for_type,
 };
 
 /// One ordered operand, including binder identity rather than only index shape.
@@ -1468,7 +1467,9 @@ fn leaves<'c, 'a>(
             leaves(right, exponent.checked_mul(Ratio::new(-1, 1)?)?, out)?;
         }
         Chain::Pow {
-            base, exponent: power, ..
+            base,
+            exponent: power,
+            ..
         } => leaves(base, exponent.checked_mul(*power)?, out)?,
     }
     Ok(())
@@ -1489,7 +1490,10 @@ fn resolve_chain(
 ) -> Result<Option<(Inferred, bool)>, QuantityError> {
     let mut factors = Vec::new();
     leaves(chain, Ratio::ONE, &mut factors)?;
-    if factors.iter().any(|(operand, _)| !operand.indices.is_empty()) {
+    if factors
+        .iter()
+        .any(|(operand, _)| !operand.indices.is_empty())
+    {
         return Ok(None);
     }
     let mut types = Vec::with_capacity(factors.len());
@@ -1507,12 +1511,12 @@ fn resolve_chain(
     let neutral = registry.neutral_dimensionless();
     let mut measured = Vec::with_capacity(factors.len());
     for ((operand, exponent), ty) in factors.iter().zip(&types) {
-        if Some(ty.id) != neutral && registry.discrete_category(operand.quantity_type)?.is_none()
-        {
+        if Some(ty.id) != neutral && registry.discrete_category(operand.quantity_type)?.is_none() {
             measured.push(((operand, *exponent), *ty));
         }
     }
-    if measured.is_empty() || matches!(measured.as_slice(), [((_, exponent), _)] if *exponent == Ratio::ONE)
+    if measured.is_empty()
+        || matches!(measured.as_slice(), [((_, exponent), _)] if *exponent == Ratio::ONE)
     {
         return Ok(None);
     }
@@ -1577,10 +1581,14 @@ fn resolve_chain(
             )?,
         }
     };
-    let result = registry.resolve_key(&key).map_err(|_| QuantityError::InferencePrecondition {
-        rule: "chain.result_type",
-        detail: format!("kind {kind} has no registered type with the chain's result components"),
-    })?;
+    let result = registry
+        .resolve_key(&key)
+        .map_err(|_| QuantityError::InferencePrecondition {
+            rule: "chain.result_type",
+            detail: format!(
+                "kind {kind} has no registered type with the chain's result components"
+            ),
+        })?;
     Ok(Some((
         built(result, IndexSet::new(), BuiltInRule::Chain),
         declared.definition.is_some(),

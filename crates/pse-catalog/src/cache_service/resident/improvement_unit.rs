@@ -255,11 +255,13 @@ fn resident_reuse_survives_an_equivalent_rebuild_only() {
     let schema = Arc::new(Schema::new(vec![Field::new("v", DataType::Int64, false)]));
     let batch =
         RecordBatch::try_new(schema.clone(), vec![Arc::new(Int64Array::from(vec![1, 2]))]).unwrap();
-    let source = || MemorySourceConfig::try_new_exec(&[vec![batch.clone()]], schema.clone(), None).unwrap();
+    let source =
+        || MemorySourceConfig::try_new_exec(&[vec![batch.clone()]], schema.clone(), None).unwrap();
     let input = |leaf: Arc<dyn ExecutionPlan>, name: &str| -> Arc<dyn ExecutionPlan> {
         let fanned =
             Arc::new(RepartitionExec::try_new(leaf, Partitioning::RoundRobinBatch(4)).unwrap());
-        let column: Arc<dyn datafusion::physical_expr::PhysicalExpr> = Arc::new(Column::new("v", 0));
+        let column: Arc<dyn datafusion::physical_expr::PhysicalExpr> =
+            Arc::new(Column::new("v", 0));
         Arc::new(ProjectionExec::try_new(vec![(column, name.to_owned())], fanned).unwrap())
     };
     let leaf: Arc<dyn ExecutionPlan> = source();

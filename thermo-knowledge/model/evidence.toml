@@ -80,6 +80,12 @@ entity = { type = "material_entity", doc = "The entity." }
 sample = { type = "sample", optional = true, doc = "The physical sample used." }
 function = { type = "component_function", doc = "The part it plays." }
 
+[[kinds.dataset_component.requires]]
+name = "ordinal_from_one"
+doc = "The components of a dataset are numbered from one."
+enforced = "ddl"
+check = { positive = "ordinal" }
+
 [kinds.dataset_phase]
 doc = "A phase role local to a dataset, such as the liquid in equilibrium with a vapour. It is not a phase definition and has no meaning outside its dataset."
 identity = ["dataset", "ordinal"]
@@ -90,6 +96,12 @@ dataset = { type = "dataset", doc = "The dataset." }
 ordinal = { type = "Integer", doc = "Position of the phase in the dataset, from one." }
 aggregation = { type = "aggregation", doc = "Its state of aggregation." }
 label = { type = "Text", optional = true, doc = "The phase's name in the source." }
+
+[[kinds.dataset_phase.requires]]
+name = "ordinal_from_one"
+doc = "The phases of a dataset are numbered from one."
+enforced = "ddl"
+check = { positive = "ordinal" }
 
 [kinds.dataset_column]
 doc = "One typed column of a dataset."
@@ -114,6 +126,12 @@ reference_temperature = { type = "Temperature", optional = true, doc = "The temp
 reference_pressure = { type = "Pressure", optional = true, doc = "The pressure of the reference state, where the kind fixes one." }
 reference_phase = { type = "dataset_phase", optional = true, doc = "The phase of the reference state, where the kind names one." }
 source_name = { type = "SourceText", optional = true, doc = "The column's name or property string in the source. Retained; nothing branches on it." }
+
+[[kinds.dataset_column.requires]]
+name = "ordinal_from_one"
+doc = "The columns of a dataset are numbered from one."
+enforced = "ddl"
+check = { positive = "ordinal" }
 
 [[kinds.dataset_column.requires]]
 name = "constraint_has_constant"
@@ -155,6 +173,12 @@ dataset = { type = "dataset", doc = "The dataset." }
 index = { type = "Integer", doc = "Position of the point, from one." }
 branch = { type = "branch", default = "not_applicable", doc = "The branch of a path-dependent measurement." }
 
+[[kinds.data_point.requires]]
+name = "index_from_one"
+doc = "The points of a dataset are numbered from one."
+enforced = "ddl"
+check = { positive = "index" }
+
 [relations.datum]
 doc = "The value a point has in a column, or why it has none. The uncertainties of the value are `datum_uncertainty` rows."
 provenance = "inherit:point"
@@ -193,6 +217,11 @@ absence = "optional"
 [[relations.datum_uncertainty.requires]]
 name = "assessment_in_point_dataset"
 doc = "The column of the assessment belongs to the dataset of the point."
+enforced = "verify"
+
+[[relations.datum_uncertainty.requires]]
+name = "datum_exists"
+doc = "The value the uncertainty qualifies exists: the point has a datum in the column of the assessment, and its state carries a value."
 enforced = "verify"
 
 [[relations.datum_uncertainty.requires]]

@@ -3,7 +3,7 @@
 
 //! Reading a store row from its PostgreSQL composite value (ADR-0114 Outcome 25; Plan 22
 //! X7). The generated `FromSql` of every `runtime.operational_*` row reads the binary
-//! record its table's row type sends through [`Record`], which checks the field count and
+//! record its table's row type sends through `Record`, which checks the field count and
 //! names against the type the server described, then decodes each field with the field's
 //! own type: typed ids accept their identity domains, enums their ENUM types.
 //!

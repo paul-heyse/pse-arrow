@@ -380,10 +380,8 @@ class ConfigurationTests(unittest.TestCase):
                 self.assertEqual(agents.synchronize(root, check=False), [])
             self.assertTrue((root / ".agents/skills/adr/SKILL.md").is_file())
             self.assertEqual(agents.synchronize(root, check=True), [])
-            native = root / ".codex/agents/plan-scout.toml"
-            native.write_text(
-                native.read_text().replace("read-only", "workspace-write")
-            )
+            native = root / ".codex/agents/implementer.toml"
+            native.write_text(native.read_text() + 'sandbox_mode = "read-only"\n')
             self.assertTrue(agents.synchronize(root, check=True))
 
     def test_solver_pins_require_matching_trees_and_digests(self) -> None:

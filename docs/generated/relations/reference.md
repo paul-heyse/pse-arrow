@@ -92,22 +92,6 @@ Version: 1. Snapshot class: `model`. Primary key: `basis_id`.
 | `rate_basis` | `enum:RateBasis` | true | `payload` | — | — |
 | `reference_conditions_id` | `semantic_id` | true | `payload` | `reference.reference_states.reference_state_id` | — |
 
-## `constants`
-
-blueprint §6.2 physical type: constants.
-
-Version: 1. Snapshot class: `model`. Primary key: `constant_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `constant_id` | `semantic_id` | false | `key` | — | — |
-| `name` | `Utf8` | false | `payload` | — | — |
-| `idaes_name` | `Utf8` | true | `payload` | — | — |
-| `value` | `Float64` | false | `payload` | — | — |
-| `unit_id` | `semantic_id` | false | `payload` | `reference.units.unit_id` | — |
-| `quantity_kind_id` | `semantic_id` | false | `payload` | `reference.quantity_kinds.quantity_kind_id` | — |
-| `doc` | `Utf8` | false | `payload` | — | — |
-
 ## `conversion_rules`
 
 blueprint §6.2 physical type: conversion_rules.

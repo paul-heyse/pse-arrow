@@ -44,9 +44,9 @@ fn parquet(columns: Vec<Column>) -> Vec<u8> {
             .map(|(name, array, unit)| {
                 let field = Field::new(*name, array.data_type().clone(), true);
                 match unit {
-                    Some(unit) => field.with_metadata(
-                        [(UNIT_METADATA.to_owned(), (*unit).to_owned())].into(),
-                    ),
+                    Some(unit) => {
+                        field.with_metadata([(UNIT_METADATA.to_owned(), (*unit).to_owned())].into())
+                    }
                     None => field,
                 }
             })
@@ -75,8 +75,16 @@ fn bank_columns() -> Vec<Column> {
             Arc::new(DictionaryArray::<Int32Type>::from_iter(["liquid", "vapor"])),
             None,
         ),
-        ("h", Arc::new(Float64Array::from(vec![1.5, -2.0])), Some("kJ")),
-        ("T", Arc::new(Float64Array::from(vec![Some(25.0), None])), None),
+        (
+            "h",
+            Arc::new(Float64Array::from(vec![1.5, -2.0])),
+            Some("kJ"),
+        ),
+        (
+            "T",
+            Arc::new(Float64Array::from(vec![Some(25.0), None])),
+            None,
+        ),
         ("n", Arc::new(Int64Array::from(vec![1, 2])), None),
         (
             "note",
@@ -93,7 +101,10 @@ fn sources(text: &str, document: Vec<u8>) -> BTreeMap<String, Vec<u8>> {
         (DATA.to_owned(), document),
     ])
 }
-fn load(rt: &Runtime, sources: &BTreeMap<String, Vec<u8>>) -> Result<ModelingPackage, WorkflowError> {
+fn load(
+    rt: &Runtime,
+    sources: &BTreeMap<String, Vec<u8>>,
+) -> Result<ModelingPackage, WorkflowError> {
     let token = pse_columnar::CancellationToken::new();
     let pool = rt.shared.pool();
     let bundle = load_package_documents_owned(
@@ -124,7 +135,13 @@ fn member(package: &ModelingPackage, name: &str) -> Value {
     let enumeration = p.entry("minimal_named.phase").unwrap();
     Value::Enum {
         enumeration,
-        member: p.declaration(enumeration).unwrap().value.enumeration.as_ref().unwrap()
+        member: p
+            .declaration(enumeration)
+            .unwrap()
+            .value
+            .enumeration
+            .as_ref()
+            .unwrap()
             .members
             .iter()
             .find(|m| m.name == name)
@@ -140,7 +157,8 @@ fn magnitude(value: &Value) -> f64 {
 }
 fn table<'p>(package: &'p ModelingPackage, name: &str) -> &'p pse_modeling::data::Table {
     let p = package.revision.checked();
-    p.table(p.entry(&format!("minimal_named.{name}")).unwrap()).unwrap()
+    p.table(p.entry(&format!("minimal_named.{name}")).unwrap())
+        .unwrap()
 }
 
 /// ADR-0125: a Parquet document loaded with its package is decoded by Arrow type and its
@@ -168,11 +186,40 @@ fn parquet_dataset_admits_through_declared_relation() {
     assert_eq!(document.path, DATA);
     assert_eq!(
         *id,
-        pse_ids::named_id(
-            *documents.packages.values().next().unwrap(),
-            DATA
-        )
+        pse_ids::named_id(*documents.packages.values().next().unwrap(), DATA)
     );
+}
+
+#[test]
+fn worker_source_loader_preserves_binary_keyed_documents() {
+    let rt = runtime();
+    let text = r#"package minimal_named {
+ entity kind source provenance {} entity source s {} enum role {given}
+ entity kind node {key n:Integer; attribute value:Energy storage {J};}
+ dataset bank:node provenance(s,role.given) from "data/bank.parquet";
+}"#;
+    let bytes = parquet(vec![
+        ("n", Arc::new(Int64Array::from(vec![1, 2])), None),
+        ("value", Arc::new(Float64Array::from(vec![3.0, 4.0])), None),
+    ]);
+    let documents = sources(text, bytes.clone());
+    // This is the same package-from-sources entry the durable worker invokes.
+    let loaded = rt
+        .package_from_sources(std::slice::from_ref(&documents), physical())
+        .unwrap();
+    let direct = load(&rt, &documents).unwrap();
+    assert_eq!(loaded.revision.identity(), direct.revision.identity());
+    let inventory = loaded.revision.documents();
+    let document = inventory.documents.values().next().unwrap();
+    assert_eq!(
+        document.content_hash,
+        pse_ids::encoding_checksum(&bytes).content_hash()
+    );
+    assert_eq!(document.rows.rows(), 2);
+    let p = loaded.revision.checked();
+    let kind = p.entry("minimal_named.node").unwrap();
+    let id = pse_modeling::entity::keyed_identity(kind, &[Value::Integer(2)]);
+    assert_eq!(magnitude(&p.record(id).unwrap().values["value"]), 4.0);
 }
 
 /// A column whose Arrow type does not store its declared type is refused, naming the
@@ -196,7 +243,11 @@ fn parquet_column_type_mismatch_refused() {
     assert!(refusal(&rt, &sources(BANK, parquet(columns))).contains("has no column n"));
     // An Arrow type no data document stores is refused where the document is decoded.
     let mut columns = bank_columns();
-    columns[4] = ("n", Arc::new(datafusion::arrow::array::Int32Array::from(vec![1, 2])), None);
+    columns[4] = (
+        "n",
+        Arc::new(datafusion::arrow::array::Int32Array::from(vec![1, 2])),
+        None,
+    );
     let error = refusal(&rt, &sources(BANK, parquet(columns)));
     assert!(error.contains("column n has Arrow type Int32"), "{error}");
 }
@@ -210,7 +261,9 @@ fn parquet_metadata_unit_disagreement_is_refused() {
     columns[2].2 = Some("J");
     let error = refusal(&rt, &sources(BANK, parquet(columns)));
     assert!(
-        error.contains("column h") && error.contains("states unit J") && error.contains("disagrees"),
+        error.contains("column h")
+            && error.contains("states unit J")
+            && error.contains("disagrees"),
         "{error}"
     );
     // A unit stated on a column that is no quantity is refused too.
@@ -238,7 +291,10 @@ fn parquet_reference_by_identifier_scheme_resolves() {
         None,
     );
     let error = refusal(&rt, &sources(BANK, parquet(columns)));
-    assert!(error.contains("\"0-00-0\"") && error.contains("column j"), "{error}");
+    assert!(
+        error.contains("\"0-00-0\"") && error.contains("column j"),
+        "{error}"
+    );
     // By identity, without a scheme: FixedSizeBinary(16) declaration identities.
     let identity = |value: Value| match value {
         Value::Entity { id, .. } => *id.as_id().as_bytes(),
@@ -272,7 +328,10 @@ fn data_bytes_enter_package_checksum_and_source_revision() {
     let last = bytes.len() / 2;
     bytes[last] ^= 1;
     assert_ne!(package_checksum(&original), package_checksum(&flipped));
-    assert_eq!(package_checksum(&original), package_checksum(&original.clone()));
+    assert_eq!(
+        package_checksum(&original),
+        package_checksum(&original.clone())
+    );
     // A document whose bytes differ in one value is another package and another source
     // revision; the same bytes reproduce both.
     let mut columns = bank_columns();
@@ -321,7 +380,9 @@ fn large_table_admits_without_cell_evaluation() {
             ("n", Arc::new(Int64Array::from_iter_values(0..rows)), None),
             (
                 "value",
-                Arc::new(Float64Array::from_iter_values((0..rows).map(|n| n as f64 * 0.5))),
+                Arc::new(Float64Array::from_iter_values(
+                    (0..rows).map(|n| n as f64 * 0.5),
+                )),
                 None,
             ),
         ])
@@ -330,7 +391,10 @@ fn large_table_admits_without_cell_evaluation() {
     let small = load(&rt, &sources(text, document(10))).unwrap();
     let level = table(&large, "level");
     assert_eq!(level.rows.len(), ROWS as usize);
-    assert_eq!(magnitude(&level.rows[&vec![Value::Integer(ROWS - 1)]].cells[0]), (ROWS - 1) as f64 * 0.5);
+    assert_eq!(
+        magnitude(&level.rows[&vec![Value::Integer(ROWS - 1)]].cells[0]),
+        (ROWS - 1) as f64 * 0.5
+    );
     assert_eq!(table(&small, "level").rows.len(), 10);
     // The declarations are the same rows, cell-free, whatever the document holds.
     assert_eq!(large.declarations(), small.declarations());
@@ -341,4 +405,188 @@ fn large_table_admits_without_cell_evaluation() {
             .filter_map(|d| d.value.dataset.as_ref())
             .all(|d| d.rows.is_empty() && d.document.as_deref() == Some(DATA))
     );
+}
+
+#[tokio::test]
+async fn knowledge_projection_is_bounded_readonly_and_retains_binary_revision() {
+    use pse_model::generated::enums::ModelingKnowledgeValueKind;
+    use pse_model::generated::runtime::modeling_knowledge::Row as KnowledgeRow;
+    use pse_relations::columnar::RelationRow;
+    let rt = runtime();
+    let original = load(&rt, &sources(BANK, parquet(bank_columns()))).unwrap();
+    let owner = original
+        .declarations()
+        .iter()
+        .find(|row| row.name == "bank" && row.value.table.is_some())
+        .unwrap()
+        .declaration_id;
+    let cancel = pse_columnar::CancellationToken::new();
+    let knowledge = original
+        .knowledge(Some(owner), 20, 1 << 20, &cancel)
+        .unwrap();
+    let rows = KnowledgeRow::rows(knowledge.table()).unwrap();
+    assert_eq!(rows.len(), 10);
+    let h = rows
+        .iter()
+        .find(|row| row.row_index == 0 && row.slot == "h")
+        .unwrap();
+    assert_eq!(
+        h.value.last().unwrap().kind,
+        ModelingKnowledgeValueKind::Quantity
+    );
+    assert_eq!(h.value.last().unwrap().magnitude, Some(1500.));
+    assert!(h.value.last().unwrap().quantity_type_id.is_some());
+    assert!(h.value.last().unwrap().canonical_unit_id.is_some());
+    assert!(h.source_id.is_some() && h.role_member_id.is_some());
+    assert_eq!(
+        h.keys.last().unwrap().kind,
+        ModelingKnowledgeValueKind::Tuple
+    );
+    assert!(
+        original
+            .knowledge(Some(owner), 9, 1 << 20, &cancel)
+            .is_err()
+    );
+    assert!(original.knowledge(Some(owner), 20, 128, &cancel).is_err());
+    let mut columns = bank_columns();
+    columns[2].1 = Arc::new(Float64Array::from(vec![2.5, -2.]));
+    let changed = load(&rt, &sources(BANK, parquet(columns))).unwrap();
+    let current = changed
+        .knowledge(Some(owner), 20, 1 << 20, &cancel)
+        .unwrap();
+    assert_ne!(knowledge.source_revision(), current.source_revision());
+    assert_eq!(
+        KnowledgeRow::rows(knowledge.table()).unwrap()[0].source_revision,
+        knowledge.source_revision()
+    );
+    let session = knowledge.query_session(&cancel).unwrap();
+    let batches = session
+        .sql(
+            "SELECT count(*) AS cells FROM workspace.runtime.modeling_knowledge",
+            &cancel,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .unwrap()
+            .value(0),
+        10
+    );
+    let names=session.sql("SELECT n.name FROM workspace.runtime.modeling_knowledge_names n JOIN workspace.authored.modeling_declarations d ON n.declaration_id=d.declaration_id WHERE d.name='bank'",&cancel).await.unwrap();
+    assert_eq!(names.iter().map(|batch| batch.num_rows()).sum::<usize>(), 1);
+    assert!(
+        session
+            .sql("DELETE FROM workspace.runtime.modeling_knowledge", &cancel)
+            .await
+            .is_err()
+    );
+    cancel.cancel();
+    assert!(
+        original
+            .knowledge(Some(owner), 20, 1 << 20, &cancel)
+            .is_err()
+    );
+}
+
+#[test]
+fn keyed_parquet_references_resolve_across_documents_before_value_admission() {
+    let rt = runtime();
+    let text = r#"package minimal_named {
+        entity kind source provenance {} entity source s {} enum role {given}
+        entity kind node {key number:Integer;attribute parent:node?;}
+        dataset first:node provenance(s,role.given) from "data/bank.parquet";
+        dataset second:node provenance(s,role.given) from "data/second.parquet";
+    }"#;
+    let document = |number, parent: Option<pse_ids::SemanticId>| {
+        parquet(vec![
+            ("number", Arc::new(Int64Array::from(vec![number])), None),
+            (
+                "parent",
+                Arc::new(
+                    FixedSizeBinaryArray::try_from_sparse_iter_with_size(
+                        [parent.map(|id| *id.as_bytes())].into_iter(),
+                        16,
+                    )
+                    .unwrap(),
+                ),
+                None,
+            ),
+        ])
+    };
+    let mut inputs = sources(text, document(1, None));
+    inputs.insert("data/second.parquet".into(), document(2, None));
+    let original = load(&rt, &inputs).unwrap();
+    let kind = original
+        .revision
+        .checked()
+        .entry("minimal_named.node")
+        .unwrap();
+    let identity = |number| pse_modeling::entity::keyed_identity(kind, &[Value::Integer(number)]);
+    inputs.insert(DATA.into(), document(1, Some(identity(2).as_id())));
+    let admitted = load(&rt, &inputs).unwrap();
+    assert_eq!(
+        admitted
+            .revision
+            .checked()
+            .record(identity(1))
+            .unwrap()
+            .values["parent"],
+        Value::Entity {
+            id: identity(2),
+            kind
+        }
+    );
+    // The target document cannot be absent or manufacture a target from its reference.
+    inputs.insert("data/second.parquet".into(), document(3, None));
+    let error = refusal(&rt, &inputs);
+    assert!(error.contains("no admitted entity"), "{error}");
+}
+
+#[test]
+fn measured_parquet_attributes_use_admitted_quantities_uncertainty_and_origin() {
+    let rt = runtime();
+    let text = r#"package minimal_named {
+        entity kind source provenance {} entity source measured_source {}
+        enum role {measured facets(measured)}
+        entity kind reading {key number:Integer;attribute value:Energy? storage {kJ};attribute sigma:Energy? storage {kJ};}
+        dataset measurements:reading provenance(measured_source,role.measured) from "data/bank.parquet";
+        def FitExperiment {}
+    }"#;
+    let document = parquet(vec![
+        ("number", Arc::new(Int64Array::from(vec![1, 2])), None),
+        (
+            "value",
+            Arc::new(Float64Array::from(vec![Some(5.), None])),
+            None,
+        ),
+        (
+            "sigma",
+            Arc::new(Float64Array::from(vec![Some(0.25), None])),
+            None,
+        ),
+    ]);
+    let package = load(&rt, &sources(text, document)).unwrap();
+    let admitted = package.revision.checked();
+    let root = admitted.entry("minimal_named.FitExperiment").unwrap();
+    let kind = admitted.entry("minimal_named.reading").unwrap();
+    let record = pse_modeling::entity::keyed_identity(kind, &[Value::Integer(1)]);
+    let measured = admitted
+        .measurement(root, record, "value", Some("sigma"))
+        .unwrap();
+    assert_eq!(measured.value, Some(5000.));
+    assert_eq!(measured.standard_deviation, Some(250.));
+    assert_eq!(
+        measured.provenance.source,
+        admitted.entry("minimal_named.measured_source").unwrap()
+    );
+    let withheld = pse_modeling::entity::keyed_identity(kind, &[Value::Integer(2)]);
+    let withheld = admitted
+        .measurement(root, withheld, "value", Some("sigma"))
+        .unwrap();
+    assert_eq!(withheld.value, None);
+    assert_eq!(withheld.standard_deviation, None);
 }

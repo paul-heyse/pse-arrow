@@ -28,8 +28,13 @@ def main() -> int:
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    suite = unittest.TestLoader().discover(
-        str(root / "scripts/tests"), pattern="test_*.py", top_level_dir=str(root)
+    loader = unittest.TestLoader()
+    suite = unittest.TestSuite(
+        loader.discover(
+            str(root / "scripts/tests"), pattern=path.name, top_level_dir=str(root)
+        )
+        for path in sorted((root / "scripts/tests").glob("test_*.py"))
+        if "unittest.TestCase" in path.read_text()
     )
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "setup-test-selected.json").write_text(

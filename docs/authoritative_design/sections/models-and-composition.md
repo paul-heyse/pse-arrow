@@ -184,8 +184,22 @@ manifest with its identity policy and its dependencies, each a package identity 
 typed version requirement; a manifest declares no physical names, which the physical
 document owns ([§8.1](physical-semantics.md#section-8-1)).
 `models/*.pse` contains the generic modeling language, using the shared expression grammar.
-`materials/*.yaml` supplies physical relation rows; `cases/*.yaml` supplies measurement and
-fit declarations; `assertions/*.yaml` supplies expected evidence.
+`materials/*.yaml` supplies physical relation rows; `cases/*.yaml` supplies fit selections;
+`assertions/*.yaml` supplies expected evidence. Modeling entities and tables may read
+package Parquet documents through their declared identifier schemes, storage units and
+column contracts. Source and attribute provenance, measured uncertainty, defaults and
+abstract/refined record contracts are admitted through the same pure modeling boundary.
+
+> Decision: [ADR-0130](../../adr/0130-typed-bank-admission.md),
+> [ADR-0131](../../adr/0131-admitted-knowledge-inspection.md) — implemented in Plan 23;
+> decision records remain proposed pending closure review.
+
+Binary documents retain exact bytes in the source revision. Bounded decoding and
+precharged source, plan, memo and expanded-row ownership refuse allocation beyond the
+admission budget. Inline and binary records share keyed identity and eligibility rules.
+Read-only generated `runtime.modeling_knowledge` and `runtime.modeling_knowledge_names`
+relations project admitted records, schemas and cells with source revision, quantity,
+uncertainty and provenance. Inspection cannot mutate source or remove test-only taint.
 
 Loading retains exact source bytes and spans, rejects unknown shapes/fields and resolves IDs
 before typed interpretation. A caller supplies the manifest closure explicitly; no ambient

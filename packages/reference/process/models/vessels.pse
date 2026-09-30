@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("0c743f676d4141ceb2f7b2f0a54fb5d9") package vessels {
+@id("01a0f14ead4d7118a57e36614af0de22") use constants @"1.0.0";
 @id("01a0ee04daa773329a4687dad894a4c0") use chemistry @"1.0.0";
 @id("a69097f8f9404758a9102eecb2c81c16") use helmholtz @"1.0.0";
 @id("97f0c0e572ab4634a4bead052e4b85a4") use caloric @"1.0.0";
@@ -15,11 +16,11 @@
 @id("c2430aba81344a0fa7af49930b3fb097") var amount:TotalAmount;
 @id("56c585b73992411c9a1f9681a9a87d47") var energy:Energy;
 @id("e0ba0aaafe234f4b96d4a311ba185dc5") child phase:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=selected,law=law);
-@id("914319bb395943818a2d41088e35c17c") eq composition_binding[j in components]:phase.amount[j]==helmholtz.amount_unit()*composition(j);
-@id("92a6ea6bcdcd405cafabd829c2d6cfad") let enthalpy:MolarEnthalpy=equilibrium.enthalpy_datum()+sum(j in components | composition(j)*ideal_h(phase.T,j))+phase.h_residual;
+@id("914319bb395943818a2d41088e35c17c") eq composition_binding[j in components]:phase.amount[j]==constants.amount_unit*composition(j);
+@id("92a6ea6bcdcd405cafabd829c2d6cfad") let enthalpy:MolarEnthalpy=constants.standard_enthalpy_datum+sum(j in components | composition(j)*ideal_h(phase.T,j))+phase.h_residual;
 @id("2453286052414d4a85a522d821531e43") let pressure:Pressure=phase.pressure;
-@id("437a2a4ce3c94cb282675cb8e608c37f") eq amount_closure:amount==amount_unit()*(phase.rho/helmholtz.density_unit())*(volume/1{m^3});
-@id("037b6ad5c3254eb58ae2f433dc57240a") eq energy_closure:energy==1{J}*((amount/amount_unit())*((enthalpy-equilibrium.enthalpy_datum())/caloric.h_unit())-(volume/1{m^3})*(pressure/pure_properties.pressure_unit()));
+@id("437a2a4ce3c94cb282675cb8e608c37f") eq amount_closure:amount==amount_unit()*(phase.rho/constants.density_unit)*(volume/1{m^3});
+@id("037b6ad5c3254eb58ae2f433dc57240a") eq energy_closure:energy==1{J}*((amount/amount_unit())*((enthalpy-constants.standard_enthalpy_datum)/constants.enthalpy_increment_unit)-(volume/1{m^3})*(pressure/constants.pressure_unit));
 @id("bc0c80f5c44743fe9dd86b7ff0d36a74") annotation start amount(3.456556634933607{mol});
 @id("578177226844485faf741607c680b6e9") annotation nominal amount(3.456556634933607{mol});
 @id("c9575836d3034fab9e9347590517db71") annotation start energy(1202.3168203660216{J});
@@ -28,7 +29,7 @@
 @id("3b66bb73ddbe41dfb421a543b3aa0cd2") annotation nominal phase.T(350{K});
 @id("f5c226033cae4a3bb078ab58428927e8") annotation start phase.rho(34.565566349336066{mol/m^3});
 @id("5b19acd34c194c43ad7243309da6ee5f") annotation nominal phase.rho(34.565566349336066{mol/m^3});
-@id("81513b0242bc40e288b72395063fcbc3") annotation start phase.amount(helmholtz.amount_unit()*composition(j));
+@id("81513b0242bc40e288b72395063fcbc3") annotation start phase.amount(constants.amount_unit*composition(j));
 @id("2d9f85195bdb476faa1edf78303746be") annotation nominal phase.amount(1{mol});
 @id("b04fe4f2fc36494bb01afd7a763fe0f8") annotation bounds amount(1e-10{mol},1000000{mol});
 @id("9038641c61cf48e79d9e4adc3be39e93") annotation bounds phase.rho(1e-8{mol/m^3},25000{mol/m^3});

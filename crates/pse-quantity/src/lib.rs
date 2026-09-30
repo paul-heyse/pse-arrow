@@ -62,6 +62,8 @@ pub mod index;
 pub mod infer;
 pub mod kind;
 pub use entity_kind::EntityKind;
+#[cfg(test)]
+mod chain_tests;
 pub mod literal;
 pub mod numeric;
 pub mod operation;
@@ -74,8 +76,6 @@ pub mod smoothing;
 #[cfg(feature = "fixtures")]
 pub mod standard;
 pub mod unit;
-#[cfg(test)]
-mod chain_tests;
 #[cfg(test)]
 mod unit_algebra_tests;
 pub mod unit_product;
@@ -91,8 +91,8 @@ pub use crate::enums::{
 };
 pub use crate::error::{ContractComponent, DimensionError, IncompatibilityReason, QuantityError};
 pub use crate::ids::{
-    BasisId, BoundIndexId, ConstantId, ConversionId, DomainId, EntityKindId, InvariantId,
-    OperationId, QuantityKindId, QuantityTypeId, ReferenceStateId, UnitId, UnitSetId,
+    BasisId, BoundIndexId, ConversionId, DomainId, EntityKindId, InvariantId, OperationId,
+    QuantityKindId, QuantityTypeId, ReferenceStateId, UnitId, UnitSetId,
 };
 pub use crate::index::{BinderConflict, BoundIndexRef, IndexSet};
 pub use crate::kind::{DerivedKind, KindDefinition, KindFactor, QuantityKind};

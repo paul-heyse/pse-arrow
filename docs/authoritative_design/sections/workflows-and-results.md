@@ -30,7 +30,10 @@ Neither route owns a second scientific model. Proposed
 ### 13.1 Time domain and origins
 
 An authored continuous axis has explicit bounds, physical type, realization and boundary
-conditions. Integrated profiles use a canonical clock in seconds. Model time is
+conditions. A temporal analysis owns one shared time axis and expands the selected
+stateful definitions over it; scalar parameters remain shared, and spatial axes remain
+independent. Missing or competing initial conditions refuse before native execution.
+Numerical conditionals retain the runtime clock, including in validation checks. Integrated profiles use a canonical clock in seconds. Model time is
 `(integration time − time_origin) / time-unit scale`; a nonfinite origin refuses. Horizons
 and sample times must be ordered and within the admitted interval.
 
@@ -513,11 +516,18 @@ package changed in memory (`with_declarations`, `with_fit_data`, `with_limits`) 
 A fit (`authored.fit_cases`) declares shared parameters (fixed or free, value, optional
 bounds, positive scale), experiments (an authored case with an optional integrated analysis) and
 observation bindings (experiment, source output path, optional time/basis/unit, inclusion,
-importance). Measurement values, units and standard deviations stay in
-`authored.observations` with dataset provenance. The loss is fixed:
+importance). Each observation selects an admitted measured attribute by declaration
+identity and attribute name. Values retain complete physical types, source provenance and
+canonical difference-unit standard deviations; unsupported uncertainty is refused.
+The loss is fixed:
 `0.5 · Σ importance · ((prediction − observation) / σ)²`; point conversion applies
 unit offsets, standard-deviation conversion does not, and excluded observations keep
 their identity without entering the loss.
+
+An explicit qualified-result export emits generated `runtime.fitted_parameter_cells`
+with quantity, unit, value, run, fit and source-revision lineage. Export requires joined
+feasibility, stationarity, response-rank and current-check evidence. A receiving package
+explicitly admits the fitted set with fit lineage; export never installs a bank implicitly.
 
 | Experiment kind | Treatment |
 |---|---|
@@ -888,6 +898,12 @@ classes per relation row, enums, value types and Arrow extension types. Generic 
 class mirrors a relation. Entity identities are generated `NewType`s
 (`pse.contracts.identities`). The native API stubs (`_native.pyi`) are generated from the
 compiled extension's metadata.
+
+Package document mappings accept exact `str | bytes` values through one Rust converter;
+Parquet documents remain binary. Typed fit selections replace the old measurement-relation
+API. Read-only knowledge inspection and explicit fitted-parameter export retain their
+source revision; the existing resource report projects pool and process high-water marks
+separately.
 
 **Boundary documents.** The Rust serde type owns each Rust-owned document: the backend,
 solve, Diffsol and IDAS settings, the job payload, the termination detail, the source

@@ -1140,7 +1140,9 @@ fn contradiction(
                 .iter()
                 .filter_map(|e| e.incumbent.as_ref())
                 .enumerate()
-                .filter_map(|(k, i)| Some((WitnessSource::Incumbent, Some(k), i.primal.as_deref()?))),
+                .filter_map(|(k, i)| {
+                    Some((WitnessSource::Incumbent, Some(k), i.primal.as_deref()?))
+                }),
         )
         .chain(seed.map(|x| (WitnessSource::Seed, None, x)))
         .chain(std::iter::once((WitnessSource::Start, None, start)))
@@ -1157,7 +1159,9 @@ fn contradiction(
                 ("local.termination", local.termination.category.as_str()),
                 ("local.qualification", local.qualification.as_str()),
             ] {
-                report.metrics.insert(key.into(), Metric::Text(value.into()));
+                report
+                    .metrics
+                    .insert(key.into(), Metric::Text(value.into()));
             }
             let x = local.candidate?.primal;
             witness(

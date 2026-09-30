@@ -644,7 +644,7 @@ pub struct Profile {
     /// Maximum retained scalar cells, including sensitivities and event states.
     pub max_cells: usize,
     /// Parameter derivatives: none, forward sensitivities of every sample, or adjoint
-    /// gradients of one functional of the sampled outputs through [`gradient`]; none when
+    /// gradients of one functional of the sampled outputs through `gradient`; none when
     /// absent.
     #[serde(default = "no_sensitivity")]
     pub sensitivity: DynamicSensitivity,

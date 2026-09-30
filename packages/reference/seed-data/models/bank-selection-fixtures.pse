@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("8196f13c5e184423b6edb8350fe9fe44") package bank_selection_fixtures {
+@id("0de506e0adf147a2ac342ab0c99f712d") use chemistry @"1.0.0";
+@id("0c95b69e26d5442e845e4c6c5b4e6bd5") use chem @"1.0.0";
+@id("f3a1ce4851b1484d8fad4f3ae45d0efa") use provenance @"1.0.0";
+@id("4905b8952dfb4bd9ab2de0b6ee17ddee") use properties @"1.0.0";
+@id("b6e1d1a245e14984bdefebed3aa4d2b2") use compatibility @"1.0.0";
+@id("d844031f5594419392411abf16abc9b4") use references @"1.0.0";
+@id("778cf7aa0bc041c89adfaa9d9c72cba1") use cubic @"1.0.0";
+@id("43e82fd88619483599426d220299e423") use eos_data @"1.0.0";
+@id("e44543bd6aad4f7f9d80e1ed7fe4fc9f") use poling2000_data @"1.0.0";
+@id("a1d12098a26f4a25a9774a8c39984372") entity properties.property_package poling_package {}
+@id("6b2ad96e4cf643cca5a02c336e87a9a3") set packages:Set<properties.property_package>={poling_package};
+@id("1c673fef9cad42bcbe5952d535477f40") set subjects:Set<chemistry.species>={chem.benzene};
+@id("6591abcc0686480bb61f1cbfebe313da") set critical:Set<properties.property>={cubic.critical_parameters};
+@id("1d6cc23f7ae94d13a5ea809027196b67") dataset selection:properties.selection complete_over(k in packages,j in subjects,p in critical,t in properties.vapor_types) provenance(references.poling2000,provenance.Role.published) {[poling_package,chem.benzene,cubic.critical_parameters,compatibility.PhaseType.vaporPhase]=[cubic.critical_point[chem.benzene,cubic.critical_parameters,compatibility.PhaseType.vaporPhase,references.poling2000]];}
+@id("b87c6ddd582443968a40b21bf3603845") test one_species_two_critical_banks oracle references.poling2000 fixture {dof 0;run pure;} {
+@id("27c17643f7334f7f9bba486ab99fa574") expect cubic.selected_tc(poling_package,chem.benzene)==562.05{K} tolerance 1e-12{K};
+@id("42d344a769d24d85a24de25f571cdd4e") expect cubic.selected_pc(poling_package,chem.benzene)==4895000{Pa} tolerance 1e-8{Pa};
+@id("15ba39b64103434cbf82dc3ffa700021") expect cubic.selected_omega(poling_package,chem.benzene)==0.210 tolerance 1e-14;
+@id("213b68b1c9cc4cedbe87423902d763aa") expect cubic.selected_tc(eos_data.bt_pr_parameters,chem.benzene)==562.2{K} tolerance 1e-12{K};
+@id("2af78298d6904b548cc802340c1e2167") expect cubic.selected_pc(eos_data.bt_pr_parameters,chem.benzene)==4890000{Pa} tolerance 1e-8{Pa};
+@id("b1b4a4a657b9462181f84323b8220000") expect cubic.selected_omega(eos_data.bt_pr_parameters,chem.benzene)==0.212 tolerance 1e-14;
+@id("3b5c1726352c4c92aef05f362c519159") expect (if properties.selection[poling_package,chem.benzene,cubic.critical_parameters,compatibility.PhaseType.vaporPhase].subject==properties.selection[eos_data.bt_pr_parameters,chem.benzene,cubic.critical_parameters,compatibility.PhaseType.vaporPhase].subject then 1 else 0)==1 tolerance 1e-14;
+}
+}

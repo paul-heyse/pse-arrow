@@ -340,7 +340,9 @@ impl NativeSession {
         let (threads, backend) = (first.step.threads(), first.step.backend());
         let declared = members
             .iter()
-            .try_fold(0usize, |n, m| n.checked_add(m.step.declared_foreign_bytes()))
+            .try_fold(0usize, |n, m| {
+                n.checked_add(m.step.declared_foreign_bytes())
+            })
             .ok_or(MathRuntimeError::Limit("native allowance overflow"))?;
         let allowance = service.reserve("math:step-foreign", declared)?;
         self.run(threads, backend, cancel, move |retained, flag, budget| {

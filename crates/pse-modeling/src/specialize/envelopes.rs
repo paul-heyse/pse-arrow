@@ -12,9 +12,7 @@
 //! observed where it is evaluated and is refused, so an extrapolation is never silent.
 use super::*;
 use crate::envelope::{Guard, StaticObservation};
-use pse_model::generated::enums::{
-    ExtrapolationPolicy as Policy, ModelingValidityLayer as Layer,
-};
+use pse_model::generated::enums::{ExtrapolationPolicy as Policy, ModelingValidityLayer as Layer};
 
 /// What an extrapolating guard observes: the envelope, its bounds over the rows guarding
 /// the argument, and where the observation was demanded.
@@ -79,13 +77,17 @@ impl Engine<'_, '_> {
         let mut specialized = Vec::with_capacity(guards.len());
         let mut lifts = Vec::new();
         for guard in guards {
-            let mut predicate = self.rewrite_predicate(instance, &guard.predicate, statics, &[function])?;
+            let mut predicate =
+                self.rewrite_predicate(instance, &guard.predicate, statics, &[function])?;
             predicate.strip_spans();
             if policy == Policy::Extrapolate {
                 let (lower, upper, quantity) = self.bounds(function, guard, statics)?;
                 for argument in &guard.arguments {
                     let formal = *formals.get(argument).ok_or_else(|| {
-                        invalid(function, format!("guarded argument {argument} has no scalar formal"))
+                        invalid(
+                            function,
+                            format!("guarded argument {argument} has no scalar formal"),
+                        )
                     })?;
                     lifts.push(Lift {
                         formal,
@@ -153,7 +155,10 @@ impl Engine<'_, '_> {
         };
         match (bound(&guard.envelope.lower), bound(&guard.envelope.upper)) {
             (
-                Some(Value::Number { bits: lower, quantity }),
+                Some(Value::Number {
+                    bits: lower,
+                    quantity,
+                }),
                 Some(Value::Number { bits: upper, .. }),
             ) => Ok((f64::from_bits(lower), f64::from_bits(upper), quantity)),
             _ => Err(invalid(

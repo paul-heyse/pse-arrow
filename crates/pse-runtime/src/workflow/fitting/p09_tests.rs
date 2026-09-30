@@ -7,6 +7,7 @@ use native::{
     NlpOracle,
     solve::{Backend, Execution},
 };
+use pse_relations::columnar::RelationRow;
 use std::sync::atomic::AtomicBool;
 fn source(mixed: bool, expected: f64) -> (crate::workflow::ModelingPackage, FitProfile) {
     source_case(mixed, expected, "Dynamic")
@@ -25,33 +26,29 @@ fn source_case(
     );
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
-    let scalar = physical.quantities.neutral_dimensionless().unwrap();
-    let time = pse_quantity::QuantityTypeId::from_id(
-        SemanticId::parse_hex("e2ccf6d0a394403db967f4f35b83cb7c").unwrap(),
-    );
     let body = "{ domain t: Time from 160{s} to 161{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == p; eq initial: x[160{s}] == 10{s}; let y[i in t]: Time = x[i]+i-100{s}; let hit[i in t]: Time = x[i]-11{s}; let jump[i in t]: Time = 20{s}; annotation report y(\"measurement\"); annotation check x(x[i] >= 10{s}); }";
     let integrate =
         "integrate samples(160{s},161{s}) relative(1e-8) normalized_absolute(1e-8) step(1e-5{s});";
     let text = format!(
         "package p {{ test Dynamic fixture {{dof 0; run integrated; {integrate}}} {body} test DynamicReset fixture {{dof 0; run integrated; {integrate} mode before; event hit[160{{s}}] direction(either) tolerance(1e-8{{s}}) reset(x[160{{s}}] = jump[160{{s}}]) next(after); mode after;}} {body} def Steady {{ param p: Scalar = 2; let y: Scalar = p; annotation check p(p > 0); }} }}"
     );
-    let rows = pse_authoring::language::parse(
+    let mut rows = pse_authoring::language::parse(
         &text,
         id(20),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     )
     .unwrap();
+    rows.extend(measured_rows(&[
+        (id(71), "Time", Some(expected), Some(1.)),
+        (id(72), "Scalar", Some(1.), Some(1.)),
+    ]));
     let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
-    let mut data = FitData::default();
-    data.datasets.push(serde_json::from_value(serde_json::json!({"dataset_id":id(70),"name":"mixed","source":"analytic","content_hash":ContentHash::from_bytes([1;32])})).unwrap());
-    for (obs, value, quantity) in [(71, expected, time), (72, 1., scalar)] {
-        data.observations.push(serde_json::from_value(serde_json::json!({"observation_id":id(obs),"dataset_id":id(70),"target":"response","value":value,"unit_id":physical.quantities.quantity_type(quantity).unwrap().canonical_unit.as_id(),"std_dev":1.,"timestamp":null,"tag":null,"source_span":{"document_id":id(70),"start":0,"end":0}})).unwrap());
-    }
-    let mut fit:FitDeclaration=serde_json::from_value(serde_json::json!({"fit_id":id(73),"parameters":[{"symbol_id":id(3),"fixed":false,"value":2.,"lower":0.1,"upper":10.,"scale":1.}],"experiments":[{"experiment_id":id(74),"case_id":root(case),"route":"integrated","bindings":[{"parameter_id":id(3),"path":"p"}]}],"observations":[{"observation_id":id(71),"experiment_id":id(74),"output_path":"y[160{s}]","time":161.,"time_basis":"model_clock","included":true,"importance":1.}]})).unwrap();
+    let mut data = FitDeclarations::default();
+    let mut fit:FitDeclaration=serde_json::from_value(serde_json::json!({"fit_id":id(73),"parameters":[{"symbol_id":id(3),"fixed":false,"value":2.,"lower":0.1,"upper":10.,"scale":1.}],"experiments":[{"experiment_id":id(74),"case_id":root(case),"route":"integrated","bindings":[{"parameter_id":id(3),"path":"p"}]}],"observations":[{"value_attribute":"value","standard_deviation_attribute":"sigma","observation_id":id(71),"experiment_id":id(74),"output_path":"y[160{s}]","time":161.,"time_basis":"model_clock","included":true,"importance":1.}]})).unwrap();
     if mixed {
         fit.experiments.push(serde_json::from_value(serde_json::json!({"experiment_id":id(75),"case_id":root("Steady"),"route":"steady","bindings":[{"parameter_id":id(3),"path":"p"}]})).unwrap());
-        fit.observations.push(serde_json::from_value(serde_json::json!({"observation_id":id(72),"experiment_id":id(75),"output_path":"y","time":null,"included":true,"importance":1.})).unwrap());
+        fit.observations.push(serde_json::from_value(serde_json::json!({"value_attribute":"value","standard_deviation_attribute":"sigma","observation_id":id(72),"experiment_id":id(75),"output_path":"y","time":null,"included":true,"importance":1.})).unwrap());
     }
     data.fits.push(fit);
     let profile = FitProfile {
@@ -88,7 +85,7 @@ fn source_case(
         runtime
             .modeling_package(rows, physical)
             .unwrap()
-            .with_fit_data(data)
+            .with_fit_declarations(data)
             .unwrap(),
         profile,
     )
@@ -448,6 +445,15 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
             "{report:?}"
         );
         assert!(report.estimate_qualified(), "mode {mode}: {report:?}");
+        let exported = pse_relations::generated::runtime::fitted_parameter_cells::Row::rows(
+            &result.export_fit_parameters().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(exported.len(), 1);
+        assert_eq!(exported[0].run_id, result.run_id);
+        assert_eq!(exported[0].fit_id, FitId::from(id(73)));
+        assert_eq!(exported[0].source_revision, package.revision.identity());
+        assert!((exported[0].value - 3.).abs() < 1e-4);
         assert!(result.usable());
         assert!(
             result
@@ -726,8 +732,7 @@ fn curved_source(
     );
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
-    let scalar = physical.quantities.neutral_dimensionless().unwrap();
-    let rows = pse_authoring::language::parse(
+    let mut rows = pse_authoring::language::parse(
         "package p { def Decay { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param k: Scalar = 1; param a: Scalar = 2; var x[i in t]: Scalar; var z[i in t]: Scalar; eq rate[i in t]: d(x[i])/di == -z[i]/1{s}; eq closure[i in t]: z[i] == k*x[i]*x[i]; eq initial: x[0{s}] == a; annotation start x(1); annotation start z(1); annotation report x(\"state\"); annotation report z(\"closure\"); } }",
         id(20),
         pse_authoring::language::IdentityPolicy::Named,
@@ -739,12 +744,6 @@ fn curved_source(
         .find(|r| r.name == "Decay")
         .unwrap()
         .declaration_id;
-    let unit = physical
-        .quantities
-        .quantity_type(scalar)
-        .unwrap()
-        .canonical_unit
-        .as_id();
     let exact = |t: f64| 1.8 / (1. + 1.8 * 1.3 * t);
     let observed = [
         (91, "x", 0.5, exact(0.5)),
@@ -753,12 +752,16 @@ fn curved_source(
         (94, "x", 2.0, exact(2.0)),
         (95, "z", 1.0, 1.3 * exact(1.0).powi(2)),
     ];
-    let mut data = FitData::default();
-    data.datasets.push(serde_json::from_value(serde_json::json!({"dataset_id":id(90),"name":"curved","source":"analytic","content_hash":ContentHash::from_bytes([2;32])})).unwrap());
+    rows.extend(measured_rows(
+        &observed
+            .iter()
+            .map(|(obs, _, _, value)| (id(*obs), "Scalar", Some(*value), Some(0.1)))
+            .collect::<Vec<_>>(),
+    ));
+    let mut data = FitDeclarations::default();
     let mut observations = Vec::new();
-    for (obs, member, t, value) in observed {
-        data.observations.push(serde_json::from_value(serde_json::json!({"observation_id":id(obs),"dataset_id":id(90),"target":member,"value":value,"unit_id":unit,"std_dev":0.1,"timestamp":null,"tag":null,"source_span":{"document_id":id(90),"start":0,"end":0}})).unwrap());
-        observations.push(serde_json::json!({"observation_id":id(obs),"experiment_id":id(84),"output_path":format!("{member}[0{{s}}]"),"time":t,"time_basis":"model_clock","included":true,"importance":1.}));
+    for (obs, member, t, _) in observed {
+        observations.push(serde_json::json!({"value_attribute":"value","standard_deviation_attribute":"sigma","observation_id":id(obs),"experiment_id":id(84),"output_path":format!("{member}[0{{s}}]"),"time":t,"time_basis":"model_clock","included":true,"importance":1.}));
     }
     data.fits.push(serde_json::from_value(serde_json::json!({"fit_id":id(80),"parameters":[{"symbol_id":id(81),"fixed":false,"value":1.,"lower":0.1,"upper":10.,"scale":1.},{"symbol_id":id(82),"fixed":false,"value":2.,"lower":0.1,"upper":10.,"scale":1.}],"experiments":[{"experiment_id":id(84),"case_id":root,"route":"integrated","bindings":[{"parameter_id":id(81),"path":"k"},{"parameter_id":id(82),"path":"a"}]}],"observations":observations})).unwrap());
     let profile = FitProfile {
@@ -798,7 +801,7 @@ fn curved_source(
         runtime
             .modeling_package(rows, physical)
             .unwrap()
-            .with_fit_data(data)
+            .with_fit_declarations(data)
             .unwrap(),
         profile,
     )
