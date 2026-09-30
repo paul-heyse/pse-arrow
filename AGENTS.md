@@ -377,7 +377,12 @@ artifacts. Each checkout builds into its own `target/`, and the sccache compiler
 is shared across checkouts: the recipe environment never exports the default
 `CARGO_TARGET_DIR`, because sccache keys Rust compilations on their `CARGO_*`
 environment. The Plan 15 second-worktree experiment saw no Rust cache hits for that
-reason, not because the paths changed. Never point two checkouts at one Cargo build
+reason, not because the paths changed. Do not set `CARGO_TARGET_DIR` for a checkout or worktree: Cargo's default `target/` is
+already per checkout, recipes drop an inherited value (`scripts/build_environment.py`), an
+exported path changes sccache keys, and a relative value resolves against the current
+directory rather than the workspace. A new worktree needs only its `.envrc.local` (the
+Symbolica licence), one cold build through a recipe (third-party crates come from the shared
+sccache) and, for Python, `just py-sync-native`. Never point two checkouts at one Cargo build
 or target directory: Cargo keys a workspace crate's unit by its workspace-relative path
 and checks freshness by mtime, so one checkout silently reuses another's artifact for
 different sources (ADR-0122).
