@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// The sources the campaign's datasets and tests cite beyond those of the seed (ADR-0123
+// Outcome 5). The seed's `references` module declares the IDAES 2.13 release, the
+// saponification CSTR test and the SciPy CSTR/controller reference the campaign reuses.
+// Titles and locators are data, never parsed; the qualification boundaries are in
+// sources.md.
+@id("01a0efcd84ac72f9aa08923c0f449e2e") package campaign_references {
+@id("01a0efcd84ac72f9aa08923d6f4769c1") use provenance @"1.0.0";
+@id("01a0efcd84ac72f9aa08923e4b6c521f") use references @"1.0.0";
+
+// IDAES tests whose specifications and printed results the fixtures compare with.
+@id("01a0efcd84ac72f9aa08923f0fb8ec09") entity provenance.oracle_test idaes_test_pfr_initializers { title = "IDAES PFR with saponification under the general hierarchical and block triangularization initializers, 20 backward finite elements", release = references.idaes_2_13, locator = "idaes/models/unit_models/tests/test_pfr.py::TestInitializers" }
+@id("01a0efcd84ac72f9aa0892402743a883") entity provenance.oracle_test idaes_test_flash_bt_pr { title = "IDAES flash with modular BT_PR at 368 K and 101325 Pa under the general hierarchical and block triangularization initializers", release = references.idaes_2_13, locator = "idaes/models/unit_models/tests/test_flash.py::TestInitializersCubicModularBTX" }
+
+// Analytic properties of the discretizations and of the solved states.
+@id("01a0efcd84ac72f9aa089241e2de0dfa") entity provenance.source analytic_backward_difference_order { title = "Backward finite differences are first-order consistent: on a smooth solution the observed order of successive mesh-halving differences tends to one" }
+@id("01a0efcd84ac72f9aa089242e50bd825") entity provenance.source analytic_radau_order { title = "Radau IIA collocation with s points has endpoint order 2s-1, five for three points, until the differences reach the solver tolerance" }
+@id("01a0efcd84ac72f9aa089243ffd5f1f4") entity provenance.source analytic_steady_state_limit { title = "At constant inputs a stable CSTR relaxes to its steady state: 40 residence times from a feed-filled start reach the steady solution of the same definition" }
+@id("01a0efcd84ac72f9aa0892440ee773b7") entity provenance.source analytic_equilibrium_tangent_plane { title = "A phase in equilibrium is stable under its own law: its minimum tangent-plane distance is nonnegative, zero at itself and at each phase in equilibrium with it" }
+}

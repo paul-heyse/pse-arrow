@@ -5,7 +5,17 @@
 
 These flowsheets and studies exercise the modeling kernel through the reference
 packages it depends on. Passing one authored fixture establishes only its named
-properties and conditions; each fixture names its oracle.
+properties and conditions; each fixture names its oracle source and each dataset its
+source and role (ADR-0123 Outcome 5).
+
+`models/references.pse` (module `campaign_references`) declares the sources the
+campaign cites beyond the seed: the IDAES 2.13 `test_pfr` TestInitializers and
+`test_flash` TestInitializersCubicModularBTX oracle tests, and the analytic properties
+the studies check (backward-difference and Radau convergence order, the steady-state
+limit of a stable CSTR and the tangent-plane stability of a phase in equilibrium). The
+IDAES 2.13 release, the `test_cstr` oracle and the SciPy CSTR/controller reference are
+the seed's `references` entities. The IDAES inputs and printed results used as data are
+`oracle_input`, so only test fixtures read them.
 
 `models/cstr-dynamics.pse` solves one `reactors.CSTR` definition steady and dynamic.
 The control volume generates its holdup rates over the instant at which a flowsheet
