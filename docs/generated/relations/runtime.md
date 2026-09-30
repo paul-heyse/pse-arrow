@@ -1474,7 +1474,7 @@ Native row check `vectors` (must be true):
 
 ## `operational_source_bundles`
 
-Authored sources stored for job execution. `bundle_hash` is the package content hash of §6.1 over the bundle's path/text pairs; `manifest` is a JSON document naming the paths.
+Authored sources stored for job execution. `bundle_hash` is the package content hash of §6.1 over the bundle's path/content pairs; `manifest` is a JSON document naming the paths.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `bundle_hash`.
 
@@ -1486,7 +1486,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `bundle_hash`.
 
 ## `operational_source_documents`
 
-One authored document of a source bundle, keyed by its path; `content_hash` is the document content hash.
+One authored document of a source bundle, keyed by its path: its exact bytes, whose kind the path declares (a text document's are UTF-8, a data document's Parquet; ADR-0125), and `content_hash`, the document content hash.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `bundle_hash, path`.
 
@@ -1495,7 +1495,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `bundle_hash, path`.
 | `bundle_hash` | `content_hash` | false | `key` | `runtime.operational_source_bundles.bundle_hash` | — |
 | `path` | `Utf8` | false | `key` | — | — |
 | `content_hash` | `content_hash` | false | `payload` | — | — |
-| `content` | `Utf8` | false | `payload` | — | — |
+| `content` | `Binary` | false | `payload` | — | — |
 
 Native row check `path_nonempty` (must be true):
 

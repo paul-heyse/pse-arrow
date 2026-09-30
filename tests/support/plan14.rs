@@ -35,19 +35,18 @@ pub(crate) async fn physical(owner: &WorkflowRuntime) -> pse_runtime::workflow::
     let texts = BTreeMap::from([
         (
             "package.toml".into(),
-            std::fs::read_to_string(fixture("../packages/physical-primitives/package.toml"))
-                .unwrap(),
+            std::fs::read(fixture("../packages/physical-primitives/package.toml")).unwrap(),
         ),
         (
             "materials/physical.yaml".into(),
-            std::fs::read_to_string(fixture(
+            std::fs::read(fixture(
                 "../packages/physical-primitives/materials/physical.yaml",
             ))
             .unwrap(),
         ),
     ]);
     let pool = owner.runtime.pool();
-    let bundle = pse_runtime::authoring_driver::document::load_package_texts_owned(
+    let bundle = pse_runtime::authoring_driver::document::load_package_documents_owned(
         &texts,
         &owner.registry,
         Default::default(),
@@ -124,12 +123,12 @@ pub(crate) async fn seed_package_on(
     owner: &WorkflowRuntime,
     runtime: Runtime,
 ) -> pse_runtime::workflow::ModelingPackage {
-    use pse_runtime::authoring_driver::document::{OwnedDocumentSet, load_package_texts_owned};
-    fn documents(root: &std::path::Path) -> BTreeMap<String, String> {
+    use pse_runtime::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
+    fn documents(root: &std::path::Path) -> BTreeMap<String, Vec<u8>> {
         fn visit(
             root: &std::path::Path,
             path: &std::path::Path,
-            texts: &mut BTreeMap<String, String>,
+            texts: &mut BTreeMap<String, Vec<u8>>,
         ) {
             for entry in std::fs::read_dir(path).unwrap() {
                 let path = entry.unwrap().path();
@@ -194,7 +193,7 @@ pub(crate) async fn seed_package_on(
                             .to_str()
                             .unwrap()
                             .replace('\\', "/"),
-                        text,
+                        text.into_bytes(),
                     );
                 }
             }
@@ -209,7 +208,7 @@ pub(crate) async fn seed_package_on(
         .unwrap()
         .join("packages/reference");
     let pool = owner.runtime.pool();
-    let physical_bundle = load_package_texts_owned(
+    let physical_bundle = load_package_documents_owned(
         &documents(&root.join("physical")),
         &owner.registry,
         Default::default(),
@@ -233,7 +232,7 @@ pub(crate) async fn seed_package_on(
     ]
     .into_iter()
     .map(|name| {
-        load_package_texts_owned(
+        load_package_documents_owned(
             &documents(&root.join(name)),
             &owner.registry,
             Default::default(),

@@ -767,6 +767,47 @@ impl Cursor<'_> {
         };
         Ok(Cell { value, uncertainty })
     }
+    /// ADR-0125: how a data document stores the key, column or table value `name`:
+    /// `[storage {unit}] [by scheme]`. The storage unit is a unit literal, the only
+    /// statement of the unit a document's magnitudes are in; `by` names the identifier
+    /// scheme by whose values a document names a referenced entity. `None` when neither is
+    /// written.
+    fn storage(&mut self, name: &str) -> Result<Option<ModelingColumnStorage>> {
+        let unit = if self.eat("storage") {
+            let start = self.pos;
+            if self.peek() != "{" {
+                return Err(self.error("storage unit literal"));
+            }
+            let first = self.tokens[self.pos].span.start as usize;
+            self.pos += 1;
+            self.until(&["}"])?;
+            self.expect("}")?;
+            let end = self.tokens[self.pos - 1].span.end as usize;
+            let unit = crate::dsl::parse_expr(&format!("1{}", &self.text[first..end]))
+                .ok()
+                .and_then(|expression| match expression.kind {
+                    crate::dsl::ExprKind::Number(number) => number.unit,
+                    _ => None,
+                })
+                .ok_or_else(|| {
+                    self.pos = start;
+                    self.error("storage unit literal")
+                })?;
+            Some(unit_factors(&unit))
+        } else {
+            None
+        };
+        let scheme = if self.eat("by") {
+            Some(self.segments()?)
+        } else {
+            None
+        };
+        Ok((unit.is_some() || scheme.is_some()).then(|| ModelingColumnStorage {
+            name: name.to_owned(),
+            storage_unit: unit,
+            scheme,
+        }))
+    }
     /// A bracketed list of cells, `[` and `]` included; `[]` is empty.
     fn cells(&mut self) -> Result<Vec<Cell>> {
         self.expect("[")?;
@@ -2496,13 +2537,16 @@ impl Cursor<'_> {
                     transfer_side,
                 })
             }
-            // ADR-0123 Outcome 3: `table name[key: T, k: 0..2]: T | {col: T, derived d: T = e}
+            // ADR-0123 Outcome 3: `table name[key: T storage, k: 0..2]: T storage | {col: T
+            // storage, derived d: T = e}, where each storage is `[storage {unit}] [by scheme]`
+            // (ADR-0125),
             // [envelope axis: Q in lower..upper]... [symmetric(i, j) [diagonal
             // allowed|excluded]] [unique(names)]... [complete_over(key [in set | in lo..hi],
             // ...)] [missing required|optional|default cell] [require predicate]... ;`,
             // clauses in this order; an envelope is bounded by two columns (Outcome 4).
             "table" => {
                 let mut keys = Vec::new();
+                let mut storage = Vec::new();
                 if self.eat("[") {
                     loop {
                         let name = self.word()?;
@@ -2513,6 +2557,9 @@ impl Cursor<'_> {
                         } else {
                             (self.type_expr()?, None)
                         };
+                        if let Some(entry) = self.storage(&name)? {
+                            storage.push(entry);
+                        }
                         keys.push(AuthoredModelingDeclarationsFieldValueTableKeysItem {
                             name,
                             r#type,
@@ -2536,6 +2583,9 @@ impl Cursor<'_> {
                             self.expect("=")?;
                             Some(self.until(&[",", "}"])?)
                         } else {
+                            if let Some(entry) = self.storage(&name)? {
+                                storage.push(entry);
+                            }
                             None
                         };
                         columns.push(AuthoredModelingDeclarationsFieldValueTableColumnsItem {
@@ -2552,6 +2602,11 @@ impl Cursor<'_> {
                 } else {
                     Some(self.type_expr()?)
                 };
+                if value_type.is_some()
+                    && let Some(entry) = self.storage("value")?
+                {
+                    storage.push(entry);
+                }
                 let mut envelopes = Vec::new();
                 while self.eat("envelope") {
                     let name = self.word()?;
@@ -2613,6 +2668,7 @@ impl Cursor<'_> {
                     keys,
                     columns,
                     value_type,
+                    storage,
                     missing_policy,
                     default_value,
                     complete_over,
@@ -2647,9 +2703,10 @@ impl Cursor<'_> {
                 })
             }
             // `dataset name: target [bind(key = cell, …)] [complete_over(…)]
-            // provenance(source, role[, lineage(…)]) { [keys] = [values]; … }`: positional
-            // cells for a table or a keyed kind; a key the dataset supplies for every row is a
-            // declared binding (ADR-0123 Outcome 2); the provenance is typed (Outcome 5).
+            // provenance(source, role[, lineage(…)]) ({ [keys] = [values]; … } | from "path";)`:
+            // positional cells for a table or a keyed kind, or the package data document
+            // supplying a table's rows (ADR-0125); a key the dataset supplies for every row
+            // is a declared binding (ADR-0123 Outcome 2); the provenance is typed (Outcome 5).
             "dataset" => {
                 self.expect(":")?;
                 let target = self.path()?;
@@ -2676,9 +2733,22 @@ impl Cursor<'_> {
                     Vec::new()
                 };
                 let provenance = self.provenance()?;
-                self.expect("{")?;
                 let mut rows = Vec::new();
-                while !self.eat("}") {
+                // ADR-0125: `from "data/…parquet";` names the package data document
+                // supplying the rows, in place of inline rows.
+                let document = if self.eat("from") {
+                    let at = self.pos;
+                    if self.tokens.get(self.pos).map(|t| t.kind) != Some(Kind::Quoted) {
+                        return Err(self.error("quoted data document path"));
+                    }
+                    let path = self.word().inspect_err(|_| self.pos = at)?;
+                    self.expect(";")?;
+                    Some(path)
+                } else {
+                    self.expect("{")?;
+                    None
+                };
+                while document.is_none() && !self.eat("}") {
                     let keys = self.cells()?;
                     self.expect("=")?;
                     let values = if self.peek() == "[" {
@@ -2692,13 +2762,16 @@ impl Cursor<'_> {
                         values,
                     });
                 }
-                self.eat(";");
+                if document.is_none() {
+                    self.eat(";");
+                }
                 Value::from_dataset(AuthoredModelingDeclarationsFieldValueDataset {
                     target,
                     provenance,
                     bindings,
                     complete_over,
                     rows,
+                    document,
                 })
             }
             "annotation" => {

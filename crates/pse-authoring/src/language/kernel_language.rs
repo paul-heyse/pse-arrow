@@ -37,6 +37,9 @@ fn roundtrip_all_declarations_and_explicit_identity() {
  dataset values: coefficient provenance(upstream, Role.published) { [a] = [2{kg}]; }
  dataset pairs: pairing complete_over(i in members) provenance(synthetic.upstream, Role.fitted, lineage(dataset values, source upstream)) { [a, a, 0] = [1{kg}, linear[a, 2]]; }
  dataset lines: linear bind(variant = 2) provenance(upstream, Role.oracle_input, lineage(dataset pairs)) { [a] = [-1.5]; [b] = []; }
+ table bank[j: component by cas, T: Temperature storage {K}]: {cp: Mass storage {g}, flag: Boolean} missing optional;
+ table level[j: component by cas]: Mass storage {kg/s*s} missing optional;
+ dataset banked: bank provenance(upstream, Role.published) from "data/bank.parquet";
  fn square<Q>(x: Q) -> Q^2 = x*x;
  interface I { fn f(x: Mass) -> Mass; let doubled: Mass = x+x; }
  def D(enabled: Boolean = true) : I {
@@ -83,6 +86,34 @@ fn roundtrip_all_declarations_and_explicit_identity() {
     assert_eq!(attribute("double").derived.as_deref(), Some("2*mass"));
     assert!(attribute("double").unique && attribute("double").value.is_none());
     assert!(!attribute("mass").unique);
+    // ADR-0125: a dataset names its data document; keys, columns and values declare how a
+    // document stores them.
+    let banked = rows.iter().find_map(|r| r.value.dataset.as_ref().filter(|d| d.document.is_some())).unwrap();
+    assert_eq!((banked.document.as_deref(), banked.rows.len()), (Some("data/bank.parquet"), 0));
+    let storage = |name: &str| {
+        rows.iter().find(|r| r.name == name).and_then(|r| r.value.table.as_ref()).unwrap().storage.iter()
+            .map(|e| (
+                e.name.clone(),
+                e.storage_unit.as_ref().map(|u| u.iter().map(|f| f.symbol.clone()).collect::<Vec<_>>()),
+                e.scheme.clone(),
+            ))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        storage("bank"),
+        [
+            ("j".to_owned(), None, Some(vec!["cas".to_owned()])),
+            ("T".to_owned(), Some(vec!["K".to_owned()]), None),
+            ("cp".to_owned(), Some(vec!["g".to_owned()]), None),
+        ]
+    );
+    assert_eq!(
+        storage("level"),
+        [
+            ("j".to_owned(), None, Some(vec!["cas".to_owned()])),
+            ("value".to_owned(), Some(vec!["kg".to_owned()]), None),
+        ]
+    );
     // ADR-0123 Outcome 4: envelopes, guards and selections are typed, not text.
     use pse_model::generated::enums::{
         ExtrapolationPolicy, ModelingEnvelopeExtent, ModelingValidityLayer,
@@ -111,6 +142,9 @@ fn roundtrip_all_declarations_and_explicit_identity() {
         ]
     );
     for malformed in [
+        "package p { dataset d: t provenance(s, R.p) from data; }",
+        "package p { dataset d: t provenance(s, R.p) from \"data/d.parquet\" { [a] = [1]; } }",
+        "package p { table t[j: c storage kg]: Mass; }",
         "package p { fn f(T: Temperature, p: Row<t>) -> Scalar guards(p.T: [T]) = 1; }",
         "package p { fn f(T: Temperature, p: Row<t>) -> Scalar guards(p: T) = 1; }",
         "package p { table t[j: c]: {a: Temperature} envelope T: Temperature a..a missing optional; }",

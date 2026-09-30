@@ -3,11 +3,90 @@
 //! Generic kernel queries in the existing compiler database.
 use super::*;
 use pse_authoring::language::Declaration;
+use pse_modeling::document::{DataDocument, DocumentInventory, DocumentPlan, DocumentTable};
 use pse_modeling::{
     Bindings, CheckedPackage, DeclarationId, InstanceId, Limits, PhysicalScope, SpecializedModel,
     TypeContext,
 };
 use salsa::Setter;
+
+/// One package data document (ADR-0125), set only when its bytes change.
+#[salsa::input]
+pub(super) struct DataDocumentInput {
+    document: Arc<DataDocument>,
+}
+/// A dataset's admission plan, equal for equal declarations.
+#[salsa::interned(heap_size = plan_heap)]
+struct PlanKey<'db> {
+    plan: Arc<DocumentPlan>,
+}
+fn plan_heap((plan,): &(Arc<DocumentPlan>,)) -> usize {
+    plan.retained_bytes()
+}
+/// ADR-0125, §22.2: an admitted table's document rows are a tracked query over the
+/// dataset's plan, drawn from its table declaration, and the document input. An unchanged
+/// plan over an unchanged document reuses the admitted rows; nothing else caches them.
+#[salsa::tracked(returns(clone), lru = 64, heap_size = document_table_heap)]
+fn document_table<'db>(
+    db: &'db dyn CompilerDb,
+    inventory: Inventory,
+    plan: PlanKey<'db>,
+    document: DataDocumentInput,
+) -> Result<Arc<DocumentTable>> {
+    checkpoint(db);
+    let table = pse_modeling::document::admit(
+        plan.plan(db),
+        document.document(db),
+        inventory.quantities(db),
+    )?;
+    checkpoint(db);
+    Ok(Arc::new(table))
+}
+fn document_table_heap(v: &Result<Arc<DocumentTable>>) -> usize {
+    v.as_ref().map_or(0, |v| v.retained_bytes())
+}
+/// The workspace's answer to the checker's document reads: resolution in the published
+/// inventory and admission through [`document_table`]. While a physical registry that is not
+/// yet published is checked (`pending`), rows are admitted against it without a memo, so no
+/// result of the previous registry is read.
+struct TrackedDocuments<'a> {
+    db: &'a CompilerDatabase,
+    inventory: Inventory,
+    documents: &'a DocumentInventory,
+    inputs: &'a BTreeMap<SemanticId, DataDocumentInput>,
+    pending: Option<&'a QuantityRegistry>,
+}
+impl pse_modeling::document::Documents for TrackedDocuments<'_> {
+    fn resolve(&self, source: SemanticId, path: &str) -> Option<SemanticId> {
+        self.documents.resolve(source, path)
+    }
+    fn admit(
+        &self,
+        plan: &Arc<DocumentPlan>,
+        document: SemanticId,
+    ) -> std::result::Result<Arc<DocumentTable>, pse_modeling::ModelingError> {
+        let input = self.inputs.get(&document).ok_or_else(|| {
+            pse_modeling::ModelingError::Contract {
+                declaration: plan.dataset.into(),
+                message: format!("data document {document} is not published"),
+            }
+        })?;
+        if let Some(quantities) = self.pending {
+            let document = input.document(self.db);
+            return pse_modeling::document::admit(plan, document, quantities).map(Arc::new);
+        }
+        let key = PlanKey::new(self.db, Arc::clone(plan));
+        salsa::Cancelled::catch(|| document_table(self.db, self.inventory, key, *input))
+            .map_err(|_| pse_modeling::ModelingError::Cancelled)?
+            .map_err(|error| match error {
+                CompileError::Modeling(error) => error,
+                other => pse_modeling::ModelingError::Contract {
+                    declaration: plan.dataset.into(),
+                    message: other.to_string(),
+                },
+            })
+    }
+}
 
 #[salsa::input]
 pub(super) struct Catalog {
@@ -31,6 +110,7 @@ pub(super) struct State {
 pub struct ModelingRevision {
     rows: Arc<Vec<Declaration>>,
     scope: Arc<PhysicalScope>,
+    documents: Arc<DocumentInventory>,
     checked: Arc<CheckedPackage>,
     input_bytes: usize,
 }
@@ -38,6 +118,14 @@ impl ModelingRevision {
     /// Original declarations in source order.
     pub fn declarations(&self) -> &[Declaration] {
         &self.rows
+    }
+    /// The package data documents the declarations were admitted with (ADR-0125).
+    pub fn documents(&self) -> &Arc<DocumentInventory> {
+        &self.documents
+    }
+    /// The admitted package: checked declarations, entities and tables.
+    pub fn checked(&self) -> &Arc<CheckedPackage> {
+        &self.checked
     }
     /// Which documents see the physical names, for immutable source edits.
     pub fn physical_scope(&self) -> &PhysicalScope {
@@ -74,16 +162,21 @@ impl ModelingRevision {
 fn revision(
     rows: Arc<Vec<Declaration>>,
     scope: Arc<PhysicalScope>,
+    documents: Arc<DocumentInventory>,
     checked: Arc<CheckedPackage>,
 ) -> Arc<ModelingRevision> {
     use pse_model::HeapUsage;
+    // The data documents' decoded rows and the admitted tables are charged beside the
+    // declarations (ADR-0125).
     let input_bytes = rows
         .owned_bytes()
         .saturating_add(checked.retained_bytes())
-        .saturating_add(scope_bytes(&scope));
+        .saturating_add(scope_bytes(&scope))
+        .saturating_add(documents.retained_bytes());
     Arc::new(ModelingRevision {
         rows,
         scope,
+        documents,
         checked,
         input_bytes,
     })
@@ -166,7 +259,8 @@ impl pse_modeling::continuous::Discretizer for LibraryDiscretizer {
     }
 }
 impl CompilerWorkspace {
-    /// Atomically admit a complete generic package inventory into the existing workspace.
+    /// Atomically admit a complete generic package inventory without data documents into
+    /// the existing workspace.
     /// # Errors
     /// Invalid source contracts leave the previous package selection unchanged.
     pub fn publish_modeling(
@@ -174,18 +268,33 @@ impl CompilerWorkspace {
         rows: impl Into<Arc<Vec<Declaration>>>,
         scope: impl Into<Arc<PhysicalScope>>,
     ) -> Result<Arc<ModelingRevision>> {
+        self.publish_modeling_with(rows, scope, Arc::new(DocumentInventory::default()))
+    }
+    /// Atomically admit a complete generic package inventory and its package data
+    /// documents (ADR-0125). A document's admitted rows are reused while its plan and bytes
+    /// are unchanged; their bytes are charged to the workspace limits.
+    /// # Errors
+    /// Invalid source contracts leave the previous package selection unchanged.
+    pub fn publish_modeling_with(
+        &mut self,
+        rows: impl Into<Arc<Vec<Declaration>>>,
+        scope: impl Into<Arc<PhysicalScope>>,
+        documents: Arc<DocumentInventory>,
+    ) -> Result<Arc<ModelingRevision>> {
         use pse_model::HeapUsage;
         let rows = rows.into();
         let scope = scope.into();
         if let Some(state) = &self.modeling
             && state.revision.rows == rows
             && state.revision.scope == scope
+            && state.revision.documents == documents
         {
             return Ok(state.revision.clone());
         }
         if rows
             .owned_bytes()
             .saturating_add(scope_bytes(&scope))
+            .saturating_add(documents.retained_bytes())
             > self.limits.input_bytes
         {
             return Err(CompileError::Limit("modeling input bytes"));
@@ -193,15 +302,52 @@ impl CompilerWorkspace {
         if rows.len() > self.limits.query_values.saturating_mul(1024) {
             return Err(CompileError::Limit("modeling declarations"));
         }
-        let context = TypeContext {
-            quantities: &self.inputs.quantities,
-            preconditions: &self.inputs.preconditions,
-            scope: &scope,
-        };
-        let checked = Arc::new(pse_modeling::check(&rows, &context)?);
-        let revision = revision(rows, scope, checked);
+        let checked = Arc::new(self.check_modeling(&rows, &scope, &documents, None)?);
+        let revision = revision(rows, scope, documents, checked);
+        if revision.input_bytes > self.limits.input_bytes {
+            return Err(CompileError::Limit("modeling input bytes"));
+        }
         self.publish_modeling_revision(revision.clone())?;
         Ok(revision)
+    }
+    /// Check `rows` with their data documents, each document an input set only when its
+    /// bytes change, so equal plans reuse their admitted rows.
+    fn check_modeling(
+        &mut self,
+        rows: &[Declaration],
+        scope: &PhysicalScope,
+        documents: &DocumentInventory,
+        physical: Option<(&QuantityRegistry, &PhysicalPreconditions)>,
+    ) -> Result<CheckedPackage> {
+        for (id, document) in &documents.documents {
+            match self.documents.get(id) {
+                Some(input) if input.document(&self.db).content_hash == document.content_hash => {}
+                Some(input) => {
+                    input.set_document(&mut self.db).to(Arc::clone(document));
+                }
+                None => {
+                    let input = DataDocumentInput::new(&self.db, Arc::clone(document));
+                    self.documents.insert(*id, input);
+                }
+            }
+        }
+        let (quantities, preconditions) = physical.unwrap_or((
+            self.inputs.quantities.as_ref(),
+            self.inputs.preconditions.as_ref(),
+        ));
+        let context = TypeContext {
+            quantities,
+            preconditions,
+            scope,
+        };
+        let tracked = TrackedDocuments {
+            db: &self.db,
+            inventory: self.inventory,
+            documents,
+            inputs: &self.documents,
+            pending: physical.map(|(quantities, _)| quantities),
+        };
+        Ok(pse_modeling::check_with(rows, &context, &tracked)?)
     }
     /// Select an already admitted revision without rechecking its declarations.
     /// # Errors
@@ -236,6 +382,7 @@ impl CompilerWorkspace {
             let catalog = Catalog::new(&self.db, checked);
             selected::set_lru_capacity(&mut self.db, self.limits.query_values);
             specialized::set_lru_capacity(&mut self.db, self.limits.query_values);
+            document_table::set_lru_capacity(&mut self.db, self.limits.query_values);
             executable::configure(&mut self.db, self.limits.query_values);
             self.modeling = Some(State {
                 catalog,
@@ -247,27 +394,29 @@ impl CompilerWorkspace {
         Ok(())
     }
     pub(super) fn recheck_modeling(
-        &self,
+        &mut self,
         quantities: &QuantityRegistry,
         preconditions: &PhysicalPreconditions,
     ) -> Result<Option<(Arc<ModelingRevision>, usize)>> {
-        self.modeling
-            .as_ref()
-            .map(|state| {
-                let old = &state.revision;
-                let checked = Arc::new(pse_modeling::check(
-                    &old.rows,
-                    &TypeContext {
-                        quantities,
-                        preconditions,
-                        scope: &old.scope,
-                    },
-                )?);
-                let next = revision(old.rows.clone(), old.scope.clone(), checked);
-                let bytes = next.input_bytes;
-                Ok((next, bytes))
-            })
-            .transpose()
+        let Some(old) = self.modeling.as_ref().map(|state| state.revision.clone()) else {
+            return Ok(None);
+        };
+        // A document's plan converts through the next physical registry; its rows are
+        // admitted again only where that plan differs.
+        let checked = Arc::new(self.check_modeling(
+            &old.rows,
+            &old.scope,
+            &old.documents,
+            Some((quantities, preconditions)),
+        )?);
+        let next = revision(
+            old.rows.clone(),
+            old.scope.clone(),
+            old.documents.clone(),
+            checked,
+        );
+        let bytes = next.input_bytes;
+        Ok(Some((next, bytes)))
     }
     pub(super) fn set_checked_modeling(&mut self, checked: Option<(Arc<ModelingRevision>, usize)>) {
         if let (Some(state), Some((revision, bytes))) = (&mut self.modeling, checked) {
@@ -378,6 +527,8 @@ pub use executable::{
 };
 pub use flow::ModelingFlowSelection;
 
+#[cfg(test)]
+mod document_tests;
 #[cfg(test)]
 mod domain_tests;
 #[cfg(test)]

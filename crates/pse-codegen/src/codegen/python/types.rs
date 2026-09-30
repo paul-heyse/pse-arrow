@@ -184,6 +184,7 @@ impl super::super::native::Policy for PythonPolicy<'_> {
                 validator: "v.finite_float".into(),
             },
             DataType::Utf8 => scalar("b.str"),
+            DataType::Binary => scalar("b.bytes"),
             DataType::Timestamp(..) => Type {
                 annotation: "datetime".into(),
                 validator: "v.utc_timestamp".into(),

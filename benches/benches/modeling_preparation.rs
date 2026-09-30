@@ -52,7 +52,7 @@ fn repository() -> &'static Path {
 /// bench package from its authored texts.
 async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> ModelingPackage {
     use pse_runtime::authoring_driver::document::{
-        load_bundles_owned, load_package, load_package_texts,
+        load_bundles_owned, load_package, load_package_documents,
     };
     let root = repository().join("packages/reference");
     let pool = owner.runtime.pool();
@@ -64,7 +64,15 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
             .unwrap();
         if let Some(texts) = bench {
             bundles.push(
-                load_package_texts(texts.clone(), &owner.registry, Default::default()).unwrap(),
+                load_package_documents(
+                    texts
+                        .iter()
+                        .map(|(path, text)| (path.clone(), text.as_bytes().to_vec()))
+                        .collect(),
+                    &owner.registry,
+                    Default::default(),
+                )
+                .unwrap(),
             );
         }
         load_bundles_owned(&bundles, &owner.registry, &pool, &owner.cancel).unwrap()

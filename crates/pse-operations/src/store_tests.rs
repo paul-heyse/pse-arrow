@@ -3418,3 +3418,34 @@ async fn lost_commit_acknowledgement_settles() {
     drop(proxy);
     database.remove().await.unwrap();
 }
+
+/// ADR-0125, review F09: a source bundle stores each document's exact bytes, a binary
+/// data document included, and reads them back byte for byte; storing it again is a no-op.
+#[tokio::test]
+async fn source_bundle_stores_binary_documents_byte_for_byte() {
+    use crate::sources::{SourceBundle, SourceDocument};
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store();
+    let document = |path: &str, content: Vec<u8>| SourceDocument {
+        path: path.to_owned(),
+        content_hash: pse_ids::encoding_checksum(&content).content_hash(),
+        content,
+    };
+    // Parquet magic, a NUL and bytes that are not UTF-8.
+    let data = [b"PAR1".as_slice(), &[0, 0xff, 0xfe, 0xc3, 0x28], b"PAR1"].concat();
+    let bundle = SourceBundle {
+        bundle_hash: ContentHash::from_bytes([7; 32]).into(),
+        manifest: serde_json::json!({"version": 1, "paths": ["data/t.parquet", "package.toml"]}),
+        documents: vec![
+            document("data/t.parquet", data),
+            document("package.toml", b"[package]\n".to_vec()),
+        ],
+    };
+    store.sources().put(&bundle).await.unwrap();
+    store.sources().put(&bundle).await.unwrap();
+    assert_eq!(
+        store.sources().get(&bundle.bundle_hash).await.unwrap(),
+        bundle
+    );
+    database.remove().await.unwrap();
+}

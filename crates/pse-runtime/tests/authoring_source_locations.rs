@@ -11,7 +11,7 @@ use pse_authoring::{ParseBudget, SourceSpan};
 use pse_columnar::CancellationToken;
 use pse_ids::SemanticId;
 use pse_relations::{columnar::FieldCheckedBatch, generated::authored::observations};
-use pse_runtime::authoring_driver::document::load_package_texts;
+use pse_runtime::authoring_driver::document::load_package_documents;
 use std::{collections::BTreeMap, fmt::Write};
 #[path = "authoring_support/mod.rs"]
 mod support;
@@ -20,6 +20,13 @@ fn id(value: u8) -> SemanticId {
     SemanticId::from_bytes([value; 16])
 }
 
+/// Text documents as the exact bytes the loader reads.
+fn bytes(texts: BTreeMap<String, String>) -> BTreeMap<String, Vec<u8>> {
+    texts
+        .into_iter()
+        .map(|(path, text)| (path, text.into_bytes()))
+        .collect()
+}
 fn texts() -> BTreeMap<String, String> {
     BTreeMap::from([
         (
@@ -51,11 +58,11 @@ fn texts() -> BTreeMap<String, String> {
 #[tokio::test]
 async fn target_spans_follow_values_after_sort_filter_union_and_source_release() {
     let registry = support::registry();
-    let bundle = load_package_texts(texts(), &registry, ParseBudget::default()).unwrap();
+    let bundle = load_package_documents(bytes(texts()), &registry, ParseBudget::default()).unwrap();
     let originals = bundle
         .documents
         .iter()
-        .map(|document| (document.id, document.text.clone()))
+        .map(|document| (document.id, document.text().unwrap().to_owned()))
         .collect::<BTreeMap<_, _>>();
     let spec = observations::spec(&registry).unwrap();
     let cancel = CancellationToken::new();
@@ -133,7 +140,7 @@ fn authored_span_override_is_rejected() {
         id(9)
     )
     .unwrap();
-    let error = load_package_texts(input, &registry, ParseBudget::default()).unwrap_err();
+    let error = load_package_documents(bytes(input), &registry, ParseBudget::default()).unwrap_err();
     assert!(
         error
             .to_string()

@@ -63,16 +63,7 @@ fn scalar_arms() -> Vec<T> {
             .optional(),
         T::structure(vec![
             T::native(D::Float64).with_name("magnitude"),
-            T::list(
-                T::structure(vec![
-                    text("symbol"),
-                    T::native(D::Int16).with_name("num"),
-                    T::native(D::Int16).with_name("den"),
-                ])
-                .named("ModelingUnitFactor"),
-            )
-            .with_name("unit")
-            .optional(),
+            unit_product("unit").optional(),
         ])
         .named("ModelingCellValueQuantity")
         .with_name("quantity")
@@ -90,6 +81,36 @@ fn scalar_arms() -> Vec<T> {
             .with_name("reference")
             .optional(),
     ]
+}
+/// A canonical unit product of `ModelingUnitFactor`s: a quantity cell's unit, and the
+/// storage unit a relation column declares for data documents (ADR-0125).
+fn unit_product(name: &str) -> T {
+    T::list(
+        T::structure(vec![
+            text("symbol"),
+            T::native(D::Int16).with_name("num"),
+            T::native(D::Int16).with_name("den"),
+        ])
+        .named("ModelingUnitFactor"),
+    )
+    .with_name(name)
+}
+/// ADR-0125: how a data document stores a relation's keys and columns, one entry per
+/// stored key, supplied column or `value` of a table without columns, by name. A quantity's
+/// magnitudes are in the declared storage unit, the only statement of a stored unit; an
+/// entity reference names its entity by a value of the declared identifier scheme, or by
+/// identity when no scheme is declared. The entries sit beside the keys and columns so that
+/// their nested contracts keep their depth.
+fn storage(name: &str) -> T {
+    T::list(
+        T::structure(vec![
+            text("name"),
+            unit_product("storage_unit").optional(),
+            strings("scheme").optional(),
+        ])
+        .named("ModelingColumnStorage"),
+    )
+    .with_name(name)
 }
 const SCALAR_ARMS: [&str; 6] = [
     "boolean",
@@ -239,6 +260,25 @@ fn parameters(name: &str) -> T {
         text("default_value").optional(),
     ]))
     .with_name(name)
+}
+/// A table's absence policy, completeness, symmetry, uniqueness, requirements and
+/// envelopes (ADR-0123 Outcomes 3 and 4).
+fn table_constraints() -> Vec<T> {
+    vec![
+        T::enumeration("ModelingMissingPolicy").with_name("missing_policy"),
+        cell("default_value").optional(),
+        completeness("complete_over"),
+        T::structure(vec![
+            text("first"),
+            text("second"),
+            T::enumeration("ModelingDiagonalPolicy").with_name("diagonal"),
+        ])
+        .with_name("symmetry")
+        .optional(),
+        T::list(T::structure(vec![strings("names")])).with_name("unique"),
+        strings("requirements"),
+        envelopes("envelopes"),
+    ]
 }
 fn indices() -> T {
     T::list(T::structure(vec![text("name"), text("domain")])).with_name("indices")
@@ -528,39 +568,32 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         // declares completeness; `default` exactly carries its typed cell. A symmetric key
         // pair stores each unordered pair once; uniqueness names keys and supplied columns;
         // each requirement is a predicate every row satisfies. An envelope bounds an axis by
-        // two typed columns (Outcome 4).
+        // two typed columns (Outcome 4). A key, a supplied column or the value may declare
+        // how a data document stores it (ADR-0125).
         (
             "table",
             vec!["table"],
-            vec![
-                T::list(T::structure(vec![
-                    text("name"),
-                    type_arena("type"),
-                    integer_range("range").optional(),
-                ]))
-                .with_name("keys"),
-                T::list(T::structure(vec![
-                    text("name"),
-                    type_arena("type"),
-                    text("derived").optional(),
-                ]))
-                .with_name("columns"),
-                // Present exactly when the table declares no columns.
-                type_arena("value_type").optional(),
-                T::enumeration("ModelingMissingPolicy").with_name("missing_policy"),
-                cell("default_value").optional(),
-                completeness("complete_over"),
-                T::structure(vec![
-                    text("first"),
-                    text("second"),
-                    T::enumeration("ModelingDiagonalPolicy").with_name("diagonal"),
-                ])
-                .with_name("symmetry")
-                .optional(),
-                T::list(T::structure(vec![strings("names")])).with_name("unique"),
-                strings("requirements"),
-                envelopes("envelopes"),
-            ],
+            {
+                let mut fields = vec![
+                    T::list(T::structure(vec![
+                        text("name"),
+                        type_arena("type"),
+                        integer_range("range").optional(),
+                    ]))
+                    .with_name("keys"),
+                    T::list(T::structure(vec![
+                        text("name"),
+                        type_arena("type"),
+                        text("derived").optional(),
+                    ]))
+                    .with_name("columns"),
+                    // Present exactly when the table declares no columns.
+                    type_arena("value_type").optional(),
+                ];
+                fields.extend(table_constraints());
+                fields.push(storage("storage"));
+                fields
+            },
         ),
         // ADR-0123 Outcome 4: an entity kind's validity envelope, declared as data: the
         // declaration names the axis; its quantity type and the two attributes bounding it,
@@ -615,6 +648,9 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                     T::list(cell("value")).with_name("values"),
                 ]))
                 .with_name("rows"),
+                // ADR-0125: the package data document supplying the rows, by its path within
+                // the package; a dataset names a document or writes its rows inline.
+                text("document").optional(),
             ],
         ),
         (
@@ -1023,7 +1059,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         builder,
         N::Authored,
         "modeling_declarations",
-        15,
+        16,
         S::Model,
         &["declaration_id"],
         vec![
@@ -1042,7 +1078,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 T::structure(payload).with_alternative(&alternative),
             ),
         ],
-        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119). Version eight adds the policy's foreign-library allowance in bytes, which the fixture's solves reserve and a native library that enforces its own memory limit receives, in place of the deployment's (ADR-0119). Version nine is structured (ADR-0123 Outcome 1): every type is a post-order type arena whose children precede their parent and whose last node is the root; table absence, annotation kinds and fact namespaces are registry enums, a validity annotation carries its typed extrapolation policy, a scaling annotation its scheme and a connectivity annotation its typed maxima; an import carries its typed version requirement (Outcome 7). Version ten makes entities typed records (ADR-0123 Outcome 2): data cells are typed tagged values (boolean, integer, quantity as magnitude and unit product, text, identifier, reference, references or missing, each with an optional uncertainty), parsed once and never expressions; entity attribute values, attribute defaults, kind-level bindings of inherited attributes, dataset rows and typed constants are cells; an attribute declares whether it is a key; a dataset names its target table or keyed kind and binds the keys it supplies for every row; enumeration members carry identities; and identifier schemes are declared. Version eleven gives relations constraints (ADR-0123 Outcome 3): a table key may declare an inclusive integer range; a column may be derived by an expression evaluated once per row; the default of the default policy is a typed cell; a required table declares its completeness, one entry per key over a declared set, an enumeration or an integer range, or open for datasets to claim; a symmetric key pair declares its diagonal policy; uniqueness constraints name keys and supplied columns; row requirements are predicates; a dataset may claim completeness over declared sets for its table's open keys; and a cell may reference a keyed row or a table row by its target and key cells. Version twelve types provenance (ADR-0123 Outcome 5): every dataset and constant names its source entity, its role and its lineage by path, in place of a source text; an entity kind declares its facets, and an entity is a source exactly when its kind or an ancestor kind carries the provenance facet; an enumeration member declares the data facets the kernel acts on when it is named as a role, test-only or requiring lineage; a lineage entry names a dataset or a source; and a test names the source entity of its expected values as its oracle, in place of a reference and revision text. Version thirteen types validity envelopes (ADR-0123 Outcome 4): a table declares its envelopes, each an axis with its quantity type bounded by two typed columns, and an entity kind declares an envelope declaration bounded by two of its attributes, in place of bounds read from columns named minimum and maximum; data declares no extrapolation policy; a function declares which of its arguments, or which integration interval, each envelope of a row or entity argument guards; and a definition, test or case selects the extrapolation policy of the data layer for its instances. Version fourteen completes entity kinds (Plan 23 D0): an attribute may be unique, its values distinct across every entity of its kind and its refinements, and may be derived by an expression admission evaluates once per entity with the entity and its attributes bound, in place of a supplied value; a requirement declared in an entity kind is a predicate every entity of the kind satisfies. Version fifteen types a fixture's expected failure (Plan 23 H5): its boundary class and its lineage, in place of a rule text. A rejected validity predicate names its layer: a form or data layer predicate names its form by path, the parameter sets bounding it as static expressions and the form's arguments it constrains by name; a closure range names no form and no set, and its variables are the member paths it bounds. A structural refusal or a diagnostic finding names the members it concerns by path. Exactly one lineage is present.",
+        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119). Version eight adds the policy's foreign-library allowance in bytes, which the fixture's solves reserve and a native library that enforces its own memory limit receives, in place of the deployment's (ADR-0119). Version nine is structured (ADR-0123 Outcome 1): every type is a post-order type arena whose children precede their parent and whose last node is the root; table absence, annotation kinds and fact namespaces are registry enums, a validity annotation carries its typed extrapolation policy, a scaling annotation its scheme and a connectivity annotation its typed maxima; an import carries its typed version requirement (Outcome 7). Version ten makes entities typed records (ADR-0123 Outcome 2): data cells are typed tagged values (boolean, integer, quantity as magnitude and unit product, text, identifier, reference, references or missing, each with an optional uncertainty), parsed once and never expressions; entity attribute values, attribute defaults, kind-level bindings of inherited attributes, dataset rows and typed constants are cells; an attribute declares whether it is a key; a dataset names its target table or keyed kind and binds the keys it supplies for every row; enumeration members carry identities; and identifier schemes are declared. Version eleven gives relations constraints (ADR-0123 Outcome 3): a table key may declare an inclusive integer range; a column may be derived by an expression evaluated once per row; the default of the default policy is a typed cell; a required table declares its completeness, one entry per key over a declared set, an enumeration or an integer range, or open for datasets to claim; a symmetric key pair declares its diagonal policy; uniqueness constraints name keys and supplied columns; row requirements are predicates; a dataset may claim completeness over declared sets for its table's open keys; and a cell may reference a keyed row or a table row by its target and key cells. Version twelve types provenance (ADR-0123 Outcome 5): every dataset and constant names its source entity, its role and its lineage by path, in place of a source text; an entity kind declares its facets, and an entity is a source exactly when its kind or an ancestor kind carries the provenance facet; an enumeration member declares the data facets the kernel acts on when it is named as a role, test-only or requiring lineage; a lineage entry names a dataset or a source; and a test names the source entity of its expected values as its oracle, in place of a reference and revision text. Version thirteen types validity envelopes (ADR-0123 Outcome 4): a table declares its envelopes, each an axis with its quantity type bounded by two typed columns, and an entity kind declares an envelope declaration bounded by two of its attributes, in place of bounds read from columns named minimum and maximum; data declares no extrapolation policy; a function declares which of its arguments, or which integration interval, each envelope of a row or entity argument guards; and a definition, test or case selects the extrapolation policy of the data layer for its instances. Version fourteen completes entity kinds (Plan 23 D0): an attribute may be unique, its values distinct across every entity of its kind and its refinements, and may be derived by an expression admission evaluates once per entity with the entity and its attributes bound, in place of a supplied value; a requirement declared in an entity kind is a predicate every entity of the kind satisfies. Version fifteen types a fixture's expected failure (Plan 23 H5): its boundary class and its lineage, in place of a rule text. A rejected validity predicate names its layer: a form or data layer predicate names its form by path, the parameter sets bounding it as static expressions and the form's arguments it constrains by name; a closure range names no form and no set, and its variables are the member paths it bounds. A structural refusal or a diagnostic finding names the members it concerns by path. Exactly one lineage is present. Version sixteen admits package data documents (ADR-0125): a dataset may name the data document supplying its rows by its path within the package, in place of inline rows; a table declares, for a key, a supplied column or its value by name, the storage unit a data document states its magnitudes in, the only statement of a stored unit, and the identifier scheme by which a data document names a referenced entity.",
     );
     enumeration(
         builder,

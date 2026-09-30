@@ -441,7 +441,15 @@ pub(super) fn bundle_retained(bundle: &super::DocumentBundle) -> Result<usize, D
     for document in &bundle.documents {
         bytes = add(
             bytes,
-            add(document.path.capacity(), document.text.capacity())?,
+            add(
+                document.path.capacity(),
+                match &document.content {
+                    super::Content::Text(text) => text.capacity(),
+                    super::Content::Data { bytes, document } => {
+                        add(bytes.len(), document.retained_bytes())?
+                    }
+                },
+            )?,
         )?;
         bytes = add(bytes, value_retained(&document.value)?)?;
         bytes = add(bytes, value_retained(&document.syntax)?)?;

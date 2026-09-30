@@ -266,6 +266,7 @@ fn value_type(column: &FieldContract) -> Option<String> {
         DataType::Int64 => "bigint".into(),
         DataType::Float64 => "double precision".into(),
         DataType::Utf8 => "text".into(),
+        DataType::Binary => "bytea".into(),
         DataType::Timestamp(TimeUnit::Microsecond, Some(zone)) if zone.as_ref() == "UTC" => {
             "timestamptz".into()
         }

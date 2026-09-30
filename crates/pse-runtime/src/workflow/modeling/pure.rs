@@ -23,8 +23,8 @@ use std::{
     reason = "the documents, physical data, budget and planner accompany the fixture selection and caps, limits and cancellation"
 )]
 pub async fn conform_pure_documents(
-    documents: Vec<BTreeMap<String, String>>,
-    physical_documents: BTreeMap<String, String>,
+    documents: Vec<BTreeMap<String, Vec<u8>>>,
+    physical_documents: BTreeMap<String, Vec<u8>>,
     budget: crate::ResourceBudget,
     requirements: Arc<dyn pse_engine::session::policy::RequirementPlanner>,
     selection: ModelingFixtureSelection,
@@ -63,12 +63,12 @@ pub async fn conform_pure_documents(
     .with_cache_service(resources.caches.clone())
     .with_requirement_planner(requirements);
     let token = cancel.token();
-    let load = |documents: &[BTreeMap<String, String>]| {
+    let load = |documents: &[BTreeMap<String, Vec<u8>>]| {
         let bundles = documents
             .iter()
-            .map(|text| {
-                crate::authoring_driver::document::load_package_texts_owned(
-                    text,
+            .map(|sources| {
+                crate::authoring_driver::document::load_package_documents_owned(
+                    sources,
                     &registry,
                     pse_authoring::ParseBudget::default(),
                     &resources.pool,
@@ -89,7 +89,7 @@ pub async fn conform_pure_documents(
         &token,
     )
     .await?;
-    let (rows, names, _fit_data, _sources) = document_inputs(
+    let (rows, names, _fit_data, _sources, data_documents) = document_inputs(
         &load(&documents)?,
         &registry,
         &physical,
@@ -142,7 +142,7 @@ pub async fn conform_pure_documents(
             )
             .map_err(crate::math::MathRuntimeError::from)?;
             let revision = compiler
-                .publish_modeling(rows, names)
+                .publish_modeling_with(rows, names, data_documents)
                 .map_err(crate::math::MathRuntimeError::from)?;
             let fixtures = report.selection.tests(revision.declarations())?;
             if fixtures.is_empty() {

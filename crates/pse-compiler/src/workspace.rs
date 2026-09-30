@@ -1043,6 +1043,9 @@ pub struct CompilerWorkspace {
 
     generation: usize,
     modeling: Option<modeling::State>,
+    /// Package data document inputs by identity (ADR-0125), each set only when its bytes
+    /// change.
+    documents: BTreeMap<SemanticId, modeling::DataDocumentInput>,
 }
 impl std::fmt::Debug for CompilerWorkspace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1091,6 +1094,7 @@ impl CompilerWorkspace {
 
             generation: 0,
             modeling: None,
+            documents: BTreeMap::new(),
         })
     }
     /// Application-visible atomic publication: validation precedes all setters.

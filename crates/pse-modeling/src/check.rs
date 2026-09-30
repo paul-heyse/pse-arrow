@@ -255,6 +255,10 @@ impl CheckedPackage {
     pub fn declaration(&self, id: DeclarationId) -> Option<&Declaration> {
         self.declarations.get(&id)
     }
+    /// The admitted rows of the table declared as `id`.
+    pub fn table(&self, id: DeclarationId) -> Option<&crate::data::Table> {
+        self.tables.get(&id)
+    }
     fn qualified_name(&self, mut id: DeclarationId) -> Option<String> {
         let mut parts = Vec::new();
         loop {
@@ -473,13 +477,29 @@ impl CheckedPackage {
         names
     }
 }
-/// Validate declarations and definitions independently of root instantiation.
+/// Validate declarations and definitions independently of root instantiation, without
+/// package data documents.
 /// # Errors
 /// Malformed IR, names/types/defaults, recursive ownership/extensions, or invalid expressions.
 pub fn check(rows: &[Declaration], context: &TypeContext<'_>) -> Result<CheckedPackage> {
-    check_declarations(rows, context).map_err(|error| error.located(rows))
+    check_with(rows, context, &crate::document::NoDocuments)
 }
-fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result<CheckedPackage> {
+/// Validate declarations and definitions whose datasets may name package data documents,
+/// which `documents` supplies and admits (ADR-0125).
+/// # Errors
+/// As [`check`], and the refusals of a data document's admission.
+pub fn check_with(
+    rows: &[Declaration],
+    context: &TypeContext<'_>,
+    documents: &dyn crate::document::Documents,
+) -> Result<CheckedPackage> {
+    check_declarations(rows, context, documents).map_err(|error| error.located(rows))
+}
+fn check_declarations(
+    rows: &[Declaration],
+    context: &TypeContext<'_>,
+    documents: &dyn crate::document::Documents,
+) -> Result<CheckedPackage> {
     let mut p = CheckedPackage {
         quantities: Arc::new(context.quantities.clone()),
         preconditions: Arc::new(context.preconditions.clone()),
@@ -1536,8 +1556,9 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
     crate::entity::admit(&mut p, context)?;
     crate::provenance::admit(&mut p)?;
     // Tables, then the kinds' derived attributes, which may read them; requirements read
-    // both (Plan 23 D0).
-    let requirements = crate::data::admit(&mut p, context)?;
+    // both (Plan 23 D0). A dataset naming a data document has its rows admitted by
+    // `documents` (ADR-0125).
+    let requirements = crate::data::admit(&mut p, context, documents)?;
     crate::entity::derive(&mut p, context)?;
     crate::data::verify_rows(&p, &requirements)?;
     crate::entity::verify(&p)?;

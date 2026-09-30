@@ -117,6 +117,7 @@ pub(super) fn storage(ty: &DataType) -> Result<String, SchemaError> {
         DataType::UInt64 => "pa.uint64()".to_owned(),
         DataType::Float64 => "pa.float64()".to_owned(),
         DataType::Utf8 => "pa.utf8()".to_owned(),
+        DataType::Binary => "pa.binary()".to_owned(),
         DataType::FixedSizeBinary(width) => format!("pa.binary({width})"),
         DataType::Timestamp(arrow_schema::TimeUnit::Nanosecond, timezone)
             if timezone.as_deref() == Some("UTC") =>

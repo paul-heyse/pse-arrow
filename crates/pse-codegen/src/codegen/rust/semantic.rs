@@ -49,6 +49,8 @@ impl syn::visit_mut::VisitMut for ModelPaths {
             syn::visit_mut::visit_path_mut(self, path);
         } else if *path == syn::parse_quote!(crate::columnar::mismatch) {
             *path = syn::parse_quote!(crate::malformed);
+        } else if *path == syn::parse_quote!(pse_model::Bytes) {
+            *path = syn::parse_quote!(crate::Bytes);
         } else {
             syn::visit_mut::visit_path_mut(self, path);
         }

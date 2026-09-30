@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    86u8, 182u8, 0u8, 9u8, 172u8, 32u8, 37u8, 201u8, 9u8, 9u8, 48u8, 59u8, 147u8, 10u8,
-    223u8, 215u8, 165u8, 74u8, 160u8, 49u8, 194u8, 175u8, 208u8, 236u8, 39u8, 234u8,
-    198u8, 191u8, 164u8, 242u8, 27u8, 74u8,
+    23u8, 135u8, 217u8, 87u8, 128u8, 168u8, 179u8, 147u8, 210u8, 32u8, 13u8, 196u8,
+    192u8, 51u8, 144u8, 46u8, 195u8, 82u8, 57u8, 16u8, 172u8, 134u8, 33u8, 113u8, 236u8,
+    171u8, 133u8, 236u8, 23u8, 67u8, 255u8, 56u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalSourceDocumentsRow {
     fn append(
@@ -59,7 +59,9 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSourceDocumentsRow {
         <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
-        <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <pse_model::Bytes as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
         output.append(false);
         Ok(())
     }
@@ -82,7 +84,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSourceDocumentsRow {
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#content: <String as crate::columnar::ArrowValue>::read(
+            r#content: <pse_model::Bytes as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
@@ -252,7 +254,7 @@ pub struct RuntimeOperationalSourceDocumentsView<'a> {
     bundle_hash_column: &'a arrow_array::FixedSizeBinaryArray,
     path_column: &'a arrow_array::StringArray,
     content_hash_column: &'a arrow_array::FixedSizeBinaryArray,
-    content_column: &'a arrow_array::StringArray,
+    content_column: &'a arrow_array::BinaryArray,
 }
 impl<'a> RuntimeOperationalSourceDocumentsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -302,7 +304,7 @@ impl<'a> RuntimeOperationalSourceDocumentsView<'a> {
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(2usize).as_ref())?,
             content_column: crate::columnar::array::<
-                arrow_array::StringArray,
+                arrow_array::BinaryArray,
             >(batch.column(3usize).as_ref())?,
         })
     }
@@ -359,7 +361,7 @@ impl<'a> RuntimeOperationalSourceDocumentsView<'a> {
         "content",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn content_column(&self) -> &'a arrow_array::StringArray {
+    pub const fn content_column(&self) -> &'a arrow_array::BinaryArray {
         self.content_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "content", "`.")]

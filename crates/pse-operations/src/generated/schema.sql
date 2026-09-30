@@ -407,7 +407,7 @@ CREATE TABLE pse_ops."source_documents" (
     "bundle_hash" pse_ops.source_bundle_id NOT NULL,
     "path" text NOT NULL,
     "content_hash" pse_ops.content_hash NOT NULL,
-    "content" text NOT NULL,
+    "content" bytea NOT NULL,
     CONSTRAINT source_documents_pkey PRIMARY KEY ("bundle_hash", "path"),
     CONSTRAINT source_documents_path_nonempty_check CHECK ("path" <> '')
 );

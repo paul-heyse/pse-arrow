@@ -30,6 +30,10 @@ use arrow_schema::DataType as D;
 fn text() -> T {
     T::native(D::Utf8)
 }
+/// Exact bytes; PostgreSQL `bytea`.
+fn bytes() -> T {
+    T::native(D::Binary)
+}
 fn real() -> T {
     T::native(D::Float64)
 }
@@ -249,7 +253,7 @@ fn declare_sources(b: &mut RegistryBuilder) {
             column("manifest", json()),
             column("created_at", ts()),
         ],
-        "Authored sources stored for job execution. `bundle_hash` is the package content hash of §6.1 over the bundle's path/text pairs; `manifest` is a JSON document naming the paths.",
+        "Authored sources stored for job execution. `bundle_hash` is the package content hash of §6.1 over the bundle's path/content pairs; `manifest` is a JSON document naming the paths.",
     ));
     b.declare_relation(
         store(
@@ -260,9 +264,9 @@ fn declare_sources(b: &mut RegistryBuilder) {
                     .with_fk("runtime.operational_source_bundles", "bundle_hash"),
                 column("path", text()),
                 column("content_hash", T::hash()),
-                column("content", text()),
+                column("content", bytes()),
             ],
-            "One authored document of a source bundle, keyed by its path; `content_hash` is the document content hash.",
+            "One authored document of a source bundle, keyed by its path: its exact bytes, whose kind the path declares (a text document's are UTF-8, a data document's Parquet; ADR-0125), and `content_hash`, the document content hash.",
         )
         .check("path_nonempty", nonempty("path")),
     );

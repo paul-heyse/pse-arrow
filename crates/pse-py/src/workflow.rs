@@ -222,6 +222,7 @@ impl NativeRuntime {
         py: Python<'_>,
         documents: std::collections::BTreeMap<String, String>,
     ) -> PyResult<NativePhysicalContext> {
+        let documents = document_bytes(documents);
         let cancel = CancelSource::new();
         let inner = blocking(
             py,
@@ -229,7 +230,7 @@ impl NativeRuntime {
             async {
                 let pool = self.owner.shared.pool();
                 let token = cancel.token();
-                let bundle = pse_runtime::authoring_driver::document::load_package_texts_owned(
+                let bundle = pse_runtime::authoring_driver::document::load_package_documents_owned(
                     &documents,
                     &self.owner.registry,
                     pse_authoring::ParseBudget::default(),
@@ -761,7 +762,18 @@ pub(crate) struct NativePhysicalContext {
     inner: native::PhysicalContext,
     /// The authored documents it was admitted from: what a durable study stores for its
     /// workers.
-    documents: Arc<std::collections::BTreeMap<String, String>>,
+    documents: Arc<std::collections::BTreeMap<String, Vec<u8>>>,
+}
+/// The documents this boundary receives, each text by path, as the exact bytes the loader
+/// reads. The boundary carries text documents only; package data documents (ADR-0125) enter
+/// through the Rust loaders.
+pub(crate) fn document_bytes(
+    documents: std::collections::BTreeMap<String, String>,
+) -> std::collections::BTreeMap<String, Vec<u8>> {
+    documents
+        .into_iter()
+        .map(|(path, text)| (path, text.into_bytes()))
+        .collect()
 }
 
 /// A durable study (Plan 22 O7): its status, cancellation and publication.

@@ -66,6 +66,10 @@ pse-relations.workspace = true
 pse-schema.workspace = true
 serde_json.workspace = true
 datafusion.workspace = true
+# Package data documents are Parquet, decoded by Arrow type into Arrow-free row sets
+# (ADR-0125).
+parquet.workspace = true
+bytes.workspace = true
 futures-util.workspace = true
 object_store.workspace = true
 pse-columnar.workspace = true

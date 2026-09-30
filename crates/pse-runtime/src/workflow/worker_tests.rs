@@ -22,7 +22,7 @@ pub(super) const SQUARE: &str = r#"package algebraic { def Root {
     annotation check x(x>1);
 } }"#;
 
-fn texts(root: &Path) -> BTreeMap<String, String> {
+fn texts(root: &Path) -> BTreeMap<String, Vec<u8>> {
     let mut texts = BTreeMap::new();
     let mut pending = vec![root.to_path_buf()];
     while let Some(dir) = pending.pop() {
@@ -37,7 +37,7 @@ fn texts(root: &Path) -> BTreeMap<String, String> {
                     .to_str()
                     .unwrap()
                     .replace('\\', "/");
-                texts.insert(key, std::fs::read_to_string(&path).unwrap());
+                texts.insert(key, std::fs::read(&path).unwrap());
             }
         }
     }
@@ -47,7 +47,7 @@ fn texts(root: &Path) -> BTreeMap<String, String> {
 /// A manifest dependency on the physical primitives fixture package.
 pub(super) const PRIMITIVES: &str = r#"dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]"#;
 /// The authored sources of a one-model package over the physical primitives fixture.
-pub(super) fn sources(source: &str) -> (BTreeMap<String, String>, BTreeMap<String, String>) {
+pub(super) fn sources(source: &str) -> (BTreeMap<String, Vec<u8>>, BTreeMap<String, Vec<u8>>) {
     let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/packages");
     let physical = texts(&fixtures.join("physical-primitives"));
     let manifest = std::fs::read_to_string(fixtures.join("minimal_explicit/package.toml"))
@@ -57,8 +57,8 @@ pub(super) fn sources(source: &str) -> (BTreeMap<String, String>, BTreeMap<Strin
         // Outcome 6).
         .replace("dependencies = []", PRIMITIVES);
     let modeling = BTreeMap::from([
-        ("package.toml".to_owned(), manifest),
-        ("models/root.pse".to_owned(), source.to_owned()),
+        ("package.toml".to_owned(), manifest.into_bytes()),
+        ("models/root.pse".to_owned(), source.as_bytes().to_vec()),
     ]);
     (physical, modeling)
 }

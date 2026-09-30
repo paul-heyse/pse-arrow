@@ -220,6 +220,7 @@ impl super::super::native::Policy for RustPolicy<'_> {
             DataType::UInt64 => quote!(u64),
             DataType::Float64 => quote!(f64),
             DataType::Utf8 => quote!(String),
+            DataType::Binary => quote!(pse_model::Bytes),
             DataType::FixedSizeBinary(16) => quote!(pse_ids::SemanticId),
             DataType::FixedSizeBinary(32) => quote!(pse_ids::ContentHash),
             DataType::List(_) | DataType::FixedSizeList(..) | DataType::Struct(_) => {

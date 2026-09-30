@@ -6,20 +6,20 @@
 pub use pse_model::generated::r#authored::r#documents::{AuthoredDocumentsRow, Row};
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    99u8, 190u8, 207u8, 9u8, 212u8, 163u8, 112u8, 24u8, 220u8, 125u8, 59u8, 69u8, 202u8,
-    18u8, 26u8, 201u8,
+    169u8, 137u8, 17u8, 254u8, 21u8, 234u8, 253u8, 79u8, 101u8, 32u8, 114u8, 94u8, 91u8,
+    80u8, 247u8, 209u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "documents";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    98u8, 100u8, 228u8, 207u8, 65u8, 33u8, 165u8, 171u8, 173u8, 205u8, 96u8, 210u8, 12u8,
-    180u8, 40u8, 146u8, 31u8, 240u8, 198u8, 204u8, 42u8, 42u8, 145u8, 246u8, 224u8,
-    139u8, 198u8, 129u8, 231u8, 47u8, 216u8, 24u8,
+    46u8, 29u8, 221u8, 70u8, 194u8, 171u8, 227u8, 120u8, 78u8, 252u8, 36u8, 126u8, 223u8,
+    112u8, 98u8, 254u8, 137u8, 169u8, 163u8, 167u8, 78u8, 255u8, 32u8, 39u8, 124u8, 5u8,
+    57u8, 27u8, 194u8, 207u8, 174u8, 171u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredDocumentsRow {
     fn append(
@@ -43,6 +43,7 @@ impl crate::columnar::ArrowValue for AuthoredDocumentsRow {
             &self.r#source_text,
             children[3usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#content, children[4usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -60,7 +61,12 @@ impl crate::columnar::ArrowValue for AuthoredDocumentsRow {
             children[1usize].as_mut(),
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            pse_model::Bytes,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -83,8 +89,16 @@ impl crate::columnar::ArrowValue for AuthoredDocumentsRow {
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#source_text: <String as crate::columnar::ArrowValue>::read(
+            r#source_text: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#content: <Option<
+                pse_model::Bytes,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
                 index,
             )?,
         })
@@ -148,6 +162,7 @@ impl crate::columnar::RelationRow for AuthoredDocumentsRow {
             &self.r#source_text,
             columns[3usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#content, columns[4usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -182,10 +197,10 @@ impl crate::columnar::RelationRow for AuthoredDocumentsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        10_240_usize + size_of::<Self::Builder>()
+        12_288_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        80usize
+        96usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -203,7 +218,25 @@ impl crate::columnar::RelationRow for AuthoredDocumentsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#source_text).len())?,
+            if let Some(value) = (self.r#source_text).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#content).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         Ok(bytes)
     }
@@ -215,7 +248,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 4usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "document_id",
@@ -236,6 +269,11 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 4usize] = [
         name: "source_text",
         position: 3usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "content",
+        position: 4usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -247,6 +285,8 @@ pub mod columns {
     pub const PATH: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///source_text
     pub const SOURCE_TEXT: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    ///content
+    pub const CONTENT: crate::columnar::ColumnReference = super::COLUMNS[4usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -257,6 +297,7 @@ pub struct AuthoredDocumentsView<'a> {
     package_id_column: &'a arrow_array::FixedSizeBinaryArray,
     path_column: &'a arrow_array::StringArray,
     source_text_column: &'a arrow_array::StringArray,
+    content_column: &'a arrow_array::BinaryArray,
 }
 impl<'a> AuthoredDocumentsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -308,6 +349,9 @@ impl<'a> AuthoredDocumentsView<'a> {
             source_text_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(3usize).as_ref())?,
+            content_column: crate::columnar::array::<
+                arrow_array::BinaryArray,
+            >(batch.column(4usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -370,6 +414,18 @@ impl<'a> AuthoredDocumentsView<'a> {
     pub fn source_text_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[3usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "content",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn content_column(&self) -> &'a arrow_array::BinaryArray {
+        self.content_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "content", "`.")]
+    pub fn content_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -395,6 +451,7 @@ impl<'a> AuthoredDocumentsView<'a> {
                 self.source_text_column,
                 index,
             )?,
+            r#content: crate::columnar::ArrowValue::read(self.content_column, index)?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.

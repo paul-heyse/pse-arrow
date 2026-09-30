@@ -83,7 +83,8 @@ async fn nested_source_claims_use_selected_utf8_bytes_and_native_joins() {
             document_id: document,
             package_id: document.into(),
             path: "source.yaml".into(),
-            source_text: "é".into(),
+            source_text: Some("é".into()),
+            content: None,
         })
         .unwrap();
     let documents = context

@@ -52,6 +52,7 @@ tempfile.workspace = true
 url.workspace = true
 serde_json.workspace = true
 futures-util.workspace = true
+parquet.workspace = true
 
 [[bench]]
 name = "canonicalization"
@@ -76,6 +77,10 @@ required-features = ["native-process"]
 # M1 preparation scaling (Plan 23 H2); no solver is linked or started.
 [[bench]]
 name = "modeling_preparation"
+harness = false
+
+[[bench]]
+name = "document_admission"
 harness = false
 
 [dependencies]

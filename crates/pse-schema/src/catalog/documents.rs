@@ -48,6 +48,15 @@ pub fn declare(builder: &mut RegistryBuilder) {
         }],
         doc:"Generic modeling source uses the shared expression language and registry-generated IR.",
     });
+    // ADR-0125: package data documents are Parquet bytes decoded by Arrow type; a dataset
+    // declaration names one by its path and admits its rows through its relation.
+    builder.declare_document(DocumentSpec {
+        name: "data",
+        kind: DocumentKind::Data,
+        path_glob: "data/*.parquet",
+        sections: Vec::new(),
+        doc: "Typed bulk rows a dataset declaration admits through its declared relation; units and references come only from that declaration.",
+    });
     declare_materials(builder);
     declare_cases(builder);
     entities(

@@ -1320,7 +1320,7 @@ class RuntimeOperationalSourceDocumentsRow:
     bundle_hash: i.SourceBundleId = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     content_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    content: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    content: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
 
 
 @attrs.frozen(kw_only=True)

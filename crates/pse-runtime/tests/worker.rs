@@ -26,7 +26,7 @@ use pse_operations::{
 };
 use pse_runtime::{
     CancelSource, SharedRuntime,
-    authoring_driver::document::{OwnedDocumentSet, load_package_texts_owned},
+    authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned},
     math::{settings::SolveSettings, solves::Outcome},
     workflow::{
         Durability, JobStart, LeasePolicy, ModelingJob, ModelingPackage, Operations, Processed,
@@ -44,7 +44,7 @@ const SQUARE: &str = r#"package algebraic { def Root {
     annotation check x(x>1);
 } }"#;
 
-fn texts(root: &Path) -> BTreeMap<String, String> {
+fn texts(root: &Path) -> BTreeMap<String, Vec<u8>> {
     let mut texts = BTreeMap::new();
     let mut pending = vec![root.to_path_buf()];
     while let Some(dir) = pending.pop() {
@@ -59,19 +59,19 @@ fn texts(root: &Path) -> BTreeMap<String, String> {
                     .to_str()
                     .unwrap()
                     .replace('\\', "/");
-                texts.insert(key, std::fs::read_to_string(&path).unwrap());
+                texts.insert(key, std::fs::read(&path).unwrap());
             }
         }
     }
     texts
 }
 
-fn sources() -> (BTreeMap<String, String>, BTreeMap<String, String>) {
+fn sources() -> (BTreeMap<String, Vec<u8>>, BTreeMap<String, Vec<u8>>) {
     sources_of(SQUARE)
 }
 
 /// The sources of a one-document package over the physical primitives fixture.
-fn sources_of(source: &str) -> (BTreeMap<String, String>, BTreeMap<String, String>) {
+fn sources_of(source: &str) -> (BTreeMap<String, Vec<u8>>, BTreeMap<String, Vec<u8>>) {
     let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/packages");
     let manifest = std::fs::read_to_string(fixtures.join("minimal_explicit/package.toml"))
         .unwrap()
@@ -85,8 +85,8 @@ fn sources_of(source: &str) -> (BTreeMap<String, String>, BTreeMap<String, Strin
     (
         texts(&fixtures.join("physical-primitives")),
         BTreeMap::from([
-            ("package.toml".to_owned(), manifest),
-            ("models/root.pse".to_owned(), source.to_owned()),
+            ("package.toml".to_owned(), manifest.into_bytes()),
+            ("models/root.pse".to_owned(), source.as_bytes().to_vec()),
         ]),
     )
 }
@@ -129,13 +129,13 @@ fn runtime() -> (Arc<SharedRuntime>, Runtime) {
 async fn package(
     shared: &SharedRuntime,
     runtime: &Runtime,
-    physical: &BTreeMap<String, String>,
-    modeling: &BTreeMap<String, String>,
+    physical: &BTreeMap<String, Vec<u8>>,
+    modeling: &BTreeMap<String, Vec<u8>>,
 ) -> ModelingPackage {
     let pool = shared.pool();
     let cancel = pse_columnar::CancellationToken::new();
     let load = |texts| {
-        load_package_texts_owned(
+        load_package_documents_owned(
             texts,
             runtime.registry(),
             pse_authoring::ParseBudget::default(),
@@ -260,6 +260,116 @@ async fn worker_runs_authored_case_end_to_end() {
     database.remove().await.unwrap();
 }
 
+/// A package whose `Root` squares to a value its data document supplies (ADR-0125).
+const DATA_SQUARE: &str = r#"package algebraic {
+    entity kind source provenance { attribute title: Text; }
+    enum role { given }
+    entity source s { title = "KR9 durable job" }
+    table target[n: 1..1]: Scalar storage {dimensionless} complete_over(n in 1..1) missing required;
+    dataset targets: target provenance(s, role.given) from "data/target.parquet";
+    def Root {
+        var x:Scalar;
+        eq square:x*x==target[1];
+        annotation start x(1);
+        annotation bounds x(0,10);
+        annotation report x("root");
+    }
+}"#;
+
+/// The Parquet bytes of `target`: one row, `n = 1`, `value = 9`.
+fn target_document() -> Vec<u8> {
+    use datafusion::arrow::{
+        array::{ArrayRef, Float64Array, Int64Array, RecordBatch},
+        datatypes::{DataType, Field, Schema},
+    };
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("n", DataType::Int64, false),
+        Field::new("value", DataType::Float64, false),
+    ]));
+    let columns: Vec<ArrayRef> = vec![
+        Arc::new(Int64Array::from(vec![1])),
+        Arc::new(Float64Array::from(vec![9.0])),
+    ];
+    let batch = RecordBatch::try_new(Arc::clone(&schema), columns).unwrap();
+    let mut bytes = Vec::new();
+    let mut writer = parquet::arrow::ArrowWriter::try_new(&mut bytes, schema, None).unwrap();
+    writer.write(&batch).unwrap();
+    writer.close().unwrap();
+    bytes
+}
+
+/// ADR-0125, review F09: a package with a data document is stored as a durable source
+/// bundle whose binary document round-trips byte for byte and is verified against its
+/// hashes; the worker binary loads it, admits the document's rows and solves the case.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn durable_job_round_trips_a_package_with_a_data_document() {
+    let database = TestDatabase::create().await.unwrap();
+    let operations = Operations::connect(database.url(), "enqueuer", LeasePolicy::default())
+        .await
+        .unwrap();
+    let (physical, mut modeling) = sources_of(DATA_SQUARE);
+    modeling.insert("data/target.parquet".to_owned(), target_document());
+    let (shared, local) = runtime();
+    let local = local.with_durability(Durability::Durable(operations.clone()));
+    let package = package(&shared, &local, &physical, &modeling).await;
+    let case = package
+        .declarations()
+        .iter()
+        .find(|d| d.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let job = ModelingJob {
+        physical: operations.put_sources(&physical).await.unwrap(),
+        modeling: vec![operations.put_sources(&modeling).await.unwrap()],
+        case,
+        route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+        settings: settings(),
+        start: JobStart::Fresh,
+        study: None,
+    };
+    // The stored bundle is the package's exact bytes, its Parquet document included.
+    assert_eq!(operations.sources(&job.modeling[0]).await.unwrap(), modeling);
+    let enqueued = operations
+        .enqueue(&job, "data-document-square", RetryPolicy::ONCE, 0)
+        .await
+        .unwrap();
+    let url = database.url().to_owned();
+    let status = tokio::task::spawn_blocking(move || {
+        std::process::Command::new(env!("CARGO_BIN_EXE_pse-worker"))
+            .args([
+                "--url",
+                &url,
+                "--name",
+                "worker-data",
+                "--until-idle",
+                "--heartbeat-ms",
+                "200",
+                "--memory-mib",
+                "4096",
+                "--threads",
+                "2",
+            ])
+            .status()
+            .unwrap()
+    })
+    .await
+    .unwrap();
+    assert!(status.success(), "{status}");
+    let store = operations.store();
+    let attempt = store.attempts().get(enqueued.attempt_id()).await.unwrap();
+    assert_eq!(
+        store.jobs().get(enqueued.job_id()).await.unwrap().state,
+        JobState::Completed,
+        "{attempt:?}"
+    );
+    assert_eq!(
+        TerminationCode::of(&attempt).unwrap().as_ref(),
+        Some(&TerminationCode::Native(NativeTermination::Success))
+    );
+    drop((local, shared, package, operations));
+    database.remove().await.unwrap();
+}
+
 /// This process reuses the seed the worker process stored for the same preparation.
 async fn stored_seed_reused_across_processes(
     operations: &Operations,
@@ -333,10 +443,11 @@ async fn stored_seed_reused_across_processes(
 /// The physical primitives with a dimensionless indicator kind and type, so an authored
 /// model can declare binary decisions (ADR-0103: a discrete domain needs a count or
 /// indicator quantity).
-fn physical_with_indicator() -> BTreeMap<String, String> {
+fn physical_with_indicator() -> BTreeMap<String, Vec<u8>> {
     let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/packages");
     let mut physical = texts(&fixtures.join("physical-primitives"));
-    let document = physical.get_mut("materials/physical.yaml").unwrap();
+    let bytes = physical.get_mut("materials/physical.yaml").unwrap();
+    let document = String::from_utf8(std::mem::take(bytes)).unwrap();
     let zero = r#"{"num": 0, "den": 1}"#;
     let dimension = [zero; 8].join(", ");
     let kind = format!(
@@ -351,9 +462,10 @@ fn physical_with_indicator() -> BTreeMap<String, String> {
       "reference_state_id": null, "scale_kind": "point", "shape": [], "subject_kind": null,
       "canonical_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a", "nominal_magnitude": null,
       "doc": "Zero-or-one decision."},"#;
-    *document = document
+    *bytes = document
         .replacen(r#""quantity_kinds": ["#, &kind, 1)
-        .replacen(r#""quantity_types": ["#, ty, 1);
+        .replacen(r#""quantity_types": ["#, ty, 1)
+        .into_bytes();
     physical
 }
 
@@ -402,9 +514,9 @@ fn market_split() -> String {
 }
 
 /// The modeling sources of `source`, which sees the primitives' `Scalar` and `Indicator`.
-fn discrete_sources(source: &str) -> BTreeMap<String, String> {
+fn discrete_sources(source: &str) -> BTreeMap<String, Vec<u8>> {
     let (_, mut modeling) = sources();
-    modeling.insert("models/root.pse".to_owned(), source.to_owned());
+    modeling.insert("models/root.pse".to_owned(), source.as_bytes().to_vec());
     modeling
 }
 

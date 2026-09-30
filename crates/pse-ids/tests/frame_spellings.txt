@@ -53,7 +53,7 @@ pse.modeling.fit-source.v1
 pse.modeling.implicit-trial-hints.v1
 pse.modeling.member.v1
 pse.modeling.mesh-coordinate.v1
-pse.modeling.source-revision.v2
+pse.modeling.source-revision.v3
 pse.modeling.typed-constant.v1
 pse.native.build.v1
 pse.native.ipopt.build.v1

@@ -58,7 +58,8 @@ pub fn generate(reg: &Registry) -> Result<String, SchemaError> {
         ));
     }
     let mut documents = Vec::new();
-    for document in reg.documents() {
+    // A data document is bytes decoded by Arrow type (ADR-0125), not a source document.
+    for document in reg.documents().iter().filter(|d| d.kind.is_text()) {
         let mut properties = Vec::new();
         for section in &document.sections {
             let definition = format!("source:{}:{}", document.name, section.key);
@@ -209,6 +210,10 @@ impl super::native::Policy for JsonPolicy<'_> {
         Ok(Some(match ty.data_type() {
             DataType::Boolean => serde_json::json!({"type":"boolean"}).to_string(),
             DataType::Utf8 => serde_json::json!({"type":"string"}).to_string(),
+            // Exact bytes, carried in JSON as base64 text (ADR-0125).
+            DataType::Binary => {
+                sorted_json(serde_json::json!({"type":"string","contentEncoding":"base64"}))
+            }
             DataType::Float64 => serde_json::json!({"type":"number"}).to_string(),
             DataType::Int16 => integer(i128::from(i16::MIN), i128::from(i16::MAX)),
             DataType::Int32 => integer(i128::from(i32::MIN), i128::from(i32::MAX)),

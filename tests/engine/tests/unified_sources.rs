@@ -23,7 +23,7 @@ use pse_ids::SemanticId;
 use pse_relations::generated::{
     authored::documents, enums::PublicationKind, runtime::publication_manifests,
 };
-use pse_runtime::authoring_driver::document::load_package_texts_owned;
+use pse_runtime::authoring_driver::document::load_package_documents_owned;
 use std::{collections::BTreeMap, sync::Arc};
 
 fn native_fixture() -> pse_testkit::NativeFixture {
@@ -44,15 +44,15 @@ fn native_fixture() -> pse_testkit::NativeFixture {
         )));
     fixture
 }
-fn texts() -> BTreeMap<String, String> {
+fn texts() -> BTreeMap<String, Vec<u8>> {
     BTreeMap::from([
         (
             "package.toml".into(),
-            include_str!("../../fixtures/packages/minimal_named/package.toml").to_owned(),
+            include_bytes!("../../fixtures/packages/minimal_named/package.toml").to_vec(),
         ),
         (
             "models/probe.pse".into(),
-            "// exact UTF-8 provenance: 水, ΔT\r\npackage minimal_named { entity kind sample {} entity sample probe {} }\r\n".into(),
+            "// exact UTF-8 provenance: 水, ΔT\r\npackage minimal_named { entity kind sample {} entity sample probe {} }\r\n".as_bytes().to_vec(),
         ),
     ])
 }
@@ -93,7 +93,7 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
     let fixture = native_fixture();
     let budget = fixture.resources.pool.clone();
     let cancel = CancellationToken::default();
-    let loaded = load_package_texts_owned(
+    let loaded = load_package_documents_owned(
         &sources,
         &registry,
         ParseBudget::default(),
@@ -204,11 +204,11 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
     for batch in batches {
         let view = documents::View::try_from_batch(&batch).unwrap();
         for row in view.rows().unwrap() {
-            recovered.insert(row.path, row.source_text);
+            recovered.insert(row.path, row.source_text.unwrap().into_bytes());
         }
     }
     assert_eq!(recovered, sources);
-    let reparsed = load_package_texts_owned(
+    let reparsed = load_package_documents_owned(
         &recovered,
         &registry,
         ParseBudget::default(),

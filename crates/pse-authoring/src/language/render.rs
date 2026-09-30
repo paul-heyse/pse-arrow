@@ -66,6 +66,26 @@ fn completeness(entries: &[super::ModelingCompleteness]) -> Result<String, Autho
 fn path(segments: &[String]) -> String {
     segments.iter().map(|s| name(s)).collect::<Vec<_>>().join(".")
 }
+/// ADR-0125: ` storage {unit}` and ` by scheme`, each when declared.
+fn storage(
+    unit: Option<&[super::cells::CellUnitFactor]>,
+    scheme: Option<&[String]>,
+) -> Result<String, AuthoringError> {
+    let mut text = String::new();
+    if let Some(unit) = unit {
+        let product = super::unit_product(&super::cells::CellQuantity {
+            magnitude: 1.0,
+            unit: Some(unit.to_vec()),
+        })?
+        .ok_or_else(|| bad("a storage unit is a unit literal"))?;
+        text.push_str(&format!(" storage {{{product}}}"));
+    }
+    if let Some(scheme) = scheme {
+        text.push_str(&format!(" by {}", path(scheme)));
+    }
+    Ok(text)
+}
+
 /// ADR-0123 Outcome 5: `provenance(source, role[, lineage(dataset d, source s)])`.
 fn provenance(value: &super::ModelingProvenance) -> String {
     let lineage = if value.lineage.is_empty() {
@@ -626,6 +646,33 @@ fn print_block(
             ),
             Selected::Table(v) => {
                 use pse_model::generated::enums::ModelingMissingPolicy as Missing;
+                // ADR-0125: each storage entry is written where its key, supplied column or
+                // value is declared, the first slot of its name; any other entry has no
+                // spelling.
+                let slots = v
+                    .keys
+                    .iter()
+                    .map(|k| k.name.as_str())
+                    .chain(v.columns.iter().filter(|c| c.derived.is_none()).map(|c| c.name.as_str()))
+                    .chain(v.value_type.as_ref().map(|_| "value"))
+                    .collect::<BTreeSet<_>>();
+                if v.storage.iter().any(|entry| !slots.contains(entry.name.as_str()))
+                    || v.storage.iter().map(|e| &e.name).collect::<BTreeSet<_>>().len() != v.storage.len()
+                {
+                    return Err(bad("a storage entry names one stored key, supplied column or value"));
+                }
+                let written = std::cell::RefCell::new(BTreeSet::new());
+                let stored = |slot: &str| -> Result<String, AuthoringError> {
+                    if !written.borrow_mut().insert(slot.to_owned()) {
+                        return Ok(String::new());
+                    }
+                    v.storage
+                        .iter()
+                        .find(|entry| entry.name == slot)
+                        .map_or(Ok(String::new()), |entry| {
+                            storage(entry.storage_unit.as_deref(), entry.scheme.as_deref())
+                        })
+                };
                 let mut clauses = String::new();
                 for e in &v.envelopes {
                     clauses.push_str(&format!(
@@ -669,15 +716,15 @@ fn print_block(
                         &v.keys
                             .iter()
                             .map(|k| Ok(match &k.range {
-                                Some(range) => format!("{}: {}", name(&k.name), range_text(range)),
-                                None => format!("{}: {}", name(&k.name), ty(&k.r#type)?),
+                                Some(range) => format!("{}: {}{}", name(&k.name), range_text(range), stored(&k.name)?),
+                                None => format!("{}: {}{}", name(&k.name), ty(&k.r#type)?, stored(&k.name)?),
                             }))
                             .collect::<Result<Vec<_>, AuthoringError>>()?,
                         "[",
                         "]"
                     ),
                     match (&v.value_type, v.columns.is_empty()) {
-                        (Some(value), true) => ty(value)?,
+                        (Some(value), true) => format!("{}{}", ty(value)?, stored("value")?),
                         (None, false) => format!(
                             "{{{}}}",
                             v.columns
@@ -688,7 +735,12 @@ fn print_block(
                                         name(&c.name),
                                         ty(&c.r#type)?
                                     ),
-                                    None => format!("{}: {}", name(&c.name), ty(&c.r#type)?),
+                                    None => format!(
+                                        "{}: {}{}",
+                                        name(&c.name),
+                                        ty(&c.r#type)?,
+                                        stored(&c.name)?
+                                    ),
                                 }))
                                 .collect::<Result<Vec<_>, AuthoringError>>()?
                                 .join(", ")
@@ -705,8 +757,11 @@ fn print_block(
                         .collect::<Result<Vec<_>, _>>()?
                         .join(", "))
                 };
+                if v.document.is_some() && !v.rows.is_empty() {
+                    return Err(bad("a dataset names a data document or writes its rows inline"));
+                }
                 format!(
-                    "dataset {n}: {}{}{} {} {{ {} }}",
+                    "dataset {n}: {}{}{} {} {}",
                     v.target,
                     if v.bindings.is_empty() {
                         String::new()
@@ -726,11 +781,17 @@ fn print_block(
                         format!(" {}", completeness(&v.complete_over)?)
                     },
                     provenance(&v.provenance),
-                    v.rows
-                        .iter()
-                        .map(|r| Ok(format!("[{}] = [{}];", cells(&r.keys)?, cells(&r.values)?)))
-                        .collect::<Result<Vec<_>, AuthoringError>>()?
-                        .join(" ")
+                    match &v.document {
+                        Some(path) => format!("from {};", quoted(path)),
+                        None => format!(
+                            "{{ {} }}",
+                            v.rows
+                                .iter()
+                                .map(|r| Ok(format!("[{}] = [{}];", cells(&r.keys)?, cells(&r.values)?)))
+                                .collect::<Result<Vec<_>, AuthoringError>>()?
+                                .join(" ")
+                        ),
+                    }
                 )
             }
             Selected::Annotation(v) => {

@@ -65,8 +65,10 @@ fn check(input: LogicalPlan, documents: Option<&LogicalPlan>) -> Result<LogicalP
                 None,
             )?
             .filter(
+                // A data document has no source text (ADR-0125): a span into one is dangling.
                 column("declared_document")
                     .is_null()
+                    .or(column("source_bytes").is_null())
                     .or(column("source_start").lt(lit(0_i64)))
                     .or(column("source_start").gt(column("source_end")))
                     .or(column("source_end").gt(column("source_bytes"))),

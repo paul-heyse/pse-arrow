@@ -9,11 +9,13 @@ use std::collections::BTreeMap;
 use std::io::Read;
 use std::path::Path;
 
+/// Every declared document of the package at `root` as its exact bytes, within the
+/// package byte budget.
 pub(super) fn package_files(
     root: &Path,
     registry: &Registry,
     budget: &ParseBudget,
-) -> Result<BTreeMap<String, String>, DriverError> {
+) -> Result<BTreeMap<String, Vec<u8>>, DriverError> {
     let mut files = BTreeMap::new();
     let mut remaining = budget.max_bytes;
     read_one(root, "package.toml", &mut remaining, &mut files)?;
@@ -22,7 +24,7 @@ pub(super) fn package_files(
         let Some((directory, pattern)) = document.path_glob.split_once('/') else {
             continue;
         };
-        if !matches!(pattern, "*.yaml" | "*.pse") || directory.contains(['.', '\\']) {
+        if !matches!(pattern, "*.yaml" | "*.pse" | "*.parquet") || directory.contains(['.', '\\']) {
             return Err(failure(
                 document.path_glob,
                 "unsupported declared document glob",
@@ -66,7 +68,7 @@ fn read_one(
     root: &Path,
     relative: &str,
     remaining: &mut u64,
-    files: &mut BTreeMap<String, String>,
+    files: &mut BTreeMap<String, Vec<u8>>,
 ) -> Result<(), DriverError> {
     let path = root.join(relative);
     let metadata =
@@ -77,13 +79,13 @@ fn read_one(
             "document must be a regular file, not a symlink",
         ));
     }
-    let mut text = String::new();
+    let mut bytes = Vec::new();
     std::fs::File::open(path)
         .map_err(|error| failure(relative, &error.to_string()))?
         .take(remaining.saturating_add(1))
-        .read_to_string(&mut text)
+        .read_to_end(&mut bytes)
         .map_err(|error| failure(relative, &error.to_string()))?;
-    let needed = u64::try_from(text.len()).unwrap_or(u64::MAX);
+    let needed = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
     if needed > *remaining {
         return Err(DriverError::Authoring(
             pse_authoring::AuthoringError::Budget {
@@ -94,7 +96,7 @@ fn read_one(
         ));
     }
     *remaining -= needed;
-    files.insert(relative.to_owned(), text);
+    files.insert(relative.to_owned(), bytes);
     Ok(())
 }
 

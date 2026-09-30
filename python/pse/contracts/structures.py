@@ -193,6 +193,15 @@ class ModelingCell:
 
 
 @attrs.frozen(kw_only=True)
+class ModelingColumnStorage:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    storage_unit: b.tuple[ModelingUnitFactor, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ModelingUnitFactor), iterable_validator=attrs.validators.instance_of(b.tuple))))
+    scheme: b.tuple[b.str, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple))))
+
+
+@attrs.frozen(kw_only=True)
 class ModelingIntegerRange:
     """Declared relation row or nested value."""
 

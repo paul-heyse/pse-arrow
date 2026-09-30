@@ -18,7 +18,7 @@ use super::{
     durable::{Claim, DurableAttempt, DurableRecord},
 };
 use crate::authoring_driver::document::{
-    OwnedDocumentSet, load_package_texts_owned, package_checksum,
+    OwnedDocumentSet, load_package_documents_owned, package_checksum,
 };
 use crate::math::settings::SolveSettings;
 use pse_ids::{ContentHash, SemanticId};
@@ -244,22 +244,23 @@ fn operations(runtime: &Runtime) -> Result<&Operations, WorkflowError> {
 }
 
 impl Operations {
-    /// Store authored documents as a content-addressed source bundle and return its §6.1
-    /// package content hash. Storing the same documents again is a no-op.
+    /// Store authored documents, each the exact bytes of the kind its path declares
+    /// (ADR-0125), as a content-addressed source bundle and return its §6.1 package content
+    /// hash. Storing the same documents again is a no-op.
     ///
     /// # Errors
     /// Store failures.
     pub async fn put_sources(
         &self,
-        texts: &BTreeMap<String, String>,
+        sources: &BTreeMap<String, Vec<u8>>,
     ) -> Result<ContentHash, WorkflowError> {
-        let bundle_hash = package_checksum(texts);
-        let documents = texts
+        let bundle_hash = package_checksum(sources);
+        let documents = sources
             .iter()
-            .map(|(path, text)| SourceDocument {
+            .map(|(path, bytes)| SourceDocument {
                 path: path.clone(),
-                content_hash: pse_ids::encoding_checksum(text.as_bytes()).content_hash(),
-                content: text.clone(),
+                content_hash: pse_ids::encoding_checksum(bytes).content_hash(),
+                content: bytes.clone(),
             })
             .collect();
         self.store()
@@ -268,7 +269,7 @@ impl Operations {
                 bundle_hash: bundle_hash.into(),
                 manifest: serde_json::to_value(SourceManifest {
                     version: Version,
-                    paths: texts.keys().cloned().collect(),
+                    paths: sources.keys().cloned().collect(),
                 })
                 .map_err(|e| contract(format!("source manifest: {e}")))?,
                 documents,
@@ -277,18 +278,19 @@ impl Operations {
         Ok(bundle_hash)
     }
 
-    /// Read a source bundle and verify its package content hash and every document hash.
+    /// Read a source bundle and verify, byte for byte, its package content hash and every
+    /// document hash; a data document is verified like a text one (ADR-0125).
     ///
     /// # Errors
     /// An unknown bundle, a store failure, or content that does not match its hashes.
     pub async fn sources(
         &self,
         bundle: &ContentHash,
-    ) -> Result<BTreeMap<String, String>, WorkflowError> {
+    ) -> Result<BTreeMap<String, Vec<u8>>, WorkflowError> {
         let stored = self.store().sources().get(&(*bundle).into()).await?;
-        let mut texts = BTreeMap::new();
+        let mut sources = BTreeMap::new();
         for document in stored.documents {
-            if pse_ids::encoding_checksum(document.content.as_bytes()).content_hash()
+            if pse_ids::encoding_checksum(&document.content).content_hash()
                 != document.content_hash
             {
                 return Err(contract(format!(
@@ -297,15 +299,15 @@ impl Operations {
                     bundle.to_prefixed()
                 )));
             }
-            texts.insert(document.path, document.content);
+            sources.insert(document.path, document.content);
         }
-        if package_checksum(&texts) != *bundle {
+        if package_checksum(&sources) != *bundle {
             return Err(contract(format!(
                 "source bundle {} does not match its package content hash",
                 bundle.to_prefixed()
             )));
         }
-        Ok(texts)
+        Ok(sources)
     }
 
     /// Enqueue a modeling job with its first attempt. The idempotency key names the logical
@@ -561,13 +563,13 @@ impl Runtime {
 
     pub(super) async fn physical_from_sources(
         &self,
-        texts: &BTreeMap<String, String>,
+        sources: &BTreeMap<String, Vec<u8>>,
         cancel: &crate::CancelSource,
     ) -> Result<PhysicalContext, WorkflowError> {
         let pool = self.shared.pool();
         let token = cancel.token();
-        let bundle = load_package_texts_owned(
-            texts,
+        let bundle = load_package_documents_owned(
+            sources,
             &self.registry,
             pse_authoring::ParseBudget::default(),
             &pool,
@@ -579,16 +581,16 @@ impl Runtime {
 
     pub(super) fn package_from_sources(
         &self,
-        bundles: &[BTreeMap<String, String>],
+        bundles: &[BTreeMap<String, Vec<u8>>],
         physical: PhysicalContext,
     ) -> Result<super::ModelingPackage, WorkflowError> {
         let pool = self.shared.pool();
         let token = pse_columnar::CancellationToken::new();
         let bundles = bundles
             .iter()
-            .map(|texts| {
-                load_package_texts_owned(
-                    texts,
+            .map(|sources| {
+                load_package_documents_owned(
+                    sources,
                     &self.registry,
                     pse_authoring::ParseBudget::default(),
                     &pool,

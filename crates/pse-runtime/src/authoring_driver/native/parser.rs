@@ -4,7 +4,10 @@
 use crate::authoring_driver::{DriverError, ParseBudget, document::load_package_sources_owned};
 use datafusion::{
     arrow::{
-        array::{Array, FixedSizeBinaryArray, ListArray, RecordBatch, StringArray, StructArray},
+        array::{
+            Array, BinaryArray, FixedSizeBinaryArray, ListArray, RecordBatch, StringArray,
+            StructArray,
+        },
         buffer::OffsetBuffer,
         compute::concat_batches,
         datatypes::{DataType, Field, FieldRef, Schema, SchemaRef},
@@ -104,11 +107,31 @@ impl Parser {
         }
         let paths = strings(sources, "path")?;
         let texts = strings(sources, "source_text")?;
-        if sources.null_count() != 0 || paths.null_count() != 0 || texts.null_count() != 0 {
-            return Err(super::invalid("source inventory contains null text/path"));
+        let contents = sources
+            .column_by_name("content")
+            .and_then(|column| column.as_any().downcast_ref::<BinaryArray>())
+            .ok_or_else(|| super::invalid("source content representation changed"))?;
+        // ADR-0125: a text document carries its source text, a data document its bytes,
+        // exactly one of them.
+        if sources.null_count() != 0
+            || paths.null_count() != 0
+            || (0..sources.len()).any(|index| texts.is_valid(index) == contents.is_valid(index))
+        {
+            return Err(super::invalid(
+                "source inventory needs a path and exactly one of text or content",
+            ));
         }
         let bundle = load_package_sources_owned(
-            (0..sources.len()).map(|index| (paths.value(index), texts.value(index).as_bytes())),
+            (0..sources.len()).map(|index| {
+                (
+                    paths.value(index),
+                    if texts.is_valid(index) {
+                        texts.value(index).as_bytes()
+                    } else {
+                        contents.value(index)
+                    },
+                )
+            }),
             &self.binding.registry,
             self.binding.budget,
             &self.binding.pool,
@@ -170,17 +193,19 @@ impl ScalarUDFImpl for Parser {
         let DataType::Struct(fields) = child.data_type() else {
             return Err(super::invalid("document list requires path/text structs"));
         };
-        if fields.len() != 3
+        if fields.len() != 4
             || fields[0].name() != "document_id"
             || fields[0].data_type() != &DataType::FixedSizeBinary(16)
             || fields[1].name() != "path"
             || fields[2].name() != "source_text"
-            || fields[1..]
+            || fields[1..3]
                 .iter()
                 .any(|field| field.data_type() != &DataType::Utf8)
+            || fields[3].name() != "content"
+            || fields[3].data_type() != &DataType::Binary
         {
             return Err(super::invalid(
-                "document input must contain an identity and exact UTF-8 path and source_text",
+                "document input must contain an identity, an exact UTF-8 path and source_text, and binary content",
             ));
         }
         Ok(arguments.to_vec())

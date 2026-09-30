@@ -31,7 +31,8 @@ class AuthoredDocumentsRow:
     document_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    source_text: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    source_text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    content: b.bytes | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.bytes)))
 
 
 @attrs.frozen(kw_only=True)
@@ -513,6 +514,7 @@ class AuthoredModelingDeclarationsFieldValueTable:
     unique: b.tuple[AuthoredModelingDeclarationsFieldValueTableUniqueItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueTableUniqueItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     requirements: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     envelopes: b.tuple[s.ModelingEnvelope, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingEnvelope), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    storage: b.tuple[s.ModelingColumnStorage, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingColumnStorage), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)
@@ -568,6 +570,7 @@ class AuthoredModelingDeclarationsFieldValueDataset:
     bindings: b.tuple[AuthoredModelingDeclarationsFieldValueDatasetBindingsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueDatasetBindingsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     complete_over: b.tuple[s.ModelingCompleteness, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingCompleteness), iterable_validator=attrs.validators.instance_of(b.tuple)))
     rows: b.tuple[AuthoredModelingDeclarationsFieldValueDatasetRowsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueDatasetRowsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    document: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
 
 @attrs.frozen(kw_only=True)

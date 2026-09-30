@@ -6,7 +6,8 @@
 use pse_authoring::ParseBudget;
 use pse_runtime::authoring_driver::DriverError;
 use pse_runtime::authoring_driver::document::{
-    OwnedDocumentSet, load_package_sources_owned, load_package_texts, load_package_texts_owned,
+    OwnedDocumentSet, load_package_documents, load_package_documents_owned,
+    load_package_sources_owned,
 };
 
 use pse_columnar::{CancellationToken, CanonError, MemoryPool};
@@ -19,6 +20,13 @@ use std::sync::{
 
 fn header() -> String {
     include_str!("../../../tests/fixtures/packages/minimal_explicit/package.toml").to_owned()
+}
+/// Text documents as the exact bytes the loaders read.
+fn bytes(texts: &BTreeMap<String, String>) -> BTreeMap<String, Vec<u8>> {
+    texts
+        .iter()
+        .map(|(path, text)| (path.clone(), text.as_bytes().to_vec()))
+        .collect()
 }
 fn sources() -> BTreeMap<String, String> {
     BTreeMap::from([
@@ -104,11 +112,11 @@ impl MemoryPool for ObservedBudget {
 fn owned_loader_matches_actual_rows_and_spans_and_retains_only_shared_owners() {
     let registry = pse_engine::validation::registry().unwrap();
     let texts = sources();
-    let ordinary = load_package_texts(texts.clone(), registry, ParseBudget::default()).unwrap();
+    let ordinary = load_package_documents(bytes(&texts), registry, ParseBudget::default()).unwrap();
     let budget = Arc::new(ObservedBudget::new(512 * 1024 * 1024));
     let cancel = CancellationToken::new();
-    let owned = load_package_texts_owned(
-        &texts,
+    let owned = load_package_documents_owned(
+        &bytes(&texts),
         registry,
         ParseBudget::default(),
         &budget.pool(),
@@ -130,7 +138,7 @@ fn owned_loader_matches_actual_rows_and_spans_and_retains_only_shared_owners() {
     );
     assert_eq!(owned.bundle().package, ordinary.package);
     for (actual, expected) in owned.bundle().documents.iter().zip(&ordinary.documents) {
-        assert_eq!(actual.text, expected.text);
+        assert_eq!(actual.text(), expected.text());
         assert_eq!(actual.spans, expected.spans);
     }
     let retained = budget.inner.reserved();
@@ -168,8 +176,8 @@ fn tiny_budget_refuses_before_parsing_long_scalar_and_invalid_syntax() {
         format!("not TOML {}", "x".repeat(512 * 1024)),
     )]);
     let budget: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1024));
-    let error = load_package_texts_owned(
-        &texts,
+    let error = load_package_documents_owned(
+        &bytes(&texts),
         registry,
         ParseBudget::default(),
         &budget,
@@ -190,8 +198,8 @@ fn cancellation_after_reservation_releases_every_phase() {
     let cancel = CancellationToken::new();
     let mut budget = ObservedBudget::new(512 * 1024 * 1024);
     budget.cancel_after_grow = Some(cancel.clone());
-    let error = load_package_texts_owned(
-        &sources(),
+    let error = load_package_documents_owned(
+        &bytes(&sources()),
         registry,
         ParseBudget::default(),
         &budget.pool(),
@@ -214,10 +222,10 @@ fn parser_aliases_are_preserved_and_their_expanded_rows_are_validated() {
     *constants = constants
         .replace("name: probe", "name: &name probe")
         .replace("doc: Synthetic parser fixture.", "doc: *name");
-    let expected = load_package_texts(texts.clone(), registry, ParseBudget::default()).unwrap();
+    let expected = load_package_documents(bytes(&texts), registry, ParseBudget::default()).unwrap();
     let budget = Arc::new(ObservedBudget::new(512 * 1024 * 1024));
-    let owned = load_package_texts_owned(
-        &texts,
+    let owned = load_package_documents_owned(
+        &bytes(&texts),
         registry,
         ParseBudget::default(),
         &budget.pool(),
@@ -241,8 +249,8 @@ fn parser_aliases_are_preserved_and_their_expanded_rows_are_validated() {
     // retained storage with the same documents without aliases, including the
     // same native registry, so this measures alias overhead rather than registry size.
     let plain_budget = ObservedBudget::new(512 * 1024 * 1024);
-    let plain = load_package_texts_owned(
-        &sources(),
+    let plain = load_package_documents_owned(
+        &bytes(&sources()),
         registry,
         ParseBudget::default(),
         &plain_budget.pool(),
@@ -267,8 +275,8 @@ fn eight_kib_long_scalar_does_not_reserve_the_maximum_parser_node_budget() {
     let text = header().replace("Minimal explicit identity fixture.", &"a".repeat(8192));
     let texts = BTreeMap::from([("package.toml".to_owned(), text)]);
     let budget = ObservedBudget::new(8 * 1024 * 1024);
-    let owned = load_package_texts_owned(
-        &texts,
+    let owned = load_package_documents_owned(
+        &bytes(&texts),
         registry,
         ParseBudget::default(),
         &budget.pool(),
@@ -354,8 +362,8 @@ fn long_qualified_names_reserve_expansion_before_identity_hydration() {
         ("materials/constants.yaml".to_owned(), constants),
     ]);
     let small: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(4 * 1024 * 1024));
-    let error = load_package_texts_owned(
-        &texts,
+    let error = load_package_documents_owned(
+        &bytes(&texts),
         registry,
         ParseBudget::default(),
         &small,
@@ -370,8 +378,8 @@ fn long_qualified_names_reserve_expansion_before_identity_hydration() {
     assert_eq!(small.reserved(), 0);
     let budget: Arc<dyn MemoryPool> =
         Arc::new(pse_columnar::GreedyMemoryPool::new(64 * 1024 * 1024));
-    let owned = load_package_texts_owned(
-        &texts,
+    let owned = load_package_documents_owned(
+        &bytes(&texts),
         registry,
         ParseBudget::default(),
         &budget,

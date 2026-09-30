@@ -397,29 +397,49 @@ pub fn tables()
             upper: lower + width,
         })
     };
+    // ADR-0125: how a data document stores a key, a supplied column or a value, drawn per
+    // slot and kept for the first slot of each name, where the renderer writes it.
+    let storage = || {
+        (
+            prop::option::of(unit_product().prop_map(|unit| crate::language::unit_factors(&unit))),
+            prop::option::of(prop::collection::vec(plain_name(), 1..3)),
+        )
+    };
     let key = (
         plain_name(),
         prop::option::of(range()),
         ty(),
+        storage(),
     )
-        .prop_map(|(name, range, r#type)| Key {
-            name,
-            r#type: if range.is_some() {
-                parse_type("Integer", &[]).unwrap_or_default()
-            } else {
-                r#type
-            },
-            range,
+        .prop_map(|(name, range, r#type, storage)| {
+            (
+                Key {
+                    name,
+                    r#type: if range.is_some() {
+                        parse_type("Integer", &[]).unwrap_or_default()
+                    } else {
+                        r#type
+                    },
+                    range,
+                },
+                storage,
+            )
         });
     let column = (
         plain_name(),
         ty(),
         prop::option::of(prop::sample::select(vec!["2 * v", "sum(i in s | x[i])", "a.b + 1{kg}"])),
+        storage(),
     )
-        .prop_map(|(name, r#type, derived)| Column {
-            name,
-            r#type,
-            derived: derived.map(str::to_owned),
+        .prop_map(|(name, r#type, derived, storage)| {
+            (
+                Column {
+                    name,
+                    r#type,
+                    derived: derived.map(str::to_owned),
+                },
+                storage,
+            )
         });
     let entry = (
         plain_name(),
@@ -447,8 +467,8 @@ pub fn tables()
     (
         prop::collection::vec(key, 0..4),
         prop_oneof![
-            ty().prop_map(|value| (Some(value), Vec::new())),
-            prop::collection::vec(column, 1..4).prop_map(|columns| (None, columns)),
+            (ty(), storage()).prop_map(|(value, storage)| (Some(value), storage, Vec::new())),
+            prop::collection::vec(column, 1..4).prop_map(|columns| (None, (None, None), columns)),
         ],
         prop::option::of((
             plain_name(),
@@ -466,11 +486,34 @@ pub fn tables()
         prop::collection::vec(envelope, 0..3),
     )
         .prop_map(
-            |(keys, (value_type, columns), symmetry, unique, complete_over, policy, default, requirements, envelopes)| {
+            |(keys, (value_type, value_storage, columns), symmetry, unique, complete_over, policy, default, requirements, envelopes)| {
+                let mut seen = std::collections::BTreeSet::new();
+                let mut storage = Vec::new();
+                let mut store = |name: &str, (unit, scheme): (Option<Vec<crate::language::CellUnitFactor>>, Option<Vec<String>>)| {
+                    if seen.insert(name.to_owned()) && (unit.is_some() || scheme.is_some()) {
+                        storage.push(crate::language::ModelingColumnStorage {
+                            name: name.to_owned(),
+                            storage_unit: unit,
+                            scheme,
+                        });
+                    }
+                };
+                for (key, stored) in &keys {
+                    store(&key.name, stored.clone());
+                }
+                for (column, stored) in &columns {
+                    if column.derived.is_none() {
+                        store(&column.name, stored.clone());
+                    }
+                }
+                if value_type.is_some() {
+                    store("value", value_storage);
+                }
                 Table {
-                    keys,
-                    columns,
+                    keys: keys.into_iter().map(|(key, _)| key).collect(),
+                    columns: columns.into_iter().map(|(column, _)| column).collect(),
                     value_type,
+                    storage,
                     missing_policy: policy,
                     default_value: (policy == ModelingMissingPolicy::Default).then_some(default),
                     complete_over,

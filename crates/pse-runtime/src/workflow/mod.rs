@@ -100,6 +100,8 @@ mod simulation_results;
 #[cfg(test)]
 mod study_tests;
 #[cfg(test)]
+mod data_documents_tests;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod worker_tests;

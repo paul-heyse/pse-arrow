@@ -115,14 +115,39 @@ fn compiler_inputs(
         values: BTreeMap::new(),
     }
 }
-/// Declarations, their physical-name scope, fit data and source batches decoded from the
-/// documents.
+/// Declarations, their physical-name scope, fit data, source batches decoded from the
+/// documents and the package data documents (ADR-0125).
 type DocumentInputs = (
     Vec<Declaration>,
     PhysicalScope,
     super::FitData,
     crate::authoring_driver::document::Batches,
+    std::sync::Arc<pse_modeling::document::DocumentInventory>,
 );
+/// The package data documents of a closure and the package of each text document, which a
+/// dataset's document path resolves in (ADR-0125).
+fn data_documents(
+    documents: &crate::authoring_driver::document::OwnedDocumentSet,
+) -> pse_modeling::document::DocumentInventory {
+    let mut inventory = pse_modeling::document::DocumentInventory::default();
+    for bundle in documents.bundles() {
+        for document in &bundle.documents {
+            match document.data() {
+                Some(data) => {
+                    inventory
+                        .documents
+                        .insert(document.id, std::sync::Arc::clone(data));
+                }
+                None => {
+                    inventory
+                        .packages
+                        .insert(document.id, bundle.package.package_id.as_id());
+                }
+            }
+        }
+    }
+    inventory
+}
 fn document_inputs(
     documents: &crate::authoring_driver::document::OwnedDocumentSet,
     registry: &pse_schema::Registry,
@@ -170,6 +195,7 @@ fn document_inputs(
         scope,
         super::FitData::from_batches(&batches)?,
         context,
+        std::sync::Arc::new(data_documents(documents)),
     ))
 }
 impl Runtime {
@@ -179,14 +205,14 @@ impl Runtime {
         documents: &crate::authoring_driver::document::OwnedDocumentSet,
         physical: PhysicalContext,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let (rows, scope, data, sources) = document_inputs(
+        let (rows, scope, data, sources, inventory) = document_inputs(
             documents,
             &self.registry,
             &physical,
             self.shared.budget().math.workspace_bytes,
         )?;
         let mut package = self
-            .modeling_package_scoped(rows, physical, scope, BTreeMap::new())?
+            .modeling_package_scoped(rows, physical, scope, inventory, BTreeMap::new())?
             .with_fit_data(data)?;
         let pool = self.shared.pool();
         let cancel = pse_columnar::CancellationToken::new();
@@ -222,19 +248,21 @@ impl Runtime {
             package: physical.package.as_ref().map(|p| p.name.clone()),
             documents: None,
         };
-        self.modeling_package_scoped(rows, physical, scope, providers)
+        self.modeling_package_scoped(rows, physical, scope, Default::default(), providers)
     }
     fn modeling_package_scoped(
         &self,
         rows: Vec<Declaration>,
         physical: PhysicalContext,
         scope: PhysicalScope,
+        documents: std::sync::Arc<pse_modeling::document::DocumentInventory>,
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
         let service = self.shared.math();
         let inputs = compiler_inputs(&physical, &providers);
         let workspace = service.workspace(inputs, WorkspaceLimits::default())?;
-        let revision = service.modeling_revision(&workspace, rows, scope, &physical.key)?;
+        let revision =
+            service.modeling_revision(&workspace, rows, scope, documents, &physical.key)?;
         Ok(ModelingPackage {
             runtime: self.clone(),
             workspace,
@@ -592,12 +620,14 @@ impl ModelingPackage {
             .await?)
     }
     /// Replace source declarations while preserving which documents see the physical
-    /// names. No old document text is retained as the source of the edited IR.
+    /// names and the package data documents. No old document text is retained as the source
+    /// of the edited IR.
     pub fn with_declarations(&self, rows: Vec<Declaration>) -> Result<Self, WorkflowError> {
         let revision = self.runtime.shared.math().modeling_revision(
             &self.workspace,
             rows,
             self.revision.physical_scope().clone(),
+            self.revision.documents().clone(),
             &self.physical.key,
         )?;
         Ok(Self {
@@ -718,13 +748,13 @@ mod tests {
         let texts = BTreeMap::from([
             (
                 "package.toml".into(),
-                include_str!("../../../../tests/fixtures/packages/minimal_explicit/package.toml").to_owned(),
+                include_bytes!("../../../../tests/fixtures/packages/minimal_explicit/package.toml").to_vec(),
             ),
-            ("models/kernel.pse".into(), source),
+            ("models/kernel.pse".into(), source.into_bytes()),
         ]);
         let token = pse_columnar::CancellationToken::new();
         let pool = rt.shared.pool();
-        let bundle = crate::authoring_driver::document::load_package_texts_owned(
+        let bundle = crate::authoring_driver::document::load_package_documents_owned(
             &texts,
             &rt.registry,
             pse_authoring::ParseBudget::default(),
@@ -818,7 +848,7 @@ mod import_tests {
     use pse_quantity::QuantityTypeId;
 
     /// The physical primitives fixture's documents by relative path.
-    fn primitives() -> BTreeMap<String, String> {
+    fn primitives() -> BTreeMap<String, Vec<u8>> {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../tests/fixtures/packages/physical-primitives");
         ["package.toml", "materials/physical.yaml", "materials/time.yaml"]
@@ -826,18 +856,18 @@ mod import_tests {
             .map(|path| {
                 (
                     path.to_owned(),
-                    std::fs::read_to_string(root.join(path)).unwrap(),
+                    std::fs::read(root.join(path)).unwrap(),
                 )
             })
             .collect()
     }
     fn load(
         rt: &Runtime,
-        texts: &BTreeMap<String, String>,
+        texts: &BTreeMap<String, Vec<u8>>,
     ) -> Result<crate::authoring_driver::document::OwnedDocumentSet, WorkflowError> {
         let token = pse_columnar::CancellationToken::new();
         let pool = rt.shared.pool();
-        let bundle = crate::authoring_driver::document::load_package_texts_owned(
+        let bundle = crate::authoring_driver::document::load_package_documents_owned(
             texts,
             &rt.registry,
             pse_authoring::ParseBudget::default(),
@@ -889,9 +919,10 @@ mod import_tests {
         // A manifest declares no physical names.
         let mut aliased = BTreeMap::from([(
             "package.toml".to_owned(),
-            include_str!("../../../../tests/fixtures/packages/minimal_named/package.toml")
+            (include_str!("../../../../tests/fixtures/packages/minimal_named/package.toml")
                 .to_owned()
-                + "\n[[quantity_aliases]]\nname = \"Scalar\"\nquantity_type_id = \"1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f\"\n",
+                + "\n[[quantity_aliases]]\nname = \"Scalar\"\nquantity_type_id = \"1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f\"\n")
+                .into_bytes(),
         )]);
         let refused = load(&rt, &aliased).unwrap_err().to_string();
         assert!(refused.contains("quantity_aliases"), "{refused}");
@@ -899,7 +930,9 @@ mod import_tests {
         // Naming a second type `Scalar` in the physical document is refused.
         let mut twice = primitives();
         let time = twice.get_mut("materials/time.yaml").unwrap();
-        *time = time.replacen("\"name\": \"Time\"", "\"name\": \"Scalar\"", 1);
+        *time = String::from_utf8_lossy(time)
+            .replacen("\"name\": \"Time\"", "\"name\": \"Scalar\"", 1)
+            .into_bytes();
         let refused = rt
             .physical_from_documents(&load(&rt, &twice).unwrap(), &token)
             .await
@@ -927,8 +960,8 @@ mod import_tests {
             load(
                 &rt,
                 &BTreeMap::from([
-                    ("package.toml".to_owned(), manifest.to_owned()),
-                    ("models/root.pse".to_owned(), source.to_owned()),
+                    ("package.toml".to_owned(), manifest.as_bytes().to_vec()),
+                    ("models/root.pse".to_owned(), source.as_bytes().to_vec()),
                 ]),
             )
             .unwrap()
@@ -960,10 +993,10 @@ mod import_tests {
                 "[package]\nid=\"{}\"\nname=\"{name}\"\nversion=\"1.0.0\"\nkind=\"model\"\nid_policy=\"named\"\ndependencies=[{dependencies}]\ndoc=\"synthetic closure\"\n",
                 SemanticId::from_bytes([id; 16])
             );
-            crate::authoring_driver::document::load_package_texts_owned(
+            crate::authoring_driver::document::load_package_documents_owned(
                 &BTreeMap::from([
-                    ("package.toml".into(), manifest),
-                    ("models/kernel.pse".into(), source.into()),
+                    ("package.toml".into(), manifest.into_bytes()),
+                    ("models/kernel.pse".into(), source.as_bytes().to_vec()),
                 ]),
                 &rt.registry,
                 pse_authoring::ParseBudget::default(),
@@ -1039,10 +1072,10 @@ mod import_tests {
                 "[package]\nid=\"{}\"\nname=\"{name}\"\nversion=\"1.0.0\"\nkind=\"model\"\nid_policy=\"named\"\ndependencies=[{dependencies}]\ndoc=\"synthetic identity\"\n",
                 SemanticId::from_bytes([id; 16])
             );
-            crate::authoring_driver::document::load_package_texts_owned(
+            crate::authoring_driver::document::load_package_documents_owned(
                 &BTreeMap::from([
-                    ("package.toml".into(), manifest),
-                    ("models/kernel.pse".into(), source.into()),
+                    ("package.toml".into(), manifest.into_bytes()),
+                    ("models/kernel.pse".into(), source.as_bytes().to_vec()),
                 ]),
                 &rt.registry,
                 pse_authoring::ParseBudget::default(),
@@ -1094,13 +1127,13 @@ mod import_tests {
             let texts = BTreeMap::from([
                 (
                     "package.toml".into(),
-                    include_str!("../../../../tests/fixtures/packages/minimal_explicit/package.toml").to_owned(),
+                    include_bytes!("../../../../tests/fixtures/packages/minimal_explicit/package.toml").to_vec(),
                 ),
-                ("models/kernel.pse".into(), source),
+                ("models/kernel.pse".into(), source.into_bytes()),
             ]);
             let token = pse_columnar::CancellationToken::new();
             let pool = rt.shared.pool();
-            let bundle = crate::authoring_driver::document::load_package_texts_owned(
+            let bundle = crate::authoring_driver::document::load_package_documents_owned(
                 &texts,
                 &rt.registry,
                 pse_authoring::ParseBudget::default(),

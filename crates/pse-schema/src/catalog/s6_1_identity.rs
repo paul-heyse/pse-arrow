@@ -92,16 +92,16 @@ fn declare_packages(builder: &mut RegistryBuilder) {
     );
 }
 
-/// `authored.documents @1` (blueprint §6.1).
+/// `authored.documents @2` (blueprint §6.1, ADR-0125).
 fn declare_documents(builder: &mut RegistryBuilder) {
     builder.declare_relation(
         RelationDecl::new(
             Namespace::Authored,
             "documents",
-            1,
+            2,
             Authority::Authored,
             SnapshotClass::Model,
-            "One row per authoring document; every row's source span points back into one of these.",
+            "One row per package document, whose kind its path declares; every row's source span points back into a text document. Version two carries package data documents (ADR-0125): a text document's exact source is `source_text` and a data document's exact bytes are `content`, exactly one of them present.",
         )
         .stability(Stability::Stable)
         .pk(&["document_id"])
@@ -121,8 +121,15 @@ fn declare_documents(builder: &mut RegistryBuilder) {
             FieldContract::payload(
                 "source_text",
                 FieldContract::native(arrow_schema::DataType::Utf8),
-                "Exact original UTF-8 source, including whitespace and comments (ADR-0068).",
-            ),
+                "Exact original UTF-8 source of a text document, including whitespace and comments (ADR-0068); absent for a data document.",
+            )
+            .optional(),
+            FieldContract::payload(
+                "content",
+                FieldContract::native(arrow_schema::DataType::Binary),
+                "Exact original bytes of a package data document (ADR-0125); absent for a text document.",
+            )
+            .optional(),
         ]),
     );
 }

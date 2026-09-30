@@ -8,6 +8,9 @@
 pub mod generated;
 /// Exact durable artifact validity, independent of storage and incremental handles.
 pub mod artifact;
+/// Exact binary content (ADR-0125).
+mod bytes;
+pub use bytes::Bytes;
 /// Source-attributed public failure structure.
 pub mod diagnostic;
 /// Versioned boundary documents (ADR-0116 Outcome 6).

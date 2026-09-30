@@ -23,28 +23,41 @@ pub struct DocumentEdit {
 }
 
 /// Insert missing required UUID identities using parser row ranges; no files are written.
+/// Data documents carry no identities and are left as they are (ADR-0125).
 ///
 /// # Errors
 /// Invalid headers, unknown document shapes, malformed rows, missing parser locations,
 /// duplicate generated identities and parse budgets are refused.
 pub fn assign_ids(
-    texts: &BTreeMap<String, String>,
+    sources: &BTreeMap<String, Vec<u8>>,
     registry: &Registry,
     budget: ParseBudget,
     next: &mut dyn FnMut() -> SemanticId,
 ) -> Result<Vec<DocumentEdit>, DriverError> {
-    let text = texts
-        .get("package.toml")
-        .ok_or_else(|| load::contract(None, "missing package.toml"))?;
-    let checksum = pse_ids::encoding_checksum(text.as_bytes()).content_hash();
-    let (package, _, _) = load::header(text, checksum, &budget)?;
+    let text = |path: &str, bytes: &[u8]| {
+        std::str::from_utf8(bytes)
+            .map(str::to_owned)
+            .map_err(|_| load::contract(None, &format!("text document {path} must be UTF-8")))
+    };
+    let header = text(
+        "package.toml",
+        sources
+            .get("package.toml")
+            .ok_or_else(|| load::contract(None, "missing package.toml"))?,
+    )?;
+    let checksum = pse_ids::encoding_checksum(header.as_bytes()).content_hash();
+    let (package, _, _) = load::header(&header, checksum, &budget)?;
     let mut edits = Vec::new();
     let mut generated = BTreeSet::new();
-    for (path, text) in texts {
+    for (path, bytes) in sources {
         let declaration = load::select(registry, path)?;
-        if declaration.kind == DocumentKind::PackageHeader {
+        if matches!(
+            declaration.kind,
+            DocumentKind::PackageHeader | DocumentKind::Data
+        ) {
             continue;
         }
+        let text = &text(path, bytes)?;
         let document = pse_ids::named_id(package.package_id.as_id(), path);
         if declaration.kind == DocumentKind::Modeling {
             let after = pse_authoring::language::assign_ids_with(text, document, budget, next)?;
@@ -101,10 +114,10 @@ pub fn assign_ids(
             });
         }
     }
-    let mut candidate = texts.clone();
+    let mut candidate = sources.clone();
     apply_edits(&mut candidate, &edits)?;
     // Exact typed decode validates both the inserted IDs and all retained data.
-    load::load_package_texts(candidate, registry, budget)?;
+    load::load_package_documents(candidate, registry, budget)?;
     Ok(edits)
 }
 
@@ -122,17 +135,19 @@ fn insertion(text: &str, at: SourceSpan, id: SemanticId) -> Result<(usize, Strin
     Ok((offset, format!("id: '{id}'\n{}", " ".repeat(indent))))
 }
 
-/// Apply a complete set of replacements only when all exact original texts agree.
+/// Apply a complete set of text replacements only when all exact original texts agree.
 ///
 /// # Errors
 /// Missing, duplicated or stale document preimages leave the input map unchanged.
 pub fn apply_edits(
-    texts: &mut BTreeMap<String, String>,
+    sources: &mut BTreeMap<String, Vec<u8>>,
     edits: &[DocumentEdit],
 ) -> Result<(), DriverError> {
     let mut paths = BTreeSet::new();
     for edit in edits {
-        if !paths.insert(&edit.path) || texts.get(&edit.path) != Some(&edit.before) {
+        if !paths.insert(&edit.path)
+            || sources.get(&edit.path).map(Vec::as_slice) != Some(edit.before.as_bytes())
+        {
             return Err(load::contract(
                 None,
                 "document edits have a missing, duplicate or changed exact preimage",
@@ -140,7 +155,7 @@ pub fn apply_edits(
         }
     }
     for edit in edits {
-        texts.insert(edit.path.clone(), edit.after.clone());
+        sources.insert(edit.path.clone(), edit.after.clone().into_bytes());
     }
     Ok(())
 }

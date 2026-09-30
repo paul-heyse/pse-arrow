@@ -62,13 +62,14 @@ pub const MAXIMUM_STUDY_POINTS: usize = 100_000;
 /// How often a commit re-reads a workspace head that moved under it.
 const COMMIT_ATTEMPTS: usize = 64;
 
-/// The authored sources of a package closure, as texts by path: what a worker loads.
+/// The authored sources of a package closure, each document's exact bytes by path (a
+/// data document's included, ADR-0125): what a worker loads.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PackageSources {
     /// The physical package's documents.
-    pub physical: BTreeMap<String, String>,
+    pub physical: BTreeMap<String, Vec<u8>>,
     /// The modeling package closure's documents, one map per package in load order.
-    pub modeling: Vec<BTreeMap<String, String>>,
+    pub modeling: Vec<BTreeMap<String, Vec<u8>>>,
 }
 
 /// One point of a study to start.

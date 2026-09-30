@@ -426,6 +426,7 @@ fn default_value(registry: &Registry, ty: &FieldContract, value: u8) -> serde_js
             serde_json::json!(["u64", u64::from(value)])
         }
         DataType::Utf8 => serde_json::json!(["text", format!("value-{value}")]),
+        DataType::Binary => serde_json::json!(["bytes", format!("{value:02x}")]),
         DataType::List(_) => serde_json::json!(["list", []]),
         DataType::FixedSizeList(child, width) => serde_json::json!([
             "list",

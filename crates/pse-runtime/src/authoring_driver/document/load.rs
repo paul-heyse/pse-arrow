@@ -17,6 +17,21 @@ use std::sync::Arc;
 /// Generated Arrow values with local field checks retained by their private owner.
 pub type Batches = BTreeMap<SemanticId, FieldCheckedBatch>;
 
+/// A package document's exact original content: bytes with the kind its path declares
+/// (ADR-0125). Text documents are one kind among them.
+#[derive(Clone, Debug)]
+pub enum Content {
+    /// A text document's original UTF-8 source; never reconstructed for source locations.
+    Text(String),
+    /// A data document's original bytes and the row set decoded from them by Arrow type.
+    Data {
+        /// The exact original bytes.
+        bytes: bytes::Bytes,
+        /// The decoded document.
+        document: Arc<pse_modeling::document::DataDocument>,
+    },
+}
+
 /// One immutable original document plus its parser-derived locations.
 #[derive(Clone, Debug)]
 pub struct Document {
@@ -24,8 +39,8 @@ pub struct Document {
     pub id: SemanticId,
     /// Original package-relative path.
     pub path: String,
-    /// Original UTF-8 bytes; never reconstructed for source locations.
-    pub text: String,
+    /// The exact original content.
+    pub content: Content,
     /// Integrity identity of the exact original bytes.
     pub content_hash: ContentHash,
     /// Exact original syntax node locations.
@@ -52,6 +67,30 @@ pub struct BundleData {
     /// Generated columns, including package, document and entity context.
     pub batches: Batches,
     lease: Option<Arc<pse_columnar::AllocationLease>>,
+}
+
+impl Document {
+    /// The source text of a text document; `None` for a data document.
+    pub fn text(&self) -> Option<&str> {
+        match &self.content {
+            Content::Text(text) => Some(text),
+            Content::Data { .. } => None,
+        }
+    }
+    /// The exact original bytes.
+    pub fn bytes(&self) -> &[u8] {
+        match &self.content {
+            Content::Text(text) => text.as_bytes(),
+            Content::Data { bytes, .. } => bytes,
+        }
+    }
+    /// The decoded rows of a data document (ADR-0125); `None` for a text document.
+    pub fn data(&self) -> Option<&Arc<pse_modeling::document::DataDocument>> {
+        match &self.content {
+            Content::Text(_) => None,
+            Content::Data { document, .. } => Some(document),
+        }
+    }
 }
 
 impl std::ops::Deref for DocumentBundle {
@@ -97,71 +136,120 @@ pub fn load_package(
     registry: &Registry,
     budget: ParseBudget,
 ) -> Result<DocumentBundle, DriverError> {
-    load_package_texts(
+    load_package_documents(
         read::package_files(root, registry, &budget)?,
         registry,
         budget,
     )
 }
 
-/// Load an explicit immutable inventory, also used by document editors and fixtures.
+/// Load an explicit immutable inventory of package documents by path, each the exact bytes
+/// of the kind its path declares (ADR-0125); also used by document editors and fixtures.
 ///
 /// # Errors
 /// The same syntax and semantic authoring failures as [`load_package`].
-pub fn load_package_texts(
-    texts: BTreeMap<String, String>,
+pub fn load_package_documents(
+    sources: BTreeMap<String, Vec<u8>>,
     registry: &Registry,
     budget: ParseBudget,
 ) -> Result<DocumentBundle, DriverError> {
-    load_inventory(texts, registry, budget, None)
+    load_inventory(sources, registry, budget, None)
 }
 
 pub(super) fn load_inventory(
-    texts: BTreeMap<String, String>,
+    sources: BTreeMap<String, Vec<u8>>,
     registry: &Registry,
     budget: ParseBudget,
     allocation: Option<&mut super::allocation::Allocation<'_>>,
 ) -> Result<DocumentBundle, DriverError> {
-    load_reusing(texts, None, registry, budget, allocation)
+    load_reusing(sources, None, registry, budget, allocation)
+}
+
+/// The UTF-8 text of a text document.
+fn utf8(path: &str, bytes: Vec<u8>) -> Result<String, DriverError> {
+    String::from_utf8(bytes)
+        .map_err(|_| contract(None, &format!("text document {path} must be UTF-8")))
 }
 
 pub(super) fn load_reusing(
-    texts: BTreeMap<String, String>,
+    sources: BTreeMap<String, Vec<u8>>,
     previous: Option<&DocumentBundle>,
     registry: &Registry,
     budget: ParseBudget,
     mut allocation: Option<&mut super::allocation::Allocation<'_>>,
 ) -> Result<DocumentBundle, DriverError> {
-    check_size(&texts, budget.max_bytes)?;
+    check_size(&sources, budget.max_bytes)?;
     // Generated row admission may contain SQL checks. Their built-in function
     // owner belongs to this native authoring boundary, never the pure registry.
     pse_engine::validation::bind_defaults(registry)?;
-    let header_text = texts
-        .get("package.toml")
-        .ok_or_else(|| contract(None, "missing package.toml"))?;
+    let checksum = package_checksum(&sources);
+    let header_text = std::str::from_utf8(
+        sources
+            .get("package.toml")
+            .ok_or_else(|| contract(None, "missing package.toml"))?,
+    )
+    .map_err(|_| contract(None, "text document package.toml must be UTF-8"))?
+    .to_owned();
     if let Some(funds) = allocation.as_deref_mut() {
-        reserve_inventory(&texts, header_text, registry, &budget, funds)?;
+        reserve_inventory(&sources, &header_text, registry, &budget, funds)?;
     }
-    let checksum = package_checksum(&texts);
     let (package, header_value, header_spans) =
-        reuse_header(previous, header_text, checksum, &budget)?;
+        reuse_header(previous, &header_text, checksum, &budget)?;
     let mut header_parts = Some((header_value, header_spans));
-    let mut documents = Vec::with_capacity(texts.len());
-    for (path, text) in texts {
+    let mut documents = Vec::with_capacity(sources.len());
+    for (path, bytes) in sources {
         let declaration = select(registry, &path)?.clone();
         let id = pse_ids::named_id(package.package_id.as_id(), &path);
+        let content_hash = pse_ids::encoding_checksum(&bytes).content_hash();
+        let prior = previous.and_then(|bundle| {
+            bundle.documents.iter().find(|document| {
+                document.path == path
+                    && document.bytes() == bytes.as_slice()
+                    && document.declaration == declaration
+            })
+        });
+        if declaration.kind == DocumentKind::Data {
+            // ADR-0125: bytes decoded by Arrow type; an unchanged document keeps its rows.
+            let content = if let Some(prior) = prior {
+                prior.content.clone()
+            } else {
+                if let Some(funds) = allocation.as_deref_mut() {
+                    funds.grow(memory::mul(bytes.len(), 4)?)?;
+                }
+                let bytes = bytes::Bytes::from(bytes);
+                let rows = super::data::decode(&path, &bytes)?;
+                Content::Data {
+                    bytes,
+                    document: Arc::new(pse_modeling::document::DataDocument {
+                        id,
+                        path: path.clone(),
+                        content_hash,
+                        rows,
+                    }),
+                }
+            };
+            let value = Arc::new(value::Value::Map(Vec::new()));
+            documents.push(Document {
+                id,
+                path,
+                content,
+                content_hash,
+                spans: SpanIndex::default(),
+                declaration,
+                value: value::Value::Map(Vec::new()),
+                syntax: value,
+                batches: Batches::new(),
+                lease: None,
+            });
+            continue;
+        }
+        let text = utf8(&path, bytes)?;
         let mut source_batches = Batches::new();
         let (value, spans) = if declaration.kind == DocumentKind::PackageHeader {
             header_parts
                 .take()
                 .ok_or_else(|| contract(None, "duplicate package header shape"))?
-        } else if let Some(prior) = previous.and_then(|bundle| {
-            bundle.documents.iter().find(|document| {
-                document.path == path
-                    && document.text == text
-                    && document.declaration == declaration
-            })
-        }) {
+        } else if let Some(prior) = prior {
             if declaration.kind == DocumentKind::Modeling {
                 source_batches = prior.batches.clone();
             }
@@ -198,23 +286,15 @@ pub(super) fn load_reusing(
                 value::parse_yaml_accounted(&text, id, &budget, allocation.as_deref_mut())?;
             (value.value, spans)
         };
-        let syntax = previous
-            .and_then(|bundle| {
-                bundle.documents.iter().find(|document| {
-                    document.path == path
-                        && document.text == text
-                        && document.declaration == declaration
-                })
-            })
-            .map_or_else(
-                || Arc::new(value.clone()),
-                |prior| Arc::clone(&prior.syntax),
-            );
+        let syntax = prior.map_or_else(
+            || Arc::new(value.clone()),
+            |prior| Arc::clone(&prior.syntax),
+        );
         documents.push(Document {
             id,
             path,
-            content_hash: pse_ids::encoding_checksum(text.as_bytes()).content_hash(),
-            text,
+            content_hash,
+            content: Content::Text(text),
             spans,
             declaration,
             value,
@@ -360,11 +440,11 @@ pub(super) fn select<'a>(
     }
 }
 
-fn check_size(texts: &BTreeMap<String, String>, allowed: u64) -> Result<(), DriverError> {
-    let needed = texts
+fn check_size(sources: &BTreeMap<String, Vec<u8>>, allowed: u64) -> Result<(), DriverError> {
+    let needed = sources
         .values()
-        .try_fold(0_u64, |sum, text| {
-            sum.checked_add(u64::try_from(text.len()).unwrap_or(u64::MAX))
+        .try_fold(0_u64, |sum, bytes| {
+            sum.checked_add(u64::try_from(bytes.len()).unwrap_or(u64::MAX))
         })
         .unwrap_or(u64::MAX);
     if needed > allowed {
@@ -380,13 +460,15 @@ fn check_size(texts: &BTreeMap<String, String>, allowed: u64) -> Result<(), Driv
     }
 }
 
-/// The package content hash (blueprint §6.1) over sorted path/text pairs: the identity of an
-/// authored package, and of a source bundle stored for job execution (ADR-0112).
-pub fn package_checksum(texts: &BTreeMap<String, String>) -> ContentHash {
-    // An integrity encoding: sorted path/text pairs, each prefixed by its byte length.
+/// The package content hash (blueprint §6.1) over sorted path/content pairs: the identity
+/// of an authored package, and of a source bundle stored for job execution (ADR-0112). Every
+/// document enters with its exact bytes, a data document's included (ADR-0125); a text
+/// document's bytes are its UTF-8 source.
+pub fn package_checksum(sources: &BTreeMap<String, Vec<u8>>) -> ContentHash {
+    // An integrity encoding: sorted path/content pairs, each prefixed by its byte length.
     let mut bytes = Vec::new();
-    for (path, text) in texts {
-        for part in [path.as_bytes(), text.as_bytes()] {
+    for (path, content) in sources {
+        for part in [path.as_bytes(), content.as_slice()] {
             bytes.extend_from_slice(&u64::try_from(part.len()).unwrap_or(u64::MAX).to_le_bytes());
             bytes.extend_from_slice(part);
         }
@@ -427,21 +509,21 @@ fn check_header_depth(value: &toml::Value, allowed: u32) -> Result<(), DriverErr
 }
 
 fn reserve_inventory(
-    texts: &BTreeMap<String, String>,
+    sources: &BTreeMap<String, Vec<u8>>,
     header_text: &str,
     registry: &Registry,
     budget: &ParseBudget,
     funds: &mut super::allocation::Allocation<'_>,
 ) -> Result<(), DriverError> {
-    let checksum_extent = texts.iter().try_fold(0, |sum, (path, text)| {
-        memory::add(sum, memory::add(16, memory::add(path.len(), text.len())?)?)
+    let checksum_extent = sources.iter().try_fold(0, |sum, (path, bytes)| {
+        memory::add(sum, memory::add(16, memory::add(path.len(), bytes.len())?)?)
     })?;
     funds.grow(memory::add(
         memory::mul(checksum_extent, 4)?,
-        memory::mul(texts.len(), 4 * size_of::<Document>())?,
+        memory::mul(sources.len(), 4 * size_of::<Document>())?,
     )?)?;
     funds.grow(memory::parser_extent(header_text, budget, false)?)?;
-    for path in texts.keys() {
+    for path in sources.keys() {
         let declaration = select(registry, path)?;
         funds.grow(memory::mul(
             declaration.sections.len(),
@@ -458,6 +540,9 @@ fn project_documents(
 ) -> Result<BTreeMap<SemanticId, Vec<FieldCheckedBatch>>, DriverError> {
     let mut parts = BTreeMap::<SemanticId, Vec<FieldCheckedBatch>>::new();
     for document in documents {
+        if document.declaration.kind == DocumentKind::Data {
+            continue;
+        }
         if document.declaration.kind == DocumentKind::Modeling {
             for (id, batch) in &document.batches {
                 parts.entry(*id).or_default().push(batch.clone());
@@ -493,10 +578,9 @@ fn reuse_header(
     budget: &ParseBudget,
 ) -> Result<(authored::packages::Row, value::Value, SpanIndex), DriverError> {
     let prior_header = previous.and_then(|bundle| {
-        bundle
-            .documents
-            .iter()
-            .find(|document| document.path == "package.toml" && document.text == header_text)
+        bundle.documents.iter().find(|document| {
+            document.path == "package.toml" && document.text() == Some(header_text)
+        })
     });
     let (package, header_value, header_spans) = if let Some(prior) = prior_header {
         let mut tree = (*prior.syntax).clone();
@@ -535,7 +619,11 @@ fn append_source_inventory(
             document_id: document.id,
             package_id,
             path: document.path.clone(),
-            source_text: document.text.clone(),
+            source_text: document.text().map(str::to_owned),
+            content: match &document.content {
+                Content::Text(_) => None,
+                Content::Data { bytes, .. } => Some(pse_model::Bytes::new(bytes.to_vec())),
+            },
         })?;
     }
     parts
@@ -553,15 +641,15 @@ mod kernel_document_tests {
         let registry = pse_schema::shared_registry().unwrap();
         let mut texts = BTreeMap::from([
             (
-                "package.toml".into(),
-                include_str!(
+                "package.toml".to_owned(),
+                include_bytes!(
                     "../../../../../tests/fixtures/packages/minimal_explicit/package.toml"
                 )
-                .into(),
+                .to_vec(),
             ),
             (
-                "models/kernel.pse".into(),
-                "package synthetic { def Root { var x: Scalar; eq e: x == 1; } }".into(),
+                "models/kernel.pse".to_owned(),
+                b"package synthetic { def Root { var x: Scalar; eq e: x == 1; } }".to_vec(),
             ),
         ]);
         let mut serial = 10u8;
@@ -572,7 +660,8 @@ mod kernel_document_tests {
             })
             .unwrap();
         super::super::apply_edits(&mut texts, &edits).unwrap();
-        let bundle = load_package_texts(texts.clone(), &registry, ParseBudget::default()).unwrap();
+        let bundle =
+            load_package_documents(texts.clone(), &registry, ParseBudget::default()).unwrap();
         let batch = &bundle.batches[&authored::modeling_declarations::RELATION_ID];
         let rows = authored::modeling_declarations::View::from_checked(batch)
             .unwrap()
@@ -590,9 +679,11 @@ mod kernel_document_tests {
                 .span(&format!("/modeling_declarations/{ordinal}"))
                 .unwrap();
             assert_eq!(u64::from(span.start), row.source_start as u64);
-            assert!(document.text[span.start as usize..span.end as usize].starts_with("@id"));
+            assert!(
+                document.text().unwrap()[span.start as usize..span.end as usize].starts_with("@id")
+            );
         }
-        let reparsed = load_package_texts(texts, &registry, ParseBudget::default()).unwrap();
+        let reparsed = load_package_documents(texts, &registry, ParseBudget::default()).unwrap();
         let again = authored::modeling_declarations::View::from_checked(
             &reparsed.batches[&authored::modeling_declarations::RELATION_ID],
         )

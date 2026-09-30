@@ -160,7 +160,7 @@ Derived in: pse-runtime.
 | `ModelingFitExecutionV1` | `pse.modeling.fit-execution.v1` | A modeling fit's execution. |
 | `ModelingFitSourceV1` | `pse.modeling.fit-source.v1` | A modeling fit's source. |
 | `ModelingImplicitTrialHintsV1` | `pse.modeling.implicit-trial-hints.v1` | Implicit trial hints. |
-| `ModelingSourceRevisionV2` | `pse.modeling.source-revision.v2` | A modeling source revision: the structured declaration rows, the physical inventory identity and the admitted physical name bindings (ADR-0123 Outcome 8). |
+| `ModelingSourceRevisionV3` | `pse.modeling.source-revision.v3` | A modeling source revision: the structured declaration rows, each package data document's identity and byte-level content hash, the physical inventory identity and the admitted physical name bindings (ADR-0123 Outcome 8, ADR-0125). |
 | `NumericalConeV1` | `pse.numerical.cone.v1` | A prepared numerical cone request. |
 | `RunAlgorithmsV1` | `pse.run.algorithms.v1` | A publication request's algorithms. |
 | `RunSourceV1` | `pse.run.source.v1` | A publication request's source. |

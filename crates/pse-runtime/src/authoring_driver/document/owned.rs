@@ -185,7 +185,7 @@ impl OwnedDocumentSet {
                 .bundle()
                 .documents
                 .iter()
-                .map(|document| (document.path.clone(), document.text.clone()))
+                .map(|document| (document.path.clone(), document.bytes().to_vec()))
                 .collect();
             super::apply_edits(&mut texts, &own)?;
             let mut bundle = super::load::load_reusing(
@@ -245,14 +245,15 @@ pub(super) fn retain_bundle(
     })))
 }
 
-/// Parse borrowed UTF-8 source bytes after reserving copies and all expansion phases.
-/// Original source bytes, parser values, paths, generated rows and their leases live
-/// together. Each actual source is checked and reserved independently, even if
-/// a custom iterator clone yields a different inventory.
+/// Load borrowed package document bytes after reserving copies and all expansion phases:
+/// text documents are parsed, data documents decoded (ADR-0125). Original bytes, parser
+/// values, decoded rows, paths, generated rows and their leases live together. Each actual
+/// source is checked and reserved independently, even if a custom iterator clone yields a
+/// different inventory.
 ///
 /// # Errors
-/// Refuses invalid paths, duplicates, UTF-8, parser/schema/identity failures,
-/// cancellation or a shared resource limit before the associated construction.
+/// Refuses invalid paths, duplicates, text that is not UTF-8, parser/decoder/schema/identity
+/// failures, cancellation or a shared resource limit before the associated construction.
 pub fn load_package_sources_owned<'a>(
     sources: impl Iterator<Item = (&'a str, &'a [u8])> + Clone,
     registry: &Registry,
@@ -278,13 +279,11 @@ pub fn load_package_sources_owned<'a>(
             ));
         }
         allocation.grow(add(
-            map_entry::<String, String>(),
+            map_entry::<String, Vec<u8>>(),
             add(path.len(), bytes.len())?,
         )?)?;
         super::load::select(registry, path)?;
-        let text = std::str::from_utf8(bytes)
-            .map_err(|_| contract(None, "document source must be UTF-8"))?;
-        if texts.insert(path.to_owned(), text.to_owned()).is_some() {
+        if texts.insert(path.to_owned(), bytes.to_vec()).is_some() {
             return Err(contract(None, "duplicate package-relative source path"));
         }
     }
@@ -316,21 +315,22 @@ pub fn load_package_sources_owned<'a>(
     })))
 }
 
-/// Load caller-owned text while retaining independently reserved immutable copies.
+/// Load caller-owned package documents by path while retaining independently reserved
+/// immutable copies.
 ///
 /// # Errors
 /// The same checked failures as [`load_package_sources_owned`].
-pub fn load_package_texts_owned(
-    texts: &BTreeMap<String, String>,
+pub fn load_package_documents_owned(
+    sources: &BTreeMap<String, Vec<u8>>,
     registry: &Registry,
     budget: ParseBudget,
     pool: &Arc<dyn MemoryPool>,
     cancel: &CancellationToken,
 ) -> Result<OwnedDocumentBundle, DriverError> {
     load_package_sources_owned(
-        texts
+        sources
             .iter()
-            .map(|(path, text)| (path.as_str(), text.as_bytes())),
+            .map(|(path, bytes)| (path.as_str(), bytes.as_slice())),
         registry,
         budget,
         pool,
@@ -383,12 +383,12 @@ mod tests {
         let budget: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(512 << 20));
         let cancel = CancellationToken::new();
         let texts = BTreeMap::from([
-            ("package.toml".to_owned(), include_str!("../../../../../tests/fixtures/packages/minimal_explicit/package.toml").to_owned()),
-            ("materials/constants.yaml".to_owned(), include_str!("../../../../../tests/fixtures/packages/minimal_explicit/materials/constants.yaml").to_owned()),
-            ("models/library.pse".to_owned(), "@id(\"00000000000000000000000000000031\") package library { @id(\"00000000000000000000000000000032\") enum Choice { @id(\"00000000000000000000000000000033\") one, @id(\"00000000000000000000000000000034\") two } }".to_owned()),
+            ("package.toml".to_owned(), include_bytes!("../../../../../tests/fixtures/packages/minimal_explicit/package.toml").to_vec()),
+            ("materials/constants.yaml".to_owned(), include_bytes!("../../../../../tests/fixtures/packages/minimal_explicit/materials/constants.yaml").to_vec()),
+            ("models/library.pse".to_owned(), b"@id(\"00000000000000000000000000000031\") package library { @id(\"00000000000000000000000000000032\") enum Choice { @id(\"00000000000000000000000000000033\") one, @id(\"00000000000000000000000000000034\") two } }".to_vec()),
         ]);
         let part =
-            load_package_texts_owned(&texts, registry, ParseBudget::default(), &budget, &cancel)?;
+            load_package_documents_owned(&texts, registry, ParseBudget::default(), &budget, &cancel)?;
         let original = OwnedDocumentSet::try_from_bundles(vec![part], &budget, &cancel)?;
         let source = original.bundles()[0]
             .documents
@@ -399,8 +399,8 @@ mod tests {
             &[super::super::DocumentEdit {
                 document_id: source.id,
                 path: source.path.clone(),
-                before: source.text.clone(),
-                after: source.text.replace("name: probe", "name: changed"),
+                before: source.text().unwrap_or_default().to_owned(),
+                after: source.text().unwrap_or_default().replace("name: probe", "name: changed"),
             }],
             registry,
             ParseBudget::default(),

@@ -42,6 +42,15 @@ impl ModelingRevision {
     pub(crate) fn declarations(&self) -> &[Declaration] {
         self.admitted.declarations()
     }
+    /// The package data documents the declarations were admitted with (ADR-0125).
+    pub(crate) fn documents(&self) -> &Arc<pse_modeling::document::DocumentInventory> {
+        self.admitted.documents()
+    }
+    /// The admitted package: checked declarations, entities and tables.
+    #[cfg(test)]
+    pub(crate) fn checked(&self) -> &pse_modeling::CheckedPackage {
+        self.admitted.checked()
+    }
     /// The source entity a test names as the source of its expected values (ADR-0123
     /// Outcome 5).
     pub(crate) fn oracle(&self, test: DeclarationId) -> Option<DeclarationId> {
@@ -53,20 +62,25 @@ impl ModelingRevision {
     }
 }
 /// The identity of a modeling source revision (ADR-0123 Outcome 8): the structured
-/// declaration rows in order, the identity of the physical inventory they are admitted
-/// against, and the physical name bindings admission resolves them with. Package data
-/// documents (Plan 23 KR9) add each document's identity and byte-level content hash to
-/// this preimage as a further frame variant.
+/// declaration rows in order; each package data document's identity and the hash of its
+/// exact bytes, in identity order (ADR-0125), so one changed data byte is another revision;
+/// the identity of the physical inventory the rows are admitted against; and the physical
+/// name bindings admission resolves them with.
 pub(crate) fn source_revision(
     rows: &[Declaration],
+    documents: &pse_modeling::document::DocumentInventory,
     physical: &pse_ids::ContentHash,
     names: &BTreeMap<String, SemanticId>,
 ) -> pse_ids::ContentHash {
     use pse_model::SemanticFrame;
-    let mut source = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingSourceRevisionV2);
+    let mut source = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingSourceRevisionV3);
     source.u64(rows.len() as u64);
     for row in rows {
         row.frame(&mut source);
+    }
+    source.u64(documents.documents.len() as u64);
+    for (id, document) in &documents.documents {
+        source.id(id).hash(&document.content_hash);
     }
     source.hash(physical);
     source.u64(names.len() as u64);
@@ -563,20 +577,25 @@ impl MathService {
         self.count(|p| &p.rebuilt);
         Ok(Self::own_rebind(prepared, rebound, lease))
     }
-    /// Own immutable generated declarations under the deployment pool.
+    /// Own immutable generated declarations and their package data documents under the
+    /// deployment pool.
     pub fn modeling_revision(
         &self,
         workspace: &Workspace,
         rows: Vec<Declaration>,
         scope: pse_modeling::PhysicalScope,
+        documents: Arc<pse_modeling::document::DocumentInventory>,
         physical: &pse_ids::ContentHash,
     ) -> Result<ModelingRevision, MathRuntimeError> {
-        let bytes = rows.owned_bytes().saturating_add(
-            scope
-                .documents
-                .as_ref()
-                .map_or(0, |d| d.len() * (size_of::<SemanticId>() + 32)),
-        );
+        let bytes = rows
+            .owned_bytes()
+            .saturating_add(
+                scope
+                    .documents
+                    .as_ref()
+                    .map_or(0, |d| d.len() * (size_of::<SemanticId>() + 32)),
+            )
+            .saturating_add(documents.retained_bytes());
         if bytes > self.policy.workspace_bytes / 2 {
             return Err(MathRuntimeError::Limit("modeling source bytes"));
         }
@@ -589,9 +608,10 @@ impl MathService {
             .compiler
             .lock()
             .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?
-            .publish_modeling(rows, scope)?;
+            .publish_modeling_with(rows, scope, documents)?;
         let identity = source_revision(
             admitted.declarations(),
+            admitted.documents(),
             physical,
             &admitted.physical_bindings(),
         );
@@ -652,7 +672,9 @@ impl MathService {
 mod tests {
     use super::source_revision;
     use pse_ids::{ContentHash, SemanticId};
+    use pse_modeling::document::{DataDocument, DocumentInventory, RowSet};
     use std::collections::BTreeMap;
+    use std::sync::Arc;
 
     fn rows() -> Vec<pse_authoring::language::Declaration> {
         pse_authoring::language::parse(
@@ -666,20 +688,44 @@ mod tests {
     fn names(id: u8) -> BTreeMap<String, SemanticId> {
         BTreeMap::from([("p.Temperature".to_owned(), SemanticId::from_bytes([id; 16]))])
     }
+    /// One data document whose exact bytes are `bytes`.
+    fn documents(bytes: &[u8]) -> DocumentInventory {
+        let id = pse_ids::named_id(SemanticId::from_bytes([5; 16]), "data/t.parquet");
+        DocumentInventory {
+            packages: BTreeMap::new(),
+            documents: BTreeMap::from([(
+                id,
+                Arc::new(DataDocument {
+                    id,
+                    path: "data/t.parquet".into(),
+                    content_hash: pse_ids::encoding_checksum(bytes).content_hash(),
+                    rows: RowSet::new(Vec::new()).unwrap(),
+                }),
+            )]),
+        }
+    }
 
-    /// ADR-0123 Outcome 8: the same rows, physical inventory and name bindings reproduce
-    /// the identity; the frozen vector pins the preimage layout of
-    /// `pse.modeling.source-revision.v2` over no rows, a zero inventory and no names.
+    /// ADR-0123 Outcome 8: the same rows, data documents, physical inventory and name
+    /// bindings reproduce the identity; the frozen vector pins the preimage layout of
+    /// `pse.modeling.source-revision.v3` over no rows, no documents, a zero inventory and no
+    /// names.
     #[test]
     fn unchanged_inputs_reproduce_the_source_revision() {
         let physical = ContentHash::from_bytes([3; 32]);
+        let data = documents(b"PAR1");
         assert_eq!(
-            source_revision(&rows(), &physical, &names(1)),
-            source_revision(&rows(), &physical, &names(1))
+            source_revision(&rows(), &data, &physical, &names(1)),
+            source_revision(&rows(), &data, &physical, &names(1))
         );
         assert_eq!(
-            source_revision(&[], &ContentHash::from_bytes([0; 32]), &BTreeMap::new()).to_hex(),
-            "9d8e81c6012945c5912c4d74c0c310c1e4cbade43da48b11819aa0d45a356804"
+            source_revision(
+                &[],
+                &DocumentInventory::default(),
+                &ContentHash::from_bytes([0; 32]),
+                &BTreeMap::new()
+            )
+            .to_hex(),
+            "d5dc3697baef05e2b2c608809fffcaa886b72eb2bddfe71e37b79960af00c033"
         );
     }
 
@@ -688,12 +734,29 @@ mod tests {
     #[test]
     fn source_revision_changes_with_a_physical_name_binding() {
         let physical = ContentHash::from_bytes([3; 32]);
-        let base = source_revision(&rows(), &physical, &names(1));
-        assert_ne!(base, source_revision(&rows(), &physical, &names(2)));
+        let data = DocumentInventory::default();
+        let base = source_revision(&rows(), &data, &physical, &names(1));
+        assert_ne!(base, source_revision(&rows(), &data, &physical, &names(2)));
         assert_ne!(
             base,
-            source_revision(&rows(), &ContentHash::from_bytes([4; 32]), &names(1))
+            source_revision(&rows(), &data, &ContentHash::from_bytes([4; 32]), &names(1))
         );
-        assert_ne!(base, source_revision(&rows()[..1], &physical, &names(1)));
+        assert_ne!(base, source_revision(&rows()[..1], &data, &physical, &names(1)));
+    }
+
+    /// ADR-0123 Outcome 8, ADR-0125: one changed byte of a data document is another source
+    /// revision, and so is a document added.
+    #[test]
+    fn source_revision_changes_with_one_data_byte() {
+        let physical = ContentHash::from_bytes([3; 32]);
+        let base = source_revision(&rows(), &documents(b"PAR1"), &physical, &names(1));
+        assert_ne!(
+            base,
+            source_revision(&rows(), &documents(b"PAR2"), &physical, &names(1))
+        );
+        assert_ne!(
+            base,
+            source_revision(&rows(), &DocumentInventory::default(), &physical, &names(1))
+        );
     }
 }

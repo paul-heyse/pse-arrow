@@ -51,6 +51,7 @@ pub(super) fn make(
         | DataType::UInt64
         | DataType::Float64
         | DataType::Utf8
+        | DataType::Binary
         | DataType::FixedSizeBinary(16 | 32)
         | DataType::Timestamp(TimeUnit::Nanosecond | TimeUnit::Microsecond, _) => {
             make_builder(kind, capacity)

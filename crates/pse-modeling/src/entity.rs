@@ -114,6 +114,13 @@ impl ModelingIdentifierScope {
             _ => Ok(()),
         }
     }
+    /// Every value of `scheme` and the entity holding it.
+    pub(crate) fn of(&self, scheme: DeclarationId) -> impl Iterator<Item = (&str, DeclarationId)> {
+        self.values
+            .range((scheme, String::new())..)
+            .take_while(move |((s, _), _)| *s == scheme)
+            .map(|((_, value), entity)| (value.as_str(), *entity))
+    }
     pub(crate) fn retain(&mut self, keep: impl Fn(DeclarationId) -> bool) {
         self.values.retain(|_, entity| keep(*entity));
     }
@@ -628,6 +635,15 @@ pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
             Some((row.declaration_id, kind, dataset))
         })
         .collect::<Vec<_>>();
+    if let Some((dataset, kind, _)) = datasets.iter().find(|(_, _, d)| d.document.is_some()) {
+        return Err(invalid(
+            *dataset,
+            format!(
+                "a data document supplies the rows of a table (ADR-0125); the rows of keyed kind {} are written inline",
+                p.declarations[kind].name
+            ),
+        ));
+    }
     // Phase 1: identities from keys.
     let mut index = BTreeMap::<DeclarationId, (DeclarationId, DeclarationId)>::new();
     for (dataset, kind, data) in &datasets {

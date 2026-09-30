@@ -344,9 +344,10 @@ frames! {
         ModelingFitSourceV1 => "pse.modeling.fit-source.v1",
         /// Implicit trial hints.
         ModelingImplicitTrialHintsV1 => "pse.modeling.implicit-trial-hints.v1",
-        /// A modeling source revision: the structured declaration rows, the physical
-        /// inventory identity and the admitted physical name bindings (ADR-0123 Outcome 8).
-        ModelingSourceRevisionV2 => "pse.modeling.source-revision.v2",
+        /// A modeling source revision: the structured declaration rows, each package data
+        /// document's identity and byte-level content hash, the physical inventory identity
+        /// and the admitted physical name bindings (ADR-0123 Outcome 8, ADR-0125).
+        ModelingSourceRevisionV3 => "pse.modeling.source-revision.v3",
         /// A prepared numerical cone request.
         NumericalConeV1 => "pse.numerical.cone.v1",
         /// A publication request's algorithms.

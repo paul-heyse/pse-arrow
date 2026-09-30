@@ -27,6 +27,12 @@
 //!
 //! A table may declare validity envelopes as data (ADR-0123 Outcome 4): an axis, its
 //! quantity type and the two typed columns of each row that bound it.
+//!
+//! A dataset may name a package data document in place of inline rows (ADR-0125). Its
+//! columns are typed once each through the table's [`crate::document::DocumentPlan`], by
+//! the [`crate::document::Documents`] owner, and its typed rows enter phase 1 like inline
+//! rows. A key, a column or the value of a scalar table declares how a document stores it:
+//! its storage unit and the identifier scheme it names entities by.
 use crate::entity::{Rows, typed};
 use crate::provenance::Reader;
 use crate::specialize::value::{Environment, Evaluator, Value, conforms};
@@ -135,6 +141,17 @@ pub enum Absence {
     Default(Value),
 }
 
+/// How a data document stores a key, a column or a scalar table's value (ADR-0125).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Storage {
+    /// The declared storage unit of a quantity: the only statement of the unit a document's
+    /// magnitudes are in.
+    pub unit: Option<pse_quantity::UnitId>,
+    /// The identifier scheme a document names a referenced entity by; without one, by
+    /// identity.
+    pub scheme: Option<DeclarationId>,
+}
+
 /// A typed key.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Key {
@@ -144,6 +161,8 @@ pub struct Key {
     pub ty: Type,
     /// The inclusive range of an integer-range key.
     pub range: Option<(i64, i64)>,
+    /// How a data document stores the key.
+    pub storage: Storage,
 }
 
 /// A typed column.
@@ -155,6 +174,8 @@ pub struct Column {
     pub ty: Type,
     /// Whether admission derives the column rather than a dataset supplying it.
     pub derived: bool,
+    /// How a data document stores a supplied column.
+    pub storage: Storage,
 }
 
 /// A symmetric key pair: each unordered pair is stored once, in canonical orientation.
@@ -190,6 +211,8 @@ pub struct Table {
     pub names: Arc<[String]>,
     /// The whole scalar or row type a lookup answers.
     pub result: Type,
+    /// How a data document stores the value of a table without columns.
+    pub value_storage: Storage,
     /// What a lookup of a key without a row answers.
     pub absence: Absence,
     /// A symmetric key pair.
@@ -507,8 +530,13 @@ impl Declared {
 pub(crate) struct Requirements(Vec<(DeclarationId, Vec<(String, dsl::Predicate)>)>);
 
 /// Admit every table: schemas, then the three phases (ADR-0123 Outcome 3). Row requirements
-/// are returned for [`verify_rows`].
-pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<Requirements> {
+/// are returned for [`verify_rows`]. A dataset naming a data document has its rows admitted
+/// by `documents` (ADR-0125).
+pub(crate) fn admit(
+    p: &mut CheckedPackage,
+    c: &TypeContext<'_>,
+    documents: &dyn crate::document::Documents,
+) -> Result<Requirements> {
     let tables = p
         .declarations
         .values()
@@ -556,15 +584,49 @@ pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<Requi
             ));
         }
     }
+    // ADR-0125: a data document's rows, typed once per column by the documents' owner.
+    let mut supplied = BTreeMap::new();
+    for (table, sources) in &datasets {
+        for dataset in sources {
+            let row = &p.declarations[dataset];
+            let Some(data) = row.value.dataset.as_ref() else {
+                continue;
+            };
+            let Some(path) = &data.document else {
+                continue;
+            };
+            if !data.rows.is_empty() {
+                return Err(invalid(
+                    *dataset,
+                    "a dataset names a data document or writes its rows inline, not both",
+                ));
+            }
+            let document = documents.resolve(row.document_id, path).ok_or_else(|| {
+                invalid(
+                    *dataset,
+                    format!(
+                        "dataset {} names the data document {path}, which its package does not carry",
+                        row.name
+                    ),
+                )
+            })?;
+            let plan = Arc::new(document_plan(p, &declared[table], *dataset)?);
+            supplied.insert(*dataset, documents.admit(&plan, document)?);
+        }
+    }
     // Phase 1: row identities from keys.
     let mut staged = BTreeMap::<DeclarationId, BTreeMap<Vec<Value>, Staged>>::new();
     let mut positions = BTreeMap::<DeclarationId, Vec<Vec<Value>>>::new();
     for (table, sources) in &datasets {
         let rows_of = staged.entry(*table).or_default();
         for dataset in sources {
+            let keys = match supplied.get(dataset) {
+                Some(document) => document.keys.clone(),
+                None => key_values(p, c, &declared[table], *dataset, rows)?,
+            };
             positions.insert(
                 *dataset,
-                identities(p, c, &declared[table], *dataset, rows, rows_of)?,
+                identities(p, &declared[table], *dataset, keys, rows_of)?,
             );
         }
     }
@@ -572,11 +634,11 @@ pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<Requi
     let mut typed_cells = Vec::new();
     for (table, sources) in &datasets {
         for dataset in sources {
-            typed_cells.push((
-                *table,
-                *dataset,
-                values(p, c, &declared, *table, *dataset, rows, &staged)?,
-            ));
+            let cells = match supplied.get(dataset) {
+                Some(document) => supplied_values(&declared[table], document),
+                None => values(p, c, &declared, *table, *dataset, rows, &staged)?,
+            };
+            typed_cells.push((*table, *dataset, cells));
         }
     }
     for (table, dataset, cells) in typed_cells {
@@ -676,6 +738,8 @@ fn schema(
     let names = p.named_types(id);
     let variables = BTreeSet::new();
     let mut seen = BTreeSet::new();
+    // ADR-0125: how a data document stores a key, supplied column or value, by name.
+    let stored = |name: &str| declaration.storage.iter().find(|entry| entry.name == name);
     let keys = declaration
         .keys
         .iter()
@@ -684,6 +748,7 @@ fn schema(
                 return Err(invalid(id, "duplicate table key name"));
             }
             let ty = c.resolve(&key.r#type, &variables, &names, id)?;
+            let storage = storage(p, c, id, &format!("key {} of {table_name}", key.name), &ty, stored(&key.name))?;
             let range = key.range.as_ref().map(|r| (r.lower, r.upper));
             if let Some((lower, upper)) = range
                 && (ty != Type::Integer || lower > upper)
@@ -697,6 +762,7 @@ fn schema(
                 name: key.name.clone(),
                 ty,
                 range,
+                storage,
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -713,6 +779,15 @@ fn schema(
                 ));
             }
             let ty = c.resolve(&column.r#type, &variables, &names, id)?;
+            let what = format!("column {} of {table_name}", column.name);
+            let storage = if column.derived.is_some() {
+                if stored(&column.name).is_some() {
+                    return Err(invalid(id, format!("{what} is derived, and a derived column is never stored")));
+                }
+                Storage::default()
+            } else {
+                storage(p, c, id, &what, &ty, stored(&column.name))?
+            };
             // A reference column names a row of a table with columns.
             let mut inner = &ty;
             while let Type::Optional(value) = inner {
@@ -743,6 +818,7 @@ fn schema(
                 name: column.name.clone(),
                 ty,
                 derived: column.derived.is_some(),
+                storage,
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -780,6 +856,27 @@ fn schema(
             ));
         }
     };
+    let value_storage = if columns.is_empty() {
+        storage(p, c, id, &format!("the value of {table_name}"), &result, stored("value"))?
+    } else {
+        Storage::default()
+    };
+    // Every storage entry names one key, supplied column or value of the table.
+    let mut entries = BTreeSet::new();
+    for entry in &declaration.storage {
+        let slot = keys.iter().any(|k| k.name == entry.name)
+            || columns.iter().any(|c| c.name == entry.name && !c.derived)
+            || columns.is_empty() && entry.name == "value";
+        if !slot || !entries.insert(entry.name.as_str()) {
+            return Err(invalid(
+                id,
+                format!(
+                    "the storage of {} in {table_name} names no stored key, supplied column or value, or names it twice",
+                    entry.name
+                ),
+            ));
+        }
+    }
     let absence = match (
         declaration.missing_policy,
         &declaration.default_value,
@@ -893,6 +990,7 @@ fn schema(
             keys,
             columns,
             result,
+            value_storage,
             absence,
             symmetry,
             rows: BTreeMap::new(),
@@ -906,6 +1004,63 @@ fn schema(
     };
     table.derived = derived_order(p, &table)?;
     Ok(table)
+}
+
+/// How a data document stores a key, a column or a value (ADR-0125): a storage unit
+/// belongs to a quantity and composes to an admitted unit; an identifier scheme belongs to
+/// an entity reference and names a declared scheme.
+fn storage(
+    p: &CheckedPackage,
+    c: &TypeContext<'_>,
+    id: DeclarationId,
+    what: &str,
+    ty: &Type,
+    entry: Option<&pse_authoring::language::ModelingColumnStorage>,
+) -> Result<Storage> {
+    let unit = entry.and_then(|e| e.storage_unit.as_deref());
+    let scheme = entry.and_then(|e| e.scheme.as_deref());
+    let mut inner = ty;
+    while let Type::Optional(value) = inner {
+        inner = value;
+    }
+    let unit = unit
+        .map(|factors| {
+            if !matches!(inner, Type::Quantity(_)) {
+                return Err(invalid(
+                    id,
+                    format!("{what} declares a storage unit, which only a quantity has"),
+                ));
+            }
+            let product = pse_authoring::language::unit_product(
+                &pse_authoring::language::CellQuantity {
+                    magnitude: 1.0,
+                    unit: Some(factors.to_vec()),
+                },
+            )
+            .map_err(|e| invalid(id, format!("{what}: {e}")))?
+            .ok_or_else(|| invalid(id, format!("{what}: a storage unit is a unit literal")))?;
+            let unit = c
+                .quantities
+                .compose(&product)
+                .map_err(|e| invalid(id, format!("{what}: storage unit {product}: {e}")))?;
+            Ok(unit.id)
+        })
+        .transpose()?;
+    let scheme = scheme
+        .map(|path| {
+            if !matches!(inner, Type::Entity(_)) {
+                return Err(invalid(
+                    id,
+                    format!("{what} declares an identifier scheme, which only an entity reference has"),
+                ));
+            }
+            let name = path.join(".");
+            p.resolve(id, &name)
+                .filter(|scheme| p.types.get(scheme) == Some(&Type::Identifier(*scheme)))
+                .ok_or_else(|| invalid(id, format!("{what}: {name} is not an identifier scheme")))
+        })
+        .transpose()?;
+    Ok(Storage { unit, scheme })
 }
 
 /// Derived columns ordered by the columns of their own row that they read.
@@ -1021,16 +1176,13 @@ fn expressions(p: &CheckedPackage, c: &TypeContext<'_>, table: &Declared) -> Res
     Ok(())
 }
 
-/// Phase 1: every row of `dataset` keyed by its canonical key tuple. An integer-range key
-/// lies in its range, a symmetric pair is written in one orientation, and a table
-/// excluding its diagonal has no diagonal row.
-fn identities(
+/// The typed key cells of each inline row of `dataset`.
+fn key_values(
     p: &CheckedPackage,
     c: &TypeContext<'_>,
     table: &Declared,
     dataset: DeclarationId,
     rows: Rows<'_>,
-    staged: &mut BTreeMap<Vec<Value>, Staged>,
 ) -> Result<Vec<Vec<Value>>> {
     let data = p.declarations[&dataset]
         .value
@@ -1038,39 +1190,59 @@ fn identities(
         .as_ref()
         .ok_or_else(|| invalid(dataset, "dataset"))?;
     let name = table.name(p);
-    let mut canonical = Vec::with_capacity(data.rows.len());
-    for (position, entry) in data.rows.iter().enumerate() {
-        if entry.keys.len() != table.table.keys.len() {
-            return Err(invalid(dataset, "dataset key arity"));
+    data.rows
+        .iter()
+        .enumerate()
+        .map(|(position, entry)| {
+            if entry.keys.len() != table.table.keys.len() {
+                return Err(invalid(dataset, "dataset key arity"));
+            }
+            entry
+                .keys
+                .iter()
+                .zip(&table.table.keys)
+                .map(|(cell, key)| {
+                    scalar(p, c, dataset, cell, &key.ty, rows).map_err(|e| {
+                        context(
+                            e,
+                            &format!(
+                                "row {position} of dataset {}: key {} of {name}",
+                                p.declarations[&dataset].name, key.name
+                            ),
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>>>()
+        })
+        .collect()
+}
+
+/// Phase 1: every row of `dataset`, given its typed key values, keyed by its canonical key
+/// tuple. An integer-range key lies in its range, a symmetric pair is written in one
+/// orientation, and a table excluding its diagonal has no diagonal row.
+fn identities(
+    p: &CheckedPackage,
+    table: &Declared,
+    dataset: DeclarationId,
+    typed: Vec<Vec<Value>>,
+    staged: &mut BTreeMap<Vec<Value>, Staged>,
+) -> Result<Vec<Vec<Value>>> {
+    let name = table.name(p);
+    let mut canonical = Vec::with_capacity(typed.len());
+    for (position, keys) in typed.into_iter().enumerate() {
+        for (key, value) in table.table.keys.iter().zip(&keys) {
+            if let (Some((lower, upper)), Value::Integer(v)) = (key.range, value)
+                && !(lower..=upper).contains(v)
+            {
+                return Err(invalid(
+                    dataset,
+                    format!(
+                        "row {position} of dataset {}: key {} = {v} of {name} is outside its declared range {lower}..{upper}",
+                        p.declarations[&dataset].name, key.name
+                    ),
+                ));
+            }
         }
-        let keys = entry
-            .keys
-            .iter()
-            .zip(&table.table.keys)
-            .map(|(cell, key)| {
-                let value = scalar(p, c, dataset, cell, &key.ty, rows).map_err(|e| {
-                    context(
-                        e,
-                        &format!(
-                            "row {position} of dataset {}: key {} of {name}",
-                            p.declarations[&dataset].name, key.name
-                        ),
-                    )
-                })?;
-                if let (Some((lower, upper)), Value::Integer(v)) = (key.range, &value)
-                    && !(lower..=upper).contains(v)
-                {
-                    return Err(invalid(
-                        dataset,
-                        format!(
-                            "row {position} of dataset {}: key {} = {v} of {name} is outside its declared range {lower}..{upper}",
-                            p.declarations[&dataset].name, key.name
-                        ),
-                    ));
-                }
-                Ok(value)
-            })
-            .collect::<Result<Vec<_>>>()?;
         let (keys, swapped) = table.table.canonical(keys);
         if table.table.excluded_diagonal(&keys) {
             return Err(invalid(
@@ -1217,6 +1389,168 @@ fn values(
         output.push(cells);
     }
     Ok(output)
+}
+
+/// Phase 2 for a data document's rows: the supplied values, already typed, in column
+/// order; a derived column awaits phase 3.
+fn supplied_values(table: &Declared, document: &crate::document::DocumentTable) -> Vec<Vec<Pending>> {
+    document
+        .values
+        .iter()
+        .map(|values| {
+            if table.table.columns.is_empty() {
+                return values.iter().cloned().map(Pending::Value).collect();
+            }
+            let mut supplied = values.iter();
+            table
+                .table
+                .columns
+                .iter()
+                .map(|column| {
+                    if column.derived {
+                        Pending::Derived
+                    } else {
+                        Pending::Value(supplied.next().cloned().unwrap_or(Value::Missing))
+                    }
+                })
+                .collect()
+        })
+        .collect()
+}
+
+/// ADR-0125: the admission plan of a dataset whose rows a data document supplies. Every
+/// key and supplied column, or the value of a scalar table, is a slot: its declared type
+/// resolved to what the document's column becomes. A quantity declares its storage unit,
+/// whose conversion to the canonical unit is fixed here once; an entity reference carries
+/// the admitted entities of its kind and, with a declared scheme, that scheme's identifier
+/// index; an enumeration its members by name.
+fn document_plan(
+    p: &CheckedPackage,
+    table: &Declared,
+    dataset: DeclarationId,
+) -> Result<crate::document::DocumentPlan> {
+    use crate::document::{DocumentPlan, Slot, Target};
+    let c = p.context();
+    let table_name = table.name(p);
+    let label = format!("dataset {} of {table_name}", p.declarations[&dataset].name);
+    let slot = |name: &str, ty: &Type, storage: Storage| -> Result<Slot> {
+        let (optional, inner) = match ty {
+            Type::Optional(inner) => (true, inner.as_ref()),
+            other => (false, other),
+        };
+        let declared = format!("{inner:?}");
+        let unsupported = || {
+            invalid(
+                dataset,
+                format!(
+                    "{label}: column {name} declared {declared} cannot be supplied by a data document; a document supplies quantities, entity references, identifiers, text, integers, Booleans and enumeration members"
+                ),
+            )
+        };
+        let target = match inner {
+            Type::Quantity(pse_quantity::scheme::Scheme::Concrete(quantity)) => {
+                let unit = storage.unit.ok_or_else(|| {
+                    invalid(
+                        dataset,
+                        format!(
+                            "{label}: column {name} declared {declared} declares no storage unit; a data document's magnitudes are in the storage unit its column declares"
+                        ),
+                    )
+                })?;
+                let target = c
+                    .quantities
+                    .quantity_type(*quantity)
+                    .map_err(|e| invalid(dataset, e.to_string()))?;
+                let conversion = pse_quantity::convert_spec_for_type(
+                    c.quantities.unit(unit).map_err(|e| invalid(dataset, e.to_string()))?,
+                    c.quantities
+                        .unit(target.canonical_unit)
+                        .map_err(|e| invalid(dataset, e.to_string()))?,
+                    &target.key,
+                )
+                .map_err(|e| {
+                    invalid(
+                        dataset,
+                        format!("{label}: column {name} declared {declared}: storage unit: {e}"),
+                    )
+                })?;
+                Target::Quantity {
+                    quantity: *quantity,
+                    storage: unit,
+                    scale: conversion.scale.to_bits(),
+                    offset: conversion.offset.to_bits(),
+                }
+            }
+            Type::Entity(kind) => {
+                let entities = p
+                    .entities
+                    .iter()
+                    .filter(|(_, record)| p.refines(record.kind, *kind))
+                    .map(|(id, record)| (*id, record.kind))
+                    .collect::<BTreeMap<_, _>>();
+                let scheme = storage.scheme.map(|scheme| {
+                    (
+                        scheme,
+                        Arc::new(
+                            p.identifiers
+                                .of(scheme)
+                                .filter(|(_, entity)| entities.contains_key(entity))
+                                .map(|(value, entity)| (value.to_owned(), entity))
+                                .collect(),
+                        ),
+                    )
+                });
+                Target::Entity {
+                    kind: *kind,
+                    entities: Arc::new(entities),
+                    scheme,
+                }
+            }
+            Type::Identifier(scheme) => Target::Identifier(*scheme),
+            Type::Text => Target::Text,
+            Type::Integer => Target::Integer,
+            Type::Boolean => Target::Boolean,
+            Type::Enum(enumeration) => Target::Enum {
+                enumeration: *enumeration,
+                members: p.declarations[enumeration]
+                    .value
+                    .enumeration
+                    .as_ref()
+                    .map(|e| e.members.iter().map(|m| (m.name.clone(), m.member_id)).collect())
+                    .unwrap_or_default(),
+            },
+            _ => return Err(unsupported()),
+        };
+        Ok(Slot {
+            name: name.to_owned(),
+            declared,
+            optional,
+            target,
+        })
+    };
+    let keys = table
+        .table
+        .keys
+        .iter()
+        .map(|k| slot(&k.name, &k.ty, k.storage))
+        .collect::<Result<Vec<_>>>()?;
+    let values = if table.table.columns.is_empty() {
+        vec![slot("value", &table.table.result, table.table.value_storage)?]
+    } else {
+        table
+            .table
+            .columns
+            .iter()
+            .filter(|column| !column.derived)
+            .map(|column| slot(&column.name, &column.ty, column.storage))
+            .collect::<Result<Vec<_>>>()?
+    };
+    Ok(DocumentPlan {
+        dataset,
+        label,
+        keys,
+        values,
+    })
 }
 
 /// A value cell of a table row: a row reference to a table with columns, or any cell.

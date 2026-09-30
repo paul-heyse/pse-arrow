@@ -43,15 +43,11 @@ const UNIT_PRODUCT_ID: &str = "b65b26cc780fb634de036e1195b0af54";
 /// frame over canonical DSL spellings, whose unit literals print as canonical products
 /// since ADR-0124. The source revision's preimage layout is pinned beside its derivation
 /// (`pse_runtime::math::modeling::source_revision`).
-/// `ModelingFiniteFunctionV2` was one of them until KR4 replaced it, and
+/// `ModelingFiniteFunctionV2` was one of them until KR4 replaced it,
 /// `ModelingImplicitResidualV2` and `MathTypedDefinitionV3` until KR7 replaced them, whose
-/// replacements H5 replaced in turn (below).
-const STRUCTURED_IR_FRAMES: [(Frame, &str, &str); 5] = [
-    (
-        Frame::ModelingSourceRevisionV2,
-        "pse.modeling.source-revision.v2",
-        "c3010bcfb34611415f9c0ae3ab5c73f613b662b487166178438e733c4ff2653e",
-    ),
+/// replacements H5 replaced in turn, and `ModelingSourceRevisionV2` until KR9 replaced it
+/// (below).
+const STRUCTURED_IR_FRAMES: [(Frame, &str, &str); 4] = [
     (
         Frame::ModelingDispatchBodyV2,
         "pse.modeling.dispatch-body.v2",
@@ -118,6 +114,16 @@ const LINEAGE_FRAMES: [(Frame, &str, &str); 4] = [
         "95833c7ed38842f0d3bb8b15ed869df91335c96ce8253cd9d61b6854fcc49f7e",
     ),
 ];
+
+/// `derive_hash(frame, [b"pse"])` for the frame variant Plan 23 KR9 added (ADR-0123
+/// Outcome 8, ADR-0125, DP-24): the source revision, whose preimage now frames each package
+/// data document's identity and byte-level content hash. Its preimage layout is pinned
+/// beside its derivation (`pse_runtime::math::modeling::source_revision`).
+const DATA_DOCUMENT_FRAMES: [(Frame, &str, &str); 1] = [(
+    Frame::ModelingSourceRevisionV3,
+    "pse.modeling.source-revision.v3",
+    "c4c1ab7d2842a8dd7f9988b623fb822d66f152669dcd204b44339e61a1bce4a7",
+)];
 
 /// `derive_id("pse.modeling.keyed-entity.v1", [[0x01; 16], 2u64 LE, "entity", [0x02; 16],
 /// "int", 1i64 LE])`: the identity of a row whose key-declaring kind is `0x01…` and whose
@@ -186,6 +192,18 @@ fn the_unit_product_identity_is_frozen() {
 #[test]
 fn the_structured_ir_frame_variants_are_frozen() {
     for (frame, spelling, vector) in STRUCTURED_IR_FRAMES {
+        assert_eq!(frame.as_str(), spelling);
+        assert_eq!(
+            derive_hash(frame, &[b"pse"]).to_hex(),
+            vector,
+            "{spelling}"
+        );
+    }
+}
+
+#[test]
+fn the_data_document_frame_variants_are_frozen() {
+    for (frame, spelling, vector) in DATA_DOCUMENT_FRAMES {
         assert_eq!(frame.as_str(), spelling);
         assert_eq!(
             derive_hash(frame, &[b"pse"]).to_hex(),

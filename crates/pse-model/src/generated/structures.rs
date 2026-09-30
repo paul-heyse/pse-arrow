@@ -692,6 +692,35 @@ impl PartialEq for ModelingCellValueText {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct ModelingColumnStorage {
+    ///name
+    pub r#name: String,
+    ///storage_unit
+    pub r#storage_unit: Option<Vec<ModelingUnitFactor>>,
+    ///scheme
+    pub r#scheme: Option<Vec<String>>,
+}
+impl crate::SemanticEq for ModelingColumnStorage {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#storage_unit,
+                &other.r#storage_unit,
+            ) && crate::SemanticEq::semantic_eq(&self.r#scheme, &other.r#scheme)
+    }
+}
+impl PartialEq for ModelingColumnStorage {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct ModelingCompleteness {
     ///key
     pub r#key: String,
@@ -1437,6 +1466,24 @@ impl crate::SemanticFrame for ModelingCellValueText {
 impl crate::HeapUsage for ModelingCellValueText {
     fn heap_bytes(&self) -> usize {
         0usize.saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+    }
+}
+impl crate::SemanticFrame for ModelingColumnStorage {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#storage_unit));
+        crate::SemanticFrame::frame(&self.r#storage_unit, hash);
+        hash.str(stringify!(r#scheme));
+        crate::SemanticFrame::frame(&self.r#scheme, hash);
+    }
+}
+impl crate::HeapUsage for ModelingColumnStorage {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#storage_unit))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scheme))
     }
 }
 impl crate::SemanticFrame for ModelingCompleteness {

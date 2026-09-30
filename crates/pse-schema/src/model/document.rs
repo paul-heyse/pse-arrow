@@ -22,11 +22,20 @@ pub enum DocumentKind {
     Entities,
     /// Generic modeling source, parsed directly to generated modeling declarations.
     Modeling,
+    /// A package data document (ADR-0125): typed bulk rows in Parquet, decoded by Arrow
+    /// type and admitted through the relation a dataset declaration names. It is bytes, not
+    /// text, and populates no section.
+    Data,
 }
 
 impl DocumentKind {
     /// Complete document inventory.
-    pub const ALL: [Self; 3] = [Self::PackageHeader, Self::Entities, Self::Modeling];
+    pub const ALL: [Self; 4] = [
+        Self::PackageHeader,
+        Self::Entities,
+        Self::Modeling,
+        Self::Data,
+    ];
 
     /// The wire spelling.
     pub const fn as_str(self) -> &'static str {
@@ -34,7 +43,13 @@ impl DocumentKind {
             Self::PackageHeader => "package_header",
             Self::Entities => "entities",
             Self::Modeling => "modeling",
+            Self::Data => "data",
         }
+    }
+
+    /// Whether the document is UTF-8 source text; a data document is bytes (ADR-0125).
+    pub const fn is_text(self) -> bool {
+        !matches!(self, Self::Data)
     }
 }
 

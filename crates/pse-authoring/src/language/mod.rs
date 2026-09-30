@@ -19,7 +19,7 @@ pub use pse_model::generated::authored::modeling_declarations::{
     AuthoredModelingDeclarationsFieldValueSelected as Selected, Row as Declaration,
 };
 pub use pse_model::generated::structures::{
-    ModelingCompleteness, ModelingEnvelope, ModelingEnvelopeGuard, ModelingIntegerRange,
+    ModelingColumnStorage, ModelingCompleteness, ModelingEnvelope, ModelingEnvelopeGuard, ModelingIntegerRange,
     ModelingLineageEntry, ModelingProvenance, VersionRequirement,
 };
 pub use cells::{

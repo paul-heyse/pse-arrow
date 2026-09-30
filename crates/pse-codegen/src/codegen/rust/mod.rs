@@ -195,7 +195,8 @@ fn documents(reg: &Registry) -> Result<(TokenStream, TokenStream), SchemaError> 
     let mut declarations = Vec::new();
     let mut dispatch = Vec::new();
     let mut implementations = Vec::new();
-    for spec in reg.documents() {
+    // A data document is bytes decoded by Arrow type (ADR-0125), never a serde document.
+    for spec in reg.documents().iter().filter(|spec| spec.kind.is_text()) {
         let name = format_ident!("{}Document", types::pascal(spec.name));
         let mut fields = Vec::new();
         let mut batches = Vec::new();

@@ -4,13 +4,13 @@
 //! Direct codecs used by generated types; no row-shaped intermediate representation.
 
 use arrow_array::builder::{
-    ArrayBuilder, BooleanBuilder, FixedSizeBinaryBuilder, FixedSizeListBuilder, Float64Builder,
+    ArrayBuilder, BinaryBuilder, BooleanBuilder, FixedSizeBinaryBuilder, FixedSizeListBuilder, Float64Builder,
     Int16Builder, Int32Builder, Int64Builder, ListBuilder, StringBuilder,
     TimestampMicrosecondBuilder, TimestampNanosecondBuilder, UInt8Builder, UInt16Builder,
     UInt32Builder, UInt64Builder,
 };
 use arrow_array::{
-    Array, BooleanArray, FixedSizeBinaryArray, FixedSizeListArray, Float64Array, Int16Array,
+    Array, BinaryArray, BooleanArray, FixedSizeBinaryArray, FixedSizeListArray, Float64Array, Int16Array,
     Int32Array, Int64Array, ListArray, StringArray, TimestampMicrosecondArray,
     TimestampNanosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
 };
@@ -120,6 +120,29 @@ impl ArrowValue for String {
     }
     fn read(input: &dyn Array, index: usize) -> Result<Self, RelationError> {
         read_string(input, index).map(str::to_owned)
+    }
+}
+
+/// Exact bytes (ADR-0125), within the 32-bit offsets of `Binary` storage.
+impl ArrowValue for pse_model::Bytes {
+    fn append(&self, output: &mut dyn ArrayBuilder) -> Result<(), RelationError> {
+        let output = builder::<BinaryBuilder>(output)?;
+        let length = output
+            .values_slice()
+            .len()
+            .checked_add(self.len())
+            .ok_or_else(|| mismatch("representable Binary offset"))?;
+        i32::try_from(length).map_err(|_| mismatch("representable Binary offset"))?;
+        output.append_value(self.as_slice());
+        Ok(())
+    }
+    fn append_null(output: &mut dyn ArrayBuilder) -> Result<(), RelationError> {
+        builder::<BinaryBuilder>(output)?.append_null();
+        Ok(())
+    }
+    fn read(input: &dyn Array, index: usize) -> Result<Self, RelationError> {
+        visible(input, index)?;
+        Ok(Self::new(array::<BinaryArray>(input)?.value(index).to_vec()))
     }
 }
 

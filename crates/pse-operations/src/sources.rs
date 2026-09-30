@@ -20,18 +20,19 @@ pub use pse_model::generated::identities::SourceBundleId;
 /// One authored document of a bundle.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SourceDocument {
-    /// The path within the package, as the loader keys it.
+    /// The path within the package, as the loader keys it; it declares the document's kind.
     pub path: String,
     /// The document content hash.
     pub content_hash: ContentHash,
-    /// The authored text.
-    pub content: String,
+    /// The exact authored bytes: a text document's UTF-8 source or a data document's
+    /// Parquet (ADR-0125).
+    pub content: Vec<u8>,
 }
 
 /// A content-addressed set of authored documents.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SourceBundle {
-    /// The package content hash over the bundle's path/text pairs.
+    /// The package content hash over the bundle's path/content pairs.
     pub bundle_hash: SourceBundleId,
     /// A JSON manifest naming the documents.
     pub manifest: serde_json::Value,
@@ -118,7 +119,7 @@ impl<'s> Sources<'s> {
             .map(|document| SourceDocument {
                 path: document.path,
                 content_hash: document.content_hash,
-                content: document.content,
+                content: document.content.into_vec(),
             })
             .collect();
         Ok(SourceBundle {

@@ -16,7 +16,7 @@ pub struct RuntimeOperationalSourceDocumentsRow {
     ///content_hash
     pub r#content_hash: pse_ids::ContentHash,
     ///content
-    pub r#content: String,
+    pub r#content: crate::Bytes,
 }
 impl crate::SemanticEq for RuntimeOperationalSourceDocumentsRow {
     fn semantic_eq(&self, other: &Self) -> bool {

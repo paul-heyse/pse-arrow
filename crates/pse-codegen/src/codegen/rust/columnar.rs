@@ -56,7 +56,9 @@ fn allocation_field(
         return quote!(crate::columnar::allocation_add(8, (#value).as_str().len()));
     }
     match ty {
-        DataType::Utf8 => quote!(crate::columnar::allocation_add(8, (#value).len())),
+        DataType::Utf8 | DataType::Binary => {
+            quote!(crate::columnar::allocation_add(8, (#value).len()))
+        }
         DataType::List(child) | DataType::FixedSizeList(child, _) => {
             let binding = if child.is_nullable() || allocation_reads_value(child.data_type()) {
                 quote!(item)
@@ -83,7 +85,9 @@ fn allocation_field(
 
 fn allocation_reads_value(ty: &DataType) -> bool {
     match ty {
-        DataType::Utf8 | DataType::List(_) | DataType::FixedSizeList(..) => true,
+        DataType::Utf8 | DataType::Binary | DataType::List(_) | DataType::FixedSizeList(..) => {
+            true
+        }
         DataType::Struct(fields) => fields
             .iter()
             .any(|field| field.is_nullable() || allocation_reads_value(field.data_type())),
@@ -103,6 +107,7 @@ pub(super) fn array_type(ty: &FieldContract) -> Result<TokenStream, SchemaError>
         DataType::UInt64 => quote!(arrow_array::UInt64Array),
         DataType::Float64 => quote!(arrow_array::Float64Array),
         DataType::Utf8 => quote!(arrow_array::StringArray),
+        DataType::Binary => quote!(arrow_array::BinaryArray),
         DataType::FixedSizeBinary(16 | 32) => quote!(arrow_array::FixedSizeBinaryArray),
         DataType::List(_) => quote!(arrow_array::ListArray),
         DataType::FixedSizeList(..) => quote!(arrow_array::FixedSizeListArray),

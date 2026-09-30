@@ -5672,6 +5672,7 @@ dependencies = [
  "datafusion",
  "deltalake-core",
  "futures-util",
+ "parquet",
  "pse-authoring",
  "pse-backend-native",
  "pse-catalog",
@@ -6083,6 +6084,7 @@ dependencies = [
 name = "pse-runtime"
 version = "0.0.1"
 dependencies = [
+ "bytes",
  "chrono",
  "clap",
  "datafusion",
@@ -6093,6 +6095,7 @@ dependencies = [
  "futures-util",
  "miette",
  "object_store",
+ "parquet",
  "pse-authoring",
  "pse-backend-native",
  "pse-buildinfo",

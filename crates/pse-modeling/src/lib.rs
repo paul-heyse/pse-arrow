@@ -8,6 +8,7 @@ pub mod annotation;
 pub mod check;
 pub mod continuous;
 pub mod data;
+pub mod document;
 pub mod entity;
 pub mod envelope;
 pub mod expression;
@@ -18,7 +19,7 @@ pub mod provenance;
 pub mod specialize;
 pub mod types;
 
-pub use check::{CheckedPackage, FiniteReduction, Function, check};
+pub use check::{CheckedPackage, FiniteReduction, Function, check, check_with};
 pub use pse_authoring::language::{Declaration, Selected};
 use pse_ids::SemanticId;
 pub use specialize::{Bindings, Limits, SpecializedModel, specialize};
@@ -563,3 +564,5 @@ mod kernel_envelopes;
 mod kernel_domain;
 #[cfg(test)]
 mod domain_schema;
+#[cfg(test)]
+mod kernel_documents;

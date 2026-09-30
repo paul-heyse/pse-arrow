@@ -15,8 +15,10 @@ pub struct AuthoredDocumentsRow {
     pub r#package_id: crate::generated::identities::PackageId,
     ///The document path, relative to the package root.
     pub r#path: String,
-    ///Exact original UTF-8 source, including whitespace and comments (ADR-0068).
-    pub r#source_text: String,
+    ///Exact original UTF-8 source of a text document, including whitespace and comments (ADR-0068); absent for a data document.
+    pub r#source_text: Option<String>,
+    ///Exact original bytes of a package data document (ADR-0125); absent for a text document.
+    pub r#content: Option<crate::Bytes>,
 }
 impl crate::SemanticEq for AuthoredDocumentsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -24,6 +26,7 @@ impl crate::SemanticEq for AuthoredDocumentsRow {
             && crate::SemanticEq::semantic_eq(&self.r#package_id, &other.r#package_id)
             && crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
             && crate::SemanticEq::semantic_eq(&self.r#source_text, &other.r#source_text)
+            && crate::SemanticEq::semantic_eq(&self.r#content, &other.r#content)
     }
 }
 impl PartialEq for AuthoredDocumentsRow {
@@ -43,6 +46,8 @@ impl crate::SemanticFrame for AuthoredDocumentsRow {
         crate::SemanticFrame::frame(&self.r#path, hash);
         hash.str(stringify!(r#source_text));
         crate::SemanticFrame::frame(&self.r#source_text, hash);
+        hash.str(stringify!(r#content));
+        crate::SemanticFrame::frame(&self.r#content, hash);
     }
 }
 impl crate::HeapUsage for AuthoredDocumentsRow {
@@ -52,5 +57,6 @@ impl crate::HeapUsage for AuthoredDocumentsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#package_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_text))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#content))
     }
 }

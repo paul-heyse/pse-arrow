@@ -9,7 +9,7 @@
 use pse_schema::Registry;
 
 /// Explicit domain declarations, without a mathematical graph or producer fixture.
-pub(crate) fn physical_texts(registry: &Registry) -> std::collections::BTreeMap<String, String> {
+pub(crate) fn physical_texts(registry: &Registry) -> std::collections::BTreeMap<String, Vec<u8>> {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -23,6 +23,6 @@ pub(crate) fn physical_texts(registry: &Registry) -> std::collections::BTreeMap<
     .unwrap()
     .documents
     .iter()
-    .map(|document| (document.path.clone(), document.text.clone()))
+    .map(|document| (document.path.clone(), document.bytes().to_vec()))
     .collect()
 }

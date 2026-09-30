@@ -10,7 +10,7 @@
 
 use pse_authoring::ParseBudget;
 use pse_relations::generated::{authored, reference};
-use pse_runtime::authoring_driver::document::{load_package, load_package_texts};
+use pse_runtime::authoring_driver::document::{load_package, load_package_documents};
 use std::collections::BTreeMap;
 #[path = "authoring_support/mod.rs"]
 mod support;
@@ -20,7 +20,7 @@ fn fixture(name: &str) -> std::path::PathBuf {
         .join("../../tests/fixtures/packages")
         .join(name)
 }
-fn texts(name: &str) -> BTreeMap<String, String> {
+fn texts(name: &str) -> BTreeMap<String, Vec<u8>> {
     let loaded = load_package(
         &fixture(name),
         pse_engine::validation::registry().unwrap(),
@@ -30,7 +30,7 @@ fn texts(name: &str) -> BTreeMap<String, String> {
     loaded
         .documents
         .iter()
-        .map(|document| (document.path.clone(), document.text.clone()))
+        .map(|document| (document.path.clone(), document.bytes().to_vec()))
         .collect()
 }
 
@@ -67,8 +67,8 @@ fn explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans()
         .iter()
         .find(|document| document.id == span.document_id)
         .unwrap();
-    let original =
-        &document.text[usize::try_from(span.start).unwrap()..usize::try_from(span.end).unwrap()];
+    let original = &document.text().unwrap()
+        [usize::try_from(span.start).unwrap()..usize::try_from(span.end).unwrap()];
     assert!(
         original.contains("name: probe"),
         "row span: {original:?}; {span:?}"
@@ -92,7 +92,7 @@ fn missing_ids_unknown_fields_duplicate_keys_and_wrong_package_context_fail() {
     let registry_owner = support::registry();
     let registry = registry_owner.as_ref();
     let original = texts("minimal_explicit");
-    let document = &original["materials/constants.yaml"];
+    let document = std::str::from_utf8(&original["materials/constants.yaml"]).unwrap();
     let variants = [
         document.replace(
             "id: \"01991d6a-13a0-7000-8000-000000000002\"",
@@ -111,7 +111,7 @@ fn missing_ids_unknown_fields_duplicate_keys_and_wrong_package_context_fail() {
     ];
     for text in variants {
         let mut inputs = original.clone();
-        inputs.insert("materials/constants.yaml".to_owned(), text);
-        assert!(load_package_texts(inputs, registry, ParseBudget::default()).is_err());
+        inputs.insert("materials/constants.yaml".to_owned(), text.into_bytes());
+        assert!(load_package_documents(inputs, registry, ParseBudget::default()).is_err());
     }
 }

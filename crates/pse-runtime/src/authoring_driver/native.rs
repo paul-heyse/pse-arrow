@@ -65,6 +65,8 @@ pub fn relation_plan(
                     column("path"),
                     lit("source_text"),
                     column("source_text"),
+                    lit("content"),
+                    column("content"),
                 ]))
                 .order_by(vec![column("path").sort(true, false)])
                 .build()?

@@ -93,6 +93,10 @@ pub(super) fn from_documents(
     documents: Vec<BTreeMap<String, String>>,
     physical: &NativePhysicalContext,
 ) -> PyResult<NativeModelingPackage> {
+    let documents = documents
+        .into_iter()
+        .map(document_bytes)
+        .collect::<Vec<_>>();
     let cancel = CancelSource::new();
     let inner = blocking(
         py,
@@ -103,7 +107,7 @@ pub(super) fn from_documents(
             let bundles = documents
                 .iter()
                 .map(|documents| {
-                    pse_runtime::authoring_driver::document::load_package_texts_owned(
+                    pse_runtime::authoring_driver::document::load_package_documents_owned(
                         documents,
                         &runtime.owner.registry,
                         pse_authoring::ParseBudget::default(),
@@ -1795,8 +1799,8 @@ impl NativeModelingConformance {
             py,
             &executor,
             native::conform_pure_documents(
-                documents,
-                physical,
+                documents.into_iter().map(document_bytes).collect(),
+                document_bytes(physical),
                 budget,
                 Arc::new(pse_rules::invariants::RegistryRequirementPlanner),
                 selection,
