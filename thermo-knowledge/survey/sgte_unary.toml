@@ -149,7 +149,7 @@ loss = "The link from a lattice-stability function to the GHSER function is a sy
 name = "PARAMETER G (unary endmember energy)"
 locator = "unary50.tdb:1948-3194 (430 PARAMETER statements)"
 meaning = "G(PHASE,ELEMENT;0) for single-sublattice phases and G(PHASE,ELEMENT:VA;0) for phases with an interstitial VA sublattice: the Gibbs energy of the element in that phase, given as a function name (GHSERAG, GBCCAG) or an inline expression that adds a polynomial to GHSER (for example 3400-1.05*T+GHSERAG), with a lower limit (298.15 K for 356 of 430) and an upper limit."
-subject = "One element in one phase (a constituent array with one species per sublattice)."
+subject = "One endmember of a sublattice phase: the phase with a constituent array (the element, or the element and VA, one constituent per sublattice), keyed by phase name and constituent array."
 fields = [
   { name = "type, phase, constituent array, order", meaning = "G, the phase, the element (or element and VA), order 0", unit = "not applicable (text)", shape = "list", role = "input" },
   { name = "lower limit", meaning = "first temperature of the expression: 298.15 (356), 200 (43), 100 (24), 250 (6), 130 (1)", unit = "K (inferred)", shape = "scalar", role = "input" },
@@ -163,7 +163,7 @@ validity = "from the lower to the upper limit of each parameter; 454 pieces in a
 provenance = "16 'Source of data' comments precede some parameters (for example an assessment of the Ag-Al system, an unpublished work of a named author, a Cd-Hg assessment); they are comments, not fields, and are dropped by readers that strip comments"
 count = "396"
 example = "unary50.tdb:1948 (G(FCC_A1,AG:VA;0))"
-candidate = "parameter_set of a standard_state_species form per species_form, with a nested temperature function, in a parameterization whose chemical_system is the set of the file's elements"
+candidate = "parameter_set of an endmember Gibbs form whose subject is the constituent_array of the phase, with a nested temperature function, in a parameterization whose chemical_system is the set of the file's elements"
 precision = "close"
 loss = "The order index is 0 for all; the comment-borne source citations are not attached to any parameter in a parsed file."
 

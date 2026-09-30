@@ -157,7 +157,7 @@ count = "7 to 12 per system in the examples; 21 systems"
 example = "node-gem-build/tp_test/CalcColumn-dch.dat (ICNL: C Ca Cl H Mg O Zz)"
 candidate = "conserved_quantity, element"
 precision = "close"
-loss = "Components that are not elements (Nit, Zz, volume, sorption site, isotopes, formula units) are in one list with elements; the model's conserved_quantity covers them by kind (element, charge, site_total) but has no volume or formula-unit kind, and 'decoupled element' semantics (Nit) are carried only by the name and the A column."
+loss = "Components that are not elements (Nit, Zz, volume, sorption site, isotopes, formula units) are in one list with elements; the declaration's conserved_kind has only element, charge and site_total, so isotopes, formula-unit components, volume, the decoupled nitrogen Nit and ligand components have no kind to map to (alignment-notes item 17 schedules isotope, alkalinity, decoupled_inventory and moiety members; formula-unit and volume kinds are not among them), and 'decoupled element' semantics (Nit) are carried only by the name and the A column."
 
 [[construct]]
 name = "dependent components and the formula matrix (DCNL, ccDC, DCmm, A)"

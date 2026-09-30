@@ -1363,7 +1363,7 @@ loss = "Columns are a slot group's slots, but the file names no form, parameteri
 name = "gc-PCP-SAFT like table (group-keyed)"
 locator = "database/SAFT/PCSAFT/gcPCPSAFT/hetero/HeterogcPCPSAFT_like.csv; same layout in: database/SAFT/PCSAFT/gcPCPSAFT/homo/HomogcPCPSAFT_like.csv"
 meaning = "Per-group PC-SAFT parameters (Mw, segment, sigma, epsilon, dipole, site counts) for the homosegmented and heterosegmented group-contribution PCP-SAFT; the species column holds group labels."
-subject = "one compound keyed by the species cell (a group label in group-contribution tables, which these files are)"
+subject = "one group keyed by the species cell (a group label; these files are group-contribution tables)"
 fields = [
   { name = "species", meaning = "component name, or group label in a group-contribution table; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "Mw", meaning = "molar mass", unit = "g·mol⁻¹ (model docstrings)", shape = "scalar", role = "input" },
@@ -1382,7 +1382,7 @@ validity = "not stated"
 provenance = "per-row source column"
 count = "46 data rows in 2 file(s): SAFT/PCSAFT/gcPCPSAFT/hetero/HeterogcPCPSAFT_like.csv 23; SAFT/PCSAFT/gcPCPSAFT/homo/HomogcPCPSAFT_like.csv 23"
 example = "database/SAFT/PCSAFT/gcPCPSAFT/hetero/HeterogcPCPSAFT_like.csv row 1"
-candidate = "parameter_set of the model's slot group, one per row, subject species_form or group"
+candidate = "parameter_set of the model's slot group, one per row, subject a group of the parameterisation's group_scheme"
 precision = "close"
 loss = "Columns are a slot group's slots, but the file names no form, parameterisation or unit; the form is implied by the directory and the model that lists the file. Site counts and other structural columns (n_H, n_e, ...) are ordinary columns rather than association_site rows."
 
@@ -1390,7 +1390,7 @@ loss = "Columns are a slot group's slots, but the file names no form, parameteri
 name = "gcsPC-SAFT like table (group-keyed)"
 locator = "database/SAFT/PCSAFT/gcsPCSAFT/gcsPCSAFT_like.csv; same layout in: no other file"
 meaning = "Per-group simplified PC-SAFT parameters: segment number and the products m*sigma^3 and m*epsilon."
-subject = "one compound keyed by the species cell (a group label in group-contribution tables, which these files are)"
+subject = "one group keyed by the species cell (a group label; these files are group-contribution tables)"
 fields = [
   { name = "species", meaning = "component name, or group label in a group-contribution table; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "segment", meaning = "number of segments per molecule", unit = "dimensionless (docstring: no units)", shape = "scalar", role = "input" },
@@ -1407,7 +1407,7 @@ validity = "not stated"
 provenance = "per-row source column"
 count = "46 data rows in 1 file(s): SAFT/PCSAFT/gcsPCSAFT/gcsPCSAFT_like.csv 46"
 example = "database/SAFT/PCSAFT/gcsPCSAFT/gcsPCSAFT_like.csv row 1"
-candidate = "parameter_set of the model's slot group, one per row, subject species_form or group"
+candidate = "parameter_set of the model's slot group, one per row, subject a group of the parameterisation's group_scheme"
 precision = "close"
 loss = "Columns are a slot group's slots, but the file names no form, parameterisation or unit; the form is implied by the directory and the model that lists the file. Site counts and other structural columns (n_H, n_e, ...) are ordinary columns rather than association_site rows."
 
@@ -1442,7 +1442,7 @@ loss = "Columns are a slot group's slots, but the file names no form, parameteri
 name = "SAFT-gamma Mie like table (group-keyed)"
 locator = "database/SAFT/SAFTgammaMie/SAFTgammaMie_like.csv; same layout in: database/SAFT/SAFTgammaMie/structSAFTgammaMie/structSAFTgammaMie_like.csv"
 meaning = "Per-group parameters: number of segments vst, shape factor S, Mie exponents, sigma, epsilon and site counts (n_e1, n_e2 distinguish two lone-pair site types)."
-subject = "one compound keyed by the species cell (a group label in group-contribution tables, which these files are)"
+subject = "one group keyed by the species cell (a group label; these files are group-contribution tables)"
 fields = [
   { name = "species", meaning = "component name, or group label in a group-contribution table; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "vst", meaning = "number of segments of the group", unit = "dimensionless (docstring: no units)", shape = "scalar", role = "input" },
@@ -1463,7 +1463,7 @@ validity = "not stated"
 provenance = "per-row source column"
 count = "77 data rows in 2 file(s): SAFT/SAFTgammaMie/SAFTgammaMie_like.csv 72; SAFT/SAFTgammaMie/structSAFTgammaMie/structSAFTgammaMie_like.csv 5"
 example = "database/SAFT/SAFTgammaMie/SAFTgammaMie_like.csv row 1"
-candidate = "parameter_set of the model's slot group, one per row, subject species_form or group"
+candidate = "parameter_set of the model's slot group, one per row, subject a group of the parameterisation's group_scheme"
 precision = "close"
 loss = "Columns are a slot group's slots, but the file names no form, parameterisation or unit; the form is implied by the directory and the model that lists the file. Site counts and other structural columns (n_H, n_e, ...) are ordinary columns rather than association_site rows."
 
@@ -1471,7 +1471,7 @@ loss = "Columns are a slot group's slots, but the file names no form, parameteri
 name = "SAFT-gamma E Mie ion table"
 locator = "database/SAFT/SAFTgammaMie/SAFTgammaMieE/SAFTgammaMieE_like.csv; same layout in: no other file"
 meaning = "Charge and Born diameter per ion group for the electrolyte extension; one sigma_born cell empty."
-subject = "one compound keyed by the species cell (a group label in group-contribution tables, which these files are)"
+subject = "one group keyed by the species cell (a group label; these files are group-contribution tables)"
 fields = [
   { name = "species", meaning = "component name, or group label in a group-contribution table; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "charge", meaning = "charge number of the ion group", unit = "elementary charges (inferred: integer values)", shape = "scalar", role = "input" },
@@ -1485,7 +1485,7 @@ validity = "not stated"
 provenance = "per-row source column"
 count = "25 data rows in 1 file(s): SAFT/SAFTgammaMie/SAFTgammaMieE/SAFTgammaMieE_like.csv 25"
 example = "database/SAFT/SAFTgammaMie/SAFTgammaMieE/SAFTgammaMieE_like.csv row 1"
-candidate = "parameter_set of the model's slot group, one per row, subject species_form or group"
+candidate = "parameter_set of the model's slot group, one per row, subject a group of the parameterisation's group_scheme"
 precision = "close"
 loss = "Columns are a slot group's slots, but the file names no form, parameterisation or unit; the form is implied by the directory and the model that lists the file. Site counts and other structural columns (n_H, n_e, ...) are ordinary columns rather than association_site rows."
 
@@ -1561,7 +1561,7 @@ loss = "Columns are a slot group's slots, but the file names no form, parameteri
 name = "UNIFAC group like table (R, Q)"
 locator = "database/Activity/UNIFAC/UNIFAC_like.csv; same layout in: database/Activity/UNIFAC/PSRK/PSRK_like.csv"
 meaning = "Van der Waals volume R and surface area Q per subgroup for modified UNIFAC (Dortmund) and PSRK; the species column holds subgroup labels; PSRK_like.csv leaves Q empty in 4 of its 150 rows."
-subject = "one compound keyed by the species cell (a group label in group-contribution tables, which these files are)"
+subject = "one group keyed by the species cell (a group label; these files are group-contribution tables)"
 fields = [
   { name = "species", meaning = "component name, or group label in a group-contribution table; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "R", meaning = "normalised group van der Waals volume", unit = "dimensionless (docstring: normalised)", shape = "scalar", role = "input" },
@@ -1575,7 +1575,7 @@ validity = "not stated"
 provenance = "per-row source column"
 count = "276 data rows in 2 file(s): Activity/UNIFAC/PSRK/PSRK_like.csv 150; Activity/UNIFAC/UNIFAC_like.csv 126"
 example = "database/Activity/UNIFAC/UNIFAC_like.csv row 1"
-candidate = "parameter_set of the model's slot group, one per row, subject species_form or group"
+candidate = "parameter_set of the model's slot group, one per row, subject a group of the parameterisation's group_scheme"
 precision = "close"
 loss = "Columns are a slot group's slots, but the file names no form, parameterisation or unit; the form is implied by the directory and the model that lists the file. Site counts and other structural columns (n_H, n_e, ...) are ordinary columns rather than association_site rows."
 
@@ -1583,7 +1583,7 @@ loss = "Columns are a slot group's slots, but the file names no form, parameteri
 name = "original UNIFAC group like table"
 locator = "database/Activity/UNIFAC/ogUNIFAC/ogUNIFAC_like.csv; same layout in: no other file"
 meaning = "R and Q per subgroup of the original UNIFAC plus a Mw column (molar mass of the group) that ogUNIFAC's parameter struct ignores but UNIFAC-FV and UNIFAC-FV (polymer) read, since they take their group tables from this file."
-subject = "one compound keyed by the species cell (a group label in group-contribution tables, which these files are)"
+subject = "one group keyed by the species cell (a group label; these files are group-contribution tables)"
 fields = [
   { name = "species", meaning = "component name, or group label in a group-contribution table; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "R", meaning = "parameter column", unit = "dimensionless", shape = "scalar", role = "input" },
@@ -1598,7 +1598,7 @@ validity = "not stated"
 provenance = "per-row source column"
 count = "113 data rows in 1 file(s): Activity/UNIFAC/ogUNIFAC/ogUNIFAC_like.csv 113"
 example = "database/Activity/UNIFAC/ogUNIFAC/ogUNIFAC_like.csv row 1"
-candidate = "parameter_set of the model's slot group, one per row, subject species_form or group"
+candidate = "parameter_set of the model's slot group, one per row, subject a group of the parameterisation's group_scheme"
 precision = "close"
 loss = "Columns are a slot group's slots, but the file names no form, parameterisation or unit; the form is implied by the directory and the model that lists the file. Site counts and other structural columns (n_H, n_e, ...) are ordinary columns rather than association_site rows."
 
@@ -1606,7 +1606,7 @@ loss = "Columns are a slot group's slots, but the file names no form, parameteri
 name = "VTPR group like table (Q only)"
 locator = "database/Activity/UNIFAC/VTPR/VTPR_like.csv; same layout in: no other file"
 meaning = "Surface area Q per subgroup for the VTPR residual UNIFAC; PSRK-type tables have 4 empty Q cells in PSRK_like.csv (not here)."
-subject = "one compound keyed by the species cell (a group label in group-contribution tables, which these files are)"
+subject = "one group keyed by the species cell (a group label; these files are group-contribution tables)"
 fields = [
   { name = "species", meaning = "component name, or group label in a group-contribution table; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "Q", meaning = "normalised group surface area", unit = "dimensionless", shape = "scalar", role = "input" },
@@ -1619,7 +1619,7 @@ validity = "not stated"
 provenance = "per-row source column"
 count = "102 data rows in 1 file(s): Activity/UNIFAC/VTPR/VTPR_like.csv 102"
 example = "database/Activity/UNIFAC/VTPR/VTPR_like.csv row 1"
-candidate = "parameter_set of the model's slot group, one per row, subject species_form or group"
+candidate = "parameter_set of the model's slot group, one per row, subject a group of the parameterisation's group_scheme"
 precision = "close"
 loss = "Columns are a slot group's slots, but the file names no form, parameterisation or unit; the form is implied by the directory and the model that lists the file. Site counts and other structural columns (n_H, n_e, ...) are ordinary columns rather than association_site rows."
 
@@ -1627,9 +1627,9 @@ loss = "Columns are a slot group's slots, but the file names no form, parameteri
 name = "UNIFAC-FV like table"
 locator = "database/Activity/UNIFAC/UNIFACFV/UNIFACFV_like.csv; same layout in: no other file"
 meaning = "Per-component (not per-group) free-volume data for UNIFAC-FV: specific volume and the number of external degrees of freedom c (5 of 7 empty). It is read by a separate species-keyed getparams call, while the group tables come from the original-UNIFAC files; the constructor's group list is the UNIFAC-FV groups file (5 rows)."
-subject = "one compound keyed by the species cell (a group label in group-contribution tables, which these files are)"
+subject = "one compound keyed by the species cell (the rows are per component, not per group)"
 fields = [
-  { name = "species", meaning = "component name, or group label in a group-contribution table; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "species", meaning = "component name; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "c", meaning = "external degrees of freedom per solvent molecule (docstring of the polymer variant); UNIFACFV lists c in its ignore_headers, so only the polymer variant can read it", unit = "not stated", shape = "scalar", role = "input" },
   { name = "volume", meaning = "specific volume of the species", unit = "g·cm⁻³ in the docstring (a density unit for a specific volume; inconsistent)", shape = "scalar", role = "input" },
   { name = "source", meaning = "attribution of the row: a DOI, a free-text citation, or empty", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
@@ -1641,7 +1641,7 @@ validity = "not stated"
 provenance = "per-row source column"
 count = "7 data rows in 1 file(s): Activity/UNIFAC/UNIFACFV/UNIFACFV_like.csv 7"
 example = "database/Activity/UNIFAC/UNIFACFV/UNIFACFV_like.csv row 1"
-candidate = "parameter_set of the model's slot group, one per row, subject species_form or group"
+candidate = "parameter_set of the model's slot group, one per row, subject species_form"
 precision = "close"
 loss = "Columns are a slot group's slots, but the file names no form, parameterisation or unit; the form is implied by the directory and the model that lists the file. Site counts and other structural columns (n_H, n_e, ...) are ordinary columns rather than association_site rows."
 
@@ -2242,7 +2242,7 @@ loss = "Columns are a slot group's slots, but the file names no form, parameteri
 name = "Walker group ideal heat-capacity table"
 locator = "database/ideal/WalkerIdeal.csv; same layout in: no other file"
 meaning = "Group-keyed vibrational model: molar mass, number of rotors, four characteristic temperatures theta and their degeneracies deg."
-subject = "one compound keyed by the species cell (a group label in group-contribution tables, which these files are)"
+subject = "one group keyed by the species cell (a group label; these files are group-contribution tables)"
 fields = [
   { name = "species", meaning = "component name, or group label in a group-contribution table; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "Mw", meaning = "molar mass", unit = "g·mol⁻¹ (model docstrings)", shape = "scalar", role = "input" },
@@ -2264,7 +2264,7 @@ validity = "not stated"
 provenance = "per-row source column"
 count = "13 data rows in 1 file(s): ideal/WalkerIdeal.csv 13"
 example = "database/ideal/WalkerIdeal.csv row 1"
-candidate = "parameter_set of the model's slot group, one per row, subject species_form or group"
+candidate = "parameter_set of the model's slot group, one per row, subject a group of the parameterisation's group_scheme"
 precision = "close"
 loss = "Columns are a slot group's slots, but the file names no form, parameterisation or unit; the form is implied by the directory and the model that lists the file. Site counts and other structural columns (n_H, n_e, ...) are ordinary columns rather than association_site rows."
 
@@ -2272,7 +2272,7 @@ loss = "Columns are a slot group's slots, but the file names no form, parameteri
 name = "Joback group-contribution table"
 locator = "database/ideal/JobackIdeal.csv; same layout in: no other file"
 meaning = "Joback group increments for critical constants, boiling and melting points, formation enthalpy and Gibbs energy, the Cp polynomial, fusion and vaporization enthalpies and viscosity; rows are groups (and one whole-molecule water row)."
-subject = "one compound keyed by the species cell (a group label in group-contribution tables, which these files are)"
+subject = "one group keyed by the species cell (a group label; these files are group-contribution tables)"
 fields = [
   { name = "species", meaning = "component name, or group label in a group-contribution table; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "T_c", meaning = "critical temperature increment", unit = "dimensionless increment", shape = "scalar", role = "input" },
@@ -2298,7 +2298,7 @@ validity = "the trailing empty-named header cell is one empty column (measured),
 provenance = "none: the table has no source column"
 count = "45 data rows in 1 file(s): ideal/JobackIdeal.csv 45"
 example = "database/ideal/JobackIdeal.csv row 1"
-candidate = "parameter_set of the model's slot group, one per row, subject species_form or group"
+candidate = "parameter_set of the model's slot group, one per row, subject a group of the parameterisation's group_scheme"
 precision = "close"
 loss = "Columns are a slot group's slots, but the file names no form, parameterisation or unit; the form is implied by the directory and the model that lists the file. Site counts and other structural columns (n_H, n_e, ...) are ordinary columns rather than association_site rows."
 
@@ -2306,7 +2306,7 @@ loss = "Columns are a slot group's slots, but the file names no form, parameteri
 name = "Burkhardt group ideal table"
 locator = "database/ideal/BurkhardtIdeal/BurkhardtIdeal.csv; same layout in: no other file"
 meaning = "Four group coefficients A..D of the Burkhardt group-contribution Aly-Lee variant."
-subject = "one compound keyed by the species cell (a group label in group-contribution tables, which these files are)"
+subject = "one group keyed by the species cell (a group label; these files are group-contribution tables)"
 fields = [
   { name = "species", meaning = "component name, or group label in a group-contribution table; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "A", meaning = "group coefficient A", unit = "dimensionless / K (not stated)", shape = "scalar", role = "input" },
@@ -2321,7 +2321,7 @@ validity = "not stated"
 provenance = "none: the table has no source column"
 count = "64 data rows in 1 file(s): ideal/BurkhardtIdeal/BurkhardtIdeal.csv 64"
 example = "database/ideal/BurkhardtIdeal/BurkhardtIdeal.csv row 1"
-candidate = "parameter_set of the model's slot group, one per row, subject species_form or group"
+candidate = "parameter_set of the model's slot group, one per row, subject a group of the parameterisation's group_scheme"
 precision = "close"
 loss = "Columns are a slot group's slots, but the file names no form, parameterisation or unit; the form is implied by the directory and the model that lists the file. Site counts and other structural columns (n_H, n_e, ...) are ordinary columns rather than association_site rows."
 
@@ -2329,7 +2329,7 @@ loss = "Columns are a slot group's slots, but the file names no form, parameteri
 name = "GC Aly-Lee group ideal table"
 locator = "database/ideal/BurkhardtIdeal/GCAlyLeeIdeal.csv; same layout in: no other file"
 meaning = "Five group coefficients A..E of the group-contribution Aly-Lee variant."
-subject = "one compound keyed by the species cell (a group label in group-contribution tables, which these files are)"
+subject = "one group keyed by the species cell (a group label; these files are group-contribution tables)"
 fields = [
   { name = "species", meaning = "component name, or group label in a group-contribution table; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "A", meaning = "group coefficient A", unit = "not stated", shape = "scalar", role = "input" },
@@ -2345,7 +2345,7 @@ validity = "not stated"
 provenance = "none: the table has no source column"
 count = "64 data rows in 1 file(s): ideal/BurkhardtIdeal/GCAlyLeeIdeal.csv 64"
 example = "database/ideal/BurkhardtIdeal/GCAlyLeeIdeal.csv row 1"
-candidate = "parameter_set of the model's slot group, one per row, subject species_form or group"
+candidate = "parameter_set of the model's slot group, one per row, subject a group of the parameterisation's group_scheme"
 precision = "close"
 loss = "Columns are a slot group's slots, but the file names no form, parameterisation or unit; the form is implied by the directory and the model that lists the file. Site counts and other structural columns (n_H, n_e, ...) are ordinary columns rather than association_site rows."
 
@@ -2401,7 +2401,7 @@ meaning = "CAS, SMILES, InChIKey and canonical SMILES per compound, semicolon se
 subject = "one compound keyed by the species cell"
 fields = [
   { name = "CAS", meaning = "CAS registry number (47 empty)", unit = "not applicable (text)", shape = "scalar", role = "input" },
-  { name = "species", meaning = "component name, or group label in a group-contribution table; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "species", meaning = "component name; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "SMILES", meaning = "SMILES as written (5 empty)", unit = "not applicable (text)", shape = "scalar", role = "input" },
   { name = "inchikey", meaning = "standard InChIKey", unit = "not applicable (text)", shape = "scalar", role = "input" },
   { name = "canonicalsmiles", meaning = "canonicalised SMILES (5 empty)", unit = "not applicable (text)", shape = "scalar", role = "input" },
@@ -2413,9 +2413,9 @@ validity = "not stated"
 provenance = "none: the table has no source column"
 count = "3747 data rows in 1 file(s): properties/identifiers.csv 3747"
 example = "database/properties/identifiers.csv row 1"
-candidate = "parameter_set of the model's slot group, one per row, subject species_form"
+candidate = "identity_assertion per non-empty identifier cell (schemes cas, smiles, inchikey) on the entity named by the species cell"
 precision = "close"
-loss = "Columns are a slot group's slots, but the file names no form, parameterisation or unit; the form is implied by the directory and the model that lists the file. Site counts and other structural columns (n_H, n_e, ...) are ordinary columns rather than association_site rows."
+loss = "This is an identity table, not a parameter table: it has no form, parameterisation or unit. Empty cells (47 CAS, 5 SMILES and canonical SMILES) assert nothing, as-written and canonical SMILES share one scheme so that distinction is lost, and the origin of the registry values is not stated."
 
 [[construct]]
 name = "ideal-gas formation table"
@@ -2463,7 +2463,7 @@ loss = "Columns are a slot group's slots, but the file names no form, parameteri
 name = "group molar mass table"
 locator = "database/properties/molarmass_groups.csv; same layout in: no other file"
 meaning = "Molar mass per Joback, Walker or Burkhardt group label."
-subject = "one compound keyed by the species cell (a group label in group-contribution tables, which these files are)"
+subject = "one group keyed by the species cell (a group label; these files are group-contribution tables)"
 fields = [
   { name = "species", meaning = "component name, or group label in a group-contribution table; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "Mw", meaning = "molar mass of the group", unit = "g·mol⁻¹", shape = "scalar", role = "input" },
@@ -2475,7 +2475,7 @@ validity = "not stated"
 provenance = "none: the table has no source column"
 count = "125 data rows in 1 file(s): properties/molarmass_groups.csv 125"
 example = "database/properties/molarmass_groups.csv row 1"
-candidate = "parameter_set of the model's slot group, one per row, subject species_form or group"
+candidate = "parameter_set of the model's slot group, one per row, subject a group of the parameterisation's group_scheme"
 precision = "close"
 loss = "Columns are a slot group's slots, but the file names no form, parameterisation or unit; the form is implied by the directory and the model that lists the file. Site counts and other structural columns (n_H, n_e, ...) are ordinary columns rather than association_site rows."
 
@@ -2483,7 +2483,7 @@ loss = "Columns are a slot group's slots, but the file names no form, parameteri
 name = "group atom counts table"
 locator = "database/properties/natoms_groups.csv; same layout in: no other file"
 meaning = "Number of atoms and of hydrogens per Joback group."
-subject = "one compound keyed by the species cell (a group label in group-contribution tables, which these files are)"
+subject = "one group keyed by the species cell (a group label; these files are group-contribution tables)"
 fields = [
   { name = "species", meaning = "component name, or group label in a group-contribution table; matched after normalisation and may carry '~|~'-joined aliases", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "N_a", meaning = "number of atoms in the group", unit = "count", shape = "scalar", role = "input" },
@@ -2496,7 +2496,7 @@ validity = "not stated"
 provenance = "none: the table has no source column"
 count = "80 data rows in 1 file(s): properties/natoms_groups.csv 80"
 example = "database/properties/natoms_groups.csv row 1"
-candidate = "parameter_set of the model's slot group, one per row, subject species_form or group"
+candidate = "parameter_set of the model's slot group, one per row, subject a group of the parameterisation's group_scheme"
 precision = "close"
 loss = "Columns are a slot group's slots, but the file names no form, parameterisation or unit; the form is implied by the directory and the model that lists the file. Site counts and other structural columns (n_H, n_e, ...) are ordinary columns rather than association_site rows."
 
@@ -2703,7 +2703,7 @@ loss = "The transposition rule is held in model code (asymmetricparams lists), n
 name = "UNIFAC group-pair interaction table"
 locator = "database/Activity/UNIFAC/UNIFAC_unlike.csv; same layout in: database/Activity/UNIFAC/PSRK/PSRK_unlike.csv, database/Activity/UNIFAC/UNIFAC2_unlike.csv, database/Activity/UNIFAC/VTPR/VTPR_unlike.csv"
 meaning = "Group-pair interaction energies A, B, C per ordered subgroup pair for the UNIFAC variants (Dortmund, UNIFAC 2.0, PSRK, VTPR); rows use '~|~' lists on both sides so one row covers a block of subgroup pairs."
-subject = "an unordered pair of compounds (a group label in group-contribution tables, which these files are) (a row sets both orientations) unless the parameter is read asymmetric, in which case an ordered pair"
+subject = "an unordered pair of groups (labels in group-contribution tables, which these files are) (a row sets both orientations) unless the parameter is read asymmetric, in which case an ordered pair"
 fields = [
   { name = "species1", meaning = "first component (or group) name of the pair; alias lists allowed", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "species2", meaning = "second component (or group) name of the pair; alias lists allowed", unit = "not applicable (text)", shape = "reference", role = "input" },
@@ -2719,7 +2719,7 @@ validity = "not stated"
 provenance = "per-row source column"
 count = "7704 data rows in 4 file(s): Activity/UNIFAC/PSRK/PSRK_unlike.csv 1912; Activity/UNIFAC/UNIFAC2_unlike.csv 3906; Activity/UNIFAC/UNIFAC_unlike.csv 1512; Activity/UNIFAC/VTPR/VTPR_unlike.csv 374"
 example = "database/Activity/UNIFAC/UNIFAC_unlike.csv row 1"
-candidate = "parameter_set with subject (species_form, species_form) and a declared transposition (symmetric, ordered or reciprocal)"
+candidate = "parameter_set with subject (group, group) of the parameterisation's group_scheme and a declared transposition (symmetric, ordered or reciprocal)"
 precision = "close"
 loss = "The transposition rule is held in model code (asymmetricparams lists), not in the file; the orientation convention of rows listed once is 'as written'."
 
@@ -2727,7 +2727,7 @@ loss = "The transposition rule is held in model code (asymmetricparams lists), n
 name = "original UNIFAC group-pair table (A only)"
 locator = "database/Activity/UNIFAC/ogUNIFAC/ogUNIFAC_unlike.csv; same layout in: database/Activity/UNIFAC/ogUNIFAC/ogUNIFAC2_unlike.csv"
 meaning = "Group-pair interaction energy A per ordered subgroup pair for the original UNIFAC and UNIFAC 2.0 (original); the residual uses exp(-A/T) (docstring)."
-subject = "an unordered pair of compounds (a group label in group-contribution tables, which these files are) (a row sets both orientations) unless the parameter is read asymmetric, in which case an ordered pair"
+subject = "an unordered pair of groups (labels in group-contribution tables, which these files are) (a row sets both orientations) unless the parameter is read asymmetric, in which case an ordered pair"
 fields = [
   { name = "species1", meaning = "first component (or group) name of the pair; alias lists allowed", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "species2", meaning = "second component (or group) name of the pair; alias lists allowed", unit = "not applicable (text)", shape = "reference", role = "input" },
@@ -2741,7 +2741,7 @@ validity = "not stated"
 provenance = "per-row source column"
 count = "4132 data rows in 2 file(s): Activity/UNIFAC/ogUNIFAC/ogUNIFAC2_unlike.csv 2862; Activity/UNIFAC/ogUNIFAC/ogUNIFAC_unlike.csv 1270"
 example = "database/Activity/UNIFAC/ogUNIFAC/ogUNIFAC_unlike.csv row 1"
-candidate = "parameter_set with subject (species_form, species_form) and a declared transposition (symmetric, ordered or reciprocal)"
+candidate = "parameter_set with subject (group, group) of the parameterisation's group_scheme and a declared transposition (symmetric, ordered or reciprocal)"
 precision = "close"
 loss = "The transposition rule is held in model code (asymmetricparams lists), not in the file; the orientation convention of rows listed once is 'as written'."
 
@@ -3119,7 +3119,7 @@ loss = "The transposition rule is held in model code (asymmetricparams lists), n
 name = "group binary k table with source"
 locator = "database/SAFT/PCSAFT/gcPCPSAFT/hetero/HeterogcPCPSAFT_unlike.csv; same layout in: database/SAFT/PCSAFT/gcPCPSAFT/homo/HomogcPCPSAFT_unlike.csv"
 meaning = "Group-pair k with a source column for the two group-contribution PCP-SAFT variants (134 rows each, 8 self-pair rows)."
-subject = "an unordered pair of compounds (a group label in group-contribution tables, which these files are) (a row sets both orientations) unless the parameter is read asymmetric, in which case an ordered pair"
+subject = "an unordered pair of groups (labels in group-contribution tables, which these files are) (a row sets both orientations) unless the parameter is read asymmetric, in which case an ordered pair"
 fields = [
   { name = "species1", meaning = "first component (or group) name of the pair; alias lists allowed", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "species2", meaning = "second component (or group) name of the pair; alias lists allowed", unit = "not applicable (text)", shape = "reference", role = "input" },
@@ -3133,7 +3133,7 @@ validity = "not stated"
 provenance = "per-row source column"
 count = "268 data rows in 2 file(s): SAFT/PCSAFT/gcPCPSAFT/hetero/HeterogcPCPSAFT_unlike.csv 134; SAFT/PCSAFT/gcPCPSAFT/homo/HomogcPCPSAFT_unlike.csv 134"
 example = "database/SAFT/PCSAFT/gcPCPSAFT/hetero/HeterogcPCPSAFT_unlike.csv row 1"
-candidate = "parameter_set with subject (species_form, species_form) and a declared transposition (symmetric, ordered or reciprocal)"
+candidate = "parameter_set with subject (group, group) of the parameterisation's group_scheme and a declared transposition (symmetric, ordered or reciprocal)"
 precision = "close"
 loss = "The transposition rule is held in model code (asymmetricparams lists), not in the file; the orientation convention of rows listed once is 'as written'."
 
@@ -3188,7 +3188,7 @@ loss = "The transposition rule is held in model code (asymmetricparams lists), n
 name = "SAFT-gamma Mie group cross table"
 locator = "database/SAFT/SAFTgammaMie/SAFTgammaMie_unlike.csv; same layout in: no other file"
 meaning = "Cross energy epsilon and cross repulsive exponent lambda_r per pair of groups (377 rows, lambda_r empty in 238; source empty in 377 of 377); keys are group labels with aliases."
-subject = "an unordered pair of compounds (a group label in group-contribution tables, which these files are) (a row sets both orientations) unless the parameter is read asymmetric, in which case an ordered pair"
+subject = "an unordered pair of groups (labels in group-contribution tables, which these files are) (a row sets both orientations) unless the parameter is read asymmetric, in which case an ordered pair"
 fields = [
   { name = "species1", meaning = "first component (or group) name of the pair; alias lists allowed", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "species2", meaning = "second component (or group) name of the pair; alias lists allowed", unit = "not applicable (text)", shape = "reference", role = "input" },
@@ -3203,7 +3203,7 @@ validity = "not stated"
 provenance = "per-row source column"
 count = "377 data rows in 1 file(s): SAFT/SAFTgammaMie/SAFTgammaMie_unlike.csv 377"
 example = "database/SAFT/SAFTgammaMie/SAFTgammaMie_unlike.csv row 1"
-candidate = "parameter_set with subject (species_form, species_form) and a declared transposition (symmetric, ordered or reciprocal)"
+candidate = "parameter_set with subject (group, group) of the parameterisation's group_scheme and a declared transposition (symmetric, ordered or reciprocal)"
 precision = "close"
 loss = "The transposition rule is held in model code (asymmetricparams lists), not in the file; the orientation convention of rows listed once is 'as written'."
 
@@ -3211,7 +3211,7 @@ loss = "The transposition rule is held in model code (asymmetricparams lists), n
 name = "structural SAFT-gamma Mie cross table"
 locator = "database/SAFT/SAFTgammaMie/structSAFTgammaMie/structSAFTgammaMie_unlike.csv; same layout in: no other file"
 meaning = "Cross epsilon only per group pair (8 rows, no source column)."
-subject = "an unordered pair of compounds (a group label in group-contribution tables, which these files are) (a row sets both orientations) unless the parameter is read asymmetric, in which case an ordered pair"
+subject = "an unordered pair of groups (labels in group-contribution tables, which these files are) (a row sets both orientations) unless the parameter is read asymmetric, in which case an ordered pair"
 fields = [
   { name = "species1", meaning = "first component (or group) name of the pair; alias lists allowed", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "species2", meaning = "second component (or group) name of the pair; alias lists allowed", unit = "not applicable (text)", shape = "reference", role = "input" },
@@ -3224,7 +3224,7 @@ validity = "not stated"
 provenance = "none: the table has no source column"
 count = "8 data rows in 1 file(s): SAFT/SAFTgammaMie/structSAFTgammaMie/structSAFTgammaMie_unlike.csv 8"
 example = "database/SAFT/SAFTgammaMie/structSAFTgammaMie/structSAFTgammaMie_unlike.csv row 1"
-candidate = "parameter_set with subject (species_form, species_form) and a declared transposition (symmetric, ordered or reciprocal)"
+candidate = "parameter_set with subject (group, group) of the parameterisation's group_scheme and a declared transposition (symmetric, ordered or reciprocal)"
 precision = "close"
 loss = "The transposition rule is held in model code (asymmetricparams lists), not in the file; the orientation convention of rows listed once is 'as written'."
 
@@ -3277,7 +3277,7 @@ loss = "The transposition rule is held in model code (asymmetricparams lists), n
 name = "E-PPR78 group-pair table"
 locator = "database/cubic/EPPR78/EPPR78_unlike.csv; same layout in: no other file"
 meaning = "Group-contribution interaction constants A and B per group pair (355 rows), from which k_ij(T) is built for the PR78 EoS."
-subject = "an unordered pair of compounds (a group label in group-contribution tables, which these files are) (a row sets both orientations) unless the parameter is read asymmetric, in which case an ordered pair"
+subject = "an unordered pair of groups (labels in group-contribution tables, which these files are) (a row sets both orientations) unless the parameter is read asymmetric, in which case an ordered pair"
 fields = [
   { name = "species1", meaning = "first component (or group) name of the pair; alias lists allowed", unit = "not applicable (text)", shape = "reference", role = "input" },
   { name = "species2", meaning = "second component (or group) name of the pair; alias lists allowed", unit = "not applicable (text)", shape = "reference", role = "input" },
@@ -3291,7 +3291,7 @@ validity = "not stated"
 provenance = "none: the table has no source column"
 count = "355 data rows in 1 file(s): cubic/EPPR78/EPPR78_unlike.csv 355"
 example = "database/cubic/EPPR78/EPPR78_unlike.csv row 1"
-candidate = "parameter_set with subject (species_form, species_form) and a declared transposition (symmetric, ordered or reciprocal)"
+candidate = "parameter_set with subject (group, group) of the parameterisation's group_scheme and a declared transposition (symmetric, ordered or reciprocal)"
 precision = "close"
 loss = "The transposition rule is held in model code (asymmetricparams lists), not in the file; the orientation convention of rows listed once is 'as written'."
 

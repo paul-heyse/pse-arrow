@@ -209,7 +209,7 @@ count = "210 pairs (21 by 20 over 2)"
 example = "AGA8CODE/C/GERG2008.cpp line 1300 (methane plus nitrogen)"
 candidate = "parameter_set in a pair slot group of the GERG reducing form, transposition reciprocal over the beta slots (value stored with the canonical orientation of the smaller identifier first), gamma symmetric"
 precision = "exact"
-loss = "The orientation of the isobutane plus n-butane pair depends on the component order (species identifiers sort differently from array positions); stored combined values after setup are not the published ones."
+loss = "The orientation of the isobutane plus n-butane pair depends on the component order (species identifiers sort differently from array positions); the published values are the ones in the assignments (lines 1299-1513), which setup then rewrites in place into the combined quantities the code evaluates, so the stored source values are the published ones and the combined values exist only at run time and are derived, not authored."
 
 [[construct]]
 name = "GERG-2008 departure functions (dijk, tijk, cijk, eijk, bijk, gijk, nijk; kpolij, kexpij; mNumb; fij)"

@@ -389,7 +389,7 @@ count = "159 entries in 136 files"
 example = "dev/fluids/1-Butene.json#/EOS/0"
 candidate = "parameterization of a pure-fluid Helmholtz model_assembly, with convention_set (gas constant, energy_reference), envelope (T_max, p_max), slot groups for the term families and derived value records"
 precision = "broader"
-loss = "Bundles one coherent published equation with conventions and derived anchors; a mapping must keep the set intact (never split) and record which STATES fields were computed from it. The second EOS entry has no selection rule in the pinned code, so a selection_policy cannot be reconstructed from the source."
+loss = "Bundles one coherent published equation with conventions and derived anchors; a mapping must keep the set intact (never split) and record which STATES fields were computed from it. The pinned code always uses the first entry (EOS[0]) and has no switch that selects a second one, which is a selection fact a mapping records (first entry used, alternates never selected), not a missing rule; a selection_policy that chooses among entries cannot be reconstructed because the source offers no choice."
 
 [[construct]]
 name = "EOS/STATES (reducing, saturation-minimum, anchor and maximum states)"

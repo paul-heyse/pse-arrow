@@ -178,7 +178,7 @@ loss = "Coefficient naming differs from the ThermoFun layout (A1..A5 here, A0..A
 [[construct]]
 name = "nasa_polynomial method entries"
 locator = "arangodb/hub_ord_remote_export/vertices/substances.json#/*/properties/TPMethods (method code 44)"
-meaning = "NASA seven-coefficient polynomials per temperature interval for the 2067 NASA-TDB species, stored as one TPMethods entry per interval with its own limitsTP and a coefficient array under m_heat_capacity_ft_coeffs named a1 to a7, b1, b2."
+meaning = "NASA polynomials (nine values per interval: a1..a7 and b1, b2) per temperature interval for the 2067 NASA-TDB species, stored as one TPMethods entry per interval with its own limitsTP and a coefficient array under m_heat_capacity_ft_coeffs named a1 to a7, b1, b2."
 subject = "one species form; one entry per temperature interval (2030 substances: 572 with one interval, 1186 with two, 266 with three, 6 with four)"
 fields = [
   { name = "method", meaning = "{44: nasa_polynomial}; code 44 is not in the ThermoFun v0.6.3 enum (codes 0-43)", unit = "not applicable", shape = "enum", role = "input" },
@@ -193,9 +193,9 @@ validity = "limitsTP per interval"
 provenance = "datasources strings per species; citing edges exist for 4429 substance-datasource pairs"
 count = "3766 nasa_polynomial entries on 2030 substances"
 example = "arangodb/hub_ord_remote_export/vertices/substances.json (key e-;101:SC_OTHER;24:NASA-TDB)"
-candidate = "parameter_set of form nasa7 (family piece with interval), species_form"
+candidate = "parameter_set of form nasa9 (family piece with interval), species_form"
 precision = "close"
-loss = "The model's nasa7 family is exact for the 9-value blocks; the other lengths need a separate form or are dropped; aggregate state is AS_OTHER so the state of each interval has to come from elsewhere."
+loss = "The model's nasa9 family is exact for the 9-value blocks (a1..a7, b1, b2); the other lengths need a separate form or are dropped; aggregate state is AS_OTHER so the state of each interval has to come from elsewhere."
 
 [[construct]]
 name = "element vertex"
@@ -215,7 +215,7 @@ count = "hub_main 349, hub_ord 446"
 example = "arangodb/hub_ord_remote_dump (elements; key Nit;2:LIGAND;15:PSI_NAGRA)"
 candidate = "element, conserved_quantity"
 precision = "broader"
-loss = "conserved_quantity covers the decoupled-nitrogen case; reference-form entropy belongs on an energy reference."
+loss = "the declaration's conserved_kind has only element, charge and site_total, so LIGAND and OTHER_EC elements, the decoupled nitrogen Nit and the isotope fields have no kind to map to until alignment-notes item 17 adds decoupled_inventory, moiety and isotope members; reference-form entropy belongs on an energy reference."
 
 [[construct]]
 name = "thermodataset vertex and reactionset vertex"

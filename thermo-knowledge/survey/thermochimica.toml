@@ -99,7 +99,7 @@ count = "263 stoichiometric phases and the species of 228 solution-phase entries
 example = "data/CsI-Pham.dat (species I, I2, Cs ...)"
 candidate = "standard_state_species form with piecewise temperature polynomial, species_form per entry"
 precision = "close"
-loss = "Interval selection (upper-inclusive, upward extrapolation) differs from the TDB convention and must be a declared rule; the gas correction constant 0.10945 is a code behaviour; dummy species are a numerical device, not chemistry."
+loss = "Interval selection (upper-inclusive, upward extrapolation) differs from the TDB convention and must be a declared rule; the gas correction constant 0.10945 is a code behaviour, and 0.10945/R equals ln(101325/100000) to about four significant figures, which implies (inferred: from the numerical equality, not stated by the source) a gas standard pressure of 1 bar against the code's atm pressure unit; dummy species are a numerical device, not chemistry."
 
 [[construct]]
 name = "IDMX block (ideal mixture)"
@@ -641,7 +641,7 @@ why_it_matters = "Modified data are not evaluated knowledge; provenance and the 
 
 [[question]]
 about = "datum and constants of the export"
-question = "The files do not state the reference enthalpy or entropy datum of the species equations, the gas constant used when FactSage computed them, or the pressure standard; the code uses R = 8.314472 and atm. Is the 0.10945 J/mol B-coefficient correction for gases an artefact of the export or of the ideal-gas reference pressure?"
+question = "The files do not state the reference enthalpy or entropy datum of the species equations, the gas constant used when FactSage computed them, or the pressure standard; the code uses R = 8.314472 and atm. Is the 0.10945 J/mol B-coefficient correction for gases an artefact of the export or of the ideal-gas reference pressure? (inferred: from 0.10945/R numerically equalling ln(101325/100000), a gas standard pressure of 1 bar, but the source does not say so)"
 why_it_matters = "The convention_set of each file needs these values, and recomputing with a different R breaks reproduction."
 
 [[question]]
