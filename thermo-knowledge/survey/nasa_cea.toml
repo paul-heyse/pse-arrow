@@ -176,7 +176,7 @@ fields = [
 ]
 origin = "transcribed (from the cited fits: McBride, Zehe and Gordon TP-2002-211556 and earlier reports listed in docs/source/ref_list.rst)"
 conventions = "Formulas are those of source/fits.f90 (calc_cp line 52, calc_enthalpy line 73, calc_entropy line 87); gas constant for dimensional results is 8314.51 J/kmol/K (see conventions); values are written with the Fortran D exponent letter and some files use 'D' with a sign, others have no sign."
-absence = "A zero coefficient is written out in full; the third line's blank 16 columns are unused."
+absence = "A zero coefficient is written out in full; the second coefficient line's columns 33-48 are unused: blank in 3762 of the 3820 intervals and a written 0.000000000D+00 in the other 58 (measured by the reader test)."
 validity = "the interval bounds"
 provenance = "none per value"
 count = "3820 coefficient blocks (all nine-term); 7 coefficients plus 2 constants each"
