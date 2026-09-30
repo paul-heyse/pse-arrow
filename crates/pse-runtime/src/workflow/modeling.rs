@@ -870,13 +870,14 @@ mod import_tests {
             ))
         );
         assert!(named("Length").is_some() && named("Time").is_some());
-        // The reference inventory (the generated standard registry) names 42 quantity
-        // types, the former manifest aliases, and its four reference states.
+        // The reference inventory (the generated standard registry) names 44 quantity
+        // types (the 42 former manifest aliases plus D0's ChargeNumber and GasConstant)
+        // and its four reference states.
         let standard = pse_quantity::standard::standard_registry().unwrap();
         let (types, states): (Vec<_>, Vec<_>) = standard
             .physical_names()
             .partition(|(_, n)| matches!(n, pse_quantity::PhysicalName::QuantityType(_)));
-        assert_eq!((types.len(), states.len()), (42, 4));
+        assert_eq!((types.len(), states.len()), (44, 4));
         assert_eq!(
             standard.physical_name("MolarCp"),
             Some(pse_quantity::PhysicalName::QuantityType(
