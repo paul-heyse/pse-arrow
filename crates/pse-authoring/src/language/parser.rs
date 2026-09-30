@@ -1251,9 +1251,9 @@ impl Cursor<'_> {
         } else {
             self.path()?
         };
-        // A key, an attribute and a binding are one declaration kind.
+        // A key, an attribute, a derived attribute and a binding are one declaration kind.
         let role = match keyword.as_str() {
-            "key" | BIND => "attribute",
+            "key" | "derived" | BIND => "attribute",
             other => other,
         };
         let id = match explicit {
@@ -2128,21 +2128,29 @@ impl Cursor<'_> {
                     attributes,
                 })
             }
-            // `attribute name: T [= cell];` or `key name: T [= cell];` declares an attribute
-            // of an entity kind; `name = cell;` binds an inherited one (ADR-0123 Outcome 2).
-            "attribute" | "key" => {
+            // `attribute name: T [unique] [= cell];` or `key name: T [unique] [= cell];`
+            // declares an attribute of an entity kind; `name = cell;` binds an inherited one
+            // (ADR-0123 Outcome 2). `derived name: T [unique] = expression;` declares one that
+            // admission evaluates for each entity (Plan 23 D0).
+            "attribute" | "key" | "derived" => {
                 self.expect(":")?;
                 let r#type = Some(self.type_expr()?);
-                let value = if self.eat("=") {
-                    Some(self.cell()?)
+                let unique = self.eat("unique");
+                let (value, derived) = if keyword == "derived" {
+                    self.expect("=")?;
+                    (None, Some(self.until(&[";"])?))
+                } else if self.eat("=") {
+                    (Some(self.cell()?), None)
                 } else {
-                    None
+                    (None, None)
                 };
                 self.expect(";")?;
                 Value::from_attribute(AuthoredModelingDeclarationsFieldValueAttribute {
                     r#type,
                     key: keyword == "key",
                     value,
+                    unique,
+                    derived,
                 })
             }
             BIND => {
@@ -2153,6 +2161,8 @@ impl Cursor<'_> {
                     r#type: None,
                     key: false,
                     value,
+                    unique: false,
+                    derived: None,
                 })
             }
             // `identifier scheme name;`: values of the scheme are opaque (ADR-0123 Outcome 2).

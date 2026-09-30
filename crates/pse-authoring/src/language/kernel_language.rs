@@ -18,7 +18,7 @@ fn roundtrip_all_declarations_and_explicit_identity() {
     let source = r#"package synthetic {
  use other @ "1.0.0";
  identifier scheme cas;
- entity kind component { attribute mass: Mass; attribute cas: Id<cas>? = missing; attribute tags: Set<Choice> = {first}; }
+ entity kind component { attribute mass: Mass; attribute cas: Id<cas>? = missing; attribute tags: Set<Choice> = {first}; attribute symbol: Text? unique; derived double: Mass unique = 2*mass; require mass > 0{kg} : "positive"; }
  entity kind parameter_set { key subject: component; key variant: Integer = 1; attribute cp: Fn(x: Mass)->Mass; attribute low: Temperature; attribute high: Temperature; envelope T: Temperature in low..high; }
  entity kind linear extends parameter_set { attribute slope: Scalar = 0.5 ± relative(0.01); cp = identity; }
  entity component a { mass = 2{kg}, cas = Id<cas>("71-43-2") }
@@ -72,6 +72,17 @@ fn roundtrip_all_declarations_and_explicit_identity() {
  test compared oracle synthetic.upstream fixture { dof 0; run pure; } { extrapolation data reject; expect square(2) == 4 tolerance 1e-9; }
  }"#;
     let rows = parse_named(source);
+    // Plan 23 D0: uniqueness and derivations are typed attributes, not conventions.
+    let attribute = |name: &str| {
+        rows.iter()
+            .find(|r| r.name == name)
+            .and_then(|r| r.value.attribute.as_ref())
+            .unwrap()
+    };
+    assert!(attribute("symbol").unique && attribute("symbol").derived.is_none());
+    assert_eq!(attribute("double").derived.as_deref(), Some("2*mass"));
+    assert!(attribute("double").unique && attribute("double").value.is_none());
+    assert!(!attribute("mass").unique);
     // ADR-0123 Outcome 4: envelopes, guards and selections are typed, not text.
     use pse_model::generated::enums::{
         ExtrapolationPolicy, ModelingEnvelopeExtent, ModelingValidityLayer,

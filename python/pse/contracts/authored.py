@@ -528,6 +528,8 @@ class AuthoredModelingDeclarationsFieldValueAttribute:
     type: b.tuple[s.ModelingTypeArenaNode, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple))))
     key: b.bool = attrs.field(validator=v.exact_type(b.bool))
     value: s.ModelingCell | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(s.ModelingCell)))
+    unique: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    derived: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
 
 @attrs.frozen(kw_only=True)

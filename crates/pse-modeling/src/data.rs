@@ -44,7 +44,7 @@ use std::sync::Arc;
 /// The key tuples one completeness claim may enumerate at admission.
 const CLAIM_LIMIT: usize = 1_000_000;
 /// The static evaluation allowance of one derived value or requirement.
-const EVALUATION_LIMIT: usize = 100_000;
+pub(crate) const EVALUATION_LIMIT: usize = 100_000;
 
 /// The finite values one key ranges over in a completeness claim.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -466,8 +466,13 @@ impl Declared {
     }
 }
 
-/// Admit every table: schemas, then the three phases (ADR-0123 Outcome 3).
-pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
+/// The row requirements of each table, parsed at admission and evaluated by [`verify_rows`] once
+/// the kinds' derived attributes are admitted too (Plan 23 D0).
+pub(crate) struct Requirements(Vec<(DeclarationId, Vec<(String, dsl::Predicate)>)>);
+
+/// Admit every table: schemas, then the three phases (ADR-0123 Outcome 3). Row requirements
+/// are returned for [`verify_rows`].
+pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<Requirements> {
     let tables = p
         .declarations
         .values()
@@ -579,9 +584,19 @@ pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
         result.complete = true;
         p.tables.insert(id, result);
     }
-    for table in declared.values() {
-        requirements(p, table)?;
-        envelopes(p, table.id)?;
+    Ok(Requirements(
+        declared
+            .into_values()
+            .map(|table| (table.id, table.requirements))
+            .collect(),
+    ))
+}
+
+/// Every row satisfies its table's requirements and orders the bounds of its envelopes.
+pub(crate) fn verify_rows(p: &CheckedPackage, requirements: &Requirements) -> Result<()> {
+    for (id, clauses) in &requirements.0 {
+        self::requirements(p, *id, clauses)?;
+        envelopes(p, *id)?;
     }
     Ok(())
 }
@@ -909,14 +924,17 @@ fn cycle<N>(graph: &DiGraph<N, ()>) -> Vec<NodeIndex> {
     nodes
 }
 
-/// The names and types a row binds: keys, columns, and `value` for a table of one value.
-fn row_types(table: &Declared) -> BTreeMap<String, Type> {
-    let mut env = table
-        .table
-        .keys
-        .iter()
-        .map(|k| (k.name.clone(), k.ty.clone()))
-        .collect::<BTreeMap<_, _>>();
+/// The names and types a row binds: the visible kinds' extents (Plan 23 D0), keys, columns,
+/// and `value` for a table of one value.
+fn row_types(p: &CheckedPackage, table: &Declared) -> BTreeMap<String, Type> {
+    let mut env = crate::entity::extent_types(p, table.id);
+    env.extend(
+        table
+            .table
+            .keys
+            .iter()
+            .map(|k| (k.name.clone(), k.ty.clone())),
+    );
     env.extend(table.table.columns.iter().map(|c| (c.name.clone(), c.ty.clone())));
     if table.table.columns.is_empty() {
         env.insert("value".into(), table.table.result.clone());
@@ -924,8 +942,8 @@ fn row_types(table: &Declared) -> BTreeMap<String, Type> {
     env
 }
 
-/// A contract failure prefixed with the table part it concerns.
-fn context(error: crate::ModelingError, part: &str) -> crate::ModelingError {
+/// A contract failure prefixed with the table, row or attribute it concerns.
+pub(crate) fn context(error: crate::ModelingError, part: &str) -> crate::ModelingError {
     match error {
         crate::ModelingError::Contract {
             declaration,
@@ -941,7 +959,7 @@ fn context(error: crate::ModelingError, part: &str) -> crate::ModelingError {
 /// Type-check every derived column and requirement before any row is evaluated, so a
 /// table without rows is checked too.
 fn expressions(p: &CheckedPackage, c: &TypeContext<'_>, table: &Declared) -> Result<()> {
-    let env = row_types(table);
+    let env = row_types(p, table);
     for (position, expression) in &table.derived {
         let column = &table.table.columns[*position];
         let actual = crate::expression::infer(expression, &env, p, c, table.id, Some(&column.ty))
@@ -1685,11 +1703,15 @@ fn derive(
 
 /// Every row satisfies every requirement of its table; a refusal names the row, its
 /// dataset and the clause.
-fn requirements(p: &CheckedPackage, table: &Declared) -> Result<()> {
-    if table.requirements.is_empty() {
+fn requirements(
+    p: &CheckedPackage,
+    table: DeclarationId,
+    clauses: &[(String, dsl::Predicate)],
+) -> Result<()> {
+    if clauses.is_empty() {
         return Ok(());
     }
-    let admitted = &p.tables[&table.id];
+    let admitted = &p.tables[&table];
     let physical = p.context();
     for (keys, row) in &admitted.rows {
         let mut env = Environment::new();
@@ -1700,13 +1722,13 @@ fn requirements(p: &CheckedPackage, table: &Declared) -> Result<()> {
             env.insert(column.name.clone(), value.clone());
         }
         if admitted.columns.is_empty() {
-            env.insert("value".into(), admitted.value(table.id, row));
+            env.insert("value".into(), admitted.value(table, row));
         }
-        for (clause, predicate) in &table.requirements {
+        for (clause, predicate) in clauses {
             let holds = Evaluator {
                 package: p,
                 physical: &physical,
-                at: table.id,
+                at: table,
                 env: &env,
                 limit: EVALUATION_LIMIT,
                 stack: Vec::new(),
@@ -1718,7 +1740,7 @@ fn requirements(p: &CheckedPackage, table: &Declared) -> Result<()> {
                     row.origin,
                     format!(
                         "row {}[{}] of dataset {} violates the requirement `{clause}`",
-                        table.name(p),
+                        p.declarations[&table].name,
                         display_keys(p, keys),
                         p.declarations[&row.origin].name
                     ),

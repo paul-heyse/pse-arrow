@@ -78,20 +78,20 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    4u8, 116u8, 72u8, 201u8, 226u8, 142u8, 177u8, 198u8, 16u8, 233u8, 107u8, 142u8, 59u8,
-    73u8, 228u8, 117u8,
+    99u8, 204u8, 124u8, 133u8, 99u8, 195u8, 252u8, 231u8, 30u8, 222u8, 45u8, 128u8, 23u8,
+    96u8, 23u8, 178u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_declarations";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 13u32;
+pub const VERSION: u32 = 14u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    78u8, 210u8, 221u8, 47u8, 39u8, 241u8, 215u8, 192u8, 222u8, 18u8, 234u8, 88u8, 87u8,
-    88u8, 95u8, 46u8, 165u8, 55u8, 32u8, 77u8, 80u8, 44u8, 229u8, 125u8, 108u8, 198u8,
-    88u8, 51u8, 213u8, 124u8, 193u8, 195u8,
+    118u8, 31u8, 40u8, 121u8, 7u8, 16u8, 149u8, 61u8, 60u8, 176u8, 200u8, 141u8, 99u8,
+    228u8, 82u8, 89u8, 121u8, 15u8, 69u8, 180u8, 233u8, 103u8, 110u8, 170u8, 58u8, 151u8,
+    180u8, 143u8, 117u8, 156u8, 113u8, 183u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueRelaxation {
     fn append(
@@ -3021,6 +3021,8 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueAttri
         crate::columnar::ArrowValue::append(&self.r#type, children[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#key, children[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#value, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#unique, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#derived, children[4usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -3038,6 +3040,10 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueAttri
         <Option<
             crate::generated::structures::ModelingCell,
         > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -3062,6 +3068,16 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueAttri
                 crate::generated::structures::ModelingCell,
             > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#unique: <bool as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#derived: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
                 index,
             )?,
         })
@@ -5267,10 +5283,10 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        1_416_192_usize + size_of::<Self::Builder>()
+        1_420_288_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        11064usize
+        11096usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -8799,6 +8815,21 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
                                                 )?;
                                                 Ok::<usize, crate::RelationError>(bytes)
                                             }?,
+                                        )
+                                    } else {
+                                        Ok::<usize, crate::RelationError>(1)
+                                    }?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    if let Some(value) = ((value).r#derived).as_ref() {
+                                        crate::columnar::allocation_add(
+                                            1,
+                                            crate::columnar::allocation_add(8, (value).len())?,
                                         )
                                     } else {
                                         Ok::<usize, crate::RelationError>(1)

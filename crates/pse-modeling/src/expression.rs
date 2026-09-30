@@ -353,6 +353,15 @@ pub fn infer(
     let q = |s| Type::Quantity(s);
     match &expr.kind {
         ExprKind::Number(n) => number_type(n, context, at, expected),
+        // Plan 23 D0: `missing` states absence where an optional value is expected.
+        ExprKind::Path(_) if is_missing(expr) => match expected {
+            Some(Type::Optional(inner)) => Ok(Type::Optional(inner.clone())),
+            Some(ty) => Ok(Type::Optional(Box::new(ty.clone()))),
+            None => Err(invalid(
+                at,
+                "missing states absence where an optional value is expected",
+            )),
+        },
         ExprKind::Path(path) => path_type(path, env, p, context, at),
         ExprKind::Neg(e) => {
             let ty = infer(e, env, p, context, at, expected)?;
@@ -613,6 +622,22 @@ pub fn infer(
         } => {
             predicate(guard, env, p, context, at)?;
             let refined = refine(guard, env, p, context, at)?;
+            // A branch stating absence makes the conditional optional in the other's type.
+            if is_missing(then) || is_missing(otherwise) {
+                let inner = match expected {
+                    Some(Type::Optional(inner)) => Some(inner.as_ref()),
+                    other => other,
+                };
+                let ty = if is_missing(then) {
+                    infer(otherwise, env, p, context, at, inner)?
+                } else {
+                    infer(then, &refined, p, context, at, inner)?
+                };
+                return Ok(match ty {
+                    Type::Optional(inner) => Type::Optional(inner),
+                    other => Type::Optional(Box::new(other)),
+                });
+            }
             let a = infer(then, &refined, p, context, at, expected)?;
             let b = infer(otherwise, env, p, context, at, Some(&a))?;
             if a != b {
@@ -727,6 +752,11 @@ pub fn infer(
             "external functions require the declared K5 contract",
         )),
     }
+}
+/// Whether an expression is the literal `missing`, explicit absence (Plan 23 D0).
+fn is_missing(expr: &Expr) -> bool {
+    matches!(&expr.kind, ExprKind::Path(path)
+        if path.segments.len() == 1 && path.segments[0].name == "missing" && path.segments[0].indices.is_empty())
 }
 /// The type of a number literal: an exact integer where one is expected, otherwise the
 /// quantity type its unit resolves to in the expected context, or the neutral dimensionless
@@ -1642,13 +1672,22 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
         {
             check_eq(e)?;
         }
+        // A kind's requirement binds its entity and attributes; entity admission types it
+        // (Plan 23 D0).
+        let kind_requirement = row.parent_id.is_some_and(|parent| p.kinds.contains_key(&parent));
         for source in row
             .value
             .guard
             .as_ref()
             .map(|g| &g.predicate)
             .into_iter()
-            .chain(row.value.requirement.as_ref().map(|r| &r.predicate))
+            .chain(
+                row.value
+                    .requirement
+                    .as_ref()
+                    .filter(|_| !kind_requirement)
+                    .map(|r| &r.predicate),
+            )
         {
             let pred = dsl::parse_predicate(source).map_err(|e| invalid(*id, e.to_string()))?;
             predicate(&pred, &env, p, context, *id)?;

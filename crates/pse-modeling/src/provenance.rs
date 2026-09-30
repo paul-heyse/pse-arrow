@@ -380,27 +380,75 @@ fn taint(p: &mut CheckedPackage) {
     }
 }
 
+/// Taint the entities whose derived attributes read test-only data (Plan 23 D0), then every
+/// entity, constant and table row that references them.
+pub(crate) fn taint_derived(p: &mut CheckedPackage, derived: BTreeSet<DeclarationId>) {
+    let mut pending = derived
+        .into_iter()
+        .filter(|id| p.test_only.insert(*id))
+        .collect::<Vec<_>>();
+    if pending.is_empty() {
+        return;
+    }
+    let mut referrers = BTreeMap::<DeclarationId, Vec<DeclarationId>>::new();
+    let values = p
+        .entities
+        .iter()
+        .flat_map(|(id, record)| record.values.values().map(move |v| (*id, v)))
+        .chain(p.constants.iter().map(|(id, c)| (*id, &c.value)));
+    for (id, value) in values {
+        let mut targets = Vec::new();
+        entity_references(value, &mut targets);
+        for target in targets {
+            referrers.entry(target).or_default().push(id);
+        }
+    }
+    while let Some(id) = pending.pop() {
+        for referrer in referrers.get(&id).into_iter().flatten() {
+            if p.test_only.insert(*referrer) {
+                pending.push(*referrer);
+            }
+        }
+    }
+    let test_only = p.test_only.clone();
+    let references = |value: &Value| {
+        let mut targets = Vec::new();
+        entity_references(value, &mut targets);
+        targets.iter().any(|id| test_only.contains(id))
+    };
+    for table in p.tables.values_mut() {
+        for row in table.rows.values_mut() {
+            if !row.test_only && row.cells.iter().any(&references) {
+                row.test_only = true;
+            }
+        }
+    }
+}
+
+/// The entities and keyed rows a value references, through sets, tuples and rows.
+fn entity_references(value: &Value, out: &mut Vec<DeclarationId>) {
+    match value {
+        Value::Entity { id, .. } => out.push(*id),
+        Value::Set(values) | Value::Tuple(values) => {
+            for v in values {
+                entity_references(v, out);
+            }
+        }
+        Value::Row { fields, .. } => {
+            for v in fields.iter() {
+                entity_references(v, out);
+            }
+        }
+        _ => {}
+    }
+}
+
 /// The entities, keyed rows and constants that `data` supplies or that reference test-only
 /// data.
 fn referenced(p: &CheckedPackage, data: &BTreeSet<DeclarationId>) -> BTreeSet<DeclarationId> {
     let mut tainted = BTreeSet::new();
     let mut referrers = BTreeMap::<DeclarationId, Vec<DeclarationId>>::new();
-    fn references(value: &Value, out: &mut Vec<DeclarationId>) {
-        match value {
-            Value::Entity { id, .. } => out.push(*id),
-            Value::Set(values) | Value::Tuple(values) => {
-                for v in values {
-                    references(v, out);
-                }
-            }
-            Value::Row { fields, .. } => {
-                for v in fields.iter() {
-                    references(v, out);
-                }
-            }
-            _ => {}
-        }
-    }
+    let references = entity_references;
     let supplied = |origin: &DeclarationId| data.contains(origin);
     for (id, record) in &p.entities {
         if supplied(&record.origin) {

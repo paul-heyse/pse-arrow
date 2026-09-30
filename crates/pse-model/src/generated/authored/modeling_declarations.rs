@@ -1379,12 +1379,18 @@ pub struct AuthoredModelingDeclarationsFieldValueAttribute {
     pub r#key: bool,
     ///value
     pub r#value: Option<crate::generated::structures::ModelingCell>,
+    ///unique
+    pub r#unique: bool,
+    ///derived
+    pub r#derived: Option<String>,
 }
 impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueAttribute {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#type, &other.r#type)
             && crate::SemanticEq::semantic_eq(&self.r#key, &other.r#key)
             && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+            && crate::SemanticEq::semantic_eq(&self.r#unique, &other.r#unique)
+            && crate::SemanticEq::semantic_eq(&self.r#derived, &other.r#derived)
     }
 }
 impl PartialEq for AuthoredModelingDeclarationsFieldValueAttribute {
@@ -7428,6 +7434,10 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueAttribute {
         crate::SemanticFrame::frame(&self.r#key, hash);
         hash.str(stringify!(r#value));
         crate::SemanticFrame::frame(&self.r#value, hash);
+        hash.str(stringify!(r#unique));
+        crate::SemanticFrame::frame(&self.r#unique, hash);
+        hash.str(stringify!(r#derived));
+        crate::SemanticFrame::frame(&self.r#derived, hash);
     }
 }
 impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueAttribute {
@@ -7436,6 +7446,8 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueAttribute {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#type))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#key))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unique))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#derived))
     }
 }
 impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueDatasetBindingsItem {

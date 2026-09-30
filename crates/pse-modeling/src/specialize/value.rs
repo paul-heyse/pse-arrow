@@ -368,6 +368,15 @@ impl Evaluator<'_, '_> {
             StaticValue::Expression(e) => self.expr(e, expected, depth + 1),
         }
     }
+    /// The declarations' types visible at `at`; at admission a kind's name types its
+    /// extent (Plan 23 D0).
+    fn named_types(&self) -> BTreeMap<String, Type> {
+        let mut types = self.package.named_types(self.at);
+        if matches!(self.reader, crate::provenance::Reader::Admission(_)) {
+            crate::entity::extents(self.package, self.at, &mut types);
+        }
+        types
+    }
     fn reference(&mut self, name: &str, depth: usize) -> Result<Value> {
         if depth > 64 {
             return Err(invalid(self.at, "static reference depth"));
@@ -436,6 +445,12 @@ impl Evaluator<'_, '_> {
                         .map(|typed| typed.value.clone())
                         .ok_or_else(|| invalid(id, "constant not admitted"))
                 }),
+            // Plan 23 D0: at admission, a kind denotes its admitted extent.
+            crate::Selected::EntityKind(_)
+                if matches!(self.reader, crate::provenance::Reader::Admission(_)) =>
+            {
+                Ok(Value::Set(crate::entity::extent(self.package, id)))
+            }
             crate::Selected::Definition(_)
             | crate::Selected::Interface(_)
             | crate::Selected::Preset(_) => Ok(Value::Definition {
@@ -479,12 +494,24 @@ impl Evaluator<'_, '_> {
                 .and_then(|record| record.values.get(name))
                 .cloned()
                 .ok_or_else(|| {
+                    let derived = self
+                        .package
+                        .kinds
+                        .get(&kind)
+                        .is_some_and(|k| k.derived.iter().any(|(n, _)| n == name));
                     invalid(
                         id,
-                        format!(
-                            "unknown attribute {name} of kind {}",
-                            self.package.declarations[&kind].name
-                        ),
+                        if derived {
+                            format!(
+                                "derived attribute {name} of kind {} is evaluated once every table is admitted; a table's derived column does not read it",
+                                self.package.declarations[&kind].name
+                            )
+                        } else {
+                            format!(
+                                "unknown attribute {name} of kind {}",
+                                self.package.declarations[&kind].name
+                            )
+                        },
                     )
                 })?,
             Value::ReferenceState(id) => self.reference_condition(id, name)?,
@@ -585,12 +612,49 @@ impl Evaluator<'_, '_> {
         })
     }
     /// The complete type of a static arithmetic result, inferred at its root.
-    fn typed_result(&self, e: &Expr, result: f64, expected: Option<&Type>) -> Result<Value> {
-        let env = self
+    fn typed_result(&mut self, e: &Expr, result: f64, expected: Option<&Type>) -> Result<Value> {
+        let mut env = self
             .env
             .iter()
             .filter_map(|(n, v)| value_type(v).map(|t| (n.clone(), t)))
-            .collect();
+            .collect::<BTreeMap<_, _>>();
+        // At admission, a reduction over a kind ranges over its extent (Plan 23 D0).
+        if matches!(self.reader, crate::provenance::Reader::Admission(_)) {
+            e.walk(|node| {
+                if let ExprKind::Reduce { binder, .. } | ExprKind::Fold { binder, .. } = &node.kind {
+                    let name = dsl::render_path(&binder.domain);
+                    if let Some(kind) = self
+                        .package
+                        .resolve(self.at, &name)
+                        .filter(|id| self.package.kinds.contains_key(id))
+                    {
+                        env.entry(name)
+                            .or_insert_with(|| Type::Set(Box::new(Type::Entity(kind))));
+                    }
+                }
+            });
+        }
+        // The operands are static values: an optional member a guard found present has its
+        // present type, as the guard's refinement typed it (Plan 23 D0).
+        for path in e.paths() {
+            if path.segments.len() > 1 && path.segments.iter().all(|s| s.indices.is_empty()) {
+                let name = dsl::render_path(path);
+                if !env.contains_key(&name)
+                    && let Ok(value) = self.expr(
+                        &Expr {
+                            kind: ExprKind::Path(path.clone()),
+                            span: dsl::Span::default(),
+                        },
+                        None,
+                        0,
+                    )
+                    && !matches!(value, Value::Missing | Value::Entity { .. })
+                    && let Some(ty) = value_type(&value)
+                {
+                    env.insert(name, ty);
+                }
+            }
+        }
         let ty =
             crate::expression::infer(e, &env, self.package, self.physical, self.at, expected)?;
         match ty {
@@ -664,6 +728,10 @@ impl Evaluator<'_, '_> {
                 }
                 if name == "false" {
                     return Ok(Value::Boolean(false));
+                }
+                // Plan 23 D0: explicit absence, never numeric zero.
+                if name == "missing" {
+                    return Ok(Value::Missing);
                 }
                 if let Some(v) = self.env.get(&name) {
                     return Ok(v.clone());
@@ -902,7 +970,7 @@ impl Evaluator<'_, '_> {
                 if !result.is_finite() {
                     return Err(invalid(self.at, "static primitive domain violation"));
                 }
-                let mut types = self.package.named_types(self.at);
+                let mut types = self.named_types();
                 types.extend(
                     self.env
                         .iter()
@@ -946,7 +1014,7 @@ impl Evaluator<'_, '_> {
                 if values.len() > self.limit {
                     return Err(invalid(self.at, "static reduction extent"));
                 }
-                let mut types = self.package.named_types(self.at);
+                let mut types = self.named_types();
                 types.extend(
                     self.env
                         .iter()
@@ -1079,7 +1147,7 @@ impl Evaluator<'_, '_> {
                 if members.len() > self.limit {
                     return Err(invalid(self.at, "static fold extent"));
                 }
-                let mut types = self.package.named_types(self.at);
+                let mut types = self.named_types();
                 types.extend(
                     self.env
                         .iter()
@@ -1343,7 +1411,15 @@ impl Evaluator<'_, '_> {
             }
             PredicateKind::In { expr, domain } => {
                 let value = self.expr(expr, None, 0)?;
-                let domain = self.reference(&dsl::render_path(domain), 0)?;
+                // A declared set, or a set-valued member such as an entity's attribute.
+                let domain = self.expr(
+                    &Expr {
+                        kind: ExprKind::Path(domain.clone()),
+                        span: dsl::Span::default(),
+                    },
+                    None,
+                    0,
+                )?;
                 match domain {
                     Value::Set(v) => Ok(v.contains(&value)),
                     _ => Err(invalid(self.at, "membership requires finite set")),

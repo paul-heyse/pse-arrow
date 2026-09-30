@@ -66,6 +66,14 @@ pub struct Kind {
     /// Validity envelopes, inherited ones first, each bounded by two attributes of every
     /// entity of the kind (ADR-0123 Outcome 4).
     pub envelopes: Vec<crate::envelope::Envelope>,
+    /// Derived attributes, inherited ones first: each name and its declaring row. No entity
+    /// supplies, and no kind binds, a derived attribute (Plan 23 D0).
+    pub derived: Vec<(String, DeclarationId)>,
+    /// Unique attributes, inherited ones first: each name and its declaring row. Its values
+    /// are distinct across every entity of the declaring kind (Plan 23 D0).
+    pub unique: Vec<(String, DeclarationId)>,
+    /// Requirements every entity of the kind satisfies, inherited ones first (Plan 23 D0).
+    pub requirements: Vec<DeclarationId>,
 }
 
 /// An admitted entity: a declared entity or a row of a keyed kind.
@@ -768,10 +776,15 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                 envelopes.push(child);
                 continue;
             }
+            // Plan 23 D0: a requirement every entity of the kind and its refinements satisfies.
+            if row.value.requirement.is_some() {
+                kind.requirements.push(child);
+                continue;
+            }
             let Some(attribute) = &row.value.attribute else {
                 return Err(invalid(
                     child,
-                    "an entity kind declares attributes and envelopes and binds inherited attributes only",
+                    "an entity kind declares attributes, envelopes and requirements and binds inherited attributes only",
                 ));
             };
             let name = row.name.clone();
@@ -809,6 +822,30 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                         }
                         own_keys.push(name.clone());
                     }
+                    // Plan 23 D0: a unique attribute compares values as a key does.
+                    if attribute.unique {
+                        let mut inner = &ty;
+                        while let Type::Optional(value) = inner {
+                            inner = value;
+                        }
+                        if !key_type(inner) {
+                            return Err(invalid(
+                                child,
+                                format!("unique attribute {name} is a reference, an enumeration member, an integer, text, a Boolean, an identifier or a quantity"),
+                            ));
+                        }
+                        kind.unique.push((name.clone(), child));
+                    }
+                    // Plan 23 D0: a derived attribute carries its expression and no default.
+                    if attribute.derived.is_some() {
+                        if key || attribute.value.is_some() {
+                            return Err(invalid(
+                                child,
+                                format!("derived attribute {name} is neither a key nor defaulted"),
+                            ));
+                        }
+                        kind.derived.push((name.clone(), child));
+                    }
                     if let Some(cell) = &attribute.value {
                         kind.defaults.insert(
                             name.clone(),
@@ -829,6 +866,19 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                             child,
                             format!("key {name} is supplied by each row, not bound by a kind"),
                         ));
+                    }
+                    if let Some((_, derived)) = kind.derived.iter().find(|(n, _)| *n == name) {
+                        let owner = p.declarations[derived].parent_id.unwrap_or(*derived);
+                        return Err(invalid(
+                            child,
+                            format!(
+                                "attribute {name} is derived by kind {}; a kind binds none",
+                                p.declarations[&owner].name
+                            ),
+                        ));
+                    }
+                    if attribute.unique || attribute.derived.is_some() {
+                        return Err(invalid(child, "a binding declares neither uniqueness nor a derivation"));
                     }
                     if let Some((_, previous)) = kind.bound.get(&name)
                         && !row.is_override
@@ -903,6 +953,14 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                 },
             )?;
             kind.envelopes.push(envelope);
+        }
+        // Envelope bounds are ordered as each entity is admitted, before any derivation.
+        if let Some((name, row)) = kind.derived.iter().find(|(name, _)| {
+            kind.envelopes
+                .iter()
+                .any(|e| e.lower == *name || e.upper == *name)
+        }) {
+            return Err(invalid(*row, format!("derived attribute {name} bounds no envelope")));
         }
         p.kinds.insert(id, kind);
     }
@@ -988,10 +1046,10 @@ fn declared(
                 format!("duplicate entity attribute {}", attribute.name),
             ));
         }
-        supplied.insert(
-            attribute.name.clone(),
-            typed(p, c, id, &attribute.value, &p.types[&declaring], rows)?,
-        );
+        let value = typed(p, c, id, &attribute.value, &p.types[&declaring], rows).map_err(|e| {
+            crate::data::context(e, &format!("attribute {}", attribute.name))
+        })?;
+        supplied.insert(attribute.name.clone(), value);
     }
     record(p, kind, id, supplied)
 }
@@ -1029,6 +1087,16 @@ fn attribute_row(
             ),
         ));
     }
+    if schema.derived.iter().any(|(derived, _)| derived == name) {
+        let owner = p.declarations[&declaring].parent_id.unwrap_or(declaring);
+        return Err(invalid(
+            at,
+            format!(
+                "attribute {name} is derived by kind {}; no entity supplies it",
+                p.declarations[&owner].name
+            ),
+        ));
+    }
     Ok(declaring)
 }
 
@@ -1044,6 +1112,10 @@ fn record(
     let mut values = BTreeMap::new();
     let mut uncertainties = BTreeMap::new();
     for (name, declaring) in &schema.attributes {
+        // A derived attribute's value is evaluated once every table is admitted.
+        if schema.derived.iter().any(|(derived, _)| derived == name) {
+            continue;
+        }
         let typed = if let Some(value) = supplied.remove(name) {
             value
         } else if let Some((value, _)) = schema.bound.get(name) {
@@ -1142,7 +1214,11 @@ fn layout<'a>(
     let values = schema
         .attributes
         .iter()
-        .filter(|(name, _)| !schema.keys.contains(name) && !schema.bound.contains_key(name))
+        .filter(|(name, _)| {
+            !schema.keys.contains(name)
+                && !schema.bound.contains_key(name)
+                && !schema.derived.iter().any(|(derived, _)| derived == name)
+        })
         .collect::<Vec<_>>();
     Ok(Layout {
         key_kind,
@@ -1272,13 +1348,327 @@ fn rows(
             })
             .collect::<BTreeMap<_, _>>();
         for (cell, (name, declaring)) in row.values.iter().zip(&layout.values) {
-            supplied.insert(
-                name.clone(),
-                typed(p, c, dataset, cell, &p.types[declaring], rows)?,
-            );
+            let value = typed(p, c, dataset, cell, &p.types[declaring], rows).map_err(|e| {
+                crate::data::context(
+                    e,
+                    &format!("{}: attribute {name}", row_label(p, dataset, index)),
+                )
+            })?;
+            supplied.insert(name.clone(), value);
         }
         let record = record(p, kind, dataset, supplied)?;
         output.push((keyed_identity(layout.key_kind, &keys), record));
     }
     Ok(output)
+}
+
+/// The names a kind is visible by at `at`, each typed as the finite set of the kind's
+/// admitted entities. An admission-time expression (a derived attribute or column, a kind or
+/// row requirement) ranges over a kind by its name; a specialization root does not, so its
+/// model never depends on which entities a closure admits (Plan 23 D0).
+pub(crate) fn extent_types(p: &CheckedPackage, at: DeclarationId) -> BTreeMap<String, Type> {
+    let mut types = p.named_types(at);
+    extents(p, at, &mut types);
+    types
+        .into_iter()
+        .filter(|(_, ty)| matches!(ty, Type::Set(element) if matches!(**element, Type::Entity(_))))
+        .filter(|(name, _)| p.resolve(at, name).is_some_and(|id| p.kinds.contains_key(&id)))
+        .collect()
+}
+
+/// Retype each name in `types` that denotes a kind at `at` as the set of its admitted
+/// entities (Plan 23 D0).
+pub(crate) fn extents(p: &CheckedPackage, at: DeclarationId, types: &mut BTreeMap<String, Type>) {
+    for (name, ty) in types.iter_mut() {
+        if let Type::Entity(kind) = ty
+            && p.kinds.contains_key(kind)
+            && p.resolve(at, name) == Some(*kind)
+        {
+            *ty = Type::Set(Box::new(Type::Entity(*kind)));
+        }
+    }
+}
+
+/// The admitted entities of `kind` and its refinements, in identity order.
+pub(crate) fn extent(p: &CheckedPackage, kind: DeclarationId) -> Vec<Value> {
+    p.entities
+        .iter()
+        .filter(|(_, record)| p.refines(record.kind, kind))
+        .map(|(id, record)| Value::Entity {
+            id: *id,
+            kind: record.kind,
+        })
+        .collect()
+}
+
+/// What an expression of `kind` binds: the visible kinds' extents, then the kind's
+/// attributes by name and `self`, the entity itself.
+fn kind_types(p: &CheckedPackage, kind: DeclarationId, at: DeclarationId) -> BTreeMap<String, Type> {
+    let mut env = extent_types(p, at);
+    for (name, row) in &p.kinds[&kind].attributes {
+        if let Some(ty) = p.types.get(row) {
+            env.insert(name.clone(), ty.clone());
+        }
+    }
+    env.insert("self".into(), Type::Entity(kind));
+    env
+}
+
+/// The values an expression of an entity's kind reads: its attributes and `self`.
+fn record_values(id: DeclarationId, record: &Record) -> value::Environment {
+    let mut env = record.values.clone();
+    env.insert(
+        "self".into(),
+        Value::Entity {
+            id,
+            kind: record.kind,
+        },
+    );
+    env
+}
+
+/// The admitted entities of `kind` and its refinements with their records.
+fn members<'p>(
+    p: &'p CheckedPackage,
+    kind: DeclarationId,
+) -> impl Iterator<Item = (DeclarationId, &'p Record)> + 'p {
+    p.entities
+        .iter()
+        .filter(move |(_, record)| p.refines(record.kind, kind))
+        .map(|(id, record)| (*id, record))
+}
+
+/// One derived attribute: its declaring row and kind, name, type and expression.
+struct Derivation {
+    row: DeclarationId,
+    kind: DeclarationId,
+    name: String,
+    ty: Type,
+    expression: pse_authoring::dsl::Expr,
+}
+
+/// Derive every entity's derived attributes once every table is admitted (Plan 23 D0).
+///
+/// Each derived attribute and each kind requirement is typed first, with the entity's
+/// attributes, `self` and the visible kinds' extents bound. Derived attributes are then
+/// evaluated once per entity of their kind and its refinements, in the order of the
+/// attribute names their expressions mention; a derivation that mentions itself, directly or
+/// through others, is refused with the attributes named. An entity whose derivation reads
+/// test-only data is test-only, and so is whatever references it.
+pub(crate) fn derive(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
+    let mut derivations = Vec::new();
+    for row in p.declarations.values() {
+        let at = row.declaration_id;
+        let kind = row.parent_id.filter(|parent| p.kinds.contains_key(parent));
+        if let Some(requirement) = &row.value.requirement
+            && let Some(kind) = kind
+        {
+            let predicate = pse_authoring::dsl::parse_predicate(&requirement.predicate)
+                .map_err(|e| invalid(at, e.to_string()))?;
+            crate::expression::predicate(&predicate, &kind_types(p, kind, at), p, c, at).map_err(
+                |e| {
+                    crate::data::context(
+                        e,
+                        &format!(
+                            "requirement `{}` of kind {}",
+                            requirement.predicate, p.declarations[&kind].name
+                        ),
+                    )
+                },
+            )?;
+        }
+        let Some(expression) = row.value.attribute.as_ref().and_then(|a| a.derived.as_ref())
+        else {
+            continue;
+        };
+        let (Some(kind), Some(ty)) = (kind, p.types.get(&at).cloned()) else {
+            return Err(invalid(at, "a derived attribute belongs to an entity kind"));
+        };
+        let what = || format!("derived attribute {} of kind {}", row.name, p.declarations[&kind].name);
+        let expression =
+            pse_authoring::dsl::parse_expr(expression).map_err(|e| invalid(at, e.to_string()))?;
+        let actual = crate::expression::infer(&expression, &kind_types(p, kind, at), p, c, at, Some(&ty))
+            .map_err(|e| crate::data::context(e, &what()))?;
+        if !p.subsumes(&ty, &actual) {
+            return Err(invalid(
+                at,
+                format!("{} is {actual:?}, not its declared {ty:?}", what()),
+            ));
+        }
+        derivations.push(Derivation {
+            row: at,
+            kind,
+            name: row.name.clone(),
+            ty,
+            expression,
+        });
+    }
+    let mut tainted = BTreeSet::new();
+    for index in derivation_order(p, &derivations)? {
+        let derivation = &derivations[index];
+        let physical = p.context();
+        let mut values = Vec::new();
+        for (id, record) in members(p, derivation.kind) {
+            let env = record_values(id, record);
+            let read = std::cell::Cell::new(false);
+            let value = value::Evaluator {
+                package: p,
+                physical: &physical,
+                at: derivation.row,
+                env: &env,
+                limit: crate::data::EVALUATION_LIMIT,
+                stack: Vec::new(),
+                reader: crate::provenance::Reader::Admission(Some(&read)),
+            }
+            .expr(&derivation.expression, Some(&derivation.ty), 0)
+            .map_err(|e| {
+                crate::data::context(
+                    e,
+                    &format!(
+                        "derived attribute {} of {}",
+                        derivation.name,
+                        crate::data::display(p, &Value::Entity { id, kind: record.kind })
+                    ),
+                )
+            })?;
+            if !conforms(&value, &derivation.ty, p) {
+                return Err(invalid(
+                    record.origin,
+                    format!(
+                        "derived attribute {} of {} is not a {:?}",
+                        derivation.name,
+                        crate::data::display(p, &Value::Entity { id, kind: record.kind }),
+                        derivation.ty
+                    ),
+                ));
+            }
+            if read.get() {
+                tainted.insert(id);
+            }
+            values.push((id, value));
+        }
+        for (id, value) in values {
+            if let Some(record) = p.entities.get_mut(&id) {
+                record.values.insert(derivation.name.clone(), value);
+            }
+        }
+    }
+    crate::provenance::taint_derived(p, tainted);
+    Ok(())
+}
+
+/// Derived attributes ordered by the attribute names their expressions mention: a mention
+/// of a derived attribute's name, as an attribute of the entity or of any other, orders that
+/// derivation first. The order is conservative; a cycle is refused with its attributes named.
+fn derivation_order(p: &CheckedPackage, derivations: &[Derivation]) -> Result<Vec<usize>> {
+    let mut graph = petgraph::graph::DiGraph::<usize, ()>::new();
+    let nodes = (0..derivations.len())
+        .map(|index| graph.add_node(index))
+        .collect::<Vec<_>>();
+    for (to, derivation) in derivations.iter().enumerate() {
+        let mentions = derivation
+            .expression
+            .paths()
+            .into_iter()
+            .flat_map(|path| path.segments.iter().map(|s| s.name.as_str()))
+            .collect::<BTreeSet<_>>();
+        for (from, other) in derivations.iter().enumerate() {
+            if mentions.contains(other.name.as_str()) {
+                graph.add_edge(nodes[from], nodes[to], ());
+            }
+        }
+    }
+    petgraph::algo::toposort(&graph, None)
+        .map(|order| order.into_iter().map(|n| graph[n]).collect())
+        .map_err(|_| {
+            let cycle = petgraph::algo::kosaraju_scc(&graph)
+                .into_iter()
+                .find(|c| c.len() > 1 || c.first().is_some_and(|n| graph.contains_edge(*n, *n)))
+                .unwrap_or_default();
+            let mut names = cycle
+                .iter()
+                .map(|n| {
+                    let d = &derivations[graph[*n]];
+                    format!("{}.{}", p.declarations[&d.kind].name, d.name)
+                })
+                .collect::<Vec<_>>();
+            names.sort();
+            invalid(
+                cycle.first().map_or(derivations[0].row, |n| derivations[graph[*n]].row),
+                format!("derived attributes {} derive from one another", names.join(", ")),
+            )
+        })
+}
+
+/// Every entity satisfies the requirements of its kind and its ancestors, and no two
+/// entities of a kind share a value of an attribute it declares unique (Plan 23 D0). A
+/// refusal names the entities, the kind and the violated clause.
+pub(crate) fn verify(p: &CheckedPackage) -> Result<()> {
+    let physical = p.context();
+    for (kind, schema) in &p.kinds {
+        let kind_name = &p.declarations[kind].name;
+        let own = |row: &DeclarationId| p.declarations[row].parent_id == Some(*kind);
+        for row in schema.requirements.iter().filter(|row| own(row)) {
+            let requirement = p.declarations[row]
+                .value
+                .requirement
+                .as_ref()
+                .ok_or_else(|| invalid(*row, "requirement payload"))?;
+            let predicate = pse_authoring::dsl::parse_predicate(&requirement.predicate)
+                .map_err(|e| invalid(*row, e.to_string()))?;
+            for (id, record) in members(p, *kind) {
+                let env = record_values(id, record);
+                let holds = value::Evaluator {
+                    package: p,
+                    physical: &physical,
+                    at: *row,
+                    env: &env,
+                    limit: crate::data::EVALUATION_LIMIT,
+                    stack: Vec::new(),
+                    reader: crate::provenance::Reader::Admission(None),
+                }
+                .predicate(&predicate)?;
+                if !holds {
+                    return Err(invalid(
+                        record.origin,
+                        format!(
+                            "{} of kind {kind_name} violates the requirement `{}`: {}",
+                            crate::data::display(p, &Value::Entity { id, kind: record.kind }),
+                            requirement.predicate,
+                            requirement.message
+                        ),
+                    ));
+                }
+            }
+        }
+        for (name, _) in schema.unique.iter().filter(|(_, row)| own(row)) {
+            let mut seen = BTreeMap::<&Value, DeclarationId>::new();
+            for (id, record) in members(p, *kind) {
+                let Some(value) = record.values.get(name).filter(|v| **v != Value::Missing) else {
+                    continue;
+                };
+                if let Some(previous) = seen.insert(value, id) {
+                    let entity = |id: DeclarationId| {
+                        crate::data::display(
+                            p,
+                            &Value::Entity {
+                                id,
+                                kind: p.entities[&id].kind,
+                            },
+                        )
+                    };
+                    return Err(invalid(
+                        record.origin,
+                        format!(
+                            "{} and {} share {name} = {}, which kind {kind_name} declares unique",
+                            entity(previous),
+                            entity(id),
+                            crate::data::display(p, value)
+                        ),
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
 }

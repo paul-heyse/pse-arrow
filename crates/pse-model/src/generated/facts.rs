@@ -328,8 +328,8 @@ impl FactBatch {
             }
             Self::r#AuthoredModelingDeclarations(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    4u8, 116u8, 72u8, 201u8, 226u8, 142u8, 177u8, 198u8, 16u8, 233u8,
-                    107u8, 142u8, 59u8, 73u8, 228u8, 117u8,
+                    99u8, 204u8, 124u8, 133u8, 99u8, 195u8, 252u8, 231u8, 30u8, 222u8,
+                    45u8, 128u8, 23u8, 96u8, 23u8, 178u8,
                 ])
             }
             Self::r#AuthoredNumericalRequirements(_) => {

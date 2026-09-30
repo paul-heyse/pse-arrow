@@ -519,21 +519,35 @@ fn print_block(
                     .collect::<Result<Vec<_>, AuthoringError>>()?
                     .join(", ")
             ),
-            // ADR-0123 Outcome 2: a declaration, a key or a kind-level binding.
-            Selected::Attribute(v) => match (&v.r#type, v.key, &v.value) {
-                (Some(ty), key, value) => format!(
-                    "{} {n}: {}{};",
-                    if key { "key" } else { "attribute" },
-                    super::render_type(ty)?,
-                    value
-                        .as_ref()
-                        .map(super::render_cell)
-                        .transpose()?
-                        .map_or_else(String::new, |cell| format!(" = {cell}"))
-                ),
-                (None, false, Some(value)) => format!("{n} = {};", super::render_cell(value)?),
-                _ => return Err(bad("a binding carries a value and no key or type")),
-            },
+            // ADR-0123 Outcome 2: a declaration, a key or a kind-level binding; Plan 23 D0: a
+            // unique or derived attribute.
+            Selected::Attribute(v) => {
+                let unique = if v.unique { " unique" } else { "" };
+                match (&v.r#type, v.key, &v.value, &v.derived) {
+                    (Some(ty), false, None, Some(expression)) => format!(
+                        "derived {n}: {}{unique} = {expression};",
+                        super::render_type(ty)?
+                    ),
+                    (Some(ty), key, value, None) => format!(
+                        "{} {n}: {}{unique}{};",
+                        if key { "key" } else { "attribute" },
+                        super::render_type(ty)?,
+                        value
+                            .as_ref()
+                            .map(super::render_cell)
+                            .transpose()?
+                            .map_or_else(String::new, |cell| format!(" = {cell}"))
+                    ),
+                    (None, false, Some(value), None) if !v.unique => {
+                        format!("{n} = {};", super::render_cell(value)?)
+                    }
+                    _ => {
+                        return Err(bad(
+                            "a binding carries a value only; a derived attribute its type and expression",
+                        ));
+                    }
+                }
+            }
             Selected::IdentifierScheme => format!("identifier scheme {n};"),
             Selected::Envelope(v) => format!(
                 "envelope {};",

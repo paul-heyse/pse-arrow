@@ -1209,9 +1209,11 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                 .cloned()
                 .unwrap_or_default();
             for child in p.children.get(&id).cloned().unwrap_or_default() {
-                // An envelope bounds the kind's attributes; it is not a member (ADR-0123
-                // Outcome 4).
-                if p.declarations[&child].value.envelope.is_some() {
+                // An envelope bounds the kind's attributes and a requirement constrains its
+                // entities; neither is a member (ADR-0123 Outcome 4, Plan 23 D0).
+                if p.declarations[&child].value.envelope.is_some()
+                    || p.declarations[&child].value.requirement.is_some()
+                {
                     continue;
                 }
                 let name = p.declarations[&child].name.clone();
@@ -1472,7 +1474,12 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
     }
     crate::entity::admit(&mut p, context)?;
     crate::provenance::admit(&mut p)?;
-    crate::data::admit(&mut p, context)?;
+    // Tables, then the kinds' derived attributes, which may read them; requirements read
+    // both (Plan 23 D0).
+    let requirements = crate::data::admit(&mut p, context)?;
+    crate::entity::derive(&mut p, context)?;
+    crate::data::verify_rows(&p, &requirements)?;
+    crate::entity::verify(&p)?;
     crate::envelope::admit(&mut p, context)?;
     crate::expression::check_all(&p, context)?;
     Ok(p)
@@ -1636,6 +1643,7 @@ impl CheckedPackage {
             if let Some(v) = &row.value.attribute {
                 types.extend(v.r#type.as_ref());
                 cells.extend(v.value.as_ref());
+                texts.extend(v.derived.as_deref());
             }
             if let Some(v) = &row.value.constant {
                 types.push(&v.r#type);
