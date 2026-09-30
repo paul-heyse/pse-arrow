@@ -11,7 +11,7 @@
 @id("01a0e1db89d8722baac398f3a8b569cb") entity chemistry.reaction hydrolysis {}
 @id("01a0e1db89d8722baac398f4fa4d61b9") set reaction_set:Set<chemistry.reaction>={hydrolysis};
 @id("e1aedb12278540ec953486150af1fca8") set solvents:Set<chemistry.species>={chem.water};
-@id("01a0e1db89d8722baac398f5f8e2ef0b") table liquid_data[j:chemistry.species]:{density:Density,cp:MolarCp,reference:Temperature,minimum:Temperature,maximum:Temperature} complete_over(j in solvents);
+@id("01a0e1db89d8722baac398f5f8e2ef0b") table liquid_data[j:chemistry.species]:{density:Density,cp:MolarCp,reference:Temperature,minimum:Temperature,maximum:Temperature} envelope T:Temperature in minimum..maximum complete_over(j in solvents);
 @id("01a0e1db89d8722baac398f6cb94d882") dataset dilute_water:liquid_data provenance(references.idaes_saponification_thermo, provenance.Role.oracle_input) {
 [chem.water]=[55388{mol/m^3},75.327{J/(mol*K)},298.15{K},298.15{K},323.15{K}];
 }

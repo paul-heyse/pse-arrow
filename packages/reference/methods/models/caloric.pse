@@ -9,15 +9,15 @@
 @id("01a0e1484fb87705b3f22bd02c706e6c") fn cp_unit()->MolarCp=1{J/(mol*K)};
 @id("01a0e1484fb87705b3f22bd1c8d58a85") fn h_unit()->DeltaH=1{J/mol};
 @id("01a0e1484fb87705b3f22bd2617a4090") fn s_unit()->DeltaS=1{J/(mol*K)};
-@id("01a0e1484fb87705b3f22bd397b45caf") table shomate[j:chemistry.species]:{a:Scalar,b:Scalar,c:Scalar,d:Scalar,e:Scalar,minimum:Temperature,maximum:Temperature} complete_over(j);
-@id("01a0e1484fb87705b3f22bd556f38474") fn shomate_cp(T:Temperature,p:Row<shomate>)->MolarCp valid(T>=p.minimum and T<=p.maximum) = cp_unit()*(p.a+p.b*t+p.c*t^2+p.d*t^3+p.e/t^2) where t=T/(1000*kelvin());
-@id("01a0e1484fb87705b3f22bd62c1b8f02") fn shomate_h_primitive(T:Temperature,p:Row<shomate>)->DeltaH valid(T>=p.minimum and T<=p.maximum) = 1000*h_unit()*(p.a*t+p.b*t^2/2+p.c*t^3/3+p.d*t^4/4-p.e/t) where t=T/(1000*kelvin());
-@id("01a0e1484fb87705b3f22bd70ea77e09") fn shomate_s_primitive(T:Temperature,p:Row<shomate>)->DeltaS valid(T>=p.minimum and T<=p.maximum) = s_unit()*(p.a*log(t)+p.b*t+p.c*t^2/2+p.d*t^3/3-p.e/(2*t^2)) where t=T/(1000*kelvin());
+@id("01a0e1484fb87705b3f22bd397b45caf") table shomate[j:chemistry.species]:{a:Scalar,b:Scalar,c:Scalar,d:Scalar,e:Scalar,minimum:Temperature,maximum:Temperature} envelope T:Temperature in minimum..maximum complete_over(j);
+@id("01a0e1484fb87705b3f22bd556f38474") fn shomate_cp(T:Temperature,p:Row<shomate>)->MolarCp guards(p.T:T) = cp_unit()*(p.a+p.b*t+p.c*t^2+p.d*t^3+p.e/t^2) where t=T/(1000*kelvin());
+@id("01a0e1484fb87705b3f22bd62c1b8f02") fn shomate_h_primitive(T:Temperature,p:Row<shomate>)->DeltaH guards(p.T:T) = 1000*h_unit()*(p.a*t+p.b*t^2/2+p.c*t^3/3+p.d*t^4/4-p.e/t) where t=T/(1000*kelvin());
+@id("01a0e1484fb87705b3f22bd70ea77e09") fn shomate_s_primitive(T:Temperature,p:Row<shomate>)->DeltaS guards(p.T:T) = s_unit()*(p.a*log(t)+p.b*t+p.c*t^2/2+p.d*t^3/3-p.e/(2*t^2)) where t=T/(1000*kelvin());
 
-@id("01a0e1550b117611b1f5a20d9e79aff4") table polynomial[j:fit]:{a:Scalar,b:Scalar,c:Scalar,d:Scalar,e:Scalar,scale:MolarCp,minimum:Temperature,maximum:Temperature} complete_over(j);
-@id("01a0e1550b117611b1f5a20e6a105606") fn polynomial_cp(T:Temperature,p:Row<polynomial>)->MolarCp valid(T>=p.minimum and T<=p.maximum) = p.scale*(p.a+t*(p.b+t*(p.c+t*(p.d+t*p.e)))) where t=T/kelvin();
-@id("01a0e1550b117611b1f5a20fab606d81") fn polynomial_h_primitive(T:Temperature,p:Row<polynomial>)->DeltaH valid(T>=p.minimum and T<=p.maximum) = h_unit()*(p.scale/cp_unit())*(p.a*t+p.b*t^2/2+p.c*t^3/3+p.d*t^4/4+p.e*t^5/5) where t=T/kelvin();
-@id("01a0e1550b117611b1f5a2102700711c") fn polynomial_s_primitive(T:Temperature,p:Row<polynomial>)->DeltaS valid(T>=p.minimum and T<=p.maximum) = s_unit()*(p.scale/cp_unit())*(p.a*log(t)+p.b*t+p.c*t^2/2+p.d*t^3/3+p.e*t^4/4) where t=T/kelvin();
+@id("01a0e1550b117611b1f5a20d9e79aff4") table polynomial[j:fit]:{a:Scalar,b:Scalar,c:Scalar,d:Scalar,e:Scalar,scale:MolarCp,minimum:Temperature,maximum:Temperature} envelope T:Temperature in minimum..maximum complete_over(j);
+@id("01a0e1550b117611b1f5a20e6a105606") fn polynomial_cp(T:Temperature,p:Row<polynomial>)->MolarCp guards(p.T:T) = p.scale*(p.a+t*(p.b+t*(p.c+t*(p.d+t*p.e)))) where t=T/kelvin();
+@id("01a0e1550b117611b1f5a20fab606d81") fn polynomial_h_primitive(T:Temperature,p:Row<polynomial>)->DeltaH guards(p.T:T) = h_unit()*(p.scale/cp_unit())*(p.a*t+p.b*t^2/2+p.c*t^3/3+p.d*t^4/4+p.e*t^5/5) where t=T/kelvin();
+@id("01a0e1550b117611b1f5a2102700711c") fn polynomial_s_primitive(T:Temperature,p:Row<polynomial>)->DeltaS guards(p.T:T) = s_unit()*(p.scale/cp_unit())*(p.a*log(t)+p.b*t+p.c*t^2/2+p.d*t^3/3+p.e*t^4/4) where t=T/kelvin();
 @id("01a0e1550b117611b1f5a211735348ee") fn constant_cp(T:Temperature,cp:MolarCp)->MolarCp valid(T>absolute_zero()) = cp;
 @id("01a0e1550b117611b1f5a21250f6b25d") fn constant_h_primitive(T:Temperature,cp:MolarCp)->DeltaH valid(T>absolute_zero()) = h_unit()*(cp/cp_unit())*(T/kelvin());
 @id("01a0e1550b117611b1f5a2134440d0e8") fn constant_s_primitive(T:Temperature,cp:MolarCp)->DeltaS valid(T>absolute_zero()) = s_unit()*(cp/cp_unit())*log(T/kelvin());
