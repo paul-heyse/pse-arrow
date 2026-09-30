@@ -410,10 +410,11 @@ def test_in_memory_sources_with_different_facts_are_refused_and_with_equal_facts
 
 def test_the_facts_a_form_reads_are_reified_in_meta(world: World, conn: psycopg.Connection) -> None:
     assert conn.execute(
-        "SELECT form, name, kind FROM meta.form_convention ORDER BY form"
+        "SELECT form, name, kind FROM meta.form_convention WHERE name = 'gas_constant' ORDER BY form"
     ).fetchall() == [
         (form, "gas_constant", "convention_set")
         for form in (
+            "flory_huggins_excess_gibbs",
             "helmholtz_pure_fluid",
             "if97_gibbs_region1",
             "if97_gibbs_region2",
@@ -421,9 +422,14 @@ def test_the_facts_a_form_reads_are_reified_in_meta(world: World, conn: psycopg.
             "if97_helmholtz_region3",
             "nasa7",
             "nasa9",
+            "nrtl_excess_gibbs",
+            "peng_robinson_core",
             "qfix_gas_sum",
         )
     ]
+    assert conn.execute(
+        "SELECT form, name, kind FROM meta.form_convention WHERE name = 'avogadro_constant' ORDER BY form"
+    ).fetchall() == [("pcsaft_association", "avogadro_constant", "convention_set")]
     assert conn.execute(
         "SELECT kind FROM meta.framework_role WHERE role = 'convention_set'"
     ).fetchone() == ("convention_set",)

@@ -1,0 +1,88 @@
+module = "polymer_solutions"
+uses = [
+  "physical",
+  "provenance",
+  "identity",
+  "systems",
+  "conventions",
+  "observables",
+  "parameters",
+]
+doc = """
+Flory-Huggins theory of a solution of a polymer: the excess Gibbs energy of a mixture of a solvent and
+a polymer, or of several, from the volume fractions of the components and one interaction parameter
+for each pair. A polymer molecule is a chain of segments (its repeat units); the number of segments of
+a chain is not a parameter of the polymer type, since a chain has a length only as a member of a
+sample, so the expression takes it as an indexed argument the caller reads from the molar-mass
+distribution of the sample.
+"""
+
+[contracts.polymer_solution_excess_gibbs]
+doc = "Molar excess Gibbs energy of a mixture of molecules and chains at a temperature and a composition, with the number of segments of each."
+sets.components = { type = "material_entity", doc = "The components of the mixture, in a fixed order: species and polymer types." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+arguments.x = { type = "Fraction", over = ["components"], basis = "mole_fraction", doc = "Composition." }
+arguments.n_seg = { type = "Scalar", over = ["components"], doc = "The number of segments of a molecule of each component: one for a solvent, the number-average number of repeat units for a polymer, read from its sample." }
+outputs.gE = { type = "MolarEnergy", observable = "molar_excess_gibbs_energy", doc = "Molar excess Gibbs energy." }
+
+[forms.flory_huggins_excess_gibbs]
+doc = "Flory-Huggins: gE / (R T) = sum_i x_i ln(phi_i / x_i) + (V / v_ref) sum_{i<j} chi_ij phi_i phi_j, where V_i = n_i v_i is the molar volume of a molecule of component i from its segment count n_i and segment volume v_i, V = sum x_i V_i, phi_i = x_i V_i / V and chi_ij = chi0_ij + chi1_ij / T is defined for the reference volume v_ref."
+implements = "polymer_solution_excess_gibbs"
+completeness = "fully_declared"
+status = "expressed"
+conventions = ["gas_constant"]
+
+[forms.flory_huggins_excess_gibbs.slot_groups.component]
+doc = "The segment of one component."
+subject.i = { type = "material_entity", doc = "The component." }
+bind = { i = "components" }
+
+[forms.flory_huggins_excess_gibbs.slot_groups.component.slots]
+segment_volume = { type = "MolarVolume", doc = "Molar volume of a segment: of the repeat unit of a polymer, of the molecule for a solvent." }
+
+[forms.flory_huggins_excess_gibbs.slot_groups.pair]
+doc = "The interaction parameter of one unordered pair of components."
+subject.i = { type = "material_entity", doc = "The first component." }
+subject.j = { type = "material_entity", doc = "The second component." }
+bind = { i = "components", j = "components" }
+transposition = { rule = "symmetric", roles = ["i", "j"], diagonal = "forbidden" }
+
+[forms.flory_huggins_excess_gibbs.slot_groups.pair.slots]
+chi0 = { type = "Scalar", doc = "Temperature-independent part of the interaction parameter." }
+chi1 = { type = "Temperature", doc = "Coefficient of 1 / T in the interaction parameter." }
+
+[forms.flory_huggins_excess_gibbs.slot_groups.lattice]
+doc = "The reference volume the interaction parameters are defined for."
+
+[forms.flory_huggins_excess_gibbs.slot_groups.lattice.slots]
+reference_volume = { type = "MolarVolume", doc = "Reference volume of the interaction parameters." }
+
+[forms.flory_huggins_excess_gibbs.let]
+R = "convention.gas_constant"
+V = "[n_seg[i] * component.segment_volume[i] for i in components]"
+V_mean = "sum(x[i] * V[i] for i in components)"
+phi = "[x[i] * V[i] / V_mean for i in components]"
+
+[forms.flory_huggins_excess_gibbs.outputs]
+gE = "R * T * (sum(x[i] * log(phi[i] / x[i]) for i in components) + V_mean / lattice.reference_volume * sum((0 if i == j else (pair.chi0[i, j] + pair.chi1[i, j] / T) * phi[i] * phi[j]) for i in components for j in components) / 2)"
+
+# ---------------------------------------------------------------- the molar-mass distribution of a polymer sample
+
+[contracts.polymer_sample_molar_mass]
+doc = "The number- and mass-average molar masses of a polymer sample, from its molar-mass distribution."
+roles.s = { type = "sample", doc = "The sample." }
+outputs.M_n = { type = "MolarMass", doc = "Number-average molar mass." }
+outputs.M_w = { type = "MolarMass", doc = "Mass-average molar mass." }
+
+[forms.molar_mass_distribution]
+doc = "The molar-mass distribution of a polymer sample: a chain has a molar mass only as a member of a sample or a mixture, so the distribution is held on the sample and never on the polymer type. A tabulated function of molar mass with the weights of its bins; the averages are moments of it, computed by the consumer."
+implements = "polymer_sample_molar_mass"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+
+[forms.molar_mass_distribution.slot_groups.sample]
+doc = "The distribution of one sample."
+subject.s = { type = "sample", doc = "The sample." }
+
+[forms.molar_mass_distribution.slot_groups.sample.slots]
+distribution = { type = "tabulated_function", doc = "Weights of the bins of molar mass, the function typed by the distributed attribute of its weighting." }

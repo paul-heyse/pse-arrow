@@ -1569,6 +1569,54 @@ COMMENT ON COLUMN "tk"."convention_set"."avogadro_constant" IS 'The value of the
 COMMENT ON COLUMN "tk"."convention_set"."temperature_scale" IS 'The temperature scale.';
 COMMENT ON COLUMN "tk"."convention_set"."atomic_weights" IS 'The atomic-weight edition.';
 
+CREATE TABLE "param"."cosmosac_2010__constants" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '127a664d-89b9-5e0f-ba48-8c96dc5790ca'::uuid,
+    "effective_area" "meta"."area" NOT NULL,
+    "c_oh_oh" "meta"."finite_real" NOT NULL,
+    "c_oh_ot" "meta"."finite_real" NOT NULL,
+    "c_ot_ot" "meta"."finite_real" NOT NULL,
+    "a_es" "meta"."finite_real" NOT NULL,
+    "b_es" "meta"."finite_real" NOT NULL,
+    "q0" "meta"."area" NOT NULL,
+    "r0" "meta"."volume" NOT NULL,
+    "z_coordination" "meta"."scalar" NOT NULL,
+    CONSTRAINT "cosmosac_2010__constants__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "cosmosac_2010__constants__ck__slot_group" CHECK ("slot_group" = '127a664d-89b9-5e0f-ba48-8c96dc5790ca'::uuid)
+);
+COMMENT ON TABLE "param"."cosmosac_2010__constants" IS 'The model constants the profiles must have been generated for.';
+COMMENT ON COLUMN "param"."cosmosac_2010__constants"."id" IS 'Deterministic identifier of the cosmosac_2010__constants instance.';
+COMMENT ON COLUMN "param"."cosmosac_2010__constants"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."cosmosac_2010__constants"."effective_area" IS 'Effective segment area.';
+COMMENT ON COLUMN "param"."cosmosac_2010__constants"."c_oh_oh" IS 'Hydrogen-bonding constant of two donor segments.';
+COMMENT ON COLUMN "param"."cosmosac_2010__constants"."c_oh_ot" IS 'Hydrogen-bonding constant of a donor and another hydrogen-bonding segment.';
+COMMENT ON COLUMN "param"."cosmosac_2010__constants"."c_ot_ot" IS 'Hydrogen-bonding constant of two other hydrogen-bonding segments.';
+COMMENT ON COLUMN "param"."cosmosac_2010__constants"."a_es" IS 'Constant term of the electrostatic coefficient.';
+COMMENT ON COLUMN "param"."cosmosac_2010__constants"."b_es" IS 'Coefficient of the inverse square of the temperature in the electrostatic coefficient.';
+COMMENT ON COLUMN "param"."cosmosac_2010__constants"."q0" IS 'Standard surface area of the combinatorial term.';
+COMMENT ON COLUMN "param"."cosmosac_2010__constants"."r0" IS 'Standard volume of the combinatorial term.';
+COMMENT ON COLUMN "param"."cosmosac_2010__constants"."z_coordination" IS 'Coordination number of the combinatorial term.';
+
+CREATE TABLE "param"."cosmosac_2010__molecule" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '3446fa50-2a8c-5b34-9218-88a79bbb5b33'::uuid,
+    "i" uuid NOT NULL,
+    "profile" uuid NOT NULL,
+    "cavity_volume" "meta"."volume" NOT NULL,
+    "dispersion_class" "meta"."dispersion_class" NOT NULL,
+    "dispersion_energy_over_k" "meta"."energy_temperature" NOT NULL,
+    CONSTRAINT "cosmosac_2010__molecule__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "cosmosac_2010__molecule__ck__slot_group" CHECK ("slot_group" = '3446fa50-2a8c-5b34-9218-88a79bbb5b33'::uuid)
+);
+COMMENT ON TABLE "param"."cosmosac_2010__molecule" IS 'The sigma profile, cavity volume and dispersion descriptor of one molecule.';
+COMMENT ON COLUMN "param"."cosmosac_2010__molecule"."id" IS 'Deterministic identifier of the cosmosac_2010__molecule instance.';
+COMMENT ON COLUMN "param"."cosmosac_2010__molecule"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."cosmosac_2010__molecule"."i" IS 'The molecule.';
+COMMENT ON COLUMN "param"."cosmosac_2010__molecule"."profile" IS 'The sigma profile: the screening-charge density axis and the series nhb, oh and ot of cavity area per bin, on one grid.';
+COMMENT ON COLUMN "param"."cosmosac_2010__molecule"."cavity_volume" IS 'Volume of the molecular cavity.';
+COMMENT ON COLUMN "param"."cosmosac_2010__molecule"."dispersion_class" IS 'The dispersion class of the molecule, which decides the sign of the dispersion weight of each pair of classes.';
+COMMENT ON COLUMN "param"."cosmosac_2010__molecule"."dispersion_energy_over_k" IS 'Dispersion energy over the Boltzmann constant.';
+
 CREATE TABLE "ev"."data_point" (
     "id" uuid NOT NULL,
     "dataset" uuid NOT NULL,
@@ -1794,6 +1842,52 @@ COMMENT ON TABLE "prov"."fit" IS 'A regression of parameters against evidence.';
 COMMENT ON COLUMN "prov"."fit"."id" IS 'Deterministic identifier of the fit instance.';
 COMMENT ON COLUMN "prov"."fit"."objective" IS 'The objective function as the source describes it.';
 COMMENT ON COLUMN "prov"."fit"."outcome" IS 'How the fit ended.';
+
+CREATE TABLE "param"."flory_huggins_excess_gibbs__component" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'e47a0e41-d788-5a92-9f6c-f26c55941066'::uuid,
+    "i" uuid NOT NULL,
+    "segment_volume" "meta"."molar_volume" NOT NULL,
+    CONSTRAINT "flory_huggins_excess_gibbs__component__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "flory_huggins_excess_gibbs__component__ck__slot_group" CHECK ("slot_group" = 'e47a0e41-d788-5a92-9f6c-f26c55941066'::uuid)
+);
+COMMENT ON TABLE "param"."flory_huggins_excess_gibbs__component" IS 'The segment of one component.';
+COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__component"."id" IS 'Deterministic identifier of the flory_huggins_excess_gibbs__component instance.';
+COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__component"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__component"."i" IS 'The component.';
+COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__component"."segment_volume" IS 'Molar volume of a segment: of the repeat unit of a polymer, of the molecule for a solvent.';
+
+CREATE TABLE "param"."flory_huggins_excess_gibbs__lattice" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'a92e9184-6587-56e9-b2e1-233b477a7231'::uuid,
+    "reference_volume" "meta"."molar_volume" NOT NULL,
+    CONSTRAINT "flory_huggins_excess_gibbs__lattice__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "flory_huggins_excess_gibbs__lattice__ck__slot_group" CHECK ("slot_group" = 'a92e9184-6587-56e9-b2e1-233b477a7231'::uuid)
+);
+COMMENT ON TABLE "param"."flory_huggins_excess_gibbs__lattice" IS 'The reference volume the interaction parameters are defined for.';
+COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__lattice"."id" IS 'Deterministic identifier of the flory_huggins_excess_gibbs__lattice instance.';
+COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__lattice"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__lattice"."reference_volume" IS 'Reference volume of the interaction parameters.';
+
+CREATE TABLE "param"."flory_huggins_excess_gibbs__pair" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '94e3c88f-226b-5172-be46-c30c35e37beb'::uuid,
+    "i" uuid NOT NULL,
+    "j" uuid NOT NULL,
+    "chi0" "meta"."scalar" NOT NULL,
+    "chi1" "meta"."temperature" NOT NULL,
+    CONSTRAINT "flory_huggins_excess_gibbs__pair__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "flory_huggins_excess_gibbs__pair__ck__slot_group" CHECK ("slot_group" = '94e3c88f-226b-5172-be46-c30c35e37beb'::uuid),
+    CONSTRAINT "flory_huggins_excess_gibbs__pair__ck__canonical" CHECK ("i" <= "j"),
+    CONSTRAINT "flory_huggins_excess_gibbs__pair__ck__diagonal" CHECK ("i" <> "j")
+);
+COMMENT ON TABLE "param"."flory_huggins_excess_gibbs__pair" IS 'The interaction parameter of one unordered pair of components.';
+COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__pair"."id" IS 'Deterministic identifier of the flory_huggins_excess_gibbs__pair instance.';
+COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__pair"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__pair"."i" IS 'The first component.';
+COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__pair"."j" IS 'The second component.';
+COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__pair"."chi0" IS 'Temperature-independent part of the interaction parameter.';
+COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__pair"."chi1" IS 'Coefficient of 1 / T in the interaction parameter.';
 
 CREATE TABLE "tk"."group" (
     "id" uuid NOT NULL,
@@ -2307,6 +2401,20 @@ COMMENT ON TABLE "tk"."model_component" IS 'A named component of a model that pa
 COMMENT ON COLUMN "tk"."model_component"."id" IS 'Deterministic identifier of the model_component instance.';
 COMMENT ON COLUMN "tk"."model_component"."parameterization" IS 'The parameterisation the component''s name belongs to.';
 COMMENT ON COLUMN "tk"."model_component"."name" IS 'The name the source gives the component.';
+
+CREATE TABLE "param"."molar_mass_distribution__sample" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '8938be9e-5882-5329-84f2-57d7f784f6bc'::uuid,
+    "s" uuid NOT NULL,
+    "distribution" uuid NOT NULL,
+    CONSTRAINT "molar_mass_distribution__sample__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "molar_mass_distribution__sample__ck__slot_group" CHECK ("slot_group" = '8938be9e-5882-5329-84f2-57d7f784f6bc'::uuid)
+);
+COMMENT ON TABLE "param"."molar_mass_distribution__sample" IS 'The distribution of one sample.';
+COMMENT ON COLUMN "param"."molar_mass_distribution__sample"."id" IS 'Deterministic identifier of the molar_mass_distribution__sample instance.';
+COMMENT ON COLUMN "param"."molar_mass_distribution__sample"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."molar_mass_distribution__sample"."s" IS 'The sample.';
+COMMENT ON COLUMN "param"."molar_mass_distribution__sample"."distribution" IS 'Weights of the bins of molar mass, the function typed by the distributed attribute of its weighting.';
 
 CREATE TABLE "param"."multifluid_departure_terms__core" (
     "id" uuid NOT NULL,
@@ -4588,6 +4696,14 @@ ALTER TABLE "tk"."convention_set" ADD CONSTRAINT "convention_set__fk__energy_ref
 
 ALTER TABLE "tk"."convention_set" ADD CONSTRAINT "convention_set__fk__atomic_weights" FOREIGN KEY ("atomic_weights") REFERENCES "prov"."source" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."cosmosac_2010__constants" ADD CONSTRAINT "cosmosac_2010__constants__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."cosmosac_2010__molecule" ADD CONSTRAINT "cosmosac_2010__molecule__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."cosmosac_2010__molecule" ADD CONSTRAINT "cosmosac_2010__molecule__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."cosmosac_2010__molecule" ADD CONSTRAINT "cosmosac_2010__molecule__fk__profile" FOREIGN KEY ("profile") REFERENCES "tk"."tabulated_function" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "ev"."data_point" ADD CONSTRAINT "data_point__fk__dataset" FOREIGN KEY ("dataset") REFERENCES "ev"."dataset" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "ev"."dataset" ADD CONSTRAINT "dataset__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -4645,6 +4761,18 @@ ALTER TABLE "tk"."energy_reference" ADD CONSTRAINT "energy_reference__fk__id" FO
 ALTER TABLE "tk"."energy_reference" ADD CONSTRAINT "energy_reference__fk__aggregation" FOREIGN KEY ("aggregation") REFERENCES "tk"."aggregation" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "prov"."fit" ADD CONSTRAINT "fit__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."derivation" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."flory_huggins_excess_gibbs__component" ADD CONSTRAINT "flory_huggins_excess_gibbs__component__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."flory_huggins_excess_gibbs__component" ADD CONSTRAINT "flory_huggins_excess_gibbs__component__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."flory_huggins_excess_gibbs__lattice" ADD CONSTRAINT "flory_huggins_excess_gibbs__lattice__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."flory_huggins_excess_gibbs__pair" ADD CONSTRAINT "flory_huggins_excess_gibbs__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."flory_huggins_excess_gibbs__pair" ADD CONSTRAINT "flory_huggins_excess_gibbs__pair__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."flory_huggins_excess_gibbs__pair" ADD CONSTRAINT "flory_huggins_excess_gibbs__pair__fk__j" FOREIGN KEY ("j") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."group" ADD CONSTRAINT "group__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -4737,6 +4865,12 @@ ALTER TABLE "tk"."model_assembly" ADD CONSTRAINT "model_assembly__fk__root" FORE
 ALTER TABLE "tk"."model_component" ADD CONSTRAINT "model_component__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."model_component" ADD CONSTRAINT "model_component__fk__parameterization" FOREIGN KEY ("parameterization") REFERENCES "tk"."parameterization" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."molar_mass_distribution__sample" ADD CONSTRAINT "molar_mass_distribution__sample__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."molar_mass_distribution__sample" ADD CONSTRAINT "molar_mass_distribution__sample__fk__s" FOREIGN KEY ("s") REFERENCES "tk"."sample" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."molar_mass_distribution__sample" ADD CONSTRAINT "molar_mass_distribution__sample__fk__distribution" FOREIGN KEY ("distribution") REFERENCES "tk"."tabulated_function" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."multifluid_departure_terms__core" ADD CONSTRAINT "multifluid_departure_terms__core__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
 
