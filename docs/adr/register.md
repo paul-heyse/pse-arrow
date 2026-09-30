@@ -6,7 +6,7 @@ completed work or no longer applicable, it is removed; Git history retains it (A
 Row ids are never reused; a new row takes the next id after the high-water mark below,
 which the lint checks. The register may be empty.
 
-Highest issued row id: R-51.
+Highest issued row id: R-52.
 
 | Column | Meaning |
 |---|---|
@@ -58,3 +58,4 @@ runs `--due` and reports the checks of rows that are due.
 | R-49 | Relational projection of admitted package knowledge (narrow registry relations over entities, attribute values, relation rows and values) is deferred (§22.1) | ADR-0125 | a consumer needs cross-package queries over admitted knowledge, such as parameter sets valid at a temperature across data banks | manual: has a feature or audit needed queries over admitted knowledge rather than a package lookup? | paul-heyse | 2026-09-29 | 2027-03-01 | open |
 | R-50 | Fitting datasets and observations (`authored.datasets`, observation targets) stay outside the typed modeling data; unification as `measured`-role modeling datasets is deferred (§6.10) | ADR-0123 | the first measured-property data bank, or a fit that consumes bank data | manual: has a package added measured property data or a fit read a data bank? | paul-heyse | 2026-09-29 | 2027-03-01 | open |
 | R-51 | The physical inventory is admitted from `pse.physical` alone, so kinds that physical quantity types name as subjects (the chemical core) live there; composing physical inventories across the package closure is deferred (§8.1) | ADR-0127 | a package above `pse.physical` needs quantity types whose subject is a kind it declares | manual: has a domain package needed subject-bearing quantity types over its own kinds? | paul-heyse | 2026-09-29 | 2027-03-01 | open |
+| R-52 | SCIP 10's convex nonlinear handler falsely proves the BT_PR liquid tangent-plane problem infeasible, with cuts excluding the true point. `bt_pr_liquid_stability` records a typed expected refusal instead of a certified bound (§18.10.1) | ADR-0121 | a SCIP release fixes the convex nonlinear handler on the saved reproducer | manual: does the pinned SCIP still report the saved BT_PR TPD reproducer infeasible? | paul-heyse | 2026-09-29 | 2027-03-01 | open |
