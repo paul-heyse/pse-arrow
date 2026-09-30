@@ -9,10 +9,10 @@ calibration cases, not findings about the repository being reviewed.
 
 ### Architecture before mechanisms
 
-Reconstruct the responsibilities and consequential dependency paths. Then trace a small set
-of changes capable of distinguishing the alternatives. A public interface alone does not
-establish a boundary: follow its inputs, outputs, required initialization and consumers.
-Trace the phenomena and authoritative domain operations into behavior. AP-04 requires both
+Assess the responsibilities and dependencies relevant to changes that distinguish the
+alternatives. A public interface alone does not establish a boundary; consider its contract,
+required initialization and consumers at the depth needed to settle the question.
+Assess whether authoritative domain operations govern behavior. AP-04 requires both
 adequate distinctions and one scoped interpretation; a schema naming domain concepts or a
 single classifier alone establishes neither. Ordinary domain functions can govern behavior.
 
@@ -82,8 +82,8 @@ coverage note as examined and unsettled.
 | **Bespoke generic machinery** — own solver loop, graph traversal, cache, parser, retry framework, derivative routine or hand-rolled built-in | The code, the library or built-in that provides the capability at the pinned version, and no stated reason for building it | G8 · DP-13, DP-14 |
 | **Adapter with policy** — a conversion layer holding defaults, selection or domain rules found nowhere else | The rule, and the authority that should own it | G1/G2 · DP-14, DP-01 |
 
-Trace the path that executes — the implementation actually selected, the branch taken under the
-real configuration. Where dispatch is dynamic, say which path you traced.
+When a finding depends on execution or dispatch, inspect the implementation selected under the
+relevant configuration. Follow the path far enough to resolve that question.
 
 ### When the scope computes: reuse, graphs and staged execution
 

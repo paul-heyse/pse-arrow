@@ -12,7 +12,10 @@ authority disagree, the cited authority wins and this page is corrected.
 principles/template and applicable profile from that declaration; this binding does not copy
 the version values. The core's version-transition table preserves historical DP/G references.
 AP-04/G9 require an adequate, explicit domain model that governs behavior, independently of
-the remaining architectural and scientific judgments (ADR-0128; blueprint §24.4).
+the remaining architectural and scientific judgments (ADR-0129; blueprint §24.4).
+This assessment belongs to the bounded reviews below. Ordinary implementation work does not
+itself trigger a domain-model review; investigation depth and optional flow tracing follow the
+concrete question being assessed.
 
 ## Reviews in this repository
 

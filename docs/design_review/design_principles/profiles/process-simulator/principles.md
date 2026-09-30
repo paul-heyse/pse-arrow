@@ -1,6 +1,6 @@
 # Process-simulator design principles
 
-**Version 1.2 · 2026-09-29** · Domain profile for process simulation software:
+**Version 1.3 · 2026-09-30** · Domain profile for process simulation software:
 steady-state and dynamic flowsheet simulation, optimization and parameter estimation.
 Refines the [core design principles](../../core/design-principles.md) under their layering
 rules (§B). It adds and tightens; it never relaxes a core principle. It names no specific
@@ -27,7 +27,7 @@ numerical integrity.
 
 Core AP-01–AP-06 apply to the organization of the simulator: separate authored physics,
 provider integration, numerical policy, workflow composition and representation concerns;
-trace the consumed contract when replacing a solver; compose studies from shared model
+assess the consumed contract when replacing a solver; compose studies from shared model
 operations; make the explicit domain model govern formulation, evaluation and outcome
 interpretation through scoped authorities (AP-04); expose lifecycle and capabilities; and
 exercise policy and admission with their actual dependencies.
@@ -36,7 +36,7 @@ A new unit using existing physics is an ordinary extension. A new physical conce
 legitimately change the core contract. Neither case requires a universal plugin framework.
 Numerical tests are necessary for numerical claims; they do not by themselves establish
 modularity or local reasoning. This version retains PS-01–PS-13 and their gate semantics;
-its review additions align with Core 3.2's architecture-first slots. Model adequacy and
+its review additions align with Core 3.3's bounded assessment and discretionary investigation. Model adequacy and
 authoritative behavior are assessed independently of numerical correctness; result schemas
 alone do not establish a governing domain model.
 

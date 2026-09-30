@@ -1,6 +1,6 @@
 # Process-simulator review additions
 
-**Version 1.2 · 2026-09-29** · What the [process-simulator profile](principles.md) adds
+**Version 1.3 · 2026-09-30** · What the [process-simulator profile](principles.md) adds
 to each slot of the [core review template](../../core/design-review-template.md). The additions
 sit within the core slots; no slot is added or removed. Everything here applies only where the
 subject touches the behaviour concerned. Architectural foundations and G9 remain visible;
@@ -39,11 +39,12 @@ Add to each formulating, evaluating or solving stage:
 ## Simulator journeys (slot 4)
 
 Classify each change as an instance, binding, composition, policy, domain concept or mechanism.
-Trace the physical phenomenon through its authoritative concept or operation into consumers;
-assess both model adequacy and authoritative behavior under AP-04/G9. A new case should reuse
-its definition; genuinely new physics may require a contract migration.
+Assess both model adequacy and authoritative behavior under AP-04/G9 using the relevant
+physical definitions, operations and consumers. A new case should reuse its definition;
+genuinely new physics may require a contract migration. Investigate only as far as needed
+for the scoped judgment; journeys do not require complete traces.
 
-| Journey | What to trace |
+| Journey | What to assess |
 |---|---|
 | **Add a unit operation or property model** | Declarations needed; balances from contributions; common checks inherited; derivatives and envelope supplied; places meaning is re-expressed |
 | **Replace an implementation** | For an existing consumed capability, identify adapter, policy and conformance changes; detect incidental backend details in consumers |

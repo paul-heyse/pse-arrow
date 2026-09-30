@@ -75,10 +75,9 @@ current work; the completed record then retires when nothing depends on it.
 
 ### Architecture and follow-up ownership
 
-Use the selected review standard's six foundations and scenario method for architectural
-changes. Trace domain phenomena and owned operations into implemented behavior; AP-04 requires
-both model adequacy and semantic authority. Preserve architectural fitness and behavioral
-adequacy as separate judgments.
+Use the selected principles and design-review skill within the binding's bounded review periods.
+The review guidance owns assessment criteria and investigation depth. Preserve architectural
+fitness and behavioral adequacy as separate judgments.
 Packets name the responsibility that absorbs each change, the consumed contract, the relevant
 scenario acceptance, and any replacement/deletion. A focused change need not invent scenarios
 or mechanisms outside its scope.

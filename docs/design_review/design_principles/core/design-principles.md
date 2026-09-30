@@ -1,6 +1,6 @@
 # Design principles
 
-**Version 3.2 · 2026-09-29** · Core layer: repository- and domain-agnostic.
+**Version 3.3 · 2026-09-30** · Core layer: repository- and domain-agnostic.
 Six architectural foundations organize the operational rules retained from Core 2.0.
 §I maps the retired charter's IDs, which some retained decisions still cite.
 
@@ -24,6 +24,12 @@ ritual. Reading source, interfaces and designs may settle a question. Use experi
 material doubt remains. Tests and measurements support their named claims; they do not
 certify the architecture. No score, file-count quota or universal trait/registry pattern
 substitutes for reasoning about concrete changes.
+
+**Assessment scope.** Apply domain-model assessment during bounded design and review work at
+the declared review cadence. The criterion concerns model adequacy and authority over behavior;
+it does not require a separate modeling exercise for every implementation task. Reviewers choose
+the least investigation sufficient to settle the scoped question. Following a flow is an optional
+technique for resolving a concrete uncertainty, not a required sequence or exhaustive survey.
 
 ## 1. Governing objective
 
@@ -128,7 +134,7 @@ capabilities at its extension point without adding special cases to unrelated in
 A new core concept may legitimately change the core contract and its consumers; distinguish
 that from repeating the same end-to-end workflow for another instance.
 
-**Assess.** Trace a new workflow or capability. Which primitives are reused? Which behavior
+**Assess.** Consider a new workflow or capability. Which primitives are reused? Which behavior
 is genuinely new? Is the composition root identifiable? Does adding a variant copy a workflow,
 or require coordinated switches that each reinterpret the same policy?
 
@@ -626,9 +632,9 @@ incorrect, and an interface-checked design can still need substantial engineerin
 Classify the change as an instance, contextual binding, composition, policy, domain concept or
 execution mechanism. Instances and bindings generally reuse definitions; compositions reuse
 operation contracts; genuinely new phenomena may need new concepts, invariants or algorithms.
-A mechanism substitution preserves the domain contract or exposes its incompatibility. Trace
-trigger and kind of change → owner → contract change → consumers → verification. Judge semantic
-ownership and propagation rather than whether an extension avoids new code.
+A mechanism substitution preserves the domain contract or exposes its incompatibility. Assess
+which owner and contracts would change, which consumers would be affected, and whether the
+result can be verified locally. Investigate propagation only to the depth needed for that judgment.
 
 Ask where a typical new entity, rule, provider, model or policy must be expressed. The target:
 
@@ -638,8 +644,8 @@ Ask where a typical new entity, rule, provider, model or policy must be expresse
 
 A change touching several files is not a failure. Re-expressing the same meaning or changing
 unrelated owners for an ordinary extension is. A genuinely new core concept may legitimately
-require changes to the core and its backends. Record the expected impact and trace the actual
-or proposed edit path; explain each crossing of a responsibility boundary.
+require changes to the core and its backends. Record material impact and why affected owners
+must change. Contracts and relevant source may suffice without constructing a complete flow trace.
 
 A useful scenario states the stimulus, relevant conditions, affected responsibility, desired
 response and observable acceptance. Choose a small set that distinguishes the alternatives.
@@ -696,6 +702,11 @@ gap is never an exception: it narrows the supported scope or is recorded as unre
 concrete record is enough for a small deviation.
 
 ## §I Lineage: Data Model–Based Design Charter 1.0
+
+**Core 3.3.** Domain-model adequacy and authority remain criteria under §1, AP-04 and G9.
+Assessment belongs to bounded design and review work; mandatory tracing sequences are removed.
+Reviewers choose investigation depth according to the scoped question. All IDs retain their
+meanings; historical reviews retain their recorded versions.
 
 **Core 3.2.** AP-01–AP-06, DP-01–DP-24, G1–G9 and the profile IDs remain stable.
 §1 makes semantic-model-first domain design explicit as a MUST; AP-04 and G9 assess both

@@ -11,6 +11,8 @@ model-baseline: claude-5 (2026-08)
 Assess the architecture's ability to support expected changes and its behavioral contracts.
 Use the form requested by the user; a formal review produces one artifact in the binding's
 review location. Advice about the process does not itself request a product audit or edits.
+Apply domain-model assessment during a requested review or one due at the repository's declared
+cadence. Ordinary implementation work does not itself initiate a domain-model review.
 [REFERENCE.md](REFERENCE.md) supplies optional lenses and calibrated examples.
 
 ## Find the standard
@@ -43,9 +45,10 @@ depth, not the obligation to report a material defect found outside the focus.
 For design tier, start with the target, architectural drivers and credible variation axes.
 Establish the domain phenomena, consequential distinctions and owned operations, then their
 responsibility boundaries, hidden decisions, dependency direction and consumed contracts.
-Trace phenomenon → authoritative concept or operation → implementation → consumer → expected
-change. Domain-named output records alone do not establish alignment. Trace representative
-changes and test setup before investigating detailed mechanisms.
+Assess whether the model is adequate and governs behavior using relevant contracts and source.
+Domain-named output records alone do not establish alignment. Consider representative changes
+and material test dependencies. Use the least investigation sufficient for the scoped judgment;
+follow a flow only to resolve a concrete uncertainty, without a prescribed tracing sequence.
 A change review can compress that reasoning to its affected scenario and foundations.
 
 ## What to establish

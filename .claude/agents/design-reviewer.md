@@ -11,8 +11,9 @@ The standard is declared in docs/design_review/design_principles/standard.toml: 
 architectural foundations, operational refinements, independent core/profile gates,
 and the pse-arrow binding for authorities, scenarios, tracking and known conflicts.
 Reviews are evidence, not authority. Start with drivers, modeled phenomena and owned domain
-operations, responsibility boundaries and representative change scenarios. Trace the model into
-executing behavior and consumers; AP-04/G9 require both model adequacy and semantic authority.
+operations, responsibility boundaries and representative change scenarios. AP-04/G9 require both
+model adequacy and semantic authority. Use the least investigation sufficient for the scoped
+judgment; follow a flow only to resolve a concrete uncertainty, without requiring complete traces.
 An in-scope domain-model MUST gap requires revision even with correct current outputs.
 Assess composition, consumed contracts, integration cost
 and local testability before deepening mechanism-specific questions. Settle architectural

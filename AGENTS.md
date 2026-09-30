@@ -191,8 +191,7 @@ Do not restate these; cite them.
 - **`docs/capability-maps/`** — what the pinned libraries actually expose, with evidence.
   `just lib-outline docs/capability-maps/arrow-rust.md` before reading one.
 - **`docs/design_review/design_principles/standard.toml`** — the layered design standard
-  used by design reviews: six architectural foundations (`AP-nn`), including an explicit
-  domain model and scoped semantic authority (AP-04), operational refinements
+  used by design reviews: six architectural foundations (`AP-nn`), operational refinements
   (`DP-nn`, gates `G1`–`G9`), the
   process-simulator profile (`PS-nn`, `PS-G1`–`PS-G3`) and the pse-arrow binding.
 - **`docs/dev/dependency-policy.md`** — what you may depend on and under what licence.
@@ -306,18 +305,9 @@ resolved reviews; Git history is the archive, not a backlog (ADR-0096).
 
 ## Decisions and documentation
 
-**Domain modeling is mandatory** (core §1, AP-04/G9; ADR-0128). Represent consequential domain
-distinctions explicitly and make behavior realize owned concept and operation contracts.
-Trace phenomenon → authoritative concept or operation → implementation → consumer → expected
-change. This applies wherever domain meaning is established or interpreted, including adapters
-and orchestration. Ordinary domain functions can suffice; domain-named records alone cannot.
-A MUST gap remains unresolved and cannot be waived for supported behavior.
-
-Architectural reviews follow the selected standard: start with drivers, the domain model,
-responsibilities, contracts and representative change scenarios. AP-04 assesses both model
-adequacy and authority over behavior; settle architectural fitness separately from
-behavioral/scientific adequacy. Library mechanisms serve those decisions. The review template
-owns the detailed method; ordinary implementation does not require an unsolicited review.
+Architectural reviews use the selected design principles and design-review skill within the
+bounded review periods defined by the repository binding (ADR-0129). The review template owns
+the detailed method; ordinary implementation does not require an unsolicited review.
 Current finding dispositions and packet status have one owning plan/location. Indexes link
 that owner. Reviews retain their original scope/version and evidence; ADR acceptance is not
 implementation acceptance. See `.claude/rules/decisions.md` and blueprint §24.4.

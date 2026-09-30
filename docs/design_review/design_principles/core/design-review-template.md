@@ -1,6 +1,6 @@
 # Design review template
 
-**Version 3.2 · 2026-09-29** · Core layer: repository- and domain-agnostic.
+**Version 3.3 · 2026-09-30** · Core layer: repository- and domain-agnostic.
 The [principles](design-principles.md) define foundations AP-01–AP-06, refinements DP-nn
 and gates G1–G9. Profile additions follow this template's versioned slots.
 
@@ -19,6 +19,8 @@ State the system/subsystem/change boundary separately from tier and purpose. Inc
 suppliers and consumers needed to understand that boundary. A narrow code sample cannot
 establish whole-system architecture. Drop irrelevant detail with a scope reason. A change
 review does not require a whole-system census; it does address the affected change scenario.
+Use the least investigation sufficient for the scoped judgments. Flow tracing is optional when
+it resolves a concrete uncertainty; neither these slots nor AP-04/G9 require a complete flow trace.
 
 ### Evidence and acceptance
 
@@ -107,9 +109,9 @@ root and which decisions may vary independently. Distinguish an intentional shar
 contract from an incidental backend type. Name the context needed for a safe local change;
 module/file count is not a proxy. Derive observed dependencies from source/manifests rather
 than creating a competing hand-maintained dependency graph.
-Trace phenomenon → authoritative concept or operation → implementation → consumer → expected
-change. Establish that the model captures consequential distinctions and that behavior uses
-its definitions. This trace does not require a new artifact or a fixed implementation layout.
+Assess whether the model captures consequential distinctions and behavior uses its definitions
+within the review scope. Use relevant contracts and source; choose further investigation
+according to what remains uncertain.
 
 ### 3. Contracts, authority and constraints
 
