@@ -401,6 +401,11 @@ enforced = "ddl"
 check = { positive = "ordinal" }
 
 [[kinds.assembly_choice.requires]]
+name = "ordinals_contiguous"
+doc = "The ordinals of the choices at one path of an assembly run from one without a gap, and exceed one only for a slot with multiplicity many."
+enforced = "verify"
+
+[[kinds.assembly_choice.requires]]
 name = "form_implements_slot_contract"
 doc = "The chosen form implements the contract the sub-form slot accepts."
 enforced = "verify"

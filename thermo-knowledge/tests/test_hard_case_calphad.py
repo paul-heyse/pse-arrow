@@ -1014,6 +1014,30 @@ def test_the_checks_of_verify_flag_each_broken_array_and_partner(decl: Declarati
         database.remove()
 
 
+def test_a_set_whose_subject_is_not_of_the_kind_its_role_declares_is_refused_at_load(decl: Declaration) -> None:
+    """The endmember group's subject is a constituent array: a species written there is refused by
+    the writer, not left to the foreign key at build."""
+    w = writer(decl)
+    ids: dict[str, uuid.UUID] = {}
+    write_system(w, decl, ids)
+    write_arrays(w, ids)
+    p = w.kind(
+        "parameterization",
+        {"key": "p", "revision": "1", "title": "p", "coherence": "independent_records"},
+        origins=at("p"),
+    )
+    component = w.kind("model_component", {"parameterization": p, "name": "f"}, origins=at("f"))
+    with pytest.raises(ValidationError, match=r"subject `t` is a species, and the role of `cef_endmember.endmember` is of kind `constituent_array`"):
+        w.parameter_set(
+            parameterization=p,
+            slot_group="cef_endmember.endmember",
+            subjects=[ids["species_Fe"]],
+            slots={"function": SetReference(p, "gibbs_polynomial.function", [component])},
+            origins=at("wrong-subject"),
+        )
+    assert w.rows("param.cef_endmember__endmember") == 0
+
+
 def test_the_position_function_takes_an_array_then_a_species(tmp_path: Path) -> None:
     result = broken(tmp_path, {"forms/calphad.toml": replace("position(t, s) != 1", "position(s, t) != 1")})
     assert result.declaration is None

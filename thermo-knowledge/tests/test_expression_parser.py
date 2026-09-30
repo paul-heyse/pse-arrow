@@ -65,6 +65,8 @@ GRAMMAR = {
     "derivative wrt an argument": "d(alpha_r, delta)",
     "derivative wrt an indexed argument": "d(alpha_r, x[i])",
     "at": "at(pure.piece(i), T)",
+    "position": "position(t, s)",
+    "position in a conditional": "1 if position(t, i) == 1 else -1",
     "integral": "integral(a + b * z, z, 0, T)",
     "slot": "pure.A[i]",
     "pair slot": "pair.k[i, j]",
@@ -108,6 +110,7 @@ def test_every_construct_round_trips_through_the_canonical_serialisation(text: s
         ("IfExp", t.IfExp),
         ("Range", t.Range),
         ("Reduce", t.Reduce),
+        ("Position", t.Position),
         ("Comprehension", t.Comprehension),
         ("Derivative", t.Derivative),
         ("At", t.At),
@@ -175,6 +178,9 @@ def test_the_content_hash_is_a_sha256_of_the_canonical_text() -> None:
 
 
 FORBIDDEN = [
+    ("position(t)", Code.BAD_CALL, (1, 1), "a position of one argument"),
+    ("position(t, s, 1)", Code.BAD_CALL, (1, 1), "a position of three arguments"),
+    ("position(t, s=s)", Code.BAD_CALL, (1, 13), "a position with a keyword"),
     ("(a + b).real", Code.EXPRESSION_GRAMMAR, (1, 1), "attribute access on an expression"),
     ("x.__class__", Code.EXPRESSION_GRAMMAR, (1, 1), "a dunder attribute"),
     ("__import__('os')", Code.UNKNOWN_FUNCTION, (1, 1), "a dunder function"),

@@ -11,7 +11,6 @@ a worklist, not a contract.
 |---|---|---|---|
 | 4 | 94 % of ISODB isotherms do not say whether loading is excess or absolute; loading units come in 83 spellings and only per-mass fits `Loading`; temperature has no unit | isodb | an adsorption kind `not_stated`; loading bases per volume, per surface area and per unit cell; the mapping must hold rows whose unit cannot be parsed instead of guessing |
 | 11 | Liquid-state integral-equation inputs are site types with number densities and pair tables; there is no molecule or species record | pyprism | site number density as a composition basis; site types as abstract entities |
-| 14 | The order of constituents in an interaction fixes the sign of odd-order binary terms and which constituent a ternary order index selects; the TDB reader sorts alphabetically and discards file order, the ChemSage readers keep file order; the order integer means three different things depending on how many constituents interact | pycalphad, thermochimica | `constituent_array` members need a position within their site class, and the array's canonical key a declared ordering convention; the compound-energy contribution forms are separate per number of interacting constituents, so the order index has one meaning per form |
 
 ## Held by the current declaration; the mapping must record the loss or assumption
 

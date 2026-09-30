@@ -8,7 +8,7 @@ reason = "Each file becomes one parameterization (the library or tree as a publi
 construct = "entry() of a thermo group tree"
 disposition = "mapping_loss"
 ref = "kind:group"
-reason = "A node becomes a group with one parameter_set for its increment (a pointer string is a redirect value state to the target node's set, a None node has no set and the scheme's dataless_rule says what the estimator does), the tree from tree() gives parent and position, and pattern stays verbatim source text; the 5 repeated labels of radical.py collide with the group identity (scheme, label) and are disambiguated by node index, an assumption, and the matching of patterns is not held."
+reason = "A node becomes a group with one parameter_set for its increment (a pointer string is a redirect value state to the target node's set, a None node has no set and the scheme's dataless_rule says what the estimator does), the tree from tree() gives parent and position, and pattern stays verbatim source text; the 5 repeated labels of radical.py share a label, which a group may repeat since its identity is (scheme, code): the mapping states the code, node index, as an assumption, and the matching of patterns is not held."
 
 [[disposition]]
 construct = "group node data states (data object, pointer string, None)"
@@ -44,7 +44,7 @@ reason = "An OR{...} node becomes a group whose pattern source text is the expre
 construct = "tree() hierarchy text"
 disposition = "mapping_loss"
 ref = "kind:group"
-reason = "Sibling order is kept as group.position and depth as parent, but the 5 repeated labels of radical.py collide with the group identity (scheme, label) and are disambiguated by load order, an assumption, and the entries absent from tree() (3 in adsorptionNi111, 40 in the solvation files) are imported with no parent, indistinguishable from roots."
+reason = "Sibling order is kept as group.position and depth as parent, but the 5 repeated labels of radical.py share a label, which a group may repeat since its identity is (scheme, code): the mapping states the code, load order, as an assumption, and the entries absent from tree() (3 in adsorptionNi111, 40 in the solvation files) are imported with no parent, indistinguishable from roots."
 
 [[disposition]]
 construct = "ThermoData"

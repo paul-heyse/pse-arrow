@@ -473,7 +473,10 @@ family row and may itself hold nested sets. A slot that references a contract ta
 `SetReference` (parameterization, slot group, subjects and occurrence of a top-level set): the
 writer computes the target's identifier as a set is identified, refuses a target whose slot group's
 form does not implement the contract or whose subjects do not fit its group, and stores the
-identifier, so any number of sets reference one set, written once by its own call. For a parameter
+identifier, so any number of sets reference one set, written once by its own call. The writer also
+refuses a parameter set whose subject it wrote itself (a declared entity or a record it registered)
+with another kind than the role declares; a subject it has not seen, written by another stage, is
+left to the foreign keys at build. For a parameter
 set it stores the subjects in the canonical orientation (the order the DDL checks) and **the values
 exactly as the source asserted them**: where the group's rule acts on values (`parity`,
 `reciprocal`, `linear`) or keeps an order (`permutation_group`) the row also records `arrangement`,

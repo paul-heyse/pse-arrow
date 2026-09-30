@@ -26,7 +26,7 @@ reason = "The per-species equivalent-fraction factor and chemical group number a
 construct = "RKMP and RKMPM block (Redlich-Kister-Muggianu polynomial)"
 disposition = "held_by_model"
 ref = "kind:constituent_array"
-reason = "Terms are parameter sets whose subject is the ordered tuple of species, read through constituent_array (its positions keep the file order that fixes the sign of odd orders, alignment-notes #14), with the index into the phase's species list resolved to the species by the mapping. The magnetic terms of RKMPM are slots of the magnetic form, and the phase has one site class of structure none."
+reason = "Terms are parameter sets whose subject is the ordered tuple of species, read through constituent_array (its positions keep the file order that fixes the sign of odd orders), with the index into the phase's species list resolved to the species by the mapping. The magnetic terms of RKMPM are slots of the magnetic form, and the phase has one site class of structure none."
 
 [[disposition]]
 construct = "SUBL and SUBLM block (compound energy formalism)"
@@ -73,4 +73,4 @@ reason = "The per-species Tc and moment of types 13 and 16, the two phase-level 
 construct = "interpolation override line"
 disposition = "held_by_model"
 ref = "relation:subject_subform_choice"
-reason = "A triad with K or T marks is a sub-form choice whose subject is the constituent array of the three constituents (Kohler for a symmetric triad, Toop for an asymmetric one, the odd constituent being the array's first member, read from its member positions as an indexed argument), so the per-subsystem selector the survey finds missing exists. The ten-item syntax is read by the mapping, and a line matching neither pattern, which the program ignores with a message, is held."
+reason = "A triad with K or T marks is a sub-form choice whose subject is the constituent array of the three constituents (Kohler for a symmetric triad, Toop for an asymmetric one, the odd constituent being the array's first member, read from its member positions by the form), so the per-subsystem selector the survey finds missing exists. The ten-item syntax is read by the mapping, and a line matching neither pattern, which the program ignores with a message, is held."

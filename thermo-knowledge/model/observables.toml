@@ -407,3 +407,48 @@ basis = "per_host_mass"
 relation = "absolute"
 path = "isothermal"
 adsorption = "excess"
+
+[entities.observable.mole_fraction]
+doc = "Mole fraction of a component in a phase of a mixture."
+key = "mole_fraction"
+quantity = "Fraction"
+subject = "component_in_mixture"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.ph]
+doc = "The pH of an aqueous solution, the negative base-ten logarithm of the hydrogen ion activity; a condition that defines a transformed biochemical quantity."
+key = "ph"
+quantity = "Scalar"
+subject = "mixture"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.ionic_strength]
+doc = "Ionic strength of a solution on the molality scale; a condition that defines a transformed biochemical quantity."
+key = "ionic_strength"
+quantity = "Molality"
+subject = "mixture"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.pmg]
+doc = "The negative base-ten logarithm of the magnesium ion activity; a condition that defines a transformed biochemical quantity."
+key = "pmg"
+quantity = "Scalar"
+subject = "mixture"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.transformed_reaction_gibbs_energy]
+doc = "The transformed standard Gibbs energy of a biochemical reaction: its standard Gibbs energy at the pH, ionic strength and pMg that the dataset states as constraint columns, in the transformed biochemical standard state."
+key = "transformed_reaction_gibbs_energy"
+quantity = "MolarEnergy"
+subject = "reaction"
+basis = "molar"
+relation = "transformed"
+path = "none"

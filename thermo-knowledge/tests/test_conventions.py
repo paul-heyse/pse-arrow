@@ -414,12 +414,14 @@ def test_the_facts_a_form_reads_are_reified_in_meta(world: World, conn: psycopg.
     ).fetchall() == [
         (form, "gas_constant", "convention_set")
         for form in (
+            "cef_magnetic_ihj",
             "flory_huggins_excess_gibbs",
             "helmholtz_pure_fluid",
             "if97_gibbs_region1",
             "if97_gibbs_region2",
             "if97_gibbs_region5",
             "if97_helmholtz_region3",
+            "log_k_van_t_hoff",
             "nasa7",
             "nasa9",
             "nrtl_excess_gibbs",

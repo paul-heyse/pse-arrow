@@ -36,7 +36,7 @@ from thermo_knowledge.expression.evaluate import EvaluationRefusal, bind
 from thermo_knowledge.qualify.source import DatabaseSource, SubformBinding
 from thermo_knowledge.testing import TestDatabase
 from thermo_knowledge.verify.checks import VERIFY_DIR, load_checks
-from thermo_knowledge.verify.run import run_checks
+from thermo_knowledge.verify.run import run_check, run_checks
 
 CHECKS = {c.target: c for c in load_checks(config.TREE_DIR / VERIFY_DIR)[0]}
 ROOT = "aqueous_ss_fixture"
@@ -318,3 +318,25 @@ def test_the_code_to_slot_table_is_no_part_of_the_declaration(world: World) -> N
         )
     }
     assert declared.isdisjoint(PART_TO_SLOT)
+
+
+def test_the_ordinals_of_the_choices_at_one_path_are_checked_like_those_of_a_subject_choice(
+    world: World, conn: psycopg.Connection
+) -> None:
+    """A second choice for a slot of multiplicity one, a choice numbered from two and a gap are
+    each flagged; the assembly as written has none."""
+    contiguous = CHECKS["assembly_choice.ordinals_contiguous"]
+    assert run_check(conn, contiguous).violations == 0
+    conn.execute(
+        "INSERT INTO tk.assembly_choice (id, assembly, path, ordinal, slot, form) "
+        "SELECT gen_random_uuid(), assembly, path, 2, slot, form FROM tk.assembly_choice "
+        "WHERE path = 'eos' AND assembly = %s",
+        (world.ids["assembly_Na+"],),
+    )
+    flagged = run_check(conn, contiguous)
+    assert flagged.error is None and flagged.violations == 1
+    conn.execute("UPDATE tk.assembly_choice SET ordinal = 3 WHERE ordinal = 2")
+    assert run_check(conn, contiguous).violations == 1
+    conn.execute("DELETE FROM tk.assembly_choice WHERE ordinal = 3")
+    conn.execute("UPDATE tk.assembly_choice SET ordinal = 2 WHERE path = 'eos' AND assembly = %s", (world.ids["assembly_Na+"],))
+    assert run_check(conn, contiguous).violations == 1

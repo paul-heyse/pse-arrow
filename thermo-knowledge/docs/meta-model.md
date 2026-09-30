@@ -485,7 +485,14 @@ implementation, shared by the in-memory and the database-backed source), and the
 rule itself. `permutation_group` does not change values, so its arrangement is data: the order the
 source used. A `constituent_array` has no transposition inside it: its identity includes the asserted
 order of its species, two arrays that differ only in order are different subjects, and that they
-describe one physical array is an equivalence assessment.
+describe one physical array is an equivalence assessment. The order is data a form reads: each member has a
+`position` on its site class, counting from one without a gap (`constituent_array_member.positions_contiguous`),
+the canonical key states the positions in one declared form (`constituent_array.key_follows_members`: the
+phase definition's key, then for each site class with members a colon and its species in position order,
+joined by commas), and an expression reads `position(t, s)` (`expressions.md` section 3), which is what
+gives the sign of an odd-order interaction term and the species a ternary extrapolation singles out.
+The compound-energy contribution forms are separate for each number of interacting species, so the
+order index of an interaction has one meaning in each form.
 
 The declaration is one inline table on the slot group or relation:
 
@@ -540,14 +547,16 @@ equation of state needs are sub-form slots of that equation of state; the assemb
 form of each slot by its `path` of slot names from the root (`eos`, `eos/epsilon`). Which method code of a source
 fills which slot is mapping knowledge (`mapping.toml`), not model: the declaration knows no method code.
 
-An assembly is held to the declared forms by three verify checks, written from `meta`: the chosen form
+An assembly is held to the declared forms by four verify checks, written from `meta`: the choices at one
+path are numbered from one without a gap, and more than one only for a slot with multiplicity `many`
+(`assembly_choice.ordinals_contiguous`, as for `subject_subform_choice`); the chosen form
 implements the contract the slot accepts (`assembly_choice.form_implements_slot_contract`); the last segment
 of the `path` is the slot's name and the slot belongs to the form standing at the rest of the path, which is the
 assembly's `root` for a path of one segment and otherwise a form the assembly chooses at the parent path
 (`assembly_choice.slot_belongs_to_form_at_path`); and every slot with multiplicity `one` that a model decides
 (`per = model`), of the root form and of every form the assembly chooses, has a choice at its path
 (`model_assembly.single_slots_decided`). A slot with `per = subject` is not decided by the assembly but by
-`subject_subform_choice`, so the third check does not ask for it, and an `optional` or `many` slot may stay empty.
+`subject_subform_choice`, so the last check does not ask for it, and an `optional` or `many` slot may stay empty.
 
 ### 4.5 Expressions
 

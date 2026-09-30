@@ -2061,6 +2061,38 @@ COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure"."a1" IS 'Constant term of
 COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure"."a2" IS 'Coefficient of tau in the ideal-gas part.';
 COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure"."c" IS 'Coefficient of ln tau in the ideal-gas part.';
 
+CREATE TABLE "param"."hkf_standard_state__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '89941210-7d49-563b-a289-aaf4d6935d70'::uuid,
+    "i" uuid NOT NULL,
+    "g_f" "meta"."molar_energy" NOT NULL,
+    "h_f" "meta"."molar_energy" NOT NULL,
+    "s" "meta"."molar_entropy" NOT NULL,
+    "a1" "meta"."molar_volume" NOT NULL,
+    "a2" "meta"."molar_energy" NOT NULL,
+    "a3" "meta"."finite_real" NOT NULL,
+    "a4" "meta"."finite_real" NOT NULL,
+    "c1" "meta"."molar_entropy" NOT NULL,
+    "c2" "meta"."finite_real" NOT NULL,
+    "omega" "meta"."molar_energy" NOT NULL,
+    CONSTRAINT "hkf_standard_state__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "hkf_standard_state__pure__ck__slot_group" CHECK ("slot_group" = '89941210-7d49-563b-a289-aaf4d6935d70'::uuid)
+);
+COMMENT ON TABLE "param"."hkf_standard_state__pure" IS 'The parameters of one species form.';
+COMMENT ON COLUMN "param"."hkf_standard_state__pure"."id" IS 'Deterministic identifier of the hkf_standard_state__pure instance.';
+COMMENT ON COLUMN "param"."hkf_standard_state__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."hkf_standard_state__pure"."i" IS 'The species form.';
+COMMENT ON COLUMN "param"."hkf_standard_state__pure"."g_f" IS 'Gibbs energy of formation at the reference temperature and pressure.';
+COMMENT ON COLUMN "param"."hkf_standard_state__pure"."h_f" IS 'Enthalpy of formation at the reference temperature and pressure.';
+COMMENT ON COLUMN "param"."hkf_standard_state__pure"."s" IS 'Entropy at the reference temperature and pressure.';
+COMMENT ON COLUMN "param"."hkf_standard_state__pure"."a1" IS 'Non-solvation coefficient of the pressure term.';
+COMMENT ON COLUMN "param"."hkf_standard_state__pure"."a2" IS 'Non-solvation coefficient of the logarithmic pressure term.';
+COMMENT ON COLUMN "param"."hkf_standard_state__pure"."a3" IS 'Non-solvation coefficient of the pressure term over T - theta.';
+COMMENT ON COLUMN "param"."hkf_standard_state__pure"."a4" IS 'Non-solvation coefficient of the logarithmic pressure term over T - theta.';
+COMMENT ON COLUMN "param"."hkf_standard_state__pure"."c1" IS 'Non-solvation coefficient of the heat capacity.';
+COMMENT ON COLUMN "param"."hkf_standard_state__pure"."c2" IS 'Coefficient of the heat capacity over T - theta.';
+COMMENT ON COLUMN "param"."hkf_standard_state__pure"."omega" IS 'Born coefficient.';
+
 CREATE TABLE "tk"."identity_assertion" (
     "id" uuid NOT NULL,
     "source_entity" uuid NOT NULL,
@@ -2321,6 +2353,46 @@ COMMENT ON COLUMN "prov"."licence"."id" IS 'Deterministic identifier of the lice
 COMMENT ON COLUMN "prov"."licence"."key" IS 'Stable key.';
 COMMENT ON COLUMN "prov"."licence"."spdx" IS 'SPDX identifier where one exists.';
 COMMENT ON COLUMN "prov"."licence"."title" IS 'Name of the terms.';
+
+CREATE TABLE "param"."log_k_analytic__reaction" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'd8447a96-811a-51de-bd78-64b56aacc385'::uuid,
+    "r" uuid NOT NULL,
+    "A1" "meta"."scalar" NOT NULL,
+    "A2" "meta"."finite_real" NOT NULL,
+    "A3" "meta"."temperature_difference" NOT NULL,
+    "A4" "meta"."scalar" NOT NULL,
+    "A5" "meta"."finite_real" NOT NULL,
+    "A6" "meta"."finite_real" NOT NULL,
+    CONSTRAINT "log_k_analytic__reaction__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "log_k_analytic__reaction__ck__slot_group" CHECK ("slot_group" = 'd8447a96-811a-51de-bd78-64b56aacc385'::uuid)
+);
+COMMENT ON TABLE "param"."log_k_analytic__reaction" IS 'The six coefficients of one reaction.';
+COMMENT ON COLUMN "param"."log_k_analytic__reaction"."id" IS 'Deterministic identifier of the log_k_analytic__reaction instance.';
+COMMENT ON COLUMN "param"."log_k_analytic__reaction"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."log_k_analytic__reaction"."r" IS 'The reaction.';
+COMMENT ON COLUMN "param"."log_k_analytic__reaction"."A1" IS 'Constant term.';
+COMMENT ON COLUMN "param"."log_k_analytic__reaction"."A2" IS 'Coefficient of T.';
+COMMENT ON COLUMN "param"."log_k_analytic__reaction"."A3" IS 'Coefficient of 1 / T, signed.';
+COMMENT ON COLUMN "param"."log_k_analytic__reaction"."A4" IS 'Coefficient of log10 T.';
+COMMENT ON COLUMN "param"."log_k_analytic__reaction"."A5" IS 'Coefficient of 1 / T^2.';
+COMMENT ON COLUMN "param"."log_k_analytic__reaction"."A6" IS 'Coefficient of T^2.';
+
+CREATE TABLE "param"."log_k_van_t_hoff__reaction" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'bca8b3fe-3b98-5147-8d90-323b620747ef'::uuid,
+    "r" uuid NOT NULL,
+    "log_k_ref" "meta"."scalar" NOT NULL,
+    "delta_h" "meta"."molar_energy" NOT NULL,
+    CONSTRAINT "log_k_van_t_hoff__reaction__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "log_k_van_t_hoff__reaction__ck__slot_group" CHECK ("slot_group" = 'bca8b3fe-3b98-5147-8d90-323b620747ef'::uuid)
+);
+COMMENT ON TABLE "param"."log_k_van_t_hoff__reaction" IS 'The constant at 298.15 K and the enthalpy of one reaction.';
+COMMENT ON COLUMN "param"."log_k_van_t_hoff__reaction"."id" IS 'Deterministic identifier of the log_k_van_t_hoff__reaction instance.';
+COMMENT ON COLUMN "param"."log_k_van_t_hoff__reaction"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."log_k_van_t_hoff__reaction"."r" IS 'The reaction.';
+COMMENT ON COLUMN "param"."log_k_van_t_hoff__reaction"."log_k_ref" IS 'log10 K at 298.15 K.';
+COMMENT ON COLUMN "param"."log_k_van_t_hoff__reaction"."delta_h" IS 'Reaction enthalpy, constant in temperature.';
 
 CREATE TABLE "qual"."mapping_coverage" (
     "id" uuid NOT NULL,
@@ -2825,6 +2897,71 @@ COMMENT ON COLUMN "tk"."phase_definition"."structure" IS 'The internal structure
 COMMENT ON COLUMN "tk"."phase_definition"."prototype" IS 'A structure prototype or Strukturbericht designation, where the source gives one.';
 COMMENT ON COLUMN "tk"."phase_definition"."source_directives" IS 'Uninterpreted source directives attached to the phase, retained verbatim.';
 
+CREATE TABLE "param"."pitzer_ion_pair__pair" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '262cb88b-d595-532e-8d37-0aaa29459bf9'::uuid,
+    "cation" uuid NOT NULL,
+    "anion" uuid NOT NULL,
+    "beta0" "meta"."finite_real" NOT NULL,
+    "beta1" "meta"."finite_real" NOT NULL,
+    "beta2" "meta"."finite_real" NOT NULL,
+    "alpha1" "meta"."scalar" NOT NULL,
+    "alpha2" "meta"."scalar" NOT NULL,
+    "C_phi" "meta"."finite_real" NOT NULL,
+    CONSTRAINT "pitzer_ion_pair__pair__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "pitzer_ion_pair__pair__ck__slot_group" CHECK ("slot_group" = '262cb88b-d595-532e-8d37-0aaa29459bf9'::uuid),
+    CONSTRAINT "pitzer_ion_pair__pair__ck__diagonal" CHECK ("cation" <> "anion")
+);
+COMMENT ON TABLE "param"."pitzer_ion_pair__pair" IS 'The parameters of one cation-anion pair.';
+COMMENT ON COLUMN "param"."pitzer_ion_pair__pair"."id" IS 'Deterministic identifier of the pitzer_ion_pair__pair instance.';
+COMMENT ON COLUMN "param"."pitzer_ion_pair__pair"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."pitzer_ion_pair__pair"."cation" IS 'The cation.';
+COMMENT ON COLUMN "param"."pitzer_ion_pair__pair"."anion" IS 'The anion.';
+COMMENT ON COLUMN "param"."pitzer_ion_pair__pair"."beta0" IS 'The first second-virial coefficient.';
+COMMENT ON COLUMN "param"."pitzer_ion_pair__pair"."beta1" IS 'The second second-virial coefficient.';
+COMMENT ON COLUMN "param"."pitzer_ion_pair__pair"."beta2" IS 'The third second-virial coefficient, for pairs of ions of high charge.';
+COMMENT ON COLUMN "param"."pitzer_ion_pair__pair"."alpha1" IS 'The exponent constant of beta1.';
+COMMENT ON COLUMN "param"."pitzer_ion_pair__pair"."alpha2" IS 'The exponent constant of beta2.';
+COMMENT ON COLUMN "param"."pitzer_ion_pair__pair"."C_phi" IS 'The third virial coefficient of the pair.';
+
+CREATE TABLE "param"."pitzer_psi__triplet" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'fc566905-1354-5af0-a357-9349d7b646aa'::uuid,
+    "i" uuid NOT NULL,
+    "j" uuid NOT NULL,
+    "k" uuid NOT NULL,
+    "psi" "meta"."finite_real" NOT NULL,
+    CONSTRAINT "pitzer_psi__triplet__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "pitzer_psi__triplet__ck__slot_group" CHECK ("slot_group" = 'fc566905-1354-5af0-a357-9349d7b646aa'::uuid),
+    CONSTRAINT "pitzer_psi__triplet__ck__canonical" CHECK ("i" <= "j"),
+    CONSTRAINT "pitzer_psi__triplet__ck__diagonal" CHECK ("i" <> "j")
+);
+COMMENT ON TABLE "param"."pitzer_psi__triplet" IS 'The parameter of one triplet.';
+COMMENT ON COLUMN "param"."pitzer_psi__triplet"."id" IS 'Deterministic identifier of the pitzer_psi__triplet instance.';
+COMMENT ON COLUMN "param"."pitzer_psi__triplet"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."pitzer_psi__triplet"."i" IS 'One ion of the like pair.';
+COMMENT ON COLUMN "param"."pitzer_psi__triplet"."j" IS 'The other ion of the like pair.';
+COMMENT ON COLUMN "param"."pitzer_psi__triplet"."k" IS 'The ion of the opposite sign.';
+COMMENT ON COLUMN "param"."pitzer_psi__triplet"."psi" IS 'The parameter.';
+
+CREATE TABLE "param"."pitzer_theta__pair" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'ee62ad2f-6952-565a-8060-c49730e012f6'::uuid,
+    "i" uuid NOT NULL,
+    "j" uuid NOT NULL,
+    "theta" "meta"."finite_real" NOT NULL,
+    CONSTRAINT "pitzer_theta__pair__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "pitzer_theta__pair__ck__slot_group" CHECK ("slot_group" = 'ee62ad2f-6952-565a-8060-c49730e012f6'::uuid),
+    CONSTRAINT "pitzer_theta__pair__ck__canonical" CHECK ("i" <= "j"),
+    CONSTRAINT "pitzer_theta__pair__ck__diagonal" CHECK ("i" <> "j")
+);
+COMMENT ON TABLE "param"."pitzer_theta__pair" IS 'The parameter of one pair of like ions.';
+COMMENT ON COLUMN "param"."pitzer_theta__pair"."id" IS 'Deterministic identifier of the pitzer_theta__pair instance.';
+COMMENT ON COLUMN "param"."pitzer_theta__pair"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."pitzer_theta__pair"."i" IS 'One ion.';
+COMMENT ON COLUMN "param"."pitzer_theta__pair"."j" IS 'The other ion.';
+COMMENT ON COLUMN "param"."pitzer_theta__pair"."theta" IS 'The parameter.';
+
 CREATE TABLE "tk"."polymer_type" (
     "id" uuid NOT NULL,
     "architecture" text,
@@ -3127,6 +3264,24 @@ COMMENT ON COLUMN "param"."shomate__pure"."id" IS 'Deterministic identifier of t
 COMMENT ON COLUMN "param"."shomate__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
 COMMENT ON COLUMN "param"."shomate__pure"."i" IS 'The species form.';
 
+CREATE TABLE "param"."sit_epsilon__pair" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '1631d5de-cc62-559d-bf38-cc372cf36a0f'::uuid,
+    "i" uuid NOT NULL,
+    "j" uuid NOT NULL,
+    "epsilon" "meta"."finite_real" NOT NULL,
+    CONSTRAINT "sit_epsilon__pair__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "sit_epsilon__pair__ck__slot_group" CHECK ("slot_group" = '1631d5de-cc62-559d-bf38-cc372cf36a0f'::uuid),
+    CONSTRAINT "sit_epsilon__pair__ck__canonical" CHECK ("i" <= "j"),
+    CONSTRAINT "sit_epsilon__pair__ck__diagonal" CHECK ("i" <> "j")
+);
+COMMENT ON TABLE "param"."sit_epsilon__pair" IS 'The interaction coefficient of one pair.';
+COMMENT ON COLUMN "param"."sit_epsilon__pair"."id" IS 'Deterministic identifier of the sit_epsilon__pair instance.';
+COMMENT ON COLUMN "param"."sit_epsilon__pair"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."sit_epsilon__pair"."i" IS 'One ion.';
+COMMENT ON COLUMN "param"."sit_epsilon__pair"."j" IS 'The other ion.';
+COMMENT ON COLUMN "param"."sit_epsilon__pair"."epsilon" IS 'The interaction coefficient.';
+
 CREATE TABLE "tk"."site_class" (
     "id" uuid NOT NULL,
     "host_key" text NOT NULL,
@@ -3278,6 +3433,20 @@ COMMENT ON COLUMN "tk"."species_form"."id" IS 'Deterministic identifier of the s
 COMMENT ON COLUMN "tk"."species_form"."species" IS 'The chemical identity.';
 COMMENT ON COLUMN "tk"."species_form"."aggregation" IS 'The state of aggregation.';
 COMMENT ON COLUMN "tk"."species_form"."polymorph" IS 'Polymorph or structure designation for a crystalline form.';
+
+CREATE TABLE "param"."standard_gibbs_constant__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '9d77c031-f01a-5e9c-be01-b9381f10f498'::uuid,
+    "i" uuid NOT NULL,
+    "g" "meta"."molar_energy" NOT NULL,
+    CONSTRAINT "standard_gibbs_constant__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "standard_gibbs_constant__pure__ck__slot_group" CHECK ("slot_group" = '9d77c031-f01a-5e9c-be01-b9381f10f498'::uuid)
+);
+COMMENT ON TABLE "param"."standard_gibbs_constant__pure" IS 'The energy of one species form.';
+COMMENT ON COLUMN "param"."standard_gibbs_constant__pure"."id" IS 'Deterministic identifier of the standard_gibbs_constant__pure instance.';
+COMMENT ON COLUMN "param"."standard_gibbs_constant__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."standard_gibbs_constant__pure"."i" IS 'The species form.';
+COMMENT ON COLUMN "param"."standard_gibbs_constant__pure"."g" IS 'The standard-state molar Gibbs energy.';
 
 CREATE TABLE "tk"."standard_state" (
     "id" uuid NOT NULL,
@@ -4965,6 +5134,10 @@ ALTER TABLE "param"."helmholtz_pure_fluid__pure" ADD CONSTRAINT "helmholtz_pure_
 
 ALTER TABLE "param"."helmholtz_pure_fluid__pure" ADD CONSTRAINT "helmholtz_pure_fluid__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."hkf_standard_state__pure" ADD CONSTRAINT "hkf_standard_state__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."hkf_standard_state__pure" ADD CONSTRAINT "hkf_standard_state__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species_form" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."identity_assertion" ADD CONSTRAINT "identity_assertion__fk__source_entity" FOREIGN KEY ("source_entity") REFERENCES "tk"."source_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."identity_assertion" ADD CONSTRAINT "identity_assertion__fk__scheme" FOREIGN KEY ("scheme") REFERENCES "tk"."naming_scheme" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -5012,6 +5185,14 @@ ALTER TABLE "prov"."level_of_theory" ADD CONSTRAINT "level_of_theory__fk__softwa
 ALTER TABLE "prov"."level_of_theory" ADD CONSTRAINT "level_of_theory__fk__frequency_level" FOREIGN KEY ("frequency_level") REFERENCES "prov"."level_of_theory" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "prov"."level_of_theory" ADD CONSTRAINT "level_of_theory__fk__energy_level" FOREIGN KEY ("energy_level") REFERENCES "prov"."level_of_theory" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."log_k_analytic__reaction" ADD CONSTRAINT "log_k_analytic__reaction__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."log_k_analytic__reaction" ADD CONSTRAINT "log_k_analytic__reaction__fk__r" FOREIGN KEY ("r") REFERENCES "tk"."reaction" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."log_k_van_t_hoff__reaction" ADD CONSTRAINT "log_k_van_t_hoff__reaction__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."log_k_van_t_hoff__reaction" ADD CONSTRAINT "log_k_van_t_hoff__reaction__fk__r" FOREIGN KEY ("r") REFERENCES "tk"."reaction" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."material" ADD CONSTRAINT "material__fk__id" FOREIGN KEY ("id") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -5133,6 +5314,26 @@ ALTER TABLE "tk"."phase_definition" ADD CONSTRAINT "phase_definition__fk__system
 
 ALTER TABLE "tk"."phase_definition" ADD CONSTRAINT "phase_definition__fk__aggregation" FOREIGN KEY ("aggregation") REFERENCES "tk"."aggregation" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."pitzer_ion_pair__pair" ADD CONSTRAINT "pitzer_ion_pair__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pitzer_ion_pair__pair" ADD CONSTRAINT "pitzer_ion_pair__pair__fk__cation" FOREIGN KEY ("cation") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pitzer_ion_pair__pair" ADD CONSTRAINT "pitzer_ion_pair__pair__fk__anion" FOREIGN KEY ("anion") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pitzer_psi__triplet" ADD CONSTRAINT "pitzer_psi__triplet__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pitzer_psi__triplet" ADD CONSTRAINT "pitzer_psi__triplet__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pitzer_psi__triplet" ADD CONSTRAINT "pitzer_psi__triplet__fk__j" FOREIGN KEY ("j") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pitzer_psi__triplet" ADD CONSTRAINT "pitzer_psi__triplet__fk__k" FOREIGN KEY ("k") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pitzer_theta__pair" ADD CONSTRAINT "pitzer_theta__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pitzer_theta__pair" ADD CONSTRAINT "pitzer_theta__pair__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pitzer_theta__pair" ADD CONSTRAINT "pitzer_theta__pair__fk__j" FOREIGN KEY ("j") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."polymer_type" ADD CONSTRAINT "polymer_type__fk__id" FOREIGN KEY ("id") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."pseudo_component" ADD CONSTRAINT "pseudo_component__fk__id" FOREIGN KEY ("id") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -5207,6 +5408,12 @@ ALTER TABLE "param"."shomate__pure" ADD CONSTRAINT "shomate__pure__fk__id" FOREI
 
 ALTER TABLE "param"."shomate__pure" ADD CONSTRAINT "shomate__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species_form" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."sit_epsilon__pair" ADD CONSTRAINT "sit_epsilon__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."sit_epsilon__pair" ADD CONSTRAINT "sit_epsilon__pair__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."sit_epsilon__pair" ADD CONSTRAINT "sit_epsilon__pair__fk__j" FOREIGN KEY ("j") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."site_class" ADD CONSTRAINT "site_class__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."site_class" ADD CONSTRAINT "site_class__fk__phase" FOREIGN KEY ("phase") REFERENCES "tk"."phase_definition" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -5240,6 +5447,10 @@ ALTER TABLE "tk"."species_form" ADD CONSTRAINT "species_form__fk__id" FOREIGN KE
 ALTER TABLE "tk"."species_form" ADD CONSTRAINT "species_form__fk__species" FOREIGN KEY ("species") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."species_form" ADD CONSTRAINT "species_form__fk__aggregation" FOREIGN KEY ("aggregation") REFERENCES "tk"."aggregation" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."standard_gibbs_constant__pure" ADD CONSTRAINT "standard_gibbs_constant__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."standard_gibbs_constant__pure" ADD CONSTRAINT "standard_gibbs_constant__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species_form" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."standard_state" ADD CONSTRAINT "standard_state__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 

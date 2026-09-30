@@ -166,8 +166,16 @@ or the other: `convention.gas_constant` for a fact in `conventions`, `convention
 | conditional | `a if condition else b`; comparisons `< <= > >= == !=`; `and`, `or`, `not` |
 | partial derivative | `d(expr, name)` with respect to an argument or a local |
 | piece selection | `at(pure.piece(i), T)`: the index of the piece whose interval contains `T` (gap) |
+| member position | `position(t, s)`: the position, counting from one, that the constituent array `t` gives the species `s` among the members it places on a site class (gap) |
 | definite integral | `integral(expr, z, a, b)` in one scalar variable (gap) |
 | remapped call | a sub-form call whose arguments are expressions, not only names (gap) |
+
+`position(t, s)` takes a subject of kind `constituent_array` and a subject of kind `species`, each a role or an
+index variable, and is an integer known without argument values: a stored fact of the array, read through the
+parameter source like a slot value (`member_positions`). It is how a form reads the order the source asserted for
+the species of an array, which fixes the sign of an odd-order Redlich-Kister term (`(1 if position(t, i) == 1
+else -1) * y[i]`) and the species a Toop extrapolation singles out. A species the array does not place, or
+places on more than one site class, has no single position, and the evaluation is refused, naming both.
 
 Integer exponents, index arithmetic and `range` bounds are dimensionless integers. A power of
 a dimensioned base takes a literal integer exponent; `sqrt` of a dimensioned argument needs even
@@ -268,6 +276,8 @@ follows the reaction of each set and is checked when the set is written. The ref
 - a dimension mismatch, stating both dimensions; a transcendental function of a dimensioned
   argument; a non-integer power of a dimensioned base
 - an output whose dimension differs from the contract's
+- `position` of anything but a constituent array and a species, or of an expression in place of a role or an
+  index variable
 - a missing output, or an expression for an output the contract does not have
 - a local that refers to a later local; a cycle among sub-form contracts
 - a call that omits a set, gives a set of an unrelated kind or something that is not a set of the
@@ -405,6 +415,9 @@ consequence is in the expression:
 - the **order of the pieces** of `at(...)` is the order of their lower bounds, and overlap is
   refused, both from the values; the piece chosen is decided by the argument when the function
   is evaluated;
+- a **position** `position(t, s)` is read from the stored members of the array when the expansion
+  reads it, so a condition on it is decided here and only the branch it takes is expanded (the two
+  arrays that assert the same species in opposite orders expand to the two signs of one interaction);
 - a **transposition** is an operation on the stored value, made by the parameter source when it is
   read, not on the expression: the source returns the values for the order of the subjects asked
   for. In the order asserted they are the stored numbers, unchanged; in the other order the value
@@ -486,6 +499,7 @@ that found one; without a cache a binding has one of its own and shares nothing.
 | implicit block | `implicit` block with `realize ... using` |
 | indexed value `[expr for i in S]` | gap |
 | piece selection `at(...)` | gap |
+| member position `position(t, s)` | gap: a stored fact of the array read by a function; `.pse` has the table lookup but not a position within an ordered key |
 | `integral` | gap |
 | remapped sub-form call | gap |
 | `basis('name', [...])` | gap: a production quantity type carries its basis, and its checks compare it wherever it flows, not only at a call |

@@ -7,6 +7,7 @@ checks of `tk verify` that fail. Contains no tests."""
 
 from __future__ import annotations
 
+import shutil
 import uuid
 from collections.abc import Callable
 from pathlib import Path
@@ -19,12 +20,24 @@ from thermo_knowledge import config
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.provenance import Origin
 from thermo_knowledge.canonical.writer import CanonicalWriter
-from thermo_knowledge.declaration import Declaration
+from thermo_knowledge.declaration import Declaration, load_declaration
 from thermo_knowledge.testing import TestDatabase
 from thermo_knowledge.verify.checks import VERIFY_DIR, load_checks
 from thermo_knowledge.verify.run import run_checks
 
+FIXTURES = Path(__file__).parent / "fixtures" / "hard_cases"
+
 CHECKS = {c.target: c for c in load_checks(config.TREE_DIR / VERIFY_DIR)[0]}
+
+
+def declaration_with_vocabulary(destination: Path, case: str) -> Declaration:
+    """The committed declaration plus the vocabulary rows only the fixture of hard case `case`
+    declares (`fixtures/hard_cases/<case>/model/*.toml`), which must load cleanly."""
+    shutil.copytree(config.TREE_DIR / "model", destination / "model")
+    shutil.copytree(config.TREE_DIR / "forms", destination / "forms")
+    for path in (FIXTURES / case / "model").glob("*.toml"):
+        shutil.copy(path, destination / "model" / path.name)
+    return load_declaration(destination / "model", destination / "forms").require()
 
 
 def at(tag: str, role: str = "published") -> list[Origin]:

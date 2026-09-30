@@ -408,7 +408,7 @@ def test_the_slot_shape_is_reified_in_meta(world: World, conn: psycopg.Connectio
     ).fetchone() == ("set_reference", "qfix_named_function")
     assert conn.execute(
         "SELECT count(*) FROM meta.slot WHERE shape = 'set_reference'"
-    ).fetchone() == (3,)  # the two slots of the fixtures and the departure slot of the committed multifluid pair form
+    ).fetchone() == (4,)  # the two slots of the fixtures, the departure slot of the committed multifluid pair form and the function slot of the committed endmember form
 
 
 # -- the form of a sub-form slot chosen for each subject ---------------------------------------------

@@ -22,7 +22,6 @@ from __future__ import annotations
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
-from pathlib import Path
 
 import numpy as np
 import psycopg
@@ -31,7 +30,6 @@ from hard_case_support import at, build, entity_id, failing
 from mapping_support import carrier, real_declaration, writer
 
 from thermo_knowledge import db, identity
-from thermo_knowledge.build.database import DatabaseRefusedError
 from thermo_knowledge.canonical.values import Quantity, QuantityArray
 from thermo_knowledge.canonical.writer import (
     CanonicalWriter,
@@ -437,17 +435,17 @@ def test_the_molar_mass_distribution_is_held_on_a_sample_of_the_polymer(world: W
     np.testing.assert_allclose(floats(values), WEIGHTS, rtol=1e-12)
 
 
-def test_the_distribution_cannot_be_held_on_the_polymer_type(decl: Declaration, tmp_path: Path) -> None:
-    """The writer does not know the kind of an entity; the database does: the subject of the set is
-    a foreign key to the samples, and a polymer type is no sample, so the build is refused."""
-
-    def emit(w: CanonicalWriter) -> None:
-        polymer = w.kind("polymer_type", {"canonical_key": "p", "label": "p"}, origins=at("p"))
-        p = w.kind(
-            "parameterization",
-            {"key": "d", "revision": "1", "title": "d", "coherence": "independent_records"},
-            origins=at("d"),
-        )
+def test_the_distribution_cannot_be_held_on_the_polymer_type(decl: Declaration) -> None:
+    """The subject of the set is a sample, and a polymer type is no sample: the writer refuses it
+    at load, naming the kind of the subject it wrote and the kind the role declares."""
+    w = writer(decl)
+    polymer = w.kind("polymer_type", {"canonical_key": "p", "label": "p"}, origins=at("p"))
+    p = w.kind(
+        "parameterization",
+        {"key": "d", "revision": "1", "title": "d", "coherence": "independent_records"},
+        origins=at("d"),
+    )
+    with pytest.raises(ValidationError, match="subject `s` is a polymer_type, and the role of `molar_mass_distribution.sample` is of kind `sample`"):
         w.parameter_set(
             parameterization=p,
             slot_group="molar_mass_distribution.sample",
@@ -461,9 +459,7 @@ def test_the_distribution_cannot_be_held_on_the_polymer_type(decl: Declaration, 
             },
             origins=at("on-type"),
         )
-
-    with pytest.raises(DatabaseRefusedError, match="molar_mass_distribution__sample__fk__s"):
-        build(tmp_path, emit, decl)
+    assert w.rows("param.molar_mass_distribution__sample") == 0
 
 
 def test_flory_huggins_with_the_chain_length_of_the_sample_matches_numpy(world: World, conn: psycopg.Connection) -> None:
