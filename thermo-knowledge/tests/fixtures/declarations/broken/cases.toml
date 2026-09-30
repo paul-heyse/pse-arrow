@@ -1,0 +1,386 @@
+# Expected diagnostics of each broken-declaration case; every case is a directory that
+# overlays the valid `full` fixture. A missing `construct` or `document` is not checked.
+
+[unknown_key]
+expect = [
+  { code = "unknown-key", construct = "kinds.k.bogus", document = "model/zz_case.toml" },
+]
+
+[missing_doc]
+expect = [
+  { code = "missing-doc", construct = "kinds.k", document = "model/zz_case.toml" },
+]
+
+[toml_syntax]
+expect = [
+  { code = "toml-syntax", construct = "", document = "model/zz_case.toml" },
+]
+
+[invalid_value]
+expect = [
+  { code = "invalid-value", construct = "kinds.k.abstract", document = "model/zz_case.toml" },
+]
+
+[missing_enforcement]
+expect = [
+  { code = "missing-enforcement", construct = "kinds.k.requires[0]", document = "model/zz_case.toml" },
+]
+
+[unknown_check]
+expect = [
+  { code = "unknown-check", construct = "kinds.k.requires[0].check.bogus", document = "model/zz_case.toml" },
+]
+
+[bad_pse_mark]
+expect = [
+  { code = "bad-pse-mark", construct = "kinds.k", document = "model/zz_case.toml" },
+]
+
+[missing_field]
+expect = [
+  { code = "missing-field", construct = "kinds.k.attributes.a", document = "model/zz_case.toml" },
+]
+
+[duplicate_module]
+expect = [
+  { code = "duplicate-module", construct = "module", document = "model/zz_case.toml" },
+]
+
+[duplicate_name]
+expect = [
+  { code = "duplicate-name", construct = "kinds.species", document = "model/zz_case.toml" },
+]
+
+[bad_name_kind]
+expect = [
+  { code = "bad-name", construct = "kinds.Bad_Name", document = "model/zz_case.toml" },
+]
+
+[bad_name_quantity]
+expect = [
+  { code = "bad-name", construct = "quantity_types.lower", document = "model/zz_case.toml" },
+]
+
+[unknown_name]
+expect = [
+  { code = "unknown-name", construct = "kinds.k.attributes.a.type", document = "model/zz_case.toml" },
+]
+
+[unreachable_name]
+expect = [
+  { code = "unreachable-name", construct = "kinds.k.attributes.a.type", document = "model/zz_case.toml" },
+]
+
+[uses_cycle]
+expect = [
+  { code = "uses-cycle", construct = "uses" },
+]
+
+[extends_cycle]
+expect = [
+  { code = "extends-cycle", construct = "kinds.cyc_a.extends", document = "model/zz_case.toml" },
+  { code = "extends-cycle", construct = "kinds.cyc_b.extends", document = "model/zz_case.toml" },
+]
+
+[missing_identity]
+expect = [
+  { code = "missing-identity", construct = "kinds.k.identity", document = "model/zz_case.toml" },
+]
+
+[refinement_identity]
+expect = [
+  { code = "refinement-identity", construct = "kinds.k2.identity", document = "model/zz_case.toml" },
+]
+
+[identity_optional]
+expect = [
+  { code = "bad-identity-attribute", construct = "kinds.k.identity", document = "model/zz_case.toml" },
+]
+
+[identity_float]
+expect = [
+  { code = "bad-identity-attribute", construct = "kinds.k.identity", document = "model/zz_case.toml" },
+]
+
+[abstract_entity]
+expect = [
+  { code = "abstract-entity", construct = "entities.material_entity.x", document = "model/zz_case.toml" },
+]
+
+[entity_unknown_attribute]
+expect = [
+  { code = "bad-entity", construct = "entities.aggregation.z.bogus", document = "model/zz_case.toml" },
+]
+
+[entity_mistyped]
+expect = [
+  { code = "bad-entity", construct = "entities.element.Li.atomic_number", document = "model/zz_case.toml" },
+]
+
+[entity_missing_value]
+expect = [
+  { code = "bad-entity", construct = "entities.phase.y.aggregation", document = "model/zz_case.toml" },
+]
+
+[entity_provenance_none]
+expect = [
+  { code = "bad-entity", construct = "entities.meta_probe.x", document = "model/zz_case.toml" },
+]
+
+[entity_provenance_inherit]
+expect = [
+  { code = "bad-entity", construct = "entities.slot_uncertainty.x", document = "model/zz_case.toml" },
+]
+
+[entity_reference_unknown]
+expect = [
+  { code = "bad-entity", construct = "entities.phase.y.aggregation", document = "model/zz_case.toml" },
+]
+
+[entity_meta_unknown]
+expect = [
+  { code = "bad-entity", construct = "entities.observable.z.quantity", document = "model/zz_case.toml" },
+]
+
+[default_mismatch]
+expect = [
+  { code = "bad-default", construct = "kinds.k.attributes.b.default", document = "model/zz_case.toml" },
+]
+
+[default_enum]
+expect = [
+  { code = "bad-enum-member", construct = "kinds.k.attributes.b.default", document = "model/zz_case.toml" },
+]
+
+[entity_enum]
+expect = [
+  { code = "bad-enum-member", construct = "entities.class_holder.x.cls", document = "model/zz_case.toml" },
+]
+
+[check_missing]
+expect = [
+  { code = "bad-check", construct = "kinds.k.requires[0].check", document = "model/zz_case.toml" },
+]
+
+[check_two_keys]
+expect = [
+  { code = "bad-check", construct = "kinds.k.requires[0].check", document = "model/zz_case.toml" },
+]
+
+[check_bad_type]
+expect = [
+  { code = "bad-check", construct = "kinds.k.requires[0].check", document = "model/zz_case.toml" },
+]
+
+[subject_not_kind]
+expect = [
+  { code = "subject-not-kind", construct = "forms.bad.slot_groups.g.subject.i.type", document = "forms/zz_case.toml" },
+]
+
+[transposition_kinds]
+expect = [
+  { code = "transposition-kinds", construct = "forms.bad.slot_groups.g.transposition", document = "forms/zz_case.toml" },
+]
+
+[expression_bad_operator]
+expect = [
+  { code = "bad-quantity-expression", construct = "kinds.k.attributes.b.type", document = "model/zz_case.toml" },
+]
+
+[expression_fractional_power]
+expect = [
+  { code = "bad-quantity-expression", construct = "kinds.k.attributes.b.type", document = "model/zz_case.toml" },
+]
+
+[unit_unparseable]
+expect = [
+  { code = "bad-unit", construct = "quantity_types.Weird.unit", document = "model/zz_case.toml" },
+]
+
+[unit_not_coherent]
+expect = [
+  { code = "unit-not-coherent", construct = "quantity_types.Kilopascal.unit", document = "model/zz_case.toml" },
+]
+
+[unit_offset]
+expect = [
+  { code = "unit-not-coherent", construct = "quantity_types.Celsius.unit", document = "model/zz_case.toml" },
+]
+
+[identifier_too_long]
+expect = [
+  { code = "identifier-too-long", construct = "kinds.a_name_that_goes_on_and_on_until_postgresql_would_quietly_truncate_it", document = "model/zz_case.toml" },
+]
+
+[identifier_collision_column]
+expect = [
+  { code = "identifier-collision", construct = "forms.bad.slot_groups.g.slots.A__state", document = "forms/zz_case.toml" },
+]
+
+[identifier_collision_type]
+expect = [
+  { code = "identifier-collision", construct = "enums.kind", document = "model/zz_case.toml" },
+]
+
+[bad_provenance]
+expect = [
+  { code = "bad-provenance", construct = "kinds.k.provenance", document = "model/zz_case.toml" },
+]
+
+[inherit_unknown_attribute]
+expect = [
+  { code = "bad-provenance", construct = "kinds.k.provenance", document = "model/zz_case.toml" },
+]
+
+[bad_absence]
+expect = [
+  { code = "bad-absence", construct = "relations.r.absence", document = "model/zz_case.toml" },
+]
+
+[relation_float_key]
+expect = [
+  { code = "bad-relation", construct = "relations.r.keys.t.type", document = "model/zz_case.toml" },
+]
+
+[parity_without_by]
+expect = [
+  { code = "bad-transposition", construct = "relations.r.transposition", document = "model/zz_case.toml" },
+]
+
+[framework_role_missing]
+expect = [
+  { code = "framework-role", construct = "framework.parameter_set", document = "model/manifest.toml" },
+  { code = "framework-role", construct = "framework.slot_uncertainty", document = "model/manifest.toml" },
+]
+
+[slot_shape_both]
+expect = [
+  { code = "slot-shape", construct = "forms.bad.slot_groups.g.slots.s", document = "forms/zz_case.toml" },
+]
+
+[family_interval_unknown]
+expect = [
+  { code = "bad-family", construct = "forms.bad.slot_groups.g.families.f.interval", document = "forms/zz_case.toml" },
+]
+
+[family_stateful_slot]
+expect = [
+  { code = "bad-family", construct = "forms.bad.slot_groups.g.families.f.slots.lo.presence", document = "forms/zz_case.toml" },
+]
+
+[contract_cycle]
+expect = [
+  { code = "contract-cycle" },
+]
+
+[set_optional]
+expect = [
+  { code = "bad-attribute", construct = "kinds.k.attributes.s", document = "model/zz_case.toml" },
+]
+
+[unique_unknown]
+expect = [
+  { code = "bad-unique", construct = "kinds.k.unique[0]", document = "model/zz_case.toml" },
+]
+
+[missing_schema]
+expect = [
+  { code = "missing-schema", construct = "schema", document = "model/zz_case.toml" },
+]
+
+[bad_schema]
+expect = [
+  { code = "bad-schema", construct = "schema", document = "model/zz_case.toml" },
+]
+
+[bad_type_meta]
+expect = [
+  { code = "bad-type", construct = "kinds.k.attributes.b.type", document = "model/zz_case.toml" },
+]
+
+[bad_type_set_of_quantity]
+expect = [
+  { code = "bad-type", construct = "kinds.k.attributes.b.type", document = "model/zz_case.toml" },
+]
+
+[collects_all]
+expect = [
+  { code = "unknown-name", construct = "kinds.k.attributes.b.type", document = "model/zz_case.toml" },
+  { code = "bad-default", construct = "kinds.k.attributes.c.default", document = "model/zz_case.toml" },
+]
+
+[array_of_quantity_set_is_refused]
+expect = [
+  { code = "bad-type", construct = "kinds.k.attributes.b.type", document = "model/zz_case.toml" },
+]
+
+[observable_unknown]
+expect = [
+  { code = "unknown-name", construct = "contracts.c_obs.outputs.x.observable", document = "forms/zz_case.toml" },
+]
+
+[observable_unknown_on_slot]
+expect = [
+  { code = "unknown-name", construct = "forms.bad.slot_groups.g.slots.s.observable", document = "forms/zz_case.toml" },
+]
+
+[observable_of_the_wrong_kind]
+expect = [
+  { code = "unknown-name", construct = "contracts.c_obs.outputs.x.observable", document = "forms/zz_case.toml" },
+]
+
+[observable_unbound]
+expect = [
+  { code = "framework-role", construct = "contracts.pure_vapor_pressure.outputs.p_sat.observable", document = "forms/contracts.toml" },
+  { code = "framework-role", construct = "forms.critical.slot_groups.global.slots.T_c.observable", document = "forms/forms.toml" },
+]
+
+[observable_role_names_a_non_kind]
+expect = [
+  { code = "bad-type", construct = "framework.observable", document = "model/manifest.toml" },
+]
+
+[reserved_column]
+expect = [
+  { code = "bad-name", construct = "kinds.k.attributes.id", document = "model/zz_case.toml" },
+]
+
+[value_state_members]
+expect = [
+  { code = "framework-role", construct = "enums.value_state", document = "model/manifest.toml" },
+]
+
+[framework_parameter_set_marker]
+expect = [
+  { code = "framework-role", construct = "framework.parameter_set", document = "model/manifest.toml" },
+]
+
+[real_without_unit_from]
+expect = [
+  { code = "missing-unit-from", construct = "kinds.k.attributes.x", document = "model/zz_case.toml" },
+]
+
+[unit_from_unknown_name]
+expect = [
+  { code = "bad-unit-from", construct = "kinds.k.attributes.x.unit_from", document = "model/zz_case.toml" },
+]
+
+[unit_from_not_a_unit_source]
+expect = [
+  { code = "bad-unit-from", construct = "kinds.k.attributes.x.unit_from", document = "model/zz_case.toml" },
+]
+
+[unit_from_through_a_non_reference]
+expect = [
+  { code = "bad-unit-from", construct = "kinds.k.attributes.x.unit_from", document = "model/zz_case.toml" },
+]
+
+[unit_from_on_a_non_real]
+expect = [
+  { code = "bad-unit-from", construct = "kinds.k.attributes.x.unit_from", document = "model/zz_case.toml" },
+]
+
+[unit_from_path_into_a_kind]
+expect = [
+  { code = "bad-unit-from", construct = "kinds.k.attributes.y.unit_from", document = "model/zz_case.toml" },
+]

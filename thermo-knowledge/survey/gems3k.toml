@@ -1,0 +1,1024 @@
+source = "gems3k"
+pin = "d98513959bc5"
+surveyed = "2026-09-30"
+summary = "GEMS3K v4.6.1 (its version header still says 4.5.5) contributes a chemical-system input in three files, in key-value text, JSON and binary forms (DCH: independent and dependent component lists, a stoichiometry matrix with a charge column, phases with class codes, and T-P lookup grids of G0, V0, H0, S0, Cp0 plus water density and permittivity; IPM: 8 flags, about 50 numerical controls and per-phase arrays for 30 built-in TSolMod mixing and equation-of-state classes, sorption and kinetics models; DBR: node composition in moles of independent components, state and results), 71 source files implementing an interior-point Gibbs energy minimiser with two-sided metastability constraints, and 79 example files (21 DCH, 21 IPM, 37 DBR) plus 37 result nodes; the standard-state data are tables at given T and P or (optionally) ThermoFun, there is no species database, the formula basis is elements plus a charge component with special classes (Nit, Zz), the sorption and most kinetics classes are stubs, one model class (TModOther) is an empty shell, and the bundled format documents describe an older revision of the files in units and names."
+
+# ---------------------------------------------------------------------------
+# PAYLOADS
+# ---------------------------------------------------------------------------
+
+[[payload]]
+paths = ["**/*-dch.dat", "**/*-dch.json"]
+format = "DCH (data for chemistry): key-value text '<tag> values' with '#' comment lines and section headers, or a JSON array with one object {_key, set, dch: {...}}; a sibling binary form exists (gdatastream.cpp) but no example is in the tree"
+files = 21
+bytes = 859774
+records = "21 chemical-system definitions (12 key-value, 9 JSON): nIC 7 to 12, nDC 19 to 63 (787 dependent components in all), nPH 3 to 21, nPS 1 to 3; lookup grids (nTp x nPp, mLook): 1x1 (mode 0) in most, 1x21 (0), 3x3 (1), 7x4 (0), 21x21 (1), 101x101 (1); iGrd 0 in all; DC class codes found: S 482, O 179, G 48, T 21, W 21, J 18, M 18 (counted by parsing the ccDC arrays)"
+reader = "datach_from_text_file in GEMS3K/datach_formats.cpp (line 619) with io_keyvalue.cpp, io_nlohmann.cpp or io_simdjson.cpp; TNode::GEM_init in node.cpp reads the file set named in a '-dat.lst' list"
+read_by_source = "all"
+notes = "The example sets are small laboratory and demonstration systems (Kaolinite pH titration, calcite-dolomite column, lime-brine, seawater, feldspar solvus, a 68-substance aqueous series); they are the only chemical-system data in the tree. Every lookup grid row is for the temperatures and pressures stated in TKval and Pval; the grids are precomputed by GEM-Selektor or ThermoFun, not by GEMS3K."
+
+[[payload]]
+paths = ["**/*-ipm.dat", "**/*-ipm.json"]
+format = "IPM (internal data of the GEM IPM kernel): key-value text or a JSON array with one object {_key, set, ipm: {...}}; dimensions, numerical controls, per-phase model arrays"
+files = 21
+bytes = 165849
+records = "21 files (12 key-value, 9 JSON); phase-model strings found (sMod): DNNSNNNN (Davies) 9, HNNSNNNN (Helgeson Debye-Hueckel) 10, VNNSNNNN (Van Laar) 12, INNINNNN (ideal) 11, and the older 6-character DNNSNN 2 and INNINN 1; only the model codes D, H, V and I occur; counted from sMod arrays"
+reader = "TMultiBase::from_text_file_gemipm in GEMS3K/ms_multi_format.cpp (line 609) with the same io_* readers"
+read_by_source = "all"
+notes = "Files written by older releases carry 6-character sMod strings; the current writer writes 8 characters (ms_multi_format.cpp line 365: width 8). The example with Van Laar phases (feldspar solvus series1) has LsMod rows '3 2 3' and LsMdc '1 0 0', i.e. 3 interaction parameters of order 2 with 3 coefficients and one species parameter per component."
+
+[[payload]]
+paths = ["**/*-dbr-*-*.dat", "**/*-dbr-*-*.json"]
+format = "DBR (data bridge, one node): key-value text or JSON array {_key, set, dbr: {...}}; file name '<set>-dbr-<time>-<node>.<ext>' with a 4-digit node index; list files '<set>-dbr.lst' name the node files"
+files = 37
+bytes = 202355
+records = "37 node files (26 key-value, 11 JSON); 44 .lst list files (4003 bytes) that give the file set and format flags (-t text, -j json, -b binary, -f with a ThermoFun file)"
+reader = "databr_from_text_file in GEMS3K/datach_formats.cpp (line 324 onward)"
+read_by_source = "all"
+notes = "Some DBR files are outputs of GEM runs rather than inputs (they carry results such as xDC, gam, pH); 37 further result nodes from a pH titration are in tools-build/process/Kaolinite_G_pHtitr_*.json (for example NodeStatusCH 1, IterDone 30, pH 9.249 in the first inspected), and three text result listings and a spreadsheet are in node-gem-build/results (results.ods, CalcColumn-out.txt 10410 lines, LimSeawat-out.txt 35362 lines); these are candidate reference values for qualification, with no stated tolerance."
+
+[[payload]]
+paths = [
+  "node-gem/doc/scm-dch-dat-doc.txt",
+  "node-gem/doc/scm-ipm-dat-doc.txt",
+  "node-gem/doc/scm-dbr-dat-doc.txt",
+  "Docs/txt/dch-dat-doc.txt",
+  "Docs/txt/ipm-dat-doc.txt",
+  "Docs/txt/dbr-dat-doc.txt",
+  "Docs/txt/ParamMulti-dat.txt",
+  "Docs/html/gems3k-tsolmod.html",
+]
+format = "Format descriptions: annotated example files of each type with a comment for every data object (two copies of each, node-gem/doc dated 2006 for GEMIPM2K v0.780 and Docs/txt dated December 2006 for v0.98), a table of the MULTI structure (ParamMulti-dat.txt) and an HTML description of the TSolMod parameter arrays with tables of model codes and parameter layouts (last changed 22.10.2012)"
+files = 8
+bytes = 239012
+records = "DCH doc: 35 tags; IPM docs: 60 and 73 tags; DBR docs: 51 tags (counted by '<tag>' lines); the TSolMod page has 6 tables of codes (aqueous, fluids, condensed phases) and two worked examples (SIT, Pitzer)"
+reader = "none: documentation; no code checks the documents against the readers"
+read_by_source = "none"
+notes = "These documents describe an older revision of the file contents than the pinned code writes (see discrepancies): temperatures in degC and pressures in bar under tags Tval and TC, atomic masses in g/mol, V0 in J/bar, six-character sMod strings."
+
+[[payload]]
+paths = ["Docs/solmod_params.ods"]
+format = "OpenDocument spreadsheet, one sheet of 33 rows"
+files = 1
+bytes = 34618
+records = "a table that maps each field of the SolutionData structure to the MULTI member, the TSolMod member, its size, whether it is input, output or read once, whether it needs thermodynamic data, and which model classes use it (for example arIPx <-> pm.Ipx <-> aIPx, size NPar*MaxOrd; arG0 used by TBerman, TCEFmod, TMBWmod; ardenW and arepsW by the aqueous models)"
+reader = "any spreadsheet reader; parsed here from content.xml"
+read_by_source = "none"
+notes = "This is the only place that states which model classes need water density and permittivity arrays (ardenW, arepsW), species charges and molalities (arZ, arM), and standard Gibbs energies (arG0) as inputs."
+
+[[payload]]
+paths = [
+  "tools-build/Thermo-time-in/series1.FUN.json",
+  "tools-build/Thermo-time-out/series1.FUN.json",
+  "tsolmod4rkt-build/test01/gems3k-files/series1.FUN.json",
+  "tsolmod4rkt-build/test01/gems3k-files/series1-fun.json",
+]
+format = "ThermoFun database JSON (survey/thermofun.toml) holding the chemical system's 68 substances and 9 elements"
+files = 4
+bytes = 1176760
+records = "68 substances and 9 elements, 0 reactions; all four files are byte-identical (same sha256)"
+reader = "ThermoFun::Database through GEMS3K's -f file mode (node.h line 153; node.cpp write_ThermoFun_format_stream line 48); absent when compiled with NO_THERMOFUN"
+read_by_source = "partly"
+notes = "In these files the HKF block lists seven units with the third as (cal*K)/(mol*bar) and eight values, the method is solute_hkf88_gems (code 2) where ThermoHub data use solute_hkf88_reaktoro; the accompanying DCH example series1 has nIC 9 (equal to the 9 elements) and nDC 60, so the ThermoFun file holds 8 more substances than the DCH uses."
+
+[[payload]]
+paths = ["GEMS3K/*.cpp", "GEMS3K/*.h"]
+format = "C++ source of the solver and its I/O"
+files = 71
+bytes = 1991131
+records = "not applicable: code; the files of concern here are ipm_main.cpp, ipm_simplex.cpp, ipm_chemical*.cpp (minimiser), s_solmod.h and s_solmod2-6.cpp (solution and EoS models, 30 derived classes), s_sorpmod.cpp, s_kinmet.cpp, m_const_base.h (code letters), datach_formats.cpp, ms_multi_format.cpp, node_format.cpp (I/O tables)"
+reader = "compiled into the gemcalc program and library"
+read_by_source = "all"
+notes = "GEMS3K/gems3k_version.h says GEMS3K_VERSION 4.5.5 while the pinned tag is v4.6.1; it also names ChemicalFun 0.1.13 and ThermoFun 0.6.0."
+
+[[payload]]
+paths = ["tsolmod4rkt/**", "tsolmod4rkt-build/**"]
+format = "A re-packaging of the TSolMod library as a separate library with C++ and Python (pybind11) interfaces that uses a truncated MULTI structure; one test set (test01) holds DCH, IPM, DBR and FUN JSON files"
+files = 32
+bytes = 241083
+records = "not applicable: code (21 files, 241083 bytes under tsolmod4rkt/) and one example set (11 files under tsolmod4rkt-build/); no mixing model beyond those in GEMS3K/s_solmod*.cpp"
+reader = "the library's own solmodfactory and solmodengine"
+read_by_source = "partly"
+notes = "Shares the TSolMod classes; its data interface is the same SolutionData layout (survey of the IPM arrays); its JSON input mirrors the IPM file's per-phase arrays."
+
+[[payload]]
+paths = ["tools/*", "tests/*", "test-interp/*", "simdjson/*"]
+format = "Conversion utility kva2json (key-value to JSON and binary), threading and ThermoFun tests, an interpolation test, a bundled JSON library"
+files = 19
+bytes = 1979603
+records = "not applicable: code (tools 7 files, tests 2, test-interp 4, simdjson 6)"
+reader = "compiled with the project"
+read_by_source = "partly"
+notes = "kva2json converts between the three file formats; the test in tests/ (pstall_default_test.cpp) checks a default numerical control; there are no qualification values for models."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS: DCH
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "DCH dimensions and index lists"
+locator = "GEMS3K/datach_formats.cpp DataCH_static_fields (line 124) and DataCH_dynamic_fields (line 141)"
+meaning = "Counts that size every other array (nIC, nDC, nPH, nPS, nDCs), the subset of components and phases that node files carry (nICb, nDCb, nPHb, nPSb with index lists xic, xdc, xph), the lookup grid dimensions (nTp, nPp), and three flags (iGrd allocation of diffusion array, fAalp keep phase surface areas in nodes, mLook lookup mode 0 interpolation or 1 T-P pairs without interpolation)."
+subject = "one chemical system definition"
+fields = [
+  { name = "nIC, nDC, nPH, nPS, nDCs", meaning = "numbers of independent components, dependent components, phases, multicomponent phases, and dependent components in multicomponent phases", unit = "count", shape = "scalar", role = "input" },
+  { name = "nICb, nDCb, nPHb, nPSb", meaning = "numbers kept in a node (DBR) file; smaller than the full sizes only when a node does not carry every component", unit = "count", shape = "scalar", role = "input" },
+  { name = "nTp, nPp, mLook", meaning = "grid sizes (temperature points, pressure points) and lookup mode: 0 interpolates over an nTp x nPp grid; 1 gives data for nTp T-P pairs with no interpolation", unit = "count; enum", shape = "enum", role = "input" },
+  { name = "xic, xdc, xph", meaning = "index lists mapping node arrays to the full lists", unit = "index", shape = "list", role = "input" },
+  { name = "iGrd, fAalp", meaning = "flags; the code comment for iGrd says it allocates an array of diffusion coefficients (the older documentation describes it as the choice of H0, S0, Cp0 and A0 grids)", unit = "flag", shape = "scalar", role = "input" },
+]
+origin = "generated (exported from GEM-Selektor chemical system definitions or from GEM2MT tasks; the exporter version is in the file header comment)"
+conventions = "arrays in the rest of the file are ordered by these lists; the 'END_DIM' tag closes the dimension section before the arrays"
+absence = "a node-size smaller than the full size means components not in the node take values from the DCH/IPM defaults; all dimensions are required"
+validity = "not stated"
+provenance = "file header comment with generator and revision (for example 'GEMS3K v.3.3 r.1036')"
+count = "21 files"
+example = "node-gem-build/tp_test/CalcColumn-dch.dat"
+candidate = "chemical_system, system_member"
+precision = "close"
+loss = "Dimensions and index lists are storage bookkeeping; the node-subset lists (xic, xdc, xph) are a view mechanism with no counterpart in the model."
+
+[[construct]]
+name = "independent components (ICNL, ccIC, ICmm)"
+locator = "datach_formats.cpp DataCH_dynamic_fields (lines 145-147); m_const_base.h enum IC_CLASSES (line 155)"
+meaning = "The stoichiometric basis of the system: a sorted list of independent component names (chemical elements and non-element components), a class code per component, and a molar mass per component."
+subject = "one independent component; keyed by name (up to 5 characters, Zz last for charge in aqueous systems)"
+fields = [
+  { name = "ICNL", meaning = "names; 'Zz' is the electric charge and must be last; names such as 'Nit' denote an element decoupled from the same element in another role (atmospheric nitrogen in N2 gas against dissolved nitrogen)", unit = "not applicable", shape = "list", role = "input" },
+  { name = "ccIC", meaning = "class codes: e chemical element, o oxygen, h hydrogen, p protium, d deuterium, t tritium, f formula unit, m metal ion, l ligand, a additional (unknown stoichiometry), i isotope, q oxygen-16, r oxygen-18, z charge, v volume, s sorption site; the examples use e, h, o, z", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "ICmm", meaning = "molar mass of the component", unit = "kg/mol in the current writer (example 0.0120108 for C); the bundled documentation says g/mol", shape = "list", role = "input" },
+]
+origin = "generated (from the exporting system's IComp records)"
+conventions = "charge is a component in the balance (the last column of the matrix A); 'h' and 'o' codes mark the components used to form H+ and OH- and water balances; the code letters drive mass-balance and solvent logic in the minimiser"
+absence = "no mass for Zz is meaningful (value 0)"
+validity = "not stated"
+provenance = "none in the file"
+count = "7 to 12 per system in the examples; 21 systems"
+example = "node-gem-build/tp_test/CalcColumn-dch.dat (ICNL: C Ca Cl H Mg O Zz)"
+candidate = "conserved_quantity, element"
+precision = "close"
+loss = "Components that are not elements (Nit, Zz, volume, sorption site, isotopes, formula units) are in one list with elements; the model's conserved_quantity covers them by kind (element, charge, site_total) but has no volume or formula-unit kind, and 'decoupled element' semantics (Nit) are carried only by the name and the A column."
+
+[[construct]]
+name = "dependent components and the formula matrix (DCNL, ccDC, DCmm, A)"
+locator = "datach_formats.cpp (lines 148-154); m_const_base.h enum DC_CLASSES (line 175)"
+meaning = "The species (dependent components) of the system as columns of the matrix A of moles of each independent component per mole of species, with a name, a class code and a molar mass per species."
+subject = "one dependent component (a species form in one phase; the same substance in two phases appears twice with different names or class codes); keyed by name (up to 16 characters, letters, digits and @ - + = _)"
+fields = [
+  { name = "DCNL", meaning = "names ordered by phase: aqueous species first, then water, gases, condensed solution end members, sorption components, pure phases; the suffix @ marks aqueous neutral species (H2O@, CO2@) and gas species have a bare name", unit = "not applicable", shape = "list", role = "input" },
+  { name = "ccDC", meaning = "class codes drive the equations used: S aqueous species, T aqueous H+, E electron, K surface complex as aqueous species, W water solvent, L other solvent component; gases G, V H2O vapour, C CO2, H H2, N N2; solution end members I ideal, J minor independent, M major independent, F minor dependent, D major dependent; sorption Q, P, R carrier, digits 0-9 surface complexes by site type, A and B exchange ions, X, Y, Z one-site aliases, U SCM species; O pure condensed phase (found in examples: S 482, O 179, G 48, T 21, W 21, J 18, M 18)", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "DCmm", meaning = "molar mass of each species", unit = "kg/mol (current writer); the documentation says g/mol", shape = "list", role = "computed" },
+  { name = "A", meaning = "stoichiometry matrix of nDC rows and nIC columns, expanded formula per species, last column the charge in aqueous systems; non-integer entries occur (0.75, 3.75 for surface species)", unit = "mole of component per mole of species", shape = "table", role = "input" },
+]
+origin = "generated"
+conventions = "the matrix A with its charge column is the formula matrix; the species formula is not stored, only its expansion over the components; the order of species must follow phases and the order within a phase is the order of the phase's species"
+absence = "a zero in A means the component is absent from the species; DCmm may be absent (the code then computes it from A and ICmm, per the documentation) and is flagged as computed"
+validity = "not stated"
+provenance = "none"
+count = "787 dependent components in the 21 examples"
+example = "node-gem-build/tp_test/CalcColumn-dch.dat (DCNL of 28 species)"
+candidate = "species_form, species, composition, system_member"
+precision = "close"
+loss = "No formula text and no charge separate from the matrix column; the species class code mixes phase type and role (solvent, electron, carrier, surface-complex site type); identity of a substance across phases is lost (names differ by convention, the gas CO2 and the aqueous CO2@)."
+
+[[construct]]
+name = "phases (PHNL, ccPH, nDCinPH)"
+locator = "datach_formats.cpp (lines 151-153); m_const_base.h enum PH_CLASSES (line 236)"
+meaning = "A phase is a named group of consecutive dependent components with an aggregate-state and model class code; the count vector states how many species each phase takes from the ordered species list."
+subject = "one phase in a chemical system; keyed by name (up to 16 characters)"
+fields = [
+  { name = "PHNL", meaning = "phase names in the required order: aqueous, gas, condensed solutions, sorption phases, pure phases", unit = "not applicable", shape = "list", role = "input" },
+  { name = "ccPH", meaning = "class: a aqueous electrolyte, g gas mixture, f fluid, p plasma, l non-electrolyte liquid, m silicate melt or non-aqueous electrolyte, x sorption phase, y poly-electrolyte, i ion exchange, z surface complexation, s condensed solid (also multicomponent), d dispersed solid, h condensed hydrocarbons (found: s 79, a 12, g 9)", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "nDCinPH", meaning = "number of species per phase; must sum to nDC", unit = "count", shape = "list", role = "input" },
+]
+origin = "generated"
+conventions = "the comment in m_const_base.h says the phase code 'defines standard state and reference scale of concentrations for components of this phase': aqueous uses molality for solutes with mole fraction of the solvent, gases partial pressure, solids mole fraction (inferred from the comment and the ipm_chemical code paths)"
+absence = "a phase with nDCinPH 1 is a pure phase; nPS counts the multicomponent ones; phases of the same substance in two forms are separate phases"
+validity = "not stated"
+provenance = "none"
+count = "3 to 21 phases in the 21 examples"
+example = "node-gem-build/tp_test/CalcColumn-dch.dat (PHNL: aq_gen gas_gen Graphite Calcite Dolomite-ord Portlandite Brucite)"
+candidate = "phase_definition, phase_model, system_member"
+precision = "close"
+loss = "A phase is an index range over a global species list with no separate membership relation; there is no structure (sublattices appear only as site data inside the IPM file), so the phase_structure of every phase must be inferred from its model code."
+
+[[construct]]
+name = "thermodynamic lookup grids (Ttol, TKval, Ptol, Pval, Psat, denW, denWg, epsW, epsWg, V0, G0, H0, S0, Cp0, A0, U0, DD)"
+locator = "datach_formats.cpp (lines 155-172)"
+meaning = "Standard-state thermodynamic data of every species on a temperature-pressure grid, with the density and dielectric constant of water (liquid and vapour) and saturation pressure on the same grid, and tolerances that decide when to reinterpolate."
+subject = "the chemical system at grid points (measurement-point-like); data per species per grid point"
+fields = [
+  { name = "TKval, Pval", meaning = "grid temperatures and pressures (nTp and nPp values); for mLook 1 the list holds nTp (T,P) pairs", unit = "K and Pa in the current writer (example 310.15 and 100000); the documentation says C and bar", shape = "list", role = "input" },
+  { name = "Ttol, Ptol", meaning = "tolerance below which a new (T, P) reuses data (0.1 K and 50000 Pa in the example)", unit = "K and Pa (code comments)", shape = "scalar", role = "input" },
+  { name = "G0", meaning = "molar Gibbs energy function g(T,P) of each species, array nDC x nPp x nTp", unit = "J/mol", shape = "table", role = "input" },
+  { name = "V0", meaning = "standard molar volumes", unit = "J/Pa in the comment (which equals m3/mol; example -1.56e-5 for an aqueous ion and 0.0258 for a gas at 310 K)", shape = "table", role = "input" },
+  { name = "H0, S0, Cp0, A0, U0", meaning = "enthalpy, absolute entropy, heat capacity, Helmholtz energy and internal energy grids; present in the examples (H0, S0, Cp0) and read only by the node accessors DC_H0, DC_S0, DC_Cp0, DC_A0, DC_U0 (node2.cpp lines 419-509), not by the minimiser; A0 and U0 are marked reserved in the tag comments", unit = "J/mol, J/(K mol), J/(K mol), J/mol, J/mol", shape = "table", role = "input" },
+  { name = "DD", meaning = "reserved diffusion-coefficient grid", unit = "not stated", shape = "table", role = "unread" },
+  { name = "denW, denWg, epsW, epsWg", meaning = "density (kg/m3) and relative permittivity of liquid water and vapour with four derivatives each (array 5 x nPp x nTp)", unit = "kg/m3 and dimensionless", shape = "table", role = "input" },
+  { name = "Psat", meaning = "saturation pressure of water per temperature", unit = "Pa", shape = "list", role = "input" },
+]
+origin = "computed (from the exporting system's standard-state models; the DCH does not record which model or database produced the values)"
+conventions = "G0 is the standard-state Gibbs energy consistent with the exporting system's conventions (apparent energies in the GEMS sense); the file states no standard state, reference state or energy datum; species of an aqueous phase are referred to the solvent in molality scale (see conventions)"
+absence = "the optional grids may be absent; iGrd documents 'V0 and G0 only' through 'V0, G0, H0, S0, Cp0', but the examples carry all five"
+validity = "the grid bounds plus the tolerances Ttol and Ptol; outside them (or, with mLook 1, away from every listed pair) check_TP returns an error message and the accessors return the sentinel 7777777 (datach_api.cpp line 46; node2.cpp line 412); the older documentation says the value is moved to the nearest border"
+provenance = "none in the file; the producing software is in the header"
+count = "21 files; grids 1x1 to 101x101"
+example = "node-gem-build/tp_test/CalcColumn-dch.dat (V0, G0 of 28 species at 310.15 K and 1e5 Pa)"
+candidate = "tabulated_function, parameter_set (forms tabulated standard-state properties), datum"
+precision = "close"
+loss = "Values are evaluations, not parameters: the defining model and its data are not in the file, so they are facts about the system at points and carry no uncertainty; they fit tabulated_function only with an interpolation rule (Lagrange interpolation with 5 points in P and T: LagranInterp in node2.cpp) and no units per array other than those in comments."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS: IPM
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "IPM numerical controls and flags"
+locator = "GEMS3K/ms_multi_format.cpp MULTI_static_fields (line 59) and MULTI_dynamic_fields (line 70)"
+meaning = "Flags that change memory allocation (electroneutrality pa_PE, volume balance PV, sorption counts Lads, FIa, FIat) and about 50 numerical controls and cutoffs of the GEM IPM-3 kernel, each with a documented default in the comment text."
+subject = "a solver run (one per chemical system definition)"
+fields = [
+  { name = "pa_PE, PV, PSOL, PAalp, PSigm, Lads, FIa, FIat", meaning = "electroneutrality flag; volume balance flag; liquid hydrocarbon species count (0, reserved); use of phase surface area and surface energies; sorption counts", unit = "flags and counts", shape = "scalar", role = "input" },
+  { name = "pa_DB, pa_DHB, pa_EPS, pa_DK, pa_DF, pa_DFM, pa_DP, pa_IIM", meaning = "minimum amount of a component 1e-17 mol; relative mass-balance residual 1e-13; simplex residual tolerance 1e-10; Dikin criterion 1e-6 (examples use 4e-5); stability tolerances 0.01; maximum refinement iterations 130; maximum IPM iterations 7000", unit = "mol and dimensionless", shape = "scalar", role = "input" },
+  { name = "pa_PD, pa_PRD, pa_AG, pa_DGC, pa_PSM, pa_PC, pa_GAR, pa_GAH, pa_DW, pa_DT, pa_GAS, pa_DG, pa_PLLG, pa_PSTALL", meaning = "mode of activity-coefficient calculation 2; speciation-cleanup control -5; smoothing parameters; diagnostic level; phase selection mode 2; starting activity coefficients 1 and 1000; MBR iteration error switch; mass-balance cutoff mode; primal-dual threshold 0.001; total moles for rescaling 1000; divergence check 30000; stall detection switch", unit = "flags, dimensionless, mol", shape = "scalar", role = "input" },
+  { name = "pa_XwMin, pa_ScMin, pa_DcMin, pa_PhMin, pa_ICmin, pa_DS", meaning = "cutoff amounts: water 1e-13 mol, sorbent 1e-13, species 1e-33, other phases 1e-20, effective ionic strength 1e-5 molal for aqueous activity, phase 1e-20", unit = "mol; molal for pa_ICmin", shape = "scalar", role = "input" },
+  { name = "pa_DFYw, pa_DFYaq, pa_DFYid, pa_DFYr, pa_DFYh, pa_DFYc, pa_DFYs", meaning = "insertion amounts (1e-5 mol, 1e-6 for pa_DFYs) for species classes at the simplex-to-refinement bridge", unit = "mol", shape = "scalar", role = "input" },
+  { name = "pa_DNS, pa_IEPS", meaning = "standard surface number density 12.05 nm-2 and tolerance 0.001 for surface activity terms", unit = "nm-2; dimensionless", shape = "scalar", role = "input" },
+  { name = "pKin, pa_DKIN", meaning = "flag using metastability constraints in the primal solution (1); tolerance 1e-10 mol for nontrivial constraints", unit = "flag; mol", shape = "scalar", role = "input" },
+  { name = "tMin, dcMod, mui, muk, muj", meaning = "type of thermodynamic potential to minimise (reserved); per-species correction codes (reserved); indices into the parent GEM-Selektor lists (unused standalone)", unit = "not applicable", shape = "list", role = "unread" },
+]
+origin = "authored (defaults from the GEM IPM-3 algorithm); the values in a file are the exporting run's settings"
+conventions = "defaults are given in braces in the comment of each tag; the same names are JSON keys in the JSON dialect"
+absence = "tags with default values may be omitted when written in brief mode; a missing tag gets its default"
+validity = "not stated; the documentation gives ranges in comment text (for example 'PD: 2')"
+provenance = "none"
+count = "8 static and 81 dynamic tags declared; about 50 scalar controls written per file"
+example = "tools-build/solvus-kv/series1-ipm.dat"
+candidate = "none"
+precision = "unmapped"
+loss = "Solver tolerances and algorithmic switches are execution settings, not domain facts; they need a solver-options concept that the model does not have."
+
+[[construct]]
+name = "phase-model arrays (sMod, LsMod, LsMdc, LsMdc2, IPxPH, PMc, DMc, MoiSN, DQFc, PhLin, lPhc, LsPhl)"
+locator = "ms_multi_format.cpp (lines 365-420); s_solmod.h SolutionData (line 82); m_const_base.h enum solmod_switches (line 74)"
+meaning = "How each multicomponent phase's solution or equation-of-state model is selected and parameterised: an 8-character code string per phase, the dimensions of its parameter tables, a collected index table of the species combination each interaction parameter belongs to, a collected table of interaction parameter coefficients, per-species parameter tables, site-multiplicity tables for multisite models, DQF (Darken quadratic) parameters, and links between phases."
+subject = "one multicomponent phase (a phase with nDCinPH > 1 or a solution class); interaction parameters are keyed by an index tuple of species positions in the phase (order 2 binary, 3 ternary, with a 4th column of parameter-type code in the Pitzer model)"
+fields = [
+  { name = "sMod", meaning = "8 characters per multicomponent phase: position 0 model code (see model code vocabulary), position 3 'S' built-in activity-coefficient mode or 'I' ideal, other positions N in the examples; older files carry 6 characters", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "LsMod", meaning = "three integers per phase: number of interaction parameters (rows of IPxPH), maximum parameter order (columns of IPxPH), coefficients per interaction parameter (columns of PMc)", unit = "count", shape = "list", role = "input" },
+  { name = "LsMdc", meaning = "three integers per phase: number of parameters per species; for multisite models number of sublattices and number of moieties", unit = "count", shape = "list", role = "input" },
+  { name = "IPxPH", meaning = "collected index lists of species positions (or for Pitzer positions plus a type code) for each interaction parameter; unused index entries -1 in the documentation", unit = "index", shape = "list", role = "input" },
+  { name = "PMc", meaning = "collected interaction-parameter coefficient rows; meaning of the coefficients depends on the model (see model families)", unit = "model-specific", shape = "list", role = "input" },
+  { name = "DMc", meaning = "collected per-species parameters (one or more per species of the phase)", unit = "model-specific", shape = "list", role = "input" },
+  { name = "MoiSN", meaning = "end-member moiety and site-multiplicity tables of multisite models (species x sublattice x moiety)", unit = "site multiplicity", shape = "table", role = "input" },
+  { name = "LsMdc2, DQFc", meaning = "dimensions and values of the DQF parameters of species (4 coefficients: mole fraction at the transition and a, b, c of G = a + b T + c P, binary Margules only)", unit = "J/mol terms", shape = "list", role = "input" },
+  { name = "LsPhl, PhLin, lPhc", meaning = "number of phase links and their parameters, indices of linked phases with link-type codes, link parameter values; arrays exist in the format but are empty in every example", unit = "count, index", shape = "list", role = "unread" },
+]
+origin = "generated (assembled from the exporting system's Phase records)"
+conventions = "the codes are single characters defined in m_const_base.h; all tables for all phases are concatenated and the dimensions in LsMod and LsMdc tell where each phase's block starts; zero interaction parameters are not stored; species indexes refer to positions within the phase"
+absence = "a phase without tables has zero dimensions; absent parameters mean zero interaction (default); a parameter table with fewer columns than a model reads causes the next row to be read (see discrepancies)"
+validity = "not stated"
+provenance = "none"
+count = "sMod strings: 6 distinct, 4 model codes used; 21 examples"
+example = "tools-build/solvus-kv/series1-ipm.dat (Van Laar phases)"
+candidate = "model_assembly, assembly_choice, parameter_set, constituent_array"
+precision = "close"
+loss = "A parameter row is a slot group whose subject is an index tuple, the row's meaning depends on the model code in another array, and the 4th index column of Pitzer rows carries a parameter-kind code; the collected-array form hides the phase boundaries in dimension arrays, so the model must first split by LsMod and LsMdc."
+
+[[construct]]
+name = "metastability constraints and phase properties (RLC, RSC, DLL, DUL, fDQF, lnGmf, Pparc, B, Aalp, Sigw, Sigg, YOF)"
+locator = "ms_multi_format.cpp MULTI_dynamic_fields (lines 75-92)"
+meaning = "Per-species metastability restrictions with their code and unit (lower and upper limits on amounts), pure-fluid or DQF corrections, total bulk composition, and per-phase specific surface areas and surface energies."
+subject = "a species (constraints) or a phase (surface data); B is the bulk composition in moles of independent components"
+fields = [
+  { name = "RLC, RSC", meaning = "constraint code per species: L lower, U upper, B both (default); unit code M for moles", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "DLL, DUL", meaning = "lower (default 0) and upper (default 1e6) limits on species amounts", unit = "mol", shape = "list", role = "input" },
+  { name = "fDQF, Pparc, lnGmf", meaning = "DQF parameters or pure gas fugacities (J/mol divided by RT); partial pressures or fugacities of pure components (reserved); logarithms of activity coefficients used only in the simplex start", unit = "dimensionless; bar (inferred); dimensionless", shape = "list", role = "input" },
+  { name = "B", meaning = "total bulk composition, to be overwritten from node files", unit = "mol of independent component", shape = "list", role = "computed" },
+  { name = "Aalp, Sigw, Sigg, YOF", meaning = "specific surface area (m2/g), surface free energy to water and gas (J/m2), surface free energy parameter in J/g", unit = "m2/g, J/m2, J/g", shape = "list", role = "input" },
+]
+origin = "authored"
+conventions = "metastability constraints are two-sided (the README says 'two-sided metastability constraints') and are applied in the primal GEM solution when pKin is 1"
+absence = "defaults 0 and 1e6 mol when a limit is absent"
+validity = "not stated"
+provenance = "none"
+count = "all 21 examples carry the arrays (values are defaults in most)"
+example = "tools-build/solvus-kv/series1-ipm.dat"
+candidate = "none (constraint data) and parameter_set for phase surface data"
+precision = "unmapped"
+loss = "Constraints on amounts are state specifications, not model parameters; the model's equilibrium specs belong to the calculation, not to the knowledge base."
+
+[[construct]]
+name = "sorption and surface-complexation arrays"
+locator = "ms_multi_format.cpp MULTI_dynamic_fields (lines 93-104) and writer lines 425-470"
+meaning = "Parameters of sorption phases: surface-site fractions and densities per surface type (Nfsp, MASDT), capacitance densities (C1, C2, C3), permanent surface charge (pCh), a table of surface species allocation (SATX: surface type, sorbent end member, site, electrostatic plane), species isotherm and density parameters (MASDJ: six per species), electrostatic model codes per surface type (SCM), activity-term codes per species (SACT), species class (DCads), and collected isotherm and EIL coefficient arrays (IsoPc, IsoSc, IsoCt, EImc, mCDc, LsISmo, LsESmo, xSMd)."
+subject = "a sorption phase (up to 6 surface types) and its surface species"
+fields = [
+  { name = "SCM", meaning = "electrostatic model per surface type: D diffuse double layer, C constant capacitance, T triple layer, M CD-MUSIC, E extended triple layer, X non-electrostatic, I ion exchange, S basic Stern, 3 three-layer, P ISCCM, N unused", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "SACT", meaning = "surface activity-term method per species: C, N, S, I, L, Q, 1 to 4, f, B, W, F, R, P (Langmuir, QCA, Freundlich, BET, Virial, Frumkin, Pivovarov variants)", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "MASDT, C1, C2, C3, pCh", meaning = "maximum site density (mkmol/g), capacitances (F/m2), permanent charge (mkeq/m2) per surface type", unit = "mkmol/g, F/m2, mkeq/m2", shape = "table", role = "input" },
+  { name = "MASDJ", meaning = "six values per species: site density mmol/g, charge allocated to the 0 plane, to the beta or third plane, Frumkin interaction parameter, denticity, reserved", unit = "mmol/g and charge numbers", shape = "table", role = "input" },
+]
+origin = "authored"
+conventions = "sorption models of the examples are absent (Lads 0, FIa 0 in every example IPM file)"
+absence = "all sorption arrays are omitted when FIat is 0"
+validity = "not stated"
+provenance = "none"
+count = "0 of 21 examples use sorption"
+example = "ms_multi_format.cpp line 93 (no data example)"
+candidate = "site_class, site_occupant, parameter_set (forms for surface complexation)"
+precision = "close"
+loss = "No example data exist, so the layouts are known only from tag comments; the electrostatic model choice per surface type is a code letter."
+
+[[construct]]
+name = "kinetics and uptake arrays (kMod, LsKin, LsUpt, xSKrC, ocPRkC, feSArC, rpConC, apConC, AscpC, UMpcC, xICuC, PfFact)"
+locator = "ms_multi_format.cpp MULTI_dynamic_fields (lines 160-176) and writer lines 470-560; m_const_base.h enum ph_kinmet_controls (line 285)"
+meaning = "Parameters of phase kinetics (dissolution and precipitation as parallel reaction terms), uptake kinetics, and metastability links: six control codes per phase, counts of parallel reactions and of coefficients, collected rate constants, activity-product exponents, affinity-term operation codes and surface-area fractions, surface-area correction coefficients."
+subject = "a phase; parallel reactions within a phase (up to 4 faces or surface patches)"
+fields = [
+  { name = "kMod", meaning = "six characters per phase: process code (M dissolution and precipitation, U uptake, X ion exchange, A adsorption, P nucleation and precipitation, N none), model code (T generic TST after Schott 2012, P Palandri-Kharaka form, W Wolthers carbonate growth, U nucleation-growth), uptake/ion-exchange/adsorption code (E entrapment model of Thien-Kulik-Curti, M DePaolo, G Watson, F fast and L slow ion exchange, I inhibition, P Prieto nucleation), link code (S surface, P pore volume, M mass), particle-size distribution and surface-area correction code (T time, S saturation index, A area change, V volume change, M mass change, X amount change, U uniform, B binodal, F function), rate constant scaling code (A k in mol/m2/s, M kg/m2/s, V mol/m3/s, W kg/m3/s, F mol/s, G kg/s, L linear rate m/s)", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "LsKin", meaning = "six integers per phase: number of parallel reactions, species in activity products, parameter coefficients per parallel reaction, parameters per species, surface-area correction coefficients, crystal faces", unit = "count", shape = "list", role = "input" },
+  { name = "rpConC", meaning = "rate parameters per parallel reaction (0 or 12 plus 3 reserved coefficients per the code comment on nrpC); the variables that PRrateCon uses are k, K, p, q, m, u, the exponents of ionic strength, pH, pe and Eh, OmEff and GamN (inferred from that routine; the coefficient order is not established here)", unit = "rate constants in the unit selected by the scaling code", shape = "list", role = "input" },
+  { name = "ocPRkC", meaning = "affinity-term operation code per parallel reaction: 0 classic TST, 1 reversed TST, 2 Schott 2012, 3 Hellmann-Tisserand 2006, 4 Teng 2000 eq 13, 5 Teng 2000 fig 6, 6 Fritz 2009, 7 Hellevang 2013 nucleation", unit = "enum", shape = "enum", role = "input" },
+  { name = "apConC, xSKrC, feSArC, AscpC, UMpcC, xICuC, PfFact, LsUpt", meaning = "activity-product exponents, species indexes, surface-area fractions, surface correction coefficients, uptake coefficients, element indexes, phase form factors, uptake dimensions", unit = "dimensionless", shape = "list", role = "input" },
+]
+origin = "authored"
+conventions = "rates are computed per parallel reaction as a constant times a catalysis product times an affinity term times the surface-area fraction; dissolution uses k (net) or K (gross) depending on the sign of the saturation index"
+absence = "kMod N for phases without kinetics; all kinetics arrays are omitted when no phase has a kinetic model; none of the 21 examples has kinetics"
+validity = "not stated"
+provenance = "references in code comments (Schott 2012, Palandri 2004, Wolthers 2012, Thien et al. 2013, Hellmann and Tisserand 2006, Teng 2000, Fritz 2009, Hellevang 2013, Prieto 2013)"
+count = "0 of 21 examples use kinetics"
+example = "s_kinmet.h (no data example)"
+candidate = "parameter_set (family of parallel reactions), reaction"
+precision = "close"
+loss = "The parallel-reaction structure is a family of terms with shared surface-area fractions; the operation-code enum selects different affinity functions and needs a form per option."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS: DBR
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "DBR node: state, composition and results"
+locator = "GEMS3K/datach_formats.cpp DataBR_fields (line 54); databr.h DATABR"
+meaning = "The composition and state of one node (a reactive subsystem of the chemical system) as input to a GEM calculation, and its equilibrium results; the bulk composition is given in moles of independent components."
+subject = "a mixture state (one node at one time)"
+fields = [
+  { name = "NodeHandle, NodeTypeHY, NodeTypeMT, NodeStatusFMT, NodeStatusCH, IterDone", meaning = "node identity and status codes (NodeStatusCH values: NO_GEM_SOLVER 0, NEED_GEM_AIA 1, OK_GEM_AIA 2, BAD_GEM_AIA 3, and further PIA codes); IterDone is iterations of the last run", unit = "codes, count", shape = "enum", role = "metadata" },
+  { name = "TK, P", meaning = "node temperature and pressure; must always be provided", unit = "K and Pa (comments 'TK: Kelvin', 'P: Pa'); the old documentation has TC in degC and P in bar", shape = "scalar", role = "input" },
+  { name = "bIC", meaning = "bulk composition of the reactive subsystem in moles of independent components (the main input)", unit = "mol", shape = "list", role = "input" },
+  { name = "xDC, gam, dll, dul, aPH, amru, amrl, omPH", meaning = "species amounts and activity coefficients (input or output; used as a warm start), lower and upper metastability limits on species, specific surface areas of phases, upper and lower amount restrictions on multicomponent phases, phase stability indices (log10)", unit = "mol; dimensionless; mol; m2/kg; mol; log10", shape = "list", role = "input" },
+  { name = "Vs, Ms, Gs, IS, pH, pe, Eh, rMB, uIC, xPH, vPS, mPS, bPS, xPA, bSP", meaning = "results: volume (m3), mass (kg), total Gibbs energy in J/(RT), ionic strength (molal), pH, pe, Eh (V), mass-balance residuals, chemical potentials of components (J/(RT)), amounts of phases, volumes and masses of multicomponent phases, bulk composition of multicomponent phases, carrier amounts, solid-part composition", unit = "as stated", shape = "list", role = "computed" },
+  { name = "Vi, Mi, Hs, Hi, Tm, dt and the mass-transport block (Dif, Vt, vp, eps, Km, Kf, S, Tr, h, rho, al, at, av, hDl, hDt, hDv, nto)", meaning = "inert subsystem volume and mass, enthalpies (reserved), time and step, and transport properties (diffusivity, porosity, permeability, Darcy constant, hydraulic head, dispersivities, tortuosity)", unit = "m3, kg, J, s, m2/s, m/s and others as in the comments", shape = "scalar", role = "unread" },
+  { name = "mPH, vPH, m_t, con, mju, lga", meaning = "phase masses and volumes, total dissolved molalities, species concentrations, chemical potentials (J/mol) and log10 activities, written only in VTK-format output", unit = "kg, m3, molal, mixed, J/mol, log10", shape = "list", role = "computed" },
+]
+origin = "computed (results) and authored (inputs)"
+conventions = "Gs is in units of RT; chemical potentials uIC are for the independent components in J/(RT); concentrations are molality for aqueous species and mole fraction for others (con); T and P are fixed inputs: the code has no entropy, enthalpy or volume specification (Hs and Hi are reserved)"
+absence = "arrays may be omitted when equal to defaults in brief mode; xDC, gam and the limits are optional and their absence selects the automatic initial approximation; the mass-transport block is unused on the node level"
+validity = "not stated"
+provenance = "none"
+count = "61 declared DBR tags (38 written by the examples); 37 input and output nodes (26 key-value, 11 JSON) plus 37 pH-titration result nodes"
+example = "tools-build/Kaolinite-in/pHtitr-dbr-0-0000.dat"
+candidate = "sample, data_point, datum (as a result), composition"
+precision = "close"
+loss = "A node mixes inputs (bulk composition, T, P), warm-start state and results; its bulk composition is per independent component, not per species, so it is a composition in the conserved-quantity basis rather than a composition in species."
+
+[[construct]]
+name = "file set and list files, JSON dialect and binary form"
+locator = "GEMS3K/gems3k_impex.cpp; io_keyvalue.cpp, io_nlohmann.cpp, io_simdjson.cpp, gdatastream.cpp; tools/README.md"
+meaning = "A chemical system is stored as one DCH, one IPM and one or more DBR files named by a '-dat.lst' file (with format flag -t text, -j JSON, -b binary, -f with a ThermoFun JSON file) and a '-dbr.lst' file listing node files."
+subject = "a set of files"
+fields = [
+  { name = "<set>-dat.lst", meaning = "format flag and the file names of DCH, IPM, (ThermoFun JSON) and first DBR", unit = "not applicable", shape = "list", role = "input" },
+  { name = "JSON dialect", meaning = "each file is an array with one object {_key: '<set>-<type>', set, <type>: {tag: value}}; matrices are flat lists; the keys are the tags of the key-value form without angle brackets; a second, different dialect with '#' comments is in ThermoFun's GEMS4 test files", unit = "not applicable", shape = "table", role = "input" },
+]
+origin = "generated"
+conventions = "the JSON layout mirrors ArangoDB documents (as in ThermoHub), and the key-value layout carries comments and defaults"
+absence = "brief mode omits defaults"
+validity = "not applicable"
+provenance = "the file headers carry version stamps"
+count = "44 list files; 9 + 9 + 11 JSON files; 12 + 12 + 26 key-value files"
+example = "tools-build/Kaolinite-json/pHtitr-dch.json"
+candidate = "artifact, import_record"
+precision = "exact"
+loss = "none for the structure; the JSON dialect is not the one ThermoFun's GEMS4 export uses."
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES: fluids and ideal
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "TIdeal (ideal mixing, single-site and multisite)"
+locator = "GEMS3K/s_solmod3.cpp TIdeal (line 42); model code I"
+class = "residual_or_excess_contribution"
+inputs = "end-member mole fractions; for multisite, moiety site fractions"
+parameters = "species: for multisite, moiety site-multiplicity table MoiSN and site fractions SitFr; pure: none"
+composes = []
+variants = []
+equation_source = "none in the header; ideal configurational entropy per site"
+closed_form = "yes"
+data = "construct 'phase-model arrays'"
+
+[[model_family]]
+name = "TCGFcalc (Churakov-Gottschalk fluid EoS)"
+locator = "GEMS3K/s_solmod2.cpp TCGFcalc (line 871); model code F"
+class = "residual_or_excess_contribution"
+inputs = "T, P, mole fractions; fluid-type codes per species"
+parameters = "pure: 4 to 12 coefficients per species in DMc (documentation; the code reads the first four as the EoS parameters); fluid subroutine selected by per-species code (G generic, V H2O, C CO2, M CH4, T N2, H H2, O O2, A Ar, P polar, Q nonpolar, N off)"
+composes = []
+variants = []
+equation_source = "no reference in the header"
+closed_form = "implicit"
+data = "construct 'phase-model arrays' (no example uses it)"
+
+[[model_family]]
+name = "TPRSVcalc (Peng-Robinson-Stryjek-Vera fluid EoS)"
+locator = "GEMS3K/s_solmod2.cpp TPRSVcalc (line 51); model code P"
+class = "residual_or_excess_contribution"
+inputs = "T, P, mole fractions"
+parameters = "pure: Tc (K), Pc (bar), omega, k1, k2, k3 (six per species); pair: one constant or temperature-dependent kij per species pair in PMc"
+composes = []
+variants = [
+  { selector = "MixCode", selects = "mixing rule (switch at s_solmod2.cpp line 164): N or W van der Waals, C constant kij, T temperature-dependent kij (Jaubert et al. 2005 per the enum comment)" },
+]
+equation_source = "Stryjek and Vera (1986) (header)"
+closed_form = "implicit"
+data = "construct 'phase-model arrays'; in the tree only ThermoFun's datasets (PRSV records) carry parameters, none in the GEMS3K examples"
+
+[[model_family]]
+name = "TSRKcalc (Soave-Redlich-Kwong fluid EoS) and TPR78calc (Peng-Robinson 1978)"
+locator = "GEMS3K/s_solmod2.cpp TSRKcalc (line 2453), TPR78calc (line 3243); codes E and 7"
+class = "residual_or_excess_contribution"
+inputs = "T, P, mole fractions"
+parameters = "pure: Tc (K), Pc (bar), omega and an empirical parameter N (four per species); pair: one binary interaction parameter"
+composes = []
+variants = [
+  { selector = "MixCode", selects = "van der Waals mixing with constant or temperature-dependent kij" },
+]
+equation_source = "Soave (1972) and (1993); Peng and Robinson (1976) and (1978) (headers)"
+closed_form = "implicit"
+data = "construct 'phase-model arrays'"
+
+[[model_family]]
+name = "TCORKcalc (compensated Redlich-Kwong fluid EoS)"
+locator = "GEMS3K/s_solmod2.cpp TCORKcalc (line 4047); code 8"
+class = "residual_or_excess_contribution"
+inputs = "T, P, mole fractions; per-species fluid code from dcMod position 3 (H2O 'V', CO2 'C', otherwise generic)"
+parameters = "pure: critical and CORK coefficients per species in DMc"
+composes = []
+variants = []
+equation_source = "Holland and Powell (1991) (header)"
+closed_form = "implicit"
+data = "construct 'phase-model arrays'"
+
+[[model_family]]
+name = "TSTPcalc (Sterner-Pitzer H2O-CO2 fluid EoS)"
+locator = "GEMS3K/s_solmod2.cpp TSTPcalc (line 5011); code 6"
+class = "helmholtz_potential"
+inputs = "T, P, mole fractions of H2O and CO2"
+parameters = "pure: per-species fluid code (H2O or CO2) from dcMod; saturation pressure per species"
+composes = []
+variants = []
+equation_source = "Sterner and Pitzer (1994) (header)"
+closed_form = "implicit"
+data = "construct 'phase-model arrays'"
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES: condensed solution models
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "TVanLaar (multicomponent Van Laar, asymmetric)"
+locator = "GEMS3K/s_solmod3.cpp TVanLaar (line 125); code V"
+class = "residual_or_excess_contribution"
+inputs = "end-member mole fractions, T, P"
+parameters = "species: one size parameter (pseudo-volume) per end member in DMc; pair: three coefficients a, b, c of W = a + b T + c P in PMc (W_u, W_s, W_v)"
+composes = []
+variants = []
+equation_source = "Holland and Powell (2003) (header)"
+closed_form = "yes"
+data = "construct 'phase-model arrays' (used by the feldspar-solvus examples)"
+
+[[model_family]]
+name = "TRegular (multicomponent regular, symmetric)"
+locator = "GEMS3K/s_solmod3.cpp TRegular (line 342); code R"
+class = "residual_or_excess_contribution"
+inputs = "mole fractions, T, P"
+parameters = "pair: three coefficients a, b, c (W = a + b T + c P) per pair"
+composes = []
+variants = []
+equation_source = "Holland and Powell (1993) (header)"
+closed_form = "yes"
+data = "construct 'phase-model arrays'"
+
+[[model_family]]
+name = "TRedlichKister (multicomponent 4-term Redlich-Kister)"
+locator = "GEMS3K/s_solmod3.cpp TRedlichKister (line 528); code K (Guggenheim multicomponent)"
+class = "residual_or_excess_contribution"
+inputs = "mole fractions, T, P"
+parameters = "pair: 16 coefficients per pair: four orders, each with four coefficients (energy, entropy, heat capacity term, volume)"
+composes = []
+variants = []
+equation_source = "Hillert (1998) (header)"
+closed_form = "yes"
+data = "construct 'phase-model arrays'"
+
+[[model_family]]
+name = "TGuggenheim (binary Redlich-Kister, 3-term)"
+locator = "GEMS3K/s_solmod3.cpp TGuggenheim (line 1593); code G"
+class = "residual_or_excess_contribution"
+inputs = "end-member mole fractions of a binary"
+parameters = "pair: a0, a1, a2 (three constants; the code comment notes a bug fix for a1/a2 read order)"
+composes = []
+variants = []
+equation_source = "Anderson and Crerar (1993); Anderson (2006) (header)"
+closed_form = "yes"
+data = "construct 'phase-model arrays'"
+
+[[model_family]]
+name = "TMargules (ternary regular Margules) and TSubregular (binary subregular Margules)"
+locator = "GEMS3K/s_solmod3.cpp TMargules (line 1261), TSubregular (line 1411); codes T and M"
+class = "residual_or_excess_contribution"
+inputs = "mole fractions, T, P"
+parameters = "pair: Margules ternary: three pair parameters W12, W13, W23 (each a + b T + c P: nine coefficients) and one ternary term; subregular: W12 and W21 each with three coefficients; species: DQF parameters (four) for the subregular model"
+composes = []
+variants = []
+equation_source = "Anderson and Crerar (1993); Anderson (2006) (headers)"
+closed_form = "yes"
+data = "construct 'phase-model arrays'"
+
+[[model_family]]
+name = "TNRTL (non-random two-liquid) and TWilson"
+locator = "GEMS3K/s_solmod3.cpp TNRTL (line 781), TWilson (line 1052); codes L and W"
+class = "residual_or_excess_contribution"
+inputs = "mole fractions, T"
+parameters = "pair: NRTL six coefficients A..F per pair (two normalised interaction energies as A + B/T + C T + D ln T and the non-randomness alpha as E + F (T - 273.15)); Wilson four coefficients A..D (energy as exp[A + B/T + C T + D ln T])"
+composes = []
+variants = []
+equation_source = "Renon and Prausnitz (1968); Prausnitz et al. (1997) (headers)"
+closed_form = "yes"
+data = "construct 'phase-model arrays'"
+
+[[model_family]]
+name = "TBerman (multisite, microscopic interaction) and TCEFmod (compound energy formalism)"
+locator = "GEMS3K/s_solmod3.cpp TBerman (line 1711), TCEFmod (line 2496); codes B and $"
+class = "sublattice_gibbs"
+inputs = "moiety site fractions computed from end-member amounts, T, P, pure end-member standard Gibbs energies (arG0)"
+parameters = "species: end-member moiety site-multiplicity table (MoiSN), optional DC coefficient (first DMc column for CEF) and reciprocal terms; pair or multi-index: Wu, Ws, Wv (three coefficients, Berman) or Wu, Ws, Wc, Wv (CEF, the code reads four though it tests for three)"
+composes = [
+  { slot = "end-member standard Gibbs energies", accepts = "the G0 of the DCH lookup", default = "pm.G0 slice of the phase (fixed)" },
+]
+variants = [
+  { selector = "MixCode R", selects = "reciprocal non-ideality terms in the Berman multisite model" },
+]
+equation_source = "Wood and Nicholls (1978); Berman and Brown (1993) for TBerman; Sundman and Agren (1981); Lucas et al. (2006); Hillert (1998) for CEF (headers)"
+closed_form = "yes"
+data = "construct 'phase-model arrays'"
+
+[[model_family]]
+name = "TMBWmod (modified Bragg-Williams with short-range order)"
+locator = "GEMS3K/s_solmod3.cpp TMBWmod (line 3065); code #"
+class = "sublattice_gibbs"
+inputs = "moiety site fractions, T, P, end-member G0"
+parameters = "as TCEFmod (moieties on sublattices, Wu, Ws, Wc, Wv) plus ordering data"
+composes = [
+  { slot = "end-member standard Gibbs energies", accepts = "the G0 of the DCH lookup", default = "pm.G0 slice of the phase (fixed)" },
+]
+variants = []
+equation_source = "Vinograd et al. 2018, calcite-magnesite short-range ordering (header); the header marks the class 'TEST MODEL'"
+closed_form = "yes"
+data = "construct 'phase-model arrays'"
+
+[[model_family]]
+name = "TModOther (hard-coded models selected by phase name)"
+locator = "GEMS3K/s_solmod6.cpp TModOther (line 37); code O"
+class = "other"
+inputs = "phase name"
+parameters = "none"
+composes = []
+variants = []
+equation_source = "none: the feldspar and garnet branches are commented out"
+closed_form = "procedural"
+data = "none: every method returns 0 with its body commented out"
+
+[[model_family]]
+name = "TSCM_NEM (non-electrostatic surface complexation)"
+locator = "GEMS3K/s_sorpmod.cpp TSCM_NEM (line 34); code A"
+class = "adsorption"
+inputs = "amounts of surface species and sorbent on site types"
+parameters = "see the sorption arrays"
+composes = []
+variants = [
+  { selector = "MixCode N", selects = "non-electrostatic model (Coulombic terms zero); any other code makes EDLmod return 1 (unsupported)" },
+]
+equation_source = "none in the header"
+closed_form = "yes"
+data = "construct 'sorption and surface-complexation arrays' (no example)"
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES: aqueous
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "TDavies, TLimitingLaw, TDebyeHueckel (Debye-Hueckel family)"
+locator = "GEMS3K/s_solmod4.cpp TDavies (line 760), TLimitingLaw (line 1111), TDebyeHueckel (line 1438); codes D, 1 and 2"
+class = "electrolyte_interaction"
+inputs = "molalities, charges, T, P and the water density and permittivity arrays (denW, epsW with four derivatives)"
+parameters = "phase: flags in the first interaction-coefficient row: flagNeut (aIPc[2]: 0 unity, 1 calculated), flagH2O (aIPc[3]), Davies also flagMol (aIPc[5], molality scale correction); DebyeHueckel: ion size an and b_gamma per species in DMc (two per species), common a0 3.72 and b 0.064 in code; no other parameter for the limiting law"
+composes = [
+  { slot = "water density and permittivity", accepts = "lookup arrays denW and epsW from the DCH", default = "the arrays in the DCH (required)" },
+]
+variants = [
+  { selector = "TDavies", selects = "Davies equation with the 0.3 term" },
+  { selector = "TLimitingLaw", selects = "one-term limiting law" },
+  { selector = "TDebyeHueckel", selects = "two-term model with individual ion sizes" },
+]
+equation_source = "Langmuir (1997) for Davies and the limiting law; Helgeson et al. (1981) for the Debye-Hueckel class (headers)"
+closed_form = "yes"
+data = "construct 'phase-model arrays' (DNNSNNNN phases in 9 examples)"
+
+[[model_family]]
+name = "THelgeson, TKarpov, TShvarov (extended Debye-Hueckel with three-term forms)"
+locator = "GEMS3K/s_solmod4.cpp THelgeson (line 45), TKarpov (line 1899), TShvarov (line 2571); codes H, 3 and Y"
+class = "electrolyte_interaction"
+inputs = "molalities, charges, T, P, water density and permittivity arrays"
+parameters = "phase: b_gamma common (aIPc[0]), common ion size a0 (aIPc[1]), flagNeut (aIPc[2]), flagH2O (aIPc[3]), flagElect (aIPc[4]: 0 constant, 1 NaCl, 2 KCl, 3 NaOH, 4 KOH electrolyte for T-P-dependent b_gamma and a0); Karpov: individual ion sizes an and bg per species in DMc; Shvarov: a species bj parameter"
+composes = [
+  { slot = "water density and permittivity", accepts = "lookup arrays denW and epsW from the DCH", default = "the arrays in the DCH (required)" },
+]
+variants = [
+  { selector = "THelgeson (H)", selects = "common ion size and common b_gamma (example phase: 0.03, 3.72 A, flags 1 1 0)" },
+  { selector = "TKarpov (3)", selects = "individual ion sizes" },
+  { selector = "TShvarov (Y)", selects = "Shvarov's form" },
+]
+equation_source = "Helgeson et al. (1981); Oelkers and Helgeson (1990); Pokrovskii and Helgeson (1995; 1997a; 1997b) for THelgeson; Karpov et al. (1997), Helgeson et al. (1981), Oelkers and Helgeson (1990) for TKarpov; Shvarov (2007) and Oelkers and Helgeson (1990) for TShvarov (headers)"
+closed_form = "yes"
+data = "construct 'phase-model arrays' (HNNSNNNN phases in 5 examples)"
+
+[[model_family]]
+name = "TSIT (specific ion interaction)"
+locator = "GEMS3K/s_solmod5.cpp TSIT (line 44); code S"
+class = "electrolyte_interaction"
+inputs = "molalities, charges, ionic strength, water properties"
+parameters = "pair: two coefficients per pair (epsilon and a second coefficient for an ionic-strength dependence), index pair in IPxPH"
+composes = [
+  { slot = "water density and permittivity", accepts = "lookup arrays denW and epsW", default = "DCH arrays" },
+]
+variants = []
+equation_source = "none in the header (the documentation names the NEA TDB variant and Brønsted-Guggenheim-Scatchard)"
+closed_form = "yes"
+data = "construct 'phase-model arrays'"
+
+[[model_family]]
+name = "TPitzer (Pitzer HMW)"
+locator = "GEMS3K/s_solmod5.cpp TPitzer (line 425); code Z"
+class = "electrolyte_interaction"
+inputs = "molalities, charges, T, P, water properties; species classified into cations, anions and neutrals"
+parameters = "pair and triple: beta0, beta1, beta2, Cphi, lambda (neutral-cation and neutral-anion), theta, psi, zeta, eta, alpha1, alpha2 with type codes beta0 -10, beta1 -11, beta2 -12, Cphi -20, Lam -30, Lam1 -31, Lam2 -32, Theta -40, Theta1 -41, Psi -50, Psi1 -51, Zeta -60, Eta -70, Eta1 -71, Alp1 -80, Alp2 -81 in the 4th column of IPxPH; coefficients per parameter: 5, 6 or 8 depending on NPcoef"
+composes = [
+  { slot = "temperature dependence of each parameter", accepts = "5-term, 6-term or 8-term temperature function chosen by the number of coefficients", default = "none: any other count is an error" },
+]
+variants = [
+  { selector = "NPcoef 5", selects = "c0 + c1 (1/T - 1/Tr) + c2 ln(T/Tr) + c3 (T - Tr) + c4 (T^2 - Tr^2)" },
+  { selector = "NPcoef 6", selects = "adds c5 (1/T^2 - 1/Tr^2)" },
+  { selector = "NPcoef 8", selects = "c0 + c1 T + c2/T + c3 ln T + c4/(T - 263) + c5 T^2 + c6/(680 - T) + c7/(T - 227)" },
+]
+equation_source = "no citation in the header ('References:' empty); alpha values equal those of the PHREEQC Pitzer implementation per the documentation"
+closed_form = "yes"
+data = "construct 'phase-model arrays'"
+
+[[model_family]]
+name = "TEUNIQUAC (extended UNIQUAC) and TELVIS (modified extended UNIQUAC)"
+locator = "GEMS3K/s_solmod5.cpp TEUNIQUAC (line 2355), s_solmod4.cpp TELVIS (line 3235); codes Q and J"
+class = "electrolyte_interaction"
+inputs = "molalities, charges, T, P, water properties"
+parameters = "species: r and q (two per species in DMc for EUNIQUAC; at least 13 per species for ELVIS); pair: u0 and u1 with u = u0 + u1 (T - 298.15) per species pair (EUNIQUAC)"
+composes = [
+  { slot = "water density and permittivity", accepts = "lookup arrays denW and epsW", default = "DCH arrays" },
+]
+variants = [
+  { selector = "TELVIS", selects = "modified model with temperature-dependent radii and coordination numbers; no header citation" },
+]
+equation_source = "Nicolaisen et al. (1993), Thomsen et al. (1996), Thomsen (2005) for EUNIQUAC (header)"
+closed_form = "yes"
+data = "construct 'phase-model arrays'"
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES: sorption, kinetics, engine
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "TSorpMod, TSurfSiteMod and TNEMcalc (sorption phase models)"
+locator = "GEMS3K/s_sorpmod.h (classes at lines 56, 212, 367); s_sorpmod.cpp"
+class = "adsorption"
+inputs = "surface species amounts, site densities, electrostatic model per surface type"
+parameters = "see the sorption arrays: capacitances, site densities, isotherm coefficients"
+composes = [
+  { slot = "electrostatic model per surface type", accepts = "SCM code (D, C, T, M, E, X, I, S, 3, P, N)", default = "N (not used)" },
+  { slot = "surface activity term per species", accepts = "SACT code (C, N, S, I, L, Q, 1-4, f, B, W, F, R, P)", default = "none" },
+]
+variants = []
+equation_source = "none in the headers"
+closed_form = "implicit"
+data = "construct 'sorption and surface-complexation arrays'; s_sorpmod.cpp is 142 lines, TNEMcalc declares the model while only TSCM_NEM is constructed by the dispatch (ipm_chemical3.cpp line 869)"
+
+[[model_family]]
+name = "TKinMet kinetics and metastability (parallel reactions, affinity terms, surface area correction)"
+locator = "GEMS3K/s_kinmet.cpp TKinMet (line 42), PRrateCon (line 650); s_kinmet.h"
+class = "kinetics"
+inputs = "phase amount, stability index, T, P, ionic strength, pH, pe, Eh, current time, surface area of the phase"
+parameters = "see the kinetics arrays: per parallel reaction the constants k and K, exponents p, q, m, u, catalysis product over species, pH, ionic-strength, pe and Eh exponents, affinity-term code and effective saturation, surface-area fractions, nucleation parameter"
+composes = [
+  { slot = "affinity term", accepts = "operation code 0 to 7 (classic, reversed, Schott 2012, Hellmann-Tisserand 2006, Teng 2000, Fritz 2009, Hellevang 2013)", default = "0 classic TST" },
+]
+variants = [
+  { selector = "TMWReaKin, TUptakeKin, TIonExKin, TAdsorpKin, TNucleKin", selects = "subclass per process code: dissolution and precipitation (empty shell returning false), uptake (implemented: TUptakeKin init and mod at lines 1287 and 1314), ion exchange, adsorption and nucleation (declared with only destructors)" },
+]
+equation_source = "see the code comments (Schott et al. 2012, Palandri and Kharaka 2004, Thien et al. 2013 and others in m_const_base.h)"
+closed_form = "procedural"
+data = "construct 'kinetics and uptake arrays'"
+
+[[model_family]]
+name = "GEM IPM-3 equilibrium engine"
+locator = "GEMS3K/ipm_main.cpp, ipm_simplex.cpp, ipm_chemical*.cpp, ms_multi*.cpp, node.cpp"
+class = "other"
+inputs = "bulk composition (moles of independent components), T, P, species limits and standard-state grids"
+parameters = "the numerical controls of the IPM file"
+composes = [
+  { slot = "activity coefficients per multicomponent phase", accepts = "TSolMod subclass chosen by the model code", default = "ideal for phases without a model (code I) and none for single-component phases" },
+  { slot = "standard-state data", accepts = "DCH lookup grids or a ThermoFun engine (-f mode)", default = "DCH grids" },
+  { slot = "kinetic and metastability constraints", accepts = "TKinMet instance per phase", default = "none" },
+]
+variants = [
+  { selector = "automatic initial approximation (AIA) versus smart initial approximation (PIA)", selects = "a linear-programming (simplex) start from the bulk composition versus a start from a previous node's speciation" },
+]
+equation_source = "Karpov et al. (1997) IPM Gibbs minimisation per the solver id 'IPM3-Karpov' in the numerical settings of ThermoFun's GEMS4 test; the header cites the JAMA/TNT linear algebra libraries"
+closed_form = "implicit"
+data = "no data of its own; uses the DCH, IPM and DBR constructs"
+
+# ---------------------------------------------------------------------------
+# CONVENTIONS
+# ---------------------------------------------------------------------------
+
+[[convention]]
+name = "independent-component basis and species"
+locator = "DCH ICNL, ccIC, A; m_const_base.h enum IC_CLASSES"
+statement = "Species are not stored with formulas: each is a row of the stoichiometry matrix over independent components (elements, hydrogen and oxygen by class, a charge component, optional formula-unit, volume, isotope and site components); the mass-balance constraints of the minimiser are exactly A^T n = b over these components, and the charge row with pa_PE set to 1 enforces electroneutrality."
+scope = "all systems"
+
+[[convention]]
+name = "units of the file formats"
+locator = "datach_formats.cpp comments; ms_multi_format.cpp comments"
+statement = "Temperature in K (TK, TKval), pressure in Pa (P, Pval), molar masses in kg/mol (ICmm, DCmm), standard volumes in J/Pa (m3/mol), Gibbs energies in J/mol, and the total Gibbs energy and component chemical potentials in J/(RT); amounts in mol, masses in kg, volumes in m3, specific surface area in m2/kg in DBR (m2/g in the IPM file); the gas constant is 8.31451 J/(mol K) and the Faraday constant 96485.309 C/mol in the TSolMod classes."
+scope = "current file writer; the bundled documents state older units"
+
+[[convention]]
+name = "concentration scales and reference states"
+locator = "m_const_base.h enum PH_CLASSES comment (line 233); ipm_chemical.cpp activity code"
+statement = "The phase class code 'defines standard state and reference scale of concentrations': solutes of an aqueous phase are on the molality scale referred to the solvent (water 55.50837344 mol/kg, ln55.51 kept in the work structure), water and non-aqueous components on the mole-fraction scale, gases by partial pressure in bar, pure condensed phases unity; the DCH states none of this and the standard-state Gibbs energy grid G0 must be consistent with it (inferred from the code paths; the files do not declare the standard-state kind)."
+scope = "all phases"
+
+[[convention]]
+name = "species order and naming"
+locator = "DCH section comments and DCNL"
+statement = "Species must be ordered by phase in a fixed order (aqueous, gas, condensed solutions, sorption, pure phases); aqueous neutral species end in @; names may not contain spaces; independent component names are at most 5 characters and start with a capital letter; 'Zz' is reserved for charge."
+scope = "DCH files"
+
+[[convention]]
+name = "interpolation and lookup"
+locator = "DCH mLook, Ttol, Ptol; node.cpp"
+statement = "With mLook 0 the standard-state arrays are interpolated over the nTp x nPp grid by Lagrange interpolation with five points (LagranInterp, node2.cpp); with mLook 1 the nTp entries are (T, P) pairs used without interpolation and a (T, P) must match one pair within Ttol and Ptol; a (T, P) within the tolerances of a grid point uses that point; outside the grid plus tolerance the accessors return 7777777 and check_TP reports an error."
+scope = "standard-state data"
+
+# ---------------------------------------------------------------------------
+# SELECTION
+# ---------------------------------------------------------------------------
+
+[[selection]]
+name = "phase model selection"
+locator = "GEMS3K/ipm_chemical3.cpp SolModCreate (lines 456-870)"
+rule = "The character at position 0 of the phase's sMod string selects the TSolMod subclass by a switch over the phase class (aqueous, gas and fluid, condensed and sorption classes); a code that is not in the switch for its phase class leaves the phase without a model; codes declared but never constructed: 5 (PCSAFT), 9 (reference EoS fluid), C (mixed-solvent DH), X (Donnan), U (user-defined)."
+scope = "multicomponent phases"
+documented = "partly: the TSolMod documentation lists the codes of the aqueous, fluid and condensed groups but not the reserved ones"
+
+[[selection]]
+name = "standard-state data source"
+locator = "node.cpp; node.h (-f flag)"
+rule = "Standard-state data come from the DCH lookup grids by default; when the file set names a ThermoFun JSON file (flag -f, and the library not compiled with NO_THERMOFUN) a ThermoFun engine is used in place of interpolation."
+scope = "species standard-state properties"
+documented = "yes: node.h comments"
+
+[[selection]]
+name = "activity coefficient mode"
+locator = "sMod position 3; ipm_chemical.cpp line 578; pa_PD control"
+rule = "Position 3 of sMod set to I marks an ideal phase (no non-ideality call); S marks the built-in activity function; the control pa_PD chooses the overall mode (2 default) of activity-coefficient calculation."
+scope = "all multicomponent phases"
+documented = "partly"
+
+# ---------------------------------------------------------------------------
+# DISCREPANCIES
+# ---------------------------------------------------------------------------
+
+[[discrepancy]]
+locator = "Docs/txt/dch-dat-doc.txt, node-gem/doc/scm-dch-dat-doc.txt, Docs/txt/dbr-dat-doc.txt versus datach_formats.cpp and the example files"
+documented = "Temperature is given as Tval in C (DCH) and TC in degrees C (DBR), pressure in bar (Pval, P, Ptol in bar), atomic and molar masses in g/mol, molar volumes V0 in J/bar, interpolation tolerance Ttol in degrees and default 1, grid tags roW and epsW."
+actual = "The code and example files use TKval and TK in kelvin, Pval and P in pascal, ICmm and DCmm in kg/mol, V0 in J/Pa, denW and epsW with derivatives, and the extra tags mLook, Psat, denWg, epsWg, S0, Cp0, A0, U0 and DD."
+consequence = "A reader following the documents misreads every unit by a scale factor (for example 25 versus 298.15, 1 bar versus 1e5 Pa, 12 versus 0.012); units must be taken from the code comments."
+
+[[discrepancy]]
+locator = "Docs/txt/dch-dat-doc.txt and the DCH comment versus datach_api.cpp check_TP (line 46) and node2.cpp accessors"
+documented = "The documentation says a T or P beyond the interpolation interval is automatically replaced by the closest available value."
+actual = "check_TP returns an error message for T beyond the first or last grid value by more than Ttol (or for a pair outside the list when mLook is 1), and the node accessors return the sentinel 7777777 for such requests."
+consequence = "Out-of-range requests do not clamp; a caller must treat 7777777 as 'outside the validity of the tables'."
+
+[[discrepancy]]
+locator = "Docs/html/gems3k-tsolmod.html (Pitzer code table) versus s_solmod.h enum eTableType (line 1487)"
+documented = "The Pitzer parameter type codes run from -10 (beta0) to -60 (zeta) in the table."
+actual = "The code also defines Lam1 -31, Lam2 -32, Theta1 -41, Psi1 -51, Eta -70, Eta1 -71, Alp1 -80 and Alp2 -81."
+consequence = "Parameter rows of the extra types are not documented; the alpha parameters can be read from data as well as defaulted."
+
+[[discrepancy]]
+locator = "s_solmod4.cpp THelgeson constructor (line 45) versus the LsMod shape"
+documented = "Interaction coefficient rows are NPar x NPcoef (the example has 2 x 4)."
+actual = "The Helgeson and Karpov constructors read five phase-level values aIPc[0] to aIPc[4] from the table; with NPcoef 4 the fifth value (flagElect) is the first element of the second row."
+consequence = "The layout of the phase-level parameters is a convention that does not follow the declared table shape; flagElect depends on how the second row is filled."
+
+[[discrepancy]]
+locator = "s_solmod3.cpp TCEFmod::PTparam and TMBWmod::PTparam versus their size test"
+documented = "The constructors test for NPcoef < 3 (a comment says three parameters are the default)."
+actual = "Both read four coefficients per parameter (Wu, Ws, Wc, Wv at offsets 0 to 3); with NPcoef 3 the fourth is the first coefficient of the next row."
+consequence = "A three-coefficient table is misread silently for all but the layout the code expects."
+
+[[discrepancy]]
+locator = "s_solmod6.cpp TModOther and m_const_base.h SM_OTHER"
+documented = "Code O selects 'other built-in phase-specific models of non-ideal solutions (selected by phase name)'."
+actual = "TModOther's methods return 0 with all model bodies commented out; the feldspar and garnet branches do not execute."
+consequence = "A phase with model code O computes no activity-coefficient terms."
+
+[[discrepancy]]
+locator = "s_solmod.h TMBWmod header (line 1290) and ipm_chemical3.cpp line 855"
+documented = "TMBWmod is constructed for code #."
+actual = "The class header marks it 'TEST MODEL'; its reference is Vinograd et al. 2018."
+consequence = "The model is experimental; no example uses it."
+
+[[discrepancy]]
+locator = "GEMS3K/gems3k_version.h versus the pinned tag"
+documented = "The pin is tag v4.6.1."
+actual = "gems3k_version.h states GEMS3K_VERSION 4.5.5, hash 9f5d032, ThermoFun 0.6.0 and ChemicalFun 0.1.13; example file headers state GEMS3K v.3.3."
+consequence = "File headers and the library version are not evidence of the pinned behaviour; written files carry the writer's version stamp."
+
+[[discrepancy]]
+locator = "files written by older releases (sMod of 6 characters) versus ms_multi_format.cpp (8)"
+documented = "The sMod array holds one code string per multicomponent phase."
+actual = "Examples have strings of 6 characters ('DNNSNN', 'INNINN', in 3 files) and 8 characters ('DNNSNNNN' and others) in the rest."
+consequence = "A reader must accept both lengths; the two trailing positions are link and sorption or kinetics controls added later."
+
+[[discrepancy]]
+locator = "DCH example series1-dch.dat in tools-build versus the mixed-solvent aqueous models in s_solmod.h"
+documented = "Codes exist for TELVIS and a mixed-solvent model (C, reserved)."
+actual = "Code C (SM_AQMIX) has no class; code J selects TELVIS; the TELVIS header cites no publication and needs at least 13 per-species parameters (it returns an error below NP_DC 2 and uses indices up to +13)."
+consequence = "Mixed-solvent and ELVIS data cannot be interpreted from the tree alone."
+
+# ---------------------------------------------------------------------------
+# CAPABILITIES
+# ---------------------------------------------------------------------------
+
+[[capability]]
+calculation = "gibbs_minimization"
+offered = "yes"
+scope = "equilibrium at fixed T and P for a fixed bulk composition in moles of independent components by an interior-point method (IPM-3) with two-sided metastability constraints on species amounts (DLL, DUL, RLC) and on multicomponent phase amounts (amrl, amru), electroneutrality through the charge component, a linear-programming start and a mass-balance refinement; phases of the system are chosen by phase selection (pa_PC) with automatic insertion and removal"
+locator = "GEMS3K/ipm_main.cpp; ipm_simplex.cpp; node.cpp TNode::GEM_run"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_tp"
+offered = "yes"
+scope = "TP equilibrium of the defined chemical system (the only specification supported)"
+locator = "GEMS3K/node.cpp GEM_run; DBR TK and P inputs"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_ph"
+offered = "no"
+scope = "no enthalpy specification: Hs and Hi are reserved DBR fields and tMin (type of potential) is reserved"
+locator = "GEMS3K/datach_formats.cpp DataBR_fields; ms_multi_format.cpp tMin"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_ps"
+offered = "no"
+scope = "no entropy specification"
+locator = "GEMS3K/node.cpp"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_uv"
+offered = "no"
+scope = "no volume or internal-energy specification (a volume balance option PV constrains the volume at saturation pressure only)"
+locator = "GEMS3K/ms_multi_format.cpp PV"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "aqueous_speciation"
+offered = "yes"
+scope = "speciation in aqueous phases with Davies, limiting law, Debye-Hueckel, Helgeson, Karpov and Shvarov extended forms, SIT, Pitzer and extended UNIQUAC models; pH, pe, Eh and ionic strength as results"
+locator = "GEMS3K/s_solmod4.cpp, s_solmod5.cpp; DBR results"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "proposed:reaction_kinetics"
+offered = "partial"
+scope = "kinetic and metastability constraints through TKinMet for dissolution and precipitation as parallel reaction terms and for uptake into solid solutions; ion exchange, adsorption and nucleation kinetics classes are declared without implementation"
+locator = "GEMS3K/s_kinmet.cpp"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "proposed:sorption_equilibrium"
+offered = "partial"
+scope = "sorption phase data structures and electrostatic model codes exist; only the non-electrostatic surface-complexation class TSCM_NEM is constructed; no example exercises sorption"
+locator = "GEMS3K/s_sorpmod.cpp; ipm_chemical3.cpp line 869"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "bubble_dew_point"
+offered = "no"
+scope = "none"
+locator = "GEMS3K/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "phase_stability"
+offered = "partial"
+scope = "phase stability indices (omPH, log10 saturation index) are computed for phases and used in phase selection and insertion; no tangent-plane analysis for undeclared phases"
+locator = "GEMS3K/ipm_chemical*.cpp PhaseSelection; DBR omPH"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "critical_point"
+offered = "no"
+scope = "none"
+locator = "GEMS3K/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "phase_envelope"
+offered = "no"
+scope = "none"
+locator = "GEMS3K/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "characterization"
+offered = "no"
+scope = "none"
+locator = "GEMS3K/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "parameter_regression"
+offered = "no"
+scope = "none in this tree (the comment in ThermoFun's HKF code mentions GEMSFITS for mixed electrolytes, a separate code)"
+locator = "GEMS3K/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "group_estimation"
+offered = "no"
+scope = "none"
+locator = "GEMS3K/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "adsorption_mixture_prediction"
+offered = "partial"
+scope = "multi-site surface-complexation and ion-exchange phase models as the sorption models above, not isotherm-based mixture prediction"
+locator = "GEMS3K/s_sorpmod.cpp"
+evidence = "source_inspected"
+
+# ---------------------------------------------------------------------------
+# QUESTIONS
+# ---------------------------------------------------------------------------
+
+[[question]]
+about = "standard-state convention of the G0 grids"
+question = "Are the DCH G0 values apparent Gibbs energies of formation (Benson-Helgeson convention, as ThermoFun defaults), and what pressure and concentration scale do they assume for aqueous species and gases? The files state neither."
+why_it_matters = "The grid values are facts about the exporting system; combining them with another source's Gibbs energies requires the same datum."
+
+[[question]]
+about = "units and order of the PMc coefficient rows for each model"
+question = "For models with no example (PRSV, SRK, PR78, CORK, STP, CG, NRTL, Wilson, Margules, Berman, CEF, EUNIQUAC, ELVIS) what do DMc and PMc values denote in units (for example Wu in J/mol, Ws in J/(mol K), Wv in J/bar)?"
+why_it_matters = "Parameters cannot be loaded into typed slots without units, and only the Van Laar, Helgeson and Davies layouts have example data."
+
+[[question]]
+about = "position meanings of the 8-character sMod string"
+question = "What do positions 1, 2, 4, 6 and 7 of sMod encode (enum solmod_switches lists SPHAS_TYP, DCOMP_DEP, SPHAS_DEP, SGM_MODE, DCE_LINK, MIX_TYP and link modes) beyond positions 0 and 3?"
+why_it_matters = "MixCode (mixing rule) and link modes select model variants; the examples use only N for them."
+
+[[question]]
+about = "coverage of the examples"
+question = "Do any of the 21 example chemical systems include non-ideal gases, sorption phases or kinetics? The IPM files show only D, H, V and I phases and Lads = FIa = 0."
+why_it_matters = "Parameter layouts for fluids, sorption and kinetics can only be inferred from code comments; there is no data to verify them."
+
+[[question]]
+about = "TELVIS and mixed-solvent model data"
+question = "Which publication defines the ELVIS modified extended UNIQUAC parameters and are the 13 per-species coefficients radii polynomials?"
+why_it_matters = "The class has no citation in the header; it is the only mixed-electrolyte model in the tree."

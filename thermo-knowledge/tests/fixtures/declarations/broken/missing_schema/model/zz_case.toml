@@ -1,0 +1,11 @@
+module = "broken"
+uses = ["physical"]
+doc = "d"
+
+[kinds.k]
+doc = "d"
+identity = ["a"]
+provenance = "none"
+
+[kinds.k.attributes]
+a = { type = "Text", doc = "d" }

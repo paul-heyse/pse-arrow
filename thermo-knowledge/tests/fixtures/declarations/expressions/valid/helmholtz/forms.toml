@@ -1,0 +1,86 @@
+module = "expr_helmholtz"
+uses = ["physical", "identity", "exprtypes"]
+doc = "A residual Helmholtz term list: term forms combined through a sub-form slot with multiplicity many."
+
+[contracts.helmholtz_term]
+doc = "One contribution to the reduced residual Helmholtz energy."
+arguments.delta = { type = "Scalar", doc = "Reduced density." }
+arguments.tau = { type = "Scalar", doc = "Inverse reduced temperature." }
+outputs.alpha_r = { type = "Scalar", doc = "The contribution." }
+
+[contracts.helmholtz_pressure]
+doc = "Pressure of a fluid from its residual Helmholtz energy."
+arguments.T = { type = "Temperature", doc = "Temperature." }
+arguments.rho = { type = "MolarDensity", doc = "Molar density." }
+outputs.p = { type = "Pressure", doc = "Pressure." }
+
+[forms.term_power]
+doc = "Polynomial terms n delta^d tau^t."
+implements = "helmholtz_term"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.term_power.slot_groups.core]
+doc = "The terms."
+
+[forms.term_power.slot_groups.core.families.terms]
+doc = "One coefficient set per term."
+index.k = { type = "Integer", min = 1, doc = "Term number." }
+
+[forms.term_power.slot_groups.core.families.terms.slots]
+n = { type = "Scalar", doc = "Coefficient." }
+d = { type = "Scalar", doc = "Exponent of the reduced density." }
+t = { type = "Scalar", doc = "Exponent of the inverse reduced temperature." }
+
+[forms.term_power.outputs]
+alpha_r = "sum(core.terms.n[k] * delta ** core.terms.d[k] * tau ** core.terms.t[k] for k in core.terms())"
+
+[forms.term_exponential]
+doc = "Exponential terms n delta^d tau^t exp(-delta^l)."
+implements = "helmholtz_term"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.term_exponential.slot_groups.core]
+doc = "The terms."
+
+[forms.term_exponential.slot_groups.core.families.terms]
+doc = "One coefficient set per term."
+index.k = { type = "Integer", min = 1, doc = "Term number." }
+
+[forms.term_exponential.slot_groups.core.families.terms.slots]
+n = { type = "Scalar", doc = "Coefficient." }
+d = { type = "Scalar", doc = "Exponent of the reduced density." }
+t = { type = "Scalar", doc = "Exponent of the inverse reduced temperature." }
+l = { type = "Scalar", doc = "Exponent in the exponential." }
+
+[forms.term_exponential.outputs]
+alpha_r = "sum(core.terms.n[k] * delta ** core.terms.d[k] * tau ** core.terms.t[k] * exp(-(delta ** core.terms.l[k])) for k in core.terms())"
+
+[forms.helmholtz_eos]
+doc = "Pressure from a list of residual terms, through the derivative with respect to reduced density."
+implements = "helmholtz_pressure"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.helmholtz_eos.subforms.residual]
+doc = "The terms of the residual Helmholtz energy, added."
+accepts = "helmholtz_term"
+multiplicity = "many"
+per = "model"
+
+[forms.helmholtz_eos.slot_groups.core]
+doc = "Reducing parameters."
+
+[forms.helmholtz_eos.slot_groups.core.slots]
+T_c = { type = "Temperature", doc = "Reducing temperature." }
+rho_c = { type = "MolarDensity", doc = "Reducing density." }
+R = { type = "GasConstant", doc = "The gas constant." }
+
+[forms.helmholtz_eos.let]
+delta = "rho / core.rho_c"
+tau = "core.T_c / T"
+alpha_r = "sum(c.alpha_r(delta=delta, tau=tau) for c in residual)"
+
+[forms.helmholtz_eos.outputs]
+p = "rho * core.R * T * (1 + delta * d(alpha_r, delta))"

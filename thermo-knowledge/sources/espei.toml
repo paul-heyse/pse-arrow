@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "espei"
+title = "ESPEI"
+tier = "A"
+homepage = "https://github.com/PhasesResearchLab/ESPEI"
+waves = [5]
+notes = "espei/refdata.py embeds unary reference data; docs carry tutorial datasets and TDBs."
+
+[acquire]
+kind = "git"
+url = "https://github.com/PhasesResearchLab/ESPEI.git"
+commit = "769029ca2ee632752c81bc7c1980623687638370"
+tag = "0.9.1"
+submodules = []
+sparse = []
+
+[payload]
+reader = "espei"
+environment = "core"
+include = [
+  "espei/refdata.py",
+  "docs/**/*.json",
+  "docs/**/*.tdb",
+  "espei/input-schema.yaml",
+]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "MIT"
+statement = "LICENSE: MIT."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

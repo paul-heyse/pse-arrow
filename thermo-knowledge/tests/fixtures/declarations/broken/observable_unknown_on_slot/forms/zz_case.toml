@@ -1,0 +1,15 @@
+module = "broken"
+uses = ["physical", "identity", "framework", "vocab", "contracts", "forms"]
+doc = "A deliberately broken form module."
+
+[forms.bad]
+doc = "d"
+implements = "binary_parameter"
+completeness = "fully_declared"
+status = "catalogued"
+
+[forms.bad.slot_groups.g]
+doc = "d"
+
+[forms.bad.slot_groups.g.slots]
+s = { type = "Scalar", observable = "no_such_observable", doc = "d" }

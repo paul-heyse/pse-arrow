@@ -1,0 +1,38 @@
+module = "expr_case"
+uses = ["physical", "identity", "exprtypes"]
+doc = "A broken expression case."
+
+[contracts.inner]
+doc = "A dimensionless factor over a set of species."
+sets.s = { type = "species", doc = "A set." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+arguments.x = { type = "Scalar", over = ["s"], doc = "Indexed." }
+outputs.value = { type = "Scalar", doc = "The factor." }
+
+[contracts.outer]
+doc = "A pressure of a mixture."
+sets.s = { type = "species", doc = "A set." }
+sets.t = { type = "species", doc = "Another set of species." }
+sets.e = { type = "element", doc = "A set of elements." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+arguments.x = { type = "Scalar", over = ["s"], doc = "Indexed over s." }
+arguments.y = { type = "Scalar", over = ["t"], doc = "Indexed over t." }
+arguments.h = { type = "Temperature", over = [
+  "s",
+], doc = "A temperature over s." }
+outputs.p = { type = "Pressure", doc = "Pressure." }
+
+[forms.f]
+doc = "The form under test."
+implements = "outer"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.f.subforms.k]
+doc = "The factor."
+accepts = "inner"
+multiplicity = "one"
+per = "model"
+
+[forms.f.outputs]
+p = "k.value(s=s, T=T, x=T / unit('K')) * unit('Pa')"

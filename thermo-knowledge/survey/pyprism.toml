@@ -1,0 +1,696 @@
+source = "pyprism"
+pin = "f194a987754e"
+surveyed = "2026-09-30"
+summary = "pyPRISM v2.0.0 (NIST licence) solves the Polymer Reference Interaction Site Model integral equation for multi-site liquid-state systems in reduced units: a site-type system (densities, diameters, pair tables of potentials, closures and intramolecular correlation functions), a radial Fourier domain, atomic closures (Percus-Yevick, hypernetted chain, mean spherical approximation, Martynov-Sarkisov) and molecular reference closures, analytical intramolecular correlation functions (single site, Gaussian, Gaussian ring, freely jointed, non-overlapping freely jointed, discrete Koyama, from array or file), five pair potentials, post-solution calculations (pair correlations, structure factors, potentials of mean force, second virial coefficient, effective chi, spinodal condition, solvation potential) and a Debye-method trajectory tool. It ships 45 reference data files (intramolecular form factors, structure factors and pair correlation functions from simulation or from published figures) that no package code reads. It carries no temperature-pressure thermodynamics, no equation of state and no compound database."
+
+# ---------------------------------------------------------------------------
+# PAYLOADS
+# ---------------------------------------------------------------------------
+
+[[payload]]
+paths = [
+  "data/BCPSolution-Omega-*.dat",
+  "data/GraftedComposite-Omega-*.dat",
+  "data/Omega-DiscreteKoyama-*.csv",
+  "data/Omega-MD-*.csv",
+  "data/Omega-NFJC-*.csv",
+]
+format = "Text with a commented header ('#' lines: Description, Source, simulation or model parameters, units, column names) followed by two columns k and Omega(k); the .dat files are whitespace-separated with 1024 rows on a fixed grid (dr 0.1 d, dk 0.031 1/d, length 1024); the Omega-* .csv files are comma-separated and digitised from published figures (irregular k)."
+files = 23
+bytes = 619602
+records = "BCPSolution-Omega: 9 files x 1024 rows (copolymer of chain length 24; pairs AA, AB, BB; Case1 sequence A*12 + B*12, Case2 A*6 + B*12 + A*6, Case2i B*6 + A*12 + B*6); GraftedComposite-Omega: 8 files x 1024 rows (comb and linear grafted particles, matrix chains of N 10, 20, 40, 60); Omega-DiscreteKoyama N50 37 rows and N200 55 rows, Omega-MD N50 and N200 36 rows each, Omega-NFJC N50 60 rows and N200 67 rows; 17699 data rows in all, counted by non-comment lines"
+reader = "pyPRISM.omega.FromFile (pyPRISM/omega/FromFile.py, numpy.loadtxt of a one or two column file); any numeric text reader"
+read_by_source = "none"
+notes = "The package code never opens these files; the tutorial notebooks NB5 to NB7 refer to files under data/. The .dat files are stated to be calculated from coarse-grained MD simulations using the Debye method; the .csv files cite Honnell, Curro and Schweizer, Macromolecules 1990 (Figure 2) for the MD and Koyama comparison. Header lines state parameters such as chain length, bond type, bond_r0, bond_k, WCA or LJ interactions with sigma and epsilon in units of d and e, dr and dk, and the omega pair. Units are the reduced units d (length) and e (energy); no header states them separately."
+
+[[payload]]
+paths = ["data/BCPSolution-Sk-*.dat", "data/LinearMelt-Sk-*.csv"]
+format = "Text with a commented header, then two columns k and the normalised structure factor S(k); BCPSolution-Sk are .dat (1024 rows), LinearMelt-Sk are .csv (comma-separated, digitised)."
+files = 9
+bytes = 149691
+records = "BCPSolution-Sk: 6 files x 1024 rows (AA and BB pairs; the same three sequences as the omega files); LinearMelt-Sk: rho 0.6, 0.8 and 1.0 with 16, 15 and 21 rows; 6196 data rows in all, counted by non-comment lines"
+reader = "any numeric text reader; not read by the package"
+read_by_source = "none"
+notes = "LinearMelt-Sk files state melt density in d^-3 (0.6, 0.8, 1.0), chain length 16000 and cite Curro and Schweizer, Mol. Cryst. Liq. Cryst. 180:1, 77-89, doi 10.1080/00268949008025790 (no year in the header). BCPSolution-Sk files cite Lyubimov, Beltran-Villegas (spelled Jeltran-Villegas in the header) and Jayaraman, Macromolecules 2017, 50 (18), 7419, doi 10.1021/acs.macromol.7b01419, Figure 5, and list the sk-pair, chain length 24 and the sequence."
+
+[[payload]]
+paths = [
+  "data/BareComposite-Gr-*.csv",
+  "data/GraftedComposite-Gr-*.dat",
+  "data/LinearMelt-Gr-*.csv",
+  "data/RingMelt-Gr-*.csv",
+]
+format = "Text with a commented header, then two columns r and g(r) (or G(r) for the grafted-particle .dat files); the grafted files are whitespace-separated with 1024 rows, the others comma-separated and digitised from publications."
+files = 13
+bytes = 220051
+records = "BareComposite-Gr: alpha 0.25, 0.5, 1.0 with 62, 42 and 19 rows; GraftedComposite-Gr: 4 files x 1024 rows (comb and linear, matrix length 10 and 60, particle-particle G(r)); LinearMelt-Gr: rho 0.6, 0.8, 1.0 with 14, 13 and 19 rows; RingMelt-Gr: N 100, 500 and 2000 with 18, 25 and 28 rows; 4336 data rows in all"
+reader = "any numeric text reader; not read by the package"
+read_by_source = "none"
+notes = "Radial distribution (pair correlation) functions. Sources in the headers: Hooper and Schweizer, Macromolecules 2005, 38, 8858-8869 (bare composite); Modica, Martin and Jayaraman, Macromolecules 2017, 50, 4854-4866 (grafted composite); Curro and Schweizer, Mol. Cryst. Liq. Cryst. 180:1, 77-89 (linear melts, chain length 16000); Curro and Schweizer, Macromolecules 1987, 20, 1928-1934, doi 10.1021/ma00174a040 (ring melts, header text carries stray trailing escape characters). Particle fraction, total volume fraction, chain length, interaction parameter alpha and diameters are listed in the headers."
+
+[[payload]]
+paths = [
+  "pyPRISM/test/data/Omega-Test-1Rod.dat",
+  "pyPRISM/test/data/Omega-Test-2Rod.dat",
+]
+format = "Text files of Omega(k) for one-rod and two-rod test configurations"
+files = 2
+bytes = 33192
+records = "2 files; rows not counted"
+reader = "read by pyPRISM/test/Debyer_test.py (file path built in the test)"
+read_by_source = "partly"
+notes = "Reference outputs of the Debyer trajectory tool for small test configurations; used only by the test suite."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "System (site types and kT)"
+locator = "pyPRISM/core/System.py class System"
+meaning = "The container of a PRISM problem: an ordered list of site types (strings such as 'A', 'B', 'polymer', 'solvent'), the thermal energy kT (default 1.0), a domain, and tables keyed by site type or by site-type pair for density, diameter, potential, closure and omega."
+subject = "A set of site types; there is no notion of molecule, species or component beyond the omega table that says which sites share a molecule."
+fields = [
+  { name = "types", meaning = "ordered list of site-type labels", unit = "not applicable", shape = "list", role = "input" },
+  { name = "kT", meaning = "thermal energy; the potentials are divided by it before entering the closures", unit = "not stated (reduced units with k_B = 1.0 typical)", shape = "scalar", role = "input" },
+  { name = "domain", meaning = "Domain object fixing the real and Fourier grids", unit = "not applicable", shape = "reference", role = "input" },
+  { name = "density, diameter, potential, closure, omega", meaning = "tables keyed by site type or pair", unit = "see each", shape = "table", role = "input" },
+]
+origin = "authored"
+conventions = "Site types index rows and columns of all matrices; check() refuses a system with any unset table entry or without a domain and warns when a diameter or sigma is not a multiple of the grid spacing (rounding then occurs). Diameters are passed to the closures only and not to potentials."
+absence = "unset table entries are None and check() raises; there is no default."
+validity = "not stated"
+provenance = "none"
+count = "not applicable"
+example = "pyPRISM/core/System.py class docstring (two site types A and B)"
+candidate = "a chemical_system whose species_forms are site types, with composition expressed on an amount basis of site number density; no direct concept for intramolecular connectivity"
+precision = "close"
+loss = "Site types are not species: several site types belong to one molecule through omega, and one site type can be shared across molecules; molecule identity and connectivity have no place in the model."
+
+[[construct]]
+name = "site density"
+locator = "pyPRISM/core/Density.py class Density"
+meaning = "Number density rho_alpha of each site type, with derived pair density rho_alpha rho_beta, site density (rho_alpha on the diagonal, rho_alpha + rho_beta off the diagonal) and the total site density, all as matrices over site types."
+subject = "A site type (rho_alpha); ordered pairs (derived matrices are symmetric)."
+fields = [
+  { name = "density[type]", meaning = "number density of sites of one type", unit = "not stated (reduced, inverse cubed diameter units; the data headers write d^-3)", shape = "scalar", role = "input" },
+  { name = "pair, site, total", meaning = "derived density matrices and sum", unit = "as density, squared for pair", shape = "table", role = "computed" },
+]
+origin = "authored (user input); pair, site and total are computed in the setter"
+conventions = "The composition of the system is carried as absolute site number densities, not as fractions; the total is the sum over site types. Polymer and solvent differ only through omega."
+absence = "an unset density is None and breaks the derived matrices until set."
+validity = "not stated"
+provenance = "none"
+count = "not applicable"
+example = "pyPRISM/core/Density.py class docstring"
+candidate = "composition_basis not present in the model: site number density per volume (amount basis) over species forms"
+precision = "unmapped"
+loss = "The basis is a site number density in reduced units; the model has mole, mass, volume, segment and surface fractions but no per-volume site density."
+
+[[construct]]
+name = "site diameter and contact distance"
+locator = "pyPRISM/core/Diameter.py class Diameter"
+meaning = "Diameter d_alpha of each site type, derived site volume (4/3) pi (d/2)^3 and pairwise contact distance sigma_alpha,beta = (d_alpha + d_beta)/2."
+subject = "A site type (diameter, volume); an unordered pair (sigma)."
+fields = [
+  { name = "diameter[type]", meaning = "site diameter", unit = "not stated (reduced length d)", shape = "scalar", role = "input" },
+  { name = "volume[type]", meaning = "site volume", unit = "not stated (reduced)", shape = "scalar", role = "computed" },
+  { name = "sigma[pair]", meaning = "contact distance (additive mixing)", unit = "not stated (reduced)", shape = "table", role = "computed" },
+]
+origin = "authored; volume and sigma computed in the setter"
+conventions = "Additive (arithmetic) mixing of diameters for unlike pairs; the diameter is used by closures (hard-core region r < sigma) and as the default sigma of a potential that has none; a potential given an explicit sigma overrides it."
+absence = "unset diameter blocks createPRISM."
+validity = "values should fall on the real-space grid (warning otherwise)"
+provenance = "none"
+count = "not applicable"
+example = "pyPRISM/core/Diameter.py class docstring"
+candidate = "a species attribute (size) with a derived pair mixing rule"
+precision = "close"
+loss = "A diameter and its combining rule are not separate records in the model; a hard core is tied to it."
+
+[[construct]]
+name = "pair tables (potential, closure, omega)"
+locator = "pyPRISM/core/PairTable.py class PairTable; pyPRISM/core/ValueTable.py"
+meaning = "Dictionaries keyed by two site types holding arbitrary objects (a potential, a closure or an omega object); symmetric=True (the default) sets both orientations when an off-diagonal pair is assigned, so A-B and B-A receive the same (deep-copied) object."
+subject = "An unordered site-type pair in the default symmetric mode, an ordered pair if symmetric=False."
+fields = [
+  { name = "values[t1][t2]", meaning = "object for the pair", unit = "not applicable", shape = "reference", role = "input" },
+]
+origin = "authored"
+conventions = "Group assignment by list keys (PT['B',['A','B','C']] = x sets several pairs at once); iteration over pairs with iterpairs(full, diagonal)."
+absence = "None until set; check() refuses unset pairs."
+validity = "not applicable"
+provenance = "none"
+count = "not applicable"
+example = "pyPRISM/core/PairTable.py class docstring"
+candidate = "parameter sets with pair subjects (site types) and transposition symmetric by default"
+precision = "close"
+loss = "The table holds code objects, not values; the objects carry the parameters (epsilon, sigma, omega form)."
+
+[[construct]]
+name = "pair potential object"
+locator = "pyPRISM/potential/ (HardSphere, LennardJones, WeeksChandlerAndersen, HardCoreLennardJones, Exponential)"
+meaning = "An object that evaluates the pair interaction U_alpha,beta(r) on the real-space grid; it holds epsilon, sigma, high_value (a large finite number standing for an infinite core), cut-off and shift options."
+subject = "A site-type pair (one object per pair, sharing through the symmetric table)."
+fields = [
+  { name = "epsilon", meaning = "interaction strength (attractive or repulsive, sign allowed in the hard-core LJ)", unit = "not stated (energy in units consistent with kT)", shape = "scalar", role = "input" },
+  { name = "sigma", meaning = "length scale or contact distance; if None taken from the system diameter table", unit = "not stated (reduced length)", shape = "scalar", role = "input" },
+  { name = "alpha", meaning = "width of the exponential attraction (Exponential only)", unit = "not stated (reduced length)", shape = "scalar", role = "input" },
+  { name = "rcut, shift", meaning = "cut-off radius and shift flag (LennardJones)", unit = "not stated (reduced length), not applicable", shape = "scalar", role = "input" },
+  { name = "high_value", meaning = "large value used inside a hard core, default 1e6", unit = "not stated", shape = "scalar", role = "input" },
+]
+origin = "authored"
+conventions = "PRISM divides the potential by sys.kT before handing it to a closure; there is no combining rule: each unlike pair is assigned its own object."
+absence = "sigma None is filled from the diameter table when the PRISM object is created."
+validity = "not stated"
+provenance = "each class cites its source in the docstring (Hooper and Schweizer 2006 for the exponential, Yethiraj and Schweizer 1993 for the hard-core LJ)"
+count = "5 classes"
+example = "pyPRISM/potential/LennardJones.py"
+candidate = "parameter set of an explicit pair-potential form with epsilon and sigma slots per site-type pair"
+precision = "close"
+loss = "No combining rules and no units; potentials are attached to site-type pairs, not to species."
+
+[[construct]]
+name = "intramolecular correlation function object"
+locator = "pyPRISM/omega/ (SingleSite, NoIntra, InterMolecular, Gaussian, GaussianRing, FreelyJointedChain, NonOverlappingFreelyJointedChain, DiscreteKoyama, FromArray, FromFile)"
+meaning = "An object that returns omega_alpha,beta(k), the normalised intramolecular correlation between two site types as a function of wavenumber, on the Fourier grid; the PRISM object multiplies it by the site density. The table is keyed by site-type pairs, including unlike pairs on the same molecule, and unlike pairs on different molecules get NoIntra (zero)."
+subject = "A site-type pair; the molecular architecture is encoded only through which pair gets which function and its length parameter."
+fields = [
+  { name = "length", meaning = "number of sites in the chain (N)", unit = "not applicable (count)", shape = "scalar", role = "input" },
+  { name = "sigma or l", meaning = "contact distance between sites (Gaussian, ring, Koyama) or bond length (freely jointed)", unit = "not stated (reduced length)", shape = "scalar", role = "input" },
+  { name = "lp", meaning = "persistence length (DiscreteKoyama)", unit = "not stated (reduced length)", shape = "scalar", role = "input" },
+  { name = "omega array or file", meaning = "tabulated omega on the Fourier grid (FromArray, FromFile, optionally with k for a grid check)", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+]
+origin = "authored, or computed from simulation data by the Debye method (Debyer) and then loaded"
+conventions = "omega(k -> 0) equals the chain length for a same-site pair in the normalisation of the formulas (the closed forms above are for one chain with N sites and are multiplied by site density in PRISM)."
+absence = "NoIntra means zero at all k and is an explicit object."
+validity = "FromArray and FromFile check that the k grid matches the Domain"
+provenance = "each class docstring cites Schweizer and Curro 1988 or Honnell, Curro and Schweizer 1990"
+count = "10 classes including two aliases"
+example = "pyPRISM/omega/Gaussian.py"
+candidate = "a characterised molecular architecture: polymer_type with repeat_unit counts plus a tabulated_function of omega(k) per site pair"
+precision = "close"
+loss = "Architecture (linear, ring, grafted, block) exists only as the choice of function and its length; connectivity between distinct site types is not a record."
+
+[[construct]]
+name = "Domain (radial real and Fourier grids)"
+locator = "pyPRISM/core/Domain.py class Domain"
+meaning = "The discretisation of real space r = (i + 1) dr and Fourier space k = (j + 1) dk with i, j = 0 .. N - 1, and the discrete sine transforms (types II and III) used to convert radially symmetric functions between them; exactly one of dr and dk is given."
+subject = "The whole calculation."
+fields = [
+  { name = "length", meaning = "number of grid points N", unit = "not applicable (count)", shape = "scalar", role = "input" },
+  { name = "dr or dk", meaning = "real-space or Fourier-space spacing (the other follows)", unit = "not stated (reduced length or inverse reduced length)", shape = "scalar", role = "input" },
+]
+origin = "authored"
+conventions = "Transform: k f(k) = 4 pi integral of r f(r) sin(k r) dr; dk = pi/(dr N) in the code (the docstring writes pi/(dr (N + 1)))."
+absence = "neither dr nor dk raises an error; both given raises."
+validity = "all diameters and sigmas should be multiples of dr"
+provenance = "none"
+count = "not applicable"
+example = "pyPRISM/core/Domain.py"
+candidate = "none"
+precision = "unmapped"
+loss = "A numerical grid is solver state, not thermodynamic knowledge."
+
+[[construct]]
+name = "closure object"
+locator = "pyPRISM/closure/ (atomic: PercusYevick, HyperNettedChain, MeanSphericalApproximation, MartynovSarkisov; molecular: ReferenceMolecularPercusYevick, ReferenceMolecularMeanSphericalApproximation, ReferenceLariaWuChandler)"
+meaning = "An object that evaluates the direct correlation function c_alpha,beta(r) from the variable gamma = h - c and the potential; holds apply_hard_core (assume h = -1 inside the core and skip the closure there) and the sigma and potential assigned by PRISM."
+subject = "A site-type pair."
+fields = [
+  { name = "apply_hard_core", meaning = "apply the hard-core condition inside r < sigma", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "sigma, potential", meaning = "contact distance and potential/kT assigned when the PRISM object is built", unit = "not stated (reduced)", shape = "scalar", role = "computed" },
+]
+origin = "authored"
+conventions = "Atomic closures return c from gamma; molecular closures also take omega of both sites and reference direct and total correlation functions."
+absence = "apply_hard_core defaults to False in every class."
+validity = "closures differ in which potentials they tolerate (divergent potentials without apply_hard_core give warnings or crashes per the docstrings)"
+provenance = "Hansen and McDonald, Theory of Simple Liquids (closure descriptions), other references in each docstring"
+count = "7 classes plus aliases PY, HNC, MSA, MS, RMPY, RMMSA, RLWC"
+example = "pyPRISM/closure/PercusYevick.py"
+candidate = "a model_assembly choice for a sub-form slot of an integral-equation form, per site-type pair"
+precision = "close"
+loss = "The closure is a per-pair choice inside one solve, not a parameter of a species."
+
+[[construct]]
+name = "reference correlation tables (data files)"
+locator = "data/*.dat and data/*.csv"
+meaning = "Tabulated reference results: intramolecular correlation functions (form factors), normalised structure factors and pair correlation functions for polymer melts, ring melts, block copolymer solutions and nanocomposites, each with a commented header giving system parameters and sources."
+subject = "A measurement-like series: a system (melt, composite, copolymer) at stated parameters and one function of k or r."
+fields = [
+  { name = "k or r", meaning = "abscissa", unit = "not stated (reduced; the header writes d^-1 for dk and d for dr)", shape = "list", role = "input" },
+  { name = "Omega(k), S(k), g(r) or G(r)", meaning = "tabulated function value", unit = "not applicable (dimensionless)", shape = "list", role = "input" },
+  { name = "header parameters", meaning = "chain length, sequence, bond and interaction parameters, densities, diameters, dr, dk, source citation", unit = "as written in each header (for example 'Melt Density: 1.0 d^-3', 'sigma_AA = 1.0d')", shape = "table", role = "metadata" },
+]
+origin = "computed (MD simulation with the Debye method, per header) or transcribed (digitised from the cited publications)"
+conventions = "Length in units of the site diameter d and energy in e; the header states dr and dk for the .dat grids."
+absence = "not applicable"
+validity = "one system and one parameter set per file"
+provenance = "Source lines in each header (publication, figure number for some)"
+count = "45 files: 23 omega, 9 structure factor, 13 pair correlation"
+example = "data/LinearMelt-Sk-rho1.0.csv"
+candidate = "dataset of a structural observable (structure factor, pair correlation) with a tabulated_function and a distributed_attribute-like axis"
+precision = "close"
+loss = "The model has no observables for correlation functions in k or r and no structure-factor quantity types."
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "PRISM integral equation (matrix Ornstein-Zernike for polymers)"
+locator = "pyPRISM/core/PRISM.py class PRISM (cost, solve, solve_picard); pyPRISM/__init__.py docstring"
+class = "other"
+inputs = "site-type matrices at each wavenumber: H = Omega C (Omega + H), implemented as totalCorr = (I - Omega C)^-1 Omega C Omega / rho_pair with omega multiplied by the site density; unknown gamma = h - c on the real grid; cost = gamma_out - gamma_in; composition as site number densities, T through kT inside the potentials; no pressure variable"
+parameters = "site: density, diameter; pair: potential, closure, omega"
+composes = [
+  { slot = "closure", accepts = "atomic or molecular closure per site-type pair", default = "none (required for every pair)" },
+  { slot = "potential", accepts = "pair potential object per site-type pair", default = "none (required)" },
+  { slot = "omega", accepts = "intramolecular correlation object per site-type pair", default = "none (required)" },
+]
+variants = "solve(method='krylov' default, options passed to scipy.optimize.root) and solve_picard (mixing step default 0.1, tolerance 1e-6, prints the iteration counter); atomic closures use gamma directly, molecular closures additionally use omega convolutions and reference correlation functions (cr0, hk0)."
+equation_source = "pyPRISM/__init__.py docstring writes the equation; README cites Schweizer and Curro, Phys. Rev. Lett. 1987, 58, 246-249 and Martin et al., Macromolecules 2018, 51, 2906-2922"
+closed_form = "implicit"
+data = "reference correlation tables (for comparison only) and the system constructs"
+
+[[model_family]]
+name = "Percus-Yevick closure"
+locator = "pyPRISM/closure/PercusYevick.py"
+class = "model_component"
+inputs = "gamma(r), U(r)/kT, sigma; c = (exp(-U) - 1)(1 + gamma)"
+parameters = "global: apply_hard_core (default False)"
+composes = []
+variants = "apply_hard_core=True sets c = -1 - gamma inside r <= sigma and applies the closure only outside"
+equation_source = "docstring; Hansen and McDonald, Theory of Simple Liquids, ch. 4"
+closed_form = "yes"
+data = "none bundled"
+
+[[model_family]]
+name = "Hypernetted-chain closure"
+locator = "pyPRISM/closure/HyperNettedChain.py"
+class = "model_component"
+inputs = "c = exp(gamma - U) - 1 - gamma"
+parameters = "global: apply_hard_core (code default False; the docstring says True)"
+composes = []
+variants = "two calculate methods are defined in the class (the later one, taking r and gamma, is the one in effect)."
+equation_source = "docstring; Hansen and McDonald, ch. 4"
+closed_form = "yes"
+data = "none bundled"
+
+[[model_family]]
+name = "Mean spherical approximation closure"
+locator = "pyPRISM/closure/MeanSphericalApproximation.py"
+class = "model_component"
+inputs = "c = -U outside the core (hard core assumed)"
+parameters = "global: apply_hard_core"
+composes = []
+variants = "a warning is issued when apply_hard_core is False"
+equation_source = "docstring; Hansen and McDonald"
+closed_form = "yes"
+data = "none bundled"
+
+[[model_family]]
+name = "Martynov-Sarkisov closure"
+locator = "pyPRISM/closure/MartynovSarkisov.py"
+class = "model_component"
+inputs = "code: c = exp(sqrt(gamma - U + 0.5) - 1) - 1 - gamma; docstring formula differs (see discrepancy)"
+parameters = "global: apply_hard_core"
+composes = []
+variants = "a warning is issued when apply_hard_core is False"
+equation_source = "docstring references"
+closed_form = "yes"
+data = "none bundled"
+
+[[model_family]]
+name = "Reference molecular Percus-Yevick closure (R-MPY)"
+locator = "pyPRISM/closure/ReferenceMolecularPercusYevick.py"
+class = "model_component"
+inputs = "convolutions in Fourier space with omega_alpha,alpha and omega_beta,beta of a reference direct correlation function and of (exp(+U) - 1)(1 + h) with U set to zero inside the core; code differs from the docstring sign (see discrepancy)"
+parameters = "global: apply_hard_core; pair: reference c0 and h0 from a solved reference system"
+composes = [
+  { slot = "reference_system", accepts = "a solved PRISM object supplying cr0 and hk0 (calculate.refDirectCorr and refTotalCorr)", default = "none (required)" },
+]
+variants = "the docstring states the closure is not fully implemented and should raise an error; the code evaluates it."
+equation_source = "docstring references (Yethiraj and Schweizer 1993)"
+closed_form = "procedural"
+data = "none bundled"
+
+[[model_family]]
+name = "Reference molecular mean spherical approximation closure (R-MMSA)"
+locator = "pyPRISM/closure/ReferenceMolecularMeanSphericalApproximation.py"
+class = "model_component"
+inputs = "c = omega * c0 * omega - omega * U * omega (convolutions), hard-core variant outside the core"
+parameters = "global: apply_hard_core; pair: reference c0"
+composes = [
+  { slot = "reference_system", accepts = "a solved PRISM object supplying cr0", default = "none (required)" },
+]
+variants = "warning when apply_hard_core is False"
+equation_source = "docstring"
+closed_form = "procedural"
+data = "none bundled"
+
+[[model_family]]
+name = "Reference Laria-Wu-Chandler closure (R-LWC)"
+locator = "pyPRISM/closure/ReferenceLariaWuChandler.py"
+class = "model_component"
+inputs = "c = (h0 + 1) exp(omega * c0 * omega - omega * U * omega + gamma - h0) - 1 - gamma"
+parameters = "global: apply_hard_core; pair: reference c0 and h0"
+composes = [
+  { slot = "reference_system", accepts = "a solved PRISM object supplying cr0 and hk0", default = "none (required)" },
+]
+variants = "its class docstring repeats the R-MPY text and title."
+equation_source = "docstring (copy of R-MPY)"
+closed_form = "procedural"
+data = "none bundled"
+
+[[model_family]]
+name = "Analytical intramolecular correlation functions (Gaussian, Gaussian ring, freely jointed, non-overlapping freely jointed, discrete Koyama)"
+locator = "pyPRISM/omega/Gaussian.py, GaussianRing.py, FreelyJointedChain.py, NonOverlappingFreelyJointedChain.py, DiscreteKoyama.py"
+class = "explicit_correlation"
+inputs = "wavenumber k; Gaussian and freely jointed: omega = (1 - E^2 - 2E/N + 2 E^(N+1)/N)/(1 - E)^2 with E = exp(-k^2 sigma^2/6) or sin(k l)/(k l); ring: 1 + (2/N) sum (N - t) exp(-k^2 sigma^2 t (N - t)/(6N)); Koyama: sin(Bk)/(Bk) exp(-A^2 k^2) with A and B from second and fourth moments of the site-site distance distribution; non-overlapping: an excluded-volume correction to the freely jointed chain"
+parameters = "molecule: N (length), sigma or l, persistence length lp"
+composes = []
+variants = "SingleSite (omega = 1 for single-bead molecules), NoIntra (alias InterMolecular, zero), FromArray and FromFile (tabulated)."
+equation_source = "Schweizer and Curro, Macromolecules 1988, 21, 3070 (Gaussian, freely jointed, non-overlapping); Honnell, Curro, Schweizer 1990 (Koyama); Rubinstein and Colby, Polymer Physics"
+closed_form = "yes"
+data = "intramolecular correlation function object construct"
+
+[[model_family]]
+name = "Single-site and absent intramolecular correlation (SingleSite, NoIntra, InterMolecular)"
+locator = "pyPRISM/omega/SingleSite.py, NoIntra.py, InterMolecular.py"
+class = "explicit_correlation"
+inputs = "omega = 1 for every k (single-bead molecules: solvents, particles) or omega = 0 for site pairs that never share a molecule"
+parameters = "none"
+composes = []
+variants = "InterMolecular is an alias of NoIntra."
+equation_source = "class docstrings"
+closed_form = "yes"
+data = "none"
+
+[[model_family]]
+name = "Tabulated intramolecular correlation (FromArray, FromFile)"
+locator = "pyPRISM/omega/FromArray.py, FromFile.py"
+class = "explicit_correlation"
+inputs = "omega values on the Fourier grid from a list, array or one or two column text file (a second column of k values triggers a grid check against the Domain)"
+parameters = "data: omega array"
+composes = []
+variants = ""
+equation_source = "none"
+closed_form = "yes"
+data = "reference correlation tables (files may be loaded by the user)"
+
+[[model_family]]
+name = "Pair potentials (hard sphere, Lennard-Jones, WCA, hard-core Lennard-Jones, exponential)"
+locator = "pyPRISM/potential/"
+class = "explicit_correlation"
+inputs = "distance r: hard sphere U = C_high for r <= sigma else 0; Lennard-Jones 4 eps[(sigma/r)^12 - (sigma/r)^6] with optional cut-off and shift; WCA the same cut and shifted at 2^(1/6) sigma; hard-core LJ eps[(sigma/r)^12 - 2 (sigma/r)^6] for r > sigma and C_high inside (sign of eps free); exponential eps exp(-(r - sigma)/alpha) for r >= sigma and C_high inside"
+parameters = "pair: epsilon, sigma, alpha (exponential), rcut and shift (LJ), high_value"
+composes = []
+variants = "WeeksChandlerAndersen subclasses LennardJones; calculate_attractive in LennardJones returns the tail beyond sigma."
+equation_source = "class docstrings; Hooper and Schweizer 2006; Yethiraj and Schweizer 1993"
+closed_form = "yes"
+data = "pair potential object construct"
+
+[[model_family]]
+name = "Structure factor"
+locator = "pyPRISM/calculate/structure_factor.py"
+class = "other"
+inputs = "solved PRISM object; s_alpha,beta(k) = rho_site omega + rho_pair h(k); the normalised form divides by rho_site"
+parameters = "none"
+composes = []
+variants = "normalize flag"
+equation_source = "docstring"
+closed_form = "yes"
+data = "none"
+
+[[model_family]]
+name = "Pair correlation function and potential of mean force"
+locator = "pyPRISM/calculate/pair_correlation.py, pmf.py"
+class = "other"
+inputs = "g(r) = h(r) + 1 (intermolecular); w(r) = -kB T ln(h(r) + 1)"
+parameters = "none"
+composes = []
+variants = ""
+equation_source = "docstrings"
+closed_form = "yes"
+data = "none"
+
+[[model_family]]
+name = "Second virial coefficient from PRISM"
+locator = "pyPRISM/calculate/second_virial.py"
+class = "other"
+inputs = "B2_alpha,beta = -0.5 h_alpha,beta(k = 0), by extrapolation to k = 0 (default) or the lowest-k value"
+parameters = "none"
+composes = []
+variants = "extrapolate flag"
+equation_source = "docstring"
+closed_form = "yes"
+data = "none"
+
+[[model_family]]
+name = "Effective interaction parameter chi(k)"
+locator = "pyPRISM/calculate/chi.py"
+class = "other"
+inputs = "chi_alpha,beta(k) = (0.5 rho/(R^0.5 phi_alpha + R^-0.5 phi_beta)) (C_alpha,alpha/R + R C_beta,beta - 2 C_alpha,beta) with R = v_alpha/v_beta and volume fractions phi from site densities (as written in the docstring)"
+parameters = "none (uses site volumes from the diameter table)"
+composes = []
+variants = "extrapolate to k = 0 or return chi(k)"
+equation_source = "docstring"
+closed_form = "yes"
+data = "none"
+
+[[model_family]]
+name = "Spinodal condition"
+locator = "pyPRISM/calculate/spinodal_condition.py"
+class = "other"
+inputs = "a determinant-like combination Lambda_alpha,beta of C, omega and site densities for a pair of site types, extrapolated to k = 0; Lambda = 0 marks the spinodal"
+parameters = "none"
+composes = []
+variants = "extrapolate flag"
+equation_source = "docstring"
+closed_form = "yes"
+data = "none"
+
+[[model_family]]
+name = "Medium-induced solvation potential"
+locator = "pyPRISM/calculate/solvation_potential.py"
+class = "other"
+inputs = "PY: -kT ln(1 + C S C), HNC: -kT C S C, with matrix products of the direct correlation and structure factor MatrixArrays, returned in real space"
+parameters = "global: closure name 'PY' or 'HNC'"
+composes = []
+variants = "closure argument"
+equation_source = "docstring"
+closed_form = "yes"
+data = "none"
+
+[[model_family]]
+name = "Reference-system helpers for molecular closures"
+locator = "pyPRISM/calculate/initial_guess.py, refDirectCorr.py, refTotalCorr.py"
+class = "other"
+inputs = "extract gamma, the direct correlation function or the total correlation function of a solved reference PRISM object as flattened arrays used as cr0, hk0 and initial guess of a molecular-closure solve"
+parameters = "none"
+composes = []
+variants = ""
+equation_source = "none"
+closed_form = "procedural"
+data = "none"
+
+[[model_family]]
+name = "Debye-method intramolecular correlation from trajectories (Debyer)"
+locator = "pyPRISM/trajectory/Debyer.pyx (compiled Debyer.c ships in the tree)"
+class = "other"
+inputs = "trajectory coordinates of two site types, molecule index arrays, box; omega_alpha,beta(k) = delta_alpha,beta + (C/N_frame) sum over frames and site pairs within a molecule of sin(k r)/(k r), C = 1/N_alpha for a self pair else 1/(N_alpha + N_beta); parallelised with OpenMP on Linux"
+parameters = "none"
+composes = []
+variants = "selfOmega flag; the docstring states the feature is still under testing."
+equation_source = "docstring"
+closed_form = "procedural"
+data = "none"
+
+[[model_family]]
+name = "Unit conversion between reduced and real units (UnitConverter)"
+locator = "pyPRISM/util/UnitConverter.py"
+class = "other"
+inputs = "characteristic length, mass and energy (dc, mc, ec) and helpers that convert wavenumbers, lengths and energies using pint; available only when pint is installed"
+parameters = "none"
+composes = []
+variants = ""
+equation_source = "none"
+closed_form = "yes"
+data = "none"
+
+# ---------------------------------------------------------------------------
+# CONVENTIONS
+# ---------------------------------------------------------------------------
+
+[[convention]]
+name = "reduced Lennard-Jones units"
+locator = "pyPRISM/util/UnitConverter.py docstring; pyPRISM/core/System.py"
+statement = "All quantities are in reduced units relative to characteristic length d_c, mass m_c and energy e_c; kT is given in units of e_c (k_B = 1 typical). Densities are site number densities per cubed length."
+scope = "all constructs"
+
+[[convention]]
+name = "composition as site densities"
+locator = "pyPRISM/core/Density.py"
+statement = "Composition is the set of absolute site number densities rho_alpha; site density on the matrix diagonal is rho_alpha and off the diagonal rho_alpha + rho_beta; pair density is rho_alpha rho_beta; omega is always multiplied by the site density inside PRISM."
+scope = "PRISM equation and calculations"
+
+[[convention]]
+name = "radial Fourier transform"
+locator = "pyPRISM/core/Domain.py"
+statement = "k f(k) = 4 pi integral of r f(r) sin(k r) dr on grids r = (i + 1) dr, k = (j + 1) dk; transformed by discrete sine transforms of type II and III; all correlation functions are isotropic."
+scope = "all correlation functions"
+
+[[convention]]
+name = "intermolecular versus intramolecular functions"
+locator = "pyPRISM/calculate/pair_correlation.py; pyPRISM/core/PRISM.py"
+statement = "h and g computed by PRISM are strictly intermolecular; omega is intramolecular. g = h + 1. The potential is divided by kT before closures; the closures' U is the dimensionless U/kT."
+scope = "PRISM solution"
+
+[[convention]]
+name = "symmetric pair tables"
+locator = "pyPRISM/core/PairTable.py"
+statement = "Assigning an off-diagonal pair also sets the reversed pair to a deep copy of the same object by default; unlike-pair omega, closure and potential are therefore treated as symmetric."
+scope = "System tables"
+
+# ---------------------------------------------------------------------------
+# SELECTIONS
+# ---------------------------------------------------------------------------
+
+[[selection]]
+name = "sigma of a potential"
+locator = "pyPRISM/core/PRISM.py PRISM.__init__"
+rule = "A potential's sigma is taken from the diameter table (additive contact distance) only when the potential was created without one; the closure's sigma is always the diameter-table value."
+scope = "potentials and closures"
+documented = "yes (System docstring warns that diameters are passed to closures only)"
+
+[[selection]]
+name = "atomic versus molecular closure"
+locator = "pyPRISM/core/PRISM.py cost"
+rule = "isinstance of AtomicClosure uses gamma directly; isinstance of MolecularClosure uses omega convolutions, cr0, hk0 and converts the direct correlation function by dividing by the omega product; any other closure type raises."
+scope = "closures"
+documented = "partly"
+
+[[selection]]
+name = "solver method"
+locator = "pyPRISM/core/PRISM.py solve"
+rule = "scipy.optimize.root with method 'krylov' by default (other methods by name); a Picard iteration is a separate entry point."
+scope = "PRISM solution"
+documented = "yes"
+
+# ---------------------------------------------------------------------------
+# DISCREPANCIES
+# ---------------------------------------------------------------------------
+
+[[discrepancy]]
+locator = "pyPRISM/closure/HyperNettedChain.py (docstring of __init__ versus default)"
+documented = "apply_hard_core: 'Defaults to True'"
+actual = "def __init__(self, apply_hard_core=False)"
+consequence = "The HNC closure is not applied with a hard-core condition unless requested, contrary to the docstring."
+
+[[discrepancy]]
+locator = "pyPRISM/closure/MartynovSarkisov.py (class docstring versus calculate)"
+documented = "c = (exp(sqrt(gamma - U - 0.5)) - 1) - 1 - gamma"
+actual = "code evaluates c = exp(sqrt(gamma - U + 0.5) - 1) - 1 - gamma"
+consequence = "The documented and coded closures are different functions; the code value is what a solve uses."
+
+[[discrepancy]]
+locator = "pyPRISM/closure/ReferenceMolecularPercusYevick.py and ReferenceLariaWuChandler.py (docstrings versus calculate)"
+documented = "both class docstrings carry the title 'Reference Molecular Percus Yevick (R-MPY) closure' and the warning that the closure is not fully implemented and should throw an error; the R-MPY formula contains exp(-u)"
+actual = "both classes evaluate; R-MPY evaluates exp(+U) - 1 in the convolved term, and the Laria-Wu-Chandler class implements a different formula under the R-MPY title"
+consequence = "The R-MPY sign differs from its documented formula and the R-LWC class is documented as R-MPY."
+
+[[discrepancy]]
+locator = "pyPRISM/core/Domain.py (docstring versus dk setter)"
+documented = "Delta k = pi/(Delta r (N + 1))"
+actual = "dr setter: self._dk = pi/(self._dr*self._length); dk setter: self._dr = pi/(self._dk*self._length)"
+consequence = "The grid relation uses N, not N + 1, so the documented and coded k spacings differ."
+
+[[discrepancy]]
+locator = "CHANGES.md versus pyproject.toml and the tag v2.0.0"
+documented = "CHANGES.md ends at [1.0.4] - 2020/07/01"
+actual = "the pinned release is v2.0.0 (version from the VCS tag, requires-python >= 3.12, NumPy >= 2.0) and no changelog entry describes it"
+consequence = "The behaviour differences between 1.0.4 and 2.0.0 are not documented in the tree."
+
+[[discrepancy]]
+locator = "pyproject.toml (classifiers, license) versus LICENSE"
+documented = "license text 'NIST License'; classifiers 'License :: Freely Distributable' and 'License :: Public Domain'"
+actual = "LICENSE is the NIST licence notice (works of NIST employees, no copyright in the United States, permission to use, copy, modify and distribute provided the notice is kept); the classifiers state 'freely distributable' and 'public domain', while the licence text says foreign copyright may apply"
+consequence = "Not a contradiction of terms but the wording differs; rights determination should use the LICENSE text (recorded, not judged)."
+
+# ---------------------------------------------------------------------------
+# CAPABILITIES
+# ---------------------------------------------------------------------------
+
+[[capability]]
+calculation = "integral_equation_structure (proposed)"
+offered = "yes"
+scope = "PRISM solution for multi-site systems with atomic and reference molecular closures, giving direct, total and pair correlation functions and structure factors"
+locator = "pyPRISM/core/PRISM.py; pyPRISM/calculate/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "phase_stability"
+offered = "partial"
+scope = "spinodal condition between pairs of site types from k -> 0 (and chi and second virial coefficient as indicators); no global stability test"
+locator = "pyPRISM/calculate/spinodal_condition.py"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_tp"
+offered = "no"
+scope = "no phase equilibrium calculation; no temperature-pressure flash"
+locator = "pyPRISM/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "critical_point"
+offered = "no"
+scope = "no critical point calculation"
+locator = "pyPRISM/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "parameter_regression"
+offered = "no"
+scope = "no fitting of parameters to data; data files are references for comparison in tutorials"
+locator = "pyPRISM/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "characterization"
+offered = "partial"
+scope = "intramolecular correlation functions from simulation trajectories by the Debye method; not an assay-based pseudo-component characterisation"
+locator = "pyPRISM/trajectory/Debyer.pyx"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "chi_parameter_calculation (proposed)"
+offered = "yes"
+scope = "effective Flory-Huggins chi(k) and its k -> 0 limit, and second virial coefficients, from a solved PRISM object"
+locator = "pyPRISM/calculate/chi.py, second_virial.py"
+evidence = "source_inspected"
+
+# ---------------------------------------------------------------------------
+# QUESTIONS
+# ---------------------------------------------------------------------------
+
+[[question]]
+about = "provenance of the .dat reference files"
+question = "The BCPSolution and GraftedComposite .dat headers say 'Coarse Grained MD Simulation' and 'calculated from MD simulations using the Debye method' without the simulation code, version or trajectories; where are the underlying runs recorded?"
+why_it_matters = "The origin role (computed) needs a derivation record that the tree cannot supply."
+
+[[question]]
+about = "units of the reduced quantities"
+question = "Headers write lengths as 'd' and energies as 'e' and the data files give no numeric unit; how is d tied to a physical length for each published system (for example the digitised figures), and are all densities in d^-3?"
+why_it_matters = "Quantity types for k, r and densities need a unit; the source has only reduced units."
+
+[[question]]
+about = "molecule identity"
+question = "PRISM has site types and an omega table but no molecule or species record: how are two site types of the same molecule (for example the A and B blocks of a copolymer) linked, given that the same site type can appear in several molecules?"
+why_it_matters = "It decides whether a chemical species can be reconstructed from a pyPRISM system or only site types with intramolecular functions."
+
+[[question]]
+about = "which closure formulas are intended"
+question = "The Martynov-Sarkisov formula, the R-MPY sign and the R-LWC title differ between docstring and code; which expressions do the cited references define?"
+why_it_matters = "Closure forms must be recorded from what the code evaluates but attributed to a publication; the tree does not settle it."

@@ -1,0 +1,272 @@
+module = "systems"
+schema = "tk"
+uses = ["physical", "provenance", "identity"]
+doc = """
+Chemical systems, phases and composition coordinates. "Phase" is four different things across the
+sources; this module owns two of them. `aggregation` (in `identity`) is the category. A
+`phase_definition` is a named solution or pure phase inside a chemical system, with its
+constituents and internal structure. The mathematics of a phase is a model assembly (in
+`parameters`), and a phase instance in a state or a measurement is local to that state or dataset.
+"""
+
+[enums.system_role]
+doc = "The part a species form plays in a chemical system."
+members.basis = { doc = "A basis (master, primary, independent-component) species from which the others are formed." }
+members.secondary = { doc = "A species defined by a reaction from the basis." }
+members.member = { doc = "A member with no basis or secondary distinction in this system." }
+
+[enums.phase_structure]
+doc = "The internal structure a phase definition assumes. A new structure is a new core concept, not an ordinary extension."
+members.none = { doc = "No internal structure: constituents mix on one set of positions." }
+members.sublattice = { doc = "Several sublattices with site ratios (compound energy formalism)." }
+members.ionic_two_sublattice = { doc = "An ionic liquid with cation and anion sublattices whose site ratios depend on composition." }
+members.quasichemical = { doc = "A modified quasichemical model in pair or quadruplet approximation." }
+members.surface = { doc = "A surface or exchanger with site types." }
+members.clathrate = { doc = "A host lattice with cages that guests occupy." }
+
+[enums.site_ratio_kind]
+doc = "Whether a site ratio is a number or follows from composition."
+members.constant = { doc = "A fixed number of sites per formula unit." }
+members.composition_dependent = { doc = "Determined by composition, as in the ionic two-sublattice liquid." }
+
+[enums.map_exactness]
+doc = "How an apparent description relates to a true one."
+members.exact_linear = { doc = "A constant linear map." }
+members.requires_solve = { doc = "The true description follows only from solving the chemistry." }
+
+[kinds.composition_basis]
+doc = "What a composition vector means: the kind of fraction or concentration and what it is measured against. Converting between bases names the data it needs."
+identity = ["name"]
+provenance = "declaration"
+traces = ["IC-04"]
+
+[kinds.composition_basis.attributes]
+name = { type = "Text", doc = "Name of the basis." }
+needs = { type = "Text", optional = true, doc = "Auxiliary data a conversion to mole fractions needs." }
+
+[entities.composition_basis.mole_fraction]
+doc = "Amount of a component over total amount."
+
+[entities.composition_basis.mass_fraction]
+doc = "Mass of a component over total mass."
+needs = "molar masses"
+
+[entities.composition_basis.molality]
+doc = "Amount of solute per mass of solvent."
+needs = "solvent identity and molar mass"
+
+[entities.composition_basis.molarity]
+doc = "Amount of solute per volume of solution."
+needs = "solution density"
+
+[entities.composition_basis.site_fraction]
+doc = "Fraction of the sites of one site class occupied by a constituent."
+needs = "the phase's site classes"
+
+[entities.composition_basis.volume_fraction]
+doc = "Volume of a component over total volume, by a stated volume measure."
+needs = "molar or segment volumes"
+
+[entities.composition_basis.segment_fraction]
+doc = "Segments of a component over total segments."
+needs = "segment numbers"
+
+[entities.composition_basis.surface_fraction]
+doc = "Surface area of a component over total surface area."
+needs = "surface parameters"
+
+[entities.composition_basis.equivalent_fraction]
+doc = "Charge equivalents of a species over total equivalents of its sign."
+needs = "charges"
+
+[entities.composition_basis.site_number_density]
+doc = "Number of sites of a type per volume, the composition coordinate of liquid-state integral-equation theories."
+
+[entities.composition_basis.loading]
+doc = "Amount adsorbed per mass or site of host."
+needs = "host amount"
+
+[kinds.member_role]
+doc = "The part a species form plays in the phases of a chemical system: the solvent or a solute of a solution, a pure phase, a gas, a surface or exchange species. A convention set gives the standard state of each role."
+identity = ["name"]
+provenance = "declaration"
+
+[kinds.member_role.attributes]
+name = { type = "Text", doc = "Name of the role." }
+
+[entities.member_role.gas]
+doc = "A gas-phase species."
+
+[entities.member_role.pure_liquid]
+doc = "A species present as a pure liquid phase."
+
+[entities.member_role.pure_solid]
+doc = "A species present as a pure solid phase."
+
+[entities.member_role.solvent]
+doc = "The species that makes up the solution the other members are dissolved in."
+
+[entities.member_role.solute]
+doc = "A species dissolved in the solvent of a solution."
+
+[entities.member_role.solution_constituent]
+doc = "A constituent of a solution phase with no solvent or solute distinction, such as a component of a liquid or solid mixture."
+
+[entities.member_role.surface_species]
+doc = "A species bound to the sites of a surface."
+
+[entities.member_role.exchange_species]
+doc = "A species bound to the sites of an ion exchanger."
+
+[kinds.chemical_system]
+doc = "The species forms, phases, reactions and conserved quantities one source treats together. What a TDB or PHREEQC file calls a database is a chemical system plus a parameterisation plus a convention set."
+identity = ["key", "revision"]
+provenance = "own"
+traces = ["IC-45"]
+
+[kinds.chemical_system.attributes]
+key = { type = "Text", doc = "Stable key." }
+revision = { type = "Text", doc = "Revision of the system definition." }
+
+[relations.system_member]
+doc = "A species form that belongs to a chemical system, with its role there."
+provenance = "inherit:system"
+absence = "optional"
+
+[relations.system_member.keys]
+system = { type = "chemical_system", doc = "The system." }
+form = { type = "species_form", doc = "A member." }
+
+[relations.system_member.columns]
+role = { type = "system_role", doc = "Its role in this system." }
+member_role = { type = "member_role", optional = true, doc = "The part it plays in the phases of this system, where the source states one." }
+
+[relations.system_conserves]
+doc = "A conserved quantity a chemical system declares. Every reaction of the system conserves each of them."
+provenance = "inherit:system"
+absence = "optional"
+
+[relations.system_conserves.keys]
+system = { type = "chemical_system", doc = "The system." }
+quantity = { type = "conserved_quantity", doc = "A conserved quantity." }
+
+[kinds.phase_definition]
+doc = "A named solution or pure phase within a chemical system: its aggregation, constituents and internal structure."
+identity = ["system", "key"]
+provenance = "own"
+
+[kinds.phase_definition.attributes]
+system = { type = "chemical_system", doc = "The system the phase belongs to." }
+key = { type = "Text", doc = "The phase's name in that system." }
+aggregation = { type = "aggregation", doc = "Its state of aggregation." }
+structure = { type = "phase_structure", doc = "The internal structure it assumes." }
+prototype = { type = "Text", optional = true, doc = "A structure prototype or Strukturbericht designation, where the source gives one." }
+source_directives = { type = "SourceText", optional = true, doc = "Uninterpreted source directives attached to the phase, retained verbatim." }
+
+[kinds.site_class]
+doc = "A sublattice, hydrate cage, surface site type or exchanger: a class of positions that constituents occupy, within a phase definition or on a material."
+identity = ["host_key", "index"]
+provenance = "own"
+
+[kinds.site_class.attributes]
+host_key = { type = "Text", doc = "Identifier of the hosting phase definition or material, as text, so the identity is one tuple for both cases." }
+index = { type = "Integer", doc = "Position of the class within its host, from one." }
+phase = { type = "phase_definition", optional = true, doc = "The hosting phase definition." }
+material = { type = "material", optional = true, doc = "The hosting material." }
+label = { type = "Text", optional = true, doc = "The class's name in the source." }
+ratio_kind = { type = "site_ratio_kind", doc = "Whether the site ratio is a constant." }
+ratio = { type = "Count", optional = true, doc = "Sites per formula unit, when constant." }
+
+[[kinds.site_class.requires]]
+name = "one_host"
+doc = "A site class belongs to exactly one of a phase definition or a material."
+enforced = "ddl"
+check = { one_of_present = ["phase", "material"] }
+
+[[kinds.site_class.requires]]
+name = "index_positive"
+doc = "Site classes are numbered from one."
+enforced = "ddl"
+check = { positive = "index" }
+
+[[kinds.site_class.requires]]
+name = "host_key_matches_host"
+doc = "The host key is the identifier of the phase definition or the material the site class names."
+enforced = "verify"
+
+[[kinds.site_class.requires]]
+name = "constant_ratio_present"
+doc = "A constant site ratio is stated and positive; a composition-dependent one is absent."
+enforced = "verify"
+
+[relations.site_occupant]
+doc = "A species that may occupy a site class. A vacancy is a species."
+provenance = "inherit:site_class"
+absence = "optional"
+
+[relations.site_occupant.keys]
+site_class = { type = "site_class", doc = "The site class." }
+occupant = { type = "species", doc = "An admissible occupant." }
+
+[relations.site_equivalence]
+doc = "Two site classes that are equivalent under permutation, so parameters are unchanged when their occupants are exchanged."
+provenance = "inherit:a"
+absence = "optional"
+transposition = { rule = "symmetric", roles = [
+  "a",
+  "b",
+], diagonal = "forbidden" }
+
+[relations.site_equivalence.keys]
+a = { type = "site_class", doc = "One site class." }
+b = { type = "site_class", doc = "An equivalent site class." }
+
+[[relations.site_equivalence.requires]]
+name = "same_host"
+doc = "Both site classes have the same host key."
+enforced = "verify"
+
+[kinds.constituent_array]
+doc = "A choice of one or more species on each site class of a phase, in a stated order: the subject of a compound-energy parameter. The order of interacting species on a site class fixes the sign of odd-order interaction terms and which species a ternary index selects, so it is part of the array. Canonical key: the phase and, per site class in order, the species in ascending order of their identifiers; a mapping whose source orders them differently applies the contribution form's transposition rule when it reorders."
+identity = ["phase", "canonical_key"]
+provenance = "own"
+
+[kinds.constituent_array.attributes]
+phase = { type = "phase_definition", doc = "The phase." }
+canonical_key = { type = "Text", doc = "The canonical encoding of the array." }
+
+[relations.constituent_array_member]
+doc = "A species an array places on a site class."
+provenance = "inherit:array"
+absence = "optional"
+
+[relations.constituent_array_member.keys]
+array = { type = "constituent_array", doc = "The array." }
+site_class = { type = "site_class", doc = "A site class of the array's phase." }
+position = { type = "Integer", doc = "Position of the species among those the array places on this site class, from one." }
+
+[relations.constituent_array_member.columns]
+species = { type = "species", doc = "The species at that position." }
+
+[kinds.speciation_map]
+doc = "The relation between an apparent description of a material and its true species within a chemical system. Apparent and true are two descriptions of one material account, never two inventories."
+identity = ["system", "key"]
+provenance = "own"
+traces = ["IC-07", "IC-47", "SI-06"]
+
+[kinds.speciation_map.attributes]
+system = { type = "chemical_system", doc = "The system." }
+key = { type = "Text", doc = "Name of the map." }
+exactness = { type = "map_exactness", doc = "Whether the map is a constant linear map." }
+invertible = { type = "Boolean", doc = "Whether the apparent description can be recovered from the true one." }
+
+[relations.speciation_coefficient]
+doc = "How much of a true species one unit of an apparent entity contributes, for an exact linear map."
+provenance = "inherit:map"
+absence = { default = 0 }
+value = { type = "Count", doc = "The value." }
+
+[relations.speciation_coefficient.keys]
+map = { type = "speciation_map", doc = "The map." }
+apparent = { type = "material_entity", doc = "The apparent entity." }
+true_form = { type = "species_form", doc = "A true species form." }

@@ -1,0 +1,7 @@
+id = "no_rights"
+title = "Bad"
+tier = "A"
+
+[acquire]
+kind = "none"
+reason = "r"

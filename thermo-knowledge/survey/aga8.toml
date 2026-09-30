@@ -1,0 +1,616 @@
+source = "aga8"
+pin = "3bdb9ab8ff31"
+surveyed = "2026-09-30"
+summary = "The NIST AGA8 repository contributes the complete constant tables of three natural-gas equations over one fixed list of 21 components (GERG-2008: pure-fluid residual and ideal-gas terms, 210 binary reducing-parameter pairs, 15 departure-function pairs; AGA8 DETAIL: 58 equation terms, 7 characterisation parameters per component, four binary-parameter matrices; AGA8 GROSS: virial correlations and heating values), each as setup code in C++, Fortran, Visual Basic and Rust, plus Excel workbooks of test points; several stored numbers are pre-combined by the setup routines rather than published coefficients. It bundles no identifiers beyond positional index and comment names, no uncertainty or validity statements in machine-readable form, and no citation per table."
+
+# ---------------------------------------------------------------------------
+# PAYLOADS
+# ---------------------------------------------------------------------------
+
+[[payload]]
+paths = [
+  "AGA8CODE/C/*.cpp",
+  "AGA8CODE/C/*.h",
+  "AGA8CODE/C/CMakeLists.txt",
+  "AGA8CODE/C/docker/*",
+  "AGA8CODE/C/.gitignore",
+]
+format = "C++ source: one translation unit per method (GERG2008.cpp, Detail.cpp, Gross.cpp), each with a header and a *_test_01.cpp program; every method has a Setup routine (SetupGERG, SetupDetail, SetupGross) that fills file-static arrays indexed from 1 (index 0 is a placeholder); a TEST_xxx preprocessor block in each .cpp holds a main program with printed reference values"
+files = 14
+bytes = 179894
+records = "3 method files (GERG2008.cpp 1617 lines, Detail.cpp 1022, Gross.cpp 622); SetupGERG assigns 2121 numeric array entries (counted with a regular expression over the assignment statements of the function body); SetupDetail and SetupGross assignments are counted per construct below"
+reader = "a C++ compiler; the tables are not separable from the code: the arrays are assigned statement by statement inside SetupGERG (GERG2008.cpp line 657 onward), SetupDetail (Detail.cpp line 514 onward) and SetupGross (Gross.cpp line 470 onward); source files contain one non-UTF-8 byte (a u-umlaut in a citation comment, read as Latin-1)"
+read_by_source = "all"
+notes = "The setup routines state that some values are modified for calculations that do not depend on T, D and x in order to speed up the program, without listing which; the modifications are identified per construct below from the code. The C++ GERG2008.cpp is the translation of the Fortran original (header comment names the authors and contributors); a version-2.01 date of April 2017 appears in each C++ header and the Detail and Gross headers additionally say the code is preliminary and for beta testing (dated January 2016 and June 2016)."
+
+[[payload]]
+paths = ["AGA8CODE/FORTRAN/*.FOR", "AGA8CODE/FORTRAN/*.CMN"]
+format = "Fortran 77 fixed-form source with COMMON blocks in .CMN include files; subroutines SetupGERG, SetupDetail, SetupGross and an Example subroutine per method that assigns the 21-component composition"
+files = 6
+bytes = 137525
+records = "3 method files plus 3 common-block declarations"
+reader = "a Fortran compiler; no loader exists"
+read_by_source = "all"
+notes = "Decimal literals in the Setup routines of the C++, Fortran and Visual Basic versions form identical sets (measured by extracting every decimal literal from the function text and comparing the sets; the integer-valued literals that differ are formatting), so the three are one set of constants. The Fortran DETAIL comment on the exponential density term states the condition as kn not equal to 1, where the C++ comment says kn not equal to 0 (see questions)."
+
+[[payload]]
+paths = [
+  "AGA8CODE/VB/*.BAS",
+  "AGA8CODE/VB/AGA8.frm",
+  "AGA8CODE/VB/AGA8.VBP",
+  "AGA8CODE/VB/AGA8.VBW",
+]
+format = "Visual Basic 6 modules (GERG2008.BAS, DETAIL.BAS, GROSS.BAS) and a form; Sub Setup* routines assign the same tables with 1-based arrays"
+files = 6
+bytes = 146414
+records = "3 method modules"
+reader = "Visual Basic or the VBA of the Excel workbooks (the workbooks embed modules with the same names)"
+read_by_source = "all"
+notes = "Literal sets agree with the C++ Setup routines (see the Fortran payload note)."
+
+[[payload]]
+paths = [
+  "AGA8CODE/RUST/src/*.rs",
+  "AGA8CODE/RUST/tests/*.rs",
+  "AGA8CODE/RUST/examples/*.rs",
+  "AGA8CODE/RUST/Cargo.toml",
+  "AGA8CODE/RUST/Cargo.lock",
+  "AGA8CODE/RUST/README.md",
+  "AGA8CODE/RUST/.gitignore",
+]
+format = "Rust crate named aga8 (README: based on the C++ implementation, with the data put into a struct per method); const arrays for molar masses, exponents, critical values and model numbers, setup() for the rest; tests and examples with reference values"
+files = 11
+bytes = 202237
+records = "2 methods (Gerg2008 in gerg2008.rs 4600+ lines; AGA8Detail in detail.rs); no GROSS implementation in the Rust crate (measured: no file or symbol named Gross)"
+reader = "cargo; literal spellings differ from the C++ (digit separators, for example 16.042_46 for a molar mass), so a literal-by-literal comparison with C++ needs separator stripping"
+read_by_source = "all"
+notes = "The Rust port carries KPOLIJ and KEXPIJ entries for departure models 8 and 9 (6 polynomial and 6 exponential rows each) that the C++ code does not set (C++ assigns models 1 to 7 and 10 only) and that its model-number matrix never references (measured: the only model numbers in MNUMB are 1 to 7 and 10)."
+
+[[payload]]
+paths = ["TESTDATA/*.xls", "TESTDATA/*.XLS"]
+format = "Excel 97-2003 binary workbooks (OLE compound documents, BIFF8) with embedded VBA project streams; 4 files: Test Data.xls, NG Compositions.XLS, Deviation Calculator.xls, Tables.xls; many cells are formulas (BIFF FORMULA records) whose cached values are the stored numbers"
+files = 4
+bytes = 4317696
+records = "sheets and sizes measured with a throwaway OLE and BIFF reader (not in the repository): Test Data.xls has 3 sheets, Binary Mixture Calculations (3656 rows by 33 columns, 3645 data rows), Natural Gas Calculations (4077 rows by 18 columns, 3864 data rows) and Natural Gas Compositions (211 rows by 21 columns, 200 composition rows); NG Compositions.XLS has 1 sheet (211 by 21, 200 composition rows, row sums between 99.999999 and 100.000003); Deviation Calculator.xls has 2 sheets (Calculations 26 by 11; Natural Gas Compositions with the same 200 rows); Tables.xls has 3 sheets (Tables 292 by 32; Gross - Method 1 and Gross - Method 2, 111 rows by 31 each)"
+reader = "xlrd or another BIFF8 reader (none is installed in this tree; the counts above come from a throwaway parser of the compound-document directory, the SST shared-string table and the NUMBER, RK, MULRK, LABELSST and FORMULA records)"
+read_by_source = "none"
+notes = "No code in the repository reads these workbooks; their embedded VBA modules (stream names AGA8Detail, AGA8Gross, GERG2008, AdditionalCode, ExcelLinks in Tables.xls) call the method code. Sheet text states that the binary-mixture and natural-gas points lie along the saturation boundary obtained from REFPROP 9.1 as a function of density, that all binary points are 50/50 mole percent, that the pressure, isochoric and isobaric heat capacity and speed of sound are calculated from temperature and density (no iteration), that DETAIL values in the critical region and liquid phase are not correct, and that the numbers are validation points only. Deviation Calculator.xls states that REFPROP is required."
+
+[[payload]]
+paths = ["AGA8CODE/AGA8.XLS"]
+format = "Excel 97-2003 workbook with one sheet, Property Examples (125 rows by 20 columns), and embedded VBA modules AGA8Gross, AGA8Detail, GERG2008, AdditionalCode, ExcelLinks"
+files = 1
+bytes = 649728
+records = "1 sheet; 155 shared-string cells, 164 formula cells (record counts from the same throwaway BIFF reader)"
+reader = "xlrd or the Excel application; text in the sheet describes user-defined functions DDetail, PDetail, ZDetail and the GROSS and GERG equivalents called with a fluid string (component names and mole percents, any order, not all 21 required) and notes that units can be changed to molar or mass SI in the ExcelLinks module"
+read_by_source = "none"
+notes = "Author metadata names Eric W. Lemmon; last saved 2016."
+
+[[payload]]
+paths = ["LICENSE", "README.md", ".travis.yml"]
+format = "licence text (NIST no-fee permission notice with disclaimer of warranty), a one-line README pointing to an e-mail contact, and a CI file"
+files = 3
+bytes = 2137
+records = "not applicable"
+reader = "plain text"
+read_by_source = "none"
+notes = "The README states only that the repository is the home of the code of the AGA8 standard."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "component list and fixed order (x array)"
+locator = "AGA8CODE/C/GERG2008.cpp lines 55-76; AGA8CODE/C/Detail.cpp lines 54-78; AGA8CODE/C/Gross.cpp lines 49-71; the same header comment in the Fortran and Visual Basic versions"
+meaning = "The composition vector that every routine consumes: 21 named components at fixed positions 1 to 21 (position 0 is a placeholder), sent as mole fractions that must sum to one. Methane, nitrogen, carbon dioxide, ethane, propane, isobutane, n-butane, isopentane, n-pentane, n-hexane, n-heptane, n-octane, n-nonane, n-decane, hydrogen, oxygen, carbon monoxide, water, hydrogen sulfide, helium, argon."
+subject = "A mixture composition; keyed by array position. The names exist only in comments; no CAS number, formula or structure identifier is stored anywhere in the code."
+fields = [
+  { name = "x(i)", meaning = "mole fraction of component i, i = 1..21", unit = "mole fraction (comment: do not send mole percents or mass fractions)", shape = "list", role = "input" },
+  { name = "component name at position i", meaning = "English name of the component, in a header comment only", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+]
+origin = "authored (by the code authors; a convention, no publication)"
+conventions = "Positions are fixed and shared by GERG-2008, DETAIL and GROSS, so a parameter array position is the component identity. The order differs from other artifacts in the same repository: the natural-gas composition sheets in TESTDATA list methane, nitrogen, CO2, ethane, propane, isobutane, butane, isopentane, pentane, hexane, heptane, octane, nonane, decane, H2S, helium, water, oxygen, argon, hydrogen, CO (positions 15 to 21 differ from the code order, which has hydrogen, oxygen, CO, water, H2S, helium, argon), and in mole percent rather than mole fraction. The change log in the older copy of GERG2008.cpp (version 1.7) bundled in the teqp tree (src/tests/GERG2008.cpp) records that the order of butane and isobutane and of pentane and isopentane was changed on 2015-03-18 and the fluid order matched to the other methods on 2015-03-10; the pinned AGA8 file carries no change log."
+absence = "A component with a zero mole fraction is skipped in every sum by an epsilon test (x greater than 1e-15); absence and an explicit zero are the same. The GROSS method consumes only the lumped triple (equivalent hydrocarbon, nitrogen, CO2) built from the same vector."
+validity = "not stated per component; the code says nothing about composition ranges"
+provenance = "none: no citation is attached to the list"
+count = "21 components"
+example = "AGA8CODE/C/GERG2008.cpp lines 55-76"
+candidate = "composition_basis (mole fraction over an ordered constituent list) with a convention that position indexes species; species_form rows with identity_assertion per naming_scheme (source label, since only names are given)"
+precision = "close"
+loss = "The identity of a component exists only as a positional convention plus a comment name; a mapping must create the species assertions from names (an ambiguity-free name list, but no registry identifiers) and must record the order as data. The zero-fraction skip rule is procedural."
+
+[[construct]]
+name = "GERG-2008 pure-component constants (MMiGERG, Dc, Tc)"
+locator = "AGA8CODE/C/GERG2008.cpp lines 675-764 (SetupGERG)"
+meaning = "Per component: molar mass, critical density and critical temperature as commented. Dc and Tc feed the reducing function (their combinations Vc3 = one half of the cube root of 1/Dc and Tc2 = square root of Tc are computed in setup) and the pseudo-critical estimate used to start the density search."
+subject = "One component, keyed by array position 1..21."
+fields = [
+  { name = "MMiGERG", meaning = "molar mass", unit = "g/mol", shape = "list", role = "input" },
+  { name = "Dc", meaning = "critical density (commented as critical densities)", unit = "mol/l", shape = "list", role = "input" },
+  { name = "Tc", meaning = "critical temperature (commented as critical temperatures)", unit = "K", shape = "list", role = "input" },
+  { name = "Vc3", meaning = "half the reciprocal cube root of Dc, used in the combined volume reducing parameter", unit = "not stated (inferred: (mol/l)^(-1/3) from the formula)", shape = "list", role = "computed" },
+  { name = "Tc2", meaning = "square root of Tc", unit = "not stated (inferred: K^(1/2))", shape = "list", role = "computed" },
+]
+origin = "transcribed (GERG-2008 pure-fluid tables of Kunz and Wagner 2012 per the file header; table numbers not stated)"
+conventions = "Values are those of the GERG-2008 pure-fluid equations (header cites Kunz and Wagner, J. Chem. Eng. Data 57(11):3032-3091, 2012, and the GERG-2004 monograph TM15); the per-table source of each value is not stated. The DETAIL and GROSS methods carry their own molar-mass lists (16.043 for methane where GERG has 16.04246): 19 of 21 components differ between the GERG list and the DETAIL list, and the DETAIL and GROSS lists are identical (measured by parsing the assignments)."
+absence = "no defaults: all 21 entries are assigned"
+validity = "not stated"
+provenance = "file header only (publication named, no table numbers)"
+count = "21 components by 3 stored constants (63 numbers), plus 42 derived"
+example = "AGA8CODE/C/GERG2008.cpp lines 675-696"
+candidate = "parameter_set in a pure slot group (critical-state slots with observable links) of the GERG-2008 parameterization; molar mass as a species_form attribute or observable value with a stated source"
+precision = "exact"
+loss = "Dc and Tc play the role of reducing parameters, not measured critical points (the source calls them critical); a mapping must keep the role the equation gives them."
+
+[[construct]]
+name = "GERG-2008 pure-fluid residual terms (noik, doik, toik, coik, kpol, kexp)"
+locator = "AGA8CODE/C/GERG2008.cpp lines 698-718 (term counts), 765-810 (shared exponent layouts), 811-1137 (coefficients per fluid); term evaluation AlpharGERG lines 460-593"
+meaning = "For each component a list of residual Helmholtz terms n * delta^d * tau^t, the last kexp of them multiplied by exp(-delta^c): a first block of kpol polynomial terms (c = 0) and then kexp exponential terms (c from 1 to 6). The reduced variables tau and delta use the mixture reducing temperature and density, so each pure-fluid term list is evaluated at mixture state (corresponding states)."
+subject = "One component, keyed by array position; the term index k is an inner index."
+fields = [
+  { name = "noik(i,k)", meaning = "coefficient of term k of component i", unit = "not stated (dimensionless, reduced Helmholtz energy)", shape = "table", role = "input" },
+  { name = "doik(i,k)", meaning = "density exponent", unit = "not stated (dimensionless, integer)", shape = "table", role = "input" },
+  { name = "toik(i,k)", meaning = "inverse-temperature exponent", unit = "not stated (dimensionless, real)", shape = "table", role = "input" },
+  { name = "coik(i,k)", meaning = "exponent inside the exponential factor; 0 means a polynomial term", unit = "not stated (dimensionless, integer 0 to 6)", shape = "table", role = "input" },
+  { name = "kpol(i), kexp(i)", meaning = "number of polynomial and of exponential terms of component i", unit = "not applicable (count)", shape = "list", role = "input" },
+]
+origin = "transcribed (GERG-2008 pure-fluid equations, Kunz and Wagner 2012 per the file header; table numbers not stated)"
+conventions = "Reduced Helmholtz energy alpha_r = a_r/(R T); tau = Tr/T and delta = D/Dr with the mixture reducing values (ReducingParametersGERG). The exponent layout (d, t, c) is stored once per layout group and only n is per fluid for the groups: methane, nitrogen and ethane share one 24-term layout (6 polynomial plus 18 exponential; toik from 0.125 to 30, coik from 0 to 6); 14 components (propane, the butanes, pentanes, hexane to decane, oxygen, carbon monoxide, hydrogen sulfide, argon) share one 12-term layout (6 plus 6); carbon dioxide (22 terms, 4 plus 18), hydrogen (14, 5 plus 9), water (16, 7 plus 9) and helium (12, 4 plus 8) each carry their own d, t, c. The temperature-dependent parts are cached with the propane exponents for all fluids of the 12-term group (tTermsGERG uses fluid 5 as the exponent source for every component except 1, 2, 3, 4, 15, 18, 20), which is only valid because the layout is literally identical."
+absence = "a component has exactly the terms its layout lists; there is no optional term"
+validity = "not stated"
+provenance = "file header (GERG-2008 and GERG-2004 publications); no per-term citation"
+count = "304 terms over 21 components (24, 24, 22, 24 for components 1 to 4; 12 each for components 5 to 14; 14, 12, 12, 16, 12, 12, 12 for components 15 to 21), measured by counting the noik assignments per component; 304 stored n values"
+example = "AGA8CODE/C/GERG2008.cpp lines 811-834 (methane)"
+candidate = "form power_term and exp_term (family over the term index) implementing residual_helmholtz_term, in a slot group per pure species under the GERG-2008 parameterization, additive slot of many terms"
+precision = "exact"
+loss = "Shared exponent layouts would become repeated rows or a layout reference; the evaluation at mixture reduced variables is part of the model assembly, not of the pure parameter set; integer-valued d and c must be validated as integers."
+
+[[construct]]
+name = "GERG-2008 ideal-gas terms (n0i, th0i)"
+locator = "AGA8CODE/C/GERG2008.cpp lines 1255-1298 (assignment), 1535-1567 (setup-time modification and the unexecuted derivation); evaluation Alpha0GERG lines 402-459"
+meaning = "Per component seven coefficients n0(1..7) and four characteristic temperatures th0(4..7) for the ideal-gas Helmholtz function: a0 = ln(rho x) + n1 + n2/T - n3 ln T plus a sum of four terms of hyperbolic type, sinh for indices 4 and 6 (with plus sign) and cosh for 5 and 7 (with minus sign), each n_j ln|hyperbolic(th_j/T)|."
+subject = "One component, keyed by array position."
+fields = [
+  { name = "n0i(i,1)", meaning = "integration constant of the ideal-gas Helmholtz function (reference-state constant)", unit = "not stated (dimensionless after setup)", shape = "list", role = "input" },
+  { name = "n0i(i,2)", meaning = "second integration constant, multiplying 1/T", unit = "K (inferred: it divides T)", shape = "list", role = "input" },
+  { name = "n0i(i,3)", meaning = "coefficient of -ln T, stored as cp0/R-type constant plus one (setup subtracts 1)", unit = "not stated (dimensionless)", shape = "list", role = "input" },
+  { name = "n0i(i,4..7)", meaning = "amplitudes of the four hyperbolic terms", unit = "not stated (dimensionless)", shape = "table", role = "input" },
+  { name = "th0i(i,4..7)", meaning = "characteristic temperatures of the four hyperbolic terms (zero means the term is absent)", unit = "K (inferred from th/T)", shape = "table", role = "input" },
+]
+origin = "transcribed (GERG-2008 ideal-gas terms per the file header; values then pre-combined by setup)"
+conventions = "Setup modifies the stored tables before use: n3 is reduced by one; all seven n0 are multiplied by Rs/RGERG (8.31451 over 8.314472, so the ideal-gas part is carried with the R of the DETAIL method); n0(2) is shifted by T0 before and after that scaling; and n0(1) is reduced by ln(d0) with T0 = 298.15 K and d0 = 101.325 kPa/(R T0). A commented-out block (after an early return, never executed) shows how nearly exact n0(1) and n0(2) would be computed so that enthalpy and entropy vanish at T0 and 101.325 kPa; the statement is in code comments only, the words enthalpy and entropy reference do not appear (inferred reference state: ideal gas at 298.15 K and 101.325 kPa has zero enthalpy and entropy). The 147 raw n0 values (21 by 7) are identical in Detail.cpp (measured)."
+absence = "a zero th0 switches the term off (tested as th0 greater than epsilon); components without hyperbolic terms (helium and argon) have all four th0 equal to zero"
+validity = "not stated"
+provenance = "file header only"
+count = "21 components by 7 coefficients and 4 temperatures (147 n0 values, 84 th0 values of which 23 are zero)"
+example = "AGA8CODE/C/GERG2008.cpp line 1257 (methane)"
+candidate = "parameter_set in a pure slot group of an ideal-gas Helmholtz form (Planck-Einstein-type hyperbolic terms) plus an energy_reference with enthalpy and entropy datums at 298.15 K and 101.325 kPa"
+precision = "close"
+loss = "Stored n1, n2, n3 are not the published values: they are pre-combined by the setup, so the verbatim published values are not recoverable from the running tables (the raw values are recoverable from the assignment statements before the setup loop). The reference-state statement is inferred."
+
+[[construct]]
+name = "GERG-2008 binary reducing parameters (bvij, gvij, btij, gtij)"
+locator = "AGA8CODE/C/GERG2008.cpp lines 1299-1513 (assignments, 210 statements groups), 1514-1525 (setup-time combination); use ReducingParametersGERG lines 350-401"
+meaning = "For each pair i < j four numbers that define the composition-dependent reducing temperature and volume of the mixture: beta_v, gamma_v, beta_T, gamma_T in the published form, in the order bvij, gvij, btij, gtij of each assignment line. Setup replaces them by the combined quantities the code uses: gvij times bvij times the cube of (Vc3_i + Vc3_j); gtij times btij times sqrt(Tc_i) sqrt(Tc_j); and squares of bvij and btij; the diagonal is set to bvij = btij = 1, gvij = 1/Dc_i, gtij = Tc_i."
+subject = "An ordered pair of components keyed by array positions (i, j) with i less than j; the same four numbers serve both orders through the reducing formula."
+fields = [
+  { name = "bvij", meaning = "beta_v of the pair", unit = "not stated (dimensionless)", shape = "table", role = "input" },
+  { name = "gvij", meaning = "gamma_v of the pair", unit = "not stated (dimensionless)", shape = "table", role = "input" },
+  { name = "btij", meaning = "beta_T of the pair", unit = "not stated (dimensionless)", shape = "table", role = "input" },
+  { name = "gtij", meaning = "gamma_T of the pair", unit = "not stated (dimensionless)", shape = "table", role = "input" },
+]
+origin = "transcribed (GERG-2008 binary parameter table, Kunz and Wagner 2012 per the file header; table number not stated; then pre-combined by setup)"
+conventions = "Pair orientation: only the upper triangle is assigned, in the component order of the code. A comment states that the beta values for isobutane plus n-butane are the reciprocal values of those in the GERG-2008 publication because the order of the two was reversed in this work, so beta carries an orientation (beta_ji = 1/beta_ij) that the stored number does not make explicit. gamma is symmetric."
+absence = "every one of the 210 pairs is stated; 54 pairs have all four numbers equal to 1 (the ideal-mixing values) and 140 pairs have both beta equal to 1 (measured by parsing the 210 assignment groups); a stored 1 and an unmeasured pair are not distinguished"
+validity = "not stated"
+provenance = "file header (Kunz and Wagner 2012); no per-pair citation; a comment marks the isobutane plus n-butane reversal"
+count = "210 pairs (21 by 20 over 2)"
+example = "AGA8CODE/C/GERG2008.cpp line 1300 (methane plus nitrogen)"
+candidate = "parameter_set in a pair slot group of the GERG reducing form, transposition reciprocal over the beta slots (value stored with the canonical orientation of the smaller identifier first), gamma symmetric"
+precision = "exact"
+loss = "The orientation of the isobutane plus n-butane pair depends on the component order (species identifiers sort differently from array positions); stored combined values after setup are not the published ones."
+
+[[construct]]
+name = "GERG-2008 departure functions (dijk, tijk, cijk, eijk, bijk, gijk, nijk; kpolij, kexpij; mNumb; fij)"
+locator = "AGA8CODE/C/GERG2008.cpp lines 1138-1254 (term tables, scale factors, model numbers), 1526-1534 (setup-time combination); use AlpharGERG lines 531-589"
+meaning = "A set of binary departure (excess) functions. Each model mn is a list of polynomial rows n*delta^d*tau^t followed by exponential rows n*delta^d*tau^t*exp(-eta (delta - eps)^2 - beta (delta - gamma)); a pair uses model mNumb(i,j) (or none), scaled by x_i x_j times the pair factor fij. Model 10 is a generalised function shared by 8 pairs, with the pair factor carrying the difference."
+subject = "An unordered pair of components (array positions i, j) selecting a model number, and a model number selecting a term list; fij is keyed by the pair."
+fields = [
+  { name = "nijk, dijk, tijk", meaning = "coefficient, density exponent and temperature exponent of row k of model mn", unit = "not stated (dimensionless)", shape = "table", role = "input" },
+  { name = "cijk (eta), eijk (epsilon), bijk (beta), gijk (gamma)", meaning = "parameters of the exponential rows in the published form; setup converts them to c = -eta, e = 2 eta eps - beta, g = -eta eps^2 + beta gamma so that the row is exp(c delta^2 + e delta + g)", unit = "not stated (dimensionless)", shape = "table", role = "input" },
+  { name = "kpolij(mn), kexpij(mn)", meaning = "number of polynomial and of exponential rows of model mn", unit = "not applicable (count)", shape = "list", role = "input" },
+  { name = "mNumb(i,j)", meaning = "model number of the pair; minus one means no departure function", unit = "not applicable (index)", shape = "table", role = "input" },
+  { name = "fij(i,j)", meaning = "scale factor of the departure function of the pair", unit = "not stated (dimensionless)", shape = "table", role = "input" },
+]
+origin = "transcribed (GERG-2008 departure functions per the file header; table numbers not stated; eta, epsilon, beta, gamma then combined by setup)"
+conventions = "Models 1 to 7 are pair-specific (1 methane-ethane, 2 methane-propane, 3 methane-nitrogen, 4 methane-CO2, 5 nitrogen-CO2, 6 nitrogen-ethane, 7 methane-hydrogen) and model 10 is the generalised function used by methane-isobutane, methane-n-butane, ethane-propane, ethane-isobutane, ethane-n-butane, propane-isobutane, propane-n-butane and isobutane-n-butane; model array slots 8 and 9 exist (MaxMdl = 10) and are unused. Row counts per model (polynomial plus exponential): 2+10, 5+4, 2+7, 3+3, 2+4, 3+3, 4+0 and 10+0 for models 1, 2, 3, 4, 5, 6, 7, 10 (62 rows in total, measured). The pair factors of the 7 pair-specific pairs are 1; of the 8 generalised pairs, 7 differ from 1 (two of them negative) and methane-n-butane is 1."
+absence = "a pair without a model number has no departure contribution (mNumb = -1 for the 195 of 210 pairs not listed); an explicit fij of 1 and a missing function are different states"
+validity = "not stated"
+provenance = "file header only"
+count = "8 models (62 rows), 15 pairs with a model, 15 fij values (7 of them not equal to 1)"
+example = "AGA8CODE/C/GERG2008.cpp lines 1139-1148 (methane-nitrogen model)"
+candidate = "form of an excess term (polynomial plus Gaussian-type rows) as an additive sub-form of the multifluid assembly, with a pair slot group holding fij and a model reference; model 10 as one shared parameter_set referenced from 8 pairs"
+precision = "close"
+loss = "Stored eta, epsilon, beta, gamma are replaced at setup by combined coefficients, so the running tables are pre-combined; the shared generalised function is many-to-one by pair; the integer model number is an index into an unnamed array with no name."
+
+[[construct]]
+name = "DETAIL equation terms (an, bn, kn, un, fn, gn, qn, sn, wn)"
+locator = "AGA8CODE/C/Detail.cpp lines 562-669 (coefficients, exponents and flags), 930-950 (precalculation); evaluation AlpharDetail lines 410-512"
+meaning = "58 terms of the AGA8 DETAIL equation, written in a virial-like form with density power b_n (1 to 9), an optional exponential exp(-D^k_n), a temperature power T^(-u_n), and composition-dependence factors. Terms 1 to 12 contribute only the second virial part, terms 13 to 18 both the second virial and the density part, terms 19 to 58 only the density part. Flags select which mixture quantities multiply a term: F (high-temperature parameter), G (orientation), Q (quadrupole squared), S (dipole), W (association)."
+subject = "A global equation term, keyed by term index n = 1..58 (no subject component)."
+fields = [
+  { name = "an", meaning = "coefficient of term n", unit = "not stated", shape = "list", role = "input" },
+  { name = "bn", meaning = "density exponent (integer 1 to 9)", unit = "not stated (dimensionless)", shape = "list", role = "input" },
+  { name = "kn", meaning = "exponent on density in the exponential factor; zero means no exponential (38 terms have it, with values 1 to 4); the multiplier c_n is omitted because it is 1 whenever k_n is nonzero", unit = "not stated (dimensionless)", shape = "list", role = "input" },
+  { name = "un", meaning = "temperature exponent (53 of 58 nonzero; some negative)", unit = "not stated (dimensionless)", shape = "list", role = "input" },
+  { name = "fn, gn, qn, sn, wn", meaning = "0/1 flags choosing the composition factor (F, G, Q squared, S, W); set for 4, 10, 10, 2 and 3 terms respectively", unit = "not applicable (flag)", shape = "list", role = "input" },
+]
+origin = "transcribed (AGA 8 Part 1 equation per the file header; edition and table not stated)"
+conventions = "The equation is carried with R = 8.31451 J/mol/K and returns energies in J/mol and J/(mol K) (alpha_r multiplied by R T, unlike GERG whose alpha_r is dimensionless); density in mol/l; temperature in K. The header says the DETAIL code is preliminary and for beta testing (January 2016) and is version 2.0, April 2017."
+absence = "no optional terms; every coefficient is assigned"
+validity = "the repository states no range of validity in code; the workbook comments say most test compositions are outside the range of the DETAIL method and that its values in the critical region and liquid phase are not correct"
+provenance = "file header: the publication of the equation is available from AGA and the Transmission Measurement Committee (no citation details); Tables.xls text refers to the 1994 publication"
+count = "58 terms"
+example = "AGA8CODE/C/Detail.cpp lines 562-565 (first coefficients)"
+candidate = "form detail_term family (index n) in a global slot group of the AGA8-DETAIL parameterization with flags as enum slots selecting composition factors"
+precision = "close"
+loss = "The composition factors F, G, Q, S, W are built from the characterisation parameters and the combining rules in xTermsDetail, i.e. a procedural coupling between this construct and the next two; the flags are an encoding of which factor applies, not physical parameters."
+
+[[construct]]
+name = "DETAIL characterisation parameters (Ei, Ki, Gi, Qi, Fi, Si, Wi)"
+locator = "AGA8CODE/C/Detail.cpp lines 670-745"
+meaning = "Per component: energy parameter E, size parameter K, orientation parameter G, quadrupole parameter Q, high-temperature parameter F, dipole parameter S and association parameter W, as named by the code comments. Only nonzero entries are assigned; the rest default to zero."
+subject = "One component, keyed by array position."
+fields = [
+  { name = "Ei", meaning = "energy parameter (all 21 set)", unit = "not stated (inferred: K, from T-power scaling with temperature)", shape = "list", role = "input" },
+  { name = "Ki", meaning = "size parameter (all 21 set)", unit = "not stated (inferred: length-cubed-root scale, raised to 5/2 and 3/2 powers in setup)", shape = "list", role = "input" },
+  { name = "Gi", meaning = "orientation parameter (18 set; components 1, 20 and 21 are zero)", unit = "not stated", shape = "list", role = "input" },
+  { name = "Qi", meaning = "quadrupole parameter (3 set: carbon dioxide, water, hydrogen sulfide)", unit = "not stated", shape = "list", role = "input" },
+  { name = "Fi", meaning = "high-temperature parameter (1 set: hydrogen, value 1)", unit = "not stated", shape = "list", role = "input" },
+  { name = "Si", meaning = "dipole parameter (2 set: water and hydrogen sulfide)", unit = "not stated", shape = "list", role = "input" },
+  { name = "Wi", meaning = "association parameter (1 set: water, value 1)", unit = "not stated", shape = "list", role = "input" },
+]
+origin = "transcribed (AGA 8 Part 1 per the file header; edition and table not stated)"
+conventions = "Fi, Si and Wi act as presence flags with amplitudes (Si carries a dipole strength; Fi and Wi equal 1 where set); units are not given in code or comments."
+absence = "unlisted entries are zero, which switches the corresponding contribution off for that component; 'not characterised' and 'zero' are not distinguished"
+validity = "not stated"
+provenance = "file header only"
+count = "21 components; 21 + 21 + 18 + 3 + 1 + 2 + 1 = 67 assigned numbers"
+example = "AGA8CODE/C/Detail.cpp lines 670-692 (energy parameters)"
+candidate = "parameter_set in a pure slot group of the DETAIL parameterization, slots with presence policy stateful (not applicable for uncharacterised terms)"
+precision = "close"
+loss = "Units are unknown so typed quantity slots cannot be assigned without inference; zero stands for both not applicable and known zero."
+
+[[construct]]
+name = "DETAIL binary interaction parameters (Eij, Uij, Kij, Gij)"
+locator = "AGA8CODE/C/Detail.cpp lines 745-885 (assignments), 930-950 (setup-time combination)"
+meaning = "Four symmetric-pair correction matrices with default value 1 for every unlisted pair: energy (Eij), conformal energy (Uij), size (Kij) and orientation (Gij) binary parameters. Setup turns them into Bsnij2 (second-virial pair coefficients for the 18 virial terms), Kij5 and Uij5 (fifth powers minus one weighted by the pure parameters) and Gij5."
+subject = "An unordered pair of components keyed by array positions (i, j); only i less than j is assigned."
+fields = [
+  { name = "Eij", meaning = "energy binary parameter", unit = "not stated (dimensionless)", shape = "table", role = "input" },
+  { name = "Uij", meaning = "conformal-energy binary parameter", unit = "not stated (dimensionless)", shape = "table", role = "input" },
+  { name = "Kij", meaning = "size binary parameter", unit = "not stated (dimensionless)", shape = "table", role = "input" },
+  { name = "Gij", meaning = "orientation binary parameter", unit = "not stated (dimensionless)", shape = "table", role = "input" },
+]
+origin = "transcribed (AGA 8 Part 1 per the file header; edition and table not stated)"
+conventions = "Only the upper triangle is given (all assigned index pairs have i less than j, measured); the setup loop reads only j at least i. The default for an unlisted pair is 1 (the ideal combining value), the opposite of a zero-default k_ij."
+absence = "an unlisted pair takes the value 1, which is the combining-rule value; the file does not distinguish an unmeasured pair from a fitted value of exactly 1"
+validity = "not stated"
+provenance = "file header only"
+count = "Eij 59 pairs, Uij 38, Kij 31, Gij 5 of 210 possible pairs each (measured by parsing the assignments)"
+example = "AGA8CODE/C/Detail.cpp lines 745-750 (Eij for methane)"
+candidate = "parameter_set in a pair slot group with transposition symmetric, and an unasserted_policy of stated_default = 1 for the unlisted pairs"
+precision = "close"
+loss = "The default value 1 is a rule of the model (combining rule value), not data; a mapping must record it as a stated default rather than inventing 210 rows per matrix."
+
+[[construct]]
+name = "GROSS method inputs and correlation constants"
+locator = "AGA8CODE/C/Gross.cpp lines 469-560 (SetupGross), 238-357 (GrossInputs and Bmix with inline constants), 359-467 (GrossMethod1 and GrossMethod2 with inline constants)"
+meaning = "The AGA8 GROSS characterisation method: a mixture is reduced to an equivalent hydrocarbon (one pseudo-component with a molar ideal gross heating value HCH), nitrogen and carbon dioxide. Z = 1 + B D + C D^2 with B and C assembled from polynomial correlations: nitrogen and CO2 pair and triple coefficients b(T) and c(T) quadratic in T (3 B pairs and 4 C triples, 3 coefficients each), hydrocarbon B and C quadratic in HCH whose three coefficients are themselves quadratic in T (two 3-by-3 arrays), and cross terms by fixed combining rules. Method 1 takes (volumetric heating value, relative density, mole fraction CO2), Method 2 takes (relative density, mole fractions nitrogen and CO2) and iterates on Z."
+subject = "A global correlation set plus a lumped three-component mixture."
+fields = [
+  { name = "b0, b1, b2; c0, c1, c2", meaning = "polynomial coefficients in T of B(N2-N2), B(N2-CO2), B(CO2-CO2) and of C(N2-N2-N2), C(N2-N2-CO2), C(N2-CO2-CO2), C(CO2-CO2-CO2)", unit = "dm^3/mol and dm^6/mol^2 (from the Bmix comment)", shape = "table", role = "input" },
+  { name = "bCHx, cCHx", meaning = "3-by-3 arrays: coefficients (in T, quadratic) of the coefficients (in HCH, quadratic) of B and C of the equivalent hydrocarbon", unit = "dm^3/mol and dm^6/mol^2", shape = "table", role = "input" },
+  { name = "xHN", meaning = "molar ideal gross heating value of each of the 21 components at 25 C; a commented table from ISO 6976 is superseded by the AGA-5 (2009) table in use (methane 890.63 against 890.58, water 44.016 against 44.013 kJ/mol)", unit = "kJ/mol", shape = "list", role = "input" },
+  { name = "inline constants", meaning = "reference-fluid second virial coefficient -0.12527 + 0.000591 T - 6.62e-7 T^2, reference molar mass 28.9625 g/mol, G1 = -2.709328 and G2 = 0.021062199 (hydrocarbon molar mass as a linear function of HCH), 0.0001027 (heating-value temperature correction per K from 298.15 K), cross-term combining constants 0.72, 0.00001875, 320, 0.865, 0.92, 0.0013, 270, 1.1", unit = "not stated for each (from the formulas: g/mol, kJ/mol, K)", shape = "scalar", role = "input" },
+  { name = "Hv, Gr, Th, Td, Pd", meaning = "inputs of the methods: volumetric heating value (MJ/m^3) at reference temperature Th, relative density at Td and Pd", unit = "MJ/m^3; dimensionless; K; K; kPa", shape = "scalar", role = "input" },
+]
+origin = "transcribed (AGA 8 Part 1 GROSS method per the file header; heating values from AGA-5 2009 per a code comment)"
+conventions = "R = 8.31451 J/mol/K; HCH and the heating values in kJ/mol at 298.15 K; B in dm^3/mol; C in dm^6/mol^2; density in mol/l; pressure kPa; the reference conditions of the heating value (Th) and density (Td, Pd) are user inputs (the Fortran example comments list 15 C and 60 F for Th and Td and 14.73 psia for Pd; the C++ test uses Td = 273.15 K, Th = 298.15 K and Pd = 101.325 kPa)."
+absence = "no defaults; Method 1 returns errors for a nonpositive relative density or heating value, and for a negative equivalent-hydrocarbon nitrogen fraction"
+validity = "not stated in code; invalid-input error codes exist (negative B(CH)B(CO2) product, negative C values)"
+provenance = "file header: publication available from AGA; no citation details"
+count = "3 B pairs and 4 C triples (21 polynomial coefficients), 2 times 9 hydrocarbon coefficients, 21 heating values, about 15 inline constants"
+example = "AGA8CODE/C/Gross.cpp lines 497-511"
+candidate = "form for an explicit virial truncation with a characterisation step: a pseudo_component (equivalent hydrocarbon defined by heating value) plus a slot group of correlation coefficients with nested polynomial slots (accepts a polynomial-in-T contract)"
+precision = "broader"
+loss = "The equivalent hydrocarbon is defined by a procedure (Method 1 or 2 with an iteration on Z) that depends on measured bulk inputs, not by a stored parameter set; polynomial coefficients whose own coefficients depend on another variable need nested sets; many constants are inline in function bodies rather than in the setup routine."
+
+[[construct]]
+name = "C test programs and in-source reference values"
+locator = "AGA8CODE/C/GERG2008_test_01.cpp lines 18-58; AGA8CODE/C/Detail_test_01.cpp; AGA8CODE/C/Gross_test_01.cpp; TEST blocks at GERG2008.cpp line 1570 onward, Detail.cpp lines 950-1022, Gross.cpp lines 560-622; AGA8CODE/RUST/tests/gerg-tests.rs and integration-tests.rs; AGA8CODE/RUST/examples/*.rs"
+meaning = "Reference outputs of each method for one natural-gas composition (the same 21 mole fractions, for example 0.77824 for methane, in every program). GERG-2008 and DETAIL: input T = 400 K and P = 50000 kPa (density started from 6.3657 mol/l), outputs molar mass, molar density, pressure, compressibility factor, dP/dD, d2P/dD2, dP/dT, internal energy, enthalpy, entropy, Cv, Cp, speed of sound, Gibbs energy, Joule-Thomson coefficient and isentropic exponent (16 values). GROSS: T = 300 K, P = 10000 kPa, Td = 273.15 K, Th = 298.15 K, Pd = 101.325 kPa, outputs molar mass, density, pressure, Z, relative density, heating values, equivalent-hydrocarbon fraction, nitrogen and CO2 fractions, volumetric heating value and the Method 1 and 2 densities."
+subject = "A measurement-point-like verification record: one state point with its computed outputs."
+fields = [
+  { name = "*_reference", meaning = "expected output, written with 10 to 16 significant digits (for example 12.79828626082062 for the GERG density; the molar-mass reference 20.5427445016 has 12 digits)", unit = "as commented in the printed labels: g/mol, mol/l, kPa, J/mol, J/(mol K), m/s, K/kPa", shape = "scalar", role = "input" },
+  { name = "tolerance", meaning = "absolute difference allowed in the C++ tests: 1.0e-8 for every quantity; 1.0e-10 in the Rust tests", unit = "same as the quantity", shape = "scalar", role = "metadata" },
+]
+origin = "computed (by the same code or its Fortran and Excel predecessors; generating run not recorded)"
+conventions = "The outputs are the program's own results (computed from the same code), not independent data; the C programs compare against the printed values; temperature in K, pressure in kPa."
+absence = "not applicable"
+validity = "one state point per method"
+provenance = "none in the files; the origin of the reference values (a run of the original Fortran or Excel implementation) is not stated"
+count = "GERG-2008: 16 outputs; DETAIL: 16 outputs; GROSS: 12 outputs (molar mass, D, P, Z, Gr, HN, HCH, three fractions, Hv, Hv2) plus 2 method densities; Rust examples restate GERG and DETAIL outputs"
+example = "AGA8CODE/C/GERG2008_test_01.cpp lines 28-44"
+candidate = "dataset of kind verification table with data_point rows (state point and output observables) for qualification_run comparison_basis verification_table"
+precision = "close"
+loss = "The reference values are self-generated by the code and carry no independent uncertainty; the two GERG d2P/dD2 references disagree (1130.481239114938 in GERG2008.cpp and Rust gerg_demo.rs, 1129.526655214841 in GERG2008_test_01.cpp and Rust gerg-tests.rs) so the dataset needs an unresolved-conflict marker; GERG2008_test_01.cpp defines U_reference but checks the entropy twice and never the internal energy."
+
+[[construct]]
+name = "TESTDATA workbooks (validation point sets)"
+locator = "TESTDATA/Test Data.xls sheets 'Binary Mixture Calculations', 'Natural Gas Calculations', 'Natural Gas Compositions'; TESTDATA/NG Compositions.XLS; TESTDATA/Deviation Calculator.xls; TESTDATA/Tables.xls"
+meaning = "Tables of state points with GERG-2008 and DETAIL results and their percent deviations, and table reproductions for the GROSS method. Each point lists T (K), d (mol/l) and, for GERG-2008 and DETAIL, P (MPa), cv and cp (J/mol-K) and w (m/s); a fluid string such as methane,0.5,nitrogen,0.5 is stored per binary point. Natural-gas points carry a gas number that indexes a composition sheet of 200 gases (mole percent over 21 components)."
+subject = "A measurement-point-like verification record: a state (T, d, composition) with computed properties; compositions are the mixture subjects."
+fields = [
+  { name = "T", meaning = "temperature", unit = "K (column header: T (K))", shape = "scalar", role = "input" },
+  { name = "d", meaning = "molar density", unit = "mol/l (column header)", shape = "scalar", role = "input" },
+  { name = "P, cv, cp, w per method", meaning = "GERG-2008 and DETAIL pressure, isochoric and isobaric heat capacity and speed of sound", unit = "MPa, J/mol-K, J/mol-K, m/s (column headers)", shape = "scalar", role = "computed" },
+  { name = "%deviation columns", meaning = "percent deviation of DETAIL from GERG-2008 for P, cv, cp, w", unit = "percent (header: %deviation)", shape = "scalar", role = "computed" },
+  { name = "gas number and composition row", meaning = "index into the composition sheet; 21 mole-percent columns", unit = "mole percent (row sums lie between 99.999999 and 100.000003, measured)", shape = "table", role = "input" },
+]
+origin = "computed (by the workbook VBA modules, with saturation states from REFPROP 9.1 per sheet text)"
+conventions = "Pressure in MPa here against kPa in the code; composition in mole percent; temperatures and densities come from the saturation boundary evaluated with REFPROP 9.1 (per sheet text) so they are states near phase boundaries, and sheet text warns that some boundaries may be wrong (especially pairs with helium, hydrogen or water) and that the points are validation points only."
+absence = "empty composition cells mean zero; a missing value is not distinguished"
+validity = "DETAIL values in the critical region and liquid phase are flagged as not correct in the sheet text"
+provenance = "sheet text names REFPROP 9.1; workbook author metadata names Eric W. Lemmon; no per-point citation"
+count = "3645 binary points over 210 distinct component pairs, 3864 natural-gas points over 201 distinct gas numbers (2 to 202), 200 compositions (measured with the throwaway BIFF reader)"
+example = "TESTDATA/Test Data.xls sheet 'Binary Mixture Calculations' row 12 (methane plus nitrogen at T 134.02 K)"
+candidate = "dataset with data_point rows (T, density, composition) and datum rows for pressure, cv, cp and speed of sound under two model assemblies, with a dataset_kind for computed validation values"
+precision = "close"
+loss = "The numbers are computed outputs of the model being qualified (formula cells) and of REFPROP-derived saturation states, not measurements; the state points depend on REFPROP, which is not bundled; comparison basis second_carrier is the honest label."
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "GERG-2008 (AGA8 Part 2)"
+locator = "AGA8CODE/C/GERG2008.cpp (PressureGERG, DensityGERG, PropertiesGERG, AlpharGERG, Alpha0GERG, ReducingParametersGERG, tTermsGERG); AGA8CODE/FORTRAN/GERG2008.FOR; AGA8CODE/VB/GERG2008.BAS; AGA8CODE/RUST/src/gerg2008.rs"
+class = "helmholtz_potential"
+inputs = "T (K), molar density D (mol/l) and mole fractions x(1..21) as natural variables of the function; pressure P (kPa) with T is solved for D."
+parameters = "pure (per component): Dc, Tc, molar mass, residual term rows (n, d, t, c), ideal-gas n0(1..7) and th0(4..7); pair: bvij, gvij, btij, gtij, mNumb, fij; departure model: nijk, dijk, tijk, cijk, eijk, bijk, gijk; global: R = 8.314472 J/mol/K (and 8.31451 for the ideal-gas scaling)."
+composes = "pure-fluid residual terms evaluated at mixture reduced variables, composition-dependent reducing function, binary departure functions weighted by x_i x_j fij, ideal-gas Helmholtz part with mixing term ln x"
+equation_source = "header cites Kunz and Wagner, The GERG-2008 Wide-Range Equation of State for Natural Gases and Other Mixtures, J. Chem. Eng. Data 57(11):3032-3091, 2012, and Kunz, Klimeck, Wagner and Jaeschke, GERG Technical Monograph 15 (2007)"
+closed_form = "yes"
+data = "constructs: component list, GERG-2008 pure-component constants, pure-fluid residual terms, ideal-gas terms, binary reducing parameters, departure functions"
+
+[[model_family]]
+name = "GERG-2008 reducing function"
+locator = "AGA8CODE/C/GERG2008.cpp lines 350-401 (ReducingParametersGERG) and 1514-1525 (setup combination)"
+class = "other"
+inputs = "mole fractions; combined pair quantities"
+parameters = "pair: combined gvij and gtij (gamma times beta times the pure-value product) and squared betas; pure: Dc, Tc"
+composes = "none (supplies the reducing temperature Tr and density Dr to the pure and departure terms); the double sum runs over pairs with a factor 2 for i not equal to j and skips pairs with a component below epsilon"
+equation_source = "not cited in code beyond the file header"
+closed_form = "yes"
+data = "constructs: GERG-2008 pure-component constants and binary reducing parameters"
+
+[[model_family]]
+name = "GERG-2008 ideal-gas Helmholtz part (shared table with DETAIL)"
+locator = "AGA8CODE/C/GERG2008.cpp lines 402-459 (Alpha0GERG); AGA8CODE/C/Detail.cpp lines 350-409 (Alpha0Detail, same raw table)"
+class = "standard_state_species"
+inputs = "T, D and x; the density enters through ln(D x_i)"
+parameters = "pure: n0(1..7), th0(4..7); global: T0 = 298.15 K and P0 = 101.325 kPa for the reference constants, R, Rs"
+composes = "none; mixing term x_i ln x_i is part of the sum"
+equation_source = "header only; the four hyperbolic terms are sinh and cosh logarithm terms of the GERG-2004 ideal-gas form (term names are not stated in this repository)"
+closed_form = "yes"
+data = "construct 'GERG-2008 ideal-gas terms'"
+
+[[model_family]]
+name = "AGA8 DETAIL (AGA8 Part 1)"
+locator = "AGA8CODE/C/Detail.cpp (PressureDetail, DensityDetail, PropertiesDetail, xTermsDetail, Alpha0Detail, AlpharDetail); AGA8CODE/FORTRAN/DETAIL.FOR; AGA8CODE/VB/DETAIL.BAS; AGA8CODE/RUST/src/detail.rs"
+class = "helmholtz_potential"
+inputs = "T (K), D (mol/l), x(1..21)"
+parameters = "global: an, bn, kn, un and flags (58 terms), R = 8.31451 J/mol/K; pure: Ei, Ki, Gi, Qi, Fi, Si, Wi, molar mass, ideal-gas n0 and th0; pair: Eij, Uij, Kij, Gij (default 1)"
+composes = "virial-type density series with mixture characterisation parameters (K, U, G, Q, F) from quadratic and pair combining rules, plus the shared ideal-gas part"
+equation_source = "header: the publication is available from AGA and the Transmission Measurement Committee; no citation details"
+closed_form = "yes"
+data = "constructs: DETAIL equation terms, characterisation parameters, binary interaction parameters, component list"
+
+[[model_family]]
+name = "AGA8 GROSS (Method 1 and Method 2)"
+locator = "AGA8CODE/C/Gross.cpp (PressureGross, DensityGross, GrossHv, GrossInputs, Bmix, GrossMethod1, GrossMethod2); AGA8CODE/FORTRAN/GROSS.FOR; AGA8CODE/VB/GROSS.BAS"
+class = "explicit_correlation"
+inputs = "T (K), D (mol/l) and the lumped composition (equivalent hydrocarbon, N2, CO2) with HCH; Method 1 and 2 build these from heating value, relative density and N2/CO2 fractions"
+parameters = "global: b, c polynomial coefficients for N2 and CO2 pairs and triples, hydrocarbon coefficient arrays, cross combining constants, heating values of 21 components, G1, G2, Mref, Bref coefficients, R = 8.31451 J/mol/K"
+composes = "second and third virial coefficients from the three-pseudo-component mixture; Method 1 and Method 2 characterisation iterations (up to 20) that fix composition from bulk properties"
+equation_source = "header: publication available from AGA; no citation details; heating values cite AGA-5 (2009) in a comment and ISO 6976 in a superseded comment block"
+closed_form = "implicit"
+data = "construct 'GROSS method inputs and correlation constants'"
+
+# ---------------------------------------------------------------------------
+# CONVENTIONS
+# ---------------------------------------------------------------------------
+
+[[convention]]
+name = "units"
+locator = "comment blocks of AGA8CODE/C/GERG2008.cpp lines 106-350 and Detail.cpp lines 98-282"
+statement = "Temperature in K; molar density in mol/l; pressure in kPa; molar mass in g/mol; energies in J/mol; entropy and heat capacities in J/(mol K); speed of sound in m/s; Joule-Thomson coefficient in K/kPa; GROSS heating values in kJ/mol and MJ/m^3; second virial coefficient in dm^3/mol. Compositions are mole fractions. The workbooks use MPa and mole percent."
+scope = "all routines; workbooks differ"
+
+[[convention]]
+name = "gas constant"
+locator = "AGA8CODE/C/GERG2008.cpp lines 665-667; Detail.cpp line 524; Gross.cpp line 472"
+statement = "GERG-2008 uses R = 8.314472 J/(mol K) for the equation and Rs = 8.31451 to scale the ideal-gas coefficients (ratio Rsr = Rs/R multiplies all seven n0); DETAIL and GROSS use R = 8.31451 J/(mol K). The two values coexist in one code base, so GERG-2008 and DETAIL properties at one state differ through R as well as through the equations."
+scope = "GERG-2008, DETAIL and GROSS"
+
+[[convention]]
+name = "reference state for enthalpy and entropy"
+locator = "AGA8CODE/C/GERG2008.cpp lines 1535-1567; Detail.cpp lines 951-975"
+statement = "Not stated in words. The setup uses T0 = 298.15 K and d0 = 101.325/(R T0) mol/l in adjusting n0(1) (inferred: ideal gas at 298.15 K and 101.325 kPa is the reference for zero enthalpy and entropy); a commented block shows an exact recomputation of n0(1) and n0(2) that is not executed, so the stored constants reproduce that reference only nearly (inferred from the comment text)."
+scope = "H, S, G, U, A of GERG-2008 and DETAIL; GROSS returns none of these"
+
+[[convention]]
+name = "component ordering as a convention"
+locator = "AGA8CODE/C/GERG2008.cpp lines 55-76"
+statement = "Array position is the component identity (1 methane ... 21 argon) and the order places isobutane before n-butane and isopentane before n-pentane, hydrogen after decane and argon last; pair parameters are stored only for i less than j in this order and reciprocal betas compensate for the order reversal of isobutane and n-butane relative to the publication."
+scope = "every array in the three methods"
+
+[[convention]]
+name = "pre-combined values in setup"
+locator = "AGA8CODE/C/GERG2008.cpp lines 660, 1514-1567; Detail.cpp lines 517, 930-975"
+statement = "The setup routines say some values are modified for calculations that do not depend on T, D and x. By the code: GERG-2008 combines beta/gamma pairs, converts departure exponential parameters, shifts and rescales n0, and takes powers of pure constants; DETAIL builds Bsnij2, Kij5, Uij5, Gij5, Ki25, Ei25 and subtracts one from n0(3)."
+scope = "GERG-2008 and DETAIL stored arrays; a consumer reading arrays after setup sees combined values, a consumer reading the assignments sees published-form values"
+
+[[convention]]
+name = "temperature scale"
+locator = "not stated anywhere in the repository"
+statement = "not stated; ITS-90 or IPTS-68 is not mentioned in code, comments or workbook text"
+scope = "all temperatures"
+
+[[convention]]
+name = "composition basis"
+locator = "AGA8CODE/C/GERG2008.cpp lines 83-105"
+statement = "Mole fractions summing to one (the comment warns against mole percent and mass fraction); no normalisation is applied by the routines. GROSS works on the lumped mole fractions of equivalent hydrocarbon, nitrogen and CO2."
+scope = "all routines"
+
+[[convention]]
+name = "ideal-gas mixing term and zero-fraction rule"
+locator = "AGA8CODE/C/GERG2008.cpp lines 402-459 and 350-401; Detail.cpp lines 350-409"
+statement = "Components with x at or below epsilon = 1e-15 are skipped in every sum (ideal mixing, reducing function, departure double sum), which avoids ln 0 and makes a zero fraction equal to absence."
+scope = "GERG-2008 and DETAIL"
+
+# ---------------------------------------------------------------------------
+# SELECTION
+# ---------------------------------------------------------------------------
+
+[[selection]]
+name = "departure model per pair"
+locator = "AGA8CODE/C/GERG2008.cpp lines 1228-1254"
+rule = "mNumb(i,j) names the departure model of a pair: 1 to 7 pair-specific, 10 the generalised function, minus one none; every pair not listed gets minus one by the initialisation loop."
+scope = "binary departure contribution of GERG-2008"
+documented = "yes in comments (model numbers for excess functions, 10 is for generalized equation); the assignment of models to pairs is not documented beyond the code"
+
+[[selection]]
+name = "binary parameter default"
+locator = "AGA8CODE/C/Detail.cpp lines 547-560 (initialisation of Eij, Gij, Kij, Uij to 1)"
+rule = "A pair without an assigned value takes 1 for each of the four DETAIL binary matrices; nothing is refused."
+scope = "DETAIL binary parameters"
+documented = "not stated in words; visible from the initialisation loop"
+
+[[selection]]
+name = "density root by phase flag"
+locator = "AGA8CODE/C/GERG2008.cpp lines 155-276 (DensityGERG); Detail.cpp lines 145-208; Gross.cpp lines 140-208"
+rule = "GERG-2008: iFlag 0 gives the gas-phase root without checks, 1 adds checks for possible two-phase states, 2 searches the liquid root; a negative density on input is used as an initial liquid guess. DETAIL and GROSS have no flag and return the ideal-gas density with an error code on non-convergence."
+scope = "state construction from (T, P, x) for one phase"
+documented = "yes (header comments of DensityGERG); the routine states that no phase boundary is located and a two-phase input returns a metastable state"
+
+[[selection]]
+name = "GROSS characterisation method"
+locator = "AGA8CODE/C/Gross.cpp lines 359-467"
+rule = "Method 1 is used when the volumetric heating value, relative density and CO2 fraction are known; Method 2 when relative density and the N2 and CO2 fractions are known; both iterate Z up to 20 times with a 1e-7 tolerance."
+scope = "GROSS equivalent-hydrocarbon definition"
+documented = "yes (routine header comments)"
+
+# ---------------------------------------------------------------------------
+# CAPABILITIES
+# ---------------------------------------------------------------------------
+
+[[capability]]
+calculation = "single_phase_properties_td (proposed new key: properties of one phase from temperature, density and composition)"
+offered = true
+scope = "GERG-2008 and DETAIL (pressure, Z, derivatives, U, H, S, Cv, Cp, W, G, JT, Kappa, A for GERG); GROSS returns pressure and Z only"
+locator = "AGA8CODE/C/GERG2008.cpp lines 277-348 (PropertiesGERG); Detail.cpp lines 209-282"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "single_phase_density_tp (proposed new key: molar density of one phase from temperature, pressure and composition)"
+offered = true
+scope = "GERG-2008 (gas root by default, liquid root by flag), DETAIL, GROSS"
+locator = "AGA8CODE/C/GERG2008.cpp lines 155-276 (DensityGERG); Detail.cpp lines 145-208; Gross.cpp lines 140-208"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_tp"
+offered = false
+scope = "all methods: the state is single-phase by construction; a two-phase input returns a metastable state (GERG-2008 header comment)"
+locator = "AGA8CODE/C/GERG2008.cpp lines 155-176"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "phase_stability"
+offered = false
+scope = "GERG-2008 iFlag 1 performs heuristic checks for possible two-phase states (negative dP/dD or d2P/dTdD, nonpositive heat capacities or speed of sound) without a tangent-plane analysis"
+locator = "AGA8CODE/C/GERG2008.cpp lines 240-270"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "critical_point"
+offered = false
+scope = "GERG-2008 computes only a mole-fraction-average pseudo-critical temperature and density (PseudoCriticalPointGERG) to start the density search; no critical-point solve"
+locator = "AGA8CODE/C/GERG2008.cpp lines 639-656"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "bubble_dew_point"
+offered = false
+scope = "no saturation or bubble/dew routine in any method"
+locator = "not applicable: a search of the C, Fortran and VB sources finds no such routine"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "group_estimation"
+offered = false
+scope = "GROSS lumps any mixture into equivalent hydrocarbon, nitrogen and CO2 from heating value and density, which is a characterisation of bulk properties rather than group-contribution estimation"
+locator = "AGA8CODE/C/Gross.cpp lines 359-467"
+evidence = "source_inspected"
+
+# ---------------------------------------------------------------------------
+# QUESTIONS
+# ---------------------------------------------------------------------------
+
+[[question]]
+about = "two reference values for d2P/dD2 of GERG-2008"
+question = "GERG2008.cpp and Rust gerg_demo.rs print a reference of 1130.481239114938 while GERG2008_test_01.cpp and Rust gerg-tests.rs check 1129.526655214841 for the same state. Which is the value the current code produces, and why do the files disagree?"
+why_it_matters = "A verification dataset built from these files would contain two conflicting expected values for one point; the record must carry the conflict, not choose silently."
+
+[[question]]
+about = "verbatim status of stored coefficients"
+question = "The setup routines say some values are modified for speed but do not list them. The survey identifies, from the code, pre-combined n0, gvij, gtij, bvij, btij, cijk, eijk, gijk, Bsnij2, Kij5, Uij5, Gij5; is that list complete, and which numbers are verbatim published coefficients (noik, doik, toik, coik, nijk, dijk, tijk appear untouched)?"
+why_it_matters = "A knowledge base that stores published parameters must not store a pre-combined number under the name of the published one; equivalence assessments between this source and any source that stores the published form depend on it."
+
+[[question]]
+about = "units of the DETAIL characterisation and binary parameters"
+question = "No unit or dimension statement accompanies Ei, Ki, Gi, Qi, Fi, Si, Wi, an, un or the binary matrices; only the formulas (powers of T, fifth powers of K and E) hint at them."
+why_it_matters = "Dimensioned slots cannot be typed without inference; the model requires units to be stated or explicitly unknown."
+
+[[question]]
+about = "origin and version of the equations"
+question = "Which publication and edition are the DETAIL and GROSS tables taken from (header gives no citation; Tables.xls mentions the 1994 publication and ISO 20765), and how do the versions 2.0 and 2.01 and the beta-testing notices relate to a released standard?"
+why_it_matters = "Provenance and the qualification basis (verification tables) depend on the edition."
+
+[[question]]
+about = "reference state of enthalpy and entropy"
+question = "The code computes zero enthalpy and entropy at 298.15 K and 101.325 kPa only nearly (published n0(1), n0(2)) and contains an unexecuted exact alternative; which one defines the reference state of the standard?"
+why_it_matters = "The energy_reference record must state the datum and its numerical tolerance; different implementations of the same equation differ at the level of these constants."
+
+[[question]]
+about = "Fortran comment on the exponential density term"
+question = "Fortran DETAIL.FOR states that the c_n factor is not included since it is 1 when kn is not equal to 1 and 0 otherwise; the C++ comment says kn not equal to 0, and the code multiplies by exp(-D^kn) with kn = 0 giving a factor of 1 while terms with kn equal to 1 exist (terms 29, 30 and 54). Which comment is meant?"
+why_it_matters = "The comment is the only statement of the meaning of kn = 0; the model needs a correct rule for the absence of the exponential factor."
+
+[[question]]
+about = "Rust departure models 8 and 9"
+question = "The Rust crate sets KPOLIJ and KEXPIJ entries (6 and 6) for models 8 and 9 with no coefficients and no pair referencing them, while the C++ code leaves them unset. Are these vestiges of pairs that were planned for GERG-2008?"
+why_it_matters = "Indicates whether departure pairs exist in some other edition that the knowledge base should not silently lose."
+
+[[question]]
+about = "workbook values and REFPROP"
+question = "The saturation states in Test Data.xls come from REFPROP 9.1 and the workbook cells are formulas calling the VBA modules; Deviation Calculator.xls requires REFPROP. Which numbers are frozen cached values and which are recomputed on opening, and is the VBA the same version as the C++ code? The natural-gas points carry gas numbers 2 to 202 (201 distinct values) against 200 composition rows, so the number looks like a spreadsheet row index with one row unused or missing."
+why_it_matters = "The workbooks are a potential independent verification set only if their cached values are known to come from the stated code version."
+
+[[question]]
+about = "GERG-2008 coefficients carried by other sources"
+question = "The setup constants here are combined and reordered relative to the published tables (n3 reduced by one, isobutane before n-butane, pre-multiplied reducing pairs). How should the equivalence of this carrier with a carrier that stores the published form (for example a multifluid JSON) be assessed without losing the orientation and reciprocal-beta handling?"
+why_it_matters = "Two carriers of one published parameter set must map to one parameter_set with an equivalence assessment, not to two sets."

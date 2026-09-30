@@ -1,0 +1,19 @@
+id = "unknown_kind"
+title = "Bad"
+tier = "A"
+[acquire]
+kind = "ftp"
+url = "ftp://example.org/x"
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "MIT"
+statement = "LICENSE file, MIT."
+url = "https://example.org/LICENSE"
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 from the LICENSE file"

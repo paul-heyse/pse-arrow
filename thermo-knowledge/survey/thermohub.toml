@@ -1,0 +1,526 @@
+source = "thermohub"
+pin = "c3e4acf45312"
+surveyed = "2026-09-30"
+summary = "The ThermoHub mirror (commit c3e4acf) contributes two ArangoDB snapshots of the ThermoHub thermodynamic database as graphs (hub_main: 7585 vertices and 17784 edges in 14 collections, datasets dated 2020-2021; hub_ord: 16767 vertices and 42569 edges in 23 collections, records dated September 2024, including 3428 SIT interaction records, 840 phase definitions, ThermoChimie and PSI/Nagra 2020 law-of-mass-action data and 2067 NASA polynomial species that have no counterpart in the ThermoFun-format files) and nine ThermoFun-format dataset files (6803 substances, 509 reactions, 439 elements, dated 17.07.2021) that are newer revisions of seven ThermoFun datasets plus mines19 and slop16; it supplies data only (no calculation code), the graph carries relations that the flat files lack (defines, takes, citing, pulls, basis, master species, phase membership, interactions) but several of its code-label pairs, edge multiplicities, unit fields and README claims disagree with the data."
+
+# ---------------------------------------------------------------------------
+# PAYLOADS
+# ---------------------------------------------------------------------------
+
+[[payload]]
+paths = ["thermofun/*.json"]
+format = "ThermoFun database JSON (layout of survey/thermofun.toml): top-level datasources, date, elements, reactions, substances, thermodataset (here a one-element list, for example ['aq17'], where ThermoFun's files have a string)"
+files = 9
+bytes = 15277475
+records = "6803 substance records (aq17 161, cemdata18 238, heracles 888, mines16 536, mines19 705, psinagra-12-07 690, slop16 2038, slop98-inorganic 975, slop98-organic 572), 509 reactions (psinagra-12-07 440, cemdata18 27, mines19 24, mines16 18, others 0), 439 elements (11, 15, 72, 39, 41, 41, 89, 83, 48), counted by json.load"
+reader = "ThermoFun::Database (survey/thermofun.toml); produced by thermohubclient saveDatabase called from thermohub-remote-tdb--export-thermofun.py"
+read_by_source = "none"
+notes = "All nine files carry date 17.07.2021 16:49. None is byte-identical to a ThermoFun file. Against the ThermoFun copies of the seven shared datasets (compared by symbol): every substance symbol of aq17, heracles, mines16, psinagra-12-07, slop98 (as slop98-inorganic) and slop98-organic is present in both; cemdata18 has 238 substances and 27 reactions here against 228 and 7 there; slop98-organic has 572 here and 573 there. Differences inside common records: mass_per_mole is added here as {values: [..]} with no unit (all 161 aq17 records, all others likewise); datasources strings are rewritten in another style (here 'Slop98_dat:1998:data:' or 'Holland and Powell (2002)', there bibliographic short names such as [1998SHO/EA]; they differ in all 161 aq17 and all 975 slop98-inorganic substances and in none of the 228 cemdata18 and 690 psinagra-12-07 ones); in the water record H2O@ of cemdata18, psinagra-12-07 and slop98-inorganic the equation-of-state method is water_eos_hgk84_reaktoro here where ThermoFun has water_eos_iapws95_reaktoro; reactant lists are reordered. Values of sm_* and TPMethods are equal in all other compared records."
+
+[[payload]]
+paths = [
+  "arangodb/hub_main_remote_export/vertices/*.json",
+  "arangodb/hub_main_remote_export/edges/*.json",
+]
+format = "arangoexport JSON: one array per collection with one document per line; vertex and edge documents carry _key, _id, _rev, _type (vertex or edge), _label and a properties object; edges add _from and _to; two ENCRYPTION files contain the text 'none'"
+files = 14
+bytes = 13307786
+records = "vertices 7585 (substances 6708, reactions 499, elements 349, datasources 19, thermodatasets 9, reactionsets 1), edges 17784 (pulls 7269, citing 6605, takes 1793, defines 509, prodreac 502, product 502, basis 469, master 135), counted by json.load of each collection file"
+reader = "arangoimport or any JSON parser; the repository's own script thermohub-remote-tdb--export-dump.sh shows the arangoexport call (collections listed explicitly)"
+read_by_source = "none"
+notes = "The collection set exported is the 14 collections listed in the script; the phase and interaction collections of hub_ord are not exported here. The same 14 collections with the same counts are also in hub_main_remote_dump (measured), so the export and the dump are two serialisations of one snapshot."
+
+[[payload]]
+paths = ["arangodb/hub_main_remote_dump/*"]
+format = "arangodump directory: per collection one <name>_<hash>.structure.json (collection definition) and one <name>_<hash>.data.json.gz (JSON lines, each {type: 2300, data: document}), plus dump.json (database name hub_main, lastTickAtDumpStart 50677523) and ENCRYPTION"
+files = 30
+bytes = 1458694
+records = "14 collections with the same document counts as the export (7585 vertices, 17784 edges), counted by decompressing each data.json.gz"
+reader = "arangorestore, or gzip plus a JSON-lines parser"
+read_by_source = "none"
+notes = "The structure files state collection type (vertex or edge), key options (traditional keys, allowUserKeys true) and schema null, so no schema is declared in the snapshot; the wrapper type 2300 appears only here, not in the ord dump."
+
+[[payload]]
+paths = [
+  "arangodb/hub_ord_remote_export/vertices/*.json",
+  "arangodb/hub_ord_remote_export/edges/*.json",
+]
+format = "arangoexport JSON as above for the hub_ord database"
+files = 14
+bytes = 18722699
+records = "vertices 12497 (substances 9039, reactions 2723, elements 446, datasources 277, thermodatasets 8, reactionsets 4), edges 30141 (pulls 8903, takes 9805, citing 5271, defines 2524, prodreac 1535, master 1523, basis 446, product 134), counted by json.load"
+reader = "as for hub_main_remote_export"
+read_by_source = "none"
+notes = "Nine collections of hub_ord are in the dump but not in this export: phases, interactions, mixingmodels (vertices) and component, interacts, specific, mixing (edges), plus the empty addsto and chemeqspeciations; so the export alone loses phase membership and all interaction parameters."
+
+[[payload]]
+paths = ["arangodb/hub_ord_remote_dump/*"]
+format = "arangodump directory as above (no type wrapper: each line is the bare document); dump.json names database hub_ord and lastTickAtDumpStart 79253520"
+files = 48
+bytes = 1938332
+records = "23 collections: the 14 exported ones (identical counts to hub_ord_remote_export) and phases 840, interactions 3428, mixingmodels 2 (vertices), component 2160, interacts 6840, specific 3426, mixing 2 (edges), addsto 0, chemeqspeciations 0; in total 16767 vertices and 42569 edges, counted by decompressing each data.json.gz"
+reader = "arangorestore, or gzip plus a JSON-lines parser"
+read_by_source = "none"
+notes = "This snapshot holds the newer datasets (time stamps September 2024): CEMDATA18, CODATA89, Heracles, Mines23, NASA 2002 (Nasa02), PsiTDB2020, slop16, ThermoChimie10a. No dataset here has a counterpart file under thermofun/."
+
+[[payload]]
+paths = [
+  "thermohub-remote-tdb--export-dump.sh",
+  "thermohub-remote-tdb--export-thermofun.py",
+  "environment.yml",
+  "environment.devenv.yml",
+  "README.md",
+  "LICENSE",
+]
+format = "bash script (arangoexport of 6 vertex and 8 edge collections of hub_main, then arangodump of the whole database, then the ThermoFun export), a 7-line python script calling thermohubclient, conda environment files, README, GPL licence"
+files = 6
+bytes = 39003
+records = "not applicable: code and documentation; the export script sets the endpoint, a database user and a password in plain text for read-only access to the remote ThermoHub server"
+reader = "bash and python with thermohubclient"
+read_by_source = "none"
+notes = "The script exports only hub_main, yet the repository holds a hub_ord snapshot too; how hub_ord was produced is not recorded in the tree. The access credentials in the script are not reproduced here."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "document key and identity convention"
+locator = "arangodb/*/vertices/*.json#/*/_key and edges/*.json#/*/_from"
+meaning = "Vertex keys are composite strings that encode the natural key and its source: substances 'symbol;code:CLASS;code:SOURCE' (Ag(CO3)-;2:SC_AQSOLUTE;26:MINES19), reactions 'symbol;code:SOURCE;level', elements 'symbol;code:CLASS;code:SOURCE', phases and interactions likewise, thermodatasets 'symbol;code:STYPE;level', datasources a slug of the short name (_2002HUM_CUR_). Edges point with _from and _to to these _id strings."
+subject = "any vertex; the same symbol from two source databases is two vertices"
+fields = [
+  { name = "_key, _id", meaning = "composite natural key with source and class codes embedded", unit = "not applicable", shape = "scalar", role = "input" },
+  { name = "_rev, _type, _label", meaning = "ArangoDB revision, vertex or edge, and the collection-level label", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "properties", meaning = "the record content in the ThermoFun-like layout", unit = "not applicable", shape = "table", role = "input" },
+]
+origin = "generated (ArangoDB exports)"
+conventions = "source-database codes are integers with a label, kept in a code-to-label enum that differs between the two snapshots: code 26 is MINES19 in hub_main and PSI_NAGRA20 in hub_ord; hub_ord adds 0 CODATA, 24 NASA-TDB, 25 THERMOCHIMIE, 27 MINES23; 15 PSI_NAGRA, 20 CEMDATA18, 22 HERACLES, 23 SLOP16 are common, 2 SUPCRT, 18 MINES and 19 AQ17 occur only in hub_main"
+absence = "no dangling edge endpoints in either snapshot (measured: every _from and _to resolves); hub_main has repeated edges between one pair (pulls 7269 edges over 6813 pairs, citing 6605 over 6375, master 135 over 95 with up to 12 repeats, takes 1793 over 1759, basis 469 over 439), hub_ord has none except one takes pair"
+validity = "not applicable"
+provenance = "the key embeds the source database; per-field provenance is on citing edges"
+count = "16767 vertices in hub_ord and 7585 in hub_main"
+example = "arangodb/hub_ord_remote_export/vertices/substances.json (first document)"
+candidate = "source_entity, identity_assertion, naming_scheme, import_record"
+precision = "close"
+loss = "The same species from several source databases is several vertices with no explicit identity link; any identity resolution is left to the loader. Code-label enums differ between snapshots, so codes cannot be loaded without the snapshot."
+
+[[construct]]
+name = "substance vertex"
+locator = "arangodb/*/vertices/substances.json; dump collection substances"
+meaning = "A substance record of the ThermoFun layout (survey/thermofun.toml) extended with source database, comment, timestamp, Debye-Hueckel parameters and a concentration scale."
+subject = "one species form from one source database; keyed by symbol plus class and source codes"
+fields = [
+  { name = "symbol, name, formula, formula_charge, class_, aggregate_state, Tst, Pst, TPMethods, sm_*, m_expansivity, m_compressibility, datasources", meaning = "as in the ThermoFun substance record; formula_charge is a float in 38 hub_ord records", unit = "as in ThermoFun records", shape = "table", role = "input" },
+  { name = "sourcetdb", meaning = "object {code: name} of the source database", unit = "not applicable", shape = "enum", role = "metadata" },
+  { name = "mass_per_mole", meaning = "molar mass as a bare number (no values or units wrapper); present in 4040 hub_ord and 4671 hub_main records", unit = "not stated (inferred: g/mol; one hub_ord record, e- of NASA-TDB, carries 548579903)", shape = "scalar", role = "unread" },
+  { name = "aq_edh_props", meaning = "extended Debye-Hueckel parameters {a0, b} for aqueous species; 1825 hub_ord records have the block, 401 with two values and 1424 with an empty values array although names [a0, b] and unit are present, 2 with no names", unit = "Angstrom for a0 (units array); b unitless", shape = "list", role = "input" },
+  { name = "standard_cscale", meaning = "object {code: name}; {3: CS_MOLALITY} on all 1456 ThermoChimie substances, null elsewhere", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "comment", meaning = "free text, sometimes the literal reaction or a reference marker ('ref:5')", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "time_stamp", meaning = "{year, month, day, hour, minute, second} of record creation or import", unit = "not applicable", shape = "table", role = "metadata" },
+]
+origin = "transcribed (as in ThermoFun records; sourcetdb names the compilation: SUPCRT, SLOP16, PSI_NAGRA, PSI_NAGRA20, MINES, MINES19, MINES23, CEMDATA18, AQ17, HERACLES, CODATA, NASA-TDB, THERMOCHIMIE)"
+conventions = "aggregate_state code-label pairs are not those of ThermoFun's enum: {2: AS_CRYSTAL} on 248 SLOP16 records (ThermoFun code 2 is GLASS) next to {3: AS_CRYSTAL} on 1332 (hub_main) and 1717 (hub_ord); {101: AS_OTHER} on all 2067 NASA-TDB records; class_ {101: SC_OTHER} on the electron of NASA-TDB and SC_GASFLUID on the other NASA-TDB species; standard states are not stated except through standard_cscale"
+absence = "sm_* are missing for whole sources: THERMOCHIMIE (1456 substances) has none and no TPMethods (properties come from reactions); PSI_NAGRA20 has 1356 substances without TPMethods and sm_gibbs_energy on 176; CODATA (151) has only sm_enthalpy and sm_entropy_abs; NASA-TDB (2067) has only sm_enthalpy; SLOP16 has no sm_heat_capacity_p and sm_volume on 272 of 2035 (the HKF method supplies them); an empty 'values' array occurs inside method blocks (eos_hkf_coeffs with values [] on the record that also carries water_eos_hgk84_reaktoro and fug_critical_param)"
+validity = "as in ThermoFun records (limitsTP in cp entries and nasa entries)"
+provenance = "datasources strings plus citing edges (see the citing edge construct)"
+count = "hub_main 6708 (SLOP16 2038, SUPCRT 1557, HERACLES 888, MINES19 705, PSI_NAGRA 690, MINES 536, AQ17 161, CEMDATA18 133); hub_ord 9039 (NASA-TDB 2067, SLOP16 2035, THERMOCHIMIE 1456, PSI_NAGRA20 1356, HERACLES 949, MINES23 775, CODATA 151, CEMDATA18 127, PSI_NAGRA 123); 6204 and 5888 with TPMethods respectively"
+example = "arangodb/hub_ord_remote_export/vertices/substances.json (key e-;101:SC_OTHER;24:NASA-TDB)"
+candidate = "species_form, species, composition, parameter_set, standard_state (standard_cscale)"
+precision = "broader"
+loss = "As for the ThermoFun substance record; in addition the source database, concentration scale and Debye-Hueckel parameters are extra attributes that the model places on the parameterisation, the standard state and a model assembly respectively; unit-free mass_per_mole must be given a unit by assumption."
+
+[[construct]]
+name = "reaction vertex"
+locator = "arangodb/*/vertices/reactions.json"
+meaning = "A reaction with equation text, reference logK and optional reaction properties and methods, typed as a formation-from-elements or a dissolution reaction."
+subject = "one reaction; keyed by symbol plus source code and level"
+fields = [
+  { name = "symbol, equation, name, Tst, Pst, logKr, drsm_*, TPMethods, limitsTP, datasources", meaning = "as in ThermoFun reaction records; the equation uses signed coefficients with three decimals on the right side, for example 'Am(PO4):0.5H2O = -2.000H+ + +1.000Am+3 + +1.000H2(PO4)- + +0.500H2O'", unit = "as in ThermoFun records", shape = "table", role = "input" },
+  { name = "reactyp", meaning = "object {code: name}: FE_FORMATION 1 (499 in hub_main, 2271 in hub_ord) or RE_DISSOLUTION 2 (452 in hub_ord)", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "level", meaning = "integer 0 in all records", unit = "not stated", shape = "scalar", role = "unread" },
+  { name = "elements", meaning = "list of {symbol[, class_]} of the elements involved (1406 of 2723 hub_ord records, all 499 hub_main)", unit = "not applicable", shape = "list", role = "metadata" },
+  { name = "comment, time_stamp, sourcetdb", meaning = "free text, import time, source code", unit = "not applicable", shape = "scalar", role = "metadata" },
+]
+origin = "transcribed (ThermoChimie and PSI/Nagra logK tables; older formation reactions from MINES, CEMDATA and PSI/Nagra 12/07)"
+conventions = "logKr is for the written equation; the stoichiometry lives on takes edges (see the takes edge construct) with coefficient signs and a product flag; in 496 of 2525 defining pairs in hub_ord the defined substance is on the reactant side with a negative coefficient (dissolution), in 2019 it is a product"
+absence = "ThermoChimie reactions carry logKr and a TPMethods entry with 5 named coefficients (A1 to A5), no drsm_* values; drsm_enthalpy is present on 1274 of 2723 hub_ord reactions, drsm_gibbs_energy and drsm_entropy on about 133; 1180 hub_ord reactions have no TPMethods; 56 entries are an empty method object {}; 6 hub_ord reactions have no takes edge and 199 have no defines edge"
+validity = "limitsTP on 269 hub_ord and 475 hub_main reactions; not enforced by any code here"
+provenance = "datasources per reaction plus citing edges whose for_field names logKr, drsm_enthalpy or drsm_heat_capacity_p values"
+count = "hub_main 499 (PSI_NAGRA 440, MINES19 24, MINES 18, CEMDATA18 17); hub_ord 2723 (THERMOCHIMIE 1406, PSI_NAGRA20 1180, HERACLES 61, MINES23 56, CEMDATA18 20)"
+example = "arangodb/hub_ord_remote_export/vertices/reactions.json (key Am(PO4):0.5H2O(am);25:THERMOCHIMIE;0)"
+candidate = "reaction, reaction_participant, parameter_set, system_reaction"
+precision = "close"
+loss = "Stoichiometry sits on edges, not on the vertex, and the equation text repeats it; the law-of-mass-action datasets define every species by a reaction, so a mapping must treat those reactions as the standard-state parameter sets of the species rather than as independent reactions."
+
+[[construct]]
+name = "reaction method blocks new to ThermoHub"
+locator = "arangodb/hub_ord_remote_export/vertices/reactions.json#/*/properties/TPMethods"
+meaning = "Reaction method entries beyond those of the ThermoFun files: logk_fpt_function with five named coefficients, dr_heat_capacity_ft (method 11) carrying logk and Cp coefficients, dr_volume_fpt (12) with one coefficient, solute_eos_ryzhenko_gems (10) carrying a Marshall-Franck coefficient block, logk_2_term_extrap (6), logk_1_term_extrap1 (5), logk_lagrange_interp (8)."
+subject = "one reaction"
+fields = [
+  { name = "logk_ft_coeffs", meaning = "values of length 5 (1406 blocks, names A1..A5), 12 (94) or 0 (5)", unit = "not stated (the 5-term form follows the ThermoChimie analytic logK form; inferred from term order and the ThermoFun A0..A4 layout)", shape = "list", role = "input" },
+  { name = "dr_heat_capacity_ft_coeffs", meaning = "12 values in 49 blocks, 0 values in 15", unit = "not stated", shape = "list", role = "input" },
+  { name = "dr_volume_fpt_coeffs", meaning = "one value per block (55 blocks), for example a reaction volume", unit = "not stated (inferred: cm3/mol or J/bar)", shape = "list", role = "input" },
+  { name = "dr_marshall_franck_coeffs", meaning = "12 values in 32 blocks attached to method 10 solute_eos_ryzhenko_gems, where ThermoFun reads dr_ryzhenko_coeffs", unit = "not stated", shape = "list", role = "input" },
+]
+origin = "transcribed"
+conventions = "method counts in hub_ord reactions: logk_fpt_function 1501, dr_volume_constant 117, empty {} 56, dr_volume_fpt 55, dr_heat_capacity_ft 42, logk_3_term_extrap 32, solute_eos_ryzhenko_gems 32, logk_nordstrom_munoz88 19, logk_2_term_extrap 11, logk_lagrange_interp 6, logk_1_term_extrap1 1"
+absence = "empty values arrays; method entries without parameters mark a code path"
+validity = "limitsTP on dr_heat_capacity_ft and some logk_fpt_function entries (range false, lowerP 0 or 0.1)"
+provenance = "reaction datasources"
+count = "see conventions"
+example = "arangodb/hub_ord_remote_export/vertices/reactions.json (key Mackawite;25:THERMOCHIMIE;0)"
+candidate = "parameter_set (forms logk_general_analytic, reaction_volume_polynomial, marshall_franck)"
+precision = "close"
+loss = "Coefficient naming differs from the ThermoFun layout (A1..A5 here, A0..A6 there) and the unit statements are absent, so term identity is inferred."
+
+[[construct]]
+name = "nasa_polynomial method entries"
+locator = "arangodb/hub_ord_remote_export/vertices/substances.json#/*/properties/TPMethods (method code 44)"
+meaning = "NASA seven-coefficient polynomials per temperature interval for the 2067 NASA-TDB species, stored as one TPMethods entry per interval with its own limitsTP and a coefficient array under m_heat_capacity_ft_coeffs named a1 to a7, b1, b2."
+subject = "one species form; one entry per temperature interval (2030 substances: 572 with one interval, 1186 with two, 266 with three, 6 with four)"
+fields = [
+  { name = "method", meaning = "{44: nasa_polynomial}; code 44 is not in the ThermoFun v0.6.3 enum (codes 0-43)", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "limitsTP", meaning = "{range: true, lowerT, upperT} per interval", unit = "K (inferred)", shape = "table", role = "input" },
+  { name = "m_heat_capacity_ft_coeffs", meaning = "9 values in 3703 blocks (a1..a7 for the Cp polynomial, b1 and b2 integration constants), other lengths 10 (56 blocks), 15 (3), 21 (1), 22 (2), 0 (1)", unit = "no units array", shape = "list", role = "input" },
+  { name = "sm_enthalpy", meaning = "formation enthalpy at 298.15 K (only sm_ property the record carries)", unit = "J/mol (the units array is absent in these records; value 284900 for Ag gas is consistent with J/mol; inferred)", shape = "scalar", role = "input" },
+]
+origin = "transcribed (NASA Glenn database as curated by Goos, Burcat and Ruscic, per the datasources text 'Ref-Species. Chase,1998 3/82.' on the first record)"
+conventions = "interval bounds are 298.15 to 1000, 1000 to 6000, 6000 to 20000 K for the first species shown; enthalpy base is the NASA convention, not stated in the record"
+absence = "the lengths of the coefficient arrays that are not 9 indicate unusual entries (condensed-phase ranges or different polynomial forms) that the record does not explain; 37 NASA-TDB substances have no TPMethods"
+validity = "limitsTP per interval"
+provenance = "datasources strings per species; citing edges exist for 4429 substance-datasource pairs"
+count = "3766 nasa_polynomial entries on 2030 substances"
+example = "arangodb/hub_ord_remote_export/vertices/substances.json (key e-;101:SC_OTHER;24:NASA-TDB)"
+candidate = "parameter_set of form nasa7 (family piece with interval), species_form"
+precision = "close"
+loss = "The model's nasa7 family is exact for the 9-value blocks; the other lengths need a separate form or are dropped; aggregate state is AS_OTHER so the state of each interval has to come from elsewhere."
+
+[[construct]]
+name = "element vertex"
+locator = "arangodb/*/vertices/elements.json"
+meaning = "An element or element-like conserved quantity with reference-form properties, valences and radioactivity, typed ELEMENT, CHARGE, LIGAND or OTHER_EC."
+subject = "one element from one source database; keyed by symbol, class and source"
+fields = [
+  { name = "symbol, name, number, atomic_mass (name M0i), entropy (S0i), heat_capacity (Cp0i), volume (V0i), isotope_mass, isotope_abundance (IXi), valences, radioactivity, formula, substance, aggregate_state, class_, sourcetdb, datasources, comment, time_stamp", meaning = "element attributes; substance and formula name the reference-form species (for example g:N0:N2:add: for the decoupled nitrogen element Nit)", unit = "values arrays with names; units not stated", shape = "table", role = "input" },
+  { name = "class_", meaning = "ELEMENT 0, CHARGE 4, OTHER_EC 5, LIGAND 2 (hub_ord: ELEMENT 352, OTHER_EC 57, LIGAND 32, CHARGE 5)", unit = "not applicable", shape = "enum", role = "input" },
+]
+origin = "transcribed"
+conventions = "LIGAND and OTHER_EC elements are conserved quantities that are not chemical elements (Nit: nitrogen in gas decoupled from the nitrogen of solutes, ligand placeholders); basis edges connect elements to datasets"
+absence = "valences and number are absent on 59 hub_ord elements; aggregate_state is null on 307 and {} on 112 hub_ord elements"
+validity = "not stated"
+provenance = "datasources per element"
+count = "hub_main 349, hub_ord 446"
+example = "arangodb/hub_ord_remote_dump (elements; key Nit;2:LIGAND;15:PSI_NAGRA)"
+candidate = "element, conserved_quantity"
+precision = "broader"
+loss = "conserved_quantity covers the decoupled-nitrogen case; reference-form entropy belongs on an energy reference."
+
+[[construct]]
+name = "thermodataset vertex and reactionset vertex"
+locator = "arangodb/*/vertices/thermodatasets.json, reactionsets.json"
+meaning = "A dataset grouping substances, elements and reactions for one use, typed TDS_GEM (GEM-style, property-based), TDS_LMA (law of mass action) or TDS_REF (reference), and a reaction set (RS_FORMFEL formation reactions, RS_LMA) grouping the reactions that define species."
+subject = "one dataset; keyed by symbol, stype code and level"
+fields = [
+  { name = "symbol, name, stype, level, sourcetdbs, limitsTP, comment, datasources, time_stamp", meaning = "dataset identity and temperature-pressure range; limitsTP {range false, lowerP 0.1, lowerT 273.15, upperP 500000000 or 1000000, upperT 1273.15 or 298.15}", unit = "limitsTP pressures in Pa (inferred: 5e8 is 5 kbar for the HKF datasets)", shape = "table", role = "metadata" },
+  { name = "element_list, species_map, reactionsets_map", meaning = "hub_main only: the element symbols, a map symbol -> 1 of the member species, and for one dataset a map of reaction sets", unit = "not applicable", shape = "table", role = "metadata" },
+]
+origin = "authored"
+conventions = "membership is stated twice in hub_main (species_map and pulls edges) and only by edges in hub_ord (species_map absent from the 8 datasets)"
+absence = "species_map size equals the number of distinct symbols pulled (cemdata18: 238) while pulls edges number 704 because each pair is repeated up to 3 times"
+validity = "limitsTP states the range of the dataset (slop98, aq17: to 1273.15 K and 5e8 Pa; PSI/Nagra, MINES, CEMDATA, slop16 and Heracles: 298.15 K, 1e6)"
+provenance = "datasources on one hub_main and all hub_ord datasets"
+count = "hub_main 9 datasets and 1 reaction set; hub_ord 8 datasets (5 TDS_GEM, 2 TDS_LMA, 1 TDS_REF) and 4 reaction sets (3 RS_FORMFEL, 1 RS_LMA)"
+example = "arangodb/hub_ord_remote_export/vertices/thermodatasets.json (PsiTDB2020)"
+candidate = "parameterization, chemical_system, convention_set, dataset"
+precision = "close"
+loss = "A dataset is at once a parameterisation, a system and a convention set; TDS_LMA versus TDS_GEM distinguishes two parameterisation styles (standard-state properties versus equilibrium constants) that the model expresses through different forms."
+
+[[construct]]
+name = "datasource vertex"
+locator = "arangodb/*/vertices/datasources.json"
+meaning = "A bibliographic record: short name, year, authors, bibliographic type, title, journal, volume, pages, keywords, abstract or annotation."
+subject = "one publication; keyed by a slug of the short name"
+fields = [
+  { name = "shortname, year, author, bibliographic_type, title, journal, volume, number, pages, booktitle, abstracttext, annotation, keywords, publisher, editor, links, identifiers", meaning = "BibTeX-like fields (bibliographic_type is an {code: name} pair such as {12: TECHREPORT}); year is a string", unit = "not applicable", shape = "table", role = "metadata" },
+]
+origin = "transcribed"
+conventions = "citing edges point datasource -> record in hub_ord and record -> datasource in hub_main"
+absence = "journal present in 234 of 277 hub_ord records; identifiers (DOI) in 1"
+validity = "not applicable"
+provenance = "not applicable"
+count = "hub_main 19, hub_ord 277"
+example = "arangodb/hub_ord_remote_dump (datasources; key _2002HUM_CUR_)"
+candidate = "publication, source"
+precision = "exact"
+loss = "none for bibliographic fields; DOIs are nearly absent, so identity of the publication is by short name."
+
+[[construct]]
+name = "graph edges of the substance-reaction-dataset graph"
+locator = "arangodb/*/edges/{pulls,basis,takes,defines,prodreac,product,master,citing}.json"
+meaning = "pulls: substance -> thermodataset (membership, level_of_data 'coredata' in all); basis: element -> thermodataset (b_type 'element'); takes: substance -> reaction with stoi_coeff (signed) and rct (1 product, 0 reactant); defines: reaction -> substance (for_prop 'whole', asop 'retrieved', level 0); prodreac: reaction -> reactionset (for_ps is the defined species symbol); product: substance -> reactionset (ps_type 5); master: substance -> reactionset (ms_type 1, master species of the set); citing: datasource -> record (hub_ord) or record -> datasource (hub_main) with for_field naming the cited fields."
+subject = "one pair of vertices"
+fields = [
+  { name = "stoi_coeff, rct", meaning = "signed stoichiometric coefficient and role flag (38 distinct hub_main values from -8 and lower up to 6 and higher; 196 distinct in hub_ord)", unit = "dimensionless", shape = "scalar", role = "input" },
+  { name = "for_field", meaning = "list of JSON paths of the cited properties (['properties'] for the whole record in 6535 hub_main and 5225 hub_ord cases; specific paths such as properties.logKr.values.0 or properties.TPMethods.eos_hkf_coeffs otherwise)", unit = "not applicable", shape = "list", role = "metadata" },
+  { name = "level_of_data, level, weight, b_type, ps_type, ms_type, for_prop, asop", meaning = "constant or flag attributes (level_of_data always coredata, ms_type always 1, ps_type always 5, for_prop always whole, asop always retrieved)", unit = "not applicable", shape = "scalar", role = "unread" },
+]
+origin = "generated"
+conventions = "a master species (master edge) is a basis species of a reaction set; the defines edge makes a reaction the definition of one substance; the reaction vertex and the substance vertex usually share the symbol; citing with for_field ['properties'] cites the whole record"
+absence = "hub_main repeats edges (see the identity convention); a reaction may define no substance (199 of 2723 in hub_ord) or a substance may be defined by no reaction"
+validity = "not applicable"
+provenance = "citing is the provenance relation"
+count = "hub_main 17784 edges, hub_ord export collections 30141 edges"
+example = "arangodb/hub_ord_remote_export/edges/takes.json (first line)"
+candidate = "reaction_participant, system_reaction (defines), system_member (role basis for master), attribution, record_origin, dependency"
+precision = "close"
+loss = "The master and defines relations map to the model's system_member role and system_reaction.defines; citing with a field path needs a per-slot attribution that the model records at the record level."
+
+[[construct]]
+name = "phase vertex, component edge and mixing model"
+locator = "arangodb/hub_ord_remote_dump/phases_*.data.json.gz, component_*, mixingmodels_*, mixing_*"
+meaning = "A phase definition with aggregate state, mixing model code, kinetic model code, constituent substances and (for non-ideal solid solutions) parameters; component edges link a substance to a phase with a concentration scale; a mixing-model vertex plus a mixing edge assign an interaction model to a phase."
+subject = "one phase definition from one source database; constituents are substances"
+fields = [
+  { name = "symbol, name, aggregate_state, mixmod, kinratemod, substances, Ncomps, limitsTP, datasources", meaning = "mixmod {code: name}: M_PURE 0 (549), M_IDEAL 1 (279), M_REDKIST2 5 (8), M_AQSIT 30 (2), M_OTHER 101 (1), M_PRFLUID 23 (1); kinratemod is KIN_INSTANT 0 in all 840", unit = "not applicable", shape = "table", role = "input" },
+  { name = "Ncomps", meaning = "number of components; equals 1 in all 840 records including phases with 2 to 8 substances", unit = "not applicable", shape = "scalar", role = "unread" },
+  { name = "temp_import", meaning = "four strings that hold non-ideal interaction parameters as stringified nested arrays (for example '[[0.188,2.49,0]]' for a Redlich-Kister pair, with name arrays such as [['a0','a1','a2']]); non-blank in 33 of 840 records (absent in the 2 aqueous SIT phases)", unit = "not stated", shape = "list", role = "input" },
+  { name = "substances", meaning = "list of member substance symbols; empty for the two aqueous SIT phases whose membership (1012 and 264 substances) is only on component edges", unit = "not applicable", shape = "list", role = "input" },
+  { name = "component edge: pc_type, pc_conscale", meaning = "class of the member in the phase (SC_COMPONENT, SC_AQSOLUTE, SC_GASFLUID, SC_AQSOLVENT) and concentration scale {0: C_UNITY} in all 2160 edges", unit = "not applicable", shape = "enum", role = "input" },
+]
+origin = "transcribed (CEMDATA18 cement-phase solid solutions with Redlich-Kister parameters after Matschei, Lothenbach and Moeschner; Heracles and MINES23 phases; PSI/Nagra 2020 and ThermoChimie aqueous phases)"
+conventions = "a phase of M_PURE or M_IDEAL has no parameters; non-ideal solid solutions keep parameters as text in temp_import; aggregate states are CRYSTAL 724, LIQUID 113, AQUEOUS 2, GAS 1"
+absence = "temp_import holds blank-padded strings (16 spaces) for unnamed parameters; the phases vertex has no units for the parameters"
+validity = "limitsTP per phase (298.15 K, 1e6 Pa for all inspected phases)"
+provenance = "datasources per phase (for example Lothenbach_ea:2018:pap:)"
+count = "840 phases, 2 mixing models, 2160 component edges, 2 mixing edges"
+example = "arangodb/hub_ord_remote_dump (phases; key SO4_OH_AFm;3:AS_CRYSTAL;20:CEMDATA18)"
+candidate = "phase_definition, phase_model (model_assembly), parameter_set, system_member"
+precision = "close"
+loss = "Interaction parameters are unstructured text and their slot names are sometimes blank; the phase's internal structure (sublattices) is absent, so every phase is structure none; Ncomps and the substances list disagree with the edges."
+
+[[construct]]
+name = "SIT interaction vertex and its edges"
+locator = "arangodb/hub_ord_remote_dump/interactions_*.data.json.gz, interacts_*, specific_*"
+meaning = "A binary specific-ion-interaction (SIT) coefficient between two aqueous species: the vertex carries the coefficient; two interacts edges connect the two species and one specific edge connects the interaction to the aqueous mixing model aq_sit."
+subject = "an unordered pair of aqueous species; keyed 'binary_<species1>_<species2>;code:SOURCE;level'"
+fields = [
+  { name = "symbol, name, mixmod, intpart, Tst, Pst, intpar, datasources", meaning = "mixmod {30: M_AQSIT}, intpart {1: SIT}, name is the first species and symbol encodes both; intpar is {values: [epsilon]} with one value in 3392 records and none in 36", unit = "kg/mol for SIT epsilon (inferred from SIT practice; not stated); Tst is 298.5 (unit not stated) in all 3428 records", shape = "scalar", role = "input" },
+  { name = "interacts.weight, interacts.level, specific.weight, specific.level", meaning = "always 1 and 0", unit = "not applicable", shape = "scalar", role = "unread" },
+]
+origin = "transcribed (PSI/Nagra 2020: 3027; ThermoChimie: 401)"
+conventions = "of 3428 interactions 1856 have epsilon 0 stored explicitly (0.05 and 0.2 and -0.05 are the next most common); 3419 have exactly two interacts edges, 2 have one (Np ions with ClO4- and Cl-)"
+absence = "an interaction with no value (36); the species order is inside the key text only"
+validity = "SIT applies at 298.15 K only (Tst); no validity statement in the record"
+provenance = "datasources on 401 of the 3428 records (ThermoChimie); none for PSI/Nagra 2020"
+count = "3428 interaction vertices, 6840 interacts edges, 3426 specific edges"
+example = "arangodb/hub_ord_remote_dump (interactions; key binary_As(OH)3(aq)_Cl-;26:PSI_NAGRA20;0)"
+candidate = "parameter_set (form sit_pair, subject an unordered pair of species forms), transposition symmetric"
+precision = "close"
+loss = "The pair is an unordered relation carried by two edges; the model's symmetric slot group takes it directly, but the species order in the key text is arbitrary and the unit of epsilon is not recorded."
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES (data only; nothing is implemented in this repository)
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "NASA polynomial standard state (method nasa_polynomial, code 44)"
+locator = "arangodb/hub_ord_remote_export/vertices/substances.json TPMethods entries; no implementation in this repository"
+class = "standard_state_species"
+inputs = "T in K, interval"
+parameters = "pure: a1..a7, b1, b2 per interval"
+composes = []
+variants = []
+equation_source = "none in this repository"
+closed_form = "yes"
+data = "construct 'nasa_polynomial method entries'"
+
+[[model_family]]
+name = "specific ion interaction (SIT) model for aqueous phases (mixing model M_AQSIT)"
+locator = "arangodb/hub_ord_remote_dump phases, mixingmodels, interactions, interacts, specific; no implementation in this repository"
+class = "electrolyte_interaction"
+inputs = "molalities of aqueous species, ionic strength"
+parameters = "pair: one epsilon per interacting pair of species (ion-ion or ion-neutral)"
+composes = []
+variants = []
+equation_source = "none in this repository"
+closed_form = "yes"
+data = "construct 'SIT interaction vertex and its edges'"
+
+[[model_family]]
+name = "binary Redlich-Kister solid solution (mixing model M_REDKIST2)"
+locator = "arangodb/hub_ord_remote_dump phases#/*/properties/mixmod and temp_import; no implementation in this repository"
+class = "residual_or_excess_contribution"
+inputs = "end-member mole fractions of a two-component phase"
+parameters = "pair: a0, a1, a2 stored as text in temp_import"
+composes = []
+variants = []
+equation_source = "the datasources of the phase (Matschei, Lothenbach, Moeschner, Dilnesa); no equation text"
+closed_form = "yes"
+data = "construct 'phase vertex, component edge and mixing model'"
+
+[[model_family]]
+name = "Peng-Robinson-Stryjek-Vera fluid mixture (mixing model M_PRFLUID)"
+locator = "arangodb/hub_ord_remote_dump phases (phase Fluid of MINES23); no implementation in this repository"
+class = "residual_or_excess_contribution"
+inputs = "T, P, mole fractions of 9 gases"
+parameters = "pair: w01, w02 stored as text in temp_import ([[0,0]] values)"
+composes = []
+variants = []
+equation_source = "datasources text 'PRSV EOS'"
+closed_form = "implicit"
+data = "construct 'phase vertex, component edge and mixing model'"
+
+# ---------------------------------------------------------------------------
+# CONVENTIONS
+# ---------------------------------------------------------------------------
+
+[[convention]]
+name = "source-database code vocabulary"
+locator = "sourcetdb codes across vertices; hub_main versus hub_ord"
+statement = "Every vertex carries the source database as {code: name}; the integer codes are shared only partly between the snapshots (26 is MINES19 in hub_main and PSI_NAGRA20 in hub_ord), so a code is meaningful only together with its snapshot or its label."
+scope = "all vertices"
+
+[[convention]]
+name = "standard states and concentration scales"
+locator = "substances standard_cscale, component edges pc_conscale, substance class_"
+statement = "The only explicit scale statements are standard_cscale {CS_MOLALITY} on 1456 ThermoChimie substances and pc_conscale {C_UNITY} on all 2160 phase-membership edges; the standard state of a species is otherwise implied by the class and aggregate state as in ThermoFun data (survey/thermofun.toml)."
+scope = "hub_ord substances and phases"
+
+[[convention]]
+name = "reaction direction and defined species"
+locator = "takes edges (stoi_coeff, rct); defines edges"
+statement = "A reaction's stoichiometry is the set of takes edges with signed coefficients; rct 1 marks products and 0 reactants; the defines edge names the substance whose properties the reaction defines, and that substance may be a reactant with a negative coefficient (496 of 2525 defining pairs in hub_ord)."
+scope = "reactions"
+
+[[convention]]
+name = "temperature and pressure ranges of datasets"
+locator = "thermodatasets limitsTP"
+statement = "Dataset limitsTP states lowerT 273.15 and upperT 1273.15 with upperP 500000000 for HKF-based datasets (aq17, slop98) and upperT 298.15 with upperP 1000000 for equilibrium-constant and cement datasets (PSI/Nagra, MINES, CEMDATA, slop16, Heracles); units are not stated (inferred: K and Pa)."
+scope = "datasets"
+
+[[convention]]
+name = "record timestamps"
+locator = "properties.time_stamp"
+statement = "Records carry {year, month, day, hour, minute, second}; hub_ord records are stamped 2024-09-10 and 2024-09-11, hub_main records 2020-2021; the thermofun files carry date 17.07.2021 16:49."
+scope = "all vertices"
+
+# ---------------------------------------------------------------------------
+# SELECTION
+# ---------------------------------------------------------------------------
+
+[[selection]]
+name = "dataset membership and export to ThermoFun files"
+locator = "pulls and basis edges; thermohub-remote-tdb--export-thermofun.py; thermohubclient (not in the tree)"
+rule = "A dataset consists of the substance vertices that have a pulls edge to it and the elements with a basis edge; in hub_main the cemdata18 dataset has 704 pulls edges over 238 distinct substance vertices (228 symbols with one vertex, 10 symbols with a CEMDATA18 and a PSI_NAGRA vertex of identical values) and its ThermoFun file lists 238 substances; how two vertices of one symbol are reduced to one record is not shown in the tree."
+scope = "dataset export"
+documented = "no: the script only calls saveDatabase for every available dataset"
+
+[[selection]]
+name = "species belonging to a phase"
+locator = "phases substances list and component edges"
+rule = "For 838 of 840 phases the substances list and the component edges agree; the two aqueous SIT phases have an empty substances list and take their members from component edges (1012 and 264)."
+scope = "hub_ord phase membership"
+documented = "no"
+
+[[selection]]
+name = "which dataset of a snapshot is current"
+locator = "README.md; thermofun/*.json dates; hub_ord thermodatasets"
+rule = "The README says the files in thermofun/ are the up-to-date database files; the ThermoFun files date from 17.07.2021 and do not include the datasets that exist only in hub_ord (PsiTDB2020, ThermoChimie10a, Mines23, Nasa02, codata89)."
+scope = "all datasets"
+documented = "no: README claim contradicted by the hub_ord snapshot"
+
+# ---------------------------------------------------------------------------
+# DISCREPANCIES
+# ---------------------------------------------------------------------------
+
+[[discrepancy]]
+locator = "README.md lines 3-4 and thermofun/*.json#/date"
+documented = "The README says the files in /thermofun/ are the up-to-date database files."
+actual = "All nine carry date 17.07.2021 while the hub_ord snapshot carries records stamped September 2024 and five datasets (PsiTDB2020, ThermoChimie10a, Mines23, Nasa02, codata89) that have no file."
+consequence = "The flat files alone are not the latest content; a loader that uses only thermofun/ omits the law-of-mass-action and NASA datasets."
+
+[[discrepancy]]
+locator = "substances aggregate_state in hub_main and hub_ord (SLOP16 records); ThermoFun GlobalVariables.h enum AggregateState"
+documented = "ThermoFun's enum gives code 2 as GLASS and code 3 as CRYSTAL."
+actual = "248 SLOP16 substances carry {2: AS_CRYSTAL} beside 1332 (hub_main) and 1717 (hub_ord) with {3: AS_CRYSTAL}; 2067 NASA-TDB substances carry {101: AS_OTHER} and the electron {101: SC_OTHER}."
+consequence = "A code-keyed mapping reads 248 crystalline solids as glass; a label-keyed mapping needs both codes; NASA species lose their aggregate state."
+
+[[discrepancy]]
+locator = "arangodb/hub_main_remote_export/edges/*.json"
+documented = "The edge collections represent relations between vertices."
+actual = "Edges repeat: pulls 7269 edges over 6813 pairs (228 pairs three times), master 135 over 95 pairs (one pair 12 times), basis 469 over 439, citing 6605 over 6375, takes 1793 over 1759, defines, prodreac and product 10 pairs twice each; hub_ord has a repeat only in takes (one pair)."
+consequence = "Counting edges overstates dataset size and the number of reactants; membership must be deduplicated by pair."
+
+[[discrepancy]]
+locator = "phases vertices (hub_ord) Ncomps and substances"
+documented = "Ncomps is the number of components of the phase."
+actual = "Ncomps is 1 in all 840 phases although 19 phases list 2 to 8 substances; the two aqueous phases have an empty substances list and 1012 and 264 members on edges."
+consequence = "Neither field can be trusted for phase size; component edges are the complete source."
+
+[[discrepancy]]
+locator = "substances of NASA-TDB: e- mass_per_mole"
+documented = "mass_per_mole is a molar mass (values such as 107.8682 for Ag)."
+actual = "The electron record carries 548579903 (the NASA file's 0.000548579903 multiplied by 1e12); no other record is off."
+consequence = "A bulk load would put an electron mass of 5.5e8; a units check is needed."
+
+[[discrepancy]]
+locator = "reactions with method solute_eos_ryzhenko_gems (32 in hub_ord) and ThermoFun GlobalVariables.h"
+documented = "ThermoFun reads dr_ryzhenko_coeffs (three values) for method 10."
+actual = "The 32 ThermoHub reactions with method 10 carry dr_marshall_franck_coeffs (12 values); method 9 logk_marshall_frank78 does not occur."
+consequence = "The method name and the parameter block disagree; it is unknown which equation the coefficients belong to."
+
+[[discrepancy]]
+locator = "thermofun/cemdata18-thermofun.json versus ThermoFun Resources/databases/cemdata18-thermofun.json"
+documented = "The mirror holds ThermoFun database files."
+actual = "The mirror's cemdata18 has 238 substances and 27 reactions against ThermoFun's 228 and 7; the water record H2O@ of three datasets differs (hgk84 here, iapws95 there); mass_per_mole is added."
+consequence = "Two versions of nominally one dataset exist with different content; version labels are absent from the files (date only)."
+
+[[discrepancy]]
+locator = "interactions vertices, properties.Tst (all 3428)"
+documented = "Reference temperatures of other records are 298.15."
+actual = "Every SIT interaction record states Tst = 298.5."
+consequence = "The SIT reference temperature (SIT is defined at 25 C) is stated as 298.5 in both source compilations; the value is either a shared typo or a different reference, and the record does not say."
+
+# ---------------------------------------------------------------------------
+# CAPABILITIES
+# ---------------------------------------------------------------------------
+
+[[capability]]
+calculation = "proposed:standard_state_properties"
+offered = "no"
+scope = "ThermoHub is a data mirror; standard-state evaluation is ThermoFun's (survey/thermofun.toml); no calculation code is in the tree"
+locator = "README.md; repository root"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "gibbs_minimization"
+offered = "no"
+scope = "no solver; the phase and interaction data are inputs for external GEM codes (survey/gems3k.toml)"
+locator = "repository root"
+evidence = "source_inspected"
+
+# ---------------------------------------------------------------------------
+# QUESTIONS
+# ---------------------------------------------------------------------------
+
+[[question]]
+about = "reduction of several vertices with one symbol to one record in an exported dataset"
+question = "When two source vertices with the same symbol are pulled into one dataset (10 symbols in cemdata18 of hub_main, 9 in CEMDATA18, 16 in Heracles and 1 in slop16 of hub_ord), which one does the ThermoFun export keep, and is a disagreement possible between them?"
+why_it_matters = "Dataset content and the mapping of duplicate identities depend on this rule, which is in thermohubclient and not in the tree."
+
+[[question]]
+about = "logk_ft_coeffs with five coefficients named A1..A5 (1406 ThermoChimie reactions)"
+question = "Which functional form do the five coefficients have and is the logarithm natural or decimal? The ThermoFun layout has A0..A6 with ln T."
+why_it_matters = "A wrong term identity would change logK at every temperature away from 298.15 K for 1406 reactions."
+
+[[question]]
+about = "unit of SIT epsilon in intpar and of dr_volume_fpt_coeffs values"
+question = "What units do the values of intpar and dr_volume_fpt_coeffs have? The records have no units arrays."
+why_it_matters = "SIT coefficients are by convention kg/mol; the reaction volume could be J/bar or cm3/mol, which differ by a factor of ten."
+
+[[question]]
+about = "hub_ord production"
+question = "How was the hub_ord snapshot produced and with what version of the server? The script handles only hub_main."
+why_it_matters = "The provenance and stability of the newer datasets (NASA, ThermoChimie, PSI/Nagra 2020) cannot be traced to a script."

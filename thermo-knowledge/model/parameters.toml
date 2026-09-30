@@ -1,0 +1,332 @@
+module = "parameters"
+schema = "tk"
+uses = [
+  "physical",
+  "provenance",
+  "identity",
+  "systems",
+  "conventions",
+  "observables",
+]
+doc = """
+Parameters. "Parameter" is five things across the sources: a slot (the definition of a position
+in a form), a value, a parameter set (the coherent unit one source fits together for one subject),
+a parameterisation (a published collection meant to be used together) and a resolved snapshot
+(what a package actually uses). Slots and slot groups are declared with their forms; this module
+owns the other four and the relations that constrain how sets may be combined.
+
+A parameter set is keyed by its parameterisation, its slot group and its subject. One source's
+coherent values are never split across sets, and several sets for the same subject coexist. A
+missing value is the absence of a set; it is never a zero.
+"""
+
+[enums.coherence]
+doc = "How the sets of a parameterisation relate to each other."
+members.independent_records = { doc = "Each set stands alone." }
+members.jointly_fitted = { doc = "The sets were fitted together and are valid only together." }
+members.conditional = { doc = "The sets were obtained assuming another parameterisation." }
+
+[enums.dependency_kind]
+doc = "How one record depends on another."
+members.fitted_given = { doc = "Fitted with the prerequisite held fixed." }
+members.estimated_from = { doc = "Estimated from the prerequisite." }
+members.consistent_with = { doc = "Valid only in combination with the prerequisite." }
+
+[enums.envelope_kind]
+doc = "What a stated range of applicability represents."
+members.fitted_range = { doc = "The range of the data the set was fitted to." }
+members.recommended_range = { doc = "The range the source recommends." }
+members.validated_range = { doc = "A range over which agreement was demonstrated." }
+
+[enums.value_state]
+doc = "Whether a slot holds a value and, if not, why. Missing is not a state: it is the absence of a set."
+members.known = { doc = "A value is asserted; a known zero is known." }
+members.not_applicable = { doc = "The slot has no meaning for this subject." }
+members.redirect = { doc = "The value is that of another parameter set." }
+members.withheld = { doc = "A value exists but rights forbid storing it." }
+
+[enums.interpolation]
+doc = "How a tabulated function is evaluated between its points."
+members.linear = { doc = "Linear interpolation." }
+members.cubic_spline = { doc = "Cubic spline." }
+members.bin_weights = { doc = "Values are weights of bins; no interpolation." }
+members.not_stated = { doc = "The source does not say." }
+
+[enums.unasserted_policy]
+doc = "What a selection policy does when no set is asserted for a required subject."
+members.refuse = { doc = "The snapshot is refused." }
+members.named_rule = { doc = "A named combining or estimation rule supplies the value, recorded as rule-derived." }
+members.stated_default = { doc = "A default the policy states supplies the value, recorded as such." }
+
+# ---------------------------------------------------------------- parameterisation and sets
+
+[kinds.parameterization]
+doc = "A published collection of parameter sets meant to be used together, under one convention set."
+identity = ["key", "revision"]
+provenance = "own"
+traces = ["IC-14"]
+
+[kinds.parameterization.attributes]
+key = { type = "Text", doc = "Stable key." }
+revision = { type = "Text", doc = "Revision, publication year or carrier pin." }
+title = { type = "Text", doc = "Name by which the collection is known." }
+coherence = { type = "coherence", doc = "How its sets relate to each other." }
+convention_set = { type = "convention_set", optional = true, doc = "The conventions its values assume." }
+site_scheme = { type = "site_scheme", optional = true, doc = "The association site scheme its sets assume, where one applies." }
+group_scheme = { type = "group_scheme", optional = true, doc = "The group scheme its sets are scoped to, where one applies." }
+chemical_system = { type = "chemical_system", optional = true, doc = "The chemical system its sets belong to, where one applies." }
+composition_basis = { type = "composition_basis", optional = true, doc = "The composition basis its interaction values assume, where the form leaves it open." }
+reference_volume = { type = "MolarVolume", optional = true, doc = "The reference volume its size ratios and interaction values are relative to, where the form leaves it open." }
+
+[relations.supersedes]
+doc = "A later parameterisation replaces an earlier one; the earlier one remains."
+provenance = "inherit:newer"
+absence = "optional"
+
+[[relations.supersedes.requires]]
+name = "acyclic"
+doc = "No parameterisation supersedes itself, directly or through a chain of supersessions."
+enforced = "verify"
+
+[relations.supersedes.keys]
+newer = { type = "parameterization", doc = "The replacing parameterisation." }
+older = { type = "parameterization", doc = "The replaced parameterisation." }
+
+[kinds.parameter_set]
+doc = "One source's coherent values for one slot group and one subject tuple, with its indexed children. Each slot group is a refinement of this kind."
+abstract = true
+identity = ["parameterization", "slot_group", "subject_key", "occurrence"]
+provenance = "own"
+traces = ["IC-13", "SI-11"]
+
+[kinds.parameter_set.attributes]
+parameterization = { type = "parameterization", doc = "The collection the set belongs to." }
+slot_group = { type = "Meta<slot_group>", doc = "The slot group the set instantiates." }
+subject_key = { type = "Text", doc = "Canonical encoding of the subject identifiers in role order; for a nested set, the parent set, slot and index." }
+occurrence = { type = "Integer", default = 1, doc = "Distinguishes repeated assertions for one subject within one parameterisation, from one in source order. A source that lists a pair twice with different values has two sets; which one the source's own code uses is a selection fact, not a reason to drop the other." }
+parent = { type = "parameter_set", optional = true, doc = "The set this one is a nested value of." }
+parent_slot = { type = "Meta<slot>", optional = true, doc = "The slot of the parent this set is the value of." }
+
+[[kinds.parameter_set.requires]]
+name = "nested_has_both"
+doc = "A nested set names both its parent and the parent's slot; a top-level set names neither."
+enforced = "load"
+
+[kinds.slot_uncertainty]
+doc = "The uncertainty a source states for one slot value. Joint covariance belongs to the fit that produced the values."
+identity = ["parameter_set", "slot", "index_key"]
+provenance = "inherit:parameter_set"
+
+[kinds.slot_uncertainty.attributes]
+parameter_set = { type = "parameter_set", doc = "The set." }
+slot = { type = "Meta<slot>", doc = "The slot." }
+index_key = { type = "Text", doc = "Canonical encoding of the family index, empty for a slot outside any family." }
+kind = { type = "uncertainty_kind", doc = "What the magnitude means." }
+magnitude = { type = "Real", unit_from = "slot", optional = true, doc = "The magnitude of a standard, expanded or interval uncertainty, in the slot's storage unit." }
+relative_magnitude = { type = "Scalar", optional = true, doc = "The magnitude of a relative uncertainty, as a fraction of the value." }
+coverage_factor = { type = "Scalar", optional = true, doc = "Coverage factor of an expanded uncertainty." }
+confidence_level = { type = "Fraction", optional = true, doc = "Level of confidence of an expanded uncertainty." }
+
+[[kinds.slot_uncertainty.requires]]
+name = "magnitude_matches_kind"
+doc = "A relative uncertainty states a relative magnitude only; a standard, expanded or interval uncertainty states a magnitude only; an exact or not-stated uncertainty states neither."
+enforced = "verify"
+
+[kinds.tabulated_function]
+doc = "A function given as values on a grid, with how to evaluate it between points. It has one or more axes and one or more named series on the same grid. Sigma profiles (three series on one axis), collision-integral tables and pore-size kernels (two axes) are tabulated functions."
+identity = ["key"]
+provenance = "own"
+
+[kinds.tabulated_function.attributes]
+key = { type = "Text", doc = "Stable key, computed from the owning set, slot and index." }
+interpolation = { type = "interpolation", doc = "How it is evaluated between points." }
+distribution = { type = "distributed_attribute", optional = true, doc = "What the function is a distribution of, when it is one." }
+
+[kinds.tabulated_axis]
+doc = "One axis of a tabulated function."
+identity = ["function", "ordinal"]
+provenance = "inherit:function"
+
+[kinds.tabulated_axis.attributes]
+function = { type = "tabulated_function", doc = "The function." }
+ordinal = { type = "Integer", doc = "Position of the axis, from one." }
+axis_type = { type = "Meta<quantity_type>", doc = "Quantity type of the axis." }
+points = { type = "Array<Real>", unit_from = "axis_type", doc = "Axis values in the axis type's storage unit." }
+
+[[kinds.tabulated_axis.requires]]
+name = "points_ascending"
+doc = "Axis values are strictly ascending."
+enforced = "verify"
+
+[kinds.tabulated_series]
+doc = "One named series of values of a tabulated function, over the full grid of its axes."
+identity = ["function", "name"]
+provenance = "inherit:function"
+
+[kinds.tabulated_series.attributes]
+function = { type = "tabulated_function", doc = "The function." }
+name = { type = "Text", doc = "Name of the series; `value` when the function has one series." }
+value_type = { type = "Meta<quantity_type>", doc = "Quantity type of the values." }
+values = { type = "Array<Real>", unit_from = "value_type", doc = "Values in the value type's storage unit, in row-major order over the axes." }
+
+[[kinds.tabulated_series.requires]]
+name = "values_cover_grid"
+doc = "The number of values equals the product of the numbers of points of the function's axes."
+enforced = "verify"
+
+# ---------------------------------------------------------------- applicability and dependency
+
+[kinds.envelope]
+doc = "Where a parameter set applies, along one observable. This is scientific applicability; it is not a numerical bound and not a piece interval."
+identity = ["parameter_set", "axis", "kind"]
+provenance = "inherit:parameter_set"
+traces = ["IC-15", "SI-13"]
+
+[kinds.envelope.attributes]
+parameter_set = { type = "parameter_set", doc = "The set." }
+axis = { type = "observable", doc = "The observable the range is along." }
+kind = { type = "envelope_kind", doc = "What the range represents." }
+lower = { type = "Real", unit_from = "axis", optional = true, doc = "Lower bound in the axis observable's storage unit; absent when unbounded below." }
+upper = { type = "Real", unit_from = "axis", optional = true, doc = "Upper bound in the axis observable's storage unit; absent when unbounded above." }
+
+[[kinds.envelope.requires]]
+name = "bounds_ordered"
+doc = "The lower bound does not exceed the upper bound."
+enforced = "ddl"
+check = { ordered = ["lower", "upper"] }
+
+[relations.dependency]
+doc = "One record was obtained assuming another, and is valid only with it. A snapshot satisfies every dependency of the sets it selects, or waives it explicitly. Dependencies are acyclic."
+provenance = "inherit:dependent"
+absence = "optional"
+
+[relations.dependency.keys]
+dependent = { type = "Record", doc = "The record that depends." }
+prerequisite = { type = "Record", doc = "The record it assumes: a parameter set, a parameterisation or a model assembly." }
+
+[relations.dependency.columns]
+kind = { type = "dependency_kind", doc = "How it depends." }
+
+[enums.auxiliary_kind]
+doc = "How an auxiliary relation relates to the model it serves."
+members.approximation = { doc = "A direct fit to a quantity the model defines, such as a saturation curve fitted to an equation of state." }
+members.exact_inverse = { doc = "An exact inverse of a relation of the model." }
+members.approximate_inverse = { doc = "An approximate inverse, such as a backward equation with a stated consistency tolerance." }
+members.initial_guess = { doc = "Intended only to start an iterative solve." }
+members.validity_boundary = { doc = "A curve that bounds where the model applies, such as a melting line." }
+
+[relations.auxiliary_of]
+doc = "A parameter set approximates, inverts or bounds a quantity of another model. It is never an independent authority for that quantity; it carries its accuracy claim and points at what it was derived from."
+provenance = "inherit:auxiliary"
+absence = "optional"
+
+[relations.auxiliary_of.keys]
+auxiliary = { type = "parameter_set", doc = "The auxiliary parameter set." }
+target = { type = "Record", doc = "The parameter set, parameterisation or model assembly whose quantity it serves." }
+
+[relations.auxiliary_of.columns]
+kind = { type = "auxiliary_kind", doc = "How it relates to the target." }
+max_relative_error = { type = "Scalar", optional = true, doc = "The largest relative deviation from the target that the source claims." }
+
+# ---------------------------------------------------------------- assemblies
+
+[kinds.model_assembly]
+doc = "A tree of form choices with every sub-form slot decided: a complete model. Named models such as PSRK, GERG-2008 and IAPWS-IF97 are assemblies."
+identity = ["key", "revision"]
+provenance = "own"
+traces = ["IC-18", "IC-19"]
+
+[kinds.model_assembly.attributes]
+key = { type = "Text", doc = "Stable key." }
+revision = { type = "Text", doc = "Revision." }
+title = { type = "Text", doc = "Name by which the model is known." }
+root = { type = "Meta<form>", doc = "The form at the root of the tree." }
+
+[kinds.assembly_choice]
+doc = "The form an assembly puts in one sub-form slot. A slot with multiplicity many has several choices, ordered."
+identity = ["assembly", "path", "ordinal"]
+provenance = "inherit:assembly"
+
+[kinds.assembly_choice.attributes]
+assembly = { type = "model_assembly", doc = "The assembly." }
+path = { type = "Text", doc = "Path of sub-form slot names from the root to this slot." }
+ordinal = { type = "Integer", doc = "Position among the choices of a slot with multiplicity many; one otherwise." }
+slot = { type = "Meta<subform_slot>", doc = "The sub-form slot filled." }
+form = { type = "Meta<form>", doc = "The form chosen." }
+
+[relations.phase_model]
+doc = "The model assembly that describes a phase definition. One equation of state may describe several phases."
+provenance = "inherit:phase"
+absence = "optional"
+value = { type = "model_assembly", doc = "The value." }
+
+[relations.phase_model.keys]
+phase = { type = "phase_definition", doc = "The phase definition." }
+parameterization = { type = "parameterization", doc = "The parameterisation under which this model describes the phase." }
+
+[relations.entity_model]
+doc = "The model assembly that describes one entity under a parameterisation, for bodies of data that assemble a model per substance (a standard-state model built from an equation of state, a temperature correction and a pressure correction, with a solvent model)."
+provenance = "inherit:parameterization"
+absence = "optional"
+value = { type = "model_assembly", doc = "The assembly." }
+
+[relations.entity_model.keys]
+parameterization = { type = "parameterization", doc = "The parameterisation." }
+entity = { type = "material_entity", doc = "The entity described." }
+
+# ---------------------------------------------------------------- selection
+
+[kinds.selection_policy]
+doc = "An ordered preference among parameterisations, with per-subject overrides and a stated behaviour when nothing is asserted. Applying it is deterministic."
+identity = ["key", "revision"]
+provenance = "own"
+
+[kinds.selection_policy.attributes]
+key = { type = "Text", doc = "Stable key." }
+revision = { type = "Text", doc = "Revision." }
+unasserted = { type = "unasserted_policy", doc = "What to do when no set is asserted for a required subject." }
+rule = { type = "Text", optional = true, doc = "The named rule or stated default, when the policy uses one." }
+asserted_by = { type = "carrier", optional = true, doc = "The carrier whose own default behaviour this policy records; absent for a policy authored for a snapshot." }
+scope_slot_group = { type = "Meta<slot_group>", optional = true, doc = "The slot group the policy governs, when it is narrower than everything." }
+scope_observable = { type = "observable", optional = true, doc = "The observable the policy governs, when it is narrower than everything." }
+as_documented = { type = "Boolean", optional = true, doc = "For a carrier's policy: whether the behaviour recorded matches what the carrier documents." }
+
+[relations.policy_precedence]
+doc = "The rank of a parameterisation within a selection policy; lower ranks are preferred."
+provenance = "inherit:policy"
+absence = "optional"
+value = { type = "Integer", doc = "The value." }
+
+[relations.policy_precedence.keys]
+policy = { type = "selection_policy", doc = "The policy." }
+parameterization = { type = "parameterization", doc = "A parameterisation it may select from." }
+
+[relations.policy_override]
+doc = "A specific set a policy selects regardless of precedence."
+provenance = "inherit:policy"
+absence = "optional"
+
+[relations.policy_override.keys]
+policy = { type = "selection_policy", doc = "The policy." }
+parameter_set = { type = "parameter_set", doc = "The set selected for its slot group and subject." }
+
+[kinds.resolved_snapshot]
+doc = "The frozen result of applying a selection policy to a model assembly and a set of entities: exactly one value per required slot and subject, every dependency satisfied or waived, conventions compatible, and no record whose rights forbid the use. It is the boundary between this open-world store and a closed-world package."
+identity = ["key", "revision"]
+provenance = "own"
+traces = ["IC-14", "IC-20"]
+
+[kinds.resolved_snapshot.attributes]
+key = { type = "Text", doc = "Stable key." }
+revision = { type = "Text", doc = "Revision." }
+assembly = { type = "model_assembly", doc = "The model the snapshot resolves." }
+policy = { type = "selection_policy", doc = "The policy applied." }
+
+[relations.snapshot_selection]
+doc = "A parameter set a snapshot selected."
+provenance = "inherit:snapshot"
+absence = "optional"
+
+[relations.snapshot_selection.keys]
+snapshot = { type = "resolved_snapshot", doc = "The snapshot." }
+parameter_set = { type = "parameter_set", doc = "A selected set." }

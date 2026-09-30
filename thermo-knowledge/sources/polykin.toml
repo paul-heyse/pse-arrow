@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "polykin"
+title = "PolyKin"
+tier = "A"
+homepage = "https://github.com/HugoMVale/polykin"
+waves = [8]
+notes = "One data file (Tait parameters); the value is the model inventory."
+
+[acquire]
+kind = "git"
+url = "https://github.com/HugoMVale/polykin.git"
+commit = "459445c5de642750f97b86e05ca056107aa060b8"
+tag = "v0.8.0"
+submodules = []
+sparse = []
+
+[payload]
+reader = "polykin"
+environment = "core"
+include = ["src/polykin/properties/pvt/Tait_parameters.tsv"]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "MIT"
+statement = "LICENSE: MIT."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "gems3k"
+title = "GEMS3K"
+tier = "A"
+homepage = "https://github.com/gemshub/GEMS3K"
+waves = [4]
+notes = "No parameter database: example input sets only. The value is the solution-model inventory (s_solmod*, s_activity*). The GEMS databases are covered by ThermoFun and ThermoHub."
+
+[acquire]
+kind = "git"
+url = "https://github.com/gemshub/GEMS3K.git"
+commit = "d98513959bc5a77c31a3c933a91a81783cd770fb"
+tag = "v4.6.1"
+submodules = []
+sparse = []
+
+[payload]
+reader = "gems3k"
+environment = "geochem"
+include = []
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "LGPL-3.0-or-later"
+statement = "COPYING.LESSER and COPYING: LGPL-3.0."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = true
+observed = "2026-09-30 reconnaissance"

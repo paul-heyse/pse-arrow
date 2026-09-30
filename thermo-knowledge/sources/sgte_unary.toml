@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "sgte_unary"
+title = "SGTE unary database"
+tier = "B"
+homepage = "https://www.sgte.net/en/free-pure-elements-database"
+waves = [5]
+notes = "SGTE Unary Database version 5.0 (2 June 2009); Thermo-Calc distributes the same data as PURE5. Cite Dinsdale, Calphad 15 (1991) 317-425. No publisher checksum."
+
+[acquire]
+kind = "file"
+files = [
+  { url = "https://www.sgte.net/en/free-pure-elements-database?file=files/sgte/members-area/databases/unary50.tdb&cid=243", name = "unary50.tdb" },
+]
+
+[payload]
+reader = "sgte_unary"
+environment = "core"
+include = ["unary50.tdb"]
+exclude = []
+
+[[rights]]
+scope = "data"
+basis = "terms_of_use"
+statement = "This database can only be used for extracting data for assessment work or to tabulate or plot data for the pure elements."
+url = "https://www.sgte.net/en/free-pure-elements-database"
+store = "yes"
+redistribute = "not_stated"
+commercial = "not_stated"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

@@ -1,0 +1,220 @@
+module = "expr_implicit_cubic"
+uses = ["physical", "identity", "exprtypes"]
+doc = "The molar volume of a pure fluid from a cubic equation of state: an implicit block with one bounded unknown, four ways of choosing among its roots."
+
+[contracts.molar_volume]
+doc = "Molar volume of a pure fluid at a temperature and a pressure."
+roles.i = { type = "species", doc = "The fluid." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+arguments.p = { type = "Pressure", doc = "Pressure." }
+outputs.v = { type = "MolarVolume", doc = "Molar volume." }
+outputs.dv_dp = { type = "MolarVolume / Pressure", doc = "Derivative of the molar volume with respect to pressure." }
+outputs.dv_dT = { type = "MolarVolume / Temperature", doc = "Derivative of the molar volume with respect to temperature." }
+
+[forms.srk_smallest]
+doc = "Soave-Redlich-Kwong volume: the smallest root (liquid-like)."
+implements = "molar_volume"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.srk_smallest.slot_groups.core]
+doc = "Constants of the equation."
+
+[forms.srk_smallest.slot_groups.core.slots]
+omega_a = { type = "Scalar", doc = "Coefficient of the attractive parameter." }
+omega_b = { type = "Scalar", doc = "Coefficient of the covolume." }
+R = { type = "GasConstant", doc = "The gas constant." }
+
+[forms.srk_smallest.slot_groups.pure]
+doc = "Critical constants of the fluid."
+subject.i = { type = "species", doc = "The fluid." }
+
+[forms.srk_smallest.slot_groups.pure.slots]
+T_c = { type = "Temperature", doc = "Critical temperature." }
+p_c = { type = "Pressure", doc = "Critical pressure." }
+omega = { type = "Scalar", doc = "Acentric factor." }
+
+[forms.srk_smallest.let]
+b = "core.omega_b * core.R * pure.T_c[i] / pure.p_c[i]"
+slope = "0.48508 + 1.55171 * pure.omega[i] - 0.15613 * pure.omega[i] ** 2"
+alpha = "(1 + slope * (1 - sqrt(T / pure.T_c[i]))) ** 2"
+a = "core.omega_a * core.R ** 2 * pure.T_c[i] ** 2 / pure.p_c[i] * alpha"
+Ared = "a * p / (core.R * T) ** 2"
+Bred = "b * p / (core.R * T)"
+
+[forms.srk_smallest.implicit.volume]
+doc = "The molar volume solves the equation of state multiplied through by (v - b) v (v + b)."
+unknowns.v = { type = "MolarVolume", lower = "b", upper = "core.R * T / p + b" }
+residuals = [
+  "p * (v - b) * v * (v + b) - core.R * T * v * (v + b) + a * (v - b)",
+]
+select = "smallest"
+
+[forms.srk_smallest.outputs]
+v = "v"
+dv_dp = "d(v, p)"
+dv_dT = "d(v, T)"
+
+[forms.srk_largest]
+doc = "Soave-Redlich-Kwong volume: the largest root (vapour-like)."
+implements = "molar_volume"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.srk_largest.slot_groups.core]
+doc = "Constants of the equation."
+
+[forms.srk_largest.slot_groups.core.slots]
+omega_a = { type = "Scalar", doc = "Coefficient of the attractive parameter." }
+omega_b = { type = "Scalar", doc = "Coefficient of the covolume." }
+R = { type = "GasConstant", doc = "The gas constant." }
+
+[forms.srk_largest.slot_groups.pure]
+doc = "Critical constants of the fluid."
+subject.i = { type = "species", doc = "The fluid." }
+
+[forms.srk_largest.slot_groups.pure.slots]
+T_c = { type = "Temperature", doc = "Critical temperature." }
+p_c = { type = "Pressure", doc = "Critical pressure." }
+omega = { type = "Scalar", doc = "Acentric factor." }
+
+[forms.srk_largest.let]
+b = "core.omega_b * core.R * pure.T_c[i] / pure.p_c[i]"
+slope = "0.48508 + 1.55171 * pure.omega[i] - 0.15613 * pure.omega[i] ** 2"
+alpha = "(1 + slope * (1 - sqrt(T / pure.T_c[i]))) ** 2"
+a = "core.omega_a * core.R ** 2 * pure.T_c[i] ** 2 / pure.p_c[i] * alpha"
+Ared = "a * p / (core.R * T) ** 2"
+Bred = "b * p / (core.R * T)"
+
+[forms.srk_largest.implicit.volume]
+doc = "The molar volume solves the equation of state multiplied through by (v - b) v (v + b)."
+unknowns.v = { type = "MolarVolume", lower = "b", upper = "core.R * T / p + b" }
+residuals = [
+  "p * (v - b) * v * (v + b) - core.R * T * v * (v + b) + a * (v - b)",
+]
+select = "largest"
+
+[forms.srk_largest.outputs]
+v = "v"
+dv_dp = "d(v, p)"
+dv_dT = "d(v, T)"
+
+[forms.srk_unique]
+doc = "Soave-Redlich-Kwong volume: a single root is asserted."
+implements = "molar_volume"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.srk_unique.slot_groups.core]
+doc = "Constants of the equation."
+
+[forms.srk_unique.slot_groups.core.slots]
+omega_a = { type = "Scalar", doc = "Coefficient of the attractive parameter." }
+omega_b = { type = "Scalar", doc = "Coefficient of the covolume." }
+R = { type = "GasConstant", doc = "The gas constant." }
+
+[forms.srk_unique.slot_groups.pure]
+doc = "Critical constants of the fluid."
+subject.i = { type = "species", doc = "The fluid." }
+
+[forms.srk_unique.slot_groups.pure.slots]
+T_c = { type = "Temperature", doc = "Critical temperature." }
+p_c = { type = "Pressure", doc = "Critical pressure." }
+omega = { type = "Scalar", doc = "Acentric factor." }
+
+[forms.srk_unique.let]
+b = "core.omega_b * core.R * pure.T_c[i] / pure.p_c[i]"
+slope = "0.48508 + 1.55171 * pure.omega[i] - 0.15613 * pure.omega[i] ** 2"
+alpha = "(1 + slope * (1 - sqrt(T / pure.T_c[i]))) ** 2"
+a = "core.omega_a * core.R ** 2 * pure.T_c[i] ** 2 / pure.p_c[i] * alpha"
+Ared = "a * p / (core.R * T) ** 2"
+Bred = "b * p / (core.R * T)"
+
+[forms.srk_unique.implicit.volume]
+doc = "The molar volume solves the equation of state multiplied through by (v - b) v (v + b)."
+unknowns.v = { type = "MolarVolume", lower = "b", upper = "core.R * T / p + b" }
+residuals = [
+  "p * (v - b) * v * (v + b) - core.R * T * v * (v + b) + a * (v - b)",
+]
+select = "unique"
+
+[forms.srk_unique.outputs]
+v = "v"
+dv_dp = "d(v, p)"
+dv_dT = "d(v, T)"
+
+[forms.srk_stable]
+doc = "Soave-Redlich-Kwong volume: the root of lower Gibbs energy at the temperature and pressure."
+implements = "molar_volume"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.srk_stable.slot_groups.core]
+doc = "Constants of the equation."
+
+[forms.srk_stable.slot_groups.core.slots]
+omega_a = { type = "Scalar", doc = "Coefficient of the attractive parameter." }
+omega_b = { type = "Scalar", doc = "Coefficient of the covolume." }
+R = { type = "GasConstant", doc = "The gas constant." }
+
+[forms.srk_stable.slot_groups.pure]
+doc = "Critical constants of the fluid."
+subject.i = { type = "species", doc = "The fluid." }
+
+[forms.srk_stable.slot_groups.pure.slots]
+T_c = { type = "Temperature", doc = "Critical temperature." }
+p_c = { type = "Pressure", doc = "Critical pressure." }
+omega = { type = "Scalar", doc = "Acentric factor." }
+
+[forms.srk_stable.let]
+b = "core.omega_b * core.R * pure.T_c[i] / pure.p_c[i]"
+slope = "0.48508 + 1.55171 * pure.omega[i] - 0.15613 * pure.omega[i] ** 2"
+alpha = "(1 + slope * (1 - sqrt(T / pure.T_c[i]))) ** 2"
+a = "core.omega_a * core.R ** 2 * pure.T_c[i] ** 2 / pure.p_c[i] * alpha"
+Ared = "a * p / (core.R * T) ** 2"
+Bred = "b * p / (core.R * T)"
+
+[forms.srk_stable.implicit.volume]
+doc = "The molar volume solves the equation of state multiplied through by (v - b) v (v + b)."
+unknowns.v = { type = "MolarVolume", lower = "b", upper = "core.R * T / p + b" }
+residuals = [
+  "p * (v - b) * v * (v + b) - core.R * T * v * (v + b) + a * (v - b)",
+]
+select = "by: core.R * T * (p * v / (core.R * T) - 1 - log(p * v / (core.R * T) - Bred) - Ared / Bred * log(1 + Bred * core.R * T / (p * v)))"
+
+[forms.srk_stable.outputs]
+v = "v"
+dv_dp = "d(v, p)"
+dv_dT = "d(v, T)"
+
+# -- a form that calls a form with an implicit block -------------------------------------------------
+
+[contracts.compressibility]
+doc = "The compressibility factor of a pure fluid and its derivative with respect to pressure."
+roles.i = { type = "species", doc = "The fluid." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+arguments.p = { type = "Pressure", doc = "Pressure." }
+outputs.Z = { type = "Scalar", doc = "The compressibility factor." }
+outputs.dZ_dp = { type = "Scalar / Pressure", doc = "Derivative of the compressibility factor with respect to pressure." }
+
+[forms.srk_compressibility]
+doc = "Z = p v / (R T), the volume from a form chosen for the sub-form slot: the implicit block belongs to the callee."
+implements = "compressibility"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.srk_compressibility.subforms.volume]
+doc = "The molar volume form."
+accepts = "molar_volume"
+multiplicity = "one"
+per = "subject"
+
+[forms.srk_compressibility.slot_groups.core]
+doc = "The gas constant."
+
+[forms.srk_compressibility.slot_groups.core.slots]
+R = { type = "GasConstant", doc = "The gas constant." }
+
+[forms.srk_compressibility.outputs]
+Z = "p * volume.v(i=i, T=T, p=p) / (core.R * T)"
+dZ_dp = "d(p * volume.v(i=i, T=T, p=p) / (core.R * T), p)"

@@ -1,0 +1,1167 @@
+source = "phasepy"
+pin = "f0406a40973b"
+surveyed = "2026-09-30"
+summary = "PhasePy v0.0.56 (MIT) contributes a small component/mixture data model with no bundled compound database, pressure-explicit cubic equations of state (vdW, RK, RKS, PR, PRSV, custom c1/c2) with volume translation and quadratic, MHV, MHV1 and Wong-Sandler mixing rules that embed NRTL, Wilson, UNIQUAC, two UNIFAC variants and Redlich-Kister activity models, a virial-gamma-phi model, model-agnostic equilibrium algorithms (bubble, dew, flash, LLE, VLLE, TPD stability, SLE/SLLE), square-gradient-theory interfacial tension, fitting utilities, and four UNIFAC workbooks (two of which the code reads). It bundles no SAFT equation of state (the SAFT fields on its component class are read by nothing), no ideal-gas heat capacity, no enthalpy/entropy/volume flash and no critical-point or envelope tracing."
+
+# ---------------------------------------------------------------------------
+# PAYLOADS
+# ---------------------------------------------------------------------------
+
+[[payload]]
+paths = [
+  "phasepy/database/dortmund-2018.xlsx",
+  "phasepy/database/dortmund-2021.xlsx",
+]
+format = "Excel workbooks (OOXML, Microsoft Excel). Four sheets each: RkQk (header subgroup, MainGroupID, Rk, Qk), and A0, A1, A2 (header cell GroupID then main-group ids 1..99 across; first column GroupID then 1..99 down). Blank cell = no published pair. No units, year, variant name or citation inside any sheet."
+files = 2
+bytes = 96581
+records = "dortmund-2021: RkQk 125 subgroup rows (124 distinct names, CHO occurs twice, under main groups 10 and 13), 63 distinct main groups (highest id 99); A0 1512 populated cells, A1 1190, A2 364, every populated cell non-zero, no populated diagonal cell. dortmund-2018: RkQk 119 rows (118 distinct names), 60 distinct main groups (highest id 93); A0 1514 populated cells (1513 non-zero), A1 1514 (1190 non-zero), A2 1514 (356 non-zero); the 2018 sheets store explicit zeros. Counted with the Python standard library (zipfile and xml.etree over xl/sharedStrings.xml and the sheet XML); openpyxl is not installed in the system python3 or in the thermo-knowledge uv environment."
+reader = "PhasePy's own loader: mixture.unifac() in phasepy/mixtures.py (function unifac, line 629) calling pandas.read_excel(engine='openpyxl') on sheets RkQk (index_col='subgroup'), A0, A1, A2 (index_col='GroupID'), then fillna(0). Any OOXML reader works."
+read_by_source = "partly"
+notes = "Only dortmund-2021.xlsx is opened by the code (hard-wired path); dortmund-2018.xlsx is referenced nowhere in the tree. Year is given only by the file name (2018, 2021) and the workbook core properties (created 2018-09-04 and 2021-07-20, last modified by the package author on 2021-07-21); the variant is named in docstrings only (Dortmund Modified-UNIFAC, pointing at a DDBST page). 2021 adds 6 subgroups over 2018 (HCONHCH3 and HCONHCH2 under main group 49, SO4 and HSO4 under 98, PF6 under 99, C5H4N+ under 90) and 7 subgroups present in both differ in Rk or Qk (compared by name and main group). The subgroup name is the row index used by pandas, so a duplicated name (CHO) returns two rows on lookup."
+
+[[payload]]
+paths = ["phasepy/database/original-unifac.xlsx"]
+format = "Excel workbook, three sheets: RkQk (subgroup, MainGroupID, Rk, Qk), A0 (GroupID header, 51 main-group columns), Sheet1 (annotated layout of the same matrix: row 1 'Interaction Matrix' and main-group numbers, row 2 representative subgroup ids, row 3 subgroup names; body rows carry main group, representative subgroup and name, then 51 values)."
+files = 1
+bytes = 46488
+records = "RkQk 125 rows (122 distinct names: CH3S, CH2S and CHS each occur under main groups 48 and 61), 62 distinct main groups with ids 1..51 plus 53, 61, 84, 85, 87, 89, 90, 91, 93, 98, 99. A0: header lists main-group ids 1..51; body has 55 rows x 51 columns = 2805 populated cells (explicit zeros included, 1265 non-zero among the 2601 cells of the 51 labelled rows, 33 non-zero among the 204 cells of the 4 unlabelled rows, and 4 non-zero cells where row label equals column label); the first 51 body rows are labelled GroupID 1..51 and the last 4 rows have a blank GroupID. Sheet1: 55 body rows whose main-group column repeats 29 twice, 34 twice and 43 three times; the values are identical by position to A0 (all 55 rows compared); the rows repeated in Sheet1 are identical to each other. Counted with stdlib zipfile and xml.etree."
+reader = "PhasePy's own loader: mixture.original_unifac() in phasepy/mixtures.py (function original_unifac, line 686), sheets RkQk and A0 via pandas.read_excel, fillna(0)."
+read_by_source = "partly"
+notes = "Sheet1 is not read. The A0 sheet is not square: 55 rows against 51 columns, with row labels 1..51 assigned by position; by comparison with Sheet1 the row labelled L is the same row as Sheet1's main group L only up to L = 29, after which the repeated main groups shift the labels (see discrepancy). Eleven main groups that occur in RkQk (53, 61, 84, 85, 87, 89, 90, 91, 93, 98, 99) have no column in A0, so a component containing one of their subgroups cannot be looked up by main group in this matrix. The matrix temperature dependence is none: a single parameter per pair, psi = exp(-a/T) in unifac_original."
+
+[[payload]]
+paths = ["phasepy/database/unifac.xlsx"]
+format = "Excel workbook, three sheets: vdw (Group, Subgroup, Rk, Qk), interaction (Group header then 18 group names across, 18 group names down), Sheet2 (Subgroup Name, Maingroup written like [1]CH2, Rk, Qk). Created by the package author in 2018-09 per the core properties."
+files = 1
+bytes = 17186
+records = "vdw 26 rows under 18 groups; interaction 18 x 18 grid with 184 populated cells (166 non-zero); Sheet2 113 rows under 54 main-group labels. Counted with stdlib zipfile and xml.etree."
+reader = "none in the tree; any OOXML reader"
+read_by_source = "none"
+notes = "Groups are keyed by name here (CH2, C=C, ACH, ...), not by the numeric main-group ids of the other workbooks; Sheet2 labels main groups as bracketed number plus name (for example [1]CH2). The workbook carries no variant or year statement and is referenced by no code, document or notebook in the tree."
+
+[[payload]]
+paths = ["examples/*.ipynb"]
+format = "Jupyter notebooks (JSON) with worked examples: component and mixture creation, cubic EoS properties, stability, flash, bubble and dew points, LLE, VLLE, SLE/SLLE, SGT pure and mixture cases, fitting, reuse of functions. Parameter values (Tc, Pc, Antoine, SGT polynomials, NRTL matrices) are embedded in code cells."
+files = 15
+bytes = 410351
+records = "15 notebooks, counted by listing; parameter sets are inline literals, not extracted"
+reader = "any JSON parser; not read by the package"
+read_by_source = "none"
+notes = "These notebooks are the only place in the tree where complete component records (for example ethanol, water, hexane) appear. The docs/source rst files repeat a few of them."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "component"
+locator = "phasepy/mixtures.py class component (line 12)"
+meaning = "One pure compound as a Python object carrying every pure-component parameter any PhasePy model may use. Nothing is validated; a model raises or returns nonsense when a parameter it needs is left at its zero default."
+subject = "One compound keyed by the free-text name string only; no CAS, formula or structure; the name is not used to look anything up."
+fields = [
+  { name = "name", meaning = "label", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "Tc", meaning = "critical temperature", unit = "K", shape = "scalar", role = "input" },
+  { name = "Pc", meaning = "critical pressure", unit = "bar", shape = "scalar", role = "input" },
+  { name = "Zc", meaning = "critical compressibility factor", unit = "not applicable (dimensionless)", shape = "scalar", role = "input" },
+  { name = "Vc", meaning = "critical molar volume", unit = "cm3/mol", shape = "scalar", role = "input" },
+  { name = "w", meaning = "acentric factor", unit = "not applicable (dimensionless)", shape = "scalar", role = "input" },
+  { name = "Ant", meaning = "Antoine coefficients A, B, C: ln(P/bar) = A - B/(T/K + C), natural log", unit = "not stated per coefficient (inferred: from the docstring equation, A dimensionless, B in K, C in K)", shape = "list", role = "input" },
+  { name = "c", meaning = "volume translation parameter of the volume-translated cubic EoS", unit = "cm3/mol", shape = "scalar", role = "input" },
+  { name = "cii", meaning = "polynomial coefficients (highest order first, evaluated with numpy.polyval in T) of the square-gradient-theory influence parameter", unit = "not stated in the component docstring; J m5 mol-2 in the cubic EoS classes, J m5 / mol in component.ci", shape = "list", role = "input" },
+  { name = "ksv", meaning = "two parameters of the Stryjek-Vera alpha function (PRSV)", unit = "not stated", shape = "list", role = "input" },
+  { name = "alpha_params", meaning = "parameters handed to a user-supplied alpha function through cubiceos", unit = "not stated", shape = "list", role = "input" },
+  { name = "GC", meaning = "group contribution dictionary: UNIFAC subgroup name to number of occurrences", unit = "not applicable (counts)", shape = "table", role = "input" },
+  { name = "Mw", meaning = "molar weight", unit = "g/mol", shape = "scalar", role = "input" },
+  { name = "ri", meaning = "UNIQUAC relative molecular volume", unit = "not stated", shape = "scalar", role = "input" },
+  { name = "qi", meaning = "UNIQUAC relative molecular surface", unit = "not stated", shape = "scalar", role = "input" },
+  { name = "dHf", meaning = "enthalpy of fusion, used for the solid-phase fugacity", unit = "J/mol", shape = "scalar", role = "input" },
+  { name = "Tf", meaning = "temperature of fusion", unit = "K", shape = "scalar", role = "input" },
+  { name = "ms", meaning = "SAFT segment number", unit = "not stated", shape = "scalar", role = "unread" },
+  { name = "sigma", meaning = "SAFT segment diameter; stored multiplied by 1e-10", unit = "not stated (inferred: the multiplier implies an angstrom argument and a metre attribute)", shape = "scalar", role = "unread" },
+  { name = "eps", meaning = "SAFT dispersion energy; stored multiplied by kb", unit = "not stated (inferred: the multiplier implies an epsilon/k argument in K)", shape = "scalar", role = "unread" },
+  { name = "lambda_r", meaning = "Mie repulsive exponent", unit = "not applicable (dimensionless)", shape = "scalar", role = "unread" },
+  { name = "lambda_a", meaning = "Mie attractive exponent", unit = "not applicable (dimensionless)", shape = "scalar", role = "unread" },
+  { name = "eAB", meaning = "association energy; stored multiplied by kb", unit = "not stated", shape = "scalar", role = "unread" },
+  { name = "rcAB", meaning = "association range, stored as a multiple of sigma", unit = "not stated", shape = "scalar", role = "unread" },
+  { name = "rdAB", meaning = "association site position, stored as a multiple of sigma", unit = "not stated", shape = "scalar", role = "unread" },
+  { name = "sites", meaning = "association site counts (three numbers)", unit = "not stated", shape = "list", role = "unread" },
+]
+origin = "authored (constructor arguments typed by the user; nothing ships)"
+conventions = "Pressure in bar, volume in cm3/mol, gas constant R = 83.14 bar cm3/(mol K) in phasepy/constants.py; Vc is computed from Zc, Tc, Pc (or Zc from Vc) when exactly one of the two is zero."
+absence = "Every numeric field defaults to zero (Mw to 1, ms to 1, lambda_r to 12, lambda_a to 6, Ant to three zeros, ksv to two zeros, GC to None); the source does not distinguish an absent parameter from a zero, and several models (PRSV, volume translation, SGT) branch on zero or fail silently."
+validity = "not stated"
+provenance = "none"
+count = "0 bundled instances; 15 example notebooks embed instances"
+example = "docs/source/phasepy.rst: water = component(name='water', Tc=..., Pc=..., Zc=..., Vc=..., w=..., Ant=[...], GC={'H2O':1})"
+candidate = "species (identity by label only) plus pure-subject parameter sets of several forms: critical constants, acentric factor, Antoine, Rackett inputs, SGT influence polynomial, PRSV alpha, UNIQUAC r and q, UNIFAC group assignment (group_assignment), fusion properties"
+precision = "broader"
+loss = "One object holds parameters of a dozen forms with no record of which parameterisation or publication each came from, so a mapping must split it into several parameter sets that share only a label. Identity is a free-text name. The SAFT fields have no consumer and map to nothing usable."
+
+[[construct]]
+name = "mixture"
+locator = "phasepy/mixtures.py class mixture (line 185), constructed by component + component or component.__add__"
+meaning = "An ordered list of components: parallel lists of every component parameter plus attached interaction tables. The order fixes the composition vector order used by every algorithm."
+subject = "An ordered tuple of components keyed by position; two components are required to start (mixture(c1, c2)), more are added with add_component."
+fields = [
+  { name = "names, nc", meaning = "component labels in order; count", unit = "not applicable", shape = "list", role = "metadata" },
+  { name = "Tc, Pc, Zc, Vc, w, Ant, c, cii, ksv, GC, Mw, ri, qi, alpha_params, dHf, Tf", meaning = "the matching component fields as parallel lists", unit = "as component", shape = "list", role = "input" },
+  { name = "lr, la, sigma, eps, ms, eAB, rc, rd, sitesmix", meaning = "SAFT fields as parallel lists", unit = "as component", shape = "list", role = "unread" },
+  { name = "kij, Kijws, KIJsaft, alpha, g, g1, rkternary, Aij, a0, a1, rkp, rkpT, combinatory, rkb, rkbT, cij", meaning = "interaction tables attached by the setter methods (see the interaction-table constructs)", unit = "see each", shape = "table", role = "input" },
+  { name = "actmodelp", meaning = "tuple of the parameters of the last activity model attached; reassigned by every activity setter", unit = "not applicable", shape = "list", role = "computed" },
+]
+origin = "authored (assembled by the user from components and matrices)"
+conventions = "Composition vectors are mole fractions in the order of names. Setting a second activity model overwrites actmodelp, so the last setter wins; the cubic mixing rules check for specific attributes instead."
+absence = "An attribute is absent until its setter is called; the model constructors test hasattr and raise 'parameters needed'. Missing kij means zeros for QMR."
+validity = "not stated"
+provenance = "none"
+count = "0 bundled"
+example = "docs/source/basic/phasepy.mixture.rst"
+candidate = "a mixture_assembly of species with a selection of one parameter set per form and subject (resolved_snapshot style); the interaction tables are parameter sets of pair subjects"
+precision = "close"
+loss = "The mixture object fuses the component list, the model choice and the parameter values; none of the choices is recorded as data, and actmodelp aliasing means the active activity model is implicit."
+
+[[construct]]
+name = "quadratic mixing rule kij matrix"
+locator = "phasepy/mixtures.py mixture.kij_cubic (line 428); used by phasepy/cubic/qmr.py"
+meaning = "Binary energy interaction parameter kij of the quadratic mixing rule a_ij = sqrt(a_i a_j)(1 - kij)."
+subject = "An ordered pair of component indices (balanced=True forces symmetry, making it an unordered pair; balanced=False allows kij != kji)."
+fields = [
+  { name = "kij", meaning = "binary interaction matrix", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+]
+origin = "authored"
+conventions = "Diagonal must be exactly zero (raises otherwise). Symmetry is required only when balanced=True (default). The docstring says the matrix must be symmetrical, which the balanced=False option contradicts."
+absence = "No matrix means zeros (set inside the EoS constructor); a zero entry is indistinguishable from a missing one."
+validity = "not stated"
+provenance = "none"
+count = "0 bundled"
+example = "docs/source/models/phasepy.cubic.rst (Kij = [[0, -0.11], [-0.11, 0]])"
+candidate = "pair parameter set (slot k_ij) of the quadratic mixing rule form with transposition symmetric (balanced) or ordered (unbalanced), diagonal forbidden"
+precision = "close"
+loss = "The same attribute name serves the symmetric and the asymmetric case; a mapping has to choose the transposition rule from a flag of the call, not from the data."
+
+[[construct]]
+name = "Wong-Sandler and SAFT kij matrices"
+locator = "phasepy/mixtures.py mixture.kij_ws (line 405) and mixture.kij_saft (line 379)"
+meaning = "Binary interaction parameter of the Wong-Sandler mixing rule (enters the cross second-virial-like term) and a SAFT-VR-Mie kij (docstring formula epsilon_ij = (1 - kij) sqrt(sigma_i^3 sigma_j^3)/sigma_ij^3 sqrt(eps_i eps_j))."
+subject = "An unordered pair of component indices (square and symmetric enforced)."
+fields = [
+  { name = "Kijws", meaning = "Wong-Sandler binary parameter", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+  { name = "KIJsaft", meaning = "SAFT-VR-Mie binary parameter", unit = "not applicable (dimensionless)", shape = "table", role = "unread" },
+]
+origin = "authored"
+conventions = "Docstrings say the main diagonal must be zero; the code checks only that the matrix is square and symmetric. Kijws defaults to zeros inside the WS mixing-rule setup."
+absence = "Kijws absent means zeros (the WS setup substitutes a zero matrix); KIJsaft absent means nothing happens because no model reads it."
+validity = "not stated"
+provenance = "none"
+count = "0 bundled"
+example = "phasepy/cubic/mixingrules.py lines 175 and 203 (Kijws default)"
+candidate = "pair parameter set of the Wong-Sandler form (k_ij) with symmetric transposition; KIJsaft has no target form in the PhasePy evidence"
+precision = "close"
+loss = "The WS kij multiplies a combined (b - a/RT) term that depends on temperature, so its meaning is tied to the pure a and b of the chosen alpha function."
+
+[[construct]]
+name = "NRTL interaction matrices"
+locator = "phasepy/mixtures.py mixture.NRTL (line 460); evaluated in phasepy/actmodels/nrtl.py"
+meaning = "NRTL energy parameters g [K] and g1 and the symmetric non-randomness matrix alpha, evaluated as tau = g/T + g1 and G = exp(-alpha tau)."
+subject = "An ordered pair (g, g1 are not symmetric); alpha is an unordered pair (symmetry checked, else exception)."
+fields = [
+  { name = "alpha", meaning = "non-randomness (aleatory) factor", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+  { name = "g", meaning = "energy interaction matrix", unit = "K", shape = "table", role = "input" },
+  { name = "g1", meaning = "temperature-independent addend of tau", unit = "1/K per the docstring (tau = g/T + g1 makes it dimensionless)", shape = "table", role = "input" },
+]
+origin = "authored (for example docs/source/models/phasepy.cubic.rst lists g and g1 fitted for ethanol-water)"
+conventions = "tau_ij = g_ij/T + g1_ij; row/column orientation is the library's (nrtl_cy sums x_j G_ji tau_ji over j for component i). g1 defaults to zeros."
+absence = "g1 absent means zeros; g and alpha are required."
+validity = "not stated"
+provenance = "none"
+count = "0 bundled"
+example = "docs/source/models/phasepy.virialgama.rst (alpha, g, g1 for ethanol-water)"
+candidate = "parameter set of the NRTL form with slots alpha (symmetric), g (ordered), g1 (ordered) per component pair"
+precision = "exact"
+loss = "The g1 unit statement disagrees with the equation; a mapping must take the dimension from the equation."
+
+[[construct]]
+name = "ternary NRTL correction vector"
+locator = "phasepy/mixtures.py mixture.rkt (line 549); phasepy/src/actmodels_cy.pyx rkter_nrtl_cy (line 82)"
+meaning = "Three ternary interaction numbers D added to the NRTL excess energy as a polynomial term (Redlich-Kister style, class name nrtlt) in a three-component mixture."
+subject = "A mixture of exactly three components (n = 3 is hard-coded in the Cython routines); the vector is indexed by component."
+fields = [
+  { name = "rkternary", meaning = "ternary contribution parameters D (xd = x*D inside the routine)", unit = "not stated", shape = "list", role = "input" },
+]
+origin = "authored (fitted with phasepy.fit.ternaryfit.fobj_nrtlrkt)"
+conventions = "Requires the NRTL matrices to be set first (actmodelp reassignment)."
+absence = "required for actmodel='nrtlt' and mhv/mhv1 nrtlt rules; else exception."
+validity = "three components only"
+provenance = "none"
+count = "0 bundled"
+example = "phasepy/fit/ternaryfit.py fobj_nrtlrkt"
+candidate = "parameter set of an NRTL-with-ternary-term form keyed by a three-component subject"
+precision = "narrower"
+loss = "A three-entity subject tuple with component-indexed slots does not fit a pair-keyed parameter set; the form is undocumented beyond the code."
+
+[[construct]]
+name = "Wilson interaction matrix"
+locator = "phasepy/mixtures.py mixture.wilson (line 562); phasepy/actmodels/wilson.py"
+meaning = "Wilson energy parameters A_ij combined with the pure liquid molar volumes from the Rackett equation: Lambda_ij = (v_j/v_i) exp(-A_ij/T) (as coded; transposed orientation)."
+subject = "An ordered pair of component indices; the diagonal is expected to be zero."
+fields = [
+  { name = "Aij", meaning = "Wilson interaction parameters", unit = "K", shape = "table", role = "input" },
+]
+origin = "authored"
+conventions = "The molar volumes come from mixture.vlrackett(T), so Zc, Vc and Tc of the components are additional inputs of the Wilson model. Diagonal zero is stated; not checked."
+absence = "required."
+validity = "not stated"
+provenance = "none"
+count = "0 bundled"
+example = "docs/source/sgt/sgt.tensgt.rst (a12 and a21 for ethanol-hexane)"
+candidate = "parameter set of the Wilson form (slot A, ordered pair) with a sub-form slot for liquid molar volume (Rackett)"
+precision = "close"
+loss = "The Wilson parameter in this library is an energy in K with volumes drawn from a separate correlation; other libraries use the same name with dimensionless Lambda."
+
+[[construct]]
+name = "UNIQUAC interaction matrices"
+locator = "phasepy/mixtures.py mixture.uniquac (line 496); phasepy/actmodels/uniquac.py"
+meaning = "UNIQUAC energies a0 [K] and a1 (dimensionless) with a_ij = a0 + a1 T, tau_ij = exp(-a_ij/T), plus the per-component ri and qi taken from the components."
+subject = "An ordered pair for a0 and a1 (full square matrices required); pure r and q per component."
+fields = [
+  { name = "a0", meaning = "temperature-independent energy", unit = "K", shape = "table", role = "input" },
+  { name = "a1", meaning = "coefficient of T in the energy", unit = "Adim. (docstring)", shape = "table", role = "input" },
+  { name = "ri, qi", meaning = "relative volume and surface of each component (from the component objects; all must be non-zero)", unit = "not stated", shape = "list", role = "input" },
+]
+origin = "authored"
+conventions = "Lattice coordination number 10 (the 5 q terms in the combinatorial part) is hard-coded."
+absence = "a1 defaults to zeros; ri or qi equal to zero raises."
+validity = "not stated"
+provenance = "none"
+count = "0 bundled"
+example = "phasepy/actmodels/uniquac.py"
+candidate = "parameter set of the UNIQUAC form: pure slots (r, q) and pair slots (a0, a1)"
+precision = "exact"
+loss = "The coordination number is a constant in code, not a slot."
+
+[[construct]]
+name = "Redlich-Kister pair polynomials"
+locator = "phasepy/mixtures.py mixture.rk (line 600) and mixture.rkb (line 576); phasepy/actmodels/redlichkister.py"
+meaning = "For each component pair, a polynomial in (x_i - x_j): g^E_ij = x_i x_j sum_k C_k (x_i - x_j)^k with C = c + c1/T (dimensionless excess energy g/RT)."
+subject = "One row per unordered component pair in the order 1-2, 1-3, ..., 1-n, 2-3, ..., n-1 n (combinations of range(nc), 2) for rk; a single pair for rkb."
+fields = [
+  { name = "c", meaning = "temperature-independent coefficients per pair and order", unit = "Adim", shape = "table", role = "input" },
+  { name = "c1", meaning = "coefficients of 1/T per pair and order", unit = "K", shape = "table", role = "input" },
+  { name = "combinatory", meaning = "array of index pairs generated from nc", unit = "not applicable", shape = "table", role = "computed" },
+]
+origin = "authored (fitted with phasepy.fit.fit_rk)"
+conventions = "The docstring recommends at most 5 terms. The pair polynomial is antisymmetric in order, so the row order (i, j) fixes the sign convention of odd coefficients."
+absence = "c1 defaults to zeros."
+validity = "not stated (docstring: not more than 5 terms)"
+provenance = "none"
+count = "0 bundled"
+example = "docs/source/models/phasepy.virialgama.rst (C0, C1 for three pairs)"
+candidate = "parameter set of the Redlich-Kister form with a pair subject, a family index over polynomial order and transposition parity by order"
+precision = "exact"
+loss = "Pair order carries a sign that only a parity transposition rule keyed by the polynomial order can express; the pair list is positional."
+
+[[construct]]
+name = "UNIFAC component group assignment (GC)"
+locator = "phasepy/mixtures.py component.GC; mixture.unifac() line 629 onward"
+meaning = "The decomposition of one component into UNIFAC subgroups: a dictionary of subgroup name to occurrence count, matched by name against the workbook subgroup column."
+subject = "One component; the subgroup names are the keys of the RkQk sheet index (strings such as CH3, CH2, OH(P), H2O)."
+fields = [
+  { name = "GC", meaning = "subgroup name to count", unit = "not applicable (counts)", shape = "table", role = "input" },
+]
+origin = "authored (typed by the user from the DDBST group list referenced in the docstring)"
+conventions = "The same dictionary is used for the Dortmund and the original UNIFAC workbooks although the subgroup vocabularies of the two workbooks differ (125 rows each, different names)."
+absence = "None raises when a UNIFAC rule is requested."
+validity = "not stated"
+provenance = "docstring points at the DDBST published-parameters pages for group definitions"
+count = "0 bundled"
+example = "docs/source/phasepy.rst: ethanol GC={'CH3':1,'CH2':1,'OH(P)':1}"
+candidate = "group_assignment (entity, scheme, asserted_by) with group_count rows"
+precision = "close"
+loss = "The scheme is implicit in which workbook the model reads; a name that is duplicated in a workbook (CHO) cannot be assigned unambiguously."
+
+[[construct]]
+name = "UNIFAC subgroup record (RkQk row)"
+locator = "phasepy/database/dortmund-2021.xlsx sheet RkQk; dortmund-2018.xlsx; original-unifac.xlsx"
+meaning = "One subgroup: the main group it belongs to and its van der Waals volume Rk and surface Qk parameters."
+subject = "A subgroup keyed by the name string in column subgroup (not unique: CHO twice in both Dortmund files; CH3S, CH2S, CHS twice in original-unifac)."
+fields = [
+  { name = "subgroup", meaning = "subgroup name", unit = "not applicable", shape = "reference", role = "input" },
+  { name = "MainGroupID", meaning = "main group number", unit = "not applicable", shape = "reference", role = "input" },
+  { name = "Rk", meaning = "group volume parameter", unit = "not stated", shape = "scalar", role = "input" },
+  { name = "Qk", meaning = "group surface parameter", unit = "not stated", shape = "scalar", role = "input" },
+]
+origin = "transcribed (DDBST published parameters per the docstring URLs; table number not stated)"
+conventions = "Main group ids are the DDBST numbering; ids of the original-unifac file run 1..51 plus 53, 61, 84, 85, 87, 89, 90, 91, 93, 98, 99."
+absence = "Every row has all four cells in all three files (measured)."
+validity = "not stated"
+provenance = "none inside the workbooks; docstring URLs to ddbst.com"
+count = "125 (dortmund-2021), 119 (dortmund-2018), 125 (original-unifac); counted over the sheet rows"
+example = "phasepy/database/dortmund-2021.xlsx RkQk row 2 (subgroup CH3, main group 1)"
+candidate = "group (scheme, label, partition_class = main group) with Rk and Qk as parameter-set slots of a UNIFAC group form"
+precision = "exact"
+loss = "Duplicate subgroup names need the main group as a second key; the scheme (Dortmund 2018 or 2021, original) is carried only by the file name."
+
+[[construct]]
+name = "UNIFAC main-group interaction cell (Dortmund A0, A1, A2)"
+locator = "phasepy/database/dortmund-2021.xlsx sheets A0, A1, A2; phasepy/actmodels/unifac.py"
+meaning = "Interaction parameter of one ordered main-group pair as a quadratic in T: a_mn = a0 + a1 T + a2 T^2, then psi_mn = exp(-a_mn/T)."
+subject = "An ordered pair of main groups (row m, column n is the orientation the code uses as a.loc[groups, groups]); the sheets do not label which index is m."
+fields = [
+  { name = "A0", meaning = "constant term", unit = "not stated (inferred: K, from psi = exp(-a/T))", shape = "table", role = "input" },
+  { name = "A1", meaning = "coefficient of T", unit = "not stated (inferred: dimensionless)", shape = "table", role = "input" },
+  { name = "A2", meaning = "coefficient of T squared", unit = "not stated (inferred: 1/K)", shape = "table", role = "input" },
+]
+origin = "transcribed (DDBST modified UNIFAC Dortmund parameters per the docstring URL; publication per pair not stated)"
+conventions = "Blank cells are read as zero (fillna(0)); diagonal cells are blank and therefore zero."
+absence = "blank means no published pair and is silently read as a zero interaction; an explicit zero (present in the 2018 file) is read identically."
+validity = "not stated"
+provenance = "none inside the workbook"
+count = "1512 A0 cells, 1190 A1, 364 A2 (dortmund-2021); 1514, 1514, 1514 populated (1513, 1190, 356 non-zero) in dortmund-2018"
+example = "dortmund-2021.xlsx A0 row GroupID 1, column 3"
+candidate = "parameter set of the modified-UNIFAC (Dortmund) form with pair subject over main groups and three slots (a0, a1, a2)"
+precision = "exact"
+loss = "Missing pairs are an open-world gap that the source turns into a closed-world zero; the orientation of the matrix is implicit in code."
+
+[[construct]]
+name = "original UNIFAC main-group interaction matrix (A0 sheet)"
+locator = "phasepy/database/original-unifac.xlsx sheets A0 and Sheet1; phasepy/mixtures.py original_unifac (line 686)"
+meaning = "A single temperature-independent interaction parameter a_mn per ordered main-group pair, psi_mn = exp(-a_mn/T)."
+subject = "An ordered main-group pair; the matrix is 55 rows by 51 columns."
+fields = [
+  { name = "A0", meaning = "interaction parameter", unit = "not stated (inferred: K, from psi = exp(-a/T))", shape = "table", role = "input" },
+]
+origin = "transcribed (DDBST original UNIFAC parameters per the docstring URL)"
+conventions = "Row labels 1..51 are positional; four rows have a blank label; Sheet1 shows that main groups 29, 34 and 43 occupy more than one row. The code indexes by main-group id with .loc."
+absence = "explicit zeros are stored (every body cell is populated); blank cells do not occur in the body."
+validity = "not stated"
+provenance = "none inside the workbook"
+count = "2805 populated cells (55 x 51), 1298 non-zero (1265 in the 51 labelled rows, 33 in the 4 unlabelled rows)"
+example = "original-unifac.xlsx A0 row GroupID 1, column 2"
+candidate = "parameter set of the original UNIFAC form with pair subject over main groups"
+precision = "close"
+loss = "The row labelling defect (see discrepancy) means a mapping cannot trust the GroupID labels and must rebuild the row-to-main-group association from Sheet1."
+
+[[construct]]
+name = "legacy unifac.xlsx tables"
+locator = "phasepy/database/unifac.xlsx sheets vdw, interaction, Sheet2"
+meaning = "An older, name-keyed UNIFAC table set: group volumes and surfaces (vdw), an 18 x 18 interaction grid (interaction), and a subgroup list with bracketed main-group labels (Sheet2). No code reads it."
+subject = "A group or subgroup keyed by name; interaction is an ordered pair of group names."
+fields = [
+  { name = "Group, Subgroup, Rk, Qk", meaning = "group membership and van der Waals parameters", unit = "not stated", shape = "table", role = "unread" },
+  { name = "interaction cells", meaning = "pair interaction parameter", unit = "not stated", shape = "table", role = "unread" },
+  { name = "Subgroup Name, Maingroup, Rk, Qk", meaning = "subgroup list with main group label such as [1]CH2", unit = "not stated", shape = "table", role = "unread" },
+]
+origin = "not stated (created by the package author 2018-09 per the workbook properties)"
+conventions = "not stated"
+absence = "blank means no pair; 184 of 324 interaction cells are populated."
+validity = "not stated"
+provenance = "none"
+count = "26 (vdw) + 184 (interaction cells) + 113 (Sheet2)"
+example = "unifac.xlsx sheet interaction row CH2"
+candidate = "none"
+precision = "unmapped"
+loss = "Unread, undocumented and of unknown variant; it would be a parameterisation of an unknown UNIFAC variant."
+
+[[construct]]
+name = "SGT influence parameter polynomial and beta matrix"
+locator = "phasepy/mixtures.py component.ci (line 161) and mixture.ci (line 736); phasepy/cubic/cubicmix.py beta_sgt (line 789) and ci (line 813)"
+meaning = "Square-gradient-theory influence parameter c_i(T) = polyval(cii, T) per component; for a mixture c_ij = sqrt(c_i c_j)(1 - beta_ij) with beta assigned on the equation-of-state object, not on the mixture."
+subject = "One component (cii); an unordered component pair (beta, symmetric square enforced)."
+fields = [
+  { name = "cii", meaning = "polynomial coefficients of c_i(T)", unit = "J m5 mol-2 in the cubic classes; J m5 / mol in component.ci", shape = "list", role = "input" },
+  { name = "beta", meaning = "binary correction of the geometric mixing rule", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+]
+origin = "authored (cii fitted with phasepy.fit.fit_cii; beta fitted to tension data)"
+conventions = "beta defaults to zeros in the EoS constructor, which makes the c_ij matrix singular for any mixture, so the beta=0 solution methods are selected by the singularity check."
+absence = "cii = 0 default gives zero influence parameter; beta absent means zeros."
+validity = "not stated"
+provenance = "docs/source/phasepy.sgt.rst states the formula c_ij = (1 - beta_ij) sqrt(c_i c_j)"
+count = "0 bundled"
+example = "docs/source/sgt/sgt.tensgt.rst (cii for ethanol and hexane)"
+candidate = "parameter set of a square-gradient-theory form: pure slot cii polynomial family over temperature order, pair slot beta (symmetric)"
+precision = "close"
+loss = "The pair parameter lives on the EoS object and the pure polynomial on the component, so one parameterisation is split across two objects."
+
+[[construct]]
+name = "SAFT-VR-Mie corresponding-states coefficient tables"
+locator = "phasepy/saft_forcefield.py (arrays a, b, c, d, j, k; function saft_forcefield)"
+meaning = "Six 6 x 6 coefficient tables of the Mejia et al. (2014) corresponding-states correlation that turns (segment number ms, Tc, acentric factor w, liquid density rhol07) into Mie lambda_r, epsilon and sigma with lambda_a = 6."
+subject = "A segment number ms from 1 to 6 (row index); the columns are polynomial or rational-function orders."
+fields = [
+  { name = "a, b", meaning = "numerator and denominator coefficients for lambda_r as a function of w (Eq 13)", unit = "not applicable", shape = "table", role = "input" },
+  { name = "c, d", meaning = "numerator and denominator coefficients for the reduced critical temperature as a function of the van der Waals alpha (Eq 15)", unit = "not applicable", shape = "table", role = "input" },
+  { name = "j, k", meaning = "numerator and denominator coefficients for the reduced critical density as a function of alpha (Eq 18)", unit = "not applicable", shape = "table", role = "input" },
+]
+origin = "transcribed (Mejia et al, 2014, equation numbers 13 to 18 cited in code comments; full citation text not given)"
+conventions = "component.saftvrmie(ms, rhol07) calls it and overwrites lambda_a, lambda_r, ms, sigma and eps on the component; no other PhasePy code reads those fields."
+absence = "ms outside 1..6 raises an index error."
+validity = "segment numbers 1 to 6 (table extent)"
+provenance = "comment: Force Fields for Coarse-Grained Molecular Simulations from a Corresponding States Correlation. Mejia et al, 2014"
+count = "6 tables of 6 x 6 = 216 coefficients"
+example = "phasepy/saft_forcefield.py line 7 (array a)"
+candidate = "parameter set of a corresponding-states estimation derivation producing Mie parameters (derivation of kind estimated_from)"
+precision = "narrower"
+loss = "The output feeds no PhasePy model, so the estimated values have no consuming form in this source."
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "Cubic EoS, pure component (vdW, RK, RKS, PR, PRSV, custom c1 and c2)"
+locator = "phasepy/cubic/cubicpure.py (cpure, prpure, prsvpure, rkspure, rkpure), vdwpure.py (vdwpure), cubic.py (vdweos, preos, prsveos, rkeos, rkseos, cubiceos)"
+class = "helmholtz_potential"
+inputs = "Pressure-explicit form P = RT/(v - b) - a/((v + c1 b)(v + c2 b)) with v in cm3/mol, T in K, P in bar; natural variables (T, v) or (T, P) with a cubic root solve for Z. Pure component, no composition."
+parameters = "pure: Tc, Pc, w (acentric factor), ksv (PRSV), alpha_params (custom alpha); global constants per EoS: c1, c2, Omega_a (oma), Omega_b (omb)"
+composes = [
+  { slot = "alpha_eos", accepts = "alpha function alpha(T, k, Tc)", default = "alpha_soave (PR, RKS), alpha_sv (PRSV), alpha_rk (RK); alpha_vdw (vdW)" },
+  { slot = "volume_translation", accepts = "constant volume shift c", default = "none unless volume_translation=True" },
+]
+variants = "vdweos: c1 = c2 = 0, Omega_a = 27/64, Omega_b = 1/8, alpha = 1. preos: Peng-Robinson constants c1 = 1 - sqrt 2, c2 = 1 + sqrt 2, k from a quadratic polynomial in w. prsveos: PR constants with SV alpha, k0 from a cubic polynomial in w and k1 = 0 unless ksv is non-zero. rkseos: RK constants c1 = 0, c2 = 1 with Soave alpha and a cubic polynomial in w. rkeos: RK constants with the RK alpha. cubiceos(c1, c2, alpha_eos): Omega_a and Omega_b are solved from c1 and c2 (cubic polynomial root, smallest positive root for omb)."
+equation_source = "The docs page states P = RT/(v-b) - a/((v+c1 b)(v+c2 b)); no literature citation for the constants or the k correlations (Chaparro and Mejia, J. Comput. Chem. 2020, doi 10.1002/jcc.26405, is the citation request in README)."
+closed_form = "implicit"
+data = "component construct (Tc, Pc, w, ksv, alpha_params); no bundled component data"
+
+[[model_family]]
+name = "Cubic EoS, mixture (cubicm and vdwm)"
+locator = "phasepy/cubic/cubicmix.py (cubicm, prmix, prsvmix, rksmix, rkmix), vdwmix.py (vdwm), mixingrules.py (mixingrule_fcn)"
+class = "helmholtz_potential"
+inputs = "T [K], P [bar], mole fractions X (list, component order of the mixture), liquid or vapour state flag 'L' or 'V'; natural variables (T, v, x)."
+parameters = "pure: Tc, Pc, w, ksv, alpha_params, cii (for SGT), dHf, Tf; pair: depends on the mixing rule (kij, NRTL, Wilson, UNIQUAC, UNIFAC, Redlich-Kister, Kijws); sgt pair: beta"
+composes = [
+  { slot = "alpha_eos", accepts = "alpha function alpha(T, k, Tc)", default = "as the pure EoS of the same name" },
+  { slot = "mixrule", accepts = "mixing rule returning a_m and b_m and their derivatives", default = "qmr" },
+]
+variants = "mixrule string: 'qmr'; 'mhv_nrtl', 'mhv_nrtlt', 'mhv_wilson', 'mhv_unifac', 'mhv_original_unifac', 'mhv_uniquac', 'mhv_rk'; 'mhv1_' plus the same seven; 'ws_nrtl', 'ws_wilson', 'ws_rk', 'ws_unifac', 'ws_original_unifac', 'ws_uniquac' (no 'ws_nrtlt' is dispatched although ws_nrtlt is defined in wongsandler.py). vdwm supports only qmr. volume_translation=True selects the vt* classes."
+equation_source = "docs/source/models/phasepy.cubic.rst gives the QMR equations; MHV and WS are described qualitatively and by the implicit g^E matching statement; no citation of Huron-Vidal, Michelsen or Wong-Sandler publications in the tree."
+closed_form = "implicit"
+data = "component and mixture constructs with the interaction-table constructs; none bundled"
+
+[[model_family]]
+name = "Volume-translated cubic EoS (vt* classes)"
+locator = "phasepy/cubic/vtcubicpure.py (vtcpure, vtprpure, vtprsvpure, vtrkspure, vtrkpure), vtcubicmix.py (vtcubicm and subclasses)"
+class = "model_component"
+inputs = "as the cubic EoS; adds the translation c (cm3/mol); mixture translation c_m = sum x_i c_i (linear mole-fraction mixing)."
+parameters = "pure: c (per component); no pair parameter"
+composes = [
+  { slot = "base_cubic_eos", accepts = "cubic EoS (c1, c2, Omega_a, Omega_b, alpha)", default = "the EoS selected by the class (PR, PRSV, RK, RKS)" },
+]
+variants = "volume_translation=True flag on preos, prsveos, rkeos, rkseos, cubiceos; vdW has no translated version."
+equation_source = "docs/source/models/phasepy.cubic.rst: the translated EoS improves liquid density without changing phase equilibrium (qualitative)."
+closed_form = "implicit"
+data = "component construct (field c)"
+
+[[model_family]]
+name = "Soave alpha function"
+locator = "phasepy/cubic/alphas.py alpha_soave; correlations in cubicpure.py prpure, rkspure"
+class = "model_component"
+inputs = "T, Tc, k; alpha = (1 + k (1 - sqrt(T/Tc)))^2"
+parameters = "pure: k; for PR and RKS the named classes overwrite k by a polynomial in the acentric factor w (quadratic for PR, cubic for RKS) and ignore alpha_params"
+composes = []
+variants = "k correlation differs by EoS class (PR or RKS); custom cubiceos takes k from alpha_params."
+equation_source = "none"
+closed_form = "yes"
+data = "component construct (w, alpha_params)"
+
+[[model_family]]
+name = "Stryjek-Vera alpha function (PRSV)"
+locator = "phasepy/cubic/alphas.py alpha_sv; cubicpure.py prsvpure"
+class = "model_component"
+inputs = "T, Tc, ksv = (k0, k1); Tr = T/Tc; alpha = (1 + (k0 + k1 (0.7 - Tr)(1 + sqrt Tr))(1 - sqrt Tr))^2"
+parameters = "pure: k0, k1 (from component.ksv); if all ksv are zero, k0 is taken from a cubic polynomial in w and k1 stays zero"
+composes = []
+variants = "ksv non-zero (user values) versus ksv all zero (correlation for k0 only)."
+equation_source = "none"
+closed_form = "yes"
+data = "component construct (ksv)"
+
+[[model_family]]
+name = "Almeida-Aznar-Telles alpha function"
+locator = "phasepy/cubic/alphas.py alpha_aat"
+class = "model_component"
+inputs = "T, Tc, AAT = (AAT1, AAT2, AAT3); alpha = exp(AAT1 (1 - Tr)|1 - Tr|^(AAT2 - 1) + AAT3 (1/Tr - 1))"
+parameters = "pure: three AAT parameters passed as alpha_params"
+composes = []
+variants = "reachable only through cubiceos(alpha_eos=alpha_aat) with alpha_params set; exported in phasepy.cubic."
+equation_source = "none (the name is given in the function comment)"
+closed_form = "yes"
+data = "component construct (alpha_params)"
+
+[[model_family]]
+name = "Redlich-Kwong alpha function"
+locator = "phasepy/cubic/alphas.py alpha_rk (line 10); cubicpure.py rkpure; vtcubicpure.py vtrkpure; cubicmix.py rkmix"
+class = "model_component"
+inputs = "T, Tc; evaluated as sqrt(T/Tc)**-0.5, which is (T/Tc)^(-1/4); signature alpha_rk(T, Tc) takes no k"
+parameters = "none"
+composes = []
+variants = "rkpure defines a_eos nested inside __init__ (not as a method), while rkmix and vtrkpure define it as a method with the two-argument call."
+equation_source = "none"
+closed_form = "yes"
+data = "none bundled"
+
+[[model_family]]
+name = "Quadratic mixing rule (QMR)"
+locator = "phasepy/cubic/qmr.py qmr"
+class = "model_component"
+inputs = "X, RT, pure a_i and b_i, order (0, 1 or 2 derivatives), kij matrix; a_m = sum_ij x_i x_j sqrt(a_i a_j)(1 - kij), b_m = sum x_i b_i"
+parameters = "pair: kij (ordered when balanced=False)"
+composes = []
+variants = "kij symmetric (balanced=True) or asymmetric (balanced=False)."
+equation_source = "docs/source/models/phasepy.cubic.rst states the equations (no citation)"
+closed_form = "yes"
+data = "quadratic mixing rule kij matrix construct"
+
+[[model_family]]
+name = "Modified Huron-Vidal mixing rule (MHV, first order in the Huron-Vidal expansion)"
+locator = "phasepy/cubic/mhv.py (mhv, dmhv, d2mhv, em_solver, dem_solver, mhv_nrtl, mhv_wilson, mhv_nrtlt, mhv_rk, mhv_unifac, mhv_uniquac, mhv_unifac_original)"
+class = "model_component"
+inputs = "X, RT, pure a_i, b_i, cubic constants c1, c2, activity model; b_m = sum x_i b_i; the dimensionless e_m = a_m/(b_m RT) is found by Newton (or Halley for second derivatives) from g^E_EoS(e_m) = g^E_model with zero-pressure pure-fluid reference fugacity."
+parameters = "pair and group parameters of the embedded activity model; global: c1, c2 (from the EoS)"
+composes = [
+  { slot = "activity_model", accepts = "excess Gibbs energy model returning ln gamma", default = "none (mixrule string must name one: nrtl, nrtlt, wilson, unifac, original_unifac, uniquac, rk)" },
+]
+variants = "suffix of the mixrule string selects the activity model (seven options); second-order derivative routines are included."
+equation_source = "docs/source/models/phasepy.cubic.rst: b_m linear, g^E_EoS = g^E_model; no publication is cited"
+closed_form = "implicit"
+data = "interaction-table constructs of the embedded model"
+
+[[model_family]]
+name = "MHV1 mixing rule (Michelsen first-order variant)"
+locator = "phasepy/cubic/mhv1.py (mhv1 and variants for nrtl, nrtlt, wilson, rk, unifac, uniquac, original unifac)"
+class = "model_component"
+inputs = "X, RT, a_i, b_i, q1, activity model; e_m = (g^E/RT - sum x_i ln(b_i/b_m))/q1 + sum x_i e_i, closed form; a_m = e_m b_m RT, b_m = sum x_i b_i"
+parameters = "global: q1 (hard-coded per EoS constants); pair and group parameters of the activity model"
+composes = [
+  { slot = "activity_model", accepts = "excess Gibbs energy model returning ln gamma", default = "none (mixrule 'mhv1_' plus a model name)" },
+]
+variants = "q1 = -0.593 for the RK/RKS constants (c1, c2) in {(0, 1), (1, 0)}; q1 = -0.53 for the PR constants; any other (c1, c2) raises an exception 'Unknown q1 value'."
+equation_source = "none (name and q1 values only)"
+closed_form = "yes"
+data = "interaction-table constructs of the embedded model"
+
+[[model_family]]
+name = "Wong-Sandler mixing rule"
+locator = "phasepy/cubic/wongsandler.py (ws, dws, d2ws, ws_nrtl, ws_nrtlt, ws_wilson, ws_rk, ws_unifac, ws_uniquac, ws_unifac_original)"
+class = "model_component"
+inputs = "X, RT, a_i, b_i, C, Kij, activity model; Q = sum_ij x_i x_j ((b_i - a_i/RT) + (b_j - a_j/RT))/2 (1 - Kij), D = g^E/(C RT) + sum x_i a_i/(b_i RT), b_m = Q/(1 - D), a_m = b_m D RT, with C = -ln((1+c1)/(1+c2))/(c1 - c2)"
+parameters = "pair: Kijws; pair and group parameters of the activity model"
+composes = [
+  { slot = "activity_model", accepts = "excess Gibbs energy model returning ln gamma", default = "none (mixrule 'ws_' plus a model name)" },
+]
+variants = "six dispatched models (nrtl, wilson, rk, unifac, original_unifac, uniquac); ws_nrtlt exists but no mixrule string dispatches to it."
+equation_source = "none"
+closed_form = "yes"
+data = "Wong-Sandler and SAFT kij matrices construct; interaction-table constructs of the embedded model"
+
+[[model_family]]
+name = "NRTL activity model (and ternary-corrected NRTL)"
+locator = "phasepy/actmodels/nrtl.py (nrtl, nrtl_aux, dnrtl, nrtlter, dnrtlter); phasepy/src/actmodels_cy.pyx (nrtl_cy, dnrtl_cy, rkter_nrtl_cy, drkter_nrtl_cy)"
+class = "residual_or_excess_contribution"
+inputs = "T [K], mole fractions; tau = g/T + g1, G = exp(-alpha tau); returns ln gamma and its composition derivative; the docstring g^E expression sums x_i (sum_j tau_ji G_ji x_j)/(sum_l G_li x_l)"
+parameters = "pair: alpha (symmetric), g [K], g1 (ordered); ternary: D (three numbers, n = 3 only)"
+composes = []
+variants = "nrtl versus nrtlt (ternary Redlich-Kister style addition, exactly three components)."
+equation_source = "docstring equation for g^E; no citation of Renon and Prausnitz"
+closed_form = "yes"
+data = "NRTL interaction matrices and ternary NRTL correction vector constructs"
+
+[[model_family]]
+name = "Wilson activity model"
+locator = "phasepy/actmodels/wilson.py (wilson, dwilson); actmodels_cy.pyx wilson_cy"
+class = "residual_or_excess_contribution"
+inputs = "T, mole fractions, A [K], pure liquid molar volume function vl(T) (Rackett); M_ij = (v_j/v_i) exp(-A_ij/T)"
+parameters = "pair: A_ij [K]; pure: Tc, Zc, Vc for Rackett volumes"
+composes = [
+  { slot = "liquid_molar_volume", accepts = "function T to molar volume [cm3/mol]", default = "mixture.vlrackett" },
+]
+variants = "none"
+equation_source = "docstring: g^E = sum_i x_i ln(sum_j x_j Lambda_ij); cannot predict LLE (docstring)"
+closed_form = "yes"
+data = "Wilson interaction matrix construct"
+
+[[model_family]]
+name = "UNIQUAC activity model"
+locator = "phasepy/actmodels/uniquac.py (uniquac, uniquac_aux, duniquac)"
+class = "residual_or_excess_contribution"
+inputs = "T, mole fractions x; combinatorial part with Phi = x r/sum x r and theta = x q/sum x q and coordination number 10; residual part with tau = exp(-(a0 + a1 T)/T)"
+parameters = "pure: ri, qi; pair: a0 [K], a1 [Adim]"
+composes = []
+variants = "none"
+equation_source = "docstring: ln gamma = ln gamma_comb + ln gamma_res, a_ij = a0 + a1 T; no citation"
+closed_form = "yes"
+data = "UNIQUAC interaction matrices construct"
+
+[[model_family]]
+name = "Modified UNIFAC (Dortmund) activity model"
+locator = "phasepy/actmodels/unifac.py (unifac, unifac_aux, dunifac); phasepy/mixtures.py mixture.unifac"
+class = "group_contribution"
+inputs = "T, mole fractions x; group matrix Vk (components x subgroups), pure r_i and q_i as Vk times Rk and Qk, combinatorial part with r^(3/4) volume fraction and the Staverman-Guggenheim q correction with coordination number 10, residual part with group mole fractions and surface fractions, psi_mn = exp(-(a0 + a1 T + a2 T^2)/T)"
+parameters = "group: Rk, Qk per subgroup; group pair: a0, a1, a2 per main-group pair; pure: GC dictionary"
+composes = []
+variants = "Reads dortmund-2021.xlsx unconditionally; dortmund-2018.xlsx is carried but never read."
+equation_source = "docstring names the Dortmund public database and the equation ln gamma = comb + res with a_mn = a0 + a1 T + a2 T^2; no publication cited"
+closed_form = "yes"
+data = "UNIFAC subgroup record, main-group interaction cell and component group assignment constructs"
+
+[[model_family]]
+name = "Original UNIFAC activity model"
+locator = "phasepy/actmodels/original_unifac.py (unifac_original, unifac_original_aux, dunifac_original); mixture.original_unifac"
+class = "group_contribution"
+inputs = "T, mole fractions; combinatorial part as UNIQUAC (Phi = x r/sum x r, coordination number 10), residual part with temperature-independent a_mn, psi_mn = exp(-a_mn/T)"
+parameters = "group: Rk, Qk; group pair: a_mn; pure: GC"
+composes = []
+variants = "Reads original-unifac.xlsx unconditionally (sheets RkQk and A0)."
+equation_source = "docstring URL to the DDBST original UNIFAC page; the docstring text is copied from the Dortmund function"
+closed_form = "yes"
+data = "UNIFAC subgroup record, original UNIFAC main-group matrix and component group assignment constructs"
+
+[[model_family]]
+name = "Redlich-Kister activity model (multicomponent rk and binary rkb)"
+locator = "phasepy/actmodels/redlichkister.py (rk, drk, rkb); actmodels_cy.pyx rk_cy, drk_cy, rkb_cy"
+class = "residual_or_excess_contribution"
+inputs = "T, mole fractions; per-pair polynomial G = C + C1/T in (x_i - x_j); ln gamma_i = g + d g/d x_i - sum x_j d g/d x_j by the dge construction"
+parameters = "pair and order: C [Adim], C1 [K]"
+composes = []
+variants = "rk for any number of components (pairs in combination order); rkb for exactly two components (actmodel='rkb')."
+equation_source = "docstring: g^E_ij = x_i x_j sum_k C_k (x_i - x_j)^k, G = C + C1/T"
+closed_form = "yes"
+data = "Redlich-Kister pair polynomials construct"
+
+[[model_family]]
+name = "Virial equation of state for the gas phase (ideal gas, Abbott, Tsonopoulos) with Prausnitz combining rules"
+locator = "phasepy/actmodels/virial.py (Virialmix, Tsonopoulos, Abbott, ideal_gas, virial)"
+class = "residual_or_excess_contribution"
+inputs = "T, mole fractions; second virial coefficient matrix B_ij from B P_c/(R T_c) = B0(Tr) + w B1(Tr) with pair critical properties Tij = sqrt(Tc_i Tc_j)(1 - kij) (kij from critical volumes), Zij and wij arithmetic means, Pij = Zij R Tij/vij; mixture B = sum x_i x_j B_ij, partial B by 2 sum x_j B_ij - B"
+parameters = "pure: Tc, Pc, Zc, Vc, w; no fitted pair parameter (pair values are derived from pure critical constants)"
+composes = []
+variants = "virialmodel 'Tsonopoulos', 'Abbott' or 'ideal_gas' (B = 0); the Tsonopoulos constant in code differs from the docstring and the Abbott B1 differs (see discrepancy)."
+equation_source = "docstrings give the B0 and B1 expressions; no citation"
+closed_form = "yes"
+data = "component construct (critical constants)"
+
+[[model_family]]
+name = "Virial-gamma-phi equilibrium model (virialgamma)"
+locator = "phasepy/actmodels/virialgama.py virialgamma"
+class = "wrapper"
+inputs = "T, P, X; effective liquid fugacity ln phi_i = ln gamma_i + ln(psat_i/P) + v_i (P - psat_i)/RT + B_ii psat_i/RT (Poynting with Rackett volume and pure-component saturation virial correction, as coded); vapour ln phi_i = partial virial B_p P/RT"
+parameters = "combines those of the chosen virial model, the activity model, Antoine (psat) and Rackett (v)"
+composes = [
+  { slot = "virialmodel", accepts = "virial B(T) function", default = "Tsonopoulos" },
+  { slot = "actmodel", accepts = "activity coefficient model", default = "nrtl" },
+  { slot = "psat", accepts = "pure saturation pressure function of T", default = "mixture.psat (Antoine)" },
+  { slot = "liquid_molar_volume", accepts = "function T to molar volume", default = "mixture.vlrackett" },
+]
+variants = "actmodel 'nrtl', 'nrtlt', 'wilson', 'uniquac', 'rk', 'rkb', 'unifac', 'original_unifac' (the docstring omits 'nrtlt'); the model has no cubic-root solve so the phases are a fixed pair of formulae."
+equation_source = "docs/source/phasepy.rst: gamma-phi discontinuous model; no citation"
+closed_form = "yes"
+data = "mixture construct with Antoine, Rackett inputs and the chosen activity and virial constructs"
+
+[[model_family]]
+name = "Antoine vapour pressure and inverse (component.psat, tsat)"
+locator = "phasepy/mixtures.py component.psat (line 106), component.tsat, mixture.psat, mixture.tsat"
+class = "explicit_correlation"
+inputs = "T [K]; ln(P/bar) = A - B/(T + C), natural base, inverse closed form"
+parameters = "pure: A, B, C (Ant)"
+composes = []
+variants = "none"
+equation_source = "docstring equation"
+closed_form = "yes"
+data = "component construct (Ant)"
+
+[[model_family]]
+name = "Rackett liquid molar volume (component.vlrackett)"
+locator = "phasepy/mixtures.py component.vlrackett (line 144), mixture.vlrackett"
+class = "explicit_correlation"
+inputs = "T [K]; v = Vc Zc^((1 - Tr)^(2/7)) in cm3/mol"
+parameters = "pure: Vc, Zc, Tc"
+composes = []
+variants = "none"
+equation_source = "docstring equation"
+closed_form = "yes"
+data = "component construct (Vc, Zc, Tc)"
+
+[[model_family]]
+name = "SAFT-VR-Mie corresponding-states force-field correlation"
+locator = "phasepy/saft_forcefield.py saft_forcefield; component.saftvrmie"
+class = "explicit_correlation"
+inputs = "segment number ms (1..6), Tc, acentric factor w, liquid density at reduced temperature 0.7 (rhol07); rational functions of w and of the van der Waals alpha"
+parameters = "global: six 6 x 6 coefficient tables"
+composes = []
+variants = "none"
+equation_source = "comment cites Mejia et al, 2014 with equation numbers 13 to 18"
+closed_form = "yes"
+data = "SAFT-VR-Mie corresponding-states coefficient tables construct"
+
+[[model_family]]
+name = "Bubble and dew point algorithms (bubblePy, bubbleTy, dewPx, dewTx)"
+locator = "phasepy/equilibrium/bubble.py, dew.py"
+class = "other"
+inputs = "bubble: liquid composition X and T (or P), initial guesses for vapour composition Y and P (or T); dew: Y and T (or P) with guesses for x. Model-agnostic: uses model.temperature_aux and model.logfugef_aux(X, temp_aux, P, state, v0) with state 'L' or 'V'."
+parameters = "none of its own; initial guesses are required arguments"
+composes = [
+  { slot = "model", accepts = "any object exposing nc, temperature_aux, logfugef_aux (cubic EoS objects and virialgamma)", default = "none (required)" },
+]
+variants = "good_initial=True skips the successive-substitution outer loop and uses a Newton solve (scipy root) on (ln K, P or T)."
+equation_source = "none"
+closed_form = "procedural"
+data = "none bundled"
+
+[[model_family]]
+name = "Two-phase isothermal flash (flash) and Rachford-Rice"
+locator = "phasepy/equilibrium/flash.py (flash, rachfordrice, Gibbs_obj)"
+class = "other"
+inputs = "overall composition Z, T, P, phase-type pair such as 'LV' or 'LL', initial guesses x and y; accelerated successive substitution (dominant-eigenvalue extrapolation) with Halley's method for the Rachford-Rice equation, then Gibbs energy minimisation when convergence is slow"
+parameters = "none of its own (K_tol, nacc)"
+composes = [
+  { slot = "model", accepts = "object with logfugef_aux and dlogfugef_aux", default = "none (required)" },
+]
+variants = "equilibrium 'LV' (liquid-vapour) or 'LL' (liquid-liquid)."
+equation_source = "none"
+closed_form = "procedural"
+data = "none bundled"
+
+[[model_family]]
+name = "Multiphase flash with stability variables (multiflash, lle)"
+locator = "phasepy/equilibrium/multiflash.py multiflash; lle.py lle"
+class = "other"
+inputs = "overall composition z, T, P, list of phase types such as ['L', 'L', 'V'], initial compositions, phase fractions beta and stability variables theta; the docstring of phasepy/equilibrium/phasepy.multiflash.rst attributes the balance-equation formulation to Gupta et al"
+parameters = "none of its own"
+composes = [
+  { slot = "model", accepts = "object with logfugef_aux and dlogfugef_aux", default = "none (required)" },
+]
+variants = "lle wraps multiflash for two liquids and restarts from TPD minima when a stability variable stays positive."
+equation_source = "docs/source/equilibrium/phasepy.multiflash.rst names Gupta et al without a full citation"
+closed_form = "procedural"
+data = "none bundled"
+
+[[model_family]]
+name = "Three-phase (VLLE) algorithms (haz, vlle, vlleb)"
+locator = "phasepy/equilibrium/hazt.py (haz, vlle), hazb.py (vlleb)"
+class = "other"
+inputs = "haz: T and P with initial x, w, y; vlle: overall composition and T and P; vlleb: binary mixture with one of T or P fixed and the other solved; simultaneous solve of K-value balance equations with Gupta-style stability check"
+parameters = "none of its own"
+composes = [
+  { slot = "model", accepts = "object with logfugef_aux", default = "none (required)" },
+]
+variants = "vlleb binary only (raises for nc != 2); vlle for a binary overall composition warns and updates the temperature."
+equation_source = "none"
+closed_form = "procedural"
+data = "none bundled"
+
+[[model_family]]
+name = "Tangent plane distance stability analysis (tpd_val, tpd_min, tpd_minimas, lle_init)"
+locator = "phasepy/equilibrium/stability.py"
+class = "other"
+inputs = "trial composition W, reference composition Z, T, P, phase types for the trial and reference phases; tpd = sum W (ln W + ln phi_W - d), d = ln Z + ln phi_Z; minimised in the variable alpha = 2 sqrt(W) with BFGS and random restarts"
+parameters = "none of its own"
+composes = [
+  { slot = "model", accepts = "object with logfugef_aux (and dHf_r, Tf for a solid trial phase)", default = "none (required)" },
+]
+variants = "trial phase 'S' is accepted by tpd_val (pure solid from the liquid fugacity corrected with dHf and Tf) although the docstrings list only 'L' and 'V'."
+equation_source = "docstring names Michelsen's dimensionless tangent plane function"
+closed_form = "procedural"
+data = "none bundled"
+
+[[model_family]]
+name = "Solid-liquid and solid-liquid-liquid equilibrium (sle, slle, multiflash_solid)"
+locator = "phasepy/equilibrium/solidequilibria.py"
+class = "other"
+inputs = "overall composition Z, T, P, indices of species allowed to solidify; solid phases are pure (their composition is fixed), solid fugacity from the liquid-phase fugacity with ln phi_S = ln phi_L - (dHf/R)(1/T - 1/Tf), no heat-capacity term"
+parameters = "pure: dHf [J/mol], Tf [K]"
+composes = [
+  { slot = "model", accepts = "cubic EoS mixture or virialgamma with dHf_r and Tf attributes", default = "none (required)" },
+]
+variants = "sle (fluid phases one liquid) versus slle (two liquids); multiflash_solid is the shared solver with ASS and Gibbs minimisation steps."
+equation_source = "none"
+closed_form = "procedural"
+data = "component construct (dHf, Tf)"
+
+[[model_family]]
+name = "Square gradient theory for pure fluids (sgt_pure, ten_fit)"
+locator = "phasepy/sgt/sgtpure.py; model methods a0ad, muad, dOm, ci, sgt_adim in cubicpure.py and vtcubicpure.py"
+class = "spatial_functional"
+inputs = "saturation T, Psat, liquid and vapour densities (mol/cm3); tension sigma = integral of sqrt(2 c Delta Omega) d rho by Gauss quadrature in the density variable; dimensionless variables scaled by a and b of the EoS"
+parameters = "pure: cii polynomial (influence parameter) plus the cubic EoS parameters"
+composes = [
+  { slot = "bulk_eos", accepts = "cubic EoS object exposing a0ad, muad, dOm, ci, sgt_adim", default = "none (required)" },
+]
+variants = "ten_fit returns tension for a given T during cii fitting; full_output returns the profile z(rho) and the grand potential density."
+equation_source = "docs/source/phasepy.sgt.rst gives a = a0 + 1/2 sum c_ij grad rho_i grad rho_j, the Euler-Lagrange equations and the tension integral; van der Waals and Cahn-Hilliard named"
+closed_form = "procedural"
+data = "component construct (cii) and SGT influence parameter construct"
+
+[[model_family]]
+name = "Square gradient theory for mixtures, beta = 0 (reference component, Cornelisse path, Liang path)"
+locator = "phasepy/sgt/sgt_beta0.py (sgt_mix_beta0), reference_component.py, path_hk.py, path_sk.py"
+class = "spatial_functional"
+inputs = "phase densities rho1, rho2 (vectors, mol/cm3), T, P at equilibrium; singular influence matrix (all beta zero); profiles by the reference-component algebraic equations solved along one density with orthogonal collocation, or by a path function (Cornelisse 'cornelisse' in path_hk.py, Liang 'liang' in path_sk.py)"
+parameters = "pure: cii; pair: beta must give a singular c_ij, else an exception"
+composes = [
+  { slot = "bulk_eos", accepts = "cubic EoS mixture exposing muad_aux, dOm_aux, ci, sgt_adim", default = "none (required)" },
+]
+variants = "method 'reference' (with the reference component index s), 'cornelisse', 'liang'; sgt_linear and sgt_spot (phasepy/sgt/linear_spot.py) are linear-profile and spot approximations."
+equation_source = "docs/source/sgt/sgt.tenbeta0.rst names the reference component method and Cornelisse's doctoral thesis and Liang's path function; no full citation"
+closed_form = "procedural"
+data = "component construct (cii) and SGT influence parameter construct"
+
+[[model_family]]
+name = "Square gradient theory for mixtures, beta != 0 (boundary value problem by orthogonal collocation)"
+locator = "phasepy/sgt/coloc_z.py (sgt_mix, sgt_zfixed), coloc_z_ds.py (msgt_mix)"
+class = "spatial_functional"
+inputs = "phase densities, T, P, initial profile 'linear', 'hyperbolic', an array or a previous TensionResult; nonsingular c_ij; solves sum_j c_ij d2 rho_j/dz2 = mu_i - mu_i0 on a finite interfacial length by orthogonal collocation and scipy.optimize.root (lm, hybr, krylov), increasing the length until the tension stops decreasing"
+parameters = "pure: cii; pair: beta (non-zero)"
+composes = [
+  { slot = "bulk_eos", accepts = "cubic EoS mixture exposing muad_aux, dmuad_aux, dOm_aux, ci, sgt_adim", default = "none (required)" },
+]
+variants = "sgt_mix iterates the length (inspired by Liang and Michelsen per the docs); sgt_zfixed solves at fixed length; msgt_mix solves the modified (pseudo-time) system of Mu et al."
+equation_source = "docs/source/sgt/sgt.tensgt.rst (Liang and Michelsen; Mu et al named without citation)"
+closed_form = "procedural"
+data = "component construct (cii) and SGT influence parameter construct"
+
+[[model_family]]
+name = "Pure-component fitting utilities (fit_ant, fit_ksv, fit_vt, fit_cii)"
+locator = "phasepy/fit/fitpsat.py, fitvt.py, fitcii.py"
+class = "regression"
+inputs = "experimental T, P_sat, liquid density, tension; scipy.optimize.minimize of sum of squared relative errors for Antoine, PRSV ksv and the volume translation c; fit_cii forms (sigma_exp/sigma_calc)^2 and polyfits it in T"
+parameters = "fitted: Ant (3), ksv (2), c (1), cii (polynomial of order 2 by default)"
+composes = [
+  { slot = "model", accepts = "component plus an EoS constructor", default = "prsveos for fit_ksv; eos argument for fit_vt" },
+]
+variants = "none"
+equation_source = "none"
+closed_form = "procedural"
+data = "none bundled (users supply data)"
+
+[[model_family]]
+name = "Binary and ternary interaction-parameter fitting (fit_wilson, fit_nrtl, fit_rk, fit_uniquac, fit_kij, fit_kij_ws, ternary nrtlt and kij_t)"
+locator = "phasepy/fit/binaryfit.py, ternaryfit.py, fitmulticomponent.py"
+class = "regression"
+inputs = "VLE (x, y, T, P), LLE (x, w, T, P) or VLLE data tuples; objective sums squared composition errors and relative pressure errors with user weights, driving bubblePy, lle (with TPD initialisation) and haz; scipy minimize or minimize_scalar"
+parameters = "fitted: Wilson a12 and a21 [K]; NRTL g (and g1 and alpha) for a binary with optional temperature dependence or fixed alpha 0.2; Redlich-Kister polynomials; UNIQUAC a0 and a1; kij (QMR) and Kijws (WS) by bounded scalar minimisation; ternary NRTL and D"
+composes = [
+  { slot = "model", accepts = "virialgamma (activity models) or a cubic EoS constructor with a mixing rule", default = "virialgamma with virialmodel Tsonopoulos" },
+]
+variants = "weights vectors per data type; Tdep and alpha_fixed flags on fit_nrtl; the fit_nrtl docstring calls the flag alpha_fit."
+equation_source = "none"
+closed_form = "procedural"
+data = "none bundled (users supply data)"
+
+[[model_family]]
+name = "Numerical support (Gauss and Lobatto quadrature, orthogonal collocation, vector extrapolation)"
+locator = "phasepy/math.py (gauss, lobatto, colocAB, colocA, colocB, gdem, dem); phasepy/src/coloc_cy.pyx"
+class = "other"
+inputs = "number of nodes; Jacobi polynomial roots by a Cython routine; differentiation matrices A and B for first and second derivatives; gdem and dem are vector extrapolations used for accelerated successive substitution"
+parameters = "none"
+composes = []
+variants = "none"
+equation_source = "none"
+closed_form = "procedural"
+data = "none bundled"
+
+# ---------------------------------------------------------------------------
+# CONVENTIONS
+# ---------------------------------------------------------------------------
+
+[[convention]]
+name = "units and constants"
+locator = "phasepy/constants.py; component and mixture docstrings"
+statement = "T in K, P in bar, molar volume in cm3/mol, molar density in mol/cm3, molar weight in g/mol, enthalpy of fusion in J/mol. Constants: kb = 1.3806488e-23 J/K, Na = 6.022142e23 1/mol (saft_forcefield.py uses 6.02214e23), R = 83.14 bar cm3/(mol K) and r = 8.314 J/(mol K). Tension in mN/m, SGT influence parameter in J m5 mol-2 (cubic classes) or J m5 / mol (component.ci docstring); SGT lengths in angstrom."
+scope = "all models"
+
+[[convention]]
+name = "composition basis"
+locator = "phasepy/equilibrium/*.py; phasepy/cubic/*.py; phasepy/actmodels/*.py"
+statement = "All composition vectors are mole fractions in component order. Activity models compute volume, surface and group-mole fractions internally from mole fractions and the pure r, q or Vk (UNIQUAC, UNIFAC) without the user supplying them as composition. Residual energies are per mole."
+scope = "all models and equilibrium algorithms"
+
+[[convention]]
+name = "reference state and ideal-gas term"
+locator = "phasepy/cubic/cubicpure.py a0ad (line 282), ares (line 430)"
+statement = "Fugacity coefficients and residual properties (EntropyR, EnthalpyR, CvR, CpR, speed_sound helpers) are departures from the ideal gas at the same T and P. The dimensionless Helmholtz density used by SGT includes an ideal term with reference pressure Pref = 1 in dimensionless units. No ideal-gas heat capacity model is provided (speed_sound takes CvId and CpId arguments whose defaults are monatomic-gas values), so total enthalpy and entropy are not available."
+scope = "cubic EoS objects and SGT"
+
+[[convention]]
+name = "phase labels and K-values"
+locator = "phasepy/equilibrium/flash.py, multiflash.py, stability.py"
+statement = "Phases are identified by the strings 'L' (liquid root), 'V' (vapour root) and, for solids, 'S'; K = exp(ln phi_first - ln phi_second) where the first entry of the equilibrium list is the reference phase. For a cubic EoS the liquid root is the smallest and the vapour root the largest real compressibility root above B."
+scope = "equilibrium algorithms and cubic EoS"
+
+[[convention]]
+name = "pair-matrix symmetry and diagonals"
+locator = "phasepy/mixtures.py (setter methods)"
+statement = "kij (QMR), Kijws, KIJsaft and the NRTL alpha matrix are square and symmetric; kij must have an exactly zero diagonal, the others should by docstring but are unchecked. NRTL g and g1, Wilson A and UNIQUAC a0 and a1 are full ordered matrices. Redlich-Kister rows follow the combinations of component indices in order 1-2, 1-3, ..., n-1 n."
+scope = "interaction tables"
+
+[[convention]]
+name = "liquid fugacity in the virial-gamma model"
+locator = "phasepy/actmodels/virialgama.py logfugef (line 270)"
+statement = "ln phi_i^L = ln gamma_i + ln(psat_i/P) + v_i^L (P - psat_i)/RT + B_ii psat_i/RT, with psat from Antoine, v^L from Rackett and B_ii the pure virial coefficient from the selected virial model; the vapour fugacity uses the mixture partial virial coefficient."
+scope = "virialgamma"
+
+# ---------------------------------------------------------------------------
+# SELECTIONS
+# ---------------------------------------------------------------------------
+
+[[selection]]
+name = "UNIFAC workbook"
+locator = "phasepy/mixtures.py lines 640 and 697"
+rule = "mixture.unifac() opens dortmund-2021.xlsx and mixture.original_unifac() opens original-unifac.xlsx; there is no argument to choose a file or a year, and dortmund-2018.xlsx and unifac.xlsx are never opened."
+scope = "all UNIFAC-based activity models and mixing rules (mhv, mhv1, ws)"
+documented = "the docstring names the Dortmund database and the DDBST page; it does not say which year is read"
+
+[[selection]]
+name = "alpha parameter k of named cubic EoS"
+locator = "phasepy/cubic/cubicpure.py prpure, prsvpure, rkspure; cubicmix.py"
+rule = "prpure and rkspure replace k by a correlation in the acentric factor and ignore alpha_params; prsvpure keeps the user ksv when any entry is non-zero and otherwise sets k0 by a correlation in w and leaves k1 zero; custom cubiceos uses alpha_params unchanged."
+scope = "cubic EoS alpha functions"
+documented = "partly: the component docstring describes ksv as a parameter for PRSV alpha only when fitted; the override of alpha_params is not documented"
+
+[[selection]]
+name = "MHV1 q1"
+locator = "phasepy/cubic/mixingrules.py (every mhv1_ branch)"
+rule = "q1 is -0.593 when (c1, c2) equals (0, 1) or (1, 0), -0.53 when (c1, c2) equals the Peng-Robinson pair in either order, otherwise an exception is raised."
+scope = "MHV1 mixing rules"
+documented = "no"
+
+[[selection]]
+name = "missing interaction parameters"
+locator = "phasepy/cubic/mixingrules.py"
+rule = "QMR uses zero kij when none is attached; WS uses zero Kijws when none is attached; NRTL g1 defaults to zeros; MHV, MHV1 and WS with an activity model raise an exception when that model's parameters are absent."
+scope = "mixing rules and activity models"
+documented = "docs/source/models/phasepy.cubic.rst: zero values are assumed if no values are specified (for the mixing rules)"
+
+[[selection]]
+name = "volume root selection"
+locator = "phasepy/cubic/cubicpure.py _Zroot, density; vtcubicpure.py _Zroot"
+rule = "All real roots of the compressibility polynomial that exceed B (B - C for the translated form) are kept; state 'L' takes the minimum and 'V' the maximum."
+scope = "density, fugacity and saturation routines of the cubic EoS"
+documented = "docstrings state L and V only"
+
+# ---------------------------------------------------------------------------
+# DISCREPANCIES
+# ---------------------------------------------------------------------------
+
+[[discrepancy]]
+locator = "phasepy/actmodels/virial.py Tsonopoulos (docstring line 58, code line 62)"
+documented = "docstring: B0 = 0.1445 - 0.33/Tr - 0.1385/Tr^2 - 0.0121/Tr^3 - 0.000607/Tr^8"
+actual = "code evaluates the constant term as 0.1145 (B0 = 0.1145 - 0.330/Tr - 0.1385/Tr^2 - 0.0121/Tr^3 - 0.000607/Tr^8)"
+consequence = "Tsonopoulos second virial coefficients differ from the documented equation by the change in the leading constant."
+
+[[discrepancy]]
+locator = "phasepy/actmodels/virial.py Abbott (docstring line 81, code line 85)"
+documented = "docstring: B1 = 0.139 + 0.179/Tr^4.2"
+actual = "code evaluates B1 = 0.139 - 0.172/Tr^4.2 (different sign and coefficient)"
+consequence = "Abbott second virial coefficients differ from the documented equation."
+
+[[discrepancy]]
+locator = "phasepy/mixtures.py mixture.NRTL (docstring), phasepy/actmodels/nrtl.py nrtl"
+documented = "g1 is 'Matrix of energy interactions [1/K]' with tau = g/T + g1"
+actual = "tau = g/T + g1 requires g1 to be dimensionless; nrtlter's docstring writes tau = (g + g1 T)/T, which has the same meaning"
+consequence = "The unit given for g1 cannot be used as the slot unit; a mapping must take the dimensionless unit from the equation."
+
+[[discrepancy]]
+locator = "phasepy/cubic/cubicpure.py class rkpure (lines 832-838; nested a_eos at line 837)"
+documented = "class rkpure is the pure Redlich-Kwong EoS with alpha_rk(T, Tc)"
+actual = "a_eos is defined nested inside rkpure.__init__ and is therefore not a method; instances use the inherited cpure.a_eos, which calls alpha_eos(T, k, Tc), while alpha_rk accepts only (T, Tc). vtrkpure and rkmix define a_eos at method level with the two-argument call. Not executed here; read from the source."
+consequence = "The pure (untranslated) RK class appears unable to evaluate a_eos as written; the mixture and translated forms can."
+
+[[discrepancy]]
+locator = "phasepy/actmodels/original_unifac.py unifac_original and dunifac_original (docstrings)"
+documented = "docstrings read 'Derivatives of Dortmund UNIFAC activity coefficient model' and describe amn as an energy interactions coefficient"
+actual = "the functions implement the original UNIFAC (combinatorial part without the 3/4 exponent, constant a_mn) and unifac_original does not return derivatives"
+consequence = "The text copied from the Dortmund function misidentifies the variant; the workbook and function body are the variant evidence."
+
+[[discrepancy]]
+locator = "phasepy/cubic/__init__.py module docstring"
+documented = "mhv_unifac and ws_unifac are described as 'with Wilson model'"
+actual = "mixingrules.py dispatches them to the (Dortmund) UNIFAC activity model; mhv_uniquac, mhv_original_unifac and the mhv1_ family are not listed in that docstring although they exist"
+consequence = "The list of mixing rules in the package docstring is incomplete and mislabelled; the dispatcher is the authoritative list."
+
+[[discrepancy]]
+locator = "phasepy/mixtures.py kij_ws and kij_saft (docstrings)"
+documented = "the matrix must be symmetrical and the main diagonal must be zero"
+actual = "the code checks only that the matrix is square and symmetric; only kij_cubic checks for a zero diagonal"
+consequence = "A non-zero diagonal is accepted for Kijws and KIJsaft; whether it has any effect is not established."
+
+[[discrepancy]]
+locator = "phasepy/mixtures.py component.ci (docstring) and phasepy/cubic/cubicpure.py cii (docstring)"
+documented = "influence parameter in J m5 / mol (component.ci) and J m5 mol-2 (cubic EoS classes, mixture.ci not stated)"
+actual = "the same polynomial is evaluated in both places"
+consequence = "Two different units are stated for one quantity; the SGT tension scaling (sgt_adim) is consistent with J m5 mol-2 by its use of a/ci with a in bar cm6 mol-2."
+
+[[discrepancy]]
+locator = "phasepy/actmodels/virialgama.py docstring (actmodel options) versus code (actmodel == 'nrtlt' branch, line 86)"
+documented = "actmodel: 'nrtl', 'wilson', 'original_unifac', 'unifac', 'uniquac', 'rkb' or 'rk'"
+actual = "the code also accepts 'nrtlt' (NRTL with the ternary term)"
+consequence = "The ternary model is reachable but undocumented."
+
+[[discrepancy]]
+locator = "phasepy/database/original-unifac.xlsx sheets A0 and Sheet1; phasepy/mixtures.py original_unifac (amn = a0.loc[groups, groups])"
+documented = "the code treats the A0 index (GroupID) as main-group id (amn = a0.loc[groups, groups]) with groups taken from RkQk MainGroupID"
+actual = "A0 has 55 body rows and 51 columns; row labels 1..51 are positional and four rows are unlabelled; Sheet1 (identical values by position) lists main groups 29, 34 and 43 on more than one row, so for labels 30 and above the row with label L is not the row of main group L; 11 main groups present in RkQk (53, 61, 84, 85, 87, 89, 90, 91, 93, 98, 99) have no column"
+consequence = "Original-UNIFAC interaction values for main groups 30 to 51 are read from rows belonging to other groups, and components containing the 11 uncovered main groups cannot be looked up. Derived by comparing the sheets; the library was not run."
+
+[[discrepancy]]
+locator = "phasepy/constants.py versus phasepy/saft_forcefield.py"
+documented = "Avogadro number Na = 6.022142e23 (constants.py)"
+actual = "saft_forcefield.py defines its own Na = 6.02214e23 and kb, used only by the force-field correlation"
+consequence = "Two values of the same constant coexist; the difference matters only to the unread SAFT path."
+
+[[discrepancy]]
+locator = "phasepy/fit/binaryfit.py fit_nrtl (docstring) versus signature"
+documented = "docstring lists 'alpha_fit: bool, if True fix aleatory factor to the value of alpha0'"
+actual = "the parameter is named alpha_fixed"
+consequence = "Naming only; no value affected."
+
+[[discrepancy]]
+locator = "CHANGELOG.md versus pyproject.toml"
+documented = "CHANGELOG.md top entry is v0.0.55"
+actual = "pyproject.toml version is 0.0.56 and the tag is v0.0.56; no changelog entry exists for 0.0.56"
+consequence = "Version-specific behaviour changes of 0.0.56 are not described in the tree."
+
+# ---------------------------------------------------------------------------
+# CAPABILITIES
+# ---------------------------------------------------------------------------
+
+[[capability]]
+calculation = "bubble_dew_point"
+offered = "yes"
+scope = "bubble pressure and temperature, dew pressure and temperature for cubic EoS mixtures (all mixing rules) and the virial-gamma model"
+locator = "phasepy/equilibrium/bubble.py bubblePy, bubbleTy; dew.py dewPx, dewTx"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_tp"
+offered = "partial"
+scope = "two-phase LV and LL isothermal-isobaric flash (flash), multiphase flash with stability variables (multiflash), VLLE (vlle); no single-phase-stable shortcut beyond the Rachford-Rice bounds, no PH, PS or UV flash"
+locator = "phasepy/equilibrium/flash.py, multiflash.py, hazt.py"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_ph"
+offered = "no"
+scope = "no enthalpy specification exists: no ideal-gas heat capacity and no enthalpy flash (residual enthalpy methods exist on the cubic EoS objects)"
+locator = "phasepy/equilibrium/__init__.py function list"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_ps"
+offered = "no"
+scope = "no entropy specification flash"
+locator = "phasepy/equilibrium/__init__.py function list"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_uv"
+offered = "no"
+scope = "no internal energy and volume flash"
+locator = "phasepy/equilibrium/__init__.py function list"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "phase_stability"
+offered = "yes"
+scope = "Michelsen tangent plane distance with BFGS minimisation and random restarts for L, V and pure S trial phases; lle_init finds two liquid guesses"
+locator = "phasepy/equilibrium/stability.py"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "critical_point"
+offered = "no"
+scope = "no critical point solver; pure-fluid psat returns the critical point when T >= Tc from the input constants"
+locator = "phasepy/cubic/psatpure.py"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "phase_envelope"
+offered = "no"
+scope = "no envelope tracing"
+locator = "phasepy/equilibrium/__init__.py function list"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "gibbs_minimization"
+offered = "partial"
+scope = "Gibbs energy minimisation is used inside multiflash and multiflash_solid as a fallback step, with mass balance only (no element constraints)"
+locator = "phasepy/equilibrium/multiflash.py, solidequilibria.py"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "interfacial_profile"
+offered = "yes"
+scope = "planar interface density profiles and tension by square gradient theory with cubic EoS: pure fluids, mixtures with beta = 0 (three methods) and beta != 0 (two collocation methods)"
+locator = "phasepy/sgt/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "parameter_regression"
+offered = "yes"
+scope = "pure Antoine, PRSV ksv, volume translation, SGT influence polynomial; binary Wilson, NRTL, Redlich-Kister, UNIQUAC, kij and Kijws to VLE, LLE, VLLE data; ternary NRTL and kij"
+locator = "phasepy/fit/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "group_estimation"
+offered = "partial"
+scope = "UNIFAC activity coefficients from group decompositions; no property increment methods and no automatic decomposition of a structure into groups"
+locator = "phasepy/mixtures.py unifac, original_unifac"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "liquid_liquid_equilibrium (proposed)"
+offered = "yes"
+scope = "lle with TPD initialisation, plus VLLE"
+locator = "phasepy/equilibrium/lle.py, hazt.py, hazb.py"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "solid_liquid_equilibrium (proposed)"
+offered = "yes"
+scope = "sle and slle for pure solid phases with fusion enthalpy and temperature"
+locator = "phasepy/equilibrium/solidequilibria.py"
+evidence = "source_inspected"
+
+# ---------------------------------------------------------------------------
+# QUESTIONS
+# ---------------------------------------------------------------------------
+
+[[question]]
+about = "units of the UNIFAC A0, A1, A2 sheets"
+question = "The workbooks and the unifac() docstring give no unit for a0, a1, a2; psi = exp(-(a0 + a1 T + a2 T^2)/T) implies K, dimensionless and 1/K. Is that the DDBST convention these values were transcribed from?"
+why_it_matters = "A parameter set needs a declared unit per slot; the source cannot supply it."
+
+[[question]]
+about = "orientation of the UNIFAC matrices"
+question = "The sheets label rows and columns both GroupID. The code uses a.loc[groups, groups] and SumA = theta @ psi, which contracts over the first index; does the row index denote m (the group whose environment is described) as in the published convention?"
+why_it_matters = "Transposition rule (ordered pair) needs the roles of the two indices."
+
+[[question]]
+about = "which Dortmund release the two files represent"
+question = "Is dortmund-2018.xlsx the 2018 and dortmund-2021.xlsx the 2021 DDBST Dortmund release? Only the file names and workbook creation dates say so, and the repository commits that might record the source are not in the pinned tree."
+why_it_matters = "The group scheme revision and the parameterisation revision must be recorded; the survey can only assert file names."
+
+[[question]]
+about = "alpha_rk exponent"
+question = "alpha_rk evaluates (T/Tc)^(-1/4) through sqrt(T/Tc)**-0.5, and the tree states no equation for the Redlich-Kwong alpha; is the exponent as intended?"
+why_it_matters = "If the RK alpha is taken to be Tr^(-1/2) elsewhere, the same name denotes two different functions."
+
+[[question]]
+about = "SAFT fields of component"
+question = "The component class carries ms, sigma, eps, lambda_r, lambda_a, eAB, rcAB, rdAB and sites, the mixture class carries KIJsaft, and a corresponding-states correlation fills them, but no PhasePy EoS or algorithm reads them. Are they placeholders for a SAFT-VR-Mie model that is absent from v0.0.56?"
+why_it_matters = "They must be recorded as unread and kept out of any parameterisation that claims to be usable by this source."
+
+[[question]]
+about = "tpd trial phase 'S'"
+question = "tpd_val accepts stateW = 'S' (pure solid through dHf and Tf) but the tpd_min and tpd_minimas docstrings list only L and V; is solid stability analysis supported beyond the SLE functions?"
+why_it_matters = "Affects whether solid stability belongs to the phase_stability capability."
+
+[[question]]
+about = "units of UNIQUAC r and q and of Mw use"
+question = "component.ri and qi are documented as molecular volume and surface for UNIQUAC without units, and Mw (g/mol) is used only to form a mass-basis quantity in the cubic classes; what do they mean in a dimensional sense?"
+why_it_matters = "Whether r and q are dimensionless relative sizes or areas and volumes changes the quantity type of the slot."
+
+[[question]]
+about = "citations for the equations"
+question = "Apart from the citation request for Chaparro and Mejia (J. Comput. Chem. 2020, doi 10.1002/jcc.26405) and the Mejia et al 2014 comment, the code names no publication for PR, RK, MHV, MHV1, WS, NRTL, Wilson, UNIQUAC or UNIFAC. Which publications define the coded equations?"
+why_it_matters = "Forms need citations; the survey cannot invent them."

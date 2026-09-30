@@ -1,0 +1,23 @@
+module = "mapping_tabulated"
+uses = ["physical", "provenance", "identity", "parameters", "mapping_fixture"]
+doc = "Slots whose values are tabulated functions, for the canonical writer tests."
+
+[forms.fixture_profile]
+doc = "A pure-species parameter given as tabulated functions, alone and by band."
+implements = "fixture_pair"
+completeness = "opaque_bundle"
+status = "catalogued"
+
+[forms.fixture_profile.slot_groups.pure]
+doc = "One profile per species."
+subject.i = { type = "species", doc = "The species." }
+
+[forms.fixture_profile.slot_groups.pure.slots]
+profile = { type = "tabulated_function", doc = "Three series on one axis." }
+
+[forms.fixture_profile.slot_groups.pure.families.band]
+doc = "One two-axis table per band."
+index.n = { type = "Integer", min = 1, doc = "Band number." }
+
+[forms.fixture_profile.slot_groups.pure.families.band.slots]
+kernel = { type = "tabulated_function", doc = "A table on two axes." }

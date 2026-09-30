@@ -1,0 +1,12 @@
+module = "broken"
+schema = "tk"
+uses = ["physical", "identity", "framework", "vocab"]
+doc = "A deliberately broken module."
+
+[kinds.k2]
+doc = "d"
+extends = "species"
+identity = ["tag"]
+
+[kinds.k2.attributes]
+z = { type = "Text", doc = "d" }

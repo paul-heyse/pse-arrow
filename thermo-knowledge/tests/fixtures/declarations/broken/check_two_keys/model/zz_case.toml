@@ -1,0 +1,18 @@
+module = "broken"
+schema = "tk"
+uses = ["physical", "identity", "framework", "vocab"]
+doc = "A deliberately broken module."
+
+[kinds.k]
+doc = "d"
+identity = ["a"]
+provenance = "none"
+
+[[kinds.k.requires]]
+name = "r"
+doc = "d"
+enforced = "ddl"
+check = { nonempty = "a", positive = "a" }
+
+[kinds.k.attributes]
+a = { type = "Text", doc = "d" }

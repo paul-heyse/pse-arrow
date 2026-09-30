@@ -1,0 +1,558 @@
+source = "espei"
+pin = "769029ca2ee6"
+surveyed = "2026-09-30"
+summary = "ESPEI 0.9.1 (Python, MIT) is a two-stage CALPHAD parameter-fitting program built on pycalphad: a linear parameter-generation stage that fits Redlich-Kister temperature polynomials to formation and mixing heat-capacity, entropy and enthalpy data with a modified AICc, and an emcee ensemble-MCMC stage whose log-likelihood sums Gaussian terms for phase-boundary driving forces, activities and thermochemical properties with fixed per-type standard deviations; it defines the JSON dataset format (ZPF, single-phase fixed-configuration, equilibrium thermochemical and activity data), the YAML run settings, and embeds SGTE91 and SR2016 pure-element reference data, but it ships no datasets or TDB files in docs/ (the datasets live in the separate espei_datasets source), records only the optimum parameter values in the output TDB under generated symbol names (VV0000 and onward) and the raw chains in NumPy arrays, and discards uncertainty, covariance and the link from a symbol to its dataset."
+
+# ---------------------------------------------------------------------------
+# PAYLOADS
+# ---------------------------------------------------------------------------
+
+[[payload]]
+paths = ["espei/input-schema.yaml"]
+format = "YAML document in a Cerberus validation-schema dialect (types, defaults, required, regex, min, max, allof, excludes, dependencies, oneof_dependencies and a custom iseven rule)"
+files = 1
+bytes = 3823
+records = "27 settings in 4 blocks: system 3, output 5, generate_parameters 6, mcmc 13 (counted by reading the file)"
+reader = "espei/validation.py builds an ESPEIValidator from it (Cerberus); espei/espei_script.py get_run_settings normalises and validates a run-settings dict against it"
+read_by_source = "all"
+notes = "Defaults live here and in the code both: ridge_alpha default null in the schema while docs/writing_input.rst states 1.0e-100 (see discrepancies). chains_per_parameter and chain_std_deviation defaults (2 and 0.1) are applied in get_run_settings only when restart_trace is absent."
+
+[[payload]]
+paths = ["espei/refdata.py"]
+format = "Python source holding pure-element reference data as SymEngine Piecewise expressions in T (and Symbol('GHSERxx') references) inside OrderedDicts, plus one plain dict"
+files = 1
+bytes = 111806
+records = "828 lines. SGTE91Stable: 78 elements (energy of the element in its reference structure); SGTE91: 339 (element, phase) entries over the same 78 elements (for example LIQUID 78, BCC_A2 68, FCC_A1 58, HCP_A3 58, CUB_A13 11, CBCC_A12 10); SGTE91SER: a dict of 80 entries (the 78 elements plus /- and VA) each {phase, mass, H298, S298}; SR2016Stable: 2 elements (CU, MG); SR2016: 6 entries (CU and MG in HCP_A3, FCC_A1, LIQUID); counted by regular expressions over the source text"
+reader = "espei/database_utils.py (initialize_database, _get_ser_data) and espei/paramselect.py (generate_parameters) read them by name with getattr(espei.refdata, ref_state), ref_state + 'Stable' and ref_state + 'SER'; find_and_insert_user_refstate in the same file adds user reference states found through the setuptools entry-point group espei.reference_states"
+read_by_source = "all"
+notes = "Energies are in J per mole of atoms (inferred from use with GHSER functions). The SGTE91 block cites Dinsdale 1991 (Calphad 15(4) 317-425) in a comment; SR2016 has no source statement in the file (the docs say only that it is supported for certain elements). Cross-source comparison with the sgte_unary survey (measured by parsing both): the 78 elements equal those of the unary v5.0 GHSER functions; 336 of the 339 SGTE91 (element, phase) pairs occur as G parameters of unary v5.0 (the other 3 use the phase name RHOMB, which the unary v5.0 change log renames RHOMB_C19), while v5.0 has 60 pairs not in SGTE91 (new phases HCP_ZN, ALPHA_RHOMBO_B, GAS and RHOMB_C19 and more data); the SGTE91SER entries equal the unary v5.0 ELEMENT lines in phase, mass, H298 and S298 for all 80 entries; yet GHSER energies differ in places (Al third piece constant -11278.378 in refdata.py against -11278.361 in the unary file, breakpoint 933.47 against 933.473)."
+
+[[payload]]
+paths = ["tests/testing_data.py"]
+format = "Python module of embedded test inputs: 8 TDB texts (A_B_REGULAR_SOLUTION_TDB, CU_MG_TDB, CU_MG_TDB_FCC_ONLY, CU_MG_TDB_ASSOC, CR_FE_INITIAL_TDB_CONTRIBUTIONS, CR_FE_NI_TDB, CR_NI_TDB, LI_SN_TDB) and dataset dictionaries or YAML-loaded dataset strings"
+files = 1
+bytes = 57246
+records = "1580 lines, 51 module-level names, 8 TDB strings, 40 occurrences of the key 'output' (counted by grep)"
+reader = "python import (tests/fixtures.py and the test modules); the dataset strings are parsed by yaml.load"
+read_by_source = "none"
+notes = "These are the only TDB files and datasets inside the ESPEI tree. The brief expects tutorial datasets and TDBs under docs/: docs/ contains 15 .rst pages (plus api pages, build scripts and images) and no dataset or TDB file, and the tutorial pages point to a separate ESPEI-datasets repository (see espei_datasets). 12 test modules hold 128 test functions (counted by grep of 'def test_')."
+
+[[payload]]
+paths = ["docs/*.rst"]
+format = "reStructuredText with embedded JSON and YAML examples"
+files = 15
+bytes = 132352
+records = "15 pages; inline dataset examples for single-phase thermochemical data, activity data, phase boundary data, tags, the phase-model JSON and the Cu-Mg tutorial"
+reader = "not read by ESPEI; documentation only"
+read_by_source = "none"
+notes = "The inline examples are the documented form of the dataset schema; the code in espei/datasets.py is the checked form."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS: dataset schema
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "dataset record (common envelope)"
+locator = "espei/datasets.py:45-207 (check_dataset), :210-256 (clean_dataset), :315-342 (load_datasets); docs/input_data.rst"
+meaning = "One JSON object per file, loaded into an in-memory TinyDB. The kind of dataset is decided by content: output equal to ZPF is phase-boundary data; the presence of a solver key makes it single-phase fixed-configuration data; any other output without a solver key is equilibrium data (activity data have an output beginning ACR)."
+subject = "One dataset, keyed by its file path (no identifier inside the object)."
+fields = [
+  { name = "components", meaning = "list of component names including VA where a vacancy is involved; must match the components used by the conditions, configurations or tie lines up to the degrees of freedom", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "phases", meaning = "list of phase names: for ZPF every entered phase must appear in some tie-line point; for single-phase data exactly one phase; for equilibrium and activity data all phases that can form", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "conditions", meaning = "dict with P and T (scalar or list) and, for equilibrium and activity data, X_<component> lists of composition", unit = "Pa and K (docs/input_data.rst) and mole fractions", shape = "table", role = "input" },
+  { name = "output", meaning = "name of the quantity: ZPF, ACR_<component>, or a property with optional suffix (HM, SM, CPM and _FORM, _MIX variants; V0 and VM are read by the molar-volume fitting steps)", unit = "not applicable (text)", shape = "enum", role = "input" },
+  { name = "values", meaning = "array whose shape is fixed by the conditions (see the per-kind constructs); floats are coerced by clean_dataset", unit = "J/mol-atom, J/K/mol-atom, dimensionless (activity) depending on output; ZPF values are compositions", shape = "table", role = "input" },
+  { name = "reference", meaning = "source label; required in ZPF datasets (get_zpf_data indexes it) and logged elsewhere", unit = "not applicable (text)", shape = "reference", role = "metadata" },
+  { name = "comment", meaning = "free note, stated in the docs to take no effect", unit = "not applicable (text)", shape = "scalar", role = "unread" },
+  { name = "weight", meaning = "positive factor that divides the standard deviation of this dataset's likelihood (and is used as a sample weight in parameter generation); default 1.0", unit = "not applicable (dimensionless)", shape = "scalar", role = "input" },
+  { name = "disabled", meaning = "if true the dataset is skipped at load (load_datasets) and removed again in run_espei", unit = "not applicable (flag)", shape = "scalar", role = "input" },
+  { name = "tags", meaning = "list of tag names used to apply YAML-declared modifications (apply_tags)", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "excluded_model_contributions", meaning = "list of pycalphad Model contribution names (for example idmix, mag) set to zero in the model and its reference when fitting this dataset", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "broadcast_conditions", meaning = "present in test and dataset files; never read by the ESPEI code (occurs only in tests/testing_data.py)", unit = "not applicable (flag)", shape = "scalar", role = "unread" },
+  { name = "plot", meaning = "plot styling dictionary in one dataset file; never read by the library code", unit = "not applicable (text)", shape = "table", role = "unread" },
+  { name = "bibtex, author", meaning = "named by the ESPEI-datasets README as required; not read by any ESPEI code", unit = "not applicable (text)", shape = "scalar", role = "unread" },
+]
+origin = "authored or transcribed from publications (experiments) or produced by first-principles calculations; the dataset file records which through reference, not through a field"
+conventions = "JSON only (double quotes, no trailing commas). Units: energies J/mol-atom and their derivatives, compositions mole fractions, T in K, P in Pa. clean_dataset converts all numeric conditions, site ratios, occupancies and values to floats; ZPF tie-line points whose compositions are all null are left unchanged. A missing P or T key raises (conditions['P'] and ['T'] are indexed)."
+absence = "An absent excluded_model_contributions means no contribution is excluded; an absent weight means 1.0; an absent key that the docs call optional (comment) has no effect. null inside ZPF compositions means an unknown composition (see the ZPF construct); the source distinguishes null from zero there."
+validity = "not stated; data below 298.15 K are discarded by filter_temperatures in parameter generation and in the non-equilibrium thermochemical residual"
+provenance = "reference string (a BibTeX key or free text) per dataset; comment"
+count = "not applicable (schema); 215 instances in espei_datasets"
+example = "docs/input_data.rst (inline examples)"
+candidate = "dataset (kind measured or computed) with dataset_component, dataset_phase, dataset_column and data_point/datum rows; derivation-input weight for the weight field"
+precision = "broader"
+loss = "The envelope mixes dataset identity, conditions, the model phase configuration (solver), fit controls (weight, excluded_model_contributions, tags) and plot hints; uncertainty is not carried per point (a fixed per-type standard deviation in the error functions stands in for it); dataset kind is inferred from key presence."
+
+[[construct]]
+name = "single-phase fixed-configuration dataset (solver block)"
+locator = "espei/datasets.py:84-95, :118-123, :143-150, :190-207; espei/core_utils.py:11-95, :246-305; espei/error_functions/non_equilibrium_thermochemical_error.py:77-206"
+meaning = "A property of one phase at known internal degrees of freedom (known site occupancies), usually from first-principles calculations or from measurements of a stoichiometric phase. solver carries mode (only manual is handled), sublattice_site_ratios, sublattice_configurations (a list of configurations, one entry per sublattice: a species string for a non-mixing sublattice, a list of species names for a mixing sublattice) and sublattice_occupancies (same shape as the configurations, the site fraction of each listed species; required when any sublattice mixes)."
+subject = "One phase with a set of (sublattice configuration, site occupancies) points."
+fields = [
+  { name = "solver.mode", meaning = "only 'manual' is interpreted (symmetry_filter returns false for any other value)", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "solver.sublattice_site_ratios", meaning = "site ratios of the phase's sublattices, as floats", unit = "not applicable (count of sites)", shape = "list", role = "input" },
+  { name = "solver.sublattice_configurations", meaning = "list of configurations; in a mixing sublattice the species list must be in alphabetical order (a check error otherwise)", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "solver.sublattice_occupancies", meaning = "site fractions with the same shape as the configurations (1 for a non-mixing sublattice)", unit = "not applicable (fraction)", shape = "list", role = "input" },
+  { name = "solver.comment", meaning = "free text", unit = "not applicable (text)", shape = "scalar", role = "unread" },
+  { name = "values", meaning = "array of shape (number of P, number of T, number of configurations)", unit = "J/mol-atom for HM, J/K/mol-atom for SM and CPM, by suffix FORM or MIX", shape = "table", role = "input" },
+  { name = "reference_state (string form)", meaning = "a string such as SGTE91 found in 14 datasets of the datasets repository; ESPEI reads reference_state only for activity data, where it is a dict", unit = "not applicable (text)", shape = "scalar", role = "unread" },
+]
+origin = "first-principles calculations, experiments or estimates, per reference"
+conventions = "Suffix _FORM: a formation quantity, measured from the pure elements in the phases that the TDB ELEMENT statements name as reference (the code builds pycalphad ReferenceState objects from dbf.refstates[el]['phase']); suffix _MIX: relative to the endmember reference model of the phase (the weighted sum of endmember energies); a mixing configuration should have ideal mixing removed, per the docs. Values are per mole of atoms; parameter fitting converts to per mole of formula unit by the site-ratio normalisation. Sublattice configurations are compared after canonicalisation under the phase's equivalent_sublattices."
+absence = "No sublattice_occupancies is allowed only when no sublattice mixes; a missing excluded_model_contributions excludes nothing."
+validity = "T below 298.15 K is dropped"
+provenance = "reference and comment; the file name in the datasets repository repeats them"
+count = "114 instances in espei_datasets"
+example = "docs/input_data.rst (CPM_FORM example for BCC_B2)"
+candidate = "dataset with dataset_phase, dataset_column (observable formation or mixing enthalpy, entropy, heat capacity), data_point rows whose conditions include a constituent_array and site fractions"
+precision = "close"
+loss = "Site occupancies and configurations are model internals that the dataset model has no native column for (they need a column type for a constituent_array and site fractions); formation reference is an implied convention (elements in their reference phase at the same T), not a field."
+
+[[construct]]
+name = "equilibrium thermochemical dataset"
+locator = "espei/error_functions/equilibrium_thermochemical_error.py:38-140; espei/datasets.py:96-122"
+meaning = "A property of an equilibrium state (internal degrees of freedom unknown): no solver key, output neither ZPF nor ACR nor containing DIFF or TRACER, conditions P, T and X_<component> lists, values of shape (number of P, number of T, number of compositions). An optional reference_states dict names, per element, the reference phase (required) and optional fixed_state_variables, to be used to shift the property."
+subject = "A system at a set of (P, T, composition) points."
+fields = [
+  { name = "reference_states", meaning = "dict element -> {phase, fixed_state_variables}; the phase key is required by the check", unit = "not applicable (text)", shape = "table", role = "input" },
+  { name = "conditions.X_<component>", meaning = "composition lists; all must have the same length; one fewer than the number of components", unit = "mole fraction", shape = "list", role = "input" },
+  { name = "values", meaning = "measured property at each point", unit = "J/mol-atom or J/K/mol-atom by output", shape = "table", role = "input" },
+]
+origin = "experiments, per reference"
+conventions = "The standard deviations are 500 J/mol for HM and 0.2 J/K/mol for SM and CPM before division by the data-type weight and the dataset weight; when reference_states are given, an output name ending in R (for example HMR) has the R stripped to name the unreferenced property that the shift is applied to."
+absence = "no datasets of this kind exist in espei_datasets"
+validity = "not stated"
+provenance = "reference"
+count = "0 instances in espei_datasets; used in tests"
+example = "tests/testing_data.py (CU_MG_EQ_HMR_LIQUID)"
+candidate = "dataset (kind measured) with constraint and variable columns and a convention_set for the reference_states"
+precision = "close"
+loss = "reference_states are a per-dataset reference convention (phase and fixed state per element) that the model expresses as a convention_set plus element_reference; the docs say only activity data are supported, but the code path accepts any output that is not excluded."
+
+[[construct]]
+name = "activity dataset (ACR)"
+locator = "espei/error_functions/activity_error.py:62-140; espei/datasets.py:99-100"
+meaning = "Measured activity of one component: output ACR_<component>, conditions P, T and X_<component> lists, values of shape (P, T, compositions), and a mandatory reference_state dict giving the phases of the reference (for example liquid) and the conditions at which activity is defined as one."
+subject = "One component in a system at a set of compositions."
+fields = [
+  { name = "reference_state.phases", meaning = "phases allowed in the reference calculation", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "reference_state.conditions", meaning = "P, T and X_<component> of the reference state, usually the pure component", unit = "Pa, K, mole fraction", shape = "table", role = "input" },
+  { name = "values", meaning = "activities a_i", unit = "dimensionless", shape = "table", role = "input" },
+]
+origin = "digitised experiments, per reference"
+conventions = "Activity is a ratio of chemical potentials to the reference state: mu_i(target) = R T ln a + mu_i(reference state), evaluated with pycalphad's R = 8.3145."
+absence = "a missing reference_state raises KeyError in the error function"
+validity = "not stated"
+provenance = "reference and comment"
+count = "7 instances in espei_datasets (ACR_CR 6, ACR_MG 1)"
+example = "docs/input_data.rst (Cu-Mg ACR_MG)"
+candidate = "dataset with an activity observable and a reference_state (standard_state) constraint column"
+precision = "close"
+loss = "The reference state is a pair of phases and conditions, not a standard_state entity; activity itself is relative to that state."
+
+[[construct]]
+name = "phase boundary (ZPF) dataset and tie-line point"
+locator = "espei/datasets.py:124-188; espei/core_utils.py:92-197 (ravel_zpf_values); espei/error_functions/zpf_error.py:60-204"
+meaning = "Phase-equilibrium data: conditions P and T with T a list of as many entries as values (one temperature per phase region), output ZPF, and values a list of phase regions. A phase region is a list of tie-line points [phase name, [components], [compositions]], with components and compositions for all but one component (the dependent one is found by mass balance, N = 1); a composition may be null (unknown) and some points carry a fourth entry 'disordered'; the special phase name __HYPERPLANE__ defines the target hyperplane explicitly."
+subject = "A phase region at a temperature: the set of phases in equilibrium with (some) known phase compositions."
+fields = [
+  { name = "values[i]", meaning = "list of tie-line points of one phase region at temperature T[i]", unit = "not applicable (compositions are mole fractions)", shape = "list", role = "input" },
+  { name = "tie-line point phase", meaning = "phase name, or __HYPERPLANE__", unit = "not applicable (text)", shape = "scalar", role = "input" },
+  { name = "tie-line point components and compositions", meaning = "names and mole fractions; null for unknown; the sum of the known fractions must not exceed one", unit = "mole fraction", shape = "list", role = "input" },
+  { name = "tie-line point flag", meaning = "optional fourth entry 'disordered' marking that the phase composition refers to the disordered configuration of an ordered phase", unit = "not applicable (flag)", shape = "enum", role = "input" },
+]
+origin = "digitised phase diagrams and experiments, per reference"
+conventions = "Each region must have at least one phase with a prescribed composition or the target hyperplane is undefined and the region contributes zero. The dependent component of each tie-line is the one left out; all tie-lines of a dataset must leave out exactly one component. The zero-phase-fraction name refers to the overall composition at which the phase fraction of the stated phase is one."
+absence = "null composition: the vertex does not contribute to the hyperplane, and its driving force is estimated by sampling the phase; a phase region with all compositions null contributes nothing."
+validity = "not stated"
+provenance = "reference (required)"
+count = "94 instances with 1625 phase regions in espei_datasets (2 phases 1565, 3 phases 36, 1 phase 24; 983 null compositions, 7 'disordered' flags, no __HYPERPLANE__)"
+example = "docs/input_data.rst (Al-Ni example)"
+candidate = "dataset (kind measured) with a phase-equilibrium structure: dataset_phase per phase, composition columns per phase and constraint T, P"
+precision = "broader"
+loss = "A tie line with unknown compositions, the dependent component implied by mass balance, the disordered flag and the __HYPERPLANE__ meta-phase have no counterpart in the dataset model's typed columns."
+
+[[construct]]
+name = "tags and apply_tags"
+locator = "espei/datasets.py:259-312; docs/input_data.rst; espei/input-schema.yaml (system.tags)"
+meaning = "A dataset may list tags; the YAML system.tags mapping gives, per tag, keys to add to every matching dataset. Rules: a list value extends an existing list, a scalar replaces, a dict updates the existing dict, anything else replaces."
+subject = "A tag name."
+fields = [
+  { name = "tag update", meaning = "key and value applied to all datasets with the tag (for example excluded_model_contributions or weight)", unit = "not applicable (mixed)", shape = "table", role = "input" },
+]
+origin = "authored per run"
+conventions = "Applied after loading and before disabled datasets are removed."
+absence = "no tags in any dataset of espei_datasets"
+validity = "not applicable"
+provenance = "none"
+count = "0 tagged datasets in espei_datasets"
+example = "docs/input_data.rst (tags section)"
+candidate = "selection_policy and derivation-input weights"
+precision = "unmapped"
+loss = "Tags are a run-level rewrite of dataset metadata, not a stored fact."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS: settings
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "phase models JSON"
+locator = "espei/phase_models.py:11-39; espei/utils.py:381-407 (extract_aliases); espei/paramselect.py:447-480 (equivalent_sublattices read); docs/input_data.rst"
+meaning = "The file system.phase_models names: components (with VA where needed) and phases, each phase giving sublattice_model (list of species lists), sublattice_site_ratios (positive floats), optionally equivalent_sublattices (lists of zero-based sublattice indices that are equivalent by symmetry), aliases (other phase names this model describes, for example BCC_A2 for BCC_B2) and model (a dotted import path of a pycalphad Model subclass)."
+subject = "A chemical system with its phases."
+fields = [
+  { name = "components", meaning = "component names", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "phases.<name>.sublattice_model", meaning = "species on each sublattice", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "phases.<name>.sublattice_site_ratios", meaning = "site ratios", unit = "not applicable (count of sites)", shape = "list", role = "input" },
+  { name = "phases.<name>.equivalent_sublattices", meaning = "symmetry groups of sublattice indices", unit = "not applicable (index)", shape = "list", role = "input" },
+  { name = "phases.<name>.aliases", meaning = "alias names; an alias used by two phases raises", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "phases.<name>.model", meaning = "custom pycalphad Model class path", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "refdata", meaning = "a reference-state name given at the top level of phase-model files (for example SGTE91); the documentation says it selects the reference state, but no code reads this key: generate_parameters takes the reference state from the YAML ref_state", unit = "not applicable (text)", shape = "scalar", role = "unread" },
+]
+origin = "authored"
+conventions = "The sublattice model here is per phase of the fit, including the disordered phase described through aliases; equivalent_sublattices and aliases are read from the raw dictionary (they are not fields of the pydantic model)."
+absence = "No equivalent_sublattices means none; a phase without a model key gets the default pycalphad Model."
+validity = "not applicable"
+provenance = "none"
+count = "5 example files in espei_datasets/old-phase-models"
+example = "docs/input_data.rst (AL-NI phase models)"
+candidate = "chemical_system + phase_definition + site_class + site_equivalence + site_occupant, model_assembly choice per phase"
+precision = "close"
+loss = "Aliases mean 'this model also describes that disordered phase' and belong to an order-disorder relation; the refdata key is carried and ignored."
+
+[[construct]]
+name = "run settings (input YAML)"
+locator = "espei/input-schema.yaml; espei/espei_script.py:94-317; docs/writing_input.rst"
+meaning = "A settings file in four blocks. system: phase_models (path ending .json), datasets (directory), tags. output: verbosity 0-3 (default 0), logfile, output_db (default out.tdb), tracefile (default trace.npy, may be None), probfile (default lnprob.npy, may be None). generate_parameters: excess_model (only linear), ref_state (SGTE91 or SR2016, required), ridge_alpha (float or null, default null), aicc_penalty_factor (phase -> property -> factor, default null), input_db, fitting_description (import path, default gibbs_energy_fitting_description). mcmc: iterations (required, >= 0), prior (dict or list, default zero prior), save_interval (default 1), scheduler (dask, a JSON scheduler file or null; default dask), cores, input_db, restart_trace (a .npy file; needs input_db; excludes chain settings), chains_per_parameter (even integer >= 2, default 2), chain_std_deviation (>= 0, default 0.1), deterministic (default true), approximate_equilibrium (default false), data_weights (dict, default ZPF, ACR, HM, SM, CPM all 1.0), symbols (list of symbol names)."
+subject = "One fitting run."
+fields = [
+  { name = "generate_parameters.ref_state", meaning = "name of the reference data set in espei.refdata (attribute names ref, refStable, refSER)", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "generate_parameters.ridge_alpha", meaning = "ridge penalty; null selects ordinary least squares", unit = "not applicable (dimensionless)", shape = "scalar", role = "input" },
+  { name = "generate_parameters.aicc_penalty_factor", meaning = "multiplier of the parameter count in the AICc per phase and data type", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+  { name = "mcmc.iterations, chains_per_parameter, chain_std_deviation", meaning = "sampler length, chain count per fitted parameter, relative spread of the initial chains", unit = "not applicable (count, fraction)", shape = "scalar", role = "input" },
+  { name = "mcmc.prior", meaning = "a PriorSpec dict or a list of them (one per parameter): name normal, uniform, triangular or zero, with hyperparameters given with a modifier suffix absolute, relative, shift_absolute, shift_relative or identity", unit = "not applicable (text)", shape = "table", role = "input" },
+  { name = "mcmc.data_weights", meaning = "weights dividing the standard deviation of each data type", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+  { name = "mcmc.symbols", meaning = "database symbols to fit; default every symbol matching the regular expression V or VV followed by digits", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "mcmc.approximate_equilibrium", meaning = "flag whose use triggers a DeprecationWarning (removal announced for ESPEI 0.10)", unit = "not applicable (flag)", shape = "scalar", role = "input" },
+]
+origin = "authored per run"
+conventions = "mcmc requires exactly one of mcmc.input_db or a generate_parameters block (oneof_dependencies). An existing tracefile or probfile raises before a run."
+absence = "null scheduler: MCMC runs on one core without dask."
+validity = "not applicable"
+provenance = "none"
+count = "27 settings"
+example = "docs/writing_input.rst"
+candidate = "derivation (kind fit) with method and software, fit.objective, and a selection_policy for the prior; not a stored concept in the model"
+precision = "unmapped"
+loss = "Run configuration is process metadata; only its effects (weights, priors, reference state, ridge_alpha, penalty factors) are needed to reconstruct a fit."
+
+[[construct]]
+name = "reference data sets (refdata)"
+locator = "espei/refdata.py; espei/database_utils.py:33-116; espei/paramselect.py:376-414"
+meaning = "A reference-state set named ref_state is three attributes of espei.refdata: ref (lattice stabilities, keyed by (element, phase) to a T-expression, possibly referring to the symbol GHSERxx), refStable (the energy of each element in its reference structure, keyed by element) and refSER (per element: reference phase, mass, H298, S298; also /- and VA). The available sets are SGTE91 (78 elements, 339 lattice stabilities) and SR2016 (Cu and Mg only, with Einstein-type logarithmic terms in the low-temperature piece); users can add sets through a setuptools entry point."
+subject = "An element (refStable, refSER) or an (element, phase) pair (ref)."
+fields = [
+  { name = "lattice stability expression", meaning = "Gibbs energy of the element in a phase relative to the reference, piecewise in T with lower limits 298.15 K for most elements (200, 130 or 100 K for a few) and upper limits to 6000 K", unit = "not stated (inferred: J/mol)", shape = "function", role = "input" },
+  { name = "refStable expression", meaning = "energy of the element in its reference structure (the content of the GHSER function)", unit = "not stated (inferred: J/mol)", shape = "function", role = "input" },
+  { name = "refSER entry", meaning = "reference phase, mass, H298, S298 of the element", unit = "not stated (inferred: g/mol, J/mol, J/mol/K)", shape = "table", role = "input" },
+]
+origin = "SGTE91: Dinsdale 1991 (comment); SR2016: not stated"
+conventions = "The stable element reference: GHSER functions are created for each element as a Database symbol named GHSER + the first two letters of the symbol (the symbol letters are doubled for one-letter elements, so boron is GHSERBB) and set as the endmember energy basis; lattice-stability symbols are named G + the first three letters of the phase or alias name + the element symbol. The SER data fall back to SGTE91 when the chosen set lacks an element."
+absence = "An element missing in the chosen SER set falls back to the SGTE91 SER data, with a warning when neither has it; formation energies cannot then be fitted."
+validity = "T limits of each piece"
+provenance = "SGTE91 comment cites Dinsdale 1991; nothing for SR2016"
+count = "SGTE91Stable 78, SGTE91 339, SGTE91SER 80, SR2016Stable 2, SR2016 6"
+example = "espei/refdata.py:61-76"
+candidate = "a parameterization of standard_state_species parameter sets with an energy_reference of type stable_element_reference and element_reference rows"
+precision = "close"
+loss = "Both the data and the lattice-stability naming are conventions in code; a reference set is selected by attribute name; SER data mix mass and thermochemical reference data."
+
+[[construct]]
+name = "fitted parameter symbols and outputs"
+locator = "espei/paramselect.py:143-248 (get_next_symbol, insert_parameter); espei/utils.py:90-96 (sigfigs), :155-172 (database_symbols_to_fit); espei/optimizers/opt_base.py; espei/espei_script.py:236-245"
+meaning = "Parameter generation writes each fitted coefficient as a new Database symbol named VV followed by a zero-padded four-digit counter (VV0000, VV0001, ...), whose value is rounded to 6 significant figures, and inserts a PARAMETER whose expression multiplies each symbol by its temperature feature and, for interactions, by the composition feature and Redlich-Kister order; endmember G parameters also add site-ratio-weighted GHSER symbols; pure-element endmembers of phases with a known lattice stability get a G parameter equal to the number of moles times the lattice-stability symbol. After MCMC the database symbols are replaced by the optimum chain point; the trace (chains x iterations x parameters) and the log-probability (chains x iterations) are written with numpy.save to the files named in output."
+subject = "A fitted coefficient of a parameter in a phase at a constituent array and order."
+fields = [
+  { name = "symbol name", meaning = "VV####: no phase, array, order or feature is encoded; the link exists only in the PARAMETER expressions", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "symbol value", meaning = "coefficient rounded to 6 significant figures", unit = "not stated (inferred: J/mol times the feature's unit)", shape = "scalar", role = "computed" },
+  { name = "trace array", meaning = "all chain positions of the MCMC run", unit = "not applicable (parameter values)", shape = "table", role = "computed" },
+  { name = "lnprob array", meaning = "log prior plus log likelihood per chain and iteration", unit = "not applicable (log probability)", shape = "table", role = "computed" },
+]
+origin = "generated by ESPEI; the ESPEI version is logged but not written into the TDB"
+conventions = "Counter restarts at 0 for each phase and skips names already used; phases are fitted in alphabetical order so numbering is reproducible. The coefficient features are 1, T, T ln T, T^2, T^-1, T^3 of a G parameter (from the heat-capacity, entropy and enthalpy steps) multiplied by the composition features YS*Z^order for binary interactions and YS or YS*V_I, YS*V_J, YS*V_K for ternaries. The optimum written to the TDB is the highest-log-probability point in the trace (first unique maximum)."
+absence = "No covariance, no posterior summary, no link from a symbol to the datasets that determined it, and no record of the ridge alpha or penalty factors are written to the TDB."
+validity = "not applicable"
+provenance = "none in the output file; the TDB written by pycalphad carries a generation-date header"
+count = "not applicable (run output)"
+example = "espei/paramselect.py:143-158"
+candidate = "parameter_set rows (values) with derivation (kind fit) and fit (objective, outcome) plus slot_uncertainty where a posterior is kept"
+precision = "narrower"
+loss = "A mapping can only assign the fit derivation by supplying the datasets and settings separately; chain and covariance information has no slot except the fit record's objective and a dependency for the prior."
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "Parameter generation (feature sets and information criterion)"
+locator = "espei/paramselect.py:262-447 (fit_parameters, phase_fit, generate_parameters); espei/parameter_selection/fitting_steps.py; model_building.py; selection.py; redlich_kister.py; fitting_descriptions.py"
+class = "regression"
+inputs = "single-phase fixed-configuration datasets (HM, SM, CPM with _FORM or _MIX), the phase models, the reference data; data below 298.15 K removed"
+parameters = "per constituent array (endmember, binary or ternary interaction) and fitting step: selected feature coefficients; global: ridge_alpha, aicc_penalty_factor per phase and type"
+composes = [
+  { slot = "fitting step", accepts = "FittingStep objects: StepCPM (features T ln T, T^2, T^-1, T^3), StepSM (T), StepHM (1), StepV0 (1), StepLogVA (T, T^2, T^3, T^-1)", default = "gibbs_energy_fitting_description = [CPM, SM, HM] (molar-volume descriptions exist as alternatives)" },
+  { slot = "model class", accepts = "a pycalphad Model subclass that defines the fixed contributions", default = "pycalphad Model" },
+  { slot = "candidate builder", accepts = "successive temperature feature sets crossed with successive Redlich-Kister orders (L0 to L3 by default) or, for ternaries, a symmetric term and an asymmetric triple", default = "build_redlich_kister_candidate_models; switches to a simpler cross product above 1000 candidates" },
+  { slot = "selection", accepts = "ridge or ordinary least-squares fit plus the modified AICc", default = "ordinary least squares when ridge_alpha is null" },
+]
+variants = "excess_model: only linear; the order of steps matters because each step fits the residual left by the previous steps (fixed_portions); parameters already present in an input database are not refitted"
+equation_source = "docs/ and code comments: the modified AICc with a per-phase parameter penalty; the approach references the ESPEI paper (Bocklund et al. 2019, MRS Communications 9(2)) in docs/index.rst"
+closed_form = "procedural"
+data = "construct single-phase fixed-configuration dataset"
+
+[[model_family]]
+name = "Model scoring: ridge or least-squares fit and modified AICc"
+locator = "espei/parameter_selection/selection.py:10-128"
+class = "regression"
+inputs = "feature matrix, response vector, dataset weights used as sample weights"
+parameters = "ridge alpha; AICc penalty factor p (per phase and property); the number of features k; the number of points n"
+composes = []
+variants = "AICc = n ln(RSS/n) + 2pk plus a correction (2p^2k^2 + 2pk)/(n - pk - 1), replaced by a finite alternative when pk is at least n - 1; RSS below 1e-16 is set to 1e-16; an exact fit (score minus infinity) ends the search; the lowest score among candidates wins"
+equation_source = "described in the docstring (modified AICc); no citation"
+closed_form = "yes"
+data = "none bundled"
+
+[[model_family]]
+name = "MCMC optimisation"
+locator = "espei/optimizers/opt_mcmc.py:16-315; espei/priors.py; espei/error_functions/context.py; espei/error_functions/residual_base.py"
+class = "regression"
+inputs = "a Database with fittable symbols, datasets, phase models, priors, data weights"
+parameters = "symbols to fit, initial guess = the symbol values (first piece of a Piecewise); chains = number of parameters times chains_per_parameter; each chain starts from a normal draw with standard deviation |parameter| times chain_std_deviation (chain 0 is the exact initial guess); deterministic runs use fixed seeds 1769 and a stored random state"
+composes = [
+  { slot = "residual functions", accepts = "ResidualFunction objects registered in residual_function_registry: ZPFResidual, ActivityResidual, FixedConfigurationPropertyResidual, EquilibriumPropertyResidual", default = "all four registered" },
+  { slot = "prior", accepts = "PriorSpec (normal, uniform, triangular, zero) or a user object with logpdf, per parameter", default = "zero prior (ln p = 0, improper)" },
+  { slot = "scheduler", accepts = "a map-able object (dask client or scheduler file) or none", default = "dask local cluster" },
+]
+variants = "restart from a saved trace: the last iteration of each chain becomes the new start; lnprob = sum of prior log pdf + sum of the registered log-likelihoods; proposals with minus infinity prior skip the likelihood"
+equation_source = "Goodman and Weare 2010 affine-invariant ensemble sampler as implemented by emcee (Foreman-Mackey et al. 2013), cited in the class docstring"
+closed_form = "procedural"
+data = "all dataset constructs"
+
+[[model_family]]
+name = "ZPF likelihood (driving force to a target hyperplane)"
+locator = "espei/error_functions/zpf_error.py:1-449"
+class = "regression"
+inputs = "phase boundary datasets, current parameter values"
+parameters = "standard deviation 1000 J/mol divided by the ZPF data weight and the dataset weight"
+composes = []
+variants = "for each phase region: compute chemical potentials at each vertex with all phases active (skipped for unknown compositions and for stoichiometric-only vertices), take their mean as the target hyperplane, then for each vertex the driving force is the hyperplane dot product with the vertex composition minus the phase's energy at that composition (a max over sampled points when the composition is unknown; the disordered configuration when flagged); NaN hyperplane gives zero; infinite driving force returns minus infinity"
+equation_source = "docstring cites the PanOptimizer rough-search approach; Bocklund et al. 2019 (docs/index.rst)"
+closed_form = "procedural"
+data = "construct phase boundary (ZPF) dataset"
+
+[[model_family]]
+name = "Activity likelihood"
+locator = "espei/error_functions/activity_error.py:62-227"
+class = "regression"
+inputs = "activity datasets"
+parameters = "standard deviation 500 J/mol in chemical potential divided by the ACR data weight and the dataset weight"
+composes = []
+variants = "residual = computed chemical potential minus (R T ln a + reference-state chemical potential); reference computed by an equilibrium at reference_state.conditions; NaN likelihood returns minus infinity"
+equation_source = "not cited"
+closed_form = "procedural"
+data = "construct activity dataset"
+
+[[model_family]]
+name = "Fixed-configuration property likelihood"
+locator = "espei/error_functions/non_equilibrium_thermochemical_error.py:250-506"
+class = "regression"
+inputs = "single-phase datasets with output HM_FORM, SM_FORM, CPM_FORM, HM_MIX, SM_MIX or CPM_MIX"
+parameters = "standard deviations 500 J/mol (HM), 0.2 J/K/mol (SM and CPM), described as estimated from NIST TRC uncertainties, divided by the per-type data weight and the dataset weight"
+composes = []
+variants = "models are built with excluded contributions set to zero; _FORM properties are referenced to the pure elements in the TDB's ELEMENT reference phases (shift_reference_state), _MIX to the endmember reference model; no equilibrium is solved (a solver that does not iterate evaluates the properties at the dataset's site fractions); the query on output uses a substring test, so a bare output such as HM is matched by both the HM_FORM and HM_MIX groups (inferred from Python semantics of x in prop on a string; not executed)"
+equation_source = "std deviation comment cites NIST TRC"
+closed_form = "procedural"
+data = "construct single-phase fixed-configuration dataset"
+
+[[model_family]]
+name = "Equilibrium property likelihood"
+locator = "espei/error_functions/equilibrium_thermochemical_error.py:38-317"
+class = "regression"
+inputs = "equilibrium thermochemical datasets"
+parameters = "standard deviations 500 J/mol (HM), 0.2 J/K/mol (SM, CPM), other outputs 1.0, divided by data and dataset weights"
+composes = []
+variants = "an equilibrium is solved at each point; reference_states shift the property; any NaN or infinity difference gives minus infinity"
+equation_source = "not cited"
+closed_form = "procedural"
+data = "construct equilibrium thermochemical dataset"
+
+# ---------------------------------------------------------------------------
+# CONVENTIONS
+# ---------------------------------------------------------------------------
+
+[[convention]]
+name = "units and composition basis"
+locator = "docs/input_data.rst (Units); espei/error_functions/*"
+statement = "Energies J/mol-atom (per mole of atoms of the phase) and their derivatives, compositions mole fractions, temperature K, pressure Pa; parameter fitting converts to per mole of formula unit with the pycalphad site-ratio normalisation and back; activities are dimensionless; ZPF driving forces are J/mol."
+scope = "all datasets and residuals"
+
+[[convention]]
+name = "formation and mixing reference states"
+locator = "espei/error_functions/non_equilibrium_thermochemical_error.py:304-336; espei/parameter_selection/fitting_steps.py:103-173"
+statement = "_FORM quantities are relative to the pure elements in the reference phases named by the TDB ELEMENT statements at the same temperature, not relative to fixed 298.15 K values; in parameter generation the GHSER functions are set to zero so models are in the formation state. _MIX quantities are relative to the weighted endmembers of the phase. Absolute outputs (HM, SM, CPM without suffix) raise ValueError in the shift step of parameter generation and are not in the error function's list of properties."
+scope = "single-phase datasets and fits"
+
+[[convention]]
+name = "sublattice configuration encoding"
+locator = "espei/datasets.py:190-207; espei/sublattice_tools.py:1-128; docs/input_data.rst (Common Mistakes)"
+statement = "A configuration has one entry per sublattice of the phase; a single species name means no mixing on that sublattice, a list means mixing. A single-species sublattice in the phase model is a one-element list but a plain string in a configuration. Mixing lists must be alphabetically sorted; occupancies repeat the structure with 1 for non-mixing entries. Configurations are compared after canonicalisation: sublattices named equivalent are sorted together."
+scope = "solver blocks"
+
+[[convention]]
+name = "fixed standard deviations and weights"
+locator = "espei/error_functions/*.py; espei/parameter_selection/selection.py"
+statement = "Likelihoods are Gaussian with standard deviations: ZPF 1000 J/mol, activity 500 J/mol, HM 500 J/mol, SM and CPM 0.2 J/K/mol, each divided by the data-type weight from data_weights and by the dataset weight. In parameter generation the per-type values are not used; dataset weights act as sample weights in the regression. No per-point uncertainty field exists in the dataset format."
+scope = "MCMC and parameter generation"
+
+[[convention]]
+name = "symbol naming"
+locator = "espei/paramselect.py:143-158, :376-414; espei/database_utils.py:99-116; espei/utils.py:155-172"
+statement = "Fitted coefficients VV####; element reference functions GHSER plus two letters of the element symbol (letters doubled for one-letter symbols); lattice stabilities G plus three letters of the phase name plus the element. A symbol is fitted by default when it matches V or VV followed by digits."
+scope = "output TDB and MCMC parameter selection"
+
+[[convention]]
+name = "temperature limits and minimum temperature"
+locator = "espei/core_utils.py:48-70 (filter_temperatures); espei/refdata.py"
+statement = "Data with T below 298.15 K are discarded before fitting because the unary reference expressions are defined from 298.15 K for most elements; the docstring justifies this by saying pycalphad does not extrapolate outside piecewise temperature limits. The pinned pycalphad 0.11.2 extrapolates them by default (see discrepancies)."
+scope = "non-equilibrium thermochemical data"
+
+[[convention]]
+name = "random seeds"
+locator = "espei/optimizers/opt_mcmc.py (initialize_new_chains, _fit); espei/rstate.py"
+statement = "With deterministic set, chain initialisation uses a RandomState seeded 1769 and the sampler uses a stored Mersenne Twister state, so the same database and settings reproduce the same chains."
+scope = "MCMC"
+
+# ---------------------------------------------------------------------------
+# SELECTION
+# ---------------------------------------------------------------------------
+
+[[selection]]
+name = "candidate model selection by modified AICc"
+locator = "espei/parameter_selection/selection.py:95-128"
+rule = "Fit every candidate (successive features and Redlich-Kister orders), score with the modified AICc, keep the lowest; an exact fit ends the search."
+scope = "parameter generation per constituent array and step"
+documented = "yes (docstrings)"
+
+[[selection]]
+name = "which datasets each residual reads"
+locator = "espei/core_utils.py:282-305 (get_prop_data), espei/error_functions/*.py, espei/parameter_selection/fitting_steps.py"
+rule = "ZPF: output equal to ZPF with components within the system. Activity: output containing ACR. Fixed-configuration: a solver key, a phase list equal to [phase], and the output matched with a substring test against each of HM_FORM, SM_FORM, CPM_FORM, HM_MIX, SM_MIX, CPM_MIX. Equilibrium: no solver key, output not ZPF, not containing ACR, DIFF or TRACER. Parameter generation: the output must equal one of step data type plus a supported suffix (exact list membership)."
+scope = "which data enter which fit"
+documented = "partly: the docs state the supported outputs as CPM*, SM*, HM* with * nothing, _MIX or _FORM"
+
+[[selection]]
+name = "reference state and SER fallback"
+locator = "espei/database_utils.py:33-116"
+rule = "Use the named set's refSER entry for each element; when missing use SGTE91's; do not overwrite reference states already in an input database."
+scope = "element reference data in generated databases"
+documented = "yes (docstring)"
+
+[[selection]]
+name = "optimal parameter point"
+locator = "espei/utils.py:98-152 (optimal_parameters)"
+rule = "The parameter vector written to the TDB is the chain point with the highest log probability (the first unique one); the rest of the trace is not used."
+scope = "MCMC output"
+documented = "yes (docstring)"
+
+[[selection]]
+name = "existing parameters in an input database"
+locator = "espei/paramselect.py:59-70, :300-312"
+rule = "A parameter type already present in the input database for a constituent array is not generated again (an L counts as present for a G of an interaction)."
+scope = "parameter generation"
+documented = "yes (trace messages)"
+
+# ---------------------------------------------------------------------------
+# DISCREPANCIES
+# ---------------------------------------------------------------------------
+
+[[discrepancy]]
+locator = "docs/input_data.rst (Phase Descriptions) versus espei/refdata.py and docs/writing_input.rst"
+documented = "input_data.rst says the reference state is a string for a dictionary in a reference module and only SGTE91 is implemented"
+actual = "refdata.py defines SGTE91 and SR2016, and writing_input.rst lists both; the reference state is chosen by generate_parameters.ref_state in the YAML, not by the refdata key of the phase-model JSON, which no code reads."
+consequence = "The refdata key in the 5 old phase-model files of espei_datasets has no effect; the reference-state choice is a run setting, not a property of the phase models."
+
+[[discrepancy]]
+locator = "docs/writing_input.rst (ridge_alpha) versus espei/input-schema.yaml and espei/parameter_selection/selection.py:10-40"
+documented = "ridge_alpha default 1.0e-100"
+actual = "the schema default is null and null selects ordinary least squares (LinearRegression), not ridge regression"
+consequence = "Fits that rely on the stated default are unregularised; the recorded setting of a run is null, not 1e-100."
+
+[[discrepancy]]
+locator = "docs/input_data.rst (Non-equilibrium Thermochemical Data) versus espei/error_functions/non_equilibrium_thermochemical_error.py:311-315 and espei/parameter_selection/fitting_steps.py:103-173"
+documented = "currently only CPM*, SM* and HM* are supported, where * is nothing, _MIX or _FORM"
+actual = "the error function lists only the six suffixed properties and the regression steps read only _MIX and _FORM (bare HM, SM, CPM raise ValueError in the shift step); by the query in get_prop_data (substring test on a string) a bare HM, SM or CPM dataset is matched by both the _FORM and _MIX groups of the error function, and SM_EX_FORM matches none."
+consequence = "In espei_datasets 10 of 114 single-phase datasets (HM 3, SM 3, CPM 3, SM_EX_FORM 1; 2157 data points for the bare outputs) have outputs that the error function's property list does not contain; whether they enter the MCMC likelihood, and twice, depends on the substring behaviour (inferred from Python semantics, not executed)."
+
+[[discrepancy]]
+locator = "docs/input_data.rst (Equilibrium Thermochemical Data) versus espei/error_functions/equilibrium_thermochemical_error.py:126-140"
+documented = "only activity data are supported at the moment for equilibrium thermochemical data"
+actual = "the equilibrium residual accepts any dataset without a solver key whose output is not ZPF, ACR, DIFF or TRACER; activity datasets are handled by a separate residual."
+consequence = "Equilibrium thermochemical datasets beyond activity are consumed by the code although the docs say they are not."
+
+[[discrepancy]]
+locator = "docs/writing_input.rst (symbols) versus espei/utils.py:155-172"
+documented = "by default any symbol following the pattern VV followed by digits is optimised"
+actual = "the default regular expression is ^V[V]?([0-9]+)$, so V followed by digits also matches"
+consequence = "A database symbol such as V0001 is fitted by default; naming collisions with other V-symbols are possible."
+
+[[discrepancy]]
+locator = "espei/core_utils.py:48-70 (filter_temperatures docstring) versus pycalphad/model.py:215-217 and :329-366 (pinned pycalphad 0.11.2)"
+documented = "the docstring says pycalphad does not extrapolate outside piecewise temperature limits, which is why data below 298.15 K are filtered"
+actual = "in pycalphad 0.11.2 Model.extrapolate_temperature_bounds is True by default and unwrap_piecewise widens the first and last pieces to negative and positive infinity; the filter still removes data below 298.15 K."
+consequence = "The filter excludes data that the pinned library would evaluate with an extrapolated expression; which pycalphad version ESPEI 0.9.1 targets is not stated in the files read."
+
+[[discrepancy]]
+locator = "docs/writing_input.rst (approximate_equilibrium) versus espei/optimizers/opt_mcmc.py"
+documented = "approximate_equilibrium is described as a setting that speeds up ZPF likelihood evaluation"
+actual = "a DeprecationWarning says it is deprecated and will be removed in ESPEI 0.10"
+consequence = "The setting is carried by the schema but should not be mapped as a supported option."
+
+# ---------------------------------------------------------------------------
+# CAPABILITIES
+# ---------------------------------------------------------------------------
+
+[[capability]]
+calculation = "parameter_regression"
+offered = "yes"
+scope = "two stages: generate_parameters (linear regression of fixed-configuration CPM, SM and HM formation or mixing data to Redlich-Kister temperature-polynomial parameters of linear excess models, selected by modified AICc) and MCMC (Bayesian estimation of the generated symbols against ZPF, activity, fixed-configuration and equilibrium thermochemical data); the model form is a pycalphad Model (compound energy formalism); molar-volume fitting steps exist for V0 and VA"
+locator = "espei/paramselect.py; espei/optimizers/opt_mcmc.py; espei/espei_script.py"
+evidence = "source_inspected"
+
+# ---------------------------------------------------------------------------
+# QUESTIONS
+# ---------------------------------------------------------------------------
+
+[[question]]
+about = "bare HM, SM and CPM outputs and SM_EX_FORM"
+question = "Do datasets with outputs HM, SM and CPM without suffix enter the MCMC likelihood (and as both formation and mixing data) through the substring query, and is SM_EX_FORM used anywhere? Both answers are inferred from reading, not from running the code."
+why_it_matters = "It decides whether 10 datasets with 2157 bare-output points have a stated meaning (formation versus absolute) and a fit role, or are unused evidence."
+
+[[question]]
+about = "SR2016 origin"
+question = "refdata.py gives no source for SR2016 (an Einstein-form reference for Cu and Mg) and the docs say only that it is supported for certain elements. What is its origin and datum?"
+why_it_matters = "An energy_reference needs its datum and provenance; the set cannot be attributed from the files."
+
+[[question]]
+about = "SGTE91 label versus content"
+question = "The SGTE91SER entries equal the ELEMENT lines of the later unary v5.0 file in all 80 entries, including two reference phase names that are not declared phases there, while some GHSER constants differ from v5.0. Are SER data in SGTE91 a later table than the energy expressions?"
+why_it_matters = "Two related reference sets with one name would need two energy_reference records or one with a stated mixed origin."
+
+[[question]]
+about = "uncertainty and posterior"
+question = "Only the optimum point and the raw chains are kept and the standard deviations are fixed per data type, not per point. Is there any stored uncertainty or covariance that the survey should preserve from a run?"
+why_it_matters = "The model's fit and slot_uncertainty records have nothing to hold unless a run's chains are acquired separately."
+
+[[question]]
+about = "docs tutorial files"
+question = "docs/cu-mg-example.rst describes a tutorial run with input datasets and the outputs cu-mg_dft.tdb and cu-mg_mcmc.tdb, but the pinned tree holds none of these files (datasets live in the ESPEI-datasets repository and small TDB texts in tests/testing_data.py). Is a tutorial run output to be acquired from another source?"
+why_it_matters = "The fit output (TDB with VV symbols) has no acquired instance in the raw store to survey."

@@ -1,0 +1,32 @@
+id = "archive_source"
+title = "Fixture archive_source"
+tier = "A"
+homepage = "https://example.org/archive_source"
+waves = [1, 2]
+notes = "A valid fixture manifest."
+
+[acquire]
+kind = "archive"
+url = "https://example.org/data.tar.gz"
+sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+doi = "10.1234/example"
+extract = true
+
+[payload]
+reader = "plain"
+environment = "core"
+include = ["data/*.json"]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "MIT"
+statement = "LICENSE file, MIT."
+url = "https://example.org/LICENSE"
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 from the LICENSE file"

@@ -1,0 +1,271 @@
+source = "espei_datasets"
+pin = "e3b536426e20"
+surveyed = "2026-09-30"
+summary = "ESPEI-datasets (commit e3b53642, licensed CC-BY-4.0) is a data-only repository of 215 active ESPEI JSON datasets for 34 binary and ternary metal systems (94 phase-boundary ZPF datasets with 1625 phase regions, 114 single-phase fixed-configuration thermochemical datasets, 7 activity datasets), 4 disabled files, 5 old phase-model JSON files, a BibTeX file of 73 entries and a contributors list; it carries no equilibrium thermochemical datasets, no uncertainty or weight fields, no unary systems (the README example paths name a 1-unary directory that is absent), no tags and no author or bibtex keys although the README requires them, and 10 of its 114 single-phase datasets use output names that the ESPEI error function's property list does not contain."
+
+# ---------------------------------------------------------------------------
+# PAYLOADS
+# ---------------------------------------------------------------------------
+
+[[payload]]
+paths = ["datasets/**/*.json"]
+format = "ESPEI dataset JSON, one object per file; directory layout datasets/<n>-<name>/<system>/<kind>/[<phase>/<property>/]<file>.json with <name> binary or ternary, <system> sorted element symbols, <kind> one of zpf, non-equilibrium-thermochemical, activity; file names follow SYSTEM-OUTPUT-PHASE-reference; 34 of the 215 names contain spaces"
+files = 215
+bytes = 321934
+records = "215 dataset objects: zpf 94, non-equilibrium-thermochemical 114, activity 7 (by directory); 186 in 2-binary and 29 in 3-ternary; 185 datasets with two non-VA components and 30 with three; 34 systems. Datasets per system (kind counts): Al-Co non-eq 3; Al-Co-Cr non-eq 5 zpf 2; Al-Co-Mo zpf 1; Al-Co-Nb zpf 1; Al-Co-Ni zpf 1; Al-Co-Ta zpf 1; Al-Co-W zpf 1; Al-Cr non-eq 5; Al-Ni non-eq 39 zpf 7; Al-V non-eq 13; Co-Cr non-eq 5 zpf 1; Co-Cr-Ni zpf 1; Co-Ni-V zpf 1; Cr-Fe zpf 3; Cr-Fe-Mo zpf 2; Cr-Fe-Ti zpf 4; Cr-Nb zpf 1; Cr-Ni activity 5 non-eq 7 zpf 10; Cr-Pd zpf 1; Cr-Pt zpf 1; Cr-Ta zpf 1; Cr-Ti-V zpf 6; Cr-V activity 1 non-eq 5 zpf 2; Cu-Fe zpf 1; Cu-Mg activity 1 non-eq 21 zpf 7; Cu-Ti zpf 1; Fe-Mn zpf 2; Fe-Mn-Ti zpf 1; Fe-Ni zpf 1; Fe-Ni-V zpf 2; Fe-Ti zpf 8; Fe-V zpf 2; Ni-V non-eq 8 zpf 14; Ti-V non-eq 3 zpf 7. Counted by json.load of every file and the path components."
+reader = "ESPEI's own load_datasets in espei/datasets.py (see the espei survey), driven by recursive_glob with the pattern *.json; espei --check-datasets datasets is the repository's CI check (.github/workflows/check.yaml); a plain JSON parser reads every file"
+read_by_source = "all"
+notes = "Distinct output values with counts (215 datasets): ZPF 94, HM_FORM 47, HM_MIX 33, SM_FORM 20, ACR_CR 6, CPM 3, HM 3, SM 3, CPM_FORM 2, SM_MIX 2, SM_EX_FORM 1, ACR_MG 1 (12 values). Data points (number of values): ZPF 1625 phase regions; HM 697, SM 763, CPM 697 (bare outputs); HM_FORM 331, HM_MIX 272, SM_FORM 218, CPM_FORM 188, SM_EX_FORM 12, SM_MIX 2; ACR_CR 74, ACR_MG 10. Top-level keys and counts: components 215, phases 215, conditions 215, output 215, values 215, reference 215, comment 160, solver 114, broadcast_conditions 93 (all false), reference_state 21 (14 the string SGTE91 on HM_FORM 8, SM_FORM 3, CPM_FORM 2, SM_EX_FORM 1; 7 dicts on the activity datasets), plot 1; no dataset has weight, tags, disabled, excluded_model_contributions, bibtex or author. Conditions: P is an integer in all 215 (101325); T is a list in 93 ZPF and 15 other datasets, a scalar elsewhere (62 floats, 44 integers, 1 scalar ZPF); X_CR in 6 and X_CU in 1 activity datasets. 62 datasets list VA among their components. 114 single-phase datasets have exactly one phase, a solver with mode manual, 474 sublattice configurations in all, and 1 to 5 sublattices (1 sublattice 28, 2 43, 3 24, 4 2, 5 17); sublattice_occupancies in 52 and solver comment in 22. Most frequent single-phase phases: BCC_B2 20, FCC_L12 17, BCC_A2 15, LIQUID 12, FCC_A1 7, SIGMA_D8B 6, LAVES_C15 6, AL3NI2 5, HCP_A3 4, CUMG2 4. ZPF datasets name 30 distinct phases in their phases lists; 5 ZPF datasets use tie-line phase names that their phases list lacks (LIQUID in 2 files, BCC_B2 in 2, BCC_A3 in 1 and LAVES_36 in 1 whose list has LAVES_C36), which check_dataset accepts because it only requires every entered phase to be used."
+
+[[payload]]
+paths = ["datasets/**/*.json.disabled", "datasets/**/*.json.disable"]
+format = "dataset JSON files renamed so the *.json glob skips them"
+files = 4
+bytes = 2780
+records = "4 files (2 with extension .disabled, 2 with .disable): one ZPF (Al-Ni liquidus), two HM_FORM, one HM_MIX"
+reader = "not loaded by ESPEI (extension); a plain JSON parser reads them"
+read_by_source = "none"
+notes = "None of the 4 carries the disabled key that ESPEI's loader honours: disabling in this repository is done by file name, and with two different spellings."
+
+[[payload]]
+paths = ["old-phase-models/*.json"]
+format = "phase-model JSON files (components, refdata, phases with sublattice_model, sublattice_site_ratios, optional equivalent_sublattices and aliases)"
+files = 5
+bytes = 3474
+records = "5 files: Al-Ni-input, Al-V-phases, CR-NI_phases, Cr-V-input, Cu-Mg-input"
+reader = "ESPEI's phase_models.PhaseModelSpecification and extract_aliases (see the espei survey); a plain JSON parser"
+read_by_source = "all"
+notes = "All 5 contain the top-level key refdata (SGTE91 in Al-Ni), which ESPEI does not read."
+
+[[payload]]
+paths = ["references.bib"]
+format = "BibTeX"
+files = 1
+bytes = 48063
+records = "73 entries (article 69, phdthesis 1, book 1, misc 1, techreport 1) with 71 distinct keys (two keys occur twice: zhang2014impurity, watson1995enthapies); 37 entries have a doi field; counted by regular expression on '@type{key,'"
+reader = "any BibTeX parser; ESPEI reads none of it (datasets carry the reference as a plain string)"
+read_by_source = "none"
+notes = "148 of the 215 datasets have a reference string equal to a key in this file (56 distinct keys used of 71); 67 datasets, with 31 distinct strings including one empty string, have a free-text reference such as a name, year and method (C. Jiang 2009 (relaxed SQS)) or a key not in the file (garg1973thermodynamic)."
+
+[[payload]]
+paths = [
+  "CONTRIBUTORS",
+  "README.md",
+  "LICENSE",
+  ".gitignore",
+  ".github/workflows/check.yaml",
+]
+format = "CONTRIBUTORS: semicolon-separated text (header line 'Contributor, Email, Systems' then a blank line and 5 lines of name; email; systems list); README.md: contribution and layout instructions; LICENSE: Creative Commons Attribution 4.0 International legal text; workflow: one job running espei --check-datasets"
+files = 5
+bytes = 21306
+records = "5 contributors; 1 licence; 1 workflow"
+reader = "plain text"
+read_by_source = "none"
+notes = "README states that contributed data are licensed CC-BY-4.0; the ESPEI documentation (docs/cu-mg-example.rst) says the data may be used, commercialised or reused freely under that licence."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS (as found in the data; the schema is in the espei survey)
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "phase boundary (ZPF) dataset file"
+locator = "datasets/*/*/zpf/*.json; schema in espei survey (espei/datasets.py:124-188)"
+meaning = "A set of phase regions at temperatures from one publication, for one system, in the ESPEI ZPF form: output ZPF, conditions P (101325) and T (a list with one temperature per phase region, in 93 files; a scalar in 1), values a list of phase regions each a list of tie-line points [phase, components, compositions]."
+subject = "A phase region at a temperature: the phases in equilibrium with their known compositions."
+fields = [
+  { name = "components", meaning = "element symbols, upper case, sometimes with VA", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "phases", meaning = "phase names entered in the dataset", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "conditions.T", meaning = "temperature of each region", unit = "K (docs)", shape = "list", role = "input" },
+  { name = "conditions.P", meaning = "pressure, 101325 in all files", unit = "Pa (docs)", shape = "scalar", role = "input" },
+  { name = "values", meaning = "phase regions; tie-line point compositions may be null (983 null points); 7 points carry a fourth entry 'disordered'", unit = "mole fraction", shape = "list", role = "input" },
+  { name = "reference", meaning = "source label", unit = "not applicable (text)", shape = "reference", role = "metadata" },
+  { name = "broadcast_conditions", meaning = "present with value false in 93 of the 94 ZPF files (and in one disabled file); not read by ESPEI", unit = "not applicable (flag)", shape = "scalar", role = "unread" },
+  { name = "comment", meaning = "note, present in some files", unit = "not applicable (text)", shape = "scalar", role = "unread" },
+]
+origin = "digitised from phase-diagram publications (the reference field names them); the digitiser, method and date are not stated; contributors listed in CONTRIBUTORS by system, not by dataset"
+conventions = "Tie-line points give compositions for all but one component; regions: 2 phases 1565, 3 phases 36, 1 phase 24; sum of known fractions at most 1; no __HYPERPLANE__ meta-phase is used."
+absence = "null composition: unknown, estimated by ESPEI; the dataset distinguishes null from zero. Missing weight: 1.0 (no dataset sets one)."
+validity = "temperatures of the regions; no range statement"
+provenance = "reference string per dataset (a BibTeX key in part of the files); file name repeats it"
+count = "94 datasets, 1625 phase regions, 3262 tie-line points (3255 with three entries, 7 with four)"
+example = "datasets/2-binary/Al-Ni/zpf/AL-NI-ZPF-AL3NI2-BCC_B2-37ALE.json"
+candidate = "dataset (kind measured) of phase-equilibrium points with dataset_phase per phase, composition columns and constraint T, P; data_point and datum rows"
+precision = "broader"
+loss = "null compositions, the implied dependent component, the disordered flag and tie-line grouping need typed column and group constructs; per-point uncertainty is absent in the source."
+
+[[construct]]
+name = "single-phase thermochemical dataset file"
+locator = "datasets/*/*/non-equilibrium-thermochemical/<phase>/<property>/*.json; schema in espei survey (espei/datasets.py:84-95, :118-123)"
+meaning = "A property of one phase at listed sublattice configurations and site occupancies, from first-principles calculations or experiments: output among HM_FORM 47, HM_MIX 33, SM_FORM 20, CPM 3, HM 3, SM 3, CPM_FORM 2, SM_MIX 2, SM_EX_FORM 1; solver block (mode manual, site ratios, configurations, occupancies in 52 files); conditions T (list or scalar) and P; values of shape (1, number of T, number of configurations)."
+subject = "One phase and a set of (sublattice configuration, occupancy, temperature) points."
+fields = [
+  { name = "solver.sublattice_configurations", meaning = "strings for non-mixing sublattices and alphabetically sorted lists for mixing ones", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "solver.sublattice_occupancies", meaning = "site fractions in the configurations' shape", unit = "not applicable (fraction)", shape = "list", role = "input" },
+  { name = "solver.sublattice_site_ratios", meaning = "site ratios of the phase's sublattices", unit = "not applicable (count of sites)", shape = "list", role = "input" },
+  { name = "values", meaning = "property values", unit = "J/mol-atom (HM), J/K/mol-atom (SM, CPM) per ESPEI docs", shape = "table", role = "input" },
+  { name = "reference_state", meaning = "string SGTE91 on 14 datasets (HM_FORM 8, SM_FORM 3, CPM_FORM 2, SM_EX_FORM 1); not read by ESPEI for these datasets", unit = "not applicable (text)", shape = "scalar", role = "unread" },
+  { name = "plot", meaning = "one dataset carries a plot styling dictionary", unit = "not applicable (text)", shape = "table", role = "unread" },
+]
+origin = "first-principles calculations (DFT, SQS, OQMD in references or file names) and calorimetry, per reference; some datasets are estimates (file names say est. or estimate)"
+conventions = "FORM: formation from the elements; MIX: relative to endmembers; bare HM, SM and CPM outputs (9 files) and SM_EX_FORM (1 file) are not among the properties the ESPEI error function lists (see the espei survey discrepancies). Mixing configurations have ideal mixing removed per the ESPEI docs."
+absence = "No excluded_model_contributions in any file: the DFT data are not flagged to drop the ideal mixing or magnetic contribution through the dataset, only (in the ESPEI docs) through tags, and no dataset carries tags."
+validity = "temperatures of the values; values below 298.15 K are discarded by ESPEI"
+provenance = "reference string, file name and comment"
+count = "114 datasets, 474 configurations; points: HM 697, SM 763, CPM 697, HM_FORM 331, HM_MIX 272, SM_FORM 218, CPM_FORM 188, SM_EX_FORM 12, SM_MIX 2"
+example = "datasets/2-binary/Al-Ni/non-equilibrium-thermochemical/BCC_B2/CPM/AL-NI-CPM-BCC_B2-Yi Wang et al 2009.json"
+candidate = "dataset (kind computed or measured) with dataset_phase, a column for the constituent array and site fractions, property columns with observable and reference relation formation or mixing"
+precision = "close"
+loss = "Configuration and occupancy are model internals with no native column; the reference (formation) state is implied and the string reference_state is informational."
+
+[[construct]]
+name = "activity dataset file"
+locator = "datasets/2-binary/{Cr-Ni,Cr-V,Cu-Mg}/activity/*.json; schema in espei survey (espei/error_functions/activity_error.py)"
+meaning = "Measured activity of one component at one temperature: output ACR_CR (6 files) or ACR_MG (1), phases (BCC_A2 or LIQUID), conditions P, scalar T (1073.15 to 1550 K), X_CR or X_CU list, values shape (1, 1, number of compositions), and a reference_state dict of phases and the conditions of the reference (the pure component)."
+subject = "One component in a binary at a temperature and compositions."
+fields = [
+  { name = "reference_state", meaning = "dict {phases, conditions} with P, T and the composition of the pure reference (X_CR 1.0 or X_CU 0.0)", unit = "Pa, K, mole fraction", shape = "table", role = "input" },
+  { name = "values", meaning = "activities", unit = "dimensionless", shape = "table", role = "input" },
+]
+origin = "digitised from publications named in reference"
+conventions = "Five Cr-Ni files are split by temperature (one per file, file names ending -0 to -3 and one without suffix)."
+absence = "not applicable"
+validity = "the single temperature"
+provenance = "reference and comment (the Cu-Mg file's comment describes the digitisation)"
+count = "7 datasets, 84 values (ACR_CR 74, ACR_MG 10)"
+example = "datasets/2-binary/Cu-Mg/activity/CU-MG-ACR_MG-LIQUID-garg1973thermodynamic.json"
+candidate = "dataset with an activity observable and a standard_state constraint column"
+precision = "close"
+loss = "as in the espei survey"
+
+[[construct]]
+name = "references.bib entry"
+locator = "references.bib"
+meaning = "A BibTeX entry keyed by a mnemonic (for example King1964, a lower-case key with author year and title words): author, title, journal, year, volume, pages, and in 37 entries a doi; some entries carry abstracts and keywords."
+subject = "One publication."
+fields = [
+  { name = "key", meaning = "entry key matched against a dataset's reference string", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "doi", meaning = "DOI where present", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+]
+origin = "exported from a reference manager (field names and formatting such as double braces suggest it, inferred)"
+conventions = "none stated"
+absence = "a dataset whose reference is free text or an unlisted key has no entry"
+validity = "not applicable"
+provenance = "none"
+count = "73 entries, 71 distinct keys"
+example = "references.bib:1"
+candidate = "publication (source) with doi and citation"
+precision = "exact"
+loss = "none for the entry; the link from dataset to publication is a string equality that holds for 148 of 215 datasets."
+
+[[construct]]
+name = "old phase-model file"
+locator = "old-phase-models/*.json; schema in espei survey (phase models JSON)"
+meaning = "The phase-model JSON of five early ESPEI runs (Al-Ni, Al-V, Cr-Ni, Cr-V, Cu-Mg) with sublattice models, site ratios, equivalent sublattices and aliases (for example BCC_B2 with alias BCC_A2 and sublattices 0 and 1 equivalent)."
+subject = "A chemical system and its phases."
+fields = [
+  { name = "refdata", meaning = "reference state name, for example SGTE91", unit = "not applicable (text)", shape = "scalar", role = "unread" },
+  { name = "phases", meaning = "phase name to sublattice model, site ratios, equivalent sublattices, aliases", unit = "not applicable (text)", shape = "table", role = "input" },
+]
+origin = "authored"
+conventions = "as in the espei survey"
+absence = "no file for most of the 34 systems: only 5 systems have a phase-model file, so the sublattice models of the other datasets' phases are not stated in this repository"
+validity = "not applicable"
+provenance = "none"
+count = "5 files"
+example = "old-phase-models/Al-Ni-input.json"
+candidate = "chemical_system with phase_definition and site_class rows"
+precision = "close"
+loss = "aliases and equivalent sublattices encode order-disorder and symmetry relations."
+
+[[construct]]
+name = "directory organisation and naming"
+locator = "README.md; datasets/"
+meaning = "Datasets are organised for humans as datasets/<number components>/<elements sorted alphabetically>/<data type>/<optional data-type-specific levels>/<JSON files>; ESPEI flattens the tree. This pin has only 2-binary and 3-ternary at the first level; the data types are zpf, non-equilibrium-thermochemical and activity, with non-equilibrium data further split by phase and property directory."
+subject = "The repository."
+fields = [
+  { name = "path components", meaning = "component count, system, data type, phase, property", unit = "not applicable (text)", shape = "list", role = "metadata" },
+]
+origin = "authored"
+conventions = "file names repeat the system, output, phase and reference and can contain spaces and parentheses (34 files)"
+absence = "not applicable"
+validity = "not applicable"
+provenance = "none"
+count = "34 systems, 3 data-type directories"
+example = "datasets/2-binary/Al-Ni/"
+candidate = "none (layout only)"
+precision = "unmapped"
+loss = "The layout is metadata that a mapping may use for dataset grouping but has no attribute meaning."
+
+# ---------------------------------------------------------------------------
+# CONVENTIONS
+# ---------------------------------------------------------------------------
+
+[[convention]]
+name = "units and bases in the data"
+locator = "README.md; espei survey (docs/input_data.rst)"
+statement = "No unit appears in the dataset files. By the ESPEI documentation: energies J/mol-atom, entropy and heat capacity J/K/mol-atom, compositions mole fractions, T in K, P in Pa (101325 in all files), activity dimensionless."
+scope = "all datasets"
+
+[[convention]]
+name = "formation, mixing and absolute property names"
+locator = "datasets/**/non-equilibrium-thermochemical/"
+statement = "Output suffix _FORM means formation, _MIX mixing, no suffix an absolute value (HM, SM, CPM in 9 files, apparently DFT series for Al-Ni BCC_B2 and FCC_L12 by the file names 'Yi Wang et al 2009' and 'Shunli DFT calculations (2010)'), and SM_EX_FORM one estimated excess formation entropy; the meaning of the bare outputs (formation or absolute) is not stated in the files."
+scope = "single-phase datasets"
+
+[[convention]]
+name = "reference field"
+locator = "datasets/**/*.json (reference key); references.bib"
+statement = "reference is a string that is sometimes a key of references.bib (148 datasets), sometimes free text with author, year and method, and once empty; no DOI or BibTeX type is carried in the dataset."
+scope = "all datasets"
+
+[[convention]]
+name = "disabling a dataset"
+locator = "datasets/**/*.json.disabled, *.json.disable; espei/datasets.py (disabled key)"
+statement = "Datasets are disabled by renaming the file with a .disabled or .disable extension (4 files); the JSON key disabled, which ESPEI honours, is not used."
+scope = "the repository"
+
+# ---------------------------------------------------------------------------
+# DISCREPANCIES
+# ---------------------------------------------------------------------------
+
+[[discrepancy]]
+locator = "README.md (contribution steps) versus datasets/**/*.json"
+documented = "each dataset must have a BibTeX citation key in a bibtex key and the contributor's name in an author key"
+actual = "no dataset has a bibtex or author key; all 215 have a reference key, which in 148 cases equals a references.bib key and in 67 is free text or an unlisted key."
+consequence = "Authorship and citation linkage cannot be read from keys; ESPEI does not read either key."
+
+[[discrepancy]]
+locator = "README.md (layout examples) versus the datasets directory"
+documented = "examples datasets/1-unary/Al/non-equilibrium-thermochemical/HM/..., datasets/2-binary/Al-Ni/zpf/..., datasets/2-binary/Al-Ni/equilibrium-thermochemical/SM/..."
+actual = "there is no 1-unary directory and no equilibrium-thermochemical directory in the pinned tree; Al-Ni has only non-equilibrium-thermochemical and zpf directories."
+consequence = "No unary datasets and no equilibrium thermochemical datasets exist at this pin."
+
+[[discrepancy]]
+locator = "datasets/3-ternary/Cr-Fe-Ti/zpf/CR-FE-TI-ZPF-BCC_A2-LAVES-LAVES_C36-TAU-Zeng2017investigationof_phase_equilibria.json and 4 other ZPF files"
+documented = "a ZPF dataset's phases list names the phases of the dataset"
+actual = "tie-line points use phase names absent from the list in 5 files (LIQUID in 2, BCC_B2 in 2, BCC_A3 in 1, LAVES_36 in 1 where the list has LAVES_C36; one file has two such names); the ESPEI check only verifies that every entered phase is used."
+consequence = "Phase names in tie-line points cannot be resolved against the phases list alone; LAVES_36 may be a variant spelling of LAVES_C36 and BCC_A3 of BCC_A2 (neither is stated)."
+
+# ---------------------------------------------------------------------------
+# QUESTIONS
+# ---------------------------------------------------------------------------
+
+[[question]]
+about = "bare HM, SM and CPM datasets"
+question = "The 9 datasets with bare HM, SM and CPM outputs hold 2157 points as temperature series at fixed configurations (DFT-like). Are they formation quantities, absolute values or mixing values?"
+why_it_matters = "The observable's reference relation (formation, absolute, mixing) is part of the model's observable identity and is not stated."
+
+[[question]]
+about = "provenance of digitised and computed data"
+question = "Which datasets are digitised from figures, which are calculations and which are estimates (file names and references hint at it), and who digitised them (CONTRIBUTORS lists systems per person only)?"
+why_it_matters = "The origin role (published, computed, estimated) of each dataset is required by the model's derivation rules, and no field states it."
+
+[[question]]
+about = "phase models for most systems"
+question = "Only 5 old phase-model files exist for 34 systems. Where are the sublattice models and site ratios of the other phases (SIGMA_D8B, LAVES_C15, CUMG2, ...) declared for these datasets?"
+why_it_matters = "A configuration in a dataset can only be interpreted against a phase's sublattice model, which this source does not supply for most phases."
+
+[[question]]
+about = "terms of use of the underlying publications"
+question = "The repository's own contributions are CC-BY-4.0, but many datasets are transcriptions of published figures and tables whose original terms are not addressed. Does the CC-BY-4.0 licence of the repository settle rights for those transcriptions?"
+why_it_matters = "Rights determinations attach to the carrier and to parts of it; the statement covers contributed data as a whole and records nothing per dataset."

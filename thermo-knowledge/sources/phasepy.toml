@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "phasepy"
+title = "PhasePy"
+tier = "A"
+homepage = "https://github.com/gustavochm/phasepy"
+waves = [3, 8]
+notes = "Four UNIFAC workbooks; everything else is model code."
+
+[acquire]
+kind = "git"
+url = "https://github.com/gustavochm/phasepy.git"
+commit = "f0406a40973bdad74935e39d1cb917bafa7567a5"
+tag = "v0.0.56"
+submodules = []
+sparse = []
+
+[payload]
+reader = "phasepy"
+environment = "core"
+include = ["phasepy/database/*.xlsx"]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "MIT"
+statement = "LICENSE.txt: MIT."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"
+
+[[rights]]
+scope = "phasepy/database/*.xlsx"
+basis = "not_stated"
+statement = "The Dortmund tables (dortmund-2018, dortmund-2021) originate from DDB consortium publications. No separate statement."
+store = "yes"
+redistribute = "not_stated"
+commercial = "not_stated"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

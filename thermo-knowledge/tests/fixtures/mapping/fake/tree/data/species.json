@@ -1,0 +1,8 @@
+[
+  {"name": "Ethanol", "cas": "64-17-5", "inchikey": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N", "placeholder": "N/A", "aliases": ["EtOH", "alcohol"]},
+  {"name": "Water", "cas": "7732-18-5", "inchi": "InChI=1S/H2O/h1H2", "placeholder": "?", "aliases": []},
+  {"name": "Mystery", "cas": "MYSTERY.PPF", "placeholder": "N/A", "aliases": ["x"]},
+  {"name": "Conflicted", "inchikey": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N", "inchi": "InChI=1S/H2O/h1H2", "aliases": []},
+  {"name": "Plain", "inchikey": "VNWKTOKETHGBQD-UHFFFAOYSA-N", "aliases": []},
+  {"name": "Lonely", "inchikey": "QGZKDVFQNNGYKY-UHFFFAOYSA-N", "aliases": []}
+]

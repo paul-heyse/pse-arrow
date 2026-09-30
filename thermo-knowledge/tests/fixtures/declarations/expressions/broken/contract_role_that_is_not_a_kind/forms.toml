@@ -1,0 +1,9 @@
+module = "expr_case"
+uses = ["physical", "identity", "exprtypes"]
+doc = "A broken expression case."
+
+[contracts.vp]
+doc = "Saturation pressure of one species."
+roles.i = { type = "Temperature", doc = "The species." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+outputs.p = { type = "Pressure", doc = "Pressure." }

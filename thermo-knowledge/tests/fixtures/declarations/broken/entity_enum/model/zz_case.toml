@@ -1,0 +1,17 @@
+module = "broken"
+schema = "tk"
+uses = ["physical", "identity", "framework", "vocab"]
+doc = "A deliberately broken module."
+
+[kinds.class_holder]
+doc = "d"
+identity = ["name"]
+provenance = "declaration"
+
+[kinds.class_holder.attributes]
+name = { type = "Text", doc = "d" }
+cls = { type = "phase_class", doc = "d" }
+
+[entities.class_holder.x]
+doc = "d"
+cls = "plasma"

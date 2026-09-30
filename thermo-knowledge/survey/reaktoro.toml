@@ -1,0 +1,1306 @@
+source = "reaktoro"
+pin = "3c5838e7c0ed"
+surveyed = "2026-09-30"
+summary = "Reaktoro v2.13.0 contributes 61 embedded data files (36.5 MB) in six database families with no Elements section and no formation reactions in its own format (nasa-cea 1658 species; SUPCRT98, SUPCRT07, SUPCRT16 and SUPCRTBL, each plain and with organics, 983 to 2029 species; four Extended UNIQUAC species sets of 40 to 91 species), 14 PHREEQC .dat files read through an embedded PHREEQC engine, 7 ThermoFun JSON files byte-identical to ThermoFun's, parameter files for Pitzer (266 parameter rows), Extended UNIQUAC (four layouts), Palandri-Kharaka mineral rates (73 minerals, 149 mechanisms) and cubic EoS, and a 2180-row water property table; its C++ code implements 23 activity-model files (chained through a shared props object), 9 standard-thermo model names plus a data dispatcher, 4 reaction-thermo model names, one rate model, three surface-area models, water EoS and Johnson-Norton electrostatics, and a Gibbs minimiser with six specification sets, kinetics and on-demand-learning solvers; it carries no mixture interaction data beyond Pitzer and Extended UNIQUAC and no data for cubic binary parameters except four PHREEQC pairs, and the JSON databases hold exactly one standard-state model per species."
+
+# ---------------------------------------------------------------------------
+# PAYLOADS
+# ---------------------------------------------------------------------------
+
+[[payload]]
+paths = [
+  "embedded/databases/reaktoro/nasa-cea.json",
+  "embedded/databases/reaktoro/supcrt98.json",
+  "embedded/databases/reaktoro/supcrt98-organics.json",
+  "embedded/databases/reaktoro/supcrt07.json",
+  "embedded/databases/reaktoro/supcrt07-organics.json",
+  "embedded/databases/reaktoro/supcrt16.json",
+  "embedded/databases/reaktoro/supcrt16-organics.json",
+  "embedded/databases/reaktoro/supcrtbl.json",
+  "embedded/databases/reaktoro/supcrtbl-organics.json",
+]
+format = "JSON (indent 2) with one top-level key Species mapping species name to a record {Name, Formula, Elements, Charge, Tags, AggregateState, StandardThermoModel}; no Elements section, no header, no version field"
+files = 9
+bytes = 8322159
+records = "species per file: nasa-cea 1658; supcrt98 983, supcrt98-organics 1553; supcrt07 1018, supcrt07-organics 1920; supcrt16 1068, supcrt16-organics 2029; supcrtbl 1108, supcrtbl-organics 1671 (13008 in all), counted by json.load; distinct element symbols in the Elements strings: nasa-cea 55, supcrt98 83, supcrt98-organics 83, supcrt07 84, supcrt07-organics 88, supcrt16 84, supcrt16-organics 88, supcrtbl 83, supcrtbl-organics 83; reactions: none (no FormationReaction key occurs)"
+reader = "Reaktoro::SupcrtDatabase::withName in Reaktoro/Extensions/Supcrt/SupcrtDatabase.cpp (line 66) and NasaDatabase::withName in Reaktoro/Extensions/Nasa/NasaDatabase.cpp (line 40), both calling Embedded::get('databases/reaktoro/<name>.json') and DatabaseParser in Reaktoro/Core/Support/DatabaseParser.cpp; the generic Database::fromFile reads any such file"
+read_by_source = "all"
+notes = "The organics files contain the plain set plus the organic species (organic species carry Tags organic: 570 in supcrt98-organics, 902 in supcrt07-organics, 961 in supcrt16-organics, 563 in supcrtbl-organics). nasa-cea carries Tags product (1601) or reactant (57). Species names follow source conventions with aggregate suffixes for gases (Ar(g)) and aqueous neutrals (H2O(aq)) in SUPCRT and suffixes (cd), (cr), (l) in NASA; mineral names have none. Element symbols are not declared here: the parser creates them from the built-in element table (Reaktoro/Singletons/Elements.cpp)."
+
+[[payload]]
+paths = [
+  "embedded/databases/reaktoro/nasa-cea.yaml",
+  "embedded/databases/reaktoro/supcrt*.yaml",
+]
+format = "YAML twin of each JSON file above, same key layout in block style"
+files = 9
+bytes = 6202766
+records = "same species counts as the JSON twins; equal to them on parsing with a YAML 1.1 parser except for the two artefacts named in notes"
+reader = "Database::fromFile (createDataFromJsonOrYaml in Reaktoro/Core/Data.cpp); Params::embedded('PalandriKharaka.yaml') is used by a test; no library loader reads these twins from the embedded store"
+read_by_source = "none"
+notes = "Both serialisations come from the same generator call (utilities/*/generate-*-databases writes -ojson and -oyaml). Artefacts in PyYAML: the formula NO (nitric oxide) in supcrtbl is read as boolean false because it is unquoted in the YAML; the number 2e-08 without a decimal point in MineralHKF Vtr of Enstatite is read as a string. yaml-cpp in Reaktoro reads both as text."
+
+[[payload]]
+paths = [
+  "embedded/databases/reaktoro/ExtendedUNIQUAC.v1997.yaml",
+  "embedded/databases/reaktoro/ExtendedUNIQUAC.v2005.yaml",
+  "embedded/databases/reaktoro/ExtendedUNIQUAC.v2023.yaml",
+  "embedded/databases/reaktoro/ExtendedUNIQUAC.v2024.yaml",
+]
+format = "YAML with top-level Species as a sequence (not a map) of {Name, Formula, Elements, Charge, AggregateState, StandardThermoModel: {ExtendedUNIQUAC: {Gr, Hr, Sr, Vr, Cp, a, b, c, alpha, beta, Theta}}}; header comments cite the source tables"
+files = 4
+bytes = 79747
+records = "species: v1997 40 (Aqueous 13, Solid 22, Gas 5), v2005 43 (13, 25, 5), v2023 91 (14, 74, 3), v2024 91 (14, 74, 3), counted by yaml load"
+reader = "Database::embedded('ExtendedUNIQUAC.v2024.yaml') (used by ActivityModelExtendedUNIQUAC.test.cxx); the library default Extended UNIQUAC params come from params/ExtendedUNIQUAC.v2024.yaml"
+read_by_source = "partly"
+notes = "Headers: v2023 is 'parameters provided by Prof. Kaj Thomsen in 2023'; v2024 is identical to v2023 except that solid species names got '(s)' appended; the params files cite Tables 5-15 to 5-17 of the Garcia PhD thesis (2005) for v2005. Gr and Hr are in kJ/mol and Sr, Cp in J/(mol K) per the model docs, unlike the SI of the other models."
+
+[[payload]]
+paths = ["embedded/databases/supcrt/*.xml"]
+format = "XML Database root with 116 <Element> children (Name, MolarMass units g/mol) followed by <Species> children (Name, Formula, Elements as 'Ca(2)Mg(1)', Type Mineral|Gas|Aqueous, MolarMass, MolarVolume, Thermo/HKF with References, Date, Gf, Hf, Sr, Vr, NumPhaseTrans, Tmax, a, b, c ... each with a units attribute; Charge; Dissociation; TemperatureRange0..3; AcentricFactor)"
+files = 4
+bytes = 4410335
+records = "species: supcrt98 976, supcrt98-organics 1553, supcrt07 1010, supcrt07-organics 1925; 116 elements each, counted by tag counts"
+reader = "none in this tree: no code path opens the databases/supcrt directory or parses XML (grep for the paths and for an XML loader)"
+read_by_source = "none"
+notes = "Legacy format of older Reaktoro releases; embedded in the binary by the recursive file glob in embedded/CMakeLists.txt but unread. Species counts differ from the JSON files (supcrt98 976 against 983; supcrt07 1010 against 1018; supcrt07-organics 1925 against 1920), so it is an older conversion."
+
+[[payload]]
+paths = ["embedded/databases/phreeqc/*.dat"]
+format = "PHREEQC database text files (keyword blocks such as SOLUTION_MASTER_SPECIES, SOLUTION_SPECIES, PHASES, EXCHANGE_*, SURFACE_*, RATES, PITZER, SIT, LLNL_AQUEOUS_MODEL_PARAMETERS); format surveyed in survey/phreeqc.toml"
+files = 14
+bytes = 3429960
+records = "by line classification (reaction lines containing '=' per block, master-species lines; approximate, not a PHREEQC parse): master species / solution-species reactions / phases: Amm 50/233/71, ColdChem 12/10/33, core10 82/227/389, frezchem 15/16/37, iso 55/2307/153, llnl 225/1327/1215, minteq 114/1027/519, minteq.v4 121/1335/562, phreeqc 50/233/71, pitzer 28/38/72, sit 128/1327/757, thermoddem-v1.10 209/1030/746, Tipping_Hurley 66/361/319, wateq4f 66/361/319; exchange and surface species lines: Amm 17 and 40, Tipping_Hurley 17 and 215, wateq4f 17 and 54, llnl 17 and 34, iso 9 and 19, minteq 0 and 44, minteq.v4 0 and 78, phreeqc 17 and 40, pitzer 10 and 27, frezchem 5 and 11"
+reader = "PhreeqcDatabase::withName / fromFile in Reaktoro/Extensions/Phreeqc/PhreeqcDatabase.cpp, which calls PhreeqcUtils::load (PhreeqcUtils.cpp line 27): the vendored PHREEQC instance reads the file with Phreeqc::read_database and Reaktoro then copies elements, species and phases out of the PHREEQC memory structures"
+read_by_source = "partly"
+notes = "Relation to the PHREEQC pin (b0b3be767158): ColdChem.dat is byte-identical; frezchem.dat and core10.dat have the same non-comment lines; thermoddem-v1.10.dat equals PHREEQC_ThermoddemV1.10_15Dec2020.dat except one extra line; phreeqc.dat, pitzer.dat and Amm.dat are older revisions (1498 against 1612 non-comment lines for phreeqc.dat); iso, llnl, minteq, minteq.v4, Tipping_Hurley, wateq4f have the same number of non-comment lines as the pin but 800 to 4800 lines differ in content after whitespace normalisation (not characterised); sit.dat has 9680 against 10509 lines. The embedded names list in the error message has the typo 'wateq4f.da'."
+
+[[payload]]
+paths = [
+  "embedded/databases/nasa/cea.dat",
+  "embedded/databases/nasa/burcat.dat",
+]
+format = "NASA thermodynamic library text: cea.dat in the CEA thermo.inp format (header line 'thermo', temperature grid 200 1000 6000 20000 K, date 9/09/04; per species a name and reference line, an interval-count line, then 9 coefficients per interval in Fortran D notation); burcat.dat in the 4-line CHEMKIN NASA-7 block format with a line number in column 80"
+files = 2
+bytes = 3169660
+records = "cea.dat: 2085 species-interval blocks by the tree's own parser (createNasaSpeciesList), grouped into 1658 species in nasa-cea.json; the pinned NASA CEA data file has 2110 species names and cea.dat 2084 by header-line regex (25 only in the pin, none only here); burcat.dat: about 2814 species by lines with a 4 in column 80 (approximate); its header states the database was last updated on 25 August 2021"
+reader = "utilities/nasa-parser/parse_nasa_database.py (createNasaSpeciesList) for cea.dat; the tree's parser fails on burcat.dat (invalid literal at a '|T' line); no library code reads either file"
+read_by_source = "none"
+notes = "Only cea.dat is converted (into nasa-cea.json and .yaml); burcat.dat is embedded but no loader, converter output or database name uses it; NasaDatabase accepts only the name nasa-cea. The Burcat file header forbids inclusion in commercial databases without permission (licence text in the file)."
+
+[[payload]]
+paths = ["embedded/databases/thermofun/*.json"]
+format = "ThermoFun database JSON (survey/thermofun.toml)"
+files = 7
+bytes = 10071277
+records = "4051 substances, 465 reactions, 309 elements over aq17, cemdata18, heracles, mines16, psinagra-12-07, slop98-organic, slop98 (same counts as survey/thermofun.toml), json.load"
+reader = "ThermoFunDatabase::withName in Reaktoro/Extensions/ThermoFun/ThermoFunDatabase.cpp (line 133): checks the name against seven literals (line 135) and reads Embedded::get('databases/thermofun/<name>-thermofun.json') through the ThermoFun library (an external dependency)"
+read_by_source = "partly"
+notes = "All seven files are byte-identical (sha256) to Resources/databases/*.json of the ThermoFun pin; only the substances are turned into Reaktoro species, reactions and elements of the files are used only inside ThermoFun; the error text lists 'psinagra-thermofun.json' and 'slop98-thermofun.json' for names that map to different files (psinagra-12-07, slop98-organic)."
+
+[[payload]]
+paths = ["embedded/params/*"]
+format = "YAML and JSON twins of parameter documents with a top-level section name: ActivityModelParams.Pitzer, ActivityModelParams.ExtendedUNIQUAC (four versions as separate YAML files), ReactionRateModelParams.PalandriKharaka, CubicEOS (CubicModel and BipModel)"
+files = 10
+bytes = 122486
+records = "Pitzer 266 parameter rows (Beta0 54, Beta1 48, Beta2 8, Cphi 32, Theta 30, Lambda 24, Zeta 9, Psi 59, Alpha1 1, Alpha2 1; Mu and Eta absent); PalandriKharaka 73 minerals with 149 mechanisms (Neutral 70, Acid 59, Base 16, Carbonate 4) and 3 minerals with OtherNames; CubicEOS 5 equation models and 1 BIP model (PHREEQC, 4 pairs); ExtendedUNIQUAC: v1997 12 q, 12 r, 12 u rows; v2005 13; v2023 14 with 3-coefficient u; v2024 14 q, 14 r and 105 u triples; counted by parsing"
+reader = "Params::embedded in Reaktoro/Core/Params.cpp (line 61): ActivityModelPitzer() reads 'Pitzer.json' (ActivityModelPitzer.cpp line 1047), ActivityModelExtendedUNIQUAC() reads 'ExtendedUNIQUAC.v2024.yaml' (line 309), ReactionRateModelPalandriKharaka() reads 'PalandriKharaka.json' (line 153)"
+read_by_source = "partly"
+notes = "Not read by any library code: CubicEOS.json and .yaml (the cubic model constants are hard-coded in ActivityModels/Support/CubicEOS.cpp), ExtendedUNIQUAC.v1997, v2005 and v2023, and the YAML twins of Pitzer and PalandriKharaka. The Pitzer file's first comment states 'Parameters collected from PHREEQC v3.3.7'."
+
+[[payload]]
+paths = [
+  "embedded/interpolation/WaterThermoPropsWagnerPruss.txt",
+  "scripts/generate-water-properties-for-interpolation-wagner-pruss.py",
+  "scripts/generate-water-liquid-vapor-density-for-interpolation-wagner-pruss.py",
+]
+format = "Text table: 31 header lines 'P = <value> MPa' each followed by rows of 21 floating-point columns in %+.6e format: T, V, S, A, U, H, G, Cv, Cp, D, DT, DP, DTT, DTP, DPP, P, PT, PD, PTT, PTD, PDD (specific volume, entropy, Helmholtz, internal energy, enthalpy, Gibbs, Cv, Cp in SI per kg, density and its derivatives, pressure derivatives); produced by the python script with waterThermoPropsWagnerPruss"
+files = 3
+bytes = 687938
+records = "2180 data rows under 31 pressure headers (2211 lines), counted by line; pressures and temperatures follow Table 13.2 of Wagner and Pruss (2002) per the script comments"
+reader = "parseWaterThermoPropsWagnerPrussInterpData in Reaktoro/Water/WaterInterpolation.cpp (line 241)"
+read_by_source = "all"
+notes = "The reader takes a StateOfMatter argument and ignores it (a TODO in the code): one table serves liquid, gas and supercritical requests; the pressure and temperature grids and the liquid, vapour and supercritical state flags are also hard-coded arrays in WaterInterpolation.cpp. The table is generated with the library's own Wagner-Pruss routine, so it is a derived cache, not independent data."
+
+[[payload]]
+paths = [
+  "utilities/supcrt-parser/*",
+  "utilities/supcrtbl-parser/*",
+  "utilities/nasa-parser/*",
+]
+format = "Conversion inputs and scripts: original.slop98.dat, slop07, slop16 (SUPCRT92 sequential data files, 9668, 11958 and 12673 lines), bugfixed.slop*.dat (the same with a corrections header by the maintainer), linearized.supcrt98/07/16.dat (one species per line: name, formula, elemental formula, aggregate code min/gas/aq, model code hkf, hkfbl, whkf, whkfbl, hkfmk, mk, hp, hpl, hpg, then parameters and a trailing comment with references and date), spronsbl.dat (SUPCRTBL, 10334 lines, species blocks with HP11 codes), nasa-cea.dat and nasa-burcat.dat (copies of the embedded NASA files), generate-*-databases python scripts, customization lists of organic species"
+files = 22
+bytes = 7574882
+records = "linearized species lines: supcrt98 1553, supcrt07 1920, supcrt16 2029 (equal to the species counts of the organics JSON files); customization lists name the organic species to tag"
+reader = "python3 scripts in the same directories (generate-supcrt-databases -i linearized... -ojson -oyaml), which write the embedded/databases/reaktoro files"
+read_by_source = "none"
+notes = "This is the recorded lineage of the SUPCRT and NASA conversions: the bugfixed.* header lists 26 numbered corrections to SUPCRT data (wrong charges, duplicate species, formula typos; the numbers run to 34 with gaps and a repeated 24) made by the maintainer between 2012 and 2021; linearized files are produced by a step not in the tree (from bugfixed files). The linearize step and the SUPCRTBL source origin are not scripted here. Units of the linearized parameters are stated in the generator's comments (cal/mol for hkf, kJ/mol for hkfbl and hp; scaled exponents such as 10^1 cal/(mol bar) for a1)."
+
+[[payload]]
+paths = ["resources/data/*"]
+format = "Spreadsheets, text lists and a PDF: chemical-elements.ods, comprehensive-list-of-properties-for-substances.xlsx, critical-properties-of-substances.xlsx, critical-properties-of-gases-isidoro-martinez.pdf, gas-properties.xlsx, supcrt-gas-properties.xlsx, kharaka-palandri-database-kinetics-parameters-mineral-reactions.ods, oxidation-states-with-basic-ligands(.txt/.xlsx), oxidation-states-with-basic-ligands-organics.txt, oxidation-states-with-master-substances.txt, water-properties-iapws1995.(csv/txt/xlsx)"
+files = 14
+bytes = 1324660
+records = "water-properties-iapws1995.csv: 2243 lines (header T, rho, u, h, s, cv, cp, w with units K, kg/m3, kJ/kg, kJ/(kg K), m/s; 'P=0.05MPa' separator rows); oxidation-states-with-master-substances.txt: 53 lines, basic-ligands 221 lines, organics 65 lines; others are binary"
+reader = "none in this tree: the files are working sources from which the in-code tables (critical properties, Palandri-Kharaka parameters, water checks) were assembled"
+read_by_source = "none"
+notes = "Potential independent reference values: the IAPWS-95 check table (2240 rows) could validate the Wagner-Pruss implementation; nothing in the tree links rows to tests. The three oxidation-state lists map species to element valence and appear to back the PHREEQC-style decoupled-element handling (not verified)."
+
+[[payload]]
+paths = [
+  "Reaktoro/Singletons/Elements.cpp",
+  "Reaktoro/Singletons/CriticalProps.cpp",
+  "Reaktoro/Singletons/DissociationReactions.cpp",
+  "Reaktoro/Models/ActivityModels/ActivityModelHKF.cpp",
+  "Reaktoro/Models/ActivityModels/ActivityModelDuanSun.cpp",
+  "Reaktoro/Models/ActivityModels/ActivityModelSpycherReed.cpp",
+]
+format = "C++ tables compiled into the library: Elements (symbol, molar mass in kg/mol, name), critical properties (Tc in K, Pc in Pa, acentric factor, and lists of names and formulas), dissociation reactions of neutral salts, HKF ion-size table and bNaCl interpolation grid, Duan-Sun coefficient arrays, Spycher-Reed fugacity coefficients"
+files = 6
+bytes = 70513
+records = "120 Element entries, 89 critical-property entries (each with 1 to 3 alias names), 170 dissociation-reaction rows, counted by pattern in the sources"
+reader = "compiled in: Elements::get, CriticalProps, DissociationReactions singletons"
+read_by_source = "all"
+notes = "These tables are data that have no data-file form: a mapping of Reaktoro needs them transcribed. The element table supplies the molar masses of every element that a database file does not declare, so an Elements-less database depends on this table."
+
+[[payload]]
+paths = ["Reaktoro/**/*.test.cxx"]
+format = "Catch2 test sources"
+files = 132
+bytes = 1110413
+records = "169 TEST_CASE occurrences (grep count); 17 of the files test activity models"
+reader = "none"
+read_by_source = "none"
+notes = "Reference values from PHREEQC, publications and other codes are embedded in test code; comments state some origins (for example Table 4 to 6 of Duan et al. 1992 in CubicEOS.test.cxx); not extracted here."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "database document"
+locator = "Reaktoro/Core/Support/DatabaseParser.cpp Impl::Impl (line 51); Serialization/Core.cpp Database encode (line 64)"
+meaning = "A database file is a document with an optional Elements section and a required Species section; Species is a map (name to record) or a list of records; YAML and JSON are read by the same parser."
+subject = "one database; species are keyed by unique Name within one aggregate state"
+fields = [
+  { name = "Elements", meaning = "optional map symbol -> {MolarMass, Name, Tags} or list of {Symbol, MolarMass, Name, Tags}; absent in all 13 data files that Reaktoro ships in its own format", unit = "MolarMass in kg/mol (inferred from the built-in table, in kg/mol)", shape = "table", role = "input" },
+  { name = "Species", meaning = "map name -> species record, or list of records (the Extended UNIQUAC files use lists)", unit = "not applicable", shape = "table", role = "input" },
+]
+origin = "generated (for nasa-cea and SUPCRT files by utilities scripts) or authored (Extended UNIQUAC files)"
+conventions = "an element not declared in Elements is created from the built-in element table on first use in a species; the section order is irrelevant"
+absence = "missing Elements means 'use defaults'; a species missing Formula, AggregateState, Elements or both FormationReaction and StandardThermoModel is an error; Elements: null is required for species without elements (the electron)"
+validity = "not stated; Tmax fields in models"
+provenance = "none in JSON/YAML databases; the Extended UNIQUAC files have header comments citing the source tables"
+count = "9 JSON/YAML pairs plus 4 Extended UNIQUAC YAML files plus 7 ThermoFun JSON files that are not in this format"
+example = "embedded/databases/reaktoro/supcrt98.json"
+candidate = "chemical_system, parameterization, convention_set"
+precision = "close"
+loss = "The file carries no identity, version, convention or provenance statement; the parameterisation and system have to be named by the loader from the file name."
+
+[[construct]]
+name = "species record"
+locator = "Reaktoro/Core/Support/DatabaseParser.cpp addSpecies (line 146); Serialization/Core.cpp Species encode (line 173)"
+meaning = "A chemical species (name, formula, elemental composition, charge, aggregate state, tags) with its standard-state thermodynamics given either directly by a StandardThermoModel or through a FormationReaction from other species."
+subject = "one species form; keyed by Name (unique among species of the same aggregate state: a repeat gets a '!' appended with a warning)"
+fields = [
+  { name = "Name", meaning = "unique key, often carrying the state suffix: H2O(aq), CO2(g); mineral names may contain commas (Albite,low)", unit = "not applicable", shape = "scalar", role = "input" },
+  { name = "Formula", meaning = "chemical formula text, parsed by ChemicalFormula; charge is not read from it", unit = "not applicable", shape = "scalar", role = "input" },
+  { name = "Substance", meaning = "optional name of the substance the species belongs to; read when present; absent in every shipped file", unit = "not applicable", shape = "scalar", role = "input" },
+  { name = "Elements", meaning = "string of 'count:symbol' pairs separated by spaces (2:Ca 1:Mg 2:Si 7:O); null for species without elements", unit = "stoichiometric count", shape = "scalar", role = "input" },
+  { name = "Charge", meaning = "net charge number; absent means zero (present in 9602 of 13008 species)", unit = "charge number", shape = "scalar", role = "input" },
+  { name = "AggregateState", meaning = "string parsed by parseAggregateState: Gas, Liquid, Solid, Plasma, CondensedPhase, Fluid, LiquidCrystal, CrystallineSolid, AmorphousSolid, Vitreous, Adsorbed, Monomeric, Polymeric, SolidSolution, IonExchange, Aqueous or the short symbols g, l, s, pl, cd, fl, lc, cr, am, vit, ads, mon, pol, ss, ex, aq", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "Tags", meaning = "string split on spaces or list of strings; used to exclude species from phases", unit = "not applicable", shape = "list", role = "input" },
+  { name = "StandardThermoModel", meaning = "map with exactly one key (the model name) mapping to that model's parameters", unit = "see model families", shape = "table", role = "input" },
+  { name = "FormationReaction", meaning = "map {Reactants: 'coeff:name ...', ReactionStandardThermoModel: {...}, StandardVolumeModel written by the encoder but not read}", unit = "see the formation reaction construct", shape = "table", role = "input" },
+]
+origin = "transcribed (SUPCRT92 slop98/07/16 files, SUPCRTBL, NASA CEA; see the lineage payload), authored (Extended UNIQUAC)"
+conventions = "aggregate states found in data: Aqueous 9386, Solid 1835, Gas 1454, CondensedPhase 277, Liquid 56 (13008 species); species with undefined state become Aqueous when added; Charge and Elements together define the conserved quantities (elements plus charge row of the formula matrix); the species Name, not the Formula, is the key"
+absence = "no Charge means neutral; StandardThermoModel and FormationReaction are exclusive; a species without either is rejected"
+validity = "model-specific Tmax (optional) in K"
+provenance = "none per species in the JSON files; the linearized lineage files have trailing comments with references and dates"
+count = "13008 species over 9 JSON files (1658 NASA, 11350 SUPCRT family) plus 265 in the Extended UNIQUAC YAML files"
+example = "embedded/databases/reaktoro/supcrt98.json#/Species/Akermanite"
+candidate = "species_form, species, composition, aggregation"
+precision = "close"
+loss = "Formula plus Charge plus Elements is stored redundantly; no structure identifiers, so identity resolution has to work from the formula, charge and aggregate state; the species Name carries the aggregate suffix in some databases and not in others."
+
+[[construct]]
+name = "StandardThermoModel block"
+locator = "Reaktoro/Models/StandardThermoModels/StandardThermoModelFromData.cpp (line 25); Serialization/Models/StandardThermoModels.cpp"
+meaning = "A standard-state model of a species as a single-key map {model name: parameter record}; nine model names exist and six occur in shipped data."
+subject = "one species form"
+fields = [
+  { name = "MaierKelley", meaning = "Gf, Hf, Sr, Vr, a, b, c, Tmax (Tmax optional)", unit = "J/mol, J/mol, J/(mol K), m3/mol, J/(mol K), J/(mol K^2), (J K)/mol, K", shape = "table", role = "input" },
+  { name = "MineralHKF", meaning = "Gf, Hf, Sr, Vr, ntr, a[], b[], c[], Ttr[], Htr[], Vtr[], dPdTtr[], Tmax; arrays have ntr+1 entries for a, b, c and ntr for the transition arrays", unit = "SI; Vtr in m3/mol and dPdTtr in Pa/K", shape = "table", role = "input" },
+  { name = "HKF", meaning = "Gf, Hf, Sr, a1, a2, a3, a4, c1, c2, wref, charge, Tmax (Tmax optional; charge required)", unit = "J/mol, J/mol, J/(mol K), J/(mol Pa), J/mol, (J K)/(mol Pa), (J K)/mol, J/(mol K), (J K)/mol, J/mol", shape = "table", role = "input" },
+  { name = "WaterHKF", meaning = "Ttr, Str, Gtr, Htr of liquid water at the triple point", unit = "K, J/(mol K), J/mol, J/mol", shape = "table", role = "input" },
+  { name = "HollandPowell", meaning = "Gf, Hf, Sr, Vr, a, b, c, d, optionally alpha0, kappa0, kappa0p, kappa0pp, numatoms (all five present or none), Tmax; in shipped data 185 records with the five, 73 without, 17 also with Tcr, Smax, Vmax (which the code does not read)", unit = "SI; kappa0 in Pa, alpha0 in 1/K", shape = "table", role = "input" },
+  { name = "Nasa", meaning = "either Polynomials: list of {Tmin, Tmax, Label, State, a1..a7, b1, b2} with dHf and dH0, or H0 and T0 for a species without intervals (39 in nasa-cea)", unit = "K, J/mol, dimensionless polynomial coefficients", shape = "table", role = "input" },
+  { name = "Constant, Interpolation, ExtendedUNIQUAC", meaning = "Constant: G0 (required) and H0, V0, VT0, VP0, Cp0; Interpolation: Temperatures, Pressures, G0 (required) and H0, V0, VT0, VP0, Cp0 as grids; ExtendedUNIQUAC: Gr, Hr, Sr, Vr, Cp, a, b, c, alpha, beta, Theta; these occur in no shipped database except ExtendedUNIQUAC in the four UNIQUAC files", unit = "SI for Constant and Interpolation; kJ/mol for Gr and Hr", shape = "table", role = "input" },
+]
+origin = "transcribed or generated (see lineage)"
+conventions = "all quantities in SI; Gf and Hf are apparent formation energies in the SUPCRT/HKF convention (stated as 'apparent standard molal Gibbs free energy of formation from its elements'); reference T 298.15 K and P 1 bar inside the models; one model per species (a block with two keys is an error)"
+absence = "an optional field means 'not given' and the model uses 0 or no limit; in the HKF records Tmax never occurs (0 of 767 in supcrt98)"
+validity = "Tmax per model where stated; HKF validity bounds are in code comments only"
+provenance = "none in the block"
+count = "model names in the shipped JSON files (species counted once per file, so a species present in a plain and an organics file counts twice): Nasa 1658, HKF 9378, MaierKelley 1100, MineralHKF 314, HollandPowell 550, WaterHKF 8 (one per SUPCRT file)"
+example = "embedded/databases/reaktoro/supcrt98.json#/Species/Enstatite"
+candidate = "parameter_set (forms maier_kelley, mineral_hkf, hkf_aqueous, hkf_water, holland_powell, nasa7, constant_standard_state)"
+precision = "exact"
+loss = "none for the named parameters; the single-model-per-species rule means alternatives from different compilations are separate databases, not alternative parameter sets of one species."
+
+[[construct]]
+name = "FormationReaction block"
+locator = "Reaktoro/Core/Support/DatabaseParser.cpp createFormationReaction (line 220); Core/FormationReaction.cpp (line 55)"
+meaning = "A species whose standard properties are defined by a reaction from other species of the same database, with a reaction-model block."
+subject = "one species form plus the list of reactant species"
+fields = [
+  { name = "Reactants", meaning = "string of 'coefficient:name' pairs; positive coefficient for a left-hand-side reactant, negative for a product-side one (code comment), names must resolve to species of the same file (created recursively)", unit = "stoichiometric coefficient", shape = "scalar", role = "input" },
+  { name = "ReactionStandardThermoModel", meaning = "map with one key: ConstLgK {lgKr, Pr}, GemsLgK {A0..A6, Pr}, PhreeqcLgK {A1..A6, Pr}, VantHoff {lgKr, dHr, Tr, Pr}", unit = "lgKr dimensionless (decimal log), dHr J/mol, Tr K, Pr Pa (default 100000)", shape = "table", role = "input" },
+  { name = "StandardVolumeModel", meaning = "written by the encoder when present ({V0}); the parser ignores it (the read call is commented out)", unit = "m3/mol", shape = "table", role = "unread" },
+]
+origin = "generated (PHREEQC conversion builds it programmatically) or authored"
+conventions = "G0, H0 and Cp0 of the product are the reaction properties plus the coefficient-weighted sums over the reactants; the product volume comes from the StandardVolumeModel; the reaction volume change passed to the reaction model is V(product) minus the weighted sum of the reactants' V0, used for the pressure correction"
+absence = "no shipped Reaktoro-format database contains a FormationReaction (the field exists for programmatic and PHREEQC databases); when the standard-volume model is missing the product volume is 0"
+validity = "not stated"
+provenance = "none"
+count = "0 in the 13 shipped Reaktoro-format files; created in memory for every product species of a PHREEQC database (for example thousands for llnl.dat)"
+example = "Reaktoro/Extensions/Phreeqc/PhreeqcDatabase.cpp createProductSpeciesFormationReaction"
+candidate = "reaction, reaction_participant, dependency, system_reaction (defines), parameter_set"
+precision = "close"
+loss = "The reaction is the definition of the species and is not a free-standing reaction; reactants are species identified by name within one file; the direction sign is the opposite of ThermoFun's (reactant positive here)."
+
+[[construct]]
+name = "Pitzer parameter file"
+locator = "embedded/params/Pitzer.json; Serialization/Models/ActivityModels.cpp (lines 88-131)"
+meaning = "Pitzer interaction parameters as lists of entries {Formulas: [species formulas], CorrectionModel, Parameters: [coefficients]} in sections Beta0, Beta1, Beta2, Cphi, Theta, Lambda, Zeta, Psi, Mu, Eta, Alpha1 and Alpha2."
+subject = "one parameter kind per species tuple: ion pair (Beta0, Beta1, Beta2, Cphi, Theta, Lambda, Alpha1, Alpha2: arity 2) or triple (Psi, Zeta, Mu, Eta: arity 3); formulas listed cations first (descending charge)"
+fields = [
+  { name = "Formulas", meaning = "2 formulas (Beta0 54, Beta1 48, Beta2 8, Cphi 32, Theta 30, Lambda 24, Alpha 1+1 entries) or 3 (Zeta 9, Psi 59)", unit = "not applicable", shape = "list", role = "input" },
+  { name = "CorrectionModel", meaning = "temperature-pressure correction: Constant, Phreeqc, HeMorse1993, Dai2013, Dai2014, ChristovMoller2004, Holmes1987, Pitzer1984, PalabanPitzer1987, Polya2001, LiDuan2007; optional (default Constant); the shipped file uses Phreeqc in 264 entries and Constant in 2 (Alpha1, Alpha2)", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "Parameters", meaning = "coefficients c0..cn of the correction model: Phreeqc form c0 + c1 (1/T - 1/Tr) + c2 ln(T/Tr) + c3 (T - Tr) + c4 (T^2 - Tr^2) + c5 (1/T^2 - 1/Tr^2) with Tr 298.15 K (1 to 6 coefficients: Beta0 lengths 1, 4, 5, 6 in 29, 18, 4, 3 entries)", unit = "not stated (beta in kg/mol, C-phi in kg^2/mol^2 by Pitzer convention, inferred)", shape = "list", role = "input" },
+]
+origin = "transcribed (collected from PHREEQC v3.3.7 pitzer.dat per the file comment)"
+conventions = "defaults alpha1 = 2.0 (1.4 for 2-2 electrolytes) and alpha2 = 12.0 for 1-1 and 2-2, 50.0 otherwise as in PHREEQC v3 (code comment citing Pitzer and Silvester 1978 and Plummer et al. 1988); transposition: entries are stored once per unordered pair with cations before anions"
+absence = "Mu and Eta sections absent; a missing entry means zero interaction"
+validity = "not stated per parameter (PHREEQC pitzer.dat is valid about 0 to 60 C, inferred)"
+provenance = "the file comment states PHREEQC v3.3.7; no per-parameter citation"
+count = "266 parameter rows in the shipped file"
+example = "embedded/params/Pitzer.yaml (ActivityModelParams.Pitzer.Beta0)"
+candidate = "parameter_set (forms pitzer_beta0, pitzer_beta1, pitzer_beta2, pitzer_cphi, pitzer_theta, pitzer_lambda, pitzer_psi, pitzer_zeta), with nested sets for the temperature correction"
+precision = "close"
+loss = "The temperature correction is itself a choice among 11 forms selected by a name string, which the model expresses as a nested set accepting a contract; triples are unordered among cations or anions and need a permutation-group transposition."
+
+[[construct]]
+name = "Extended UNIQUAC parameter file"
+locator = "embedded/params/ExtendedUNIQUAC.v*.yaml; Serialization/Models/ActivityModels.cpp (lines 133-215)"
+meaning = "Volume r, surface q and binary interaction u parameters of the Extended UNIQUAC model for species keyed by formula."
+subject = "pure species (r, q) and ordered species pairs (u)"
+fields = [
+  { name = "r, q", meaning = "v1997 and v2005: formula -> number; v2023 and v2024: formula -> list of 3 numbers (v2023) or a list entry [formula, value] (v2024) with the 2 or 3 values being the T-dependence coefficients", unit = "dimensionless", shape = "table", role = "input" },
+  { name = "u", meaning = "v1997 and v2005: formula -> {formula -> [u0, uT]}; v2023: same with [u0, uT, uP] (14 x 14 triangle); v2024: list of [formula1, formula2, [u0, uT]] triples (105)", unit = "K for u0 and K per K for uT (Thomsen: u_ij = u0 + uT (T - 298.15))", shape = "table", role = "input" },
+]
+origin = "transcribed (Thomsen 1997 and 2005 tables, Garcia thesis 2005 Tables 5-15 to 5-17, Thomsen 2023 private communication per header comments)"
+conventions = "model uses Tr = 298.15 K, u = u0 + uT (T - Tr) + uP p (code lines 54 and 239); a missing pair defaults to u0 = 1e16; diagonal u0 = 0"
+absence = "missing pair means non-interacting (1e16); the v2024 file lists 105 pairs, equal to 14 x 15 / 2"
+validity = "v2023 and v2024 cover 14 species (H2O, CO2, HCO3-, CO3-2, Na+, Mg+2, Ca+2, Ba+2, Sr+2, H+, Cl-, HSO4-, SO4-2, OH-); v1997 and v2005 have 12 and 13"
+provenance = "header comments per file"
+count = "4 files; u rows 12, 13, 14, 105"
+example = "embedded/params/ExtendedUNIQUAC.v2024.yaml"
+candidate = "parameter_set (forms uniquac_r, uniquac_q, uniquac_u with a T-dependence family), transposition symmetric for u"
+precision = "close"
+loss = "Four layouts of the same content; the T-dependence coefficient count differs by version; the model forms differ by the pressure term uP (only in v2023)."
+
+[[construct]]
+name = "Palandri-Kharaka parameter file"
+locator = "embedded/params/PalandriKharaka.json; Serialization/Models/ReactionRateModels.cpp (line 33)"
+meaning = "Per-mineral dissolution and precipitation rate mechanisms of Palandri and Kharaka (2004): rate constant and activation energy per mechanism, and catalyst exponents."
+subject = "one mineral (name and aliases); mechanisms are keyed Neutral, Acid, Base, Carbonate"
+fields = [
+  { name = "Mineral, OtherNames", meaning = "mineral name and alias list (3 minerals have aliases, for example nine spellings of Dolomite)", unit = "not applicable", shape = "scalar", role = "input" },
+  { name = "Mechanisms.<name>.lgk", meaning = "decimal log of the rate constant at 298.15 K", unit = "lg mol/(m2 s) (code doc)", shape = "scalar", role = "input" },
+  { name = "Mechanisms.<name>.E", meaning = "Arrhenius activation energy", unit = "kJ/mol (code doc)", shape = "scalar", role = "input" },
+  { name = "Mechanisms.<name>.a(H+) and similar keys", meaning = "catalyst exponent keyed by property symbol and formula: a(H+) 77, P(CO2) 4, a(Fe+3) 3, a(O2) 2; a is activity and P is partial pressure in bar", unit = "dimensionless exponent", shape = "scalar", role = "input" },
+  { name = "p, q", meaning = "saturation exponents of (1 - Omega^p)^q; optional, default 1; never given in the shipped file", unit = "dimensionless", shape = "scalar", role = "input" },
+]
+origin = "transcribed (Palandri and Kharaka 2004 USGS report, working sheet kharaka-palandri-database-kinetics-parameters-mineral-reactions.ods)"
+conventions = "rate per mineral surface area in mol/s: k(T) = 10^lgk exp(-E/R (1/T - 1/298.15)) times the catalyst product times (1 - Omega^p)^q, summed over mechanisms; the gas constant is 8.3144621"
+absence = "a mineral missing from the file has no rate; a catalyst species absent from the system is silently ignored (factor 1, the warning is commented out)"
+validity = "not stated (the source gives pH and temperature ranges per mineral)"
+provenance = "none in the file; Palandri2004 is cited in the code header"
+count = "73 minerals, 149 mechanisms (Neutral 70, Acid 59, Base 16, Carbonate 4)"
+example = "embedded/params/PalandriKharaka.yaml (Albite)"
+candidate = "parameter_set (form palandri_kharaka_mechanism family indexed by mechanism), dependency on a mineral reaction"
+precision = "close"
+loss = "Mechanism keys carry catalyst identity inside the key text (a(H+)); aliases are identity assertions; the rate needs a reaction and a surface area model from elsewhere."
+
+[[construct]]
+name = "cubic EoS parameter file"
+locator = "embedded/params/CubicEOS.json"
+meaning = "Constants of five cubic equations of state (vanDerWaals, RedlichKwong, SoaveRedlichKwong, PengRobinson76, PengRobinson78: sigma, epsilon, Omega, Psi and alpha-function coefficients m, m1, m2) and one binary-interaction set named PHREEQC: four H2O pairs with kij."
+subject = "an equation model (global) and an unordered pair of gases"
+fields = [
+  { name = "CubicModel.<name>", meaning = "sigma, epsilon, Omega, Psi and m (alpha function m in SRK and PR76; m1 and m2 in PR78)", unit = "dimensionless", shape = "table", role = "unread" },
+  { name = "BipModel.PHREEQC", meaning = "list [species1, species2, kij] for H2O-CO2 0.19, H2O-H2S 0.19, H2O-CH4 0.49, H2O-N2 0.49", unit = "dimensionless", shape = "list", role = "unread" },
+]
+origin = "transcribed"
+conventions = "none stated"
+absence = "not applicable"
+validity = "not stated"
+provenance = "none"
+count = "5 models and 4 pair parameters"
+example = "embedded/params/CubicEOS.yaml"
+candidate = "form catalogue entries and parameter_set (pair kij)"
+precision = "exact"
+loss = "none, but the file is unread: the constants are hard-coded in Support/CubicEOS.cpp, so the file is documentation that can drift from the code."
+
+[[construct]]
+name = "PHREEQC keyword blocks as Reaktoro consumes them"
+locator = "Reaktoro/Extensions/Phreeqc/PhreeqcDatabase.cpp (helper, lines 34-150); PhreeqcUtils.cpp; PhreeqcThermo.cpp; ActivityModelPhreeqc.cpp"
+meaning = "Which parts of a PHREEQC database the Reaktoro extraction uses after the embedded PHREEQC engine has parsed the file."
+subject = "species and phases of one PHREEQC database"
+fields = [
+  { name = "SOLUTION_MASTER_SPECIES", meaning = "elements (symbol, name of the master species, gfw) and master species; master species get G0 = H0 = 0 and only a standard volume", unit = "gfw g/mol converted to kg/mol", shape = "table", role = "input" },
+  { name = "SOLUTION_SPECIES, EXCHANGE_SPECIES, SURFACE_SPECIES", meaning = "product species: reaction stoichiometry, log_k, delta_h, analytic expression A1..A6, molar volume parameters (vm a1 a2 a3 a4 wref and ionic-strength terms), Millero parameters; exchange and surface species are created as IonExchange and Adsorbed species but are skipped in the active-species lists ('currently not supported' comment)", unit = "log_k dimensionless, delta_h kJ/mol converted to J/mol, vm in cm3/mol converted to m3/mol", shape = "table", role = "input" },
+  { name = "PHASES", meaning = "gases (name contains '(g)', class SOLID in PHREEQC but tested by name) and minerals: reaction, log_k, delta_h (sign inverted for phases), analytic, molar volume vm0 (zero volume for gases)", unit = "as above", shape = "table", role = "input" },
+  { name = "-gamma a b, LLNL_AQUEOUS_MODEL_PARAMETERS", meaning = "Debye-Hueckel ion-size and b parameters and the temperature-dependent LLNL coefficients; read by the activity model ActivityModelPhreeqc, not by the standard-state code", unit = "a in Angstrom", shape = "table", role = "input" },
+  { name = "PITZER, SIT", meaning = "parsed by the embedded PHREEQC (flags sit_model, pitzer_model) and used only by the Phreeqc runner class (Phreeqc.cpp line 785); ActivityModelPhreeqc refuses databases with either flag", unit = "not applicable", shape = "table", role = "unread" },
+  { name = "RATES, NAMED_EXPRESSIONS, ISOTOPES, SOLUTION, EQUILIBRIUM_PHASES, KINETICS and other input blocks", meaning = "parsed or ignored by PHREEQC; no Reaktoro code reads them into species, phases or models", unit = "not applicable", shape = "table", role = "unread" },
+]
+origin = "transcribed"
+conventions = "reference pressure 101325 Pa for PHREEQC log_k models (Pr in PhreeqcUtils), reference temperature 298.15 K; a species whose analytic coefficients are all zero becomes a van't Hoff model from log_k and delta_h, otherwise a PhreeqcLgK model; phase reactions are sign-inverted because PHREEQC writes them dissolution-wise; duplicate name and state pairs keep the first"
+absence = "a product species with no reactants gets ConstLgK with lgKr 0; an element with no molar mass raises an error"
+validity = "not stated; PHREEQC databases state ranges in comments only"
+provenance = "none carried through"
+count = "see the PHREEQC payload"
+example = "Reaktoro/Extensions/Phreeqc/PhreeqcUtils.cpp reactionThermoModelAux"
+candidate = "chemical_system, species_form, reaction, parameter_set (forms phreeqc_analytic_logk, van_t_hoff), phase_definition"
+precision = "close"
+loss = "Everything the extraction does not copy (rates, isotopes, exchange and surface behaviour, Pitzer and SIT parameters of the .dat) is lost; parameters reach Reaktoro only as closures over PHREEQC structures, not as data."
+
+[[construct]]
+name = "NASA CEA species as converted (nasa-cea)"
+locator = "embedded/databases/reaktoro/nasa-cea.json; utilities/nasa-parser/parse_nasa_database.py"
+meaning = "NASA CEA species (1658) with per-interval nine-coefficient polynomials, each polynomial carrying its own aggregate state, reference label, temperature bounds and coefficients a1..a7, b1, b2."
+subject = "one species form; intervals as a list inside the Nasa block"
+fields = [
+  { name = "Polynomials[].State", meaning = "Gas, Solid or Liquid per interval (2783, 699, 313 polynomials)", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "Polynomials[].Label", meaning = "species label and crystal form such as Mg(L)L", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "Polynomials[].Tmin, Tmax", meaning = "interval bounds", unit = "K", shape = "scalar", role = "input" },
+  { name = "a1..a7, b1, b2", meaning = "Cp/R coefficients and the enthalpy and entropy integration constants", unit = "dimensionless per the NASA convention", shape = "scalar", role = "input" },
+  { name = "dHf, dH0", meaning = "enthalpy of formation at 298.15 K and H(298.15) - H(0)", unit = "J/mol", shape = "scalar", role = "input" },
+]
+origin = "generated (by parse_nasa_database.py from cea.dat, a 2004 CEA thermo library; the converter version is not recorded in the JSON)"
+conventions = "intervals per species: 2 in 1111 species, 3 in 386, 4 in 61, 1 in 37, 5 in 17, 6 in 3, 7 in 3, 10 in 1, none in 39 (reactant-only species with H0 and T0); Tags product or reactant; species with several condensed forms are merged under one Name with different States per interval"
+absence = "39 species have no polynomials (assigned enthalpy only); charges given for 216 species (+1 129, -1 86, +2 1)"
+validity = "per-interval Tmin and Tmax"
+provenance = "Label text only"
+count = "1658 species, 3795 polynomials"
+example = "embedded/databases/reaktoro/nasa-cea.json#/Species/Al+"
+candidate = "parameter_set (form nasa9, family piece with interval), species_form per state"
+precision = "close"
+loss = "A species with intervals of different aggregate states (condensed phases melting within the fit range) is one species here but several species forms in the model; the state is per interval."
+
+[[construct]]
+name = "SUPCRT linearized line and the legacy XML species"
+locator = "utilities/supcrt-parser/linearized.supcrt*.dat; utilities/supcrt-parser/generate-supcrt-databases (header comment); embedded/databases/supcrt/*.xml"
+meaning = "The intermediate line-per-species text format from which the SUPCRT JSON is generated, and the older XML serialisation of the same data."
+subject = "one species form"
+fields = [
+  { name = "model code", meaning = "hkf, hkfbl, whkf, whkfbl, hkfmk, mk, hp, hpl, hpg select the model; hkfbl and whkfbl are the SUPCRTBL joule-based variants (Zimmer et al.), hp, hpl and hpg the Holland-Powell 2011 variants", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "parameters", meaning = "the values of the model in SUPCRT units (cal, bar, cm3) with exponent-scaled columns (for example a1 in units of 10^1 cal/(mol bar))", unit = "stated per model in the generator header", shape = "list", role = "input" },
+  { name = "XML: Thermo/HKF, Dissociation, AcentricFactor, TemperatureRange0..3", meaning = "XML elements with unit attributes; Dissociation (74 in supcrt98.xml), AcentricFactor (17), Gas (18) and TemperatureRange blocks have no counterpart in the JSON", unit = "units attributes", shape = "table", role = "unread" },
+]
+origin = "transcribed (SUPCRT92 data files and SUPCRTBL); generated for the XML"
+conventions = "the SUPCRT scaled units are converted by the generator to SI in the JSON (cal to J with 4.184)"
+absence = "the generator maps the model codes to JSON names: hkf, hkfbl to HKF; whkf, whkfbl to WaterHKF; hkfmk to MineralHKF; mk to MaierKelley; hp, hpl, hpg to HollandPowell"
+validity = "Tmax per mineral"
+provenance = "trailing comments with references and dates in the linearized lines; References and Date elements in the XML"
+count = "linearized 1553, 1920, 2029 lines; XML 976, 1010, 1553, 1925 species"
+example = "utilities/supcrt-parser/linearized.supcrt98.dat line 1"
+candidate = "parameter_set, import_record"
+precision = "close"
+loss = "The XML and the Dissociation, acentric factor and temperature-range blocks that the JSON drops are data not carried into the current format."
+
+[[construct]]
+name = "built-in element, critical-property and dissociation tables"
+locator = "Reaktoro/Singletons/Elements.cpp, CriticalProps.cpp, DissociationReactions.cpp"
+meaning = "Code-held tables: 120 elements with molar mass, 89 substances with critical temperature, pressure and acentric factor keyed by alias names and formulas, and 170 neutral-salt dissociation reactions."
+subject = "element; substance; salt"
+fields = [
+  { name = "Element entry", meaning = "symbol, molar mass (kg/mol, for example 0.001007940 for H), name", unit = "kg/mol", shape = "table", role = "input" },
+  { name = "critical properties", meaning = "Tc (K), Pc (Pa, given as bar times 1e5), omega", unit = "K, Pa, dimensionless", shape = "table", role = "input" },
+  { name = "dissociation reactions", meaning = "salt formula -> ions with coefficients, for example CaCl2 -> Ca++ + 2 Cl-", unit = "stoichiometric", shape = "table", role = "input" },
+]
+origin = "transcribed (critical properties from the working sheet and Isidoro Martinez PDF in resources/data; element masses: source not stated)"
+conventions = "element masses are a single value per element (no edition stated)"
+absence = "an element not in the table raises an error when a species uses it"
+validity = "not applicable"
+provenance = "none in code"
+count = "120, 89, 170"
+example = "Reaktoro/Singletons/Elements.cpp line 30"
+candidate = "element, parameter_set (critical properties), reaction"
+precision = "close"
+loss = "atomic-weight edition is not stated; critical data are for selected pure substances, matched by alias names."
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES: standard thermodynamic models
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "StandardThermoModelMaierKelley"
+locator = "Reaktoro/Models/StandardThermoModels/StandardThermoModelMaierKelley.cpp"
+class = "standard_state_species"
+inputs = "T, P"
+parameters = "pure: Gf, Hf, Sr, Vr, a, b, c, Tmax"
+composes = []
+variants = []
+equation_source = "none in the code header; Cp = a + b T + c/T^2 (Maier and Kelley form)"
+closed_form = "yes"
+data = "construct 'StandardThermoModel block' (1100 shipped records over six files)"
+
+[[model_family]]
+name = "StandardThermoModelMineralHKF"
+locator = "Reaktoro/Models/StandardThermoModels/StandardThermoModelMineralHKF.cpp"
+class = "standard_state_species"
+inputs = "T, P"
+parameters = "pure: Gf, Hf, Sr, Vr, ntr, a[], b[], c[], Ttr[], Htr[], Vtr[], dPdTtr[], Tmax"
+composes = []
+variants = []
+equation_source = "none in the code header; Maier-Kelley Cp per phase region with transition enthalpies and Clapeyron slopes (Helgeson et al. 1978 convention of SUPCRT92)"
+closed_form = "yes"
+data = "construct 'StandardThermoModel block' (314 shipped records over six files; ntr 0 to 3)"
+
+[[model_family]]
+name = "StandardThermoModelHKF"
+locator = "Reaktoro/Models/StandardThermoModels/StandardThermoModelHKF.cpp (line 75 and following)"
+class = "standard_state_species"
+inputs = "T, P; water density and Born functions at (T, P)"
+parameters = "pure: Gf, Hf, Sr, a1, a2, a3, a4, c1, c2, wref, charge, Tmax; global: theta 228 K, psi 2600 bar, Tr 298.15 K, Pr 1 bar"
+composes = [
+  { slot = "water thermodynamic properties", accepts = "water Helmholtz model (Wagner-Pruss)", default = "waterThermoPropsWagnerPrussMemoized (liquid state, fixed)" },
+  { slot = "water electrostatic properties", accepts = "water electro model (Johnson-Norton)", default = "waterElectroPropsJohnsonNorton (fixed)" },
+  { slot = "g function of the solvent", accepts = "Shock-Helgeson g function", default = "gHKF::compute (fixed)" },
+]
+variants = []
+equation_source = "no citation in the header; equations are those of Tanger and Helgeson 1988 and Shock et al. 1992 as in SUPCRT92 (inferred)"
+closed_form = "yes"
+data = "construct 'StandardThermoModel block' (9378 shipped HKF records over eight files)"
+
+[[model_family]]
+name = "StandardThermoModelWaterHKF"
+locator = "Reaktoro/Models/StandardThermoModels/StandardThermoModelWaterHKF.cpp"
+class = "standard_state_species"
+inputs = "T, P"
+parameters = "global: Ttr 273.16 K, Str 63.312288, Gtr -235517.36, Htr -287721.128 (defaults in the parameter struct)"
+composes = [
+  { slot = "water thermodynamic properties", accepts = "water Helmholtz model", default = "Wagner-Pruss (fixed)" },
+]
+variants = []
+equation_source = "triple-point values of the SUPCRT convention; no citation in the header"
+closed_form = "yes"
+data = "construct 'StandardThermoModel block' (one per SUPCRT file, 8)"
+
+[[model_family]]
+name = "StandardThermoModelHollandPowell"
+locator = "Reaktoro/Models/StandardThermoModels/StandardThermoModelHollandPowell.cpp"
+class = "standard_state_species"
+inputs = "T, P"
+parameters = "pure: Gf, Hf, Sr, Vr, a, b, c, d, alpha0, kappa0, kappa0p, kappa0pp, numatoms, Tmax (the critical temperature, Smax and Vmax of a Landau transition are commented out in the parameter struct)"
+composes = []
+variants = [
+  { selector = "presence of kappa0 (and the four dependent values)", selects = "adds the Tait-type pressure dependence of the volume; without them the volume is constant" },
+]
+equation_source = "Holland and Powell (2011) per the parameter comments (the Landau data in the files are from 1998 and unused)"
+closed_form = "yes"
+data = "construct 'StandardThermoModel block' (275 species in supcrtbl and supcrtbl-organics: 185 with the five EoS values, 73 without, 17 with Landau values that are not read)"
+
+[[model_family]]
+name = "StandardThermoModelNasa"
+locator = "Reaktoro/Models/StandardThermoModels/StandardThermoModelNasa.cpp"
+class = "standard_state_species"
+inputs = "T; interval chosen by indexTemperatureInterval"
+parameters = "pure: per interval Tmin, Tmax, Label, State, a1..a7, b1, b2; dHf, dH0; or H0 and T0"
+composes = []
+variants = []
+equation_source = "NASA RP-1311 and TP-2002-211556 (not cited in the header; the parameter docs describe the regression model)"
+closed_form = "yes"
+data = "construct 'NASA CEA species as converted' (1658 species)"
+
+[[model_family]]
+name = "StandardThermoModelConstant and StandardThermoModelInterpolation"
+locator = "Reaktoro/Models/StandardThermoModels/StandardThermoModelConstant.cpp, StandardThermoModelInterpolation.cpp"
+class = "standard_state_species"
+inputs = "T, P"
+parameters = "pure: G0 (required), H0, V0, VT0, VP0, Cp0; Interpolation: Temperatures, Pressures, grids of G0 (required), H0, V0, VT0, VP0, Cp0 and Pref (default 1e5 Pa) for the volume correction of G0"
+composes = []
+variants = [
+  { selector = "Constant versus Interpolation", selects = "constant values or bilinear interpolation over a (T, P) grid with optional volume correction" },
+]
+equation_source = "none"
+closed_form = "yes"
+data = "no shipped database uses either (measured: zero records)"
+
+[[model_family]]
+name = "StandardThermoModelExtendedUNIQUAC"
+locator = "Reaktoro/Models/StandardThermoModels/StandardThermoModelExtendedUNIQUAC.cpp"
+class = "standard_state_species"
+inputs = "T, P"
+parameters = "pure: Gr, Hr (kJ/mol), Sr, Vr, Cp (298.15 K values), a, b, c of the heat-capacity model, alpha (1/bar), beta (1/bar^2), Theta (200 K default)"
+composes = []
+variants = []
+equation_source = "Thomsen (1997, 2005) per the activity model comments; no citation in this header"
+closed_form = "yes"
+data = "the four ExtendedUNIQUAC.v*.yaml species files (40, 43, 91, 91 species)"
+
+[[model_family]]
+name = "StandardThermoModelFromData and ReactionStandardThermoModelFromData"
+locator = "Reaktoro/Models/StandardThermoModels/StandardThermoModelFromData.cpp, ReactionStandardThermoModelFromData.cpp"
+class = "wrapper"
+inputs = "a single-key data map"
+parameters = "none"
+composes = [
+  { slot = "model selected by name", accepts = "standard-state model (Constant, ExtendedUNIQUAC, HKF, HollandPowell, Interpolation, MaierKelley, MineralHKF, WaterHKF, Nasa) or reaction model (ConstLgK, GemsLgK, PhreeqcLgK, VantHoff)", default = "none: an unknown name is an error" },
+]
+variants = []
+equation_source = "none"
+closed_form = "procedural"
+data = "construct 'StandardThermoModel block'; ReactionStandardThermoModelPressureCorrection is not constructible from data"
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES: reaction models, volume, rates, surface area
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "ReactionStandardThermoModelConstLgK and VantHoff"
+locator = "Reaktoro/Models/StandardThermoModels/ReactionStandardThermoModelConstLgK.cpp, ReactionStandardThermoModelVantHoff.cpp"
+class = "reaction_property"
+inputs = "T, P, reaction volume change"
+parameters = "reaction: lgKr, Pr (Const); lgKr, dHr, Tr (298.15 K), Pr (VantHoff)"
+composes = [
+  { slot = "pressure correction", accepts = "reaction volume pressure correction", default = "applied with the reaction volume change and Pr" },
+]
+variants = []
+equation_source = "none in headers; van 't Hoff integration with constant dHr"
+closed_form = "yes"
+data = "PHREEQC conversion (van't Hoff for species without analytic terms); no shipped Reaktoro-format database"
+
+[[model_family]]
+name = "ReactionStandardThermoModelGemsLgK"
+locator = "Reaktoro/Models/StandardThermoModels/ReactionStandardThermoModelGemsLgK.cpp"
+class = "reaction_property"
+inputs = "T, P, reaction volume change"
+parameters = "reaction: A0..A6, Pr; lgK = A0 + A1 T + A2/T + A3 ln T + A4/T^2 + A5 T^2 + A6/T^0.5 (GEMS form)"
+composes = []
+variants = []
+equation_source = "Kulik and Wagner 2010 (Part 3, temperature corrections) and Haas and Fisher 1976 Am. J. Sci. 276:525-545, cited in the header"
+closed_form = "yes"
+data = "none bundled"
+
+[[model_family]]
+name = "ReactionStandardThermoModelPhreeqcLgK"
+locator = "Reaktoro/Models/StandardThermoModels/ReactionStandardThermoModelPhreeqcLgK.cpp"
+class = "reaction_property"
+inputs = "T, P, reaction volume change"
+parameters = "reaction: A1..A6, Pr (PHREEQC analytic expression: lgK = A1 + A2 T + A3/T + A4 log10 T + A5/T^2 + A6 T^2)"
+composes = []
+variants = []
+equation_source = "PHREEQC manual (Parkhurst and Appelo 2013, cited by the PHREEQC activity model); the header has no citation"
+closed_form = "yes"
+data = "created for PHREEQC species with nonzero analytic terms"
+
+[[model_family]]
+name = "ReactionStandardThermoModelPressureCorrection"
+locator = "Reaktoro/Models/StandardThermoModels/ReactionStandardThermoModelPressureCorrection.cpp"
+class = "model_component"
+inputs = "P, reference pressure Pr, reaction volume change"
+parameters = "global: Pr"
+composes = []
+variants = []
+equation_source = "none"
+closed_form = "yes"
+data = "none bundled; not constructible from a data map"
+
+[[model_family]]
+name = "FormationReaction evaluation (standard properties of a species from a reaction)"
+locator = "Reaktoro/Core/FormationReaction.cpp (line 55)"
+class = "wrapper"
+inputs = "T, P; reactant species with their own standard properties"
+parameters = "none"
+composes = [
+  { slot = "reactant standard properties", accepts = "any standard-state model of another species", default = "none: reactants must exist" },
+  { slot = "reaction model", accepts = "ReactionStandardThermoModel", default = "none: required" },
+  { slot = "product standard volume", accepts = "StandardVolumeModel", default = "zero volume" },
+]
+variants = []
+equation_source = "none"
+closed_form = "procedural"
+data = "construct 'FormationReaction block'"
+
+[[model_family]]
+name = "StandardVolumeModelConstant"
+locator = "Reaktoro/Models/StandardThermoModels/StandardVolumeModelConstant.cpp"
+class = "standard_state_species"
+inputs = "none"
+parameters = "pure: V0 in m3/mol"
+composes = []
+variants = []
+equation_source = "none"
+closed_form = "yes"
+data = "none bundled (PHREEQC volumes use the vm closures of PhreeqcUtils instead)"
+
+[[model_family]]
+name = "PHREEQC molar volume of aqueous species and solids"
+locator = "Reaktoro/Extensions/Phreeqc/PhreeqcThermo.cpp standardVolume (line 31)"
+class = "standard_state_species"
+inputs = "T, P, water density and Born Q"
+parameters = "pure: vma1..vma4, wref, Millero coefficients m0..m2 (and m3..m5, vmi1..vmi4, b_Av for the ionic-strength correction), vm0 for phases"
+composes = [
+  { slot = "water properties (density, Born Q, Debye-Hueckel Av and B)", accepts = "PHREEQC water model", default = "PhreeqcWater (fixed)" },
+]
+variants = [
+  { selector = "vma1 nonzero, Millero coefficients, or neither", selects = "Redlich-type molar volume with pressure terms; a Millero quadratic in temperature; zero volume" },
+]
+equation_source = "PHREEQC Phreeqc::calc_vm (comment in the code; Redlich and Meyer, Chem. Rev. 64:221)"
+closed_form = "yes"
+data = "the PHREEQC databases' -vm and -millero fields"
+
+[[model_family]]
+name = "ReactionRateModelPalandriKharaka"
+locator = "Reaktoro/Models/ReactionRateModels/ReactionRateModelPalandriKharaka.cpp"
+class = "kinetics"
+inputs = "T, mineral saturation ratio Omega, activities or partial pressures of catalyst species, mineral surface area"
+parameters = "pure mineral: lgk, E, p, q per mechanism, catalyst formula, property symbol and power"
+composes = [
+  { slot = "mineral surface area", accepts = "SurfaceAreaModel", default = "the surface of the same name in the system" },
+  { slot = "saturation ratio", accepts = "aqueous properties of the chemical state", default = "AqueousProps::saturationRatio (fixed)" },
+]
+variants = []
+equation_source = "Palandri J.L. and Kharaka Y.K. 2004 (cited as Palandri2004 in the header)"
+closed_form = "yes"
+data = "construct 'Palandri-Kharaka parameter file'"
+
+[[model_family]]
+name = "SurfaceAreaModelConstant, Linear and Power"
+locator = "Reaktoro/Models/SurfaceAreaModels/SurfaceAreaModelConstant.cpp, SurfaceAreaModelLinear.cpp, SurfaceAreaModelPower.cpp"
+class = "other"
+inputs = "phase amount, mass or volume and, for Power, initial amount"
+parameters = "pure phase: Constant A0; Linear Abar (specific, molar or volumetric area); Power A0, q0 (reference amount), p"
+composes = [
+  { slot = "phase quantity", accepts = "molar, specific (per mass) or volumetric basis", default = "chosen by the suffix of the function name" },
+]
+variants = [
+  { selector = "Molar, Specific, Volumetric suffixes", selects = "area per mole, per kg or per m3 of the phase" },
+]
+equation_source = "none"
+closed_form = "yes"
+data = "none bundled"
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES: water
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "water Helmholtz models: Wagner-Pruss 1995 (IAPWS-95) and Haar-Gallagher-Kell 1984"
+locator = "Reaktoro/Water/WaterHelmholtzPropsWagnerPruss.cpp, WaterHelmholtzPropsHGK.cpp, WaterUtils.cpp, WaterThermoPropsUtils.cpp"
+class = "helmholtz_potential"
+inputs = "T and density (P converted to density by solving), state of matter"
+parameters = "global: the published coefficient sets inside the source files; molar mass, critical and triple-point constants in WaterConstants.hpp"
+composes = []
+variants = [
+  { selector = "waterThermoPropsWagnerPruss, HGK, and the interpolated Wagner-Pruss table", selects = "direct evaluation with density from a saturation and Newton solve; the third uses the 2180-row table with quadratic interpolation in T and P (WaterInterpolation.cpp)" },
+]
+equation_source = "Wagner W., Pruss A. 2002 J. Phys. Chem. Ref. Data 31(2):387-535; Haar L., Gallagher J.S., Kell G.S. 1984 (cited in WaterUtils.hpp)"
+closed_form = "implicit"
+data = "construct 'water interpolation table' (payload); HKF models call the direct Wagner-Pruss evaluation (memoised)"
+
+[[model_family]]
+name = "water electrostatics: Johnson-Norton 1991"
+locator = "Reaktoro/Water/WaterElectroPropsJohnsonNorton.cpp"
+class = "model_component"
+inputs = "T, P and the water thermo properties (density and derivatives)"
+parameters = "global: the coefficients of the correlation in the source"
+composes = [
+  { slot = "water density and derivatives", accepts = "water thermodynamic properties", default = "passed in by the caller (Wagner-Pruss for HKF)" },
+]
+variants = []
+equation_source = "Johnson J.W., Norton D. 1991 Am. J. Sci. 291(6):541-648, doi 10.2475/ajs.291.6.541 (cited in the header)"
+closed_form = "yes"
+data = "none bundled"
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES: activity models (one per file under Models/ActivityModels)
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "ActivityModelIdealAqueous"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelIdealAqueous.cpp"
+class = "residual_or_excess_contribution"
+inputs = "species amounts of an aqueous phase; molality of solutes and water mole fraction"
+parameters = "none"
+composes = []
+variants = []
+equation_source = "none"
+closed_form = "yes"
+data = "none: ln a = ln m for solutes and ln a_w = -(1 - x_w)/x_w for water (Gibbs-Duhem consistent)"
+
+[[model_family]]
+name = "ActivityModelIdealGas"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelIdealGas.cpp"
+class = "residual_or_excess_contribution"
+inputs = "mole fractions, P"
+parameters = "none"
+composes = []
+variants = []
+equation_source = "none"
+closed_form = "yes"
+data = "none: ln a = ln x + ln(P in bar)"
+
+[[model_family]]
+name = "ActivityModelIdealSolution"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelIdealSolution.cpp"
+class = "residual_or_excess_contribution"
+inputs = "mole fractions; state of matter as a constructor argument"
+parameters = "none"
+composes = []
+variants = []
+equation_source = "none"
+closed_form = "yes"
+data = "none: ln a = ln x"
+
+[[model_family]]
+name = "ActivityModelDavies"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelDavies.cpp"
+class = "electrolyte_interaction"
+inputs = "aqueous molalities, ionic strength, Debye-Hueckel A from water density and dielectric constant"
+parameters = "global: bions (default 0.3), bneutrals (default 0.1)"
+composes = [
+  { slot = "aqueous mixture state and solvent properties", accepts = "AqueousMixture with water density and electrostatics", default = "Wagner-Pruss density and Johnson-Norton electrostatics (AqueousMixture default)" },
+]
+variants = []
+equation_source = "Davies 1962 implied; no citation in the code"
+closed_form = "yes"
+data = "none bundled"
+
+[[model_family]]
+name = "ActivityModelDebyeHuckel (Limiting Law, Kielland, PHREEQC, WATEQ4F variants)"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelDebyeHuckel.cpp"
+class = "electrolyte_interaction"
+inputs = "aqueous molalities, ionic strength, A and B from water properties"
+parameters = "global: aiondefault 0, biondefault 0, bneutraldefault 0.1; species: a (ion size) per ion, b per ion and per neutral species"
+composes = [
+  { slot = "aqueous mixture state and solvent properties", accepts = "AqueousMixture", default = "Wagner-Pruss density and Johnson-Norton electrostatics" },
+]
+variants = [
+  { selector = "setLimitingLaw", selects = "a and b set to zero (limiting law)" },
+  { selector = "setKielland", selects = "ion sizes of Kielland (1937)" },
+  { selector = "setWATEQ4F", selects = "a and b of WATEQ4F (Ball and Nordstrom 1991; Truesdell and Jones 1974 form)" },
+  { selector = "setPHREEQC", selects = "a and b of PHREEQC (Parkhurst and Appelo 2013)" },
+]
+equation_source = "cited in the header: Anderson and Crerar 1993 p. 439 and Langmuir 1997 p. 128 for the form, Kielland 1937, Truesdell and Jones 1974, Ball and Nordstrom 1991, Parkhurst and Appelo 2013"
+closed_form = "yes"
+data = "the parameter sets are hard-coded per variant (no data file)"
+
+[[model_family]]
+name = "ActivityModelHKF"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelHKF.cpp"
+class = "electrolyte_interaction"
+inputs = "aqueous molalities, T, P, water properties"
+parameters = "species: effective electrostatic radius per ion (table of about 40 ions from Table 3 of Helgeson et al. 1981), Born coefficient; global: bNaCl and bNa'Cl-' interpolation grids (Table 29, values multiplied by 1e7), osmotic-coefficient terms"
+composes = [
+  { slot = "aqueous mixture state and solvent properties", accepts = "AqueousMixture", default = "Wagner-Pruss density and Johnson-Norton electrostatics" },
+]
+variants = []
+equation_source = "Helgeson H.C., Kirkham D.H., Flowers G.C. 1981 Am. J. Sci. 281(10):1249-1516; ion size of the Debye-Hueckel term as computed by Reed (1982) and TOUGHREACT (code comment); equation (298) of the 1981 paper"
+closed_form = "yes"
+data = "tables in ActivityModelHKF.cpp (no data file)"
+
+[[model_family]]
+name = "ActivityModelPitzer (and deprecated ActivityModelPitzerHMW)"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelPitzer.cpp, ActivityModelPitzerHMW.cpp"
+class = "electrolyte_interaction"
+inputs = "aqueous molalities, T, P, charges; species classified as cation, anion or neutral"
+parameters = "pair: beta0, beta1, beta2, Cphi, theta, lambda, alpha1, alpha2; triple: psi, zeta, mu, eta; each with a correction model and up to 20 coefficients"
+composes = [
+  { slot = "temperature-pressure correction of each parameter", accepts = "correction model (Constant, Phreeqc, HeMorse1993, Dai2013, Dai2014, ChristovMoller2004, Holmes1987, Pitzer1984, PalabanPitzer1987, Polya2001, LiDuan2007)", default = "Constant" },
+  { slot = "aqueous mixture state", accepts = "AqueousMixture", default = "Wagner-Pruss density and Johnson-Norton electrostatics" },
+]
+variants = [
+  { selector = "ActivityModelPitzerHMW", selects = "the older implementation of the same model (1467 lines), deprecated with a warning that redirects to ActivityModelPitzer" },
+  { selector = "CorrectionModel", selects = "the temperature-pressure function of each parameter; Dai2013 has 20 coefficients in (T, P, P^2, P^3)" },
+]
+equation_source = "Harvie, Moller and Weare 1984; Harvie and Weare 1980; Pitzer 1975 (cited in the HMW header); Plummer et al. 1988 for g(x) (code comments); Clegg 1991 equations 34-37"
+closed_form = "yes"
+data = "construct 'Pitzer parameter file' (default file Pitzer.json)"
+
+[[model_family]]
+name = "ActivityModelExtendedUNIQUAC"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelExtendedUNIQUAC.cpp"
+class = "electrolyte_interaction"
+inputs = "aqueous molalities, T, P, water density and dielectric constant"
+parameters = "pure: r, q; pair: u0, uT (and uP); global: Tr 298.15 K"
+composes = [
+  { slot = "aqueous mixture and Debye-Hueckel term", accepts = "AqueousMixture and water electrostatics", default = "as other aqueous models" },
+]
+variants = [
+  { selector = "params argument or default", selects = "default reads ExtendedUNIQUAC.v2024.yaml; a Params or ActivityModelParamsExtendedUNIQUAC object supplies another set" },
+]
+equation_source = "Thomsen (2005) equations 6, 8-10 and 16 and Thomsen (1997) equations 4-2 to 4-14; Hingerl et al. (2014) equation 13 (code comments)"
+closed_form = "yes"
+data = "construct 'Extended UNIQUAC parameter file'"
+
+[[model_family]]
+name = "ActivityModelPhreeqc and ActivityModelPhreeqcIonicStrengthPressureCorrection"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelPhreeqc.cpp, ActivityModelPhreeqcIonicStrengthPressureCorrection.cpp"
+class = "electrolyte_interaction"
+inputs = "aqueous molalities, T, P, a PHREEQC database pointer"
+parameters = "species: ion-size a (dha) and b (dhb) from -gamma; global: LLNL_AQUEOUS_MODEL_PARAMETERS tables"
+composes = [
+  { slot = "PHREEQC database", accepts = "PhreeqcDatabase with the embedded PHREEQC instance", default = "none: required" },
+  { slot = "ionic-strength and pressure correction", accepts = "a model chained after a base aqueous model", default = "none: must be last in the chain" },
+]
+variants = [
+  { selector = "database parameters present", selects = "Daveler-Wolery (LLNL) model if the LLNL block exists, otherwise WATEQ-Debye-Hueckel (Truesdell and Jones) with -gamma, otherwise Davies; neutral species log10 gamma = b I" },
+]
+equation_source = "Parkhurst and Appelo 2013; Truesdell and Jones 1974; Daveler and Wolery 1992 (cited in the header)"
+closed_form = "yes"
+data = "the PHREEQC databases' -gamma fields (see the PHREEQC payload)"
+
+[[model_family]]
+name = "ActivityModelSetschenow, Drummond, DuanSun and Rumpf (dissolved gas models)"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelSetschenow.cpp, ActivityModelDrummond.cpp, ActivityModelDuanSun.cpp, ActivityModelRumpf.cpp"
+class = "residual_or_excess_contribution"
+inputs = "T, P, ionic strength and ion molalities from a base aqueous model"
+parameters = "pure: Setschenow b; Drummond a1..a5 (defaults -1.0312, 1.2806e-3, 255.9, 0.4445, -1.6060e-3); Duan-Sun lambda and zeta coefficient arrays of 11 terms; Rumpf B(T) and Gamma -0.0028; a dissolved-gas formula as argument"
+composes = [
+  { slot = "base aqueous model exporting AqueousMixtureState in props.extra", accepts = "Davies, DebyeHuckel, HKF, Pitzer or any model that exports the state", default = "none: an error if not chained first" },
+]
+variants = [
+  { selector = "Drummond", selects = "ln gamma = (a1 + a2 T + a3/T) I - (a4 + a5 T) I/(I + 1)" },
+  { selector = "Duan-Sun", selects = "gas-solubility Pitzer-type terms for CO2 with Na, K, Ca, Mg, Cl, SO4 (11-term T, P functions)" },
+  { selector = "Rumpf", selects = "ln gamma = 2 B (mNa + mK + 2 mCa + 2 mMg) + 3 Gamma (mNa + mK + mCa + mMg) mCl" },
+]
+equation_source = "Drummond 1981; Duan and Sun 2003 Chem. Geol. 193:257-271; Rumpf et al. 1994 J. Solution Chem. 23:431-448 (cited in the headers)"
+closed_form = "yes"
+data = "coefficients in code; no data files"
+
+[[model_family]]
+name = "ActivityModelCubicEOS family (VanDerWaals, RedlichKwong, SoaveRedlichKwong, PengRobinson, PengRobinson76, PengRobinson78, PengRobinsonPhreeqc, PengRobinsonSoreideWhitson)"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelCubicEOS.cpp; Support/CubicEOS.cpp"
+class = "residual_or_excess_contribution"
+inputs = "T, P, mole fractions of gases or a fluid phase; critical T, P and acentric factor from the built-in critical-property table"
+parameters = "pure: Tc, Pc, omega; pair: kij from a BIP model; global: sigma, epsilon, Omega, Psi and alpha-function coefficients of the named equation"
+composes = [
+  { slot = "binary interaction model", accepts = "CubicBipModel (none, Phreeqc, SoreideWhitson)", default = "no interaction (kij 0) when none is given" },
+  { slot = "critical properties", accepts = "CriticalProps table", default = "the built-in table of 89 entries (fixed)" },
+]
+variants = [
+  { selector = "PengRobinson (default) versus 76 and 78", selects = "PengRobinson is the 1978 form with m1 for omega below 0.491 and the cubic m2 above; 76 uses the original m" },
+  { selector = "CubicBipModelPhreeqc", selects = "four constant kij of H2O with CO2, H2S, CH4, N2 (0.19, 0.19, 0.49, 0.49)" },
+  { selector = "CubicBipModelSoreideWhitson", selects = "temperature- and salinity-dependent kij of Soreide and Whitson 1992 for PR with water" },
+]
+equation_source = "van der Waals 1873, Redlich-Kwong 1949, Soave 1972, Peng-Robinson 1976, Jaubert et al. 2005 (PR78), Soreide and Whitson 1992, Smith et al. 2017 Table 3.1 and equations 13.72 to 13.92 (header tables and code comments)"
+closed_form = "implicit"
+data = "constants in code (CubicEOS.json is unread); critical table in CriticalProps.cpp"
+
+[[model_family]]
+name = "ActivityModelPengRobinsonPhreeqcOriginal"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelPengRobinsonPhreeqcOriginal.cpp"
+class = "residual_or_excess_contribution"
+inputs = "T, P, mole fractions of gas-phase species"
+parameters = "pure: critical T and P and omega from the PHREEQC database (-gas_phase data); pair: the PHREEQC kij"
+composes = [
+  { slot = "PHREEQC database", accepts = "PhreeqcDatabase", default = "none" },
+]
+variants = []
+equation_source = "PHREEQC's own Peng-Robinson implementation (header: 'based on PHREEQC's implementation')"
+closed_form = "implicit"
+data = "PHREEQC databases' critical properties (phreeqc.dat, pitzer.dat)"
+
+[[model_family]]
+name = "ActivityModelSpycherPruessEnnis"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelSpycherPruessEnnis.cpp"
+class = "residual_or_excess_contribution"
+inputs = "T, P, gas mole fractions of H2O(g) and CO2(g) only"
+parameters = "global: the correlation coefficients in the source"
+composes = []
+variants = []
+equation_source = "Spycher N., Pruess K., Ennis-King J. 2003 Geochim. Cosmochim. Acta 67(16):3015-3031"
+closed_form = "yes"
+data = "coefficients in code"
+
+[[model_family]]
+name = "ActivityModelSpycherReed"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelSpycherReed.cpp"
+class = "residual_or_excess_contribution"
+inputs = "T, P, gas mole fractions of H2O, CO2 and CH4"
+parameters = "global: pure-gas fugacity coefficient tables for H2O, CO2 and CH4 (Table 1) and mixing terms with stated ranges (50-350 C to 94 bar; 40-240 C to 500 bar; 25-100 C to 500 bar)"
+composes = []
+variants = []
+equation_source = "Spycher N., Reed M.H. 1988 Geochim. Cosmochim. Acta (cited in the code comments)"
+closed_form = "yes"
+data = "coefficients in code"
+
+[[model_family]]
+name = "ActivityModelRedlichKister"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelRedlichKister.cpp"
+class = "residual_or_excess_contribution"
+inputs = "end-member mole fractions of a binary solid solution"
+parameters = "pair: a0, a1, a2 (constructor arguments)"
+composes = []
+variants = []
+equation_source = "ln gamma_1 = x2^2 [a0 + a1 (3 x1 - x2) + a2 (x1 - x2)(5 x1 - x2)] (header equation); no citation"
+closed_form = "yes"
+data = "none bundled"
+
+[[model_family]]
+name = "ActivityModelVanLaar"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelVanLaar.cpp and .hpp"
+class = "residual_or_excess_contribution"
+inputs = "mole fractions of a mineral solid solution (intended)"
+parameters = "pure: size a; pair: W (intended)"
+composes = []
+variants = []
+equation_source = "none: the header says 'todo write equations'"
+closed_form = "yes"
+data = "none: the whole implementation is commented out; the file defines no function"
+
+[[model_family]]
+name = "ActivityModelIonExchange (GainesThomas, Vanselow) and ActivityModelIdealIonExchange"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelIonExchange.cpp, ActivityModelIdealIonExchange.cpp; Support/IonExchangeSurface.cpp"
+class = "residual_or_excess_contribution"
+inputs = "amounts of exchanger species, equivalents (charge) of the exchanged cations"
+parameters = "none: exchanger equivalents from species charge; the ion-exchange reaction constants live in the species' formation reactions"
+composes = [
+  { slot = "exchange surface", accepts = "IonExchangeSurface built from the species", default = "derived from the species list" },
+]
+variants = [
+  { selector = "Gaines-Thomas", selects = "activity from equivalent fractions beta_i = x_i z_i / sum x_j z_j" },
+  { selector = "Vanselow", selects = "activity from mole fractions of the exchange species" },
+]
+equation_source = "model pages in the header: PageActivityModelIonExchangeGainesThomas and Vanselov (no citation text in the excerpt)"
+closed_form = "yes"
+data = "from PHREEQC EXCHANGE_SPECIES and EXCHANGE_MASTER_SPECIES via the PHREEQC reader"
+
+[[model_family]]
+name = "activity-model chain"
+locator = "Reaktoro/Core/ActivityModel.cpp chain (line 22)"
+class = "wrapper"
+inputs = "a list of activity model generators and a species list"
+parameters = "none"
+composes = [
+  { slot = "ordered list of activity models applied one after another to the same ActivityProps object", accepts = "ActivityModelGenerator", default = "none: a single model is returned unchanged" },
+]
+variants = []
+equation_source = "none"
+closed_form = "procedural"
+data = "none"
+
+# ---------------------------------------------------------------------------
+# CONVENTIONS
+# ---------------------------------------------------------------------------
+
+[[convention]]
+name = "standard states by aggregate state"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelIdealAqueous.cpp, ActivityModelIdealGas.cpp, ActivityModelHKF.cpp; Core/StandardThermoProps.hpp"
+statement = "G0 and H0 of a species are the standard molar Gibbs energy and enthalpy 'of formation' in J/mol (the HKF and mineral parameters call them apparent). Aqueous solutes: ln a = ln m in the molality scale with water in the mole-fraction scale (unsymmetric), reference the hypothetical unit molality ideal solution (inferred from the ideal model); gases: ln a = ln x + ln(P/bar), ideal gas at 1 bar; minerals and condensed species: pure phase, activity by mole fraction. The standard state pressure is 1 bar (100000 Pa) in the Reaktoro models and 101325 Pa in PHREEQC-derived reaction models. The code states none of this in a docstring."
+scope = "all species and phases"
+
+[[convention]]
+name = "units"
+locator = "Reaktoro/Common/Constants.hpp; Core/StandardThermoProps.hpp"
+statement = "Quantities are SI: J/mol, J/(mol K), m3/mol, Pa, K, kg/mol for molar masses; the gas constant is 8.3144621 J/(mol K), the Faraday constant 96485.3329 C/mol, the calorie 4.184 J, the atmosphere 101325 Pa, the bar 1e5 Pa; database files state no units and the ExtendedUNIQUAC Gr, Hr use kJ/mol. Water functions work per kg; HKF parameters are in J and Pa (converted by the generator from cal and bar)."
+scope = "all models and database files"
+
+[[convention]]
+name = "conserved quantities: elements and charge"
+locator = "Reaktoro/Core/ChemicalSystem.cpp (formula matrix, lines 72-251)"
+statement = "The formula matrix has one row per element of the system plus a final row of species charges; elements come from species Elements strings, charge from Charge; balance constraints in equilibrium are on elements and optionally charge (EquilibriumSpecs charge). Element molar masses come from the database Elements section or the built-in table."
+scope = "chemical systems"
+
+[[convention]]
+name = "phases defined from species"
+locator = "Reaktoro/Core/Phases.cpp GeneralPhase::convert (line 160)"
+statement = "A phase is defined by a name, an aggregate state, optional extra aggregate states, an activity model generator and a species selection: explicit names, or element symbols (the system's elements by default), minus species carrying excluded tags; species come from the database's species with that aggregate state. A phase has a single aggregate state family and one activity model (chained models count as one)."
+scope = "phase construction"
+
+[[convention]]
+name = "species name and state uniqueness"
+locator = "Reaktoro/Core/Database.cpp addSpecies (line 124)"
+statement = "Names must be unique among species with the same aggregate state; a repeated name gets '!' appended with a warning; species with undefined aggregate state become Aqueous; names are matched literally, not through formulas, except in helper lookups by formula."
+scope = "databases"
+
+[[convention]]
+name = "sign of reaction coefficients"
+locator = "Reaktoro/Core/FormationReaction.cpp (comment in calcfn, about line 84)"
+statement = "In a FormationReaction a positive coefficient marks a reactant on the left-hand side and a negative one a product; the defined species is the product; the equilibrium constant is for formation of the species from the reactants."
+scope = "formation reactions"
+
+# ---------------------------------------------------------------------------
+# SELECTION
+# ---------------------------------------------------------------------------
+
+[[selection]]
+name = "database choice and species data"
+locator = "Reaktoro/Core/Database.cpp; Extensions/*/ *Database.cpp"
+rule = "A database is chosen by name from a closed list per family (SupcrtDatabase: 8 names; NasaDatabase: nasa-cea; PhreeqcDatabase: 14 names; ThermoFunDatabase: 7 names; Database::embedded: a file name under databases/reaktoro) or by path; there is no merging across databases except ThermoFunDatabase::fromFiles and Database::addSpecies on a built object; within one database each species has exactly one standard-state model."
+scope = "species data"
+documented = "yes: the error messages list the supported names (with two name typos noted in the payloads)"
+
+[[selection]]
+name = "species of a phase"
+locator = "Reaktoro/Core/Phases.cpp lines 160-190"
+rule = "From the database species with the phase's aggregate state (plus any additional states), keep those with the given names, else those whose elements are within the given element symbols (else the system elements), then drop species having any excluded tag; an empty result is an error."
+scope = "phase construction"
+documented = "partly: the header comments describe Speciate and Exclude; the combination order is code only"
+
+[[selection]]
+name = "activity model application order"
+locator = "Reaktoro/Core/ActivityModel.cpp chain (line 22); dissolved-gas models"
+rule = "Chained models run in list order on one ActivityProps object, each overwriting the entries it computes; dissolved-gas models (Setschenow, Drummond, DuanSun, Rumpf) read the AqueousMixtureState exported by an earlier aqueous model in props.extra and raise an error when it is absent; PhreeqcIonicStrengthPressureCorrection must be last."
+scope = "aqueous phases with gas models"
+documented = "yes: the header example shows chain(Pitzer, PhreeqcIonicStrengthPressureCorrection)"
+
+[[selection]]
+name = "model choice by name in a data file"
+locator = "StandardThermoModelFromData.cpp line 25; ReactionStandardThermoModelFromData.cpp"
+rule = "The single key of a StandardThermoModel or ReactionStandardThermoModel map names the model; more than one key is an error; an unknown name is an error."
+scope = "database loading"
+documented = "no"
+
+[[selection]]
+name = "duplicate PHREEQC species"
+locator = "Reaktoro/Extensions/Phreeqc/PhreeqcDatabase.cpp helper addSpecies"
+rule = "A species with the same name and aggregate state as one already created is not created again (the first wins); products are created depth-first so a reactant is created before its product."
+scope = "PHREEQC import"
+documented = "partly: code comments only"
+
+[[selection]]
+name = "solvent and water model of a ThermoFun database"
+locator = "Reaktoro/Extensions/ThermoFun/ThermoFunEngine.cpp (line 59)"
+rule = "The engine solvent is set to the symbol H2O@ for every ThermoFun database; the water equation of state and dielectric models are those listed on that record; gas species get V0 = 0 regardless of the record."
+scope = "ThermoFun-derived species"
+documented = "partly: one code comment"
+
+[[selection]]
+name = "catalyst absence in the Palandri-Kharaka model"
+locator = "ReactionRateModelPalandriKharaka.cpp lines 41-50 and 66-75"
+rule = "A catalyst whose species is not in the system contributes a factor 1 without a warning (the warning is commented out), so the mechanism stays active but uncatalysed."
+scope = "mineral dissolution rates"
+documented = "no"
+
+# ---------------------------------------------------------------------------
+# DISCREPANCIES
+# ---------------------------------------------------------------------------
+
+[[discrepancy]]
+locator = "Reaktoro/Core/Support/DatabaseParser.cpp createFormationReaction (line 220) versus Serialization/Core.cpp FormationReaction encode (line 128)"
+documented = "A FormationReaction may carry a StandardVolumeModel (the encoder writes it)."
+actual = "The decoder does not read StandardVolumeModel (the call is commented out), so a round trip through YAML loses the product volume."
+consequence = "A formation-reaction species loaded from a file has zero standard volume; volume-dependent results differ from the in-memory object."
+
+[[discrepancy]]
+locator = "embedded/params/CubicEOS.json and Reaktoro/Models/ActivityModels/Support/CubicEOS.cpp"
+documented = "The file lists the constants of five cubic EoS and one BIP model."
+actual = "No code reads the file; the constants are hard-coded."
+consequence = "The file may diverge from the code without any check; it cannot be taken as authority."
+
+[[discrepancy]]
+locator = "Reaktoro/Models/ActivityModels/ActivityModelVanLaar.hpp and .cpp"
+documented = "The header documents a Van Laar activity model for solid solutions with parameters a and W."
+actual = "The header and the source define no function (everything is commented out) and the equations are marked 'todo'."
+consequence = "Van Laar is listed among models but is not available."
+
+[[discrepancy]]
+locator = "embedded/databases/phreeqc/*.dat versus phreeqc pin database directory"
+documented = "The files are named after the PHREEQC distribution databases."
+actual = "phreeqc.dat, pitzer.dat and Amm.dat are older revisions, sit.dat is 829 lines shorter, and six further files have the same line count but 800 to 4800 lines whose content differs."
+consequence = "Numbers taken from a Reaktoro copy cannot be assumed equal to those of the pinned PHREEQC distribution."
+
+[[discrepancy]]
+locator = "embedded/databases/supcrt/*.xml versus embedded/databases/reaktoro/supcrt*.json"
+documented = "Both serialise the SUPCRT98 and SUPCRT07 databases."
+actual = "Species counts differ (supcrt98 976 against 983; supcrt07 1010 against 1018; supcrt07-organics 1925 against 1920) and the XML has Dissociation, acentric factor and temperature-range data that the JSON lacks; no code reads the XML."
+consequence = "The XML is stale or extra data; content present only there is unused."
+
+[[discrepancy]]
+locator = "Reaktoro/Extensions/Nasa/NasaDatabase.cpp and embedded/databases/nasa/burcat.dat"
+documented = "The NASA directory embeds both cea.dat and burcat.dat."
+actual = "Only the name nasa-cea is accepted and only cea.dat is converted; burcat.dat has no loader; cea.dat is the 2004 CEA library (9/09/04) while the pinned NASA CEA data file is dated 9/8/2021 and holds 25 more species."
+consequence = "NASA data in Reaktoro is older than the pinned CEA and excludes the Burcat database."
+
+[[discrepancy]]
+locator = "Reaktoro/Extensions/ThermoFun/ThermoFunDatabase.cpp lines 133-153"
+documented = "The error message names files 'psinagra-thermofun.json' and 'slop98-thermofun.json' for the names psinagra-12-07, slop98-organic and slop98."
+actual = "The names map to psinagra-12-07-thermofun.json, slop98-organic-thermofun.json and slop98-thermofun.json; the ThermoHub datasets mines19 and slop16 are not offered."
+consequence = "Messages mislabel files; newer datasets from the mirror are not reachable by name."
+
+[[discrepancy]]
+locator = "Reaktoro/Water/WaterInterpolation.cpp line 243"
+documented = "waterThermoPropsWagnerPrussInterp takes a StateOfMatter and the table is called one per state."
+actual = "The parser ignores the state (TODO) and a single table serves every state."
+consequence = "Vapour requests interpolate in the liquid and supercritical table."
+
+[[discrepancy]]
+locator = "embedded/databases/reaktoro/supcrt*.yaml versus .json"
+documented = "The YAML and JSON files are two formats of one database."
+actual = "As parsed by a YAML 1.1 parser the twins differ in one species per file (2e-08 read as text) and in the formula NO of supcrtbl (read as false); a YAML 1.2 reader is needed for equality."
+consequence = "Loaders other than yaml-cpp can misread the YAML twins; JSON is safe."
+
+[[discrepancy]]
+locator = "StandardThermoModelHollandPowell.hpp comments versus supcrtbl JSON"
+documented = "The code comments say the Landau data in SUPCRTBL (critical temperature, Smax, Vmax) is from HP98 and not actually used."
+actual = "17 records of supcrtbl and supcrtbl-organics carry Tcr, Smax and Vmax that the decoder drops."
+consequence = "Phase-transition contributions of those 17 minerals are missing from the evaluated properties."
+
+# ---------------------------------------------------------------------------
+# CAPABILITIES
+# ---------------------------------------------------------------------------
+
+[[capability]]
+calculation = "gibbs_minimization"
+offered = "yes"
+scope = "chemical equilibrium of a chemical system by Gibbs energy minimisation (Optima solver) with element and charge balance; specification sets TP, HP, TV, UV, SP, SV (EquilibriumSpecs static constructors) plus extra constraints on temperature, pressure, volume, energies, entropy, charge, element amounts and masses (total and in phase), phase amount, mass and volume, chemical potential, activity, fugacity, pH, pMg, pE, Eh, open-to titrants, reactivity restrictions (cannotReact, cannotIncrease, cannotDecrease and bounds); warm start, predictor and a smart (on-demand learning) solver"
+locator = "Reaktoro/Equilibrium/EquilibriumSolver.hpp, EquilibriumSpecs.hpp, EquilibriumConditions.hpp, EquilibriumRestrictions.hpp, SmartEquilibriumSolver.hpp"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_tp"
+offered = "yes"
+scope = "TP equilibrium specification over all phases of the system; no dedicated two-phase flash algorithm or stability test"
+locator = "Reaktoro/Equilibrium/EquilibriumSpecs.hpp TP"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_ph"
+offered = "yes"
+scope = "HP specification (enthalpy and pressure fixed, temperature unknown)"
+locator = "Reaktoro/Equilibrium/EquilibriumSpecs.hpp HP"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_ps"
+offered = "yes"
+scope = "SP specification"
+locator = "Reaktoro/Equilibrium/EquilibriumSpecs.hpp SP"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_uv"
+offered = "yes"
+scope = "UV specification; TV and SV are also available"
+locator = "Reaktoro/Equilibrium/EquilibriumSpecs.hpp UV, TV, SV"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "aqueous_speciation"
+offered = "yes"
+scope = "speciation as equilibrium with element balances plus pH, pE, Eh, alkalinity, ionic strength and saturation indices from AqueousProps; activity models listed in the model families"
+locator = "Reaktoro/Utils/AqueousProps.hpp; Equilibrium/EquilibriumSolver"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "proposed:reaction_kinetics"
+offered = "yes"
+scope = "kinetic integration of reaction rates (Reaction with ReactionRateModel, Palandri-Kharaka mineral rates, surface area models) coupled to equilibrium (KineticsSolver, SmartKineticsSolver)"
+locator = "Reaktoro/Kinetics/KineticsSolver.hpp; Core/Reaction.hpp; Models/ReactionRateModels"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "proposed:standard_state_properties"
+offered = "yes"
+scope = "standard G0, H0, V0, VT0, VP0, Cp0 (and derived S, U, A, Cv) of any species at (T, P), through Species::standardThermoProps"
+locator = "Reaktoro/Core/Species.cpp standardThermoProps (line 312); ChemicalProps species accessors"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "proposed:reactive_transport_step"
+offered = "partial"
+scope = "a TransportSolver class for one-dimensional transport steps; no coupled reactive-transport driver in the library proper (examples only)"
+locator = "Reaktoro/Transport/TransportSolver.hpp; examples/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "bubble_dew_point"
+offered = "no"
+scope = "no saturation-point solver; a bubble or dew point can be posed only as an equilibrium with a phase-amount constraint"
+locator = "Reaktoro/Equilibrium"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "phase_stability"
+offered = "no"
+scope = "no tangent-plane stability analysis; phases not in the system definition are never tested"
+locator = "Reaktoro/Equilibrium"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "critical_point"
+offered = "no"
+scope = "none"
+locator = "Reaktoro/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "phase_envelope"
+offered = "no"
+scope = "none"
+locator = "Reaktoro/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "characterization"
+offered = "no"
+scope = "none"
+locator = "Reaktoro/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "parameter_regression"
+offered = "no"
+scope = "none: no fitting of model parameters"
+locator = "Reaktoro/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "group_estimation"
+offered = "no"
+scope = "none"
+locator = "Reaktoro/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "adsorption_mixture_prediction"
+offered = "no"
+scope = "ion-exchange activity models exist, but no adsorption isotherm or mixture prediction calculation"
+locator = "Reaktoro/Models/ActivityModels/ActivityModelIonExchange.cpp"
+evidence = "source_inspected"
+
+# ---------------------------------------------------------------------------
+# QUESTIONS
+# ---------------------------------------------------------------------------
+
+[[question]]
+about = "interaction of Elements-less databases with the built-in element table"
+question = "Which atomic-weight edition do the 120 built-in molar masses follow, and does the SUPCRT XML element list (116 elements, units g/mol) agree with them?"
+why_it_matters = "Molar masses fix mass-based quantities; the convention set of every Reaktoro-format database inherits this unstated edition."
+
+[[question]]
+about = "units of the nasa-cea polynomial coefficients b1 and b2 and of dHf"
+question = "Are b1 (K) and b2 in the NASA convention (enthalpy constant in kelvin, entropy constant dimensionless) and is dHf in J/mol as the parameter docs say, given that the converter is not recorded?"
+why_it_matters = "A mapping to the model's nasa forms needs the exact coefficient meaning."
+
+[[question]]
+about = "kij of the four PHREEQC pairs and critical properties in CriticalProps.cpp"
+question = "What are the published sources of the 89 critical-property entries (the working sheet and a PDF of Isidoro Martinez are in resources/data but not linked)?"
+why_it_matters = "These are the only pure-component critical data bundled with Reaktoro; provenance is needed to reuse them."
+
+[[question]]
+about = "PHREEQC databases: content differences against the PHREEQC pin"
+question = "What exactly differs in the 800 to 4800 lines of iso, llnl, minteq, minteq.v4, Tipping_Hurley and wateq4f that have equal non-comment line counts (number formatting, edited values, or column layout)?"
+why_it_matters = "Whether Reaktoro's species data equal the original distribution matters for any cross-source agreement check."
+
+[[question]]
+about = "which species of the Pitzer file are cations, anions or neutral"
+question = "Does the model classify species by charge only, so that a neutral-neutral interaction (Mu) can be given? The shipped file has none."
+why_it_matters = "Some entries of nested arity are absent from the data, and the transposition rules for the arity-3 sections depend on the classification."

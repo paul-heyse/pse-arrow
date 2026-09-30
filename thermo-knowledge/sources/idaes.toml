@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "idaes"
+title = "IDAES-PSE 2.13.0 property parameter data"
+tier = "held"
+homepage = "https://github.com/IDAES/idaes-pse"
+waves = [1, 2]
+notes = "The existing reading copy fetched by scripts/fetch-external.sh. Parameter values only, with role oracle_input; no IDAES code, docstring or comment is copied (docs/relationship-to-idaes.md)."
+
+[acquire]
+kind = "local"
+path = "external/idaes-pse"
+commit = "84532d7f99a9f976b05170948147afdd69cfa5f6"
+tag = "2.13.0"
+
+[payload]
+reader = "idaes"
+environment = "core"
+include = ["idaes/models/properties/**/*.py"]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+statement = "LICENSE.md: redistribution and use in source and binary forms permitted under stated conditions (a BSD-style licence of the IDAES PSE Framework)."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30, read in the local checkout"

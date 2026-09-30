@@ -1,0 +1,331 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+doc = """
+The shape of the declaration that the pipeline's stage code depends on (meta-model section 5).
+
+Stage code writes and reads canonical rows of these kinds and relations by name: the canonical
+writer creates a carrier's provenance rows and computes the text keys that restate references,
+resolution writes species and source entities, the mapping framework writes derivations,
+coverage and held rows, and qualification writes runs and reads envelopes. The declaration
+loader compares the loaded declaration with this file and refuses a mismatch with a located
+diagnostic (code `pipeline-contract`). The code takes every name from
+`thermo_knowledge.pipeline_contract`, which reads this file, so a name it uses that this file
+does not list is an error at import.
+
+An entry lists the attributes (of a kind), keys and columns (of a relation) the code reads or
+writes, each with the type the declaration spells (`type`). `optional = true` states that the
+declaration leaves the value optional, and `defaulted = true` that the code relies on a declared
+default; a value stated as neither is required and has no default. A kind states its `schema`
+and its `identity` (a root kind) or the kind it `extends`; a relation states its `schema`; an
+enum lists the `members` the code names.
+"""
+
+[kinds.source]
+schema = "prov"
+identity = ["key"]
+attributes.key = { type = "Text" }
+attributes.title = { type = "Text" }
+
+[kinds.carrier]
+schema = "prov"
+extends = "source"
+attributes.manifest_id = { type = "Text" }
+attributes.resolved_pin = { type = "Text" }
+attributes.tree_hash = { type = "Hash" }
+attributes.retrieved = { type = "Timestamp" }
+
+[kinds.software_release]
+schema = "prov"
+extends = "source"
+attributes.version = { type = "Text" }
+
+[kinds.artifact]
+schema = "prov"
+identity = ["carrier", "path"]
+attributes.carrier = { type = "carrier" }
+attributes.path = { type = "Text" }
+attributes.sha256 = { type = "Hash" }
+attributes.size = { type = "Integer" }
+
+[kinds.import_record]
+schema = "prov"
+identity = ["artifact", "locator"]
+attributes.artifact = { type = "artifact" }
+attributes.locator = { type = "Text" }
+attributes.reader = { type = "Text" }
+attributes.reader_version = { type = "Text" }
+
+[kinds.licence]
+schema = "prov"
+identity = ["key"]
+attributes.key = { type = "Text" }
+attributes.spdx = { type = "Id<spdx>", optional = true }
+attributes.title = { type = "Text" }
+
+[kinds.rights_determination]
+schema = "prov"
+identity = ["carrier", "scope", "ordinal"]
+attributes.carrier = { type = "carrier" }
+attributes.scope = { type = "Text" }
+attributes.ordinal = { type = "Integer" }
+attributes.basis = { type = "rights_basis" }
+attributes.licence = { type = "licence", optional = true }
+attributes.statement = { type = "Text" }
+attributes.url = { type = "Text", optional = true }
+attributes.store = { type = "permission" }
+attributes.redistribute = { type = "permission" }
+attributes.commercial = { type = "permission" }
+attributes.attribution_required = { type = "Boolean" }
+attributes.share_alike = { type = "Boolean" }
+attributes.observed = { type = "Text" }
+
+[kinds.tabulated_function]
+schema = "tk"
+identity = ["key"]
+attributes.key = { type = "Text" }
+attributes.interpolation = { type = "interpolation" }
+attributes.distribution = { type = "distributed_attribute", optional = true }
+
+[kinds.tabulated_axis]
+schema = "tk"
+identity = ["function", "ordinal"]
+attributes.function = { type = "tabulated_function" }
+attributes.ordinal = { type = "Integer" }
+attributes.axis_type = { type = "Meta<quantity_type>" }
+attributes.points = { type = "Array<Real>" }
+
+[kinds.tabulated_series]
+schema = "tk"
+identity = ["function", "name"]
+attributes.function = { type = "tabulated_function" }
+attributes.name = { type = "Text" }
+attributes.value_type = { type = "Meta<quantity_type>" }
+attributes.values = { type = "Array<Real>" }
+
+[kinds.parameter_set]
+schema = "tk"
+identity = ["parameterization", "slot_group", "subject_key", "occurrence"]
+attributes.parameterization = { type = "parameterization" }
+attributes.slot_group = { type = "Meta<slot_group>" }
+attributes.subject_key = { type = "Text" }
+attributes.occurrence = { type = "Integer", defaulted = true }
+attributes.parent = { type = "parameter_set", optional = true }
+attributes.parent_slot = { type = "Meta<slot>", optional = true }
+
+[kinds.parameterization]
+schema = "tk"
+identity = ["key", "revision"]
+attributes.key = { type = "Text" }
+attributes.revision = { type = "Text" }
+attributes.title = { type = "Text" }
+attributes.coherence = { type = "coherence" }
+attributes.convention_set = { type = "convention_set", optional = true }
+
+[kinds.convention_set]
+schema = "tk"
+identity = ["key", "revision"]
+
+[kinds.derivation]
+schema = "prov"
+identity = ["key"]
+attributes.key = { type = "Text" }
+attributes.kind = { type = "derivation_kind" }
+attributes.method = { type = "Text", optional = true }
+
+[kinds.fit]
+schema = "prov"
+extends = "derivation"
+attributes.outcome = { type = "fit_outcome" }
+
+[kinds.envelope]
+schema = "tk"
+identity = ["parameter_set", "axis", "kind"]
+attributes.parameter_set = { type = "parameter_set" }
+attributes.axis = { type = "observable" }
+attributes.kind = { type = "envelope_kind" }
+attributes.lower = { type = "Real", optional = true }
+attributes.upper = { type = "Real", optional = true }
+
+[kinds.source_entity]
+schema = "tk"
+identity = ["carrier", "scope", "local_key"]
+attributes.carrier = { type = "carrier" }
+attributes.scope = { type = "Text" }
+attributes.local_key = { type = "Text" }
+attributes.aggregation = { type = "aggregation", optional = true }
+attributes.polymorph = { type = "Text", optional = true }
+attributes.stated_charge = { type = "ChargeNumber", optional = true }
+attributes.status = { type = "resolution_status" }
+attributes.rule = { type = "resolution_rule" }
+attributes.target = { type = "material_entity" }
+
+[kinds.identity_assertion]
+schema = "tk"
+identity = ["source_entity", "scheme", "value"]
+attributes.source_entity = { type = "source_entity" }
+attributes.scheme = { type = "naming_scheme" }
+attributes.value = { type = "Text" }
+
+[kinds.material_entity]
+schema = "tk"
+identity = ["canonical_key"]
+attributes.canonical_key = { type = "Text" }
+
+[kinds.species]
+schema = "tk"
+extends = "material_entity"
+attributes.canonical_key = { type = "Text" }
+attributes.label = { type = "Text" }
+attributes.provisional = { type = "Boolean", defaulted = true }
+attributes.charge = { type = "ChargeNumber", defaulted = true }
+attributes.inchikey = { type = "Id<inchikey>", optional = true }
+
+[kinds.species_form]
+schema = "tk"
+extends = "material_entity"
+attributes.canonical_key = { type = "Text" }
+attributes.label = { type = "Text" }
+attributes.provisional = { type = "Boolean", defaulted = true }
+attributes.species = { type = "species" }
+attributes.aggregation = { type = "aggregation" }
+attributes.polymorph = { type = "Text", optional = true }
+
+[kinds.naming_scheme]
+schema = "tk"
+identity = ["name"]
+attributes.name = { type = "Text" }
+attributes.structural = { type = "Boolean" }
+attributes.registry = { type = "Boolean" }
+
+[kinds.aggregation]
+schema = "tk"
+identity = ["name"]
+attributes.name = { type = "Text" }
+
+[kinds.mapping_rule]
+schema = "qual"
+identity = ["manifest_id", "source_table", "source_field"]
+attributes.manifest_id = { type = "Text" }
+attributes.source_table = { type = "Text" }
+attributes.source_field = { type = "Text" }
+attributes.disposition = { type = "table_disposition" }
+attributes.target = { type = "Text", optional = true }
+attributes.source_unit = { type = "Text", optional = true }
+attributes.factor = { type = "Real", optional = true }
+attributes.precision = { type = "mapping_precision", optional = true }
+attributes.loss = { type = "Text", optional = true }
+
+[kinds.mapping_coverage]
+schema = "qual"
+identity = ["manifest_id", "source_table", "state"]
+attributes.manifest_id = { type = "Text" }
+attributes.source_table = { type = "Text" }
+attributes.state = { type = "row_state" }
+attributes.rows = { type = "Integer" }
+
+[kinds.held_row]
+schema = "qual"
+identity = ["manifest_id", "source_table", "locator"]
+attributes.manifest_id = { type = "Text" }
+attributes.source_table = { type = "Text" }
+attributes.locator = { type = "Text" }
+attributes.state = { type = "row_state" }
+attributes.reason = { type = "Text" }
+
+[kinds.qualification_run]
+schema = "qual"
+identity = ["key"]
+attributes.key = { type = "Text" }
+attributes.form = { type = "Meta<form>" }
+attributes.expression_hash = { type = "Hash" }
+attributes.basis = { type = "comparison_basis" }
+attributes.reference = { type = "source", optional = true }
+attributes.outcome = { type = "run_outcome" }
+attributes.points = { type = "Integer" }
+attributes.relative_tolerance = { type = "Scalar" }
+attributes.observable = { type = "observable", optional = true }
+attributes.absolute_tolerance = { type = "Real", optional = true }
+attributes.worst_relative_deviation = { type = "Scalar", optional = true }
+attributes.note = { type = "Text", optional = true }
+
+[kinds.standard_state]
+schema = "tk"
+identity = ["key"]
+attributes.kind = { type = "standard_state_kind" }
+attributes.scale = { type = "composition_basis", optional = true }
+attributes.solvent = { type = "material_entity", optional = true }
+
+[kinds.dataset_column]
+schema = "ev"
+identity = ["dataset", "ordinal"]
+attributes.role = { type = "column_role" }
+attributes.constant = { type = "Real", optional = true }
+
+[kinds.site_class]
+schema = "tk"
+identity = ["host_key", "index"]
+attributes.host_key = { type = "Text" }
+attributes.phase = { type = "phase_definition", optional = true }
+attributes.material = { type = "material", optional = true }
+
+[kinds.association_site]
+schema = "tk"
+identity = ["scheme", "carrier_key", "label"]
+attributes.carrier_key = { type = "Text" }
+attributes.on_entity = { type = "material_entity", optional = true }
+attributes.on_group = { type = "group", optional = true }
+
+[relations.record_origin]
+schema = "prov"
+keys.record = { type = "Record" }
+keys.import_record = { type = "import_record" }
+columns.role = { type = "origin_role" }
+
+[relations.derivation_output]
+schema = "prov"
+keys.derivation = { type = "derivation" }
+keys.record = { type = "Record" }
+
+[relations.resolution_candidate]
+schema = "tk"
+keys.source_entity = { type = "source_entity" }
+keys.candidate = { type = "material_entity" }
+
+[relations.run_parameter_set]
+schema = "qual"
+keys.run = { type = "qualification_run" }
+keys.parameter_set = { type = "parameter_set" }
+
+[relations.fit_free_parameter]
+schema = "prov"
+columns.slot = { type = "Meta<slot>", optional = true }
+columns.standard_uncertainty = { type = "Real", optional = true }
+
+[enums.origin_role]
+
+[enums.coherence]
+
+[enums.derivation_kind]
+members = ["fit"]
+
+[enums.fit_outcome]
+
+[enums.comparison_basis]
+
+[enums.envelope_kind]
+
+[enums.run_outcome]
+members = ["passed", "failed", "blocked"]
+
+[enums.resolution_status]
+members = ["unique", "ambiguous", "unresolved", "rejected"]
+
+[enums.resolution_rule]
+members = ["curated", "structural", "registry", "formula_scope", "provisional"]
+
+[enums.row_state]
+members = ["mapped", "mapped_with_loss", "out_of_scope", "deferred", "held", "unmapped"]
+
+[enums.table_disposition]
+members = ["mapped", "out_of_scope", "deferred"]

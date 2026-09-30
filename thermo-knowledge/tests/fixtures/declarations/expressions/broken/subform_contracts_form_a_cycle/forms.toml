@@ -1,0 +1,37 @@
+module = "expr_case"
+uses = ["physical", "identity", "exprtypes"]
+doc = "A broken expression case."
+
+[contracts.outer]
+doc = "Outer."
+arguments.T = { type = "Temperature", doc = "Temperature." }
+outputs.p = { type = "Pressure", doc = "Pressure." }
+
+[contracts.inner]
+doc = "Inner."
+arguments.T = { type = "Temperature", doc = "Temperature." }
+outputs.p = { type = "Pressure", doc = "Pressure." }
+
+[forms.outer_form]
+doc = "Uses an inner form."
+implements = "outer"
+completeness = "fully_declared"
+status = "catalogued"
+
+[forms.outer_form.subforms.part]
+doc = "The inner part."
+accepts = "inner"
+multiplicity = "one"
+per = "model"
+
+[forms.inner_form]
+doc = "Uses an outer form."
+implements = "inner"
+completeness = "fully_declared"
+status = "catalogued"
+
+[forms.inner_form.subforms.part]
+doc = "The outer part."
+accepts = "outer"
+multiplicity = "one"
+per = "model"

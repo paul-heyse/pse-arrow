@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "thermopack"
+title = "ThermoPack"
+tier = "A"
+homepage = "https://github.com/thermotools/thermopack"
+waves = [2]
+notes = "Release v2.2.4 was published 2024-10-15 but the tag now names a commit dated 2024-12-09, so the commit is the pin. The same data is compiled into Fortran modules under src/. Sparse: the repository carries 83 MB of committed wheels that are not acquired."
+
+[acquire]
+kind = "git"
+url = "https://github.com/thermotools/thermopack.git"
+commit = "ca75d8e095e8b951616897efe1bca9b8c3badda7"
+tag = "v2.2.4"
+submodules = []
+sparse = [
+  "fluids",
+  "binaries",
+  "src",
+  "addon/pycThermopack/thermopack",
+  "addon/pyUtils",
+  "docs",
+]
+
+[payload]
+reader = "thermopack"
+environment = "core"
+include = ["fluids/*.json", "binaries/*.json"]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "Apache-2.0"
+statement = "LICENSE: Apache-2.0 text with a custom header (GitHub reports the licence as unclassified)."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"
+
+[[rights]]
+scope = "data"
+basis = "not_stated"
+statement = "Fluid records carry `ref` and `bib_reference`; a sampled record cites HSC Chemistry 9 and the NIST WebBook. No separate statement on the data."
+store = "yes"
+redistribute = "not_stated"
+commercial = "not_stated"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

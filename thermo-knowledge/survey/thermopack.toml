@@ -1,0 +1,1735 @@
+source = "thermopack"
+pin = "ca75d8e095e8"
+surveyed = "2026-09-30"
+summary = "ThermoPack v2.2.4 (Fortran core, Python wrapper) contributes 109 pure-fluid JSON records (identity, scalar constants, ideal-gas heat capacity, cubic alpha and volume-translation sets, CPA, PC-SAFT and SAFT-VR Mie sets, melting and sublimation curves) and 12 binary files (827 pair records) compiled into generated Fortran modules, plus hand-maintained UNIFAC (117 subgroups, 1603 interaction rows) and MBWR (65 sets) modules, inline multiparameter, solid and LJ constants, and 28 labelled equation-of-state models with the flash, saturation, envelope, critical, stability, spinodal and solid-fluid algorithms around them. It bundles no hydrate model, no GERG-2008 or EOS-CG code (an external TREND library not in the pin), no transport properties and no regression or speciation driver, and several documented selection options are not implemented in the pinned code (see questions)."
+
+# ---------------------------------------------------------------------------
+# PAYLOADS
+# ---------------------------------------------------------------------------
+
+[[payload]]
+paths = ["fluids/*.json"]
+format = "JSON, one object per fluid (indent 2, LF, no BOM, ASCII except two files); top-level keys ident, formula, cas_number, InChI, structure, name, aliases, mol_weight, critical, triple, acentric_factor, boiling_temperature, saturation, ideal_heat_capacity-N, reference_state, rackett_factor, dipole_moment, quadrupole_moment in all 109; optional blocks PR and SRK (108 each, each a dict of named parameter sets), PC-SAFT-N (77 blocks in 50 fluids), SAFTVRMIE-N (77 blocks in 32 fluids), melting_curve (23), sublimation_curve (16); no schema file exists; the numeric suffix N of a repeated block name is arbitrary and the generator matches blocks by substring of the key"
+files = 109
+bytes = 340876
+records = "109 fluid objects, counted by json.load of every file; parameter-set counts: ideal_heat_capacity 111, PR/TWU 100, SRK/TWU 92, PR/MC 34, SRK/MC 31, PR/volume_shift 99, SRK/volume_shift 92, SRK/CPA 25, PC-SAFT 77, SAFTVRMIE 77, melting_curve 23, sublimation_curve 16 (all by json.load and key-prefix counting)"
+reader = "no reader in the compiled library; the generator scripts addon/pyUtils/datadb/compdata.py (class comp_list, component via fluid_file.fluid_file.__init__ in fluid_file.py), pc-saft.py, saftvrmie.py and solid_correlations.py read it with json.load and write the Fortran data modules; a plain JSON parser reads every file"
+read_by_source = "partly"
+notes = "The library never reads these files at run time; only the generators do. The generator ignores aliases, InChI, and every bib_reference of the scalar blocks (critical, acentric_factor, boiling_temperature, triple, rackett_factor, dipole_moment, quadrupole_moment, saturation, reference_state) because the gendatadb record has no attribution fields (the ref line is commented out at compdata.py:105); cas_number is used only for the generated wiki table; the alpha (TWU, MC) bib_reference is dropped because alphadatadb has no bib field. 77 sets of each of PC-SAFT and SAFT-VR Mie, all 25 CPA sets, all 99+92 volume-shift sets, 111 heat-capacity sets and 39 solid-curve sets were compared with the generated Fortran values (relative tolerance 1e-6) and all match, so the JSON and the Fortran are in step at this pin. Two files (Methane.json, n-Decane.json) contain non-ASCII characters. Numeric spellings mix int and float for the same quantity (critical/temperature is int in 1 file, mol_weight int in 1, triple/pressure int in 1)."
+
+[[payload]]
+paths = ["binaries/*.json"]
+format = "JSON, one object per file whose keys are record names made of a prefix and a number (vdW-N, LK-N, LIJ-N, HV1-N, HV2-N, NRTL-N, CPA-N, KIJ-N); the prefix is read by the generator to choose the record type (vdW or LK, LIJ, CPA, else excess-Gibbs); the eos is taken from the file name up to the first underscore (PR, SRK, CSP-PR, CSP-SRK, LK, PT) or from an eos field (CPA.json, PC-SAFT.json, SAFTVRMIE.json); no schema file"
+files = 12
+bytes = 124443
+records = "827 records, counted by json.load: CPA 12, CSP-PR_kij 69, CSP-SRK_kij 86, LK_kij 123, PC-SAFT 34, PR_GE 2, PR_kij 289, PR_lij 3, PT_kij 31, SAFTVRMIE 30 (18 KIJ and 12 LIJ), SRK_GE 17, SRK_kij 131; the Fortran modules hold 763 (mixdatadb) + 34 + 30 = 827 records, so none is dropped"
+reader = "generator scripts addon/pyUtils/datadb/binarydata.py (class binary_list, binaries) with subclasses in pc-saft.py and saftvrmie.py; not read by the compiled library"
+read_by_source = "partly"
+notes = "Cubic, LK, GE and lij files key a pair by comp1 and comp2; PC-SAFT.json and SAFTVRMIE.json key it by uid1 and uid2; CPA.json by comp1 and comp2 plus an eos field. Pairs are stored in arbitrary orientation (for example 182 of 289 PR_kij records have comp1 < comp2 lexically); a pair can occur several times in one file with different ref values, and PR_kij holds one pair in both orientations with different values under the same ref (CO2/H2O 0.074 and H2O/CO2 -0.065). The GE files carry a kij field that no Fortran routine reads; PR_lij.json carries a mixing_rule field that the generator ignores (it writes vdW). Component identifiers are matched case-insensitively against the fluid ident; CSP-PR and CSP-SRK name R113 and R13B, and SRK_GE names the ions NA+ and CL-, none of which has a fluid record."
+
+[[payload]]
+paths = ["src/compdatadb.f90"]
+format = "Fortran 90 module compdatadb written by compdata.py: one named parameter constant per record (cx1.., cp1.., twu1.., mc1.., c1.., cpa1..) using derived types gendatadb, cpdata, alphadatadb (used for both TWU and MC), cidatadb and CPAdata, followed by the arrays compdb, cpdb, alphaTWUdb, alphaMCdb, cidb and CPAarray; header line 'Automatically generated' with a Time stamp line"
+files = 1
+bytes = 247088
+records = "109 gendatadb, 111 cpdata, 192 TWU and 65 MC alphadatadb, 191 cidatadb, 25 CPAdata (parameter-constant counts by pattern match, equal to the array sizes maxncdb=109, maxcpdb=111, maxTWUdb=192, maxMCdb=65, maxcidb=191, nCPAmodels=25); header time stamp 2024-10-28T15:26:42"
+reader = "the Fortran compiler (use compdatadb in compdata_init.f90, cbalpha.f90, volume_shift.f90, cpa_parameters.f90)"
+read_by_source = "all"
+notes = "Generated from fluids/*.json; values are re-printed at reduced precision (mw 4 decimals, Tc 4, Pc 2, Zc 6, acf 6, Tb 4, Ttr 4, sref 4, ciA..ciC and coefficients in exponent form with 8 decimals (9 significant digits)) and gref (Gibbs energy of formation) is added by entropy.py. The generator records a time stamp but no version of itself or of the JSON. Authority: the JSON files are the authored source (docs/vCurrent/new_fluids.md and addon/pyUtils/README.md state that the Fortran modules are auto-generated from them and must be copied into src by hand); the Fortran module is a derived artifact."
+
+[[payload]]
+paths = ["src/mixdatadb.f90"]
+format = "Fortran 90 module mixdatadb: named constants of types kijdatadb (vdw1..), interGEdatadb (ge1..), lijdatadb (lij1..), CPAkijdata (cpa1..) and the arrays kijdb, interGEdb, lijdb, CPAkijdb"
+files = 1
+bytes = 195852
+records = "763 records: 729 kijdatadb (maxkij=729 = 69+86+123+289+31+131), 19 interGEdatadb, 3 lijdatadb, 12 CPAkijdata; header time stamp 2024-10-30T12:54:21"
+reader = "the Fortran compiler (use mixdatadb in cbselect.f90 and cpa_parameters.f90)"
+read_by_source = "all"
+notes = "Generated from binaries/*.json by binarydata.py. The mixing-rule id written for every kij and lij record is the literal vdW (even for the LK file), and GE records take the prefix of their key (HV1, HV2, NRTL). PC-SAFT and SAFT-VR Mie pair data are not in this module. Authority: the binaries/*.json files; this module is generated from them."
+
+[[payload]]
+paths = ["src/pc_saft_datadb.f90"]
+format = "Fortran 90 module pc_saft_datadb written by pc-saft.py: type pc_saft_data (pure) and PCkijdata (pair) definitions, named constants PCcx1.. and PCSAFT_KIJ_1.., arrays PCarray and PCkijdb"
+files = 1
+bytes = 48154
+records = "77 pure sets (nPCmodels=77) and 34 pair records (PCmaxkij=34); header time stamp 2024-02-07T22:49:23"
+reader = "the Fortran compiler (use pc_saft_datadb in pc_saft_parameters.f90)"
+read_by_source = "all"
+notes = "All 77 pure sets match fluids/*.json (m, sigma, eps_depth_divk, eps, beta) at 1e-4 relative. Note the generator script pc-saft.py reads self.comp, an attribute that the class never defines (see questions)."
+
+[[payload]]
+paths = ["src/saftvrmie_datadb.f90"]
+format = "Fortran 90 module saftvrmie_datadb written by saftvrmie.py: types saftvrmie_data and Miekijdata, named constants Miecx1.., SVRM_KIJ_N, SVRM_LIJ_N, arrays Miearray, Miekijdb, Mielijdb"
+files = 1
+bytes = 47481
+records = "77 pure sets (nMiemodels=77), 18 kij (Miemaxkij) and 12 lij (Miemaxlij) pair records; header time stamp 2023-06-21T13:07:27"
+reader = "the Fortran compiler (use saftvrmie_datadb in saftvrmie_parameters.f90)"
+read_by_source = "all"
+notes = "All 77 pure sets match fluids/*.json at 1e-4 relative. The Miekijdata type is shared by kij and lij; two separate arrays hold them."
+
+[[payload]]
+paths = ["src/solid_correlation_datadb.f90"]
+format = "Fortran 90 module solid_correlation_datadb written by solid_correlations.py: type solid_correlation_data, constants MELT1.. and SUBL1.., arrays melting_corr_array and sublimation_corr_array"
+files = 1
+bytes = 30561
+records = "23 melting curves (n_melting_curves) and 16 sublimation curves (n_sublimation_curves); header time stamp 2023-04-28T20:02:12"
+reader = "the Fortran compiler (use solid_correlation_datadb in solid_saturation.f90)"
+read_by_source = "all"
+notes = "All 39 records match fluids/*.json. The generator writes the file to the current directory and copies it into src; unlike the other generators it does not use tools.write_file."
+
+[[payload]]
+paths = ["src/unifacdata.f90"]
+format = "Fortran 90 module unifacdata, hand maintained (no generator in pyUtils): types unifacprm (subgroup), unifacComp (component decomposition into 117 counts) and unifacUij (main-group pair), arrays unifacprmdb, unifacCompdb, unifacUijdb; some entries are commented out in place"
+files = 1
+bytes = 109672
+records = "117 subgroups (nSubGroups) in 59 distinct main groups (maximum main-group number 63), 20 component decompositions (nUnifacComp), 1603 interaction rows (nUnifacUij); source strings per row: interaction rows Hansen 1991 (1401), Fisher 1996 (PSRK) (159), Holderbaum 1991 (PSRK) (43); subgroup rows Hansen 1991 (108), Holderbaum 1991 unifacprm(PSRK) (5), Holderbaum 1991 (PSRK) (1), Fisher 1996 unifacprm(PSRK) (3); counted by pattern match on uncommented lines"
+reader = "the Fortran compiler (use unifacdata in unifac.f90); no other reader"
+read_by_source = "all"
+notes = "1577 distinct (mgi, mgj) pairs, so 26 pairs are listed twice (25 with different values, between Hansen 1991 and the PSRK revisions); the lookup getUNIFACujkdbidx returns the first match. The 20 decompositions cover C1 to NC11 alkanes, benzene, toluene, H2O, N2, CO2, H2S and acetone; a component without an entry stops the program. aij is stated in K, bij dimensionless, cij in 1/K (derived type comments)."
+
+[[payload]]
+paths = ["src/mbwrdata.f90"]
+format = "Fortran 90 module mbwrdata, hand maintained: types mbwr32Data and mbwr19Data (equation number, component id, set number, property-range flags, count, coefficient array with the exponent gamma as last entry), constants mbwrcx1.., arrays mbwr32Array and mbwr19Array, plus triple-point and computed-critical tables indexed by component"
+files = 1
+bytes = 53174
+records = "65 coefficient sets: 11 MBWR-32 (equation number 5202; ids C1 (three sets), C2, C3, IC4, NC4, O2, N2, R134a, R152a) and 54 MBWR-19 (equation number 5201; 54 component ids including water, noble gases, refrigerants and alkanes), counted by pattern match"
+reader = "the Fortran compiler (use mbwrdata in mbwr.f90, functions getMBWR19index and getMBWR32index)"
+read_by_source = "all"
+notes = "Attribution is a comment (Younglove and Ely 1987 for the 32-term sets); there is no per-row reference field. The triple-point table comment states values were retrieved from CoolProp in December 2014."
+
+[[payload]]
+paths = ["docs/memo/UNIFAC/data/unifac.dat", "docs/memo/UNIFAC/data/unifac.ods"]
+format = "tab-separated text with header 'main group, main group, aij' and three columns per row; an OpenDocument spreadsheet of the same table"
+files = 2
+bytes = 100841
+records = "1400 data rows in unifac.dat (counted by line parse); all 1400 (mgi, mgj, aij) agree with the Hansen 1991 rows of unifacdata.f90, which has one more Hansen row (1401)"
+reader = "none in the tree (documentation input to the UNIFAC memo)"
+read_by_source = "none"
+notes = "Only the aij column is provided; bij and cij of the PSRK rows are not in this file."
+
+[[payload]]
+paths = ["addon/pyUtils/datadb/*.py", "addon/pyUtils/datadb/.gitignore"]
+format = "Python generator scripts: compdata.py (component file and compdatadb.f90 plus the wiki name mapping), binarydata.py (mixdatadb.f90), pc-saft.py, saftvrmie.py, solid_correlations.py, entropy.py (Gibbs energy of formation), data_utils.py, fluid_file.py; datadb/.gitignore lists compdatadb.f90; addon/pyUtils/.gitignore lists *.md"
+files = 9
+bytes = 87348
+records = "not applicable: code only; it is the lineage record from JSON to Fortran (files counted by listing)"
+reader = "python3 with numpy; the README states the generated files must be copied manually into src"
+read_by_source = "none"
+notes = "pc-saft.py, saftvrmie.py and solid_correlations.py reference self.comp, which component.__init__ never sets (it sets self.fluid), and compdata.py eos_list joins two entries through a missing comma; as committed these three scripts cannot have produced the committed modules unchanged, although the modules match the JSON."
+
+[[payload]]
+paths = ["src/*.f90", "src/dltrend.cpp"]
+format = "Fortran 90 (113 files) and one C++ file; model code with data constants inline in several modules (multiparameter_c3/h2/r134a/lj, idealh2, co2_gibbs, h2o_gibbs, leekesler, lj_splined, pets, cbbeta, eoslibinit)"
+files = 114
+bytes = 4368001
+records = "not applicable: code; the 5 generated and 2 hand-maintained data modules are also listed as separate payloads; 113 .f90 files (4337968 bytes) plus dltrend.cpp (30033 bytes), counted by directory listing; src/CMakeLists.txt (3621 bytes) is a build file not counted"
+reader = "gfortran or ifort compile of src/CMakeLists.txt (globs *.f90, excludes thermopack.f90 which is the demo main); dltrend.cpp is a dlopen wrapper for the external TREND library, dltrend_dummy.f90 supplies empty stubs"
+read_by_source = "all"
+notes = "The top-level CMakeLists.txt and the compile flags (tp_optim_flags) are not in the sparse checkout; the MSVC branch adds /real-size:64, so the default real kind is taken to be 64 bit (inferred from that flag). The TREND interface (include/trend_interface.f95, the TREND binaries) is not in the pin."
+
+[[payload]]
+paths = ["addon/pycThermopack/thermopack/*.py"]
+format = "Python ctypes wrapper: class thermo (5184 lines) with subclasses cubic, cpa, pcsaft, saftvrmie, saftvrqmie, pets, ljs_bh, ljs_wca, lee_kesler, ext_csp, multiparam, ideal, tcPR, qcubic, volume_translation and result classes (FlashResult, PxyEquilibrium, XYDiagram, State, PhaseDiagram)"
+files = 21
+bytes = 442696
+records = "not applicable: code (files counted by listing); class inventory in model_family 'Python wrapper classes'"
+reader = "python3 with ctypes; loads the compiled shared library (not in the pin)"
+read_by_source = "all"
+notes = "The wrapper passes parameter_reference strings through unchanged to the Fortran selection code."
+
+[[payload]]
+paths = ["docs/vCurrent/*.md", "docs/v2.1.0/*.md", "docs/v2.2.0/*"]
+format = "Markdown with Jekyll front matter: method documentation generated from docstrings (markdown_from_docstrings.py), hand-written guides (getting_started, new_fluids, phase_flags, cubic_keys), and Component-name-mapping.md generated by compdata.py (a table of 109 rows: fluid name, CAS number, identifier and three capability columns, generated 2024-02-19)"
+files = 60
+bytes = 6182935
+records = "109 rows in docs/vCurrent/Component-name-mapping.md (counted by line filter); vCurrent 21 files 2990051 bytes, v2.1.0 18 files 222328, v2.2.0 21 files 2970556 (includes Doxymanual.pdf); version copies are not identical"
+reader = "none (documentation)"
+read_by_source = "none"
+notes = "new_fluids.md documents the ideal-gas heat-capacity correlation ids 1 to 13 and the melting and sublimation correlation strings; its table lists id 2 with equation '44' and no unit, and describes only the ids (the code in ideal.f90 is authoritative). The generated markdown is ignored by addon/pyUtils/.gitignore (*.md) but is present in the pin."
+
+[[payload]]
+paths = ["docs/memo/**"]
+format = "LaTeX memos, compiled PDFs, figures and one BibTeX file (thermopack.bib)"
+files = 121
+bytes = 9974917
+records = "24 memo directories with .tex; 54 PDF, 30 tex, 14 eps, 8 dat, 6 png, 3 gp, 1 bib (79 entries) by extension count; titles: Apparent composition approach; Documentation of the binary-XY code; Cubic Plus Association; Stability and critical points of mixtures; Phase envelope modelling; Thermodynamic equilibrium algorithms (flash); Hyperdual numbers; Introduction to thermodynamics; Lee-Kesler implementation and modification tests; PC-SAFT and derivatives; Volume shift for generic EOS; The SAFT-VR Mie equation of state; MBWR and SPUNG implementation; Flexible workbench (2013); Truncation corrections; UNIFAC excess Gibbs mixing rules; User guide; Wong-Sandler equation of state"
+reader = "latex or a PDF viewer; thermopack.bib by any BibTeX parser"
+read_by_source = "none"
+notes = "The memos are the only place that states the working equations; the code comments cite them by name (memos are not versioned with the code per their index)."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS: identity and scalar constants
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "fluid record (identity block)"
+locator = "fluids/*.json#/ (top-level scalar keys); addon/pyUtils/datadb/compdata.py:30-47 component.__init__; src/compdata.f90:95-123 type gendatadb"
+meaning = "One pure component or pseudo-component known to the library: its short identifier, names, formula, CAS number, InChI, atom-count string and molar mass."
+subject = "One compound, keyed by ident (case-insensitive, at most 20 characters in Fortran); name, aliases, CAS and InChI are labels. Five entries (H2, E-H2, N-H2, O-H2, P-H2) share cas_number 1333-74-0 and InChI 1S/H2/h1H, so ident alone separates hydrogen spin isomers and the equilibrium mixture. Two entries (LJF, PSEUDO) have empty InChI."
+fields = [
+  { name = "ident", meaning = "short component identifier used to request the fluid (for example C1, NC6, R134a); matched case-insensitively", unit = "not applicable (text)", shape = "scalar", role = "input" },
+  { name = "name", meaning = "upper-case full name (for example METHANE); returned by the name query when the long name is requested", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "formula", meaning = "formula string (for example C4H10O); XXX for PSEUDO", unit = "not applicable (text)", shape = "scalar", role = "unread" },
+  { name = "cas_number", meaning = "CAS registry number; XXX for PSEUDO, empty for LJF", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "InChI", meaning = "InChI string without the InChI= prefix; empty in 2 files", unit = "not applicable (text)", shape = "scalar", role = "unread" },
+  { name = "aliases", meaning = "1 to 4 alternative names per fluid (2 names in 56 fluids); scheme not stated", unit = "not applicable (text)", shape = "list", role = "unread" },
+  { name = "mol_weight", meaning = "molar mass; 100 for PSEUDO", unit = "g/mol (stated only in the gendatadb comment in src/compdata.f90, not in the JSON)", shape = "scalar", role = "input" },
+]
+origin = "authored"
+conventions = "Identifiers are upper-cased on input (initCompList) and compared with str_eq; ident values can be mixed case (9 of 109, for example R134a, ClF3Si). File names are long names, not idents (Methane.json holds ident C1)."
+absence = "No optional fields: all 109 records carry all keys. PSEUDO and LJF use placeholder text (XXX, empty string) rather than omission; the Fortran record has no way to tell a placeholder from a value."
+validity = "not applicable"
+provenance = "not stated for identity fields; no ref or bib_reference key on the identity block"
+count = "109 records"
+example = "fluids/Methane.json#/"
+candidate = "species (canonical key from InChIKey where resolved, else formula and charge) with identity_assertion rows per naming scheme (source_local ident, cas, inchi, name, formula); PSEUDO and LJF as pseudo_component (abstract_component)"
+precision = "close"
+loss = "The five hydrogen entries carry one structure but are distinct components (nuclear-spin isomer or equilibrium composition): the model's species identity has no spin-state attribute, so they need separate species or a declared discriminator; the InChI is written without prefix and is not an InChIKey; placeholders for PSEUDO and LJF must not be imported as identifiers."
+
+[[construct]]
+name = "structure (element count string)"
+locator = "fluids/*.json#/structure; addon/pyUtils/datadb/compdata.py:42-47 and entropy.py:38-55; src/compdata.f90:99 and compdata_init.f90:206-220 comp_structure"
+meaning = "Atom counts of the molecule as a semicolon-separated list of Element:count pairs (C:4;H:10;O:1), used to compute the Gibbs energy of formation at generation time and returned by a structure query."
+subject = "One compound (same key as the fluid record); elements are keyed by upper-cased symbol (14 in the pin: C F S SI H CL D KR HE NE O N AR XE, from the entropy reference table)."
+fields = [
+  { name = "structure", meaning = "element:count pairs; empty string for LJF and PSEUDO; D is deuterium as an element (D2 has D:2)", unit = "not applicable (text)", shape = "scalar", role = "input" },
+]
+origin = "authored"
+conventions = "Element symbols are case-mixed in the file (Cl, Si, Kr) and upper-cased by the generator; counts are integers."
+absence = "An empty string means no composition (LJF, PSEUDO); an element missing from entropy.py element_references would raise a KeyError at generation time, so the 14 elements bound the fluids."
+validity = "not applicable"
+provenance = "not stated"
+count = "109 records (107 non-empty)"
+example = "fluids/Methane.json#/structure"
+candidate = "composition relation rows (entity, conserved_quantity element) with Count values; D as its own element"
+precision = "close"
+loss = "Deuterium as a separate element needs a declared element entity that the model's element list (chemical elements only) does not contain; the string is the only composition record and it duplicates formula without a stated consistency rule."
+
+[[construct]]
+name = "critical (critical point block)"
+locator = "fluids/*.json#/critical; src/compdata.f90:102-103 tc, pc, zc"
+meaning = "Critical temperature, critical pressure and critical compressibility used by the cubic equations, the Wilson K estimate and the reducing of several models."
+subject = "One compound (keyed by the fluid record)."
+fields = [
+  { name = "temperature", meaning = "critical temperature", unit = "K (stated in src/compdata.f90 tc comment)", shape = "scalar", role = "input" },
+  { name = "pressure", meaning = "critical pressure", unit = "Pa (stated in src/compdata.f90 pc comment)", shape = "scalar", role = "input" },
+  { name = "compressibility", meaning = "critical compressibility factor", unit = "- (stated in src/compdata.f90 zc comment)", shape = "scalar", role = "input" },
+  { name = "ref", meaning = "parameter-set tag; Default in all 109", unit = "not applicable (text)", shape = "reference", role = "unread" },
+  { name = "bib_reference", meaning = "free-text source; empty in 96 of 109, otherwise a URL, DOI or author-year text", unit = "not applicable (text)", shape = "reference", role = "unread" },
+]
+origin = "transcribed"
+conventions = "For models that redefine criticals (SAFT, CPA, multiparameter, LK, CSP) the library overwrites the active component tc, pc, zc and acf with values computed from the model itself (init_fallback_and_redefine_criticals, redefine_critical_parameters), so these constants seed but do not always survive into a run."
+absence = "No missing values except for the placeholder PSEUDO (Tc 100, Pc 1e7, Zc 0.3); one critical/temperature is an int."
+validity = "not stated"
+provenance = "bib_reference: a web reference or publication text in 13 records; ref is always Default"
+count = "109 records"
+example = "fluids/Methane.json#/critical"
+candidate = "value records of observables critical_temperature, critical_pressure (declared) and a critical compressibility (derived) on the species_form, each with a record and attribution"
+precision = "close"
+loss = "Values are carried as a bundle with one ref tag per block, and the Fortran module re-prints Tc with 4 decimals and Pc with 2, so the authored precision is lost downstream; a consumer cannot tell whether a run used these constants or the model-derived replacements."
+
+[[construct]]
+name = "acentric_factor"
+locator = "fluids/*.json#/acentric_factor; src/compdata.f90:104 acf"
+meaning = "Pitzer acentric factor used by the classic cubic alpha correlations, Wilson K and the Starling vapour pressure estimate."
+subject = "One compound."
+fields = [
+  { name = "acf", meaning = "acentric factor", unit = "- (stated in src/compdata.f90 comment)", shape = "scalar", role = "input" },
+  { name = "ref", meaning = "tag; Default in all 109", unit = "not applicable (text)", shape = "reference", role = "unread" },
+  { name = "bib_reference", meaning = "free-text source; empty in 104 of 109", unit = "not applicable (text)", shape = "reference", role = "unread" },
+]
+origin = "transcribed"
+conventions = "An undefined acentric factor (pseudo-pure or placeholder) is stored as 0.0."
+absence = "0.0 for PSEUDO; the source does not distinguish an acentric factor of zero from not available."
+validity = "not stated"
+provenance = "104 of 109 blocks carry no bib_reference."
+count = "109 records"
+example = "fluids/Methane.json#/acentric_factor"
+candidate = "value record of an acentric_factor observable on the species_form with attribution"
+precision = "close"
+loss = "Zero cannot be told from not applicable; attribution is missing for 95 percent of records."
+
+[[construct]]
+name = "boiling_temperature"
+locator = "fluids/*.json#/boiling_temperature; src/compdata.f90:105 tb; src/eos.f90:740"
+meaning = "Normal boiling temperature, read by one routine (eos.f90 near line 740) and otherwise stored."
+subject = "One compound."
+fields = [
+  { name = "temperature", meaning = "normal boiling temperature", unit = "K (stated in src/compdata.f90 tb comment)", shape = "scalar", role = "input" },
+  { name = "bib_reference", meaning = "free-text source; empty in 104 of 109", unit = "not applicable (text)", shape = "reference", role = "unread" },
+]
+origin = "transcribed"
+conventions = "not stated"
+absence = "0.0 for one record (PSEUDO); not distinguished from a real zero."
+validity = "not stated"
+provenance = "bib_reference only; there is no ref key in this block (the only block of the scalar family without one)."
+count = "109 records"
+example = "fluids/Methane.json#/boiling_temperature"
+candidate = "value record of a normal boiling point observable (vapor_pressure at 101325 Pa) with attribution"
+precision = "close"
+loss = "The pressure of the boiling point (normal) is implicit; zero stands for unavailable."
+
+[[construct]]
+name = "triple (triple point block)"
+locator = "fluids/*.json#/triple; src/compdata.f90:106-107 ttr, ptr; src/solid_saturation.f90:1580-1588; src/solideos.f90:591"
+meaning = "Triple-point temperature and pressure used to bound solid-liquid-vapour calculations."
+subject = "One compound."
+fields = [
+  { name = "temperature", meaning = "triple-point temperature", unit = "K (stated in src/compdata.f90 ttr comment)", shape = "scalar", role = "input" },
+  { name = "pressure", meaning = "triple-point pressure (the gendatadb comment for ptr repeats the temperature text)", unit = "Pa (inferred: SI convention of the file and src/compdata.f90 pc comment; the ptr comment says temperature)", shape = "scalar", role = "input" },
+  { name = "ref", meaning = "tag; Default in all 109", unit = "not applicable (text)", shape = "reference", role = "unread" },
+  { name = "bib_reference", meaning = "free-text source; empty in 106 of 109", unit = "not applicable (text)", shape = "reference", role = "unread" },
+]
+origin = "transcribed"
+conventions = "0.0 means not available: 105 of 109 records have temperature 0.0 and 107 have pressure 0.0. The CO2 solid model overwrites ttr and ptr at initialisation (solideos.f90:591)."
+absence = "An explicit 0.0 is the only absence marker and the loader cannot distinguish it from data."
+validity = "not stated"
+provenance = "106 of 109 blocks carry no bib_reference."
+count = "109 records (4 with a non-zero temperature)"
+example = "fluids/Methane.json#/triple"
+candidate = "value records of transition observables (triple point) with value_state not_applicable for the zeros"
+precision = "close"
+loss = "The zero sentinel must be converted to an absent value; melting and sublimation curves also carry a triple_temperature that is a second, separate statement of the same quantity."
+
+[[construct]]
+name = "rackett_factor"
+locator = "fluids/*.json#/rackett_factor; src/compdata.f90:116 zra; src/volume_shift.f90:48-60"
+meaning = "Rackett compressibility factor used only to generate a Peneloux volume shift when no volume-shift record is found."
+subject = "One compound."
+fields = [
+  { name = "Zra", meaning = "Rackett compressibility factor", unit = "- (stated in src/compdata.f90 comment)", shape = "scalar", role = "input" },
+  { name = "bib_reference", meaning = "free-text source; empty in 71 of 109; the tcPR publication DOI in most others", unit = "not applicable (text)", shape = "reference", role = "unread" },
+]
+origin = "transcribed"
+conventions = "not stated"
+absence = "No record has Zra equal to 0; the fallback branch tests Zra greater than 0 and otherwise prints that no volume shift is available and sets it to zero."
+validity = "not stated"
+provenance = "bib_reference in 38 of 109 records."
+count = "109 records"
+example = "fluids/Methane.json#/rackett_factor"
+candidate = "value record of a Rackett compressibility observable (derived-estimation input)"
+precision = "close"
+loss = "The same quantity also yields an estimated volume shift in code; the derivation (and its SRK and PR constants 0.40768, 0.29441, 0.50033, 0.25969) lives only in volume_shift.f90."
+
+[[construct]]
+name = "dipole_moment and quadrupole_moment"
+locator = "fluids/*.json#/dipole_moment and #/quadrupole_moment; src/compdata.f90:117-118; src/pc_saft_parameters.f90 getPcSaftPureParams_allComps"
+meaning = "Electric dipole and quadrupole moments used by the polar PC-SAFT terms when the selected PC-SAFT parameter set carries none."
+subject = "One compound."
+fields = [
+  { name = "mu", meaning = "dipole moment; non-zero in 3 of 109 fluids", unit = "D (stated in src/compdata.f90 mu_dipole comment)", shape = "scalar", role = "input" },
+  { name = "Q", meaning = "quadrupole moment; non-zero in 5 of 109 fluids", unit = "Angstrom*D (src/compdata.f90 comment, written with a non-ASCII A-ring symbol)", shape = "scalar", role = "input" },
+  { name = "bib_reference", meaning = "free-text source; empty in 107 and 104 of 109", unit = "not applicable (text)", shape = "reference", role = "unread" },
+]
+origin = "transcribed"
+conventions = "The polar PC-SAFT code uses the PC-SAFT set's own mu and Q and falls back to these values only when the set's value is below a small threshold."
+absence = "0.0 means none or unknown; not distinguished."
+validity = "not stated"
+provenance = "almost no attribution (107 and 104 empty)."
+count = "109 records each"
+example = "fluids/Water.json#/dipole_moment"
+candidate = "value records of dipole_moment (DipoleMoment quantity type) and a quadrupole observable (no quantity type for quadrupole exists in model/physical.toml)"
+precision = "close"
+loss = "Quadrupole needs a new quantity type (unit Angstrom*Debye is not SI-coherent); the same moments reappear inside some PC-SAFT sets (mu in 2 sets, Q in 6 sets) with their own attribution."
+
+[[construct]]
+name = "reference_state (enthalpy and entropy of formation data)"
+locator = "fluids/*.json#/reference_state; addon/pyUtils/datadb/compdata.py:55-67, entropy.py; src/ideal.f90:1271-1312 set_reference_energy"
+meaning = "Enthalpy of formation of the ideal gas and its absolute entropy at 298.15 K at either 1 bar or 1 atm, used to fix the zero of ideal-gas enthalpy and entropy for every model built on the component data."
+subject = "One compound."
+fields = [
+  { name = "enthalpy", meaning = "formation enthalpy (href); 1e20 in 4 files as a dummy value", unit = "J/mol (stated in src/compdata.f90 href comment)", shape = "scalar", role = "input" },
+  { name = "entropy", meaning = "absolute entropy (sref) at 298.15 K at the pressure named by entropy_ref_state", unit = "J/mol/K (stated in src/compdata.f90 comment)", shape = "scalar", role = "input" },
+  { name = "entropy_ref_state", meaning = "pressure basis of entropy: 1BAR (86 fluids) or 1ATM (23 fluids)", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "enthalpy_bib_reference", meaning = "free-text source of enthalpy (empty in 19)", unit = "not applicable (text)", shape = "reference", role = "unread" },
+  { name = "entropy_bib_reference", meaning = "free-text source of entropy (empty in 21)", unit = "not applicable (text)", shape = "reference", role = "unread" },
+  { name = "gref (Fortran only)", meaning = "Gibbs energy of formation at 1 bar, added by the generator from enthalpy, entropy and tabulated element entropies (HSC Chemistry 9 for C, F, S, Si; fluid entries for the rest)", unit = "J/mol", shape = "scalar", role = "computed" },
+]
+origin = "transcribed"
+conventions = "sref is converted to a 1 bar reference in the generator (S + R ln(p_ref/1e5)); Tref 298.15 K; set_reference_energy makes the ideal-gas h and s at 298.15 K (and p_ref) equal href and sref whenever either is non-zero, by storing integration constants href_int and sref_int. The generator flags href greater than 1e10 as not available only when computing gref (gref becomes 1e11); the Fortran test is href not equal to 0."
+absence = "1e20 with entropy 0.0 marks not available (LJF, PSEUDO, R1234yf, R1234ze: 'Non-exsisting. Dummy value.' in the bib field); the runtime does not apply the 1e10 test, so these dummies flow into set_reference_energy (see questions)."
+validity = "298.15 K only"
+provenance = "NIST WebBook and HSC Chemistry 9 cited in free text; gref has no citation field of its own."
+count = "109 records"
+example = "fluids/Water.json#/reference_state"
+candidate = "energy_reference (formation_from_elements, third_law entropy, temperature 298.15 K, pressure 1 bar or 1 atm) plus a convention_set, with standard molar enthalpy of formation and absolute entropy values as value records on the species_form"
+precision = "close"
+loss = "The gas-phase (ideal gas) state of the formation enthalpy is implied, not stated; the element reference entropies are a separate table in a script (not data); 1e20 dummies and 0 entropy must become absent, and gref (computed, not read at run time) is a derivation with its own lineage."
+
+[[construct]]
+name = "gendatadb (generated pure-component record)"
+locator = "src/compdatadb.f90 (type gendatadb constructors cx1..cx109); addon/pyUtils/datadb/compdata.py:95-129"
+meaning = "The Fortran image of the fluid record's scalar constants as named constants inside compdatadb, without attribution."
+subject = "One compound (ident)."
+fields = [
+  { name = "ident, formula, name, structure", meaning = "strings up to 20, 20, 40 and 40 characters", unit = "not applicable (text)", shape = "scalar", role = "input" },
+  { name = "mw, Tc, Pc, Zc, acf, Tb, Ttr, Ptr", meaning = "scalar constants re-printed with 4, 4, 2, 6, 6, 4, 4, 4 decimals", unit = "g/mol, K, Pa, -, -, K, K, Pa", shape = "scalar", role = "input" },
+  { name = "sref, sref_state, href, gref", meaning = "reference entropy, its pressure basis string, reference enthalpy, computed Gibbs energy of formation", unit = "J/mol/K, text, J/mol, J/mol", shape = "scalar", role = "input" },
+  { name = "psatcode, ant(3), Tantmin, Tantmax", meaning = "vapour-pressure correlation id and parameters (see saturation construct)", unit = "see saturation", shape = "list", role = "unread" },
+  { name = "Zra, mu_dipole, q_quadrupole", meaning = "Rackett factor and electric moments", unit = "-, D, Angstrom*D", shape = "scalar", role = "input" },
+]
+origin = "generated"
+conventions = "Values are truncated to the printed decimals; the module header records a time stamp but not the script or data version."
+absence = "Same as the JSON; zero sentinels are carried unchanged."
+validity = "not applicable"
+provenance = "none: ref and bib_reference are not written (the lines are commented out in the generator)."
+count = "109 records"
+example = "src/compdatadb.f90 (constant cx1)"
+candidate = "none (derived artifact of the fluid record; the fluid JSON is the authored source)"
+precision = "unmapped"
+loss = "Importing both would duplicate each fact; the Fortran image must be treated as a rendering of the JSON (they agree on every compared value) and only the JSON carries the authored precision and attribution."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS: saturation and ideal gas
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "saturation (vapour-pressure estimate block)"
+locator = "fluids/*.json#/saturation; src/ideal.f90:83-137 EstPsat; src/eos.f90:1049-1071 PsatEstPure"
+meaning = "A code number and three parameters selecting a crude pure-component vapour pressure estimate (Antoine in mmHg, a Michelsen-type scaling, a Starling expression, or the hydrogen ancillary)."
+subject = "One compound."
+fields = [
+  { name = "correlation", meaning = "estimate id: 1 Antoine, 2 Michelsen (from Tc, Pc), 3 Starling (no data uses it), 10 hydrogen ancillary lnp(T/Tc) for the four hydrogen entries E-H2, N-H2, O-H2, P-H2; data value counts 1:72, 2:33, 10:4", unit = "not applicable (enum id)", shape = "enum", role = "unread" },
+  { name = "ant", meaning = "Antoine constants A, B, C in ln(p/mmHg) = A - B/(T + C) with T in K (derived from the code: exp(A - B/(T+C)) times 133.3224); non-zero for 45 of 109 records", unit = "mmHg (inferred from the conversion factor 133.3224 Pa per mmHg in ideal.f90)", shape = "list", role = "unread" },
+  { name = "Tmin, Tmax", meaning = "validity limits of the Antoine fit (outside them the estimate falls back to the Michelsen form)", unit = "K (stated in src/compdata.f90 tantmin comment)", shape = "scalar", role = "unread" },
+  { name = "ref, bib_reference", meaning = "tag (Default) and free text (empty in 108 of 109)", unit = "not applicable (text)", shape = "reference", role = "unread" },
+]
+origin = "transcribed"
+conventions = "The only consumer, EstPsat, is reached through PsatEstPure (eos.f90) and TP_Kideal (ideal.f90), neither of which is called elsewhere in the pinned tree or exported to Python (inferred from a search of src and addon), so these fields are stored but do not affect any calculation in this pin."
+absence = "correlation 1 with all-zero parameters is the placeholder in 27 records; correlation 2 carries no parameters; the zero placeholder is not flagged."
+validity = "Tmin to Tmax for correlation 1 only; Antoine branch prints a line to standard output on every call."
+provenance = "bib_reference empty in 108 of 109 records."
+count = "109 records"
+example = "fluids/Methane.json#/saturation"
+candidate = "auxiliary relation or parameter_set of form antoine (ln, mmHg basis) with envelope on temperature; no candidate for the code-only estimates"
+precision = "close"
+loss = "Antoine constants here are in ln(mmHg) form and are not used by any solver; Michelsen and Starling estimates have no parameters (they are procedures on Tc, Pc, acf, Zc)."
+
+[[construct]]
+name = "ideal_heat_capacity-N (ideal-gas heat capacity correlation set)"
+locator = "fluids/*.json#/ideal_heat_capacity-1 (and -2 in CO2, NC16); src/compdata.f90:12-43 and src/ideal.f90:1-41, 203-309 CPideal; src/compdata_init.f90:48-83"
+meaning = "An integer correlation id and a coefficient array that together define the ideal-gas heat capacity, enthalpy and entropy of one component as functions of temperature; the meaning and unit of each array position depend on the id."
+subject = "One compound and one named set (111 sets in 109 fluids: CO2 and NC16 carry a second set)."
+fields = [
+  { name = "correlation", meaning = "id as used in the data: 1:14 sets, 2:31, 4:23, 5:3, 6:7, 7:12, 8:13, 10:2, 12:2, 13:3, 100:1 (BUTANAL; id 100 is not a defined case in the code)", unit = "not applicable (enum id)", shape = "enum", role = "input" },
+  { name = "cp", meaning = "coefficient array (always 10 numbers except id 13: 9, 11 or 15); id 1: cp1..cp4 polynomial in T; 2: API-44 enthalpy polynomial (cp1..cp6) per mass; 4: cubic polynomial in J/mol/K; 5: cubic plus 1/T^2 term in mass units; 6: quartic in mass units; 7: DIPPR hyperbolic form (A..E); 8: quartic times R; 10 and 13 for hydrogen: id 10 calls the Leachman/Valenta routine, id 13 is a constant (cp1, in units of R) plus pairs (B_i, theta_i) of Einstein terms; 12: Shomate in T/1000", unit = "depends on id: cal/(mol K) for 1; kJ/(kg K) (per mass) for 5 and 6; per mass with no unit stated for 2 (inferred: the result is multiplied by the molar mass in g/mol); J/(mol K) for 4, 9 and 12; J/(kmol K) for 7; dimensionless (units of R) for 8 and 13 (from the comments in src/ideal.f90 and src/compdata.f90)", shape = "list", role = "input" },
+  { name = "Tmin, Tmax", meaning = "temperature limits of the correlation; consulted only for ids 2 and 7 (and only to print a verbose out-of-range message, no clamping)", unit = "degrees Celsius for id 2 (code adds 273.15), K for id 7; not used for other ids", shape = "scalar", role = "input" },
+  { name = "ref", meaning = "tag: Default (106 sets), empty string (2 sets, the second set of CO2 and NC16), MEOS/Default (3 sets, hydrogen isomers)", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "bib_reference", meaning = "free text; empty in 102 of 111", unit = "not applicable (text)", shape = "reference", role = "unread" },
+]
+origin = "transcribed"
+conventions = "Mass-basis ids (2, 5, 6) are multiplied by mol_weight in g/mol (the code does Cp times mw for the J/mol value); id 1 and the hypothetical id 3 use calories (4.1868) and, for id 3, Rankine-type factors 1.8; the enthalpy and entropy forms are the analytic integrals and carry the constants href_int and sref_int. Id 11 (TREND) and id 9 (linear plus fraction) have no data; id 3 (hypothetical components) has no data."
+absence = "id 100 (BUTANAL) has a zero array and Tmin = Tmax = 0; with no matching case the Cp_id variable is never assigned (inferred). Zero-padded tails of the array are not distinguishable from data."
+validity = "Tmin and Tmax for ids 2 and 7 only; other ids carry no stated range."
+provenance = "bib_reference empty for 102 of 111 sets; the ref tag is the only set identifier."
+count = "111 sets in 109 fluids (11 distinct correlation ids)"
+example = "fluids/Methane.json#/ideal_heat_capacity-1"
+candidate = "parameter_set of one of thirteen forms implementing an ideal_gas_heat_capacity contract (a polynomial form, a DIPPR form, a Shomate form, an Einstein-sum form with an indexed family of (B_i, theta_i), API-44 enthalpy polynomial, hydrogen special forms), subject species_form, each with an envelope on temperature and a declared mass or molar basis"
+precision = "broader"
+loss = "One JSON array holds thirteen differently-shaped coefficient lists; the id selects form, units (mass or molar), basis and whether Tmin and Tmax are Celsius; they must be split into distinct forms and converted using the molar mass, and the positional meaning (especially the Einstein pairs and the zero padding) has to be recovered from code. The two hydrogen special ids (10 and 13) and id 100 have no data representation."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS: cubic equation parameter sets
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "PR and SRK container blocks"
+locator = "fluids/*.json#/PR and #/SRK; addon/pyUtils/datadb/compdata.py:247-269 get_fortran_code"
+meaning = "A dictionary, one per cubic equation of state (PR and SRK), grouping the named parameter sets of that equation for one fluid: TWU-N and MC-N alpha sets, volume_shift (with optional suffix) sets, and for SRK the CPA-N sets."
+subject = "One compound and one cubic equation (PR in 108 fluids, SRK in 108; the PSEUDO fluid has neither)."
+fields = [
+  { name = "TWU-N", meaning = "Twu-Coon-Bluck-Cunningham alpha parameter sets (see construct 'alpha correlation set')", unit = "see construct", shape = "table", role = "input" },
+  { name = "MC-N", meaning = "Mathias-Copeman alpha parameter sets", unit = "see construct", shape = "table", role = "input" },
+  { name = "volume_shift, volume_shift-N", meaning = "Peneloux volume translation sets; an unsuffixed key in 86 PR fluids and in 92 SRK fluids; numbered keys volume_shift-1 to -3 in the other 6 PR fluids (5 with two sets, 1 with three)", unit = "see construct", shape = "table", role = "input" },
+  { name = "CPA-N, CPA-3B, CPA-4B", meaning = "CPA sets inside SRK only", unit = "see construct", shape = "table", role = "input" },
+]
+origin = "authored"
+conventions = "The eos label (PR, SRK) is part of the key of every set: the same fluid has a separate TWU set for PR (ref tcPR) and for SRK (ref tcRK); the generator writes the eos label into each Fortran record, so the eos is a parameterisation attribute, not a subject."
+absence = "A missing block means no set for that equation; PR has no CPA sets and CPA-PR pure parameters are absent from the pin although CPA-PR exists as a model label."
+validity = "not stated"
+provenance = "each set carries ref and bib_reference (see the attribution construct)."
+count = "216 container blocks (108 PR, 108 SRK)"
+example = "fluids/Methane.json#/PR"
+candidate = "parameterization per (equation, reference tag) with parameter_set rows for the alpha, volume-shift and association slot groups"
+precision = "broader"
+loss = "The container mixes four unrelated slot groups under the eos key and encodes set identity in key suffixes (TWU-1, TWU-2) that are arbitrary; identity must come from the ref tag instead."
+
+[[construct]]
+name = "alpha correlation set (TWU and MC)"
+locator = "fluids/*.json#/PR/TWU-N, #/SRK/TWU-N, #/PR/MC-N, #/SRK/MC-N; src/compdata.f90:46-51 alphadatadb; src/cbalpha.f90:85-182 (selection), 285-351 (TWU and MC evaluation), 407-486 (database lookups)"
+meaning = "Three-parameter temperature dependence of the attractive parameter a(T) = a_c alpha(T) of a cubic equation for one component: TWU gives alpha = Tr^(c3 (c2 - 1)) exp(c1 (1 - Tr^(c2 c3))); MC gives alpha = (1 + c1 (1 - sqrt Tr) + c2 (1 - sqrt Tr)^2 + c3 (1 - sqrt Tr)^3)^2 below Tc and c2 = c3 = 0 above Tc."
+subject = "One compound and one equation (PR or SRK) and one named set; keyed in Fortran by (eos id, component ident, ref)."
+fields = [
+  { name = "correlation", meaning = "list of exactly 3 numbers c1, c2, c3 (the code names them c1..c3; the formula letters are the literature's L, M, N for TWU)", unit = "- (dimensionless)", shape = "list", role = "input" },
+  { name = "ref", meaning = "tag: PR/TWU: tcPR (92), Aasen2024 (2), QuantumCubic (6); SRK/TWU: tcRK (92); MC: Chapoy2005 (20 PR, 20 SRK) or Default (14 PR, 11 SRK)", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "bib_reference", meaning = "DOI or thesis text; dropped by the generator (alphadatadb has no field)", unit = "not applicable (text)", shape = "reference", role = "unread" },
+]
+origin = "transcribed"
+conventions = "Tr = T/Tc where Tc is the cubic's own critical temperature (from the fluid record unless redefined). In the pinned code the MC alpha is selected by name MC but its parameters are read from the TWU table (see questions)."
+absence = "If a component has no set the code prints a message and falls back silently to the classic acentric-factor alpha; all-zero parameters also trigger that fallback."
+validity = "not stated"
+provenance = "each set cites its source in bib_reference (DOI 10.1016/j.fluid.2016.09.003 for tcPR and tcRK, thesis text for Chapoy2005, Aasen 2024, QuantumCubic DOI 10.1016/j.fluid.2020.112790)."
+count = "TWU: 100 PR sets (94 fluids) and 92 SRK sets (92 fluids) = 192; MC: 34 PR sets (22 fluids) and 31 SRK sets (20 fluids) = 65; Fortran arrays 192 and 65"
+example = "fluids/Methane.json#/PR/TWU-1"
+candidate = "parameter_set of a form alpha_twu or alpha_mc implementing an alpha_function contract and accepted as a nested set (subform slot alpha) of a cubic form, under a parameterization keyed by (cubic form, ref tag)"
+precision = "close"
+loss = "Identity lives in (eos, ref) rather than in a subject pair; the 'Default' tag is attached to only some MC sets and to no TWU set, so a default cannot be read from the data (see selection); the c1..c3 roles must be fixed per form."
+
+[[construct]]
+name = "volume_shift (Peneloux volume translation set)"
+locator = "fluids/*.json#/PR/volume_shift*, #/SRK/volume_shift*; src/compdata.f90:53-70 cidatadb and cidatadb_get_vol_trs_c; src/volume_shift.f90"
+meaning = "Coefficients of a volume translation c_i(T) applied per component to the cubic molar volume: constant, linear, quadratic or (in code) quintic polynomial in T."
+subject = "One compound, one equation, one named set; keyed in Fortran by (eos id, ident, ref)."
+fields = [
+  { name = "ciA", meaning = "constant term of the volume shift", unit = "m3/mol (stated in src/compdata.f90 comment)", shape = "scalar", role = "input" },
+  { name = "ciB", meaning = "linear coefficient; non-zero in 4 PR sets", unit = "m3/mol/K (stated in src/compdata.f90)", shape = "scalar", role = "input" },
+  { name = "ciC", meaning = "quadratic coefficient; 0 in every data set", unit = "m3/mol/K^2 (stated in src/compdata.f90)", shape = "scalar", role = "input" },
+  { name = "correlation", meaning = "polynomial type: 1 constant (95 PR sets, 92 SRK sets) or 2 linear (4 PR sets); the code also defines 3 quadratic and 6 quintic with ciDD, ciE, ciF that the JSON cannot carry", unit = "not applicable (enum id)", shape = "enum", role = "input" },
+  { name = "ref, bib_reference", meaning = "tag (tcPR 91, tcRK 92, Aasen2024 2, QuantumCubic 4, tcPR-ENGINEERING 2) and text (empty in 2)", unit = "not applicable (text)", shape = "reference", role = "input" },
+]
+origin = "transcribed"
+conventions = "v_eos = v_shifted + sum z_i c_i(T); the shift is used only when volume translation is requested (Peneloux at init, or automatically for refs tcPR and QuantumCubic). When no set is found the shift is estimated from the Rackett factor: c = 0.40768 (R Tc/Pc)(0.29441 - Zra) for SRK, 0.50033 (R Tc/Pc)(0.25969 - Zra) for PR."
+absence = "A zero ciA is data, not absent; absent sets trigger the Rackett estimate, then zero with a printed note when Zra is not positive."
+validity = "not stated"
+provenance = "each set carries ref and bib_reference (DOI of the tcPR paper in most)."
+count = "99 PR sets (92 fluids) and 92 SRK sets (92 fluids) = 191; Fortran cidb 191"
+example = "fluids/Methane.json#/PR/volume_shift"
+candidate = "parameter_set of a form peneloux_volume_translation with a polynomial indexed family (coefficients c_n of T^n) and the order fixed by the set; accepted as a subform of the cubic"
+precision = "close"
+loss = "The JSON stores only the first three coefficients although the code supports six; correlation is an order tag, not a meaning; the Rackett fallback is a derivation that produces a parameter at run time."
+
+[[construct]]
+name = "CPA pure-component set"
+locator = "fluids/*.json#/SRK/CPA-N (also keys CPA-3B and CPA-4B in one fluid each); src/compdata.f90:72-93 CPAdata; src/cpa_parameters.f90:66-200"
+meaning = "Pure-component parameters of the SRK-based cubic-plus-association model: attractive and covolume parameters, alpha parameter, association energy and volume, association scheme and a radial-distribution-function flag."
+subject = "One compound and one named set, SRK only; keyed by (eos id CPA-SRK, ident, ref)."
+fields = [
+  { name = "a0", meaning = "energy parameter of the cubic part", unit = "Pa*L^2/mol^2 (stated in src/compdata.f90)", shape = "scalar", role = "input" },
+  { name = "b", meaning = "covolume", unit = "L/mol (stated in src/compdata.f90)", shape = "scalar", role = "input" },
+  { name = "alphaCorr", meaning = "alpha correlation name; Classic in all 25", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "alphaParams", meaning = "3 numbers, c1 then two zeros in the data", unit = "- (dimensionless)", shape = "list", role = "input" },
+  { name = "eps", meaning = "association energy (the Fortran comment warns that people sometimes tabulate eps/R)", unit = "J/mol (stated in src/compdata.f90)", shape = "scalar", role = "input" },
+  { name = "beta", meaning = "association volume parameter", unit = "- (stated in src/compdata.f90)", shape = "scalar", role = "input" },
+  { name = "assoc_scheme", meaning = "site scheme string: 2B (11 sets), NONE (9), 3B, 4B, 4C, 1EA and 1 (one each)", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "simplified_rdf", meaning = "flag stored as the string True in all 25 sets", unit = "not applicable (string-encoded boolean)", shape = "enum", role = "input" },
+  { name = "ref, bib_reference", meaning = "tag (Default/Oliveira2008 5, Default/Kontogeorgis-Folas2010 9, SINTEF 2, others 1 each) and text (empty in 6 of 25)", unit = "not applicable (text)", shape = "reference", role = "input" },
+]
+origin = "transcribed"
+conventions = "Booleans are the strings True and False; the scheme NONE disables self-association; a mix of simplified and full RDF sets in one run prints a warning."
+absence = "No PR-based CPA pure parameters are bundled although the label CPA-PR exists; a component with no set is reported not found and handled by the caller."
+validity = "not stated"
+provenance = "ref and bib_reference per set; 6 of 25 have empty bib_reference."
+count = "25 sets in 23 fluids (keys CPA-1 17, CPA-2 3, CPA-3 2, CPA-3B 1, CPA-4B 1, CPA-5 1)"
+example = "fluids/Water.json#/SRK/CPA-1"
+candidate = "parameter_set of form cpa_srk (slot group pure) with a site_scheme on the parameterization and association_site rows; alpha as a nested alpha_function set"
+precision = "close"
+loss = "The scheme and the radial-distribution flag are model choices coupled to the set (a set is valid only under its scheme and RDF variant); the unit of a0 and b (litre-based) differs from the SI storage units of the model's quantity types."
+
+[[construct]]
+name = "PC-SAFT pure-component set"
+locator = "fluids/*.json#/PC-SAFT-N; src/pc_saft_datadb.f90 type pc_saft_data; src/pc_saft_parameters.f90"
+meaning = "Pure-component parameters of PC-SAFT and its simplified and polar variants: segment number, segment diameter, dispersion energy, association energy and volume, association scheme and optional dipole and quadrupole moments."
+subject = "One compound and one named set; keyed by (eos id, ident, ref)."
+fields = [
+  { name = "m", meaning = "mean number of segments", unit = "- (stated in src/pc_saft_datadb.f90)", shape = "scalar", role = "input" },
+  { name = "sigma", meaning = "temperature-independent segment diameter", unit = "m (stated in src/pc_saft_datadb.f90; values such as 3.5e-10 confirm)", shape = "scalar", role = "input" },
+  { name = "eps_depth_divk", meaning = "dispersion well depth divided by Boltzmann constant", unit = "K (stated)", shape = "scalar", role = "input" },
+  { name = "eps", meaning = "association energy, stored as a molar energy with the gas constant baked in (eps = eps_assoc/k times R)", unit = "J/mol (stated in src/pc_saft_datadb.f90)", shape = "scalar", role = "input" },
+  { name = "beta", meaning = "association volume (kappa); the module header warns authors differ on whether it includes a factor pi/6", unit = "- (stated as dimensionless)", shape = "scalar", role = "input" },
+  { name = "assoc_scheme", meaning = "site scheme: None (51 sets), 2B (13), 2C (6), 4C (5), 3B (2)", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "mu, Q", meaning = "optional dipole and quadrupole of the set: mu in 2 sets, Q in 6 sets, absent otherwise", unit = "D and Angstrom*D (src/pc_saft_datadb.f90 comments)", shape = "scalar", role = "input" },
+  { name = "ref, bib_reference", meaning = "tag (23 distinct strings, for example Default/Kontogeorgis_Folas2010 35, Tang_Gross2010 6) and text (non-empty in all 77)", unit = "not applicable (text)", shape = "reference", role = "input" },
+]
+origin = "transcribed"
+conventions = "Because eps is stored in J/mol with the gas constant applied at generation time, pc_saft_parameters aborts unless Rgas equals Rgas_default (Rgas_is_correct). The polar variants take the set's mu and Q when present and the fluid-level moments otherwise."
+absence = "A fluid with no set is reported as not found and the program stops (idx zero with print_error_and_stop). Missing mu or Q keys are substituted by 0.0 by the generator."
+validity = "not stated"
+provenance = "every set carries a non-empty bib_reference."
+count = "77 sets in 50 fluids (distribution of sets per fluid: 1:36, 2:9, 3:3, 5:1, 9:1)"
+example = "fluids/Water.json#/PC-SAFT-1"
+candidate = "parameter_set of form pcsaft (slot group pure) with site_scheme on the parameterization, association_site rows and a dependency on the gas-constant convention"
+precision = "close"
+loss = "eps embeds a gas-constant value (a convention_set property) in a stored number; the model has a separate EnergyTemperature type and no quadrupole type; the pi/6 ambiguity of beta is a convention that has to be recorded per parameterization."
+
+[[construct]]
+name = "SAFT-VR Mie pure-component set (including quantum variants)"
+locator = "fluids/*.json#/SAFTVRMIE-N; src/saftvrmie_datadb.f90 type saftvrmie_data; src/saftvrmie_parameters.f90:140-261"
+meaning = "Mie-segment parameters for SAFT-VR Mie and its Feynman-Hibbs quantum-corrected variants (SAFT-VRQ Mie), with association parameters and the order of the quantum correction the set was fitted for."
+subject = "One compound and one named set; keyed by (eos id, ident, ref)."
+fields = [
+  { name = "m", meaning = "segment number", unit = "- (stated)", shape = "scalar", role = "input" },
+  { name = "sigma", meaning = "segment diameter", unit = "m (stated)", shape = "scalar", role = "input" },
+  { name = "eps_depth_divk", meaning = "well depth divided by Boltzmann constant", unit = "K (stated)", shape = "scalar", role = "input" },
+  { name = "lambda_a, lambda_r", meaning = "attractive and repulsive exponents of the Mie potential", unit = "- (stated)", shape = "scalar", role = "input" },
+  { name = "mass", meaning = "segment mass (molecule mass divided by segment number), needed by the quantum correction", unit = "kg (stated)", shape = "scalar", role = "input" },
+  { name = "eps", meaning = "association energy stored as energy over k (a temperature-like number, multiplied by Rgas at use in getSaftVrMieAssocParams); the same field name in PC-SAFT sets is J/mol", unit = "K (inferred from the multiplication by Rgas in saftvrmie_parameters.f90; the datadb comment says J/mol)", shape = "scalar", role = "input" },
+  { name = "beta", meaning = "association volume; values of order 1e-28 (non-zero sets) imply a volume in m3, although the comment says dimensionless", unit = "not stated (inferred: magnitude 1e-28 suggests m3 per molecule; the comment says -)", shape = "scalar", role = "input" },
+  { name = "assoc_scheme", meaning = "site scheme: None (69 sets), 4C (4), 3B (3), 4B (1)", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "fh_order", meaning = "Feynman-Hibbs correction order 0 (46 sets), 1 (17) or 2 (14); nonzero only for quantum fluids", unit = "not applicable (integer)", shape = "enum", role = "input" },
+  { name = "ref, bib_reference", meaning = "tag (19 distinct names, for example DEFAULT 20, AASEN2019-FHn families, HYVA-FHn, HAMMER2022) and text (empty in 1)", unit = "not applicable (text)", shape = "reference", role = "input" },
+]
+origin = "transcribed"
+conventions = "The FH order is a property of the set: each quantum set name ends with FH0, FH1 or FH2 and init_quantum_saftvrmie picks AASEN2019-FH<order> as the default reference for the requested order. The FH model flag is set separately from the parameters (saftvrmie_opt), so the two must agree."
+absence = "A fluid with no set stops the program with 'No SAFT-VR Mie paramaters'. Sets with association scheme None carry a zero eps and beta."
+validity = "not stated"
+provenance = "bib_reference present in 76 of 77 sets."
+count = "77 sets in 32 fluids (distribution of sets per fluid: 1:22, 2:4, 6:3, 9:1, 10:2)"
+example = "fluids/Helium.json#/SAFTVRMIE-1"
+candidate = "parameter_set of form saftvrmie (slot group pure) with an integer quantum-order slot and a dependency consistent_with the model assembly's quantum-correction choice; association via site_scheme"
+precision = "close"
+loss = "The fh_order slot and the model option must be kept consistent (dependency kind consistent_with); eps has different units under the same name in two model families; beta has no stated unit."
+
+[[construct]]
+name = "ref and bib_reference (parameter-set attribution pair)"
+locator = "fluids/*.json (every parameter block: ref and bib_reference); binaries/*.json; src/parameters.f90; src/stringmod.f90:961-994 exact_substring_match"
+meaning = "ref is a slash-separated list of tags that names a parameter set and may include the tag DEFAULT; bib_reference is an uninterpreted text (DOI, author-year, URL, thesis, ISBN)."
+subject = "One parameter set (pure or pair)."
+fields = [
+  { name = "ref", meaning = "list of tags separated by '/', for example Default/Kontogeorgis_Folas2010, DEFAULT/AASEN2019-FH0, MEOS/Default; 60 distinct raw strings across the fluid file blocks; limited to 40 characters in Fortran (ref_len)", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "bib_reference", meaning = "free text limited to 100 characters in Fortran; formats include bare DOI, 'Author et al. (year). Doi: ...', URL, thesis text, ISBN", unit = "not applicable (text)", shape = "reference", role = "metadata" },
+]
+origin = "authored"
+conventions = "Matching is case-insensitive. The tag DEFAULT (substring test, any case, in any segment) marks a set as the default for its component and equation; the same tag in a requested list is ignored. A tag may also trigger behaviour (tcPR, QuantumCubic, Gross2005/Gross2006 for polar PC-SAFT; see selection)."
+absence = "An empty ref (2 cubic heat-capacity sets) can never match a requested name (inferred from the substring test). Empty bib_reference is common (see per-block counts)."
+validity = "not applicable"
+provenance = "this is the attribution mechanism; no DOI field exists separately."
+count = "60 distinct ref strings in the fluid files; 827 binary records each with ref and bib_reference"
+example = "fluids/Water.json#/PC-SAFT-1"
+candidate = "parameterization key and title (the tag list becomes the parameterization identifier) with a publication source and a selection_policy; the DEFAULT marker becomes policy_precedence rows"
+precision = "close"
+loss = "Several tags in one string name one set that belongs to several parameterisations (for example Rehner2020_2B/Aasen2024dft); the default marker is an in-band tag rather than a policy; behavioural tags (tcPR, QuantumCubic) are model switches disguised as parameter-set names."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS: solid correlations
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "melting_curve"
+locator = "fluids/*.json#/melting_curve; src/solid_correlation_datadb.f90; src/solid_saturation.f90:2353-2470; docs/vCurrent/new_fluids.md"
+meaning = "A correlation of melting pressure versus temperature built from up to 6 terms, with the combination of the reducing pressure selected by the last character of the id (ML-1, ML-2, ML-3 style)."
+subject = "One compound (single set per fluid)."
+fields = [
+  { name = "correlation", meaning = "id string: ML-1 (21 sets), ML-2 (1), MP-1 (1, parahydrogen, a two-piece form split at 22 K)", unit = "not applicable (enum string)", shape = "enum", role = "input" },
+  { name = "triple_temperature", meaning = "triple temperature used to scale the curve to the equation's saturation pressure", unit = "K (stated in src/solid_correlation_datadb.f90)", shape = "scalar", role = "input" },
+  { name = "maximum_temperature", meaning = "upper limit of the melting curve", unit = "K (stated)", shape = "scalar", role = "input" },
+  { name = "reducing_pressure, reducing_temperature", meaning = "p_red and T_red with tau = T/T_red", unit = "Pa and K (stated)", shape = "scalar", role = "input" },
+  { name = "n_coeff, n_coeff_1, n_coeff_2, n_coeff_3", meaning = "total term count and counts of term types 1 (tau^c), 2 ((tau-1)^c), 3 ((ln tau)^c); the remainder (n - n1 - n2 - n3) are type 4 (tau^c - 1)", unit = "not applicable (counts)", shape = "scalar", role = "input" },
+  { name = "coeff, exponents", meaning = "6-element arrays a_i and c_i in term order, zero padded", unit = "- (dimensionless)", shape = "list", role = "input" },
+  { name = "ref, bib_reference", meaning = "tag (DEFAULT) and text (empty in 1)", unit = "not applicable (text)", shape = "reference", role = "input" },
+]
+origin = "transcribed"
+conventions = "p = p_red times sigma (id ending 1), times exp(sigma) (2) or times exp(sigma/tau) (3); the curve can be scaled to match the saturation pressure at the triple temperature (scale_to_eos)."
+absence = "Fluids without a block (86 of 109) have no melting curve; the source does not use zero as a marker here."
+validity = "triple_temperature to maximum_temperature."
+provenance = "bib_reference: DOI or ISBN text."
+count = "23 records (term-type count patterns seen: 12 distinct (n, n1, n2, n3) combinations)"
+example = "fluids/Methane.json#/melting_curve"
+candidate = "parameter_set of form melting_line implementing a melting_pressure contract; an indexed family of terms (type, a_i, c_i) with an envelope on temperature"
+precision = "close"
+loss = "Term types are encoded by count positions (n1, n2, n3) rather than by a per-term type tag; MP-1 has a different, piecewise form under the same field names (coeff and exponents mean something else there)."
+
+[[construct]]
+name = "sublimation_curve"
+locator = "fluids/*.json#/sublimation_curve; src/solid_saturation.f90:2290-2352; docs/vCurrent/new_fluids.md"
+meaning = "A correlation of sublimation pressure versus temperature with the same term structure as the melting curve but with (1 - tau) in type-2 terms."
+subject = "One compound (single set per fluid)."
+fields = [
+  { name = "correlation", meaning = "id string: SL-2 (7 sets), SL-3 (8), and S2 (1, for H2S; a 2-character id where the code reads the fourth character)", unit = "not applicable (enum string)", shape = "enum", role = "input" },
+  { name = "triple_temperature, minimum_temperature", meaning = "triple temperature and lower limit", unit = "K (stated)", shape = "scalar", role = "input" },
+  { name = "reducing_pressure, reducing_temperature, n_coeff, n_coeff_1..3, coeff, exponents", meaning = "as in melting_curve", unit = "Pa, K, counts, dimensionless", shape = "scalar", role = "input" },
+  { name = "ref, bib_reference", meaning = "tag DEFAULT and text", unit = "not applicable (text)", shape = "reference", role = "input" },
+]
+origin = "transcribed"
+conventions = "Same closing rule as the melting curve (last id character 1, 2 or 3)."
+absence = "No block means no sublimation curve (93 of 109 fluids)."
+validity = "minimum_temperature to triple_temperature (inferred: the curve is used below the triple point)."
+provenance = "DOI text for all 16 records."
+count = "16 records (14 fluids carry both curves)"
+example = "fluids/Methane.json#/sublimation_curve"
+candidate = "parameter_set of form sublimation_line (same term family as melting_line)"
+precision = "close"
+loss = "The H2S record with id S2 has no valid fourth character, so the Fortran id test would stop the program for that record (inferred); the two curve forms differ by one sign convention that is implicit."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS: binary interaction data
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "binary kij record (cubic vdW mixing; PR, SRK, CSP-PR, CSP-SRK, PT files)"
+locator = "binaries/PR_kij.json, SRK_kij.json, CSP-PR_kij.json, CSP-SRK_kij.json, PT_kij.json; src/mixdatadb.f90 type kijdatadb; src/cbselect.f90:518-537 getkij"
+meaning = "An energy interaction parameter kij in a_ij = sqrt(a_i a_j)(1 - kij) for the classic van der Waals mixing rule (definition from the Python docstring of get_kij)."
+subject = "A pair of components (comp1, comp2 idents) for one cubic equation label and one set tag; symmetric in use (kij is set equal to kji) but stored in arbitrary orientation."
+fields = [
+  { name = "comp1, comp2", meaning = "ident of each component; matched in either order", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "kij", meaning = "interaction parameter", unit = "- (dimensionless)", shape = "scalar", role = "input" },
+  { name = "ref", meaning = "set tag; Default in most (PR 275 of 289; QuantumCubic 12, tcPR-ENGINEERING 2), Patel1982 in PT, Plocker1982(+) in LK", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "bib_reference", meaning = "text; empty for 277 of 289 PR, all SRK and CSP records", unit = "not applicable (text)", shape = "reference", role = "unread" },
+]
+origin = "transcribed"
+conventions = "Missing pair gives kij = 0.0 (1.0 for LK); the pair is found in either orientation; the stored mixing-rule id is vdW."
+absence = "No record means zero interaction (LK: one). A stored zero is data (for example CO2/NH3 twice with 0.0)."
+validity = "not stated"
+provenance = "bib_reference is empty for 277 of 289 PR_kij records, for all 131 SRK, 69 CSP-PR and 86 CSP-SRK records (only PT, LK and the QuantumCubic/tcPR-ENGINEERING PR records are attributed)."
+count = "729 records in mixdatadb = PR 289 (280 distinct unordered pairs) + SRK 131 + CSP-PR 69 (67 pairs) + CSP-SRK 86 (85 pairs) + PT 31 + LK 123 (LK also described in its own construct); 9 duplicate unordered pairs in PR_kij, including 1 in both orientations with conflicting values under ref Default"
+example = "binaries/PR_kij.json#/vdW-1"
+candidate = "parameter_set of slot group pair in form vdw_mixing (slot kij) with subject (species_form i, species_form j) and transposition symmetric, under parameterization keyed by (equation, ref tag)"
+precision = "narrower"
+loss = "A symmetric canonical orientation would merge orientation duplicates, but the source holds conflicting values for one pair under one ref (CO2/H2O: 0.074 and -0.065); duplicates with the same ref have no stated precedence (the code picks the last Default-tagged record, see selection)."
+
+[[construct]]
+name = "Lee-Kesler binary kij record"
+locator = "binaries/LK_kij.json; src/mixdatadb.f90 (eosid LK); src/cbselect.f90:401-407 and 530-533"
+meaning = "Interaction parameter of the Lee-Kesler mixing rule for critical-property combination (default value 1.0 means no interaction, the diagonal is forced to 1.0)."
+subject = "A pair of components for the LK equation, set Plocker1982(+)."
+fields = [
+  { name = "comp1, comp2, kij", meaning = "pair and parameter (values near 1, for example 1.052)", unit = "- (dimensionless)", shape = "scalar", role = "input" },
+  { name = "ref, bib_reference", meaning = "tag Plocker1982(+) in all 123; DOI text in 122", unit = "not applicable (text)", shape = "reference", role = "input" },
+]
+origin = "transcribed"
+conventions = "A missing pair returns 1.0 (no interaction) for LK and 0.0 for all other cubic models; the diagonal kij(i,i) is set to 1.0 for LK."
+absence = "Absence means 1.0, not 0.0; a stored 1.0 is indistinguishable from absence."
+validity = "not stated"
+provenance = "122 of 123 records have a bib_reference (DOI 10.1021/i260067a020 family)."
+count = "123 records (123 distinct pairs)"
+example = "binaries/LK_kij.json#/LK-1"
+candidate = "parameter_set of form lee_kesler_mixing with slot kij; absence = default 1.0"
+precision = "close"
+loss = "The model-wide default of 1.0 is not in the data; the mixing meaning differs from the vdW kij (a multiplicative factor rather than 1 - kij)."
+
+[[construct]]
+name = "binary lij record (cubic covolume interaction)"
+locator = "binaries/PR_lij.json; src/mixdatadb.f90 type lijdatadb; src/cbselect.f90:539-555 getlij"
+meaning = "Covolume interaction parameter lij in b_ij = 0.5(b_i + b_j)(1 - lij), used with the classic vdW rule for quantum-fluid pairs."
+subject = "A pair of components, set tag QuantumCubic."
+fields = [
+  { name = "comp1, comp2, lij", meaning = "pair (H2, O-H2 and P-H2 with HE) and value (-0.16 each)", unit = "- (dimensionless)", shape = "scalar", role = "input" },
+  { name = "mixing_rule", meaning = "vdW in all 3; ignored by the generator, which writes vdW itself", unit = "not applicable (enum)", shape = "enum", role = "unread" },
+  { name = "ref, bib_reference", meaning = "tag QuantumCubic and DOI text", unit = "not applicable (text)", shape = "reference", role = "input" },
+]
+origin = "transcribed"
+conventions = "A missing pair gives lij = 0.0; a non-zero lij switches the cubic out of the simple covolume mixing."
+absence = "No record means 0.0."
+validity = "not stated"
+provenance = "DOI 10.1016/j.fluid.2020.112790 in all 3."
+count = "3 records"
+example = "binaries/PR_lij.json#/LIJ-1"
+candidate = "parameter_set of slot group pair in form vdw_mixing with slot lij, transposition symmetric"
+precision = "narrower"
+loss = "lij is attached to the same pair but to a separate file and record type from kij; the two should be one slot group per (equation, reference)."
+
+[[construct]]
+name = "binary excess-Gibbs mixing record (HV1, HV2, NRTL)"
+locator = "binaries/PR_GE.json, SRK_GE.json; src/mixdatadb.f90 type interGEdatadb; src/cbselect.f90:557-628 getInterDataGEij; src/cubic_eos.f90 mixExcessGibbs"
+meaning = "Directed parameters of an activity-coefficient-type mixing rule for a cubic equation: a non-randomness parameter and a temperature polynomial for the dimensionless interaction energy tau_ij T = aGE + bGE T + cGE T^2, stored separately for ij and ji."
+subject = "An ordered pair of components (comp1, comp2) with both directions in one record; the rule is given by the key prefix (HV1, HV2, NRTL)."
+fields = [
+  { name = "alphaij, alphaji", meaning = "non-randomness parameter for each direction", unit = "- (dimensionless)", shape = "scalar", role = "input" },
+  { name = "polyij, polyji", meaning = "list of 2 or 3 numbers aGE (K), bGE (-), cGE (1/K); 2 numbers are padded with 0 by the generator; cGE is used only for HV2", unit = "K, -, 1/K (from the tau*T = aGE + bGE T + cGE T^2 comment in src/cubic_eos.f90)", shape = "list", role = "input" },
+  { name = "correlation", meaning = "Default (10 records) or Maribo-Mogensen (9 records, ion pairs, requires HV2); stored as integer 1 or 2", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "kij", meaning = "vdW interaction parameter stored with the record", unit = "- (dimensionless)", shape = "scalar", role = "unread" },
+  { name = "comp1, comp2, ref, bib_reference", meaning = "pair, tag (Default, Default/Maribo-Mogensen, Hemmingsen2011, Dicko2012) and DOI text", unit = "not applicable (text)", shape = "reference", role = "input" },
+]
+origin = "transcribed"
+conventions = "If the stored orientation is reversed relative to the requested pair, the ij and ji slots are swapped on read. The vdW kij of the same pair is requested separately from kijdb with the literal rule id Classic, which does not equal the stored id vdW (inferred: see questions), so the kij field of these records is never read."
+absence = "A missing pair leaves all GE parameters at zero with correlation 0 (inactive, kij used)."
+validity = "not stated"
+provenance = "DOI text for all 19 records."
+count = "19 records: PR_GE 2 (HV1 1, NRTL 1), SRK_GE 17 (HV1 4, HV2 13, of which 9 are ion pairs with NA+ or CL-)"
+example = "binaries/SRK_GE.json#/HV1-1"
+candidate = "parameter_set of slot group pair in forms huron_vidal and nrtl_mixing; ordered transposition with separate ij and ji values; nested contracts for the temperature polynomial"
+precision = "close"
+loss = "One record carries both directions; the model's closed transposition rules (ordered, symmetric, parity, reciprocal, permutation_group) have no rule that swaps named slots on reversal, so the record must be split into two ordered rows; NA+ and CL- have no fluid record, so their identity cannot be resolved inside this source."
+
+[[construct]]
+name = "CPA cross-association and kij record"
+locator = "binaries/CPA.json; src/mixdatadb.f90 type CPAkijdata; src/cpa_parameters.f90:222-330; src/cubic_eos.f90:31-56"
+meaning = "Binary parameters for CPA: a cubic-part kij, association-energy and association-volume interaction parameters with combining rules for the cross-association eps and beta."
+subject = "An unordered pair of components and an equation label (CPA-SRK or CPA-PR)."
+fields = [
+  { name = "eos", meaning = "CPA-SRK (11 records) or CPA-PR (1)", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "comp1, comp2", meaning = "pair", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "kij_a, kij_eps, kij_beta", meaning = "interaction parameters for a, eps (eps_ij = (eps_i + eps_j)(1 - kij_eps)/2) and beta (beta_ij = sqrt(beta_i beta_j)(1 - kij_beta))", unit = "- (dimensionless)", shape = "scalar", role = "input" },
+  { name = "eps_comb_rule, beta_comb_rule", meaning = "ARITHMETIC (11) or GEOMETRIC (1) for eps; GEOMETRIC in all 12 for beta", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "ref, bib_reference", meaning = "tag DEFAULT in all 12; bib_reference empty in all 12", unit = "not applicable (text)", shape = "reference", role = "input" },
+]
+origin = "transcribed"
+conventions = "CPA kij_a is looked up with an empty reference, so only the DEFAULT-tagged record is ever used; a missing pair falls back to the classic SRK or PR kij database and to arithmetic and geometric defaults for the combining rules."
+absence = "A missing pair gives kij_eps = kij_beta = 0 and default combining rules (CPA-SRK: arithmetic eps, geometric beta; CPA-PR: geometric both)."
+validity = "not stated"
+provenance = "no attribution at all (12 of 12 empty)."
+count = "12 records (11 distinct unordered pairs)"
+example = "binaries/CPA.json#/CPA-1"
+candidate = "parameter_set of slot group pair in form cpa_mixing with slots kij_a, kij_eps, kij_beta and two enum slots for the combining rules, transposition symmetric"
+precision = "close"
+loss = "Combining rules are enumerations attached to the pair; attribution is absent."
+
+[[construct]]
+name = "PC-SAFT binary record"
+locator = "binaries/PC-SAFT.json; src/pc_saft_datadb.f90 type PCkijdata; src/pc_saft_parameters.f90:68-160"
+meaning = "Dispersion-term interaction parameter kij for PC-SAFT, optionally with arithmetic or geometric combining rules for cross-association energy and volume."
+subject = "An unordered pair (uid1, uid2) for one set tag."
+fields = [
+  { name = "eos", meaning = "PC-SAFT in all 34 (ignored by the generator, which uses its own class value)", unit = "not applicable (enum)", shape = "enum", role = "unread" },
+  { name = "uid1, uid2", meaning = "pair idents (not comp1 and comp2)", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "kij", meaning = "binary parameter", unit = "- (dimensionless)", shape = "scalar", role = "input" },
+  { name = "eps_comb_rule, beta_comb_rule", meaning = "present in 3 records (ARITHMETIC and GEOMETRIC); otherwise DEFAULT (a hard-coded combining rule)", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "ref, bib_reference", meaning = "tag (Default/Tang_Gross2010 30, Default/Gross_Sadowski2001 1, NguyenHuynh2020 1, Default/Aasen2024 1, Aasen2024dft 1) and text (non-empty in all)", unit = "not applicable (text)", shape = "reference", role = "input" },
+]
+origin = "transcribed"
+conventions = "A missing pair gives kij = 0; the PC-SAFT kij is reused by simplified PC-SAFT when it has none of its own (with a printed note)."
+absence = "No record means 0.0; combining rule DEFAULT selects the hard-coded rule."
+validity = "not stated"
+provenance = "every record attributed."
+count = "34 records (30 distinct unordered pairs; NH3/H2O appears 3 times under three tags; BENZENE/CO2 and CO2/TOLU each appear twice under the same tag Default/Tang_Gross2010 with different kij: 0.025 and 0.087, 0.026 and 0.108)"
+example = "binaries/PC-SAFT.json#/KIJ-1"
+candidate = "parameter_set of slot group pair in form pcsaft_mixing with slot kij and optional enum slots for combining rules; transposition symmetric"
+precision = "close"
+loss = "The key names uid1 and uid2 differ from the cubic files; the default combining rule is code, not data."
+
+[[construct]]
+name = "SAFT-VR Mie binary record (kij and lij)"
+locator = "binaries/SAFTVRMIE.json; src/saftvrmie_datadb.f90 type Miekijdata; src/saftvrmie_parameters.f90:72-112"
+meaning = "Energy (kij) and size (lij) mixing parameters of SAFT-VR Mie for quantum-fluid and other pairs, stored in one file under two key prefixes."
+subject = "An unordered pair (uid1, uid2) for one set tag; 9 distinct pairs in total."
+fields = [
+  { name = "uid1, uid2, eos", meaning = "pair idents (mixed case such as He, Ne; matched case-insensitively) and eos SAFTVRMIE (ignored)", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "kij", meaning = "energy parameter, in 18 KIJ records over 9 pairs", unit = "- (dimensionless)", shape = "scalar", role = "input" },
+  { name = "lij", meaning = "size parameter, in 12 LIJ records over 6 pairs", unit = "- (dimensionless)", shape = "scalar", role = "input" },
+  { name = "ref, bib_reference", meaning = "tag (DEFAULT 3, AASEN2019-FH1 12, AASEN2019-FH2 12, HAMMER2022-FH1 1, HAMMER2022-NP 1, Default/Dufal2015 1) and text (empty in 3)", unit = "not applicable (text)", shape = "reference", role = "input" },
+]
+origin = "transcribed"
+conventions = "kij and lij are symmetric in use (kij(j,i) = kij(i,j)); a missing pair gives 0.0. The tag must agree with the pure set's FH order."
+absence = "No record means 0.0."
+validity = "not stated"
+provenance = "bib_reference empty in 3 of 30."
+count = "30 records (18 kij + 12 lij; 9 distinct unordered pairs: C2-H2S, C2-NC10, D2-H2, D2-HE, D2-NE, H2-HE, H2-NE, H2O-MEOH, HE-NE)"
+example = "binaries/SAFTVRMIE.json#/KIJ-1"
+candidate = "parameter_set of slot group pair in form saftvrmie_mixing with slots kij and lij, transposition symmetric"
+precision = "close"
+loss = "No gamma_ij (repulsive-exponent interaction) is bundled although the wrapper can set one; the FH-order coupling of the tag is implicit."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS: group contribution, multiparameter, inline constants
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "UNIFAC subgroup (unifacprm)"
+locator = "src/unifacdata.f90:6-135 unifacprmdb"
+meaning = "A structural subgroup with its main-group number and the van der Waals group volume and surface parameters Rk and Qk."
+subject = "A group (subgroup number within the file's own numbering, with a formula label such as CH3)."
+fields = [
+  { name = "subGrp", meaning = "subgroup number", unit = "not applicable (integer)", shape = "scalar", role = "input" },
+  { name = "mainGrp", meaning = "main-group number (partition class) used for the interaction table", unit = "not applicable (integer)", shape = "scalar", role = "input" },
+  { name = "formula", meaning = "group label (two entries are spelled CHO in main groups 10 and 13)", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "Rk, Qk", meaning = "group volume and surface area parameters", unit = "- (dimensionless, relative to a reference; not stated)", shape = "scalar", role = "input" },
+  { name = "dataSource", meaning = "origin string per row, inconsistently spelled (Hansen 1991 108; Holderbaum 1991 unifacprm(PSRK) 5; Holderbaum 1991 (PSRK) 1; Fisher 1996 unifacprm(PSRK) 3)", unit = "not applicable (text)", shape = "reference", role = "metadata" },
+]
+origin = "transcribed"
+conventions = "Group numbering is this file's, not a published id; UNIFAC, UMR and VTPR share the same tables and differ by two logical flags."
+absence = "A group absent from the tables cannot be used; a component with no decomposition stops the program."
+validity = "not stated"
+provenance = "dataSource column per row."
+count = "117 subgroups in 59 main groups"
+example = "src/unifacdata.f90 (unifacprm(1, 1, 'CH3', 0.9011, 0.848, 'Hansen 1991'))"
+candidate = "group rows (role group with partition_class main group) of a group_scheme; Rk and Qk as per-group value records"
+precision = "close"
+loss = "Two rows may define the same group differently across sources (a commented alternative CO group sits in place); the file embeds no scheme revision, only source strings."
+
+[[construct]]
+name = "UNIFAC component decomposition (unifacComp)"
+locator = "src/unifacdata.f90:138-266 unifacCompdb"
+meaning = "The count of each of the 117 subgroups in one component."
+subject = "One component keyed by uid (matched by exact, case-sensitive equality) with a formula label."
+fields = [
+  { name = "uid", meaning = "component id (C2, C3, IC4, NC4.., BENZENE, TOLUENE, H2O, N2, CO2, H2S, C1, ACETONE)", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "v", meaning = "array of 117 integer counts, one per subgroup", unit = "not applicable (counts)", shape = "list", role = "input" },
+  { name = "formula", meaning = "formula text (IC4 and NC4 share the label CH4H10)", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+]
+origin = "authored"
+conventions = "qi and ri are computed from the counts and the Qk and Rk of the active groups at initialisation."
+absence = "A zero count means the group is absent; an unlisted component stops the program."
+validity = "not stated"
+provenance = "none per row."
+count = "20 components (acetone appears twice in the source text, one of them commented out)"
+example = "src/unifacdata.f90 (unifacComp('C6H6', 'BENZENE', ...))"
+candidate = "group_assignment and group_count rows per entity under a group_scheme"
+precision = "exact"
+loss = ""
+
+[[construct]]
+name = "UNIFAC interaction row (unifacUij)"
+locator = "src/unifacdata.f90:268-1886 unifacUijdb; docs/memo/UNIFAC/data/unifac.dat"
+meaning = "Group interaction energy parameters between two main groups: aij (K), bij (-), cij (1/K) of a temperature-dependent interaction energy (PSRK-type extension)."
+subject = "An ordered pair of main groups (mgi, mgj); (i,j) and (j,i) are different rows."
+fields = [
+  { name = "mgi, mgj", meaning = "main-group numbers", unit = "not applicable (integer)", shape = "scalar", role = "input" },
+  { name = "aij", meaning = "a coefficient", unit = "K (stated in src/unifacdata.f90)", shape = "scalar", role = "input" },
+  { name = "bij", meaning = "b coefficient; non-zero in 78 rows together with cij", unit = "- (stated)", shape = "scalar", role = "input" },
+  { name = "cij", meaning = "c coefficient", unit = "1/K (stated)", shape = "scalar", role = "input" },
+  { name = "dataSource", meaning = "Hansen 1991 (1401 rows), Fisher 1996 (PSRK) (159), Holderbaum 1991 (PSRK) (43)", unit = "not applicable (text)", shape = "reference", role = "metadata" },
+]
+origin = "transcribed"
+conventions = "The pair is directed (aij differs from aji); lookup returns the first row matching (mgi, mgj)."
+absence = "A missing pair prints a message and uses zeros (aij = bij = cij = 0)."
+validity = "not stated"
+provenance = "dataSource per row."
+count = "1603 rows, 1577 distinct pairs (26 pairs listed twice, 25 of them with different values, Hansen versus PSRK rows; the first listed row wins)"
+example = "src/unifacdata.f90 (unifacUij(1, 1, 0, 0, 0, 'Hansen 1991'))"
+candidate = "parameter_set of slot group group_pair (subject group i, group j, ordered transposition) in form unifac with slots a, b, c, under two parameterisations (Hansen 1991 and PSRK) sharing one group_scheme"
+precision = "close"
+loss = "Two parameterisations are interleaved in one table with overlapping keys, and only the first is reachable in code; missing pairs silently become zero rather than absent."
+
+[[construct]]
+name = "MBWR coefficient set (mbwr32Data, mbwr19Data)"
+locator = "src/mbwrdata.f90:1-1470; src/mbwr.f90:106-190 initializeMBWRmodel"
+meaning = "Coefficients of a modified Benedict-Webb-Rubin pressure equation (19 or 32 terms) for one component, with the exponent gamma as the last value, range flags and an equation number."
+subject = "One component (ComId) and a set number within the equation family; selection by component id only."
+fields = [
+  { name = "EqNo", meaning = "equation number 5201 (MBWR-19) or 5202 (MBWR-32)", unit = "not applicable (integer)", shape = "scalar", role = "input" },
+  { name = "ComId", meaning = "component id (C1, C2, C3, IC4, NC4, O2, N2, R134a, R152a for 32; 54 ids for 19)", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "SetNo, LowProp, HighProp, Ndata", meaning = "set number, range flags, number of coefficients (33 or 20)", unit = "not applicable (integers)", shape = "scalar", role = "input" },
+  { name = "coeff", meaning = "33 or 20 coefficients (N_i and gamma)", unit = "pressure in Pa, temperature in K, density in mol/L (stated in mbwr.f90 comments)", shape = "list", role = "input" },
+]
+origin = "transcribed"
+conventions = "C1 has three MBWR-32 sets (SetNo 1, 2, 3) but the selector returns the first match and SetNo is not used in the lookup (inferred from getMBWR32index)."
+absence = "A component not in the database stops the program."
+validity = "LowProp and HighProp flags; the physical range is not stated as numbers."
+provenance = "a comment block cites Younglove and Ely 1987 for the 32-term alkane and O2/N2 sets; no other attribution."
+count = "65 sets (11 MBWR-32 in 10 components, 54 MBWR-19)"
+example = "src/mbwrdata.f90 (mbwrcx5, C3)"
+candidate = "parameter_set of form mbwr19 or mbwr32 (slot group pure) with an indexed family of coefficients N_i and a gamma slot"
+precision = "close"
+loss = "Set numbers exist without a selection rule; units are inferred from comments, not declared per value."
+
+[[construct]]
+name = "multiparameter Helmholtz parameters in code (propane, hydrogen isomers, R134a, Lennard-Jones)"
+locator = "src/multiparameter_c3.f90, multiparameter_normal_h2.f90, multiparameter_ortho_h2.f90, multiparameter_para_h2.f90, multiparameter_r134a.f90, multiparameter_lj.f90, idealh2.f90; src/multiparameter_base.f90"
+meaning = "Reduced Helmholtz equations written as Fortran parameter arrays: critical and triple constants, molar mass, the gas constant of the fit, polynomial and exponential residual terms and ideal-gas terms."
+subject = "One component each (C3; N-H2, O-H2, P-H2; R134A; LJ and LJTS pseudo-fluids); keyed by component id inside single_eos_alloc."
+fields = [
+  { name = "tc, pc, acf, t_triple, p_triple, rhoLiq_triple, rhoVap_triple, molarMass, maxT, maxP", meaning = "component constants stored in each module (for propane molarMass 44.09562e-3 kg/mol, Tmax 650 K, pmax 1000e6 Pa)", unit = "K, Pa, -, K, Pa, mol/m3, mol/m3, kg/mol, K, Pa (comments in multiparameter_base.f90)", shape = "scalar", role = "input" },
+  { name = "Rgas_fit", meaning = "gas constant used in the published fit: 8.314472 (C3, hydrogen isomers), 8.314471 (R134a), 1.0 (LJ reduced units); idealh2 uses 8.3144772", unit = "J/(mol K) (stated)", shape = "scalar", role = "input" },
+  { name = "term arrays", meaning = "polynomial, exponential, Gaussian and ideal-gas coefficient arrays of the published equation", unit = "dimensionless (reduced Helmholtz energy)", shape = "list", role = "input" },
+]
+origin = "transcribed"
+conventions = "delta = rho/rho_c, tau = T_c/T, alpha = A/(n R T); when the model is used inside ThermoPack Rgas_meos is set to Rgas_default unless use_Rgas_fit is requested, so the fitted gas constant is not the one used by default."
+absence = "A component other than the five supported ones stops the program ('Only possible to use NIST MEOS with components: C3 or N/O/P-H2, or R134A')."
+validity = "maxT and maxP per component."
+provenance = "module header comments cite Lemmon et al. 2009 (doi 10.1021/je900217v) for propane, Leachman et al. 2009 (10.1063/1.3160306) for hydrogen isomers, Tillner-Roth and Baehr 1994 for R134a, Thol et al. (10.1063/1.4945000, 10.1080/00268976.2016.1246760) for LJ."
+count = "6 equation modules (C3, N-H2, O-H2, P-H2, R134a, LJ); 5 selectable for NIST_MEOS plus LJ_MEOS and LJTS_MEOS"
+example = "src/multiparameter_c3.f90"
+candidate = "parameter_set of form helmholtz_multiparameter with indexed families of polynomial, exponential and ideal terms, plus per-component reducing constants"
+precision = "close"
+loss = "Values are compiled into code and carry no per-value reference; the gas constant of the fit and the library gas constant differ and the choice is a runtime switch."
+
+[[construct]]
+name = "solid equation parameters in code (CO2 dry ice and H2O ice Ih)"
+locator = "src/co2_gibbs.f90:1-30; src/h2o_gibbs.f90:1-40; src/solideos.f90"
+meaning = "Gibbs-energy equations of state for solid CO2 (Jaeger and Span 2012) and ice Ih (Feistel and Wagner 2006), with their reference constants as Fortran parameters."
+subject = "The components CO2 and H2O (solid_init accepts only these two idents)."
+fields = [
+  { name = "R, Tref, Pref, Vref, dh_melt_tr, mwco2 (CO2)", meaning = "gas constant 8.314472, reference state 150 K and 101325 Pa, reference volume 2.7186286e-5 m3/mol, melting enthalpy 8875 J/mol at the triple point, molar mass 44.01 g/mol", unit = "J/mol/K, K, Pa, m3/mol, J/mol, g/mol (comments)", shape = "scalar", role = "input" },
+  { name = "Ttriple, Ptriple, P0_H2O, T0_H2O, mw_H2O, g00, g01 .. (H2O)", meaning = "triple point 273.160 K and 611.657 Pa, reference 101325 Pa and 273.152519 K, molar mass 18.01528e-3 kg/mol, Gibbs coefficients in J/kg", unit = "K, Pa, K, kg/mol, J/kg (comments)", shape = "scalar", role = "input" },
+]
+origin = "transcribed"
+conventions = "The CO2 model overwrites the component triple point (ttr, ptr) at initialisation; the ice equation is per mass (J/kg) with its own reference temperature 273.152519 K."
+absence = "Any other component stops solid_init."
+validity = "not stated as numbers in the modules"
+provenance = "module headers cite Jaeger and Span (J. Chem. Eng. Data 57, 590-597) and Feistel and Wagner (J. Phys. Chem. Ref. Data 35, 1021, doi 10.1063/1.2183324)."
+count = "2 equations"
+example = "src/co2_gibbs.f90"
+candidate = "parameter_set of form gibbs_solid (slot group pure) with an indexed family of coefficients, on a species_form of aggregation crystalline"
+precision = "close"
+loss = "The constants are code, not data; the gas constant 8.314472 differs from the library default."
+
+[[construct]]
+name = "inline quantum-cubic and beta(T) parameters in code"
+locator = "src/eoslibinit.f90:349-386; src/cbbeta.f90:30-72"
+meaning = "When the reference tag contains QuantumCubic, the critical temperature, pressure and molar mass of HE, H2, NE, D2, O-H2 and P-H2 are overwritten by literal values, and the quantum beta(T) correlation takes two literal parameters per component."
+subject = "The six quantum components listed (keyed by ident)."
+fields = [
+  { name = "Tc, Pc, mw overrides", meaning = "for example HE: 5.1953 K, 2.276e5 Pa, 4.002602 g/mol; H2: 33.145 K, 12.964e5 Pa, 2.01588; NE: 44.4 K, 2661630.8085948555 Pa, 20.179; D2: 38.34 K, 16.796e5 Pa, 4.0282; O-H2 and P-H2 from Leachman et al.", unit = "K, Pa, g/mol", shape = "scalar", role = "input" },
+  { name = "beta parameters", meaning = "2 numbers per component for beta(T), for example HE (1.4912, 3.2634), H2 (3.0696, 12.682); all other components get (0, 0) meaning beta = 1", unit = "- (dimensionless)", shape = "list", role = "input" },
+]
+origin = "transcribed"
+conventions = "A comment in the code states that Table I of the source paper has slightly wrong values for H2 and Ne and that the literals correspond to the reference equations instead."
+absence = "Components outside the list keep their fluid-file criticals and beta = 1."
+validity = "not stated"
+provenance = "comments cite Aasen et al. 2020 (10.1016/j.fluid.2020.112790) and Leachman et al. (10.1063/1.3160306)."
+count = "6 component overrides; 6 beta parameter pairs"
+example = "src/eoslibinit.f90 (init_cubic)"
+candidate = "parameter_set values of the quantumcubic parameterization, taking precedence over the species_form constants (derivation or dependency rows)"
+precision = "unmapped"
+loss = "The overrides are procedural and apply by reference-tag match; they replace data in the fluid record rather than adding a set, so a mapping must model them as a parameterization that supersedes constants."
+
+[[construct]]
+name = "pseudo-component record (PSEUDO)"
+locator = "fluids/pseudo.json; src/eoslibinit.f90:423-498 init_cubic_pseudo"
+meaning = "A placeholder component whose critical temperature, pressure, acentric factor and optionally molar mass are supplied by the caller at initialisation."
+subject = "The single ident PSEUDO."
+fields = [
+  { name = "ident, formula, cas_number, name", meaning = "PSEUDO, XXX, XXX, PSEUDO", unit = "not applicable (text)", shape = "scalar", role = "input" },
+  { name = "critical, acentric_factor, mol_weight", meaning = "dummy values (Tc 100 K, Pc 1e7 Pa, Zc 0.3, acf 0, mw 100)", unit = "K, Pa, -, -, g/mol", shape = "scalar", role = "input" },
+  { name = "reference_state", meaning = "enthalpy 1e20 (dummy) and entropy 0", unit = "J/mol, J/mol/K", shape = "scalar", role = "input" },
+]
+origin = "authored"
+conventions = "init_cubic_pseudo reads Tclist, Pclist, acflist and Mwlist for every component named PSEUDO."
+absence = "The dummies are not flagged and equal the stored values."
+validity = "not applicable"
+provenance = "not stated"
+count = "1 record"
+example = "fluids/pseudo.json#/"
+candidate = "pseudo_component (abstract_component) with caller-supplied parameter values"
+precision = "close"
+loss = "The placeholder values must not be imported as constants; only the existence of a user-parameterised pseudo-component is data."
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "Cubic equations of state (SRK, PR, VdW, SW, PT)"
+locator = "src/cubic.f90, src/cubic_eos.f90, src/cbmix.f90, src/cbhelm.f90, src/eosdata.f90:10-15"
+class = "residual_or_excess_contribution"
+inputs = "T, V (or P), mole numbers; composition as mole numbers and fractions."
+parameters = "pure: Tc, Pc, acf (from the component record), alpha parameters (2 or 3 numbers), b, optionally c (PT) and Schmidt-Wensel acf; pair: kij, lij; model constants m1 and m2 from a per-equation delta (SRK 0, PR 1)."
+composes = "alpha function (Classic, TWU, MC, GD, RK, Soave, PR, UMR, PR78, VdW, SW, PT, CLASSICFIT), beta (covolume temperature dependence), volume translation, mixing rules, ideal-gas Helmholtz part"
+equation_source = "not stated in code headers (the headers list SRK, PR, VdW, RK, SW and PT by name); GD cites doi 10.1021/i260068a009, RK cites 10.1021/cr60137a013, PR76 cites 10.1021/i160057a011, UMR cites 10.1021/ie049580p in docs/vCurrent/cubic_keys.md"
+closed_form = "implicit"
+data = "constructs 'PR and SRK container blocks', 'alpha correlation set', 'volume_shift', 'binary kij record', 'binary lij record'"
+
+[[model_family]]
+name = "Cubic alpha correlations"
+locator = "src/cbalpha.f90:1-570; src/cubic_eos.f90:276-330"
+class = "explicit_correlation"
+inputs = "reduced temperature Tr = T/Tc"
+parameters = "pure: Classic (1 parameter from acentric factor by a polynomial per equation: Soave 0.48 + 1.574 w - 0.176 w^2, PR 0.37464 + 1.54226 w - 0.26992 w^2, and others), TWU (3), MC (3), GERG-water (declared, not implemented: stoperror), CLASSICFIT (1, used by CPA), UMR (polynomial of w to fourth degree; water uses MC), PR78 (w-dependent), SW (Schmidt-Wensel), RK (1/sqrt Tr), VdW (1)"
+composes = "none"
+equation_source = "not stated in code; parameter tables follow the cited literature in docs/vCurrent/cubic_keys.md"
+closed_form = "yes"
+data = "construct 'alpha correlation set' (TWU, MC); Classic and the other polynomial forms need no stored data"
+
+[[model_family]]
+name = "Covolume temperature dependence beta(T) (Classic and Quantum)"
+locator = "src/cbbeta.f90; src/cubic_eos.f90 nBetaCorrs"
+class = "explicit_correlation"
+inputs = "temperature"
+parameters = "pure: 2 numbers per quantum component, literals in code for HE, NE, H2, D2, P-H2 and O-H2"
+composes = "cubic equations"
+equation_source = "Aasen et al. 2020 (10.1016/j.fluid.2020.112790) by reference tag and comment in eoslibinit.f90"
+closed_form = "yes"
+data = "construct 'inline quantum-cubic and beta(T) parameters in code'"
+
+[[model_family]]
+name = "Peneloux volume translation"
+locator = "src/volume_shift.f90; src/compdata.f90:53-70; docs/memo/peneloux"
+class = "explicit_correlation"
+inputs = "T, composition"
+parameters = "pure: ciA, ciB, ciC (and code-only ciDD, ciE, ciF), type 1, 2, 3 or 6; fallback from Rackett factor Zra, Tc, Pc for SRK and PR"
+composes = "cubic equations; also initialised for multiparameter fallback equations"
+equation_source = "memo peneloux.tex (volume shift for generic EOS)"
+closed_form = "yes"
+data = "construct 'volume_shift' and 'rackett_factor'"
+
+[[model_family]]
+name = "Classic and Reid mixing rules (vdW one-fluid, Reid asymmetric)"
+locator = "src/cbmix.f90; src/cubic_eos.f90:196-262 mix_label_db; src/cbselect.f90:343-408"
+class = "residual_or_excess_contribution"
+inputs = "T, mole numbers"
+parameters = "pair: kij, lij (Reid uses directional kij(i,j) not equal to kij(j,i)); optional covolume exponent b_exponent"
+composes = "cubic equations"
+equation_source = "not stated"
+closed_form = "yes"
+data = "constructs 'binary kij record', 'binary lij record', 'Lee-Kesler binary kij record'"
+
+[[model_family]]
+name = "Huron-Vidal (HV1 modified, HV2) and NRTL excess-Gibbs mixing rules"
+locator = "src/excess_gibbs.f90; src/cbmix.f90; src/cbselect.f90:378-384, 557-628; docs/memo (thermopack2013)"
+class = "residual_or_excess_contribution"
+inputs = "T, mole numbers"
+parameters = "pair: alpha_ij, alpha_ji, aGE, bGE, cGE (HV2 only) per direction; correlation variant 1 or 2 (Maribo-Mogensen, HV2 only); infinite-pressure limit constant per equation (VdW 1, SRK ln 2, PR -ln(sqrt 2 - 1)/sqrt 2)"
+composes = "cubic equations; CPA variants HVCPA and HVCPA2 reuse the same machinery with CPA data"
+equation_source = "memo thermopack2013.tex; the module header states it is based on Skaugen's Huron-Vidal implementation"
+closed_form = "yes"
+data = "construct 'binary excess-Gibbs mixing record'"
+
+[[model_family]]
+name = "Wong-Sandler mixing rule (WS, HVWongSandler, WSCPA)"
+locator = "src/wong_sandler.f90; src/cubic_eos.f90:196-262; docs/memo/WongSandler"
+class = "residual_or_excess_contribution"
+inputs = "T, mole numbers"
+parameters = "pair: alpha, k, tau with temperature polynomial or fraction forms (type inter_ws_datadb, declared but no data array exists); set only through the API (set_ws_param)"
+composes = "cubic equations and CPA"
+equation_source = "Wong and Sandler (1992), doi 10.1002/aic.690380505, cited in the module header"
+closed_form = "yes"
+data = "none bundled"
+
+[[model_family]]
+name = "UNIFAC-based mixing rules (UNIFAC, UMR, VTPR)"
+locator = "src/unifac.f90; src/unifacdata.f90; docs/memo/UNIFAC"
+class = "group_contribution"
+inputs = "T, mole numbers"
+parameters = "group: Rk, Qk; pair of main groups: aij, bij, cij; two flags selecting Flory-Huggins and Staverman-Guggenheim combinatorial terms (UMR: no FH with SG; VTPR: neither; UNIFAC: both)"
+composes = "cubic equations as an excess-Gibbs mixing rule"
+equation_source = "memo unifac.tex; data sources Hansen 1991, Holderbaum 1991, Fisher 1996 by row"
+closed_form = "yes"
+data = "constructs 'UNIFAC subgroup', 'UNIFAC component decomposition', 'UNIFAC interaction row'"
+
+[[model_family]]
+name = "Cubic-plus-association (CPA-SRK, CPA-PR)"
+locator = "src/cpa_parameters.f90; src/saft_association.f90; src/eosdata.f90:20-22"
+class = "association"
+inputs = "T, V, mole numbers"
+parameters = "pure: a0, b, alpha parameter c1, eps, beta, assoc_scheme, simplified_rdf; pair: kij_a, kij_eps, kij_beta, combining rules for eps and beta"
+composes = "cubic (SRK or PR), association term, mixing rules (classic, HV with CPA data, WS with CPA data)"
+equation_source = "memo cpa.tex; Michelsen-style Q-function solution in saft_association.f90"
+closed_form = "implicit"
+data = "constructs 'CPA pure-component set' (SRK only) and 'CPA cross-association and kij record'"
+
+[[model_family]]
+name = "Association machinery (schemes 1, 2A, 2B, 2C, 3A, 3B, 4A, 4B, 4C, 1EA)"
+locator = "src/assocschemeutils.f90; src/association_var.f90; src/saft_association.f90"
+class = "association"
+inputs = "T, V, mole numbers, pure association energy and volume, scheme per component"
+parameters = "pure: eps, beta, scheme; pair: cross eps and beta through arithmetic or geometric or default combining rules"
+composes = "CPA, PC-SAFT, SAFT-VR Mie, PeTS, LJ splined"
+equation_source = "Michelsen-type site-fraction solution (saft_association.f90 comments); SAFT-VR Mie association after Dufal et al. (10.1080/00268976.2015.1029027)"
+closed_form = "implicit"
+data = "association parameters inside constructs 'CPA pure-component set', 'PC-SAFT pure-component set', 'SAFT-VR Mie pure-component set'"
+
+[[model_family]]
+name = "PC-SAFT, sPC-SAFT, PCP-SAFT, sPCP-SAFT"
+locator = "src/pc_saft_nonassoc.f90; src/pc_saft_parameters.f90; src/multipol.f90; src/eosdata.f90:23-27"
+class = "residual_or_excess_contribution"
+inputs = "T, V, mole numbers"
+parameters = "pure: m, sigma, eps_depth_divk, eps, beta, scheme, mu, Q; pair: kij and combining rules"
+composes = "hard-chain and dispersion terms, association term, polar terms (dipole-dipole, quadrupole-quadrupole, dipole-quadrupole), cubic fallback equation for initial estimates"
+equation_source = "Gross and Sadowski 2001 (doi 10.1021/ie0003887, equation numbers A.12 to A.19 in comments); polar terms Gross 2005 (10.1002/aic.10502), Gross and Vrabec 2006 (10.1002/aic.10683), Vrabec and Gross 2008 (10.1021/jp072619u); simplified form von Solms et al. 2003 (10.1021/ie020753p); memo pc_saft.tex"
+closed_form = "implicit"
+data = "constructs 'PC-SAFT pure-component set' and 'PC-SAFT binary record'"
+
+[[model_family]]
+name = "SAFT-VR Mie"
+locator = "src/saftvrmie_interface.f90, saftvrmie_dispersion.f90, saftvrmie_chain.f90, saftvrmie_hardsphere.f90, saftvrmie_association.f90, saftvrmie_containers.f90, saftvrmie_options.f90"
+class = "residual_or_excess_contribution"
+inputs = "T, V, mole numbers"
+parameters = "pure: m, sigma, eps_depth_divk, lambda_a, lambda_r, eps, beta, scheme; pair: kij (energy), lij (size), optional gamma_ij (repulsive exponent, API only); options: hard-sphere reference (Lafitte, single-component, additive, non-additive, additive exact), zeta mixing rule (Lafitte, linear, Leonard), A1/A2/A3/chain switches, truncation and shift corrections with r_cut"
+composes = "hard-sphere, first, second and third dispersion terms, chain term, association term, optional quantum corrections, cubic fallback"
+equation_source = "Lafitte et al. 2013 (doi 10.1063/1.4819786); association Dufal et al. 2015 (10.1080/00268976.2015.1029027); hard-sphere references Hammer et al. 2020 (10.1063/1.5142771); memo SAFT-VR-Mie.tex"
+closed_form = "implicit"
+data = "constructs 'SAFT-VR Mie pure-component set' and 'SAFT-VR Mie binary record'"
+
+[[model_family]]
+name = "SAFT-VRQ Mie (Feynman-Hibbs quantum corrections, orders 0, 1, 2)"
+locator = "src/saftvrmie_options.f90:45-120; src/eoslibinit.f90:1007-1046 init_quantum_saftvrmie; src/saftvrmie_hardsphere.f90"
+class = "residual_or_excess_contribution"
+inputs = "T, V, mole numbers"
+parameters = "as SAFT-VR Mie plus fh_order per pure set and the segment mass; FH1 and FH2 switch the quantum correction of the dispersion and hard-sphere terms (quantum_correction 1 or 2, quantum_correction_spec 0 Feynman-Hibbs or 1 Jaen-Kahn in the option type)"
+composes = "SAFT-VR Mie"
+equation_source = "Aasen et al. 2019 (doi 10.1063/1.5111364) by reference tag and docs/vCurrent/saftvrqmie_methods.md; Hammer et al. 2020 for hard spheres"
+closed_form = "implicit"
+data = "'SAFT-VR Mie pure-component set' sets with fh_order 1 or 2 and the AASEN2019, HYVA, HAMMER2022 tags"
+
+[[model_family]]
+name = "PeTS (LJ truncated and shifted at 2.5 sigma)"
+locator = "src/pets.f90"
+class = "residual_or_excess_contribution"
+inputs = "T, V, mole numbers (argon only)"
+parameters = "pure: sigma 3.42e-10 m and eps/k 136.0 K as literals in getPetsPureParams (argon only; the component list is fixed to AR)"
+composes = "hard-sphere and dispersion terms with fixed a_vec and b_vec coefficients"
+equation_source = "Heier et al. 2018 (doi 10.1080/00268976.2018.1447153)"
+closed_form = "implicit"
+data = "none bundled as data (constants in code)"
+
+[[model_family]]
+name = "Lennard-Jones splined equations (LJS-BH, LJS-WCA, LJS-UV, LJS-UF, LJ-UF)"
+locator = "src/lj_splined.f90 (LJSarray at lines 76-115); src/hardsphere_wca.f90; src/hardsphere_bmcsl.f90; src/fmt.f90"
+class = "residual_or_excess_contribution"
+inputs = "T, V, mole numbers (argon only)"
+parameters = "pure: sigma 3.42e-10 m and eps/k 124.0 K as inline data for AR for each of the 5 model labels; model flags for the perturbation scheme"
+composes = "Barker-Henderson, WCA or Van Westen UV and UF perturbation terms, hard-sphere references (BMCSL, WCA cavity), optional Lafitte a3"
+equation_source = "hard-sphere: Mansoori et al. (10.1063/1.1675048), Boublik (10.1063/1.1673824); the LJ/s perturbation papers are cited by the code only as author names"
+closed_form = "implicit"
+data = "5 inline ljs_data records (argon)"
+
+[[model_family]]
+name = "Lennard-Jones multiparameter equations (LJ_MEOS, LJTS_MEOS)"
+locator = "src/multiparameter_lj.f90"
+class = "helmholtz_potential"
+inputs = "reduced T and density (Rgas_meos = 1 in reduced units)"
+parameters = "global: Thol et al. coefficients for the full and the truncated-and-shifted Lennard-Jones fluid"
+composes = "ideal-gas part of reduced form"
+equation_source = "Thol et al. (doi 10.1063/1.4945000 and 10.1080/00268976.2016.1246760)"
+closed_form = "yes"
+data = "inline constants"
+
+[[model_family]]
+name = "Lee-Kesler (and extended corresponding-state reference fluids)"
+locator = "src/leekesler.f90; docs/memo/leekesler"
+class = "residual_or_excess_contribution"
+inputs = "T, V, mole numbers with critical constants and acentric factor"
+parameters = "global: simple-fluid and reference-fluid constants b1..b4, c1..c4, d1, d2, beta, gamma as literals; reference-fluid acentric factor wRef 0.3978; pair: kij from LK_kij with default 1.0"
+composes = "simple and reference fluids (two-fluid interpolation) with a cubic (SRK) fallback for initial values"
+equation_source = "memo leekesler.tex; binary data tag Plocker1982(+) (doi 10.1021/i260067a020)"
+closed_form = "implicit"
+data = "construct 'Lee-Kesler binary kij record'"
+
+[[model_family]]
+name = "Extended corresponding states (CSP-SRK, CSP-PR with MBWR19, MBWR32, NIST-MEOS C3 or cubic reference)"
+locator = "src/extcsp.f90; src/eoslibinit.f90:531-625; docs/memo/SPUNG"
+class = "residual_or_excess_contribution"
+inputs = "T, V, mole numbers; shape factors (theta, phi) with a reference component (default C3)"
+parameters = "global and pure: shape-factor equation (SRK or PR), shape alpha, shape mixing rule, reference equation (cubic, MBWR19, MBWR32 or NIST_MEOS for C3 only), reference component; binary: CSP-SRK and CSP-PR kij"
+composes = "shape-factor cubic equation, reference multiparameter or cubic equation, mixing rule for the shape equation"
+equation_source = "memo spungmemo.tex (Implementing MBWR and SPUNG); notation from Michelsen and Mollerup pages 115-120 (module comment)"
+closed_form = "implicit"
+data = "constructs 'binary kij record' (CSP files) and 'MBWR coefficient set'"
+
+[[model_family]]
+name = "MBWR-19 and MBWR-32 pure equations"
+locator = "src/mbwr.f90; src/mbwrdata.f90; src/mbwr_additional.f90"
+class = "helmholtz_potential"
+inputs = "T, molar density (pressure explicit, converted to Helmholtz form)"
+parameters = "pure: 20 or 33 coefficients with gamma; range flags"
+composes = "ideal-gas part from the component heat capacity; used as a reference in extended corresponding states"
+equation_source = "Span 2003 'Multiparameter equations of state' (mbwr.f90 comment); Younglove and Ely 1987 (mbwrdata.f90 comment)"
+closed_form = "implicit"
+data = "construct 'MBWR coefficient set'"
+
+[[model_family]]
+name = "NIST-type multiparameter equations (propane, hydrogen isomers, R134a) and ideal-mixture NIST_MEOS_MIX"
+locator = "src/multiparameter_base.f90; src/multiparameter_c3.f90, _normal_h2, _ortho_h2, _para_h2, _r134a.f90, src/multiparameter_idealmix.f90; src/eos_parameters.f90:77-111"
+class = "helmholtz_potential"
+inputs = "delta = rho/rho_c and tau = T_c/T; pure components only for NIST_MEOS, ideal mixing for NIST_MEOS_MIX"
+parameters = "pure: component constants and term arrays compiled into the modules; global: reference-state option (DEFAULT, IIR, NBP, ASHRAE, IDGAS, TRIPLE_POINT are documented; the pinned code implements only the default, see questions)"
+composes = "ideal-gas Helmholtz part (alpha0) and residual part (alphaRes), hyperdual differentiation"
+equation_source = "Lemmon et al. 2009 (propane), Leachman et al. 2009 (hydrogen), Tillner-Roth and Baehr 1994 (R134a) in module headers"
+closed_form = "implicit"
+data = "construct 'multiparameter Helmholtz parameters in code'"
+
+[[model_family]]
+name = "GERG-2008 and EOS-CG through the external TREND library"
+locator = "src/eoslibinit.f90:158-162 (label test), 851-924 init_trend; src/dltrend.cpp; src/dltrend_dummy.f90; src/eos.f90 (TREND branches)"
+class = "helmholtz_potential"
+inputs = "T, density, mole numbers"
+parameters = "none in the tree: the library and its fluid and binary files are loaded at run time through dlopen from a TRENDROOT path"
+composes = "none"
+equation_source = "named EOSCG, GERG2008 and EOSCG-GERG in comments; no citation in the tree"
+closed_form = "implicit"
+data = "none bundled (the init_trend body is commented out in this pin, and the stub file supplies empty subroutines)"
+
+[[model_family]]
+name = "Ideal-gas heat capacity, enthalpy and entropy (13 correlation ids) and hydrogen ideal routines"
+locator = "src/ideal.f90:203-580; src/idealh2.f90; src/compdata.f90:12-43"
+class = "standard_state_species"
+inputs = "T"
+parameters = "pure: up to 21 numbers (n_max_cp) selected by the correlation id 1 to 13; integration constants href_int and sref_int set from href and sref at 298.15 K"
+composes = "ideal-mixture entropy of mixing (R ln x), the equation's residual part, TREND ideal terms (id 11)"
+equation_source = "named in comments: Sherwood, Reid and Prausnitz (3rd and 4th ed.), API project 44, Chen-Bender, DIPPR/AIChE (Daubert and Danner), Poling-Prausnitz-O'Connell (5th ed.), Shomate; docs/vCurrent/new_fluids.md"
+closed_form = "yes"
+data = "construct 'ideal_heat_capacity-N'"
+
+[[model_family]]
+name = "Solid equations of state (CO2 dry ice, H2O ice Ih)"
+locator = "src/solideos.f90; src/co2_gibbs.f90; src/h2o_gibbs.f90; src/vls.f90"
+class = "standard_state_species"
+inputs = "T, P"
+parameters = "pure: Gibbs-energy coefficients in code (CO2 Jaeger and Span; ice Feistel and Wagner)"
+composes = "fluid equation plus solid phase in vls.f90 (fluid or solid selection)"
+equation_source = "Jaeger and Span (J. Chem. Eng. Data 57, 590-597); Feistel and Wagner (10.1063/1.2183324)"
+closed_form = "yes"
+data = "construct 'solid equation parameters in code'"
+
+[[model_family]]
+name = "Melting and sublimation pressure correlations"
+locator = "src/solid_saturation.f90:2290-2470"
+class = "explicit_correlation"
+inputs = "T"
+parameters = "pure: p_red, T_red, triple T, 6 coefficients and exponents, term counts n, n1, n2, n3"
+composes = "scaling to the equation's saturation pressure at the triple point"
+equation_source = "docs/vCurrent/new_fluids.md describes the forms; per-set DOIs in the data"
+closed_form = "yes"
+data = "constructs 'melting_curve' and 'sublimation_curve'"
+
+[[model_family]]
+name = "Vapour-pressure estimates (Antoine, Michelsen, Starling, hydrogen ancillary) and Wilson K"
+locator = "src/ideal.f90:83-163; src/thermo_utils.f90 wilsonK; src/saturation.f90 sat_wilsonK"
+class = "explicit_correlation"
+inputs = "T and, for Wilson K, p"
+parameters = "pure: ant(3), Tantmin, Tantmax (Antoine); Tc, Pc, acf, Zc (others)"
+composes = "initial estimates for saturation and flash routines (Wilson K uses Tc, Pc, acf)"
+equation_source = "not stated"
+closed_form = "yes"
+data = "construct 'saturation' (estimate parameters unused in this pin) and the critical constants"
+
+[[model_family]]
+name = "Apparent composition approach (electrolytes and reactive species)"
+locator = "src/apparent_composition.f90; docs/memo/apparent"
+class = "electrolyte_interaction"
+inputs = "apparent mole numbers and a stoichiometric matrix v_stoich (symmetric upper-left ncsym block)"
+parameters = "global: stoichiometric matrix set through the API; no bundled data"
+composes = "wraps an equation of state so that fugacities and differentials are mapped between apparent and true species; ions appear only as names in the SRK_GE data (NA+, CL-)"
+equation_source = "memo apparent.tex"
+closed_form = "implicit"
+data = "none bundled"
+
+[[model_family]]
+name = "Flash, stability, saturation, envelope, critical and spinodal algorithms"
+locator = "src/tp_solver.f90, ph_solver.f90, ps_solver.f90, uv_solver.f90, sv_solver.f90, mut_solver.f90, stability.f90, saturation.f90, puresaturation.f90, saturation_curve.f90, saturation_point_locators.f90, critical.f90, spinodal.f90, binaryplot.f90, solid_saturation.f90, isolines.f90, joule_thompson_inversion.f90, speed_of_sound.f90, vls.f90"
+class = "other"
+inputs = "T, p, h, s, u, v and overall composition as specified by each solver; the algorithms are procedures that take any model in the library (this family is a set of numerical methods, not an equation)"
+parameters = "global numerical settings: tpTmin 80 K, tpTmax 999 K, tpPmin 10 Pa, tpPmax 1e8 Pa, robustness level, stability tolerance, g_tolerance"
+composes = "all equations of state above through the eos and eostv interfaces"
+equation_source = "memos flash.tex, envelopes.tex, critical.tex, binaryXY.tex; Michelsen 1984 method cited in critical.f90"
+closed_form = "procedural"
+data = "none bundled"
+
+[[model_family]]
+name = "Hyperdual numbers and fundamental measure theory helpers"
+locator = "src/hyperdual_mod.f90, hyperdual_utility.f90; src/fmt.f90; docs/memo/hyperdual"
+class = "other"
+inputs = "hyperdual arguments (value and two first-order parts and one cross part); densities for the FMT energy density"
+parameters = "none"
+composes = "used for exact derivatives of the multiparameter equations and of the Wong-Sandler mixing rule; fmt.f90 gives a White-Bear type reduced energy density and BMCSL pieces for density functional use"
+equation_source = "hyperdual code credited to Rehner and Bauer (module header); FMT references cited by doi in fmt.f90"
+closed_form = "procedural"
+data = "none bundled"
+
+[[model_family]]
+name = "Cubic fallback (alternative) equation and critical redefinition"
+locator = "src/eoslibinit.f90:193-268 init_fallback_and_redefine_criticals, 632-712 redefine_critical_parameters; src/eos_container.f90"
+class = "other"
+inputs = "an initialised non-cubic model"
+parameters = "global: an SRK alternative built on the same components with Tc, Pc and acf overwritten from the active model's own critical point"
+composes = "every model whose label has need_alternative_eos true (LK, CSP, CPA, PC-SAFT variants, MBWR, NIST, LJ, SAFT-VR Mie, PeTS)"
+equation_source = "not stated"
+closed_form = "procedural"
+data = "none bundled"
+
+[[model_family]]
+name = "Python wrapper classes"
+locator = "addon/pycThermopack/thermopack/*.py"
+class = "other"
+inputs = "strings for components and model options; SI numbers"
+parameters = "constructor options: eos, mixing, alpha, parameter_reference (default Default), volume_shift, simplified, polar, feynman_hibbs_order, reference_state, minimum_temperature"
+composes = "thermo (base, 5184 lines) with subclasses cubic (and VanDerWaals, SoaveRedlichKwong, RedlichKwong, PengRobinson, PengRobinson78, SchmidtWensel, PatelTeja), tcPR, qcubic, cpa (SRK_CPA, PR_CPA), pcsaft (PCP_SAFT, SPC_SAFT), saft, saftvrmie, saftvrqmie, pets, ljs_bh, ljs_wca (ljs_uv), lee_kesler, ext_csp, multiparam, ideal, volume_translation; result classes FlashResult, XYDiagram, PxyEquilibrium, TxyEquilibrium, State, PhaseDiagram"
+equation_source = "not applicable"
+closed_form = "procedural"
+data = "none bundled"
+
+# ---------------------------------------------------------------------------
+# CONVENTIONS
+# ---------------------------------------------------------------------------
+
+[[convention]]
+name = "units of inputs, outputs and stored data"
+locator = "docs/vCurrent/getting_started.md (Doing calculations); src/compdata.f90 type comments; src/extcsp.f90:8-9"
+statement = "The Python and Fortran interfaces are in SI: K, Pa, m3, mol, J, molar volume in m3/mol. Stored data do not follow one system: fluid mol_weight is in g/mol, dipole in D, quadrupole in Angstrom*D, CPA a0 in Pa L^2/mol^2 and b in L/mol, cubic internals use L/mol and kRgas in J/kmol/K, extended corresponding states use mol/L and L/mol internally, ideal heat capacity arrays carry unit systems that depend on the correlation id, and the Antoine constants are for mmHg. Heat capacities are not returned directly; they are derivatives of enthalpy."
+scope = "all constructs and the public interface"
+
+[[convention]]
+name = "gas constant"
+locator = "src/thermopack_constants.f90:7-10; src/multiparameter_c3.f90:100; multiparameter_r134a.f90:83; idealh2.f90:52; co2_gibbs.f90:19; addon/pyUtils/datadb/entropy.py:2; src/pc_saft_parameters.f90:19-23; src/saftvrmie_parameters.f90:256"
+statement = "The library gas constant is Rgas_default = N_Avogadro * kB_const with kB = 1.380649e-23 and N_A = 6.02214076e23 (exact SI values, 8.314462618...). Other values appear: 8.314472 (propane and hydrogen-isomer equations, CO2 solid), 8.314471 (R134a), 8.3144772 (hydrogen ideal routines, commented as the value NIST used in the fit), 8.31446261815324 (entropy.py). PC-SAFT eps is stored in J/mol with R applied at generation time and the code aborts unless Rgas equals Rgas_default; SAFT-VR Mie eps is stored over k and multiplied by the active Rgas at use. A multiparameter equation uses Rgas_default when embedded, its fitted value only on request. The default real kind is assumed 64 bit (inferred from the MSVC flag)."
+scope = "PC-SAFT and SAFT-VR Mie association energies, multiparameter equations, solid equations, ideal-gas reference energies"
+
+[[convention]]
+name = "reference state of ideal-gas enthalpy and entropy"
+locator = "src/ideal.f90:1133-1312; addon/pyUtils/datadb/compdata.py:55-67 and entropy.py; fluids/*.json#/reference_state"
+statement = "At 298.15 K, the ideal-gas enthalpy equals href (enthalpy of formation) and the ideal-gas entropy at 1 bar (or 1 atm as named by entropy_ref_state, converted by R ln(1.01325)) equals sref (absolute entropy); href_int and sref_int store the offsets. The entropy is applied only when sref or href is non-zero. gref (Gibbs energy of formation) is computed at generation from the formation enthalpy, entropy and tabulated element entropies and is not read at run time. Residual properties of the equations of state are added on top of this ideal reference. Multiparameter equations of the NIST type bring their own reference and ignore these values unless a reference option is applied (only DEFAULT is implemented)."
+scope = "all models based on the pure-component record"
+
+[[convention]]
+name = "temperature scale"
+locator = "whole tree (keyword search for ITS-90, IPTS-68, temperature scale in src, addon, docs found no statement)"
+statement = "not stated: no file names the temperature scale."
+scope = "all temperature values"
+
+[[convention]]
+name = "composition basis and phase identifiers"
+locator = "src/thermopack_constants.f90:22-26; docs/vCurrent/phase_flags.md; src/apparent_composition.f90"
+statement = "Composition is by mole fraction or mole number in the public interface. Phase flags are TWOPH 0, LIQPH 1, VAPPH 2, MINGIBBSPH 3, SINGLEPH 4, SOLIDPH 5, FAKEPH 6, VAPSOLPH 7 (the documentation lists 0 to 6). An apparent composition approach maps apparent to true species for reactive and electrolyte systems."
+scope = "flash and property interfaces"
+
+[[convention]]
+name = "identifier handling and pair symmetry"
+locator = "src/compdata.f90:196-232; src/stringmod.f90:825-842 str_eq; src/parameters.f90:84-162; src/cbselect.f90:343-408"
+statement = "Component idents are uppercased on input and compared case-insensitively; ident is at most 20 characters, ref 40, bib_ref 100, component name 40. Binary parameters are found in either orientation (kij and lij symmetric, written to both kij(i,j) and kij(j,i) for the classic rule; the Reid rule is directional); excess-Gibbs records hold both directions and are swapped on read. The pair key names differ between files (comp1 and comp2 in cubic, LK, GE, lij and CPA files; uid1 and uid2 in PC-SAFT and SAFT-VR Mie files)."
+scope = "all binary constructs"
+
+[[convention]]
+name = "numeric precision of the generated Fortran modules"
+locator = "addon/pyUtils/datadb/compdata.py:95-129 and cp/alpha/VS generators; src/compdatadb.f90"
+statement = "Generated constants are printed with fixed formats: mw, Tb, Ttr, Ptr, sref and Tc with 4 decimals, Pc 2, Zc and acf 6, others in exponent form with 8 decimals; binary kij values use 8 decimals. Values are therefore rounded copies of the JSON."
+scope = "src/compdatadb.f90, src/mixdatadb.f90"
+
+[[convention]]
+name = "zero and dummy sentinels"
+locator = "fluids/*.json (triple, saturation, reference_state, PSEUDO); addon/pyUtils/datadb/entropy.py:47-49"
+statement = "Absent information is expressed as values: 0.0 for unknown triple point, acentric factor, dipole moment, quadrupole moment and unused saturation parameters; 1e20 for unavailable formation enthalpy (the generator treats values above 1e10 as unavailable only for gref, giving 1e11); an empty string for unknown ref or bib_reference; text placeholders XXX and PSEUDO for identifiers. The runtime does not apply a uniform rule."
+scope = "fluid JSON constructs"
+
+[[convention]]
+name = "association parameter conventions"
+locator = "src/pc_saft_parameters.f90:1-8; src/compdata.f90:85; src/saftvrmie_datadb.f90 type comments"
+statement = "Authors differ on whether the association volume beta includes a factor pi/6 (module header warning: try multiplying by pi/6 = 0.5236 if results look wrong); CPA eps may be tabulated as eps/R elsewhere (comment); the combination rule for cross association energy and volume is 1 arithmetic, 0 geometric or 2 default (hard-coded); association schemes are named 1, 2A, 2B, 2C, 3A, 3B, 4A, 4B, 4C, 1EA with no self-association indicated by NONE or None."
+scope = "CPA, PC-SAFT, SAFT-VR Mie association parameters"
+
+[[convention]]
+name = "ideal heat capacity correlation units and temperature limits"
+locator = "src/ideal.f90:1-41 and 203-309; docs/vCurrent/new_fluids.md"
+statement = "The unit of the coefficients, and whether Cp is per mole or per mass, depend on the id: ids 1 (cal/(mol K)), 2 (per mass, unit not stated), 5 and 6 (kJ/(kg K)); ids 2, 5 and 6 are multiplied by the molar mass in g/mol, 4, 9, 12 (J/(mol K), id 12 in T/1000), 7 (J/(kmol K)), 8 and 13 (units of R). For id 2 the limits Tmin and Tmax are degrees Celsius while the model temperature is in K (the code adds 273.15); for id 7 they are in K. Only ids 2 and 7 read Tmin and Tmax, and only to print a message."
+scope = "construct 'ideal_heat_capacity-N'"
+
+[[convention]]
+name = "technical memos under docs/memo (one line each)"
+locator = "docs/memo/*/*.tex"
+statement = "apparent: apparent-composition approach and its differentials; binaryXY: binary Txy and Pxy algorithms; CPA: cubic-plus-association theory and the Q function; critical: stability limit and critical-point equations in T and P and T and V; envelopes: phase-envelope tracing; flash: algorithms for TP, PH, PS, UV flashes and solid phases; hyperdual: hyperdual number arithmetic; intro: basic thermodynamics and potentials; leekesler: Lee-Kesler implementation and modification tests; PC-SAFT: derivatives to second order; peneloux: volume shift for generic equations; SAFT-VR-Mie: the model and derivatives; SPUNG: MBWR and extended corresponding-state implementation; thermopack (2013): overview of the workbench; truncation_correction: corrections to equations of state for truncated potentials; UNIFAC: excess Gibbs mixing rules; user_guide: phase keys and usage; WongSandler: infinite-pressure limits and derivatives. Only the memos define symbols and working equations; they are not versioned with the code."
+scope = "model families"
+
+# ---------------------------------------------------------------------------
+# SELECTIONS
+# ---------------------------------------------------------------------------
+
+[[selection]]
+name = "reference-name matching for pure and pair parameter sets (general mechanism)"
+locator = "src/parameters.f90:31-162; src/stringmod.f90:922-994"
+rule = "For a component (and equation index), the requested reference is a '/'-separated list of tags. A database record matches when any tag of the request, excluding the tag DEFAULT, equals any tag of the record's ref (case-insensitive exact match); among matches the one with the lowest position in the request wins and ties go to the first database record. If none match, the default is the last database record for that component and equation whose ref contains DEFAULT as a substring of any tag. If no default exists and the caller requires a result, pure lookups stop the program ('The ... parameters don't exist') and pair lookups return the default value (0.0 or 1.0 for LK)."
+scope = "alpha (TWU, MC), volume shift, CPA pure, PC-SAFT pure, SAFT-VR Mie pure, cubic kij and lij, GE, CPA and PC-SAFT and SAFT-VR Mie pairs"
+documented = "partly: docs/vCurrent documents reference names but not the list or default rule; the code comment example ('TEST/HV/DEFAULT' versus 'HV/HV0/HV1/HV2') documents the matching"
+
+[[selection]]
+name = "ideal-gas heat capacity set selection"
+locator = "src/compdata_init.f90:48-83 getCpDBindex; src/compdata.f90:212-219 isRef"
+rule = "The first record of the component whose ref contains the requested name as a substring (Fortran index of the request in the record's ref, case-sensitive) is returned; otherwise the last record whose ref contains the literal 'Default' (capital D, lower-case rest) is used; with no default the lookup fails. The initialisation passes the requested name DEFAULT in upper case, so the default branch is what runs unless a specific tag is requested."
+scope = "construct 'ideal_heat_capacity-N'"
+documented = "no: the two sets with an empty ref (second sets of CO2 and NC16) cannot be reached by a non-empty requested name (inferred from the substring test); docs/vCurrent/new_fluids.md describes selection only by the correlation key of the first set"
+
+[[selection]]
+name = "alpha and volume-shift defaults (absence of a DEFAULT tag)"
+locator = "src/cbalpha.f90:85-182; src/volume_shift.f90:33-76; src/compdatadb.f90 (refs)"
+rule = "TWU and volume-shift sets carry model tags (tcPR, tcRK, Aasen2024, QuantumCubic, tcPR-ENGINEERING) and none contains DEFAULT, so with the default request nothing is selected: the alpha falls back to the classic acentric-factor alpha with a printed message, and the volume shift falls back to the Rackett estimate. The TWU set is selected only when the request names its tag, which init_cubic arranges for tcPR (alpha TWU and volume shift forced on) and QuantumCubic. MC sets: some carry Default (14 PR, 11 SRK), others Chapoy2005 (20 and 20). The MC alpha request reads the TWU table (inferred from the code) and the MC table is reached only through the UMR alpha for water."
+scope = "cubic alpha and volume translation"
+documented = "partly: cubic_keys.md lists the alpha keys TWU and MC; it does not say that default requests fall back to the classic alpha"
+
+[[selection]]
+name = "reference tags that change model behaviour"
+locator = "src/eoslibinit.f90:339-342 (tcPR), 349-386 (QuantumCubic), 504-525 (init_tcPR, init_quantum_cubic), 1007-1046 (quantum SAFT-VR Mie defaults), 1117 (PC-SAFT polar default)"
+rule = "A requested reference containing tcPR switches the cubic alpha to TWU and turns volume translation on; QuantumCubic additionally switches beta(T) to the quantum correlation and overwrites critical constants; init_tcPR builds the list 'tcPR/DEFAULT' and init_quantum_cubic 'QuantumCubic/tcPR/DEFAULT'; polar PC-SAFT with default reference requests 'Gross2005/Gross2006'; quantum SAFT-VR Mie with default reference requests AASEN2019-FH0, -FH1 or -FH2 according to the order."
+scope = "cubic, PC-SAFT polar, SAFT-VR Mie quantum"
+documented = "yes for tcPR and QuantumCubic (init docstrings); not stated in the data files"
+
+[[selection]]
+name = "CPA kij and fallback to the cubic pair database"
+locator = "src/cpa_parameters.f90:222-330; src/cbselect.f90:385-398"
+rule = "CPA kij_a is looked up with an empty reference, so only the DEFAULT-tagged CPA pair record can match; if none exists for a CPA-SRK or CPA-PR pair, the classic SRK or PR kij database is consulted (with the requested reference) through getkij with the literal rule id classic, which is not equal to the stored id vdW, so as read the lookup matches no record and yields 0.0 (inferred from get_binary_db_idx); kij_eps and kij_beta default to 0 and the combining rules default to arithmetic eps and geometric beta for CPA-SRK, geometric for both for CPA-PR."
+scope = "CPA pair data"
+documented = "no"
+
+[[selection]]
+name = "pair parameters: missing records and conflicting duplicates"
+locator = "src/parameters.f90:84-162; src/pc_saft_parameters.f90:68-160; src/saftvrmie_parameters.f90:72-112; src/cbselect.f90:518-628"
+rule = "A pair is matched in either orientation. kij and lij default to 0.0 (1.0 for LK), PC-SAFT and SAFT-VR Mie kij to 0.0 and combining rules to a hard-coded default; GE parameters stay zero with correlation 0. When several records match with the same rank the first wins, but the default fallback takes the last Default-tagged record, which decides conflicting duplicates under the tag Default (for CO2/H2O in PR_kij the later record, -0.065; for BENZENE/CO2 in the PC-SAFT file, 0.087)."
+scope = "binary constructs"
+documented = "partly: the routine comment states that a default value is returned when no pair is stored"
+
+[[selection]]
+name = "parameter availability stops (no fallback)"
+locator = "src/pc_saft_parameters.f90:54-63; src/saftvrmie_parameters.f90:140-175; src/parameters.f90:67-81"
+rule = "If a PC-SAFT, SAFT-VR Mie or CPA pure set is absent for a component and no DEFAULT-tagged set exists, pure lookups that demand a result stop the program with an error. Three PC-SAFT fluids (ACETONE with one set; ACETYLENE and C2_1 with two sets) have no DEFAULT-tagged set, so a default request for them stops (inferred from the data and the rule)."
+scope = "PC-SAFT, SAFT-VR Mie, CPA pure sets"
+documented = "no"
+
+[[selection]]
+name = "component lookup in hand-maintained modules (MBWR, UNIFAC)"
+locator = "src/mbwrdata.f90:1475-1514; src/unifac.f90:197-235"
+rule = "MBWR: the first record whose ComId equals the requested component (case-insensitive) is used and SetNo is ignored, so the second and third C1 MBWR-32 sets are unreachable (inferred). UNIFAC: a component is matched by exact case-sensitive equality of uid; the interaction row is the first match on (mgi, mgj), which makes the PSRK rows that duplicate a Hansen pair unreachable (inferred)."
+scope = "MBWR and UNIFAC data"
+documented = "no"
+
+# ---------------------------------------------------------------------------
+# CAPABILITIES
+# ---------------------------------------------------------------------------
+
+[[capability]]
+calculation = "flash_tp"
+offered = true
+scope = "vapour-liquid two-phase flash with stability analysis for all equations of state (cubic, CPA, PC-SAFT family, SAFT-VR Mie family, LK, CSP, multiparameter, PeTS, LJ); not three-phase"
+locator = "src/tp_solver.f90 twoPhaseTPflash; addon/pycThermopack/thermopack/thermo.py:1923 two_phase_tpflash"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_ph"
+offered = true
+scope = "two-phase PH flash, all equations"
+locator = "src/ph_solver.f90; thermo.py:2035 two_phase_phflash"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_ps"
+offered = true
+scope = "two-phase PS flash, all equations"
+locator = "src/ps_solver.f90; thermo.py:1972 two_phase_psflash"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_uv"
+offered = true
+scope = "two-phase UV flash, all equations"
+locator = "src/uv_solver.f90; thermo.py:2102 two_phase_uvflash"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_sv (proposed)"
+offered = true
+scope = "two-phase SV flash, single-component special case and multicomponent; exported from the shared library (addon/pyUtils/exports/export_list.py:345) but the Python binding is commented out (thermo.py:192), so it is not reachable from the wrapper"
+locator = "src/sv_solver.f90:67-91 twoPhaseSVflash"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "bubble_dew_point"
+offered = true
+scope = "bubble and dew temperature and pressure for all equations"
+locator = "src/saturation.f90 bubT, bubP, dewT, dewP, safe_*; thermo.py:2928-3042"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "phase_stability"
+offered = true
+scope = "tangent-plane distance minimisation used inside flashes and saturation; vapour-liquid stability"
+locator = "src/stability.f90 checkVLEstability, stabcalc; src/critical.f90 (stability limit)"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "critical_point"
+offered = true
+scope = "mixture critical points in (T, V), (T, P) and Z formulations, pure-fluid criticals, critical end point and three-phase critical point for binaries"
+locator = "src/critical.f90 calcCritical, calcCriticalTV, calcCriticalZ, calcCriticalEndPoint; src/solid_saturation.f90 threePhaseCriticalPoint; thermo.py:4463 critical"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "phase_envelope"
+offered = true
+scope = "pressure-temperature envelope of a mixture, pure-fluid saturation curve, isentrope-envelope crossing, saturation points from a specified property"
+locator = "src/saturation_curve.f90 envelopePlot; src/puresaturation.f90; src/saturation_point_locators.f90; thermo.py:3080 get_envelope_twophase, 3203 get_pure_fluid_saturation_curve, 3971 saturation_points_from_property"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "phase_envelope"
+offered = true
+scope = "binary composition-plane diagrams Txy and Pxy with liquid-liquid, liquid-vapour and three-phase (LLVE) lines, global binary phase diagram"
+locator = "src/binaryplot.f90 binaryTxy, binaryPxy, VLLEBinaryXY; thermo.py:3286 get_binary_pxy, 3418 get_binary_txy, 3641 global_binary_plot"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "phase_envelope"
+offered = true
+scope = "solid-fluid envelope and solid-liquid-vapour triple line for a mixture with a pure solid (CO2 or H2O) using the melting and sublimation correlations"
+locator = "src/solid_saturation.f90 solidEnvelopePlot, satSolid, threePhaseLineTemperature; thermo.py:3698 solid_envelope_plot"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "spinodal"
+offered = true
+scope = "spinodal and metastable-limit mapping, meta-isentropes and meta-isotherms, pure and mixture"
+locator = "src/spinodal.f90; src/mut_solver.f90; thermo.py:4653 spinodal, 4799 map_meta_isentrope"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "isoline_tracing (proposed)"
+offered = true
+scope = "isotherm, isobar, isenthalp and isentrope curves across the two-phase region"
+locator = "src/isolines.f90; thermo.py:4182-4384 get_isotherm, get_isobar, get_isenthalp, get_isentrope"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "joule_thomson_inversion_curve (proposed)"
+offered = true
+scope = "Joule-Thomson inversion curve for a fixed composition"
+locator = "src/joule_thompson_inversion.f90; thermo.py:5136 joule_thompson_inversion"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "speed_of_sound_evaluation (proposed)"
+offered = true
+scope = "single-phase, two-phase (equilibrium) and solid speed of sound"
+locator = "src/speed_of_sound.f90; thermo.py:1825 speed_of_sound, 1878 speed_of_sound_tv"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "virial_coefficient_evaluation (proposed)"
+offered = true
+scope = "second virial matrix and binary third virial matrix of the active equation"
+locator = "thermo.py:5038 virial_coeffcients (sic), 5070 second_virial_matrix, 5100 binary_third_virial_matrix"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "eos_property_evaluation (proposed)"
+offered = true
+scope = "specific volume, compressibility, enthalpy, entropy, internal energy, Helmholtz energy, chemical potential and fugacity with analytical differentials in (T, p, n) and (T, V, n); residual and ideal parts separately; no direct heat capacity"
+locator = "src/eos.f90, src/eostv.f90, src/single_phase.f90; thermo.py:1104-2852"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "melting_line_evaluation (proposed)"
+offered = true
+scope = "melting and sublimation pressure from the stored correlations, optionally scaled to the equation's saturation pressure at the triple point"
+locator = "src/solid_saturation.f90 melting_pressure_correlation, sublimation_pressure_correlation; thermo.py:3755, 3802"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "activity_coefficient_evaluation (proposed)"
+offered = true
+scope = "excess Gibbs models (Huron-Vidal, NRTL, UNIFAC, UMR, VTPR, Wong-Sandler) only as mixing rules inside a cubic equation; no standalone activity-coefficient interface was found"
+locator = "src/excess_gibbs.f90; src/unifac.f90; src/wong_sandler.f90"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "multiphase_flash (proposed)"
+offered = false
+scope = "flash with more than two fluid phases; the TP flash is two-phase only, three-phase behaviour appears only as binary LLVE lines and in vls.f90 bookkeeping"
+locator = "src/tp_solver.f90 header (two-phase, 'Look for single phase or a mixture of LV'); src/binaryplot.f90 LLVEline"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "hydrate_equilibrium (proposed)"
+offered = false
+scope = "gas-hydrate or clathrate equilibrium: the only mentions are in docs/memo/thermopack/thermopack2013.tex and docs/memo/flash/flash.tex; no hydrate model exists in src"
+locator = "whole src tree (no match for hydrate or clathrate); docs/memo/thermopack/thermopack2013.tex:46, 480; docs/memo/flash/flash.tex:584"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "gibbs_minimization"
+offered = false
+scope = "constrained Gibbs minimisation over a species and phase list: not present (flashes are two-phase TP/PH/PS/UV/SV; the MINGIBBSPH flag selects a single-phase root)"
+locator = "src/thermopack_constants.f90 phase flags; src/tp_solver.f90"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "characterization"
+offered = false
+scope = "petroleum pseudo-component characterisation from assay data: not present; only user-supplied pseudo components (init_cubic_pseudo with Tc, Pc, acf, Mw)"
+locator = "src/eoslibinit.f90:423-498"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "parameter_regression"
+offered = false
+scope = "fitting of model parameters to data: not present; tuning.f90 and the wrapper expose getters and setters for kij, lij, HV and WS parameters only"
+locator = "src/tuning.f90; thermo.py and cubic.py set_* methods"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "aqueous_speciation"
+offered = false
+scope = "speciation from equilibrium constants: not present; the apparent-composition wrapper maps apparent to true species from a user-supplied stoichiometric matrix and does not solve reactions"
+locator = "src/apparent_composition.f90"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "transport_property_evaluation (proposed)"
+offered = false
+scope = "viscosity, thermal conductivity and diffusion: no transport model exists in the pin (KineticGas adds transport on top of ThermoPack)"
+locator = "whole src and wrapper tree (no match)"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "gerg_2008_evaluation (proposed)"
+offered = false
+scope = "GERG-2008 and EOS-CG mixture equations: selectable by label and routed to the external TREND library, whose interface code is stubbed (init_trend body commented out, dltrend_dummy.f90 empty routines), so nothing is computed from the tree alone"
+locator = "src/eoslibinit.f90:158-162 and 851-924; src/dltrend.cpp; src/dltrend_dummy.f90"
+evidence = "source_inspected"
+
+# ---------------------------------------------------------------------------
+# QUESTIONS
+# ---------------------------------------------------------------------------
+
+[[question]]
+about = "generators of pc_saft_datadb.f90, saftvrmie_datadb.f90 and solid_correlation_datadb.f90"
+question = "addon/pyUtils/datadb/pc-saft.py, saftvrmie.py and solid_correlations.py read self.comp, but component.__init__ in compdata.py sets only self.fluid (fluid_file.__init__), and compdata.py eos_list lacks a comma between 'PC-SAFT' and 'SAFT-VR-MIE'. Which version of the generators produced the committed Fortran modules, whose values match the JSON exactly?"
+why_it_matters = "The JSON-to-Fortran lineage cannot be reproduced from the pinned tree; the survey treats the JSON as the authored source and the Fortran as a rendering (checked equal on all compared values)."
+
+[[question]]
+about = "MC alpha selection"
+question = "In cbalpha.f90 tpInitAlphaCorr the case for the MC alpha calls getAlphaTwuParamsFromDb (lines 137-138) while getAlphaMCParamsFromDb is called only inside the UMR branch for water (line 146). Is the MC table (65 sets) meant to supply the MC alpha in a normal request?"
+why_it_matters = "If the TWU table is read for MC requests, the MC sets in the JSON are effectively unused and a mapping would attribute a model behaviour to the wrong parameter set."
+
+[[question]]
+about = "default requests for TWU and volume-shift sets"
+question = "No TWU or volume-shift set carries the tag DEFAULT, so a default request appears to fall back to the classic alpha and to the Rackett-based shift (messages printed). Is alpha='TWU' with the default reference intended to work without naming tcPR, and what is the intended default set for PR versus SRK?"
+why_it_matters = "The model needs a selection_policy for these sets; the source defines none in data, only behaviour keyed by tags."
+
+[[question]]
+about = "second ideal-gas heat capacity sets with empty ref (CO2 set 2 correlation 5, NC16 set 2 correlation 8)"
+question = "getCpDBindex selects by substring of the requested name in ref; an empty ref cannot match any non-empty request. Can these two sets be selected, and which is authoritative for CO2 (API-44 set 1 or the Shomate-type set 2 with Tmax 5000)?"
+why_it_matters = "Two coherent parameter sets exist for one subject and one is unreachable by name; a mapping must record both and decide precedence."
+
+[[question]]
+about = "BUTANAL heat capacity correlation 100"
+question = "ideal_heat_capacity-1 of BUTANAL has correlation 100 with an all-zero array and Tmin = Tmax = 0; CPideal has no case for 100, so Cp_id is never assigned (inferred). Is this a placeholder for a pending fit?"
+why_it_matters = "A fluid record exists without usable ideal-gas data; importing it would create a parameter set that evaluates to nothing."
+
+[[question]]
+about = "sublimation curve id S2 (H2S)"
+question = "The H2S sublimation curve has correlation S2; the Fortran reads the fourth character of a 4-character field, which is blank for S2, and stops with 'Wrong correlation' in sublimation_pressure_correlation. Is S2 a typo for SL-2?"
+why_it_matters = "One of 16 sublimation curves cannot be evaluated as written."
+
+[[question]]
+about = "unused fields in the excess-Gibbs records and the Classic rule id"
+question = "interGEdatadb stores kij but get_binary_cubic_ge_db_entry and get_binary_cpa_ge_db_entry return a dummy 0, and tpSelectInteractionParameters requests the vdW kij of GE pairs (and, for CPA pairs without a CPA record, the classic SRK or PR kij) with the literal rule id Classic or classic, while every stored kijdatadb record has mruleid vdW (str_eq Classic versus vdW is false). Is the vdW kij of HV and NRTL pairs, or the CPA fallback kij, ever applied?"
+why_it_matters = "The kij of the 19 GE records (for example 0.52 for C1/H2O under HV1) may never be read, so a mapping would carry a value the source does not use."
+
+[[question]]
+about = "documented multiparameter reference states"
+question = "init_multiparameter and the wrapper document reference_state options DEFAULT, IIR, NBP, ASHRAE, IDGAS and TRIPLE_POINT, but every meos class inherits get_ref_state_spec_default (REF_NO_SOLVE) and no class overrides it. Are the non-default states implemented elsewhere?"
+why_it_matters = "The enthalpy and entropy datum of multiparameter fluids cannot be varied in this pin although the interface suggests it; energy_reference rows must be limited to the default."
+
+[[question]]
+about = "formation enthalpy dummy 1e20"
+question = "LJF, PSEUDO, R1234yf and R1234ze have reference_state enthalpy 1e20 and entropy 0; set_reference_energy applies the reference whenever sref or href is non-zero, and the 1e10 test exists only for gref in the generator. Does the dummy value reach href_int in these fluids?"
+why_it_matters = "Fluids with a dummy reference may yield meaningless ideal-gas enthalpies; the model must represent 'no reference state' explicitly."
+
+[[question]]
+about = "conflicting duplicate kij records"
+question = "PR_kij.json holds CO2/H2O as 0.074 (comp1 CO2) and -0.065 (comp1 H2O) both with ref Default, and NC4/NC7 as 0.0033 and 0.0074; PC-SAFT.json holds BENZENE/CO2 as 0.025 and 0.087 and CO2/TOLU as 0.026 and 0.108 under one tag; the lookup returns the last Default-tagged record. Which values are intended, and does orientation matter for cubic kij (the classic rule writes the same value to kij(i,j) and kij(j,i))?"
+why_it_matters = "A symmetric canonical orientation would collapse two contradictory facts into one; the store needs to keep both and mark one as superseded."
+
+[[question]]
+about = "PC-SAFT fluids without a default set"
+question = "ACETONE (one set, ref Gross2006), ACETYLENE and C2_1 (Gross2005 and Gross2005ADJQ) have no set tagged Default, so a default PC-SAFT request stops with 'The PC-SAFT parameters don't exist' (inferred). Are these meant to be used only with explicit references?"
+why_it_matters = "Availability depends on the tag, not on the data alone; selection policies must be explicit."
+
+[[question]]
+about = "units of eps and beta in SAFT-VR Mie"
+question = "The JSON eps of SAFT-VR Mie is multiplied by Rgas at use, so it is eps/k in K, although the datadb comment says J/mol (the PC-SAFT eps is truly J/mol); beta is about 1e-28, suggesting m3, but the comment says dimensionless. What are the intended units?"
+why_it_matters = "Same field names carry different units in two model families; a wrong assumption silently scales association energies by R."
+
+[[question]]
+about = "hydrogen isomers as identity"
+question = "H2, E-H2, N-H2, O-H2 and P-H2 share cas_number and InChI; are they five components (spin isomers and the equilibrium and normal mixtures) or variants of one species with different equations (MEOS for N, O and P, SAFT sets for H2)?"
+why_it_matters = "The model's species identity is structure-based; the spin-state and composition distinctions have no slot."
+
+[[question]]
+about = "UNIFAC duplicate interaction rows"
+question = "26 (mgi, mgj) pairs appear twice (Hansen 1991 and PSRK revisions), 25 with different values, and getUNIFACujkdbidx returns the first. Are the PSRK rows intended to be reachable under a PSRK model label?"
+why_it_matters = "Two parameterisations share keys in one table and only the first is used; a mapping must separate them into distinct parameterisations."
+
+[[question]]
+about = "MBWR set numbers"
+question = "mbwr32Array lists three C1 sets (SetNo 1, 2, 3) but getMBWR32index ignores SetNo and returns the first. Is there a path that selects another set?"
+why_it_matters = "Coherent alternative parameter sets with no selection route."
+
+[[question]]
+about = "GERG-2008 and EOS-CG"
+question = "The labels EOSCG, GERG2008 and EOSCG-GERG set the library flag to TREND, but init_trend is commented out and the pinned stubs are empty. What data and code does the TREND library provide, and which versions of GERG-2008 (2008 reducing functions) does it implement?"
+why_it_matters = "A standard multifluid model is advertised but not inspectable here; it must be surveyed from its own source, not this one."
+
+[[question]]
+about = "temperature scale and rights of the data"
+question = "No file states the temperature scale of the stored critical, triple and saturation data, and the fluid and binary data carry only per-set references (no licence statement for the data)."
+why_it_matters = "A convention_set needs a temperature scale; provenance and rights attach to the carrier and cannot be inferred here."
+
+[[question]]
+about = "compile flags and default real kind"
+question = "Compile flags (tp_optim_flags) and the top-level CMakeLists are not in the pin; the code relies on default real being 64 bit (the MSVC branch adds /real-size:64). Is -fdefault-real-8 (or equivalent) used on other platforms?"
+why_it_matters = "Stored constants printed to 8 digits and Rgas comparisons (Rgas_is_correct) assume double precision."

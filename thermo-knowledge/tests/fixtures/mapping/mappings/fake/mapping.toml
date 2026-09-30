@@ -1,0 +1,132 @@
+source = "fake"
+doc = "A fixture mapping: identities, and pressure curves as saturation parameter sets."
+
+[scopes.species]
+table = "species"
+key = "name"
+doc = "A species of the fixture source."
+
+[parameterizations.curves]
+key = "fake_curves"
+revision = "{pin}"
+title = "Fixture curves"
+coherence = "independent_records"
+origin_role = "published"
+no_convention_set = "The fixture states no conventions."
+
+[tables.species]
+disposition = "mapped"
+origin_role = "published"
+
+[tables.species.fields.name]
+target = "identity_assertion.value"
+scheme = "name"
+precision = "exact"
+
+[tables.species.fields.cas]
+target = "identity_assertion.value"
+scheme = "cas"
+precision = "exact"
+pattern = '^[0-9]{2,7}-[0-9]{2}-[0-9]$'
+otherwise_scheme = "source_local"
+
+[tables.species.fields.inchikey]
+target = "identity_assertion.value"
+scheme = "inchikey"
+precision = "exact"
+
+[tables.species.fields.inchi]
+target = "identity_assertion.value"
+scheme = "inchi"
+precision = "exact"
+
+[tables.species.fields.placeholder]
+target = "identity_assertion.value"
+scheme = "name"
+precision = "close"
+absent = ["N/A", "?"]
+loss = "The fixture's placeholder column is asserted as a name."
+
+[tables.species.fields.aliases]
+target = "identity_assertion.value"
+scheme = "name"
+precision = "close"
+
+[tables.curves]
+disposition = "deferred"
+wave = 2
+reason = "Curves other than pressure curves."
+
+[[tables.curves.partitions]]
+name = "pressure"
+where = { curve = "pressure" }
+disposition = "mapped"
+origin_role = "fitted"
+
+[tables.curves.partitions.constants]
+"envelope.axis" = "temperature"
+"envelope.kind" = "fitted_range"
+
+[tables.curves.partitions.derivation]
+kind = "fit"
+outcome = "converged"
+method = "A fit declared by the fixture mapping."
+
+[tables.curves.fields.species]
+role = "structure"
+reason = "Names the species."
+
+[tables.curves.fields.curve]
+role = "structure"
+reason = "Selects the pressure curves."
+
+[tables.curves.fields.T_r]
+target = "vapor_pressure_exp_series_tau.pure.T_r"
+unit = "K"
+precision = "exact"
+loss = "The fixture states no unit; kelvin is assumed."
+
+[tables.curves.fields.p_bar]
+target = "vapor_pressure_exp_series_tau.pure.p_r"
+unit = "bar"
+precision = "exact"
+
+[tables.coefficients]
+disposition = "deferred"
+wave = 2
+reason = "Coefficients of other curves."
+
+[[tables.coefficients.partitions]]
+name = "pressure"
+where = { curve = "pressure" }
+disposition = "mapped"
+origin_role = "fitted"
+
+[tables.coefficients.fields.species]
+role = "structure"
+reason = "Names the species."
+
+[tables.coefficients.fields.curve]
+role = "structure"
+reason = "Selects the pressure coefficients."
+
+[tables.coefficients.fields.pos]
+target = "vapor_pressure_exp_series_tau.pure.term.k"
+offset = 1
+precision = "exact"
+
+[tables.coefficients.fields.n]
+target = "vapor_pressure_exp_series_tau.pure.term.n"
+unit = "dimensionless"
+precision = "exact"
+loss = "The fixture states no unit."
+
+[tables.coefficients.fields.t]
+target = "vapor_pressure_exp_series_tau.pure.term.t"
+unit = "dimensionless"
+precision = "exact"
+loss = "The fixture states no unit."
+
+[tables.notes]
+disposition = "out_of_scope"
+reason = "Free text."

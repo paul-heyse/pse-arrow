@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "thermoml"
+title = "NIST ThermoML Archive"
+tier = "B"
+homepage = "https://www.nist.gov/mml/acmd/trc/thermoml/thermoml-archive"
+waves = [6]
+notes = "About 11.9 thousand article files, XML with JSON siblings. Coverage runs through the 2019 calendar year. Values are as published and not critically evaluated."
+
+[acquire]
+kind = "archive"
+url = "https://data.nist.gov/od/ds/mds2-2422/ThermoML.v2020-09-30.tgz"
+sha256 = "231161b5e443dc1ae0e5da8429d86a88474cb722016e5b790817bb31c58d7ec2"
+doi = "10.18434/mds2-2422"
+extract = true
+
+[payload]
+reader = "thermoml"
+environment = "core"
+include = ["**/*.xml"]
+exclude = []
+
+[[rights]]
+scope = "data"
+basis = "licence_grant"
+statement = "data.nist.gov record: NIST open licence; users may copy and distribute and are asked to acknowledge NIST."
+url = "https://www.nist.gov/open/license"
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"
+
+[[rights]]
+scope = "data"
+basis = "permission"
+statement = "Archive landing page: the files are available with permission of the journal publishers."
+url = "https://www.nist.gov/mml/acmd/trc/thermoml/thermoml-archive"
+store = "yes"
+redistribute = "with_conditions"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

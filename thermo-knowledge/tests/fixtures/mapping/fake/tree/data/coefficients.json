@@ -1,0 +1,12 @@
+[
+  {"species": "Ethanol", "curve": "pressure", "pos": 0, "n": -8.5, "t": 1.0},
+  {"species": "Ethanol", "curve": "pressure", "pos": 1, "n": 1.2, "t": 1.5},
+  {"species": "Ethanol", "curve": "pressure", "pos": 2, "n": -3.1, "t": 3.0},
+  {"species": "Water", "curve": "pressure", "pos": 0, "n": -7.8, "t": 1.0},
+  {"species": "Water", "curve": "pressure", "pos": 1, "n": 1.9, "t": 1.5},
+  {"species": "Mystery", "curve": "pressure", "pos": 0, "n": -5.0, "t": 1.0},
+  {"species": "Conflicted", "curve": "pressure", "pos": 0, "n": -5.0, "t": 1.0},
+  {"species": "Plain", "curve": "pressure", "pos": 0, "n": -5.0, "t": 1.0},
+  {"species": "Nobody", "curve": "pressure", "pos": 0, "n": -5.0, "t": 1.0},
+  {"species": "Ethanol", "curve": "density", "pos": 0, "n": 1.0, "t": 1.0}
+]

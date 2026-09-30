@@ -1,0 +1,345 @@
+source = "janaf"
+pin = "partial"
+surveyed = "2026-09-30"
+summary = "A partial retrieval of the NIST-JANAF Thermochemical Tables: 1273 of the 1796 tables listed by the index (the first 1273 entries of the index order, ending at Hg-014; 523 are absent), plus the JSON index (janaf.json) and the formula index page (formula.html). Each table is a plain-text, tab-separated grid of eight columns against temperature (heat capacity, entropy, Gibbs energy function, enthalpy increment, enthalpy and Gibbs energy of formation, log of the formation constant) with phase-change marker rows; the files state no unit except the temperature header T(K), no edition, no uncertainty and no citation. Everything measured here is over the files present and says nothing about the 523 absent tables."
+
+[[payload]]
+paths = [
+  "*.txt (table files named <element>-<nnn>.txt, for example Al-001.txt)",
+]
+format = "plain ASCII text, LF line ends, final newline; line 1 is the title (two tab-separated fields: \"<substance name> (<formula-in-name>)\" and \"<JANAF formula>(<phase designator>)\"); line 2 is the header T(K)<tab>Cp<tab>S<tab>-[G-H(Tr)]/T<tab>H-H(Tr)<tab>delta-f H<tab>delta-f G<tab>log Kf (identical in all files); then one row per temperature"
+files = 1273
+bytes = 3678621
+records = "61502 data rows, counted as lines after the header that are neither blank nor a lone \"+\" line; per table between 7 and 66 rows; 1273 title lines and 1273 header lines; 43 lines holding only \"+\" in 33 tables; 42 blank lines in 4 tables. Row shapes: 58816 rows with all eight cells in all 1273 tables; 1047 marker rows in 439 tables; 305 rows in 281 tables whose last three cells are one space-separated field, each directly after a marker row; 862 rows with the temperature only in 272 tables; 351 rows with five cells and blank formation cells in 118 tables; 118 rows with six cells in 118 tables; 3 rows with two cells in 3 tables. Counted by splitting every line on tab and on the pattern of alphabetic text"
+reader = "no loader in the tree: a plain tab splitter suffices for 58816 rows, but the marker rows, the fused triple fields, the \"INFINITE\" cells and the blank cells need explicit handling"
+read_by_source = "none"
+notes = "Table sizes range 511 to 4963 bytes. The sidecar of each table (.response.json: final_url, status, redirects, retrieved, sha256, size, headers) agrees with the file (size and sha256 checked for all tables); the Last-Modified headers of the tables fall on 2018-09-05 between 21:03:54 and 21:04:00 GMT, that of janaf.json also on 2018-09-05 and that of formula.html on 2026-04-28 (a header fact, not an edition statement). Content-Length headers describe the transferred (compressed) bytes and differ from the file sizes in all tables. Two title fields mismatch the formula index (see discrepancy)."
+
+[[payload]]
+paths = [
+  "janaf.json",
+]
+format = "JSON object with two keys, display and index, each an array of the same length"
+files = 1
+bytes = 66955
+records = "1796 entries in each array, all strings; every index code is unique; the 1273 present table files correspond to the first 1273 positions; the display string ends in the same phase designator as the title of the table in all 1273 present tables"
+reader = "json.load (a plain JSON parser)"
+read_by_source = "none"
+notes = "The index code is an element prefix, a hyphen and a three-digit number, for example Al-001; the display string is a short symbol list, the substance name and the phase designator, for example \"Al, Aluminum (ref)\". The array has no schema, no key for the JCODE of the formula index and no statement of units or editions."
+
+[[payload]]
+paths = [
+  "formula.html",
+]
+format = "HTML page titled \"NIST-JANAF Thermochemical Tables\" / \"Formula index\" with one preformatted block (pre) of fixed-width lines, a footer loaded by script and a style sheet link"
+files = 1
+bytes = 156145
+records = "1796 index rows in the pre block (JCODE 1 to 1796, each used once; page numbers 61 to 1856, each used once); 1750 distinct FORMULA strings, of which 35 occur more than once; header line \"JCODE FORMULA NAME ** JANAF INDEX SORTED BY FORMULA PAGE\""
+reader = "a plain regular expression over the pre block (four columns: JCODE, FORMULA, NAME, PAGE)"
+read_by_source = "none"
+notes = "The formula index is sorted by the formula string with explicit atom counts (for example Al1Cl1F1(g)). The page column runs to 1856, which suggests page numbers of a printed edition; the file names no edition."
+
+[[payload]]
+paths = [
+  "*.response.json",
+]
+format = "JSON sidecar per fetched file with keys final_url, headers, redirects, retrieved, sha256, size, status, url"
+files = 1275
+bytes = 1571437
+records = "1275 sidecars (1273 tables, formula.html, janaf.json)"
+reader = "json.load"
+read_by_source = "none"
+notes = "Acquisition metadata written by the retrieval tool, not part of the source."
+
+[[construct]]
+name = "index (janaf.json)"
+locator = "janaf.json#/index and janaf.json#/display"
+meaning = "Two parallel arrays listing every table of the full set: the file code (element prefix and sequence number) and a display string made of a symbol list, the substance name and the phase designator."
+subject = "one table per position, keyed by the index code; 1796 positions"
+fields = [
+  { name = "index[i]", meaning = "file code of table i, for example Al-001", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "display[i]", meaning = "symbol list, name and phase designator of table i", unit = "not applicable", shape = "scalar", role = "metadata" },
+]
+origin = "not stated"
+conventions = "Positions follow the order of the site (formula-sorted); the display symbol list has one to three comma-separated parts (1313 entries with one comma, 470 with two, 13 with three)."
+absence = "There is no entry for edition, version, date or table status; absent tables are simply not retrieved (523 positions after the first 1273 in this store)."
+validity = "not applicable"
+provenance = "not stated"
+count = "1796 entries"
+example = "janaf.json#/index/0 (Al-001) and #/display/0"
+candidate = "artifact list of the carrier (one artifact per table) and source_entity candidates keyed by the file code (scope table)"
+precision = "close"
+loss = "The index gives neither the formula nor the JCODE; joining it to formula.html needs the table files (see discrepancy)."
+
+[[construct]]
+name = "formula index (formula.html)"
+locator = "formula.html (pre block)"
+meaning = "The alphabetical index of tables by formula: JCODE, formula with explicit atom counts and phase designator, the substance name with its formula in parentheses, and a page number."
+subject = "one table per row, keyed by JCODE; the formula string is the natural key but is repeated in 35 strings"
+fields = [
+  { name = "JCODE", meaning = "integer code of the table, 1 to 1796", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "FORMULA", meaning = "atom-count formula with phase designator, for example Al1Cl1F1(g)", unit = "not applicable", shape = "scalar", role = "not established" },
+  { name = "NAME", meaning = "substance name with short formula in parentheses", unit = "not applicable", shape = "scalar", role = "not established" },
+  { name = "PAGE", meaning = "page number 61 to 1856 (each used once)", unit = "not applicable", shape = "scalar", role = "metadata" },
+]
+origin = "not stated"
+conventions = "Formula strings list elements in Hill-like order with an explicit count of 1 (Al1, O1); charges are appended as + or - before the designator; the electron gas is written E1-(ref)."
+absence = "not applicable"
+validity = "not applicable"
+provenance = "not stated"
+count = "1796 rows"
+example = "formula.html row \"1 Al1(ref)\""
+candidate = "species_form identity (formula, charge, aggregation from the phase designator) for source_entity rows, with identity_assertion of scheme formula and name"
+precision = "close"
+loss = "The formula carries no structure identifier (no CAS, no InChI); aggregation is coded in the designator (g, cr, l, cr,l, l,g, fl, ref) and charge is in the formula."
+
+[[construct]]
+name = "table file (title and header)"
+locator = "<element>-<nnn>.txt lines 1 and 2, for example Al-001.txt:1-2"
+meaning = "One table for one substance and phase set: line 1 gives the substance name with its short formula and the JANAF formula with the phase designator; line 2 names the eight columns."
+subject = "one substance form (or one element in its reference state) over a temperature range; keyed by the file code and by the JANAF formula with designator"
+fields = [
+  { name = "title field 1", meaning = "name and short formula in parentheses, for example \"Aluminum (Al)\"", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "title field 2", meaning = "JANAF formula with explicit atom counts and the phase designator in parentheses", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "T(K)", meaning = "temperature", unit = "K (stated by the header)", shape = "scalar", role = "not established" },
+  { name = "Cp", meaning = "heat capacity at constant pressure", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "S", meaning = "entropy", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "-[G-H(Tr)]/T", meaning = "Gibbs energy function: minus the difference of the Gibbs energy and the enthalpy at the reference temperature Tr, divided by T", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "H-H(Tr)", meaning = "enthalpy increment relative to Tr", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "delta-f H", meaning = "enthalpy of formation", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "delta-f G", meaning = "Gibbs energy of formation", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "log Kf", meaning = "logarithm of the equilibrium constant of formation (base not stated in the header)", unit = "not applicable (dimensionless, inferred from the name)", shape = "scalar", role = "not established" },
+]
+origin = "not stated (the table values are labelled as thermochemical tables by the page title only)"
+conventions = "Tr is not defined in the file; the row at T = 298.15 has H-H(Tr) equal to zero and -[G-H(Tr)]/T equal to S in all tables, so Tr = 298.15 K (inferred: from that row). Temperature is in kelvin (header T(K)); no other unit appears in any table; the pressure of the standard state is not stated in the tables (the marker \"FUGACITY = 1 bar\" occurs in 55 tables and titles \"Water, 1 Bar\" to \"Water, 5000 Bar\" occur in five)."
+absence = "A blank cell means no value is tabulated: 862 rows have only the temperature (in 272 tables; inferred: from Al-003.txt and Cl-082.txt, condensed-phase tables at temperatures below the stable range of the phase), 351 rows lack the three formation cells and 118 rows lack delta-f G and log Kf. A written \"0.\" is a value: in the 23 tables of elements in their reference state all three formation cells are \"0.\" in every row, and rows with zero formation cells also occur inside 55 other tables (1299 rows) above a temperature at which the reference phase of an element changes (inferred: from the rows following transition markers). The source distinguishes blank from zero."
+validity = "not stated; each table spans its own temperature range: first temperature 0 K (1240 tables), 298.15 K (33 tables); last temperature 6000 K (732 tables), 2000 K (123 tables), 1500 K (117 tables), 3000 K (83 tables), 1000 K (52 tables), 2500 K (40 tables), 4000 K (28 tables), 3500 K (18 tables)."
+provenance = "none in the tables (no citation, no comment, no date, no edition); the index page title names NIST-JANAF Thermochemical Tables."
+count = "1273 tables present of 1796 indexed"
+example = "Al-001.txt"
+candidate = "dataset of kind evaluated (inferred: from the page title) per table, dataset_column rows of role variable (temperature) and property (the other seven), a convention_set with temperature_scale not_stated, energy_reference enthalpy formation_from_elements at 298.15 K and entropy third_law (inferred: S is tabulated from 0 K)"
+precision = "close"
+loss = "Units are not stated so every source_unit of a mapping rule is an assumption; no dataset title, method, uncertainty or citation exists in the file; the dataset kind and the energy datum are inferred."
+
+[[construct]]
+name = "column meaning and observables needed"
+locator = "header line of every table"
+meaning = "The eight columns mapped to model observables. Needed observables and whether model/observables.toml declares them: temperature (declared); standard_molar_heat_capacity_isobaric (declared; the column Cp of a substance form); standard_molar_entropy (declared; S); a Gibbs energy function {G(T)-H(298.15 K)}/T (not declared; quantity MolarEntropy exists); an enthalpy increment relative to the reference temperature (not declared: standard_molar_enthalpy is relative to the energy reference of a convention set, not to H at 298.15 K; needs relation increment with a reference temperature); molar_enthalpy_of_formation (declared; delta-f H); a Gibbs energy of formation (not declared; standard_molar_gibbs_energy is relative to a convention set); log10_equilibrium_constant (declared, subject reaction; log Kf, if the base is 10, needs the formation reaction as dataset.reaction)."
+subject = "a substance form, reaction of formation for the last three columns"
+fields = [
+  { name = "Cp", meaning = "standard_molar_heat_capacity_isobaric", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "S", meaning = "standard_molar_entropy", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "-[G-H(Tr)]/T", meaning = "new observable needed", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "H-H(Tr)", meaning = "new observable needed (relation increment, reference temperature 298.15 K)", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "delta-f H", meaning = "molar_enthalpy_of_formation", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "delta-f G", meaning = "new observable needed", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "log Kf", meaning = "log10_equilibrium_constant of the formation reaction (inferred: base 10 from the usual reading; the header does not say)", unit = "not applicable", shape = "scalar", role = "not established" },
+]
+origin = "not stated"
+conventions = "Formation is from the elements in their reference state: the formation cells are \"0.\" for an element in its reference state (table designator ref) and the table designator ref marks the reference form (inferred: from the all-zero formation columns of the 23 ref tables)."
+absence = "see the table construct"
+validity = "see the table construct"
+provenance = "not stated"
+count = "8 columns per table"
+example = "Al-003.txt (phase l, blank rows below 298.15 K)"
+candidate = "dataset_column rows (source_name = the header text)"
+precision = "close"
+loss = "Four of the eight columns have no declared observable. The enthalpy H-H(Tr) and the Gibbs energy function carry their reference in the column name, so they need observables whose identity contains Tr."
+
+[[construct]]
+name = "phase designator"
+locator = "title field 2 of every table, the text in parentheses at the end"
+meaning = "A short code for the phase or phases the table covers: g, cr, l, cr,l (condensed phases of one substance in one table), ref (an element in its reference state), l,g and fl (water at stated pressures)."
+subject = "the table (one designator per table)"
+fields = [
+  { name = "designator", meaning = "phase code; meaning of the letters is not stated in the files and follows from the marker texts (CRYSTAL, LIQUID, IDEAL GAS, REAL GAS)", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "not stated"
+conventions = "The same designator is repeated in the display string of janaf.json."
+absence = "not applicable"
+validity = "not applicable"
+provenance = "not stated"
+count = "7 values: g 708, cr 260, l 140, cr,l 137, ref 23, l,g 3, fl 2 (tables)"
+example = "Al-001.txt (ref), Al-002.txt (cr), Al-003.txt (l), Al-004.txt (cr,l), Al-005.txt (g), H-065.txt (l,g), H-068.txt (fl)"
+candidate = "species_form.aggregation (g to gas, cr to crystalline, l to liquid, fl to fluid; ref is neither an aggregation nor a phase but a marker that the form is the element reference; l,g and cr,l cover two aggregations in one table)"
+precision = "close"
+loss = "Split and combined tables coexist: among the 813 formulas of the present tables 129 have a combined cr,l table together with separate cr and/or l tables, so the same substance data can appear twice; ref tables repeat an element whose cr, l and g tables also exist. The designators fl, l,g and ref have no aggregation member; pressure of the five water tables appears only in the name text."
+
+[[construct]]
+name = "transition and phase-change marker rows"
+locator = "rows of the tables whose sixth field is text, for example Al-001.txt:14-15"
+meaning = "Where the tabulated phase changes the table writes two rows at the same temperature: the first carries the values of the lower phase and, in the place of the three formation cells, a marker text naming the change; the second carries the values of the upper phase and, in the same place, the text TRANSITION (or FUGACITY = 1 bar or PRESSURE = N bar for a liquid-gas change). Values of -[G-H(Tr)]/T are equal in the two rows; Cp, S and H-H(Tr) jump. A row of a lone \"+\" sometimes stands between the two rows."
+subject = "a temperature at which the phase of the tabulated substance changes"
+fields = [
+  { name = "marker text (first row)", meaning = "name of the change, for example CRYSTAL <--> LIQUID", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "second row text", meaning = "TRANSITION, FUGACITY = 1 bar or PRESSURE = 1, 10 or 100 bar", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "\"+\" row", meaning = "a separator row with only \"+\" in the first cell", unit = "not applicable", shape = "scalar", role = "not established" },
+]
+origin = "not stated"
+conventions = "The enthalpy and entropy of transition are the differences of H-H(Tr) and S between the two rows (inferred: from the jump); the marker rows replace delta-f H, delta-f G and log Kf so those are absent at the transition temperature itself."
+absence = "Marker rows have no formation values; the row after a marker has its three formation values in a single space-separated field (305 rows in 281 tables: 29 are \"0. 0. 0.\")."
+validity = "not applicable"
+provenance = "not stated"
+count = "27 distinct marker texts over 1047 marker rows in 439 tables (TRANSITION is on 353 rows in 276 tables): TRANSITION (353 rows in 276 tables); CRYSTAL <--> LIQUID (279 rows in 279 tables); GLASS <--> LIQUID (79 rows in 79 tables); BETA <--> LIQUID (56 rows in 56 tables); FUGACITY = 1 bar (55 rows in 55 tables); ALPHA <--> BETA (55 rows in 55 tables); I <--> II (26 rows in 26 tables); Cp LAMBDA MAXIMUM (18 rows in 17 tables); II <--> LIQUID (17 rows in 17 tables); LIQUID <--> IDEAL GAS (15 rows in 15 tables); BETA <--> GAMMA (13 rows in 13 tables); GAMMA <--> LIQUID (13 rows in 13 tables); II <--> III (10 rows in 10 tables); I <--> LIQUID (9 rows in 9 tables); III <--> LIQUID (9 rows in 9 tables); GAMMA <--> DELTA (6 rows in 6 tables); ALPHA <--> LIQUID (6 rows in 6 tables); II <--> I (6 rows in 6 tables); ALPHA <--> GAMMA (4 rows in 4 tables); DELTA <--> LIQUID (4 rows in 4 tables); LIQUID <--> REAL GAS (4 rows in 4 tables); EPSILON <--> LIQUID (3 rows in 3 tables); DELTA <--> EPSILON (2 rows in 2 tables); UNDEFINED (2 rows in 2 tables); PRESSURE = 1 bar (1 rows in 1 tables); PRESSURE = 10 bar (1 rows in 1 tables); PRESSURE = 100 bar (1 rows in 1 tables)"
+example = "Al-001.txt:14-15, Ba-001.txt:11-13 (with the \"+\" row)"
+candidate = "two data_point rows at one temperature with different dataset_phase roles; the enthalpy and entropy of transition as derived observables with subject transition (molar_enthalpy_of_vaporization is declared for vaporisation only)"
+precision = "close"
+loss = "dataset_column.phase is per column, not per row, so a table with a phase change inside needs a dataset per phase segment or duplicate columns; the marker texts have no member (phases alpha, beta, gamma, delta, epsilon, I, II, III, glass, crystal, liquid, ideal gas, real gas are named in the text only); \"Cp LAMBDA MAXIMUM\" (18 rows, each followed by TRANSITION with identical values) marks a lambda point and \"UNDEFINED\" (2 rows) a transition whose meaning the file does not state; \"FUGACITY = 1 bar\" (55 rows) marks the temperature at which the gas reaches a fugacity of 1 bar, from which the boiling-point pressure is 1 bar only by inference."
+
+[[construct]]
+name = "special values: INFINITE, zeros at 0 K, fused numbers"
+locator = "cells in the tables, for example Al-001.txt:3 (T = 0) and Al-002.txt:18 (fused formation cells), C-083.txt:8 (fused T and Cp)"
+meaning = "At T = 0 the Gibbs energy function is written INFINITE because it divides by T; log Kf is INFINITE at 0 K in a subset; Cp and S are written \"0.\" at 0 K; and where fixed-width columns overflowed, two numbers run together (288.5001548.088 is T = 288.500 joined with Cp = 1548.088)."
+subject = "cells"
+fields = [
+  { name = "INFINITE", meaning = "the text replaces a number that diverges", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "not stated"
+conventions = "INFINITE is never signed in the files; sign is not stated even for log Kf, which for some compounds would be minus infinity."
+absence = "INFINITE occurs on 968 rows in 968 tables, always in the row T = 0 (verified), in the -[G-H(Tr)]/T column (968 cells) and in the log Kf column (802 cells). The fused T and Cp occurs on 4 rows in 2 tables (C-083, C-085)."
+validity = "not applicable"
+provenance = "not stated"
+count = "968 rows with INFINITE in 968 tables; the first row is T = 0 in 1240 of 1273 tables"
+example = "Al-001.txt:3"
+candidate = "datum_state not_measured (or a withheld value) with no value"
+precision = "close"
+loss = "datum_state has known, not_measured and censored; a divergent value is none of these and the sign of infinity is not stated; fused numbers need repair before parsing."
+
+[[construct]]
+name = "table used directly as a model"
+locator = "every table"
+meaning = "A table can be used as a function of temperature by interpolation: Cp, S, -[G-H(Tr)]/T, H-H(Tr), delta-f H, delta-f G and log Kf each as a function of T, with jumps at transitions; thermodynamic consistency between columns is implied (H-H(Tr) integrates Cp, S integrates Cp/T) but not stated."
+subject = "a substance form"
+fields = [
+  { name = "axis", meaning = "T(K)", unit = "K", shape = "scalar", role = "not established" },
+  { name = "values", meaning = "the seven other columns", unit = "not stated", shape = "list", role = "not established" },
+]
+origin = "not stated"
+conventions = "The interpolation rule is not stated."
+absence = "rows blank or only partly filled in the condensed-phase tables below their stable range (862 temperature-only rows)."
+validity = "each table covers its own range from 0 K (1240 tables) or 298.15 K (33 tables) to 6000 K at most"
+provenance = "not stated"
+count = "1273 tables"
+example = "Al-002.txt"
+candidate = "tabulated_function (axis Temperature, values per column, interpolation not_stated) bound to a parameter set of a tabulated form; one function per phase segment"
+precision = "close"
+loss = "A tabulated_function has one value per axis point and an ascending axis; transitions give two values at one temperature, which needs one function per phase segment; interpolation not_stated is the only honest value."
+
+[[model_family]]
+name = "tabulated thermochemical function (JANAF table)"
+locator = "Al-001.txt and the other tables"
+class = "other"
+inputs = "temperature only (K); the tables are at the standard state of the substance form and do not depend on pressure or composition; the pressure of that state is not stated"
+parameters = "pure: the eight columns of one table as one tabulated function (Cp, S, Gibbs energy function, enthalpy increment, enthalpy and Gibbs energy of formation, log Kf)"
+composes = [
+]
+variants = [
+  { selector = "phase designator ref, cr, l, cr,l, g, l,g, fl", selects = "which phase or phases the table describes; cr,l tables contain the transition, separate cr and l tables exist for the same substance" },
+]
+equation_source = "none: the tables carry values only"
+closed_form = "procedural"
+data = "construct \"table file (title and header)\""
+
+[[convention]]
+name = "reference temperature"
+locator = "row T = 298.15 of every table"
+statement = "Tr is not defined in the files. In all 1273 tables the row at 298.15 K has H-H(Tr) equal to zero (1247 tables write \"0.\" and 26 write \"0.000\") and -[G-H(Tr)]/T equal to S, so Tr = 298.15 K (inferred: from those rows)."
+scope = "all tables"
+
+[[convention]]
+name = "standard pressure"
+locator = "marker rows and titles"
+statement = "No table states a standard pressure. The marker \"FUGACITY = 1 bar\" (55 rows) and the markers \"PRESSURE = 1 bar\", \"= 10 bar\", \"= 100 bar\" (one each in the three l,g tables H-065, H-066, H-067) and the titles \"Water, 1 Bar\", \"10 Bar\", \"100 Bar\", \"500 Bar\", \"5000 Bar\" name bar pressures; the standard state of the other tables is therefore not stated in the bytes (a value of 1 bar can be inferred from the FUGACITY marker only)."
+scope = "all tables"
+
+[[convention]]
+name = "units"
+locator = "header line"
+statement = "The header states T(K) and no other unit. Units of Cp, S, -[G-H(Tr)]/T, H-H(Tr), delta-f H, delta-f G are not stated anywhere in the files, nor is the base of log Kf."
+scope = "all numeric columns except temperature"
+
+[[convention]]
+name = "enthalpy and formation datum"
+locator = "columns H-H(Tr), delta-f H"
+statement = "H-H(Tr) is an increment from 298.15 K; delta-f H is a formation enthalpy at T (not at Tr only); formation is from the elements in their reference states (inferred: from the ref tables whose delta-f columns are zero). Elements in the ref state have delta-f = 0 in every row, including above their melting and boiling points; other tables also show zero formation cells above the temperature at which the element changes phase (55 tables, 1299 rows)."
+scope = "formation columns"
+
+[[convention]]
+name = "reference phases of elements"
+locator = "tables with designator ref"
+statement = "The 23 tables with designator ref are the elements in their reference forms: Al1, Ar1, B1, Ba1, Be1, Br2, C1, Ca1, Cl2, Co1, Cr1, Cs1, Cu1, D2, e1-, F2, Fe1, Ga1, H2, He1, Hf1, Hg1, S1. The formulas are the atom-count strings of the titles (Br2, Cl2, D2, F2, H2 are diatomic; S1, C1, e1- are as written). All-zero formation columns were measured to occur in exactly these 23 tables."
+scope = "element reference states"
+
+[[convention]]
+name = "temperature grid"
+locator = "first column"
+statement = "Tables start at 0 K (0 K (1240 tables), 298.15 K (33 tables)) and end at 6000 K (732 tables), 2000 K (123 tables), 1500 K (117 tables), 3000 K (83 tables), 1000 K (52 tables), 2500 K (40 tables), 4000 K (28 tables), 3500 K (18 tables); the spacing between rows is 100 K or 50 K in the tables examined by eye (Al-001, Al-002, Ba-001) and is not measured over all tables, with 298.15 K and the transition temperatures as extra rows; the two common starts are \"0, 100, 200, 250\" (749 tables) and \"0, 100, 200, 298.15\" (467 tables)."
+scope = "temperature axis"
+
+[[convention]]
+name = "number format"
+locator = "all cells"
+statement = "Numbers are written in fixed decimal notation with three decimals for most values, \"0.\" for zero (and \"0.000\" in 26 tables at 298.15), integers for round temperatures and three decimals for transition temperatures."
+scope = "parsing and digits"
+
+[[discrepancy]]
+locator = "formula.html rows \"1109 C1N1O1(G)\" and \"831 E1-(ref)\" versus C-087.txt:1 and D-020.txt:1"
+documented = "the formula index lists every table by formula"
+actual = "the formula of C-087 is written C1N1O1(g) in the table but C1N1O1(G) (capital G) in the index, and D-020 is e1-(ref) in the table but E1-(ref) in the index; the names also differ (\"NCO Radical (NC101)\" versus \"NCO radical (NCO)\", \"Electron Gas (e-)\" versus \"Electron gas (E-)\")"
+consequence = "a join on the formula string misses these two tables (2 of 1273); the other 1271 match exactly"
+
+[[discrepancy]]
+locator = "janaf.json index codes versus formula.html JCODE"
+documented = "the formula index gives a JCODE for every table and janaf.json gives a code for every table"
+actual = "the two codes are different schemes (index code: element prefix and sequence, for example Al-004; JCODE: integer by formula, for example 1759 for the same table Al1(cr,l)) and no file carries both; 35 formula strings are repeated in the index so a join on formula is ambiguous for them"
+consequence = "there is no key shared by the index page and the table files other than the formula and name strings"
+
+[[question]]
+about = "units"
+question = "What are the units of the tabulated columns and the base of log Kf?"
+why_it_matters = "Nothing in the files states them; every mapping factor is an assumption until the site or publication is read."
+
+[[question]]
+about = "edition and date"
+question = "Which edition and revision of the JANAF tables do these files represent, and when was each table evaluated?"
+why_it_matters = "Only the Last-Modified headers (2018-09-05 for the tables) and the page title are available; evaluations differ between editions."
+
+[[question]]
+about = "uncertainty"
+question = "Where do the uncertainties of the tabulated values come from?"
+why_it_matters = "The tables state none; uncertainty_kind would be not_stated for every datum."
+
+[[question]]
+about = "citations"
+question = "Which publications are the sources of each table?"
+why_it_matters = "The files carry no citation; provenance for each table would be only the carrier."
+
+[[question]]
+about = "completeness"
+question = "Do the 523 absent tables (index positions 1274 to 1796, from Hg2I2 onward) contain formats that the present ones do not?"
+why_it_matters = "The surveyed format counts may not hold for the whole set."
+
+[[question]]
+about = "marker semantics"
+question = "What do \"+\" rows, \"UNDEFINED\" and \"Cp LAMBDA MAXIMUM\" mean exactly, and does TRANSITION always mean a first-order change?"
+why_it_matters = "They are not explained in the files and affect how rows map to phases."
+
+[[question]]
+about = "standard state"
+question = "Is the standard pressure 1 bar (as the FUGACITY marker suggests) for all tables and for condensed phases?"
+why_it_matters = "pressure_rule of the standard state cannot be filled from the bytes."
+
+[[question]]
+about = "extrapolation"
+question = "Are the rows of a crystal table beyond its melting point (Al-002 above 933.45 K) metastable extensions or extrapolations?"
+why_it_matters = "Validity envelopes per phase depend on it."
+
+[[question]]
+about = "reference of Tr"
+question = "Is Tr = 298.15 K the only reference temperature, and is the enthalpy datum of the compound tables the formation enthalpy at 298.15 K?"
+why_it_matters = "convention_set.energy_reference.temperature and datum depend on it."
+
+[[question]]
+about = "duplicates"
+question = "Are the values in the cr, l and cr,l tables of one substance identical where they overlap, and which table should a mapping prefer?"
+why_it_matters = "The same substance data appear in up to four tables (ref, cr, l, cr,l and g for aluminium) and a snapshot must choose."

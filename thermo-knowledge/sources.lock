@@ -1,0 +1,347 @@
+{
+  "sources": {
+    "aga8": {
+      "file_count": 45,
+      "kind": "git",
+      "pin": "3bdb9ab8ff31",
+      "resolved": "3bdb9ab8ff317c618b0b59d1b704c2c86ddc5fce",
+      "retrieved": "2026-09-30T09:31:50Z",
+      "total_bytes": 5635631,
+      "tree_hash": "3cea40f7b4304825336ef1ad3f68d680f03129fda8799f667eec7b8c9226bf12"
+    },
+    "cantera": {
+      "file_count": 1455,
+      "kind": "git",
+      "pin": "4a8358eb80cf",
+      "resolved": "4a8358eb80cfeb50474386b5f9ec0b3a83519889",
+      "retrieved": "2026-09-30T09:31:59Z",
+      "total_bytes": 14309938,
+      "tree_hash": "80d82fd5157ec5ccfabe80b0a7c59e70fd2dfd485494364b0b6d616395eeee95"
+    },
+    "chemicals": {
+      "file_count": 335,
+      "kind": "git",
+      "pin": "7fca9acf7708",
+      "resolved": "7fca9acf7708e2a646bc04d2b6f6996d0325e77d",
+      "retrieved": "2026-09-30T09:32:03Z",
+      "total_bytes": 78090515,
+      "tree_hash": "cb1e0c2bcf1fe35ffa0b0cc19318f1775de55cfc4e35d423664f624e40d8ca8f"
+    },
+    "clapeyron": {
+      "file_count": 833,
+      "kind": "git",
+      "pin": "cbe8401f0132",
+      "resolved": "cbe8401f013205c8a2cb990e2caa8dd126ef5464",
+      "retrieved": "2026-09-30T09:32:04Z",
+      "total_bytes": 13974199,
+      "tree_hash": "56892754e7bb328001de7cf9eb4c21200e96846552757294f479d5ee747585e7"
+    },
+    "coolprop": {
+      "file_count": 1782,
+      "kind": "git",
+      "pin": "ae81610e7d23",
+      "resolved": "ae81610e7d23efc57f9d051c8e70a4d66e87537f",
+      "retrieved": "2026-09-30T09:32:09Z",
+      "total_bytes": 40613623,
+      "tree_hash": "89128063272ac12c6f7293e91bedcead9c8d3cfb9af957ff1528c19053118ce0"
+    },
+    "cosmosac_nist": {
+      "file_count": 8332,
+      "kind": "git",
+      "pin": "1b82456be380",
+      "resolved": "1b82456be38026719b16cad4076109bef3fcb309",
+      "retrieved": "2026-09-30T09:32:11Z",
+      "total_bytes": 213022590,
+      "tree_hash": "12c1a5ac0d8edb0eea3fa826dc5f34f977830be7219f7b238cc43ed1522972dd"
+    },
+    "ddbst_unifac": {
+      "file_count": 0,
+      "kind": "none",
+      "pin": null,
+      "reason": "The site's terms of use prohibit saving its pages or systematically retrieving content to compile a database without written permission from DDBST GmbH. Not acquired; the permission route remains open.",
+      "retrieved": "2026-09-30T09:31:52Z",
+      "total_bytes": 0,
+      "tree_hash": null
+    },
+    "espei": {
+      "file_count": 107,
+      "kind": "git",
+      "pin": "769029ca2ee6",
+      "resolved": "769029ca2ee632752c81bc7c1980623687638370",
+      "retrieved": "2026-09-30T09:32:24Z",
+      "total_bytes": 3716972,
+      "tree_hash": "e58504d4f7775e3927d469f1c5453fb0e93cabb9abad26dd30b05e5afb4fab8e"
+    },
+    "espei_datasets": {
+      "file_count": 230,
+      "kind": "git",
+      "pin": "e3b536426e20",
+      "resolved": "e3b536426e20d8d3712e9cd7d7fcf7ac4e67f07d",
+      "retrieved": "2026-09-30T09:32:24Z",
+      "total_bytes": 397557,
+      "tree_hash": "0b52a0948734ca50eef01ddfebdc2299a8ab1838c93cab94b9fe1c4f5eda4196"
+    },
+    "feos": {
+      "file_count": 458,
+      "kind": "git",
+      "pin": "c658aeab484f",
+      "resolved": "c658aeab484f7a7096bfbf5425e40effd60da167",
+      "retrieved": "2026-09-30T09:32:27Z",
+      "total_bytes": 23704070,
+      "tree_hash": "27d631f22f96db375351057ffa4152add75eb72f1dcfe8d92f7de64a47576d56"
+    },
+    "flory": {
+      "file_count": 103,
+      "kind": "git",
+      "pin": "239a02dbbbb5",
+      "resolved": "239a02dbbbb57408f71647d4686ab231d3f089e2",
+      "retrieved": "2026-09-30T09:31:50Z",
+      "total_bytes": 407845,
+      "tree_hash": "5bbf0efc2637a11eab90b4c562918efa944470e8f14c699f7363b5dbcf709cb1"
+    },
+    "gems3k": {
+      "file_count": 932,
+      "kind": "git",
+      "pin": "d98513959bc5",
+      "resolved": "d98513959bc5a77c31a3c933a91a81783cd770fb",
+      "retrieved": "2026-09-30T09:32:29Z",
+      "total_bytes": 25199251,
+      "tree_hash": "8bfff6a5bbbaa11a1a108d9c22e32757aec06950c2e422b298188851060311eb"
+    },
+    "iapws": {
+      "file_count": 88,
+      "kind": "pages",
+      "pin": "2026-09-30",
+      "retrieved": "2026-09-30T09:48:52Z",
+      "total_bytes": 11327176,
+      "tree_hash": "737bcf8e4dc8621bb215e2a729cf1e83180076e6a6cf0203399912cfeb802d97"
+    },
+    "idaes": {
+      "file_count": 0,
+      "kind": "local",
+      "path": "external/idaes-pse",
+      "pin": "84532d7f99a9",
+      "resolved": "84532d7f99a9f976b05170948147afdd69cfa5f6",
+      "retrieved": "2026-09-30T09:31:52Z",
+      "total_bytes": 0,
+      "tree_hash": null
+    },
+    "isodb": {
+      "file_count": 54427,
+      "kind": "git",
+      "pin": "9e1ee472967d",
+      "resolved": "9e1ee472967d66ec7845e23c5d5b986eca5ff020",
+      "retrieved": "2026-09-30T09:32:33Z",
+      "total_bytes": 347731991,
+      "tree_hash": "c2e1302ed794371bcbd195d165e9b1d6862be6b5b9badf0316fa28696b61324a"
+    },
+    "kineticgas": {
+      "file_count": 262,
+      "kind": "git",
+      "pin": "4545e40a7e49",
+      "resolved": "4545e40a7e49a88cb5b26337813fff782554ec21",
+      "retrieved": "2026-09-30T09:31:52Z",
+      "total_bytes": 54537700,
+      "tree_hash": "80ad114fc81835bbc368d4a0e8567d5d18ace24f7b7558446862774054bf0917"
+    },
+    "nasa_cea": {
+      "file_count": 259,
+      "kind": "git",
+      "pin": "4c5c612efa20",
+      "resolved": "4c5c612efa2002a94e3a5a1f33b1674d55c65340",
+      "retrieved": "2026-09-30T09:32:34Z",
+      "total_bytes": 4464927,
+      "tree_hash": "3d303e35659792e68abe6cb079cb2b311b42029b8f41ba407055f75916aacb94"
+    },
+    "neqsim": {
+      "file_count": 559,
+      "kind": "git",
+      "pin": "280152d97763",
+      "resolved": "280152d97763672fb79c9139e421adf85663a930",
+      "retrieved": "2026-09-30T09:32:40Z",
+      "total_bytes": 178721750,
+      "tree_hash": "563a3ec119d13ef13e163fadce2056f367f90dbea4d5585e61c76645243f39e7"
+    },
+    "phasepy": {
+      "file_count": 121,
+      "kind": "git",
+      "pin": "f0406a40973b",
+      "resolved": "f0406a40973bdad74935e39d1cb917bafa7567a5",
+      "retrieved": "2026-09-30T09:32:41Z",
+      "total_bytes": 3165669,
+      "tree_hash": "41b8bb205b2693ea8ba8d7971bcae1dfb755f40a519ca487d5bae0b776d6a12d"
+    },
+    "phreeqc": {
+      "file_count": 234,
+      "kind": "git",
+      "pin": "b0b3be767158",
+      "resolved": "b0b3be767158ccc3322d2c816625cf470045e67e",
+      "retrieved": "2026-09-30T09:32:44Z",
+      "total_bytes": 20240946,
+      "tree_hash": "aeebbb199480691a8421a4880db4fc24aff5abc7a42e7f5685b36ca558a570df"
+    },
+    "polykin": {
+      "file_count": 463,
+      "kind": "git",
+      "pin": "459445c5de64",
+      "resolved": "459445c5de642750f97b86e05ca056107aa060b8",
+      "retrieved": "2026-09-30T09:32:46Z",
+      "total_bytes": 5878720,
+      "tree_hash": "b696a548392c39cd3372d68975fe728788d768b7f8b37353579890233b92d620"
+    },
+    "pycalphad": {
+      "file_count": 221,
+      "kind": "git",
+      "pin": "2d4c744ddb89",
+      "resolved": "2d4c744ddb890e179542894d070150797e13b325",
+      "retrieved": "2026-09-30T09:32:48Z",
+      "total_bytes": 8200122,
+      "tree_hash": "d15c64be41c8df0b934df41db72e183262b2ac38e335dae665338e6e7ca29758"
+    },
+    "pygaps": {
+      "file_count": 307,
+      "kind": "git",
+      "pin": "34279c1bd373",
+      "resolved": "34279c1bd373adfbde054ca75e33b695d1151a2b",
+      "retrieved": "2026-09-30T09:32:49Z",
+      "total_bytes": 7638975,
+      "tree_hash": "1c282b899a2ec4ebabb7742a2da237680ecefe9292aa40099c4c11f063422967"
+    },
+    "pyprism": {
+      "file_count": 258,
+      "kind": "git",
+      "pin": "f194a987754e",
+      "resolved": "f194a987754e725f118ab952bbc3cef507f20176",
+      "retrieved": "2026-09-30T09:32:51Z",
+      "total_bytes": 33268617,
+      "tree_hash": "1de0dd28228565c8a2be5aa4b98592b888f11788c94ae57998c8c1649b8bfa86"
+    },
+    "reaktoro": {
+      "file_count": 1106,
+      "kind": "git",
+      "pin": "3c5838e7c0ed",
+      "resolved": "3c5838e7c0ed2931ad152176414cb786311dbe47",
+      "retrieved": "2026-09-30T09:32:53Z",
+      "total_bytes": 73001926,
+      "tree_hash": "412614d673ea712388f93dcb93111d36c57331479c9ecd8debe60ef36e42922e"
+    },
+    "rmg_database": {
+      "file_count": 1898,
+      "kind": "git",
+      "pin": "fc7bb138f938",
+      "resolved": "fc7bb138f9380f1274cc9645ef6586c83dda450e",
+      "retrieved": "2026-09-30T09:33:00Z",
+      "total_bytes": 228075912,
+      "tree_hash": "62e272763e5e9fcf40f5aef807d0b6d3b924a107509c29e6c8f4a7087c9c39cd"
+    },
+    "rmg_py": {
+      "file_count": 358,
+      "kind": "git",
+      "pin": "5c33e07e0999",
+      "resolved": "5c33e07e0999845032ac7cb1352628488d46b38d",
+      "retrieved": "2026-09-30T09:33:03Z",
+      "total_bytes": 52954443,
+      "tree_hash": "62641b0a700d4e52345acfdfce282c202221474df0352957069f7a5f3508fe81"
+    },
+    "sgte_unary": {
+      "file_count": 1,
+      "kind": "file",
+      "pin": "8e38dcefbeaa",
+      "resolved": "8e38dcefbeaad1f8ed83ed1f8ccceb0e1701fb584f1bf3798f217488253d4b3f",
+      "retrieved": "2026-09-30T09:33:05Z",
+      "total_bytes": 118145,
+      "tree_hash": "4de2c9e4522d89e86141a1e09f0fcf95631a3f8ac6d6391ebca799526662e70a"
+    },
+    "sigma_profiles_pyscf": {
+      "file_count": 4,
+      "kind": "file",
+      "pin": "82099a371bf7",
+      "resolved": "82099a371bf7430f3ef64262da9d1f5207c3d6b0ae0b510e389623dcbe9016fd",
+      "retrieved": "2026-09-30T09:35:24Z",
+      "total_bytes": 141672284,
+      "tree_hash": "82099a371bf7430f3ef64262da9d1f5207c3d6b0ae0b510e389623dcbe9016fd"
+    },
+    "sigma_profiles_pyscf_code": {
+      "file_count": 49,
+      "kind": "git",
+      "pin": "764075efc394",
+      "resolved": "764075efc3943bc74666def74ad49e66cf143e62",
+      "retrieved": "2026-09-30T09:35:24Z",
+      "total_bytes": 363069,
+      "tree_hash": "276fd4cf4155de5141cc7667f63ea4c9c2249f1b485c87cb7263a715a3a661d0"
+    },
+    "surfpack": {
+      "file_count": 106,
+      "kind": "git",
+      "pin": "e4844d7fbe09",
+      "resolved": "e4844d7fbe096a99bd5fd3d856a4a56dc6857bde",
+      "retrieved": "2026-09-30T09:35:25Z",
+      "total_bytes": 1373575,
+      "tree_hash": "1062b89ce74e3de0ec05fb11f5e1593ce1b0bd90d941c52e80a5e6a30c19df8c"
+    },
+    "teqp": {
+      "file_count": 427,
+      "kind": "git",
+      "pin": "5f62a6f515d5",
+      "resolved": "5f62a6f515d517e39c3fb035c11a03524ffa3ad6",
+      "retrieved": "2026-09-30T09:35:26Z",
+      "total_bytes": 16560848,
+      "tree_hash": "6b16d0e6dabfc886cdc1b32cadfe6d27c1f34b5e2911b015194d16c6181e075f"
+    },
+    "thermo": {
+      "file_count": 339,
+      "kind": "git",
+      "pin": "4f51c4343773",
+      "resolved": "4f51c4343773c8e50480b32eb81b014ae3945ebb",
+      "retrieved": "2026-09-30T09:35:28Z",
+      "total_bytes": 48698055,
+      "tree_hash": "a84e502f025d2f15f5b6b4e2e6dbe872cd51d103ec7c0a16c4b1b593c71cd8ef"
+    },
+    "thermochimica": {
+      "file_count": 365,
+      "kind": "git",
+      "pin": "0c35c8d7d1cf",
+      "resolved": "0c35c8d7d1cf2084b4e2ca5d6608f7dcdf60adad",
+      "retrieved": "2026-09-30T09:35:29Z",
+      "total_bytes": 5885761,
+      "tree_hash": "118b877ed4fa7361724a93f54e197cb8eef8e9c675f96f99701e941d71b164ee"
+    },
+    "thermofun": {
+      "file_count": 280,
+      "kind": "git",
+      "pin": "53741e9b0ac0",
+      "resolved": "53741e9b0ac05d3c4cd7ce00ea8fa50222b47af0",
+      "retrieved": "2026-09-30T09:35:30Z",
+      "total_bytes": 17297241,
+      "tree_hash": "6fb9270e538f0478d10bc64241c80ccef65b768f491354815bbca1f6cca45d09"
+    },
+    "thermohub": {
+      "file_count": 125,
+      "kind": "git",
+      "pin": "c3e4acf45312",
+      "resolved": "c3e4acf4531204e4c2974c2d4ac5a1b96f37d5ba",
+      "retrieved": "2026-09-30T09:35:33Z",
+      "total_bytes": 50744005,
+      "tree_hash": "f5f3ecb4b2540344c106028997396da39c3228f13bc896940dee6ec50c1734f9"
+    },
+    "thermoml_schema": {
+      "file_count": 1,
+      "kind": "file",
+      "pin": "5c9945ce07c2",
+      "resolved": "5c9945ce07c2a0c4d7bd249ba4d1f76b4a37eba0b872f1f1f6656b4df247ab89",
+      "retrieved": "2026-09-30T09:31:52Z",
+      "total_bytes": 128779,
+      "tree_hash": "aeec182a4713acaf7ea2946a6d1abc8017814e2a2cc620203be612d8d8a94f36"
+    },
+    "thermopack": {
+      "file_count": 489,
+      "kind": "git",
+      "pin": "ca75d8e095e8",
+      "resolved": "ca75d8e095e8b951616897efe1bca9b8c3badda7",
+      "retrieved": "2026-09-30T09:37:36Z",
+      "total_bytes": 24915482,
+      "tree_hash": "7b083cd40756bc0f79373b80f4068d2039763b792ea36a5483978adf6b39093d"
+    }
+  },
+  "version": 1
+}

@@ -1,0 +1,221 @@
+module = "qualification"
+schema = "qual"
+uses = ["physical", "provenance", "identity", "observables", "parameters"]
+doc = """
+What has been established about the knowledge base itself: which forms reproduce their sources,
+and what each library can calculate. Qualification records are evidence about this store; they
+are not thermodynamic knowledge and never feed a snapshot. The capability inventory catalogues
+calculations; no algorithm is ported.
+"""
+
+[enums.comparison_basis]
+doc = "What a qualification run compared against."
+members.source_library = { doc = "The installed source library evaluating its own model." }
+members.verification_table = { doc = "Values a standard publishes for checking implementations." }
+members.independent_evaluation = { doc = "Evaluated data that does not share the form's code or fit." }
+members.second_carrier = { doc = "The same published values carried by another library." }
+
+[enums.run_outcome]
+doc = "How a qualification run ended."
+members.passed = { doc = "Every point agreed within the declared tolerance." }
+members.failed = { doc = "At least one point disagreed beyond the tolerance." }
+members.blocked = { doc = "The run could not be carried out; the reason is recorded." }
+
+[enums.capability_evidence]
+doc = "How a capability claim was established."
+members.documentation = { doc = "Stated by the library's documentation." }
+members.source_inspected = { doc = "Found by reading the library's source." }
+members.executed = { doc = "Exercised in an oracle harness." }
+
+[kinds.qualification_run]
+doc = "One comparison of a form, evaluated from canonical records, against an independent answer over a declared domain."
+identity = ["key"]
+provenance = "none"
+
+[kinds.qualification_run.attributes]
+key = { type = "Text", doc = "Stable key: form, parameter set or sets, comparison basis and declaration fingerprint." }
+form = { type = "Meta<form>", doc = "The form evaluated." }
+expression_hash = { type = "Hash", doc = "Hash of what evaluating the compared output reads from the form's text (its locals, the output's expression and its implicit blocks, canonically serialised): the run speaks for the form only while the form's current hash in `meta.form_output.evaluation_hash` equals it." }
+basis = { type = "comparison_basis", doc = "What it was compared against." }
+reference = { type = "source", optional = true, doc = "The library release or publication that supplied the reference answers; absent for a run blocked before the reference was known." }
+outcome = { type = "run_outcome", doc = "How the run ended." }
+points = { type = "Integer", doc = "Number of points compared." }
+relative_tolerance = { type = "Scalar", doc = "Declared relative tolerance." }
+observable = { type = "observable", optional = true, doc = "The observable of the contract output compared, where the output denotes one." }
+absolute_tolerance = { type = "Real", unit_from = "observable", optional = true, doc = "Declared absolute tolerance in the observable's storage unit." }
+worst_relative_deviation = { type = "Scalar", optional = true, doc = "Largest relative deviation observed." }
+note = { type = "Text", optional = true, doc = "Reason for a blocked run, or what the domain excluded." }
+
+[[kinds.qualification_run.requires]]
+name = "absolute_tolerance_needs_observable"
+doc = "An absolute tolerance is stated only for a run that names the observable whose unit it is in."
+enforced = "verify"
+
+[relations.run_parameter_set]
+doc = "A parameter set a qualification run evaluated."
+provenance = "none"
+absence = "optional"
+
+[relations.run_parameter_set.keys]
+run = { type = "qualification_run", doc = "The run." }
+parameter_set = { type = "parameter_set", doc = "A set it evaluated." }
+
+[kinds.calculation]
+doc = "A kind of calculation a thermodynamic library offers: a problem it solves, not a model form. Constrained Gibbs minimisation and phase stability are calculations."
+identity = ["key"]
+provenance = "declaration"
+
+[kinds.calculation.attributes]
+key = { type = "Text", doc = "Stable key." }
+title = { type = "Text", doc = "Name of the calculation." }
+
+[entities.calculation.flash_tp]
+doc = "Phase equilibrium at specified temperature, pressure and overall composition."
+key = "flash_tp"
+title = "Isothermal-isobaric flash"
+
+[entities.calculation.flash_ph]
+doc = "Phase equilibrium at specified pressure, enthalpy and overall composition."
+key = "flash_ph"
+title = "Isobaric-isenthalpic flash"
+
+[entities.calculation.flash_ps]
+doc = "Phase equilibrium at specified pressure, entropy and overall composition."
+key = "flash_ps"
+title = "Isobaric-isentropic flash"
+
+[entities.calculation.flash_uv]
+doc = "Phase equilibrium at specified internal energy, volume and overall composition."
+key = "flash_uv"
+title = "Isochoric-isoenergetic flash"
+
+[entities.calculation.bubble_dew_point]
+doc = "Incipient-phase temperature or pressure at a specified composition."
+key = "bubble_dew_point"
+title = "Bubble and dew points"
+
+[entities.calculation.phase_stability]
+doc = "Whether a phase is stable against splitting, by tangent-plane analysis or an equivalent test."
+key = "phase_stability"
+title = "Phase stability analysis"
+
+[entities.calculation.critical_point]
+doc = "Critical points of a pure fluid or a mixture."
+key = "critical_point"
+title = "Critical point calculation"
+
+[entities.calculation.phase_envelope]
+doc = "Tracing of phase boundaries in the pressure-temperature or composition plane."
+key = "phase_envelope"
+title = "Phase envelope tracing"
+
+[entities.calculation.gibbs_minimization]
+doc = "Equilibrium by minimisation of Gibbs energy subject to conservation constraints, over a declared set of species and phases."
+key = "gibbs_minimization"
+title = "Constrained Gibbs energy minimisation"
+
+[entities.calculation.aqueous_speciation]
+doc = "Distribution of aqueous species from total concentrations and equilibrium constants."
+key = "aqueous_speciation"
+title = "Aqueous speciation"
+
+[entities.calculation.characterization]
+doc = "Generation of pseudo-components and their parameters from assay data."
+key = "characterization"
+title = "Petroleum characterisation"
+
+[entities.calculation.parameter_regression]
+doc = "Fitting of model parameters to evidence."
+key = "parameter_regression"
+title = "Parameter regression"
+
+[entities.calculation.group_estimation]
+doc = "Estimation of properties or parameters from a group decomposition."
+key = "group_estimation"
+title = "Group-contribution estimation"
+
+[entities.calculation.interfacial_profile]
+doc = "Density profile and tension of an interface from a free-energy functional."
+key = "interfacial_profile"
+title = "Interfacial profile calculation"
+
+[entities.calculation.adsorption_mixture_prediction]
+doc = "Multicomponent adsorption predicted from pure-component isotherms."
+key = "adsorption_mixture_prediction"
+title = "Mixture adsorption prediction"
+
+[relations.capability]
+doc = "A library release offers a calculation. The claim records how it was established."
+provenance = "none"
+absence = "optional"
+
+[relations.capability.keys]
+library = { type = "source", doc = "The library release." }
+calculation = { type = "calculation", doc = "The calculation offered." }
+scope = { type = "Text", doc = "The model families or phase kinds the claim is limited to; empty when unrestricted." }
+
+[relations.capability.columns]
+evidence = { type = "capability_evidence", doc = "How the claim was established." }
+locator = { type = "Text", optional = true, doc = "Where in the documentation or source the capability is found." }
+
+# ---------------------------------------------------------------- mapping rules and coverage
+
+[enums.table_disposition]
+doc = "What a mapping does with a source-faithful table."
+members.mapped = { doc = "Its rows are mapped to canonical records." }
+members.out_of_scope = { doc = "Its content is outside the knowledge base; the reason is recorded." }
+members.deferred = { doc = "It will be mapped in a later wave." }
+
+[enums.row_state]
+doc = "The state a source-faithful row ends in after mapping."
+members.mapped = { doc = "Mapped exactly." }
+members.mapped_with_loss = { doc = "Mapped under a rule that declares a loss or an assumption." }
+members.out_of_scope = { doc = "Belongs to an out-of-scope table or rule." }
+members.deferred = { doc = "Belongs to a table deferred to a later wave." }
+members.held = { doc = "Not loaded because its subject is ambiguous or it failed validation; the reason is recorded." }
+members.unmapped = { doc = "Read by the mapping, which emitted nothing for it." }
+
+[kinds.mapping_rule]
+doc = "One declared rule of a mapping: a field of a source-faithful table and the canonical target it becomes, with the unit conversion applied and what the mapping loses or assumes."
+identity = ["manifest_id", "source_table", "source_field"]
+provenance = "none"
+
+[kinds.mapping_rule.attributes]
+manifest_id = { type = "Text", doc = "The source the mapping is for." }
+source_table = { type = "Text", doc = "The source-faithful table." }
+source_field = { type = "Text", doc = "The field; empty for a rule about the table as a whole." }
+disposition = { type = "table_disposition", doc = "What the mapping does with the table." }
+target = { type = "Text", optional = true, doc = "The canonical target: a kind attribute, a relation value or a form.group.slot." }
+source_unit = { type = "Text", optional = true, doc = "The unit of the source values as the mapping declares it." }
+factor = { type = "Real", unit_from = "dimensionless", optional = true, doc = "The factor from the source unit to the target's storage unit." }
+precision = { type = "mapping_precision", optional = true, doc = "How closely the source's meaning matches the target." }
+loss = { type = "Text", optional = true, doc = "What the rule loses or assumes, or why the table is out of scope or deferred." }
+
+[kinds.mapping_coverage]
+doc = "How many rows of a source-faithful table ended in each state in one build."
+identity = ["manifest_id", "source_table", "state"]
+provenance = "none"
+
+[kinds.mapping_coverage.attributes]
+manifest_id = { type = "Text", doc = "The source." }
+source_table = { type = "Text", doc = "The source-faithful table." }
+state = { type = "row_state", doc = "The state." }
+rows = { type = "Integer", doc = "Number of rows in that state." }
+
+[[kinds.mapping_coverage.requires]]
+name = "rows_nonnegative"
+doc = "A row count is not negative."
+enforced = "ddl"
+check = { nonnegative = "rows" }
+
+[kinds.held_row]
+doc = "A source-faithful row that was not loaded, with the reason."
+identity = ["manifest_id", "source_table", "locator"]
+provenance = "none"
+
+[kinds.held_row.attributes]
+manifest_id = { type = "Text", doc = "The source." }
+source_table = { type = "Text", doc = "The source-faithful table." }
+locator = { type = "Text", doc = "The row's locator." }
+state = { type = "row_state", doc = "`held` or `unmapped`." }
+reason = { type = "Text", doc = "Why it was not loaded." }

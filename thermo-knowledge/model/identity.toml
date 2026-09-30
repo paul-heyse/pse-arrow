@@ -1,0 +1,494 @@
+module = "identity"
+schema = "tk"
+uses = ["physical", "provenance"]
+doc = """
+Material identity and structure: what a composition coordinate can index, how sources name it,
+and how molecules are cut into groups and sites. Identity is never a name. A source's name or
+registry number is an assertion that may be unresolved, ambiguous or wrong, and it stays an
+assertion until it is resolved to exactly one entity.
+"""
+
+[identifier_schemes.inchikey]
+doc = "IUPAC standard InChIKey. Opaque."
+
+# ---------------------------------------------------------------- vocabularies
+
+[kinds.aggregation]
+doc = "A state of aggregation. `aqueous` is deliberately not one: it is a liquid with a solvent convention."
+identity = ["name"]
+provenance = "declaration"
+
+[kinds.aggregation.attributes]
+name = { type = "Text", doc = "Name of the state." }
+
+[entities.aggregation.gas]
+doc = "Gas or vapour."
+
+[entities.aggregation.liquid]
+doc = "Liquid."
+
+[entities.aggregation.fluid]
+doc = "A fluid whose liquid or gas character is not distinguished, as in a single-phase equation of state or a supercritical state."
+
+[entities.aggregation.crystalline]
+doc = "Crystalline solid; may carry a polymorph."
+
+[entities.aggregation.amorphous]
+doc = "Amorphous solid or glass."
+
+[entities.aggregation.adsorbed]
+doc = "Adsorbed on or bound to a surface or host."
+
+[kinds.naming_scheme]
+doc = "A system of names or registry identifiers that sources use to refer to material: a registry, a structure notation, or a source's own labels."
+identity = ["name"]
+provenance = "declaration"
+
+[kinds.naming_scheme.attributes]
+name = { type = "Text", doc = "Name of the scheme." }
+structural = { type = "Boolean", doc = "True when the value encodes chemical structure, so equal canonical values imply equal structure." }
+registry = { type = "Boolean", doc = "True when the value is an entry in an external registry of substances, so that the corpus can cross-reference it to a structure." }
+
+[entities.naming_scheme.cas]
+doc = "CAS Registry Number."
+structural = false
+registry = true
+
+[entities.naming_scheme.inchikey]
+doc = "Standard InChIKey."
+structural = true
+registry = false
+
+[entities.naming_scheme.inchi]
+doc = "Standard InChI."
+structural = true
+registry = false
+
+[entities.naming_scheme.smiles]
+doc = "SMILES as written by the source; not canonical."
+structural = true
+registry = false
+
+[entities.naming_scheme.pubchem_cid]
+doc = "PubChem compound identifier."
+structural = false
+registry = true
+
+[entities.naming_scheme.formula]
+doc = "A chemical formula string as written by the source."
+structural = false
+registry = false
+
+[entities.naming_scheme.name]
+doc = "A common, systematic or trade name."
+structural = false
+registry = false
+
+[entities.naming_scheme.source_local]
+doc = "A label that has meaning only inside the asserting source."
+structural = false
+registry = false
+
+[enums.resolution_status]
+doc = "Where the resolution of a source entity stands."
+members.unique = { doc = "Resolved to exactly one canonical entity." }
+members.ambiguous = { doc = "Several candidates remain; none is chosen and the target is provisional." }
+members.unresolved = { doc = "No candidate was established; the target is provisional." }
+members.rejected = { doc = "A curated decision says the source's identification is wrong." }
+
+[enums.resolution_rule]
+doc = "Which rule decided the resolution of a source entity."
+members.curated = { doc = "A curated decision in the identity ledger." }
+members.structural = { doc = "A structural identifier: a standard InChIKey, given or computed from a structure notation." }
+members.registry = { doc = "A registry identifier that the corpus maps to exactly one structure." }
+members.formula_scope = { doc = "Formula and charge, within a scope the mapping declares as formula-identified." }
+members.provisional = { doc = "No rule applied; the entity stands for this source entity alone." }
+
+[enums.conserved_kind]
+doc = "What kind of thing a formula matrix conserves."
+members.element = { doc = "A chemical element." }
+members.charge = { doc = "Electric charge." }
+members.site_total = { doc = "A total of exchange, surface or lattice sites." }
+
+[enums.pseudo_component_kind]
+doc = "Why an entity has no chemical formula."
+members.assay_cut = { doc = "A boiling-range or carbon-number cut from a characterisation." }
+members.lump = { doc = "A lump of several real or pseudo components." }
+members.abstract_component = { doc = "A model component defined by fiat, such as a polymer-solution component with only a size." }
+
+[enums.group_scheme_role]
+doc = "What the groups of a scheme are used for."
+members.activity = { doc = "Groups of an activity-coefficient model." }
+members.equation_of_state = { doc = "Groups of a group-contribution equation of state." }
+members.additive_increment = { doc = "Additive property increments." }
+members.correction_tree = { doc = "A hierarchical tree of structural corrections matched by pattern." }
+members.reaction_template = { doc = "Reactive-site patterns of a reaction family." }
+
+[enums.dataless_node_rule]
+doc = "What an estimator does at a node of a hierarchical scheme that holds no data. Such a node is an instruction, not missing data."
+members.nearest_ancestor = { doc = "Use the nearest ancestor that holds data." }
+members.average_of_children = { doc = "Use the average of the children that hold data." }
+members.not_applicable = { doc = "The scheme is not hierarchical, or every node holds data." }
+
+[enums.group_role]
+doc = "Whether a group row is a fragment or a class that partitions fragments."
+members.group = { doc = "A structural fragment." }
+members.partition_class = { doc = "A class that groups fragments for interaction purposes, such as a UNIFAC main group." }
+
+[enums.assignment_origin]
+doc = "How a decomposition into groups was obtained."
+members.published = { doc = "Stated by the source." }
+members.matcher_derived = { doc = "Produced by a structure-matching procedure." }
+
+[enums.mixture_definition]
+doc = "Why a defined mixture's composition is fixed."
+members.by_definition = { doc = "Fixed by a standard or a product definition." }
+members.by_measurement = { doc = "A measured composition adopted as the definition." }
+
+[enums.purity_basis]
+doc = "The basis of a stated purity."
+members.mole = { doc = "Mole fraction." }
+members.mass = { doc = "Mass fraction." }
+members.volume = { doc = "Volume fraction." }
+members.not_stated = { doc = "The source does not say." }
+
+[enums.weighting]
+doc = "How a distribution over a molecular attribute is weighted."
+members.number = { doc = "Number- or mole-weighted." }
+members.mass = { doc = "Mass-weighted." }
+members.area = { doc = "Surface-area-weighted, as in a sigma profile." }
+
+# ---------------------------------------------------------------- conserved quantities and elements
+
+[kinds.conserved_quantity]
+doc = "Anything a formula matrix conserves. A balance may be claimed only over declared quantities."
+identity = ["key"]
+provenance = "own"
+traces = ["IC-05"]
+
+[kinds.conserved_quantity.attributes]
+key = { type = "Text", doc = "Element symbol, `charge`, or a site label qualified by its chemical system." }
+kind = { type = "conserved_kind", doc = "What kind of quantity it is." }
+
+[kinds.element]
+doc = "A chemical element. Its standard atomic weight belongs to an atomic-weight edition, not to the element."
+extends = "conserved_quantity"
+
+[kinds.element.attributes]
+atomic_number = { type = "Integer", unique = true, doc = "Atomic number." }
+symbol = { type = "Text", unique = true, doc = "Element symbol." }
+
+[[kinds.element.requires]]
+name = "atomic_number_positive"
+doc = "Atomic numbers start at one."
+enforced = "ddl"
+check = { positive = "atomic_number" }
+
+# ---------------------------------------------------------------- material entities
+
+[kinds.material_entity]
+doc = "Anything a composition coordinate can index. It requires no formula, registry number or molar mass."
+abstract = true
+identity = ["canonical_key"]
+provenance = "own"
+traces = ["IC-01"]
+
+[kinds.material_entity.attributes]
+canonical_key = { type = "Text", doc = "The identity value, computed by the rule of the refinement (see each refinement)." }
+label = { type = "Text", doc = "A preferred display name. Never identity." }
+provisional = { type = "Boolean", default = false, doc = "True when the entity stands for one source entity that has not been identified with a canonical entity. Records about a provisional entity are usable within their carrier and are not joined across carriers." }
+
+[kinds.species]
+doc = "A chemical identity: formula, charge and, where known, structure. A vacancy and the electron are species with an empty formula. Canonical key: the standard InChIKey where one is resolved, otherwise formula, charge and a declared discriminator."
+extends = "material_entity"
+traces = ["IC-01"]
+
+[kinds.species.attributes]
+charge = { type = "ChargeNumber", default = 0, doc = "Net charge number." }
+inchikey = { type = "Id<inchikey>", optional = true, unique = true, doc = "The resolved standard InChIKey." }
+
+[[kinds.species.requires]]
+name = "charge_matches_composition"
+doc = "The charge equals the species' composition entry for the charge quantity."
+enforced = "verify"
+
+[relations.composition]
+doc = "How much of a conserved quantity one formula unit of an entity contains: atoms of an element, units of charge, or sites."
+provenance = "inherit:entity"
+absence = { default = 0 }
+value = { type = "Count", doc = "The value." }
+
+[relations.composition.keys]
+entity = { type = "material_entity", doc = "The entity whose formula this is." }
+quantity = { type = "conserved_quantity", doc = "The conserved quantity." }
+
+[kinds.species_form]
+doc = "A species in a state of aggregation and, for a crystalline solid, a polymorph. This is what thermochemical databases call a species or substance, and what reactions and standard-state data are about. Canonical key: species key, aggregation and polymorph."
+extends = "material_entity"
+
+[kinds.species_form.attributes]
+species = { type = "species", doc = "The chemical identity." }
+aggregation = { type = "aggregation", doc = "The state of aggregation." }
+polymorph = { type = "Text", optional = true, doc = "Polymorph or structure designation for a crystalline form." }
+
+[[kinds.species_form.unique]]
+attributes = ["species", "aggregation", "polymorph"]
+
+[[kinds.species_form.requires]]
+name = "polymorph_only_for_crystalline"
+doc = "A polymorph is stated only for crystalline forms."
+enforced = "verify"
+
+[kinds.pseudo_component]
+doc = "An entity defined by characterisation or by fiat, without a formula. Its molar mass is asserted or estimated with provenance, never derived. Canonical key: the derivation that produced it and its index, or its own declared key."
+extends = "material_entity"
+traces = ["IC-01"]
+
+[kinds.pseudo_component.attributes]
+kind = { type = "pseudo_component_kind", doc = "Why it has no formula." }
+produced_by = { type = "derivation", optional = true, doc = "The characterisation that produced it." }
+
+[kinds.polymer_type]
+doc = "A polymer identified by its repeat units and architecture. A molar-mass distribution is a property of a sample or mixture, not of the type."
+extends = "material_entity"
+
+[kinds.polymer_type.attributes]
+architecture = { type = "Text", optional = true, doc = "Linear, branched, block and similar, as the source states it." }
+
+[relations.repeat_unit]
+doc = "A species that is a repeat unit of a polymer type."
+provenance = "inherit:polymer"
+absence = "optional"
+value = { type = "Fraction", doc = "The value." }
+
+[relations.repeat_unit.keys]
+polymer = { type = "polymer_type", doc = "The polymer type." }
+unit = { type = "species", doc = "A repeat unit." }
+
+[kinds.defined_mixture]
+doc = "A fixed-composition blend that sources treat as one entity, such as air, a refrigerant blend or normal hydrogen."
+extends = "material_entity"
+
+[kinds.defined_mixture.attributes]
+definition = { type = "mixture_definition", doc = "Why the composition is fixed." }
+mole_basis = { type = "Boolean", doc = "True when the component fractions are mole fractions, false for mass fractions." }
+
+[relations.mixture_component]
+doc = "The fraction of a component in a defined mixture."
+provenance = "inherit:mixture"
+absence = "optional"
+value = { type = "Fraction", doc = "The value." }
+
+[[relations.mixture_component.requires]]
+name = "fractions_close"
+doc = "The fractions of the components of a defined mixture sum to one within 1e-6."
+enforced = "verify"
+
+[relations.mixture_component.keys]
+mixture = { type = "defined_mixture", doc = "The mixture." }
+component = { type = "material_entity", doc = "A component." }
+
+[kinds.material]
+doc = "A solid host or adsorbent identified by a registry or name, not by composition."
+extends = "material_entity"
+
+[kinds.material.attributes]
+registry_key = { type = "Text", optional = true, doc = "The identifier in the registry that defines it." }
+
+[kinds.sample]
+doc = "A physical batch of an entity as used in a measurement."
+identity = ["carrier", "local_key"]
+provenance = "own"
+
+[kinds.sample.attributes]
+carrier = { type = "carrier", doc = "The carrier that describes the sample." }
+local_key = { type = "Text", doc = "The sample's key within that carrier." }
+entity = { type = "material_entity", doc = "What the sample is a batch of." }
+purity = { type = "Fraction", optional = true, doc = "Final stated purity." }
+purity_basis = { type = "purity_basis", doc = "Basis of the stated purity." }
+supplier = { type = "Text", optional = true, doc = "Where the sample came from." }
+
+# ---------------------------------------------------------------- source entities and assertions
+
+[kinds.source_entity]
+doc = "The thing a carrier means by one of its keys: a file name, a row name, a registry number used as a key. A source's records are about source entities until resolution identifies each with a material entity. A provider name is never silently promoted to a canonical identity."
+identity = ["carrier", "scope", "local_key"]
+provenance = "own"
+traces = ["IC-02", "SI-01"]
+
+[kinds.source_entity.attributes]
+carrier = { type = "carrier", doc = "The carrier whose key this is." }
+scope = { type = "Text", doc = "The context within the carrier in which the key is unique, such as a table or database file; empty when carrier-wide." }
+local_key = { type = "Text", doc = "The key, verbatim." }
+aggregation = { type = "aggregation", optional = true, doc = "The state of aggregation the source states for the entity, when its records are about a form rather than a chemical identity." }
+polymorph = { type = "Text", optional = true, doc = "The polymorph or structure designation the source states." }
+stated_charge = { type = "ChargeNumber", optional = true, doc = "The net charge the source states for the entity, where it states one." }
+status = { type = "resolution_status", doc = "Where its resolution stands." }
+rule = { type = "resolution_rule", doc = "Which rule decided it." }
+target = { type = "material_entity", doc = "The entity its records are attached to: the canonical entity when resolved, otherwise a provisional one." }
+
+[[kinds.source_entity.requires]]
+name = "local_key_nonempty"
+doc = "A source entity has a key."
+enforced = "ddl"
+check = { nonempty = "local_key" }
+
+[[kinds.source_entity.requires]]
+name = "provisional_target_matches_status"
+doc = "The target is provisional exactly when the status is ambiguous, unresolved or rejected; a unique status has a canonical target."
+enforced = "verify"
+
+[kinds.identity_assertion]
+doc = "One identifier or name a source gives for a source entity. The value is kept verbatim and is never parsed for meaning."
+identity = ["source_entity", "scheme", "value"]
+provenance = "inherit:source_entity"
+traces = ["IC-02"]
+
+[kinds.identity_assertion.attributes]
+source_entity = { type = "source_entity", doc = "The source entity the identifier is given for." }
+scheme = { type = "naming_scheme", doc = "The naming scheme of the value." }
+value = { type = "Text", doc = "The identifier or name, verbatim." }
+
+[[kinds.identity_assertion.requires]]
+name = "value_nonempty"
+doc = "An assertion asserts something."
+enforced = "ddl"
+check = { nonempty = "value" }
+
+[relations.resolution_candidate]
+doc = "A canonical entity that remained a candidate for an ambiguous source entity."
+provenance = "inherit:source_entity"
+absence = "optional"
+
+[relations.resolution_candidate.keys]
+source_entity = { type = "source_entity", doc = "The ambiguous source entity." }
+candidate = { type = "material_entity", doc = "A candidate." }
+
+# ---------------------------------------------------------------- groups and sites
+
+[kinds.group_scheme]
+doc = "One published way of cutting molecules into groups, at one revision. Groups, partitions and assignments are scoped to it."
+identity = ["key", "revision"]
+provenance = "own"
+
+[kinds.group_scheme.attributes]
+key = { type = "Text", doc = "Stable key of the scheme." }
+revision = { type = "Text", doc = "Revision or publication year." }
+role = { type = "group_scheme_role", doc = "What its groups are used for." }
+dataless_rule = { type = "dataless_node_rule", default = "not_applicable", doc = "What an estimator does at a node that holds no data." }
+
+[kinds.group]
+doc = "A structural fragment, or a class of fragments, within a scheme."
+identity = ["scheme", "label"]
+provenance = "own"
+
+[kinds.group.attributes]
+scheme = { type = "group_scheme", doc = "The scheme the group belongs to." }
+label = { type = "Text", doc = "The group's label in that scheme." }
+role = { type = "group_role", doc = "Fragment or partition class." }
+partition_class = { type = "group", optional = true, doc = "The class this fragment belongs to, such as its main group." }
+parent = { type = "group", optional = true, doc = "The parent node in a hierarchical scheme." }
+position = { type = "Integer", optional = true, doc = "Position among the children of its parent, from one. Matching descends to the first child that matches, so sibling order is part of the scheme." }
+pattern = { type = "SourceText", optional = true, doc = "The structural pattern in the source's own pattern language. Retained; nothing branches on it." }
+
+[[kinds.group.requires]]
+name = "parent_acyclic_same_scheme"
+doc = "Parent and partition class belong to the same scheme, and the parent relation has no cycle."
+enforced = "verify"
+
+[kinds.group_assignment]
+doc = "One source's decomposition of an entity into the groups of a scheme. Competing decompositions coexist."
+identity = ["entity", "scheme", "asserted_by"]
+provenance = "own"
+
+[kinds.group_assignment.attributes]
+entity = { type = "material_entity", doc = "The entity decomposed." }
+scheme = { type = "group_scheme", doc = "The scheme used." }
+asserted_by = { type = "carrier", doc = "The carrier that states the decomposition." }
+origin = { type = "assignment_origin", doc = "How it was obtained." }
+
+[relations.group_count]
+doc = "How many times a group occurs in an assignment."
+provenance = "inherit:assignment"
+absence = { default = 0 }
+value = { type = "Count", doc = "The value." }
+
+[relations.group_count.keys]
+assignment = { type = "group_assignment", doc = "The assignment." }
+group = { type = "group", doc = "A group." }
+
+[[relations.group_count.requires]]
+name = "group_in_assignment_scheme"
+doc = "The group belongs to the scheme of the assignment."
+enforced = "verify"
+
+[kinds.site_scheme]
+doc = "A named way of assigning association sites, such as 2B or 4C. It is part of a parameterisation: the same species under two site schemes is two different sets of parameters."
+identity = ["key"]
+provenance = "own"
+
+[kinds.site_scheme.attributes]
+key = { type = "Text", doc = "Stable key of the scheme." }
+
+[kinds.association_site]
+doc = "A bonding site type on a species or a group under a site scheme."
+identity = ["scheme", "carrier_key", "label"]
+provenance = "own"
+
+[kinds.association_site.attributes]
+scheme = { type = "site_scheme", doc = "The site scheme." }
+carrier_key = { type = "Text", doc = "Identifier of the species or group that carries the site, as text, so the identity is one tuple for both cases." }
+label = { type = "Text", doc = "The site label, such as H or e." }
+on_entity = { type = "material_entity", optional = true, doc = "The entity carrying the site." }
+on_group = { type = "group", optional = true, doc = "The group carrying the site." }
+multiplicity = { type = "Count", doc = "How many such sites the carrier has." }
+
+[[kinds.association_site.requires]]
+name = "carrier_key_matches_carrier"
+doc = "The carrier key is the identifier of the entity or the group the site names."
+enforced = "verify"
+
+[[kinds.association_site.requires]]
+name = "one_carrier"
+doc = "A site sits on exactly one of an entity or a group."
+enforced = "ddl"
+check = { one_of_present = ["on_entity", "on_group"] }
+
+[[kinds.association_site.requires]]
+name = "multiplicity_nonnegative"
+doc = "A multiplicity is not negative."
+enforced = "ddl"
+check = { nonnegative = "multiplicity" }
+
+[kinds.distributed_attribute]
+doc = "The meaning of a distribution attached to material: what it is distributed over, how it is weighted and how it is normalised."
+identity = ["key"]
+provenance = "declaration"
+traces = ["IC-08"]
+
+[kinds.distributed_attribute.attributes]
+key = { type = "Text", doc = "Stable key." }
+support = { type = "Meta<quantity_type>", doc = "The quantity type of the coordinate the distribution is over." }
+weighting = { type = "weighting", doc = "How it is weighted." }
+density = { type = "Boolean", doc = "True for a density over the support, false for weights in bins." }
+
+[entities.distributed_attribute.sigma_profile]
+doc = "Surface area of a molecule's cavity per screening-charge-density bin."
+key = "sigma_profile"
+support = "SurfaceChargeDensity"
+weighting = "area"
+density = false
+
+[entities.distributed_attribute.molar_mass_distribution_number]
+doc = "Number distribution of chain molar mass."
+key = "molar_mass_distribution_number"
+support = "MolarMass"
+weighting = "number"
+density = true
+
+[entities.distributed_attribute.molar_mass_distribution_mass]
+doc = "Mass distribution of chain molar mass."
+key = "molar_mass_distribution_mass"
+support = "MolarMass"
+weighting = "mass"
+density = true

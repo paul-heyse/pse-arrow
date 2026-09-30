@@ -1,0 +1,36 @@
+module = "expr_operators"
+uses = ["physical", "identity", "exprtypes"]
+doc = "Operators, functions, conditions, index arithmetic and derivatives with respect to an indexed argument."
+
+[contracts.demo]
+doc = "Dimensionless functions of a temperature and a composition."
+sets.components = { type = "material_entity", doc = "The components." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+arguments.x = { type = "Scalar", over = [
+  "components",
+], basis = "mole_fraction", doc = "Composition." }
+outputs.clip = { type = "Scalar", doc = "The reduced temperature clipped to an interval." }
+outputs.branch = { type = "Scalar", doc = "A piecewise function of temperature." }
+outputs.logic = { type = "Scalar", doc = "One inside a temperature window, else zero." }
+outputs.trig = { type = "Scalar", doc = "Elementary functions of the reduced temperature." }
+outputs.series = { type = "Scalar", doc = "A sum over a range and a product over the components." }
+outputs.sens = { type = "Scalar", doc = "A sum of derivatives with respect to composition." }
+outputs.root = { type = "Temperature", doc = "The square root of a squared temperature." }
+
+[forms.operators]
+doc = "Expressions using most of the grammar."
+implements = "demo"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.operators.let]
+z = "T / unit('K') / 1000"
+
+[forms.operators.outputs]
+clip = "max(0, min(T / unit('K') - 300, 50))"
+branch = "T / unit('K') if T < 400 * unit('K') else 400 + (T / unit('K') - 400) / 2"
+logic = "1 if (T > 300 * unit('K') and T < 500 * unit('K')) or T == 250 * unit('K') else 0"
+trig = "sinh(z) + cosh(z) + tanh(z) + sin(z) + cos(z) + atan(z) + log10(1 + z ** 2) + abs(-z)"
+series = "sum(z ** n / (n + 1) for n in range(0, 4)) + prod(1 + x[i] for i in components)"
+sens = "sum(d(prod(1 + x[j] for j in components), x[i]) for i in components)"
+root = "sqrt(T ** 2)"

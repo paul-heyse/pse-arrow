@@ -1,0 +1,1244 @@
+source = "teqp"
+pin = "5f62a6f515d5"
+surveyed = "2026-09-30"
+summary = "teqp v0.23.2 contributes a JSON model-specification language: a document {kind, model} selects and parameterises one of 35 equation-of-state kinds (cubics, SAFT variants, CPA, GERG-2004 and GERG-2008, LKP, multifluid with optional association or activity terms, extended corresponding states, model potentials, ideal-gas Helmholtz terms) and several kinds embed other specifications (multifluid plus activity, generic SAFT of nonpolar and association parts), together with CoolProp-format fluid and mixture JSON (124 fluids, 817 binary pairs, 16 departure functions) and C++-embedded parameter tables (GERG-2004 and GERG-2008, PC-SAFT constants, association matrices, neural-network weights, SAFT polar integrals, cubic superancillaries). It has derivative-based algorithms (pure and mixture critical points, VLE, VLLE and critical tracing, multiphase equilibrium polishing) and no flash routine; only 14 of the 35 kinds have a JSON Schema, and the schemas lag the factory code in several places."
+
+# ---------------------------------------------------------------------------
+# PAYLOADS
+# ---------------------------------------------------------------------------
+
+[[payload]]
+paths = ["teqp/fluiddata/dev/fluids/*.json"]
+format = "JSON, one object per file in the CoolProp fluid layout (top-level keys ANCILLARIES, EOS, INFO, STATES in all files and TRANSPORT in 67); keys sorted as in CoolProp; no SUPERANCILLARY block in any file"
+files = 124
+bytes = 1577019
+records = "124 fluid objects and 145 EOS entries (103 files carry one EOS entry, 21 carry two), counted by json.load; 6 EOS[0] entries are pseudo-pure (Air, R404A, R407C, R410A, R507A, SES36); EOS[0] holds 202 residual term objects with 2308 coefficient rows"
+reader = "teqp's own multifluid loader: make_pure_components_JSON and get_EOS_terms in include/teqp/models/multifluid.hpp (lines 1020 and 530), build_alias_map (line 907); the path or the fluid name is looked up in root/dev/fluids; any JSON parser reads the files"
+read_by_source = "partly"
+notes = "Same layout and key names as coolprop.toml's fluid record, with the differences measured against the pinned CoolProp tree: 1 of 124 files is byte-identical (SES36.json); 97 (including the byte-identical one) are equal to the CoolProp file after deleting the SUPERANCILLARY blocks from CoolProp's EOS entries; 27 differ in content beyond that (Air, Ammonia, CarbonDioxide, Cyclopentane, Deuterium, DiethylEther, DimethylEther, HeavyWater, Helium, HydrogenChloride, MD2M, Methanol, Neon, OrthoDeuterium, OrthoHydrogen, ParaDeuterium, ParaHydrogen, R1123, R1233zd(E), R1234yf, R1234ze(E), R1234ze(Z), R1243zf, R125, R236EA, R40, n-Pentane); 12 CoolProp fluids are absent (Chlorine, PropyleneGlycol, R1130(E), R1132(E), R1224yd(Z), R1336mzz(E), R1336mzz(Z), Tetrahydrofuran, VinylChloride and three perfluoroalkanes). The loader reads INFO (NAME, CAS, REFPROP_NAME, ALIASES, optional HASH) and EOS[0] (gas_constant, STATES/reducing/T and rhomolar, alphar) and keeps the whole pure JSON, including ANCILLARIES, as model metadata; alpha0 is read only by the separate ideal-gas converter. The ALIASES, NAME, CAS and REFPROP_NAME values are unique over the tree (alias-map construction throws on a duplicate; measured none). The alphar of Methanol contains a ResidualHelmholtzAssociating term that the loader's list of allowed types does not include, so the multifluid kind refuses that file (measured: it is the only such file)."
+
+[[payload]]
+paths = [
+  "teqp/fluiddata/dev/mixtures/mixture_binary_pairs.json",
+  "teqp/fluiddata/dev/mixtures/mixture_departure_functions.json",
+]
+format = "JSON arrays in the CoolProp mixture-file layout: binary pair objects (Name1, Name2, CAS1, CAS2, BibTeX, F and betaT, betaV, gammaT, gammaV or xi and zeta, optional function) and departure-function objects (Name, aliases, BibTeX, type, n, d, t and type-dependent arrays)"
+files = 2
+bytes = 205840
+records = "817 binary pair records (784 with betas, gammas and F = 0; 27 with betas, gammas, F and function; 6 with xi, zeta, F and function), 16 departure functions (Exponential 7, GERG-2008 9), counted by json.load"
+reader = "reducing::get_BIPdep and get_binary_interaction_double (include/teqp/models/multifluid_reducing.hpp lines 9 and 88) and get_departure_function_matrix (multifluid.hpp line 487) over the loaded arrays; any JSON parser"
+read_by_source = "all"
+notes = "Against the pinned CoolProp mixture files: 777 pair records are identical to CoolProp's, 38 differ in content, 2 pairs (by CAS) are not in CoolProp and 76 CoolProp pairs are absent (measured by CAS-pair key); all 16 departure functions are identical to CoolProp's records and 12 CoolProp functions (Helium-Argon, Helium-Neon, Neon-Argon and nine refrigerant pairs) are absent. Three CAS pairs occur twice in the teqp pair file with different values (R1234yf with R134a at indices 0 and 755; CO2 with R1234yf at 1 and 406; CO2 with R1234ze(E) at 2 and 407, the first of each with BibTeX Bell-JCED-2016 or Unpublished), which makes the selected record depend on the identifier kind and file order (see selection). BibTeX keys: Bell-JCED-2016 591, Kunz-JCED-2012 195, Gernert-Thesis-2013 15, Unpublished 6, Lemmon-JPCRD-2004 6, Akasaka-FPE-2013 2, Akasaka-Purdue-2014 1, a REFPROP 9.1 statement 1. 138 distinct fluid names occur in the pair file."
+
+[[payload]]
+paths = ["dev/model_schemas.tar.xz", "dev/SchemaBuilder.ipynb"]
+format = "an xz-compressed tar archive with two members, model_schemas.json (38126 bytes, a JSON object of 14 JSON Schema documents keyed by model kind) and model_schemas.cpp (129989 bytes, a C++ source embedding the same schemas), plus the notebook that defines the schemas as pydantic models"
+files = 2
+bytes = 30056
+records = "14 schemas: vdW1, vdW, PR, cubic, CPA, PCSAFT, multifluid-ECS-HuberEly1994, SW_EspindolaHeredia2009, EXP6_Kataoka1992, Mie_Pohl2023, 2CLJF-Dipole, 2CLJF-Quadrupole, IdealHelmholtz, SAFT-VR-Mie (counted by opening the archive in memory; the archive is 9524 bytes and the notebook 20 532; the whole dev directory is 9 442 825 bytes, most of it a Boost archive)"
+reader = "CMakeLists.txt lines 117-121 extract the archive into interface/CPP at configure time and line 217 compiles model_schemas.cpp into teqpcpp; interface/CPP/teqp_impl_factory.cpp line 140 validates the model document against the kind's schema with the nlohmann json-schema validator (JSONValidator in include/teqp/json_tools.hpp)"
+read_by_source = "all"
+notes = "The schemas are not in the tree as plain files: they exist only inside the archive (and in the generated C++ after configuration). The schema set is written from pydantic models in dev/SchemaBuilder.ipynb, which also defines a multifluid model (components, root, departure, BIP, flags) that is absent from the exported archive. README: schema validation is added for most (but not all) models and can be turned off with validate=False."
+
+[[payload]]
+paths = ["include/teqp/models/GERG/GERG.hpp"]
+format = "C++ header of 1228 lines: GERG-2004 (namespace GERG2004, 18 components) and GERG-2008 (namespace GERG2008, 21 components) parameter tables as static maps of function-local data, with pure-fluid, ideal-gas, reducing-parameter, Fij and departure-function accessors and four model classes"
+files = 1
+bytes = 67850
+records = "GERG-2004: 18 pure-info rows, 18 ideal-gas coefficient rows (7 n and 4 theta each), 153 beta and gamma pairs, 15 Fij values, departure coefficients for 7 pair-specific pairs and one generalised function for 8 pairs; GERG-2008: 5 overriding pure-info rows, 72 beta and gamma pairs that override or extend the 153 (15 changed, 57 new), 3 new component entries (hydrogen sulfide, n-nonane, n-decane)"
+reader = "the accessors get_pure_info, get_alphaig_coeffs, get_pure_coeffs, get_betasgammas, get_Fij and get_departurecoeffs in the same header (lines 434, 468, 511, 595, 768, 805 for GERG-2004 and 975, 1133, 1105, 1003 for GERG-2008)"
+read_by_source = "all"
+notes = "Tables are in published form (beta, gamma, eta, epsilon kept separate; n0 with theta scaled by Tc), with unit conversions done on read (mol/dm^3 to mol/m^3, kg/kmol to kg/mol). Measured against the pinned AGA8 tables (aga8.toml): for all 21 components Dc, Tc and molar mass agree exactly; for all 210 pairs beta_v, gamma_v, beta_T, gamma_T agree exactly when the AGA8 isobutane plus n-butane reversal is taken into account as reciprocal betas; the 15 Fij values and the 24 methane residual n values agree exactly. The component order follows the GERG-2004 monograph (n-butane before isobutane, n-pentane before isopentane), unlike AGA8."
+
+[[payload]]
+paths = [
+  "src/data/FEANN.cpp",
+  "src/data/PCSAFT.cpp",
+  "src/data/Dufal_assoc.cpp",
+]
+format = "C++ sources assigning Eigen matrices: FEANN.cpp one flat std::valarray per layer that is remapped into a matrix after a transpose; PCSAFT.cpp three pairs of 3 by 7 arrays a and b; Dufal_assoc.cpp seven 11 by 11 matrices b_0 to b_6 and a map from integer to matrix"
+files = 3
+bytes = 154570
+records = "FEANN: kernel_0 (135 values, 3 by 45), kernel_1 to kernel_3 (2025 values each, 45 by 45), kernel_helmholtz (45 values, 45 by 1) and bias_0 to bias_3 (45 values each), 6435 numbers in total; PC-SAFT: 3 parameter sets of 42 numbers (Gross and Sadowski 2001, Liang 2012, Liang 2014); Dufal: 7 matrices of 121 entries (lower-right triangle zero-filled)"
+reader = "extern const Eigen objects declared in include/teqp/models/mie/mie.hpp (namespace FEANN::FEANNMatrices), include/teqp/models/pcsaft.hpp and include/teqp/models/association/association.hpp; not loadable as data"
+read_by_source = "all"
+notes = "Comments give the sources: PC-SAFT constants from Gross and Sadowski (doi 10.1021/ie0003887), Liang et al. on speed of sound (doi 10.1021/ie3018127) and a new variant of the universal constants (doi 10.1021/ie503925h); the FEANN file header says it holds the matrices of the FeANN model of Chaparro and Mueller for the Mie fluid and that a 45 by 45 comma-initialised matrix crashed a compiler, hence the flat arrays; the Dufal matrices are for the association integral of Dufal et al. (comment in association.hpp)."
+
+[[payload]]
+paths = [
+  "include/teqp/models/saft/correlation_integrals.hpp",
+  "include/teqp/models/saft/polar_terms/GrossVrabec.hpp",
+  "include/teqp/models/cubics/cubicsuperancillary.hpp",
+]
+format = "C++ headers with coefficient tables: Luckas, Gubbins-Twu and Gottschalk J and K integral coefficient maps; Gross-Vrabec multipolar coefficient arrays of length 4 or 5 (sets a0 a1 a2, b0 b1 b2 and c0 c1 c2 for each of the dipole-dipole, quadrupole-quadrupole and dipole-quadrupole integrals); nine Chebyshev superancillary expansions (vdW, SRK and PR, each for pressure, saturated liquid density and saturated vapor density) of 19 coefficients per expansion over the reduced variable T-tilde = R T b / a"
+files = 3
+bytes = 245508
+records = "Luckas J 12 rows (n = 4 to 15, 12 coefficients), Luckas K 4 rows (16 coefficients), Gubbins-Twu J 33 rows (6), Gubbins-Twu K 5 rows (6), Gottschalk J 33 rows (35), Gottschalk K 90 rows (40) (counted by rows of the maps); cubic superancillaries: vdW p, rhoL, rhoV with 6, 20 and 23 expansions, SRK with 6, 20 and 23, PR with 6, 20 and 24 (counted by innermost brace groups), every expansion 19 coefficients, T-tilde ranges 0.0296 to 0.296 (vdW), 0.0203 to 0.203 (SRK), 0.0170 to 0.170 (PR)"
+reader = "the integral classes and supercubic() in the same headers; not loadable as data"
+read_by_source = "all"
+notes = "The headers give the sources of the polar terms in comments (Gross and Vrabec, AIChE J., doi for the quadrupolar term 10.1002/aic.10502 and for the cross term 10.1021/jp072619u; the J and K integrals of Luckas et al., Gubbins and Twu and Gottschalk); the cubic superancillaries are described as those of Bell and Deiters in the comment of GenericCubic::superanc_rhoLV and the file names the expansions without a citation in the header itself."
+
+[[payload]]
+paths = [
+  "include/teqp/models/**/*.hpp",
+  "include/teqp/*.hpp",
+  "include/teqp/algorithms/*.hpp",
+  "include/teqp/cpp/*.hpp",
+  "include/teqp/math/*.hpp",
+]
+format = "C++17 header-only model and algorithm code (71 headers); model constants that are not in the tables above sit inline in the class bodies (Mie6Pohl2023 coefficient arrays, LKP simple and reference-fluid parameters, SoftSAFT and LJ chain aij_Johnson, 2CLJF parameter maps for the Mecke and Lisal variants, the ammonia-water coefficient arrays, the embedded Thol Lennard-Jones EOS as a CoolProp-format JSON string in mie/lennardjones.hpp, the ammonia and water EOS JSON in ammonia_water.hpp, SAFT-VR Mie phi 7 by 7 and A 4 by 4)"
+files = 71
+bytes = 1138653
+records = "35 model kinds in the factory map; 41 headers under models/, 13 under algorithms/, 3 under cpp/, 3 under math/ and 11 at the top level"
+reader = "a C++17 compiler; models are instantiated through interface/CPP/teqp_impl_factory.cpp"
+read_by_source = "all"
+notes = "The Thol Lennard-Jones 12-6 EOS is embedded as a fluid JSON with reducing values in Lennard-Jones units (T 1.32, rho 0.31); the Tillner-Roth ammonia and Wagner water EOS are embedded as complete fluid JSON including ANCILLARIES and STATES. GERG.hpp, correlation_integrals.hpp and cubicsuperancillary.hpp are separate payloads."
+
+[[payload]]
+paths = [
+  "interface/CPP/*.cpp",
+  "interface/C/*",
+  "interface/pybind11_wrapper.cpp",
+  "interface/js/*",
+  "teqp/__init__.py",
+]
+format = "model factories (one compilation unit per family), a C API taking JSON strings (teqpc), a pybind11 wrapper, a JavaScript interface and the Python package init that exposes the data path"
+files = 32
+bytes = 124667
+records = "13 model_factory files plus teqp_impl_factory.cpp and AbstractModel_implementation.cpp in interface/CPP; the factory map has 35 kind entries (vdW1, vdW, PR, SRK, cubic, QCPRAasen, RKPRCismondi2005, advancedPRaEres, SAFT-VR-Mie, PCSAFT, PCSAFTPureGrossSadowski2001, SoftSAFT, genericSAFT, GERG2004resid, GERG2008resid, GERG2004idealgas, GERG2008idealgas, LKP, multifluid, multifluid-ECS-HuberEly1994, multifluid-association, multifluid-activity, AmmoniaWaterTillnerRoth, LJ126_TholJPCRD2016, LJ126_KolafaNezbeda1994, LJ126_Johnson1993, SW_EspindolaHeredia2009, EXP6_Kataoka1992, Mie_Pohl2023, Mie_Chaparro2023, 2CLJF, 2CLJF-Dipole, 2CLJF-Quadrupole, CPA, IdealHelmholtz), counted from the initialiser"
+reader = "build_model_ptr in interface/CPP/teqp_impl_factory.cpp line 130 (kind lookup, optional validation, factory call); Python make_model in the pybind11 wrapper (_make_model with validate default true)"
+read_by_source = "all"
+notes = "Factories can be compiled out by the CMake variable TEQP_DISABLED_FACTORIES (the commented example at CMakeLists.txt line 158 lists CPA, SAFTVRMIE, GENERICSAFT, SQUAREWELL, EXP6, 2CLJF, MIE, MULTIFLUIDACTIVITY, PCSAFT, GERG200X, MULTIFLUIDASSOCIATION and LKP as switch names), in which case the kind raises a not-implemented error; add_model_pointer_factory_function lets a user register a new kind at run time and refuses to overwrite an existing key."
+
+[[payload]]
+paths = [
+  "src/tests/GERG2008.cpp",
+  "src/tests/GERG2008.h",
+  "src/tests/resources/testvalues_sha256.json",
+  "src/tests/*.cxx",
+  "src/tests/catch_fixtures.hpp",
+  "src/tests/test_common.in",
+]
+format = "Catch2 test sources (30 .cxx files, 193 TEST_CASE occurrences counted by grep), an unmodified copy of a NIST AGA8 GERG2008.cpp, and a JSON list of 500 {input, sha256} pairs"
+files = 35
+bytes = 468435
+records = "500 sha256 test pairs in testvalues_sha256.json (each input an InChIKey, the hash of the ASCII string, per the test comment); GERG2008.cpp is the AGA8 code of version 1.7 (June 2016) and differs from the pinned AGA8 version 2.01 in text but all 2121 numeric array assignments of SetupGERG are equal (measured by parsing both)"
+reader = "Catch2; the AGA8 copy is compiled into the GERG tests as a reference implementation"
+read_by_source = "all"
+notes = "The file header says it was taken unmodified from the usnistgov AGA8 repository under the NIST public-domain notice. Its change log (2012 to 2016) is absent from the pinned AGA8 tree. The test values embedded in the test sources (for example GERG reference outputs and multifluid check values) are potential independent verification data; per-case origins are in comments, not in a field."
+
+[[payload]]
+paths = [
+  "doc/source/models/*.FLD",
+  "doc/source/models/HMX.BNC",
+  "doc/source/models/*.csv",
+  "doc/source/fitting/*.csv",
+  "notebooks/NH3H2Odata.csv",
+]
+format = "REFPROP fluid files (R152A.FLD 735 lines, NEWR1234YF.FLD 672 lines: keyed lines such as short name, CAS, molar mass and triple-point temperature with trailing !comment labels), one REFPROP mixture-parameter file (HMX.BNC, 110 lines: binary mixing coefficient blocks with model codes such as B02 and TC5), and CSV data for fitting examples"
+files = 6
+bytes = 1050461
+records = "2 FLD files, 1 HMX.BNC with 3 pair blocks shown, 3 CSV files"
+reader = "teqp calls RPinterop::FLDfile and RPinterop::HMXBNCfile (multifluid kind prefixes FLD::, FLDPATH:: and the HMX.BNC key; exposed as convert_FLD and convert_HMXBNC), defined in the REFPROP-interop submodule whose directory externals/REFPROP-interop is empty in the pinned tree, so the parser source is not among the surveyed bytes"
+read_by_source = "partly"
+notes = "These are documentation inputs; the REFPROP formats are third-party and their reader lives in a submodule that the pinned tree does not contain. FLD files state their own default reference state (for example IIR in R152A.FLD) and a version number."
+
+[[payload]]
+paths = ["doc/**/*.ipynb", "notebooks/*.ipynb", "README.md"]
+format = "Jupyter notebooks documenting models, algorithms, fitting and recipes (36 under doc, 11 under notebooks) and a README with the model list and a long change history"
+files = 48
+bytes = 720284
+records = "not applicable: documentation"
+reader = "a notebook reader"
+read_by_source = "none"
+notes = "The README lists the implemented models (cubic, SAFT-like, model fluids, multiparameter) and records behaviours relevant to data: a bug fix to the order of coefficients in one departure term that had been wrong in CoolProp, schema validation added for most but not all models, and fluid files added to the Python package at 0.2.0."
+
+[[payload]]
+paths = ["externals/**"]
+format = "directories of third-party dependencies (Eigen, mcx, stbrumme-hashing, Catch2, autodiff, nlohmann_json, pybind11_json, pybind11, json-schema-validator, REFPROP-interop); only stbrumme-hashing (sha256), nlohmann_json (json.hpp) and pybind11_json contain files in the pinned tree, the other seven are empty submodule directories"
+files = 16
+bytes = 978649
+records = "not applicable: code of other projects; not surveyed"
+reader = "not applicable"
+read_by_source = "none"
+notes = "REFPROP-interop is the only dependency that carries domain knowledge (FLD and HMX.BNC parsing, the interop conversion to the CoolProp layout); its directory is empty here, so the pinned bytes do not show how REFPROP files are converted. The same holds for the JSON-schema validator and the derivative libraries."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS: the specification language
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "model specification document ({kind, model, validate})"
+locator = "interface/CPP/teqp_impl_factory.cpp lines 53-149 (pointer_factory and build_model_ptr); include/teqp/cpp/teqpcpp.hpp lines 194-208"
+meaning = "The JSON document that selects and parameterises a model: kind names the factory entry, model holds the kind's parameters, validate (optional boolean) overrides the default of validating model against the kind's JSON Schema when one exists. The same document shape is used by the Python make_model, the C API and the C++ make_model."
+subject = "A model (one assembly of a form with its parameters); keyed by nothing: the document is the model."
+fields = [
+  { name = "kind", meaning = "factory key; one of 35 strings listed in the pointer_factory initialiser", unit = "not applicable (text)", shape = "enum", role = "input" },
+  { name = "model", meaning = "object whose fields are kind specific (constructs below)", unit = "not applicable (record)", shape = "table", role = "input" },
+  { name = "validate", meaning = "bool; when absent the caller's flag (default true) applies", unit = "not applicable (flag)", shape = "scalar", role = "input" },
+]
+origin = "authored"
+conventions = "Numbers carry units in the key: 'Tcrit / K', 'pcrit / Pa', 'R_gas / J/mol/K', 'bi / m^3/mol', 'sigma / m'. Validation is skipped for kinds without a schema (21 of 35) and not thread-safe (code comment). An unknown kind raises invalid_argument."
+absence = "absent model keys are read with at() (error) or contains() (optional); the behaviour per field is in the kind constructs"
+validity = "not applicable"
+provenance = "none"
+count = "35 kinds, 14 with a JSON Schema"
+example = "interface/CPP/teqp_impl_factory.cpp line 130"
+candidate = "model_assembly (choices per sub-form slot) with parameter sets supplied inline, plus a form catalogue of the 35 kinds"
+precision = "close"
+loss = "Parameters are embedded in the assembly document rather than referenced as records with provenance; units live in key strings; a document can contain a whole mixture's parameters (kmat, coeffs), which are parameter sets that a mapping must separate from the assembly."
+
+[[construct]]
+name = "JSON Schema documents of the model kinds"
+locator = "dev/model_schemas.tar.xz#model_schemas.json; dev/SchemaBuilder.ipynb"
+meaning = "Closed JSON Schemas (additionalProperties false for 11 of 14) for the model objects of 14 kinds, generated from pydantic models. They state required keys, array shapes, enumerations (GenericCubicEnum PR and SRK; AlphaOptions Twu and Mathias-Copeman; CPACubicEnum; CPARadialDistEnum CS and KG; PCSAFTABEnum Liang-IECR-2012 and Liang-IECR-2014; TwoCLJFAuthors 2CLJF_Mecke and 2CLJF_Lisal) and descriptions, and compose alternatives (PCSAFT and SAFT-VR-Mie accept either a names array or a coeffs array)."
+subject = "A model kind."
+fields = [
+  { name = "properties and required", meaning = "keys of the kind's model object with types, for example Tcrit / K as an array of numbers", unit = "in key names", shape = "table", role = "metadata" },
+  { name = "$defs", meaning = "enumerations and nested record types", unit = "not applicable", shape = "table", role = "metadata" },
+  { name = "description", meaning = "short text per key (for SAFT-VR-Mie coefficients, the descriptions of mu_Cm and mu_D are swapped against their names: mu_Cm is described as in Debye and mu_D as in C*m; the code treats mu_Cm as C*m and mu_D as Debye)", unit = "not applicable", shape = "scalar", role = "metadata" },
+]
+origin = "generated (from pydantic models in dev/SchemaBuilder.ipynb; regeneration of the shipped archive not recorded)"
+conventions = "Schemas are closed, so a key the factory reads but the schema omits fails validation when validate is on (default)."
+absence = "a kind without a schema is unvalidated"
+validity = "not applicable"
+provenance = "generator is dev/SchemaBuilder.ipynb (pydantic); whether the archive was regenerated from the pinned notebook is not recorded"
+count = "14 schemas of 35 kinds; 21 kinds have none (SRK, QCPRAasen, RKPRCismondi2005, advancedPRaEres, PCSAFTPureGrossSadowski2001, SoftSAFT, genericSAFT, the four GERG kinds, LKP, multifluid, multifluid-association, multifluid-activity, AmmoniaWaterTillnerRoth, the three LJ126 kinds, Mie_Chaparro2023, 2CLJF)"
+example = "dev/model_schemas.tar.xz#model_schemas.json key CPA"
+candidate = "none (documentation of a construct, not thermodynamic content); the form catalogue declared in the knowledge base replaces it"
+precision = "unmapped"
+loss = "The schemas are the only machine-readable statement of the specification language and they are narrower than the code in places (see questions), so they cannot be taken as the contract without checking the factory."
+
+[[construct]]
+name = "multifluid model specification (kind multifluid)"
+locator = "include/teqp/models/multifluid.hpp lines 948-1160 (_build_multifluid_model, make_pure_components_JSON, multifluidfactory); include/teqp/json_tools.hpp lines 82-125 (multilevel_JSON_load)"
+meaning = "A GERG-style multifluid Helmholtz model assembled from pure-fluid files, binary reducing parameters, departure functions and flags. components is an array of fluid references: a file path, a fluid name looked up in root/dev/fluids, an inline fluid JSON object, an alias/CAS/REFPROP name resolved through the alias map, or a string with prefix PATH::, FLDPATH:: or FLD:: (REFPROP files converted on the fly). BIP and departure are each a path, a JSON string, an array of records, or empty (default file under root/dev/mixtures); a key HMX.BNC switches to the REFPROP-interop branch (components then are FLD files)."
+subject = "A mixture of one or more components (single-component specifications short-circuit the mixture terms)."
+fields = [
+  { name = "components", meaning = "array of fluid references (see meaning)", unit = "not applicable (list)", shape = "list", role = "input" },
+  { name = "root", meaning = "directory containing dev/fluids and dev/mixtures; default empty", unit = "not applicable (path)", shape = "scalar", role = "input" },
+  { name = "BIP", meaning = "binary interaction parameter collection or a path to one", unit = "not applicable (reference)", shape = "reference", role = "input" },
+  { name = "departure", meaning = "departure-function collection or a path to one; optional", unit = "not applicable (reference)", shape = "reference", role = "input" },
+  { name = "flags", meaning = "object: estimate (only value Lorentz-Berthelot), force-estimate (presence), Rmodel (only value CODATA)", unit = "not applicable (record)", shape = "table", role = "input" },
+  { name = "HMX.BNC", meaning = "path of a REFPROP binary-mixing file; alternative to BIP and departure", unit = "not applicable (path)", shape = "scalar", role = "input" },
+]
+origin = "authored"
+conventions = "Only EOS[0] of each fluid file is used; Tc and vc of the reducing function come from EOS[0]/STATES/reducing (T and 1/rhomolar), not from a critical point; the gas constant is the mole-fraction-weighted average of the pure gas_constant values unless flags.Rmodel is CODATA; matrices F, betaT, gammaT, betaV, gammaV are filled for i less than j and the reverse entries set to 1/beta for betas and equal for gammas and F; with one component the departure part is skipped."
+absence = "without estimate flags, a missing binary pair raises an error (Can't match the binary pair); with flags.estimate = Lorentz-Berthelot a missing pair becomes betaT = gammaT = betaV = gammaV = 1 and F = 0; force-estimate overrides every record; a pair without a function gets a null departure term"
+validity = "no range is checked"
+provenance = "the whole pure fluid JSON and the chosen BIP and departure records are dumped into the model metadata (set_meta)"
+count = "not applicable (document shape)"
+example = "doc/source/models/multifluid.ipynb"
+candidate = "model_assembly of a multifluid Helmholtz form (corresponding-states term, departure sub-form, reducing function, gas-constant rule) with a selection_policy supplying pair parameters and flags as policy options"
+precision = "close"
+loss = "Identifier-based parameter lookup, file-path indirection and the estimate fallback are selection-policy behaviour embedded in the loader; flags are free-form; the R rule is an assembly choice."
+
+[[construct]]
+name = "kinds vdW1 and vdW"
+locator = "interface/CPP/teqp_impl_factory.cpp lines 55-56; include/teqp/models/vdW.hpp; dev/model_schemas.tar.xz keys vdW1 and vdW"
+meaning = "The van der Waals equation in two parameterisations: vdW1 takes the attraction parameter a and covolume b directly; vdW takes critical temperatures and pressures of a mixture's components."
+subject = "A pure or mixed van der Waals fluid."
+fields = [
+  { name = "a", meaning = "attraction parameter (vdW1)", unit = "not stated", shape = "scalar", role = "input" },
+  { name = "b", meaning = "covolume (vdW1)", unit = "not stated", shape = "scalar", role = "input" },
+  { name = "Tcrit / K", meaning = "critical temperatures of the components (vdW)", unit = "K", shape = "list", role = "input" },
+  { name = "pcrit / Pa", meaning = "critical pressures (vdW)", unit = "Pa", shape = "list", role = "input" },
+]
+origin = "authored"
+conventions = "no units stated for a and b (inferred SI from use with T in K and density in mol/m^3); vdW has no kmat"
+absence = "all keys required (schema)"
+validity = "not stated"
+provenance = "none"
+count = "2 kinds"
+example = "dev/model_schemas.tar.xz#model_schemas.json key vdW1"
+candidate = "forms vdw1 and vdw in a cubic family with pure slot groups"
+precision = "exact"
+loss = "none beyond units."
+
+[[construct]]
+name = "kinds PR, SRK and cubic (generalised cubic with alpha functions)"
+locator = "include/teqp/models/cubics/simple_cubics.hpp lines 22-140 (alpha functions), 141-260 (GenericCubic), 260-420 (canonical_PR, canonical_SRK, make_generalizedcubic)"
+meaning = "Two-parameter cubics in the generalised form with Delta1 and Delta2 (PR: 1 plus and minus the square root of 2; SRK: 1 and 0), a from critical constants and an alpha function per component, quadratic a mixing with (1 - kmat) and linear b mixing. PR and SRK read critical data and acentric factors and use fixed alpha functions; kind cubic adds type (PR or SRK), an optional list of alpha functions and an optional gas constant."
+subject = "A mixture of N components; parameters are per component arrays and an N by N kmat."
+fields = [
+  { name = "Tcrit / K", meaning = "critical temperatures", unit = "K", shape = "list", role = "input" },
+  { name = "pcrit / Pa", meaning = "critical pressures", unit = "Pa", shape = "list", role = "input" },
+  { name = "acentric", meaning = "acentric factors, used for the default alpha (PR: two-range m; SRK: m = 0.48 + 1.574 omega - 0.176 omega^2)", unit = "not applicable (dimensionless)", shape = "list", role = "input" },
+  { name = "kmat", meaning = "N by N matrix with a_ij = (1 - k_ij) sqrt(a_i a_j); default zero", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+  { name = "type", meaning = "PR or SRK (kind cubic only); other values raise 'Generic cubic EOS are not yet supported'", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "alpha", meaning = "array of one object per component: {type: Twu, c: [3]} or {type: Mathias-Copeman, c: [3]} or {type: PR78, acentric}; the schema lists only the first two", unit = "not applicable (record)", shape = "list", role = "input" },
+  { name = "R / J/mol/K", meaning = "gas constant (kind cubic only; default CODATA 2017, 8.31446261815324); not in the schema", unit = "J/mol/K", shape = "scalar", role = "input" },
+]
+origin = "authored"
+conventions = "OmegaA and OmegaB are fixed to exact constants (comment: see doi 10.1021/acs.iecr.1c00847); the Twu form is (T/Tc)^(c2 (c1 - 1)) exp(c0 (1 - (T/Tc)^(c1 c2))) and Mathias-Copeman (1 + c0 x + c1 x^2 + c2 x^3)^2 with x = 1 - sqrt(T/Tc); the JSON for a default alpha omits alpha entirely; superancillary saturation densities exist for PR and SRK (payload correlation_integrals and cubicsuperancillary)."
+absence = "kmat absent means all zeros; alpha absent means the default alpha function for the type"
+validity = "not stated"
+provenance = "none in the spec; the modules cite the published constants by DOI in comments"
+count = "3 kinds"
+example = "doc/source/models/cubics.ipynb"
+candidate = "form cubic with subforms alpha (accepts alpha_function, one per subject), mixing rules as subforms and pair slot group kmat (transposition symmetric, diagonal allowed)"
+precision = "close"
+loss = "The alpha function is chosen per component with a type tag inside an array aligned to component order; the PR78 alpha exists only in code; the gas constant default is a silent choice."
+
+[[construct]]
+name = "kinds QCPRAasen and RKPRCismondi2005"
+locator = "include/teqp/models/cubics/simple_cubics.hpp lines 420-696"
+meaning = "Two variant cubics. QCPRAasen is the quantum-corrected Peng-Robinson model for helium, neon, hydrogen, deuterium and their mixtures with a Twu alpha per component, a temperature-dependent covolume factor and a volume translation; RKPRCismondi2005 is the three-parameter RK-PR model with a per-component delta_1 from which Delta1 of the mixture is a mole-fraction average."
+subject = "A mixture of N components."
+fields = [
+  { name = "Tcrit / K, pcrit / Pa", meaning = "critical constants", unit = "K and Pa", shape = "list", role = "input" },
+  { name = "Ls, Ms, Ns", meaning = "Twu alpha coefficients L, M, N per component (QCPRAasen)", unit = "not applicable (dimensionless)", shape = "list", role = "input" },
+  { name = "As, Bs", meaning = "coefficients of the temperature-dependent covolume factor (1 + A/(T + B))^3 over its value at Tc (QCPRAasen)", unit = "not stated (A and B have temperature dimension by the formula)", shape = "list", role = "input" },
+  { name = "cs / m^3/mol", meaning = "volume translation per component (QCPRAasen)", unit = "m^3/mol", shape = "list", role = "input" },
+  { name = "delta_1, k", meaning = "RK-PR shape parameter and temperature-dependence exponent per component", unit = "not applicable (dimensionless)", shape = "list", role = "input" },
+  { name = "kmat, lmat", meaning = "energy and covolume binary matrices: a_ij = (1 - k_ij) sqrt(a_i a_j), b_ij = (b_i + b_j)/2 (1 - l_ij)", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+  { name = "R / J/mol/K", meaning = "gas constant, optional, default CODATA 2017", unit = "J/mol/K", shape = "scalar", role = "input" },
+]
+origin = "authored"
+conventions = "kmat and lmat are both required for these kinds (at, not contains); no JSON Schema exists for either kind."
+absence = "all listed keys except R are required"
+validity = "QCPRAasen: helium, neon, hydrogen, deuterium (paper scope, from the class comment)"
+provenance = "class comments: Aasen, Hammer, Lasala, Jaubert and Wilhelmsen, Fluid Phase Equilibria 524 (2020) 112790, doi 10.1016/j.fluid.2020.112790; Cismondi and Mollerup, Fluid Phase Equilibria 232 (2005) 74-89, doi 10.1016/j.fluid.2005.03.020"
+count = "2 kinds"
+example = "doc/source/models/QuantumPR.ipynb"
+candidate = "forms quantum_corrected_pr and rk_pr in the cubic family with pure slot groups; lmat as a pair slot group"
+precision = "close"
+loss = "The temperature-dependent covolume and the volume translation are extra terms that exceed a plain cubic form; units of As and Bs are implied."
+
+[[construct]]
+name = "kind advancedPRaEres (PR with excess-energy mixing rule)"
+locator = "include/teqp/models/cubics/advancedmixing_cubics.hpp lines 1-255; interface/CPP/model_factory_advancedmixcubic.cpp"
+meaning = "Peng-Robinson with an advanced mixing rule in which the mixture a/b ratio contains a residual excess Helmholtz term of an activity model (the EoS/aE method) and b mixes linearly or quadratically. The factory accepts only the Wilson model for the excess term."
+subject = "A mixture; the lmat built in the factory is a fixed 2 by 2 zero matrix."
+fields = [
+  { name = "Tcrit / K, pcrit / Pa", meaning = "critical constants", unit = "K and Pa", shape = "list", role = "input" },
+  { name = "alphas", meaning = "array of alpha objects as in the cubic kind", unit = "not applicable (record)", shape = "list", role = "input" },
+  { name = "aresmodel", meaning = "object {type: Wilson, m, n}: Wilson parameters A_ij = m_ij T + n_ij, with component volumes taken as the PR covolumes", unit = "not stated (m in 1, n in K by the formula)", shape = "table", role = "input" },
+  { name = "options.brule", meaning = "Linear or Quadratic mixing of b", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "options.s, options.CEoS", meaning = "exponent of the quadratic b rule and the constant of the equation of state (default -sqrt(2)/2 ln(1 + sqrt(2)))", unit = "not applicable (dimensionless)", shape = "scalar", role = "input" },
+  { name = "options.R / J/mol/K", meaning = "gas constant, optional", unit = "J/mol/K", shape = "scalar", role = "input" },
+]
+origin = "authored"
+conventions = "Hard-coded PR constants (Delta1, Delta2, OmegaA, OmegaB); the factory passes Eigen::ArrayXXd::Zero(2, 2) as lmat, and check_lmat requires a square matrix of the component count (inferred: the factory therefore works for two components only); no schema."
+absence = "options must contain brule, s and CEoS (at)"
+validity = "not stated"
+provenance = "class comment: the EoS/aE method of Jaubert and co-workers (no citation)"
+count = "1 kind"
+example = "doc/source/models/AdvancedCubicMixing.ipynb"
+candidate = "form cubic with a mixing-rule subform accepting an excess_contribution (activity model) and model_assembly choices for the b rule"
+precision = "close"
+loss = "The restriction to binary mixtures and the Wilson-only factory are code behaviours that a form declaration would not capture."
+
+[[construct]]
+name = "kind CPA (cubic plus association)"
+locator = "include/teqp/models/CPA.hpp lines 124-413 (CPACubic, CPAfactory); interface/CPP/model_factory_CPA.cpp; dev/model_schemas.tar.xz key CPA"
+meaning = "A cubic (PR or SRK with the Soave-type alpha a0 (1 + c1 (1 - sqrt(T/Tc)))^2) plus an association term, with pure parameters per component. The association part is built either by the legacy single-component classes (class 1A, 2B, 3B, 4C, one component only) or by the general Association class with sites."
+subject = "A mixture of N components."
+fields = [
+  { name = "cubic", meaning = "PR or SRK", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "pures[].a0i / Pa m^6/mol^2, bi / m^3/mol, c1, Tc / K", meaning = "cubic parameters of the component", unit = "as in the key names", shape = "table", role = "input" },
+  { name = "pures[].epsABi / J/mol, betaABi", meaning = "association energy and volume factor", unit = "J/mol and dimensionless", shape = "table", role = "input" },
+  { name = "pures[].class or pures[].sites", meaning = "legacy association class string (1A, 2B, 3B, 4C) or a list of site-type labels for the general association class; the schema requires class and forbids sites", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "radial_dist", meaning = "radial distribution function: CS (Carnahan-Starling) or KG", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "R_gas / J/mol/K", meaning = "gas constant", unit = "J/mol/K", shape = "scalar", role = "input" },
+  { name = "kmat", meaning = "cubic binary matrix, optional, default zero (size checked)", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+  { name = "options", meaning = "association options: alpha, rtol, atol, max_iters, interaction_partners, self_association_mask", unit = "not applicable (solver and site options)", shape = "table", role = "input" },
+]
+origin = "authored"
+conventions = "Site types interact with every other site type except their own unless interaction_partners says otherwise; options is read by assignment (opt = j.at('options')), which constructs a fresh options object (inferred: a radial_dist set just before is then not carried by the assigned value)."
+absence = "sites absent with class absent is an error; kmat absent means zero"
+validity = "not stated"
+provenance = "none in spec"
+count = "1 kind"
+example = "doc/source/models/CPA.ipynb"
+candidate = "model_assembly of a cubic form and an association form sharing site_scheme rows; pure slot group for a0, b, c1, Tc, epsilon, beta"
+precision = "close"
+loss = "Two association specifications coexist (legacy class versus sites); the schema accepts only the legacy one."
+
+[[construct]]
+name = "kinds PCSAFT and PCSAFTPureGrossSadowski2001"
+locator = "include/teqp/models/pcsaft.hpp lines 454-516 (PCSAFTfactory) and lines 41-70 (PCSAFTLibrary); include/teqp/models/saft/pcsaftpure.hpp; dev/model_schemas.tar.xz key PCSAFT"
+meaning = "PC-SAFT with nonpolar terms and optional dipolar and quadrupolar terms of Gross and Vrabec. The document gives either names (looked up in an embedded library of three fluids) or coeffs (per-component parameter objects), an optional kmat and an optional ab selector of the universal constants. The pure-fluid kind is a simplified single-component implementation of the original model."
+subject = "A mixture of N components."
+fields = [
+  { name = "names", meaning = "array of fluid names resolved against the embedded PCSAFTLibrary (Methane, Ethane, Propane only)", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "coeffs[].name, m, sigma_Angstrom, epsilon_over_k, BibTeXKey", meaning = "pure parameters: segment number, diameter and energy; the BibTeX key is required", unit = "Angstrom and K (key names)", shape = "table", role = "input" },
+  { name = "coeffs[].(mu^*)^2, nmu, (Q^*)^2, nQ", meaning = "reduced dipole and quadrupole squared in the convention of Gross and co-workers (comment: watch out for the missing Coulomb constant) and the numbers of polar segments; both members of a pair must be given for the term to be used", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+  { name = "kmat", meaning = "binary matrix, optional", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+  { name = "ab", meaning = "Liang-IECR-2012 or Liang-IECR-2014 to replace the Gross-Sadowski universal a and b arrays (3 by 7)", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "m, sigma / A, epsilon_over_k (pure kind)", meaning = "parameters of PCSAFTPureGrossSadowski2001", unit = "Angstrom and K", shape = "scalar", role = "input" },
+]
+origin = "authored"
+conventions = "kmat enters as epsilon_ij = (1 - k_ij) sqrt(epsilon_i epsilon_j) (PC-SAFT convention); names take precedence when both names and coeffs are given (the factory tests for names first; the error text says to provide names or coeffs but not both, and is raised only when neither is present); the polar moments use the Gross-Vrabec reduced form."
+absence = "polar terms are active only when the moment and its count are both present; without a kmat the matrix is empty (zero); an unknown name raises Bad name"
+validity = "not stated"
+provenance = "BibTeXKey per coefficient object; the universal constants are cited by DOI in src/data/PCSAFT.cpp"
+count = "2 kinds; the embedded library has 3 fluids"
+example = "doc/source/models/PCSAFT.ipynb"
+candidate = "parameter_set in pure slot groups of PC-SAFT with nested polar slots; ab as a choice of the universal-constants parameterization; model_assembly with optional dipole, quadrupole sub-forms"
+precision = "close"
+loss = "The universal constants are a parameterization choice stored as a flag; polar terms switch on by presence of a pair of numbers; the library of three fluids is a tiny embedded dataset."
+
+[[construct]]
+name = "kind SAFT-VR-Mie (with polar models and flags)"
+locator = "include/teqp/models/saftvrmie.hpp lines 1114-1346 (factories), 47-66 (SAFTVRMieLibrary), 37-44 (EpsilonijFlags); include/teqp/models/saft/polar_terms.hpp; dev/model_schemas.tar.xz key SAFT-VR-Mie"
+meaning = "SAFT-VR Mie chain and dispersion contributions with optional multipolar terms selected by polar_model. Parameters come as names (embedded library of three fluids: Methane, Ethane, Propane) or coeffs; the SAFT-VR-Mie nonpolar factory (used by genericSAFT) accepts the same."
+subject = "A mixture of N components."
+fields = [
+  { name = "names / coeffs", meaning = "as PC-SAFT; coeffs carry name, m, epsilon_over_k, BibTeXKey, lambda_r, lambda_a and sigma_m (m) or sigma_Angstrom", unit = "m or Angstrom, K", shape = "list", role = "input" },
+  { name = "coeffs[].mu_Cm, mu_D, Q_Cm2, Q_DA, (mu^*)^2, nmu, (Q^*)^2, nQ", meaning = "dipole and quadrupole in C*m, Debye, C*m^2, Debye*Angstrom or legacy reduced form with counts", unit = "as in the key names", shape = "table", role = "input" },
+  { name = "kmat", meaning = "binary matrix", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+  { name = "polar_model", meaning = "GrossVrabec (default), GubbinsTwu+Luckas, GubbinsTwu+GubbinsTwu, GubbinsTwu+Gottschalk, GrayGubbins+GubbinsTwu, GrayGubbins+Luckas, GubbinsTwu+Luckas+GubbinsTwuRhostar, GubbinsTwu+GubbinsTwu+GubbinsTwuRhostar (8 values accepted; GrayGubbins+Gottschalk is commented out)", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "SAFTVRMie_flags.epsilon_ij", meaning = "Lafitte (default) or Lorentz-Berthelot combining for the cross energy", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "polar_flags", meaning = "approach (use_packing_fraction default or calculate_Gubbins_rhostar), C3, C3b (Paricaud-type scaling parameters) and a polarizable block with alpha_symm / m^3 and alpha_asymm / m^3", unit = "as in key names", shape = "table", role = "input" },
+]
+origin = "authored"
+conventions = "Polar terms are built only if some polar key is present in coeffs; in the names branch the flags (SAFTVRMie_flags, polar_flags, polar_model) are not read (inferred from the code: SAFTVRMieMixture(names, kmat) is called without flags), although the schema accepts them for names; the electrostatic factor is 1/(4 pi epsilon_0 k_B) with the code's physical constants."
+absence = "no polar keys means a nonpolar model; flags absent means the defaults"
+validity = "not stated"
+provenance = "BibTeXKey per coefficient object; Lafitte et al. constants cited in the library comment (Lafitte-JCP-2001 as the BibTeXKey)"
+count = "1 kind; 8 polar models; library of 3 fluids"
+example = "doc/source/models/SAFT-VR-Mie-Polar.ipynb"
+candidate = "parameter_set in pure slot groups plus model_assembly choices for the polar sub-form (8 forms) and the cross-energy rule"
+precision = "close"
+loss = "Units are chosen per key in an alternative-keys scheme (sigma_m or sigma_Angstrom; mu_Cm or mu_D); the polar model is a combination of three independent choices (term, J integral, K integral) encoded in a string."
+
+[[construct]]
+name = "kinds SoftSAFT and genericSAFT, and the association model specification"
+locator = "include/teqp/models/saft/softsaft.hpp lines 1-102; include/teqp/models/saft/genericsaft.hpp lines 1-76; include/teqp/models/association/association.hpp lines 100-300; include/teqp/models/association/association_types.hpp"
+meaning = "SoftSAFT (Johnson LJ chain) takes m, epsilon and sigma per component; genericSAFT composes a nonpolar term (kind PCSAFT, SAFTVRMie, softSAFT, 2CLJF or their aliases, each with its own model object) with an optional association term (kind canonical or Dufal). The association model lists molecule_sites (per component a list of site-type labels) and a Delta_rule: CR1 (b / m^3/mol, beta, epsilon / J/mol, with a radial distribution function) or Dufal (sigma / m, epsilon / J/mol or epsilon/kB / K, lambda_r, kmat, epsilon_HB / J/mol, K_HB / m^3)."
+subject = "A mixture of N components with site multiplicities."
+fields = [
+  { name = "m, epsilon/kB / K, sigma / m", meaning = "SoftSAFT pure parameters", unit = "dimensionless, K, m", shape = "list", role = "input" },
+  { name = "nonpolar.kind, nonpolar.model", meaning = "selector among PCSAFT, PC-SAFT, SAFTVRMie, SAFT-VR-Mie, Johnson+Johnson, softSAFT, 2CLJF, 2CLJ and the nested model object", unit = "not applicable (enum and record)", shape = "table", role = "input" },
+  { name = "association.kind, association.model", meaning = "canonical or Dufal and the association model object", unit = "not applicable (enum and record)", shape = "table", role = "input" },
+  { name = "molecule_sites", meaning = "per component a list of site-type labels; repeated labels give the site multiplicity", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "Delta_rule", meaning = "CR1 or Dufal; no other value; the association options (alpha, rtol, atol, max_iters, interaction_partners, self_association_mask) are read through options", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "K_HB / m^3, epsilon_HB / J/mol", meaning = "Dufal association volume and energy", unit = "m^3 and J/mol", shape = "list", role = "input" },
+]
+origin = "authored"
+conventions = "Site types interact with all other types except themselves unless interaction_partners is given; the combining rule for the Dufal volume is the cubic-root mean with a published erratum (comment cites doi 10.1080/00268976.2017.1402604); Association::factory does not read radial_dist from the JSON for the CR1 rule although CanonicalData carries it (inferred: the value is left as constructed); SoftSAFT uses the Johnson LJ equation for the monomer and the Ghonasgi-Chapman bulk effective density for the chain."
+absence = "no Delta_rule means an error (The Delta_rule has not been specified); no association block means a nonassociating model"
+validity = "not stated"
+provenance = "none in the spec; Dufal 2015 (doi 10.1080/00268976.2015.1029027) in a comment"
+count = "2 kinds plus 1 nested specification"
+example = "doc/source/models/Association.ipynb"
+candidate = "association_site under a site_scheme built from the site labels, with parameter_set rows per pure (epsilon, K) and a model_assembly choice for the Delta rule"
+precision = "close"
+loss = "Site labels are free text without a declared scheme and multiplicity comes from repetition; radial_dist handling is ambiguous in code."
+
+[[construct]]
+name = "kinds GERG2004resid, GERG2008resid, GERG2004idealgas, GERG2008idealgas"
+locator = "interface/CPP/model_factory_GERG.cpp; include/teqp/models/GERG/GERG.hpp lines 902-962 and 1166-1226"
+meaning = "GERG-2004 or GERG-2008 residual or ideal-gas Helmholtz models for a list of component names from the embedded tables; the ideal-gas model is a separate model from the residual one."
+subject = "A mixture of named components."
+fields = [
+  { name = "names", meaning = "array of lowercase concatenated component names such as methane, carbondioxide, n-butane, hydrogensulfide (18 valid for GERG-2004, 21 for GERG-2008)", unit = "not applicable (text)", shape = "list", role = "input" },
+]
+origin = "authored"
+conventions = "Names are a separate identifier namespace from the fluid files (carbondioxide here, CarbonDioxide in fluiddata); the ideal-gas model's integration constants are recomputed in the constructor so that h and s are zero at 298.15 K and 101.325 kPa, overwriting the stored n0(1) and n0(2) (GERG200XAlphaig::get_coeffs); R is 8.314472 with the ratio 8.314510 over 8.314472 multiplying the ideal-gas terms."
+absence = "unknown name raises Unable to load pure info; a pair without a stored beta and gamma raises Unable to obtain BIP"
+validity = "not stated"
+provenance = "comments cite Table A3.2, A3.5, A3.6 and A3.8 of the GERG-2004 monograph and Table A8 of the GERG-2008 manuscript"
+count = "4 kinds"
+example = "doc/source/models/GERG.ipynb"
+candidate = "model_assembly named GERG-2004 and GERG-2008 (a defined assembly of the multifluid forms) over species_form rows; energy_reference at 298.15 K and 101.325 kPa"
+precision = "close"
+loss = "The separation of residual and ideal gas into two models means a consumer must combine them; the recomputed n0 differ from the stored published constants."
+
+[[construct]]
+name = "kind LKP"
+locator = "include/teqp/models/LKP.hpp lines 1-105; interface/CPP/model_factory_LKP.cpp"
+meaning = "The Lee-Kesler-Ploecker equation in the corresponding-states form with a simple and a reference fluid (two embedded sets of b, c, d, beta, gamma and omega) weighted by the mixture acentric factor, with mixing of pseudo-critical volume and temperature by the Plocker rules."
+subject = "A mixture of N components."
+fields = [
+  { name = "Tcrit / K, pcrit / Pa, acentric", meaning = "critical constants and acentric factors", unit = "K, Pa, dimensionless", shape = "list", role = "input" },
+  { name = "R / J/mol/K", meaning = "gas constant; required", unit = "J/mol/K", shape = "scalar", role = "input" },
+  { name = "kmat", meaning = "N by N matrix multiplying the geometric-mean critical temperature: T_c,ij = kmat_ij sqrt(Tc_i Tc_j) (default would be 1, not 0); required", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+]
+origin = "authored"
+conventions = "kmat is a multiplicative factor here, unlike the (1 - k_ij) convention of the cubic and SAFT kinds; Zc = 0.2905 - 0.085 omega; the reference-fluid constants are hard-coded."
+absence = "all four keys required; no schema"
+validity = "not stated"
+provenance = "none in the code"
+count = "1 kind"
+example = "doc/source/models/LKP.ipynb"
+candidate = "form lkp with a global slot group for the simple and reference constants and a pair slot group whose slot is a temperature multiplier (distinct from a k_ij with 1 - k)"
+precision = "close"
+loss = "The kmat convention differs across kinds under one key name, so a pair slot must carry its combining convention."
+
+[[construct]]
+name = "kinds multifluid-ECS-HuberEly1994, multifluid-association and multifluid-activity"
+locator = "include/teqp/models/ECSHuberEly.hpp lines 1-66; include/teqp/models/multifluid_association.hpp lines 1-35; include/teqp/models/multifluid/multifluid_activity.hpp lines 1-114; dev/model_schemas.tar.xz key multifluid-ECS-HuberEly1994"
+meaning = "Compositions of a multifluid model with another term: extended corresponding states (a fluid evaluated as a reference-fluid multifluid model at a conformal temperature and density through shape factors f and h with linear-in-ln(T/Tc) acentric-factor corrections); multifluid plus an association term; multifluid plus an activity-model term in the form of Jaeger et al. in which the excess Helmholtz energy of an activity model replaces the departure contribution."
+subject = "A fluid (ECS) or a mixture (association, activity)."
+fields = [
+  { name = "reference_fluid", meaning = "{name (a fluid name or a path), acentric, Z_crit, T_crit / K, rhomolar_crit / mol/m^3}", unit = "K and mol/m^3 in key names", shape = "table", role = "input" },
+  { name = "fluid", meaning = "{name optional, acentric, Z_crit, T_crit / K, rhomolar_crit / mol/m^3, f_T_coeffs[2], h_T_coeffs[2]}", unit = "as above; coefficients dimensionless", shape = "table", role = "input" },
+  { name = "multifluid", meaning = "a complete multifluid model object (multifluid kind's model)", unit = "not applicable (record)", shape = "table", role = "input" },
+  { name = "association.model", meaning = "an association model object (see the association construct)", unit = "not applicable (record)", shape = "table", role = "input" },
+  { name = "activity.aresmodel, activity.options.b, activity.options.u", meaning = "an activity model (Wilson, binaryInvariant, COSMO-SAC-2010), the per-component b parameter array and the scalar u of the packing-fraction-like reference", unit = "not stated for b (volume) and u (dimensionless)", shape = "table", role = "input" },
+]
+origin = "authored"
+conventions = "The ECS reference is built with build_multifluid_model({name}, root = empty), so the reference fluid name must be a path; equations numbered 30 and 31 of Huber and Ely are cited in comments; the activity term is alphar = log(1 + rho b_m)/log(1 + 1/u) (gE/RT - sum x_i [alphar_i(tau, delta_ref) - alphar_i(tau_i, delta_i_ref)]); the R of the association and activity compositions is N_A k_B (get_R_gas) rather than the multifluid weighted average."
+absence = "all listed keys required; only ECS has a schema"
+validity = "not stated"
+provenance = "class comments: Huber and Ely 1994; Jaeger et al., Fluid Phase Equilibria, doi 10.1016/j.fluid.2018.04.015"
+count = "3 kinds"
+example = "doc/source/models/ECS.ipynb"
+candidate = "model_assembly composing the multifluid assembly with an additional additive sub-form (association, activity) or a corresponding-states transformation wrapper"
+precision = "close"
+loss = "Wrappers nest whole model objects inside model objects; the conformal transformation is a procedure on a reference model; the change of gas-constant rule inside a composition is easy to miss."
+
+[[construct]]
+name = "activity residual models (Wilson, binaryInvariant, COSMO-SAC-2010)"
+locator = "include/teqp/models/activity/activity_models.hpp lines 1-196; include/teqp/models/activity/COSMOSAC.hpp lines 1-403"
+meaning = "Residual Helmholtz-over-RT functions of T and mole fractions used by the activity compositions: Wilson with component volumes b and matrices m and n (A_ij = m_ij T + n_ij) giving total minus combinatorial; binaryInvariant for two components, c0 x1 x2 (c1 + c2 x2); COSMO-SAC-2010 with per-component area A_COSMOSAC / A^2, volume V_COSMOSAC / A^3 and three sigma profiles (nhb, oh, ot) of sigma / e/A^2 and p(sigma)*A / A^2, plus optional constants (A_ES, B_ES, fast_Gamma). NRTL does not occur anywhere in the tree."
+subject = "A mixture of N components (Wilson, COSMO-SAC) or exactly 2 components (binaryInvariant)."
+fields = [
+  { name = "b, m, n (Wilson)", meaning = "component volumes and temperature-coefficient matrices", unit = "not stated", shape = "table", role = "input" },
+  { name = "c (binaryInvariant)", meaning = "three coefficients", unit = "not applicable (dimensionless)", shape = "list", role = "input" },
+  { name = "A_COSMOSAC / A^2, V_COSMOSAC / A^3", meaning = "COSMO-SAC area and volume per component", unit = "Angstrom^2, Angstrom^3", shape = "list", role = "input" },
+  { name = "profiles[].nhb/oh/ot", meaning = "sigma profile pair {sigma / e/A^2, p(sigma)*A / A^2}: non-hydrogen-bonding, OH and other segments", unit = "e/Angstrom^2 and Angstrom^2", shape = "table", role = "input" },
+  { name = "constants", meaning = "A_ES / kcal A^4 /(mol e^2), B_ES / kcal A^4 K^2/(mol e^2), fast_Gamma; the defaults AEFFPRIME 7.25, c_OH_OH, c_OT_OT, c_OH_OT, N_A, k_B live in the constants struct", unit = "as in key names", shape = "scalar", role = "input" },
+]
+origin = "transcribed (COSMO-SAC from the NIST COSMOSAC code, Bell et al. 2020; Wilson and binaryInvariant authored)"
+conventions = "In the advancedPRaEres factory the Wilson b values are derived from Tc and pc and only m and n are given, whereas the multifluid-activity Wilson model takes b explicitly; COSMO-SAC code is derived from the NIST COSMOSAC repository (header comment; Bell, Mickoleit, Hsieh, Lin, Vrabec, Breitkopf and Jaeger, J. Chem. Theory Comput. 2020, doi 10.1021/acs.jctc.9b01016); a debug print of two constants is executed at construction."
+absence = "constants optional with defaults"
+validity = "not stated"
+provenance = "header comment for COSMO-SAC; none for Wilson"
+count = "3 models; 0 NRTL"
+example = "doc/source/models/MultifluidPlusAC.ipynb"
+candidate = "forms wilson, binary_invariant and cosmo_sac_2010 implementing an excess-energy contract; sigma profiles as tabulated_function rows (distributed_attribute of a species)"
+precision = "close"
+loss = "The two Wilson specifications differ in how volumes arrive; sigma profiles are tabulated functions with no interpolation rule stated."
+
+[[construct]]
+name = "kinds AmmoniaWaterTillnerRoth and LJ126 (no-argument kinds)"
+locator = "include/teqp/models/ammonia_water.hpp lines 8-101; include/teqp/models/mie/lennardjones.hpp lines 13-75; include/teqp/models/mie/lennardjones/johnson.hpp"
+meaning = "Fixed models that take no parameters: the ammonia-water mixture of Tillner-Roth and Friend built from an embedded ammonia EOS (Tillner-Roth, BibTeX key TillnerRoth-DKV-1993) and an embedded water EOS (Wagner, JPCRD 2002) with its own reducing function and departure; and three Lennard-Jones 12-6 EOS (Thol 2016 as an embedded CoolProp-format JSON in Lennard-Jones units, Kolafa-Nezbeda 1994, Johnson-Zollweg-Gubbins 1993)."
+subject = "A fixed pure or binary system."
+fields = [
+  { name = "embedded fluid JSON", meaning = "complete fluid objects (INFO-less EOS, ANCILLARIES, STATES) inside the C++ source", unit = "as CoolProp layout (SI; LJ units for the LJ model)", shape = "table", role = "input" },
+  { name = "gas constant", meaning = "8.314471 J/mol/K for the ammonia-water model", unit = "J/mol/K", shape = "scalar", role = "input" },
+]
+origin = "transcribed (Tillner-Roth ammonia and Wagner water EOS and the Thol LJ EOS as embedded JSON; Kolafa-Nezbeda and Johnson equations from their papers, per comments)"
+conventions = "The code comment states that the EOS are hard-coded so they cannot be changed; the ammonia-water model refuses a zero mole fraction of ammonia (Tillner-Roth model cannot accept mole fraction of zero); the LJ model reducing values are T 1.32 and rho 0.31 with T_units and rhomolar_units saying LJ units."
+absence = "no spec keys; model argument ignored"
+validity = "T_max 1200 and Ttriple 0.661 in LJ units for the Thol EOS; ammonia T_max 700 K, p_max 1e9 Pa, water T_max 2000 K"
+provenance = "BibTeX keys in the embedded JSON (Thol-THESIS-2015; Wagner-JPCRD-2002; TillnerRoth-DKV-1993), doi 10.1063/1.4945000 in the LJ comment; doi 10.1016/0378-3812(94)80001-4 and 10.1080/00268979300100411 for the other two LJ models"
+count = "4 kinds (AmmoniaWaterTillnerRoth, LJ126_TholJPCRD2016, LJ126_KolafaNezbeda1994, LJ126_Johnson1993)"
+example = "include/teqp/models/ammonia_water.hpp line 14"
+candidate = "named model_assembly with embedded parameterization; fluid_form for the Thol EOS reduced in Lennard-Jones units"
+precision = "close"
+loss = "Parameters inside source code cannot be separated from the model without transcription; dimensionless LJ units need a unit-system convention in the model."
+
+[[construct]]
+name = "kinds SW_EspindolaHeredia2009, EXP6_Kataoka1992, Mie_Pohl2023, Mie_Chaparro2023 and the 2CLJF family"
+locator = "interface/CPP/model_factory_model_potentials.cpp; include/teqp/models/model_potentials/squarewell.hpp, exp6.hpp, 2center_ljf.hpp; include/teqp/models/mie/mie.hpp lines 1-131"
+meaning = "Model-potential fluids in simulation (reduced) units with one or two shape parameters: square-well of width lambda (Espindola-Heredia et al.); exp-6 with hardness alpha (Kataoka; alphastar = (alpha - 8)/10); Mie (lambda_r, 6) for lambda_r 11 to 13 (Pohl et al.); Mie (lambda_r, lambda_a) by the FeANN neural-network Helmholtz model (Chaparro and Mueller); two-centre Lennard-Jones with bond length L* for the Mecke or Lisal parameterisation, with optional dipole ((mu^*)^2) or quadrupole ((Q^*)^2) contributions."
+subject = "A model fluid in reduced units (T*, rho*)."
+fields = [
+  { name = "lambda", meaning = "square-well relative width (attractive range from sigma to lambda sigma)", unit = "not applicable (dimensionless)", shape = "scalar", role = "input" },
+  { name = "alpha", meaning = "exp-6 repulsive hardness parameter", unit = "not applicable (dimensionless)", shape = "scalar", role = "input" },
+  { name = "lambda_r, lambda_a", meaning = "Mie exponents (Mie_Pohl2023 fixes the attractive exponent at 6)", unit = "not applicable (dimensionless)", shape = "scalar", role = "input" },
+  { name = "author, L^*, (mu^*)^2, (Q^*)^2", meaning = "2CLJF variant 2CLJF_Mecke or 2CLJF_Lisal, reduced bond length and reduced squared dipole or quadrupole", unit = "not applicable (reduced units)", shape = "scalar", role = "input" },
+]
+origin = "transcribed (Espindola-Heredia et al. 2009, Kataoka 1992, Pohl et al. 2023, Chaparro and Mueller, Mecke, Lisal, Saager and Kriebel-Winkelmann, per comments)"
+conventions = "R = 1 and T and rho are the reduced T* and rho* (code comment: simulation units); Mie_Pohl2023 gives n = c1 + c2/lambda_r for its three term groups and reducing values Tc* = 0.668 + 6.84/lambda_r + 145/lambda_r^3 and rhoc* = 0.2516 + 0.049 log10(lambda_r); FeANN input is (alpha, rho*, 1/T*) with alpha from the Mie exponents and the output is the difference from the zero-density value divided by T*."
+absence = "all keys required; the Mie_Chaparro2023 and 2CLJF kinds have no schema"
+validity = "Mie_Pohl2023: lambda_r from 11 to 13 (class comment)"
+provenance = "class comments give authors and, for the square well and exp-6, a DOI (10.1063/1.3054361; 10.1246/bcsj.65.2093); the 2CLJF comments cite Mecke, Lisal, Saager and Kriebel and Winkelmann (doi 10.1063/1.472764); the Pohl and Chaparro models are cited by author only"
+count = "7 kinds (SW_EspindolaHeredia2009, EXP6_Kataoka1992, Mie_Pohl2023, Mie_Chaparro2023, 2CLJF, 2CLJF-Dipole, 2CLJF-Quadrupole)"
+example = "doc/source/models/model_potentials.ipynb"
+candidate = "forms in a model-potential family with a reduced-units convention_set; neural-network weights as tabulated_function-like parameter sets"
+precision = "close"
+loss = "Dimensionless simulation units need a unit-system record; a neural network is a parameter set of 6435 numbers with no physical slot meaning."
+
+[[construct]]
+name = "kind IdealHelmholtz and its term types"
+locator = "include/teqp/ideal_eosterms.hpp lines 1-360; dev/model_schemas.tar.xz key IdealHelmholtz"
+meaning = "An ideal-gas Helmholtz model given as an array of pure-fluid objects {R, terms}, each a list of term objects in terms of T and molar density (not tau and delta). Ten term types: Constant (a), Lead (ln rho + a_1 + a_2/T), LogT (a ln T), PowerT (sum n T^t), PlanckEinstein (n, theta), PlanckEinsteinGeneralized (n, c, d, theta), GERG2004Cosh and GERG2004Sinh (n, theta), Cp0Constant (c, T_0) and Cp0PowerT (c, t, T_0). The mixture adds x_i ln x_i."
+subject = "A mixture of N components (one object per component)."
+fields = [
+  { name = "R", meaning = "gas constant multiplying each pure function", unit = "J/mol/K", shape = "scalar", role = "input" },
+  { name = "terms[].type", meaning = "one of the ten type names", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "n, t, theta, c, d, a, a_1, a_2, T_0", meaning = "term coefficients; scalar or array per type (the Cp0 types accept scalars or arrays)", unit = "not stated (theta and T_0 in K by the formulas)", shape = "list", role = "input" },
+]
+origin = "authored"
+conventions = "Differs from the CoolProp layout in the independent variables: temperature and density are primary, so CoolProp Lead becomes a_1 - ln(rho_red) and a_2 times T_red, LogTau a ln(tau) splits into a constant a ln(T_red) and LogT with coefficient -a, Power n T_red^t with sign change of the exponent, PlanckEinstein theta = t T_red, and the EnthalpyEntropyOffset becomes a PowerT pair; the conversion exists as convert_CoolProp_idealgas (ideal_eosterms.hpp lines 476-527) and raises for any type it does not know (for example ResidualHelmholtz or the GERG cosh terms of a CoolProp file); the R of the container is reported as 8.31446261815324."
+absence = "an unknown type raises (Don't understand this type); zero mole fraction components are skipped in the mixing sum"
+validity = "not stated"
+provenance = "none in the spec"
+count = "10 term types; schema covers all ten"
+example = "doc/source/models/IdealGas.ipynb"
+candidate = "same as coolprop constructs 'IdealGasHelmholtzLead', 'IdealGasHelmholtzLogTau', 'IdealGasHelmholtzPlanckEinstein' and siblings, in a T and rho parameterisation; a conversion between parameterisations is a derivation, not a rename"
+precision = "close"
+loss = "The same ideal-gas function has two parameterisations with different numeric coefficients (scaled by Tc and rhoc), so two carriers of one published set differ by a scoped transformation that uses the reducing state."
+
+[[construct]]
+name = "multifluid mutant (Python-level model built from a multifluid model)"
+locator = "include/teqp/models/multifluid_mutant.hpp lines 60-155; include/teqp/models/multifluid_ecs_mutant.hpp; interface/pybind11_wrapper.cpp lines 78-105"
+meaning = "A function, not a kind: _build_multifluid_mutant(model, j) copies a multifluid model and replaces its reducing function and departure part from a JSON matrix of pair entries. Each entry jj[i][j] holds departure (a departure-function object) and BIP with Fij and either betaT, gammaT, betaV, gammaV (GERG reducing function) or phiT, lambdaT, phiV, lambdaV (invariant reducing function, selected by BIP type equal to invariant on entry (0,1))."
+subject = "An ordered pair of components (i, j) with i less than or equal to j."
+fields = [
+  { name = "departure", meaning = "a departure-function object in the departure-function record layout", unit = "not applicable (record)", shape = "table", role = "input" },
+  { name = "BIP.Fij", meaning = "departure scale factor", unit = "not applicable (dimensionless)", shape = "scalar", role = "input" },
+  { name = "BIP.betaT, gammaT, betaV, gammaV", meaning = "GERG reducing parameters; the reverse entry gets 1/beta and the same gamma", unit = "not applicable (dimensionless)", shape = "scalar", role = "input" },
+  { name = "BIP.phiT, lambdaT, phiV, lambdaV", meaning = "invariant reducing parameters; phi symmetric, lambda antisymmetric (lambda_ji = -lambda_ij)", unit = "not stated", shape = "scalar", role = "input" },
+]
+origin = "authored"
+conventions = "The pair matrix uses string keys of integer positions (0-based), one entry per pair with i less than j; antisymmetry of lambda and reciprocity of beta encode the orientation of the pair in the reducing function."
+absence = "every pair needs an entry; diagonal entries get a null departure term"
+validity = "not stated"
+provenance = "the original model spec is stored in the mutant's metadata"
+count = "not applicable"
+example = "doc/source/models/multifluid_mutant.ipynb"
+candidate = "a second form for the reducing function with pair slot groups of transposition parity (lambda) and reciprocal (beta), attached to a model_assembly by replacement"
+precision = "close"
+loss = "It is a run-time transformation of a model object rather than a stored assembly; the pair slot groups show all three transposition behaviours (symmetric gamma and phi, reciprocal beta, parity lambda)."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS: data records and embedded tables
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "fluid file (CoolProp format) and accepted residual term types"
+locator = "teqp/fluiddata/dev/fluids/*.json; include/teqp/models/multifluid.hpp lines 530-850 (get_EOS_terms); include/teqp/models/multifluid_eosterms.hpp lines 1-463"
+meaning = "same as coolprop construct 'fluid record' and its 'EOS entry' and term constructs; the teqp loader reads only EOS[0] and the listed keys and accepts residual term types ResidualHelmholtzPower, Gaussian, NonAnalytic, GaoB, Lemmon2005, Exponential, DoubleExponential and two extension types that are not in CoolProp's library, ResidualHelmholtzGenericCubic (spec keys Tcrit / K, pcrit / Pa, R / J/mol/K, Delta1, Delta2, Tred / K, rhored / mol/m^3, OmegaA, OmegaB, alpha) and ResidualHelmholtzPCSAFTGrossSadowski2001 (Tred / K, rhored / mol/m^3 and the PC-SAFT pure parameters), which allow a cubic or a PC-SAFT pure model to serve as a multifluid component."
+subject = "One compound or pseudo-pure mixture; keyed by name, CAS, REFPROP name, alias or optional HASH."
+fields = [
+  { name = "EOS[0].alphar[].type", meaning = "term type tag; types outside the allowed list (for example ResidualHelmholtzAssociating) raise Bad type", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "EOS[0].gas_constant", meaning = "pure-fluid gas constant in J/mol/K used for the mole-fraction-weighted R", unit = "J/mol/K (gas_constant_units)", shape = "scalar", role = "input" },
+  { name = "EOS[0].STATES.reducing.T, rhomolar", meaning = "reducing temperature and molar density (Tc and 1/vc of the reducing function)", unit = "K and mol/m^3 (units siblings)", shape = "scalar", role = "input" },
+  { name = "INFO.NAME, CAS, REFPROP_NAME, ALIASES, HASH", meaning = "identifiers; HASH (when present for all components) is the sha256 of the InChIKey per the hash test; no HASH occurs in the shipped files", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "EOS[0].alpha0", meaning = "ideal-gas terms; read by the separate ideal-gas converter, not by the multifluid loader", unit = "see coolprop.toml", shape = "list", role = "input" },
+  { name = "ANCILLARIES", meaning = "saturation ancillaries (pS, rhoL, rhoV, pL, pV); carried in the model metadata and read by the ancillary accessor", unit = "see coolprop.toml", shape = "table", role = "input" },
+  { name = "TRANSPORT, STATES other than reducing, T_max, p_max, Ttriple, melting_line, surface_tension", meaning = "present in files, not read by any teqp code path found", unit = "see coolprop.toml", shape = "table", role = "unread" },
+]
+origin = "generated (copied or derived from the CoolProp fluid library; the CoolProp version is not recorded, superancillary blocks removed)"
+conventions = "As in the CoolProp constructs: dimensionless Helmholtz energy over R T, tau = Tr/T and delta = rho/rho_r with the reducing state; the GaoB term flips the sign of eta on read (comment: watch out for this sign flip) so that the term equals the CoolProp term; Lemmon2005 and power terms are split into polynomial, power-with-exponential and full Lemmon2005 sub-terms by value of l and m; an l array mixing zero and nonzero values must have the zeros first."
+absence = "as in coolprop.toml; in addition a fluid whose EOS[0] contains an unsupported term type cannot be loaded (Methanol)"
+validity = "not read: T_max, p_max and limits are ignored by the multifluid loader"
+provenance = "BibTeX_EOS per EOS; the tree does not record which CoolProp version the files were copied from (97 of 124 equal CoolProp's after removing SUPERANCILLARY, which is absent from every teqp file)"
+count = "124 files; EOS[0] term objects: Power 124, Gaussian 66, Exponential 7, NonAnalytic 2, GaoB 1, Associating 1, Lemmon2005 1; 2308 coefficient rows"
+example = "teqp/fluiddata/dev/fluids/Methane.json"
+candidate = "same as coolprop constructs ('fluid record', 'EOS entry', 'ResidualHelmholtzPower' and siblings); forms for the GenericCubic and PCSAFT terms as residual_helmholtz_term implementers with a nested assembly"
+precision = "narrower"
+loss = "Two carriers of the same equation (CoolProp and teqp copies) differ in 27 of 124 files and teqp has dropped the superancillary blocks, so the source file alone does not identify which equation version it carries."
+
+[[construct]]
+name = "binary pair record and departure function record (teqp copies)"
+locator = "teqp/fluiddata/dev/mixtures/mixture_binary_pairs.json; teqp/fluiddata/dev/mixtures/mixture_departure_functions.json; include/teqp/models/multifluid_reducing.hpp lines 9-175; include/teqp/models/multifluid.hpp lines 237-485"
+meaning = "same as coolprop constructs 'binary pair record (mixture_binary_pairs.json)' and 'departure function record (mixture_departure_functions.json)', with these differences: lookup passes (hash1/hash2 if present, then upper-cased Name1 and Name2, then CAS1 and CAS2) and the orientation swap inverts betaT and betaV; the xi and zeta form is converted by gammaT = 0.5 (Tc_1 + Tc_2 + xi)/(2 sqrt(Tc_1 Tc_2)), gammaV = 4 (vc_1 + vc_2 + zeta)/(0.25 (vc_1^(1/3) + vc_2^(1/3))^3) and betas of 1; departure types accepted are Exponential, DoubleExponential, GERG-2004, GERG-2008, Gaussian+Exponential, Chebyshev2D (Ntau, Ndelta, a, taumin, taumax, deltamin, deltamax) and none; a departure function is found by its Name only (aliases are not searched)."
+subject = "An ordered pair of fluids as stored, matched in either order; the function name selects a departure record."
+fields = [
+  { name = "Name1, Name2, CAS1, CAS2", meaning = "pair identifiers", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "betaT, betaV, gammaT, gammaV, F", meaning = "reducing parameters and departure scale factor; F is required whenever the record is used (el.at F)", unit = "not stated (dimensionless)", shape = "scalar", role = "input" },
+  { name = "xi, zeta", meaning = "Lemmon-style interaction values converted as above", unit = "not stated (K and m^3/mol by the formulas)", shape = "scalar", role = "input" },
+  { name = "function", meaning = "name of the departure function (27 of 817 records use a named function other than through xi and zeta; 33 records carry a function in total)", unit = "not applicable (name)", shape = "reference", role = "input" },
+  { name = "BibTeX", meaning = "literature key", unit = "not applicable (text key)", shape = "reference", role = "metadata" },
+  { name = "hash1, hash2", meaning = "optional hashed identifiers matched first; none occurs in the shipped file", unit = "not applicable (text)", shape = "reference", role = "input" },
+]
+origin = "generated (copied or derived from the CoolProp mixture files; the CoolProp version is not recorded)"
+conventions = "Pair orientation matters only for the betas; the matrices are symmetric apart from 1/beta; F is stored per pair and used as x_i x_j F_ij alpha_dep in the upper triangle; the departure type GERG-2008 and Gaussian+Exponential split a term list into a power part (first Npower rows) and an exponential part."
+absence = "a pair not found raises an error unless estimate is set (then betas and gammas 1 and F 0); an explicit F of 0 means no departure; 784 of 817 records carry F = 0"
+validity = "not stated"
+provenance = "BibTeX per record; README records that the order of coefficients in one departure term had been wrong in CoolProp for many years and was fixed in teqp"
+count = "817 pair records (3 CAS pairs duplicated with different values), 16 departure functions (Exponential 7, GERG-2008 9); Chebyshev2D and DoubleExponential types supported by code and absent from the shipped file"
+example = "teqp/fluiddata/dev/mixtures/mixture_binary_pairs.json#/0"
+candidate = "same as coolprop constructs: parameter_set in a reducing pair slot group with transposition reciprocal over betaT and betaV, an excess slot group or nested set for (F, function), departure forms as sub-forms"
+precision = "close"
+loss = "Duplicate pairs with different values (R1234yf with R134a; CO2 with R1234yf; CO2 with R1234ze(E)) are two parameter sets for one subject that a file position resolves; the function reference by name without alias support differs from CoolProp's alias resolution."
+
+[[construct]]
+name = "REFPROP fluid and mixture files (FLD and HMX.BNC)"
+locator = "doc/source/models/R152A.FLD; doc/source/models/NEWR1234YF.FLD; doc/source/models/HMX.BNC; include/teqp/models/multifluid.hpp lines 1095-1110 and 1020-1060; interface/pybind11_wrapper.cpp (convert_FLD, convert_HMXBNC)"
+meaning = "REFPROP-format input accepted by the multifluid kind through FLD::, FLDPATH:: prefixes and the HMX.BNC key: a FLD file holds fluid identity, critical and triple values, an acentric factor, a dipole moment with a JSON-embedded reference in a comment, a default reference state and the equation terms; HMX.BNC holds blocks of binary mixing coefficients per pair with model codes (B01, B02 and TC5 and VC5 blocks) for the Kunz-Wagner mixing rules."
+subject = "A compound (FLD) or an ordered pair (HMX.BNC block headed by names and a bracketed pair label)."
+fields = [
+  { name = "FLD header lines", meaning = "short name, CAS, full name, formula, synonym, molar mass (g/mol), triple-point temperature (K), normal boiling point (K), critical temperature (K), critical pressure (kPa), critical density (mol/L), acentric factor, dipole moment (Debye), default reference state", unit = "as in the trailing !comments", shape = "list", role = "input" },
+  { name = "BNC block", meaning = "model code and six numbers (betaT, gammaT, betaV, gammaV, Fij, unused) per pair", unit = "not stated (dimensionless)", shape = "table", role = "input" },
+]
+origin = "authored (REFPROP file format of NIST; the two example files are third-party data, source not stated)"
+conventions = "Units are stated in trailing comments on each line; the HMX.BNC header says the coefficients are for the Kunz-Wagner mixing rules with column order model, BetaT, GammaT, BetaV, GammaV, Fij."
+absence = "?????? placeholders occur in FLD fields (for example the upper heating value line shows four question marks)"
+validity = "not stated in the example files"
+provenance = "FLD records carry per-field reference strings in embedded JSON comments (the dipole line)"
+count = "2 FLD files (735 and 672 lines); HMX.BNC 110 lines"
+example = "doc/source/models/R152A.FLD"
+candidate = "import records for species_form identity and a parameterization of a multifluid form; conversions to the CoolProp layout are derivations"
+precision = "close"
+loss = "The parsers are in a vendored third-party library not surveyed here; the survey records only that teqp accepts the formats."
+
+[[construct]]
+name = "GERG-2004 and GERG-2008 parameter tables (GERG.hpp)"
+locator = "include/teqp/models/GERG/GERG.hpp lines 427-1100"
+meaning = "Per-component and per-pair tables of the GERG equations in published form: pure info (Dc in mol/dm^3, Tc in K, M in kg/kmol); ideal-gas coefficients (7 n and 4 theta per component, theta scaled by Tc); residual pure-fluid terms in three dictionaries by exponent layout (n_dict_mne for methane, nitrogen and ethane, n_dict_main and others with d, t, c); beta_v, gamma_v, beta_T, gamma_T per pair (struct order betaV, gammaV, betaT, gammaT); Fij for 15 pairs; departure coefficients n, d, t, eta, epsilon, beta, gamma for 7 pair-specific functions and one generalised function for 8 pairs."
+subject = "A component (by lowercase name), an unordered pair (either order accepted, betas inverted when reversed), or a pair set."
+fields = [
+  { name = "rhoc, Tc, M", meaning = "reducing density (mol/dm^3), reducing temperature, molar mass (kg/kmol); converted on read", unit = "mol/dm^3, K, kg/kmol", shape = "scalar", role = "input" },
+  { name = "n0, theta0", meaning = "ideal-gas terms; n0(1) and n0(2) are replaced in the ideal-gas constructor by values giving h = s = 0 at 298.15 K and 101.325 kPa", unit = "not stated (theta in units of Tc)", shape = "list", role = "input" },
+  { name = "n, t, d, c, l", meaning = "residual pure terms", unit = "not stated (dimensionless)", shape = "list", role = "input" },
+  { name = "betaV, gammaV, betaT, gammaT", meaning = "reducing pair parameters", unit = "not stated (dimensionless)", shape = "scalar", role = "input" },
+  { name = "Fij", meaning = "departure scale factor for 15 pairs", unit = "not stated (dimensionless)", shape = "scalar", role = "input" },
+  { name = "n, t, d, eta, epsilon, beta, gamma", meaning = "departure terms, exponential rows exp(-eta (delta - epsilon)^2 - beta (delta - gamma))", unit = "not stated (dimensionless)", shape = "list", role = "input" },
+]
+origin = "transcribed (GERG-2004 monograph tables A3.2, A3.5, A3.6, A3.8 and GERG-2008 manuscript table A8 per comments)"
+conventions = "GERG-2008 entries override or extend the GERG-2004 tables (carbon monoxide, isopentane, n-nonane, n-decane, hydrogen sulfide pure info; 15 changed and 57 new pair entries; some pure coefficients and ideal-gas coefficients 'updated in GERG-2008'); the theta of the ideal-gas terms is in units of Tc, where AGA8 stores kelvin; a comment states that the GERG-2004 manuscript has the ratio R*/R in the wrong place and the GERG-2008 manuscript is correct."
+absence = "missing pair raises; Fij missing returns an optional (no departure scaling) when allowed"
+validity = "not stated"
+provenance = "comments name Table A3.2, A3.5, A3.6 and A3.8 of the GERG-2004 monograph and Table A8 of the GERG-2008 manuscript"
+count = "18 components (GERG-2004), 21 (GERG-2008); 153 plus 57 pairs; 15 Fij; 8 departure models"
+example = "include/teqp/models/GERG/GERG.hpp lines 436-460"
+candidate = "parameterizations 'GERG-2004' and 'GERG-2008' with pure, pair and departure slot groups; GERG-2008 as a parameterization that supersedes GERG-2004 for the overridden subjects"
+precision = "exact"
+loss = "Two parameterizations share rows by fallthrough (GERG-2008 falls back to GERG-2004 for unchanged pairs), a supersession relation that has to be made explicit per subject."
+
+[[construct]]
+name = "embedded numerical tables of the SAFT, association, FeANN and cubic models"
+locator = "src/data/PCSAFT.cpp; src/data/Dufal_assoc.cpp; src/data/FEANN.cpp; include/teqp/models/saft/correlation_integrals.hpp; include/teqp/models/saft/polar_terms/GrossVrabec.hpp; include/teqp/models/cubics/cubicsuperancillary.hpp; include/teqp/models/saftvrmie.hpp lines 89-105; include/teqp/models/mie/mie.hpp"
+meaning = "Universal constants of the equations: the PC-SAFT a and b arrays (3 by 7) in three variants, the Gross-Vrabec polar coefficient sets, the J and K integral coefficient tables of Luckas, Gubbins-Twu and Gottschalk, the SAFT-VR-Mie phi (7 by 7) and A (4 by 4) matrices, the Dufal association matrices b_0 to b_6, the FeANN network weights (6435 numbers) and the nine Chebyshev superancillaries of the vdW, SRK and PR cubics."
+subject = "A model form (global constants); keyed by table name and, for the integrals, by an integer or integer-tuple key."
+fields = [
+  { name = "a, b (PC-SAFT)", meaning = "universal dispersion coefficient arrays of the three variants", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+  { name = "J and K coefficient rows", meaning = "coefficients of the dipolar and quadrupolar correlation integrals, keyed by n (4 to 15) or by triple-index pairs such as 222-333", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+  { name = "kernel and bias arrays", meaning = "weights of a neural network with inputs (alpha, rho*, 1/T*), four tanh layers of 45 nodes and a linear output without bias", unit = "not applicable (dimensionless)", shape = "table", role = "input" },
+  { name = "Chebyshev coefficients and ranges", meaning = "expansions for p, rhoL and rhoV as functions of T-tilde", unit = "reduced quantities", shape = "table", role = "input" },
+]
+origin = "transcribed (PC-SAFT constants of Gross and Sadowski 2001 and Liang et al.; Dufal et al. 2015; Gross and Vrabec and Luckas, Gubbins-Twu and Gottschalk integrals; FeANN weights of Chaparro and Mueller and superancillary expansions as computed fits, cited by author only)"
+conventions = "The numbers are universal within their model form and carry no component subject; the superancillary variable is T-tilde = R T b / a, so the expansions serve any cubic of that family by rescaling with b."
+absence = "not applicable"
+validity = "superancillary ranges in T-tilde (0.0296 to 0.296 for vdW; 0.0203 to 0.203 for SRK; 0.0170 to 0.170 for PR); an input outside raises"
+provenance = "comments cite doi 10.1021/ie0003887, 10.1021/ie3018127, 10.1021/ie503925h, 10.1080/00268976.2015.1029027 and the AIChE J. and J. Phys. Chem. B papers of Gross and Vrabec; the FeANN and superancillary tables are cited by author only"
+count = "PC-SAFT 3 by 42 numbers; Dufal 7 by 121; FEANN 6435; integrals 12 + 4 + 33 + 5 + 33 + 90 rows; superancillary 9 objects"
+example = "src/data/PCSAFT.cpp lines 5-18"
+candidate = "parameter_set in a global slot group (no subject) of each form, tabulated_function for superancillaries and integral tables"
+precision = "close"
+loss = "Global constants of a model form belong to the form's parameterization with its own provenance; the PC-SAFT constants here duplicate those in FeOS (feos.toml) at lower precision (10 digits against 14); the neural-network weights have no physical slots."
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "vdW, PR, SRK and generalised cubic (kinds vdW1, vdW, PR, SRK, cubic)"
+locator = "include/teqp/models/vdW.hpp; include/teqp/models/cubics/simple_cubics.hpp lines 141-420"
+class = "helmholtz_potential"
+inputs = "T, molar density, mole fractions; alpha_r = -ln(1 - b rho) - a/(R T) times a logarithmic term in Delta1 and Delta2"
+parameters = "pure: Tc, pc, acentric factor or an alpha object; pair: kmat; global: R, Delta1, Delta2, OmegaA, OmegaB (exact constants per type)"
+composes = "alpha function (Basic, Twu, Mathias-Copeman, PR78), quadratic a mixing rule with kmat, linear b mixing, cubic superancillaries for PR and SRK"
+equation_source = "constants cite doi 10.1021/acs.iecr.1c00847 in comments; the superancillaries are attributed to Bell and Deiters in a comment"
+closed_form = "yes"
+data = "constructs 'kinds vdW1 and vdW', 'kinds PR, SRK and cubic'"
+
+[[model_family]]
+name = "quantum-corrected Peng-Robinson (kind QCPRAasen)"
+locator = "include/teqp/models/cubics/simple_cubics.hpp lines 420-560"
+class = "helmholtz_potential"
+inputs = "T, density, composition; volume shift rho = 1/(1/rho0 + c)"
+parameters = "pure: Tc, pc, Twu L M N, A, B, c; pair: kmat, lmat"
+composes = "Twu alpha, temperature-dependent covolume b_i(T), linear volume translation"
+equation_source = "class comment: Aasen et al., Fluid Phase Equilibria 524 (2020) 112790, doi 10.1016/j.fluid.2020.112790"
+closed_form = "yes"
+data = "construct 'kinds QCPRAasen and RKPRCismondi2005'"
+
+[[model_family]]
+name = "RK-PR (kind RKPRCismondi2005)"
+locator = "include/teqp/models/cubics/simple_cubics.hpp lines 560-696"
+class = "helmholtz_potential"
+inputs = "T, density, composition with mole-fraction-averaged Delta1"
+parameters = "pure: delta_1, Tc, pc, k; pair: kmat, lmat"
+composes = "a(T) = a_c (3/(2 + T/Tc))^k, constant b, derived Omega_a and Omega_b from delta_1"
+equation_source = "class comment: Cismondi and Mollerup, Fluid Phase Equilibria 232 (2005) 74-89, doi 10.1016/j.fluid.2005.03.020"
+closed_form = "yes"
+data = "construct 'kinds QCPRAasen and RKPRCismondi2005'"
+
+[[model_family]]
+name = "PR with excess-energy mixing (kind advancedPRaEres)"
+locator = "include/teqp/models/cubics/advancedmixing_cubics.hpp"
+class = "helmholtz_potential"
+inputs = "T, density, composition"
+parameters = "pure: Tc, pc, alpha object; excess model parameters; global: brule, s, CEoS, R"
+composes = "PR with an activity-model residual term in a/b of the mixture and linear or quadratic b mixing"
+equation_source = "class comment: EoS/aE method of Jaubert and co-workers (no citation)"
+closed_form = "yes"
+data = "construct 'kind advancedPRaEres'"
+
+[[model_family]]
+name = "CPA (kind CPA)"
+locator = "include/teqp/models/CPA.hpp"
+class = "association"
+inputs = "T, density, composition; association site fractions solved iteratively"
+parameters = "pure: a0i, bi, c1, Tc, epsABi, betaABi, class or sites; pair: kmat; global: R, cubic, radial_dist, association options"
+composes = "a cubic (PR or SRK) plus a Wertheim association term (legacy single-component classes or the general Association class)"
+equation_source = "none cited in the source"
+closed_form = "implicit"
+data = "construct 'kind CPA'"
+
+[[model_family]]
+name = "PC-SAFT with polar terms (kinds PCSAFT, PCSAFTPureGrossSadowski2001)"
+locator = "include/teqp/models/pcsaft.hpp; include/teqp/models/saft/pcsaftpure.hpp; include/teqp/models/saft/polar_terms/GrossVrabec.hpp"
+class = "residual_or_excess_contribution"
+inputs = "T, density, composition; equation numbers of the Appendix of Gross and Sadowski are quoted in comments (A.6, A.11 with a stated erratum, A.31)"
+parameters = "pure: m, sigma, epsilon, optional dipole and quadrupole squared with counts; pair: kmat; global: universal a and b arrays"
+composes = "hard sphere, hard chain, dispersion, optional dipolar, quadrupolar and cross terms (Gross and Vrabec), association through genericSAFT"
+equation_source = "Gross and Sadowski 2001 doi 10.1021/ie0003887; Gross 2005 doi 10.1002/aic.10502; Vrabec and Gross 2008 doi 10.1021/jp072619u (comments)"
+closed_form = "yes"
+data = "construct 'kinds PCSAFT and PCSAFTPureGrossSadowski2001'"
+
+[[model_family]]
+name = "SAFT-VR Mie with polar terms (kind SAFT-VR-Mie)"
+locator = "include/teqp/models/saftvrmie.hpp; include/teqp/models/saft/polar_terms.hpp; include/teqp/models/saft/correlation_integrals.hpp"
+class = "residual_or_excess_contribution"
+inputs = "T, density, composition; temperature-dependent hard-sphere diameter by quadrature"
+parameters = "pure: m, sigma, epsilon, lambda_r, lambda_a, optional multipoles; pair: kmat; flags for cross energy and polar approach; global: phi 7 by 7, A 4 by 4"
+composes = "hard sphere, chain, dispersion, optional multipolar term chosen from eight polar models"
+equation_source = "Lafitte 2001 (BibTeXKey, equation A55 in a comment); no DOI in the source"
+closed_form = "procedural"
+data = "construct 'kind SAFT-VR-Mie'"
+
+[[model_family]]
+name = "SoftSAFT and generic SAFT (kinds SoftSAFT, genericSAFT)"
+locator = "include/teqp/models/saft/softsaft.hpp; include/teqp/models/saft/genericsaft.hpp; include/teqp/models/mie/lennardjones/johnson.hpp"
+class = "residual_or_excess_contribution"
+inputs = "T, density, composition"
+parameters = "pure: m, epsilon, sigma; nested model objects"
+composes = "SoftSAFT: Johnson LJ monomer with one-fluid mixing and a Ghonasgi-Chapman chain term; genericSAFT: one nonpolar term (PC-SAFT, SAFT-VR-Mie, SoftSAFT or two-centre LJ) plus optional association (canonical or Dufal)"
+equation_source = "Johnson, Zollweg and Gubbins 1993 (doi 10.1080/00268979300100411); chain contribution of Johnson, Mueller and Gubbins 1994 named in LJChain.hpp"
+closed_form = "implicit"
+data = "construct 'kinds SoftSAFT and genericSAFT, and the association model specification'"
+
+[[model_family]]
+name = "Wertheim association (general Association class)"
+locator = "include/teqp/models/association/association.hpp; association_types.hpp"
+class = "association"
+inputs = "T, density, composition; site fractions by fixed-point iteration with options alpha, rtol, atol and max_iters"
+parameters = "pure or group: b, beta, epsilon (CR1) or sigma, epsilon, lambda_r, epsilon_HB, K_HB (Dufal); pair: kmat; site multiplicities and interaction partners"
+composes = "site-site bonding strength Delta from a radial distribution function (CR1) or the Dufal integral with seven coefficient matrices; counting matrix D_IJ of Langenbach and Enders"
+equation_source = "Dufal et al. 2015, doi 10.1080/00268976.2015.1029027 and its erratum doi 10.1080/00268976.2017.1402604 (comments); Langenbach and Enders for the counting matrix (comment)"
+closed_form = "implicit"
+data = "construct 'kinds SoftSAFT and genericSAFT, and the association model specification'"
+
+[[model_family]]
+name = "GERG-2004 and GERG-2008 (kinds GERG2004resid, GERG2008resid, GERG2004idealgas, GERG2008idealgas)"
+locator = "include/teqp/models/GERG/GERG.hpp"
+class = "helmholtz_potential"
+inputs = "T, density, composition with tau = Tr/T and delta = rho/rho_r"
+parameters = "pure: Dc, Tc, M, residual terms, n0 and theta0; pair: betas, gammas, Fij; departure coefficients"
+composes = "corresponding-states term of pure fluids, GERG reducing function, pair departure functions with the generalised function for 8 pairs; ideal-gas part as a separate model"
+equation_source = "GERG-2004 monograph (TM15) and Kunz and Wagner 2012 by table names in comments"
+closed_form = "yes"
+data = "construct 'GERG-2004 and GERG-2008 parameter tables (GERG.hpp)'"
+
+[[model_family]]
+name = "multifluid Helmholtz mixture (kind multifluid)"
+locator = "include/teqp/models/multifluid.hpp; multifluid_reducing.hpp; multifluid_eosterms.hpp; multifluid_gas_constant.hpp"
+class = "helmholtz_potential"
+inputs = "T, density, composition; tau = Tr(x)/T, delta = rho/rho_r(x)"
+parameters = "pure: residual term rows, reducing state, gas constant; pair: betaT, gammaT, betaV, gammaV (or xi, zeta), F, departure function name; flags"
+composes = "corresponding-states sum of pure residual terms, GERG-form composition-dependent reducing function (Y = sum z_i^2 Y_ci + double sum of z_i z_j (z_i + z_j)/(beta^2 z_i + z_j) Y_ij with Y_ij = 2 beta gamma times a mean of critical values), pair departure terms weighted by z_i z_j F_ij, gas-constant rule"
+equation_source = "BibTeX keys in the fluid and pair files; 'as implemented in Table 7.18 from GERG-2004' in a comment"
+closed_form = "yes"
+data = "constructs 'multifluid model specification', 'fluid file (CoolProp format) and accepted residual term types', 'binary pair record and departure function record (teqp copies)'"
+
+[[model_family]]
+name = "invariant reducing function (multifluid mutant)"
+locator = "include/teqp/models/multifluid_reducing.hpp lines 267-361; multifluid_mutant.hpp"
+class = "other"
+inputs = "composition; phiT, lambdaT, phiV, lambdaV pair matrices; pure Tc, vc"
+parameters = "pair: phi (symmetric), lambda (antisymmetric); pure: Tc, vc"
+composes = "none (supplies Tr and rho_r to the mutant multifluid)"
+equation_source = "'as implemented in Table 7.18 from GERG-2004' in a comment"
+closed_form = "yes"
+data = "construct 'multifluid mutant (Python-level model built from a multifluid model)'"
+
+[[model_family]]
+name = "extended corresponding states (kind multifluid-ECS-HuberEly1994)"
+locator = "include/teqp/models/ECSHuberEly.hpp; multifluid_ecs_mutant.hpp"
+class = "residual_or_excess_contribution"
+inputs = "T, density, composition of a fluid evaluated as the reference fluid at T/f and rho h"
+parameters = "pure: acentric factor, Z_crit, Tc, rhoc, f_T_coeffs, h_T_coeffs; reference fluid: same values and a fluid file"
+composes = "a multifluid reference model evaluated at conformal T and rho"
+equation_source = "Huber and Ely 1994, equations 30 and 31 (comments)"
+closed_form = "yes"
+data = "construct 'kinds multifluid-ECS-HuberEly1994, multifluid-association and multifluid-activity'"
+
+[[model_family]]
+name = "multifluid plus association and multifluid plus activity (kinds multifluid-association, multifluid-activity)"
+locator = "include/teqp/models/multifluid_association.hpp; include/teqp/models/multifluid/multifluid_activity.hpp"
+class = "residual_or_excess_contribution"
+inputs = "T, density, composition"
+parameters = "as multifluid plus association parameters or activity model parameters (b, u)"
+composes = "the multifluid Helmholtz plus an association term, or plus an activity-based term scaled by log(1 + rho b)/log(1 + 1/u)"
+equation_source = "Jaeger et al., doi 10.1016/j.fluid.2018.04.015 for the activity composition (comment)"
+closed_form = "implicit"
+data = "construct 'kinds multifluid-ECS-HuberEly1994, multifluid-association and multifluid-activity'"
+
+[[model_family]]
+name = "activity residual models (Wilson, binaryInvariant, COSMO-SAC-2010)"
+locator = "include/teqp/models/activity/activity_models.hpp; COSMOSAC.hpp"
+class = "residual_or_excess_contribution"
+inputs = "T and mole fractions"
+parameters = "pure: volumes, areas, sigma profiles; pair: Wilson m and n matrices; global: COSMO constants"
+composes = "Wilson total minus combinatorial; COSMO-SAC with combinatorial and residual parts and an iterative segment activity"
+equation_source = "Bell et al. 2020 doi 10.1021/acs.jctc.9b01016 (header comment for COSMO-SAC)"
+closed_form = "implicit"
+data = "construct 'activity residual models (Wilson, binaryInvariant, COSMO-SAC-2010)'"
+
+[[model_family]]
+name = "LKP (kind LKP)"
+locator = "include/teqp/models/LKP.hpp"
+class = "helmholtz_potential"
+inputs = "T, density, composition"
+parameters = "pure: Tc, pc, acentric factor; pair: kmat multiplying T_c,ij; global: R; fixed simple and reference fluid constants"
+composes = "interpolation in acentric factor between a simple-fluid and a reference-fluid function with Plocker mixing rules"
+equation_source = "none cited"
+closed_form = "yes"
+data = "construct 'kind LKP'"
+
+[[model_family]]
+name = "ammonia-water of Tillner-Roth (kind AmmoniaWaterTillnerRoth)"
+locator = "include/teqp/models/ammonia_water.hpp"
+class = "helmholtz_potential"
+inputs = "T, density, mole fraction of ammonia (zero refused)"
+parameters = "fixed: embedded pure EOS and the model's coefficient arrays, R = 8.314471"
+composes = "embedded ammonia and water EOS, own reducing function with exponent parameters and a departure with a fractional power of x"
+equation_source = "BibTeX keys TillnerRoth-DKV-1993 and Wagner-JPCRD-2002 in the embedded JSON"
+closed_form = "yes"
+data = "construct 'kinds AmmoniaWaterTillnerRoth and LJ126 (no-argument kinds)'"
+
+[[model_family]]
+name = "Lennard-Jones 12-6 equations (kinds LJ126_TholJPCRD2016, LJ126_KolafaNezbeda1994, LJ126_Johnson1993)"
+locator = "include/teqp/models/mie/lennardjones.hpp; mie/lennardjones/johnson.hpp"
+class = "helmholtz_potential"
+inputs = "T*, rho* (simulation units)"
+parameters = "fixed: embedded coefficients"
+composes = "multifluid form with LJ-unit reducing values (Thol); analytic EOS of Kolafa-Nezbeda and of Johnson et al."
+equation_source = "doi 10.1063/1.4945000, 10.1016/0378-3812(94)80001-4, 10.1080/00268979300100411 (comments)"
+closed_form = "yes"
+data = "construct 'kinds AmmoniaWaterTillnerRoth and LJ126 (no-argument kinds)'"
+
+[[model_family]]
+name = "model-potential fluids (square well, exp-6, Mie, two-centre LJ)"
+locator = "include/teqp/models/model_potentials/*.hpp; include/teqp/models/mie/mie.hpp; src/data/FEANN.cpp"
+class = "helmholtz_potential"
+inputs = "T*, rho* (simulation units)"
+parameters = "global: lambda, alpha, lambda_r, lambda_a, L*, (mu*)^2, (Q*)^2, author variant; FeANN weights"
+composes = "square well: fourth-order expansion; exp-6: empirical correlation; Mie lambda_r 11 to 13: a fitted multiparameter equation with coefficients linear in 1/lambda_r; Mie general: neural-network Helmholtz function; 2CLJF: hard sphere, attractive, dipolar, quadrupolar parts in Mecke and Lisal variants"
+equation_source = "doi 10.1063/1.3054361 (square well), 10.1246/bcsj.65.2093 (exp-6), 10.1063/1.472764 (two-centre polar contribution); Pohl et al. and Chaparro and Mueller by author names only"
+closed_form = "yes"
+data = "construct 'kinds SW_EspindolaHeredia2009, EXP6_Kataoka1992, Mie_Pohl2023, Mie_Chaparro2023 and the 2CLJF family'"
+
+[[model_family]]
+name = "ideal-gas Helmholtz terms (kind IdealHelmholtz, GERG ideal-gas kinds)"
+locator = "include/teqp/ideal_eosterms.hpp; include/teqp/models/GERG/GERG.hpp lines 343-426"
+class = "standard_state_species"
+inputs = "T and density"
+parameters = "pure: R and term objects of ten types"
+composes = "additive sum of terms plus the mixing term x_i ln x_i; converters from the CoolProp ideal-gas terms"
+equation_source = "term formulas in doc comments (Cp0 forms with T_0 reference); no citation"
+closed_form = "yes"
+data = "construct 'kind IdealHelmholtz and its term types'"
+
+# ---------------------------------------------------------------------------
+# CONVENTIONS
+# ---------------------------------------------------------------------------
+
+[[convention]]
+name = "units in keys"
+locator = "interface/CPP/teqp_impl_factory.cpp; every factory"
+statement = "SI in the keys, with the unit written in the key string ('Tcrit / K', 'pcrit / Pa', 'epsABi / J/mol', 'rhomolar_crit / mol/m^3', 'sigma / m', 'sigma_Angstrom', 'mu_D' in Debye). Some kinds use reduced simulation units (model potentials: R = 1, T* and rho*) and the Thol LJ fluid file states 'LJ units' in its unit siblings. Fluid files follow the CoolProp molar SI convention."
+scope = "all model specifications and fluid files"
+
+[[convention]]
+name = "gas constant"
+locator = "include/teqp/constants.hpp lines 1-40; include/teqp/models/multifluid_gas_constant.hpp; cubics and other factories"
+statement = "Not one value: R_CODATA2017 = 8.31446261815324 (cubic defaults and the IdealHelmholtz container), N_A times k_B from the 2019 redefinition (get_R_gas, used by the PC-SAFT and SAFT-VR-Mie models, SoftSAFT, genericSAFT, ECS and the multifluid compositions), a mole-fraction-weighted average of the pure gas_constant values (multifluid; CODATA by flag Rmodel), 8.314471 (ammonia-water), 8.314472 (GERG), 1 (simulation units), and a user value in kinds that read 'R / J/mol/K' or 'R_gas / J/mol/K'. The multifluid-association and multifluid-activity compositions switch to N_A k_B."
+scope = "all Helmholtz-energy conversions"
+
+[[convention]]
+name = "kmat combining convention"
+locator = "simple_cubics.hpp line ~175; pcsaft.hpp; saftvrmie.hpp lines 165-180; LKP.hpp line ~60"
+statement = "kmat enters as (1 - k_ij) in the cubics, PC-SAFT, SAFT-VR-Mie (Lafitte cross energy) and association kinds, and as a direct multiplier of sqrt(Tc_i Tc_j) in LKP. It is symmetric, defaults to zero (or is empty) where omitted, and lmat (QCPR, RK-PR, advanced PR) plays the same role for the covolume."
+scope = "binary interaction matrices"
+
+[[convention]]
+name = "reducing state and variables"
+locator = "include/teqp/models/multifluid.hpp lines 140-200; multifluid_reducing.hpp lines 142-152"
+statement = "tau = T_r(x)/T and delta = rho/rho_r(x) with the mixture reducing temperature and density; for pure components Tc and vc are the EOS reducing state (EOS[0]/STATES/reducing), not necessarily the critical point (code comment: usually but not always the critical point). The ideal-gas terms use T and rho directly."
+scope = "multifluid, GERG and ECS kinds"
+
+[[convention]]
+name = "pair orientation and reciprocal betas"
+locator = "include/teqp/models/multifluid_reducing.hpp lines 88-150; include/teqp/models/GERG/GERG.hpp lines 595-767 and 1003-1104"
+statement = "A pair is stored once; when it is requested in the other order betaT and betaV are inverted (1/beta) and gamma and F are unchanged; the GERG tables do the same and the pair matrices are filled with betaT(j,i) = 1/betaT(i,j). The invariant reducing function uses antisymmetric lambda."
+scope = "binary parameters of multifluid, GERG and mutant models"
+
+[[convention]]
+name = "identifier namespaces"
+locator = "include/teqp/models/multifluid.hpp lines 853-905; GERG.hpp lines 431 and 973; pcsaft.hpp line 49; saftvrmie.hpp line 51"
+statement = "Each kind uses its own names: multifluid files by NAME, CAS, REFPROP_NAME, aliases or optional HASH (upper-cased match for Name1/Name2 of pair records); GERG kinds by lowercase concatenated names (carbondioxide, n-butane); the PC-SAFT and SAFT-VR-Mie libraries by capitalised names (Methane); the GERG component order puts n-butane before isobutane. No registry identifiers are required by the model kinds."
+scope = "component selection across kinds"
+
+[[convention]]
+name = "temperature scale"
+locator = "not stated anywhere in the tree"
+statement = "not stated"
+scope = "all temperatures"
+
+[[convention]]
+name = "ideal-gas reference state"
+locator = "include/teqp/models/GERG/GERG.hpp lines 36-76 and 343-426; include/teqp/ideal_eosterms.hpp"
+statement = "GERG ideal-gas models set h = s = 0 at 298.15 K and 101.325 kPa by construction (the two integration constants are solved for in the constructor); the general IdealHelmholtz kind has no reference state of its own (the terms carry their constants; Cp0 terms use T_0 as the integration reference); CoolProp offset terms are converted as plain power terms."
+scope = "ideal-gas enthalpy and entropy"
+
+# ---------------------------------------------------------------------------
+# SELECTION
+# ---------------------------------------------------------------------------
+
+[[selection]]
+name = "binary pair record lookup"
+locator = "include/teqp/models/multifluid_reducing.hpp lines 9-86; include/teqp/models/multifluid.hpp lines 878-905"
+rule = "Identifier kinds are tried in the alphabetical order of the map keys CAS, Name, REFPROP, hash; the first kind for which every pair of the mixture can be found is used. For a kind, records are matched in passes: hash1/hash2, then upper-cased Name1/Name2, then CAS1/CAS2, in either order; the first matching record in file order wins, with the orientation flag set when reversed. Failing all passes, flags.estimate supplies Lorentz-Berthelot values; force-estimate bypasses the records."
+scope = "binary reducing parameters and F for multifluid kinds"
+documented = "no: behaviour in code; consequence: CO2 with R1234yf resolves to the first record (Unpublished) under the CAS kind and depends on file order"
+
+[[selection]]
+name = "pure fluid resolution"
+locator = "include/teqp/models/multifluid.hpp lines 1000-1070"
+rule = "A component string is tried as an absolute or relative file path, then as a fluid name in root/dev/fluids, then through an alias map over NAME, CAS, REFPROP_NAME and ALIASES of all files (built on demand, throws on duplicates); prefixes PATH::, FLDPATH:: and FLD:: select a file or REFPROP content directly; an inline object is used as is."
+scope = "multifluid components"
+documented = "yes, in the doc comment listing four options"
+
+[[selection]]
+name = "EOS entry"
+locator = "include/teqp/models/multifluid.hpp lines 530-560"
+rule = "EOS[0] only; a second EOS entry (21 of 124 files) is never read."
+scope = "multifluid fluid files"
+documented = "not stated"
+
+[[selection]]
+name = "departure function by name"
+locator = "include/teqp/models/multifluid.hpp lines 494-500"
+rule = "the record of the departure collection whose Name equals the function string of the pair record; aliases are not consulted; no function or an empty string gives a null term."
+scope = "pair departure contribution"
+documented = "not stated; coolprop.toml records alias resolution in CoolProp"
+
+[[selection]]
+name = "superancillary and ancillary availability"
+locator = "include/teqp/models/cubics/simple_cubics.hpp lines 184-215; include/teqp/algorithms/ancillary_builder.hpp lines 1-155; interface/pybind11_wrapper.cpp lines 263-275"
+rule = "saturated densities of PR and SRK (and vdW in the table) come from the Chebyshev superancillary evaluated at T-tilde; ancillaries of multifluid pure fluids come from the ANCILLARIES block of the fluid file (pS, rhoL, rhoV or pL and pV), and build_ancillaries can refit them for any model from a critical-point guess."
+scope = "pure-fluid saturation initial values and ancillary equations"
+documented = "partly (comments)"
+
+[[selection]]
+name = "SAFT-VR-Mie polar model default"
+locator = "include/teqp/models/saftvrmie.hpp lines 1205-1220"
+rule = "polar_model defaults to GrossVrabec and polar_flags default to approach use_packing_fraction; polar terms are built only when a polar key exists."
+scope = "SAFT-VR-Mie polar contribution"
+documented = "yes, in a code comment"
+
+[[selection]]
+name = "association specification path in CPA"
+locator = "include/teqp/models/CPA.hpp lines 335-400"
+rule = "a single-component model whose pure object has a class key uses the legacy CPAAssociation; otherwise the general Association class with sites is used."
+scope = "CPA association"
+documented = "yes, in a comment (backwards compatible approach)"
+
+# ---------------------------------------------------------------------------
+# CAPABILITIES
+# ---------------------------------------------------------------------------
+
+[[capability]]
+calculation = "flash_tp"
+offered = false
+scope = "no flash routine: a search of include, interface and src for the word flash finds no hit; VLE routines need initial guesses and do not detect the number of phases"
+locator = "not applicable (absence)"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_ph"
+offered = false
+scope = "no phase split at specified enthalpy; GeneralizedPhaseEquilibrium accepts T, p, molar volume, internal energy, enthalpy or entropy as specifications together with initial phase guesses (see the proposed key below)"
+locator = "include/teqp/algorithms/phase_equil.hpp lines 97-300"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "flash_uv"
+offered = false
+scope = "specification classes exist for molar volume and internal energy inside GeneralizedPhaseEquilibrium, which needs initial guesses; no flash"
+locator = "include/teqp/algorithms/phase_equil.hpp lines 160-264"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "multiphase_equilibrium_polish (proposed new key: solution of multiphase equilibrium for an arbitrary number of phases and components from initial guesses with two specification equations)"
+offered = true
+scope = "any model exposing the derivative interface; specifications T, phase fraction beta, p, molar volume, molar entropy, molar internal energy, molar enthalpy; optional ideal-gas model for caloric specifications"
+locator = "include/teqp/algorithms/phase_equil.hpp lines 13-583 (GeneralizedPhaseEquilibrium)"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "bubble_dew_point"
+offered = true
+scope = "mixtures of any model with the derivative interface, with initial densities: mix_VLE_Tx (T and liquid composition), mixture_VLE_px (p and composition for T), mix_VLE_Tp (T and p for a binary at given guesses)"
+locator = "include/teqp/algorithms/VLE.hpp lines 76, 287 and 399"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "phase_stability"
+offered = false
+scope = "no tangent-plane-distance analysis; local stability is assessed only along critical-curve tracing by the method of Deiters and Bell (is_locally_stable) and through the minimum eigenvalue of the Hessian of Psi (get_minimum_eigenvalue_Psi_Hessian)"
+locator = "include/teqp/algorithms/critical_tracing.hpp lines 125 and 314-333"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "critical_point"
+offered = true
+scope = "pure fluids (solve_pure_critical with Jacobian conditions and extrapolate_from_critical) and mixtures (criticality conditions via the eigen problem of the Hessian of Psi; polishing at fixed composition, fixed density or fixed temperature)"
+locator = "include/teqp/algorithms/critical_pure.hpp lines 22-224; include/teqp/algorithms/critical_tracing.hpp lines 39-390"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "phase_envelope"
+offered = true
+scope = "binary VLE isotherm and isobar tracing (trace_VLE_isotherm_binary, trace_VLE_isobar_binary), binary VLLE tracing and finding (trace_VLLE_binary, find_VLLE_T_binary, find_VLLE_p_binary, mix_VLLE_T, mix_VLLE_p) and binary critical-curve tracing by arclength (trace_critical_arclength_binary); not a generic multicomponent envelope"
+locator = "include/teqp/algorithms/VLE.hpp lines 792-1300; include/teqp/algorithms/VLLE.hpp lines 30-652; include/teqp/algorithms/critical_tracing.hpp line 391"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "pure_saturation (proposed new key: saturation state of a pure fluid at given temperature and tracing of the saturation curve)"
+offered = true
+scope = "pure_VLE_T, pure_trace_VLE, dpsatdT_pure, ancillary construction by build_ancillaries"
+locator = "include/teqp/algorithms/VLE_pure.hpp lines 19-259; include/teqp/algorithms/ancillary_builder.hpp"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "virial_coefficients (proposed new key: virial coefficients and their temperature derivatives from the residual Helmholtz energy)"
+offered = true
+scope = "second virial B2, cross virial B12, higher virial coefficients by order (get_Bnvir) and temperature derivatives (get_dmBnvirdTm), by automatic differentiation of any model"
+locator = "include/teqp/cpp/teqpcpp.hpp lines 130-133; include/teqp/derivs.hpp"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "residual_derivatives (proposed new key: derivatives of the residual Helmholtz energy in T, density and composition)"
+offered = true
+scope = "Ar_xy mixed derivatives, derivatives in composition (A_TrhoXi up to third order), in tau and delta, chemical potentials, fugacity coefficients, partial molar volumes, Hessians and gradients of Psi, isochoric derivative matrices; by complex-step, multicomplex or automatic differentiation"
+locator = "include/teqp/cpp/teqpcpp.hpp lines 94-160; include/teqp/derivs.hpp; interface/pybind11_wrapper.cpp"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "parameter_regression"
+offered = true
+scope = "PureParameterOptimizer over JSON-pointer-addressed model parameters with cost contributions SatRhoLPoint, SatRhoLPPoint, SatRhoLPWPoint, SOSPoint and PVTNoniterativePoint and a threaded cost function; binary interaction fitting is demonstrated in notebooks (user level)"
+locator = "include/teqp/algorithms/pure_param_optimization.hpp lines 16-285; doc/source/fitting/MultifluidBIPFitting.ipynb"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "state_iteration (proposed new key: Newton-type iteration for a state at specified variable values)"
+offered = true
+scope = "generic iteration over T, density and composition variables with stopping conditions (max absolute error, minimum relative step size, NaN, negative value), used for polarizable fluids"
+locator = "include/teqp/algorithms/iteration.hpp lines 1-515"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "gibbs_minimization"
+offered = false
+scope = "no constrained minimisation over species and phases"
+locator = "not applicable (absence)"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "aqueous_speciation"
+offered = false
+scope = "no chemical equilibrium or speciation routine"
+locator = "not applicable (absence)"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "characterization"
+offered = false
+scope = "no pseudo-component generation from assay data (LKP and cubics take critical constants as inputs)"
+locator = "not applicable (absence)"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "interfacial_profile"
+offered = false
+scope = "no interface or density-profile calculation"
+locator = "not applicable (absence)"
+evidence = "source_inspected"
+
+# ---------------------------------------------------------------------------
+# QUESTIONS
+# ---------------------------------------------------------------------------
+
+[[question]]
+about = "which document is the authoritative specification of the kinds"
+question = "The 14 shipped JSON Schemas are closed (additionalProperties false for 11) and differ from what the factories read: kind cubic reads R / J/mol/K and alpha type PR78, which the cubic schema omits; CPA reads kmat, options and pures[].sites, while the CPA schema requires class, forbids sites and has no kmat or options; SAFT-VR-Mie flags are accepted by the schema for names but ignored by the factory in that branch. With validate on by default, are valid specifications rejected (inferred from additionalProperties false)?"
+why_it_matters = "The specification language is this source's main contribution; its contract must be taken from the code and the survey cannot assume the schemas are complete."
+
+[[question]]
+about = "radial_dist and association options"
+question = "Association::factory (Delta_rule CR1) builds CanonicalData with radial_dist copied from an options object whose radial_dist is never set from the JSON, and the CPA factory assigns opt = j.at('options') after setting opt.radial_dist. Which radial distribution function is actually used when the JSON supplies radial_dist?"
+why_it_matters = "A stored radial_dist choice in a specification may have no effect; the assembly choice would be unrecoverable."
+
+[[question]]
+about = "advancedPRaEres for more than two components"
+question = "make_AdvancedPRaEres passes Eigen::ArrayXXd::Zero(2, 2) as lmat while check_lmat requires the component count. Does the factory work only for binary mixtures?"
+why_it_matters = "The form's validity domain (number of components) would otherwise be mis-stated."
+
+[[question]]
+about = "Methanol cannot be loaded by the multifluid kind"
+question = "teqp/fluiddata/dev/fluids/Methanol.json has ResidualHelmholtzAssociating in EOS[0].alphar, a type that get_EOS_terms does not allow, so the multifluid kind refuses the file. Is the file meant for another reader (the multifluid-association kind?) or is it simply unsupported?"
+why_it_matters = "A data file in the payload that the source's own loader rejects is a fluid that exists in the data but not in the model."
+
+[[question]]
+about = "provenance of the copied fluid and mixture files"
+question = "The fluid files equal CoolProp's after removing SUPERANCILLARY in 97 of 124 cases and differ in 27; 817 pair records against CoolProp's 888 with 38 differing. Which CoolProp commit were they copied from, and are the differences corrections made in teqp (README mentions one departure-term fix) or drift?"
+why_it_matters = "Two carriers of overlapping published parameters need an equivalence assessment with dates; without the source commit the assessment cannot say which carrier is newer."
+
+[[question]]
+about = "duplicate pair records"
+question = "Three CAS pairs appear twice in mixture_binary_pairs.json with different values (BibTeX Unpublished and Bell-JCED-2016). Is the earlier record meant to be preferred, and does the result depend on the identifier kind used to load the mixture?"
+why_it_matters = "Two coherent parameter sets for one subject need a selection policy that the source leaves to file order."
+
+[[question]]
+about = "sign convention of GaoB eta and the departure aliasing"
+question = "get_EOS_terms negates eta on read for ResidualHelmholtzGaoB (comment: watch out for this sign flip); the departure lookup ignores aliases that CoolProp resolves. Are these both intentional differences from CoolProp's reading of the same JSON?"
+why_it_matters = "The same file must mean the same function in both carriers; the mapping needs to record the convention."
+
+[[question]]
+about = "NRTL"
+question = "The activity models of the tree are Wilson, binaryInvariant and COSMO-SAC-2010; a search of the pinned tree finds no NRTL code or keyword. Is an NRTL model expected in a newer or different release?"
+why_it_matters = "Absence is recorded as a finding; the capability inventory must not list NRTL for this release."
+
+[[question]]
+about = "units of several specification fields"
+question = "vdW1 a and b, Wilson b, m and n, As and Bs of QCPRAasen, activity b and u, and the ECS Z_crit have no stated units (only formulas imply them); mu_Cm and mu_D descriptions in the schema contradict the names."
+why_it_matters = "Dimensioned slots must not be typed from inference alone."
+
+[[question]]
+about = "gas constant across kinds and compositions"
+question = "The model R varies between 8.314472, 8.314471, 8.31446261815324 and N_A k_B across kinds, and the composition kinds change the value relative to their multifluid part (multifluid-association and multifluid-activity use N_A k_B). Is this intentional?"
+why_it_matters = "A multifluid equation fitted with its own R is not the same function when evaluated with another R; the R rule belongs to the assembly."
+
+[[question]]
+about = "bundled NIST AGA8 copy"
+question = "src/tests/GERG2008.cpp is the AGA8 v1.7 file, a different text version than the pinned AGA8 tree (v2.01) with identical setup numbers. Is it used anywhere beyond the GERG tests, and should it count as a second carrier of the same parameters?"
+why_it_matters = "It is a third carrier of GERG-2008 (with teqp's own tables and AGA8 itself); equivalence assessments should cover all carriers."
+
+[[question]]
+about = "ideal-gas constants replaced at construction"
+question = "GERG200XAlphaig recomputes n0(1) and n0(2) so that h and s vanish at 298.15 K and 101.325 kPa, whereas AGA8 stores published constants that reach that reference only nearly. Which is the reference of the standard?"
+why_it_matters = "Two carriers of one set differ at the level of the integration constants; the energy_reference record must say which datum each implements."
+
+[[question]]
+about = "whether teqp carries any fluid data of its own"
+question = "The fluid and mixture files are CoolProp-format copies and the GERG tables are transcriptions of published tables; the NN, cubic superancillary and SAFT integral tables are computed fits. Which of these are teqp contributions (for example the 2D Chebyshev departure type, the GenericCubic and PC-SAFT pure-fluid terms) and which are restatements?"
+why_it_matters = "Rights, provenance and deduplication of carriers depend on which numbers originate here."
+
+[[question]]
+about = "REFPROP-interop is not in the pinned tree"
+question = "The FLD and HMX.BNC converters live in the REFPROP-interop submodule, which is an empty directory in the acquired bytes (as are Eigen, autodiff, Catch2, pybind11, mcx and the JSON-schema validator). Should the submodules be acquired for the survey of the format conversion?"
+why_it_matters = "The conversion of REFPROP-format files to the CoolProp layout is a derivation that changes parameter values; its rules cannot be recorded from the pinned bytes."

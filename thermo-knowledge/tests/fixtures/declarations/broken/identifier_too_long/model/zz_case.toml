@@ -1,0 +1,12 @@
+module = "broken"
+schema = "tk"
+uses = ["physical", "identity", "framework", "vocab"]
+doc = "A deliberately broken module."
+
+[kinds.a_name_that_goes_on_and_on_until_postgresql_would_quietly_truncate_it]
+doc = "d"
+identity = ["a"]
+provenance = "none"
+
+[kinds.a_name_that_goes_on_and_on_until_postgresql_would_quietly_truncate_it.attributes]
+a = { type = "Text", doc = "d" }

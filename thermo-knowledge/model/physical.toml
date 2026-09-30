@@ -1,0 +1,184 @@
+module = "physical"
+schema = "tk"
+uses = []
+doc = """
+Quantity types. A quantity type fixes what a stored number means physically and the coherent SI
+unit it is stored in. Two types with equal dimensions remain different types. `production` names
+the corresponding production quantity type where one exists, so adoption can reconcile the two
+vocabularies mechanically.
+
+Scales: `absolute` is a magnitude with a true zero that is never negative, and zero is a valid
+value; `difference` is a signed quantity, including anything defined relative to a datum;
+`dimensionless` is a pure number; `count` is a number of things, which may be fractional for
+non-stoichiometric formulas.
+"""
+
+[quantity_types.Scalar]
+doc = "A dimensionless number with no further interpretation."
+unit = "dimensionless"
+scale = "dimensionless"
+production = "Scalar"
+
+[quantity_types.Count]
+doc = "A number of atoms, groups, sites or molecules per formula unit."
+unit = "dimensionless"
+scale = "count"
+production = "Count"
+
+[quantity_types.ChargeNumber]
+doc = "Net charge in units of the elementary charge; signed."
+unit = "dimensionless"
+scale = "difference"
+production = "ChargeNumber"
+
+[quantity_types.Fraction]
+doc = "A part of a whole on a stated composition basis, between zero and one."
+unit = "dimensionless"
+scale = "absolute"
+
+[quantity_types.Temperature]
+doc = "Absolute thermodynamic temperature."
+unit = "K"
+scale = "absolute"
+production = "Temperature"
+
+[quantity_types.TemperatureDifference]
+doc = "A temperature interval or a temperature-like coefficient that may be negative."
+unit = "K"
+scale = "difference"
+production = "DeltaTemperature"
+
+[quantity_types.Pressure]
+doc = "Absolute pressure."
+unit = "Pa"
+scale = "absolute"
+production = "Pressure"
+
+[quantity_types.MolarMass]
+doc = "Mass per amount of substance."
+unit = "kg/mol"
+scale = "absolute"
+production = "MolarMass"
+
+[quantity_types.MolarVolume]
+doc = "Volume per amount of substance; signed because co-volumes, translations and excess volumes share it."
+unit = "m^3/mol"
+scale = "difference"
+
+[quantity_types.MolarDensity]
+doc = "Amount of substance per volume."
+unit = "mol/m^3"
+scale = "absolute"
+production = "MolarDensity"
+
+[quantity_types.MassDensity]
+doc = "Mass per volume."
+unit = "kg/m^3"
+scale = "absolute"
+production = "Density"
+
+[quantity_types.MolarEnergy]
+doc = "Energy per amount of substance: enthalpy, Gibbs energy, internal energy or an interaction energy. Signed; the datum is stated by the convention set, never by the number."
+unit = "J/mol"
+scale = "difference"
+production = "MolarEnthalpy"
+
+[quantity_types.MolarEntropy]
+doc = "Entropy or heat capacity per amount of substance."
+unit = "J/(mol*K)"
+scale = "difference"
+production = "MolarEntropy"
+
+[quantity_types.SpecificEnergy]
+doc = "Energy per mass."
+unit = "J/kg"
+scale = "difference"
+
+[quantity_types.SpecificEntropy]
+doc = "Entropy or heat capacity per mass."
+unit = "J/(kg*K)"
+scale = "difference"
+
+[quantity_types.GasConstant]
+doc = "The molar gas constant as used by a body of data. Its value is a convention of that data, not a global."
+unit = "J/(mol*K)"
+scale = "absolute"
+production = "GasConstant"
+
+[quantity_types.Length]
+doc = "A length, such as a segment or collision diameter."
+unit = "m"
+scale = "absolute"
+production = "Length"
+
+[quantity_types.Area]
+doc = "An area, such as a molecular surface area."
+unit = "m^2"
+scale = "absolute"
+
+[quantity_types.Volume]
+doc = "A volume, such as a molecular cavity volume."
+unit = "m^3"
+scale = "absolute"
+
+[quantity_types.EnergyTemperature]
+doc = "An energy expressed as a temperature (energy divided by the Boltzmann constant), as used for dispersion and association energies."
+unit = "K"
+scale = "difference"
+production = "TemperatureScale"
+
+[quantity_types.Viscosity]
+doc = "Dynamic viscosity."
+unit = "Pa*s"
+scale = "absolute"
+
+[quantity_types.ThermalConductivity]
+doc = "Thermal conductivity."
+unit = "W/(m*K)"
+scale = "absolute"
+
+[quantity_types.Diffusivity]
+doc = "A diffusion coefficient; its frame of reference is a facet of the observable."
+unit = "m^2/s"
+scale = "absolute"
+
+[quantity_types.SurfaceTension]
+doc = "Interfacial tension."
+unit = "N/m"
+scale = "absolute"
+
+[quantity_types.DipoleMoment]
+doc = "Electric dipole moment."
+unit = "C*m"
+scale = "absolute"
+
+[quantity_types.SurfaceChargeDensity]
+doc = "Screening charge per area, the support coordinate of a sigma profile."
+unit = "C/m^2"
+scale = "difference"
+
+[quantity_types.Molality]
+doc = "Amount of solute per mass of solvent."
+unit = "mol/kg"
+scale = "absolute"
+
+[quantity_types.Loading]
+doc = "Amount adsorbed per mass of adsorbent."
+unit = "mol/kg"
+scale = "absolute"
+
+[quantity_types.Time]
+doc = "A duration."
+unit = "s"
+scale = "absolute"
+
+[quantity_types.Mass]
+doc = "A mass."
+unit = "kg"
+scale = "absolute"
+
+[quantity_types.Amount]
+doc = "An amount of substance."
+unit = "mol"
+scale = "absolute"
+production = "Amount"

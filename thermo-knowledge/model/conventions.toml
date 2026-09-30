@@ -1,0 +1,114 @@
+module = "conventions"
+schema = "tk"
+uses = ["physical", "provenance", "identity", "systems"]
+doc = """
+The conventions a body of data assumes. "Reference state" means at least six different things
+across the sources. This module owns three: the standard state that defines a standard chemical
+potential, the energy reference that fixes the zero of enthalpy and entropy, and the reference
+form of each element under that datum. A convention set bundles them with the gas constant,
+temperature scale and atomic-weight edition a coherent body of data was built on. None of these
+is a global: two parameterisations may assume different gas constants, and recomputing one with
+the other's value breaks its verification tables.
+"""
+
+[enums.standard_state_kind]
+doc = "The kind of state that defines a standard chemical potential."
+members.pure_real = { doc = "The pure substance in its real state at the temperature and the stated pressure." }
+members.pure_ideal_gas = { doc = "The pure substance as an ideal gas at the stated pressure." }
+members.infinite_dilution = { doc = "A hypothetical ideal solution at unit concentration, referenced to infinite dilution in a stated solvent on a stated scale." }
+members.site_reference = { doc = "A surface or exchange species referenced to full site coverage or unit equivalent fraction." }
+
+[enums.pressure_rule]
+doc = "How the pressure of a standard state is fixed."
+members.fixed = { doc = "A stated constant pressure." }
+members.system_pressure = { doc = "The pressure of the system." }
+members.saturation = { doc = "The saturation pressure of the solvent at the temperature." }
+
+[enums.enthalpy_datum]
+doc = "What fixes the zero of enthalpy."
+members.formation_from_elements = { doc = "Enthalpy of formation from the elements in their reference forms at the reference temperature." }
+members.stable_element_reference = { doc = "Relative to the enthalpy of the elements in their stable forms at 298.15 K (the CALPHAD SER)." }
+members.zero_at_state = { doc = "Zero at a named state, as in the refrigeration conventions." }
+members.apparent_helgeson = { doc = "Apparent enthalpy in the Benson-Helgeson convention." }
+members.apparent_berman = { doc = "Apparent enthalpy in the Berman-Brown convention." }
+members.not_stated = { doc = "The source does not say." }
+
+[enums.entropy_datum]
+doc = "What fixes the zero of entropy."
+members.third_law = { doc = "Absolute entropy." }
+members.zero_at_state = { doc = "Zero at a named state." }
+members.conventional_ionic = { doc = "Ionic entropies relative to the hydrogen ion convention." }
+members.not_stated = { doc = "The source does not say." }
+
+[enums.temperature_scale]
+doc = "The practical temperature scale data was reported on."
+members.its_90 = { doc = "International Temperature Scale of 1990." }
+members.ipts_68 = { doc = "International Practical Temperature Scale of 1968." }
+members.ipts_48 = { doc = "International Practical Temperature Scale of 1948." }
+members.not_stated = { doc = "The source does not say." }
+
+[kinds.standard_state]
+doc = "The state that defines the standard chemical potential used with an activity or a fugacity."
+identity = ["key"]
+provenance = "own"
+
+[kinds.standard_state.attributes]
+key = { type = "Text", doc = "Stable key." }
+kind = { type = "standard_state_kind", doc = "The kind of state." }
+scale = { type = "composition_basis", optional = true, doc = "The composition scale of an infinite-dilution or site reference." }
+pressure_rule = { type = "pressure_rule", doc = "How its pressure is fixed." }
+pressure = { type = "Pressure", optional = true, doc = "The pressure, when fixed." }
+solvent = { type = "material_entity", optional = true, doc = "The solvent of an infinite-dilution reference." }
+
+[[kinds.standard_state.requires]]
+name = "dilution_needs_solvent_and_scale"
+doc = "An infinite-dilution standard state names a solvent and a composition scale."
+enforced = "load"
+
+[kinds.energy_reference]
+doc = "The zero of enthalpy and of entropy for a body of data."
+identity = ["key"]
+provenance = "own"
+
+[kinds.energy_reference.attributes]
+key = { type = "Text", doc = "Stable key." }
+enthalpy = { type = "enthalpy_datum", doc = "What fixes the zero of enthalpy." }
+entropy = { type = "entropy_datum", doc = "What fixes the zero of entropy." }
+temperature = { type = "Temperature", optional = true, doc = "Reference temperature of the datum." }
+pressure = { type = "Pressure", optional = true, doc = "Reference pressure of the datum." }
+state = { type = "Text", optional = true, doc = "The named state of a zero-at-state datum, as the source describes it." }
+
+[relations.element_reference]
+doc = "The reference form of an element under an energy reference. Formation and stable-element datums name one per element they cover."
+provenance = "inherit:reference"
+absence = "optional"
+value = { type = "species_form", doc = "The value." }
+
+[relations.element_reference.keys]
+reference = { type = "energy_reference", doc = "The energy reference." }
+element = { type = "element", doc = "The element." }
+
+[kinds.convention_set]
+doc = "The conventions one coherent body of data assumes. A transformation between two convention sets is a scoped function with evidence, never a scalar offset."
+identity = ["key", "revision"]
+provenance = "own"
+traces = ["IC-21", "SI-14"]
+
+[kinds.convention_set.attributes]
+key = { type = "Text", doc = "Stable key." }
+revision = { type = "Text", doc = "Revision." }
+energy_reference = { type = "energy_reference", optional = true, doc = "The energy reference, for data that carry absolute or formation energies." }
+gas_constant = { type = "GasConstant", optional = true, doc = "The value of the gas constant the data was built with." }
+temperature_scale = { type = "temperature_scale", doc = "The temperature scale." }
+standard_pressure = { type = "Pressure", optional = true, doc = "The standard pressure, where one applies to the whole set." }
+atomic_weights = { type = "source", optional = true, doc = "The atomic-weight edition." }
+
+[relations.convention_standard_state]
+doc = "The standard state a convention set gives for each member role its chemical systems use. A reaction participant may still state its own."
+provenance = "inherit:convention_set"
+absence = "optional"
+value = { type = "standard_state", doc = "The value." }
+
+[relations.convention_standard_state.keys]
+convention_set = { type = "convention_set", doc = "The convention set." }
+member_role = { type = "member_role", doc = "The part a species form plays in a chemical system that the standard state applies to." }

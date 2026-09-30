@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "thermo"
+title = "thermo"
+tier = "A"
+homepage = "https://github.com/CalebBell/thermo"
+waves = [1, 2, 3]
+notes = "The tag is not on master (master is two commits behind it); the commit is the pin. UNIFAC interaction tables are headerless numeric TSV; group definitions are embedded in thermo/unifac.py."
+
+[acquire]
+kind = "git"
+url = "https://github.com/CalebBell/thermo.git"
+commit = "4f51c4343773c8e50480b32eb81b014ae3945ebb"
+tag = "0.6.1"
+submodules = []
+sparse = []
+
+[payload]
+reader = "thermo"
+environment = "core"
+include = [
+  "thermo/**/*.tsv",
+  "thermo/**/*.json",
+  "thermo/**/*.csv",
+  "thermo/**/*.gz",
+  "thermo/**/*.ipd",
+  "thermo/unifac.py",
+]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "MIT"
+statement = "LICENSE.txt: MIT."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"
+
+[[rights]]
+scope = "thermo/Interaction Parameters/ChemSep/**"
+basis = "licence_grant"
+spdx = "Artistic-2.0"
+statement = "Ships its own Artistic_license_2_0.txt."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"
+
+[[rights]]
+scope = "data"
+basis = "not_stated"
+statement = "UNIFAC tables were transcribed from published DDB parameters; correlation JSON derives from REFPROP and CoolProp fits. No separate statement."
+store = "yes"
+redistribute = "not_stated"
+commercial = "not_stated"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

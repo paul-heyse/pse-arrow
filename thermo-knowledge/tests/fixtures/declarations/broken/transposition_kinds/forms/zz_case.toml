@@ -1,0 +1,21 @@
+module = "broken"
+uses = ["physical", "identity", "framework", "vocab", "contracts", "forms"]
+doc = "A deliberately broken form module."
+
+[forms.bad]
+doc = "d"
+implements = "binary_parameter"
+completeness = "fully_declared"
+status = "catalogued"
+
+[forms.bad.slot_groups.g]
+doc = "d"
+subject.i = { type = "species_form", doc = "d" }
+subject.j = { type = "element", doc = "d" }
+transposition = { rule = "symmetric", roles = [
+  "i",
+  "j",
+], diagonal = "forbidden" }
+
+[forms.bad.slot_groups.g.slots]
+s = { type = "Scalar", doc = "d" }

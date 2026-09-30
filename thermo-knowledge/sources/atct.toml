@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "atct"
+title = "Active Thermochemical Tables"
+tier = "B"
+homepage = "https://atct.anl.gov/"
+waves = [1]
+notes = "Thermochemical Network version 1.222: one HTML page holds the whole table (3,444 species; enthalpies of formation at 0 K and 298.15 K with 95 % confidence limits). Cite: B. Ruscic and D. H. Bross, Active Thermochemical Tables (ATcT) values based on ver. 1.222 of the Thermochemical Network, Argonne National Laboratory (2026)."
+
+[acquire]
+kind = "pages"
+enumerator = "url_list"
+min_interval_seconds = 10
+urls = ["https://atct.anl.gov/Thermochemical%20Data/version%201.222/index.php"]
+
+[payload]
+reader = "atct"
+environment = "core"
+include = ["**"]
+exclude = []
+
+[[rights]]
+scope = "data"
+basis = "not_stated"
+statement = "No licence or terms statement on the pages read; the home page describes ATcT as a DOE Office of Science Public Reusable Data Resource and states a required citation."
+url = "https://atct.anl.gov/"
+store = "not_stated"
+redistribute = "not_stated"
+commercial = "not_stated"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

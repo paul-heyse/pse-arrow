@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "thermochimica"
+title = "Thermochimica"
+tier = "A"
+homepage = "https://github.com/ORNL-CEES/thermochimica"
+waves = [5]
+notes = "No tags. data/Disclaimer.txt states that some data files were modified for software testing."
+
+[acquire]
+kind = "git"
+url = "https://github.com/ORNL-CEES/thermochimica.git"
+commit = "0c35c8d7d1cf2084b4e2ca5d6608f7dcdf60adad"
+submodules = []
+sparse = []
+
+[payload]
+reader = "thermochimica"
+environment = "core"
+include = ["data/*.dat", "data/Disclaimer.txt"]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "BSD-3-Clause"
+statement = "LICENSE: BSD-3-Clause."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"
+
+[[rights]]
+scope = "data/**"
+basis = "not_stated"
+statement = "ChemSage data files from published assessments; some modified for testing (data/Disclaimer.txt)."
+store = "yes"
+redistribute = "not_stated"
+commercial = "not_stated"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

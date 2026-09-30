@@ -1,0 +1,309 @@
+module = "provenance"
+schema = "prov"
+uses = ["physical"]
+doc = """
+Where every imported record came from and what may be done with it. A carrier is the thing that
+was acquired; a primary source is who the content is attributed to. The two are kept apart: the
+same published table carried by three libraries is three import records with one primary
+attribution. Rights attach to the carrier and reach a record through its import record; they are
+never a property of the mathematics.
+"""
+
+[identifier_schemes.doi]
+doc = "Digital Object Identifier. Opaque."
+
+[identifier_schemes.isbn]
+doc = "International Standard Book Number. Opaque."
+
+[identifier_schemes.spdx]
+doc = "SPDX licence identifier or expression. Opaque."
+
+[enums.origin_role]
+doc = "How the asserted content of a record came to exist. The facets of its members state what a record in each role has."
+facets.requires_derivation = { doc = "A record with this role has a producing derivation." }
+facets.requires_fit = { doc = "The producing derivation of a record with this role is a fit." }
+facets.not_knowledge = { doc = "Held for testing or comparison only; a record with this role never enters a snapshot." }
+members.published = { doc = "Stated in a publication and transcribed." }
+members.measured = { doc = "An experimental observation." }
+members.evaluated = { doc = "A critically evaluated or recommended value." }
+members.fitted = { doc = "Obtained by regression against evidence.", facets = ["requires_derivation", "requires_fit"] }
+members.estimated = { doc = "Produced by an estimation method.", facets = ["requires_derivation"] }
+members.derived = { doc = "Computed from other records by a stated rule.", facets = ["requires_derivation"] }
+members.computed = { doc = "The output of a calculation such as quantum chemistry or a reference equation." }
+members.conventional = { doc = "True by convention or definition." }
+members.synthetic = { doc = "Invented for testing.", facets = ["not_knowledge"] }
+members.oracle_input = { doc = "Held only to compare against another system's results.", facets = ["not_knowledge"] }
+
+[enums.permission]
+doc = "Whether a source's terms allow an action."
+members.yes = { doc = "Allowed." }
+members.no = { doc = "Prohibited." }
+members.with_conditions = { doc = "Allowed subject to conditions given in the statement." }
+members.not_stated = { doc = "The terms are silent; treated as not granted for redistribution." }
+
+[enums.rights_basis]
+doc = "What a rights determination rests on."
+members.licence_grant = { doc = "A licence text grants the permissions." }
+members.public_domain = { doc = "A public-domain dedication or a statement that no copyright applies." }
+members.permission = { doc = "Permission given by a rights holder." }
+members.terms_of_use = { doc = "A provider's terms of use or a use restriction." }
+members.not_stated = { doc = "No governing statement was found." }
+
+[enums.derivation_kind]
+doc = "What kind of activity produced records from other records."
+members.fit = { doc = "Regression of parameters against evidence." }
+members.estimation = { doc = "A predictive method applied to a subject, such as group contribution." }
+members.characterisation = { doc = "Generation of pseudo-components and their parameters from assay data." }
+members.computation = { doc = "Evaluation of a model or a first-principles calculation." }
+members.evaluation = { doc = "Critical evaluation of evidence into recommended values." }
+members.transcription = { doc = "Digitisation or copying from another representation." }
+members.conversion = { doc = "A change of unit, convention or representation that preserves the fact." }
+
+[enums.fit_outcome]
+doc = "How a fit ended."
+members.converged = { doc = "The optimiser reported convergence." }
+members.failed = { doc = "The fit failed; it selects no parameter set." }
+members.not_stated = { doc = "The source does not say." }
+
+[enums.equivalence_level]
+doc = "How two records that claim the same primary fact compare."
+members.exact = { doc = "Identical values." }
+members.within_rounding = { doc = "Equal to the precision either source states." }
+members.equal_under_conversion = { doc = "Equal once a stated conversion is applied: a pre-combined value, a reversed pair, a changed unit or reference." }
+members.conflicting = { doc = "Different beyond rounding." }
+
+# ---------------------------------------------------------------- sources
+
+[kinds.source]
+doc = "An attributable origin of content: a publication, a software release, a database release or an acquired carrier."
+abstract = true
+identity = ["key"]
+provenance = "none"
+traces = ["IC-10"]
+
+[kinds.source.attributes]
+key = { type = "Text", doc = "Stable key: the manifest id and resolved pin for a carrier, a citation key for a publication." }
+title = { type = "Text", doc = "Human-readable title." }
+
+[kinds.publication]
+doc = "A published work that content is attributed to."
+extends = "source"
+
+[kinds.publication.attributes]
+year = { type = "Integer", optional = true, doc = "Year of publication." }
+doi = { type = "Id<doi>", optional = true, unique = true, doc = "DOI where one exists." }
+isbn = { type = "Id<isbn>", optional = true, doc = "ISBN for a book." }
+citation = { type = "Text", optional = true, doc = "Bibliographic citation as given by the carrier." }
+
+[kinds.software_release]
+doc = "A released version of a program or library, as the origin of a computation or the reference of a comparison."
+extends = "source"
+
+[kinds.software_release.attributes]
+version = { type = "Text", doc = "The release version." }
+homepage = { type = "Text", optional = true, doc = "Where the release is published." }
+
+[kinds.carrier]
+doc = "One acquisition of one declared source at one resolved pin: the bytes that records were read from."
+extends = "source"
+traces = ["IC-10"]
+
+[kinds.carrier.attributes]
+manifest_id = { type = "Text", doc = "The id of the source manifest." }
+resolved_pin = { type = "Text", doc = "The commit, DOI version or retrieval date that resolved." }
+tree_hash = { type = "Hash", doc = "The lock's tree hash of the acquired files." }
+retrieved = { type = "Timestamp", doc = "When the bytes were acquired." }
+
+[kinds.artifact]
+doc = "One file within a carrier."
+identity = ["carrier", "path"]
+provenance = "none"
+
+[kinds.artifact.attributes]
+carrier = { type = "carrier", doc = "The carrier the file belongs to." }
+path = { type = "Text", doc = "Path relative to the carrier's tree." }
+sha256 = { type = "Hash", doc = "Content hash of the file." }
+size = { type = "Integer", doc = "Size in bytes." }
+
+[[kinds.artifact.requires]]
+name = "size_nonnegative"
+doc = "A file size is not negative."
+enforced = "ddl"
+check = { nonnegative = "size" }
+
+[kinds.import_record]
+doc = "The statement that an artifact, at a locator, asserts something. It is the link from a canonical record back to the exact source bytes."
+identity = ["artifact", "locator"]
+provenance = "none"
+
+[kinds.import_record.attributes]
+artifact = { type = "artifact", doc = "The file the assertion was read from." }
+locator = { type = "Text", doc = "Position within the file: a row key, JSON pointer, line range or element path." }
+reader = { type = "Text", doc = "The reader that produced the source-faithful row." }
+reader_version = { type = "Text", doc = "Version of that reader." }
+
+[[kinds.import_record.requires]]
+name = "locator_nonempty"
+doc = "A locator identifies a position."
+enforced = "ddl"
+check = { nonempty = "locator" }
+
+[relations.record_origin]
+doc = "A canonical record was produced from an import record. One source row may yield several records, and an entity may be asserted by many import records."
+provenance = "none"
+absence = "optional"
+
+[relations.record_origin.keys]
+record = { type = "Record", doc = "The canonical record." }
+import_record = { type = "import_record", doc = "The import record it came from." }
+
+[relations.record_origin.columns]
+role = { type = "origin_role", doc = "How the carrier presents the content." }
+
+[relations.attribution]
+doc = "The primary source an import record's content is attributed to, as distinct from the carrier it was read from."
+provenance = "none"
+absence = "optional"
+
+[relations.attribution.keys]
+import_record = { type = "import_record", doc = "The import record." }
+primary = { type = "source", doc = "The source credited with the content." }
+
+# ---------------------------------------------------------------- rights
+
+[kinds.licence]
+doc = "A named set of terms."
+identity = ["key"]
+provenance = "none"
+
+[kinds.licence.attributes]
+key = { type = "Text", doc = "Stable key." }
+spdx = { type = "Id<spdx>", optional = true, doc = "SPDX identifier where one exists." }
+title = { type = "Text", doc = "Name of the terms." }
+
+[kinds.rights_determination]
+doc = "A recorded claim about what may be done with part of a carrier. Competing claims about one scope are all kept; the model records claims and does not decide law."
+identity = ["carrier", "scope", "ordinal"]
+provenance = "none"
+
+[kinds.rights_determination.attributes]
+carrier = { type = "carrier", doc = "The carrier the claim concerns." }
+scope = { type = "Text", doc = "`code`, `data`, or a path glob within the carrier." }
+ordinal = { type = "Integer", doc = "Order among claims with the same carrier and scope." }
+basis = { type = "rights_basis", doc = "What the claim rests on." }
+licence = { type = "licence", optional = true, doc = "The licence, when the basis is a licence grant." }
+statement = { type = "Text", doc = "The governing statement, quoted or closely paraphrased." }
+url = { type = "Text", optional = true, doc = "Where the statement was read." }
+store = { type = "permission", doc = "Keeping a local copy." }
+redistribute = { type = "permission", doc = "Passing the content on." }
+commercial = { type = "permission", doc = "Commercial use." }
+attribution_required = { type = "Boolean", doc = "Whether attribution is required." }
+share_alike = { type = "Boolean", doc = "Whether derived works must carry the same terms." }
+observed = { type = "Text", doc = "When and how the claim was established." }
+
+# ---------------------------------------------------------------- derivation
+
+[kinds.derivation]
+doc = "An activity that produced records from other records. Lineage is acyclic."
+identity = ["key"]
+provenance = "own"
+traces = ["IC-16", "IC-17"]
+
+[kinds.derivation.attributes]
+key = { type = "Text", doc = "Stable key assigned by the mapping that records the derivation." }
+kind = { type = "derivation_kind", doc = "What kind of activity it was." }
+method = { type = "Text", optional = true, doc = "Name of the method, rule or recipe." }
+software = { type = "source", optional = true, doc = "The software that performed it, where known." }
+
+[relations.derivation_input]
+doc = "A record a derivation used."
+provenance = "inherit:derivation"
+absence = "optional"
+
+[relations.derivation_input.keys]
+derivation = { type = "derivation", doc = "The derivation." }
+record = { type = "Record", doc = "A record it consumed." }
+
+[relations.derivation_input.columns]
+weight = { type = "Scalar", optional = true, doc = "Weight given to this input, where the derivation states one." }
+excluded = { type = "Boolean", default = false, doc = "True when the input was considered and explicitly excluded." }
+
+[relations.derivation_output]
+doc = "A record a derivation produced."
+provenance = "inherit:derivation"
+absence = "optional"
+
+[[relations.derivation_output.requires]]
+name = "one_producer_per_record"
+doc = "A record is the output of at most one derivation."
+enforced = "verify"
+
+[relations.derivation_output.keys]
+derivation = { type = "derivation", doc = "The derivation." }
+record = { type = "Record", doc = "A record it produced." }
+
+[kinds.fit]
+doc = "A regression of parameters against evidence. A failed fit produces no selected parameter set."
+extends = "derivation"
+traces = ["IC-16", "SI-12"]
+
+[kinds.fit.attributes]
+objective = { type = "Text", optional = true, doc = "The objective function as the source describes it." }
+outcome = { type = "fit_outcome", doc = "How the fit ended." }
+
+[relations.fit_free_parameter]
+doc = "A parameter a fit was free to vary, addressed down to the coefficient. Uncertainties and correlations are stated over these, by position."
+provenance = "inherit:fit"
+absence = "optional"
+
+[relations.fit_free_parameter.keys]
+fit = { type = "fit", doc = "The fit." }
+ordinal = { type = "Integer", doc = "Position of the parameter in the fit's parameter vector, from one." }
+
+[relations.fit_free_parameter.columns]
+record = { type = "Record", doc = "The parameter set or entity record the parameter belongs to." }
+slot = { type = "Meta<slot>", optional = true, doc = "The slot, when the record is a parameter set." }
+standard_uncertainty = { type = "Real", unit_from = "slot", optional = true, doc = "The standard uncertainty of the fitted value, in the slot's storage unit." }
+index_key = { type = "Text", default = "", doc = "Canonical encoding of the family index, empty for a slot outside any family." }
+
+[[relations.fit_free_parameter.requires]]
+name = "uncertainty_needs_slot"
+doc = "A standard uncertainty is stated only for a parameter that names its slot, since the slot fixes its unit."
+enforced = "load"
+
+[relations.fit_correlation]
+doc = "The correlation of the estimates of two free parameters of a fit, which together with their standard uncertainties gives the covariance."
+provenance = "inherit:fit"
+absence = "optional"
+transposition = { rule = "symmetric", roles = ["a", "b"], diagonal = "forbidden" }
+
+[relations.fit_correlation.keys]
+fit = { type = "fit", doc = "The fit." }
+a = { type = "Integer", doc = "Position of one free parameter in the fit's parameter vector." }
+b = { type = "Integer", doc = "Position of the other free parameter." }
+
+[relations.fit_correlation.columns]
+coefficient = { type = "Scalar", doc = "The correlation coefficient." }
+
+[[relations.fit_correlation.requires]]
+name = "coefficient_in_range"
+doc = "A correlation coefficient lies between minus one and one."
+enforced = "ddl"
+check = { within = { column = "coefficient", lower = -1, upper = 1 } }
+
+[relations.equivalence_assessment]
+doc = "A derived statement that two records assert the same primary fact. It is never an identity and can be rebuilt."
+provenance = "none"
+absence = "optional"
+transposition = { rule = "symmetric", roles = [
+  "a",
+  "b",
+], diagonal = "forbidden" }
+
+[relations.equivalence_assessment.keys]
+a = { type = "Record", doc = "One record." }
+b = { type = "Record", doc = "The other record." }
+
+[relations.equivalence_assessment.columns]
+level = { type = "equivalence_level", doc = "How the two compare." }
+conversion = { type = "derivation", optional = true, doc = "The conversion under which the two agree, for the level `equal_under_conversion`." }

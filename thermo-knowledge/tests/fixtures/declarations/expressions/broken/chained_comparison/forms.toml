@@ -1,0 +1,26 @@
+module = "expr_case"
+uses = ["physical", "identity", "exprtypes"]
+doc = "A broken expression case."
+
+[contracts.vp]
+doc = "Saturation pressure of one species."
+roles.i = { type = "species", doc = "The species." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+outputs.p = { type = "Pressure", doc = "Pressure." }
+
+[forms.f]
+doc = "The form under test."
+implements = "vp"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.f.slot_groups.pure]
+doc = "Coefficients."
+subject.i = { type = "species", doc = "The species." }
+
+[forms.f.slot_groups.pure.slots]
+A = { type = "Scalar", doc = "A." }
+B = { type = "Temperature", doc = "B." }
+
+[forms.f.outputs]
+p = "(T if 1 < 2 < 3 else T) * unit('Pa/K')"

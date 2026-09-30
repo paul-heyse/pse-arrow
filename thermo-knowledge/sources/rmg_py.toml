@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "rmg_py"
+title = "RMG-Py and Arkane"
+tier = "A"
+homepage = "https://github.com/ReactionMechanismGenerator/RMG-Py"
+waves = [3, 7]
+notes = "Source for the model inventory and the database loader. Sparse: examples carry about 147 MB of quantum-chemistry logs."
+
+[acquire]
+kind = "git"
+url = "https://github.com/ReactionMechanismGenerator/RMG-Py.git"
+commit = "5c33e07e0999845032ac7cb1352628488d46b38d"
+tag = "4.0.0"
+submodules = []
+sparse = ["rmgpy", "arkane"]
+
+[payload]
+reader = "rmg_py"
+environment = "rmg"
+include = []
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "MIT"
+statement = "LICENSE.txt: MIT."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

@@ -1,0 +1,2620 @@
+source = "thermoml_schema"
+pin = "5c9945ce07c2"
+surveyed = "2026-09-30"
+summary = "ThermoML.xsd (NIST TRC, schema annotation \"ThermoML version 4.0\") describes the measurement model of the IUPAC ThermoML exchange format: a DataReport holds a citation, compounds with samples, and datasets of pure, mixture or reaction data in which every property, constraint and variable is named by an enumeration string that embeds its unit, every numeric value carries significant digits and several typed uncertainty elements, and correlating equations are referenced by name. This survey is of the schema only: the ThermoML data archive is not acquired, so no instance file has been read and no count of instances, properties used or compounds exists. The vocabularies (64 enumerations, 743 values, 60 distinct value sets) are the main payload and are listed in full."
+
+[[payload]]
+paths = [
+  "ThermoML.xsd",
+]
+format = "XML Schema (XSD 1.0) in namespace http://www.iupac.org/namespaces/ThermoML, UTF-8, tab-indented, 2651 lines, elementFormDefault qualified; first line comment states the file was edited with XML Spy v4.4 U by Robert D. Chirico (U. S. Department of Commerce); the only schema-level annotation reads \"ThermoML version 4.0\""
+files = 1
+bytes = 128779
+records = "14 global element declarations, 10 named complexTypes, 11 named simpleTypes, 524 element declarations and 94 complexTypes and 64 simpleTypes in all (the last two counts include anonymous types), 64 enumerated restrictions with 743 enumeration values (60 distinct value sets), 95 documentation elements (78 distinct texts), 6 appinfo elements, 2 attributes (both on MulticomponentSubstance); counted by parsing the file with python xml.parsers.expat and xml.etree.ElementTree"
+reader = "none in the tree: the pinned tree contains only the schema and no loader. Any XSD 1.0 validating parser reads it (the survey used python xml.etree.ElementTree and xml.parsers.expat); an instance document would be validated against it"
+read_by_source = "none"
+notes = "sha256 5c9945ce07c2a0c4d7bd249ba4d1f76b4a37eba0b872f1f1f6656b4df247ab89 (from ACQUISITION.json beside the tree); retrieved 2026-09-30 from https://trc.nist.gov/ThermoML.xsd. No xsd:key, xsd:unique, xsd:keyref, xsd:pattern, xsd:union or numeric range facet occurs, so every cross-reference (nCompIndex, nPropNumber, nVarNumber, nSampleNm, nUncertAssessNum, nPureOrMixtureDataNumber) is an unconstrained integer whose referent is not checked by the schema. Element types: 100 xsd:string, 92 xsd:integer, 64 xsd:float, 4 xsd:int, 1 xsd:double, 1 xsd:date, 1 xsd:gYear; dateDateAdded has no type at all (anyType). Every restriction is of base xsd:string."
+
+[[payload]]
+paths = [
+  "(not acquired) ThermoML data archive of instance files",
+]
+format = "XML instance documents valid against ThermoML.xsd, one DataReport per publication"
+files = 0
+bytes = 0
+records = "0: the data archive is not in the raw store; nothing about the number of reports, compounds, properties or data points is known"
+reader = "not applicable"
+read_by_source = "none"
+notes = "Stated here so that no count in this record is mistaken for an instance count."
+
+[[construct]]
+name = "DataReport (root) and Version"
+locator = "ThermoML.xsd:7-26 (element DataReport, complexType DataReport, Version)"
+meaning = "One ThermoML document: the schema version it was written to, one citation, the compounds it uses, and datasets of pure-or-mixture data and of reaction data."
+subject = "One publication. The document is keyed by nothing inside the schema; the optional Citation/TRCRefID identifies the paper (first three characters of author 1 and author 2 last names, year, conflict integer)."
+fields = [
+  { name = "Version/nVersionMajor", meaning = "major version of the format the instance claims", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "Version/nVersionMinor", meaning = "minor version", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "Citation", meaning = "the publication the data come from (required, exactly one)", unit = "not applicable", shape = "table", role = "metadata" },
+  { name = "Compound", meaning = "zero or more compound descriptions; datasets reference them by nCompIndex or RegNum", unit = "not applicable", shape = "table", role = "not established" },
+  { name = "PureOrMixtureData", meaning = "zero or more datasets of properties of a pure compound or a mixture", unit = "not applicable", shape = "table", role = "not established" },
+  { name = "ReactionData", meaning = "zero or more datasets of reaction properties", unit = "not applicable", shape = "table", role = "not established" },
+]
+origin = "authored (schema edited with XML Spy v4.4 U by Robert D. Chirico, U. S. Department of Commerce, per the file header comment)"
+conventions = "The schema annotation says \"ThermoML version 4.0\"; nVersionMajor and nVersionMinor are unconstrained integers, so the schema does not tie an instance to 4.0."
+absence = "Compound, PureOrMixtureData and ReactionData are each optional (minOccurs 0), so a report may consist of a citation alone; the schema does not distinguish an empty report from one whose data were not compiled."
+validity = "not stated"
+provenance = "Citation is mandatory; no licence, compiler or source-status field exists at report level (sCompiler and sContributor occur per dataset)."
+count = "1 root element; 1 Version, 1 Citation, 0 to unbounded of each of the three data constructs"
+example = "ThermoML.xsd:8-26"
+candidate = "carrier (the document), publication (its Citation), and one dataset per PureOrMixtureData or ReactionData element"
+precision = "broader"
+loss = "A DataReport mixes a publication, a compound table, samples and datasets; a mapping splits it. The version statement has no home other than the carrier pin."
+
+[[construct]]
+name = "Citation (CitationType) and TRCRefID"
+locator = "ThermoML.xsd:13-58 (TRCRefID) and 62-260 (complexType CitationType)"
+meaning = "Bibliographic description of the publication: type, source status, origin, authors, title, year, abstract, keywords, language, DOI, URL, CAS citation, identification number, location, volume, page, and a choice of book, journal or thesis specific fields."
+subject = "One publication; the optional TRCRefID is a four-part identifier (yrYrPub integer, sAuthor1, sAuthor2, nAuthorn)."
+fields = [
+  { name = "TRCRefID/yrYrPub", meaning = "integer year of publication", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "TRCRefID/sAuthor1", meaning = "first 3 characters of author 1 last name", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "TRCRefID/sAuthor2", meaning = "first 3 characters of author 2 last name", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "TRCRefID/nAuthorn", meaning = "integer identifier to distinguish conflicts", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "eType", meaning = "type of publication: enumeration of 10", unit = "not applicable", shape = "enum", role = "metadata" },
+  { name = "eSourceType", meaning = "source status of the citation: Original, ChemicalAbstracts, Other", unit = "not applicable", shape = "enum", role = "metadata" },
+  { name = "sDocumentOrigin", meaning = "company, institution or conference name", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "sAuthor", meaning = "author of the publication (repeatable)", unit = "not applicable", shape = "list", role = "metadata" },
+  { name = "sPubName", meaning = "name of the publication", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "yrPubYr", meaning = "publication year (xsd:gYear)", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "dateCit", meaning = "date of the citation (xsd:date)", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "sTitle", meaning = "title", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "sAbstract", meaning = "abstract", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "sKeyword", meaning = "keyword (repeatable)", unit = "not applicable", shape = "list", role = "metadata" },
+  { name = "eLanguage", meaning = "language of publication: enumeration of 8", unit = "not applicable", shape = "enum", role = "metadata" },
+  { name = "sDOI", meaning = "DOI", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "urlCit", meaning = "URL to the publication", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "sCASCit", meaning = "Chemical Abstracts Service citation", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "sIDNum", meaning = "identification number such as a patent or document number", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "sLocation", meaning = "reference to a location", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "sVol", meaning = "volume number", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "sPage", meaning = "page range", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "book/sChapter, sEdition, sEditor (repeatable), sISBN, sPublisher", meaning = "book-specific fields", unit = "not applicable", shape = "table", role = "metadata" },
+  { name = "journal/sISSN, sIssue, sCODEN", meaning = "journal-specific fields", unit = "not applicable", shape = "table", role = "metadata" },
+  { name = "thesis/sDeg, sDegInst, sUMIPubNum", meaning = "thesis-specific fields", unit = "not applicable", shape = "table", role = "metadata" },
+]
+origin = "authored"
+conventions = "Every field is optional except the presence of the Citation itself; all text fields are xsd:string."
+absence = "All fields are minOccurs 0, so an empty Citation is schema-valid; absent and unknown are not distinguished."
+validity = "not applicable"
+provenance = "The construct is itself the provenance (citation fields: sDOI, urlCit, sISBN, sISSN, sCODEN, sCASCit, sIDNum)."
+count = "1 complexType: 19 direct elements plus a choice of 3 (book, journal, thesis); plus the global element TRCRefID with 4 fields"
+example = "ThermoML.xsd:62-260"
+candidate = "publication (year, doi, isbn, citation text); the remaining fields as retained source text"
+precision = "close"
+loss = "Keywords, abstract, language, source status, TRCRefID and the book, journal and thesis specifics have no attribute in publication; authors have no list attribute; eType is a ten-value vocabulary the model does not declare."
+
+[[construct]]
+name = "Compound and RegNum"
+locator = "ThermoML.xsd:264-420 (element Compound) and 641-645 (global element RegNum)"
+meaning = "Identification and structure description of one material component: local index, registry number, PubChem id, standard InChI and InChIKey, organisation identifiers, CAS name, IUPAC name, common names, molecular formula, SMILES, and one of a polymer, ion, biomaterial or multicomponent-substance specialisation, a speciation state, and the samples used."
+subject = "One compound, keyed inside the document by the optional nCompIndex (integer) that Property, Constraint, Variable and Component elements cite; alternatively cited by RegNum (nCASRNum integer with optional nOrgNum and sOrganization)."
+fields = [
+  { name = "nCompIndex", meaning = "index that links the compound to data", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "RegNum/nCASRNum", meaning = "CAS registry number as an integer (no check digit, no hyphens stated)", unit = "not applicable", shape = "scalar", role = "not established" },
+  { name = "RegNum/nOrgNum and sOrganization", meaning = "registry number assigned by a named organisation", unit = "not applicable", shape = "scalar", role = "not established" },
+  { name = "nPubChemID", meaning = "PubChem compound identifier", unit = "not applicable", shape = "scalar", role = "not established" },
+  { name = "sStandardInChI", meaning = "Standard InChI string", unit = "not applicable", shape = "scalar", role = "not established" },
+  { name = "sStandardInChIKey", meaning = "Standard InChI key", unit = "not applicable", shape = "scalar", role = "not established" },
+  { name = "sOrgID (repeatable)", meaning = "identifier string plus organisation name", unit = "not applicable", shape = "table", role = "not established" },
+  { name = "sCASName", meaning = "CAS name", unit = "not applicable", shape = "scalar", role = "not established" },
+  { name = "sIUPACName", meaning = "IUPAC name", unit = "not applicable", shape = "scalar", role = "not established" },
+  { name = "sCommonName (repeatable)", meaning = "common name", unit = "not applicable", shape = "list", role = "not established" },
+  { name = "sFormulaMolec", meaning = "chemical molecular formula", unit = "not applicable", shape = "scalar", role = "not established" },
+  { name = "sSmiles (repeatable)", meaning = "SMILES notation", unit = "not applicable", shape = "list", role = "not established" },
+  { name = "polymer/nNumberAvgMolMass, nPeakAvgMolMass, nViscosityAvgMolMass, nMassAvgMolMass, nZAvgMolMass", meaning = "polymer molecular-mass averages, documented as kg/kmol", unit = "kg/kmol (stated in the element documentation)", shape = "scalar", role = "not established" },
+  { name = "polymer/nMolarMassDispersity, nDegOfPolymerizationDispersity", meaning = "dispersity values", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "ion/nCharge", meaning = "integer charge", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "biomaterial/sECNumber, sPDBIdentifier", meaning = "enzyme commission number and Protein Data Bank identifier", unit = "not applicable", shape = "scalar", role = "not established" },
+  { name = "MulticomponentSubstance/Component (nCompIndex or RegNum, nAmount)", meaning = "components of a defined multicomponent substance with an amount each", unit = "given by attribute compositionBasis", shape = "list", role = "not established" },
+  { name = "MulticomponentSubstance/@type", meaning = "alloy, clathrate, complex, crystal or solution (5 values)", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "MulticomponentSubstance/@compositionBasis", meaning = "number of molecules, mole fraction or mass fraction (3 values); optional attribute", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "eSpeciationState", meaning = "equilibrium or single species", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "Sample (repeatable)", meaning = "samples of this compound", unit = "not applicable", shape = "table", role = "not established" },
+]
+origin = "authored"
+conventions = "Registry number is an integer, so leading-zero and check-digit conventions are not represented; name fields are free strings with no declared naming scheme beyond the element name."
+absence = "Every field is optional, including all identifiers: a Compound with no element is schema-valid. Absence is not distinguished from unknown. The documentation text \"CASRN is necessary for mixtures only\" sits on property, phase, constraint and variable identifiers, not on Compound (see the discrepancy)."
+validity = "not applicable"
+provenance = "Samples carry their own source and status enumerations; identifiers carry no per-value attribution."
+count = "1 global element; 13 direct child elements plus a choice of 4 specialisations (polymer, ion, biomaterial, MulticomponentSubstance)"
+example = "ThermoML.xsd:264-420"
+candidate = "source_entity (carrier-local key nCompIndex) with identity_assertion rows per scheme (cas, inchi, inchikey, pubchem_cid, smiles, formula, name, source_local for sOrgID); ion: species with charge; polymer: polymer_type with distributed_attribute molar_mass_distribution_number and molar_mass_distribution_mass; MulticomponentSubstance: defined_mixture with mixture_component rows"
+precision = "close"
+loss = "CAS numbers arrive as integers and must be re-rendered with hyphen and check digit before they match an identity scheme; the polymer averages are point statistics (number, mass, viscosity, peak, Z average), not distributions, and the viscosity and peak averages have no weighting member in the model (weighting has number, mass and area); mixture_definition has by_definition and by_measurement but the substance types alloy, clathrate, complex, crystal and solution have no attribute; eSpeciationState (mixture in equilibrium of species versus a single species) has no facet; biomaterial identifiers (EC number, PDB id) have no naming_scheme."
+
+[[construct]]
+name = "Sample (purity and purification)"
+locator = "ThermoML.xsd:128-172 (element Sample)"
+meaning = "A physical batch of a compound: sample number, source, status, and a repeatable purity record per purification step, with purification methods, purity values with their digits in several bases, water and halide impurities and the analytical methods."
+subject = "One sample, keyed in the document by nSampleNm (integer) which Component, Participant and ComponentSample elements cite."
+fields = [
+  { name = "nSampleNm", meaning = "sample number", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "eSource", meaning = "source of the sample: 7 values", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "eStatus", meaning = "sample status: unknown, notDescribed, previousPaper, noSample", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "purity/nStep", meaning = "purification step number (repeatable purity block)", unit = "not applicable", shape = "scalar", role = "not established" },
+  { name = "purity/ePurifMethod (repeatable), sPurifMethod (repeatable)", meaning = "purification methods: 25 enumerated values or free text", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "purity/nPurityMol + nPurityMolDigits", meaning = "purity value in mole percent with significant digits", unit = "percent (mole), stated in documentation", shape = "scalar", role = "not established" },
+  { name = "purity/nPurityMass + nPurityMassDigits", meaning = "purity in mass percent", unit = "percent (mass)", shape = "scalar", role = "not established" },
+  { name = "purity/nPurityVol + nPurityVolDigits", meaning = "purity in volume percent", unit = "percent (volume)", shape = "scalar", role = "not established" },
+  { name = "purity/nUnknownPerCent + nUnknownPerCentDigits", meaning = "purity in a percent of unspecified basis", unit = "percent (basis not specified)", shape = "scalar", role = "not established" },
+  { name = "purity/nWaterMassPerCent, nWaterMolPerCent, nHalideMolPerCent, nHalideMassPerCent (each with Digits)", meaning = "water and halide impurity contents", unit = "percent, basis in the element name", shape = "scalar", role = "not established" },
+  { name = "purity/eAnalMeth (repeatable), sAnalMeth (repeatable)", meaning = "analytical method used to determine purity: 24 enumerated values or free text", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "ComponentSample (nCompIndex or RegNum, nSampleNm)", meaning = "which sample of which component a multicomponent sample consists of", unit = "not applicable", shape = "reference", role = "not established" },
+]
+origin = "authored"
+conventions = "Purity is expressed in percent (not fraction) and in one of four bases by choosing the element; each of the four basis elements is optional and they may occur together."
+absence = "All purity elements are optional; a sample with eStatus unknown or noSample states no purity. The document text of \"nUnknownPerCent\" distinguishes an unspecified basis from a stated one."
+validity = "not applicable"
+provenance = "eSource (commercial, synthesized by authors, synthesized by others, SRM, natural product, not stated, no sample used), ePurityAnalMethod includes \"Stated by supplier\" and \"Estimated by the compiler\"."
+count = "1 global element; purity block repeatable"
+example = "ThermoML.xsd:128-172"
+candidate = "sample (entity, purity as Fraction, purity_basis mole, mass, volume or not_stated, supplier)"
+precision = "close"
+loss = "Purity in percent must be divided by 100; nUnknownPerCent maps to purity_basis not_stated; the stepwise purification history, the water and halide impurity contents, several purity values per sample and the analytical method have no attribute; sample source and status enumerations have no attribute (supplier is free text)."
+
+[[construct]]
+name = "PureOrMixtureData"
+locator = "ThermoML.xsd:173-461 (element PureOrMixtureData)"
+meaning = "One dataset of properties of a pure compound or a mixture: the components (with samples), auxiliary substances, purpose, compiler, phases, properties, constraints, variables, numerical values and correlating equations."
+subject = "A pure compound or a mixture, determined by the Component elements (one or several). Keyed in the document by the optional nPureOrMixtureDataNumber; Equation elements cite it."
+fields = [
+  { name = "nPureOrMixtureDataNumber", meaning = "number of the dataset", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "Component (1 to unbounded)", meaning = "component of the system: nCompIndex or RegNum, optional nSampleNm", unit = "not applicable", shape = "reference", role = "not established" },
+  { name = "AuxiliarySubstance (repeatable)", meaning = "substance present with a function: eFunction (Buffer, Solvent, Inert) or sFunction, plus component and optional sample", unit = "not applicable", shape = "table", role = "not established" },
+  { name = "eExpPurpose", meaning = "purpose of the measurement: principal objective, secondary purpose, identification of a synthesized compound", unit = "not applicable", shape = "enum", role = "metadata" },
+  { name = "sCompiler, sContributor", meaning = "who compiled and contributed the data", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "dateDateAdded", meaning = "date added; element declared without a type", unit = "not stated", shape = "scalar", role = "metadata" },
+  { name = "Property (1 to unbounded)", meaning = "a measured or evaluated quantity defined by a group, phase, presentation, reference state and uncertainty definitions", unit = "see the property-group constructs", shape = "table", role = "not established" },
+  { name = "PhaseID (1 to unbounded)", meaning = "phases present in the system: ePhase (33 values), optional crystal lattice or phase description, optional component", unit = "not applicable", shape = "table", role = "not established" },
+  { name = "Constraint (repeatable)", meaning = "a condition held fixed for the dataset", unit = "embedded in ConstraintType string", shape = "table", role = "not established" },
+  { name = "Variable (repeatable)", meaning = "a condition that varies from point to point", unit = "embedded in VariableType string", shape = "table", role = "not established" },
+  { name = "NumValues (repeatable)", meaning = "the table of numerical values", unit = "per column, from names", shape = "table", role = "not established" },
+  { name = "Equation (repeatable)", meaning = "correlating equation with parameters", unit = "not applicable", shape = "table", role = "not established" },
+]
+origin = "authored"
+conventions = "The same element serves pure compounds and mixtures: the property names do not say which, so the subject of a property follows from the number of Component elements. The documentation text \"CASRN is necessary for mixtures only\" is attached to the component reference inside property, phase, constraint and variable identifiers."
+absence = "Constraint, Variable, NumValues and Equation are optional; Property and PhaseID are mandatory (at least one). A dataset with properties but no NumValues and no Equation carries no data; the schema does not forbid it."
+validity = "not stated as a range; condition ranges are carried by Constraint, Variable and the EqPropRange and EqVariableRange elements of Equation."
+provenance = "sCompiler, sContributor, dateDateAdded, eExpPurpose and the per-property method choice (measurement method, CriticalEvaluation or Prediction)."
+count = "1 global element; 13 direct child elements"
+example = "ThermoML.xsd:173-461"
+candidate = "dataset (carrier, local_key from nPureOrMixtureDataNumber), dataset_component rows from Component and AuxiliarySubstance, dataset_phase rows from PhaseID, dataset_column rows from Constraint, Variable and Property, data_point and datum rows from NumValues"
+precision = "close"
+loss = "dataset_kind (measured, evaluated, computed, verification) is not a field: it has to be read from the Property method choice (CriticalEvaluation gives evaluated, Prediction gives computed, eMethodName or sMethodName give measured or derived). component_function has component, solvent, solute, adsorbent, adsorbate and catalyst, so AuxiliarySubstance functions Buffer, Inert and Cofactor have no member. The dataset title is absent in the schema."
+
+[[construct]]
+name = "Property (element of PureOrMixtureData) and Property-MethodID"
+locator = "ThermoML.xsd:200-397"
+meaning = "One reported quantity: number, the property group with its property name and method, the optional component the property refers to, the phases the property refers to, the presentation, reference state and temperature and pressure of the reference state, solvent, standard state and the uncertainty, repeatability, device-specification and curve-deviation definitions."
+subject = "A property of the system of the dataset, of one component (partial, apparent, relative) or of a phase pair; keyed by nPropNumber (integer) which NumValues and Equation elements cite."
+fields = [
+  { name = "nPropNumber", meaning = "number of the property within the dataset", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "Property-MethodID/PropertyGroup", meaning = "choice of 11 property groups each with ePropName and a method choice", unit = "unit in the ePropName string", shape = "enum", role = "not established" },
+  { name = "Property-MethodID/(nCompIndex or RegNum)", meaning = "component the property belongs to (partial molar, apparent molar, Henry constant of a solute)", unit = "not applicable", shape = "reference", role = "not established" },
+  { name = "PropPhaseID (repeatable)", meaning = "ePropPhase (33 values), optional eCrystalLatticeType (7) or sPhaseDescription, optional component, optional eBioState or sBioState", unit = "not applicable", shape = "table", role = "not established" },
+  { name = "ePresentation", meaning = "means of presentation of the value: 7 values (direct value, differences between upper and lower temperature or pressure, mean, difference, ratio or relative difference with the reference state)", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "eRefStateType", meaning = "type of the reference state: 12 values", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "nRefTemp + nRefTempDigits", meaning = "fixed temperature of the reference state", unit = "K (by the name of the temperature constraint; the element itself states no unit)", shape = "scalar", role = "not established" },
+  { name = "nRefPressure + nRefPressureDigits", meaning = "fixed pressure of the reference state", unit = "kPa (inferred: from the Pressure, kPa names; the element itself states no unit)", shape = "scalar", role = "not established" },
+  { name = "RefPhaseID", meaning = "phase of the reference state: eRefPhase (33 values), crystal lattice or description, component", unit = "not applicable", shape = "table", role = "not established" },
+  { name = "Solvent", meaning = "components constituting the solvent of the property", unit = "not applicable", shape = "reference", role = "not established" },
+  { name = "eStandardState", meaning = "standard state: 5 values", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "CombinedUncertainty, PropUncertainty, PropRepeatability, PropDeviceSpec, CurveDev", meaning = "definitions of uncertainty assessments that the numerical values cite by assessment number", unit = "see the uncertainty constructs", shape = "table", role = "not established" },
+]
+origin = "authored"
+conventions = "The unit of a property value is fixed by the ePropName string; ePresentation and eRefStateType then say whether the number is the property itself or a difference or ratio against the reference state."
+absence = "PropPhaseID, eRefStateType, reference temperature and pressure, RefPhaseID, Solvent, eStandardState and all uncertainty definitions are optional. ePresentation is mandatory. A property with ePresentation \"Difference with the reference state\" but no eRefStateType is schema-valid."
+validity = "not stated"
+provenance = "The method choice (eMethodName, sMethodName, CriticalEvaluation, Prediction) attributes the value."
+count = "1 element; 17 direct child elements (the temperature and pressure of the reference state count as two elements each)"
+example = "ThermoML.xsd:200-397"
+candidate = "dataset_column with role property: observable from ePropName through an observable_alias (carrier_scope thermoml), dataset_phase and second_phase from PropPhaseID, component from the component reference, standard_state from eStandardState, source_name the ePropName string"
+precision = "close"
+loss = "The model has no slot for ePresentation or eRefStateType as data on a column: the reference-dependent quantities must become distinct observables (relation facet) and ratios and temperature differences need observable identities the facets cannot express (see the mapping of ePresentation and eRefStateType). The reference temperature, pressure and phase of a reference state have no column attribute."
+
+[[construct]]
+name = "Constraint and Variable (ConstraintVariableType)"
+locator = "ThermoML.xsd:408-434 (Constraint), 435-459 (Variable), 652-674 (complexType ConstraintVariableType)"
+meaning = "Conditions of a dataset. A Constraint is held fixed and states its one value and digits; a Variable varies and its values are given in NumValues. Both are identified by a type chosen from seven groups of enumerated names (temperature, pressure, component composition, solvent composition, miscellaneous, bio variables, participant amount), optionally for one component, in a phase and with a solvent."
+subject = "A condition of the dataset, of one component where the name is a composition; keyed by nConstraintNumber or nVarNumber (integers)."
+fields = [
+  { name = "nConstraintNumber / nVarNumber", meaning = "number of the constraint (optional) or variable (required)", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "ConstraintID/ConstraintType, VariableID/VariableType", meaning = "one name from ConstraintVariableType", unit = "unit in the name string (see the unit-embedding construct)", shape = "enum", role = "not established" },
+  { name = "ConstraintID and VariableID component", meaning = "nCompIndex or RegNum of the component the composition refers to", unit = "not applicable", shape = "reference", role = "not established" },
+  { name = "ConstraintPhaseID / VarPhaseID", meaning = "phase the condition refers to (eConstraintPhase or eVarPhase from ePhaseName, crystal lattice or description, component)", unit = "not applicable", shape = "table", role = "not established" },
+  { name = "Solvent", meaning = "solvent for solvent-based compositions", unit = "not applicable", shape = "reference", role = "not established" },
+  { name = "nConstraintValue + nConstrDigits", meaning = "the constant value and its significant digits (constraint only)", unit = "unit in the ConstraintType string", shape = "scalar", role = "not established" },
+  { name = "ConstrUncertainty, ConstrRepeatability, ConstrDeviceSpec", meaning = "uncertainty of the constant, each defined with its own values", unit = "as the value", shape = "table", role = "not established" },
+  { name = "VarUncertainty, VarRepeatability, VarDeviceSpec", meaning = "definitions of uncertainty of the variable; values sit in NumValues", unit = "as the value", shape = "table", role = "not established" },
+]
+origin = "authored"
+conventions = "The same ConstraintVariableType serves constraints and variables, so a composition, a temperature or a property-like miscellaneous name (mass density, molar entropy, activity) may be either."
+absence = "ConstraintType and VariableType are mandatory inside their identifier; component, phase and solvent are optional. In ReactionData the Constraint has neither a phase element nor Solvent, while its Variable has VarPhaseID and Solvent."
+validity = "not stated"
+provenance = "not stated"
+count = "2 elements sharing 1 complexType; 7 type groups with 49 names"
+example = "ThermoML.xsd:408-459"
+candidate = "dataset_column with role constraint (constant = nConstraintValue) or variable; observable from the name (temperature, pressure are declared; compositions need composition observables); composition_basis for composition names; phase and component from the ids"
+precision = "close"
+loss = "constraint_has_constant requires a column constant, but the uncertainty, digits and repeatability of a constraint have no column attribute and would have to be repeated as datum records; composition bases that are not declared (mass concentration, ratios to solvent, per mass of solution, initial and final compositions of a mixing or dissolution experiment) and the Upper and Lower temperature and pressure names (interval endpoints) have no model member."
+
+[[construct]]
+name = "NumValues (VariableValue and PropertyValue)"
+locator = "ThermoML.xsd:746-814 (element NumValues)"
+meaning = "The numerical table: per row a list of variable values (number, value, digits, uncertainty, repeatability, device specification) and a list of property values (number, value and digits or a limit, combined uncertainty, uncertainty, repeatability, device specification, curve deviation)."
+subject = "A data point (one NumValues element is one row), keyed by position in the document; the columns are cited by nVarNumber and nPropNumber."
+fields = [
+  { name = "VariableValue/nVarNumber", meaning = "which Variable the value belongs to", unit = "not applicable", shape = "reference", role = "not established" },
+  { name = "VariableValue/nVarValue + nVarDigits", meaning = "the value and its significant digits", unit = "unit from the VariableType name", shape = "scalar", role = "not established" },
+  { name = "VariableValue/VarUncertainty (nUncertAssessNum, nStdUncertValue, nExpandUncertValue)", meaning = "standard and expanded uncertainty of this value under the definition with the same assessment number", unit = "as the value", shape = "table", role = "not established" },
+  { name = "VariableValue/VarRepeatability (nVarRepeatValue, nRepetitions)", meaning = "repeatability value and number of repetitions", unit = "as the value", shape = "table", role = "not established" },
+  { name = "VariableValue/nVarDeviceSpecValue", meaning = "device-specification value", unit = "as the value", shape = "scalar", role = "not established" },
+  { name = "PropertyValue/nPropNumber", meaning = "which Property the value belongs to", unit = "not applicable", shape = "reference", role = "not established" },
+  { name = "PropertyValue/nPropValue + nPropDigits", meaning = "the value and its significant digits", unit = "unit from the ePropName string", shape = "scalar", role = "not established" },
+  { name = "PropertyValue/PropLimit (nPropUpperLimitValue or nPropLowerLimitValue, nPropLimitDigits)", meaning = "an upper or a lower limit instead of a value", unit = "as the value", shape = "table", role = "not established" },
+  { name = "PropertyValue/CombinedUncertainty (nCombUncertAssessNum, symmetric nCombStdUncertValue and nCombExpandUncertValue, or AsymCombStdUncert and AsymCombExpandUncert)", meaning = "combined uncertainty, symmetric or asymmetric (AsymUncertType: nPositiveValue, nNegativeValue)", unit = "as the value", shape = "table", role = "not established" },
+  { name = "PropertyValue/PropUncertainty (nUncertAssessNum, symmetric nStdUncertValue and nExpandUncertValue, or AsymStdUncert and AsymExpandUncert)", meaning = "uncertainty, symmetric or asymmetric", unit = "as the value", shape = "table", role = "not established" },
+  { name = "PropertyValue/PropRepeatability (nPropRepeatValue, nRepetitions)", meaning = "repeatability and repetitions", unit = "as the value", shape = "table", role = "not established" },
+  { name = "PropertyValue/nPropDeviceSpecValue", meaning = "device-specification value", unit = "as the value", shape = "scalar", role = "not established" },
+  { name = "PropertyValue/CurveDev (nCurveDevAssessNum, nCurveDevValue)", meaning = "deviation of this value from a curve described in the Property definition", unit = "as the value", shape = "table", role = "not established" },
+]
+origin = "authored"
+conventions = "Every number is paired with an integer count of significant digits (nVarDigits, nPropDigits, nPropLimitDigits); uncertainty magnitudes have no digits field."
+absence = "All uncertainty elements are optional and repeatable; a PropertyValue is either a value or a PropLimit (xsd:choice), so a censored point cannot also carry a value. The schema does not distinguish an unreported uncertainty from zero uncertainty by any element."
+validity = "not applicable"
+provenance = "not stated per value; the assessment number links to the definitions (evaluator, method) on the Property or Variable."
+count = "1 global element, unbounded repeats per dataset; no instance count known"
+example = "ThermoML.xsd:746-814"
+candidate = "data_point and datum rows (state known or censored, value, digits, uncertainty_kind, uncertainty, coverage_factor)"
+precision = "close"
+loss = "datum holds one uncertainty per (point, column): ThermoML allows several assessments plus combined, repeatability, device and curve-deviation entries per value. Asymmetric uncertainties (two magnitudes) have no member; uncertainty_kind has no repeatability, device_specification, combined or curve_deviation member. A limit gives datum_state censored but the model does not say whether it is an upper or a lower bound. Digits map exactly to datum.digits."
+
+[[construct]]
+name = "Uncertainty, repeatability, device-specification and curve-deviation definitions"
+locator = "ThermoML.xsd:675-745 (PropVarDeviceSpecType, ConstrDeviceSpecType, PropVarRepeatabilityType, ConstrRepeatabilityType, CurveDev, ConstrUncertaintyType, PropVarUncertaintyType, AsymUncertType, CombinedUncertainty)"
+meaning = "Definitions, made once per property, variable or constraint, of how an uncertainty was assessed: evaluator, method, coverage factor, level of confidence; repeatability statistic; device specification method and confidence; combined-uncertainty evaluation method; the curve a deviation is taken from. The values that use a definition cite it by nUncertAssessNum, nCombUncertAssessNum or nCurveDevAssessNum."
+subject = "A property, a variable or a constraint of a dataset (the definition), and through assessment numbers every value of it."
+fields = [
+  { name = "PropVarUncertaintyType: nUncertAssessNum, sUncertEvaluator, sUncertEvalMethod, nCoverageFactor, nUncertLevOfConfid", meaning = "uncertainty assessment for a property or variable; values are in NumValues", unit = "not applicable / coverage factor dimensionless / level of confidence not stated as percent or fraction", shape = "table", role = "not established" },
+  { name = "ConstrUncertaintyType: sUncertEvaluator, sUncertEvalMethod, nStdUncertValue, nCoverageFactor, nExpandUncertValue, nUncertLevOfConfid", meaning = "uncertainty of a constraint, with the values in the definition", unit = "as the constraint value; level of confidence not stated as percent or fraction", shape = "table", role = "not established" },
+  { name = "CombinedUncertainty: nCombUncertAssessNum, sCombUncertEvaluator, eCombUncertEvalMethod (2), sCombUncertEvalMethod, nCombCoverageFactor, nCombUncertLevOfConfid", meaning = "combined standard or expanded uncertainty definition; method is Propagation of evaluated standard uncertainties or Comparison with reference property values", unit = "not applicable", shape = "table", role = "not established" },
+  { name = "PropVarRepeatabilityType / ConstrRepeatabilityType: sRepeatEvaluator, eRepeatMethod (4), sRepeatMethod, nRepeatValue, nRepetitions (constraint only)", meaning = "repeatability statistic: standard deviation of a single value (biased or unbiased), of the mean, other", unit = "as the value", shape = "table", role = "not established" },
+  { name = "PropVarDeviceSpecType / ConstrDeviceSpecType: sDeviceSpecEvaluator, eDeviceSpecMethod (3), sDeviceSpecMethod, nDeviceSpecValue (constraint only), nDeviceSpecLevOfConfid", meaning = "device specification: specified by the manufacturer, certified or calibrated by a third party, calibrated by the experimentalist", unit = "as the value", shape = "table", role = "not established" },
+  { name = "CurveDev: nCurveDevAssessNum, sCurveDevEvaluator, sCurveSpec, nCurveRmsDevValue, nCurveRmsRelativeDevValue", meaning = "an RMS absolute and relative deviation of the data from a specified curve", unit = "absolute deviation as the value; relative not stated as percent or fraction", shape = "table", role = "not established" },
+]
+origin = "authored"
+conventions = "Whether a stated level of confidence is a fraction or a percent is not stated in the schema; coverage factor is a float. The schema uses \"standard\" and \"expanded\" uncertainty vocabulary in element names (nStdUncertValue, nExpandUncertValue)."
+absence = "Everything is optional except the assessment number of uncertainty and curve-deviation definitions and the method enumerations of repeatability and device specification; an uncertainty with no coverage factor and no evaluation method is schema-valid."
+validity = "not applicable"
+provenance = "sUncertEvaluator, sRepeatEvaluator, sDeviceSpecEvaluator and sCurveDevEvaluator name who assessed."
+count = "9 types and elements; 4 enumerations of method"
+example = "ThermoML.xsd:675-745"
+candidate = "uncertainty_kind (standard, expanded, relative, interval, exact, not_stated) with datum.uncertainty and coverage_factor; definitions have no record"
+precision = "close"
+loss = "The model carries the kind and magnitude on each datum but not the evaluator, the method, the level of confidence, the repeatability statistic, the device-specification basis or the curve; asymmetric, repeatability, device, combined and curve-deviation entries are not members of uncertainty_kind; relative uncertainty appears only as nCurveRmsRelativeDevValue."
+
+[[construct]]
+name = "CriticalEvaluation and Prediction (method alternatives of a property)"
+locator = "ThermoML.xsd:815-843"
+meaning = "Alternatives to a measurement method inside a property: CriticalEvaluation (SingleProp, MultiProp or EquationOfState with descriptions and citations of the evaluation) and Prediction (ePredictionType of 8, method name, description, citations)."
+subject = "A property of a dataset (its provenance), with one or more citations."
+fields = [
+  { name = "CriticalEvaluation/SingleProp (sEvalSinglePropDescription, EvalSinglePropRef*)", meaning = "evaluation of one property", unit = "not applicable", shape = "table", role = "not established" },
+  { name = "CriticalEvaluation/MultiProp (sEvalMultiPropList, sEvalMultiPropDescription, EvalMultiPropRef*)", meaning = "evaluation of several properties", unit = "not applicable", shape = "table", role = "not established" },
+  { name = "CriticalEvaluation/EquationOfState (sEvalEOSName, sEvalEOSDescription, EvalEOSRef*)", meaning = "evaluation given as an equation of state", unit = "not applicable", shape = "table", role = "not established" },
+  { name = "Prediction/ePredictionType", meaning = "Ab initio, Molecular dynamics, Semiempirical quantum methods, Molecular mechanics, Statistical mechanics, Corresponding states, Correlation, Group contribution", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "Prediction/sPredictionMethodName, sPredictionMethodDescription, PredictionMethodRef*", meaning = "method name, description, citations (each CitationType)", unit = "not applicable", shape = "table", role = "not established" },
+]
+origin = "authored"
+conventions = "none stated"
+absence = "Both are alternatives to eMethodName and sMethodName in an xsd:choice; all inner fields are optional."
+validity = "not applicable"
+provenance = "Citations are full CitationType records, repeatable."
+count = "2 global elements"
+example = "ThermoML.xsd:815-843"
+candidate = "dataset.kind evaluated (CriticalEvaluation) or computed (Prediction), with a derivation record and publication citations for the method"
+precision = "close"
+loss = "The dataset kind is implied by the element rather than declared; ePredictionType has no model vocabulary; the evaluation description is free text."
+
+[[construct]]
+name = "Equation (equation representation part of a dataset)"
+locator = "ThermoML.xsd:844-912 (element Equation)"
+meaning = "A correlating equation fitted to the data of a dataset: one or more equation names (eEqName, 10 values, or free sEqName) each with a required math-source URL, lists of the properties, constraints and variables it relates with their symbols and ranges, fitted parameters with digits, fixed constants, a covariance matrix and its level of confidence."
+subject = "A dataset (PureOrMixtureData or ReactionData) and its properties, constraints and variables cited by number; the parameters are indexed by symbol and optional integer indices."
+fields = [
+  { name = "eEqName or sEqName, urlMathSource (repeatable pair)", meaning = "the named equation and where its mathematical definition is given; 10 named equations: ThermoML.Antoine.VaporPressure, ThermoML.CustomExpansion, ThermoML.Helmholtz3General.EOS, ThermoML.Helmholtz4General.EOS, ThermoML.WagnerLinear.VaporPressure, ThermoML.Wagner25Linear.VaporPressure, ThermoML.Wagner36Linear.VaporPressure, ThermoML.PolynomialExpansion, ThermoML.SpanWagner12Nonpolar.EOS, ThermoML.SpanWagner12Polar.EOS", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "EqProperty (nPureOrMixtureDataNumber or nReactionDataNumber, nPropNumber, sEqSymbol, nEqPropIndex*, sOtherPropUnit, nEqPropRangeMin, nEqPropRangeMax)", meaning = "which property plays which symbol of the equation, with a unit string when not the standard one and a validity range", unit = "sOtherPropUnit free text, otherwise the unit of the property name", shape = "table", role = "not established" },
+  { name = "EqConstraint (... nConstraintNumber, sEqSymbol, nEqConstraintIndex*, sOtherConstraintUnit, nEqConstraintRangeMin, nEqConstraintRangeMax)", meaning = "same for a constraint", unit = "as above", shape = "table", role = "not established" },
+  { name = "EqVariable (... nVarNumber, sEqSymbol, nEqVarIndex*, sOtherVarUnit, nEqVarRangeMin, nEqVarRangeMax)", meaning = "same for a variable", unit = "as above", shape = "table", role = "not established" },
+  { name = "EqParameter (nEqParNumber, (sEqParSymbol, nEqParIndex*)+, nEqParValue, nEqParDigits)", meaning = "fitted parameter with symbol, optional integer indices, value and digits", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "EqConstant (sEqConstantSymbol, nEqConstantIndex*, nEqConstantValue, nEqConstantDigits)", meaning = "fixed constant of the equation", unit = "not stated", shape = "scalar", role = "not established" },
+  { name = "Covariance (nEqParNumber1, nEqParNumber2, nCovarianceValue xsd:double) and nCovarianceLevOfConfid", meaning = "covariance of two parameters; one level of confidence for the whole matrix", unit = "not stated", shape = "table", role = "not established" },
+]
+origin = "authored"
+conventions = "The schema fixes the names of ten equations and demands a URL for the mathematics; it does not state the equation forms, the meaning of the symbols or the units of the parameters."
+absence = "EqProperty, EqConstraint, EqVariable, EqParameter, EqConstant and Covariance are each optional; an Equation with only a name and a URL is schema-valid."
+validity = "EqPropRange, EqConstraintRange and EqVariableRange carry the validity interval of each symbol."
+provenance = "not stated beyond the dataset citation."
+count = "1 global element; 10 named equations"
+example = "ThermoML.xsd:844-912"
+candidate = "parameter_set rows for a form of matching name (catalogued form), with slot_uncertainty from the covariance diagonal, envelope rows from EqPropRange and EqVariableRange and a fit record"
+precision = "broader"
+loss = "The forms named here (Antoine, Wagner variants, polynomial expansion, the two Span-Wagner-type equations of state, two Helmholtz generals, CustomExpansion) must exist in the form catalogue for a mapping to populate slots; the schema does not define them, so slot meaning depends on the URL content. Off-diagonal covariance has no model home (slot_uncertainty has a magnitude per slot; covariance belongs to the fit)."
+
+[[construct]]
+name = "ReactionData"
+locator = "ThermoML.xsd:462-622 (element ReactionData)"
+meaning = "One dataset of reaction properties: participants with stoichiometry, phase, standard state and composition; number of electrons; auxiliary substances; solvent; reaction formalism; purpose; compiler; reaction type; properties, constraints, variables, numerical values and equations."
+subject = "A reaction, keyed in the document by nReactionDataNumber; participants cite compounds by nCompIndex or RegNum and samples by nSampleNm."
+fields = [
+  { name = "nReactionDataNumber", meaning = "number of the reaction dataset", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "Participant (1 to unbounded): compound, nSampleNm, nStoichiometricCoef (xsd:float, optional), ePhase, crystal lattice or description, eStandardState, eCompositionRepresentation, nNumericalComposition", meaning = "a species of the reaction with optional coefficient, required phase, optional standard state and optional composition (representation of 8 values with the number)", unit = "composition unit in the eCompositionRepresentation string", shape = "table", role = "not established" },
+  { name = "nElectronNumber", meaning = "number of electrons of an electrochemical reaction", unit = "not applicable", shape = "scalar", role = "not established" },
+  { name = "AuxiliarySubstance (repeatable)", meaning = "eFunction Cofactor, Buffer or Inert, or sFunction; component; optional sample and phase", unit = "not applicable", shape = "table", role = "not established" },
+  { name = "Solvent (repeatable)", meaning = "solvent components with a phase", unit = "not applicable", shape = "table", role = "not established" },
+  { name = "eReactionFormalism", meaning = "chemical or biochemical", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "eExpPurpose, sCompiler, sContributor, dateDateAdded", meaning = "as in PureOrMixtureData", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "eReactionType", meaning = "25 reaction types (for example combustion with oxygen, esterification, neutralization, formation of ion)", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "Property", meaning = "reaction properties: ReactionStateChangeProp (7 names) or ReactionEquilibriumProp (15 names), with method, Solvent, Catalyst, eStandardState, nTemperature-K and nPressure-kPa with digits, and uncertainty definitions", unit = "unit in the ePropName string", shape = "table", role = "not established" },
+  { name = "Constraint, Variable, NumValues, Equation", meaning = "as in PureOrMixtureData; the Constraint here has no phase or solvent element, the Variable keeps both", unit = "as there", shape = "table", role = "not established" },
+]
+origin = "authored"
+conventions = "The reaction itself is not written as an equation: it is the list of participants with signed or unsigned coefficients; the sign convention is not stated. Temperature and pressure of the property are fixed-name elements nTemperature-K and nPressure-kPa."
+absence = "nStoichiometricCoef, nSampleNm, eStandardState, eCompositionRepresentation, nNumericalComposition, nElectronNumber and eReactionFormalism are optional; a participant with no coefficient has no stoichiometry."
+validity = "not stated"
+provenance = "as PureOrMixtureData"
+count = "1 global element"
+example = "ThermoML.xsd:462-622"
+candidate = "dataset with reaction set (reaction and reaction_participant rows), dataset_column rows; standard_state per participant from eStandardState"
+precision = "close"
+loss = "reaction.canonical_key needs coefficients, which are optional and whose sign is unstated; per-participant composition and phase are conditions of the measured state, not part of the reaction; eReactionType, eReactionFormalism (chemical versus biochemical, with transformed properties) and nElectronNumber have no attribute."
+
+[[construct]]
+name = "Solvent and Catalyst"
+locator = "ThermoML.xsd:646-651 (global element Solvent), 499-505 and 552-565 (ReactionData Solvent and Catalyst)"
+meaning = "A list of components that form the solvent (global Solvent: component references only; ReactionData Solvent: components with a phase) and, in a reaction property, the catalysts with an optional phase."
+subject = "A property, constraint or variable of a dataset (global Solvent) or the reaction (ReactionData Solvent and Catalyst)."
+fields = [
+  { name = "Solvent: (nCompIndex or RegNum)+", meaning = "solvent components, unbounded", unit = "not applicable", shape = "reference", role = "not established" },
+  { name = "ReactionData/Solvent: (nCompIndex or RegNum)+, ePhase", meaning = "solvent components and their phase", unit = "not applicable", shape = "reference", role = "not established" },
+  { name = "Catalyst: (nCompIndex or RegNum)+, optional ePhase (repeatable)", meaning = "catalyst components", unit = "not applicable", shape = "reference", role = "not established" },
+]
+origin = "authored"
+conventions = "The brief name \"CatalystData\" does not occur in the schema: the element is named Catalyst."
+absence = "optional wherever used"
+validity = "not applicable"
+provenance = "not stated"
+count = "1 global element and 2 local elements"
+example = "ThermoML.xsd:646-651"
+candidate = "dataset_component rows with function solvent and catalyst; solvent of a standard_state"
+precision = "close"
+loss = "The solvent of a property is a per-property reference in ThermoML while dataset_component.function is per dataset; a dataset whose properties name different solvents needs several components or datasets."
+
+[[construct]]
+name = "Biomaterial extensions"
+locator = "ThermoML.xsd:378-388 (Compound/biomaterial), 340-352 (BioProperties), 367-370 (eBioState), 669-671 (eBioVariables), 506-508 (eReactionFormalism)"
+meaning = "Biochemical additions: biomaterial identifiers on a compound, a property group of 5 thermal-transition properties of biomolecules, native or denaturated state of a phase, five bio variables (pH, ionic strength on two bases, two pC forms), and the biochemical reaction formalism."
+subject = "A biomolecule (compound), a thermal transition of it (property) or a biochemical reaction."
+fields = [
+  { name = "Compound/biomaterial/sECNumber, sPDBIdentifier", meaning = "EC number and PDB identifier", unit = "not applicable", shape = "scalar", role = "not established" },
+  { name = "BioProperties/ePropName (5) with eMethodName (1 value: DSC/DTA)", meaning = "temperature of half conversion, peak temperature, zero-Gibbs-energy temperature, heat capacity change at transition, van't Hoff enthalpy of transition", unit = "unit in the name string", shape = "enum", role = "not established" },
+  { name = "PropPhaseID/eBioState or sBioState", meaning = "Native or Denaturated, or free text", unit = "not applicable", shape = "enum", role = "not established" },
+  { name = "eBioVariables", meaning = "pH; ionic strength (molality basis), mol/kg; ionic strength (amount concentration basis), mol/dm3; pC (amount concentration basis); Solvent: pC (amount concentration basis)", unit = "in the name strings where stated", shape = "enum", role = "not established" },
+  { name = "ReactionData/eReactionFormalism", meaning = "chemical or biochemical", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none stated"
+absence = "optional throughout"
+validity = "not stated"
+provenance = "not stated"
+count = "5 bio property names, 5 bio variables, 2 bio states"
+example = "ThermoML.xsd:340-352"
+candidate = "none for eBioState and the transformed biochemical formalism; bio properties as transition-subject observables"
+precision = "unmapped"
+loss = "The model has no conformational state of a macromolecule, no transformed (apparent) thermodynamic quantity at fixed pH and ionic strength, and no pH or pC quantity types."
+
+[[construct]]
+name = "Unit embedded in enumeration strings"
+locator = "ThermoML.xsd: every ePropName restriction (13), ConstraintVariableType/eTemperature, ePressure, eComponentComposition, eSolventComposition, eMiscellaneous, eBioVariables, eParticipantAmount"
+meaning = "The unit of a property, variable or constraint is part of the name string, written after the last comma of the name (for example a name, comma, space, unit). The schema has no unit element and no unit enumeration: the unit is recovered by splitting the string."
+subject = "Every property name, every constraint and variable type name."
+fields = [
+  { name = "pattern", meaning = "name text, then \", \" and the unit, where a unit applies; dimensionless names (factors, coefficients, ratios, mole and mass fraction, pH, refractive index) have no suffix", unit = "not applicable", shape = "scalar", role = "not established" },
+  { name = "units seen", meaning = "slash and star products with \"/\" for division, for example m3/mol, J/K/mol (chained slashes), kPa*dm3/mol, (mol/dm3)^n with a symbolic exponent n", unit = "as written", shape = "list", role = "not established" },
+]
+origin = "authored"
+conventions = "Temperature is in K and pressure in kPa in every name that carries a unit; the amount of substance unit is mol, mass is kg, volume is m3 except amount concentration in mol/dm3; energies are in kJ/mol for enthalpy, Gibbs energy, Helmholtz energy and internal energy but J/K/mol for entropy and heat capacity and J/kPa/mol for a pressure coefficient of enthalpy; so prefixes differ by quantity. Some units carry a symbolic exponent n (the sum of stoichiometric coefficients or the electrolyte stoichiometry), which is not a fixed dimension."
+absence = "A name without a unit suffix denotes a dimensionless quantity; the schema does not mark it."
+validity = "not applicable"
+provenance = "not applicable"
+count = "242 names in the 13 ePropName enumerations and 7 constraint and variable type groups; 174 carry a unit suffix (146 of 193 property names and 28 of 49 constraint and variable names); 39 distinct unit strings; measured by splitting every name at its last \", \" and counting distinct suffixes (all suffixes were checked by eye to be units)"
+example = "ThermoML.xsd:873-902"
+candidate = "observable.quantity (quantity_type with a storage unit) together with the source-unit conversion factor of the mapping rule"
+precision = "exact"
+loss = "Factors to storage units: kPa to Pa (1000), kJ/mol to J/mol (1000), mol/dm3 to mol/m3 (1000), kg/kmol to kg/mol (0.001), J/g to J/kg (1000). The units with a symbolic exponent n cannot be converted to a fixed quantity type. Units with no quantity type in physical.toml include 1/kPa, 1/K, kPa/K, K/kPa, J/kPa/mol, J/K/m3, m3/kg, m6/mol2, S/m, S*m2/mol, V, m/s, nm, MHz, 1/Pa/s, kg/mol/K, kPa*kg/mol, kPa*dm3/mol and kJ (extensive energy)."
+
+[[construct]]
+name = "Integer cross-references (nCompIndex, RegNum, nSampleNm, nPropNumber, nVarNumber, nConstraintNumber, nUncertAssessNum)"
+locator = "ThermoML.xsd: throughout"
+meaning = "Elements of a dataset point at compounds, samples, properties, variables, constraints and uncertainty definitions by integer numbers; the schema declares no key or keyref, so the integers are unconstrained and their resolution is a consumer duty."
+subject = "Links inside one DataReport."
+fields = [
+  { name = "nCompIndex", meaning = "index of a Compound (optional there)", unit = "not applicable", shape = "reference", role = "not established" },
+  { name = "nSampleNm", meaning = "sample number within a Compound (required in Sample), optional on Component", unit = "not applicable", shape = "reference", role = "not established" },
+  { name = "nPropNumber, nVarNumber, nConstraintNumber", meaning = "numbers of properties and variables (required) and constraints (optional)", unit = "not applicable", shape = "reference", role = "not established" },
+  { name = "nUncertAssessNum, nCombUncertAssessNum, nCurveDevAssessNum", meaning = "numbers that connect a value-level uncertainty to a definition", unit = "not applicable", shape = "reference", role = "not established" },
+]
+origin = "authored"
+conventions = "nSampleNm is typed xsd:int in Component and Participant and xsd:integer in Sample."
+absence = "A Component without nSampleNm has no sample; a Constraint without nConstraintNumber cannot be cited by an EqConstraint."
+validity = "not applicable"
+provenance = "not applicable"
+count = "62 element declarations whose names are in the set nCompIndex, nSampleNm, nPropNumber, nVarNumber, nConstraintNumber, nUncertAssessNum, nCombUncertAssessNum, nCurveDevAssessNum, nPureOrMixtureDataNumber, nReactionDataNumber and the equation index and parameter-number elements (counted by name over the parsed schema)"
+example = "ThermoML.xsd:173-200"
+candidate = "local_key columns of dataset_column, dataset_component, sample and data_point (carrier-scoped)"
+precision = "exact"
+loss = "Resolution errors (an undefined index) are not caught by the schema and must be checked by the mapping."
+
+[[construct]]
+name = "ePropName (PropertyGroup Criticals)"
+locator = "ThermoML.xsd:596-607 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/Criticals/ePropName)"
+meaning = "The 10 property names of the group Criticals; each string ends in its unit where one applies."
+subject = "a property of a pure compound or mixture (see candidate for the subject shape per name)"
+fields = [
+  { name = "ePropName", meaning = "property name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; amount-based names use mol and mass-based names use kg or g; temperature K, pressure kPa"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "10 values"
+example = "ThermoML.xsd:596"
+candidate = "dataset_column (role property) with observable critical_temperature (K to storage unit Temperature) and critical_pressure (kPa to Pa), both declared with subject pure; critical density (kg/m3), critical molar volume, critical specific volume, critical compressibility factor and the four consolute (lower and upper, temperature and pressure) names have no declared observable; consolute points are mixture points on a liquid-liquid boundary"
+precision = "close"
+loss = "The names do not say pure or mixture: the subject follows from the number of Component elements of the dataset, so critical_temperature (subject pure) cannot hold a mixture critical point. Critical density in kg/m3 needs MassDensity with basis none, critical specific volume needs a specific-volume quantity type that physical.toml lacks, and lower versus upper consolute has no facet (path and relation have no member)."
+values = [
+  "Critical temperature, K",
+  "Critical pressure, kPa",
+  "Critical density, kg/m3",
+  "Critical molar volume, m3/mol",
+  "Critical specific volume, m3/kg",
+  "Critical compressibility factor",
+  "Lower consolute temperature, K",
+  "Upper consolute temperature, K",
+  "Lower consolute pressure, kPa",
+  "Upper consolute pressure, kPa",
+]
+
+[[construct]]
+name = "eMethodName (PropertyGroup Criticals)"
+locator = "ThermoML.xsd:613-624 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/Criticals/eMethodName)"
+meaning = "The 10 measurement or derivation method names of the group Criticals; alternative to sMethodName (free text), CriticalEvaluation and Prediction."
+subject = "a property of the dataset"
+fields = [
+  { name = "eMethodName", meaning = "method of measurement or derivation", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "one of eMethodName, sMethodName, CriticalEvaluation, Prediction is mandatory in a property (xsd:choice)."
+validity = "not applicable"
+provenance = "this is the method attribution of the values"
+count = "10 values"
+example = "ThermoML.xsd:613"
+candidate = "dataset.method (Text); a choice of CriticalEvaluation gives dataset kind evaluated and Prediction gives computed"
+precision = "close"
+loss = "dataset.method is free text, so the enumeration becomes text; the dataset kind is not declared in the schema and must be inferred from which alternative was chosen."
+values = [
+  "Visual observation in an unstirred cell",
+  "Visual observation in a stirred cell",
+  "DSC/DTA",
+  "Derived from PVT data",
+  "Extrapolated vapor pressure",
+  "Rectilinear diameter",
+  "Relative permittivity measurements",
+  "Refractive index measurements",
+  "Direct measurement",
+  "Other",
+]
+
+[[construct]]
+name = "ePropName (PropertyGroup VaporPBoilingTAzeotropTandP)"
+locator = "ThermoML.xsd:639-649 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/VaporPBoilingTAzeotropTandP/ePropName)"
+meaning = "The 5 property names of the group VaporPBoilingTAzeotropTandP; each string ends in its unit where one applies."
+subject = "a property of a pure compound or mixture (see candidate for the subject shape per name)"
+fields = [
+  { name = "ePropName", meaning = "property name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; amount-based names use mol and mass-based names use kg or g; temperature K, pressure kPa"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "5 values"
+example = "ThermoML.xsd:639"
+candidate = "vapor_pressure (path saturation) for \"Vapor or sublimation pressure, kPa\"; boiling temperature at pressure P as a temperature along the saturation path with a pressure variable column; normal boiling temperature as the saturation temperature at 101.325 kPa (the enumeration documents that pressure); azeotropic pressure and temperature as mixture-subject observables with path saturation"
+precision = "close"
+loss = "vapor_pressure is declared for vapour-liquid equilibrium whereas ThermoML uses one name for vapour pressure and sublimation pressure and separates them only by PropPhaseID (gas with liquid or crystal); normal boiling temperature, boiling temperature and the two azeotropic quantities have no declared observable; the 101.325 kPa of the normal boiling point appears only in a documentation element of the enumeration value."
+values = [
+  "Vapor or sublimation pressure, kPa",
+  "Normal boiling temperature, K",
+  "Boiling temperature at pressure P, K",
+  "Azeotropic pressure, kPa",
+  "Azeotropic temperature, K",
+]
+
+[[construct]]
+name = "eMethodName (PropertyGroup VaporPBoilingTAzeotropTandP)"
+locator = "ThermoML.xsd:655-677 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/VaporPBoilingTAzeotropTandP/eMethodName)"
+meaning = "The 21 measurement or derivation method names of the group VaporPBoilingTAzeotropTandP; alternative to sMethodName (free text), CriticalEvaluation and Prediction."
+subject = "a property of the dataset"
+fields = [
+  { name = "eMethodName", meaning = "method of measurement or derivation", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "one of eMethodName, sMethodName, CriticalEvaluation, Prediction is mandatory in a property (xsd:choice)."
+validity = "not applicable"
+provenance = "this is the method attribution of the values"
+count = "21 values"
+example = "ThermoML.xsd:655"
+candidate = "dataset.method (Text); a choice of CriticalEvaluation gives dataset kind evaluated and Prediction gives computed"
+precision = "close"
+loss = "dataset.method is free text, so the enumeration becomes text; the dataset kind is not declared in the schema and must be inferred from which alternative was chosen."
+values = [
+  "Manometric method",
+  "Closed cell (Static) method",
+  "Diaphragm manometer",
+  "Inclined piston gauge",
+  "Isochoric PVT apparatus",
+  "Isoteniscope",
+  "Knudsen effusion method",
+  "Distillation",
+  "Ebulliometric method (Recirculating still)",
+  "Twin ebulliometer",
+  "Transpiration method",
+  "Rate of evaporation",
+  "Torsion effusion method",
+  "Gas chromatography",
+  "Laser pulse heating",
+  "Levitation methods",
+  "By X=Y",
+  "By P(X) extreme",
+  "By T(X) extreme",
+  "DSC/DTA",
+  "Other",
+]
+
+[[construct]]
+name = "ePropName (PropertyGroup PhaseTransition)"
+locator = "ThermoML.xsd:692-712 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/PhaseTransition/ePropName)"
+meaning = "The 19 property names of the group PhaseTransition; each string ends in its unit where one applies."
+subject = "a property of a pure compound or mixture (see candidate for the subject shape per name)"
+fields = [
+  { name = "ePropName", meaning = "property name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; amount-based names use mol and mass-based names use kg or g; temperature K, pressure kPa"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "19 values"
+example = "ThermoML.xsd:692"
+candidate = "observables with subject transition (dataset_column.phase and second_phase) for molar enthalpy, entropy and Gibbs energy of transition, fusion, vaporization or sublimation (basis molar, relation increment; molar_enthalpy_of_vaporization is declared); triple, quadruple and quintuple point temperature and pressure (subject pure, path none); solid-liquid and liquid-liquid equilibrium temperature and phase boundary pressure (subject mixture); eutectic, peritectic and monotectic temperatures; cryoscopic constants; molar lattice energy at 0 K"
+precision = "close"
+loss = "\"Molar enthalpy of transition or fusion\" and \"of vaporization or sublimation\" each merge processes that only PropPhaseID distinguishes; path has no member for a solid-liquid or liquid-liquid coexistence line (saturation is documented as a saturation line); there is no facet for the kind of invariant point (triple, quadruple, eutectic, peritectic, monotectic); no quantity types exist for 1/K and kg/mol/K (cryoscopic constants); the lattice energy at 0 K is relative to an implicit gas-phase reference the name does not state."
+values = [
+  "Triple point temperature, K",
+  "Triple point pressure, kPa",
+  "Normal melting temperature, K",
+  "Molar enthalpy of transition or fusion, kJ/mol",
+  "Molar entropy of transition or fusion, J/K/mol",
+  "Cryoscopic constant (mole fraction scale), 1/K",
+  "Cryoscopic constant (molality scale), kg/mol/K",
+  "Molar enthalpy of vaporization or sublimation, kJ/mol",
+  "Molar entropy of vaporization or sublimation, J/K/mol",
+  "Molar Gibbs energy of vaporization or sublimation, kJ/mol",
+  "Quadruple (quintuple) point temperature, K",
+  "Quadruple (quintuple) point pressure, kPa",
+  "Solid-liquid equilibrium temperature, K",
+  "Liquid-liquid equilibrium temperature, K",
+  "Phase boundary pressure, kPa",
+  "Eutectic temperature, K",
+  "Peritectic temperature, K",
+  "Monotectic temperature, K",
+  "Molar lattice energy at 0 K, kJ/mol",
+]
+
+[[construct]]
+name = "eMethodName (PropertyGroup PhaseTransition)"
+locator = "ThermoML.xsd:718-739 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/PhaseTransition/eMethodName)"
+meaning = "The 20 measurement or derivation method names of the group PhaseTransition; alternative to sMethodName (free text), CriticalEvaluation and Prediction."
+subject = "a property of the dataset"
+fields = [
+  { name = "eMethodName", meaning = "method of measurement or derivation", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "one of eMethodName, sMethodName, CriticalEvaluation, Prediction is mandatory in a property (xsd:choice)."
+validity = "not applicable"
+provenance = "this is the method attribution of the values"
+count = "20 values"
+example = "ThermoML.xsd:718"
+candidate = "dataset.method (Text); a choice of CriticalEvaluation gives dataset kind evaluated and Prediction gives computed"
+precision = "close"
+loss = "dataset.method is free text, so the enumeration becomes text; the dataset kind is not declared in the schema and must be inferred from which alternative was chosen."
+values = [
+  "Visual observation",
+  "Heating/Cooling curves",
+  "DSC/DTA",
+  "Adiabatic calorimetry",
+  "Large-sample thermal analysis",
+  "Drop calorimetry",
+  "Drop ice or diphenyl ether calorimetry",
+  "Obtained from cryoscopic constant",
+  "Derived from phase diagram analysis",
+  "Static calorimetry",
+  "Flow calorimetry",
+  "Derived by Second law",
+  "Derived by Second law from precise ebulliometry",
+  "Depression of a freezing temperature of a dilute solution",
+  "AC calorimetry",
+  "Resistive pulse heating",
+  "Laser pulse heating",
+  "Levitation methods",
+  "Correlation gas chromatography",
+  "Other",
+]
+
+[[construct]]
+name = "ePropName (PropertyGroup CompositionAtPhaseEquilibrium)"
+locator = "ThermoML.xsd:754-794 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/CompositionAtPhaseEquilibrium/ePropName)"
+meaning = "The 31 property names of the group CompositionAtPhaseEquilibrium; each string ends in its unit where one applies."
+subject = "a property of a pure compound or mixture (see candidate for the subject shape per name)"
+fields = [
+  { name = "ePropName", meaning = "property name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; amount-based names use mol and mass-based names use kg or g; temperature K, pressure kPa"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "31 values"
+example = "ThermoML.xsd:754"
+candidate = "dataset_column of role property whose observable is a composition observable (not declared) with composition_basis mole_fraction, mass_fraction, molality, molarity or volume_fraction; Henry's law constants, Bunsen and Ostwald coefficients and partial pressure as observables of subject component_in_mixture; azeotropic, eutectic, monotectic and consolute compositions as compositions of an invariant point"
+precision = "close"
+loss = "composition_basis has no member for mass concentration (kg/m3), amount, mass or volume ratio of solute to solvent, or amount of solute per mass of solution (mol/kg), nor for the qualifier \"in LLG critical state\"; the kind of equilibrium (solubility, LLE, VLE) is implied by the dataset phases and has no facet; Henry constants carry a composition scale in their names (mole fraction, molality, amount concentration), for which an observable needs a facet, and the quantity types Pressure per molality and Pressure per molarity are absent."
+values = [
+  "Azeotropic composition: mole fraction",
+  "Azeotropic composition: mass fraction",
+  "Eutectic composition: mole fraction",
+  "Eutectic composition: mass fraction",
+  "Eutectic composition: volume fraction",
+  "Monotectic composition: mole fraction",
+  "Monotectic composition: mass fraction",
+  "Lower consolute composition: volume fraction",
+  "Lower consolute composition: mole fraction",
+  "Lower consolute composition: mass fraction",
+  "Mass concentration, kg/m3",
+  "Ratio of amount of solute to mass of solution, mol/kg",
+  "Mass ratio of solute to solvent",
+  "Molality, mol/kg",
+  "Amount concentration (molarity), mol/dm3",
+  "Mole fraction",
+  "Mole fraction in LLG critical state",
+  "Amount ratio of solute to solvent",
+  "Upper consolute composition: volume fraction",
+  "Upper consolute composition: mole fraction",
+  "Upper consolute composition: mass fraction",
+  "Volume fraction",
+  "Volume ratio of solute to solvent",
+  "Mass fraction",
+  "Mass fraction in LLG critical state",
+  "Henry's Law constant (mole fraction scale), kPa",
+  "Henry's Law constant (molality scale), kPa*kg/mol",
+  "Henry's Law constant (amount concentration scale), kPa*dm3/mol",
+  "Bunsen coefficient",
+  "Ostwald coefficient",
+  "Partial pressure, kPa",
+]
+
+[[construct]]
+name = "eMethodName (PropertyGroup CompositionAtPhaseEquilibrium)"
+locator = "ThermoML.xsd:800-814 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/CompositionAtPhaseEquilibrium/eMethodName)"
+meaning = "The 13 measurement or derivation method names of the group CompositionAtPhaseEquilibrium; alternative to sMethodName (free text), CriticalEvaluation and Prediction."
+subject = "a property of the dataset"
+fields = [
+  { name = "eMethodName", meaning = "method of measurement or derivation", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "one of eMethodName, sMethodName, CriticalEvaluation, Prediction is mandatory in a property (xsd:choice)."
+validity = "not applicable"
+provenance = "this is the method attribution of the values"
+count = "13 values"
+example = "ThermoML.xsd:800"
+candidate = "dataset.method (Text); a choice of CriticalEvaluation gives dataset kind evaluated and Prediction gives computed"
+precision = "close"
+loss = "dataset.method is free text, so the enumeration becomes text; the dataset kind is not declared in the schema and must be inferred from which alternative was chosen."
+values = [
+  "By X=Y",
+  "By T or P extreme",
+  "Chromatography",
+  "Spectrophotometry",
+  "Density calibration data",
+  "Index of refraction calibration data",
+  "Speed of sound calibration data",
+  "Calculated by Gibbs-Duhem equation",
+  "Titration method",
+  "Phase equilibration",
+  "Derived from phase diagram analysis",
+  "Photoacoustic method",
+  "Other",
+]
+
+[[construct]]
+name = "ePropName (PropertyGroup ActivityFugacityOsmoticProp)"
+locator = "ThermoML.xsd:829-838 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/ActivityFugacityOsmoticProp/ePropName)"
+meaning = "The 8 property names of the group ActivityFugacityOsmoticProp; each string ends in its unit where one applies."
+subject = "a property of a pure compound or mixture (see candidate for the subject shape per name)"
+fields = [
+  { name = "ePropName", meaning = "property name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; amount-based names use mol and mass-based names use kg or g; temperature K, pressure kPa"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "8 values"
+example = "ThermoML.xsd:829"
+candidate = "dataset_column with subject component_in_mixture for (relative) activity, activity coefficient, fugacity and fugacity coefficient; mean ionic activity and mean ionic activity coefficient with an electrolyte subject; standard_state from the Property eStandardState, composition scale implied by it; osmotic pressure and osmotic coefficient with subject mixture"
+precision = "close"
+loss = "The activity-coefficient convention (symmetric or asymmetric, composition scale) is not an element; only eStandardState implies it, and \"Pure compound\" does not say whether the state is a real liquid or an ideal gas (pure_real versus pure_ideal_gas) or at what pressure; \"Mean ionic activity, (mol/dm3)^n\" has a unit that depends on the stoichiometric exponent n, which a Scalar cannot carry."
+values = [
+  "(Relative) activity",
+  "Activity coefficient",
+  "Mean ionic activity coefficient",
+  "Mean ionic activity, (mol/dm3)^n",
+  "Fugacity, kPa",
+  "Fugacity coefficient",
+  "Osmotic pressure, kPa",
+  "Osmotic coefficient",
+]
+
+[[construct]]
+name = "eMethodName (PropertyGroup ActivityFugacityOsmoticProp)"
+locator = "ThermoML.xsd:844-858 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/ActivityFugacityOsmoticProp/eMethodName)"
+meaning = "The 9 measurement or derivation method names of the group ActivityFugacityOsmoticProp; alternative to sMethodName (free text), CriticalEvaluation and Prediction."
+subject = "a property of the dataset"
+fields = [
+  { name = "eMethodName", meaning = "method of measurement or derivation", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "one of eMethodName, sMethodName, CriticalEvaluation, Prediction is mandatory in a property (xsd:choice)."
+validity = "not applicable"
+provenance = "this is the method attribution of the values"
+count = "9 values"
+example = "ThermoML.xsd:844"
+candidate = "dataset.method (Text); a choice of CriticalEvaluation gives dataset kind evaluated and Prediction gives computed"
+precision = "close"
+loss = "dataset.method is free text, so the enumeration becomes text; the dataset kind is not declared in the schema and must be inferred from which alternative was chosen."
+values = [
+  "Chromatography",
+  "Differential ebulliometry",
+  "Spectroscopy",
+  "Mass-spectrometry",
+  "NMR spectrometry",
+  "Static method",
+  "Isopiestic method",
+  "Potential difference of an electrochemical cell",
+  "Other",
+]
+
+[[construct]]
+name = "ePropName (PropertyGroup VolumetricProp)"
+locator = "ThermoML.xsd:873-902 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/VolumetricProp/ePropName)"
+meaning = "The 24 property names of the group VolumetricProp; each string ends in its unit where one applies."
+subject = "a property of a pure compound or mixture (see candidate for the subject shape per name)"
+fields = [
+  { name = "ePropName", meaning = "property name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; amount-based names use mol and mass-based names use kg or g; temperature K, pressure kPa"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "24 values"
+example = "ThermoML.xsd:873"
+candidate = "mass density (MassDensity, basis none, subject mixture), molar_density (exact for \"Amount density, mol/m3\"), molar volume (MolarVolume), specific volume; virial coefficients as observables of subject pure or pair; excess, partial and apparent molar volume through relation excess and basis partial_molar or apparent_molar; adiabatic and isothermal compressibility and expansion coefficient with path isentropic, isothermal, isobaric; compressibility factor as a Scalar; thermal pressure coefficient with path isochoric"
+precision = "close"
+loss = "Missing quantity types: specific volume, third virial coefficient (m6/mol2), compressibility (1/Pa), expansion coefficient (1/K), pressure per temperature. subject_shape has no member for the ternary subject of the interaction virial coefficients C112 and C122; no facet separates acoustic virial coefficients from pressure-series ones; \"Relative partial molar volume\" needs a relation member \"relative to a reference state\" that reference_relation lacks (closest: increment); the compressibility factor is a ratio to the ideal-gas value and has no relation member."
+values = [
+  "Mass density, kg/m3",
+  "Specific volume, m3/kg",
+  "Amount density, mol/m3",
+  "Molar volume, m3/mol",
+  "2nd virial coefficient, m3/mol",
+  "2nd acoustic virial coefficient, m3/mol",
+  "3rd virial coefficient, m6/mol2",
+  "3rd acoustic virial coefficient, m6/mol2",
+  "3rd interaction virial coefficient C112, m6/mol2",
+  "3rd interaction virial coefficient C122, m6/mol2",
+  "Excess virial coefficient, m3/mol",
+  "Interaction virial coefficient, m3/mol",
+  "Excess molar volume, m3/mol",
+  "Partial molar volume, m3/mol",
+  "Relative partial molar volume, m3/mol",
+  "Apparent molar volume, m3/mol",
+  "Adiabatic compressibility, 1/kPa",
+  "Excess adiabatic compressibility, 1/kPa",
+  "Isothermal compressibility, 1/kPa",
+  "Excess isothermal compressibility, 1/kPa",
+  "Isobaric coefficient of expansion, 1/K",
+  "Excess coefficient of expansion, 1/K",
+  "Compressibility factor",
+  "Thermal pressure coefficient, kPa/K",
+]
+
+[[construct]]
+name = "eMethodName (PropertyGroup VolumetricProp)"
+locator = "ThermoML.xsd:908-933 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/VolumetricProp/eMethodName)"
+meaning = "The 24 measurement or derivation method names of the group VolumetricProp; alternative to sMethodName (free text), CriticalEvaluation and Prediction."
+subject = "a property of the dataset"
+fields = [
+  { name = "eMethodName", meaning = "method of measurement or derivation", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "one of eMethodName, sMethodName, CriticalEvaluation, Prediction is mandatory in a property (xsd:choice)."
+validity = "not applicable"
+provenance = "this is the method attribution of the values"
+count = "24 values"
+example = "ThermoML.xsd:908"
+candidate = "dataset.method (Text); a choice of CriticalEvaluation gives dataset kind evaluated and Prediction gives computed"
+precision = "close"
+loss = "dataset.method is free text, so the enumeration becomes text; the dataset kind is not declared in the schema and must be inferred from which alternative was chosen."
+values = [
+  "Pycnometric method",
+  "X-ray diffraction",
+  "Buoyancy - hydrostatic balance",
+  "Buoyancy - magnetic float or magnetic suspension",
+  "Buoyancy - hydrostatic balance with magnetic float",
+  "Buoyancy - hydrostatic balance with magnetic suspension - one sinker",
+  "Buoyancy - hydrostatic balance with magnetic suspension - two sinkers",
+  "Vibrating tube method",
+  "Isochoric PVT measurement",
+  "Other PVT measurement",
+  "Burnett expansion method",
+  "Constant-volume piezometry",
+  "Hydrostatic balance",
+  "Bellows volumetry",
+  "Derived from speed of sound",
+  "Resistive pulse heating",
+  "Laser pulse heating",
+  "Levitation methods",
+  "Direct dilatometry",
+  "Derived analytically",
+  "Derived graphically",
+  "Calculated with densities of this investigation",
+  "Calculated with a solvent density reported elsewhere",
+  "Other",
+]
+
+[[construct]]
+name = "ePropName (PropertyGroup HeatCapacityAndDerivedProp)"
+locator = "ThermoML.xsd:948-969 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/HeatCapacityAndDerivedProp/ePropName)"
+meaning = "The 20 property names of the group HeatCapacityAndDerivedProp; each string ends in its unit where one applies."
+subject = "a property of a pure compound or mixture (see candidate for the subject shape per name)"
+fields = [
+  { name = "ePropName", meaning = "property name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; amount-based names use mol and mass-based names use kg or g; temperature K, pressure kPa"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "20 values"
+example = "ThermoML.xsd:948"
+candidate = "molar_heat_capacity_isobaric (exact for \"Molar heat capacity at constant pressure\"); isochoric and saturation variants through path; specific (basis mass) and per-volume (basis volumetric) variants; molar entropy, enthalpy, Gibbs, Helmholtz and internal energy (molar, datum from dataset.convention_set); enthalpy and Gibbs energy functions {X(T)-H(0)}/T as increments relative to a temperature named in the string; heat capacity ratio as a Scalar; Joule-Thomson coefficient; pressure coefficient of molar enthalpy"
+precision = "close"
+loss = "The schema states no energy datum, so dataset.convention_set must stay absent for \"Molar enthalpy\" and \"Molar entropy\"; the reference temperature of the enthalpy and Gibbs-energy functions (0 K or 298.15 K) is text inside the name, making separate observables instead of a facet; path has no isenthalpic member (Joule-Thomson) and there are no quantity types for J/K/m3, K/kPa and J/kPa/mol; cp/cv is a ratio of two observables with no facet."
+values = [
+  "Molar heat capacity at constant pressure, J/K/mol",
+  "Specific heat capacity at constant pressure, J/K/kg",
+  "Heat capacity at constant pressure per volume, J/K/m3",
+  "Molar heat capacity at saturation pressure, J/K/mol",
+  "Specific heat capacity at saturation pressure, J/K/kg",
+  "Heat capacity at saturation pressure per volume, J/K/m3",
+  "Molar heat capacity at constant volume, J/K/mol",
+  "Specific heat capacity at constant volume, J/K/kg",
+  "Heat capacity at constant volume per volume, J/K/m3",
+  "Heat capacity ratio cp/cv",
+  "Molar entropy, J/K/mol",
+  "Molar enthalpy, kJ/mol",
+  "Molar enthalpy function {Hm(T)-Hm(0)}/T, J/K/mol",
+  "Molar Gibbs energy function {Gm(T)-Hm(0)}/T, J/K/mol",
+  "Molar Gibbs energy function {Gm(T)-Hm(298.15)}/T, J/K/mol",
+  "Molar Gibbs energy, kJ/mol",
+  "Molar Helmholtz energy, kJ/mol",
+  "Molar internal energy, kJ/mol",
+  "Joule-Thomson coefficient, K/kPa",
+  "Pressure coefficient of molar enthalpy, J/kPa/mol",
+]
+
+[[construct]]
+name = "eMethodName (PropertyGroup HeatCapacityAndDerivedProp)"
+locator = "ThermoML.xsd:975-997 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/HeatCapacityAndDerivedProp/eMethodName)"
+meaning = "The 21 measurement or derivation method names of the group HeatCapacityAndDerivedProp; alternative to sMethodName (free text), CriticalEvaluation and Prediction."
+subject = "a property of the dataset"
+fields = [
+  { name = "eMethodName", meaning = "method of measurement or derivation", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "one of eMethodName, sMethodName, CriticalEvaluation, Prediction is mandatory in a property (xsd:choice)."
+validity = "not applicable"
+provenance = "this is the method attribution of the values"
+count = "21 values"
+example = "ThermoML.xsd:975"
+candidate = "dataset.method (Text); a choice of CriticalEvaluation gives dataset kind evaluated and Prediction gives computed"
+precision = "close"
+loss = "dataset.method is free text, so the enumeration becomes text; the dataset kind is not declared in the schema and must be inferred from which alternative was chosen."
+values = [
+  "Vacuum adiabatic calorimetry",
+  "Small (less than 1 g) adiabatic calorimetry",
+  "Flow calorimetry",
+  "Large sample (1 g) DSC",
+  "Small sample (50 mg) DSC",
+  "Drop calorimetry",
+  "Drop ice or diphenyl ether calorimetry",
+  "Open cup calorimetry",
+  "Closed cup calorimetry",
+  "Differential flow calorimetry",
+  "Extra sensitive DSC",
+  "Twin closed calorimetry",
+  "Thin-film microcalorimeter",
+  "AC calorimetry",
+  "Resistive pulse heating",
+  "Laser pulse heating",
+  "Levitation methods",
+  "Derived from speed of sound",
+  "Derived from equation of state",
+  "Expansion technique",
+  "Other",
+]
+
+[[construct]]
+name = "ePropName (PropertyGroup ExcessPartialApparentEnergyProp)"
+locator = "ThermoML.xsd:1012-1052 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/ExcessPartialApparentEnergyProp/ePropName)"
+meaning = "The 23 property names of the group ExcessPartialApparentEnergyProp; each string ends in its unit where one applies."
+subject = "a property of a pure compound or mixture (see candidate for the subject shape per name)"
+fields = [
+  { name = "ePropName", meaning = "property name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; amount-based names use mol and mass-based names use kg or g; temperature K, pressure kPa"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "23 values"
+example = "ThermoML.xsd:1012"
+candidate = "relation excess (excess molar enthalpy, entropy, Gibbs energy, heat capacity), basis partial_molar (partial molar properties), basis apparent_molar (apparent molar properties), relation standard with standard_state from eStandardState (standard state molar properties), enthalpies of mixing, solution and dilution as increments between stated states"
+precision = "close"
+loss = "\"Excess molar enthalpy (molar enthalpy of mixing)\" fuses excess and mixing, which coincide for enthalpy only; \"per mol of mixture\" versus \"per mol of solute\" (documented on the values) cannot be expressed by amount_basis; relative partial molar quantities lack a relation member; enthalpies of solution and dilution are differences between states given by initial and final composition variables and look like plain increments without them; the declared standard_molar_* observables have subject pure whereas these describe a solute in a solvent."
+values = [
+  "Apparent molar enthalpy, kJ/mol",
+  "Apparent molar entropy, J/K/mol",
+  "Apparent molar Gibbs energy, kJ/mol",
+  "Apparent molar heat capacity, J/K/mol",
+  "Excess molar enthalpy (molar enthalpy of mixing), kJ/mol",
+  "Molar enthalpy of mixing with solvent, kJ/mol",
+  "Molar enthalpy of solution, kJ/mol",
+  "Molar enthalpy of dilution, kJ/mol",
+  "Excess molar entropy, J/K/mol",
+  "Excess molar Gibbs energy, kJ/mol",
+  "Excess molar heat capacity, J/K/mol",
+  "Partial molar enthalpy, kJ/mol",
+  "Partial molar entropy, J/K/mol",
+  "Partial molar Gibbs energy, kJ/mol",
+  "Partial molar heat capacity, J/K/mol",
+  "Relative partial molar enthalpy, kJ/mol",
+  "Relative partial molar entropy, J/K/mol",
+  "Relative partial molar Gibbs energy, kJ/mol",
+  "Relative partial molar heat capacity, J/K/mol",
+  "Standard state molar enthalpy, kJ/mol",
+  "Standard state molar entropy, J/K/mol",
+  "Standard state molar Gibbs energy, kJ/mol",
+  "Standard state molar heat capacity, J/K/mol",
+]
+
+[[construct]]
+name = "eMethodName (PropertyGroup ExcessPartialApparentEnergyProp)"
+locator = "ThermoML.xsd:1058-1074 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/ExcessPartialApparentEnergyProp/eMethodName)"
+meaning = "The 15 measurement or derivation method names of the group ExcessPartialApparentEnergyProp; alternative to sMethodName (free text), CriticalEvaluation and Prediction."
+subject = "a property of the dataset"
+fields = [
+  { name = "eMethodName", meaning = "method of measurement or derivation", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "one of eMethodName, sMethodName, CriticalEvaluation, Prediction is mandatory in a property (xsd:choice)."
+validity = "not applicable"
+provenance = "this is the method attribution of the values"
+count = "15 values"
+example = "ThermoML.xsd:1058"
+candidate = "dataset.method (Text); a choice of CriticalEvaluation gives dataset kind evaluated and Prediction gives computed"
+precision = "close"
+loss = "dataset.method is free text, so the enumeration becomes text; the dataset kind is not declared in the schema and must be inferred from which alternative was chosen."
+values = [
+  "Vacuum adiabatic calorimetry",
+  "Small (less than 1 g) adiabatic calorimetry",
+  "Flow calorimetry",
+  "Differential flow calorimetry",
+  "Calvet calorimetry",
+  "Large sample (1 g) DSC",
+  "Small sample (50 mg) DSC",
+  "Extra sensitive DSC",
+  "Twin closed calorimetry",
+  "Isoperibol calorimetry",
+  "Isothermal displacement",
+  "Power-compensation calorimetry",
+  "Titration calorimetry",
+  "Potential difference of an electrochemical cell",
+  "Other",
+]
+
+[[construct]]
+name = "ePropName (PropertyGroup TransportProp)"
+locator = "ThermoML.xsd:1089-1102 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/TransportProp/ePropName)"
+meaning = "The 12 property names of the group TransportProp; each string ends in its unit where one applies."
+subject = "a property of a pure compound or mixture (see candidate for the subject shape per name)"
+fields = [
+  { name = "ePropName", meaning = "property name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; amount-based names use mol and mass-based names use kg or g; temperature K, pressure kPa"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "12 values"
+example = "ThermoML.xsd:1089"
+candidate = "dynamic_viscosity (exact for \"Viscosity, Pa*s\"), thermal_conductivity (exact), excess viscosity through relation excess, diffusion observables with diffusion self_diffusion for self and tracer diffusion, kinematic viscosity, fluidity, thermal diffusivity, electrical conductivity, molar conductivity, transport number"
+precision = "close"
+loss = "The frame of \"Binary diffusion coefficient\" is not stated and diffusion_frame has no member for unstated (not_applicable means not a diffusion observable); self and tracer diffusion merge into self_diffusion; quantity types are missing for kinematic viscosity and thermal diffusivity (same dimensions as Diffusivity but a different meaning), fluidity, electrical conductivity and molar conductivity."
+values = [
+  "Viscosity, Pa*s",
+  "Excess viscosity, Pa*s",
+  "Kinematic viscosity, m2/s",
+  "Fluidity, 1/Pa/s",
+  "Thermal conductivity, W/m/K",
+  "Thermal diffusivity, m2/s",
+  "Binary diffusion coefficient, m2/s",
+  "Self diffusion coefficient, m2/s",
+  "Tracer diffusion coefficient, m2/s",
+  "Electrical conductivity, S/m",
+  "Molar conductivity, S*m2/mol",
+  "Transport number",
+]
+
+[[construct]]
+name = "eMethodName (PropertyGroup TransportProp)"
+locator = "ThermoML.xsd:1108-1138 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/TransportProp/eMethodName)"
+meaning = "The 29 measurement or derivation method names of the group TransportProp; alternative to sMethodName (free text), CriticalEvaluation and Prediction."
+subject = "a property of the dataset"
+fields = [
+  { name = "eMethodName", meaning = "method of measurement or derivation", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "one of eMethodName, sMethodName, CriticalEvaluation, Prediction is mandatory in a property (xsd:choice)."
+validity = "not applicable"
+provenance = "this is the method attribution of the values"
+count = "29 values"
+example = "ThermoML.xsd:1108"
+candidate = "dataset.method (Text); a choice of CriticalEvaluation gives dataset kind evaluated and Prediction gives computed"
+precision = "close"
+loss = "dataset.method is free text, so the enumeration becomes text; the dataset kind is not declared in the schema and must be inferred from which alternative was chosen."
+values = [
+  "Capillary tube (Ostwald; Ubbelohde) method",
+  "Cone and plate viscometry",
+  "Concentric cylinders viscometry",
+  "Falling or rolling sphere viscometry",
+  "Moving piston method",
+  "Oscillating disk viscometry",
+  "Vibrating wire viscometry",
+  "Parallel plate method",
+  "Coaxial cylinder method",
+  "Hot wire method",
+  "Optical interferometry",
+  "Dispersion",
+  "Diaphragm Cell",
+  "Open capillary",
+  "Closed capillary",
+  "Taylor dispersion method",
+  "NMR spin-echo technique",
+  "Hot disk method",
+  "Resistive pulse heating",
+  "Laser pulse heating",
+  "Levitation methods",
+  "Alternating current cell with electrodes",
+  "Direct current cell with electrodes",
+  "Voltage change across transformer (no electrode)",
+  "Gouy interferometer",
+  "Lamb interferometer",
+  "Oscillating sinker",
+  "Speed of sound measurements",
+  "Other",
+]
+
+[[construct]]
+name = "ePropName (PropertyGroup RefractionSurfaceTensionSoundSpeed)"
+locator = "ThermoML.xsd:1153-1168 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/RefractionSurfaceTensionSoundSpeed/ePropName)"
+meaning = "The 14 property names of the group RefractionSurfaceTensionSoundSpeed; each string ends in its unit where one applies."
+subject = "a property of a pure compound or mixture (see candidate for the subject shape per name)"
+fields = [
+  { name = "ePropName", meaning = "property name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; amount-based names use mol and mass-based names use kg or g; temperature K, pressure kPa"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "14 values"
+example = "ThermoML.xsd:1153"
+candidate = "surface_tension (subject interface; \"Surface tension liquid-gas\" with phases liquid and gas, \"Interfacial tension\" with the two dataset phases); refractive index and relative permittivity as Scalar observables of subject mixture with wavelength or frequency as variable columns; speed of sound; excess variants through relation excess"
+precision = "close"
+loss = "\"Refractive index (Na D-line)\" fixes a wavelength by name while \"(other wavelength)\" takes it from a Variable; complex relative permittivity is two names (real part, imaginary part) with no part facet; excess refractive index and excess speed of sound use an excess relation against an ideal mixing rule the schema does not state; no quantity type for speed of sound."
+values = [
+  "Refractive index (Na D-line)",
+  "Excess refractive index (Na D-line)",
+  "Refractive index (other wavelength)",
+  "Excess refractive index (other wavelength)",
+  "Relative permittivity at zero frequency",
+  "Excess relative permittivity at zero frequency",
+  "Relative permittivity at various frequencies",
+  "Complex relative permittivity (Real part) at various frequencies",
+  "Complex relative permittivity (Imaginary part) at various frequencies",
+  "Surface tension liquid-gas, N/m",
+  "Excess surface tension liquid-gas, N/m",
+  "Interfacial tension, N/m",
+  "Speed of sound, m/s",
+  "Excess speed of sound, m/s",
+]
+
+[[construct]]
+name = "eMethodName (PropertyGroup RefractionSurfaceTensionSoundSpeed)"
+locator = "ThermoML.xsd:1174-1206 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/RefractionSurfaceTensionSoundSpeed/eMethodName)"
+meaning = "The 31 measurement or derivation method names of the group RefractionSurfaceTensionSoundSpeed; alternative to sMethodName (free text), CriticalEvaluation and Prediction."
+subject = "a property of the dataset"
+fields = [
+  { name = "eMethodName", meaning = "method of measurement or derivation", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "one of eMethodName, sMethodName, CriticalEvaluation, Prediction is mandatory in a property (xsd:choice)."
+validity = "not applicable"
+provenance = "this is the method attribution of the values"
+count = "31 values"
+example = "ThermoML.xsd:1174"
+candidate = "dataset.method (Text); a choice of CriticalEvaluation gives dataset kind evaluated and Prediction gives computed"
+precision = "close"
+loss = "dataset.method is free text, so the enumeration becomes text; the dataset kind is not declared in the schema and must be inferred from which alternative was chosen."
+values = [
+  "Standard Abbe refractometry",
+  "Precision Abbe refractometry",
+  "Dipping refractometry (monochromatic)",
+  "Interferometer",
+  "Capillary rise",
+  "Drop weight",
+  "Drop volume",
+  "Maximal bubble pressure",
+  "Pendant drop shape",
+  "Ring tensiometer",
+  "Linear variable-path acoustic interferometer",
+  "Sing-around technique in a fixed-path interferometer",
+  "Annular interferometer",
+  "Pulse-echo method",
+  "Spherical resonator",
+  "Light diffraction method",
+  "Parallel plate capacitor",
+  "Coaxial cylinder capacitor",
+  "Cross capacitor",
+  "Reentrant cavity resonator",
+  "Coaxial line",
+  "Wave guide",
+  "Far infrared free space",
+  "Single path-length method",
+  "Dual path-length method",
+  "Multiple path-length method",
+  "Cylindrical cavity resonance method",
+  "Spherical cavity resonance method",
+  "Toroidal cavity resonance method",
+  "Levitation methods",
+  "Other",
+]
+
+[[construct]]
+name = "ePropName (PropertyGroup BioProperties)"
+locator = "ThermoML.xsd:1221-1227 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/BioProperties/ePropName)"
+meaning = "The 5 property names of the group BioProperties; each string ends in its unit where one applies."
+subject = "a property of a pure compound or mixture (see candidate for the subject shape per name)"
+fields = [
+  { name = "ePropName", meaning = "property name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; amount-based names use mol and mass-based names use kg or g; temperature K, pressure kPa"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "5 values"
+example = "ThermoML.xsd:1221"
+candidate = "observables with subject transition using PropPhaseID eBioState (Native, Denaturated) as the two states; transition temperatures; heat capacity change and van't Hoff enthalpy of transition with relation increment"
+precision = "close"
+loss = "eBioState is a conformational state, not an aggregation: dataset_phase.aggregation has no member for it; the kind of transition temperature (half conversion, peak, zero Gibbs energy) has no facet."
+values = [
+  "Temperature of 1/2 conversion, K",
+  "Peak temperature, K",
+  "Zero-Gibbs energy temperature, K",
+  "Heat capacity change at transition, J/K/mol",
+  "van't Hoff enthalpy of transition, kJ/mol",
+]
+
+[[construct]]
+name = "eMethodName (PropertyGroup BioProperties)"
+locator = "ThermoML.xsd:1233-1235 (PureOrMixtureData/Property/Property-MethodID/PropertyGroup/BioProperties/eMethodName)"
+meaning = "The 1 measurement or derivation method names of the group BioProperties; alternative to sMethodName (free text), CriticalEvaluation and Prediction."
+subject = "a property of the dataset"
+fields = [
+  { name = "eMethodName", meaning = "method of measurement or derivation", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "one of eMethodName, sMethodName, CriticalEvaluation, Prediction is mandatory in a property (xsd:choice)."
+validity = "not applicable"
+provenance = "this is the method attribution of the values"
+count = "1 values"
+example = "ThermoML.xsd:1233"
+candidate = "dataset.method (Text); a choice of CriticalEvaluation gives dataset kind evaluated and Prediction gives computed"
+precision = "close"
+loss = "dataset.method is free text, so the enumeration becomes text; the dataset kind is not declared in the schema and must be inferred from which alternative was chosen."
+values = [
+  "DSC/DTA",
+]
+
+[[construct]]
+name = "ePropName (ReactionData PropertyGroup ReactionStateChangeProp)"
+locator = "ThermoML.xsd:1599-1607 (ReactionData/Property/Property-MethodID/PropertyGroup/ReactionStateChangeProp/ePropName)"
+meaning = "The 7 property names of the reaction group ReactionStateChangeProp."
+subject = "a property of a reaction"
+fields = [
+  { name = "ePropName", meaning = "property name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded; the exponent n in (mol/kg)^n, (mol/dm3)^n and kPa^n is not a fixed number"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "7 values"
+example = "ThermoML.xsd:1599"
+candidate = "observables with subject reaction (dataset.reaction set from the Participant elements): molar enthalpy, internal energy, Gibbs energy and entropy of reaction (basis molar; relation standard or increment according to eStandardState); enthalpy of process in kJ (extensive); potential difference of an electrochemical cell (V)"
+precision = "close"
+loss = "Participant coefficients are optional floats with no stated sign convention (reaction_participant has signed coefficients and an extent_convention); \"per mol of reaction\" is not stated; \"Specific internal energy of reaction, J/g\" has a mass basis without saying per gram of what; \"Enthalpy of process, kJ\" is an extensive amount for which physical.toml has no Energy quantity; cell potential and nElectronNumber have no home."
+values = [
+  "Molar enthalpy of reaction, kJ/mol",
+  "Enthalpy of process, kJ",
+  "Specific internal energy of reaction at constant volume, J/g",
+  "Molar internal energy of reaction at constant volume, kJ/mol",
+  "Molar Gibbs energy of reaction, kJ/mol",
+  "Molar entropy of reaction, J/K/mol",
+  "Potential difference of an electrochemical cell, V",
+]
+
+[[construct]]
+name = "eMethodName (ReactionData PropertyGroup ReactionStateChangeProp)"
+locator = "ThermoML.xsd:1613-1648 (ReactionData/Property/Property-MethodID/PropertyGroup/ReactionStateChangeProp/eMethodName)"
+meaning = "The 30 method names of the reaction group ReactionStateChangeProp; the method choice is repeatable in reaction properties (xsd:choice maxOccurs unbounded, sMethodName repeatable)."
+subject = "a property of a reaction"
+fields = [
+  { name = "eMethodName", meaning = "method", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "as above"
+validity = "not applicable"
+provenance = "method attribution"
+count = "30 values"
+example = "ThermoML.xsd:1613"
+candidate = "dataset.method (Text)"
+precision = "close"
+loss = "several methods may be listed for one reaction property; dataset.method holds one text."
+values = [
+  "Static bomb calorimetry",
+  "Rotating bomb calorimetry",
+  "Micro-bomb calorimetry",
+  "Flame calorimetry",
+  "Solution calorimetry",
+  "Potential difference of an electrochemical cell",
+  "Anion exchange",
+  "Cation exchange",
+  "Cell potential with glass electrode",
+  "Cell potential with platinum electrode",
+  "Cell potential with quinhydrone electrode",
+  "Cell potential with redox electrode",
+  "Colorimetry",
+  "Conductivity measurement",
+  "Coulometry",
+  "Cryoscopy",
+  "Distribution between two phases",
+  "Ion selective electrode",
+  "Molar volume determination",
+  "Polarography",
+  "Potentiometry",
+  "Proton relaxation",
+  "Rate of reaction",
+  "Solubility measurement",
+  "Spectrophotometry",
+  "Thermal lensing spectrophotometry",
+  "Transient conductivity measurement",
+  "Solvent extraction",
+  "Voltammetry",
+  "Other",
+]
+
+[[construct]]
+name = "ePropName (ReactionData PropertyGroup ReactionEquilibriumProp)"
+locator = "ThermoML.xsd:1663-1679 (ReactionData/Property/Property-MethodID/PropertyGroup/ReactionEquilibriumProp/ePropName)"
+meaning = "The 15 property names of the reaction group ReactionEquilibriumProp."
+subject = "a property of a reaction"
+fields = [
+  { name = "ePropName", meaning = "property name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded; the exponent n in (mol/kg)^n, (mol/dm3)^n and kPa^n is not a fixed number"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "15 values"
+example = "ThermoML.xsd:1663"
+candidate = "log10_equilibrium_constant (same kind as \"Decadic logarithm of thermodynamic equilibrium constant\"); ln K and K as transforms of it; the four concentration-scale constants (molality, molarity, partial pressure, mole fraction) as distinct observables that are not relative to standard states"
+precision = "close"
+loss = "The declared observable has quantity Scalar; the molality, molarity and partial-pressure constants have unit (mol/kg)^n, (mol/dm3)^n and kPa^n with n the sum of the stoichiometric coefficients, which Scalar loses; there is no facet for the scale of a constant or for the logarithm base (ln K equals ln 10 times log10 K, K itself is non-linear)."
+values = [
+  "Thermodynamic equilibrium constant",
+  "Equilibrium constant in terms of molality, (mol/kg)^n",
+  "Equilibrium constant in terms of amount concentration (molarity), (mol/dm3)^n",
+  "Equilibrium constant in terms of partial pressure, kPa^n",
+  "Equilibrium constant in terms of mole fraction",
+  "Natural logarithm of thermodynamic equilibrium constant",
+  "Natural logarithm of equilibrium constant in terms of molality, (mol/kg)^n",
+  "Natural logarithm of equilibrium constant in terms of amount concentration (molarity), (mol/dm3)^n",
+  "Natural logarithm of equilibrium constant in terms of partial pressure, kPa^n",
+  "Natural logarithm of equilibrium constant in terms of mole fraction",
+  "Decadic logarithm of thermodynamic equilibrium constant",
+  "Decadic logarithm of equilibrium constant in terms of molality, (mol/kg)^n",
+  "Decadic logarithm of equilibrium constant in terms of amount concentration (molarity), (mol/dm3)^n",
+  "Decadic logarithm of equilibrium constant in terms of partial pressure, kPa^n",
+  "Decadic logarithm of equilibrium constant in terms of mole fraction",
+]
+
+[[construct]]
+name = "eMethodName (ReactionData PropertyGroup ReactionEquilibriumProp)"
+locator = "ThermoML.xsd:1685-1722 (ReactionData/Property/Property-MethodID/PropertyGroup/ReactionEquilibriumProp/eMethodName)"
+meaning = "The 32 method names of the reaction group ReactionEquilibriumProp; the method choice is repeatable in reaction properties (xsd:choice maxOccurs unbounded, sMethodName repeatable)."
+subject = "a property of a reaction"
+fields = [
+  { name = "eMethodName", meaning = "method", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "as above"
+validity = "not applicable"
+provenance = "method attribution"
+count = "32 values"
+example = "ThermoML.xsd:1685"
+candidate = "dataset.method (Text)"
+precision = "close"
+loss = "several methods may be listed for one reaction property; dataset.method holds one text."
+values = [
+  "Static equilibration",
+  "Dynamic equilibration",
+  "Chromatography",
+  "IR spectrometry",
+  "UV spectroscopy",
+  "NMR spectrometry",
+  "Titration",
+  "Potential difference of an electrochemical cell",
+  "Anion exchange",
+  "Cation exchange",
+  "Cell potential with glass electrode",
+  "Cell potential with platinum electrode",
+  "Cell potential with quinhydrone electrode",
+  "Cell potential with redox electrode",
+  "Colorimetry",
+  "Conductivity measurement",
+  "Coulometry",
+  "Cryoscopy",
+  "Distribution between two phases",
+  "Ion selective electrode",
+  "Molar volume determination",
+  "Polarography",
+  "Potentiometry",
+  "Proton relaxation",
+  "Rate of reaction",
+  "Solubility measurement",
+  "Spectrophotometry",
+  "Thermal lensing spectrophotometry",
+  "Transient conductivity measurement",
+  "Solvent extraction",
+  "Voltammetry",
+  "Other",
+]
+
+[[construct]]
+name = "eType"
+locator = "ThermoML.xsd:70-81 (CitationType/eType)"
+meaning = "publication type of the citation; 10 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eType", meaning = "publication type of the citation", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "10 values"
+example = "ThermoML.xsd:70"
+candidate = "none (publication has no type attribute)"
+precision = "unmapped"
+loss = "no attribute in publication"
+values = [
+  "book",
+  "journal",
+  "report",
+  "patent",
+  "thesis",
+  "conferenceProceedings",
+  "archivedDocument",
+  "personalCorrespondence",
+  "publishedTranslation",
+  "unspecified",
+]
+
+[[construct]]
+name = "eSourceType"
+locator = "ThermoML.xsd:89-93 (CitationType/eSourceType)"
+meaning = "source status of the citation: original, Chemical Abstracts or other; 3 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eSourceType", meaning = "source status of the citation: original, Chemical Abstracts or other", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "3 values"
+example = "ThermoML.xsd:89"
+candidate = "none"
+precision = "unmapped"
+loss = "no attribute in publication"
+values = [
+  "Original",
+  "ChemicalAbstracts",
+  "Other",
+]
+
+[[construct]]
+name = "eLanguage"
+locator = "ThermoML.xsd:137-146 (CitationType/eLanguage)"
+meaning = "language of the publication; 8 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eLanguage", meaning = "language of the publication", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "8 values"
+example = "ThermoML.xsd:137"
+candidate = "none"
+precision = "unmapped"
+loss = "no attribute in publication"
+values = [
+  "Chinese",
+  "English",
+  "French",
+  "German",
+  "Japanese",
+  "Polish",
+  "Russian",
+  "Other language",
+]
+
+[[construct]]
+name = "eSpeciationState"
+locator = "ThermoML.xsd:411-414 (Compound/eSpeciationState)"
+meaning = "whether the compound stands for a mixture of species in equilibrium or a single species; 2 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eSpeciationState", meaning = "whether the compound stands for a mixture of species in equilibrium or a single species", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "2 values"
+example = "ThermoML.xsd:411"
+candidate = "none"
+precision = "unmapped"
+loss = "speciation_map describes apparent versus true species per chemical system, not a flag on a compound"
+values = [
+  "equilibrium",
+  "single species",
+]
+
+[[construct]]
+name = "eFunction (PureOrMixtureData AuxiliarySubstance)"
+locator = "ThermoML.xsd:553-557 (PureOrMixtureData/AuxiliarySubstance/eFunction)"
+meaning = "function of an auxiliary substance in a dataset; 3 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eFunction", meaning = "function of an auxiliary substance in a dataset", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "3 values"
+example = "ThermoML.xsd:553"
+candidate = "dataset_component.function: Solvent maps to solvent"
+precision = "narrower"
+loss = "Buffer and Inert have no component_function member (closest: catalyst is \"present but not a participant\", not the same)"
+values = [
+  "Buffer",
+  "Solvent",
+  "Inert",
+]
+
+[[construct]]
+name = "eFunction (ReactionData AuxiliarySubstance)"
+locator = "ThermoML.xsd:1508-1512 (ReactionData/AuxiliarySubstance/eFunction)"
+meaning = "function of an auxiliary substance in a reaction dataset; 3 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eFunction", meaning = "function of an auxiliary substance in a reaction dataset", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "3 values"
+example = "ThermoML.xsd:1508"
+candidate = "dataset_component.function"
+precision = "narrower"
+loss = "Cofactor, Buffer and Inert have no component_function member"
+values = [
+  "Cofactor",
+  "Buffer",
+  "Inert",
+]
+
+[[construct]]
+name = "eSampleStatus"
+locator = "ThermoML.xsd:1865-1870 (eSampleStatus)"
+meaning = "status of a sample; 4 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eSampleStatus", meaning = "status of a sample", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "4 values"
+example = "ThermoML.xsd:1865"
+candidate = "none"
+precision = "unmapped"
+loss = "sample has no status attribute"
+values = [
+  "unknown",
+  "notDescribed",
+  "previousPaper",
+  "noSample",
+]
+
+[[construct]]
+name = "eSampleSource"
+locator = "ThermoML.xsd:1879-1887 (eSampleSource)"
+meaning = "source of a sample; 7 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eSampleSource", meaning = "source of a sample", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "7 values"
+example = "ThermoML.xsd:1879"
+candidate = "sample.supplier (Text) holds the value as text"
+precision = "close"
+loss = "a vocabulary becomes free text; \"Standard Reference Material (SRM)\" and \"Isolated from a natural product\" are not supplier names"
+values = [
+  "Commercial source",
+  "Synthesized by the authors",
+  "Synthesized by others",
+  "Standard Reference Material (SRM)",
+  "Isolated from a natural product",
+  "Not stated in the document",
+  "No sample used",
+]
+
+[[construct]]
+name = "ePurifMethod"
+locator = "ThermoML.xsd:1896-1922 (ePurifMethod)"
+meaning = "purification methods; 25 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "ePurifMethod", meaning = "purification methods", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "25 values"
+example = "ThermoML.xsd:1896"
+candidate = "none"
+precision = "unmapped"
+loss = "sample holds no purification history"
+values = [
+  "Impurity adsorption",
+  "Vacuum degasification",
+  "Chemical reagent treatment",
+  "Crystallization from melt",
+  "Crystallization from solution",
+  "Liquid chromatography",
+  "Dried with chemical reagent",
+  "Dried in a desiccator",
+  "Dried by oven heating",
+  "Dried by vacuum heating",
+  "De-gassed by boiling or ultrasonically",
+  "De-gassed by evacuation",
+  "De-gassed by freezing and melting in vacuum",
+  "Fractional crystallization",
+  "Fractional distillation",
+  "Molecular sieve treatment",
+  "Unspecified",
+  "Preparative gas chromatography",
+  "Sublimation",
+  "Steam distillation",
+  "Solvent extraction",
+  "Salting out of solution",
+  "Zone refining",
+  "Other",
+  "None used",
+]
+
+[[construct]]
+name = "ePurityAnalMethod"
+locator = "ThermoML.xsd:1931-1956 (ePurityAnalMethod)"
+meaning = "analytical methods for purity; 24 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "ePurityAnalMethod", meaning = "analytical methods for purity", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "24 values"
+example = "ThermoML.xsd:1931"
+candidate = "none"
+precision = "unmapped"
+loss = "sample holds no analytical method"
+values = [
+  "Chemical analysis",
+  "Difference between bubble and dew temperatures",
+  "Density",
+  "DSC",
+  "Estimation",
+  "Gas chromatography",
+  "Fraction melting in an adiabatic calorimeter",
+  "Mass spectrometry",
+  "NMR (proton)",
+  "NMR (other)",
+  "Not known",
+  "Spectroscopy",
+  "Thermal analysis using temperature-time measurement",
+  "Acid-base titration",
+  "Other types of titration",
+  "Mass loss on drying",
+  "Karl Fischer titration",
+  "HPLC",
+  "Ion chromatography",
+  "Ion-selective electrode",
+  "CO2 yield in combustion products",
+  "Other",
+  "Estimated by the compiler",
+  "Stated by supplier",
+]
+
+[[construct]]
+name = "eExpPurpose"
+locator = "ThermoML.xsd:1965-1969 (eExpPurpose)"
+meaning = "purpose of the measurement; 3 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eExpPurpose", meaning = "purpose of the measurement", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "3 values"
+example = "ThermoML.xsd:1965"
+candidate = "none"
+precision = "unmapped"
+loss = "dataset has no purpose attribute; dataset.title or method could hold it as text"
+values = [
+  "Principal objective of the work",
+  "Secondary purpose (by-product of other objective)",
+  "Determined for identification of a synthesized compound",
+]
+
+[[construct]]
+name = "eCrystalLatticeTypeSelection"
+locator = "ThermoML.xsd:2021-2029 (eCrystalLatticeTypeSelection)"
+meaning = "crystal lattice system of a crystalline phase; 7 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eCrystalLatticeTypeSelection", meaning = "crystal lattice system of a crystalline phase", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "7 values"
+example = "ThermoML.xsd:2021"
+candidate = "species_form.polymorph (Text) or dataset_phase.label for a crystalline dataset phase"
+precision = "close"
+loss = "the seven lattice systems are coarser than a polymorph designation and the model declares no crystal-system vocabulary"
+values = [
+  "Cubic",
+  "Tetragonal",
+  "Hexagonal",
+  "Rhombohedral",
+  "Orthorhombic",
+  "Monoclinic",
+  "Triclinic",
+]
+
+[[construct]]
+name = "eBioState (PropPhaseID)"
+locator = "ThermoML.xsd:1273-1276 (PureOrMixtureData/Property/PropPhaseID/eBioState)"
+meaning = "native or denaturated state of a biomolecule; 2 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eBioState", meaning = "native or denaturated state of a biomolecule", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "2 values"
+example = "ThermoML.xsd:1273"
+candidate = "none"
+precision = "unmapped"
+loss = "aggregation has no conformational state; dataset_phase.label could hold the text"
+values = [
+  "Native",
+  "Denaturated",
+]
+
+[[construct]]
+name = "MulticomponentType"
+locator = "ThermoML.xsd:2633-2639 (MulticomponentType)"
+meaning = "kind of multicomponent substance; 5 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "MulticomponentType", meaning = "kind of multicomponent substance", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "5 values"
+example = "ThermoML.xsd:2633"
+candidate = "none"
+precision = "unmapped"
+loss = "defined_mixture has no kind attribute beyond mixture_definition"
+values = [
+  "alloy",
+  "clathrate",
+  "complex",
+  "crystal",
+  "solution",
+]
+
+[[construct]]
+name = "MulticomponentComposition"
+locator = "ThermoML.xsd:2645-2649 (MulticomponentComposition)"
+meaning = "basis of the amounts of a multicomponent substance: number of molecules, mole fraction, mass fraction; 3 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "MulticomponentComposition", meaning = "basis of the amounts of a multicomponent substance: number of molecules, mole fraction, mass fraction", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "3 values"
+example = "ThermoML.xsd:2645"
+candidate = "defined_mixture.mole_basis (Boolean) for mole or mass fraction"
+precision = "narrower"
+loss = "\"number of molecules\" is not a fraction; the Boolean cannot hold it"
+values = [
+  "number of molecules",
+  "mole fraction",
+  "mass fraction",
+]
+
+[[construct]]
+name = "eReactionFormalism"
+locator = "ThermoML.xsd:1539-1542 (ReactionData/eReactionFormalism)"
+meaning = "chemical or biochemical formalism; 2 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eReactionFormalism", meaning = "chemical or biochemical formalism", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "2 values"
+example = "ThermoML.xsd:1539"
+candidate = "none"
+precision = "unmapped"
+loss = "transformed (apparent) quantities of the biochemical formalism have no concept"
+values = [
+  "chemical",
+  "biochemical",
+]
+
+[[construct]]
+name = "eReactionType"
+locator = "ThermoML.xsd:1555-1581 (ReactionData/eReactionType)"
+meaning = "classification of a reaction; 25 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eReactionType", meaning = "classification of a reaction", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "25 values"
+example = "ThermoML.xsd:1555"
+candidate = "dataset.title or method as retained text"
+precision = "unmapped"
+loss = "no reaction classification in the model"
+values = [
+  "Combustion with oxygen",
+  "Addition of various compounds to unsaturated compounds",
+  "Addition of water to a liquid or solid to produce a hydrate",
+  "Atomization (or formation from atoms)",
+  "Combustion with other elements or compounds",
+  "Esterification",
+  "Exchange of alkyl groups",
+  "Exchange of hydrogen (atoms) with other groups",
+  "Formation of a compound from elements in their stable state",
+  "Halogenation (addition of or replacement by a halogen)",
+  "Hydrogenation (addition of hydrogen to unsaturated compounds)",
+  "Hydrohalogenation",
+  "Hydrolysis of ions",
+  "Other reactions with water",
+  "Ion exchange",
+  "Neutralization (reaction of an acid with a base)",
+  "Oxidation with oxidizing agents other than oxygen",
+  "Oxidation with oxygen (not complete)",
+  "Polymerization (all other types)",
+  "Homonuclear dimerization",
+  "Solvolyis (solvents other than water)",
+  "Stereoisomerism",
+  "Structural isomerization",
+  "Formation of ion",
+  "Other reactions",
+]
+
+[[construct]]
+name = "eCompositionRepresentation"
+locator = "ThermoML.xsd:1485-1494 (ReactionData/Participant/eCompositionRepresentation)"
+meaning = "how the composition number of a reaction participant is expressed: amount ratio of solvent to participant, molality, amount per mass of solution, amount concentration, amount ratio of participant to solvent, mass ratio, volume ratio, mass per volume of solution; 8 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eCompositionRepresentation", meaning = "how the composition number of a reaction participant is expressed: amount ratio of solvent to participant, molality, amount per mass of solution, amount concentration, amount ratio of participant to solvent, mass ratio, volume ratio, mass per volume of solution", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "8 values"
+example = "ThermoML.xsd:1485"
+candidate = "composition_basis (molality, molarity) on a condition of the reaction dataset"
+precision = "close"
+loss = "the ratio bases, amount per mass of solution and mass per volume of solution have no composition_basis member, and the composition of a participant is a condition of the measured state, not part of the reaction"
+values = [
+  "Amount ratio of solvent to participant",
+  "Molality - amount of participant per mass of solvent, mol/kg",
+  "Amount of participant per mass of solution, mol/kg",
+  "Amount concentration - amount of participant per volume of solution, mol/dm3",
+  "Amount ratio of participant to solvent",
+  "Mass ratio of participant to solvent",
+  "Volume ratio of participant to solvent",
+  "Mass of participant per volume of solution, kg/m3",
+]
+
+[[construct]]
+name = "eParticipantAmount (constraint and variable type group)"
+locator = "ThermoML.xsd:2188-2191 (ConstraintVariableType/eParticipantAmount)"
+meaning = "amount or mass of a reaction participant; 2 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eParticipantAmount", meaning = "amount or mass of a reaction participant", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "2 values"
+example = "ThermoML.xsd:2188"
+candidate = "dataset_column with quantity Amount or Mass"
+precision = "close"
+loss = "Amount and Mass quantity types exist but no observable is declared"
+values = [
+  "Amount, mol",
+  "Mass, kg",
+]
+
+[[construct]]
+name = "ePredictionType"
+locator = "ThermoML.xsd:2499-2508 (Prediction/ePredictionType)"
+meaning = "type of a predictive method; 8 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "ePredictionType", meaning = "type of a predictive method", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "8 values"
+example = "ThermoML.xsd:2499"
+candidate = "derivation kind (estimated or computed) with the type as text"
+precision = "close"
+loss = "the eight types have no vocabulary in the model"
+values = [
+  "Ab initio",
+  "Molecular dynamics",
+  "Semiempirical quantum methods",
+  "Molecular mechanics",
+  "Statistical mechanics",
+  "Corresponding states",
+  "Correlation",
+  "Group contribution",
+]
+
+[[construct]]
+name = "eEqName"
+locator = "ThermoML.xsd:2527-2538 (Equation/eEqName)"
+meaning = "named correlating equations; 10 values."
+subject = "as the element that carries it"
+fields = [
+  { name = "eEqName", meaning = "named correlating equations", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "optional unless the element is mandatory in its parent"
+validity = "not applicable"
+provenance = "not applicable"
+count = "10 values"
+example = "ThermoML.xsd:2527"
+candidate = "form catalogue entries (catalogued status) matching the names"
+precision = "close"
+loss = "the forms must be declared in forms/ before slots can be populated; the schema defines no slot names"
+values = [
+  "ThermoML.Antoine.VaporPressure",
+  "ThermoML.CustomExpansion",
+  "ThermoML.Helmholtz3General.EOS",
+  "ThermoML.Helmholtz4General.EOS",
+  "ThermoML.WagnerLinear.VaporPressure",
+  "ThermoML.Wagner25Linear.VaporPressure",
+  "ThermoML.Wagner36Linear.VaporPressure",
+  "ThermoML.PolynomialExpansion",
+  "ThermoML.SpanWagner12Nonpolar.EOS",
+  "ThermoML.SpanWagner12Polar.EOS",
+]
+
+[[construct]]
+name = "eTemperature (ConstraintVariableType)"
+locator = "ThermoML.xsd:2101-2105 (ConstraintVariableType/eTemperature)"
+meaning = "temperature names of Constraint and Variable (temperature, upper temperature, lower temperature); 3 values."
+subject = "a condition of a dataset"
+fields = [
+  { name = "eTemperature", meaning = "condition name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; K, kPa, mol/kg, mol/dm3 as written"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "3 values"
+example = "ThermoML.xsd:2101"
+candidate = "observable temperature (exact for \"Temperature, K\" after the K to storage conversion, which is the identity); upper and lower temperature are interval endpoints"
+precision = "close"
+loss = "Upper and Lower temperature have no member: the model has no endpoint role for a variable column and ePresentation differences between upper and lower temperature depend on them."
+values = [
+  "Temperature, K",
+  "Upper temperature, K",
+  "Lower temperature, K",
+]
+
+[[construct]]
+name = "ePressure (ConstraintVariableType)"
+locator = "ThermoML.xsd:2110-2115 (ConstraintVariableType/ePressure)"
+meaning = "pressure names (pressure, partial pressure, upper pressure, lower pressure); 4 values."
+subject = "a condition of a dataset"
+fields = [
+  { name = "ePressure", meaning = "condition name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; K, kPa, mol/kg, mol/dm3 as written"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "4 values"
+example = "ThermoML.xsd:2110"
+candidate = "observable pressure (kPa to Pa, factor 1000); partial pressure as a pressure observable of subject component_in_mixture; upper and lower as interval endpoints"
+precision = "close"
+loss = "Partial pressure has no declared observable; upper and lower pressure have no endpoint member; absolute versus gauge pressure is not stated."
+values = [
+  "Pressure, kPa",
+  "Partial pressure, kPa",
+  "Upper pressure, kPa",
+  "Lower pressure, kPa",
+]
+
+[[construct]]
+name = "eComponentComposition (ConstraintVariableType)"
+locator = "ThermoML.xsd:2120-2137 (ConstraintVariableType/eComponentComposition)"
+meaning = "composition names of a component (mole fraction, mass fraction, molality, molarity, volume fraction, ratios of solute to solvent, initial and final compositions); 16 values."
+subject = "a condition of a dataset"
+fields = [
+  { name = "eComponentComposition", meaning = "condition name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; K, kPa, mol/kg, mol/dm3 as written"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "16 values"
+example = "ThermoML.xsd:2120"
+candidate = "dataset_column.composition_basis: mole_fraction, mass_fraction, molality (mol/kg), molarity (mol/dm3 to mol/m3 factor 1000), volume_fraction"
+precision = "close"
+loss = "composition_basis lacks: ratio of amount, mass or volume of solute to solvent; mass of solute per volume of solution (kg/m3); amount of solute per mass of solution (mol/kg); and the qualifiers Initial and Final, which describe compositions before and after a mixing or dissolution process and need a process-state facet."
+values = [
+  "Mole fraction",
+  "Mass fraction",
+  "Molality, mol/kg",
+  "Amount concentration (molarity), mol/dm3",
+  "Volume fraction",
+  "Ratio of amount of solute to mass of solution, mol/kg",
+  "Ratio of mass of solute to volume of solution, kg/m3",
+  "Amount ratio of solute to solvent",
+  "Mass ratio of solute to solvent",
+  "Volume ratio of solute to solvent",
+  "Initial mole fraction of solute",
+  "Final mole fraction of solute",
+  "Initial mass fraction of solute",
+  "Final mass fraction of solute",
+  "Initial molality of solute, mol/kg",
+  "Final molality of solute, mol/kg",
+]
+
+[[construct]]
+name = "eSolventComposition (ConstraintVariableType)"
+locator = "ThermoML.xsd:2142-2153 (ConstraintVariableType/eSolventComposition)"
+meaning = "composition names of the solvent (solute-free basis: mole, mass, volume fraction, molality, molarity, ratio of binary-solvent components, per mass of solvent, per volume of solvent); 10 values."
+subject = "a condition of a dataset"
+fields = [
+  { name = "eSolventComposition", meaning = "condition name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; K, kPa, mol/kg, mol/dm3 as written"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "10 values"
+example = "ThermoML.xsd:2142"
+candidate = "composition columns about the solvent as a mixture in its own right, with composition_basis as above"
+precision = "close"
+loss = "The \"Solvent:\" names describe the composition of the solvent mixture on a solute-free basis; the model has no notion of a sub-mixture whose components are a subset of the dataset components, and the bases are missing as for eComponentComposition."
+values = [
+  "Solvent: Mole fraction",
+  "Solvent: Mass fraction",
+  "Solvent: Volume fraction",
+  "Solvent: Molality, mol/kg",
+  "Solvent: Amount concentration (molarity), mol/dm3",
+  "Solvent: Amount ratio of component to other component of binary solvent",
+  "Solvent: Mass ratio of component to other component of binary solvent",
+  "Solvent: Volume ratio of component to other component of binary solvent",
+  "Solvent: Ratio of amount of component to mass of solvent, mol/kg",
+  "Solvent: Ratio of component mass to volume of solvent, kg/m3",
+]
+
+[[construct]]
+name = "eMiscellaneous (ConstraintVariableType)"
+locator = "ThermoML.xsd:2158-2172 (ConstraintVariableType/eMiscellaneous)"
+meaning = "names that are property-like conditions (wavelength, frequency, molar volume, specific volume, mass density, amount density, molar entropy, activity, activity coefficient); 9 values."
+subject = "a condition of a dataset"
+fields = [
+  { name = "eMiscellaneous", meaning = "condition name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; K, kPa, mol/kg, mol/dm3 as written"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "9 values"
+example = "ThermoML.xsd:2158"
+candidate = "dataset_column with the observable of the same name (molar_density exact for \"Amount density, mol/m3\"; frequency and wavelength have no observable)"
+precision = "close"
+loss = "No quantity types for wavelength and frequency; a property name and a variable name coincide, so the role (constraint, variable, property) is the only thing that distinguishes a measured density from a density held as a condition."
+values = [
+  "Wavelength, nm",
+  "Frequency, MHz",
+  "Molar volume, m3/mol",
+  "Specific volume, m3/kg",
+  "Mass density, kg/m3",
+  "Amount density, mol/m3",
+  "Molar entropy, J/K/mol",
+  "(Relative) activity",
+  "Activity coefficient",
+]
+
+[[construct]]
+name = "eBioVariables (ConstraintVariableType)"
+locator = "ThermoML.xsd:2177-2183 (ConstraintVariableType/eBioVariables)"
+meaning = "pH, ionic strength on two bases, two pC forms; 5 values."
+subject = "a condition of a dataset"
+fields = [
+  { name = "eBioVariables", meaning = "condition name and unit", unit = "in the string", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "unit embedded in the string; K, kPa, mol/kg, mol/dm3 as written"
+absence = "not applicable"
+validity = "not stated"
+provenance = "not applicable"
+count = "5 values"
+example = "ThermoML.xsd:2177"
+candidate = "none"
+precision = "unmapped"
+loss = "no pH, pC or ionic-strength quantity types."
+values = [
+  "pH",
+  "Ionic strength (molality basis), mol/kg",
+  "Ionic strength (amount concentration basis), mol/dm3",
+  "pC (amount concentration basis)",
+  "Solvent: pC (amount concentration basis)",
+]
+
+[[construct]]
+name = "eDeviceSpecMethod"
+locator = "ThermoML.xsd:2204-2208 (ConstrDeviceSpecType/eDeviceSpecMethod); ThermoML.xsd:2224-2228 (PropVarDeviceSpecType/eDeviceSpecMethod)"
+meaning = "how a device specification was obtained; 3 values (identical in both places)."
+subject = "an uncertainty, repeatability or device definition"
+fields = [
+  { name = "eDeviceSpecMethod", meaning = "how a device specification was obtained", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "mandatory inside its definition element"
+validity = "not applicable"
+provenance = "not applicable"
+count = "3 values in each of 2 places"
+example = "ThermoML.xsd:2204"
+candidate = "uncertainty_kind (standard for the standard-deviation forms; the device and combined methods describe provenance of an uncertainty and have no member)"
+precision = "close"
+loss = "uncertainty_kind says what the magnitude means (standard, expanded, relative, interval, exact, not_stated); the method describes how it was obtained and whether it is biased, unbiased or of the mean, which the model cannot hold."
+values = [
+  "Specified by the manufacturer",
+  "Certified or calibrated by a third party",
+  "Calibrated by the experimentalist",
+]
+
+[[construct]]
+name = "eRepeatMethod"
+locator = "ThermoML.xsd:2243-2248 (ConstrRepeatabilityType/eRepeatMethod); ThermoML.xsd:2264-2269 (PropVarRepeatabilityType/eRepeatMethod)"
+meaning = "which standard deviation a repeatability value is; 4 values (identical in both places)."
+subject = "an uncertainty, repeatability or device definition"
+fields = [
+  { name = "eRepeatMethod", meaning = "which standard deviation a repeatability value is", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "mandatory inside its definition element"
+validity = "not applicable"
+provenance = "not applicable"
+count = "4 values in each of 2 places"
+example = "ThermoML.xsd:2243"
+candidate = "uncertainty_kind (standard for the standard-deviation forms; the device and combined methods describe provenance of an uncertainty and have no member)"
+precision = "close"
+loss = "uncertainty_kind says what the magnitude means (standard, expanded, relative, interval, exact, not_stated); the method describes how it was obtained and whether it is biased, unbiased or of the mean, which the model cannot hold."
+values = [
+  "Standard deviation of a single value (biased)",
+  "Standard deviation of a single value (unbiased)",
+  "Standard deviation of the mean",
+  "Other",
+]
+
+[[construct]]
+name = "eCombUncertEvalMethod"
+locator = "ThermoML.xsd:2333-2336 (CombinedUncertainty/eCombUncertEvalMethod)"
+meaning = "how a combined uncertainty was evaluated; 2 values."
+subject = "an uncertainty, repeatability or device definition"
+fields = [
+  { name = "eCombUncertEvalMethod", meaning = "how a combined uncertainty was evaluated", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "none"
+absence = "mandatory inside its definition element"
+validity = "not applicable"
+provenance = "not applicable"
+count = "2 values"
+example = "ThermoML.xsd:2333"
+candidate = "uncertainty_kind (standard for the standard-deviation forms; the device and combined methods describe provenance of an uncertainty and have no member)"
+precision = "close"
+loss = "uncertainty_kind says what the magnitude means (standard, expanded, relative, interval, exact, not_stated); the method describes how it was obtained and whether it is biased, unbiased or of the mean, which the model cannot hold."
+values = [
+  "Propagation of evaluated standard uncertainties",
+  "Comparison with reference property values",
+]
+
+[[construct]]
+name = "eStandardState"
+locator = "ThermoML.xsd:1315-1325 (PureOrMixtureData/Property/eStandardState); ThermoML.xsd:1470-1480 (ReactionData/Participant/eStandardState); ThermoML.xsd:1762-1772 (ReactionData/Property/eStandardState)"
+meaning = "The standard state to which activities, equilibrium constants and standard-state properties refer; 5 values, identical in Property (dataset), Participant (reaction) and Property (reaction)."
+subject = "a property or a reaction participant"
+fields = [
+  { name = "eStandardState", meaning = "standard state of a property or participant", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "The molality standard state is written \"1 mol/kg\" and the concentration one \"1 mol/dm3\"; the pressure of the standard state is not stated anywhere in the schema; the enumeration value \"Standard amount concentration (1 mol/dm3) solute\" carries the documentation text \"Molarity\"."
+absence = "optional in all three places; its absence states no standard state, which is not the same as a stated \"Pure compound\"."
+validity = "not applicable"
+provenance = "not applicable"
+count = "5 values in each of 3 places"
+example = "ThermoML.xsd:1315"
+candidate = "dataset_column.standard_state and reaction_participant.standard_state: \"Pure compound\" to kind pure_real (or pure_ideal_gas for a gas: the schema does not say which); \"Pure liquid solute\" to pure_real for a liquid; \"Standard molality (1 mol/kg) solute\" to infinite_dilution with scale molality; \"Standard amount concentration (1 mol/dm3) solute\" to infinite_dilution with scale molarity; \"Infinite dilution solute\" to infinite_dilution with no stated scale"
+precision = "close"
+loss = "The standard pressure (pressure_rule fixed, system_pressure or saturation) is not stated for any value, so pressure_rule cannot be filled without an assumption; standard_state_kind has no unspecified member; the solvent of an infinite-dilution state comes from the Solvent element of the property, which is separate and optional; \"Pure compound\" does not distinguish real from ideal gas."
+values = [
+  "Pure compound",
+  "Pure liquid solute",
+  "Standard molality (1 mol/kg) solute",
+  "Standard amount concentration (1 mol/dm3) solute",
+  "Infinite dilution solute",
+]
+
+[[construct]]
+name = "ePhaseName"
+locator = "ThermoML.xsd:1978-2012 (simpleType ePhaseName, used by PhaseID/ePhase, PropPhaseID/ePropPhase, RefPhaseID/eRefPhase, ConstraintPhaseID/eConstraintPhase, VarPhaseID/eVarPhase and ReactionData ePhase)"
+meaning = "Names of the phases that can occur in a dataset: five numbered crystals and crystal of unknown type, three crystals of intercomponent compounds, metastable crystal, glass, smectic, nematic and cholesteric liquid crystals with numbers, liquid, three numbered liquid mixtures, solution and four numbered solutions, fluid (supercritical or subcritical), ideal gas, gas, and air at 1 atmosphere; 33 values."
+subject = "a phase of the system of a dataset (a local role, not a phase definition)"
+fields = [
+  { name = "ePhaseName", meaning = "phase name; numbered entries are local labels that distinguish several phases of one kind in one dataset", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "Numbers in \"Crystal 1\" to \"Crystal 5\", \"Liquid mixture 1\" to \"3\" and \"Solution 1\" to \"4\" are labels within a dataset (for example the two liquids of a liquid-liquid equilibrium), not global polymorph or phase identities."
+absence = "not applicable"
+validity = "not applicable"
+provenance = "not applicable"
+count = "33 values"
+example = "ThermoML.xsd:1978"
+candidate = "dataset_phase.aggregation with label = the source name: Liquid, Liquid mixture n, Solution n to liquid; Gas to gas; Fluid (supercritical or subcritical phases) to fluid; Crystal n, Crystal, Crystal of unknown type, Metastable crystal, Crystal of intercomponent compound n to crystalline; Glass to amorphous; Ideal gas to gas"
+precision = "close"
+loss = "aggregation has no member for liquid crystals (smectic, nematic, cholesteric: seven values); \"Solution\" is a liquid with a solvent convention (the model deliberately has no aqueous aggregation); \"Crystal of intercomponent compound n\" names a crystalline solid whose composition is a compound of the components, which needs an entity, not an aggregation; \"Metastable crystal\" states a stability that has no attribute; \"Ideal gas\" is a model state rather than an observed phase and \"Air at 1 atmosphere\" is a reference medium (gas of stated composition and pressure) used for refractive index, which is not a phase of the system; the eCrystalLatticeTypeSelection companion has only lattice systems."
+values = [
+  "Crystal 5",
+  "Crystal 4",
+  "Crystal 3",
+  "Crystal 2",
+  "Crystal 1",
+  "Crystal",
+  "Crystal of unknown type",
+  "Crystal of intercomponent compound 1",
+  "Crystal of intercomponent compound 2",
+  "Crystal of intercomponent compound 3",
+  "Metastable crystal",
+  "Glass",
+  "Smectic liquid crystal",
+  "Smectic liquid crystal 1",
+  "Smectic liquid crystal 2",
+  "Nematic liquid crystal",
+  "Nematic liquid crystal 1",
+  "Nematic liquid crystal 2",
+  "Cholesteric liquid crystal",
+  "Liquid crystal of unknown type",
+  "Liquid",
+  "Liquid mixture 1",
+  "Liquid mixture 2",
+  "Liquid mixture 3",
+  "Solution",
+  "Solution 1",
+  "Solution 2",
+  "Solution 3",
+  "Solution 4",
+  "Fluid (supercritical or subcritical phases)",
+  "Ideal gas",
+  "Gas",
+  "Air at 1 atmosphere",
+]
+
+[[construct]]
+name = "ePresentation"
+locator = "ThermoML.xsd:2038-2046 (simpleType ePresentation, used by Property/ePresentation)"
+meaning = "How the reported number relates to the property: the property itself, a difference between an upper and a lower temperature or pressure, a mean, or a difference, ratio or relative difference with the reference state; 7 values, each stating its formula in the string."
+subject = "a property column"
+fields = [
+  { name = "ePresentation", meaning = "presentation of the number", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "The formulas X(T2)-X(T1), X(P2)-X(P1), [X(T2)+X(T1)]/2, X-X(REF), X/X(REF) and [X-X(REF)]/X(REF) are written in the strings; the upper and lower temperatures or pressures are the Variable or Constraint types \"Upper temperature, K\", \"Lower temperature, K\", \"Upper pressure, kPa\", \"Lower pressure, kPa\"."
+absence = "mandatory in Property; \"Direct value, X\" is the ordinary case."
+validity = "not applicable"
+provenance = "not applicable"
+count = "7 values"
+example = "ThermoML.xsd:2038"
+candidate = "observable.relation: Difference with the reference state to increment (with the reference state stated by eRefStateType); the other six have no member"
+precision = "narrower"
+loss = "reference_relation has no member for a ratio to a reference state, a relative difference to a reference state, a temperature-interval difference or a mean between two temperatures; these change the quantity (a ratio is dimensionless, a difference over an interval needs two condition values) and would have to be separate observables with no facet that derives them, or be converted by the mapping to direct values where the reference value is known."
+values = [
+  "Direct value, X",
+  "Difference between upper and lower temperature, X(T2)-X(T1)",
+  "Difference between upper and lower pressure, X(P2)-X(P1)",
+  "Mean between upper and lower temperature, [X(T2)+X(T1)]/2",
+  "Difference with the reference state, X-X(REF)",
+  "Ratio with the reference state, X/X(REF)",
+  "Ratio of difference with the reference state to the reference state, [X-X(REF)]/X(REF)",
+]
+
+[[construct]]
+name = "eRefStateType"
+locator = "ThermoML.xsd:2055-2068 (simpleType eRefStateType, used by Property/eRefStateType)"
+meaning = "What the reference state of a difference or ratio is: a reference phase of the same composition at a fixed or at the same temperature and pressure, an ideal gas at the same amount density, temperature and composition, an ideal mixture of pure fluid components at the same amount density, temperature and composition, a phase in equilibrium with the primary phase, pure components in the same proportion at fixed or same temperature and pressure, pure solvent at the temperature of the same phase equilibrium or at the same temperature and pressure, pure solute at the same temperature and pressure; 12 values."
+subject = "a property column whose presentation refers to a reference state"
+fields = [
+  { name = "eRefStateType", meaning = "kind of reference state", unit = "not applicable", shape = "enum", role = "not established" },
+]
+origin = "authored"
+conventions = "\"Same\" and \"fixed\" refer to the temperature and pressure of the state point; fixed values are nRefTemp and nRefPressure; the reference phase is RefPhaseID."
+absence = "optional; a presentation that needs a reference state but has none is schema-valid."
+validity = "not applicable"
+provenance = "not applicable"
+count = "12 values"
+example = "ThermoML.xsd:2055"
+candidate = "observable.relation: Ideal gas at the same amount density, temperature and composition to residual_tv; Ideal mixture of pure fluid components at the same amount density, temperature and composition to excess (constant volume ideal mixing) ; Pure components in the same proportion at the same temperature and pressure to mixing or excess; Reference phase, phase in equilibrium, pure solvent and pure solute states to increment"
+precision = "close"
+loss = "reference_relation is an enumeration without parameters: it cannot carry the reference phase, the fixed temperature and pressure or the choice between \"same\" and \"fixed\" state point; residual_tp has no ThermoML counterpart and the constant-volume ideal-mixture state is only approximated by excess; the pure solvent or solute reference states are increments without stated states."
+values = [
+  "Reference phase with the same composition at fixed temperature and pressure",
+  "Reference phase with the same composition, temperature and pressure",
+  "Reference phase at fixed temperature and the same pressure",
+  "Reference phase at the same temperature and fixed pressure",
+  "Ideal gas at the same amount density, temperature, and composition",
+  "Ideal mixture of pure fluid components at the same amount density, temperature, and composition",
+  "Phase in equilibrium with primary phase at the same temperature and pressure",
+  "Pure components in the same proportion at fixed temperature and pressure",
+  "Pure components in the same proportion at the same temperature and pressure",
+  "Pure solvent at the temperature of the same phase equilibrium",
+  "Pure solvent at the same temperature and pressure",
+  "Pure solute at the same temperature and pressure",
+]
+
+[[model_family]]
+name = "Equation (ThermoML named correlating equations)"
+locator = "ThermoML.xsd:844-912; eEqName 2527-2538"
+class = "other"
+inputs = "the variables of the dataset (Variable and Constraint symbols given by EqVariable and EqConstraint); properties by EqProperty symbols; the composition basis is whichever the Constraint or Variable types name"
+parameters = "by subject: a set of EqParameter values with symbol and optional integer indices, EqConstant values and an optional covariance; the symbols and their meaning are not defined in the schema"
+composes = [
+]
+variants = [
+  { selector = "eEqName = ThermoML.Antoine.VaporPressure", selects = "a named vapour-pressure Antoine-type equation; the form is defined at urlMathSource, not in the schema" },
+  { selector = "eEqName = ThermoML.WagnerLinear.VaporPressure, ThermoML.Wagner25Linear.VaporPressure, ThermoML.Wagner36Linear.VaporPressure", selects = "three named Wagner-type vapour-pressure equations; the number 25 or 36 in two names is unexplained by the schema" },
+  { selector = "eEqName = ThermoML.Helmholtz3General.EOS, ThermoML.Helmholtz4General.EOS", selects = "two named Helmholtz-type equations of state (the schema gives no term structure)" },
+  { selector = "eEqName = ThermoML.SpanWagner12Nonpolar.EOS, ThermoML.SpanWagner12Polar.EOS", selects = "two named equations of state, for nonpolar and polar fluids by name" },
+  { selector = "eEqName = ThermoML.PolynomialExpansion, ThermoML.CustomExpansion", selects = "a polynomial expansion and a custom expansion; the terms are given by parameters and the URL" },
+  { selector = "sEqName (free string) with urlMathSource", selects = "any other equation, defined only by the referenced document" },
+]
+equation_source = "not stated in the schema: each named equation is defined at the required urlMathSource"
+closed_form = "not stated (the named equations are explicit; the general case is unknown)"
+data = "none bundled (the schema carries no parameter values)"
+
+[[convention]]
+name = "temperature and pressure units"
+locator = "ThermoML.xsd: eTemperature, ePressure, nTemperature-K, nPressure-kPa"
+statement = "Temperature is in kelvin and pressure in kilopascal wherever a unit is attached (the names \"Temperature, K\", \"Pressure, kPa\"; the element names nTemperature-K and nPressure-kPa in ReactionData). No temperature scale (ITS-90 or other) is stated anywhere in the schema, and absolute versus gauge pressure is not stated."
+scope = "every temperature and pressure name, constraint, variable, reference state and reaction condition"
+
+[[convention]]
+name = "amount basis in names"
+locator = "ThermoML.xsd: ePropName enumerations"
+statement = "Amount-based and mass-based properties are separate names: molar names use mol (J/K/mol, m3/mol, kJ/mol), specific names use kg or g (J/K/kg, m3/kg, J/g), amount density is mol/m3 and mass density kg/m3, and per-volume heat capacity is J/K/m3. Mass versus amount is a property of the name, not a field."
+scope = "heat capacity, volume and density, energy groups, transport groups"
+
+[[convention]]
+name = "unit prefixes differ by quantity"
+locator = "ThermoML.xsd: ePropName enumerations"
+statement = "Enthalpy, Gibbs energy, Helmholtz energy and internal energy are in kJ/mol, entropy and heat capacity in J/K/mol, amount concentration in mol/dm3 while amount density is in mol/m3, polymer molecular mass in kg/kmol, wavelength in nm and frequency in MHz."
+scope = "unit conversion factors of the mapping"
+
+[[convention]]
+name = "composition expression"
+locator = "ThermoML.xsd: eComponentComposition, eSolventComposition, Sample purity, Participant composition"
+statement = "Composition is a Constraint or Variable whose type names the basis (mole fraction, mass fraction, molality, molarity, volume fraction, ratios) and whose component is given by nCompIndex or RegNum; solvent compositions are separate \"Solvent:\" names; purity is given in percent on a chosen basis (mole, mass, volume or unspecified); reaction participant composition is nNumericalComposition with a representation enumeration."
+scope = "composition columns and sample purity"
+
+[[convention]]
+name = "significant digits"
+locator = "ThermoML.xsd: nPropDigits, nVarDigits, nConstrDigits, nRefTempDigits, nRefPressureDigits, nPurity*Digits, nEqParDigits, nEqConstantDigits"
+statement = "Every reported number is paired with an integer count of significant digits; the digits are not stated for uncertainty magnitudes, ranges or coverage factors."
+scope = "values and parameters"
+
+[[convention]]
+name = "component identification in mixtures"
+locator = "ThermoML.xsd: documentation \"CASRN is necessary for mixtures only\""
+statement = "The documentation text on Property-MethodID, PropPhaseID, PhaseID, ConstraintID, VariableID, ConstraintPhaseID, VarPhaseID and RefPhaseID says the registry number is necessary for mixtures only. The structure offers nCompIndex or RegNum as an optional choice at each place."
+scope = "component references inside identifiers"
+
+[[convention]]
+name = "version"
+locator = "ThermoML.xsd:5 (annotation), 13-20 (Version)"
+statement = "The schema annotation reads \"ThermoML version 4.0\". The instance Version element holds two free integers. The header comment states XML Spy v4.4 U editing by R. D. Chirico (U. S. Department of Commerce)."
+scope = "the whole schema"
+
+[[convention]]
+name = "numbering of repeated phases"
+locator = "ThermoML.xsd: ePhaseName"
+statement = "Numbered phase names (Crystal 1 to 5, Liquid mixture 1 to 3, Solution 1 to 4, liquid-crystal numbers, Crystal of intercomponent compound 1 to 3) are labels local to a dataset."
+scope = "phase roles"
+
+[[selection]]
+name = "method alternatives of a property"
+locator = "ThermoML.xsd:207-352 (choice inside every PropertyGroup element)"
+rule = "Every property chooses exactly one of eMethodName (enumerated), sMethodName (free text), CriticalEvaluation or Prediction; for reaction properties the choice may repeat (xsd:choice maxOccurs unbounded)."
+scope = "every Property"
+documented = "not applicable (no documentation text describes the choice)"
+
+[[selection]]
+name = "assessment numbers link values to definitions"
+locator = "ThermoML.xsd:393-397, 724-743, 746-814"
+rule = "A value-level PropUncertainty, CombinedUncertainty or CurveDev carries an integer assessment number that must equal the nUncertAssessNum, nCombUncertAssessNum or nCurveDevAssessNum of a definition in the Property or Variable; the schema does not enforce equality."
+scope = "uncertainties of property and variable values"
+documented = "not applicable"
+
+[[discrepancy]]
+locator = "ThermoML.xsd:307-312 (sIUPACName documentation)"
+documented = "\"International Union of Physics and Applied Chemistry name\""
+actual = "the element is named sIUPACName and its appinfo reads \"IUPAC name, string\""
+consequence = "none for the mapping; the expansion of the abbreviation in the documentation element differs from the usual name of the organisation and is recorded as written."
+
+[[discrepancy]]
+locator = "ThermoML.xsd:219-223 (sISSN documentation)"
+documented = "\"The International Standard Subscription Number\""
+actual = "the element is named sISSN"
+consequence = "none for the mapping; recorded as written."
+
+[[discrepancy]]
+locator = "ThermoML.xsd:5 and 13-20 (annotation and Version)"
+documented = "annotation \"ThermoML version 4.0\""
+actual = "nVersionMajor and nVersionMinor are unconstrained xsd:integer elements, so an instance may claim any version and still validate against this file"
+consequence = "the schema version a document was written for cannot be checked from the file."
+
+[[discrepancy]]
+locator = "ThermoML.xsd:204, 356, 398, 412, 419, 439, 446 and 379 (documentation \"CASRN is necessary for mixtures only\")"
+documented = "the registry number is necessary for mixtures only"
+actual = "the structure offers an optional xsd:choice of nCompIndex and RegNum; nothing makes either necessary for a mixture, and RegNum may hold an organisation number instead of a CAS number"
+consequence = "a mapping cannot rely on a component being identified in a mixture dataset; unresolved component references must be held, not guessed."
+
+[[discrepancy]]
+locator = "ThermoML.xsd:170-172 and 183 (nSampleNm types)"
+documented = "nSampleNm is the sample number in Sample, Component and Participant"
+actual = "typed xsd:integer in Sample and xsd:int in Component and Participant"
+consequence = "none for values in range; a reader that validates types strictly sees two integer types for one identifier."
+
+[[question]]
+about = "property usage"
+question = "Which of the 193 property names (171 pure-or-mixture, 22 reaction) occur in the ThermoML Archive, how often, and for how many compounds?"
+why_it_matters = "The observable vocabulary derived from the enumeration may have large unused parts; usage counts decide which observables are worth declaring first."
+
+[[question]]
+about = "unit strings"
+question = "Do instance values always carry the unit of the name, or do some files store SI values under a name whose unit suffix says otherwise?"
+why_it_matters = "The schema cannot enforce the unit; a mapping factor applied to a mis-stated value silently corrupts data."
+
+[[question]]
+about = "uncertainty practice"
+question = "How often are standard, expanded, repeatability, device, combined and curve-deviation entries present, and is the level of confidence a fraction or a percent?"
+why_it_matters = "The model holds one uncertainty kind per datum; usage decides whether a second relation or new kinds are needed, and the confidence scale is not stated in the schema."
+
+[[question]]
+about = "temperature scale"
+question = "Which temperature scale do the instance temperatures use, and is it stated anywhere?"
+why_it_matters = "The schema states none; convention_set.temperature_scale would be not_stated for the whole source."
+
+[[question]]
+about = "energy datum"
+question = "Do datasets of molar enthalpy, entropy and Gibbs energy state their datum in text, and is formation enthalpy meant?"
+why_it_matters = "The schema has no datum element, yet the values are meaningless across datasets without one."
+
+[[question]]
+about = "standard pressure"
+question = "What pressure do instance files intend for the standard states \"Pure compound\", \"Pure liquid solute\" and the molality and concentration states (101.325 kPa, 100 kPa or a saturation pressure)?"
+why_it_matters = "standard_state.pressure_rule has no unstated member and the choice changes standard-state properties."
+
+[[question]]
+about = "composition and subject"
+question = "How do instance files denote a pure compound measured in a mixture-named property, and how often are component references missing in mixture datasets?"
+why_it_matters = "The observable subject follows from the component count; ambiguity changes the observable."
+
+[[question]]
+about = "equation definitions"
+question = "What do the urlMathSource documents define for each of the ten equation names, and do parameter symbols follow a fixed order?"
+why_it_matters = "The form catalogue can only be populated after the equation definitions are read; the schema states no forms."
+
+[[question]]
+about = "sample and purity"
+question = "How are purification histories and multiple purity values used in practice and does nUnknownPerCent occur often?"
+why_it_matters = "purity_basis not_stated and a single purity lose the history."
+
+[[question]]
+about = "CAS numbers"
+question = "Are CAS numbers in nCASRNum always complete integers, and is sOrgID or nOrgNum used for compounds without CAS numbers?"
+why_it_matters = "Identity resolution depends on re-forming CAS strings and on the registry vocabulary of organisation identifiers."
+
+[[question]]
+about = "instance conformance"
+question = "Do the archive files validate against this schema version, and do later schema versions exist that change the enumerations?"
+why_it_matters = "Only version 4.0 (by annotation) is pinned; later versions would change the vocabulary."

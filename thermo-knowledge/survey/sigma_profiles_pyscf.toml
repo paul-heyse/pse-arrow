@@ -1,0 +1,449 @@
+source = "sigma_profiles_pyscf"
+pin = "82099a371bf7"
+surveyed = "2026-09-30"
+summary = "The Zenodo deposit 10.5281/zenodo.20672192 (pin 82099a371bf7: two Parquet files and two JSON files) contributes 361,583 three-block COSMO-SAC sigma profiles computed with PySCF (BP86/def2-SVP, COSMO with infinite dielectric constant, PM6 geometries from PubChemQC, Hsieh averaging), an index keyed by PubChem CID with formula, structure notation and a rule-based chemical family, and five refitted COSMO-SAC interaction constants that must be used with these profiles; the generation, refit and validation code and the data dictionary come from the companion code repository (source sigma_profiles_pyscf_code, pin 764075efc394, read as part of this record). It has no name column that is filled, CAS numbers for 2.4 percent of rows, no paper citation yet, and its training and benchmark data (NIST ThermoData Engine) are not included."
+
+# ---------------------------------------------------------------------------
+# PAYLOADS
+# ---------------------------------------------------------------------------
+
+[[payload]]
+paths = ["sigma_profiles_main.parquet"]
+format = "Apache Parquet (format version 2.6, written by parquet-cpp-arrow 21.0.0 from pandas 2.3.1), one row group, ZSTD compression, 164 columns: 11 metadata columns and 153 float32 columns p_000 to p_152; pandas schema metadata embedded"
+files = 1
+bytes = 122228196
+records = "361,583 rows (one per molecule), read from the Parquet footer and confirmed by a full column scan; cid unique in all rows"
+reader = "pyarrow.parquet (ParquetFile; columns can be read selectively); the source's own integrity_results.json gives the same row count and the file's sha256"
+read_by_source = "none"
+notes = "No script in the companion code repository writes or reads this file (the pipeline writes one .sigma text file per molecule; the consolidation into Parquet is not shipped), and the DATA_DICT.md does not describe its columns (only the README names the layout p_000 to p_152). The sigma grid is not stored: the 153 values are positional (three blocks of 51 bins). The one row group holds all rows, so a reader must be given a column selection or stream batches to avoid materialising 122 MB compressed (about 221 MB of profile values as float32)."
+
+[[payload]]
+paths = ["sigma_profile_index.parquet"]
+format = "Apache Parquet (format 2.6, parquet-cpp-arrow 21.0.0, pandas 2.3.1), one row group, SNAPPY compression, 11 columns"
+files = 1
+bytes = 19440344
+records = "361,583 rows, from the Parquet footer; row order equals the order of the main file (cid column compared row by row: identical)"
+reader = "pyarrow.parquet; producer is build_public_sigma_index.py in the companion code repository (src/generation, line 1 onward), which also writes a CSV twin that is not part of this deposit"
+read_by_source = "none"
+notes = "Numeric fields are rounded by the producer (Vcosmo_A3 and Acosmo_A2 to 3 decimals against 5 decimals in the main file, Molecular_Weight to 5 decimals); the largest difference between index and main-file area or volume is 5e-4."
+
+[[payload]]
+paths = ["sequential_final_params.json"]
+format = "JSON object with keys method, cosmosac_version, sigma_source, final_params, hsieh_defaults, ratios_fit_over_default, training_data, per_stage_RMSE; UTF-8 with \\u escapes for the Greek letters; indent 2"
+files = 1
+bytes = 1186
+records = "1 object; 5 fitted constants, 5 default constants, 5 ratios, 4 counts, 6 RMSE values"
+reader = "plain JSON parser; written by src/refit/stage3_cOT.py line 246 of the code repository and read by the refit test and the validation scripts"
+read_by_source = "all"
+notes = "Byte-identical (same sha256) to data/sequential_final_params.json in the code repository. The counts under training_data and the two baseline RMSE values are literals typed into stage3_cOT.py, not computed there."
+
+[[payload]]
+paths = ["integrity_results.json"]
+format = "JSON object: build_date_utc, source_path, n_files_found, n_parsed_ok, n_failures, failures, parquet {path, size_bytes, sha256}, tarball {path, size_bytes, sha256}, extraction_log_summary {rows, columns, value_counts_status}, gate {row_count, unique_cids, round-trip and tar-member checks, all_passed}, elapsed_sec"
+files = 1
+bytes = 2558
+records = "1 object; 10 round-trip checks and 5 tar-member spot checks inside gate, all true"
+reader = "plain JSON parser"
+read_by_source = "none"
+notes = "The extraction-log summary counts 362,303 rows with status ok 234,011, skip 127,572 and error 720; 'ok' plus 'skip' equals the 361,583 molecules, so 720 molecules have no profile. The file records cluster scratch paths of the producer and the sha256 of the raw tarball (267,004,610 bytes) that is not part of this deposit; the main Parquet's sha256 here equals the acquired file's hash. The extraction log itself and the failed CIDs are not included (failures is an empty list)."
+
+[[payload]]
+paths = [
+  "src/**",
+  "DATA_DICT.md",
+  "MANIFEST.md",
+  "README.md",
+  "LICENSE",
+  "data/LICENSE",
+  "data/sequential_final_params.json",
+  "requirements.txt",
+  "examples/**",
+]
+format = "companion code repository (source sigma_profiles_pyscf_code, pin 764075efc394, commit 764075efc3943bc74666def74ad49e66cf143e62): Python scripts, SLURM batch scripts, Markdown specifications, two licence files, 10 example .sigma files and a sample index CSV"
+files = 49
+bytes = 363069
+records = "24 Python files (272,519 bytes) under src/generation (11), src/refit (5) and src/validation (8), 6 SLURM shell scripts (9,753 bytes), 10 example .sigma files (45,941 bytes) and examples/sample_index.csv (1,147 bytes, counted by walking the tree)"
+reader = "plain text; the example .sigma files follow the format of DATA_DICT.md and are read by cCOSMO's DirectImport"
+read_by_source = "all"
+notes = "data/ holds only the JSON parameters and a licence (2 files, 2,391 bytes): the index CSV and Parquet named in MANIFEST.md are excluded by .gitignore according to the README. The 10 example profiles equal the corresponding rows of sigma_profiles_main.parquet to within 1.7e-6 A^2 (float32 rounding; compared for all 10 CIDs), with identical meta values. The full set of .sigma text files (5.6 GB), the raw .cosmo files (102 GB) and the PubChemQC input subset are not in either acquisition."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "sigma profile row (main Parquet)"
+locator = "sigma_profiles_main.parquet (one row per CID); specified for the equivalent .sigma text file in DATA_DICT.md section 3 of the code repository"
+meaning = "One molecule's three-block COSMO-SAC sigma profile with the cavity and averaging metadata of the .sigma header: area of the molecular cavity surface per screening-charge-density bin, for non-hydrogen-bonding (NHB), OH-type and other (OT) hydrogen-bonding segments, and a dispersion class and energy."
+subject = "One molecule, keyed by PubChem CID (cid, int64, unique in all 361,583 rows, from 3 to 5421341). The file carries no structure notation; name and cas are placeholders."
+fields = [
+  { name = "cid", meaning = "PubChem Compound Identifier; also the .sigma file name", unit = "not applicable (integer id)", shape = "scalar", role = "metadata" },
+  { name = "name", meaning = "placeholder kept for DMol3 format compatibility; the value '?' in all 361,583 rows", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "cas", meaning = "placeholder kept for DMol3 format compatibility; the value '?' in all 361,583 rows (the index holds the CAS numbers)", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "area_A2", meaning = "COSMO cavity surface area; equals the sum of the 153 profile values (maximum relative difference 1.3e-5 over all rows)", unit = "A^2 (column name and DATA_DICT.md)", shape = "scalar", role = "input" },
+  { name = "volume_A3", meaning = "COSMO cavity volume", unit = "A^3 (column name and DATA_DICT.md)", shape = "scalar", role = "input" },
+  { name = "r_av_A", meaning = "Hsieh averaging radius applied to segment charges (1.5191 in all rows)", unit = "A", shape = "scalar", role = "metadata" },
+  { name = "f_decay", meaning = "Hsieh decay factor (3.57 in all rows)", unit = "dimensionless per DATA_DICT.md", shape = "scalar", role = "metadata" },
+  { name = "sigma_hb", meaning = "hydrogen-bond cutoff (0.0084 in all rows)", unit = "e/A^2 per DATA_DICT.md", shape = "scalar", role = "metadata" },
+  { name = "averaging", meaning = "averaging scheme; 'Hsieh' in all rows", unit = "not applicable (text)", shape = "enum", role = "metadata" },
+  { name = "disp_flag", meaning = "dispersion class: HB-DONOR-ACCEPTOR 195,647, HB-ACCEPTOR 120,636, COOH 33,219, NHB 12,075, H2O 6 rows", unit = "not applicable (enum)", shape = "enum", role = "input" },
+  { name = "disp_e_kB", meaning = "dispersion energy over Boltzmann constant; null in 74,094 rows (20.5 percent), exactly the rows whose index formula contains S or P; range -11.05 to 117.47 among the rest", unit = "K per DATA_DICT.md", shape = "scalar", role = "input" },
+  { name = "p_000 .. p_050", meaning = "NHB block: area per sigma bin, bin k at sigma = -0.025 + 0.001 k e/A^2", unit = "A^2 per DATA_DICT.md", shape = "list", role = "input" },
+  { name = "p_051 .. p_101", meaning = "OH block: hydroxyl-type hydrogen-bonding surface, same grid restarting at -0.025", unit = "A^2 per DATA_DICT.md", shape = "list", role = "input" },
+  { name = "p_102 .. p_152", meaning = "OT block: other hydrogen-bonding surface, same grid restarting at -0.025", unit = "A^2 per DATA_DICT.md", shape = "list", role = "input" },
+]
+origin = "computed (PySCF single-point BP86/def2-SVP with COSMO at infinite dielectric constant on PubChemQC PM6 geometries, then Hsieh averaging and three-way split by the NIST to_sigma.py parser; DATA_DICT.md section 1 and src/generation; software versions not recorded in the data)"
+conventions = "Grid -0.025 to +0.025 e/A^2, step 0.001, 51 bins per block, positional (not stored in the Parquet); block order NHB, OH, OT; total profile for COSMO-SAC is the bin-wise sum of the three blocks (DATA_DICT.md); values are float32 (text originals agree to 1.7e-6 A^2); no negative value and no NaN in the 55.3 million profile values."
+absence = "An unpopulated block is all zeros: OH is all-zero in 271,356 rows and OT in 20,223 rows, NHB in none; zero is not distinguished from missing. disp_e_kB null means no dispersion parameter for an element of the molecule; the dispersion class is still present. 39 rows carry a non-zero value in an outermost bin of a block."
+validity = "Organic molecules of neutral charge with heavy-atom count at most 19 and molecular weight at most about 250 g/mol, elements H, C, N, O, F, P, S and Cl (README and filter script); no further range stated."
+provenance = "README.md: paper citation 'TBD' and the Zenodo DOI; references to PubChemQC (Nakata and Shimazaki 2017), PySCF (Sun et al. 2018), the NIST cCOSMO implementation (Bell et al. 2020) and Hsieh et al. 2010 by prose; no per-row attribution; geometry source PubChemQC PM6"
+count = "361,583 rows"
+example = "sigma_profiles_main.parquet row with cid 962 (water, example file examples/sample_sigma/962.sigma in the code repository)"
+candidate = "three tabulated_function values (axis SurfaceChargeDensity, values Area, interpolation bin_weights, distribution sigma_profile) inside a parameter_set of a COSMO-SAC parameterization whose dependency on the refitted constants is declared, plus cavity area and volume as species-level values; the dispersion class and energy as parameters of the dsp contribution"
+precision = "broader"
+loss = "Axis unit e/A^2 differs from the model's C/m^2 storage unit and needs conversion; the three hydrogen-bonding blocks need three slots or an enum-indexed family (no declared role); float32 values carry rounding the text files did not have; the entity is a CID-keyed computation, so identity resolution to a species depends on the index's structure notation; area and volume are redundant with the profile sum; generation settings (averaging, geometry, theory level) belong to a derivation and convention, not to row values."
+
+[[construct]]
+name = "sigma profile index row"
+locator = "sigma_profile_index.parquet; DATA_DICT.md section 4 (specifies the equivalent CSV); producer src/generation/build_public_sigma_index.py"
+meaning = "Identity and descriptor record of one molecule of the set: formula, CAS number where known, rule-based chemical family, molecular weight, heavy-atom count, cavity volume and area, segment count, SMILES and InChIKey."
+subject = "One molecule keyed by CID (Parquet column CID, unique and equal in row order to the main file). Identifiers of structure (SMILES, InChIKey) and registry (CAS) are attributes, not keys."
+fields = [
+  { name = "CID", meaning = "PubChem Compound Identifier", unit = "not applicable (integer id)", shape = "scalar", role = "metadata" },
+  { name = "Chemical_Formula", meaning = "molecular formula in Hill notation (19,743 distinct values)", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "CAS", meaning = "CAS Registry Number; the empty string when PubChem has none: empty in 352,856 rows (97.6 percent); the 8,727 filled values are all distinct", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "Chemical_Family", meaning = "dominant functional-group class from 16 SMARTS patterns in fixed priority; a trailing '+' means further groups; 33 distinct values; empty in 5,315 rows", unit = "not applicable (text)", shape = "enum", role = "metadata" },
+  { name = "Molecular_Weight", meaning = "average molecular weight, natural isotope abundances, rounded to 5 decimals", unit = "g/mol per DATA_DICT.md", shape = "scalar", role = "metadata" },
+  { name = "Heavy_Atoms", meaning = "non-hydrogen atom count (0 to 19; 0 in 5 rows)", unit = "not applicable (count)", shape = "scalar", role = "metadata" },
+  { name = "Vcosmo_A3", meaning = "COSMO cavity volume, 3 decimals; same quantity as volume_A3 of the main file", unit = "A^3 per DATA_DICT.md", shape = "scalar", role = "metadata" },
+  { name = "Acosmo_A2", meaning = "COSMO cavity area, 3 decimals; same quantity as area_A2", unit = "A^2 per DATA_DICT.md", shape = "scalar", role = "metadata" },
+  { name = "COSMO_Segments", meaning = "number of cavity surface segments generated by PySCF (434 to 6,613)", unit = "not applicable (count)", shape = "scalar", role = "metadata" },
+  { name = "SMILES", meaning = "input SMILES from PubChemQC (its pm6 canonical SMILES field); never empty, 339,382 distinct values", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "InChIKey", meaning = "InChIKey computed from SMILES by RDKit; the empty string in 5,315 rows where RDKit rejects the SMILES", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+]
+origin = "computed (assembled by build_master_index.py and build_public_sigma_index.py from PubChemQC records, RDKit, and a PubChem registry lookup; the CAS column exists only for CIDs reached by reverse-mapping CAS numbers that appear in NIST ThermoData Engine datasets, inferred from build_master_index.py phase D and cas_to_cid.py)"
+conventions = "Empty string, not null, marks an absent CAS, InChIKey or family (no column has a Parquet null; null counts are 0 in all 11 columns); the InChIKey is a standard key of the SMILES as written, so it is computed after the geometry-derived SMILES, not from the PubChem record; Hill formula."
+absence = "Empty string for CAS (352,856), InChIKey (5,315) and Chemical_Family (5,315; exactly the same rows as the InChIKey failures, the row lists compared); the source does not distinguish a CID that has no CAS from one whose CAS was not among the looked-up numbers. Five rows have Heavy_Atoms 0; their SMILES is '[H].[H]' (two separate hydrogen atoms, no H-H bond in the notation)."
+validity = "not applicable; the set is limited by the input filter to heavy-atom count <= 25, molecular mass <= 250, charge 0 and multiplicity 1 (filter_to_jsonl.py), and in the data to 19 heavy atoms"
+provenance = "none per row"
+count = "361,583 rows; 356,268 non-empty InChIKeys of which 334,714 are distinct, so 19,948 InChIKeys are shared by two to 11 CIDs"
+example = "sigma_profile_index.parquet row CID 962 (formula H2O; sample_index.csv in the code repository lists it with CAS 7732-18-5)"
+candidate = "source_entity keyed (carrier, scope sigma_profile_index, CID as text) with identity_assertion rows for pubchem_cid, cas, inchikey, smiles and formula; species resolution by InChIKey where it resolves uniquely"
+precision = "close"
+loss = "Several CIDs share one InChIKey (19,948 keys) and therefore one species with different geometries and different profiles (sampled 2,000 shared keys: median relative area spread 0.065 percent, 95th percentile 1.5 percent, maximum 10.1 percent; same SMILES in 1,995 of the groups); a canonical species therefore has several competing profiles, which the source does not rank. Chemical_Family is a rule output, not an identity; empty strings must not be loaded as assertions."
+
+[[construct]]
+name = "sequential refit parameters"
+locator = "sequential_final_params.json (same content as data/sequential_final_params.json of the code repository); DATA_DICT.md section 7"
+meaning = "Five COSMO-SAC-2010 interaction constants refitted to infinite-dilution activity coefficients so that they work with the profiles of this dataset, together with the defaults they replace, their ratios and the fit's training counts and per-stage error."
+subject = "A global constant set: one fit for the whole profile set (not per molecule), for the model named in cosmosac_version ('COSMO3 (Hsieh 2010, 3-profile)')."
+fields = [
+  { name = "method", meaning = "description of the fit: Hsieh-2010 sequential refit by non-linear least squares with soft_l1 loss on gamma infinity", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "cosmosac_version", meaning = "model variant the constants belong to", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "sigma_source", meaning = "how the profiles were made: PySCF BP86/def2-SVP, COSMO at infinite dielectric constant, Klamt cavity, vdw_scale 1.0 (density fitting is not mentioned here)", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "final_params.A_ES", meaning = "temperature-independent part of the electrostatic misfit coefficient c_ES = A_ES + B_ES/T^2", unit = "kcal A^4/(mol e^2) per DATA_DICT.md", shape = "scalar", role = "input" },
+  { name = "final_params.B_ES", meaning = "coefficient of 1/T^2 in c_ES (one example value: 3.6e8)", unit = "kcal A^4 K^2/(mol e^2) per DATA_DICT.md", shape = "scalar", role = "input" },
+  { name = "final_params.c_OH_OH, c_OH_OT, c_OT_OT", meaning = "hydrogen-bond coefficients by pair of hydrogen-bonding classes", unit = "kcal A^4/(mol e^2) per DATA_DICT.md", shape = "scalar", role = "input" },
+  { name = "hsieh_defaults", meaning = "the five constants the fit started from (the COSMO-SAC-2010 values of the NIST implementation, same names)", unit = "as above", shape = "scalar", role = "metadata" },
+  { name = "ratios_fit_over_default", meaning = "each fitted value over its default (from 0.61 to 2.43)", unit = "not applicable (dimensionless)", shape = "scalar", role = "computed" },
+  { name = "training_data", meaning = "counts of training records: 24,522 total, 3,261 without hydrogen bonding, 18,118 OH, 3,143 OT; random split seed 42", unit = "not applicable (count)", shape = "scalar", role = "metadata" },
+  { name = "per_stage_RMSE", meaning = "RMSE of ln gamma infinity before and after each of three stages (for example stage 1 no-HB baseline 0.327)", unit = "not applicable (ln units)", shape = "scalar", role = "metadata" },
+]
+origin = "computed (three-stage non-linear least-squares fit by scipy least_squares, soft_l1 loss with f_scale 0.5, on NIST ThermoData Engine gamma infinity pairs at 273 to 373 K evaluated with the cCOSMO COSMO3 get_lngamma, which includes the dispersion term, at infinite dilution x = 1e-6; fit scripts in src/refit; the training data are not distributed)"
+conventions = "The fit holds every other COSMO-SAC-2010 constant (effective segment area, gas constant, averaging, dispersion weights) at the NIST defaults and fits only these five; stage 1 fits A_ES and B_ES on pairs without hydrogen bonding, stage 2 fits c_OH_OH and c_OH_OT on pairs with an OH-class compound, stage 3 fits c_OT_OT on the remaining OT pairs; the fit used CHNO-only pairs (input file baseline_predictions_chno in prepare_training_data.py) with CO2 removed."
+absence = "No parameter uncertainty or covariance is stored; stated RMSE is on the training subsets, and no test-set error is in this file."
+validity = "Only with profiles from the present pipeline: DATA_DICT.md section 7 states they are not transferable to DMol3 or other generators without re-evaluation; README.md: they replace the Hsieh-2010 defaults for these profiles. The fit covers molecules with C, H, N, O only."
+provenance = "DATA_DICT.md and README.md describe the fit; the paper citation is 'TBD'; the training data source is named as NIST ThermoData Engine only"
+count = "1 object, 5 constants"
+example = "sequential_final_params.json#/final_params"
+candidate = "parameterization (coherence conditional) with a global-subject parameter_set of the COSMO-SAC-2010 constants, a fit derivation (kind fit, outcome converged) with the training subsets as inputs, and a dependency (fitted_given the sigma profile set; consistent_with generation settings) linking it to the profile parameterization"
+precision = "close"
+loss = "The fit's training evidence is not included, so the derivation input list is empty; RMSE values have no slot (the fit record has objective and outcome only); the hard-coded baseline RMSEs are not computed in the script; no covariance exists to store."
+
+[[construct]]
+name = "integrity results"
+locator = "integrity_results.json"
+meaning = "The producer's build and verification record for the Parquet deposit: counts of files found and parsed, file hashes, extraction status counts and a pass or fail gate."
+subject = "The deposit as a whole (one object)."
+fields = [
+  { name = "n_files_found, n_parsed_ok, n_failures", meaning = "361,583 .sigma files found and parsed, no failures", unit = "not applicable (count)", shape = "scalar", role = "metadata" },
+  { name = "parquet.sha256, tarball.sha256", meaning = "SHA-256 of the main Parquet and of the raw tarball of .sigma files", unit = "not applicable (hash)", shape = "scalar", role = "metadata" },
+  { name = "extraction_log_summary", meaning = "rows and status counts of the .cosmo to .sigma extraction log (ok, skip, error)", unit = "not applicable (count)", shape = "table", role = "metadata" },
+  { name = "gate", meaning = "row count check, unique CID check, and round-trip comparisons of 10 CIDs against the source text files (maximum absolute difference 0.0) and a byte comparison of 5 tar members", unit = "not applicable (boolean)", shape = "table", role = "metadata" },
+]
+origin = "computed (by a consolidation script that is not in the code repository; build date 2026-06-11)"
+conventions = "Paths are the producer's cluster scratch paths."
+absence = "failures is an empty list, so the 720 'error' status rows of the extraction log are not named; the log itself is not included."
+validity = "not applicable"
+provenance = "none"
+count = "1 object"
+example = "integrity_results.json#/gate"
+candidate = "import_record and artifact rows (hashes of the acquired files) plus the producer's claims as metadata of the carrier; not thermodynamic knowledge"
+precision = "unmapped"
+loss = "The claim that all profiles round-trip is an assertion by the producer that cannot be rechecked here because the source text files are not acquired."
+
+[[construct]]
+name = "cavity radii table and cavity settings"
+locator = "src/generation/process_chunk.py lines 1-55 (KLAMT_A, make_klamt_radii_table); duplicated in validate_density_fitting.py lines 13-29"
+meaning = "The atomic radii used to build the COSMO cavity in the production run: Klamt radii for H, C, N, O, F, P, S and Cl, modified Bondi radii for other elements, with a scaling factor of 1.0."
+subject = "A global table keyed by atomic number (8 entries) plus run settings."
+fields = [
+  { name = "KLAMT_A", meaning = "atomic number to radius, 8 entries (one example: carbon 2.00)", unit = "A (name suffix A; converted to Bohr by dividing by 0.529177210903)", shape = "table", role = "input" },
+  { name = "vdw_scale", meaning = "cavity radius scale, 1.0", unit = "not applicable (dimensionless)", shape = "scalar", role = "input" },
+  { name = "density fitting flag", meaning = "--df switch; the production SLURM script passes --df, the script default is off", unit = "not applicable (boolean)", shape = "scalar", role = "input" },
+]
+origin = "transcribed (the validate script comments the radii as from DMol3 and COSMO-RS literature; no citation)"
+conventions = "Radii in Angstrom converted with 0.529177210903 A/Bohr (the NIST to_sigma.py uses 0.52917721067)."
+absence = "An element outside the eight takes the modified Bondi radius; the DF validation comment reports a maximum profile difference of 0.0273 A^2 per bin on 7 molecules."
+validity = "H, C, N, O, F, P, S, Cl only (build_mol in pubchemqc_to_cosmo_bp86.py raises on other elements)"
+provenance = "comments only"
+count = "8 radii"
+example = "src/generation/process_chunk.py line 29"
+candidate = "parameter_set values in the derivation (method) record of the profile generation, or a convention set for the cavity"
+precision = "unmapped"
+loss = "No model concept for quantum-chemistry settings; carried as derivation method text."
+
+[[construct]]
+name = "rights and citation statement"
+locator = "README.md (License and Citation sections); LICENSE; data/LICENSE"
+meaning = "The terms on the code and on the data, and the citation the data require."
+subject = "Groups of files: code (src, scripts) and data (data/, examples, the Zenodo bundle)."
+fields = [
+  { name = "code terms", meaning = "MIT licence, copyright holder the single author, covering the source code", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "data terms", meaning = "Creative Commons Attribution 4.0 International for data/, the example profiles and the Zenodo bundle including the 361,583-profile set; attribution requires citing the paper and the Zenodo deposit", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "citation", meaning = "Paper citation 'TBD'; Zenodo DOI 10.5281/zenodo.20672192", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+]
+origin = "authored"
+conventions = "not applicable"
+absence = "The paper citation that the attribution clause requires does not exist yet."
+validity = "not applicable"
+provenance = "README.md and the two licence files"
+count = "2 licence files and 2 README sections"
+example = "data/LICENSE"
+candidate = "rights_determination rows (scope code and data, basis licence_grant, attribution_required true) and a publication record that cannot yet be created"
+precision = "exact"
+loss = "The clause that the data terms include a paper that is not yet citable has no model slot."
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "PySCF COSMO sigma-profile generation pipeline"
+locator = "src/generation (filter_to_jsonl.py, pubchemqc_to_cosmo_bp86.py, process_chunk.py, extract_all_sigmas.py, fix_sigma_nan.py, build_master_index.py, build_public_sigma_index.py, smiles_to_sigma.py) and src/slurm"
+class = "other"
+inputs = "a PubChemQC record (atomic numbers, PM6 coordinates, SMILES, formula) filtered to heavy-atom count <= 25, molecular mass <= 250, charge 0 and multiplicity 1; element set H, C, N, O, F, P, S, Cl"
+parameters = "global: functional BP86, basis def2-SVP, COSMO at infinite dielectric constant, cavity radii Klamt for the eight elements with scale 1.0, density fitting on in production, no geometry reoptimisation; to_sigma.py settings (Hsieh: r_av^2 = 7.25/pi A^2, f_decay = 3.57, sigma_hb = 0.0084 e/A^2 recorded, grid -0.025 to 0.025 step 0.001, three-profile split with hydrogen-bond probability width 0.007 e/A^2)"
+composes = [
+  { slot = "quantum-chemistry engine", accepts = "a program that writes a COSMO-style segment table", default = "PySCF (pyscf.solvent.cosmors, COSMO method) through the .cosmo writer write_dmol3_cosmo_file" },
+  { slot = "profile generator", accepts = "the NIST to_sigma.py parser", default = "to_sigma.py of usnistgov/COSMOSAC (commit 21dd92b per requirements.txt, unmodified); the pinned NIST tree of source cosmosac_nist is a different commit" },
+  { slot = "geometry", accepts = "a PM6 geometry", default = "PubChemQC PM6 coordinates as given; smiles_to_sigma.py builds new molecules with RDKit ETKDGv3 and UFF then MOPAC PM6" },
+]
+variants = [
+  { flag = "--geom {pm6,uff,none} in smiles_to_sigma.py", selects = "geometry source for a molecule not in PubChemQC (the README notes a new PM6 optimisation will not reproduce a database entry bit for bit)" },
+  { flag = "--df / --no-df", selects = "density fitting on or off in the SCF; validated on 7 molecules with a maximum profile difference of 0.0273 A^2 per bin and a maximum energy difference of 0.001 Ha (comment in run_cosmo_array.sh)" },
+]
+equation_source = "no equations: README.md and requirements.txt cite PySCF (Sun et al. 2018), PubChemQC (Nakata and Shimazaki 2017), the NIST implementation (Bell et al. 2020) and Hsieh et al. 2010"
+closed_form = "procedural"
+data = "constructs 'sigma profile row (main Parquet)', 'sigma profile index row', 'cavity radii table and cavity settings'"
+
+[[model_family]]
+name = "sequential refit of the COSMO-SAC-2010 interaction constants"
+locator = "src/refit (prepare_training_data.py, stage1_AES_BES.py, stage2_cOH.py, stage3_cOT.py, test_evaluation_sequential.py)"
+class = "regression"
+inputs = "infinite-dilution activity coefficient records of binary pairs (NIST ThermoData Engine, not distributed) with temperature, pair identities as CIDs and the matching sigma profiles"
+parameters = "five global constants A_ES, B_ES, c_OH_OH, c_OH_OT, c_OT_OT (see construct 'sequential refit parameters'); search bounds and iteration caps are literals in the stage scripts"
+composes = [
+  { slot = "forward model", accepts = "COSMO-SAC-2010 activity coefficients", default = "cCOSMO COSMO3::get_lngamma evaluated with the profile database of this dataset (dispersion included)" },
+  { slot = "objective", accepts = "residual of ln gamma infinity", default = "soft_l1 robust loss with f_scale 0.5 in scipy least_squares (trf)" },
+]
+variants = [
+  { flag = "stage", selects = "stage 1 A_ES and B_ES on the no-hydrogen-bond subset; stage 2 c_OH_OH and c_OH_OT on the OH subset with stage-1 values held; stage 3 c_OT_OT on the OT subset (the holding order is stated in the script headers; the holding of earlier results was not traced line by line)" },
+]
+equation_source = "no citation for the fit; the model is Hsieh et al. 2010 by the README references"
+closed_form = "procedural"
+data = "construct 'sequential refit parameters'; training and test data not bundled"
+
+[[model_family]]
+name = "chemical family classification"
+locator = "src/generation/build_master_index.py phase_e (line 179 onward)"
+class = "other"
+inputs = "a SMILES string parsed by RDKit"
+parameters = "global: 16 SMARTS patterns in priority order (carboxylic acid, amide, ester, aldehyde, ketone, alcohol, phenol, ether, amine, nitrile, nitro, halide, aromatic, alkene, alkyne, alkane)"
+composes = []
+variants = []
+equation_source = "none"
+closed_form = "procedural"
+data = "none bundled as data; output is the Chemical_Family column"
+
+# ---------------------------------------------------------------------------
+# CONVENTIONS
+# ---------------------------------------------------------------------------
+
+[[convention]]
+name = "profile grid, blocks and total"
+locator = "DATA_DICT.md section 3; sigma_profiles_main.parquet columns p_000 to p_152"
+statement = "51 bins from -0.025 to 0.025 e/A^2 in steps of 0.001, repeated for each of three blocks in the order NHB, OH, OT; psigmaA is an area in A^2, so the total profile p(sigma)A is the bin-wise sum of the three blocks and the sum over all bins is the cavity area."
+scope = "sigma profile row"
+
+[[convention]]
+name = "averaging radius and decay"
+locator = "DATA_DICT.md section 1 and 3; Parquet columns r_av_A and f_decay"
+statement = "Hsieh-2010 averaging with radius 1.5191 A and decay factor 3.57 for every molecule, and hydrogen-bond cutoff 0.0084 e/A^2; the values are constant over the dataset."
+scope = "sigma profile row"
+
+[[convention]]
+name = "refitted constants replace the Hsieh-2010 defaults"
+locator = "DATA_DICT.md section 7; README.md 'Use the refitted parameters'; smiles_to_sigma.py"
+statement = "Profiles from this pipeline must be used with the five refitted constants and not with the Hsieh-2010 defaults; the constants are not transferable to DMol3 or other generators without re-evaluation, because the absolute profile mass and cavity volume differ by a few percent between generators. The other COSMO-SAC-2010 constants are not refitted and stay at the NIST defaults."
+scope = "sigma profile row; sequential refit parameters"
+
+[[convention]]
+name = "level of theory and geometry"
+locator = "DATA_DICT.md section 1; README.md; process_chunk.py"
+statement = "PySCF single point at BP86/def2-SVP with COSMO at infinite dielectric constant (conductor limit), Klamt radii at scale 1.0, density fitting; geometries are PubChemQC PM6 minima used as given (no DFT reoptimisation); the integrity file names the same level with the word Klamt cavity."
+scope = "all profiles"
+
+[[convention]]
+name = "absent values are empty strings or null"
+locator = "build_public_sigma_index.py; DATA_DICT.md section 6"
+statement = "In the index an absent CAS, InChIKey or family is the empty string (no Parquet null); in the main file the placeholder text '?' is stored for name and cas and a missing dispersion energy is a Parquet null (the text files carry JSON null)."
+scope = "index row; main row"
+
+[[convention]]
+name = "units"
+locator = "DATA_DICT.md sections 3 and 4"
+statement = "Areas in A^2, volumes in A^3, charge density in e/A^2, molecular weight in g/mol, dispersion energy over k_B in K, constants in kcal A^4/(mol e^2) (B_ES with an additional K^2); the Parquet files carry no unit metadata, so every unit comes from the data dictionary and column-name suffixes."
+scope = "all constructs"
+
+# ---------------------------------------------------------------------------
+# SELECTIONS
+# ---------------------------------------------------------------------------
+
+[[selection]]
+name = "input filter of the molecule set"
+locator = "src/generation/filter_to_jsonl.py (condition before the output write)"
+rule = "A PubChemQC record from the b3lyp_pm6 CHNOPSFCl subset is kept when heavy-atom count <= 25, molecular mass <= 250, charge 0 and multiplicity 1; 361,583 of the roughly 362,303 attempted molecules ended with a profile."
+scope = "which molecules exist in the dataset"
+documented = "yes in README.md and DATA_DICT.md (molecular weight up to about 250 g/mol)"
+
+[[selection]]
+name = "CAS number assignment"
+locator = "src/generation/cas_to_cid.py lookup_one; build_master_index.py phase_d (groupby cid first)"
+rule = "CAS numbers that occur in the NIST TDE gamma infinity, VLE, SLE, vapour pressure and melting data are looked up against PubChem's registry cross-reference; the first CID returned is taken as the primary CID, and the first hyphenated CAS per CID is kept."
+scope = "the CAS column of the index"
+documented = "not documented in DATA_DICT.md, which says only that CAS is empty when PubChem has no CAS for this CID; the CAS column is therefore a function of NIST dataset overlap, inferred from the two scripts"
+
+[[selection]]
+name = "chemical family label"
+locator = "src/generation/build_master_index.py phase_e"
+rule = "Patterns are tried in fixed priority; one match gives that name, several give the highest-priority name with a trailing '+', none gives 'other'; an unparseable SMILES gives an empty family in the public index."
+scope = "Chemical_Family"
+documented = "yes (DATA_DICT.md section 4)"
+
+[[selection]]
+name = "duplicate structures"
+locator = "sigma_profile_index.parquet InChIKey column"
+rule = "none: a structure that appears under several CIDs keeps every CID with its own profile; no deduplication, ranking or averaging rule exists in the source."
+scope = "19,948 InChIKeys shared by two to 11 CIDs"
+documented = "DATA_DICT.md mentions five CIDs of molecular hydrogen as an artefact of several CIDs pointing at one structure, but not the general duplication"
+
+# ---------------------------------------------------------------------------
+# DISCREPANCIES
+# ---------------------------------------------------------------------------
+
+[[discrepancy]]
+locator = "DATA_DICT.md section 6 (five H2 entries) versus sigma_profile_index.parquet"
+documented = "five PubChem CIDs for molecular hydrogen H2, identical structure under different CIDs"
+actual = "the five rows (Heavy_Atoms 0) have SMILES '[H].[H]', which is two disconnected hydrogen atoms in the notation; the structure-level reading as a bonded molecule is not in the row"
+consequence = "A species resolution from the SMILES or from an InChIKey would not yield H2; these rows need exclusion or a curated identity."
+
+[[discrepancy]]
+locator = "DATA_DICT.md section 3 ('disp. e/kB ... can be null for molecules without a tabulated value') and README.md (elements H, C, N, O, F, P, S and Cl are supported) versus the Parquet"
+documented = "P and S molecules are inside the supported scope and a null dispersion energy is an occasional gap"
+actual = "disp_e_kB is null in 74,094 of 361,583 rows (20.5 percent), and the null rows are exactly those whose formula contains S or P (joined index formulas to the main file: 74,094 rows with S or P, all null; no other row null)"
+consequence = "The dispersion contribution of the COSMO-SAC-dsp model is undefined for every molecule with sulfur or phosphorus although the profiles exist."
+
+[[discrepancy]]
+locator = "src/generation/fix_sigma_nan.py docstring versus the NIST cCOSMO reader"
+documented = "null dispersion energy is handled by cCOSMO (treated as default or zero)"
+actual = "in the NIST reader pinned in source cosmosac_nist the two loaders differ: the Delaware loader turns null into NaN and DirectImport leaves it absent, read as 0.0 by the dispersion term; the refit scripts load with DirectImport"
+consequence = "Whether a null dispersion energy acts as zero or as NaN depends on the loader; in this dataset a null never enters the refit because only CHNO pairs were used."
+
+[[discrepancy]]
+locator = "MANIFEST.md (pubchemqc_to_cosmo_bp86.py described as the PySCF BP86/def2-SVP COSMO driver) versus src/generation"
+documented = "pubchemqc_to_cosmo_bp86.py is the COSMO driver with the dataset's settings"
+actual = "that script sets no radii table and no density fitting; the Klamt radii, vdw_scale 1.0 and the --df switch are set in process_chunk.py, which imports only the .cosmo writer and geometry builder from the first script"
+consequence = "The settings that define the profiles are spread over two scripts; a derivation record must cite process_chunk.py for the cavity."
+
+[[discrepancy]]
+locator = "src/generation/pubchemqc_to_cosmo_bp86.py lines 105-115 versus DMol3 .cosmo format"
+documented = "DMol3-style .cosmo file compatible with the NIST parser"
+actual = "input-block values that are not produced by PySCF are placeholders: 'Basic Grid Size' and 'Number of Segments' both equal the segment count, and the Non-Electrostatic Energy A and B are written as zero"
+consequence = "A .cosmo file from this pipeline cannot be told apart from a DMol3 output by those lines; nothing in the .sigma profile depends on them."
+
+[[discrepancy]]
+locator = "README.md (Zenodo file table) versus DATA_DICT.md section 2 and the acquired Zenodo files"
+documented = "the deposit contains .sigma files, an index CSV and Parquet and the parameters; DATA_DICT.md specifies the .sigma text format and the index but no Parquet column of the main file"
+actual = "the acquired deposit has the main Parquet with snake_case columns (cid, area_A2, volume_A3, r_av_A, disp_flag, disp_e_kB, p_000..p_152) that differ from the .sigma header keys and from the index column names (CID, Vcosmo_A3, Acosmo_A2); only the README names the p_ layout"
+consequence = "A mapping must take the main file's column meanings from the header keys of the text format by name correspondence, which the source does not state."
+
+[[discrepancy]]
+locator = "README.md Citation section versus its License section"
+documented = "attribution requires citing the paper and the Zenodo deposit"
+actual = "the paper citation reads 'TBD'"
+consequence = "The primary publication for the refit and validation numbers cannot be recorded."
+
+# ---------------------------------------------------------------------------
+# CAPABILITIES
+# ---------------------------------------------------------------------------
+
+[[capability]]
+calculation = "sigma_profile_generation (proposed)"
+offered = "yes"
+scope = "single neutral molecules of H, C, N, O, F, P, S, Cl from a SMILES (RDKit plus MOPAC geometry) or from a PubChemQC record, with the PySCF BP86/def2-SVP COSMO settings"
+locator = "src/generation/smiles_to_sigma.py; process_chunk.py"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "parameter_regression"
+offered = "yes"
+scope = "five COSMO-SAC-2010 interaction constants fitted to gamma infinity; not a general regression tool"
+locator = "src/refit/stage1_AES_BES.py, stage2_cOH.py, stage3_cOT.py"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "liquid_activity_coefficient (proposed)"
+offered = "no"
+scope = "the repository has no activity-coefficient implementation of its own; it calls the NIST cCOSMO module (validation scripts for gamma infinity, bubble-point VLE and SLE solubility are shipped, but they are benchmark drivers, not a library)"
+locator = "src/validation; requirements.txt"
+evidence = "source_inspected"
+
+# ---------------------------------------------------------------------------
+# QUESTIONS
+# ---------------------------------------------------------------------------
+
+[[question]]
+about = "scientific validity of the profile set"
+question = "Is the set validated beyond the author's own claims? The bytes hold no independent check: the paper is not cited ('TBD'), validation numbers are only in the README text (gamma infinity RMSE 0.898 against 0.961, 12 VLE systems, 22 SLE pairs) and come from NIST ThermoData Engine data that is not distributed, and a comparison with the DMol3 reference profiles (median 1.37 A^2) is quoted but not reproducible from the deposit."
+why_it_matters = "This is a new single-author dataset; a model built on it would carry unverified derived data, so the derivation and qualification records must mark its level of evidence."
+
+[[question]]
+about = "which profile to use for a structure with several CIDs"
+question = "For the 19,948 InChIKeys shared by several CIDs the profiles differ through independent PM6 geometries (area spread up to 10 percent); does the source intend the profiles to be treated as conformers, duplicates or competing values?"
+why_it_matters = "A canonical species would receive several competing sigma profiles and a selection rule is needed; the source gives none."
+
+[[question]]
+about = "refit constants and the dispersion term"
+question = "The five refitted constants were fitted with the dispersion term included (get_lngamma) on CHNO pairs only, while the dispersion energy is undefined for all S and P molecules and the dispersion constants were not refitted. Are the constants intended for molecules with S, P, F or Cl, and for COSMO-SAC-2010 without the dispersion term?"
+why_it_matters = "The dependency between the profiles, the refitted constants and the model variant must state which combinations the fit covers."
+
+[[question]]
+about = "pairing with the NIST implementation"
+question = "The published set was produced with commit 21dd92b of the NIST repository, but the pinned NIST tree of source cosmosac_nist is commit 1b82456b. Do the parser, the COSMO-SAC-2010 constants and the to_sigma conventions agree between the two commits?"
+why_it_matters = "The profiles are consumed with the NIST model constants; a mismatch would invalidate the pairing the conventions record."
+
+[[question]]
+about = "units of the Parquet columns"
+question = "The Parquet files carry no unit metadata. Are area_A2, volume_A3, p_000..p_152 (A^2) and disp_e_kB (K) exactly as in DATA_DICT.md, including the float32 rounding of the profile values?"
+why_it_matters = "Values are stored as float32 in the main file; the source states units only through column suffixes and the dictionary."

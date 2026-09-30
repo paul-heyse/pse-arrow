@@ -1,0 +1,69 @@
+module = "expr_antoine"
+uses = ["physical", "identity", "exprtypes"]
+doc = "Antoine vapour pressure on a pure role: a unit literal, a local and exp."
+
+[contracts.vapor_pressure]
+doc = "Saturation pressure of one species form."
+roles.i = { type = "species", doc = "The species form." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+outputs.p_sat = { type = "Pressure", doc = "Saturation pressure." }
+
+[forms.antoine]
+doc = "Antoine equation in natural-log form, pressure in pascal."
+implements = "vapor_pressure"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.antoine.slot_groups.pure]
+doc = "One set of coefficients per species form."
+subject.i = { type = "species", doc = "The species form." }
+
+[forms.antoine.slot_groups.pure.slots]
+A = { type = "Scalar", doc = "First coefficient." }
+B = { type = "Temperature", doc = "Second coefficient." }
+C = { type = "TemperatureDifference", doc = "Third coefficient." }
+
+[forms.antoine.let]
+theta = "T + pure.C[i]"
+
+[forms.antoine.outputs]
+p_sat = "exp(pure.A[i] - pure.B[i] / theta) * unit('Pa')"
+
+[forms.antoine_bar]
+doc = "Antoine equation with coefficients fitted for pressure in bar: the unit literal converts."
+implements = "vapor_pressure"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.antoine_bar.slot_groups.pure]
+doc = "One set of coefficients per species form."
+subject.i = { type = "species", doc = "The species form." }
+
+[forms.antoine_bar.slot_groups.pure.slots]
+A = { type = "Scalar", doc = "First coefficient." }
+B = { type = "Temperature", doc = "Second coefficient." }
+C = { type = "TemperatureDifference", doc = "Third coefficient." }
+
+[forms.antoine_bar.outputs]
+p_sat = "10 ** (pure.A[i] - pure.B[i] / (T + pure.C[i])) * unit('bar')"
+
+[forms.antoine_slope]
+doc = "The derivative of the Antoine vapour pressure with respect to temperature, as a pressure: a derivative through a local."
+implements = "vapor_pressure"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.antoine_slope.slot_groups.pure]
+doc = "One set of coefficients per species."
+subject.i = { type = "species", doc = "The species." }
+
+[forms.antoine_slope.slot_groups.pure.slots]
+A = { type = "Scalar", doc = "First coefficient." }
+B = { type = "Temperature", doc = "Second coefficient." }
+C = { type = "TemperatureDifference", doc = "Third coefficient." }
+
+[forms.antoine_slope.let]
+theta = "T + pure.C[i]"
+
+[forms.antoine_slope.outputs]
+p_sat = "d(exp(pure.A[i] - pure.B[i] / theta), T) * unit('Pa * K')"

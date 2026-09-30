@@ -1,0 +1,43 @@
+module = "exprtypes"
+uses = ["physical"]
+doc = "Quantity types the expression fixtures use beyond the valid declaration fixture's."
+
+[quantity_types.TemperatureDifference]
+doc = "A temperature interval or temperature-like coefficient that may be negative."
+unit = "K"
+scale = "difference"
+
+[quantity_types.Fraction]
+doc = "A part of a whole between zero and one."
+unit = "dimensionless"
+scale = "absolute"
+
+[quantity_types.MolarVolume]
+doc = "Volume per amount of substance."
+unit = "m**3/mol"
+scale = "absolute"
+
+[quantity_types.MolarDensity]
+doc = "Amount of substance per volume."
+unit = "mol/m**3"
+scale = "absolute"
+
+[quantity_types.MolarEnergy]
+doc = "Energy per amount of substance."
+unit = "J/mol"
+scale = "difference"
+
+[quantity_types.MolarEntropy]
+doc = "Entropy per amount of substance."
+unit = "J/mol/K"
+scale = "difference"
+
+[quantity_types.GasConstant]
+doc = "Energy per amount of substance and temperature."
+unit = "J/mol/K"
+scale = "absolute"
+
+[quantity_types.AttractionParameter]
+doc = "The attractive parameter of a cubic equation of state: pressure times molar volume squared."
+unit = "Pa*m**6/mol**2"
+scale = "absolute"

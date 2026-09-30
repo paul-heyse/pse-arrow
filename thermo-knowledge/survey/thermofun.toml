@@ -1,0 +1,874 @@
+source = "thermofun"
+pin = "53741e9b0ac0"
+surveyed = "2026-09-30"
+summary = "ThermoFun v0.6.3 contributes seven curated thermodynamic datasets in its own JSON format (4056 substance records, 465 reaction records, 309 element records in Resources/databases, plus a 5-record water file) in which each substance carries reference properties and an unordered list of 'TPMethods' entries (16 distinct substance methods, 4 distinct reaction methods occur), together with the C++ engine that evaluates them (empirical Cp integration, HKF and density-model solutes, Murnaghan/Landau solids, cubic and CG gas EoS, IAPWS-95/HGK/Zhang-Duan water, Johnson-Norton/Fernandez/Sverjensky dielectric, logK(T) forms and density-model reaction equations); the JSON states no standard state, no concentration scale and no solvent link, the method list has no order (the numeric method code decides the slot it fills), and several unit labels and fields in the data disagree with what the reader does."
+
+# ---------------------------------------------------------------------------
+# PAYLOADS
+# ---------------------------------------------------------------------------
+
+[[payload]]
+paths = ["Resources/databases/*.json"]
+format = "JSON, one object per file with top-level keys thermodataset (string), datasources (array of strings), date (string dd.mm.yyyy hh:mm:ss), substances, reactions, elements (arrays of records); indent 2 style; no schema file; records carry no _id or _label"
+files = 7
+bytes = 10071277
+records = "4051 substance records (aq17 161, cemdata18 228, heracles 888, mines16 536, psinagra-12-07 690, slop98-organic 573, slop98 975), 465 reaction records (psinagra-12-07 440, mines16 18, cemdata18 7, all others 0), 309 element records (aq17 11, cemdata18 15, heracles 72, mines16 39, psinagra-12-07 41, slop98-organic 48, slop98 83; 302 class ELEMENT and 7 class CHARGE), counted by json.load of each file; 5742 substance TPMethods entries in 3586 substance records (all 4056 records, misc file included) and 1395 reaction TPMethods entries"
+reader = "ThermoFun::Database in ThermoFun/Database.cpp (Impl::fromFile line 335 reads the keys conventions, elements, substances, reactions and ignores every other top-level key) calling parseElement, parseSubstance and parseReaction in ThermoFun/Common/ParseJsonToData.cpp; a plain JSON parser reads every file"
+read_by_source = "partly"
+notes = "thermodataset, datasources and date are never read by the source code (grep of the tree), so dataset identity and its citation list are data only. 'conventions' is read when present but no file in Resources/databases has it. A second record with the same symbol overwrites the first (Database.cpp checkIfSymbolExists then map assignment). Seven of the eight files in the tree are byte-identical to the copies under Reaktoro embedded/databases/thermofun (see survey/reaktoro.toml); the ThermoHub mirror carries newer versions of the same datasets (see survey/thermohub.toml)."
+
+[[payload]]
+paths = ["Resources/databases/misc/water-thermofun.json"]
+format = "same JSON layout as the main databases, with elements absent"
+files = 1
+bytes = 8036
+records = "5 substance records, 0 reactions: two records with symbol H2O@ (Water HGK), H2Og (water gas), H2O@reak (IAPWS-95 variant) and my_Al(OH)2+ (an HKF solute), counted by json.load; the byte-identical copy pytests/Substances/Solvent/water-thermofun.json also exists"
+reader = "ThermoFun::Database as above"
+read_by_source = "partly"
+notes = "Two records share the symbol H2O@ with the same methods but different record content, so loading the file keeps the later one; the file is a fixture for choosing the water model, carrying thermodataset aq17-gem and date 10.12.2019 12:58:35 that equal those of aq17-thermofun.json."
+
+[[payload]]
+paths = [
+  "examples/test-database-thermofun.json",
+  "paper/aq17-thermofun.json",
+  "pytests/**/*.json",
+  "tests/autoTest/autoTest_substances_elements.VertexSubstance.json",
+]
+format = "ThermoFun database JSON (same layout) for 15 unique files by sha256; the VertexSubstance file is a JSON array of 34 ArangoDB-style vertex documents with _id, _key, _rev, _type, _label and properties"
+files = 17
+bytes = 4254381
+records = "unique database files: examples/test-database 5 substances 4 reactions 4 elements; paper/aq17 161 substances; pytests: PsiTDB2020-subset 167 substances 131 reactions 11 elements with conventions; test-aq17-gem-lma 162 substances 151 reactions; Co_Cu_aq 42 substances 6 reactions; mines16 536 substances 18 reactions; test-thermoengine 16 substances 5 reactions; plus 7 small fixtures; counted by json.load. Files by path are 17 (16 database-shaped plus the VertexSubstance array); unique content among the 16 is 15 (pytests/mines16-thermofun.json is duplicated by path)"
+reader = "ThermoFun::Database and the pytests in pytests/ (pybind11 bindings in python/src/thermofun)"
+read_by_source = "partly"
+notes = "These test fixtures carry shapes that the main databases lack and so document the format's newer direction: a 'status' array next to values (984 empty objects and 548 {3: CALCULATED} over the unique files), a top-level conventions object {water_triple_point_reference: NEA_HGK}, reactions whose only TPMethod is logk_3_term_extrap with logk_ft_coeffs attached to it, mass_per_mole with values [null], kJ/mol and cal/mol unit strings, the unit spelling J/(K*mol) beside J/(mol*K), datasources given as a bare string, and the method name 'standard_entropy_cp_integration ' with a trailing space. Reference values for calculations sit in pytests/reference/tdb2020/*.csv (four CSVs: results_rp, results_rt 12 data rows each; results_sp, results_st 20 data rows each, header Symbol,T(degC),P(bar),gibbs_energy(J/mol),entropy(J/K/mol),volume(J/bar),enthalpy(J/mol),heat_capacity_cp(J/K/mol); NaN marks missing)."
+
+[[payload]]
+paths = ["Resources/GEMS4/TestMulti/*.json"]
+format = "GEMS3K-style JSON documents that contain '#' comments and a mixed key layout (not valid JSON): TestMulti.csd.json (chemical system definition), TestMulti.node.000.json (node), TestMulti.tdi.json (interpolated thermodynamic data), numeric.settings.json, and config.files.json (valid JSON, names the other four)"
+files = 5
+bytes = 813200
+records = "not applicable: one chemical-system example; TestMulti.csd.json declares nIC 7, nDC 29, nPH 9, nPS 4 in its first lines (read from the comment-annotated header)"
+reader = "tests/autoTest and tests/interfaceTest link the GEMS4R reader (Modules/GEMS4R/GEMS4R.pri); nothing in ThermoFun/ reads these files"
+read_by_source = "none"
+notes = "These are GEMS4 export files whose data objects are the ones described in survey/gems3k.toml (DCH, IPM, DBR in a JSON dialect); they are the test target that the ThermoFun calculations are compared with in tests/autoTest."
+
+[[payload]]
+paths = [
+  "ThermoFun/Substances/Gases/s_solmod_.cpp",
+  "ThermoFun/Substances/Gases/s_solmod_.h",
+  "ThermoFun/Substances/Gases/s_solmod2_.cpp",
+]
+format = "C++ source: a verbatim-named copy of the GEMS3K TSolMod fluid equation-of-state classes (TCGFcalc, TPRSVcalc, TSRKcalc, TPR78calc, TCORKcalc, TSTPcalc) with the rest of the TSolMod hierarchy declared in the header"
+files = 3
+bytes = 259374
+records = "not applicable: code; the header declares 29 classes whose names start with T (counted by class declarations; EOSPARAM is a further helper class), of which ThermoFun calls six fluid classes through Substances/Gases/Gas*.cpp"
+reader = "compiled into ThermoFun; used by ThermoFun/Substances/Gases/GasCORK.cpp, GasPRSV.cpp, GasCGF.cpp, GasSRK.cpp, GasPR78.cpp, GasSTP.cpp"
+read_by_source = "partly"
+notes = "The file header states it is part of the GEMS4K code; the solution-model classes are surveyed under survey/gems3k.toml. ThermoFun uses only the pure-fluid fugacity entry points (xxxCalcFugPure)."
+
+[[payload]]
+paths = [
+  "ThermoFun/GlobalVariables.h",
+  "ThermoFun/ThermoEngine.h",
+  "ThermoFun/Common/Units.cpp",
+]
+format = "C++ source holding data that the JSON leaves implicit: the enums of method, class and aggregate-state codes with their name maps, the gas constant and conversion constants, three water triple-point property sets, the default preferences and conventions, and a unit table (about 140 unit names with scale factors)"
+files = 3
+bytes = 62031
+records = "SubstanceTPMethodType enum 44 members (codes 0-43; 33 are in the name map, 11 are commented out of it: 7 and 15-24), ReactionTPMethodType enum 15 members (codes 0-14, 2 commented out of the name map: 1 and 2), AggregateState enum 17 members, SubstanceClass enum 7 members, waterTripleData 3 entries (HKF_HGK_1974, NEA_HGK, NEA_IAPWS); counted by reading the enum bodies"
+reader = "compiled in; also consumed by the Python bindings"
+read_by_source = "all"
+notes = "R_CONSTANT is 8.31451 J/(mol*K) and F_CONSTANT 96485.309 C/mol in GlobalVariables.h, not the CODATA values; every calculation in the engine uses them."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS: dataset, element, substance
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "thermodataset file header"
+locator = "Resources/databases/*.json#/thermodataset, #/datasources, #/date; Database.cpp Impl::fromFile"
+meaning = "The dataset label (for example aq17-gem), the list of source labels the dataset was assembled from (a web address and bibliographic short names such as [2017MIR/WAG]) and the export timestamp."
+subject = "one dataset (a file); keyed by its thermodataset string, which is not unique across files (aq17-thermofun.json and water-thermofun.json both say aq17-gem; the slop98 file says slop98-inorganic)"
+fields = [
+  { name = "thermodataset", meaning = "dataset label", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "datasources", meaning = "short names of the literature and web sources behind the dataset", unit = "not applicable", shape = "list", role = "metadata" },
+  { name = "date", meaning = "export timestamp", unit = "not stated", shape = "scalar", role = "metadata" },
+  { name = "conventions", meaning = "optional object; only water_triple_point_reference is read (HKF_HGK_1974, NEA_HGK or NEA_IAPWS)", unit = "not applicable", shape = "table", role = "input" },
+]
+origin = "generated (exported from the ThermoHub database by thermohubclient; the tool version is not recorded in the file)"
+conventions = "none stated in the file; the default water_triple_point_reference is HKF_HGK_1974 (Database.h)"
+absence = "conventions is absent from all 7 main files, so the default applies silently"
+validity = "not stated"
+provenance = "datasources lists source labels for the whole dataset only; per-record datasources exist on substances and reactions"
+count = "8 headers in Resources/databases (7 datasets and the misc water file); thermodataset values: aq17, cemdata18, heracles, mines16, psinagra-12-07, slop98-inorganic, slop98-organic, aq17-gem"
+example = "Resources/databases/psinagra-12-07-thermofun.json#/thermodataset"
+candidate = "parameterization, chemical_system, convention_set, source, dataset"
+precision = "close"
+loss = "A dataset is at once a parameterisation (a published set meant to be used together), a chemical system (its species list) and an implicit convention set (water triple-point reference); the file states only the label, so a mapping has to create the convention set and the system from the dataset name and from engine defaults."
+
+[[construct]]
+name = "element record"
+locator = "Resources/databases/*.json#/elements; ParseJsonToData.cpp parseElement (line 464)"
+meaning = "A chemical element (or the electric-charge pseudo-element Zz) with its reference-form entropy and atomic mass."
+subject = "one element; keyed by symbol (two-letter symbol, Zz for charge)"
+fields = [
+  { name = "symbol", meaning = "element symbol; Zz for electric charge", unit = "not applicable", shape = "scalar", role = "input" },
+  { name = "class_", meaning = "object {code: name} with ELEMENT (0) or CHARGE (4)", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "entropy", meaning = "absolute entropy of the element in its reference form (object with name S0i and values)", unit = "not stated in the record; the reader converts to J/(mol*K) and assumes that unit when none is given", shape = "scalar", role = "input" },
+  { name = "atomic_mass", meaning = "molar mass (object with name M0i and values)", unit = "not stated in the record; the reader assumes g/mol", shape = "scalar", role = "input" },
+  { name = "datasources", meaning = "source label list", unit = "not applicable", shape = "list", role = "metadata" },
+]
+origin = "transcribed (per-dataset element tables of the ThermoHub database)"
+conventions = "entropy is used only by the Berman-Brown apparent-property conversion (ThermoEngine.cpp toBermanBrown via Database::elementalEntropyFormula); the Zz charge element has a nonzero entropy value (-65.34 in psinagra) that is meaningless for charge"
+absence = "no heat_capacity, volume, number or name fields occur in these records (the reader would accept them); values arrays have no errors"
+validity = "not stated"
+provenance = "datasources per record (one label such as PSI-Nagra-12-07)"
+count = "309 records (302 ELEMENT, 7 CHARGE) over 7 files"
+example = "Resources/databases/psinagra-12-07-thermofun.json#/elements/0"
+candidate = "element, conserved_quantity (charge), energy_reference (element_reference)"
+precision = "close"
+loss = "The entropy and mass are attached to the element here but belong to an energy reference and an atomic-weight edition in the model; the record says neither, so both must be inferred from the dataset."
+
+[[construct]]
+name = "substance record"
+locator = "Resources/databases/*.json#/substances; ParseJsonToData.cpp parseSubstance (line 521); Substance.h"
+meaning = "One chemical substance in one state of aggregation with its reference-state properties at Tst and Pst, and the list of calculation methods (TPMethods) that extend those properties to other temperature and pressure."
+subject = "one species form; keyed by symbol (for example H2O@ for liquid water, Ni(CN)5-3, Calcite), unique per file; 'name' is a free label"
+fields = [
+  { name = "name", meaning = "descriptive label", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "symbol", meaning = "unique key within the dataset, used by reactions, reaction-defined substances and the solvent setting", unit = "not applicable", shape = "scalar", role = "input" },
+  { name = "formula", meaning = "stoichiometric formula in the GEMS notation: element symbols with counts, valence in pipes (C|-4|H4), trailing @ for aqueous neutral species, charge as a trailing sign and number or as a Zz term", unit = "not applicable", shape = "scalar", role = "input" },
+  { name = "formula_charge", meaning = "net charge number", unit = "not stated (charge number)", shape = "scalar", role = "input" },
+  { name = "aggregate_state", meaning = "object {code: name}; values found AS_AQUEOUS 4, AS_CRYSTAL 3, AS_GAS 0, AS_LIQUID 1, AS_PLASMA 8", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "class_", meaning = "object {code: name}; SC_AQSOLUTE 2, SC_COMPONENT 0, SC_GASFLUID 1, SC_AQSOLVENT 3; selects solute, solvent and reaction-defined paths in the engine", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "Tst", meaning = "reference temperature of the stored reference properties", unit = "K (inferred: value 298.15 in all records; reader treats it as kelvin)", shape = "scalar", role = "input" },
+  { name = "Pst", meaning = "reference pressure", unit = "Pa (inferred: value 100000 in all records; reader compares it with pressures in Pa)", shape = "scalar", role = "input" },
+  { name = "TPMethods", meaning = "list of method entries, each {method: {code: name}} plus a parameter block", unit = "not applicable", shape = "list", role = "input" },
+  { name = "sm_gibbs_energy", meaning = "standard molar Gibbs energy at Tst, Pst: object with values, units, optional errors", unit = "J/mol (units array, single value found over all records)", shape = "scalar", role = "input" },
+  { name = "sm_enthalpy", meaning = "standard molar enthalpy at Tst, Pst", unit = "J/mol (units array)", shape = "scalar", role = "input" },
+  { name = "sm_entropy_abs", meaning = "absolute standard molar entropy at Tst, Pst", unit = "J/(mol*K) (units array)", shape = "scalar", role = "input" },
+  { name = "sm_heat_capacity_p", meaning = "standard molar isobaric heat capacity at Tst, Pst", unit = "J/(mol*K) (units array)", shape = "scalar", role = "input" },
+  { name = "sm_volume", meaning = "standard molar volume at Tst, Pst", unit = "J/bar (units array; 1 J/bar = 10 cm3/mol)", shape = "scalar", role = "input" },
+  { name = "m_expansivity", meaning = "isobaric expansivity used by the Murnaghan and Landau solid models", unit = "the units array says kbar but the values (2.2e-5 range, reader multiplies by 1e5 and later by 1e-5) are 1/K", shape = "scalar", role = "input" },
+  { name = "m_compressibility", meaning = "despite the name, the bulk modulus in kbar used by the same models", unit = "the units array says 1e-05/K but the values (up to 5800) are kbar", shape = "scalar", role = "input" },
+  { name = "reaction", meaning = "symbol of the reaction that defines this substance's properties (reaction-defined component)", unit = "not applicable", shape = "reference", role = "input" },
+  { name = "datasources", meaning = "source labels of the record, sometimes with the property, year and type packed into one string (SUPCRT:1992:prog: ...)", unit = "not applicable", shape = "list", role = "metadata" },
+]
+origin = "transcribed (from SUPCRT92 data files, NEA and PSI/Nagra thermodynamic databases, CEMDATA, MINES and other tables, per datasources labels; conversion through GEM-Selektor exports)"
+conventions = "G, H, S, Cp, V are apparent properties in the Benson-Helgeson convention by default (EngineConventions.apparent_properties BENSON_HELGESON; BERMAN_BROWN subtracts Tr times the elemental entropies); no formation-from-elements statement appears in the record; water properties are 'GEOCHEMICAL' unless the engine is told STEAM_TABLES, which subtracts the triple-point properties named by conventions.water_triple_point_reference"
+absence = "sm_* blocks are missing for a few substances (heracles 13 without sm_gibbs_energy, 6 without sm_enthalpy; psinagra 1) and for all 465 reaction-defined substances nothing is stored except the reaction link; TPMethods is absent from 470 records (465 reaction-defined, 5 H+ records whose properties the engine hard-codes to zero); a missing value is absence of the block, not a status; Tst is missing in 1 record; errors are present in a minority of blocks and a zero error is stored where no uncertainty is known (over the five sm_ properties of aq17, 322 of the 331 errors arrays hold 0)"
+validity = "limitsTP exists only inside cp_ft_equation entries (lowerT, upperT, range); the substance-level limitsTP that the reader looks for does not occur; pressure limits are not stated for substances"
+provenance = "datasources strings per record; a citing relation per field exists only in the ThermoHub export"
+count = "4056 records (4051 in the 7 main files and 5 in misc/water)"
+example = "Resources/databases/aq17-thermofun.json#/substances/0"
+candidate = "species_form, species, composition, parameter_set, parameterization, standard_state, slot_uncertainty"
+precision = "broader"
+loss = "The record is one species form plus its standard-state parameter sets for several forms at once (Cp polynomial, volume, HKF, Landau, EoS) plus reference values that are properties of the model's reference point, not parameters; a mapping has to split the list into parameter sets by method, turn reference properties into slots of the heat-capacity form, and decide the standard state, concentration scale and solvent that the record does not state. Zero errors mean 'no error stated' in some cases and a true zero in none that can be told apart."
+
+[[construct]]
+name = "property block (values, units, errors)"
+locator = "Resources/databases/*.json#/substances/*/sm_gibbs_energy and siblings; ParseJsonToData.cpp readValueErrorUnit (line 72)"
+meaning = "A scalar property with its unit and optional uncertainty; every numeric property is an object with a one-element 'values' array, an optional 'units' array and an optional 'errors' array."
+subject = "one property of one substance or reaction"
+fields = [
+  { name = "values", meaning = "list of length one for scalars (longer for coefficient arrays)", unit = "as in units", shape = "list", role = "input" },
+  { name = "units", meaning = "unit string per value, for example J/mol, J/(mol*K), J/bar, cal/mol", unit = "not applicable", shape = "list", role = "input" },
+  { name = "errors", meaning = "uncertainty of the value, taken in the property's unit", unit = "same as units; what the error means (standard uncertainty, expanded, bound) is not stated", shape = "list", role = "input" },
+  { name = "status", meaning = "only in test fixtures: list with {code: name} or {}; {3: CALCULATED} occurs 548 times, {} 984 times", unit = "not applicable", shape = "enum", role = "unread" },
+  { name = "names", meaning = "only on coefficient arrays: names of the coefficients", unit = "not applicable", shape = "list", role = "metadata" },
+]
+origin = "transcribed"
+conventions = "the reader converts from the stated unit to the engine unit (J/mol, J/(mol*K), J/bar, 1 for logK) through a built-in unit table; with no units array the engine unit is assumed"
+absence = "a missing block, a null first value or an empty values array all give the runtime status 'notdefined'; a stored zero is a value; errors default to zero when absent, so absent uncertainty and zero uncertainty are the same at run time; the run-time status enum has notdefined, read, calculated, assigned, initialized and outofbounds and is not serialised"
+validity = "not stated"
+provenance = "none per value in ThermoFun; ThermoHub carries a citing edge whose for_field names properties"
+count = "sm_ blocks: gibbs 4042, enthalpy 4049, entropy 4053, Cp 4051, volume 4044 (substances); drsm_ and logKr blocks 464-465 (reactions); errors arrays on 697 enthalpy, 791 entropy, 692 gibbs, 3037 Cp, 3026 volume blocks (substances), counted over all files"
+example = "Resources/databases/aq17-thermofun.json#/substances/0/sm_volume"
+candidate = "parameter_set, slot_uncertainty, value_state"
+precision = "close"
+loss = "The model forbids uncertainty as a slot and requires a kind for it; here a zero error stands for 'unknown'. The status field that would carry calculated-versus-read provenance is never read and appears only in fixtures."
+
+[[construct]]
+name = "TPMethods entry"
+locator = "Resources/databases/*.json#/substances/*/TPMethods and #/reactions/*/TPMethods; ParseJsonToData.cpp getTPMethods (lines 305 and 329); GlobalVariables.h"
+meaning = "One calculation method for a substance or reaction: a method object whose single key is a numeric code and whose value is the method name, plus the parameter block that method needs and optionally a temperature limit."
+subject = "one species form or one reaction; an unordered collection per subject"
+fields = [
+  { name = "method", meaning = "object with one member {code: name}; the reader parses the code (stoi of the key) and ignores the name except for the test name == cp_ft_equation", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "limitsTP", meaning = "{lowerT, upperT, range}; on substance entries only cp_ft_equation has it (2049 of 2049); on reaction entries only the logk_fpt_function entry", unit = "K for temperatures (inferred: values 273.15 to 2273.15)", shape = "table", role = "input" },
+  { name = "m_heat_capacity_ft_coeffs, eos_hkf_coeffs, eos_akinfiev_diamond_coeffs, m_landau_phase_trans_props, m_phase_trans_props, eos_gas_crit_props, logk_ft_coeffs, dr_heat_capacity_ft_coeffs", meaning = "the parameter block (values, units, names); which block belongs to which method is fixed in GlobalVariables.h substance_method_parameters and reaction_method_parameters, but the blocks also occur on entries of other methods", unit = "see the parameter constructs", shape = "list", role = "input" },
+]
+origin = "transcribed (assembled by the dataset authors in GEM-Selektor; the method set per substance is a modelling choice, not a published fact)"
+conventions = "Each method code belongs to one of three slots of the substance (genEoS, T correction, P correction) through setTPMethods_old in ParseJsonToData.cpp: cp_ft_equation, the solute HKF codes, the water dielectric codes go to genEoS; Landau, Saxena, water EoS codes, standard_entropy_cp_integration go to the T slot; mv_*, fug_critical_param, fluid_*, aknifiev_diamond go to the P slot. A second entry that maps to the same slot overwrites the first, except that parameter arrays of cp_ft_equation entries accumulate as intervals. The order of entries in the list does not matter."
+absence = "a substance with no TPMethods is either hard-coded (H+) or defined through its 'reaction'; 56 reaction-like entries with an empty method object {} exist in the ThermoHub export but none in these files; a reaction without a parameter block (logk_3_term_extrap, dr_volume_constant, logk_nordstrom_munoz88) is a marker that selects a code path"
+validity = "temperature limits only where limitsTP is present; out-of-range evaluation is computed and flagged with a status message 'out of T and P bounds', not refused"
+provenance = "none per method"
+count = "5742 substance entries (16 distinct methods) and 1395 reaction entries (4 distinct methods) over 8 files"
+example = "Resources/databases/aq17-thermofun.json#/substances/0/TPMethods"
+candidate = "model_assembly, assembly_choice, parameter_set, parameterization, envelope"
+precision = "broader"
+loss = "A list that is at once an assembly of independent slot fillers (Cp base, volume, transition, solvent) and a bag of alternatives cannot be told apart without the code-to-slot table in C++; the model's assembly needs the slot, which the JSON holds only implicitly in the numeric code. The code-to-name pairs are stored as {code: name} and the two can disagree (trailing space in a name)."
+
+[[construct]]
+name = "method code vocabularies"
+locator = "ThermoFun/GlobalVariables.h enum SubstanceTPMethodType, ReactionTPMethodType, const maps enum_method_substance and enum_method_reaction"
+meaning = "The closed numbered vocabulary of method names: 44 substance codes and 15 reaction codes declared, 33 and 13 of them mapped to a name in the code, 16 and 4 occurring in the data."
+subject = "a global vocabulary"
+fields = [
+  { name = "substance code 0..43", meaning = "cp_ft_equation 0, cp_ft_equation_saxena86 1, solute_hkf88_gems 2, solute_hkf88_reaktoro 3, solute_aknifiev_diamond03 4, landau_holland_powell98 5, landau_berman88 6, fug_critical_param 8, fluid_prsv 9, fluid_churakov_gottschalk 10, fluid_soave_redlich_kwong 11, fluid_sterner_pitzer 12, fluid_peng_robinson78 13, fluid_comp_redlich_kwong_hp91 14, water_diel_jnort91_reaktoro 25, water_diel_jnort91_gems 26, water_diel_sverj14 27, water_diel_fern97 28, water_eos_hgk84_lvs83_gems 29, water_eos_iapws95_gems 30, water_eos_hgk84_reaktoro 31, water_eos_iapws95_reaktoro 32, water_pvt_zhang_duan05 33, mv_constant 34, mv_equation_dorogokupets88 35, mv_equation_berman88 36, mv_eos_birch_murnaghan_gott97 37, mv_eos_murnaghan_hp98 38, mv_eos_tait_hp11 39, mv_pvnrt 40, solute_holland_powell98 41, solute_anderson91 42, standard_entropy_cp_integration 43", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "reaction code 0..14", meaning = "logk_fpt_function 0, logk_nordstrom_munoz88 3, logk_1_term_extrap0 4, logk_1_term_extrap1 5, logk_2_term_extrap 6, logk_3_term_extrap 7, logk_lagrange_interp 8, logk_marshall_frank78 9, solute_eos_ryzhenko_gems 10, dr_heat_capacity_ft 11, dr_volume_fpt 12, dr_volume_constant 13, logk_dolejs_manning10 14; adsor_ion_exchange 1 and iso_compounds_grichuk88 2 are declared but not in the name map", unit = "not applicable", shape = "enum", role = "input" },
+]
+origin = "authored"
+conventions = "the codes are the keys of the JSON method object; a code that is declared but has no name-map entry (7, 15-24) cannot be produced by the exporter"
+absence = "a code without an implementing branch does nothing (the switch statements have no default): fug_critical_param 8 (P slot gas code), water_eos_iapws95_gems 30, cp_ft_equation_saxena86 1 (T slot Fei code), mv_equation_dorogokupets88 35 and mv_eos_tait_hp11 39 (P slot codes handled only for reactions or not at all) are accepted by the parser and then ignored by the substance evaluation; the fluid codes 9, 10, 11, 13, 14 and 12 reach PRSV, CG, SRK, PR78, CORK and STP through their P-slot codes"
+validity = "not applicable"
+provenance = "not stated"
+count = "distinct methods found in data: substances cp_ft_equation 2049, solute_hkf88_reaktoro 2009, mv_constant 1278, mv_eos_murnaghan_hp98 160, mv_pvnrt 108, standard_entropy_cp_integration 73, landau_holland_powell98 23, fluid_prsv 10, water_diel_jnort91_reaktoro 9, water_eos_iapws95_reaktoro 7, fluid_comp_redlich_kwong_hp91 6, solute_aknifiev_diamond03 4, water_eos_hgk84_lvs83_gems 3, water_eos_hgk84_reaktoro 1, water_diel_jnort91_gems 1, fug_critical_param 1; reactions logk_fpt_function 465, dr_volume_constant 465, logk_3_term_extrap 447, logk_nordstrom_munoz88 18"
+example = "ThermoFun/GlobalVariables.h line 88 enum SubstanceTPMethodType"
+candidate = "form (catalogue entries)"
+precision = "close"
+loss = "The vocabulary is the form catalogue of ThermoFun; several entries are combinations (water equation of state plus triple-point convention) rather than a single equation."
+
+[[construct]]
+name = "class_ and aggregate_state codes"
+locator = "GlobalVariables.h enums SubstanceClass and AggregateState; Substance records class_ and aggregate_state"
+meaning = "class_ says how the substance enters the engine (solute, solvent, gas or fluid component, pure component, reaction-defined); aggregate_state says the physical state."
+subject = "one species form"
+fields = [
+  { name = "class_", meaning = "SC_AQSOLUTE 2423 records, SC_COMPONENT 1175, SC_GASFLUID 448, SC_AQSOLVENT 10 (declared but absent: SURFSPECIES 4, SITEMOIETY 5, OTHER_SC 101)", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "aggregate_state", meaning = "AS_AQUEOUS 2429, AS_CRYSTAL 1083, AS_GAS 402, AS_LIQUID 95, AS_PLASMA 47 (declared but absent: GLASS 2, SURFACE 5, IONEX 6, SOLID 9, CONDENSED 10, FLUID 11, LIQUIDCRYSTAL 12, AMORPHOUSSOLID 13, MONOMERIC 14, POLYMERIC 15, SOLIDSOLUTION 16, OTHER 101)", unit = "not applicable", shape = "enum", role = "input" },
+]
+origin = "authored"
+conventions = "AS_AQUEOUS is an aggregate state here (the model reserves aqueous for a liquid with a solvent convention); class SC_AQSOLVENT marks the solvent record and triggers the water routines"
+absence = "not applicable: every record has both"
+validity = "not applicable"
+provenance = "not stated"
+count = "4056 records each; counts above are over all 8 files"
+example = "Resources/databases/aq17-thermofun.json#/substances/0/class_"
+candidate = "aggregation, species_form (aggregation), standard_state_kind (by class)"
+precision = "close"
+loss = "The pair (class, aggregate state) mixes state of matter with standard-state and calculation role; a mapping to aggregation drops the class, which is what carries solvent and solute roles."
+
+[[construct]]
+name = "cp_ft_equation parameter blocks (m_heat_capacity_ft_coeffs, m_phase_trans_props)"
+locator = "substances/*/TPMethods (method 0); ParseJsonToData.cpp thermoParamSubst lines 358-393; Substances/EmpiricalCpIntegration.cpp"
+meaning = "A piecewise empirical heat-capacity function of temperature: one entry per temperature interval with its coefficient array, and between intervals a phase-transition block giving transition temperature and increments."
+subject = "one species form; one TPMethods entry per interval"
+fields = [
+  { name = "m_heat_capacity_ft_coeffs.values", meaning = "coefficients a0..a10 (11 values in 1001 blocks, 12 in 1048: the twelfth has no name, no unit and is never nonzero)", unit = "per-coefficient units array: J/(mol*K), J/(mol*K^2), (J*K)/mol, J/(mol*K^0.5), J/(mol*K^3), J/(mol*K^4), J/(mol*K^5), (J*K^2)/mol, J/mol, J/(mol*K^1.5), J/(mol*K) giving the terms T^0, T^1, T^-2, T^-0.5, T^2, T^3, T^4, T^-3, T^-1, T^0.5 and a10 (inferred from units)", shape = "list", role = "input" },
+  { name = "m_heat_capacity_ft_coeffs.names", meaning = "a0 to a10", unit = "not applicable", shape = "list", role = "metadata" },
+  { name = "a10 and the unnamed twelfth value", meaning = "present in every block; a10 is nonzero in no block and the code never reads it (commented-out log(T) term)", unit = "J/(mol*K)", shape = "scalar", role = "unread" },
+  { name = "m_phase_trans_props.values", meaning = "Temperature, dS, dH, dV, dT/dP of one transition (5 values)", unit = "K, J/(mol*K), J/mol, J/bar, K/bar (units array); the reader uses only the first four and compares Temperature with the interval bound", shape = "list", role = "input" },
+  { name = "limitsTP.lowerT, upperT, range", meaning = "interval bounds of this entry; range is true in all 2049", unit = "K (inferred)", shape = "table", role = "input" },
+]
+origin = "transcribed (fits from SUPCRT92, Holland-Powell, NEA and other tables, refit into the 11-term form where needed)"
+conventions = "integration starts at Tst for the first interval and at the lower bound of the interval for later ones; entropy and enthalpy increments of transitions are added at the interval boundary; Gibbs energy is integrated from Tr by G = Gr - S (T - Tr) - integral terms; the result is a function of T only (no pressure dependence) and leaves the volume to the volume methods"
+absence = "coefficients a7 to a10 are zero in most blocks (nonzero counts of a0..a9 over 2049 blocks: 2047, 1749, 1542, 230, 919, 776, 64, 23, 70, 1); 2 substances have two intervals and no transition block, which makes the evaluation above the first interval raise 'No phase transition properties present'; single-interval substances (1048) have no transition block"
+validity = "limitsTP per interval; outside all intervals the nearest interval is used and a warning status message is attached"
+provenance = "per-record datasources only"
+count = "2049 cp_ft_equation entries in 1493 substance records (1048 with one interval, 347 with two, 82 with three, 13 with four, 1 with five, plus 2 with two intervals and no transition block); 554 m_phase_trans_props blocks"
+example = "Resources/databases/aq17-thermofun.json#/substances[symbol=Sillimanite]/TPMethods/0"
+candidate = "parameter_set (a form with a family 'piece' indexed by interval), tabulated_function (no), envelope"
+precision = "close"
+loss = "The model's family with an interval per piece fits the intervals; the transition block is a per-boundary row with its own slots, not a slot of a piece; the model has no 'interval continuity with jump' declaration, so the transition increments need a separate nested family. The T^0.5 coefficient is labelled with a J/(mol*K^1.5) unit and multiplied by T^0 in the Cp formula of the code (see discrepancy)."
+
+[[construct]]
+name = "eos_hkf_coeffs"
+locator = "substances/*/TPMethods (method 3 solute_hkf88_reaktoro); ParseJsonToData.cpp read_values_units lines 125-147; Substances/Solute/SoluteHKFreaktoro.cpp"
+meaning = "Helgeson-Kirkham-Flowers parameters of an aqueous species: a1 to a4, c1, c2 and the conventional Born coefficient wref."
+subject = "one aqueous species form"
+fields = [
+  { name = "values", meaning = "8 numbers in all 2009 blocks", unit = "units array with 6 entries: cal/(mol*bar), cal/mol, (cal*K)/mol, cal/(mol*K), (cal*K)/mol, cal/mol; the code overrides the third unit as (cal*K)/(mol*bar) for this field ('temporary fix for bad data')", shape = "list", role = "input" },
+  { name = "names", meaning = "a1, a2, a3, a4, c1, c2, wref (7 names for 8 values)", unit = "not applicable", shape = "list", role = "metadata" },
+  { name = "value 8", meaning = "eighth value, 0 in the records inspected", unit = "not stated", shape = "scalar", role = "unread" },
+]
+origin = "transcribed (SUPCRT92 slop98 and later compilations, per datasources; predicted values from PRONSPREP are labelled in datasources)"
+conventions = "calorie-based units converted to joule by the reader; Tr = 298.15 K, Pr = 1 bar, theta = 228 K, psi = 2600 bar inside the HKF evaluation; the charge that HKF needs is taken from formula_charge, not from the block (Reaktoro's own format stores charge in the block)"
+absence = "no block for species computed from a reaction; wref is always present even for neutral species (where it is used as the Born coefficient of the neutral)"
+validity = "no limitsTP on the HKF entry; HKF validity (to 1000 C and 5 kbar) is in the code comments only"
+provenance = "datasources string on the substance"
+count = "2009 blocks (one per solute_hkf88_reaktoro entry)"
+example = "Resources/databases/aq17-thermofun.json#/substances[symbol=Al(OH)2+]/TPMethods/0"
+candidate = "parameter_set of form hkf (species_form subject, aqueous)"
+precision = "exact"
+loss = "none for the seven named parameters; the extra value and the unit mismatch need a rule."
+
+[[construct]]
+name = "eos_akinfiev_diamond_coeffs, m_landau_phase_trans_props, eos_gas_crit_props"
+locator = "substances/*/TPMethods (methods 4, 5, 9 and 14); ParseJsonToData.cpp lines 369-383"
+meaning = "Three smaller blocks: Akinfiev-Diamond parameters of a neutral aqueous gas; Landau transition parameters of a mineral; and critical-property parameters for a cubic EoS or CORK fluid."
+subject = "one species form"
+fields = [
+  { name = "eos_akinfiev_diamond_coeffs.values", meaning = "7 numbers (no names, no units in the record); the reader converts with units 1, cm3/g, cm3*K^0.5/g for the first three only", unit = "not stated in the record", shape = "list", role = "input" },
+  { name = "m_landau_phase_trans_props.values", meaning = "3 numbers: critical temperature at 1 bar, Smax, Vmax", unit = "degC, J/(mol*K), J/bar (from the reader's unit list, inferred)", shape = "list", role = "input" },
+  { name = "eos_gas_crit_props.values", meaning = "7 numbers; for fluid_prsv names Tcr, Pcr, W, k1 (4 names, units K, bar, '', ''); for fluid_comp_redlich_kwong_hp91 no names", unit = "K, bar, 1, 1 (reader units for the first four)", shape = "list", role = "input" },
+]
+origin = "transcribed (Akinfiev and Diamond 2003; Holland and Powell 1998 and 1991; Stryjek and Vera 1986 for PRSV parameters, per datasources)"
+conventions = "critical temperature in kelvin, critical pressure in bar; the remaining entries of eos_gas_crit_props are EoS specific and carry no labels (CORK's are the a and b coefficients and virial terms per the GEMS TCORKcalc layout, inferred)"
+absence = "unused trailing values are stored as 0; names and units are missing on the AD and CORK arrays"
+validity = "not stated"
+provenance = "per-substance datasources"
+count = "4 eos_akinfiev_diamond_coeffs, 23 m_landau_phase_trans_props, 10 PRSV and 6 CORK eos_gas_crit_props blocks"
+example = "Resources/databases/aq17-thermofun.json#/substances[symbol=CH4@]/TPMethods/1"
+candidate = "parameter_set (forms akinfiev_diamond, landau_transition, cubic_eos_pure)"
+precision = "close"
+loss = "Unlabelled values need their meaning from the code; 7-slot arrays share one block name across EoS families, so the form cannot be read from the block name alone."
+
+[[construct]]
+name = "reaction record"
+locator = "Resources/databases/*.json#/reactions; ParseJsonToData.cpp parseReaction (line 609); Reaction.h"
+meaning = "A reaction with its reactant list, equation text, reference equilibrium constant and reaction properties at Tst and Pst, and methods that extend them to other conditions; a reaction may define a substance."
+subject = "one reaction; keyed by symbol, which equals the symbol of the substance it defines in all 465 records"
+fields = [
+  { name = "symbol", meaning = "unique key; equals the defined substance symbol", unit = "not applicable", shape = "scalar", role = "input" },
+  { name = "equation", meaning = "text such as 5CN- + Ni+2 = Ni(CN)5-3; the reader re-parses it (Reaction::fromEquation) and then overrides the reactant map from the reactants array", unit = "not applicable", shape = "scalar", role = "input" },
+  { name = "reactants", meaning = "list of {symbol, coefficient}; products positive, reactants negative", unit = "stoichiometric coefficient (dimensionless)", shape = "list", role = "input" },
+  { name = "limitsTP", meaning = "{lowerT, lowerP, upperT, upperP, range}; range is false in all 465", unit = "temperatures in K (inferred), pressures stated without unit (values 0.1 and 1000000)", shape = "table", role = "unread" },
+  { name = "Tst, Pst", meaning = "reference conditions", unit = "K, Pa (inferred)", shape = "scalar", role = "input" },
+  { name = "TPMethods", meaning = "list; always [logk_fpt_function, logk_3_term_extrap or logk_nordstrom_munoz88, dr_volume_constant] in these files", unit = "not applicable", shape = "list", role = "input" },
+  { name = "logKr", meaning = "decimal log of the equilibrium constant at Tst, Pst, with errors", unit = "dimensionless (reader unit 1)", shape = "scalar", role = "input" },
+  { name = "drsm_gibbs_energy, drsm_enthalpy, drsm_entropy, drsm_heat_capacity_p, drsm_volume", meaning = "reaction properties at Tst, Pst", unit = "J/mol, J/mol, J/(mol*K), J/(mol*K), J/bar (units arrays)", shape = "scalar", role = "input" },
+  { name = "datasources", meaning = "source labels; absent in 18 records", unit = "not applicable", shape = "list", role = "metadata" },
+]
+origin = "transcribed (logK and dH from the PSI-Nagra 12/07, MINES and CEMDATA compilations; 3-term or Nordstrom-Munoz forms as the dataset authors chose)"
+conventions = "logK is for the written direction with product coefficients positive; the signed coefficient of the defined substance is the divisor when the reaction defines it (ThermoEngine.cpp reacDCthermoProperties); reaction volume is in J/bar"
+absence = "drsm_* blocks are missing in single records (psinagra: 1 record without gibbs, entropy, heat capacity and volume); the limitsTP is not used by any calculation; a reaction without methods is computed from the reactants' properties (thermoPropertiesReactionFromReactants) but no such record occurs here"
+validity = "limitsTP per reaction and per logk_fpt_function entry (range false); not enforced"
+provenance = "datasources per record"
+count = "465 records (psinagra-12-07 440, mines16 18, cemdata18 7)"
+example = "Resources/databases/psinagra-12-07-thermofun.json#/reactions/0"
+candidate = "reaction, reaction_participant, system_reaction (defines), parameter_set"
+precision = "close"
+loss = "Stoichiometry and the reference values map directly; the method list mixes a logK(T) form, an extrapolation marker and a volume marker in one list, and the reference values are sets of slots of the logK form. The link from the reaction to the substance it defines is stored on the substance (field reaction) and implied by equal symbols on the reaction."
+
+[[construct]]
+name = "reaction parameter blocks (logk_ft_coeffs, dr_heat_capacity_ft_coeffs, dr_ryzhenko_coeffs, dr_marshall_franck_coeffs, dr_volume_fpt_coeffs, dr_dolejs_manning10_coeffs)"
+locator = "reactions/*/TPMethods; ParseJsonToData.cpp thermoParamReac (line 395); Reactions/*.cpp"
+meaning = "Coefficient arrays for the reaction models: logK(T) coefficients A0..A6, reaction heat-capacity coefficients, and coefficients of the density-model equations."
+subject = "one reaction"
+fields = [
+  { name = "logk_ft_coeffs.values", meaning = "12 numbers (464 blocks, all length 12; reader units 1, 1/K, K, 1, K^2, 1/K^2, K^0.5 for the first seven); the first seven are A0..A6 of lgK = A0 + A1 T + A2/T + A3 ln T + A4/T^2 + A5 T^2 + A6/T^0.5; in 324 of 464 blocks only one value is nonzero, in 109 two, in 30 three", unit = "no units array in the record", shape = "list", role = "input" },
+  { name = "dr_heat_capacity_ft_coeffs.values", meaning = "12 numbers in 18 blocks; five read with units J/(mol*K), J/(mol*K^2), (J*K)/mol, J/(mol*K^0.5), J/(mol*K^3)", unit = "no units array in the record", shape = "list", role = "input" },
+  { name = "dr_ryzhenko_coeffs.values", meaning = "pK298, A, B of the modified Ryzhenko-Bryzgalin model (3 values); occurs only in test fixtures", unit = "1, 1, 1", shape = "list", role = "input" },
+  { name = "dr_marshall_franck_coeffs.values", meaning = "7 values a..g of the density model; read with units 1, K, K^2, K^3, 1, K, K^2", unit = "no units array", shape = "list", role = "input" },
+  { name = "dr_volume_fpt_coeffs.values", meaning = "reaction volume coefficients a0..a4 in T and P", unit = "1/K, 1/K^2, 1/K^3, 1/bar, 1/bar^2 (reader units)", shape = "list", role = "input" },
+  { name = "dr_dolejs_manning10_coeffs.values", meaning = "5 values a..e of the Dolejs-Manning density model", unit = "kJ/mol, J/(mol*K), J/(mol*K), J/(mol*K^2), J/(mol*K) (reader units)", shape = "list", role = "input" },
+]
+origin = "transcribed"
+conventions = "coefficients are used with T in kelvin and the solvent density in g/cm3 for the density models"
+absence = "zero coefficients stand for terms not used; logk_fpt_function with no block exists once (a reaction whose coefficients are absent); names arrays are absent in the main files"
+validity = "limitsTP on the logk_fpt_function entry only; not enforced"
+provenance = "per-reaction datasources"
+count = "464 logk_ft_coeffs, 18 dr_heat_capacity_ft_coeffs in the main files; the other blocks occur only in fixtures or in ThermoHub"
+example = "Resources/databases/psinagra-12-07-thermofun.json#/reactions/0/TPMethods/0"
+candidate = "parameter_set (forms logk_general_analytic, reaction_cp_polynomial, marshall_franck, dolejs_manning, ryzhenko_bryzgalin)"
+precision = "close"
+loss = "The blocks are unnamed in the files; the coefficient meaning lives in the reader. Extrapolation markers (logk_3_term_extrap) carry no block: the 12-value block sits on the logk_fpt_function entry, so the marker and the coefficients are in different entries."
+
+[[construct]]
+name = "reaction-defined substance"
+locator = "substances/*/reaction and absence of TPMethods; ThermoEngine.cpp reacDCthermoProperties (line 583)"
+meaning = "A substance (class SC_AQSOLUTE or SC_COMPONENT) whose standard properties are not given by a method but are computed from the properties of a reaction that forms it from other substances (a dependent component in the GEMS sense)."
+subject = "one species form plus one reaction"
+fields = [
+  { name = "reaction", meaning = "symbol of the defining reaction (equal to the substance symbol in all 465 records)", unit = "not applicable", shape = "reference", role = "input" },
+  { name = "TPMethods absence", meaning = "the substance has no TPMethods", unit = "not applicable", shape = "enum", role = "input" },
+]
+origin = "authored"
+conventions = "the substance's G0, H0, S0, Cp, V are the reaction properties minus the coefficient-weighted sums over the other participants, divided by the substance's own coefficient; if the substance also has a constant-volume P method the volume correction is added afterwards; gas participants get a pressure correction switched on during this call"
+absence = "a substance with a reaction link but missing reaction returns its reference properties unchanged"
+validity = "inherits from the reaction"
+provenance = "as the reaction"
+count = "465 substances (psinagra-12-07 440, mines16 18, cemdata18 7); reactions and substances are in the same file and resolve in all cases (measured)"
+example = "Resources/databases/psinagra-12-07-thermofun.json#/substances[symbol=Ni(CN)5-3]"
+candidate = "dependency (system_reaction.defines), reaction, species_form"
+precision = "exact"
+loss = "none in structure; the model's 'defines' column on system_reaction and the dependency relation carry it, but the file does not assign a chemical system or a basis (the master species are implied by which substances have methods)."
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES: substances
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "empirical heat-capacity integration (cp_ft_equation)"
+locator = "ThermoFun/Substances/EmpiricalCpIntegration.cpp thermoPropertiesEmpCpIntegration"
+class = "standard_state_species"
+inputs = "T in K (P is ignored); reference properties at Tst"
+parameters = "pure: a0..a9 per interval (a10 and a twelfth value unread), interval bounds, phase-transition rows (T, dS, dH, dV) between intervals"
+composes = []
+variants = [
+  { selector = "cp_ft_equation_saxena86 (code 1)", selects = "accepted by the parser into the T slot (Fei code 203) but the substance evaluation has no branch for it, so it is ignored; no record uses it" },
+]
+equation_source = "none in the code; Cp = a0 + a1 T + a2 T^-2 + a3 T^-0.5 + a4 T^2 + a5 T^3 + a6 T^4 + a7 T^-3 + a8 T^-1 + a9 T^0.5 from the integrals in the code and the unit strings"
+closed_form = "yes"
+data = "constructs 'cp_ft_equation parameter blocks'"
+
+[[model_family]]
+name = "standard entropy and constant Cp integration (standard_entropy_cp_integration)"
+locator = "ThermoFun/Substances/StandardEntropyCpIntegration.cpp; ThermoEngine.cpp T-slot CTM_CST"
+class = "standard_state_species"
+inputs = "T; reference S and Cp at Tst"
+parameters = "pure: none beyond the record's sm_entropy_abs and sm_heat_capacity_p"
+composes = []
+variants = []
+equation_source = "none in the code; G = Gr - S (T - Tr) - Cp (T ln(T/Tr) - (T - Tr)), H = Hr + Cp (T - Tr), S = Sr + Cp ln(T/Tr)"
+closed_form = "yes"
+data = "the substance's reference properties (73 records with this method, all with mv_constant)"
+
+[[model_family]]
+name = "HKF solute, GEMS and Reaktoro implementations (solute_hkf88_gems, solute_hkf88_reaktoro)"
+locator = "ThermoFun/Substances/Solute/SoluteHKFgems.cpp, SoluteHKFreaktoro.cpp; ThermoModelsSubstance.h SoluteHKFgems, SoluteHKFreaktoro"
+class = "standard_state_species"
+inputs = "T, P; water density, dielectric constant and Born functions of the solvent at (T, P)"
+parameters = "pure: a1, a2, a3, a4, c1, c2, wref (plus a formula charge taken from the record)"
+composes = [
+  { slot = "solvent properties (density, alpha, beta, g-function inputs)", accepts = "water equation-of-state model (water_eos_* codes)", default = "the record named by the engine solvent symbol, H2O@" },
+  { slot = "solvent electrostatics (Born functions, dielectric constant)", accepts = "water dielectric model (water_diel_* codes)", default = "the dielectric method on the same solvent record" },
+]
+variants = [
+  { selector = "gems (code 2) versus reaktoro (code 3)", selects = "the GEMS variant works in degC and the gShok2 g function with omeg92; the Reaktoro variant uses functionG and speciesElectroStateHKF; both evaluate the same HKF equations with different implementation details" },
+]
+equation_source = "Tanger and Helgeson 1988 Am. J. Sci. 288:19-98; Johnson, Oelkers and Helgeson 1992 Comput. Geosci. 18:899-947 (both cited in ThermoModelsSubstance.h)"
+closed_form = "yes"
+data = "construct 'eos_hkf_coeffs'"
+
+[[model_family]]
+name = "Akinfiev-Diamond neutral aqueous species (solute_aknifiev_diamond03)"
+locator = "ThermoFun/Substances/Solute/SoluteADgems.cpp; ThermoModelsSubstance.h SoluteAkinfievDiamondEOS"
+class = "standard_state_species"
+inputs = "T, P; properties of liquid water and of water as an ideal gas at (T, P) and at (Tr, Pr); the substance's prior properties from its Cp method"
+parameters = "pure: 7 coefficients in eos_akinfiev_diamond_coeffs"
+composes = [
+  { slot = "solvent thermodynamic properties", accepts = "water equation-of-state model", default = "engine solvent record H2O@" },
+  { slot = "ideal-gas water properties", accepts = "Woolley ideal-gas water", default = "WaterIdealGasWoolley (fixed)" },
+]
+variants = []
+equation_source = "Akinfiev N.N. and Diamond L.W. 2003 Geochim. Cosmochim. Acta 67:613-629"
+closed_form = "yes"
+data = "construct 'eos_akinfiev_diamond_coeffs' (4 records, all CH4@ or similar neutral gases in aq17 and test-aq17)"
+
+[[model_family]]
+name = "Holland-Powell 1998 density model for solutes (solute_holland_powell98) and Anderson 1991 density model (solute_anderson91)"
+locator = "ThermoFun/Substances/Solute/SoluteHollandPowell98.cpp, SoluteAnderson91.cpp"
+class = "standard_state_species"
+inputs = "T, P; water density, expansivity alpha, compressibility beta and d alpha/dT of the solvent at (T, P) and at (Tr, Pr)"
+parameters = "pure: solute_holland_powell98_coeffs (read with unit kJ/(mol*K^2)) for HP98; none for AN91; uses the record's reference G, H, S, V and Cp"
+composes = [
+  { slot = "solvent properties at (T, P) and at reference conditions", accepts = "water equation-of-state model", default = "engine solvent record H2O@" },
+]
+variants = []
+equation_source = "Holland T.J.B. and Powell R. 1998 J. Metamorph. Geol. 16:309-343 (HP98 header); Anderson et al. 1991 (AN91; the header gives no reference text)"
+closed_form = "yes"
+data = "no record in these datasets uses codes 41 or 42 (measured: neither occurs in the method counts)"
+
+[[model_family]]
+name = "Murnaghan volume and Holland-Powell Landau correction (mv_eos_murnaghan_hp98, landau_holland_powell98)"
+locator = "ThermoFun/Substances/Solids/SolidMurnaghanHP98.cpp, SolidHPLandau.cpp"
+class = "standard_state_species"
+inputs = "T, P; reference volume and the Cp-based properties from the cp_ft_equation entry"
+parameters = "pure: bulk modulus (m_compressibility) and expansivity (m_expansivity); for Landau additionally Tc0, Smax, Vmax (m_landau_phase_trans_props)"
+composes = [
+  { slot = "base properties at P = Pr", accepts = "heat-capacity integration model", default = "cp_ft_equation entries of the same record" },
+]
+variants = [
+  { selector = "with or without Landau entry", selects = "adds the Landau excess S, H, Cp and volume terms on top of the Murnaghan pressure integral; both need the same bulk modulus and expansivity" },
+]
+equation_source = "Holland T.J.B. and Powell R. 1998 J. Metamorph. Geol. 16:309-343 (cited in ThermoModelsSubstance.h)"
+closed_form = "yes"
+data = "constructs 'substance record' (m_expansivity, m_compressibility) and 'eos_akinfiev_diamond_coeffs, m_landau_phase_trans_props, eos_gas_crit_props'"
+
+[[model_family]]
+name = "Berman 1988 volume (mv_equation_berman88) and Birch-Murnaghan volume of Gottschalk 1997 (mv_eos_birch_murnaghan_gott97)"
+locator = "ThermoFun/Substances/Solids/SolidBerman88.cpp, SolidBMGottschalk.cpp"
+class = "standard_state_species"
+inputs = "T, P; reference volume; coefficients m_volume_fpt_coeffs (Berman) or eos_birch_murnaghan_coeffs (BM, 12 coefficients per the header comment)"
+parameters = "pure: v1..v5 of Berman's V(T,P) polynomial; K, K', K'' and thermal terms for BM"
+composes = [
+  { slot = "base properties at Pr", accepts = "heat-capacity integration model", default = "cp_ft_equation entries of the same record" },
+]
+variants = []
+equation_source = "Berman R.G. 1988 J. Petrol. 29:445-552 (ThermoModelsSubstance.h); Gottschalk (Fortran translated by D. Kulik 2003)"
+closed_form = "implicit"
+data = "no record in these datasets uses codes 36 or 37 (measured)"
+
+[[model_family]]
+name = "constant molar volume and ideal-gas-law volume (mv_constant, mv_pvnrt)"
+locator = "ThermoFun/ThermoModelsSubstance.cpp ConMolVol (line 741) and IdealGasLawVol (line 784)"
+class = "standard_state_species"
+inputs = "T, P; reference volume (constant) or T/P R (gas)"
+parameters = "none beyond the record's sm_volume"
+composes = []
+variants = [
+  { selector = "mv_constant", selects = "V = V0 at all conditions, G and H shifted by V (P - Pr); applied only if sm_volume is defined" },
+  { selector = "mv_pvnrt", selects = "V = R T / P for class SC_GASFLUID, then the pressure shift is applied if the engine flag apply_pressure_correction_to_gas_props is set" },
+]
+equation_source = "none"
+closed_form = "yes"
+data = "sm_volume of the substance record (1278 mv_constant, 108 mv_pvnrt entries)"
+
+[[model_family]]
+name = "fluid equations of state for pure gases (fluid_prsv, fluid_churakov_gottschalk, fluid_soave_redlich_kwong, fluid_peng_robinson78, fluid_comp_redlich_kwong_hp91, fluid_sterner_pitzer)"
+locator = "ThermoFun/Substances/Gases/GasPRSV.cpp, GasCGF.cpp, GasSRK.cpp, GasPR78.cpp, GasCORK.cpp, GasSTP.cpp calling GEMS TSolMod fluids in s_solmod_.cpp"
+class = "residual_or_excess_contribution"
+inputs = "T, P; critical parameters from eos_gas_crit_props (Tcr, Pcr, omega and EoS-specific extras: 7 slots); the tps from the Cp method supplies the ideal-gas part"
+parameters = "pure: Tcr, Pcr, W, k1 (PRSV) and further unlabelled values; CORK chooses a fluid code letter from the formula (CO2 'C', H2O 'V', otherwise 'G')"
+composes = [
+  { slot = "ideal-gas base properties", accepts = "heat-capacity integration model", default = "cp_ft_equation entries of the same record" },
+]
+variants = [
+  { selector = "apply_pressure_correction_to_gas_props (engine flag)", selects = "adds V (P - Pr) to G and H (applyPressure) after the EoS increment; default false, true inside reaction-defined evaluation" },
+]
+equation_source = "References in s_solmod_.h: Stryjek and Vera 1986 (PRSV), Soave 1972 and 1993 (SRK), Peng and Robinson 1976 and 1978 (PR78), Holland and Powell 1991 (CORK), Sterner and Pitzer 1994 (STP); Churakov and Gottschalk (CG) without a citation in the header"
+closed_form = "implicit"
+data = "construct 'eos_akinfiev_diamond_coeffs, m_landau_phase_trans_props, eos_gas_crit_props' (10 PRSV and 6 CORK records; the code paths for CG, SRK, PR78 and STP are never reached by the data)"
+
+[[model_family]]
+name = "water equation of state: HGK, IAPWS-95 and Zhang-Duan"
+locator = "ThermoFun/Substances/Solvent/WaterHGK-JNgems.cpp, WaterHGKreaktoro.cpp, WaterWP95reaktoro.cpp, WaterZhangDuan2005.cpp; Substances/Solvent/Reaktoro/Water*.cpp; ThermoModelsSolvent.h"
+class = "helmholtz_potential"
+inputs = "T, P, a vapour/liquid state flag (solvent_state 0 liquid, 1 vapour); triple-point property set named by the dataset convention"
+parameters = "global: triple-point properties (HKF_HGK_1974, NEA_HGK, NEA_IAPWS sets in GlobalVariables.h)"
+composes = []
+variants = [
+  { selector = "water_eos_hgk84_lvs83_gems (29)", selects = "Haar-Gallagher-Kell 1984 with the Levelt Sengers 1983 critical-region treatment, GEMS implementation (100 KB file)" },
+  { selector = "water_eos_hgk84_reaktoro (31)", selects = "Haar-Gallagher-Kell 1984, Reaktoro implementation" },
+  { selector = "water_eos_iapws95_reaktoro (32)", selects = "IAPWS 1995 (Wagner and Pruss 2002) Helmholtz energy, Reaktoro implementation" },
+  { selector = "water_eos_iapws95_gems (30)", selects = "declared and mapped to the T slot; no engine branch (no CTM_WAS case in propertiesSolvent)" },
+  { selector = "water_pvt_zhang_duan05 (33)", selects = "Zhang and Duan 2005 PVT equation for high pressure (volume and derived properties only)" },
+]
+equation_source = "Haar L., Gallagher J.S., Kell G.S. 1984 Steam Tables, Hemisphere (ThermoModelsSolvent.h); Wagner W., Pruss A. 2002 J. Phys. Chem. Ref. Data 31(2):387-535; Zhang and Duan 2005 (WaterZhangDuan2005.h)"
+closed_form = "implicit"
+data = "none bundled as parameters; the dataset supplies only the choice through the solvent record (7 records use 32, 1 uses 31, 3 use 29)"
+
+[[model_family]]
+name = "water dielectric constant and Born functions: Johnson-Norton, Fernandez, Sverjensky"
+locator = "ThermoFun/ElectroModelsSolvent.cpp (WaterJNreaktoro, WaterJNgems, WaterElectroFernandez1997, WaterElectroSverjensky2014); Substances/Solvent/Reaktoro/WaterElectroStateJohnsonNorton.cpp"
+class = "model_component"
+inputs = "T, P, solvent density and its derivatives; liquid or vapour state"
+parameters = "global: fixed constants of each correlation"
+composes = [
+  { slot = "solvent density", accepts = "water equation-of-state model", default = "the solvent record's eos method; Sverjensky 2014 is intended with the Zhang-Duan 2005 PVT model" },
+]
+variants = [
+  { selector = "water_diel_jnort91_reaktoro (25) and water_diel_jnort91_gems (26)", selects = "Johnson and Norton 1991 Am. J. Sci. 291:541-648 in the two implementations" },
+  { selector = "water_diel_fern97 (28)", selects = "Fernandez et al. 1997 J. Phys. Chem. Ref. Data 26:1125, valid 238 to 873 K to 1200 MPa" },
+  { selector = "water_diel_sverj14 (27)", selects = "Sverjensky et al. 2014 (dielectric constant in the deep-Earth range)" },
+]
+equation_source = "see variants; citations in ElectroModelsSolvent.h"
+closed_form = "yes"
+data = "none bundled; selected by the dielectric method on the solvent record (9 records use 25, 1 uses 26)"
+
+[[model_family]]
+name = "water ideal-gas properties (Woolley)"
+locator = "ThermoFun/Substances/Solvent/WaterIdealGasWolley.cpp; ThermoModelsSubstance.h WaterIdealGasWoolley"
+class = "explicit_correlation"
+inputs = "T, P"
+parameters = "global: fixed coefficients"
+composes = []
+variants = []
+equation_source = "Woolley H.W. 1980 Thermodynamic Properties for H2O in the Ideal Gas State, in Straub and Scheffler eds., Pergamon (ThermoModelsSubstance.h)"
+closed_form = "yes"
+data = "none bundled; used inside the Akinfiev-Diamond model"
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES: reactions and wrappers
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "logK(T) general analytic form and extrapolation forms (logk_fpt_function, logk_nordstrom_munoz88, logk_1_term_extrap0/1, logk_2_term_extrap, logk_3_term_extrap)"
+locator = "ThermoFun/Reactions/LogK_function_of_T.cpp thermoPropertiesReaction_LogK_fT; ThermoEngine.cpp thermoPropertiesReaction (line 670, CTPM_REA case at line 684)"
+class = "reaction_property"
+inputs = "T in K, P (only through the separate volume method)"
+parameters = "reaction: A0..A6 (logk_ft_coeffs) or reaction Cp coefficients (dr_heat_capacity_ft_coeffs) from which the A coefficients are derived when A is absent"
+composes = [
+  { slot = "pressure correction of logK", accepts = "reaction volume method (dr_volume_constant, dr_volume_fpt)", default = "none: the pressure correction applies only when a P method is present" },
+]
+variants = [
+  { selector = "logk_fpt_function (0) and logk_nordstrom_munoz88 (3)", selects = "the full 7-term analytic form (CTM_LGK); when a record has logk_fpt_function the engine forces the T method to this form regardless of the other entries" },
+  { selector = "logk_1_term_extrap0 (4)", selects = "logK constant, dH = 0" },
+  { selector = "logk_1_term_extrap1 (5)", selects = "dG constant (Gu et al. 1994 per the code comments): lgK = -dH/(RT ln10)" },
+  { selector = "logk_2_term_extrap (6)", selects = "lgK = (dS - dH/T)/(R ln10)" },
+  { selector = "logk_3_term_extrap (7)", selects = "three-term form with constant dCp; chooses among EK0, EK1, EK2, EK3 from which of dH, dS, dCp are defined in the record (function determineMethod) but only when the T method is EK3 (never reached when logk_fpt_function is also listed)" },
+]
+equation_source = "Nordstrom and Munoz 1988 (name of method 3) and Haas and Fisher 1976 style Cp-to-A conversion; no citation text in the code"
+closed_form = "yes"
+data = "construct 'reaction parameter blocks' (464 blocks)"
+
+[[model_family]]
+name = "reaction volume and pressure correction (dr_volume_constant, dr_volume_fpt)"
+locator = "ThermoFun/Reactions/Volume_function_of_T.cpp; ThermoEngine.cpp thermoPropertiesReaction (P-slot switch after the T-slot switch)"
+class = "reaction_property"
+inputs = "T, P, reference reaction volume and optional coefficients a0..a4"
+parameters = "reaction: dr_volume_fpt_coeffs (a0 to a4 in T and P), or none for the constant-volume marker"
+composes = []
+variants = [
+  { selector = "dr_volume_constant (13)", selects = "dG += dV (P - Pr), dH += dV (P - Pr), lgK -= dV (P - Pr)/(R T ln10); entropy recomputed from dH and dG" },
+  { selector = "dr_volume_fpt (12)", selects = "volume polynomial in (T - Tst) and (P - Pst); the code for the G and H terms is commented out, only the volume and logK correction are applied" },
+]
+equation_source = "none in the code"
+closed_form = "yes"
+data = "dr_volume_constant: the reaction's drsm_volume; dr_volume_fpt: none in these datasets"
+
+[[model_family]]
+name = "density-model logK equations (Marshall-Franck, Dolejs-Manning, modified Ryzhenko-Bryzgalin)"
+locator = "ThermoFun/Reactions/FrantzMarshall.cpp, DolejsManning2010.cpp, RyzhenkoBryzgalyn.cpp"
+class = "reaction_property"
+inputs = "T, P, water density, alpha, beta and d alpha/dT at (T, P)"
+parameters = "reaction: MF a..g (7 values); DM a..e (5 values); RB pK298, A, B (3 values); RB fixes the water ion-product constants a..g and rho298 in the code"
+composes = [
+  { slot = "solvent density and its derivatives", accepts = "water equation-of-state model", default = "engine solvent record H2O@" },
+]
+variants = [
+  { selector = "logk_marshall_frank78 (9): logK = a + b/T + c/T^2 + d/T^3 + (e + f/T + g/T^2) log10(rho)", selects = "Marshall and Franck 1981 form, written 'FrantzMarshall' in the file name" },
+  { selector = "logk_dolejs_manning10 (14)", selects = "lnK = -(a/T + b + c ln T + d T + e ln rho)/R, enthalpy, entropy, Cp and volume by differentiation" },
+  { selector = "solute_eos_ryzhenko_gems (10)", selects = "modified Ryzhenko-Bryzgalin model of pK(T, rho) with the water ion product; the engine branch is marked 'NOT TESTED'" },
+]
+equation_source = "no citation in the code files; names of the authors appear in the method codes and file names"
+closed_form = "yes"
+data = "no record in the main databases uses these three methods; fixtures use solute_eos_ryzhenko_gems (pytests/Reactions/Co_Cu_aq-thermofun.json)"
+
+[[model_family]]
+name = "reaction-defined component and reaction-from-reactants evaluation"
+locator = "ThermoEngine.cpp reacDCthermoProperties (line 583) and thermoPropertiesReactionFromReactants (line 782)"
+class = "wrapper"
+inputs = "T, P; the reaction and the properties of every other participant"
+parameters = "none"
+composes = [
+  { slot = "reaction properties", accepts = "reaction model (any logK or density model)", default = "the reaction named by the substance's 'reaction' field" },
+  { slot = "participant standard properties", accepts = "substance standard-state model", default = "the participant's own methods, recursively" },
+]
+variants = []
+equation_source = "none"
+closed_form = "procedural"
+data = "constructs 'reaction-defined substance' and 'reaction record'"
+
+[[model_family]]
+name = "ThermoEngine dispatch (slot order of evaluation)"
+locator = "ThermoEngine.cpp thermoPropertiesSubstance (line 234)"
+class = "wrapper"
+inputs = "T, P, substance symbol, engine preferences and conventions"
+parameters = "global: solvent_symbol H2O@, solvent_state, fallback_to_reference_properties false, apply_pressure_correction_to_gas_props false, apparent_properties BENSON_HELGESON, water_properties GEOCHEMICAL, enable_memoize true with cache size 1e6"
+composes = [
+  { slot = "genEoS, T correction, P correction of a substance", accepts = "standard-state method by slot", default = "absent slots are skipped" },
+]
+variants = [
+  { selector = "EngineConventions.apparent_properties BERMAN_BROWN", selects = "subtracts Tr times the sum of elemental entropies from G for every non-solvent substance" },
+  { selector = "EngineConventions.water_properties STEAM_TABLES", selects = "subtracts the triple-point G, H, S, U, A of the named reference from the solvent substance" },
+]
+equation_source = "none"
+closed_form = "procedural"
+data = "the substance record's TPMethods"
+
+# ---------------------------------------------------------------------------
+# CONVENTIONS
+# ---------------------------------------------------------------------------
+
+[[convention]]
+name = "reference state and apparent properties"
+locator = "ThermoEngine.h EngineConventions; ThermoEngine.cpp toBermanBrown (line 138), toSteamTables (line 129)"
+statement = "Stored G0, H0, S0, Cp0, V0 are taken at Tst = 298.15 K and Pst = 100000 Pa; by default they are treated as apparent (Benson-Helgeson) properties; Berman-Brown conversion and steam-table water properties are optional post-processing. The JSON does not say whether the G0 of an element or species is a formation energy or an apparent energy, and the record of H+ is replaced by zero in all properties."
+scope = "all substance records"
+
+[[convention]]
+name = "standard states by class"
+locator = "not stated in the JSON; inferred from Substances/ code and GlobalVariables.h enums"
+statement = "No standard state or concentration scale is stated in the records. The code treats SC_AQSOLUTE species with HKF or density models as solutes referred to a solvent (default solvent record H2O@), SC_AQSOLVENT as water whose properties come from an equation of state, SC_GASFLUID with pressure correction optional (ideal gas at Pst unless the flag or an EoS is used) and SC_COMPONENT as a pure phase. The ThermoHub export adds a standard_cscale field (CS_MOLALITY) on 1456 records that ThermoFun JSON lacks. (inferred: from code paths and Reaktoro HKF usage)"
+scope = "substance records"
+
+[[convention]]
+name = "unit strings and their conversion"
+locator = "ThermoFun/Common/Units.cpp; ParseJsonToData.cpp read_values_units (line 125), read_value_unit (line 150), readValueErrorUnit (line 72)"
+statement = "Every numeric property is converted from the unit string in the record to an engine unit through a built-in unit table (SI and common units; a unit string may carry a numeric prefix such as 1e-05/K); with no unit string the engine unit is assumed; array blocks are converted element by element with the engine unit list, padding missing entries with the dimensionless unit. Main databases use one spelling per property (J/mol, J/(mol*K), J/bar); fixtures mix J/(K*mol), kJ/mol and cal/mol."
+scope = "all property blocks"
+
+[[convention]]
+name = "temperature, pressure and amount units of the engine"
+locator = "ThermoModelsSubstance.cpp (conversions at each model entry); GlobalVariables.h"
+statement = "The engine takes T in K and P in Pa at its interface and converts to bar inside most models (P / bar_to_Pa with bar_to_Pa = 1e5), to degC inside the GEMS HKF implementation; volumes are J/bar (1 J/bar = 10 cm3/mol); the gas constant is 8.31451 J/(mol*K); the calorie is 4.184 J."
+scope = "all evaluations"
+
+[[convention]]
+name = "water triple-point references"
+locator = "GlobalVariables.h waterTripleData; Database.h DatabaseConventions"
+statement = "Three sets of water triple-point properties (HKF_HGK_1974 from Helgeson and Kirkham 1974 p. 1098, NEA_HGK, NEA_IAPWS) make the water equation-of-state properties consistent with the geochemical G0 of liquid water (for example -237140 versus -237181 J/mol as stated in the code comment); the dataset selects one through conventions.water_triple_point_reference, default HKF_HGK_1974."
+scope = "water solvent records and any dataset that states conventions"
+
+[[convention]]
+name = "reaction sign convention"
+locator = "reactions/*/reactants; ParseJsonToData.cpp getReactants; Reaction.cpp"
+statement = "Reaction coefficients are negative for species consumed and positive for species produced in the written equation; logKr and drsm_* refer to that direction. For a reaction that defines a substance, the defined species has a positive coefficient and the properties are divided by it."
+scope = "reaction records"
+
+# ---------------------------------------------------------------------------
+# SELECTION
+# ---------------------------------------------------------------------------
+
+[[selection]]
+name = "method slot assignment and evaluation order for a substance"
+locator = "ParseJsonToData.cpp setTPMethods_old (line 225) and getTPMethods (line 329); ThermoEngine.cpp thermoPropertiesSubstance (line 234)"
+rule = "Each TPMethods entry is placed in one of three slots by its numeric code (genEoS, T correction, P correction); a later entry for the same slot replaces the earlier (only cp_ft_equation entries accumulate as intervals); evaluation then runs genEoS first, then the T slot, then the P slot, each step refining the properties of the previous one; list order in the JSON is irrelevant."
+scope = "substance standard properties"
+documented = "no: no documentation states the slot mechanism; the README and docs/index.md describe usage only"
+
+[[selection]]
+name = "reaction-defined, constant-volume and no-method substances"
+locator = "ThermoEngine.cpp getThermoPreferencesSubstance (line 161)"
+rule = "A substance is computed from its reaction (isReacDC) when it has thermoCalculationType REACDC (no TPMethods and a reaction link), no method at all, or only a constant-volume P method with no genEoS and no T method; H+ is fixed to zero in all properties by symbol; water is treated as a solvent by class SC_AQSOLVENT, or as water vapour only when genEoS is the HKF code and the P slot is the gas code."
+scope = "substance standard properties"
+documented = "no"
+
+[[selection]]
+name = "choice of solvent record"
+locator = "ThermoEngine.cpp getThermoPreferencesSubstance (line 161, solvent scan near line 195); ThermoEngine.h EnginePreferences.solvent_symbol"
+rule = "Solutes use the record whose symbol is solvent_symbol (default H2O@); if the database has no such record the engine scans the substance map in symbol order and keeps the last substance of class SC_AQSOLVENT; the dielectric and equation-of-state choices are whatever methods that record lists."
+scope = "HKF, Holland-Powell, Anderson, Akinfiev-Diamond and density-model reactions"
+documented = "partly: setSolventSymbol has a one-line doc; the fall-back scan is code only"
+
+[[selection]]
+name = "temperature interval choice in cp_ft_equation"
+locator = "Substances/EmpiricalCpIntegration.cpp lines 55-145"
+rule = "The interval with lower <= T < upper is used; outside all intervals the first interval if T <= the first lower bound, the last if T >= the last upper bound, and in a gap the interval whose bound is nearer; intervals must be ordered and non-overlapping or the evaluation returns the reference properties with a parameter error; phase-transition rows are applied in order at each boundary."
+scope = "cp_ft_equation"
+documented = "no: comments in the code only"
+
+[[selection]]
+name = "logK method override"
+locator = "ThermoEngine.cpp thermoPropertiesReaction (line 670, CTPM_REA case at line 684): case CTPM_REA sets method_T to CTM_LGK"
+rule = "A reaction whose list contains logk_fpt_function (code 0, genEoS slot CTPM_REA) is always evaluated with the 7-term analytic form whatever extrapolation or Nordstrom-Munoz entry it also lists; the extrapolation forms act only for reactions that do not list logk_fpt_function."
+scope = "reaction logK evaluation; all 465 reactions in the main databases list logk_fpt_function first"
+documented = "no"
+
+[[selection]]
+name = "fallback to reference properties"
+locator = "ThermoEngine.cpp fallbackThermoPropertiesSubstance (line 468); EnginePreferences.fallback_to_reference_properties"
+rule = "When the flag is set, any property left 'notdefined' after the methods ran is replaced by the record's stored reference value; the default is false, so a property with no computing method is returned undefined (volume is the usual case)."
+scope = "substance standard properties"
+documented = "yes: the flag has a comment in ThermoEngine.h"
+
+[[selection]]
+name = "water model for a dataset"
+locator = "Resources/databases/*.json substance H2O@ and Database.h DatabaseConventions"
+rule = "The dataset chooses its water model by listing the equation-of-state and dielectric methods on its H2O@ record (the 7 main files: iapws95_reaktoro plus jnort91_reaktoro in 6 of them and in the misc file variants with hgk84) and its convention by an optional conventions object; there is no engine-level preference among water models beyond the solvent symbol."
+scope = "all solute models"
+documented = "no"
+
+# ---------------------------------------------------------------------------
+# DISCREPANCIES
+# ---------------------------------------------------------------------------
+
+[[discrepancy]]
+locator = "substances m_expansivity and m_compressibility; ParseJsonToData.cpp read_value_unit lines 150-180; SolidMurnaghanHP98.cpp lines 15-16"
+documented = "The units arrays say m_compressibility is in 1e-05/K and m_expansivity is in kbar."
+actual = "m_compressibility holds a bulk modulus in kbar (values up to 5800, 9 zeros) and m_expansivity holds an expansivity in 1/K (values 5e-6 to 2.7e-4); the reader has 'temporary fixes' that relabel the units and multiplies expansivity by 1e5 on reading and by 1e-5 in the models, so the net number is the stored one."
+consequence = "A reader that trusts the unit strings would convert the wrong physical quantity; a mapping must key the quantity by the code's use, not by the field name or unit."
+
+[[discrepancy]]
+locator = "substances TPMethods eos_hkf_coeffs; ParseJsonToData.cpp read_values_units lines 125-147"
+documented = "The block declares 7 names and 6 units."
+actual = "All 2009 blocks carry 8 values; the third unit label '(cal*K)/mol' is overridden by the reader with the expected '(cal*K)/(mol*bar)' ('temporary fix for bad data'); the eighth value is never read."
+consequence = "The unit strings of the HKF block are unreliable; the reader's unit list, not the record's, states the units."
+
+[[discrepancy]]
+locator = "Substances/EmpiricalCpIntegration.cpp line 155 versus lines 215-235"
+documented = "Unit strings and the integrals in the same file give the a9 term as T^0.5."
+actual = "The heat-capacity value is computed with pow(TK, (1 / 2)), integer division, which is T^0, so the a9 term adds a9 rather than a9 sqrt(T) to Cp while H, S and G integrate a sqrt(T) term; a9 is nonzero in one block of 2049."
+consequence = "Cp and the integrated properties are inconsistent for records with a nonzero a9; effect confined to one block in these data."
+
+[[discrepancy]]
+locator = "ThermoEngine.cpp thermoPropertiesReaction (line 670, CTPM_REA case at line 684) versus reactions TPMethods lists"
+documented = "The data list three methods per reaction: logk_fpt_function, then logk_3_term_extrap (447) or logk_nordstrom_munoz88 (18), then dr_volume_constant."
+actual = "The logk_fpt_function entry makes the engine use the 7-term analytic form; the 3-term extrapolation and Nordstrom-Munoz entries have no effect on evaluation when logk_fpt_function is present and carry no parameters themselves."
+consequence = "The method name in the record (for example logk_3_term_extrap) does not say what is evaluated; the coefficients that are used sit on a different entry."
+
+[[discrepancy]]
+locator = "status arrays in pytests/*.json versus Common/ThermoScalar.hpp lines 28-35"
+documented = "Fixture property blocks have a status list such as [{3: CALCULATED}]."
+actual = "The status is never read; the run-time enum has notdefined 0, read 1, calculated 2, assigned 3, initialized 4, outofbounds 5, so the code 3 in the fixtures would denote 'assigned' if it were the same numbering; the JSON name says CALCULATED."
+consequence = "Status codes cannot be mapped to provenance; they are not evidence for which values were computed."
+
+[[discrepancy]]
+locator = "GlobalVariables.h substance_method_parameters versus data: solute_eos_ryzhenko_gems"
+documented = "The code maps solute_eos_ryzhenko_gems to the block dr_ryzhenko_coeffs (3 values) and reads it with unit list 1, 1, 1."
+actual = "The ThermoHub export attaches dr_marshall_franck_coeffs (12 values, 32 reactions) to method 10; the fixture in pytests/Reactions carries dr_ryzhenko_coeffs."
+consequence = "A record of method 10 may hold parameters of a different equation than the method implies; the engine branch for this method is commented 'NOT TESTED'."
+
+[[discrepancy]]
+locator = "Database.cpp Impl::fromFile; files misc/water-thermofun.json"
+documented = "A database is a map from symbol to record."
+actual = "The misc water file has two substance records with symbol H2O@; the map keeps the later one; thermodataset, datasources and date are read by no code."
+consequence = "Duplicated symbols lose records silently; file-level identity is not available to the engine."
+
+# ---------------------------------------------------------------------------
+# CAPABILITIES
+# ---------------------------------------------------------------------------
+
+[[capability]]
+calculation = "proposed:standard_state_properties"
+offered = "yes"
+scope = "G0, H0, S0, Cp0, V0, U0, A0 of species at (T, P) through ThermoEngine::thermoPropertiesSubstance with derivatives in T and P (ThermoScalar carries val, ddt, ddp, err and a status)"
+locator = "ThermoFun/ThermoEngine.cpp thermoPropertiesSubstance; Batch/ThermoBatch.cpp"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "proposed:reaction_properties"
+offered = "yes"
+scope = "logK, dG, dH, dS, dCp, dV, dU, dA of reactions at (T, P) including reactions written as an equation string that is not in the database"
+locator = "ThermoEngine.cpp thermoPropertiesReaction (line 670)"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "proposed:solvent_properties"
+offered = "yes"
+scope = "water density, expansivity, compressibility, dielectric constant and Born functions through HGK, IAPWS-95 (Reaktoro) and Zhang-Duan equations and three dielectric correlations"
+locator = "ThermoEngine.cpp propertiesSolvent, electroPropertiesSolvent; ThermoModelsSolvent.h"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "gibbs_minimization"
+offered = "no"
+scope = "ThermoFun calculates standard-state properties only; it has no equilibrium or speciation solver (the tests compare against GEMS4R outputs)"
+locator = "ThermoFun/ (no equilibrium code); tests/autoTest/src/main.cpp"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "aqueous_speciation"
+offered = "no"
+scope = "no activity models or speciation; the dielectric and Born outputs serve external solvers"
+locator = "ThermoFun/ (no activity code)"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "parameter_regression"
+offered = "no"
+scope = "no fitting functions in the library (ThermoFun/OptimizationUtils.h holds helper templates for derivatives)"
+locator = "ThermoFun/OptimizationUtils.h"
+evidence = "source_inspected"
+
+# ---------------------------------------------------------------------------
+# QUESTIONS
+# ---------------------------------------------------------------------------
+
+[[question]]
+about = "gas-phase water record in heracles-thermofun.json (symbol H2O, class SC_GASFLUID, AS_GAS, methods water_eos_hgk84_reaktoro and fug_critical_param, both with empty blocks)"
+question = "How does the engine evaluate this record? Class is not SC_AQSOLVENT, genEoS is unset (so isH2Ovapor is false), the T slot holds a water equation-of-state code that the non-solvent branch does not handle, and the P slot holds the gas code that has no case."
+why_it_matters = "It is the only water vapour record in the datasets; if it evaluates to undefined properties, gas-phase water has no thermodynamics in ThermoFun data."
+
+[[question]]
+about = "twelfth coefficient in m_heat_capacity_ft_coeffs (1048 blocks) and eighth value in eos_hkf_coeffs (2009 blocks)"
+question = "What do these extra values mean? They have no name and no unit and are never read; the twelfth is zero in every block."
+why_it_matters = "Format drift from an earlier schema; a loader must either drop or carry them, and dropping must be recorded."
+
+[[question]]
+about = "limitsTP of reactions (lowerP 0.1, upperP 1000000, range false) and the substance-level limitsTP that the reader looks for"
+question = "In which unit are the pressure limits stated, and what does range=false mean? The ThermoHub dataset records give upperP 500000000 with upperT 1273.15 for the HKF datasets (inferred: Pa, which would be 5 kbar), but the file itself states no unit."
+why_it_matters = "These are the only stated validity limits for reactions, and the engine ignores them; the envelope for a parameter set cannot be recovered without the unit."
+
+[[question]]
+about = "ThermoFun 'errors' arrays"
+question = "What statistic does an error denote, and is the zero that appears in 322 of the 331 aq17 sm_ errors arrays a true zero or an unknown?"
+why_it_matters = "Uncertainty is a declared kind in the model; loading the zeros as stated uncertainties would assert precision the sources do not claim."
+
+[[question]]
+about = "the status code {3: CALCULATED} in test fixtures (548 occurrences)"
+question = "Which properties are marked calculated and with which method? The fixture databases come from a newer exporter that also writes conventions."
+why_it_matters = "It is the only trace of value provenance inside the format; it is unread by the code in this pin."

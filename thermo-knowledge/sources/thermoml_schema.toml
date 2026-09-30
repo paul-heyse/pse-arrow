@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "thermoml_schema"
+title = "ThermoML schema"
+tier = "B"
+homepage = "https://www.nist.gov/mml/acmd/trc/thermoml"
+waves = [1]
+notes = "The XSD annotation reads ThermoML version 4.0 while archive instances declare version 2.0. The checksum is the one published for the data.nist.gov copy, which has the same size."
+
+[acquire]
+kind = "file"
+files = [
+  { url = "https://trc.nist.gov/ThermoML.xsd", name = "ThermoML.xsd", sha256 = "5c9945ce07c2a0c4d7bd249ba4d1f76b4a37eba0b872f1f1f6656b4df247ab89" },
+]
+
+[payload]
+reader = "thermoml_schema"
+environment = "core"
+include = ["ThermoML.xsd"]
+exclude = []
+
+[[rights]]
+scope = "data"
+basis = "licence_grant"
+statement = "data.nist.gov record: NIST open licence."
+url = "https://www.nist.gov/open/license"
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

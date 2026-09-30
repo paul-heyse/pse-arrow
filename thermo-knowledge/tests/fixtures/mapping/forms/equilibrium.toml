@@ -1,0 +1,21 @@
+module = "mapping_equilibrium"
+uses = ["physical", "provenance", "identity", "parameters", "reactions", "observables"]
+doc = "A form whose contract has an output with the observable of an equilibrium constant, for the tests of the standard states its reactions need."
+
+[contracts.fixture_equilibrium_constant]
+doc = "The base-ten logarithm of the equilibrium constant of a reaction."
+roles.r = { type = "reaction", doc = "The reaction." }
+outputs.log_k = { type = "Scalar", observable = "log10_equilibrium_constant", doc = "The logarithm of the constant." }
+
+[forms.fixture_log_k]
+doc = "A constant logarithm of the equilibrium constant, one for each reaction."
+implements = "fixture_equilibrium_constant"
+completeness = "opaque_bundle"
+status = "catalogued"
+
+[forms.fixture_log_k.slot_groups.pure]
+doc = "The logarithm of the equilibrium constant of one reaction."
+subject.r = { type = "reaction", doc = "The reaction." }
+
+[forms.fixture_log_k.slot_groups.pure.slots]
+log_k = { type = "Scalar", doc = "The logarithm of the constant." }

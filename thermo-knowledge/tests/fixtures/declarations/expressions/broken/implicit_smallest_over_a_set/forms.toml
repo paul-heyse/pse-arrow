@@ -1,0 +1,26 @@
+module = "expr_case"
+uses = ["physical", "identity", "exprtypes"]
+doc = "A broken expression case."
+
+[contracts.c]
+doc = "A contract."
+sets.s = { type = "species", doc = "A set." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+arguments.u = { type = "Scalar", doc = "A parameter." }
+arguments.w = { type = "Scalar", over = ["s"], doc = "Indexed." }
+outputs.value = { type = "Scalar", doc = "The value." }
+
+[forms.f]
+doc = "The form under test."
+implements = "c"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.f.implicit.b]
+doc = "The block."
+unknowns.x = { type = "Scalar", over = ["s"], lower = 0, upper = 1 }
+residuals = ["x[i] - u for i in s"]
+select = "largest"
+
+[forms.f.outputs]
+value = "u"

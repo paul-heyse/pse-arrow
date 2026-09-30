@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "reaktoro"
+title = "Reaktoro"
+tier = "A"
+homepage = "https://github.com/reaktoro/reaktoro"
+waves = [4]
+notes = "The embedded databases are copies of other sources (PHREEQC set, Burcat, NASA CEA, SUPCRT, PSI/Nagra, CEMDATA18, HERACLES). They are reconciled with those sources by equivalence assessment, not treated as new facts."
+
+[acquire]
+kind = "git"
+url = "https://github.com/reaktoro/reaktoro.git"
+commit = "3c5838e7c0ed2931ad152176414cb786311dbe47"
+tag = "v2.13.0"
+submodules = []
+sparse = []
+
+[payload]
+reader = "reaktoro"
+environment = "core"
+include = ["embedded/**"]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "LGPL-2.1-or-later"
+statement = "LICENSE: LGPL-2.1."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = true
+observed = "2026-09-30 reconnaissance"
+
+[[rights]]
+scope = "embedded/databases/**"
+basis = "not_stated"
+statement = "Third-party thermodynamic databases redistributed inside the repository; each has its own origin and terms."
+store = "yes"
+redistribute = "not_stated"
+commercial = "not_stated"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

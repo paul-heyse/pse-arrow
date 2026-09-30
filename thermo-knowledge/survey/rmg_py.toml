@@ -1,0 +1,1018 @@
+source = "rmg_py"
+pin = "5c33e07e0999"
+surveyed = "2026-09-30"
+summary = "RMG-Py 4.0.0 (sparse checkout of rmgpy/ and arkane/: 358 files, 52954443 bytes) contributes the loaders that give meaning to the RMG-database files (Database.load, tree descent, logic nodes, the adjacency-list parser and the atom-type vocabulary of 131 types), the thermo model classes ThermoData, NASA and Wilhoit with their conversions and fits, about twenty rate-law classes, statistical-mechanics modes, the group-additivity thermo estimator (libraries, radical hydrogen-bond increments, ring and polycyclic corrections, symmetry) and the kinetics rate-rule estimator, the Abraham LSER solvation equations, Joback transport estimation and the Arkane thermo-from-quantum-chemistry jobs; it bundles no thermodynamic data of its own beyond arkane example logs, and its thermochemistry conventions are spread over modules (gas constant 8.314472 in constants.py, two different standard pressures, hard-coded factors in several places)."
+
+# ---------------------------------------------------------------------------
+# PAYLOADS
+# ---------------------------------------------------------------------------
+
+[[payload]]
+paths = ["rmgpy/**/*.py", "rmgpy/**/*.pyx", "rmgpy/**/*.pxd"]
+format = "Python and Cython sources (pyx implementation, pxd declarations) of the RMG-Py library; excluding rmgpy/tools/data"
+files = 182
+bytes = 4408941
+records = "not applicable: code only (106 .py 3252420 bytes, 36 .pyx 996170 bytes, 40 .pxd 160351 bytes, counted by listing); the survey covers rmgpy/thermo, kinetics, pdep, statmech, molecule, data, quantity.py, constants.py, species.py, reaction.py, transport.py"
+reader = "python3 for .py; .pyx and .pxd are Cython and were read as text; nothing was compiled or imported"
+read_by_source = "all"
+notes = "The Cython modules define the numerical classes (thermo, kinetics, statmech, pdep, part of molecule); the class docstrings are the only documentation in the tree, so the survey cites them and the code together. No rmgpy file contains data tables for thermodynamics; the data come from RMG-database (survey rmg_database)."
+
+[[payload]]
+paths = [
+  "arkane/*.py",
+  "arkane/encorr/*.py",
+  "arkane/ess/*.py",
+  "arkane/README.md",
+]
+format = "Python sources of Arkane: jobs for thermo, statistical mechanics, kinetics and pressure dependence, electronic-structure-software parsers (ess), and corrections (encorr: atom energies, bond additivity, isodesmic, reference species)"
+files = 33
+bytes = 649674
+records = "not applicable: code only (32 .py 646729 bytes, 1 .md 2945 bytes)"
+reader = "python3 (text read only)"
+read_by_source = "all"
+notes = "Arkane reads RMG-database input/quantum_corrections and input/reference_sets at import time (arkane/encorr/data.py lines 58-60, arkane/encorr/reference.py line 52)."
+
+[[payload]]
+paths = ["arkane/data/**"]
+format = "Quantum-chemistry output logs (Gaussian, Q-Chem, Molpro, Orca, Psi4, TeraChem, xTB), input files and small YAML and Python examples"
+files = 99
+bytes = 47568383
+records = "not applicable: example calculation output (19 .log, 50 .out, 4 .LOG, 1 .zip of 15437058 bytes, 4 .yml, 4 .py and small files), counted by listing"
+reader = "arkane/ess parsers (for example arkane/ess/gaussian.py) read the logs; not a knowledge-base payload"
+read_by_source = "partly"
+notes = "Test and example inputs for Arkane; the pinned thermodynamic content is not in them. Out of scope for rows."
+
+[[payload]]
+paths = ["rmgpy/tools/data/**"]
+format = "Example Chemkin mechanisms (.inp, .txt), species dictionaries and small Python drivers for the tools"
+files = 36
+bytes = 310917
+records = "not applicable: 14 .inp, 12 .txt, 9 .py and 1 .dat, counted by listing"
+reader = "rmgpy/chemkin.pyx and rmgpy/tools drivers"
+read_by_source = "partly"
+notes = "Test inputs for mechanism tools; not data for the knowledge base."
+
+[[payload]]
+paths = ["LICENSE.txt", "rmgpy/rmgrc_template", "rmgpy/solver/files/**"]
+format = "Licence text (MIT), an rc-file template and three small Chemkin test mechanisms with species dictionaries"
+files = 8
+bytes = 16528
+records = "not applicable"
+reader = "none of the thermodynamic code"
+read_by_source = "partly"
+notes = "Listed so that file counts reconcile to 358."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS (in-memory classes; only what adds to the database files)
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "Entry and Database (loaded records and tree)"
+locator = "rmgpy/data/base.py Entry (line 51), Database (line 150), Database.load (line 204), _load_tree (line 497), get_entries_to_save (line 266)"
+meaning = "The in-memory form of a database file: an ordered mapping label to Entry, a list of top nodes, and for tree files the parent and children links; every database subclass converts keyword arguments of entry() into an Entry whose item is a structure or pattern and whose data is the parameter object."
+subject = "One loaded file (Database) and one record (Entry)."
+fields = [
+  { name = "index, label", meaning = "integer and unique string of the entry", unit = "not applicable", shape = "scalar", role = "input" },
+  { name = "item", meaning = "the structure: Molecule, Group, LogicOr or LogicAnd, Reaction, Species list, or None", unit = "not applicable", shape = "reference", role = "input" },
+  { name = "data", meaning = "the parameter object: ThermoData, NASA, Wilhoit, rate object, SoluteData, SolventData, GroupFrequencies, Conformer, TransportData, CriticalPointGroupContribution, a string pointer or None", unit = "see model constructs", shape = "reference", role = "input" },
+  { name = "parent, children, level", meaning = "tree links set by tree(); level is an attribute added at load", unit = "not applicable", shape = "reference", role = "input" },
+  { name = "data_count", meaning = "number of data behind the value; set by solvation loaders from dataCount; the thermo loaders never set it", unit = "not applicable (count)", shape = "scalar", role = "metadata" },
+  { name = "reference, reference_type, short_desc, long_desc", meaning = "attribution and notes", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "rank", meaning = "integer confidence; read by kinetics selection and fitting and by ring-group choice, not by thermo library lookup", unit = "not applicable (integer)", shape = "scalar", role = "input" },
+  { name = "nodal_distance", meaning = "distance to the parent node; filled from the family's tree_distances when missing (default 1)", unit = "not applicable (number)", shape = "scalar", role = "computed" },
+  { name = "metal, facet, site, binding_energies, surface_site_density", meaning = "surface fields used by adsorption and metal libraries", unit = "eV/molecule and mol/cm^2 for the last two", shape = "scalar", role = "input" },
+]
+origin = "computed (objects are built at load time from the file contents)"
+conventions = "Files are executed with builtins removed and a context of the loader's methods and data classes (base.py lines 214-240). Labels key entries except in kinetics depositories and libraries (keyed by index) and in KineticsRules (label maps to a list of entries)."
+absence = "data = None is kept as a value; the consequence is decided by each estimator."
+validity = "not applicable"
+provenance = "reference, reference_type, short_desc and long_desc as loaded"
+count = "not applicable: class"
+example = "rmgpy/data/base.py line 51"
+candidate = "the record-level concepts: source_entity for the record, parameter_set for its data, group for tree nodes"
+precision = "close"
+loss = "A node's data can be a string or None with estimator-specific meaning; the model's value_state covers the string (redirect) but not the None instruction."
+
+[[construct]]
+name = "Molecule, Atom and Bond"
+locator = "rmgpy/molecule/molecule.py (Molecule, Atom, Bond); parser rmgpy/molecule/adjlist.py from_adjacency_list (line 466)"
+meaning = "A molecular graph with element, unpaired electrons, lone pairs, formal charge, bond orders, optional surface site and morphology per atom, plus spin multiplicity, metal and facet for surface species, and a reactive flag."
+subject = "One resonance structure of a species."
+fields = [
+  { name = "atom: element, radical_electrons, lone_pairs, charge, label", meaning = "atomic state and the reaction or pattern label", unit = "not applicable (counts)", shape = "scalar", role = "input" },
+  { name = "atom: site, morphology, isotope", meaning = "surface site name, morphology and mass number (accepted by the parser)", unit = "not applicable", shape = "scalar", role = "input" },
+  { name = "bond: order", meaning = "1 single, 2 double, 3 triple, 4 quadruple, 1.5 benzene, 0 van der Waals; 0.1 (H) and 0.05 (R) in group bonds", unit = "not applicable (number)", shape = "enum", role = "input" },
+  { name = "multiplicity", meaning = "spin multiplicity; taken from the text or computed as radicals + 1", unit = "not applicable (integer)", shape = "scalar", role = "input" },
+  { name = "metal, facet", meaning = "surface and facet of an adsorbate", unit = "not applicable (text)", shape = "scalar", role = "input" },
+  { name = "reactive", meaning = "whether the structure takes part in family reactions; false structures are non-representative resonance forms", unit = "not applicable (flag)", shape = "enum", role = "input" },
+]
+origin = "computed (from the adjacency list)"
+conventions = "Valence, multiplicity and Hund's rule are checked on load; hydrogens are explicit atoms in molecules from libraries; resonance structures are generated on demand (resonance.py) and stored as separate molecules of one Species."
+absence = "An omitted p or c is 0 in a molecule."
+validity = "not applicable"
+provenance = "none"
+count = "not applicable: class"
+example = "rmgpy/molecule/molecule.py"
+candidate = "species (structure key computed by graph canonicalisation) with composition rows and charge"
+precision = "close"
+loss = "Resonance forms belong to one species but are separate graphs; spin multiplicity has no attribute of species; surface site and morphology have no counterpart."
+
+[[construct]]
+name = "Group, GroupAtom and GroupBond (pattern objects)"
+locator = "rmgpy/molecule/group.py GroupAtom (line 135), GroupBond (line 899); parser adjlist.py with group=True"
+meaning = "The parsed form of a pattern: atoms with lists of allowed atom types, unpaired electrons, lone pairs, charges, sites and morphologies and bonds with lists of allowed orders; matching is subgraph isomorphism with the atom-type hierarchy deciding which atoms are a specific case of which."
+subject = "One pattern of a tree node."
+fields = [
+  { name = "atomtype", meaning = "list of AtomType objects; an atom matches if its type is a specific case of any of them", unit = "not applicable (vocabulary)", shape = "list", role = "input" },
+  { name = "radical_electrons, lone_pairs, charge", meaning = "lists of allowed values; empty means wildcard", unit = "not applicable (counts)", shape = "list", role = "input" },
+  { name = "order (bond)", meaning = "list of allowed bond orders (S D T Q B vdW H R)", unit = "not applicable (number)", shape = "list", role = "input" },
+  { name = "label", meaning = "the '*' labels that anchor matching", unit = "not applicable (text)", shape = "scalar", role = "input" },
+]
+origin = "computed (parsed from the pattern text)"
+conventions = "Specificity is structural: an atom is a specific case of a group atom when its atom type is a specific case of one of the listed types and its radicals, lone pairs and charge fall in the lists; a bond is a specific case when its order is in the list. A labelled atom must map to the labelled atom."
+absence = "An empty list is a wildcard in a group and a missing value defaulting to 0 in a molecule."
+validity = "not applicable"
+provenance = "none"
+count = "not applicable: class"
+example = "rmgpy/molecule/group.py"
+candidate = "group.pattern (SourceText)"
+precision = "close"
+loss = "The matching semantics (atom-type hierarchy, list wildcards, labelled-atom mapping) cannot be stored; only the text can."
+
+[[construct]]
+name = "AtomType vocabulary"
+locator = "rmgpy/molecule/atomtype.py AtomType (line 44), ATOMTYPES table (line 251), get_atomtype (line 903)"
+meaning = "The atom types used in patterns: each has a label, lists of more generic and more specific types, required counts of single, double (to any, to oxygen, to sulfur, to other), triple, quadruple and benzene bonds, lone pairs and charge, and lists of resulting types under actions (increment or decrement bond, radical, lone pair or charge; form or break a bond)."
+subject = "An atom environment class."
+fields = [
+  { name = "label", meaning = "the atom-type name; 132 definitions give 131 distinct names (Ne is defined twice): e, Rx, Rx!H, X, Xv, Xo, R, R!H, R!H!Val7, Val4, Val5, Val6, Val7, H, H0, H+, Li, Li0, Li+, He, Ne, Ar, C, Ca, Cs, Csc, Cd, Cdc, CO, CS, Cdd, Ct, Ctc, Cb, Cbf, Cq, C2s, C2sc, C2d, C2dc, C2tc, N, N0sc, N1s, N1sc, N1dc, N3s, N3sc, N3d, N3t, N3b, N5sc, N5dc, N5ddc, N5dddc, N5tc, N5b, N5bd, O, Oa, O0sc, O2s, O2sc, O2d, O4sc, O4dc, O4tc, O4b, Si, Sis, SiO, Sid, Sidd, Sit, Sib, Sibf, Siq, P, P0sc, P1s, P1sc, P1dc, P3s, P3d, P3t, P3b, P5s, P5sc, P5d, P5dd, P5dc, P5ddc, P5t, P5td, P5tc, P5b, P5bd, S, Sa, S0sc, S2s, S2sc, S2d, S2dc, S2tc, S4s, S4sc, S4d, S4dd, S4dc, S4b, S4t, S4tdc, S6s, S6sc, S6d, S6dd, S6ddd, S6dc, S6t, S6td, S6tt, S6tdc, Cl, Cl1s, Br, Br1s, I, I1s, F, F1s", unit = "not applicable (vocabulary)", shape = "enum", role = "input" },
+  { name = "generic, specific", meaning = "the hierarchy among types (the partial order that decides specificity)", unit = "not applicable", shape = "list", role = "input" },
+  { name = "single, all_double, r_double, o_double, s_double, triple, quadruple, benzene, lone_pairs, charge", meaning = "allowed counts that define the type; empty list is a wildcard", unit = "not applicable (counts)", shape = "list", role = "input" },
+  { name = "increment_bond ... break_bond", meaning = "type-transition tables used when reaction recipes change an atom", unit = "not applicable", shape = "list", role = "input" },
+]
+origin = "authored (table written in code; a separate file atomtypedatabase.py generates documentation)"
+conventions = "81 of the 131 types occur in the database files (survey rmg_database)."
+absence = "Not applicable."
+validity = "not applicable"
+provenance = "none"
+count = "131 distinct atom types"
+example = "rmgpy/molecule/atomtype.py line 251 onward"
+candidate = "none"
+precision = "unmapped"
+loss = "A structural vocabulary with a hierarchy and action tables; the model holds patterns as text and has no construct for the vocabulary they draw on."
+
+[[construct]]
+name = "LogicOr and LogicAnd"
+locator = "rmgpy/data/base.py LogicNode (line 1120), LogicOr (line 1145), LogicAnd (line 1200), make_logic_node (line 1222)"
+meaning = "Union (OR), intersection (AND) and their negations of named nodes, used as tree node patterns; components may be other logic nodes."
+subject = "A tree node defined by other nodes."
+fields = [
+  { name = "components", meaning = "list of labels or nested logic nodes", unit = "not applicable", shape = "list", role = "input" },
+  { name = "invert", meaning = "NOT flag", unit = "not applicable (flag)", shape = "enum", role = "input" },
+]
+origin = "computed (parsed from the group text)"
+conventions = "'UNION' is an alias of 'OR' in the parser; the pinned data use only flat OR."
+absence = "Not applicable."
+validity = "not applicable"
+provenance = "none"
+count = "not applicable: class"
+example = "rmgpy/data/base.py line 1145"
+candidate = "group whose pattern is the expression"
+precision = "close"
+loss = "No union relation between groups."
+
+[[construct]]
+name = "Species"
+locator = "rmgpy/species.py Species (line 68), get_thermo_data (line 840), get_symmetry_number (line 677), calculate_cp0 (line 767)"
+meaning = "A chemical species as RMG uses it: a list of molecule objects (resonance structures), a thermo object, a conformer, transport data, a symmetry number, reactive flag, augmented InChI and other bookkeeping."
+subject = "A species in a mechanism; identity is isomorphism of any resonance structure (Species.is_isomorphic) and, for libraries, the label."
+fields = [
+  { name = "molecule", meaning = "resonance structures; order is sorted by estimated stability after thermo is estimated", unit = "not applicable", shape = "list", role = "input" },
+  { name = "thermo", meaning = "NASA, Wilhoit or ThermoData", unit = "see thermo constructs", shape = "reference", role = "computed" },
+  { name = "conformer", meaning = "Conformer with E0 set from thermo", unit = "see Conformer", shape = "reference", role = "computed" },
+  { name = "symmetry_number", meaning = "highest symmetry number among resonance isomers and the resonance hybrid; -1 until computed", unit = "not applicable (integer)", shape = "scalar", role = "computed" },
+  { name = "aug_inchi", meaning = "augmented InChI used as a key in mechanisms", unit = "not applicable (text)", shape = "scalar", role = "computed" },
+  { name = "reactive, explicitly_allowed, props", meaning = "participation flag, exemption from forbidden-structure checks and user flags", unit = "not applicable", shape = "scalar", role = "input" },
+]
+origin = "computed (assembled during a run)"
+conventions = "A species' thermo is estimated from libraries or groups only when first requested (thermoengine.submit)."
+absence = "thermo None means not yet estimated."
+validity = "not applicable"
+provenance = "thermo.comment"
+count = "not applicable: class"
+example = "rmgpy/species.py line 68"
+candidate = "species and species_form"
+precision = "close"
+loss = "Bookkeeping attributes of a run (index, creation_iteration) have no meaning in the model."
+
+[[construct]]
+name = "Reaction, TemplateReaction, LibraryReaction and DepositoryReaction"
+locator = "rmgpy/reaction.py Reaction (attributes at line 88); rmgpy/data/kinetics/family.py TemplateReaction (line 75); library.py LibraryReaction (line 56); depository.py DepositoryReaction"
+meaning = "A reaction with reactant and product species, a kinetics object, flags and a source: family template reactions carry the template labels and the family; library reactions the library and entry; depository reactions the depository and entry."
+subject = "A reaction of a mechanism."
+fields = [
+  { name = "reactants, products, specific_collider", meaning = "species lists (at most 3) and an optional named collider", unit = "not applicable", shape = "list", role = "input" },
+  { name = "kinetics, network_kinetics", meaning = "rate object and an optional Arrhenius used for pressure-dependent network exploration", unit = "see rate constructs", shape = "reference", role = "input" },
+  { name = "reversible, duplicate, degeneracy, electrons", meaning = "flags, reaction-path degeneracy and electrons transferred", unit = "not applicable", shape = "scalar", role = "input" },
+  { name = "allow_pdep_route, elementary_high_p, allow_max_rate_violation", meaning = "flags that change how RMG treats a library reaction", unit = "not applicable (flag)", shape = "enum", role = "input" },
+  { name = "rank, comment, is_forward, pairs", meaning = "rank of the kinetics, free-text source description, direction of generation and reactant-product pairing", unit = "not applicable", shape = "scalar", role = "metadata" },
+  { name = "template, family, library, depository, entry", meaning = "source links", unit = "not applicable", shape = "reference", role = "metadata" },
+]
+origin = "computed (created from entries or from family application)"
+conventions = "Reverse rates are generated from forward rates and equilibrium constants computed from species thermo (Reaction.get_equilibrium_constant, reaction.py line 771; reference pressure 1e5 Pa for gas species and a site density of 2.5e-5 mol/m^2 for surface species)."
+absence = "No kinetics means not yet assigned."
+validity = "on the kinetics object"
+provenance = "kinetics.comment records the source chain (see estimate comment construct)"
+count = "not applicable: class"
+example = "rmgpy/reaction.py line 88"
+candidate = "reaction with reaction_participant and a parameter_set of a rate form; reverse rates via reaction_property of equilibrium constants"
+precision = "close"
+loss = "Flags that steer the generator (allow_pdep_route, elementary_high_p, allow_max_rate_violation) are not knowledge."
+
+[[construct]]
+name = "KineticsFamily and ReactionRecipe"
+locator = "rmgpy/data/kinetics/family.py ReactionRecipe (line 301), KineticsFamily (line 544), generate_reactions (line 1765), apply_recipe (line 1339)"
+meaning = "A family holds its group tree (KineticsGroups), its rate rules (KineticsRules), its depositories, the forward template and recipe, and the derived reverse template and recipe; applying the recipe to labelled reactant structures produces products."
+subject = "A reaction family."
+fields = [
+  { name = "forward_template, reverse_template", meaning = "lists of top group nodes for reactants and products; the reverse template is the product template generated from the recipe", unit = "not applicable", shape = "list", role = "computed" },
+  { name = "forward_recipe, reverse_recipe", meaning = "ReactionRecipe: actions CHANGE_BOND, FORM_BOND, BREAK_BOND, GAIN_RADICAL, LOSE_RADICAL, GAIN_PAIR, LOSE_PAIR, GAIN_CHARGE, LOSE_CHARGE; reverse obtained by inverting in reverse order", unit = "not applicable", shape = "list", role = "input" },
+  { name = "own_reverse, reversible, reverse", meaning = "whether the family is its own reverse, reversible, and the name of the reverse family", unit = "not applicable", shape = "scalar", role = "input" },
+  { name = "forbidden", meaning = "ForbiddenStructures for products", unit = "not applicable", shape = "reference", role = "input" },
+  { name = "tree_distances, boundary_atoms, reactant_num, product_num, auto_generated, allow_charged_species, electrons, reverse_map", meaning = "family variables from the groups file", unit = "not applicable", shape = "scalar", role = "input" },
+]
+origin = "computed (from groups.py, rules.py and depositories)"
+conventions = "The recipe docstring says there are five actions and tabulates seven; the code and the data use nine (GAIN_CHARGE and LOSE_CHARGE in addition)."
+absence = "A family with no depository has only rate rules."
+validity = "not applicable"
+provenance = "rule and depository entries"
+count = "134 families in the pinned database"
+example = "rmgpy/data/kinetics/family.py line 544"
+candidate = "reaction (class) with group_scheme role reaction_template and a derivation of kind estimation"
+precision = "broader"
+loss = "The recipe is an algorithm over labelled atoms, and the generation of products from reactants is not data the model stores."
+
+[[construct]]
+name = "estimate comment strings"
+locator = "rmgpy/data/thermo.py add_thermo_data (line 207), _add_group_thermo_data (line 2767), extract_source_from_comments (line 2857); rmgpy/data/kinetics/rules.py estimate_kinetics (lines 440-495), family.py get_kinetics_from_depository (line 2554)"
+meaning = "A free-text string on every estimated thermo or kinetics object that records how it was assembled: for thermo, 'Thermo library: <library>', 'QM <method>', or 'Thermo group additivity estimation: group(<label>) + radical(<label>) + ring(<label>) + polycyclic(<label>) + longDistanceInteraction_noncyclic(<label>) + ... - ring(<label>)' with ' + missing(<atom-type>-<neighbours>)' for groups not found, adsorption strings of the form 'Gas phase thermo for X from <source>. Adsorption correction: + ...'; for kinetics, 'Matched reaction N <label> in <family>/training', 'Estimated from node X', 'Average of [...]', 'Estimated using average of templates ...', 'Exact match found', 'Euclidian distance = d', 'Multiplied by reaction path degeneracy g', 'family: <family>'."
+subject = "One thermo or kinetics object."
+fields = [
+  { name = "comment", meaning = "free text; the thermo grammar is machine-parsed by extract_source_from_comments (tokens split on spaces, '+' or '-' prefix as weight, prefix up to the parenthesis equal to a group database name, label inside the outermost parentheses), which returns Library, QM, GAV (group type to list of (entry, weight)) and ADS dictionaries", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+]
+origin = "computed (written by the estimator)"
+conventions = "Repeated group use appears as repeated tokens; subtracted corrections (polycyclic heuristic, cyclic interaction removal for HBI) appear with '-'; ring labels include the database name 'ring(...)' and 'polycyclic(...)', which prioritize_thermo reads back to rank resonance isomers."
+absence = "An object with no comment was not estimated by these routines."
+validity = "not applicable"
+provenance = "this is the provenance of the estimate"
+count = "not applicable: per object"
+example = "rmgpy/data/thermo.py line 2767"
+candidate = "derivation of kind estimation with derivation_input rows to the group parameter_sets used (weights as +1 or -1 and repeat counts) and group_assignment with origin matcher_derived"
+precision = "broader"
+loss = "The comment carries the group list, weights and repeats only as text; importing the estimate's lineage means parsing the grammar; uncertainty of the estimate is not recorded anywhere in the object (add_thermo_data adds values only)."
+
+[[construct]]
+name = "ScalarQuantity, ArrayQuantity and UnitType factories"
+locator = "rmgpy/quantity.py Units (line 74), ScalarQuantity (line 155), ArrayQuantity (line 338), Quantity (line 588), UnitType (line 687), RateCoefficient (line 815), SurfaceRateCoefficient (line 865)"
+meaning = "A value with a unit string and optional uncertainty; every attribute of a model class goes through a factory that fixes the dimension (Energy, Enthalpy, Entropy, HeatCapacity, Temperature, Pressure, RateCoefficient, Frequency, Length, Volume, Mass, DipoleMoment, SurfaceConcentration and others) and stores the value in SI next to the unit of record."
+subject = "A scalar or array attribute."
+fields = [
+  { name = "value, units", meaning = "the value as written and its unit; value_si is cached", unit = "as written", shape = "scalar", role = "input" },
+  { name = "uncertainty, uncertainty_type", meaning = "additive '+|-' in the unit or multiplicative '*|/' factor; default 0.0", unit = "as written", shape = "scalar", role = "input" },
+  { name = "NOT_IMPLEMENTED_UNITS", meaning = "degC, C, degF, F, degR, R are refused", unit = "not applicable", shape = "list", role = "input" },
+]
+origin = "computed"
+conventions = "SI storage; Energy accepts K (times the gas constant) and cm^-1 by extra dimensionality; 'molecule' and 'molecules' units use 6.02214179e23 per mole; cm^-1 is left unconverted for frequencies; rate coefficients accept the dimensionalities 1/s, m^3/s, m^6/s, m^9/s and their per-mole forms, plus for surfaces m^2, m^5 and m^4 forms; the unit of record is kept so that output reproduces the input spelling."
+absence = "A missing uncertainty is 0.0 and is indistinguishable from an exactly known value."
+validity = "not applicable"
+provenance = "none"
+count = "not applicable: class"
+example = "rmgpy/quantity.py line 155"
+candidate = "quantity types and slot_uncertainty"
+precision = "close"
+loss = "Unit strings follow the quantities package, not pint; conversions must be revalidated; the coverage of the uncertainty is not stated."
+
+[[construct]]
+name = "physical constants module"
+locator = "rmgpy/constants.py lines 30-141"
+meaning = "The constants used by all conversions and model classes."
+subject = "A global constant."
+fields = [
+  { name = "R", meaning = "gas constant", unit = "J/(mol*K); value 8.314472", shape = "scalar", role = "input" },
+  { name = "Na, kB, h, hbar, c, e, amu, pi", meaning = "Avogadro constant 6.02214179e23, Boltzmann 1.3806504e-23, Planck 6.62606896e-34, reduced Planck 1.054571726e-34, light speed 299792458, elementary charge 1.602176565e-19, atomic mass unit 1.660538921e-27", unit = "SI", shape = "scalar", role = "input" },
+  { name = "E_h, a0, m_e, m_n, m_p", meaning = "Hartree energy 4.35974434e-18 J, Bohr radius, electron, neutron and proton masses", unit = "SI", shape = "scalar", role = "input" },
+  { name = "F, epsilon_0", meaning = "Faraday constant 96485.3321233100184 C/mol and vacuum permittivity written 8.8541878128 with no exponent", unit = "C/mol; not stated", shape = "scalar", role = "input" },
+]
+origin = "authored (no edition of the recommended constants is stated; the constants module and arkane/encorr/corr.py disagree on the Hartree energy, so more than one set of values is in use, inferred)"
+conventions = "R is used without recomputation from kB and Na; some modules hard-code other values (see discrepancies)."
+absence = "Not applicable."
+validity = "not applicable"
+provenance = "none"
+count = "16 constants defined"
+example = "rmgpy/constants.py"
+candidate = "convention_set.gas_constant and atomic-weight edition"
+precision = "close"
+loss = "No edition statement exists and the Hartree energy has two values in the trees; a convention_set must pin R = 8.314472 for this source."
+
+[[construct]]
+name = "HeatCapacityModel base attributes and E0"
+locator = "rmgpy/thermo/model.pyx HeatCapacityModel (line 41)"
+meaning = "The common attributes of ThermoData, NASA, NASAPolynomial and Wilhoit: Tmin, Tmax validity limits, E0 (energy at 0 K including zero-point energy), Cp0 and CpInf heat-capacity limits, a label and a comment."
+subject = "A thermo object."
+fields = [
+  { name = "Tmin, Tmax", meaning = "validity limits; is_temperature_valid returns True when undefined", unit = "K", shape = "scalar", role = "input" },
+  { name = "E0", meaning = "ground-state energy including zero-point energy; for Wilhoit computed as enthalpy at 0.001 K", unit = "J/mol (kJ/mol in files)", shape = "scalar", role = "input" },
+  { name = "Cp0, CpInf", meaning = "heat capacity at 0 K and at infinity; found from structure when missing (3.5 or 4.0 R at 0 K by linearity; 2.5 R for an atom; CpInf = Cp0 + (vibrations + 0.5 rotors) R)", unit = "J/(mol*K)", shape = "scalar", role = "input" },
+  { name = "label, comment", meaning = "name and free text", unit = "not applicable", shape = "scalar", role = "metadata" },
+]
+origin = "computed or transcribed"
+conventions = "Formation-referenced enthalpy; E0 shares the formation datum and is not an electronic energy; two thermo objects can be compared with is_similar_to, is_identical_to and discrepancy over the 7-point grid."
+absence = "Undefined Tmin and Tmax mean no limit."
+validity = "Tmin and Tmax"
+provenance = "comment"
+count = "not applicable: class"
+example = "rmgpy/thermo/model.pyx line 41"
+candidate = "envelope (applicability) and convention_set (datum)"
+precision = "close"
+loss = "Cp0 and CpInf of a record are estimates from structure when missing; E0 has no counterpart."
+
+[[construct]]
+name = "SoluteData, SolventData, SolvationCorrection and KfactorParameters"
+locator = "rmgpy/data/solvation.py SolventData (line 358), SolvationCorrection (line 437), KfactorParameters (line 448), SoluteData (line 470), SoluteTSData (line 538), SoluteTSDiffData (line 769)"
+meaning = "Classes beyond the file fields: SolventData gives viscosity and density from correlations or CoolProp; SoluteData computes the McGowan volume from atom counts and a Stokes diffusivity; SolvationCorrection holds enthalpy, Gibbs energy and entropy of solvation; KfactorParameters holds the coefficients of the temperature-dependent K-factor; SoluteTSData and SoluteTSDiffData hold transition-state solute descriptors with twelve coefficients."
+subject = "A solute, a solvent, a solvation result, or a transition state."
+fields = [
+  { name = "SolvationCorrection: enthalpy, gibbs, entropy", meaning = "solvation enthalpy and Gibbs energy at 298 K and entropy", unit = "J/mol, J/mol, J/(mol*K)", shape = "scalar", role = "computed" },
+  { name = "KfactorParameters: lower_T [A, B, C], higher_T D, T_transition", meaning = "coefficients of Harvey's relation below T_transition and of the Japas-Levelt Sengers relation above; K-factor = y_solute / x_solute in a dilute binary", unit = "T_transition in K", shape = "list", role = "computed" },
+  { name = "SolventData.get_solvent_viscosity", meaning = "viscosity from exp(A + B/T + C ln T + D T^E)", unit = "Pa s", shape = "function", role = "computed" },
+  { name = "SoluteData.V", meaning = "McGowan volume summed from atomic volumes (table for H, He, Li, C, N, O, F, Ne, Si, P, S, Cl, Ar, Br, I) minus 6.56 per bond, divided by 100", unit = "cm^3/mol/100", shape = "scalar", role = "computed" },
+]
+origin = "computed"
+conventions = "Hard-coded gas constant 8.314 and the factor 2.303 in calc_g (solvation.py line 2210) differ from constants.R and ln 10."
+absence = "A solvent without name_in_coolprop cannot give saturation properties or a K-factor."
+validity = "298 K for LSER; K-factor below the solvent's critical temperature"
+provenance = "comments on objects"
+count = "not applicable: classes"
+example = "rmgpy/data/solvation.py line 358"
+candidate = "derived observables of an Abraham-LSER form"
+precision = "close"
+loss = "K-factor and Henry-constant relations use CoolProp saturation densities and pressures (an external source) and have no counterpart."
+
+[[construct]]
+name = "Conformer and statmech modes"
+locator = "rmgpy/statmech/conformer.pyx Conformer (line 53); mode.pyx Mode (line 40); translation.pyx IdealGasTranslation (line 68); rotation.pyx LinearRotor (line 104), NonlinearRotor (line 275), KRotor (line 456), SphericalTopRotor (line 631); torsion.pyx HinderedRotor (line 101), FreeRotor (line 596); vibration.pyx HarmonicOscillator (line 69); ndTorsions.py HinderedRotor2D (line 52), HinderedRotorClassicalND (line 432)"
+meaning = "A molecule's statistical-mechanics description: ground-state energy E0, a list of modes, spin multiplicity, optical isomers and optionally atomic numbers, masses and coordinates; thermodynamic functions are sums over modes."
+subject = "A species conformer."
+fields = [
+  { name = "E0, spin_multiplicity, optical_isomers", meaning = "energy including zero-point energy, electronic degeneracy and number of optical isomers", unit = "J/mol; counts", shape = "scalar", role = "input" },
+  { name = "modes", meaning = "IdealGasTranslation(mass), LinearRotor / NonlinearRotor / KRotor / SphericalTopRotor(inertia or rotationalConstant, symmetry), HarmonicOscillator(frequencies), HinderedRotor(inertia, symmetry, barrier or fourier, semiclassical), FreeRotor, HinderedRotor2D, HinderedRotorClassicalND", unit = "amu, amu*angstrom^2, cm^-1, J/mol", shape = "list", role = "input" },
+  { name = "number, mass, coordinates", meaning = "per-atom arrays", unit = "not applicable; amu; m", shape = "list", role = "input" },
+]
+origin = "computed (from quantum-chemistry output by Arkane, or from the database's Conformer entries, or from the group-frequency estimator)"
+conventions = "Q is the product of mode partition functions times spin_multiplicity times optical_isomers; Cp and H are sums of mode values (thermal part only, E0 is not added in Conformer.get_enthalpy); S = R ln(spin_multiplicity * optical_isomers) + sum of mode entropies; rotor partition functions are divided by the symmetry number; the harmonic-oscillator partition function has no zero-point factor; translation uses 101325 Pa."
+absence = "A monatomic species has translation only."
+validity = "not stated"
+provenance = "none"
+count = "not applicable: class"
+example = "rmgpy/statmech/conformer.pyx line 53"
+candidate = "none for a mode list; results feed standard_state thermodynamic parameter sets via a computation derivation"
+precision = "unmapped"
+loss = "A structural model rather than parameters of a declared form; symmetry numbers and optical isomers enter entropy here but the group-additivity thermo handles symmetry separately and has no optical-isomer term."
+
+[[construct]]
+name = "TransportData and CriticalPoint"
+locator = "rmgpy/transport.py TransportData (line 40), get_collision_frequency; rmgpy/data/transport.py CriticalPoint (line 631), CriticalPointGroupContribution (line 655)"
+meaning = "Transport parameters per species and intermediate critical properties of the Joback estimator."
+subject = "A species."
+fields = [
+  { name = "shapeIndex, epsilon, sigma, dipoleMoment, polarizability, rotrelaxcollnum", meaning = "see database survey; epsilon entered in K is multiplied by R and stored as an energy", unit = "J/mol, m, C*m, m^3", shape = "scalar", role = "input" },
+  { name = "CriticalPoint: Tc, Pc, Vc, Tb, linear", meaning = "Joback estimates from group sums", unit = "K, bar, cm^3/mol, K (inferred from the comment in get_transport_properties_via_group_estimates)", shape = "scalar", role = "computed" },
+]
+origin = "computed"
+conventions = "Collision frequency uses the omega(2,2) collision integral of Neufeld form with reduced temperature R T / epsilon."
+absence = "A species with no library entry gets group-estimated parameters; if that fails a fixed table by heavy-atom count applies."
+validity = "not stated"
+provenance = "comment records the source (library name or estimator note)"
+count = "not applicable: class"
+example = "rmgpy/transport.py line 40"
+candidate = "parameter_set of a Lennard-Jones transport form"
+precision = "close"
+loss = "The Neufeld integral coefficients are in code."
+
+[[construct]]
+name = "LevelOfTheory and CompositeLevelOfTheory"
+locator = "arkane/modelchem.py LevelOfTheory (line 98), CompositeLevelOfTheory (line 174)"
+meaning = "A frozen record identifying a quantum calculation: method, basis, auxiliary basis, CABS, software, software version, solvent, solvation method and extra arguments; a composite names the frequency level and the energy level separately."
+subject = "A level of theory; keyed by the standardised attribute values."
+fields = [
+  { name = "method, basis, auxiliary_basis, cabs", meaning = "names standardised by removing spaces and hyphens and lower-casing", unit = "not applicable (text)", shape = "scalar", role = "input" },
+  { name = "software, software_version, solvent, solvation_method, args", meaning = "software identifier, version, solvent and options", unit = "not applicable (text)", shape = "scalar", role = "input" },
+  { name = "freq, energy (composite)", meaning = "two LevelOfTheory members", unit = "not applicable", shape = "reference", role = "input" },
+]
+origin = "authored"
+conventions = "Some methods (B97-D and similar dispersion variants) require software in the key because implementations differ (lot_constraints.yml); lookups fall back from the full key to method and basis only."
+absence = "An omitted field is None and is not printed."
+validity = "not applicable"
+provenance = "none"
+count = "not applicable: class"
+example = "arkane/modelchem.py line 98"
+candidate = "a method description on a computation derivation"
+precision = "unmapped"
+loss = "The model has no structured computation-method record."
+
+[[construct]]
+name = "rank to accuracy map"
+locator = "rmgpy/kinetics/uncertainties.pyx rank_accuracy_map (line 74)"
+meaning = "A table converting an integer rank into an accuracy in kcal/mol: 1 to 0.2, 2 to 0.5, 3 to 1.0, 4 to 1.5, 5 to 2.5, 6 to 3.5, 7 to 4.0, 8 to 5.0, and 9, 10, 11, 0, None and the empty string to 14.0."
+subject = "A rank value."
+fields = [
+  { name = "rank", meaning = "key 0 to 11, None or empty", unit = "not applicable", shape = "enum", role = "input" },
+  { name = "accuracy", meaning = "energy accuracy", unit = "kcal/mol", shape = "scalar", role = "input" },
+]
+origin = "authored"
+conventions = "Used to weight training reactions in rule fitting: variance of ln k = (accuracy / (2 R Tref))^2."
+absence = "rank 0, None and the empty string share the worst accuracy."
+validity = "not applicable"
+provenance = "none"
+count = "14 keys"
+example = "rmgpy/kinetics/uncertainties.pyx"
+candidate = "a slot_uncertainty kind for ranked evidence"
+precision = "close"
+loss = "A conversion from an ordinal to a numerical uncertainty, unlike any measured uncertainty."
+
+# ---------------------------------------------------------------------------
+# MODEL FAMILIES
+# ---------------------------------------------------------------------------
+
+[[model_family]]
+name = "ThermoData (piecewise-linear heat-capacity table)"
+locator = "rmgpy/thermo/thermodata.pyx ThermoData (line 38), get_heat_capacity, get_enthalpy, get_entropy (lines 150-340)"
+class = "standard_state_species"
+inputs = "T in K; data on the grid in Tdata"
+parameters = "pure: Tdata, Cpdata, H298, S298; optional Cp0, CpInf, E0, Tmin, Tmax"
+composes = []
+variants = []
+equation_source = "none cited"
+closed_form = "yes"
+data = "supplied by rmg_database constructs 'ThermoData' and 'entry() of a thermo library'"
+
+[[model_family]]
+name = "NASA polynomials"
+locator = "rmgpy/thermo/nasa.pyx NASAPolynomial (line 40), NASA (line 187)"
+class = "standard_state_species"
+inputs = "T in K"
+parameters = "pure: 1 to 3 polynomials each with Tmin, Tmax and 7 coefficients (Cp/R = c0 + c1 T + c2 T^2 + c3 T^3 + c4 T^4; H/(R T) adds c5/T terms; S/R = c0 ln T + c1 T + ... + c6), or 9 coefficients with cm2 T^-2 and cm1 T^-1 terms"
+composes = [
+  { slot = "polynomial pieces", accepts = "NASAPolynomial", default = "2 pieces in the database (select by Tmin and Tmax; an error outside all)" },
+]
+variants = [
+  "7 versus 9 coefficients per polynomial, selected by the length of coeffs",
+]
+equation_source = "none cited in the code; the model catalogue cites Gordon and McBride 1971 for nasa7"
+closed_form = "yes"
+data = "supplied by rmg_database construct 'NASA and NASAPolynomial'"
+
+[[model_family]]
+name = "Wilhoit"
+locator = "rmgpy/thermo/wilhoit.pyx Wilhoit (line 44)"
+class = "standard_state_species"
+inputs = "T in K; y = T/(T + B)"
+parameters = "pure: Cp0, CpInf, a0, a1, a2, a3, B, H0, S0; Cp = Cp0 + (CpInf - Cp0) y^2 [1 + (y - 1)(a0 + a1 y + a2 y^2 + a3 y^3)]; closed-form H and S with integration constants H0 and S0"
+composes = []
+variants = []
+equation_source = "none cited"
+closed_form = "yes"
+data = "supplied by rmg_database construct 'Wilhoit'"
+
+[[model_family]]
+name = "thermo model conversions (ThermoData to Wilhoit, Wilhoit to NASA, NASA to Wilhoit and ThermoData)"
+locator = "rmgpy/thermo/thermodata.pyx to_wilhoit (line 366), to_nasa (line 391); wilhoit.pyx fit_to_data (line 238), fit_to_data_for_constant_b (line 262), to_nasa (line 506), wilhoit_to_nasa (line 617), wilhoit_to_nasa_t_int_opt (line 813); nasa.pyx to_wilhoit (line 376), to_thermo_data (line 352); thermoengine.py process_thermo_data (line 43)"
+class = "regression"
+inputs = "Cp, H298 and S298 sampled from the source thermo object, plus Cp0 and CpInf"
+parameters = "ThermoData to Wilhoit: fits a0..a3 (linear least squares of Cp residuals at fixed B) and sets H0 and S0 to match H298 and S298; B is varied by bounded scalar minimisation over 300 to 3000 K (scipy fminbound, start 500 K) or fixed at 1000 K when called by process_thermo_data. Wilhoit to NASA: fits two polynomials on [Tmin, Tint] and [Tint, Tmax] by constrained least squares to the Wilhoit Cp, weighted 1/T by default, with 0 to 5 continuity constraints at Tint (default 3), Tint optimised unless fixed, and integration constants set so that the low polynomial matches the Wilhoit H and S at 298 K and the high polynomial matches the low one at Tint. NASA to Wilhoit: samples Cp at spacing min(50 K, range/100) and refits. NASA, Wilhoit to ThermoData: samples the 7-point grid."
+composes = []
+variants = [
+  "default NASA conversion range in process_thermo_data: Tmin 100 K, Tmax 5000 K, Tint 1000 K; Arkane uses Tmin 10 K, Tmax 3000 K, Tint 500 K",
+  "weighting flag and continuity order 0 to 5 of Wilhoit.to_nasa",
+]
+equation_source = "none cited"
+closed_form = "procedural"
+data = "none bundled (works on thermo objects)"
+
+[[model_family]]
+name = "thermo estimation for a species (library, QM, HBI, ML, group additivity)"
+locator = "rmgpy/data/thermo.py get_thermo_data (line 1349), get_thermo_data_from_libraries (line 1906), compute_group_additivity_thermo (line 2332), estimate_radical_thermo_via_hbi (line 2206), prioritize_thermo (line 2167)"
+class = "group_contribution"
+inputs = "a Species (list of resonance structures) and the loaded database; no temperature"
+parameters = "group: ThermoData increments from rmg_database group trees; global: hard-coded H atom enthalpy 52.103 kcal/mol (52.103 * 4184 J/mol) subtracted per added hydrogen in the HBI step; default grid 300, 400, 500, 600, 800, 1000, 1500 K"
+composes = [
+  { slot = "library lookup", accepts = "ThermoLibrary entries by isomorphism, in user order", default = "first step; a hit ends the search and its data are not corrected for symmetry" },
+  { slot = "quantum mechanics estimate", accepts = "a QM thermo job (off by default)", default = "absent" },
+  { slot = "radical hydrogen-bond increment", accepts = "thermo of the saturated molecule from libraries, QM, ML or group additivity, plus a radical group increment per radical site and, for rings, removal and re-addition of cyclic pair interactions", default = "tried for radicals before ML and group additivity; saturated library value only" },
+  { slot = "machine-learning estimate", accepts = "an MLEstimator", default = "absent unless configured; only for H, C, N, O species without singlet carbene; rejected when uncertainties exceed cutoffs" },
+  { slot = "primary group additivity", accepts = "group.py nodes for every non-hydrogen, non-halogen atom", default = "final fallback" },
+  { slot = "pair, other, ring and polycyclic corrections", accepts = "longDistanceInteraction_noncyclic (1,4 gauche and 1,5), other, longDistanceInteraction_cyclic (atom pairs over smallest set of smallest rings), ring (per monocycle), polycyclic (per fused ring set)", default = "applied in that order after the primary groups" },
+  { slot = "polycyclic heuristic", accepts = "decomposition into bicyclic cores with single-ring corrections added and subtracted", default = "used when the polycyclic tree gives only a partial or generic match" },
+  { slot = "symmetry", accepts = "species symmetry number sigma", default = "S298 -= R ln sigma for ML and group additivity results only" },
+]
+variants = [
+  "surface species use the adsorption-groups setting (adsorptionPt111 by default), SIDT JSON files when the setting names them, and a metal binding-energy rescaling",
+  "liquid-phase runs try solvent libraries first and add a solvation correction later in thermoengine",
+]
+equation_source = "docstrings cite no paper; comments refer to Benson group additivity and to the gauche and 1,5 interaction corrections"
+closed_form = "procedural"
+data = "supplied by rmg_database thermo groups and libraries"
+
+[[model_family]]
+name = "kinetics template matching and rate-rule estimation"
+locator = "rmgpy/data/kinetics/groups.py get_reaction_template (line 111); rmgpy/data/kinetics/rules.py estimate_kinetics (line 348), _get_average_kinetics (line 273), fill_rules_by_averaging_up (line 172); family.py get_kinetics (line 2586)"
+class = "kinetics"
+inputs = "labelled reactant structures, temperature, pressure where needed, reaction enthalpy at 298 K for EP and BM rules, path degeneracy"
+parameters = "template: one rate object per rule; node distances (default 1 per edge)"
+composes = [
+  { slot = "depository match", accepts = "training (default) and other depositories by reaction isomorphism", default = "tried first" },
+  { slot = "rate rule", accepts = "the exact template, else the nearest templates by Euclidean distance over parent steps with averaging (mean of log10 A, n, alpha, E0)", default = "used when no depository reaction matches" },
+  { slot = "tree uncertainty selection", accepts = "autoGenerated families: a parent is chosen when its error estimate is smaller than the child's", default = "only for autoGenerated families" },
+]
+variants = [
+  "autoGenerated families (39 in the database) use RateUncertainty and the parent-comparison rule",
+  "training-derived rules: ArrheniusEP with alpha 0 (plain Arrhenius) or the fitted BM rules",
+  "surface and charge-transfer families average SurfaceArrheniusBEP, StickingCoefficientBEP and SurfaceChargeTransferBEP (Marcus rules are averaged by average_kinetics)",
+]
+equation_source = "no citation in these routines; ArrheniusBM docstring cites Blowers and Masel (2000)"
+closed_form = "procedural"
+data = "supplied by rmg_database kinetics families"
+
+[[model_family]]
+name = "Blowers-Masel rule fitting and uncertainty"
+locator = "rmgpy/data/kinetics/family.py _make_rule (line 4595), make_bm_rules_from_template_rxn_map (line 3538); rmgpy/kinetics/arrhenius.pyx ArrheniusBM.fit_to_reactions (line 612)"
+class = "regression"
+inputs = "the training reactions of a tree node with their ranks, degeneracies and reaction enthalpies at 298 K, at temperatures 300 to 2000 K (default list of 11) and Tref 1000 K"
+parameters = "fitted: A, n, E0 with w0 estimated from the recipe bond energies; fitted to ln k of each reaction; fallback to an averaged Arrhenius when E0 < 0 or |n| > 5, with a comment stating why; uncertainty: leave-one-out differences in ln k at Tref weighted by inverse variances from rank_accuracy_map, stored as RateUncertainty(mu, var, N, Tref, data_mean, correlation)"
+composes = []
+variants = [
+  "Marcus nodes are averaged, not fitted",
+  "a node with one reaction uses mu 0 and variance (ln fmax / 2)^2",
+]
+equation_source = "Blowers and Masel 2000 (ArrheniusBM docstring)"
+closed_form = "procedural"
+data = "fitted to rmg_database training reactions; result stored in rules.py"
+
+[[model_family]]
+name = "Arrhenius, Evans-Polanyi and Blowers-Masel rate laws"
+locator = "rmgpy/kinetics/arrhenius.pyx Arrhenius (line 47), ArrheniusEP (line 318), ArrheniusBM (line 477)"
+class = "kinetics"
+inputs = "T; for EP and BM also the reaction enthalpy dHrxn at 298 K"
+parameters = "reaction: Arrhenius k = A (T/T0)^n exp(-Ea/(R T)); EP Ea = alpha dHrxn + E0 with clamps to 0 and to dHrxn when E0 > 0 (k = A T^n exp(-Ea/(R T))); BM Ea = (w0 + dHrxn/2)(Vp - 2 w0 + dHrxn)^2 / (Vp^2 - 4 w0^2 + dHrxn^2) with Vp = 2 w0 (w0 + E0)/(w0 - E0), clamps to 0 and dHrxn, and Ea = E0 + max(dHrxn, 0) when E0 < 0"
+composes = []
+variants = [
+  "T0 reference temperature only in Arrhenius; EP and BM have none",
+  "a plain Arrhenius rule is converted to EP with alpha = 0",
+]
+equation_source = "Blowers and Masel, Engineering approximations for activation energies in hydrogen transfer reactions (2000) for ArrheniusBM; Evans-Polanyi named in the ArrheniusEP docstring"
+closed_form = "yes"
+data = "supplied by rmg_database construct 'Arrhenius, ArrheniusEP and ArrheniusBM rate objects'"
+
+[[model_family]]
+name = "pressure-dependent rate laws (PDepArrhenius, MultiArrhenius, MultiPDepArrhenius, ThirdBody, Lindemann, Troe, Chebyshev)"
+locator = "rmgpy/kinetics/arrhenius.pyx PDepArrhenius (line 806), MultiArrhenius (line 976), MultiPDepArrhenius (line 1094); falloff.pyx ThirdBody (line 42), Lindemann (line 132), Troe (line 249); chebyshev.pyx Chebyshev (line 44)"
+class = "kinetics"
+inputs = "T and P; bath-gas concentration C = P/(R T)"
+parameters = "reaction: PDepArrhenius interpolates ln k linearly in ln P between adjacent Arrhenius objects; MultiArrhenius and MultiPDepArrhenius sum terms; ThirdBody k = k0 C; Lindemann k = kinf (Pr/(1+Pr)) with Pr = k0 C / kinf; Troe multiplies by F with Fcent = (1-alpha) exp(-T/T3) + alpha exp(-T/T1) + exp(-T2/T) (T2 optional), d = 0.14, n = 0.75 - 1.27 log10 Fcent, c = -0.4 - 0.67 log10 Fcent; Chebyshev log10 k = sum over t, p of coeffs[t,p] T_t(Tred) T_p(Pred) with Tred = (2/T - 1/Tmin - 1/Tmax)/(1/Tmax - 1/Tmin) and Pred = (2 log10 P - log10 Pmin - log10 Pmax)/(log10 Pmax - log10 Pmin)"
+composes = [
+  { slot = "limiting rates", accepts = "Arrhenius", default = "required (arrheniusLow for ThirdBody; arrheniusHigh and arrheniusLow for Lindemann and Troe)" },
+  { slot = "pressure points", accepts = "Arrhenius objects at listed pressures", default = "required for PDepArrhenius" },
+  { slot = "efficiencies", accepts = "dictionary of collider to factor", default = "absent means efficiency 1 for all colliders (inferred)" },
+]
+variants = [
+  "Troe with T2 absent uses a three-term Fcent",
+  "Chebyshev coefficient [0,0] is shifted by log10 of the kunits factor on load",
+]
+equation_source = "no citations in code; the Troe broadening factor is as written in falloff.pyx lines 332-370"
+closed_form = "yes"
+data = "supplied by rmg_database construct 'pressure-dependent and falloff rate objects'"
+
+[[model_family]]
+name = "surface and electrochemical rate laws (StickingCoefficient, SurfaceArrhenius, BEP variants, charge transfer, Marcus)"
+locator = "rmgpy/kinetics/surface.pyx (lines 43, 320, 519, 679, 794, 1094); arrhenius.pyx ArrheniusChargeTransfer (line 1196), ArrheniusChargeTransferBM (line 1456), Marcus (line 1802)"
+class = "kinetics"
+inputs = "T; electrode potential V for charge transfer; reaction enthalpy or free energy of reaction for BEP and BM variants; surface coverages for coverage dependence"
+parameters = "reaction: sticking coefficient s = A (T/T0)^n exp(-Ea/(R T)) (dimensionless A); surface Arrhenius with surface units; BEP Ea from enthalpy as for EP; charge transfer Ea(V) = Ea - alpha n F (V - V0); Marcus k = A T^n exp(-dG/(R T)) with dG = (lambda_i + lambda_o)/4 (1 + dGrxn/(lambda_i + lambda_o))^2 and lambda_i a cubic polynomial in T; coverage dependence per species with a, m, E"
+composes = []
+variants = [
+  "each base law has a BEP or BM counterpart that takes the reaction enthalpy or free energy",
+  "charge-transfer laws take a potential argument, the others take pressure or enthalpy",
+]
+equation_source = "none cited; the Marcus docstring wrongly repeats the Evans-Polanyi description"
+closed_form = "yes"
+data = "supplied by rmg_database construct 'surface and charge-transfer rate objects'"
+
+[[model_family]]
+name = "tunneling corrections (Wigner, Eckart) and diffusion limitation"
+locator = "rmgpy/kinetics/tunneling.pyx Wigner (line 47), Eckart (line 93); rmgpy/kinetics/diffusionLimited.py get_effective_rate (line 64)"
+class = "model_component"
+inputs = "T, imaginary frequency, energies of reactants, transition state and products; solvent viscosity and species radii"
+parameters = "Wigner: kappa = 1 + (h nu / (kB T))^2 / 24; Eckart: energy-dependent factor from E0_reac, E0_TS and optional E0_prod; diffusion limit: k_eff = k k_diff / (k + k_diff) for the limited direction with k_diff from Stokes-Einstein diffusivities and McGowan radii"
+composes = []
+variants = [
+  "symmetric Eckart when E0_prod is omitted",
+  "for reactions with both sides multi-species the faster direction is limited",
+]
+equation_source = "none cited"
+closed_form = "yes"
+data = "none bundled"
+
+[[model_family]]
+name = "master-equation pressure dependence (pdep)"
+locator = "rmgpy/pdep/network.py Network (line 46), calculate_rate_coefficients (line 250); msc.pyx, rs.pyx, cse.pyx, sls.py, me.pyx, collision.pyx, reaction.pyx"
+class = "other"
+inputs = "a potential energy surface with isomers, reactants and products, microcanonical rates (RRKM with inverse Laplace transform), energy-transfer model and temperature and pressure grids"
+parameters = "global: methods selected by name: 'modified strong collision', 'reservoir state', 'chemically-significant eigenvalues', 'chemically-significant eigenvalues georgievskii', 'simulation least squares' and an ODE variant; output k(T,P) fitted to Chebyshev or PDepArrhenius"
+composes = [
+  { slot = "energy transfer", accepts = "a collision model such as single exponential down", default = "required" },
+  { slot = "reaction pieces", accepts = "rate objects or transition-state statistical mechanics", default = "required" },
+]
+variants = ["method name selects the solver of the master equation"]
+equation_source = "none cited in these files"
+closed_form = "procedural"
+data = "none bundled"
+
+[[model_family]]
+name = "statistical-mechanics modes and thermodynamic functions"
+locator = "rmgpy/statmech/*.pyx (Conformer line 53; modes listed in the construct); rmgpy/data/statmech.py get_statmech_data (line 364)"
+class = "standard_state_species"
+inputs = "T; mode parameters"
+parameters = "pure: per mode; translation Q = (2 pi m / h^2)^1.5 (kB T)^2.5 / 101325; linear rotor Q = R T / (B sigma); nonlinear rotor Q = sqrt(pi T^3 / (theta_A theta_B theta_C)) / sigma; harmonic oscillator quantum Q = product 1/(1 - exp(-h c nu / kB T)); free rotor Q = sqrt(8 pi^3 kB T I)/(sigma h); hindered rotor by numerical configuration integral with Fourier potential or cosine potential with I0 Bessel function, optional semiclassical factor x/(1 - exp(-x)), or by solving the Schrodinger equation when quantum"
+composes = [
+  { slot = "modes", accepts = "Translation, Rotation, Vibration, Torsion objects", default = "required list" },
+]
+variants = [
+  "quantum flag per mode (default classical for translation and rotation, quantum for vibration and hindered rotor)",
+  "semiclassical correction of the hindered rotor",
+]
+equation_source = "FreeRotor docstring cites Pfaendtner et al. 2007; others none"
+closed_form = "yes"
+data = "supplied by rmg_database construct 'GroupFrequencies and Conformer (statmech)'"
+
+[[model_family]]
+name = "statmech estimation from group frequencies"
+locator = "rmgpy/data/statmech.py get_frequency_groups (line 318), get_statmech_data (line 364), GroupFrequencies.generate_frequencies (line 730); rmgpy/data/statmechfit.py"
+class = "group_contribution"
+inputs = "a molecule and its thermo model"
+parameters = "group: frequency ranges (lower, upper, degeneracy) and symmetry; frequencies spread linearly between the bounds; remaining vibrations and hindered rotors fitted to the heat-capacity table after subtracting characteristic-frequency, translation, rotation and Cp-to-Cv terms"
+composes = [
+  { slot = "ring C-H frequencies", accepts = "hard-coded group 'ringCH' (2750 to 3150 cm^-1 and 900 to 1100 cm^-1)", default = "applied to every C-H on a ring carbon" },
+]
+variants = []
+equation_source = "none cited"
+closed_form = "procedural"
+data = "supplied by rmg_database statmech groups"
+
+[[model_family]]
+name = "Abraham LSER solvation free energy, enthalpy, entropy and K-factor"
+locator = "rmgpy/data/solvation.py calc_h (line 2187), calc_g (line 2199), calc_s (line 2213), get_solvation_correction (line 2220), get_Kfactor (line 2232), get_T_dep_solvation_energy_from_LSER_298 (line 2276), get_solute_data (line 1392)"
+class = "residual_or_excess_contribution"
+inputs = "solute descriptors S, B, E, L, A, V and solvent coefficients; T for the K-factor"
+parameters = "pure solute and pure solvent: delG = -8.314 * 298 * 2.303 * (S s_g + B b_g + E e_g + L l_g + A a_g + c_g) J/mol; delH = 1000 * (S s_h + B b_h + E e_h + L l_h + A a_h + c_h) J/mol; delS = (delH - delG)/298; temperature dependence from Harvey (T below a transition temperature, default 0.75 of the critical temperature) or Japas and Levelt Sengers relations using CoolProp saturation properties of the solvent"
+composes = [
+  { slot = "solute descriptors", accepts = "SoluteData from a library, a radical or halogen correction of a library value, or group additivity", default = "library first, then group additivity" },
+  { slot = "solvent saturation properties", accepts = "CoolProp fluid named by name_in_coolprop", default = "required for the temperature-dependent form" },
+]
+variants = [
+  "intrinsic-rate correction for hydrogen abstraction: log10(k_sol/k_gas) = -8.3 alpha beta",
+  "transition-state correction with SoluteTSDiffData for library reactions",
+]
+equation_source = "docstrings cite Abraham and McGowan 1987 and Zhao et al. 2003 for the McGowan volumes; Harvey and Japas and Levelt Sengers are named in KfactorParameters; the LSER equations cite none"
+closed_form = "yes"
+data = "supplied by rmg_database solvation libraries and groups"
+
+[[model_family]]
+name = "Joback critical properties to Lennard-Jones parameters"
+locator = "rmgpy/data/transport.py get_transport_properties_via_group_estimates (line 391), estimate_critical_properties_via_group_additivity (line 439), get_transport_properties_via_lennard_jones_parameters (line 584)"
+class = "transport"
+inputs = "a molecule"
+parameters = "group: Tc, Pc, Vc, Tb contributions; Tb = 198.18 + sum; Vc = 17.5 + sum; Tc = Tb / (0.584 + 0.965 sum_Tc - sum_Tc^2); Pc = 1 / (0.113 + 0.0032 n_atoms + sum_Pc)^2; halogen Tb corrections (+11.43 K partial halogenation without fluorine, -25 K partial fluorination, -45.57 K perfluorinated, -53.55 K perhalogenated); epsilon = 0.77 Tc R; sigma = 2.44 (Tc/Pc)^(1/3) angstrom; dipole, polarizability and rotational relaxation number set to 0; fallback table of sigma and epsilon by heavy-atom count 1 to 5 and more"
+composes = []
+variants = [
+  "libraries are searched first in user order",
+  "aromatic molecules are kekulised before group matching",
+]
+equation_source = "Joback 1984 thesis (cited in the group file longDesc); halogen corrections cite doi 10.1021/ie00008a029 in a code comment"
+closed_form = "yes"
+data = "supplied by rmg_database transport groups and libraries"
+
+[[model_family]]
+name = "Arkane thermo from quantum chemistry"
+locator = "arkane/thermo.py ThermoJob (line 56), generate_thermo (line 102); arkane/statmech.py StatMechJob (line 261); arkane/encorr/corr.py get_atom_correction (line 92), get_bac (line 154); arkane/encorr/bac.py BAC (line 236); arkane/encorr/ae.py AE (line 202)"
+class = "regression"
+inputs = "electronic-structure output parsed into a Conformer (frequencies scaled by a factor, rotors fitted from scans) at a level of theory"
+parameters = "global and per level of theory: atom energy corrections from atom_hf, atom_thermal and atom_energies; bond additivity corrections of Petersson type (per bond type) or Melius type; frequency scale factor; Cp from the conformer on a 10 K grid from 10 to 3000 K; H298 = H(298) + E0; Cp0 and CpInf from linearity, frequencies and rotors; Wilhoit fit with B starting at 500 K, then NASA with Tmin 10, Tmax 3000, Tint 500; BAC and atom-energy parameters themselves are fitted to reference sets by AE and BAC jobs"
+composes = [
+  { slot = "atom correction", accepts = "atom_energies, atom_hf, atom_thermal by element", default = "required unless turned off (a warning says thermo cannot be trusted)" },
+  { slot = "bond correction", accepts = "Petersson or Melius BAC for the level of theory", default = "optional; turned off for isodesmic reactions" },
+]
+variants = [
+  "bondEnergyCorrectionType 'p' or 'm'",
+  "isodesmic reactions replace bond corrections",
+  "thermo class 'wilhoit' or 'nasa'",
+]
+equation_source = "arkane/encorr/bac.py module docstring: Petersson et al., J. Chem. Phys. 1998, 109, 10570-10579 and Anantharaman and Melius, J. Phys. Chem. A 2005, 109, 1734-1747"
+closed_form = "procedural"
+data = "supplied by rmg_database construct 'quantum-chemistry correction dictionaries' and 'ReferenceSpecies (reference sets)'"
+
+[[model_family]]
+name = "mechanism generation (out of thermodynamic scope)"
+locator = "rmgpy/rmg/main.py, model.py, react.py; rmgpy/solver/"
+class = "other"
+inputs = "initial species, reactor conditions, database"
+parameters = "not applicable"
+composes = []
+variants = []
+equation_source = "not applicable"
+closed_form = "procedural"
+data = "none bundled"
+
+# ---------------------------------------------------------------------------
+# CONVENTIONS
+# ---------------------------------------------------------------------------
+
+[[convention]]
+name = "units and quantity representation"
+locator = "rmgpy/quantity.py lines 40-130"
+statement = "Values are (value, 'unit') tuples, with optional uncertainty and type, stored in SI with the unit of record kept. Degrees Celsius, Fahrenheit and Rankine are refused. Energies accept K and cm^-1 by extra dimensionality, frequencies accept s^-1, Hz, J and K, and cm^-1 is stored unconverted. Rate coefficients are checked against the dimensionalities allowed for reaction orders 1 to 3 (and surface orders)."
+scope = "all model classes and database files"
+
+[[convention]]
+name = "standard-state and reference pressures"
+locator = "rmgpy/statmech/translation.pyx lines 126, 182, 201; rmgpy/reaction.py lines 778-805, 1419-1422"
+statement = "The translation partition function divides by 101325 Pa, so thermodynamics from modes are on a 1 atm standard state; equilibrium constants use a reference pressure of 1e5 Pa for gas species and 2.5e-5 mol/m^2 for surface species; the transition-state rate routine divides partition functions by R T / 101325. No module states a standard-state pressure for ThermoData, NASA or Wilhoit values."
+scope = "thermo from modes, equilibrium constants, reverse rates"
+
+[[convention]]
+name = "enthalpy datum and E0"
+locator = "rmgpy/thermo/thermodata.pyx docstring; rmgpy/thermo/wilhoit.pyx E0 property; rmgpy/thermo/thermoengine.py line 78"
+statement = "H298 is the standard enthalpy of formation at 298 K; NASA and Wilhoit enthalpies carry the formation datum through their integration constants; E0 is the enthalpy evaluated at 0.001 K on that datum (Wilhoit) or a given value (NASA, ThermoData), not an electronic energy. Species.conformer.E0 is set from the Wilhoit E0 of the thermo."
+scope = "all thermo objects"
+
+[[convention]]
+name = "gas constant"
+locator = "rmgpy/constants.py line 65; rmgpy/data/solvation.py line 2210"
+statement = "R = 8.314472 J/(mol*K) throughout the thermo, kinetics and statmech classes; the solvation Gibbs-energy routine uses 8.314 and 2.303 instead."
+scope = "every conversion between energy and temperature"
+
+[[convention]]
+name = "symmetry-number convention"
+locator = "rmgpy/data/thermo.py lines 1522, 1454, 2015, 2255; rmgpy/species.py line 677"
+statement = "Library and QM entropies already include R ln(sigma); group values and ML results do not and the estimator subtracts R ln(sigma) after estimation, using the species symmetry number computed from the resonance hybrid; the HBI step adds R ln(sigma of the saturated molecule) back when the saturated value came from a library or QM."
+scope = "S298 of any estimate"
+
+[[convention]]
+name = "rate-constant units by reaction order"
+locator = "rmgpy/quantity.py lines 780-870"
+statement = "Allowed dimensionalities: first order 1/s; second order m^3/(mol*s) or m^3/s (molecules); third order m^6/(mol^2*s); the data are written with cm^3 or m^3 and s^-1; surface reactions additionally m^2/(mol*s), m^5/(mol^2*s) and m^4/(mol^2*s). Internally SI (m^3, mol, s)."
+scope = "A factors of all rate objects"
+
+[[convention]]
+name = "logarithm bases"
+locator = "rmgpy/kinetics/chebyshev.pyx line 175; rmgpy/kinetics/uncertainties.pyx; rmgpy/data/solvation.py line 2210; rules.py _get_average_kinetics (line 273)"
+statement = "Chebyshev coefficients and solvation logK are base 10; RateUncertainty and the rule-fitting variances are natural log; rate-rule averaging takes the geometric mean of A through log10."
+scope = "Chebyshev, LSER, rule averaging, uncertainty"
+
+[[convention]]
+name = "temperature 298 versus 298.15"
+locator = "rmgpy/thermo/thermodata.pyx lines 215-230; arkane/thermo.py lines 131-146"
+statement = "H298 and S298 are at exactly 298 K in model classes and in Arkane's H298 and S298 sums; Arkane's monatomic branch evaluates the Wilhoit H and S constants at 298.15 K."
+scope = "H298, S298 and Wilhoit constants"
+
+[[convention]]
+name = "reaction enthalpy for Evans-Polanyi and Blowers-Masel"
+locator = "rmgpy/kinetics/arrhenius.pyx get_activation_energy (lines 413 and 574)"
+statement = "dHrxn is the enthalpy of reaction evaluated at 298 K in J/mol from the species thermo objects; activation energies are therefore tied to the thermo used."
+scope = "EP and BM rate laws"
+
+# ---------------------------------------------------------------------------
+# SELECTION
+# ---------------------------------------------------------------------------
+
+[[selection]]
+name = "thermo estimation order"
+locator = "rmgpy/data/thermo.py get_thermo_data (line 1349)"
+rule = "Libraries in order; for species with surface sites the surface route (library, else adsorption groups on the gas-phase estimate with metal rescaling); otherwise optional quantum mechanics (radical-count limit then HBI); then HBI from a saturated library value; then ML if configured; then group additivity; the symmetry correction is applied after ML or group additivity only; Cp0 and CpInf are filled in last."
+scope = "thermo of a species"
+documented = "yes (docstring: libraries in order, then machine learning, then group additivity)"
+
+[[selection]]
+name = "choice among resonance structures"
+locator = "rmgpy/data/thermo.py prioritize_thermo (line 2167), get_thermo_data_from_groups (line 2069)"
+rule = "Estimate each resonance structure; order first by the reactive flag, then by charge (uncharged first), then for cyclic molecules by number of aromatic rings (more first), sum of ranks of the ring and polycyclic groups used (smaller first, missing rank 3) and H298 (lower first), for acyclic molecules by H298 (lower first); the first is used and the species' molecule list is reordered."
+scope = "group-additivity estimate of species with several resonance structures"
+documented = "yes (docstring and comments)"
+
+[[selection]]
+name = "solute data order"
+locator = "rmgpy/data/solvation.py get_solute_data (line 1392)"
+rule = "Solute library by isomorphism; for radicals the saturated library value plus a radical correction; for halogenated molecules a hydrogen-replaced library value plus halogen corrections; else group additivity; V is always computed from atoms."
+scope = "Abraham solute descriptors"
+documented = "yes (docstring and comments)"
+
+[[selection]]
+name = "transport and statmech order"
+locator = "rmgpy/data/transport.py get_transport_properties (line 328); rmgpy/data/statmech.py get_statmech_data (line 663)"
+rule = "Libraries in order (first isomorphic match); then group estimation (Joback critical properties for transport, characteristic frequencies fitted to Cp for statmech); for transport, a KeyError or AssertionError falls back to the fixed Lennard-Jones table by heavy-atom count."
+scope = "transport and statmech data"
+documented = "yes (docstrings)"
+
+[[selection]]
+name = "thermo class chosen for a species"
+locator = "rmgpy/thermo/thermoengine.py process_thermo_data (line 43)"
+rule = "Always convert to Wilhoit to obtain E0; then keep a library NASA object unchanged if its comment contains 'Thermo library' (or 'Liquid thermo library' in liquid phase) and E0 is filled from Wilhoit, otherwise convert Wilhoit to NASA over 100 to 5000 K with Tint 1000 K; a ThermoData is converted to Wilhoit with B fixed at 1000 K."
+scope = "the thermo object a mechanism stores"
+documented = "yes (docstring and comments); the test on the comment string makes behaviour depend on free text"
+
+[[selection]]
+name = "degeneracy handling in rate estimation"
+locator = "rmgpy/data/kinetics/rules.py estimate_kinetics (lines 480-493), family.py add_rules_from_training (line 1225)"
+rule = "Rules built from training reactions divide A by the training reaction's degeneracy; estimates multiply A by the new reaction's degeneracy and record it in the comment."
+scope = "rate rules and estimates"
+documented = "yes (code comments and the added comment text)"
+
+# ---------------------------------------------------------------------------
+# DISCREPANCIES
+# ---------------------------------------------------------------------------
+
+[[discrepancy]]
+locator = "rmgpy/constants.py docstring table (lines 34-58) versus module values (lines 63-112)"
+documented = "the table lists F = 96485.3365 C/mol, and lists G (gravitational constant) and g (standard gravity)"
+actual = "the module sets F = 96485.3321233100184, and defines neither G nor g; epsilon_0 is written 8.8541878128 with no power of ten and no unit comment"
+consequence = "The Faraday constant differs from the documented one in the ninth significant figure, and the vacuum permittivity needs an exponent and unit supplied by the reader."
+
+[[discrepancy]]
+locator = "rmgpy/constants.py E_h (line 67) versus arkane/encorr/corr.py line 130"
+documented = "the Hartree energy is 4.35974434e-18 J"
+actual = "arkane/encorr/corr.py converts Hartree with the literal 4.35974394e-18 while arkane/statmech.py line 588 uses constants.E_h"
+consequence = "Atom energy corrections use a Hartree value that differs by 4e-26 J (about 1e-8 relative) from the one used for electronic energies in the same job."
+
+[[discrepancy]]
+locator = "rmgpy/statmech/translation.pyx lines 126, 182 versus rmgpy/reaction.py line 805"
+documented = "gas reference pressure: the reaction code says it assumes 1e5 Pa"
+actual = "the translation partition function divides by 101325 Pa"
+consequence = "Two standard pressures (1 atm and 1 bar) are in use in one code base, so thermo computed from modes and equilibrium constants built from the same species refer to different standard states."
+
+[[discrepancy]]
+locator = "rmgpy/data/solvation.py calc_g (line 2210) versus rmgpy/constants.py R"
+documented = "Gibbs energy of solvation from log K at 298 K"
+actual = "the factor is -8.314 * 298 * 2.303, not R (8.314472), T and ln 10"
+consequence = "Solvation free energies differ by about 5e-5 relative from an evaluation with R and ln 10; temperature 298 is a literal."
+
+[[discrepancy]]
+locator = "rmgpy/kinetics/arrhenius.pyx Marcus docstring (line 1803)"
+documented = "a kinetics model based on the modified Arrhenius equation using the Evans-Polanyi equation"
+actual = "the class computes the Gibbs activation energy from a Marcus expression with inner and outer reorganisation energies"
+consequence = "The docstring is copied from ArrheniusEP and does not describe the model; the equation must be taken from the code."
+
+[[discrepancy]]
+locator = "rmgpy/kinetics/uncertainties.pyx RateUncertainty.__init__ (line 55) and uncertainties.pxd"
+documented = "data_mean is the mean of the data points fit to the uncertainty (class docstring)"
+actual = "the constructor contains the statement 'self.data_mean' (a read), so the argument is never stored and the attribute keeps its C double default; 3732 rules in the database write data_mean"
+consequence = "data_mean of loaded rules is 0.0, so the auto-generated-tree parent test in rules.py estimate_kinetics (lines 361-365) runs with data_mean = 0."
+
+[[discrepancy]]
+locator = "rmgpy/species.py get_symmetry_number docstring (line 677) versus rmgpy/data/thermo.py lines 1522 and 2015"
+documented = "the function 'is currently used for website purposes and testing only'"
+actual = "get_thermo_data and get_all_thermo_data call it to correct every group-additivity entropy"
+consequence = "The symmetry number that enters S298 of every estimate is the resonance-hybrid value the docstring disclaims."
+
+[[discrepancy]]
+locator = "rmgpy/thermo/thermodata.pyx class docstring (S298) versus property docstring"
+documented = "the class docstring calls S298 the standard entropy at 298 K; the property docstring calls it the standard entropy of formation at 298 K"
+actual = "the value is used as the absolute entropy in integrations (get_entropy starts from S298)"
+consequence = "An entropy of formation would require a different datum; the code treats it as absolute entropy."
+
+[[discrepancy]]
+locator = "rmgpy/thermo/wilhoit.pyx fit_to_data docstring (line 246)"
+documented = "the linearity, number of vibrational frequencies and number of internal rotors set the limits at zero and infinite temperature"
+actual = "the function takes Cp0 and CpInf as arguments and does not use linearity, Nfreq or Nrotors"
+consequence = "The docstring is stale; callers compute the limits (find_cp0_and_cpinf)."
+
+[[discrepancy]]
+locator = "rmgpy/data/kinetics/family.py ReactionRecipe docstring (line 303)"
+documented = "'There are currently five such actions' followed by a table of seven"
+actual = "the code implements nine: GAIN_CHARGE and LOSE_CHARGE are applied in _apply and appear in 19 family actions"
+consequence = "Recipe vocabulary is larger than documented; 19 charge actions would be missed by a reader of the docstring."
+
+[[discrepancy]]
+locator = "arkane/thermo.py lines 141-146"
+documented = "H298 and S298 are evaluated at 298 K"
+actual = "the monatomic branch sets Wilhoit H0 and S0 from H298 - get_enthalpy(298.15) and S298 - get_entropy(298.15)"
+consequence = "A 0.15 K offset in the reference temperature of the integration constants for species without rotors."
+
+# ---------------------------------------------------------------------------
+# CAPABILITIES
+# ---------------------------------------------------------------------------
+
+[[capability]]
+calculation = "group_estimation"
+offered = "yes"
+scope = "thermo (Benson-type with radical, ring, polycyclic, pair and adsorption corrections), solute descriptors, transport (Joback), statmech frequencies, kinetics rate rules"
+locator = "rmgpy/data/thermo.py, solvation.py, transport.py, statmech.py, kinetics/rules.py"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "parameter_regression"
+offered = "yes"
+scope = "ThermoData to Wilhoit and Wilhoit to NASA fits, Blowers-Masel rule fitting with jackknife uncertainty, Chebyshev and PDepArrhenius fits to master-equation output, statmech heat-capacity fitting, atom-energy and bond-additivity fitting in Arkane"
+locator = "rmgpy/thermo/wilhoit.pyx, rmgpy/data/kinetics/family.py _make_rule, rmgpy/kinetics/chebyshev.pyx, rmgpy/data/statmechfit.py, arkane/encorr/ae.py, bac.py"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "thermo_from_quantum_chemistry (proposed)"
+offered = "yes"
+scope = "Arkane: Cp, H298, S298 from parsed output of Gaussian, Q-Chem, Molpro, Orca, Psi4, TeraChem and xTB with atom and bond corrections, frequency scaling and hindered-rotor fits; output Wilhoit or NASA"
+locator = "arkane/thermo.py, statmech.py, encorr/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "kinetics_rate_estimation (proposed)"
+offered = "yes"
+scope = "rate of an arbitrary reaction in 134 families from training reactions and rate rules with estimated uncertainty"
+locator = "rmgpy/data/kinetics/family.py, rules.py"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "solvation_free_energy_lser (proposed)"
+offered = "yes"
+scope = "solvation free energy, enthalpy, entropy at 298 K from Abraham and Mintz parameters; temperature-dependent K-factor and Henry constant with CoolProp solvent properties"
+locator = "rmgpy/data/solvation.py"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "master_equation_pressure_dependence (proposed)"
+offered = "yes"
+scope = "phenomenological k(T,P) from a potential energy surface by four method families (six named methods)"
+locator = "rmgpy/pdep/network.py"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "mechanism_generation (proposed)"
+offered = "yes"
+scope = "rate-based reaction-mechanism generation with reactor simulation; outside thermodynamic scope"
+locator = "rmgpy/rmg/main.py"
+evidence = "documentation"
+
+[[capability]]
+calculation = "flash_tp"
+offered = "no"
+scope = "no phase-equilibrium calculation; solvation K-factors use CoolProp saturation properties of the solvent only"
+locator = "rmgpy/"
+evidence = "source_inspected"
+
+[[capability]]
+calculation = "gibbs_minimization"
+offered = "no"
+scope = "equilibrium is obtained by reactor integration, not by Gibbs minimisation; reverse rates come from equilibrium constants"
+locator = "rmgpy/solver/"
+evidence = "source_inspected"
+
+# ---------------------------------------------------------------------------
+# QUESTIONS
+# ---------------------------------------------------------------------------
+
+[[question]]
+about = "uncertainty of a group-additivity estimate"
+question = "add_thermo_data adds values and never combines uncertainties; group values carry '+|-' uncertainties on about 2700 of 3973 group objects but the estimate starts from a ThermoData with zero uncertainty and ends with zero uncertainty. Is the intended uncertainty model the separate source-based analysis in rmgpy/tools/uncertainty.py (with dG_group, dG_library and covariance files), and is it part of the contract of the estimator?"
+why_it_matters = "The model's slot_uncertainty on estimated values has nothing to hold; an estimate's uncertainty must be carried by the estimation derivation or omitted."
+
+[[question]]
+about = "stability of the comment grammar"
+question = "The group list of an estimate exists only as text in comment and is parsed back by extract_source_from_comments and get_ring_groups_from_comments; other tools (uncertainty, Chemkin annotations) rely on it. Is the grammar a stable interface across RMG versions?"
+why_it_matters = "If lineage is imported from comments the mapping depends on that grammar; if not, derivation_input rows cannot be reconstructed from the data."
+
+[[question]]
+about = "H atom enthalpy in the HBI step"
+question = "The hydrogen-bond-increment step subtracts 52.103 kcal/mol per added hydrogen as a literal (thermo.py line 2283); the same number is the H298 of H in primaryThermoLibrary. Is it meant to follow the loaded library's H value?"
+why_it_matters = "It is a hidden parameter of the radical corrections; radical group values are only valid with that H enthalpy."
+
+[[question]]
+about = "which standard-state pressure applies to library thermo"
+question = "No file states whether NASA and ThermoData values from libraries refer to 1 atm or 1 bar; the code paths use both."
+why_it_matters = "convention_set.standard_pressure is required for comparison with other sources; a 1.3 percent pressure difference changes entropies by 0.11 J/(mol*K)."
+
+[[question]]
+about = "meaning of E0 for library NASA and ThermoData"
+question = "E0 is optional in NASA (1514 of 23520 objects give it) and is obtained by extrapolation of the Wilhoit fit to 0.001 K otherwise; is a given E0 the same quantity (formation datum at 0 K including zero-point energy)?"
+why_it_matters = "The model has no slot for E0; a wrong assumption would shift absolute enthalpies in reaction calculations that use E0."
+
+[[question]]
+about = "symmetry number of the resonance hybrid"
+question = "Species.get_symmetry_number uses the resonance hybrid and takes the highest value among isomers; libraries' entropies include whatever symmetry their authors used. Can library values be checked against the estimator's convention?"
+why_it_matters = "Importing library entropies as species properties assumes the same symmetry convention across libraries; the code relies on it without a check."
+
+[[question]]
+about = "nodes named Others- in tree descent"
+question = "descend_tree returns a last child whose label starts with 'Others-' when no child matches, but no label in the pinned database starts with it. Is the convention retired or used by user databases?"
+why_it_matters = "A fallback node is a selection rule that would need modelling if the data used it; it is currently dormant."
+
+[[question]]
+about = "thermo_coverage_dependence"
+question = "One NASA object in the database carries thermo_coverage_dependence (a dictionary with 'model': 'polynomial' and coefficient lists in eV/molecule and eV/(molecule*K)) and the classes process it; no other file uses it."
+why_it_matters = "Coverage dependence of adsorbate thermodynamics has no form in the model and a single example makes its semantics hard to establish."

@@ -1,0 +1,33 @@
+id = "file_source"
+title = "Fixture file_source"
+tier = "A"
+homepage = "https://example.org/file_source"
+waves = [1, 2]
+notes = "A valid fixture manifest."
+
+[acquire]
+kind = "file"
+files = [
+  { url = "https://example.org/a.csv", name = "a.csv", sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" },
+  { url = "https://example.org/b.csv", name = "b.csv", md5 = "0123456789abcdef0123456789abcdef" },
+  { url = "https://example.org/c.csv", name = "c.csv" },
+]
+
+[payload]
+reader = "plain"
+environment = "core"
+include = ["data/*.json"]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "MIT"
+statement = "LICENSE file, MIT."
+url = "https://example.org/LICENSE"
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 from the LICENSE file"

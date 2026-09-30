@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+# Curated identity decisions: the only hand-maintained resolution authority (docs/pipeline.md
+# section 1, rule 1). Everything else about identity is derived from the sources' own
+# assertions by `tk resolve` and recomputed on every run.
+#
+# A decision names a source entity by the manifest id of its carrier, its scope and its local
+# key, and carries a reason. The format is documented in docs/pipeline.md (section 1.1):
+#
+#   [[decision]]
+#   action = "identify"      # the entity is this canonical species
+#   entity = { carrier = "coolprop", scope = "fluids", key = "R1123" }
+#   canonical_key = "ZWQIPCQCAOKXDI-UHFFFAOYSA-N"
+#   charge = 0               # optional, default 0
+#   reason = "why"
+#
+#   [[decision]]
+#   action = "distinct"      # two entities that are different identities
+#   entities = [
+#     { carrier = "coolprop", scope = "fluids", key = "A" },
+#     { carrier = "thermo", scope = "chemicals", key = "B" },
+#   ]
+#   reason = "why"
+#
+#   [[decision]]
+#   action = "reject"        # the source's identification of the entity is wrong
+#   entity = { carrier = "coolprop", scope = "fluids", key = "C" }
+#   reason = "why"
+#
+# No decision has been made yet.

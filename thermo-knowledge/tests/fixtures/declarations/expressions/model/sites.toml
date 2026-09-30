@@ -1,0 +1,12 @@
+module = "exprsites"
+schema = "tk"
+uses = ["physical"]
+doc = "A kind the association fixtures index over: a site on a molecule."
+
+[kinds.association_site]
+doc = "A site of a molecule at which it can associate."
+identity = ["label"]
+provenance = "declaration"
+
+[kinds.association_site.attributes]
+label = { type = "Text", doc = "The site's label." }

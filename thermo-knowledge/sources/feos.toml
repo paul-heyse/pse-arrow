@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "feos"
+title = "FeOS parameter sets"
+tier = "held"
+homepage = "https://github.com/feos-org/feos"
+waves = [1, 2]
+notes = "The 0.10.1 release source, the same commit crates/pse-kernels/data/README.md cites for the two record files the repository already carries."
+
+[acquire]
+kind = "git"
+url = "https://github.com/feos-org/feos.git"
+commit = "c658aeab484f7a7096bfbf5425e40effd60da167"
+submodules = []
+sparse = []
+
+[payload]
+reader = "feos"
+environment = "core"
+include = ["parameters/**/*.json"]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "MIT OR Apache-2.0"
+statement = "Upstream FeOS is MIT OR Apache-2.0."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

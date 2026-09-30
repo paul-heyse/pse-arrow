@@ -1,0 +1,61 @@
+module = "reactions"
+schema = "tk"
+uses = ["physical", "provenance", "identity", "systems", "conventions"]
+doc = """
+Reactions. A reaction is a stoichiometry over species forms, each with the standard state its
+activity is referred to. Equilibrium-constant models, standard-state reaction properties and rate
+laws are ordinary forms whose subject is a reaction; they are declared in the form catalogue, not
+here. "This species' standard properties are defined through that reaction" is a dependency.
+"""
+
+[enums.extent_convention]
+doc = "How a reaction's stoichiometry is normalised."
+members.as_written = { doc = "Coefficients exactly as the source writes them." }
+members.per_mole_of_first_product = { doc = "Normalised to one mole of the first product." }
+members.formation = { doc = "A formation reaction of one mole of the product from the basis or the elements." }
+
+[kinds.reaction]
+doc = "A stoichiometry over species forms. Canonical key: the participants' identifiers and coefficients in a normalised order, with the extent convention."
+identity = ["canonical_key"]
+provenance = "own"
+traces = ["IC-43"]
+
+[kinds.reaction.attributes]
+canonical_key = { type = "Text", doc = "Canonical encoding of the normalised stoichiometry." }
+extent = { type = "extent_convention", doc = "How the stoichiometry is normalised." }
+equation = { type = "SourceText", optional = true, doc = "The reaction as the source writes it. Retained; nothing branches on it." }
+
+[[kinds.reaction.requires]]
+name = "conserves_declared_quantities"
+doc = "For every conserved quantity with a composition entry on any participant, the coefficient-weighted sum over participants is zero."
+enforced = "verify"
+
+[[kinds.reaction.requires]]
+name = "standard_states_for_equilibrium_constant"
+doc = "A reaction that is the subject of a parameter set of a form whose contract has an output with the observable `log10_equilibrium_constant` has a standard state for every participant: the participant states one, or the convention set of the parameterisation gives one for the member role the participant has in the parameterisation's chemical system."
+enforced = "verify"
+
+[relations.reaction_participant]
+doc = "A species form taking part in a reaction. Coefficients are negative for reactants and positive for products."
+provenance = "inherit:reaction"
+absence = "optional"
+
+[relations.reaction_participant.keys]
+reaction = { type = "reaction", doc = "The reaction." }
+form = { type = "species_form", doc = "A participant." }
+
+[relations.reaction_participant.columns]
+coefficient = { type = "Count", doc = "Signed stoichiometric coefficient." }
+standard_state = { type = "standard_state", optional = true, doc = "The standard state the participant's activity is referred to." }
+
+[relations.system_reaction]
+doc = "A reaction that belongs to a chemical system."
+provenance = "inherit:system"
+absence = "optional"
+
+[relations.system_reaction.keys]
+system = { type = "chemical_system", doc = "The system." }
+reaction = { type = "reaction", doc = "A reaction of the system." }
+
+[relations.system_reaction.columns]
+defines = { type = "species_form", optional = true, doc = "The secondary species form this reaction defines from the basis, when it is a defining reaction." }

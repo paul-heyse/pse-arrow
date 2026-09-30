@@ -1,0 +1,329 @@
+module = "observables"
+schema = "tk"
+uses = ["physical", "provenance", "identity", "systems"]
+doc = """
+The vocabulary of physical quantities that can be measured, evaluated or computed. An observable
+carries everything needed to interpret a number except the subject and the conditions: its
+quantity type, what it is a property of, its amount basis, what it is relative to, and the path
+along which it is defined. Sources' property names map onto observables through alias rows; two
+source names that differ in any facet are two observables.
+
+The entities declared here are a starting set. The full vocabulary is derived from the ThermoML
+property enumeration and the other sources in Wave 1.
+"""
+
+[enums.subject_shape]
+doc = "What an observable is a property of."
+members.pure = { doc = "One entity." }
+members.mixture = { doc = "A mixture as a whole." }
+members.component_in_mixture = { doc = "One component within a mixture." }
+members.pair = { doc = "A pair of entities." }
+members.reaction = { doc = "A reaction." }
+members.transition = { doc = "A transition between two phases." }
+members.interface = { doc = "An interface between two phases." }
+members.adsorbate_on_host = { doc = "An adsorbate on a host material." }
+
+[enums.amount_basis]
+doc = "What an extensive observable is divided by."
+members.molar = { doc = "Per amount of substance." }
+members.mass = { doc = "Per mass." }
+members.volumetric = { doc = "Per volume." }
+members.partial_molar = { doc = "Partial molar quantity of a component." }
+members.apparent_molar = { doc = "Apparent molar quantity of a solute." }
+members.per_host_mass = { doc = "Per mass of host or adsorbent." }
+members.per_host_volume = { doc = "Per volume of host or adsorbent." }
+members.per_host_area = { doc = "Per surface area of host or adsorbent." }
+members.per_unit_cell = { doc = "Per crystallographic unit cell of the host." }
+members.none = { doc = "Intensive, or not divided by an amount." }
+
+[enums.reference_relation]
+doc = "What an observable's value is relative to."
+members.absolute = { doc = "Not relative to a reference." }
+members.standard = { doc = "A standard-state property." }
+members.excess = { doc = "Relative to an ideal mixture at the same temperature, pressure and composition." }
+members.residual_tv = { doc = "Relative to the ideal gas at the same temperature and volume." }
+members.residual_tp = { doc = "Relative to the ideal gas at the same temperature and pressure." }
+members.mixing = { doc = "Relative to the unmixed components." }
+members.formation = { doc = "Of formation from the elements in their reference forms." }
+members.increment = { doc = "A difference between two stated states of the same material." }
+
+[enums.path]
+doc = "The path or constraint along which an observable is defined."
+members.none = { doc = "No path applies." }
+members.isobaric = { doc = "At constant pressure." }
+members.isochoric = { doc = "At constant volume." }
+members.isothermal = { doc = "At constant temperature." }
+members.isentropic = { doc = "At constant entropy." }
+members.saturation = { doc = "Along a saturation line." }
+
+[enums.adsorption_kind]
+doc = "Which adsorbed amount is meant."
+members.absolute = { doc = "Total amount in the adsorbed phase." }
+members.excess = { doc = "Surface excess." }
+members.net = { doc = "Net adsorption." }
+members.not_stated = { doc = "An adsorption observable whose source does not say which adsorbed amount it reports." }
+members.not_applicable = { doc = "Not an adsorption observable." }
+
+[enums.diffusion_frame]
+doc = "The frame of reference of a diffusion coefficient."
+members.mole_averaged = { doc = "Relative to the molar-average velocity." }
+members.mass_averaged = { doc = "Relative to the barycentric velocity." }
+members.volume_averaged = { doc = "Relative to the volume-average velocity." }
+members.solvent_fixed = { doc = "Relative to the solvent." }
+members.self_diffusion = { doc = "Self-diffusion or tracer diffusion; no frame applies." }
+members.not_applicable = { doc = "Not a diffusion observable." }
+
+[enums.uncertainty_kind]
+doc = "What an uncertainty magnitude means."
+members.standard = { doc = "A standard uncertainty." }
+members.expanded = { doc = "An expanded uncertainty with a coverage factor or confidence level." }
+members.relative = { doc = "A relative standard uncertainty." }
+members.interval = { doc = "A bound the true value is stated to lie within." }
+members.exact = { doc = "Exact by definition or convention." }
+members.not_stated = { doc = "The source gives no uncertainty; this is not zero uncertainty." }
+
+[kinds.observable]
+doc = "A physical quantity with the facets needed to interpret a number for it."
+identity = ["key"]
+provenance = "declaration"
+traces = ["IC-38"]
+
+[kinds.observable.attributes]
+key = { type = "Text", doc = "Stable key." }
+quantity = { type = "Meta<quantity_type>", doc = "The quantity type values are stored in." }
+subject = { type = "subject_shape", doc = "What it is a property of." }
+basis = { type = "amount_basis", doc = "What it is divided by." }
+relation = { type = "reference_relation", doc = "What it is relative to." }
+path = { type = "path", doc = "The path along which it is defined." }
+adsorption = { type = "adsorption_kind", default = "not_applicable", doc = "Which adsorbed amount, for an adsorption observable." }
+diffusion = { type = "diffusion_frame", default = "not_applicable", doc = "The frame of reference, for a diffusion observable." }
+
+[kinds.observable_alias]
+doc = "A source's name for an observable. The mapping states its precision and what it loses."
+identity = ["carrier_scope", "name"]
+provenance = "declaration"
+
+[kinds.observable_alias.attributes]
+carrier_scope = { type = "Text", doc = "The vocabulary the name belongs to, such as `thermoml` or `cape_open_1_1`." }
+name = { type = "Text", doc = "The name, verbatim." }
+observable = { type = "observable", doc = "The observable it denotes." }
+precision = { type = "mapping_precision", doc = "How closely the source's meaning matches." }
+loss = { type = "Text", optional = true, doc = "What the mapping loses or assumes, when it is not exact." }
+
+[enums.mapping_precision]
+doc = "How closely a source construct matches the concept it is mapped to."
+members.exact = { doc = "The same meaning." }
+members.narrower = { doc = "The source construct is more specific than the concept." }
+members.broader = { doc = "The source construct is more general than the concept." }
+members.close = { doc = "Near, with a stated difference." }
+
+# ---------------------------------------------------------------- starting set
+
+[entities.observable.temperature]
+doc = "Thermodynamic temperature of a state."
+key = "temperature"
+quantity = "Temperature"
+subject = "mixture"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.pressure]
+doc = "Pressure of a state."
+key = "pressure"
+quantity = "Pressure"
+subject = "mixture"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.vapor_pressure]
+doc = "Pressure of a pure species in vapour-liquid equilibrium at a temperature."
+key = "vapor_pressure"
+quantity = "Pressure"
+subject = "pure"
+basis = "none"
+relation = "absolute"
+path = "saturation"
+
+[entities.observable.critical_temperature]
+doc = "Temperature at the vapour-liquid critical point of a pure species."
+key = "critical_temperature"
+quantity = "Temperature"
+subject = "pure"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.critical_pressure]
+doc = "Pressure at the vapour-liquid critical point of a pure species."
+key = "critical_pressure"
+quantity = "Pressure"
+subject = "pure"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.critical_molar_density]
+doc = "Molar density at the vapour-liquid critical point of a pure species."
+key = "critical_molar_density"
+quantity = "MolarDensity"
+subject = "pure"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.molar_mass]
+doc = "Molar mass of an entity."
+key = "molar_mass"
+quantity = "MolarMass"
+subject = "pure"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.molar_density]
+doc = "Amount per volume of a phase."
+key = "molar_density"
+quantity = "MolarDensity"
+subject = "mixture"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.molar_heat_capacity_isobaric]
+doc = "Molar heat capacity at constant pressure."
+key = "molar_heat_capacity_isobaric"
+quantity = "MolarEntropy"
+subject = "mixture"
+basis = "molar"
+relation = "absolute"
+path = "isobaric"
+
+[entities.observable.standard_molar_heat_capacity_isobaric]
+doc = "Standard-state molar heat capacity at constant pressure of a species form."
+key = "standard_molar_heat_capacity_isobaric"
+quantity = "MolarEntropy"
+subject = "pure"
+basis = "molar"
+relation = "standard"
+path = "isobaric"
+
+[entities.observable.standard_molar_enthalpy]
+doc = "Standard-state molar enthalpy of a species form, relative to the energy reference of its convention set."
+key = "standard_molar_enthalpy"
+quantity = "MolarEnergy"
+subject = "pure"
+basis = "molar"
+relation = "standard"
+path = "none"
+
+[entities.observable.standard_molar_entropy]
+doc = "Standard-state molar entropy of a species form."
+key = "standard_molar_entropy"
+quantity = "MolarEntropy"
+subject = "pure"
+basis = "molar"
+relation = "standard"
+path = "none"
+
+[entities.observable.standard_molar_gibbs_energy]
+doc = "Standard-state molar Gibbs energy of a species form, relative to the energy reference of its convention set."
+key = "standard_molar_gibbs_energy"
+quantity = "MolarEnergy"
+subject = "pure"
+basis = "molar"
+relation = "standard"
+path = "none"
+
+[entities.observable.molar_enthalpy_of_formation]
+doc = "Standard molar enthalpy of formation from the elements in their reference forms."
+key = "molar_enthalpy_of_formation"
+quantity = "MolarEnergy"
+subject = "pure"
+basis = "molar"
+relation = "formation"
+path = "none"
+
+[entities.observable.molar_enthalpy_of_vaporization]
+doc = "Molar enthalpy change on vaporisation along the saturation line."
+key = "molar_enthalpy_of_vaporization"
+quantity = "MolarEnergy"
+subject = "transition"
+basis = "molar"
+relation = "increment"
+path = "saturation"
+
+[entities.observable.molar_residual_helmholtz_energy]
+doc = "Molar Helmholtz energy relative to the ideal gas at the same temperature and molar volume."
+key = "molar_residual_helmholtz_energy"
+quantity = "MolarEnergy"
+subject = "mixture"
+basis = "molar"
+relation = "residual_tv"
+path = "none"
+
+[entities.observable.molar_excess_gibbs_energy]
+doc = "Molar Gibbs energy of a mixture relative to the ideal mixture at the same temperature, pressure and composition."
+key = "molar_excess_gibbs_energy"
+quantity = "MolarEnergy"
+subject = "mixture"
+basis = "molar"
+relation = "excess"
+path = "none"
+
+[entities.observable.log10_equilibrium_constant]
+doc = "Base-ten logarithm of the equilibrium constant of a reaction, with activities on the standard states of its participants."
+key = "log10_equilibrium_constant"
+quantity = "Scalar"
+subject = "reaction"
+basis = "none"
+relation = "standard"
+path = "none"
+
+[entities.observable.dynamic_viscosity]
+doc = "Dynamic viscosity of a phase."
+key = "dynamic_viscosity"
+quantity = "Viscosity"
+subject = "mixture"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.thermal_conductivity]
+doc = "Thermal conductivity of a phase."
+key = "thermal_conductivity"
+quantity = "ThermalConductivity"
+subject = "mixture"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.surface_tension]
+doc = "Interfacial tension between two phases."
+key = "surface_tension"
+quantity = "SurfaceTension"
+subject = "interface"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.adsorbed_amount_absolute]
+doc = "Absolute amount adsorbed per mass of host."
+key = "adsorbed_amount_absolute"
+quantity = "Loading"
+subject = "adsorbate_on_host"
+basis = "per_host_mass"
+relation = "absolute"
+path = "isothermal"
+adsorption = "absolute"
+
+[entities.observable.adsorbed_amount_excess]
+doc = "Excess amount adsorbed per mass of host."
+key = "adsorbed_amount_excess"
+quantity = "Loading"
+subject = "adsorbate_on_host"
+basis = "per_host_mass"
+relation = "absolute"
+path = "isothermal"
+adsorption = "excess"

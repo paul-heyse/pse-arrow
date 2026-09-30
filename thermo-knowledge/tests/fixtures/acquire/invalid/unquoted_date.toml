@@ -1,0 +1,18 @@
+id = "unquoted_date"
+title = "Bad"
+tier = "A"
+
+[acquire]
+kind = "none"
+reason = "r"
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+statement = "s"
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = 2026-09-30

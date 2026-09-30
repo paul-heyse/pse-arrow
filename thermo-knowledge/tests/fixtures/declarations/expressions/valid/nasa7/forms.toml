@@ -1,0 +1,53 @@
+module = "expr_nasa7"
+uses = ["physical", "identity", "exprtypes"]
+doc = "A NASA seven-coefficient standard-state form with an interval family."
+
+[contracts.standard_state]
+doc = "Ideal-gas standard-state heat capacity, enthalpy and entropy of one species form."
+roles.i = { type = "species", doc = "The species form." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+outputs.cp = { type = "MolarCp", doc = "Molar heat capacity." }
+outputs.h = { type = "MolarEnergy", doc = "Molar enthalpy." }
+outputs.s = { type = "MolarEntropy", doc = "Molar entropy." }
+
+[forms.nasa7]
+doc = "NASA seven-coefficient polynomials on temperature intervals."
+implements = "standard_state"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.nasa7.slot_groups.pure]
+doc = "Coefficient blocks of one species form."
+subject.i = { type = "species", doc = "The species form." }
+
+[forms.nasa7.slot_groups.pure.families.piece]
+doc = "One coefficient block per temperature interval."
+index.n = { type = "Integer", min = 1, doc = "Piece number." }
+interval = { lower = "T_low", upper = "T_high" }
+
+[forms.nasa7.slot_groups.pure.families.piece.slots]
+T_low = { type = "Temperature", doc = "Lower bound of the piece." }
+T_high = { type = "Temperature", doc = "Upper bound of the piece." }
+a1 = { type = "Scalar", doc = "Coefficient of T^0 in Cp/R." }
+a2 = { type = "Scalar / Temperature", doc = "Coefficient of T^1 in Cp/R." }
+a3 = { type = "Scalar / Temperature^2", doc = "Coefficient of T^2 in Cp/R." }
+a4 = { type = "Scalar / Temperature^3", doc = "Coefficient of T^3 in Cp/R." }
+a5 = { type = "Scalar / Temperature^4", doc = "Coefficient of T^4 in Cp/R." }
+a6 = { type = "Temperature", doc = "Enthalpy integration constant over R." }
+a7 = { type = "Scalar", doc = "Entropy integration constant over R." }
+
+[forms.nasa7.let]
+n = "at(pure.piece(i), T)"
+R = "8.314462618 * unit('J/(mol*K)')"
+a1 = "pure.piece.a1[i, n]"
+a2 = "pure.piece.a2[i, n]"
+a3 = "pure.piece.a3[i, n]"
+a4 = "pure.piece.a4[i, n]"
+a5 = "pure.piece.a5[i, n]"
+a6 = "pure.piece.a6[i, n]"
+a7 = "pure.piece.a7[i, n]"
+
+[forms.nasa7.outputs]
+cp = "R * (a1 + a2 * T + a3 * T ** 2 + a4 * T ** 3 + a5 * T ** 4)"
+h = "R * T * (a1 + a2 * T / 2 + a3 * T ** 2 / 3 + a4 * T ** 3 / 4 + a5 * T ** 4 / 5 + a6 / T)"
+s = "R * (a1 * log(T / unit('K')) + a2 * T + a3 * T ** 2 / 2 + a4 * T ** 3 / 3 + a5 * T ** 4 / 4 + a7)"

@@ -1,0 +1,8 @@
+module = "broken"
+schema = "tk"
+uses = ["physical", "identity", "framework", "vocab"]
+doc = "A deliberately broken module."
+
+[enums.kind]
+doc = "d"
+members.x = { doc = "d" }

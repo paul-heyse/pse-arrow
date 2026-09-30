@@ -1,0 +1,129 @@
+module = "expr_implicit_refusals"
+uses = ["physical", "identity", "exprtypes"]
+doc = "Implicit blocks whose solve has no answer at some argument values: each form says why in its name."
+
+[contracts.root_of]
+doc = "The root of an equation in the argument u."
+arguments.u = { type = "Scalar", doc = "A parameter of the equation." }
+outputs.value = { type = "Scalar", doc = "The root." }
+
+[forms.polynomial_without_a_root]
+doc = "x**2 + u has no real root when u is positive."
+implements = "root_of"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.polynomial_without_a_root.implicit.root]
+doc = "The root."
+unknowns.x = { type = "Scalar", lower = -2, upper = 2 }
+residuals = ["x ** 2 + u"]
+select = "unique"
+
+[forms.polynomial_without_a_root.outputs]
+value = "x"
+
+[forms.scanned_without_a_root]
+doc = "exp(x) + u has no root for positive u: not a polynomial, so the interval is scanned."
+implements = "root_of"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.scanned_without_a_root.implicit.root]
+doc = "The root."
+unknowns.x = { type = "Scalar", lower = -2, upper = 2 }
+residuals = ["exp(x) + u"]
+select = "smallest"
+
+[forms.scanned_without_a_root.outputs]
+value = "x"
+
+[forms.root_outside_the_bounds]
+doc = "x - 2 + u has its root at 2 - u, outside [0, 1] for small u."
+implements = "root_of"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.root_outside_the_bounds.implicit.root]
+doc = "The root."
+unknowns.x = { type = "Scalar", lower = 0, upper = 1 }
+residuals = ["x - 2 + u"]
+select = "largest"
+
+[forms.root_outside_the_bounds.outputs]
+value = "x"
+
+[forms.two_roots_but_unique]
+doc = "x**2 - u has two roots for positive u, and `unique` says there is one."
+implements = "root_of"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.two_roots_but_unique.implicit.root]
+doc = "The root."
+unknowns.x = { type = "Scalar", lower = -2, upper = 2 }
+residuals = ["x ** 2 - u"]
+select = "unique"
+
+[forms.two_roots_but_unique.outputs]
+value = "x"
+
+[forms.two_roots_smallest]
+doc = "The same equation with `smallest`: the negative root."
+implements = "root_of"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.two_roots_smallest.implicit.root]
+doc = "The root."
+unknowns.x = { type = "Scalar", lower = -2, upper = 2 }
+residuals = ["x ** 2 - u"]
+select = "smallest"
+
+[forms.two_roots_smallest.outputs]
+value = "x"
+
+[forms.unbounded_without_a_root]
+doc = "x**2 + u from a start, with no bounds: a Newton-type solve that cannot converge when u is positive."
+implements = "root_of"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.unbounded_without_a_root.implicit.root]
+doc = "The root."
+unknowns.x = { type = "Scalar", start = 0.5 }
+residuals = ["x ** 2 + u"]
+select = "unique"
+
+[forms.unbounded_without_a_root.outputs]
+value = "x"
+
+[forms.bounded_system_without_a_root]
+doc = "Two unknowns in a box with residuals that vanish nowhere in it."
+implements = "root_of"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.bounded_system_without_a_root.implicit.system]
+doc = "The roots."
+unknowns.x = { type = "Scalar", lower = 0, upper = 1, start = 0.5 }
+unknowns.y = { type = "Scalar", lower = 0, upper = 1, start = 0.5 }
+residuals = ["x - 2 + u", "y - x"]
+select = "unique"
+
+[forms.bounded_system_without_a_root.outputs]
+value = "x + y"
+
+[forms.empty_interval]
+doc = "The lower bound is above the upper bound when u is large."
+implements = "root_of"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.empty_interval.implicit.root]
+doc = "The root."
+unknowns.x = { type = "Scalar", lower = "u", upper = 1 }
+residuals = ["x - 0.5"]
+select = "unique"
+
+[forms.empty_interval.outputs]
+value = "x"

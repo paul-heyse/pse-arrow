@@ -1,0 +1,289 @@
+source = "sgte_unary"
+pin = "8e38dcefbeaa"
+surveyed = "2026-09-30"
+summary = "The SGTE unary database version 5.0 (2 June 2009) is one TDB file that gives, for 78 elements plus the vacancy and electron-gas pseudo-elements, the Gibbs energy of each element in the 34 phases of the file relative to its stable element reference (GHSER functions and lattice-stability functions, 305 FUNCTION statements with 658 temperature pieces), 396 G parameters that assign them to phases, and 34 magnetic parameters; it states the element reference phase, mass, H298-H0 and S298 in its ELEMENT lines, states no terms of use and no statement of the reference-state datum, and uses only ordinary TDB constructs (no pressure, volume or excess terms)."
+
+# ---------------------------------------------------------------------------
+# PAYLOAD
+# ---------------------------------------------------------------------------
+
+[[payload]]
+paths = ["unary50.tdb"]
+format = "Thermo-Calc TDB text (see the pycalphad survey for the keyword syntax), ASCII, LF line endings, 3199 lines of which 651 start with '$' (comment) and 3042 are non-empty; a comment header gives the version and change log, then ELEMENT, SPECIES, TYPE_DEFINITION, PHASE and CONSTITUENT statements, then FUNCTION statements grouped by element, then PARAMETER statements grouped by element"
+files = 1
+bytes = 118145
+records = "80 ELEMENT, 2 SPECIES, 34 PHASE with 34 CONSTITUENT (407 constituent entries in all), 5 TYPE_DEFINITION, 1 DEFINE_SYSTEM_DEFAULT, 1 DEFAULT_COMMAND, 305 FUNCTION (658 temperature pieces; pieces per function: 1 piece 120, 2 pieces 75, 3 pieces 68, 4 pieces 32, 5 pieces 7, 6, 7 and 8 pieces one each) and 430 PARAMETER (454 temperature pieces): G 396, TC 17, BM 15 (abbreviation of BMAGN), BMAGN 2; all 430 parameters have order 0; counted by splitting on '!' after removing '$' comments, pieces counted as ';' terminators (the parameter header's ';0' excluded)"
+reader = "pycalphad's Database(path) -> read_tdb (pycalphad/io/tdb.py:953) reads it (see the pycalphad survey); or any TDB reader; a plain '!'-split is enough to count statements"
+read_by_source = "none"
+notes = "The file has no terms of use, copyright line or licence statement (searched for licence, copyright, permission, rights); the acquisition record names a members-area path on the SGTE website as the download URL, which the file itself does not mention. 16 comment lines begin 'Source of data' and name an assessment, an unpublished work or a published system assessment, each placed above the parameters it concerns; all other comments are banners or element headings. No parameter is repeated for the same (type, phase, constituent array, order), and every constituent of every parameter is among the listed constituents of its phase (checked by script). The shipped file is the only carrier: no other release of the database is in the pinned tree."
+
+# ---------------------------------------------------------------------------
+# CONSTRUCTS
+# ---------------------------------------------------------------------------
+
+[[construct]]
+name = "file header and change log"
+locator = "unary50.tdb:1-66 (comment lines before the ELEMENT statements)"
+meaning = "A comment header that states the version ('Version 5.0 of Unary database - 2 June 2009'), a $TITLE line repeating it, a list of the changes since version 3.0 (revised or new or removed data per element and phase, one phase renamed RHOMB to RHOMB_C19, a melting-point precision change for Sn to 505.078, and minor coefficient changes to make functions continuous across ranges) and a note that the database was restructured to use ELEMENT, CONSTITUENT and FUNCTION statements."
+subject = "The whole file."
+fields = [
+  { name = "version line", meaning = "database version and date", unit = "not applicable (text)", shape = "scalar", role = "metadata" },
+  { name = "change log", meaning = "free-text list of revisions since version 3.0", unit = "not applicable (text)", shape = "list", role = "metadata" },
+]
+origin = "authored by the database maintainer (SGTE); the maintainer is not named in the file"
+conventions = "not stated"
+absence = "No statement of terms of use, of the reference-state datum or of the source publication of the functions as a whole appears in the header."
+validity = "version 5.0, 2 June 2009"
+provenance = "16 'Source of data' comment lines elsewhere cite assessments and unpublished work; the header cites none"
+count = "1"
+example = "unary50.tdb:1-3"
+candidate = "parameterization (revision = 5.0, title = SGTE Unary Database) with convention_set"
+precision = "close"
+loss = "The change log is free text; a mapping cannot turn it into supersedes relations or per-parameter revisions."
+
+[[construct]]
+name = "ELEMENT (reference phase, mass, H298-H0, S298)"
+locator = "unary50.tdb:68-147 (80 ELEMENT statements); reading rules in the pycalphad survey"
+meaning = "One line per element giving the name of the stable element reference phase, the atomic mass, H298-H0 and S298. The first two entries are the electron gas (/-, reference ELECTRON_GAS) and the vacancy (VA, reference VACUUM), both with zeros; N and O name the reference state as 1/2_MOLE_N2(G) and 1/2_MOLE_O2(G)."
+subject = "One element, keyed by symbol."
+fields = [
+  { name = "symbol", meaning = "element symbol", unit = "not applicable (text)", shape = "scalar", role = "input" },
+  { name = "reference phase", meaning = "name of the SER phase (FCC_A1, HCP_A3, BCC_A2, DHCP, DIAMOND_A4, GRAPHITE, LIQUID for Hg, and so on; 25 distinct names over 80 statements)", unit = "not applicable (text)", shape = "reference", role = "input" },
+  { name = "mass", meaning = "atomic mass", unit = "not stated (inferred: g/mol)", shape = "scalar", role = "input" },
+  { name = "H298-H0", meaning = "enthalpy difference of the element in its reference phase", unit = "not stated (inferred: J/mol)", shape = "scalar", role = "input" },
+  { name = "S298", meaning = "entropy of the element in its reference phase at 298.15 K", unit = "not stated (inferred: J/mol/K)", shape = "scalar", role = "input" },
+]
+origin = "transcribed from SGTE pure-element data; the file carries no citation for the values"
+conventions = "These four columns are what the Stable Element Reference (SER) is for this file: the SER phase of an element is the reference phase named here, and H298-H0 and S298 describe the element in it. The file does not state that GHSER functions are energies relative to the enthalpy of that phase at 298.15 K; that reading is the SGTE convention from the function names (see the GHSER construct)."
+absence = "H298-H0 and S298 are both 0 for 29 of the 78 real elements (for example AM, DY, HF, LU, SC, Y): the file does not say whether zero is a value or not given. For EU and OS only H298-H0 is 0 while S298 is not."
+validity = "not stated"
+provenance = "none per value"
+count = "80 statements: 78 elements and the two pseudo-elements"
+example = "unary50.tdb:70 (ELEMENT AG)"
+candidate = "element; energy_reference and element_reference (reference phase of each element as a species_form)"
+precision = "close"
+loss = "Zero H298-H0 and S298 cannot be told from not given; the reference phase name is a bare string that is not in the set of declared phases for 4 elements (see discrepancies); the datum of the energy is implicit."
+
+[[construct]]
+name = "SPECIES and the GAS phase"
+locator = "unary50.tdb:152-153 (SPECIES N2 and O2), :213-214 (PHASE GAS and its CONSTITUENT), :2544 and :2633 (G(GAS,N2;0), G(GAS,O2;0))"
+meaning = "Two molecular species, N2 and O2, are declared and placed as the only constituents of the phase GAS, whose G parameters are twice the element functions GHSERN and GHSERO. The elements N and O carry the half-molecule reference names in their ELEMENT lines."
+subject = "One species per statement."
+fields = [
+  { name = "species name and formula", meaning = "N2 and O2 with their formulas", unit = "not applicable (text)", shape = "scalar", role = "input" },
+]
+origin = "transcribed"
+conventions = "G(GAS,N2) = 2*GHSERN, so the N element reference is half a mole of N2 gas and the energy of the gas species is per mole of molecules."
+absence = "No other gas species are given."
+validity = "from 298.15 K to 6000 K (the parameter limits)"
+provenance = "none per value"
+count = "2 species, 1 phase, 2 parameters"
+example = "unary50.tdb:152-153"
+candidate = "species and species_form (aggregation gas) with a standard_state_species form"
+precision = "exact"
+loss = "none for the species; the gas parameters have no pressure dependence (no ln P or standard pressure is stated)."
+
+[[construct]]
+name = "PHASE and CONSTITUENT"
+locator = "unary50.tdb:167-280 (34 PHASE and CONSTITUENT statements)"
+meaning = "34 phases, each with a type-character field and site ratios. 28 phases are single-sublattice phases with one site (the elements that may occur are listed). BCC_A2 has 2 sublattices with site ratios 1 and 3, HCP_A3 and HCP_ZN have ratios 1 and 0.5, CBCC_A12, CUB_A13 and FCC_A1 have ratios 1 and 1; the second sublattice holds the interstitial vacancy VA only. LIQUID is a single-sublattice phase with the option letter :L."
+subject = "One phase, keyed by name."
+fields = [
+  { name = "name", meaning = "phase name, optionally followed by :L", unit = "not applicable (text)", shape = "scalar", role = "input" },
+  { name = "type characters", meaning = "% (SEQ) for non-magnetic phases; I with a magnetic character (I&, I+, I', I() for BCC_A2, HCP_A3, CBCC_A12 and FCC_A1; the character I has no TYPE_DEFINITION in this file", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "site ratios", meaning = "number of sites on each sublattice", unit = "not applicable (count of sites)", shape = "list", role = "input" },
+  { name = "constituents", meaning = "elements (and N2, O2 for GAS) that may occupy each sublattice; first-sublattice element counts: LIQUID 78, BCC_A2 71, FCC_A1 63, HCP_A3 63, CUB_A13 14, CBCC_A12 13, HCP_ZN 10, GAS 2 species; the second sublattice of the six two-sublattice phases is VA alone", unit = "not applicable (text)", shape = "list", role = "input" },
+]
+origin = "authored"
+conventions = "The unary Gibbs energy of an element in a phase is the G parameter for that (phase, element[:VA]); the interstitial VA sublattice exists so that the same phase can be reused by binary and higher-order databases."
+absence = "A phase lists as constituents only the elements for which the database has data in that phase; an element not listed for a phase has no value for it (no zero)."
+validity = "not stated per phase; temperature limits are in the parameters"
+provenance = "none"
+count = "34 phases; parameters of all types per phase: BCC_A2 80, LIQUID 78, HCP_A3 74, FCC_A1 72, CBCC_A12 15, CUB_A13 14, BCT_A5 13, HCP_ZN 10, DIAMOND_A4 10, RHOMBOHEDRAL_A7 10, DHCP 9, TETRAGONAL_A6 9, RHOMBO_A10 4, TET_ALPHA1 4, ORTHORHOMBIC_A20 3, TETRAGONAL_U 3, and 1 or 2 for each of the other 18 phases (14 with 1, 4 with 2)"
+example = "unary50.tdb:190-191 (BCC_A2)"
+candidate = "phase_definition (structure = sublattice for the two-sublattice phases, none otherwise), site_class rows, site_occupant rows (a vacancy is a species)"
+precision = "close"
+loss = "The ratios 1:3 (BCC) and 1:0.5 (HCP) describe interstitial sites in the source convention; the prototype names are in the phase names only (A1, A2, A3 and so on), not in a field."
+
+[[construct]]
+name = "FUNCTION GHSER (element energy relative to SER)"
+locator = "unary50.tdb:288-1938 (FUNCTION statements grouped by element; FUNCTION GHSERAG at :288)"
+meaning = "One function per element named GHSER followed by the element symbol (for example GHSERB, GHSERC, GHSERAG): the Gibbs energy of the element in its reference phase over temperature in several pieces; it is the energy against which the other functions and parameters are expressed. Lower limit 298.15 K for 252 of the 305 functions (200 K for 33, 100 K for 14, 250 K for 5, 130 K for 1)."
+subject = "One element's reference phase."
+fields = [
+  { name = "name", meaning = "GHSER + element symbol", unit = "not applicable (text)", shape = "scalar", role = "input" },
+  { name = "pieces", meaning = "temperature pieces of the form a + bT + cT ln T + dT^2 + eT^3 + fT^-1 (and a T^-9 or T^7 term in some pieces), each with an upper limit and Y or N", unit = "not stated (inferred: J/mol)", shape = "function", role = "input" },
+]
+origin = "transcribed from the SGTE pure-element tables"
+conventions = "GHSER(T) is the Gibbs energy of the element in its reference structure relative to H(298.15 K) of that structure: this is the SER convention, inferred from the function names and the ELEMENT reference phase; the file does not say it in words. One GHSER function per element (78 functions); 146 of the 305 functions and 158 of the 396 G parameters refer to a GHSER function."
+absence = "An element without a GHSER function has no data; all 78 real elements have one."
+validity = "each piece's temperature range; highest upper limits between 1000 K and 6000 K"
+provenance = "none per function"
+count = "78 GHSER functions of 305"
+example = "unary50.tdb:288-291 (GHSERAG)"
+candidate = "a standard_state_species form per element in its reference phase, with nested temperature-function parameter set, and energy_reference of type stable_element_reference"
+precision = "close"
+loss = "The datum (H at 298.15 K of the reference phase set to zero) is not stated by the file, only implied by convention and the function name."
+
+[[construct]]
+name = "FUNCTION lattice stability (G<phase code><element>)"
+locator = "unary50.tdb:288-1938 (for example GHCPAG at :293, GBCCAG at :295, GLIQAG at :297)"
+meaning = "227 functions named G, a 3-letter phase code (LIQ, BCC, FCC, HCP, and one each of DIA, RHO and RED) and the element symbol, giving the Gibbs energy of the element in another structure: usually a polynomial in T added to the element's GHSER function (for example 300+0.3*T+GHSERAG for hcp Ag); liquid functions have their own pieces above and below the melting point."
+subject = "One element in one non-reference phase."
+fields = [
+  { name = "name", meaning = "lattice-stability function name", unit = "not applicable (text)", shape = "scalar", role = "input" },
+  { name = "pieces", meaning = "expression of T with a reference to the element's GHSER function", unit = "not stated (inferred: J/mol)", shape = "function", role = "input" },
+]
+origin = "transcribed from SGTE lattice-stability tables"
+conventions = "Lattice stability is the energy relative to the stable element reference; the functions stand for a difference from the SER phase plus GHSER."
+absence = "Phase-element pairs absent from the file have no data."
+validity = "each piece's temperature range"
+provenance = "none per function; 16 comment lines elsewhere name sources for some parameters"
+count = "227 functions (code LIQ 77, BCC 57, FCC 48, HCP 42, DIA 1, RHO 1, RED 1)"
+example = "unary50.tdb:293-299 (GHCPAG, GBCCAG, GLIQAG)"
+candidate = "parameter sets of a standard_state_species form per (element, species_form) with dependency on the GHSER set"
+precision = "close"
+loss = "The link from a lattice-stability function to the GHSER function is a symbol reference inside the expression, which a mapping must turn into a dependency."
+
+[[construct]]
+name = "PARAMETER G (unary endmember energy)"
+locator = "unary50.tdb:1948-3194 (430 PARAMETER statements)"
+meaning = "G(PHASE,ELEMENT;0) for single-sublattice phases and G(PHASE,ELEMENT:VA;0) for phases with an interstitial VA sublattice: the Gibbs energy of the element in that phase, given as a function name (GHSERAG, GBCCAG) or an inline expression that adds a polynomial to GHSER (for example 3400-1.05*T+GHSERAG), with a lower limit (298.15 K for 356 of 430) and an upper limit."
+subject = "One element in one phase (a constituent array with one species per sublattice)."
+fields = [
+  { name = "type, phase, constituent array, order", meaning = "G, the phase, the element (or element and VA), order 0", unit = "not applicable (text)", shape = "list", role = "input" },
+  { name = "lower limit", meaning = "first temperature of the expression: 298.15 (356), 200 (43), 100 (24), 250 (6), 130 (1)", unit = "K (inferred)", shape = "scalar", role = "input" },
+  { name = "expression", meaning = "function name or inline polynomial plus GHSER", unit = "not stated (inferred: J/mol)", shape = "function", role = "input" },
+  { name = "upper limit", meaning = "end of the validity", unit = "K (inferred)", shape = "scalar", role = "input" },
+]
+origin = "transcribed or assessed; 16 comment lines cite some of the sources"
+conventions = "Energies are per mole of formula unit of the phase: for the two-sublattice phases the formula unit is 1 mole of the element and the VA sublattice contributes no atoms; per mole of atoms otherwise."
+absence = "A (phase, element) pair without a G parameter has no data: 4 elements (N, O, NP, SM) have no G parameter for the phase named as their reference in the ELEMENT line (see discrepancies)."
+validity = "from the lower to the upper limit of each parameter; 454 pieces in all"
+provenance = "16 'Source of data' comments precede some parameters (for example an assessment of the Ag-Al system, an unpublished work of a named author, a Cd-Hg assessment); they are comments, not fields, and are dropped by readers that strip comments"
+count = "396"
+example = "unary50.tdb:1948 (G(FCC_A1,AG:VA;0))"
+candidate = "parameter_set of a standard_state_species form per species_form, with a nested temperature function, in a parameterization whose chemical_system is the set of the file's elements"
+precision = "close"
+loss = "The order index is 0 for all; the comment-borne source citations are not attached to any parameter in a parsed file."
+
+[[construct]]
+name = "PARAMETER TC and BM/BMAGN (magnetic)"
+locator = "unary50.tdb:2162 onward (for example TC(HCP_A3,CO:VA;0))"
+meaning = "Curie or Neel temperature (TC) and mean magnetic moment (BM, the abbreviated form of BMAGN) for phases that use a magnetic type definition (BCC_A2, FCC_A1, HCP_A3, CBCC_A12). Values can be negative (for example Cr in BCC_A2, TC -311.5 and BM -0.008)."
+subject = "One element in one magnetic phase."
+fields = [
+  { name = "TC", meaning = "critical temperature", unit = "K (inferred)", shape = "scalar", role = "input" },
+  { name = "BM or BMAGN", meaning = "mean magnetic moment", unit = "Bohr magneton (inferred)", shape = "scalar", role = "input" },
+]
+origin = "transcribed"
+conventions = "Negative values denote the antiferromagnetic case, divided by the afm factor of the phase's MAGNETIC type definition (inferred from pycalphad's magnetic model; the file does not say so). The type definitions set afm factor and structure factor to -3.0 and 0.28 for FCC_A1, HCP_A3 and CBCC_A12 and to -1.0 and 0.4 for BCC_A2."
+absence = "An element with no TC parameter in a magnetic phase has no magnetic contribution there."
+validity = "not stated"
+provenance = "none per value"
+count = "TC 17 (HCP_A3 6, FCC_A1 5, BCC_A2 5, CBCC_A12 1), BM 15 (FCC_A1 5, BCC_A2 5, HCP_A3 4, CBCC_A12 1) and BMAGN 2 (HCP_A3: DY and GD)"
+example = "unary50.tdb:2162-2163"
+candidate = "parameter sets of a magnetic form plus phase-level afm and structure factors"
+precision = "close"
+loss = "The sign convention of TC and BM and the factors on the TYPE_DEFINITION lines have no statement in the file; the abbreviation BM versus BMAGN is a spelling difference."
+
+[[construct]]
+name = "TYPE_DEFINITION"
+locator = "unary50.tdb:158, :182, :189, :204, :219"
+meaning = "One sequence marker (TYPE_DEFINITION % SEQ *) and four magnetic definitions (GES A_P_D <phase> MAGNETIC afm structure-factor) for CBCC_A12, BCC_A2, FCC_A1 and HCP_A3, each using a distinct type character (', &, (, +)."
+subject = "A phase that lists the character in its PHASE statement."
+fields = [
+  { name = "afm factor and structure factor", meaning = "CBCC_A12, FCC_A1 and HCP_A3: -3.0 and 0.28; BCC_A2: -1.0 and 0.4", unit = "dimensionless (inferred)", shape = "scalar", role = "input" },
+]
+origin = "transcribed"
+conventions = "as in the pycalphad survey"
+absence = "The character I in four PHASE statements refers to no TYPE_DEFINITION in the file; readers that check this warn."
+validity = "not stated"
+provenance = "none"
+count = "5"
+example = "unary50.tdb:189"
+candidate = "phase-level parameters of the magnetic form"
+precision = "close"
+loss = "The meaning of the type character I in 'I&' and similar is not stated in the file."
+
+[[construct]]
+name = "DEFINE_SYSTEM_DEFAULT and DEFAULT_COMMAND"
+locator = "unary50.tdb:159-160"
+meaning = "DEFINE_SYSTEM_DEFAULT SPECIE 2 and DEFAULT_COMMAND DEF_SYS_ELEMENT VA: Thermo-Calc defaults (vacancy as a default system element). Skipped by the pycalphad reader."
+subject = "Global directives."
+fields = [
+  { name = "text", meaning = "the rest of the statement", unit = "not applicable (text)", shape = "scalar", role = "unread" },
+]
+origin = "authored"
+conventions = "not stated"
+absence = "not applicable"
+validity = "not applicable"
+provenance = "none"
+count = "2"
+example = "unary50.tdb:159-160"
+candidate = "none"
+precision = "unmapped"
+loss = "Directive text with no model target."
+
+# ---------------------------------------------------------------------------
+# CONVENTIONS
+# ---------------------------------------------------------------------------
+
+[[convention]]
+name = "stable element reference and reference phases"
+locator = "unary50.tdb:68-147 (ELEMENT), GHSER functions from :288"
+statement = "Each element's energies are measured from its stable element reference: the reference phase named in its ELEMENT line, with H298-H0 and S298 of that phase given on the same line. The file expresses every other phase of an element as a polynomial added to that element's GHSER function. The file does not spell out the datum (enthalpy of the reference phase at 298.15 K taken as zero for GHSER); this is the SGTE convention inferred from the names and the ELEMENT columns. Reference phases: HCP_A3 22 elements, FCC_A1 15, BCC_A2 14, DHCP 4, RHOMBOHEDRAL_A7 3, DIAMOND_A4 2, HEXAGONAL_A8 2, and 1 each for 18 other names (including LIQUID for Hg, GRAPHITE for C, WHITE_P for P, and half-molecule gas strings for N and O)."
+scope = "all FUNCTION and PARAMETER energies"
+
+[[convention]]
+name = "function naming"
+locator = "unary50.tdb:288-1938"
+statement = "GHSER<symbol> is the reference-phase energy of an element; G<PHASE><symbol> is the lattice stability for a named structure, where the phase part is the first three letters for LIQ, BCC, FCC and HCP and is shortened for other phases or two-letter symbols. The naming is a convention of the author and not declared in the file."
+scope = "FUNCTION statements"
+
+[[convention]]
+name = "temperature ranges of expressions"
+locator = "unary50.tdb (all FUNCTION and PARAMETER statements)"
+statement = "Expressions are given in pieces, each with an upper limit and a Y or N flag; the first piece begins at 298.15 K for most entries, at 200, 250, 100 or 130 K for low-temperature data. Upper limits range from 1000 K to 6000 K (3000 K, 4000 K and 6000 K most common). No pressure terms occur anywhere."
+scope = "all expressions"
+
+[[convention]]
+name = "units"
+locator = "unary50.tdb"
+statement = "No unit is stated anywhere in the file. Values are read as J/mol (energies), J/mol/K (S298), K, g/mol (masses) by the conventions of the TDB format, which the file does not repeat."
+scope = "all numbers"
+
+# ---------------------------------------------------------------------------
+# DISCREPANCIES
+# ---------------------------------------------------------------------------
+
+[[discrepancy]]
+locator = "unary50.tdb:68-147 (ELEMENT NP, SM) versus the PHASE statements and the header change log"
+documented = "The change log states a phase name change from RHOMB to RHOMB_C19, and the PHASE statements declare ORTHO_AC (for Np) and RHOMB_C19 (for Sm)"
+actual = "The ELEMENT line of Np names the reference phase ORTHORHOMBIC_AC and the ELEMENT line of Sm names RHOMBOHEDRAL_SM; neither name is a declared PHASE or appears in any parameter. Six reference names in all are not declared phases: ORTHORHOMBIC_AC, RHOMBOHEDRAL_SM, ELECTRON_GAS, VACUUM, and the gas strings 1/2_MOLE_N2(G) and 1/2_MOLE_O2(G) (the other four are the two pseudo-element references and the two half-molecule gas strings)."
+consequence = "The reference phase of Np and Sm cannot be joined to a phase definition by name; for N, O, Np and Sm the reference phase has no G parameter of its own."
+
+[[discrepancy]]
+locator = "unary50.tdb:182-219 (TYPE_DEFINITION) and the PHASE statements of BCC_A2, HCP_A3, CBCC_A12, FCC_A1"
+documented = "Each of these four PHASE statements lists the type characters I and a magnetic character"
+actual = "Only the magnetic character (&, +, ', () is defined by a TYPE_DEFINITION; the character I is not defined in the file."
+consequence = "A reader that checks type characters reports four unmatched I characters; the meaning of I is not recoverable from the file."
+
+# ---------------------------------------------------------------------------
+# QUESTIONS
+# ---------------------------------------------------------------------------
+
+[[question]]
+about = "reference-state datum"
+question = "The file says nothing about the enthalpy zero of the GHSER functions. Is it H(298.15 K) of each element's reference phase exactly (so that GHSER(298.15) equals the stated H298-H0 shift), or does it include the H298-H0 given in the ELEMENT line for elements where that is non-zero?"
+why_it_matters = "The energy_reference of the convention set needs the datum to be stated; the file supplies two candidate quantities and no statement."
+
+[[question]]
+about = "zero H298-H0 and S298"
+question = "For 29 elements both columns are 0. Does the source mean those values are not assessed, or that they are exactly zero by definition (as for the pseudo-elements)?"
+why_it_matters = "A mapping must decide between value_state known and not applicable for these element references; the file does not distinguish them."
+
+[[question]]
+about = "terms of use"
+question = "The file carries no licence or copyright line and was downloaded from a members-area path of the SGTE website (from the acquisition record). What terms apply to the data, and does public availability of the file grant any?"
+why_it_matters = "Rights determinations are a required part of the model's provenance; this source offers none in its bytes."

@@ -1,0 +1,16 @@
+module = "broken"
+schema = "tk"
+uses = ["physical", "identity", "framework", "vocab"]
+doc = "A deliberately broken module."
+
+[kinds.k]
+doc = "d"
+identity = ["a"]
+provenance = "none"
+
+[kinds.k.attributes]
+a = { type = "Text", doc = "d" }
+unit = { type = "Meta<quantity_type>", doc = "d" }
+chain = { type = "species", doc = "d" }
+x = { type = "Real", unit_from = "chain.unit_of", doc = "d" }
+y = { type = "Real", unit_from = "chain.tag", doc = "d" }

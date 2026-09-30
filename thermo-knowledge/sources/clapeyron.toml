@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "clapeyron"
+title = "Clapeyron.jl"
+tier = "A"
+homepage = "https://github.com/ClapeyronThermo/Clapeyron.jl"
+waves = [2, 3, 4]
+notes = "Database CSVs have a three-line header (format marker, description, column names); the file suffix encodes like, unlike, assoc, groups, intragroups. JSON files are CoolProp-style single-fluid and multifluid definitions. COSMO-SAC models download profiles at run time; that is not part of this payload."
+
+[acquire]
+kind = "git"
+url = "https://github.com/ClapeyronThermo/Clapeyron.jl.git"
+commit = "cbe8401f013205c8a2cb990e2caa8dd126ef5464"
+tag = "v0.6.29"
+submodules = []
+sparse = []
+
+[payload]
+reader = "clapeyron"
+environment = "core"
+include = ["database/**/*.csv", "database/**/*.json"]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "MIT"
+statement = "LICENSE.md: MIT."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"
+
+[[rights]]
+scope = "data"
+basis = "licence_grant"
+spdx = "MIT"
+statement = "No separate data licence; parameter rows carry a `source` column citing the primary literature by DOI (one file sampled)."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

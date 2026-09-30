@@ -1,0 +1,450 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+# Mapping of the CoolProp source (sources/coolprop.toml, tag v8.0.0), first wave of mapping:
+# fluid identities and the saturation-pressure ancillaries. Every other staged table is deferred
+# or out of scope with a reason. The format is documented in docs/pipeline.md section 2.1.
+
+source = "coolprop"
+doc = "CoolProp fluid identities and saturation-pressure ancillaries."
+
+# ------------------------------------------------------------------------------------------
+# Source entities: one per fluid, keyed by the name CoolProp keys it with.
+
+[scopes.fluids]
+table = "fluids"
+key = "NAME"
+doc = "A fluid of dev/fluids/*.json, keyed by INFO/NAME, which CoolProp requires to be unique per fluid."
+
+# The CoolProp mapping declares no formula-identified scope: a fluid is identified by its
+# structure identifiers or registry numbers, never by its formula alone.
+
+# ------------------------------------------------------------------------------------------
+# The parameterization the saturation ancillaries belong to.
+
+[parameterizations.saturation_ancillaries]
+key = "coolprop_saturation_ancillaries"
+revision = "{pin}"
+title = "CoolProp saturation ancillaries"
+coherence = "independent_records"
+origin_role = "published"
+no_convention_set = "CoolProp states no temperature scale, gas constant or standard pressure for its ancillaries."
+
+# ------------------------------------------------------------------------------------------
+# fluids: identities only (INFO identifiers). Environmental indicators are deferred.
+
+[tables.fluids]
+disposition = "mapped"
+origin_role = "published"
+
+[tables.fluids.fields.NAME]
+target = "identity_assertion.value"
+scheme = "name"
+precision = "exact"
+
+[tables.fluids.fields.CAS]
+target = "identity_assertion.value"
+scheme = "cas"
+precision = "exact"
+pattern = '^[0-9]{2,7}-[0-9]{2}-[0-9]$'
+otherwise_scheme = "source_local"
+
+[tables.fluids.fields.REFPROP_NAME]
+target = "identity_assertion.value"
+scheme = "name"
+precision = "close"
+absent = ["N/A"]
+loss = "The name of the fluid's REFPROP file, asserted as a name; it is REFPROP's identifier for the fluid rather than a common name."
+
+[tables.fluids.fields.ALIASES]
+target = "identity_assertion.value"
+scheme = "name"
+precision = "close"
+loss = "CoolProp states no scheme for aliases (upper-cased copies are added by its loader); each is asserted as a name."
+
+[tables.fluids.fields.FORMULA]
+target = "identity_assertion.value"
+scheme = "formula"
+precision = "exact"
+
+[tables.fluids.fields.INCHI_STRING]
+target = "identity_assertion.value"
+scheme = "inchi"
+precision = "exact"
+
+[tables.fluids.fields.INCHI_KEY]
+target = "identity_assertion.value"
+scheme = "inchikey"
+precision = "exact"
+
+[tables.fluids.fields.SMILES]
+target = "identity_assertion.value"
+scheme = "smiles"
+precision = "exact"
+absent = ["?"]
+
+[tables.fluids.fields.CHEMSPIDER_ID]
+disposition = "deferred"
+wave = 2
+reason = "ChemSpider identifiers have no naming scheme in model/identity.toml; one is declared before they map. The placeholder -1 stands for absent."
+
+[tables.fluids.fields."2DPNG_URL"]
+disposition = "out_of_scope"
+reason = "The address of a structure image on chemspider.com: not an identifier."
+
+[tables.fluids.fields.ENVIRONMENTAL_ASHRAE34]
+disposition = "deferred"
+wave = 2
+reason = "Environmental and safety indicators: the observables that hold them are not declared yet."
+
+[tables.fluids.fields.ENVIRONMENTAL_FH]
+disposition = "deferred"
+wave = 2
+reason = "Environmental and safety indicators: the observables that hold them are not declared yet."
+
+[tables.fluids.fields.ENVIRONMENTAL_GWP100]
+disposition = "deferred"
+wave = 2
+reason = "Environmental and safety indicators: the observables that hold them are not declared yet."
+
+[tables.fluids.fields.ENVIRONMENTAL_GWP20]
+disposition = "deferred"
+wave = 2
+reason = "Environmental and safety indicators: the observables that hold them are not declared yet."
+
+[tables.fluids.fields.ENVIRONMENTAL_GWP500]
+disposition = "deferred"
+wave = 2
+reason = "Environmental and safety indicators: the observables that hold them are not declared yet."
+
+[tables.fluids.fields.ENVIRONMENTAL_HH]
+disposition = "deferred"
+wave = 2
+reason = "Environmental and safety indicators: the observables that hold them are not declared yet."
+
+[tables.fluids.fields.ENVIRONMENTAL_Name]
+disposition = "out_of_scope"
+reason = "An echo of INFO/NAME."
+
+[tables.fluids.fields.ENVIRONMENTAL_ODP]
+disposition = "deferred"
+wave = 2
+reason = "Environmental and safety indicators: the observables that hold them are not declared yet."
+
+[tables.fluids.fields.ENVIRONMENTAL_PH]
+disposition = "deferred"
+wave = 2
+reason = "Environmental and safety indicators: the observables that hold them are not declared yet."
+
+# ------------------------------------------------------------------------------------------
+# ancillary_equations and ancillary_equation_rows: the pS curves that use the T_r/T factor
+# become parameter sets of vapor_pressure_exp_series_tau.pure; every other curve is deferred.
+
+[tables.ancillary_equations]
+disposition = "deferred"
+wave = 2
+reason = "The density (rhoL, rhoV), caloric (hL, hLV, sL, sLV) and bubble/dew (pL, pV) ancillaries map with the Helmholtz forms and their auxiliary relations."
+
+[[tables.ancillary_equations.partitions]]
+name = "saturation_pressure"
+where = { ancillary = "pS", using_tau_r = true }
+disposition = "mapped"
+origin_role = "fitted"
+loss = "The curve is a fit to the equation of state. Its derivation has no input and there is no auxiliary_of relation: the fluid's equation-of-state parameter set, which both would name, does not exist until the Helmholtz forms are mapped."
+
+[tables.ancillary_equations.partitions.constants]
+"envelope.axis" = "temperature"
+"envelope.kind" = "fitted_range"
+
+[tables.ancillary_equations.partitions.derivation]
+kind = "fit"
+outcome = "not_stated"
+method = "A fit of the curve to the equation of state of the fluid, produced by scripts in the source tree (dev/scripts/fit_ancillary_ODRPACK.py and replace_ancillaries.py). The source does not record the version of the software or the run, nor how the fit ended."
+
+[tables.ancillary_equations.fields.fluid]
+role = "structure"
+reason = "Names the fluid (scope fluids) the curve is of, and links the curve to its coefficient rows."
+
+[tables.ancillary_equations.fields.ancillary]
+role = "structure"
+reason = "Selects the curves that are saturation pressures (partition saturation_pressure) and links the curve to its coefficient rows."
+
+[tables.ancillary_equations.fields.T_r]
+target = "vapor_pressure_exp_series_tau.pure.T_r"
+unit = "K"
+precision = "exact"
+loss = "CoolProp states no unit for T_r; kelvin is assumed (the survey infers it from the values and the critical temperature)."
+
+[tables.ancillary_equations.fields.reducing_value]
+target = "vapor_pressure_exp_series_tau.pure.p_r"
+unit = "Pa"
+precision = "exact"
+loss = "CoolProp states no unit for the reducing value of a pressure curve; pascal is assumed (the survey infers it from the values and the critical pressure)."
+
+[tables.ancillary_equations.fields.Tmin]
+target = "envelope.lower"
+unit = "K"
+precision = "exact"
+loss = "CoolProp states no unit for Tmin; kelvin is assumed."
+
+[tables.ancillary_equations.fields.Tmax]
+target = "envelope.upper"
+unit = "K"
+precision = "exact"
+loss = "CoolProp states no unit for Tmax; kelvin is assumed."
+
+[tables.ancillary_equations.fields.using_tau_r]
+role = "structure"
+reason = "Selects the curves that use the T_r/T factor (partition saturation_pressure), which is the form's equation; a curve without it would need another form."
+
+[tables.ancillary_equations.fields.type]
+disposition = "out_of_scope"
+reason = "A label (pL or pV) that CoolProp's loader ignores; it carries no meaning for evaluation."
+
+[tables.ancillary_equations.fields.description]
+disposition = "out_of_scope"
+reason = "The formula as text; the form vapor_pressure_exp_series_tau states the equation."
+
+[tables.ancillary_equations.fields.max_abserror_percentage]
+disposition = "deferred"
+wave = 2
+reason = "The fit's error against the equation of state: a relative uncertainty of the curve and the accuracy claim of auxiliary_of, which maps with the equation-of-state parameter set it is relative to."
+
+[tables.ancillary_equations.fields.max_abs_error]
+disposition = "deferred"
+wave = 2
+reason = "Stated only for the caloric ancillaries, which are deferred."
+
+[tables.ancillary_equations.fields.max_abs_error_units]
+disposition = "deferred"
+wave = 2
+reason = "Stated only for the caloric ancillaries, which are deferred."
+
+[tables.ancillary_equations.fields._note]
+disposition = "out_of_scope"
+reason = "A free-text note that only the caloric ancillaries carry."
+
+[tables.ancillary_equations.fields.__note]
+disposition = "out_of_scope"
+reason = "A free-text note (a citation of one density ancillary)."
+
+[tables.ancillary_equations.fields.array_lengths]
+role = "structure"
+reason = "The length of each coefficient array, used to check that the coefficient rows are complete."
+
+[tables.ancillary_equation_rows]
+disposition = "deferred"
+wave = 2
+reason = "Coefficient rows of the density, caloric and bubble/dew ancillaries, which map with their curves."
+
+[[tables.ancillary_equation_rows.partitions]]
+name = "saturation_pressure"
+where = { ancillary = "pS" }
+disposition = "mapped"
+origin_role = "fitted"
+
+[tables.ancillary_equation_rows.fields.fluid]
+role = "structure"
+reason = "Links the coefficient row to its curve."
+
+[tables.ancillary_equation_rows.fields.ancillary]
+role = "structure"
+reason = "Links the coefficient row to its curve and selects the saturation-pressure rows."
+
+[tables.ancillary_equation_rows.fields.row_index]
+target = "vapor_pressure_exp_series_tau.pure.term.k"
+offset = 1
+precision = "exact"
+
+[tables.ancillary_equation_rows.fields.n]
+target = "vapor_pressure_exp_series_tau.pure.term.n"
+unit = "dimensionless"
+precision = "exact"
+loss = "CoolProp states no unit for the coefficients; they are dimensionless in the equation."
+
+[tables.ancillary_equation_rows.fields.t]
+target = "vapor_pressure_exp_series_tau.pure.term.t"
+unit = "dimensionless"
+precision = "exact"
+loss = "CoolProp states no unit for the exponents; they are dimensionless in the equation."
+
+[tables.ancillary_equation_rows.fields.A]
+disposition = "deferred"
+wave = 2
+reason = "A coefficient of the rational-polynomial caloric ancillaries, which are deferred."
+
+[tables.ancillary_equation_rows.fields.B]
+disposition = "deferred"
+wave = 2
+reason = "A coefficient of the rational-polynomial caloric ancillaries, which are deferred."
+
+# ------------------------------------------------------------------------------------------
+# Every other table.
+
+[tables.eos_entries]
+disposition = "deferred"
+wave = 2
+reason = "Helmholtz equation-of-state entries: the Helmholtz forms are mapped in wave 2."
+
+[tables.states]
+disposition = "deferred"
+wave = 2
+reason = "Reference and critical states of the equations of state; they map with the Helmholtz parameter sets."
+
+[tables.alphar_terms]
+disposition = "deferred"
+wave = 2
+reason = "Residual Helmholtz term objects."
+
+[tables.alphar_term_rows]
+disposition = "deferred"
+wave = 2
+reason = "Residual Helmholtz term coefficients."
+
+[tables.alpha0_terms]
+disposition = "deferred"
+wave = 2
+reason = "Ideal-gas Helmholtz term objects."
+
+[tables.alpha0_term_rows]
+disposition = "deferred"
+wave = 2
+reason = "Ideal-gas Helmholtz term coefficients."
+
+[tables.melting_lines]
+disposition = "deferred"
+wave = 2
+reason = "Melting lines are validity-boundary auxiliary relations of the equations of state."
+
+[tables.melting_line_parts]
+disposition = "deferred"
+wave = 2
+reason = "Pieces of the melting lines."
+
+[tables.melting_line_part_rows]
+disposition = "deferred"
+wave = 2
+reason = "Coefficients of the pieces of the melting lines."
+
+[tables.surface_tension]
+disposition = "deferred"
+wave = 2
+reason = "Surface-tension correlations: the interfacial forms are mapped in wave 2."
+
+[tables.surface_tension_rows]
+disposition = "deferred"
+wave = 2
+reason = "Coefficients of the surface-tension correlations."
+
+[tables.critical_region_splines]
+disposition = "deferred"
+wave = 2
+reason = "Critical-region splines are auxiliary to the equations of state."
+
+[tables.critical_region_spline_rows]
+disposition = "deferred"
+wave = 2
+reason = "Coefficients of the critical-region splines."
+
+[tables.superancillaries]
+disposition = "deferred"
+wave = 2
+reason = "Superancillary fits to the saturation curves: auxiliary relations of the equations of state."
+
+[tables.superancillary_check_points]
+disposition = "deferred"
+wave = 2
+reason = "Check points of the superancillaries."
+
+[tables.superancillary_expansions]
+disposition = "deferred"
+wave = 2
+reason = "Chebyshev expansions of the superancillaries."
+
+[tables.binary_pairs]
+disposition = "deferred"
+wave = 2
+reason = "Binary interaction parameters of the mixture models: mapped with the Helmholtz mixing forms."
+
+[tables.departure_functions]
+disposition = "deferred"
+wave = 2
+reason = "Departure functions of the mixture models."
+
+[tables.departure_function_rows]
+disposition = "deferred"
+wave = 2
+reason = "Coefficients of the departure functions."
+
+[tables.predefined_mixtures]
+disposition = "deferred"
+wave = 2
+reason = "Predefined mixtures are defined mixtures of fluids that need resolved component identities."
+
+[tables.predefined_mixture_components]
+disposition = "deferred"
+wave = 2
+reason = "Components of the predefined mixtures."
+
+[tables.cubic_fluids]
+disposition = "deferred"
+wave = 2
+reason = "Cubic equation-of-state parameters: the cubic forms are mapped in wave 2."
+
+[tables.cubic_alpha0_terms]
+disposition = "deferred"
+wave = 2
+reason = "Ideal-gas terms of the cubic fluids."
+
+[tables.cubic_alpha0_term_rows]
+disposition = "deferred"
+wave = 2
+reason = "Coefficients of the ideal-gas terms of the cubic fluids."
+
+[tables.pcsaft_fluids]
+disposition = "deferred"
+wave = 2
+reason = "PC-SAFT pure-component parameters: the SAFT forms are mapped in wave 2."
+
+[tables.pcsaft_binary_pairs]
+disposition = "deferred"
+wave = 2
+reason = "PC-SAFT binary interaction parameters."
+
+[tables.transport_objects]
+disposition = "deferred"
+wave = 7
+reason = "Transport-property models (viscosity, conductivity): the transport forms are mapped in wave 7."
+
+[tables.transport_scalars]
+disposition = "deferred"
+wave = 7
+reason = "Scalar parameters of the transport models."
+
+[tables.transport_rows]
+disposition = "deferred"
+wave = 7
+reason = "Coefficient rows of the transport models."
+
+[tables.incompressible_fluids]
+disposition = "deferred"
+wave = 7
+reason = "Incompressible-liquid property grids. Their rights are not stated (sources/coolprop.toml), so a mapping needs a rights decision first."
+
+[tables.incompressible_functions]
+disposition = "deferred"
+wave = 7
+reason = "Fitted functions of the incompressible liquids; rights not stated."
+
+[tables.incompressible_coefficients]
+disposition = "deferred"
+wave = 7
+reason = "Coefficients of the incompressible-liquid functions; rights not stated."
+
+[tables.text_files]
+disposition = "out_of_scope"
+reason = "Files the reader keeps verbatim because they are documents, grids or schemas, not records: they carry no assertion of their own."
+
+[tables.text_lines]
+disposition = "out_of_scope"
+reason = "The verbatim lines of the files in text_files."

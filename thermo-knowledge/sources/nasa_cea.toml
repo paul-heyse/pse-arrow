@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "nasa_cea"
+title = "NASA CEA"
+tier = "A"
+homepage = "https://github.com/nasa/cea"
+waves = [1, 7]
+notes = "A 2025 Fortran rewrite, not the legacy CEA2 distribution. thermo.inp and trans.inp are fixed-format text."
+
+[acquire]
+kind = "git"
+url = "https://github.com/nasa/cea.git"
+commit = "4c5c612efa2002a94e3a5a1f33b1674d55c65340"
+tag = "v3.3.4"
+submodules = []
+sparse = []
+
+[payload]
+reader = "nasa_cea"
+environment = "core"
+include = ["data/thermo.inp", "data/trans.inp"]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "Apache-2.0"
+statement = "LICENSE.txt: Apache-2.0; NOTICE.txt cites NASA TP-2002-211556 for the databases."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

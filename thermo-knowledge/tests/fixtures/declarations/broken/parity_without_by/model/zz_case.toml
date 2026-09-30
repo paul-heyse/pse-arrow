@@ -1,0 +1,14 @@
+module = "broken"
+schema = "tk"
+uses = ["physical", "identity", "framework", "vocab"]
+doc = "A deliberately broken module."
+
+[relations.r]
+doc = "d"
+provenance = "none"
+absence = "optional"
+transposition = { rule = "parity", roles = ["i", "j"] }
+
+[relations.r.keys]
+i = { type = "species", doc = "d" }
+j = { type = "species", doc = "d" }

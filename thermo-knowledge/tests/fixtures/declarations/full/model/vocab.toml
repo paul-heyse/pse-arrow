@@ -1,0 +1,123 @@
+module = "vocab"
+schema = "tk"
+uses = ["physical", "identity", "framework"]
+doc = "Scientific vocabularies: kinds with declared entities."
+
+[kinds.aggregation]
+doc = "A state of aggregation."
+identity = ["name"]
+provenance = "declaration"
+
+[kinds.aggregation.attributes]
+name = { type = "Text", doc = "The aggregation's name." }
+
+[kinds.phase]
+doc = "A named phase type."
+identity = ["name"]
+provenance = "declaration"
+
+[kinds.phase.attributes]
+name = { type = "Text", doc = "The phase's name." }
+aggregation = { type = "aggregation", doc = "The state of aggregation." }
+
+[kinds.observable]
+doc = "A measurable or computable property."
+identity = ["name"]
+provenance = "declaration"
+
+[kinds.observable.attributes]
+name = { type = "Text", doc = "The observable's name." }
+quantity = { type = "Meta<quantity_type>", doc = "The quantity type its values have." }
+
+[kinds.composition_basis]
+doc = "What a composition vector means: the kind of fraction it holds."
+identity = ["name"]
+provenance = "declaration"
+
+[kinds.composition_basis.attributes]
+name = { type = "Text", doc = "The basis's name." }
+
+[kinds.release]
+doc = "A dated release of a source: exercises the scalar value types of declared entities."
+identity = ["name"]
+provenance = "declaration"
+
+[kinds.release.attributes]
+name = { type = "Text", doc = "The release's name." }
+released_on = { type = "Date", doc = "The release date." }
+built_at = { type = "Timestamp", doc = "The build instant." }
+checksum = { type = "Hash", doc = "Content hash." }
+stable = { type = "Boolean", default = true, doc = "Whether the release is stable." }
+preferred_phase = { type = "phase_class", optional = true, doc = "A phase class." }
+key = { type = "Id<inchikey>", optional = true, doc = "An identifier." }
+scale = { type = "Scalar", optional = true, doc = "A dimensionless number." }
+scale_units = { type = "Array<Scalar>", optional = true, doc = "Dimensionless numbers." }
+remark = { type = "SourceText", optional = true, doc = "Retained source text." }
+readings = { type = "Array<Real>", unit_from = "dimensionless", optional = true, doc = "Numbers whose unit another reference fixes." }
+
+[entities.composition_basis.mole_fraction]
+doc = "Amount of a component over total amount."
+
+[entities.composition_basis.mass_fraction]
+doc = "Mass of a component over total mass."
+
+[entities.composition_basis.volume_fraction]
+doc = "Volume of a component over total volume."
+
+[entities.aggregation.gas]
+doc = "Gas or vapour."
+
+[entities.aggregation.liquid]
+doc = "Liquid."
+
+[entities.phase.vapor]
+doc = "The vapour phase."
+aggregation = "gas"
+
+[entities.observable.vapor_pressure]
+doc = "Saturation pressure of a pure species."
+quantity = "Pressure"
+traces = ["IC-20"]
+
+[entities.observable.critical_temperature]
+doc = "Critical temperature of a pure species."
+quantity = "Temperature"
+
+[entities.species.water]
+doc = "Water: a declared instance of an own kind, registered in prov.record at build."
+canonical_key = "O"
+tag = "water"
+smiles = "O"
+elements = ["H"]
+
+[entities.parameterization.default_fit]
+doc = "A declared instance of a root kind with own provenance."
+label = "default"
+
+[entities.element.H]
+doc = "Hydrogen."
+atomic_number = 1
+molar_mass = 0.001008
+
+[entities.element.He]
+doc = "Helium."
+atomic_number = 2
+molar_mass = 0.0040026
+
+[entities.element_group.light]
+doc = "The lightest elements."
+members = ["H", "He"]
+temperature_range = [200, 400.5]
+levels = [1, 2]
+
+[entities.release.r1]
+doc = "The first release."
+released_on = 2026-09-30
+built_at = 2026-09-30T12:00:00Z
+checksum = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+preferred_phase = "liquid"
+key = "AAAAAAAAAAAAAA-BBBBBBBBBB-C"
+scale = 2
+scale_units = [1, 2.5]
+remark = "as published"
+readings = [0.5, -1]

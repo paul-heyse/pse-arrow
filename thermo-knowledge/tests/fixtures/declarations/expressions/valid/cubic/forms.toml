@@ -1,0 +1,108 @@
+module = "expr_cubic"
+uses = ["physical", "identity", "exprtypes"]
+doc = "A cubic equation of state for a mixture: global constants, pure constants, a symmetric pair group, and an alpha function chosen through a sub-form slot."
+
+[contracts.alpha_function]
+doc = "Temperature dependence of the attractive parameter of one component."
+roles.i = { type = "species", doc = "The component." }
+arguments.Tr = { type = "Scalar", doc = "Reduced temperature." }
+arguments.omega = { type = "Scalar", doc = "Acentric factor." }
+outputs.value = { type = "Scalar", doc = "The dimensionless factor alpha." }
+
+[contracts.eos_pressure]
+doc = "Pressure of a mixture as a function of temperature, molar volume and composition."
+sets.components = { type = "material_entity", doc = "The components of the mixture, in a fixed order." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+arguments.v = { type = "MolarVolume", doc = "Molar volume." }
+arguments.x = { type = "Fraction", over = [
+  "components",
+], basis = "mole_fraction", doc = "Composition." }
+outputs.p = { type = "Pressure", doc = "Pressure." }
+
+[forms.alpha_soave]
+doc = "Soave's alpha: a function of the acentric factor only."
+implements = "alpha_function"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.alpha_soave.let]
+m = "0.48508 + 1.55171 * omega - 0.15613 * omega ** 2"
+
+[forms.alpha_soave.outputs]
+value = "(1 + m * (1 - sqrt(Tr))) ** 2"
+
+[forms.alpha_fitted]
+doc = "An alpha with a slope fitted for each component."
+implements = "alpha_function"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.alpha_fitted.slot_groups.pure]
+doc = "The fitted slope of one component."
+subject.i = { type = "species", doc = "The component." }
+
+[forms.alpha_fitted.slot_groups.pure.slots]
+c1 = { type = "Scalar", doc = "The slope." }
+
+[forms.alpha_fitted.outputs]
+value = "(1 + pure.c1[i] * (1 - sqrt(Tr))) ** 2"
+
+[forms.cubic_srk]
+doc = "The Soave-Redlich-Kwong equation of state with van der Waals mixing and a binary parameter."
+implements = "eos_pressure"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.cubic_srk.subforms.alpha]
+doc = "Temperature dependence of the attractive parameter."
+accepts = "alpha_function"
+multiplicity = "one"
+per = "subject"
+
+[forms.cubic_srk.slot_groups.core]
+doc = "Constants of the equation."
+
+[forms.cubic_srk.slot_groups.core.slots]
+omega_a = { type = "Scalar", doc = "Coefficient of the attractive parameter." }
+omega_b = { type = "Scalar", doc = "Coefficient of the covolume." }
+R = { type = "GasConstant", doc = "The gas constant." }
+
+[forms.cubic_srk.slot_groups.pure]
+doc = "Critical constants of one component."
+subject.i = { type = "species", doc = "The component." }
+bind = { i = "components" }
+
+[forms.cubic_srk.slot_groups.pure.slots]
+T_c = { type = "Temperature", doc = "Critical temperature." }
+p_c = { type = "Pressure", doc = "Critical pressure." }
+omega = { type = "Scalar", doc = "Acentric factor." }
+
+[forms.cubic_srk.slot_groups.pair]
+doc = "The binary interaction parameter of an unordered pair."
+subject.i = { type = "species", doc = "First component." }
+subject.j = { type = "species", doc = "Second component." }
+bind = { i = "components", j = "components" }
+transposition = { rule = "symmetric", roles = [
+  "i",
+  "j",
+], diagonal = "forbidden" }
+
+[forms.cubic_srk.slot_groups.pair.slots]
+k = { type = "Scalar", doc = "The parameter." }
+
+[forms.cubic_srk.let]
+b = "sum(x[i] * core.omega_b * core.R * pure.T_c[i] / pure.p_c[i] for i in components)"
+a = """
+sum(
+    x[i] * x[j] * (1 - (0 if i == j else pair.k[i, j])) * sqrt(
+        core.omega_a * core.R ** 2 * pure.T_c[i] ** 2 / pure.p_c[i]
+        * alpha.value(i=i, Tr=T / pure.T_c[i], omega=pure.omega[i])
+        * core.omega_a * core.R ** 2 * pure.T_c[j] ** 2 / pure.p_c[j]
+        * alpha.value(i=j, Tr=T / pure.T_c[j], omega=pure.omega[j])
+    )
+    for i in components for j in components
+)  # the van der Waals mixing rule
+"""
+
+[forms.cubic_srk.outputs]
+p = "core.R * T / (v - b) - a / (v * (v + b))"

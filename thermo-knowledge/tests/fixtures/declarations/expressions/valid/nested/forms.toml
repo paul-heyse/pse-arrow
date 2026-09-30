@@ -1,0 +1,52 @@
+module = "expr_nested"
+uses = ["physical", "identity", "exprtypes"]
+doc = "A pair parameter that is itself a temperature function of a sub-form: a nested-set slot."
+
+[contracts.temperature_function]
+doc = "A dimensionless function of temperature."
+arguments.T = { type = "Temperature", doc = "Temperature." }
+outputs.value = { type = "Scalar", doc = "The value." }
+
+[contracts.pair_parameter]
+doc = "A dimensionless parameter of two species forms as a function of temperature."
+roles.i = { type = "species", doc = "First species form." }
+roles.j = { type = "species", doc = "Second species form." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+outputs.tau = { type = "Scalar", doc = "The parameter." }
+
+[forms.linear_in_t]
+doc = "A linear function of temperature."
+implements = "temperature_function"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.linear_in_t.slot_groups.core]
+doc = "The coefficients."
+
+[forms.linear_in_t.slot_groups.core.slots]
+c0 = { type = "Scalar", doc = "Constant term." }
+c1 = { type = "Scalar / Temperature", doc = "Slope." }
+
+[forms.linear_in_t.outputs]
+value = "core.c0 + core.c1 * T"
+
+[forms.tau_nested]
+doc = "A symmetric pair parameter held as a nested temperature function."
+implements = "pair_parameter"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.tau_nested.slot_groups.pair]
+doc = "The nested function of an unordered pair."
+subject.i = { type = "species", doc = "First species form." }
+subject.j = { type = "species", doc = "Second species form." }
+transposition = { rule = "symmetric", roles = [
+  "i",
+  "j",
+], diagonal = "forbidden" }
+
+[forms.tau_nested.slot_groups.pair.slots]
+a = { accepts = "temperature_function", doc = "The temperature function of the pair." }
+
+[forms.tau_nested.outputs]
+tau = "pair.a[i, j].value(T=T)"

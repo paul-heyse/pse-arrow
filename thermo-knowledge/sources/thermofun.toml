@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "thermofun"
+title = "ThermoFun"
+tier = "A"
+homepage = "https://github.com/thermohub/thermofun"
+waves = [4]
+notes = "Resources/fun-hubclient-config.json holds a remote database account; it is not used."
+
+[acquire]
+kind = "git"
+url = "https://github.com/thermohub/thermofun.git"
+commit = "53741e9b0ac05d3c4cd7ce00ea8fa50222b47af0"
+tag = "v0.6.3"
+submodules = []
+sparse = []
+
+[payload]
+reader = "thermofun"
+environment = "core"
+include = ["Resources/databases/**/*.json"]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "LGPL-2.1-only"
+statement = "LICENSE file: LGPL-2.1 text."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = true
+observed = "2026-09-30 reconnaissance"
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "LGPL-3.0-only"
+statement = "The conda-forge recipe declares LGPL-3.0-only, which conflicts with the LICENSE file."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = true
+observed = "2026-09-30 reconnaissance"
+
+[[rights]]
+scope = "Resources/databases/**"
+basis = "not_stated"
+statement = "Datasets (aq17, cemdata18, heracles, mines16, psinagra-12-07, slop98) have their own publishers."
+store = "yes"
+redistribute = "not_stated"
+commercial = "not_stated"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

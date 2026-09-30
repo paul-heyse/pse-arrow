@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "cantera"
+title = "Cantera"
+tier = "A"
+homepage = "https://github.com/Cantera/cantera"
+waves = [1, 7]
+notes = "data/example_data is a submodule (cantera/cantera-example-data at b9e0731611bc6e8d33b021332c7ade094bec1196 for this tag). Pure-fluid tables are embedded in src/tpx."
+
+[acquire]
+kind = "git"
+url = "https://github.com/Cantera/cantera.git"
+commit = "4a8358eb80cfeb50474386b5f9ec0b3a83519889"
+tag = "v3.2.0"
+submodules = ["data/example_data"]
+sparse = []
+
+[payload]
+reader = "cantera"
+environment = "core"
+include = ["data/*.yaml", "data/example_data/**", "test/data/**"]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "licence_grant"
+spdx = "BSD-3-Clause"
+statement = "License.txt: BSD-3-Clause."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"
+
+[[rights]]
+scope = "data/**"
+basis = "not_stated"
+statement = "Mechanism files (GRI-Mech and others) have their own provenance; the example-data repository has no licence file."
+store = "yes"
+redistribute = "not_stated"
+commercial = "not_stated"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

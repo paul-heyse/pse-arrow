@@ -1,0 +1,20 @@
+module = "expr_implicit"
+uses = ["physical", "identity", "exprtypes"]
+doc = "A catalogued form may declare an implicit block: it is read for its shape and not yet interpreted."
+
+[contracts.site_fraction]
+doc = "Fraction of association sites not bonded."
+arguments.T = { type = "Temperature", doc = "Temperature." }
+outputs.X = { type = "Fraction", doc = "The fraction." }
+
+[forms.association]
+doc = "A site-fraction form whose output is defined by an equation."
+implements = "site_fraction"
+completeness = "fully_declared"
+status = "catalogued"
+
+[forms.association.implicit.site_fractions]
+doc = "Fraction of sites of each type not bonded."
+unknowns.X = { type = "Fraction", lower = 0, upper = 1, start = 0.5 }
+residuals = ["X * (1 + 2 * X) - 1"]
+select = "unique"

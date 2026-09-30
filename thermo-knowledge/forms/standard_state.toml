@@ -1,0 +1,176 @@
+module = "standard_state"
+uses = [
+  "physical",
+  "provenance",
+  "identity",
+  "systems",
+  "conventions",
+  "observables",
+  "parameters",
+]
+doc = """
+Standard-state thermodynamic functions of a species form as functions of temperature at the
+standard pressure of the parameterisation's convention set. The gas constant is a slot of each
+parameterisation, never an ambient value: a coefficient set reproduces its source only with the
+gas constant it was built with. Enthalpy is relative to the energy reference of the convention
+set; for the NASA and Shomate families that datum is carried by the integration constants.
+"""
+
+[contracts.standard_state_thermo]
+doc = "Standard-state molar heat capacity, enthalpy and entropy of one species form at a temperature."
+roles.i = { type = "species_form", doc = "The species form." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+outputs.cp = { type = "MolarEntropy", observable = "standard_molar_heat_capacity_isobaric", doc = "Standard-state molar heat capacity at constant pressure." }
+outputs.h = { type = "MolarEnergy", observable = "standard_molar_enthalpy", doc = "Standard-state molar enthalpy relative to the energy reference." }
+outputs.s = { type = "MolarEntropy", observable = "standard_molar_entropy", doc = "Standard-state molar entropy." }
+
+# ---------------------------------------------------------------- NASA seven-coefficient
+
+[forms.nasa7]
+doc = "NASA seven-coefficient polynomials: heat capacity over R as a fourth-degree polynomial in temperature on each temperature interval, with enthalpy and entropy integration constants."
+implements = "standard_state_thermo"
+completeness = "fully_declared"
+status = "expressed"
+citations = ["gordon_mcbride_1971_nasa_sp_273"]
+
+[forms.nasa7.slot_groups.constants]
+doc = "Constants one parameterisation uses for every species form."
+
+[forms.nasa7.slot_groups.constants.slots]
+R = { type = "GasConstant", doc = "The gas constant the coefficients are scaled by." }
+
+[forms.nasa7.slot_groups.pure]
+doc = "The coefficient blocks of one species form."
+subject.i = { type = "species_form", doc = "The species form." }
+
+[forms.nasa7.slot_groups.pure.families.piece]
+doc = "One coefficient block per temperature interval."
+index.n = { type = "Integer", min = 1, doc = "Piece number, ascending in temperature." }
+interval = { lower = "T_low", upper = "T_high" }
+
+[forms.nasa7.slot_groups.pure.families.piece.slots]
+T_low = { type = "Temperature", doc = "Lower bound of the interval." }
+T_high = { type = "Temperature", doc = "Upper bound of the interval." }
+a1 = { type = "Scalar", doc = "Coefficient of T^0 in Cp/R." }
+a2 = { type = "Scalar / Temperature", doc = "Coefficient of T^1 in Cp/R." }
+a3 = { type = "Scalar / Temperature^2", doc = "Coefficient of T^2 in Cp/R." }
+a4 = { type = "Scalar / Temperature^3", doc = "Coefficient of T^3 in Cp/R." }
+a5 = { type = "Scalar / Temperature^4", doc = "Coefficient of T^4 in Cp/R." }
+a6 = { type = "TemperatureDifference", doc = "Enthalpy integration constant: H/R at the zero of the polynomial integral." }
+a7 = { type = "Scalar", doc = "Entropy integration constant: S/R at the zero of the polynomial integral." }
+
+[forms.nasa7.let]
+n = "at(pure.piece(i), T)"
+R = "constants.R"
+a1 = "pure.piece.a1[i, n]"
+a2 = "pure.piece.a2[i, n]"
+a3 = "pure.piece.a3[i, n]"
+a4 = "pure.piece.a4[i, n]"
+a5 = "pure.piece.a5[i, n]"
+a6 = "pure.piece.a6[i, n]"
+a7 = "pure.piece.a7[i, n]"
+
+[forms.nasa7.outputs]
+cp = "R * (a1 + a2 * T + a3 * T ** 2 + a4 * T ** 3 + a5 * T ** 4)"
+h = "R * T * (a1 + a2 * T / 2 + a3 * T ** 2 / 3 + a4 * T ** 3 / 4 + a5 * T ** 4 / 5 + a6 / T)"
+s = "R * (a1 * log(T / unit('K')) + a2 * T + a3 * T ** 2 / 2 + a4 * T ** 3 / 3 + a5 * T ** 4 / 4 + a7)"
+
+# ---------------------------------------------------------------- NASA nine-coefficient
+
+[forms.nasa9]
+doc = "NASA nine-coefficient polynomials: heat capacity over R with terms from T^-2 to T^4 on each temperature interval, with enthalpy and entropy integration constants."
+implements = "standard_state_thermo"
+completeness = "fully_declared"
+status = "expressed"
+citations = ["mcbride_zehe_gordon_2002_nasa_tp_211556"]
+
+[forms.nasa9.slot_groups.constants]
+doc = "Constants one parameterisation uses for every species form."
+
+[forms.nasa9.slot_groups.constants.slots]
+R = { type = "GasConstant", doc = "The gas constant the coefficients are scaled by." }
+
+[forms.nasa9.slot_groups.pure]
+doc = "The coefficient blocks of one species form."
+subject.i = { type = "species_form", doc = "The species form." }
+
+[forms.nasa9.slot_groups.pure.families.piece]
+doc = "One coefficient block per temperature interval."
+index.n = { type = "Integer", min = 1, doc = "Piece number, ascending in temperature." }
+interval = { lower = "T_low", upper = "T_high" }
+
+[forms.nasa9.slot_groups.pure.families.piece.slots]
+T_low = { type = "Temperature", doc = "Lower bound of the interval." }
+T_high = { type = "Temperature", doc = "Upper bound of the interval." }
+a1 = { type = "Scalar * Temperature^2", doc = "Coefficient of T^-2 in Cp/R." }
+a2 = { type = "Scalar * Temperature", doc = "Coefficient of T^-1 in Cp/R." }
+a3 = { type = "Scalar", doc = "Coefficient of T^0 in Cp/R." }
+a4 = { type = "Scalar / Temperature", doc = "Coefficient of T^1 in Cp/R." }
+a5 = { type = "Scalar / Temperature^2", doc = "Coefficient of T^2 in Cp/R." }
+a6 = { type = "Scalar / Temperature^3", doc = "Coefficient of T^3 in Cp/R." }
+a7 = { type = "Scalar / Temperature^4", doc = "Coefficient of T^4 in Cp/R." }
+b1 = { type = "TemperatureDifference", doc = "Enthalpy integration constant over R." }
+b2 = { type = "Scalar", doc = "Entropy integration constant over R." }
+
+[forms.nasa9.let]
+n = "at(pure.piece(i), T)"
+R = "constants.R"
+a1 = "pure.piece.a1[i, n]"
+a2 = "pure.piece.a2[i, n]"
+a3 = "pure.piece.a3[i, n]"
+a4 = "pure.piece.a4[i, n]"
+a5 = "pure.piece.a5[i, n]"
+a6 = "pure.piece.a6[i, n]"
+a7 = "pure.piece.a7[i, n]"
+b1 = "pure.piece.b1[i, n]"
+b2 = "pure.piece.b2[i, n]"
+lnT = "log(T / unit('K'))"
+
+[forms.nasa9.outputs]
+cp = "R * (a1 / T ** 2 + a2 / T + a3 + a4 * T + a5 * T ** 2 + a6 * T ** 3 + a7 * T ** 4)"
+h = "R * T * (-a1 / T ** 2 + a2 * lnT / T + a3 + a4 * T / 2 + a5 * T ** 2 / 3 + a6 * T ** 3 / 4 + a7 * T ** 4 / 5 + b1 / T)"
+s = "R * (-a1 / (2 * T ** 2) - a2 / T + a3 * lnT + a4 * T + a5 * T ** 2 / 2 + a6 * T ** 3 / 3 + a7 * T ** 4 / 4 + b2)"
+
+# ---------------------------------------------------------------- Shomate
+
+[forms.shomate]
+doc = "The Shomate equation: heat capacity as a cubic polynomial in temperature plus an inverse-square term on each temperature interval, with enthalpy and entropy constants. Coefficients are stored for temperature in kelvin; sources that tabulate them for t = T/1000 K are converted by the mapping."
+implements = "standard_state_thermo"
+completeness = "fully_declared"
+status = "expressed"
+citations = ["shomate_1954", "chase_1998_nist_janaf"]
+
+[forms.shomate.slot_groups.pure]
+doc = "The coefficient blocks of one species form."
+subject.i = { type = "species_form", doc = "The species form." }
+
+[forms.shomate.slot_groups.pure.families.piece]
+doc = "One coefficient block per temperature interval."
+index.n = { type = "Integer", min = 1, doc = "Piece number, ascending in temperature." }
+interval = { lower = "T_low", upper = "T_high" }
+
+[forms.shomate.slot_groups.pure.families.piece.slots]
+T_low = { type = "Temperature", doc = "Lower bound of the interval." }
+T_high = { type = "Temperature", doc = "Upper bound of the interval." }
+A = { type = "MolarEntropy", doc = "Constant term of the heat capacity." }
+B = { type = "MolarEntropy / Temperature", doc = "Coefficient of T in the heat capacity." }
+C = { type = "MolarEntropy / Temperature^2", doc = "Coefficient of T^2 in the heat capacity." }
+D = { type = "MolarEntropy / Temperature^3", doc = "Coefficient of T^3 in the heat capacity." }
+E = { type = "MolarEntropy * Temperature^2", doc = "Coefficient of T^-2 in the heat capacity." }
+F = { type = "MolarEnergy", doc = "Enthalpy constant." }
+G = { type = "MolarEntropy", doc = "Entropy constant." }
+
+[forms.shomate.let]
+n = "at(pure.piece(i), T)"
+A = "pure.piece.A[i, n]"
+B = "pure.piece.B[i, n]"
+C = "pure.piece.C[i, n]"
+D = "pure.piece.D[i, n]"
+E = "pure.piece.E[i, n]"
+F = "pure.piece.F[i, n]"
+G = "pure.piece.G[i, n]"
+
+[forms.shomate.outputs]
+cp = "A + B * T + C * T ** 2 + D * T ** 3 + E / T ** 2"
+h = "A * T + B * T ** 2 / 2 + C * T ** 3 / 3 + D * T ** 4 / 4 - E / T + F"
+s = "A * log(T / unit('K')) + B * T + C * T ** 2 / 2 + D * T ** 3 / 3 - E / (2 * T ** 2) + G"

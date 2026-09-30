@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+id = "teqp"
+title = "teqp"
+tier = "A"
+homepage = "https://github.com/usnistgov/teqp"
+waves = [2]
+notes = "Fluid JSON is CoolProp format. GERG, FE-ANN, PC-SAFT and correlation-integral tables are embedded in C++ sources."
+
+[acquire]
+kind = "git"
+url = "https://github.com/usnistgov/teqp.git"
+commit = "5f62a6f515d517e39c3fb035c11a03524ffa3ad6"
+tag = "v0.23.2"
+submodules = []
+sparse = []
+
+[payload]
+reader = "teqp"
+environment = "core"
+include = [
+  "teqp/fluiddata/**/*.json",
+  "include/teqp/models/GERG/GERG.hpp",
+  "src/data/FEANN.cpp",
+]
+exclude = []
+
+[[rights]]
+scope = "code"
+basis = "public_domain"
+statement = "LICENSE.md: NIST software disclaimer; a work of the US Government, not subject to copyright protection in the United States."
+store = "yes"
+redistribute = "yes"
+commercial = "yes"
+attribution = true
+share_alike = false
+observed = "2026-09-30 reconnaissance"

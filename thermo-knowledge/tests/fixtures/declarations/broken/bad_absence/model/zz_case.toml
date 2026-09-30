@@ -1,0 +1,12 @@
+module = "broken"
+schema = "tk"
+uses = ["physical", "identity", "framework", "vocab"]
+doc = "A deliberately broken module."
+
+[relations.r]
+doc = "d"
+provenance = "none"
+value = { type = "Scalar", doc = "d" }
+
+[relations.r.keys]
+k = { type = "species", doc = "d" }
