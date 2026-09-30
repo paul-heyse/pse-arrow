@@ -22,30 +22,28 @@ in a block of its own and is not a point.
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 
+from thermo_knowledge import pipeline_contract as pc
 from thermo_knowledge.mapping.context import (
     IdentityContext,
     RecordContext,
     RowHeld,
     RunContext,
+    ORIGIN,
+    first,
+    numbered,
 )
 from thermo_knowledge.mapping.formula import CHARGE, hill
 from thermo_knowledge.mapping.spec import declared_entity
 from thermo_knowledge.mapping.staged import SourceRow
 
+VARIABLE = "variable"
+"""The role of the column that holds the temperature."""
+DATUM_VALUE = "datum.value"
+"""The target of the rule of each column of a table that becomes a column of a dataset."""
 FORMULA = re.compile(r"(?:(?P<symbol>[A-Z][a-z]?)(?P<count>\d+(?:\.\d+)?))+")
 TERM = re.compile(r"(?P<symbol>[A-Z][a-z]?)(?P<count>\d+(?:\.\d+)?)")
-COLUMNS = (
-    "t",
-    "cp",
-    "s",
-    "g_function",
-    "h_increment",
-    "delta_f_h",
-    "delta_f_g",
-    "log_kf",
-)
-"""The columns of a table, in the order of the file, which numbers the columns of a dataset."""
 
 
 class Segment:
@@ -59,22 +57,22 @@ class Segment:
 
 def formula_of(ctx: RunContext[object], table: SourceRow) -> tuple[dict[str, float], int]:
     """The composition and charge of a JANAF formula (`Al1Cl1F1+`: every count written, a charge as
-    a trailing sign); an element the declaration does not hold holds the block."""
-    text = str(table["janaf_formula"])
-    charge = 0
-    if text.endswith(("+", "-")):
-        charge = 1 if text.endswith("+") else -1
-        text = text[:-1]
+    a trailing sign, which the decoding `charge_of_formula` reads); an element the declaration
+    does not hold holds the block."""
+    decoded = ctx.decoded(table, "derived:charge")
+    assert decoded is not None  # a decoding without `required` is held, not `None`
+    charge = int(decoded.to)
+    text = str(table["janaf_formula"]).rstrip("+-")
     if not FORMULA.fullmatch(text):
         raise RowHeld("pattern_mismatch", f"{table.locator}: `{text}` is not a JANAF formula")
-    counts: dict[str, float] = {}
+    counts: defaultdict[str, float] = defaultdict(float)
     for term in TERM.finditer(text):
         symbol = term["symbol"]
         if declared_entity(ctx.decl, "conserved_quantity", symbol) is None:
             raise RowHeld(
                 "unknown_subject", f"{table.locator}: `{symbol}` is not a declared conserved quantity"
             )
-        counts[symbol] = counts.get(symbol, 0.0) + float(term["count"])
+        counts[symbol] += float(term["count"])
     return counts, charge
 
 
@@ -82,8 +80,8 @@ def segments_of(ctx: RunContext[object], table: SourceRow, rows: list[SourceRow]
     """The segments of a table (see the module's text)."""
     designator = ctx.decoded(table, "phase_designator", required=False)
     if designator is not None:
-        return [Segment(1, designator.to, rows)]
-    cuts: list[tuple[int, str, str]] = []
+        return [Segment(ORIGIN, designator.to, rows)]
+    cuts: dict[int, tuple[str, str]] = {}
     for position, row in enumerate(rows):
         change = ctx.decoded(row, "marker", required=False)
         if change is None:
@@ -92,7 +90,7 @@ def segments_of(ctx: RunContext[object], table: SourceRow, rows: list[SourceRow]
         upper = ctx.decoded(table, "derived:phase_name", using={"phase_name": change.groups["upper"]})
         assert lower is not None and upper is not None
         if lower.to != upper.to:
-            cuts.append((position, lower.to, upper.to))
+            cuts[position] = (lower.to, upper.to)
     if not cuts:
         raise RowHeld(
             "missing_convention",
@@ -100,16 +98,21 @@ def segments_of(ctx: RunContext[object], table: SourceRow, rows: list[SourceRow]
             "the table changes it",
         )
     found: list[Segment] = []
-    start, aggregation = 0, cuts[0][1]
-    for position, lower, upper in cuts:
+    current: list[SourceRow] = []
+    aggregation = first(next(iter(cuts.values())))
+    for position, row in enumerate(rows):
+        current.append(row)
+        if position not in cuts:
+            continue
+        lower, upper = cuts[position]
         if lower != aggregation:
             raise RowHeld(
                 "pattern_mismatch",
                 f"{table.locator}: a transition leaves {lower} from a phase that is {aggregation}",
             )
-        found.append(Segment(len(found) + 1, aggregation, rows[start : position + 1]))
-        start, aggregation = position + 1, upper
-    found.append(Segment(len(found) + 1, aggregation, rows[start:]))
+        found.append(Segment(ORIGIN + len(found), aggregation, current))
+        current, aggregation = [], upper
+    found.append(Segment(ORIGIN + len(found), aggregation, current))
     return found
 
 
@@ -181,11 +184,11 @@ def records(ctx: RecordContext) -> None:
             phases: dict[int, object] = {}
             datasets: list[tuple[Segment, object]] = []
             for segment, form in zip(segments, forms, strict=True):
-                first = segment.rows[0]
+                first_row = first(segment.rows)
                 dataset = emit.kind(
                     "dataset",
                     {
-                        **ctx.attributes(first, "dataset"),
+                        **ctx.attributes(first_row, "dataset"),
                         "carrier": emit.carrier,
                         "local_key": f"{table['code']}#{segment.number}",
                         "convention_set": convention,
@@ -193,64 +196,63 @@ def records(ctx: RecordContext) -> None:
                 )
                 component = emit.kind(
                     "dataset_component",
-                    {
-                        **ctx.constants(first, "dataset_component"),
-                        "dataset": dataset,
-                        "ordinal": 1,
-                        "entity": form,
-                    },
+                    {**ctx.constants(first_row, "dataset_component"), "dataset": dataset, "entity": form},
                 )
                 phase = emit.kind(
                     "dataset_phase",
                     {
+                        **ctx.constants(first_row, "dataset_phase"),
                         "dataset": dataset,
-                        "ordinal": 1,
                         "aggregation": ctx.declared("aggregation", segment.aggregation),
                     },
                 )
                 phases[segment.number] = phase
                 standard = ctx.decoded(
-                    first, "derived:standard_state", using={"aggregation": segment.aggregation}
+                    first_row, "derived:standard_state", using={"aggregation": segment.aggregation}
                 )
                 assert standard is not None
                 state = emit.kind(
                     "standard_state",
                     {
-                        **ctx.constants(first, "standard_state"),
+                        **ctx.constants(first_row, "standard_state"),
                         "key": standard.key,
                         "kind": standard.to,
                     },
                 )
                 datasets.append((segment, (dataset, component, phase, state)))
             for segment, (dataset, component, phase, state) in datasets:
-                first = segment.rows[0]
+                first_row = first(segment.rows)
+                names = ctx.value_columns(first_row, DATUM_VALUE)
+                temperature = next(
+                    name for name in names if ctx.column_attributes(first_row, name)["role"] == VARIABLE
+                )
                 columns = {}
-                for ordinal, name in enumerate(COLUMNS, start=1):
-                    attributes = ctx.column_attributes(first, name)
+                for ordinal, name in numbered(names):
+                    attributes = ctx.column_attributes(first_row, name)
                     attributes.update(dataset=dataset, ordinal=ordinal)
                     if attributes["role"] == "property":
                         attributes.update(component=component, phase=phase)
-                        if ctx.states_standard_state(first, name):
+                        if ctx.states_standard_state(first_row, name):
                             attributes["standard_state"] = state
                     if "reference_temperature" in attributes:
                         attributes["reference_phase"] = _reference_phase(
-                            ctx, segments, phases, attributes["reference_temperature"]
+                            ctx, segments, phases, attributes["reference_temperature"], temperature
                         )
                     columns[name] = emit.kind("dataset_column", attributes)
-                constants = ctx.constants(first, "datum")
-                for index, row in enumerate(segment.rows, start=1):
+                constants = ctx.constants(first_row, "datum")
+                for index, row in numbered(segment.rows):
                     point = emit.kind("data_point", {"dataset": dataset, "index": index})
-                    for name in COLUMNS:
+                    for name in names:
                         found = ctx.quantity(row, name)
                         if found is None:
                             continue
                         emit.relation(
                             "datum",
-                            {"point": point, "column": columns[name]},
+                            {pc.DATUM.point: point, pc.DATUM.column: columns[name]},
                             {
                                 **constants,
                                 "value": found,
-                                "digits": ctx.digits(row, f"{name}_text"),
+                                "digits": ctx.digits(row, name),
                             },
                         )
 
@@ -260,13 +262,14 @@ def _reference_phase(
     segments: list[Segment],
     phases: dict[int, object],
     reference_temperature: object,
+    column: str,
 ) -> object | None:
     """The phase of the segment that has a row at the reference temperature of a column: the
     phase whose enthalpy the column's increment is measured from."""
     wanted = reference_temperature.value  # type: ignore[attr-defined]
     for segment in segments:
         for row in segment.rows:
-            found = ctx.quantity(row, "t")
+            found = ctx.quantity(row, column)
             if found is not None and found.value == wanted:
                 return phases[segment.number]
     return None

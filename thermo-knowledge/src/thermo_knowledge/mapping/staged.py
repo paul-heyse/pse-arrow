@@ -14,6 +14,7 @@ import re
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -56,6 +57,12 @@ class SourceRow:
 
     def get(self, column: str) -> object | None:
         return self[column] if column in self.values or ELEMENT.fullmatch(column) else None
+
+    @property
+    def fields(self) -> SimpleNamespace:
+        """The columns as attributes (`row.fields.section`), for a mapping that reads a row it
+        does not map."""
+        return SimpleNamespace(**self.values)
 
 
 @dataclass(frozen=True)

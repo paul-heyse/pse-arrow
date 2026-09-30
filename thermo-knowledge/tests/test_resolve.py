@@ -511,10 +511,12 @@ reason = "r"
         decision_module.parse(twice, file="x")
 
 
-def test_the_committed_decisions_file_has_no_decisions() -> None:
+def test_the_committed_decisions_file_parses_and_every_decision_carries_a_reason() -> None:
     decided, data = decision_module.load()
-    assert decided == decision_module.EMPTY
     assert data.startswith(b"# SPDX-License-Identifier")
+    assert decided.identify == {} and decided.distinct == ()
+    assert decided.reject and all(reason.strip() for reason in decided.reject.values())
+    assert {carrier for carrier, _, _ in decided.reject} <= {"cantera", "nasa_cea", "janaf"}
 
 
 def test_the_resolution_output_loads_with_every_constraint_satisfied(tmp_path: Path) -> None:

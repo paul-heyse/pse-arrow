@@ -18,11 +18,13 @@ order.
 
 from __future__ import annotations
 
-from thermo_knowledge.mapping.context import IdentityContext, RecordContext
+from collections import Counter
+
+from thermo_knowledge.mapping.context import IdentityContext, RecordContext, first, last
 from thermo_knowledge.mapping.formula import composition, hill
+from thermo_knowledge.mapping.staged import SourceRow
 
 NASA9 = "nasa9.pure"
-PIECE = "nasa9.pure.piece"
 ASSIGNED = "assigned_enthalpy.pure"
 
 
@@ -31,7 +33,7 @@ def identities(ctx: IdentityContext) -> None:
     for record in ctx.rows("species_records"):
         rows = pairs.get((record.locator,), [])
         with ctx.emit(record, *rows) as emit:
-            decoded = ctx.decoded(record, "phase_flag")
+            decoded = ctx.decoded_by(record, "aggregation_of_record")
             counts, charge = composition(ctx, rows, symbol="symbol")
             entity = emit.source_entity(
                 "species",
@@ -46,48 +48,60 @@ def identities(ctx: IdentityContext) -> None:
 def records(ctx: RecordContext) -> None:
     pairs = ctx.group("species_formula_pairs", "species_locator")
     intervals = ctx.group("thermo_intervals", "species_locator")
-    occurrences: dict[str, int] = {}
+    piece = ctx.family_of(NASA9)
+    occurrences: Counter[object] = Counter()
+
+    def lines_of(record: SourceRow) -> list[SourceRow]:
+        return sorted(
+            intervals.get((record.locator,), []),
+            key=lambda row: row["interval_index"],  # type: ignore[arg-type,return-value]
+        )
+
     for record in ctx.rows("species_records"):
-        name = record["name"]
-        subject = lambda: ctx.subject("species", name)  # noqa: E731
-        with ctx.emit(record, *pairs.get((record.locator,), [])) as emit:
-            form = subject()
-            for pair in pairs.get((record.locator,), []):
+        rows = pairs.get((record.locator,), [])
+        with ctx.emit(record, *rows) as emit:
+            form = ctx.subject("species", str(record["name"]))
+            for pair in rows:
                 found = ctx.attributes(pair, "composition")
                 emit.relation(
                     "composition",
                     {"entity": form, "quantity": found["quantity"]},
                     {"value": found["value"]},
                 )
-        rows = sorted(
-            intervals.get((record.locator,), []),
-            key=lambda row: row["interval_index"],  # type: ignore[arg-type,return-value]
-        )
-        occurrence = occurrences[name] = occurrences.get(name, 0) + 1  # type: ignore[arg-type]
-        with ctx.emit(record, *rows) as emit:
-            if record["interval_count"] == 0:
-                (line,) = rows
-                emit.parameter_set(
-                    parameterization=emit.parameterization("thermo_inp"),
-                    slot_group=ASSIGNED,
-                    subjects=[subject()],
-                    slots={**ctx.slot_values(record, ASSIGNED), **ctx.slot_values(line, ASSIGNED)},
-                    occurrence=occurrence,
-                )
-                continue
-            pieces = [ctx.family_row(row, PIECE) for row in rows]
+        occurrences.update([record["name"]])
+    occurrences.clear()
+    for record in ctx.rows("species_records", "reactant_only"):
+        lines = lines_of(record)
+        occurrences.update([record["name"]])
+        with ctx.emit(record, *lines) as emit:
+            emit.parameter_set(
+                parameterization=emit.parameterization("thermo_inp"),
+                slot_group=ASSIGNED,
+                subjects=[ctx.subject("species", str(record["name"]))],
+                slots={
+                    **ctx.slot_values(record, ASSIGNED),
+                    **ctx.slot_values(first(lines), ASSIGNED),
+                },
+                occurrence=occurrences[record["name"]],
+            )
+    occurrences.clear()
+    for record in ctx.rows("species_records", "fitted"):
+        lines = lines_of(record)
+        occurrences.update([record["name"]])
+        with ctx.emit(record, *lines) as emit:
+            pieces = [ctx.family_row(row, piece) for row in lines]
             parameter_set = emit.parameter_set(
                 parameterization=emit.parameterization("thermo_inp"),
                 slot_group=NASA9,
-                subjects=[subject()],
+                subjects=[ctx.subject("species", str(record["name"]))],
                 slots={},
-                families={"piece": pieces},
-                occurrence=occurrence,
+                families={ctx.family_key(piece): pieces},
+                occurrence=occurrences[record["name"]],
             )
             clause = {
                 **ctx.attributes(record, "region_clause"),
-                "lower": pieces[0].values["T_low"],
-                "upper": pieces[-1].values["T_high"],
+                "lower": first(pieces).values["T_low"],
+                "upper": last(pieces).values["T_high"],
             }
             region = emit.validity(
                 parameter_set, ctx.attributes(record, "validity_region"), [clause]

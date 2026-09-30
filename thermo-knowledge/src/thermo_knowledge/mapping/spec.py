@@ -178,8 +178,8 @@ class FieldRule(Struct, **_STRICT):
     - `default` is the value an absent source value takes, in the rule's unit, the source's own
       documented default, which the rule's `loss` states;
     - `case` (`capitalize`, `upper`, `lower`) is applied to the text that names a declared entity;
-    - `digits` marks a text column holding a number, whose value is the number of significant
-      digits the text writes (the digits a source reports);
+    - `text` names the column that holds the number of this rule as the source wrote it: the
+      significant digits of that text are the digits the source reports for the value;
     - `decode` names a `[decodings]` table: the row's decoded value is the rule's value;
     - `equals` states the exact value a column holds in every row that maps, a structure that the
       mapping relies on; a row with another value is held (`pattern_mismatch`);
@@ -216,7 +216,7 @@ class FieldRule(Struct, **_STRICT):
     factor: float | None = None
     default: float | None = None
     case: Literal["capitalize", "upper", "lower"] | None = None
-    digits: bool = False
+    text: str | None = None
     decode: str | None = None
     equals: Scalar | list[Scalar] | None = None
     text_unit: bool = False
@@ -884,6 +884,10 @@ def _field(
     elif rule.scheme is not None or rule.otherwise_scheme is not None:
         problems.append(f"{where}: `scheme` belongs to the target `identity_assertion.value`")
     _value_options(problems, decl, spec, where, rule_table, rule, target)
+    if rule.decode is not None:
+        if rule.unit is not None:
+            problems.append(f"{where}: a decoded value has no unit of its own, so the rule states none")
+        return
     if target.dimensioned:
         if rule.text_unit:
             if (rule.unit is None) != (rule.default is None):
@@ -966,9 +970,8 @@ def _value_options(
                         f"{where}: decoding `{rule.decode}` decodes to `{line.to}`, which is not "
                         f"a declared entity of kind `{type_.element}`"
                     )
-    if rule.digits:
-        if target.field.type.text != "Integer" or rule.unit is not None:
-            problems.append(f"{where}: `digits` belongs to an Integer target with no unit")
+    if rule.text is not None and rule.target != "datum.value":
+        problems.append(f"{where}: `text` belongs to a rule whose target is `datum.value`")
     if rule.text_number is not None:
         try:
             if re.compile(rule.text_number).groups != 1:

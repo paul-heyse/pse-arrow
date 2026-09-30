@@ -89,8 +89,8 @@ reason = "The partitions below cover every record; a record they did not cover w
 name = "fitted"
 where = { interval_count = [1, 2, 3, 4, 5, 6] }
 disposition = "mapped"
-origin_role = "fitted"
-loss = "The aggregation and polymorph are decoded from the flag and the suffix of the name (an assumption about how RP-1311 uses them), the charge is the pseudo-element E with its sign converted, the heat of formation is not imported because the coefficients carry the enthalpy, and the record's gas constant, standard pressure and enthalpy and entropy data come from the program's code and are stated in the convention set, not in the record."
+origin_role = "published"
+loss = "The record is the identity of the form, which the file states (name, phase flag, formula); its coefficients are the fitted rows of thermo_intervals, whose derivation the partition declares. The aggregation and polymorph are decoded from the flag and the suffix of the name (an assumption about how RP-1311 uses them), the charge is the pseudo-element E with its sign converted, the heat of formation is not imported because the coefficients carry the enthalpy, and the record's gas constant, standard pressure and enthalpy and entropy data come from the program's code and are stated in the convention set, not in the record."
 
 [tables.species_records.partitions.constants]
 "validity_region.kind" = "fitted_range"
@@ -353,7 +353,7 @@ loss = "The interval line of a record without coefficients states only the tempe
 target = "assigned_enthalpy.pure.T_ref"
 unit = "K"
 precision = "close"
-loss = "The source states no unit; kelvin is assumed. The value is the reference temperature of the record's heat of formation (298.15 K in every record)."
+loss = "The source states no unit; kelvin is assumed. The value is the reference temperature of the record's heat of formation (298.15 K for most records, the temperature of a cryogenic liquid's own state for the others)."
 
 [tables.thermo_intervals.partitions.fields.t_high]
 disposition = "out_of_scope"

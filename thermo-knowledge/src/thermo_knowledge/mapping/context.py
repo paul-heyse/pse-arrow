@@ -128,6 +128,27 @@ def _decoding_columns(decoding: Decoding) -> list[str]:
 
 STANDARD_STATE = "standard_state"
 """The key of a rule's `column` table that says the column is of the standard state."""
+def numbered[T](items: Sequence[T]) -> Iterator[tuple[int, T]]:
+    """The items with their numbers, counting from one, as a declaration numbers ordinals, indices
+    and pieces."""
+    return enumerate(items, start=ORIGIN)
+
+
+ORIGIN = 1
+"""The number of the first item of anything a declaration numbers."""
+SINGLE = 1
+"""How many of a thing there is when there is one of it."""
+
+
+def first[T](items: Sequence[T]) -> T:
+    """The first of `items`."""
+    return items[ORIGIN - 1]
+
+
+def last[T](items: Sequence[T]) -> T:
+    """The last of `items`."""
+    return items[-ORIGIN]
+
 PLAIN_NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
 NUMBER_WITH_UNIT = re.compile(r"\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\s+(\S.*?)\s*")
 
@@ -401,21 +422,26 @@ class RunContext[E]:
         return raw * factor + (rule.offset or 0)
 
     def digits(self, row: SourceRow, column: str) -> int | None:
-        """The number of significant digits the text of `column` writes, or `None` when the text
-        is not a plain number (a marker, `INFINITE`, a cell the source leaves empty): the digits
-        from the first nonzero digit to the last written one, and for zero the digits written
-        after the decimal point (at least one)."""
+        """The number of significant digits the source wrote for the value of `column`, from the
+        text its rule names (`text`): `None` when the text is not a plain number (a marker,
+        `INFINITE`, a cell the source leaves empty). The digits run from the first nonzero digit
+        to the last one written; for zero they are the digits written after the decimal point (at
+        least one)."""
         rule = self.rule(row, column)
-        raw = row[column]
+        if rule.text is None:
+            raise MappingError(f"table {row.table}: column `{column}` names no `text` column")
+        raw = row[rule.text]
         if not isinstance(raw, str) or not PLAIN_NUMBER.fullmatch(raw.strip()):
             return None
-        self._use(row, column, rule)
         body = raw.strip().lstrip("+-").split("e")[0].split("E")[0]
         whole, _, fraction = body.partition(".")
         digits = (whole + fraction).lstrip("0")
-        if not digits:
-            return max(len(fraction), 1)
-        return len(digits)
+        return len(digits) or len(fraction) or ORIGIN
+
+    def value_columns(self, row: SourceRow, target: str) -> list[str]:
+        """The columns of `row`'s table whose rules have the target `target`, in the order of the
+        rules: how a mapping finds the columns of a dataset without naming them."""
+        return [c for c, rule in self.fields(row).items() if rule.target == target]
 
     def decoded(
         self,
@@ -451,6 +477,38 @@ class RunContext[E]:
             "missing_convention",
             f"{row.locator}: decoding `{rule.decode}` has no rule for {shown}",
         )
+
+    def decoded_by(
+        self,
+        row: SourceRow,
+        decoding: str,
+        *,
+        using: Mapping[str, object] | None = None,
+        required: bool = True,
+    ) -> Decoded | None:
+        """What the decoding `decoding` makes of `row` (see `decoded`), through the rule of
+        the row's table that names it."""
+        columns = [c for c, rule in self.fields(row).items() if rule.decode == decoding]
+        if len(columns) != ORIGIN:
+            raise MappingError(
+                f"table {row.table}: {len(columns)} field rules name the decoding `{decoding}`, "
+                "needs one"
+            )
+        return self.decoded(row, first(columns), using=using, required=required)
+
+    @staticmethod
+    def family_key(family: str) -> str:
+        """The name of a family inside its slot group (`piece` for `nasa7.pure.piece`), which is
+        how a set's `families` are keyed."""
+        *_, name = family.split(".")
+        return name
+
+    def family_of(self, group: str) -> str:
+        """The `form.group.family` of the one family of the slot group `group` (`form.group`)."""
+        found = [f.qualified for f in self.decl.families if f.qualified.rpartition(".")[0] == group]
+        if len(found) != ORIGIN:
+            raise MappingError(f"slot group `{group}` has {len(found)} families, needs one")
+        return first(found)
 
     def _column_value(self, row: SourceRow, column: str, rule: FieldRule) -> object | None:
         if rule.unit is not None or rule.text_unit:

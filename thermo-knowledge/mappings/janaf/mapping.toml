@@ -81,6 +81,24 @@ where = { phase_name = ["IDEAL GAS", "REAL GAS"] }
 to = "gas"
 reason = "IDEAL GAS and REAL GAS are the gas phase."
 
+[decodings.charge_of_formula]
+doc = "The charge number a JANAF formula states as a trailing sign: a plus sign is a charge of one, a minus sign of minus one, and no sign neutral."
+
+[[decodings.charge_of_formula.rules]]
+where = { janaf_formula = { pattern = '.*\+' } }
+to = "1"
+reason = "A trailing plus sign is one unit of positive charge."
+
+[[decodings.charge_of_formula.rules]]
+where = { janaf_formula = { pattern = '.*-' } }
+to = "-1"
+reason = "A trailing minus sign is one unit of negative charge."
+
+[[decodings.charge_of_formula.rules]]
+where = { janaf_formula = { pattern = '.*[0-9]' } }
+to = "0"
+reason = "A formula that ends in an atom count states no charge."
+
 [decodings.standard_state_of_aggregation]
 doc = "The standard state of a segment from its aggregation, at the pressure the mapping assumes: a gas is the pure substance as an ideal gas, a condensed phase the pure substance in its real state."
 
@@ -166,6 +184,12 @@ precision = "close"
 optional = true
 loss = "A marker names the phases it separates in words (CRYSTAL, LIQUID, GLASS, ALPHA, II); the words are decoded to aggregations, and a polymorph label inside one aggregation does not split the segment."
 
+[tables.tables.fields."derived:charge"]
+target = "source_entity.stated_charge"
+decode = "charge_of_formula"
+precision = "exact"
+loss = "The charge is the sign the JANAF formula ends in; the electron e1- (which has no atom) is not read."
+
 [tables.tables.fields.header_line]
 role = "structure"
 equals = "T(K)\tCp\tS\t-[G-H(Tr)]/T\tH-H(Tr)\tdelta-f H\tdelta-f G\tlog Kf"
@@ -221,6 +245,8 @@ loss = "The units of the columns are not stated in the files (only T(K) is): the
 "standard_state.pressure" = { value = 1.0, unit = "bar" }
 "standard_state.pressure_rule" = "fixed"
 "dataset_component.function" = "component"
+"dataset_component.ordinal" = 1
+"dataset_phase.ordinal" = 1
 "datum.state" = "known"
 
 [tables.rows.partitions.fields."derived:standard_state"]
@@ -266,6 +292,7 @@ reason = "A cell whose digits run together with its neighbour's (a fixed-width c
 
 [tables.rows.partitions.fields.t]
 target = "datum.value"
+text = "t_text"
 unit = "K"
 precision = "exact"
 
@@ -275,12 +302,12 @@ observable = "temperature"
 source_name = "T(K)"
 
 [tables.rows.partitions.fields.t_text]
-target = "datum.digits"
-digits = true
-precision = "exact"
+role = "structure"
+reason = "The cell of `t` as written: the digits it writes are the digits of that value (the rule's `text`)."
 
 [tables.rows.partitions.fields.cp]
 target = "datum.value"
+text = "cp_text"
 unit = "J/(mol*K)"
 precision = "close"
 loss = "The unit is not stated in the file; J/(mol*K) is assumed from the published tables."
@@ -292,12 +319,12 @@ observable = "standard_molar_heat_capacity_isobaric"
 source_name = "Cp"
 
 [tables.rows.partitions.fields.cp_text]
-target = "datum.digits"
-digits = true
-precision = "exact"
+role = "structure"
+reason = "The cell of `cp` as written: the digits it writes are the digits of that value (the rule's `text`)."
 
 [tables.rows.partitions.fields.s]
 target = "datum.value"
+text = "s_text"
 unit = "J/(mol*K)"
 precision = "close"
 loss = "The unit is not stated in the file; J/(mol*K) is assumed from the published tables."
@@ -309,12 +336,12 @@ observable = "standard_molar_entropy"
 source_name = "S"
 
 [tables.rows.partitions.fields.s_text]
-target = "datum.digits"
-digits = true
-precision = "exact"
+role = "structure"
+reason = "The cell of `s` as written: the digits it writes are the digits of that value (the rule's `text`)."
 
 [tables.rows.partitions.fields.g_function]
 target = "datum.value"
+text = "g_function_text"
 unit = "J/(mol*K)"
 precision = "close"
 loss = "The unit is not stated in the file; J/(mol*K) is assumed from the published tables. The value at 0 K is INFINITE and has no datum."
@@ -326,12 +353,12 @@ observable = "standard_gibbs_energy_function"
 source_name = "-[G-H(Tr)]/T"
 
 [tables.rows.partitions.fields.g_function_text]
-target = "datum.digits"
-digits = true
-precision = "exact"
+role = "structure"
+reason = "The cell of `g_function` as written: the digits it writes are the digits of that value (the rule's `text`)."
 
 [tables.rows.partitions.fields.h_increment]
 target = "datum.value"
+text = "h_increment_text"
 unit = "kJ/mol"
 precision = "close"
 loss = "The unit is not stated in the file; kJ/mol is assumed from the published tables. The column is the enthalpy minus its value in the reference phase at Tr, 298.15 K (inferred from the row at that temperature, where it is zero)."
@@ -347,12 +374,12 @@ reference_temperature = { value = 298.15, unit = "K" }
 reference_pressure = { value = 1.0, unit = "bar" }
 
 [tables.rows.partitions.fields.h_increment_text]
-target = "datum.digits"
-digits = true
-precision = "exact"
+role = "structure"
+reason = "The cell of `h_increment` as written: the digits it writes are the digits of that value (the rule's `text`)."
 
 [tables.rows.partitions.fields.delta_f_h]
 target = "datum.value"
+text = "delta_f_h_text"
 unit = "kJ/mol"
 precision = "close"
 loss = "The unit is not stated in the file; kJ/mol is assumed from the published tables."
@@ -363,12 +390,12 @@ observable = "molar_enthalpy_of_formation"
 source_name = "delta-f H"
 
 [tables.rows.partitions.fields.delta_f_h_text]
-target = "datum.digits"
-digits = true
-precision = "exact"
+role = "structure"
+reason = "The cell of `delta_f_h` as written: the digits it writes are the digits of that value (the rule's `text`)."
 
 [tables.rows.partitions.fields.delta_f_g]
 target = "datum.value"
+text = "delta_f_g_text"
 unit = "kJ/mol"
 precision = "close"
 loss = "The unit is not stated in the file; kJ/mol is assumed from the published tables."
@@ -379,12 +406,12 @@ observable = "molar_gibbs_energy_of_formation"
 source_name = "delta-f G"
 
 [tables.rows.partitions.fields.delta_f_g_text]
-target = "datum.digits"
-digits = true
-precision = "exact"
+role = "structure"
+reason = "The cell of `delta_f_g` as written: the digits it writes are the digits of that value (the rule's `text`)."
 
 [tables.rows.partitions.fields.log_kf]
 target = "datum.value"
+text = "log_kf_text"
 unit = "dimensionless"
 precision = "close"
 loss = "The base of the logarithm is not stated in the file; base ten is assumed from the published tables. The value at 0 K is INFINITE in some tables and has no datum."
@@ -395,6 +422,5 @@ observable = "log10_equilibrium_constant"
 source_name = "log Kf"
 
 [tables.rows.partitions.fields.log_kf_text]
-target = "datum.digits"
-digits = true
-precision = "exact"
+role = "structure"
+reason = "The cell of `log_kf` as written: the digits it writes are the digits of that value (the rule's `text`)."
