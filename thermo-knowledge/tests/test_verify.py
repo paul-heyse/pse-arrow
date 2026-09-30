@@ -50,6 +50,8 @@ STRUCTURAL = {
     "producing_derivation",
     "producing_derivation_is_fit",
     "subject_key_matches_subjects",
+    "referenced_set_implements_contract",
+    "parameterization_has_conventions",
 }
 """Section 4's structural checks. "Reactions conserve every conserved quantity with a
 composition entry on a participant" is the declared invariant
@@ -149,6 +151,8 @@ def test_a_verify_invariant_of_a_relation_needs_its_check_file_like_one_of_a_kin
         "site_equivalence.same_host",
         "group_count.group_in_assignment_scheme",
         "datum.column_in_point_dataset",
+        "subject_subform_choice.form_implements_slot_contract",
+        "subject_subform_choice.ordinals_contiguous",
     } <= relations
     without = [check for check in REAL_CHECKS if check.target != "supersedes.acyclic"]
     assert agreement_problems(real_declaration(), without) == [

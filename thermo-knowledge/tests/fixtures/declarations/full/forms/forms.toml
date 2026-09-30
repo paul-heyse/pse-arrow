@@ -40,6 +40,7 @@ doc = "NASA seven-coefficient polynomials."
 implements = "heat_capacity"
 completeness = "fully_declared"
 status = "catalogued"
+conventions = ["reference_pressure"]
 
 [forms.nasa7.slot_groups.pure]
 doc = "Coefficient blocks of one species form."
@@ -107,6 +108,7 @@ subject.i = { type = "species_form", doc = "The species form." }
 [forms.cubic.slot_groups.pure.slots]
 a_c = { type = "Pressure", doc = "Attractive parameter at the critical point." }
 alpha_coefficients = { accepts = "alpha_function", doc = "A nested parameter set of an alpha function." }
+shared_alpha = { references = "alpha_function", doc = "An alpha function set that other sets share, referenced rather than nested." }
 
 [forms.soave]
 doc = "Soave alpha function."

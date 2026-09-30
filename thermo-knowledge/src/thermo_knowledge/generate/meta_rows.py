@@ -348,6 +348,21 @@ def meta_rows(decl: m.Declaration) -> dict[str, list[tuple[object, ...]]]:
                 output=supplied.output,
                 slot=supplied.qualified,
             )
+        kind = decl.framework.get(m.CONVENTION_SET_ROLE)
+        for position, convention in enumerate(form.conventions, start=1):
+            assert kind is not None
+            declaring = next(
+                link.name
+                for link in decl.chain(kind)
+                if any(a.name == convention.name for a in link.attributes)
+            )
+            add(
+                "form_convention",
+                form=form.name,
+                name=convention.name,
+                position=position,
+                kind=declaring,
+            )
         for position, block in enumerate(form.implicit, start=1):
             _implicit_block(add, mark, form, position, block)
         for position, subform in enumerate(form.subforms, start=1):
@@ -560,7 +575,7 @@ def _slot(
     position: int,
     slot: m.Field,
 ) -> None:
-    nested = slot.shape == "nested_set"
+    held_set = slot.shape in ("nested_set", "set_reference")
     add(
         "slot",
         id=ids["slot"][qualified],
@@ -570,9 +585,10 @@ def _slot(
         name=slot.name,
         position=position,
         shape=slot.shape,
-        element_kind=None if nested else slot.type.element_kind,
-        element=None if nested else slot.type.element,
+        element_kind=None if held_set else slot.type.element_kind,
+        element=None if held_set else slot.type.element,
         accepts=slot.accepts,
+        references_contract=slot.references,
         presence=slot.presence,
         observable=_observable_id(decl, slot.observable),
         doc=slot.doc,

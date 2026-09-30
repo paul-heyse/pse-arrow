@@ -123,7 +123,10 @@ def nrtl_choice() -> FormChoice:
 def vdw_choice(pairs: dict[tuple[str, str], float]) -> FormChoice:
     return FormChoice(
         "mixing_vdw",
-        InMemorySource(slots={("mixing_vdw.pair", pair): {"k": k} for pair, k in pairs.items()}),
+        InMemorySource(
+            slots={("mixing_vdw.pair", pair): {"k": k} for pair, k in pairs.items()},
+            declaration=scenario("cubic_mixing"),
+        ),
     )
 
 

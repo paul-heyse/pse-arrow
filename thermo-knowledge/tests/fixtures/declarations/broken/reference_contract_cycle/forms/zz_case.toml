@@ -1,0 +1,15 @@
+module = "broken"
+uses = ["physical", "identity", "framework", "vocab", "contracts", "forms", "facts"]
+doc = "A deliberately broken form module."
+
+[forms.bad]
+doc = "d"
+implements = "alpha_function"
+completeness = "fully_declared"
+status = "catalogued"
+
+[forms.bad.slot_groups.g]
+doc = "d"
+
+[forms.bad.slot_groups.g.slots]
+s = { references = "alpha_function", doc = "A set that references the contract its own form implements." }

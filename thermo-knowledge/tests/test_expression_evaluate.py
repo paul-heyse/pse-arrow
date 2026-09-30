@@ -239,6 +239,7 @@ def cubic_source(
         slots=slots,
         subforms=subforms,
         defaults={"cubic_srk.pair": {"k": 0.0}} if defaults else {},
+        declaration=scenario("cubic"),
     )
 
 
@@ -290,7 +291,9 @@ def test_a_required_pair_that_is_missing_is_refused_not_zero() -> None:
 def test_a_missing_alpha_choice_is_refused_naming_the_slot_and_subject() -> None:
     T, v, x = cubic_values()
     source = cubic_source({}, defaults=True, pairs=KIJ)
-    empty = InMemorySource(slots=source.slots, defaults=source.defaults)
+    empty = InMemorySource(
+        slots=source.slots, defaults=source.defaults, declaration=source.declaration
+    )
     bound = bind(scenario("cubic"), "cubic_srk", source=empty, sets={"components": list(x)})
     with pytest.raises(EvaluationRefusal, match=r"cubic_srk\.alpha.*ethane"):
         bound.evaluate("p", T=T, v=v, x=x)
@@ -445,7 +448,9 @@ def rk_reference(x: np.ndarray) -> np.ndarray:
 
 
 def rk_bound(i: str, j: str):  # noqa: ANN201
-    source = InMemorySource(families={("redlich_kister.pair", "rk", ("a", "b")): RK})
+    source = InMemorySource(
+        families={("redlich_kister.pair", "rk", ("a", "b")): RK}, declaration=scenario("activity")
+    )
     return bind(scenario("activity"), "redlich_kister", source=source, roles={"i": i, "j": j})
 
 
@@ -477,7 +482,9 @@ def nested_bound(i: str, j: str):  # noqa: ANN201
     linear = FormChoice(
         "linear_in_t", InMemorySource(slots={("linear_in_t.core", ()): {"c0": C0, "c1": C1}})
     )
-    source = InMemorySource(nested={("tau_nested.pair", "a", ("a", "b")): linear})
+    source = InMemorySource(
+        nested={("tau_nested.pair", "a", ("a", "b")): linear}, declaration=scenario("nested")
+    )
     return bind(scenario("nested"), "tau_nested", source=source, roles={"i": i, "j": j})
 
 
@@ -636,7 +643,10 @@ def test_an_unknown_argument_is_refused() -> None:
 
 
 def test_a_reciprocal_slot_inverts_when_the_pair_is_asked_for_swapped() -> None:
-    source = InMemorySource(slots={("reciprocal_form.pair", ("a", "b")): {"r": 4.0, "s": 0.3}})
+    source = InMemorySource(
+        slots={("reciprocal_form.pair", ("a", "b")): {"r": 4.0, "s": 0.3}},
+        declaration=scenario("transposition"),
+    )
     T = np.array([300.0])
     held = bind(
         scenario("transposition"), "reciprocal_form", source=source, roles={"i": "a", "j": "b"}
@@ -648,8 +658,11 @@ def test_a_reciprocal_slot_inverts_when_the_pair_is_asked_for_swapped() -> None:
     close(swapped.evaluate("v", T=T), np.array([1 / 4.0 + 3.0]))
 
 
-def test_a_permutation_group_finds_the_fact_under_a_declared_permutation_only() -> None:
-    source = InMemorySource(slots={("permutation_form.triple", ("a", "b", "c")): {"w": 0.7}})
+def test_a_permutation_group_finds_the_fact_under_an_arrangement_of_its_group_only() -> None:
+    source = InMemorySource(
+        slots={("permutation_form.triple", ("a", "b", "c")): {"w": 0.7}},
+        declaration=scenario("transposition"),
+    )
     T = np.array([300.0])
 
     def value(i: str, j: str, k: str) -> np.ndarray:

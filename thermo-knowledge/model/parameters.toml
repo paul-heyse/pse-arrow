@@ -112,6 +112,15 @@ name = "nested_has_both"
 doc = "A nested set names both its parent and the parent's slot; a top-level set names neither."
 enforced = "load"
 
+[kinds.model_component]
+doc = "A named component of a model that parameter sets share: a generalised departure function of a multifluid mixture model, a named function of temperature of a thermodynamic database. It is the subject of the parameter set that gives its values, and any number of other sets reference that set. Its name is scoped to a parameterisation."
+identity = ["parameterization", "name"]
+provenance = "own"
+
+[kinds.model_component.attributes]
+parameterization = { type = "parameterization", doc = "The parameterisation the component's name belongs to." }
+name = { type = "Text", doc = "The name the source gives the component." }
+
 [kinds.slot_uncertainty]
 doc = "The uncertainty a source states for one slot value. Joint covariance belongs to the fit that produced the values."
 identity = ["parameter_set", "slot", "index_key"]
@@ -263,6 +272,37 @@ value = { type = "model_assembly", doc = "The value." }
 [relations.phase_model.keys]
 phase = { type = "phase_definition", doc = "The phase definition." }
 parameterization = { type = "parameterization", doc = "The parameterisation under which this model describes the phase." }
+
+[relations.subject_subform_choice]
+doc = "Which form fills a sub-form slot for one subject under a parameterisation: the form chosen for each pair, component or phase when a model puts a different form in the slot for each. A slot with multiplicity many has several choices, numbered from one."
+provenance = "inherit:parameterization"
+absence = "optional"
+
+[[relations.subject_subform_choice.requires]]
+name = "ordinal_from_one"
+doc = "The ordinal of a choice counts from one."
+enforced = "ddl"
+check = { positive = "ordinal" }
+
+[[relations.subject_subform_choice.requires]]
+name = "form_implements_slot_contract"
+doc = "The chosen form implements the contract the sub-form slot accepts."
+enforced = "verify"
+
+[[relations.subject_subform_choice.requires]]
+name = "ordinals_contiguous"
+doc = "The ordinals of the choices for one slot and subject run from one without a gap, and exceed one only for a slot with multiplicity many."
+enforced = "verify"
+
+[relations.subject_subform_choice.keys]
+parameterization = { type = "parameterization", doc = "The parameterisation the choice is made in." }
+slot = { type = "Meta<subform_slot>", doc = "The sub-form slot." }
+subject_key = { type = "Text", doc = "Canonical encoding of the subjects the choice is for, in the role order of the contract the slot accepts, as for a parameter set." }
+ordinal = { type = "Integer", doc = "Position among the choices of a slot with multiplicity many, from one; one otherwise." }
+
+[relations.subject_subform_choice.columns]
+form = { type = "Meta<form>", doc = "The form chosen." }
+source_parameterization = { type = "parameterization", optional = true, doc = "The parameterisation that holds the chosen form's parameter sets, when it is not the one the choice is made in." }
 
 [relations.entity_model]
 doc = "The model assembly that describes one entity under a parameterisation, for bodies of data that assemble a model per substance (a standard-state model built from an equation of state, a temperature correction and a pressure correction, with a solvent model)."

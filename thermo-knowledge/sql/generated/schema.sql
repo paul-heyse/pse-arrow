@@ -323,7 +323,7 @@ CREATE TABLE "meta"."framework_role" (
     "role" text NOT NULL,
     "kind" text NOT NULL,
     CONSTRAINT "framework_role__pk" PRIMARY KEY ("role"),
-    CONSTRAINT "framework_role__ck__role" CHECK ("role" IN ('parameter_set', 'parameterization', 'tabulated_function', 'slot_uncertainty', 'observable', 'composition_basis'))
+    CONSTRAINT "framework_role__ck__role" CHECK ("role" IN ('parameter_set', 'parameterization', 'tabulated_function', 'slot_uncertainty', 'observable', 'composition_basis', 'convention_set'))
 );
 COMMENT ON TABLE "meta"."framework_role" IS 'The kind that fills each framework role named in the manifest.';
 COMMENT ON COLUMN "meta"."framework_role"."role" IS 'The role.';
@@ -948,6 +948,20 @@ COMMENT ON COLUMN "meta"."form_output_observable"."contract" IS 'The contract th
 COMMENT ON COLUMN "meta"."form_output_observable"."output" IS 'The output.';
 COMMENT ON COLUMN "meta"."form_output_observable"."slot" IS 'The slot''s qualified name (form.group.slot): a required observable reference.';
 
+CREATE TABLE "meta"."form_convention" (
+    "form" text NOT NULL,
+    "name" text NOT NULL,
+    "position" integer NOT NULL,
+    "kind" text NOT NULL,
+    CONSTRAINT "form_convention__pk" PRIMARY KEY ("form", "name"),
+    CONSTRAINT "form_convention__uq__form_position" UNIQUE ("form", "position")
+);
+COMMENT ON TABLE "meta"."form_convention" IS 'A convention fact a form reads (`convention.<name>` in its expressions): a quantity-typed attribute of the convention-set kind.';
+COMMENT ON COLUMN "meta"."form_convention"."form" IS 'The form.';
+COMMENT ON COLUMN "meta"."form_convention"."name" IS 'The convention-set attribute the form reads.';
+COMMENT ON COLUMN "meta"."form_convention"."position" IS 'Position among the form''s convention facts, from 1.';
+COMMENT ON COLUMN "meta"."form_convention"."kind" IS 'The kind that declares the attribute (the kind bound to convention_set or one it extends).';
+
 CREATE TABLE "meta"."form_implicit" (
     "form" text NOT NULL,
     "name" text NOT NULL,
@@ -1144,16 +1158,18 @@ CREATE TABLE "meta"."slot" (
     "element_kind" text,
     "element" text,
     "accepts" text,
+    "references_contract" text,
     "presence" text NOT NULL,
     "observable" uuid,
     "doc" text NOT NULL,
     CONSTRAINT "slot__pk" PRIMARY KEY ("id"),
     CONSTRAINT "slot__uq__qualified_name" UNIQUE ("qualified_name"),
     CONSTRAINT "slot__uq__slot_group_family_name" UNIQUE NULLS NOT DISTINCT ("slot_group", "family", "name"),
-    CONSTRAINT "slot__ck__shape" CHECK ("shape" IN ('quantity', 'enum', 'reference', 'tabulated_function', 'nested_set')),
+    CONSTRAINT "slot__ck__shape" CHECK ("shape" IN ('quantity', 'enum', 'reference', 'tabulated_function', 'nested_set', 'set_reference')),
     CONSTRAINT "slot__ck__presence" CHECK ("presence" IN ('required', 'stateful')),
     CONSTRAINT "slot__ck__element_kind" CHECK ("element_kind" IN ('primitive', 'identifier', 'quantity', 'expression', 'enum', 'kind', 'record', 'meta', 'real', 'source_text')),
-    CONSTRAINT "slot__ck__nested_set" CHECK (("shape" = 'nested_set') = ("accepts" IS NOT NULL))
+    CONSTRAINT "slot__ck__nested_set" CHECK (("shape" = 'nested_set') = ("accepts" IS NOT NULL)),
+    CONSTRAINT "slot__ck__set_reference" CHECK (("shape" = 'set_reference') = ("references_contract" IS NOT NULL))
 );
 COMMENT ON TABLE "meta"."slot" IS 'A slot of a slot group or of one of its families.';
 COMMENT ON COLUMN "meta"."slot"."id" IS 'Identifier of the row; what Meta<slot> refers to.';
@@ -1162,10 +1178,11 @@ COMMENT ON COLUMN "meta"."slot"."slot_group" IS 'The group''s qualified name.';
 COMMENT ON COLUMN "meta"."slot"."family" IS 'The family''s qualified name, for a family slot.';
 COMMENT ON COLUMN "meta"."slot"."name" IS 'The slot''s name.';
 COMMENT ON COLUMN "meta"."slot"."position" IS 'Position among the owner''s slots, from 1.';
-COMMENT ON COLUMN "meta"."slot"."shape" IS 'quantity, enum, reference, tabulated_function or nested_set.';
-COMMENT ON COLUMN "meta"."slot"."element_kind" IS 'The value''s element kind; null for a nested set.';
-COMMENT ON COLUMN "meta"."slot"."element" IS 'The value''s type; null for a nested set.';
+COMMENT ON COLUMN "meta"."slot"."shape" IS 'quantity, enum, reference, tabulated_function, nested_set or set_reference.';
+COMMENT ON COLUMN "meta"."slot"."element_kind" IS 'The value''s element kind; null for a nested set or a set reference.';
+COMMENT ON COLUMN "meta"."slot"."element" IS 'The value''s type; null for a nested set or a set reference.';
 COMMENT ON COLUMN "meta"."slot"."accepts" IS 'For a nested set: the contract its form implements.';
+COMMENT ON COLUMN "meta"."slot"."references_contract" IS 'For a set reference: the contract the form of the referenced set implements.';
 COMMENT ON COLUMN "meta"."slot"."presence" IS 'required or stateful.';
 COMMENT ON COLUMN "meta"."slot"."observable" IS 'The declared observable entity the slot denotes (its identifier).';
 COMMENT ON COLUMN "meta"."slot"."doc" IS 'What the slot is.';
@@ -1374,7 +1391,7 @@ CREATE TABLE "tk"."constituent_array" (
     CONSTRAINT "constituent_array__pk" PRIMARY KEY ("id"),
     CONSTRAINT "constituent_array__identity" UNIQUE ("phase", "canonical_key")
 );
-COMMENT ON TABLE "tk"."constituent_array" IS 'A choice of one or more species on each site class of a phase, in a stated order: the subject of a compound-energy parameter. The order of interacting species on a site class fixes the sign of odd-order interaction terms and which species a ternary index selects, so it is part of the array. Canonical key: the phase and, per site class in order, the species in ascending order of their identifiers; a mapping whose source orders them differently applies the contribution form''s transposition rule when it reorders.';
+COMMENT ON TABLE "tk"."constituent_array" IS 'A choice of one or more species on each site class of a phase, in a stated order: the subject of a compound-energy parameter. The order of interacting species on a site class fixes the sign of odd-order interaction terms and which species a ternary index selects, so it is part of the array. Canonical key: the phase and, per site class in order, the species in position order as the source asserted them. Two arrays that differ only in that order are different arrays; that they describe one physical array is an equivalence assessment, not part of identity.';
 COMMENT ON COLUMN "tk"."constituent_array"."id" IS 'Deterministic identifier of the constituent_array instance.';
 COMMENT ON COLUMN "tk"."constituent_array"."phase" IS 'The phase.';
 COMMENT ON COLUMN "tk"."constituent_array"."canonical_key" IS 'The canonical encoding of the array.';
@@ -1386,7 +1403,6 @@ CREATE TABLE "tk"."convention_set" (
     "energy_reference" uuid,
     "gas_constant" "meta"."gas_constant",
     "temperature_scale" "meta"."temperature_scale" NOT NULL,
-    "standard_pressure" "meta"."pressure",
     "atomic_weights" uuid,
     CONSTRAINT "convention_set__pk" PRIMARY KEY ("id"),
     CONSTRAINT "convention_set__identity" UNIQUE ("key", "revision")
@@ -1398,7 +1414,6 @@ COMMENT ON COLUMN "tk"."convention_set"."revision" IS 'Revision.';
 COMMENT ON COLUMN "tk"."convention_set"."energy_reference" IS 'The energy reference, for data that carry absolute or formation energies.';
 COMMENT ON COLUMN "tk"."convention_set"."gas_constant" IS 'The value of the gas constant the data was built with.';
 COMMENT ON COLUMN "tk"."convention_set"."temperature_scale" IS 'The temperature scale.';
-COMMENT ON COLUMN "tk"."convention_set"."standard_pressure" IS 'The standard pressure, where one applies to the whole set.';
 COMMENT ON COLUMN "tk"."convention_set"."atomic_weights" IS 'The atomic-weight edition.';
 
 CREATE TABLE "ev"."data_point" (
@@ -1820,6 +1835,18 @@ COMMENT ON COLUMN "tk"."model_assembly"."revision" IS 'Revision.';
 COMMENT ON COLUMN "tk"."model_assembly"."title" IS 'Name by which the model is known.';
 COMMENT ON COLUMN "tk"."model_assembly"."root" IS 'The form at the root of the tree.';
 
+CREATE TABLE "tk"."model_component" (
+    "id" uuid NOT NULL,
+    "parameterization" uuid NOT NULL,
+    "name" text NOT NULL,
+    CONSTRAINT "model_component__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "model_component__identity" UNIQUE ("parameterization", "name")
+);
+COMMENT ON TABLE "tk"."model_component" IS 'A named component of a model that parameter sets share: a generalised departure function of a multifluid mixture model, a named function of temperature of a thermodynamic database. It is the subject of the parameter set that gives its values, and any number of other sets reference that set. Its name is scoped to a parameterisation.';
+COMMENT ON COLUMN "tk"."model_component"."id" IS 'Deterministic identifier of the model_component instance.';
+COMMENT ON COLUMN "tk"."model_component"."parameterization" IS 'The parameterisation the component''s name belongs to.';
+COMMENT ON COLUMN "tk"."model_component"."name" IS 'The name the source gives the component.';
+
 CREATE TABLE "tk"."naming_scheme" (
     "id" uuid NOT NULL,
     "name" text NOT NULL,
@@ -1834,18 +1861,6 @@ COMMENT ON COLUMN "tk"."naming_scheme"."name" IS 'Name of the scheme.';
 COMMENT ON COLUMN "tk"."naming_scheme"."structural" IS 'True when the value encodes chemical structure, so equal canonical values imply equal structure.';
 COMMENT ON COLUMN "tk"."naming_scheme"."registry" IS 'True when the value is an entry in an external registry of substances, so that the corpus can cross-reference it to a structure.';
 
-CREATE TABLE "param"."nasa7__constants" (
-    "id" uuid NOT NULL,
-    "slot_group" uuid NOT NULL DEFAULT '0349d068-46c9-5cc1-8791-98ba77781956'::uuid,
-    "R" "meta"."gas_constant" NOT NULL,
-    CONSTRAINT "nasa7__constants__pk" PRIMARY KEY ("id"),
-    CONSTRAINT "nasa7__constants__ck__slot_group" CHECK ("slot_group" = '0349d068-46c9-5cc1-8791-98ba77781956'::uuid)
-);
-COMMENT ON TABLE "param"."nasa7__constants" IS 'Constants one parameterisation uses for every species form.';
-COMMENT ON COLUMN "param"."nasa7__constants"."id" IS 'Deterministic identifier of the nasa7__constants instance.';
-COMMENT ON COLUMN "param"."nasa7__constants"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
-COMMENT ON COLUMN "param"."nasa7__constants"."R" IS 'The gas constant the coefficients are scaled by.';
-
 CREATE TABLE "param"."nasa7__pure" (
     "id" uuid NOT NULL,
     "slot_group" uuid NOT NULL DEFAULT '3ee2acab-9ebb-5ee6-9279-9e7968621ba1'::uuid,
@@ -1857,18 +1872,6 @@ COMMENT ON TABLE "param"."nasa7__pure" IS 'The coefficient blocks of one species
 COMMENT ON COLUMN "param"."nasa7__pure"."id" IS 'Deterministic identifier of the nasa7__pure instance.';
 COMMENT ON COLUMN "param"."nasa7__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
 COMMENT ON COLUMN "param"."nasa7__pure"."i" IS 'The species form.';
-
-CREATE TABLE "param"."nasa9__constants" (
-    "id" uuid NOT NULL,
-    "slot_group" uuid NOT NULL DEFAULT 'b6e3d30e-a282-5f70-ada6-9c6232929f27'::uuid,
-    "R" "meta"."gas_constant" NOT NULL,
-    CONSTRAINT "nasa9__constants__pk" PRIMARY KEY ("id"),
-    CONSTRAINT "nasa9__constants__ck__slot_group" CHECK ("slot_group" = 'b6e3d30e-a282-5f70-ada6-9c6232929f27'::uuid)
-);
-COMMENT ON TABLE "param"."nasa9__constants" IS 'Constants one parameterisation uses for every species form.';
-COMMENT ON COLUMN "param"."nasa9__constants"."id" IS 'Deterministic identifier of the nasa9__constants instance.';
-COMMENT ON COLUMN "param"."nasa9__constants"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
-COMMENT ON COLUMN "param"."nasa9__constants"."R" IS 'The gas constant the coefficients are scaled by.';
 
 CREATE TABLE "param"."nasa9__pure" (
     "id" uuid NOT NULL,
@@ -2847,6 +2850,27 @@ COMMENT ON COLUMN "tk"."speciation_coefficient"."apparent" IS 'The apparent enti
 COMMENT ON COLUMN "tk"."speciation_coefficient"."true_form" IS 'A true species form.';
 COMMENT ON COLUMN "tk"."speciation_coefficient"."value" IS 'The value.';
 
+CREATE TABLE "tk"."subject_subform_choice" (
+    "id" uuid NOT NULL,
+    "parameterization" uuid NOT NULL,
+    "slot" uuid NOT NULL,
+    "subject_key" text NOT NULL,
+    "ordinal" bigint NOT NULL,
+    "form" uuid NOT NULL,
+    "source_parameterization" uuid,
+    CONSTRAINT "subject_subform_choice__pk" PRIMARY KEY ("parameterization", "slot", "subject_key", "ordinal"),
+    CONSTRAINT "subject_subform_choice__uq__id" UNIQUE ("id"),
+    CONSTRAINT "subject_subform_choice__ck__ordinal_from_one" CHECK ("ordinal" > 0)
+);
+COMMENT ON TABLE "tk"."subject_subform_choice" IS 'Which form fills a sub-form slot for one subject under a parameterisation: the form chosen for each pair, component or phase when a model puts a different form in the slot for each. A slot with multiplicity many has several choices, numbered from one.';
+COMMENT ON COLUMN "tk"."subject_subform_choice"."id" IS 'Deterministic identifier of the row, computed from its keys.';
+COMMENT ON COLUMN "tk"."subject_subform_choice"."parameterization" IS 'The parameterisation the choice is made in.';
+COMMENT ON COLUMN "tk"."subject_subform_choice"."slot" IS 'The sub-form slot.';
+COMMENT ON COLUMN "tk"."subject_subform_choice"."subject_key" IS 'Canonical encoding of the subjects the choice is for, in the role order of the contract the slot accepts, as for a parameter set.';
+COMMENT ON COLUMN "tk"."subject_subform_choice"."ordinal" IS 'Position among the choices of a slot with multiplicity many, from one; one otherwise.';
+COMMENT ON COLUMN "tk"."subject_subform_choice"."form" IS 'The form chosen.';
+COMMENT ON COLUMN "tk"."subject_subform_choice"."source_parameterization" IS 'The parameterisation that holds the chosen form''s parameter sets, when it is not the one the choice is made in.';
+
 CREATE TABLE "tk"."supersedes" (
     "id" uuid NOT NULL,
     "newer" uuid NOT NULL,
@@ -3115,6 +3139,10 @@ ALTER TABLE "meta"."form_output_observable" ADD CONSTRAINT "form_output_observab
 
 ALTER TABLE "meta"."form_output_observable" ADD CONSTRAINT "form_output_observable__fk__slot" FOREIGN KEY ("slot") REFERENCES "meta"."slot" ("qualified_name") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "meta"."form_convention" ADD CONSTRAINT "form_convention__fk__form" FOREIGN KEY ("form") REFERENCES "meta"."form" ("name") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "meta"."form_convention" ADD CONSTRAINT "form_convention__fk__kind_name" FOREIGN KEY ("kind", "name") REFERENCES "meta"."attribute" ("kind", "name") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "meta"."form_implicit" ADD CONSTRAINT "form_implicit__fk__form" FOREIGN KEY ("form") REFERENCES "meta"."form" ("name") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "meta"."form_unknown" ADD CONSTRAINT "form_unknown__fk__form_block" FOREIGN KEY ("form", "block") REFERENCES "meta"."form_implicit" ("form", "name") DEFERRABLE INITIALLY DEFERRED;
@@ -3146,6 +3174,8 @@ ALTER TABLE "meta"."slot" ADD CONSTRAINT "slot__fk__slot_group" FOREIGN KEY ("sl
 ALTER TABLE "meta"."slot" ADD CONSTRAINT "slot__fk__family" FOREIGN KEY ("family") REFERENCES "meta"."family" ("qualified_name") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "meta"."slot" ADD CONSTRAINT "slot__fk__accepts" FOREIGN KEY ("accepts") REFERENCES "meta"."contract" ("name") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "meta"."slot" ADD CONSTRAINT "slot__fk__references_contract" FOREIGN KEY ("references_contract") REFERENCES "meta"."contract" ("name") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "meta"."slot" ADD CONSTRAINT "slot__fk__observable" FOREIGN KEY ("observable") REFERENCES "tk"."observable" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -3273,13 +3303,13 @@ ALTER TABLE "tk"."model_assembly" ADD CONSTRAINT "model_assembly__fk__id" FOREIG
 
 ALTER TABLE "tk"."model_assembly" ADD CONSTRAINT "model_assembly__fk__root" FOREIGN KEY ("root") REFERENCES "meta"."form" ("id") DEFERRABLE INITIALLY DEFERRED;
 
-ALTER TABLE "param"."nasa7__constants" ADD CONSTRAINT "nasa7__constants__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE "tk"."model_component" ADD CONSTRAINT "model_component__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."model_component" ADD CONSTRAINT "model_component__fk__parameterization" FOREIGN KEY ("parameterization") REFERENCES "tk"."parameterization" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."nasa7__pure" ADD CONSTRAINT "nasa7__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."nasa7__pure" ADD CONSTRAINT "nasa7__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species_form" ("id") DEFERRABLE INITIALLY DEFERRED;
-
-ALTER TABLE "param"."nasa9__constants" ADD CONSTRAINT "nasa9__constants__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."nasa9__pure" ADD CONSTRAINT "nasa9__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
 
@@ -3548,6 +3578,14 @@ ALTER TABLE "tk"."speciation_coefficient" ADD CONSTRAINT "speciation_coefficient
 ALTER TABLE "tk"."speciation_coefficient" ADD CONSTRAINT "speciation_coefficient__fk__apparent" FOREIGN KEY ("apparent") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."speciation_coefficient" ADD CONSTRAINT "speciation_coefficient__fk__true_form" FOREIGN KEY ("true_form") REFERENCES "tk"."species_form" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."subject_subform_choice" ADD CONSTRAINT "subject_subform_choice__fk__parameterization" FOREIGN KEY ("parameterization") REFERENCES "tk"."parameterization" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."subject_subform_choice" ADD CONSTRAINT "subject_subform_choice__fk__slot" FOREIGN KEY ("slot") REFERENCES "meta"."subform_slot" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."subject_subform_choice" ADD CONSTRAINT "subject_subform_choice__fk__form" FOREIGN KEY ("form") REFERENCES "meta"."form" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."subject_subform_choice" ADD CONSTRAINT "subject_subform_choice__fk__source_parameterization" FOREIGN KEY ("source_parameterization") REFERENCES "tk"."parameterization" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."supersedes" ADD CONSTRAINT "supersedes__fk__newer" FOREIGN KEY ("newer") REFERENCES "tk"."parameterization" ("id") DEFERRABLE INITIALLY DEFERRED;
 

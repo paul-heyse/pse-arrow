@@ -11,11 +11,16 @@ locator of the source row instead of leaving it to fail in the database:
   (`thermo_knowledge.identity`), the row of every table of its refinement chain, the members of
   its `Set<K>` attributes, its `prov.record` row when the kind's provenance is `own`, and its
   origin rows;
-* `relation` writes a relation row the same way, with the canonical orientation of transposable
-  keys;
-* `parameter_set` writes one parameter set of a slot group: `subject_key`, the canonical
-  orientation of transposable subjects and the effect of the swap on the values, the set row,
-  the slot-group row and the family rows.
+* `relation` writes a relation row the same way, with the keys of a transposable relation in
+  the canonical orientation;
+* `parameter_set` writes one parameter set of a slot group: `subject_key`, the subjects in the
+  canonical orientation, the set row, the slot-group row and the family rows;
+* `subform_choice` writes which form fills a sub-form slot for one subject.
+
+The values are stored as the source asserted them. A transposable subject tuple is stored in the
+canonical orientation (so uniqueness and `subject_key` do not depend on the order asserted), and
+where the group's rule acts on values the row records the `arrangement` the values were asserted
+for. The writer never transforms a value; the rule is applied on reading (`transposition.py`).
 
 Validation covers types, required values, enum members, the domain checks of the generated DDL,
 the invariants declared `ddl` (from their declared check) and `load` (`invariants.py`) and unit
@@ -109,13 +114,28 @@ class NestedSet:
     """The value of a slot that accepts a contract: a parameter set of a slot group of a form
     implementing it.
 
-    `subjects` are the nested group's subjects in canonical orientation (none for a global
+    `subjects` are the nested group's subjects as the source asserted them (none for a global
     group). The set takes the parameterization and origins of the set that holds it."""
 
     slot_group: str
     slots: Mapping[str, object]
     families: Mapping[str, Sequence[FamilyRow]] | None = None
     subjects: Sequence[uuid.UUID] = ()
+
+
+@dataclass(frozen=True)
+class SetReference:
+    """The value of a slot that references a set: an independently identified, top-level
+    parameter set of a slot group of a form implementing the contract the slot names, which many
+    sets may reference.
+
+    The target is named as a set is identified: by its `parameterization`, its slot group, its
+    `subjects` (in any order of a transposable group) and its `occurrence`."""
+
+    parameterization: uuid.UUID
+    slot_group: str
+    subjects: Sequence[uuid.UUID] = ()
+    occurrence: int = 1
 
 
 @dataclass(frozen=True)
@@ -720,8 +740,8 @@ class CanonicalWriter:
     ) -> uuid.UUID:
         """Write one row of relation `name`: its keys by role name, its value columns by name.
 
-        The keys of a transposable relation are stored in the canonical orientation and the
-        swap's effect is applied to the values."""
+        The keys of a transposable relation are stored in the canonical orientation and the values
+        as asserted, with the `arrangement` recorded where the rule acts on values."""
         with self._atomic():
             return self._relation(name, keys, values, origins=origins, at=at)
 
@@ -745,6 +765,8 @@ class CanonicalWriter:
             problems.add(extra, f"is not a key of relation `{name}`")
         for extra in sorted(set(given) - {c.name for c in relation.values}):
             problems.add(extra, f"is not a value column of relation `{name}`")
+        if m.ARRANGEMENT in given:
+            problems.add(m.ARRANGEMENT, "is recorded by the writer from the order of the keys")
         converted: dict[str, Converted] = {}
         for key in relation.keys:
             raw = keys.get(key.name)
@@ -756,6 +778,8 @@ class CanonicalWriter:
             except ValueRefused as error:
                 problems.add(key.name, str(error))
         for column in relation.values:
+            if column.name == m.ARRANGEMENT and transposition.stores_arrangement(relation):
+                continue
             raw = given.get(column.name)
             if raw is None:
                 if column.default is not None:
@@ -771,9 +795,7 @@ class CanonicalWriter:
                 problems.add(column.name, str(error))
         if problems:
             raise ValidationError(locator, problems.items)
-        swapped = self._orient_relation(relation, converted, locator)
-        if swapped:
-            self._apply_relation_swap(relation, converted, locator)
+        self._orient_relation(relation, converted, locator)
         for requirement in relation.requires:
             found = invariants.violation(relation.name, requirement, converted)
             if found is not None:
@@ -801,9 +823,11 @@ class CanonicalWriter:
 
     def _orient_relation(
         self, relation: m.Relation, converted: dict[str, Converted], locator: str
-    ) -> bool:
+    ) -> None:
+        """Store the keys of a transposable relation in the canonical orientation; where the rule
+        acts on values, record the arrangement the values were asserted for. No value changes."""
         if relation.transposition is None:
-            return False
+            return
         names = [key.name for key in relation.keys]
         subjects = tuple(converted[name] for name in names)
         if transposition.is_diagonal(relation, subjects):
@@ -813,24 +837,10 @@ class CanonicalWriter:
                     f"relation `{relation.name}` forbids the diagonal: its roles name one instance twice"
                 ],
             )
-        canonical, swapped = transposition.canonical_orientation(relation, subjects)  # type: ignore[type-var]
+        canonical, _ = transposition.canonical_orientation(relation, subjects)  # type: ignore[type-var]
         converted.update(zip(names, canonical, strict=True))
-        return swapped
-
-    def _apply_relation_swap(
-        self, relation: m.Relation, converted: dict[str, Converted], locator: str
-    ) -> None:
-        rule = relation.transposition
-        assert rule is not None
-        if rule.rule in ("reciprocal", "linear"):
-            converted.update(self._swap(relation, converted, relation.name, locator))
-        elif rule.rule == "parity":
-            by = converted.get(rule.by or "")
-            if isinstance(by, int) and by % 2:
-                for column in relation.values:
-                    number = converted[column.name]
-                    if isinstance(number, float):
-                        converted[column.name] = -number
+        if transposition.stores_arrangement(relation):
+            converted[m.ARRANGEMENT] = transposition.arrangement_of(relation, subjects, canonical)
 
     def _check_output_observables(
         self, group: m.SlotGroup, merged: Mapping[str, Converted], locator: str
@@ -877,30 +887,76 @@ class CanonicalWriter:
         if problems:
             raise ValidationError(locator, problems.items)
 
-    @staticmethod
-    def _swap(
-        owner: transposition.Owner, values: Mapping[str, Converted], what: str, locator: str
-    ) -> dict[str, float]:
-        """The values the swap of the subjects changes, in the orientation the row is stored in:
-        what `transposition.swapped_values` gives for the slots the rule names."""
-        names = transposition.swapped_slots(owner)
-        numbers: dict[str, float] = {}
-        for name in names:
-            value = values[name]
-            if not isinstance(value, float) or (value == 0 and _inverts(owner)):
-                raise ValidationError(
-                    locator,
-                    [f"{what}.{name}: {value!r} cannot be inverted when the subjects are swapped"],
-                )
-            numbers[name] = value
-        swapped = transposition.swapped_values(owner, numbers)
-        for name in names:
-            if not math.isfinite(swapped[name]):
-                raise ValidationError(
-                    locator,
-                    [f"{what}.{name}: swapping the subjects gives a value that is not finite"],
-                )
-        return {name: swapped[name] for name in names}
+    # -- sub-form choices ---------------------------------------------------------------------
+
+    def subform_choice(
+        self,
+        *,
+        parameterization: uuid.UUID,
+        slot: str,
+        subjects: Sequence[uuid.UUID],
+        form: str,
+        ordinal: int = 1,
+        source_parameterization: uuid.UUID | None = None,
+        at: str | None = None,
+    ) -> uuid.UUID:
+        """Write the choice of `form` for the sub-form slot `slot` (`form.subform`) for `subjects`,
+        the subject of each role of the contract the slot accepts, in the parameterization. A slot
+        with multiplicity `many` takes several choices, `ordinal` counting them from one.
+        `source_parameterization` names the parameterization that holds the chosen form's sets when
+        it is not `parameterization`."""
+        sc = pc.SUBJECT_SUBFORM_CHOICE
+        locator = self._locator((), at)
+        declared = next(
+            (
+                sub
+                for candidate in self.decl.forms.values()
+                for sub in candidate.subforms
+                if sub.qualified == slot
+            ),
+            None,
+        )
+        if declared is None:
+            raise ValidationError(locator, [f"`{slot}` is not a sub-form slot (`form.subform`)"])
+        problems = Problems()
+        chosen = self.decl.forms.get(form)
+        if chosen is None:
+            problems.add(sc.form, f"`{form}` is not a declared form")
+        elif chosen.implements != declared.accepts:
+            problems.add(
+                sc.form,
+                f"slot `{slot}` accepts contract `{declared.accepts}`, and form `{form}` "
+                f"implements `{chosen.implements}`",
+            )
+        if declared.per != "subject":
+            problems.add(slot, "is chosen per model: a choice for a subject belongs to a slot chosen per subject")
+        roles = self.decl.contracts[declared.accepts].roles
+        if len(subjects) != len(roles):
+            problems.add(
+                sc.subject_key,
+                f"`{slot}` is chosen for the {len(roles)} role(s) of contract "
+                f"`{declared.accepts}`, {len(subjects)} subject(s) given",
+            )
+        if isinstance(ordinal, bool) or ordinal < 1:
+            problems.add(sc.ordinal, f"{ordinal!r} is not a whole number from one")
+        elif ordinal > 1 and declared.multiplicity != "many":
+            problems.add(
+                sc.ordinal, f"`{slot}` has multiplicity `{declared.multiplicity}`: it takes one choice"
+            )
+        if problems:
+            raise ValidationError(locator, problems.items)
+        with self._atomic():
+            return self._relation(
+                sc.declared,
+                {
+                    sc.parameterization: parameterization,
+                    sc.slot: slot,
+                    sc.subject_key: identity.canonical_encoding(list(subjects)),
+                    sc.ordinal: ordinal,
+                },
+                {sc.form: form, sc.source_parameterization: source_parameterization},
+                at=at,
+            )
 
     # -- parameter sets -----------------------------------------------------------------------
 
@@ -918,8 +974,9 @@ class CanonicalWriter:
     ) -> uuid.UUID:
         """Write one parameter set of the slot group `form.group` for the ordered `subjects`.
 
-        The subjects are stored in the canonical orientation (a swap applies the group's
-        transposition to the values), `subject_key` is their canonical encoding, and the set,
+        The subjects are stored in the canonical orientation and the values as asserted, with the
+        `arrangement` recorded where the group's rule acts on values (the rule is applied on
+        reading); `subject_key` is the canonical encoding of the subjects, and the set,
         slot-group and family rows and the record are written. `occurrence` (from one, in source
         order) distinguishes repeated assertions for one subject within one parameterisation; it
         takes the declared default, one, when it is not given."""
@@ -964,18 +1021,18 @@ class CanonicalWriter:
             )
         for name in sorted(set(slots) & {s.name for s in group.subjects}):
             raise ValidationError(locator, [f"{name}: is a subject role, not a slot"])
+        if m.ARRANGEMENT in slots:
+            raise ValidationError(
+                locator,
+                [f"{m.ARRANGEMENT}: is recorded by the writer from the order of the subjects"],
+            )
         ordered = tuple(subjects)
         if transposition.is_diagonal(group, ordered):
             raise ValidationError(
                 locator,
                 [f"`{slot_group}` forbids the diagonal: its subjects name one instance twice"],
             )
-        canonical, swapped = transposition.canonical_orientation(group, ordered)
-        if nested is not None and swapped:
-            raise ValidationError(
-                locator,
-                [f"the subjects of a nested `{slot_group}` are given in canonical orientation"],
-            )
+        canonical, _ = transposition.canonical_orientation(group, ordered)
         marker = self._meta_ids["slot_group"][group.qualified]
         if nested is None:
             subject_key = identity.canonical_encoding(list(canonical))
@@ -1004,7 +1061,7 @@ class CanonicalWriter:
             given[ps.parent_slot] = nested[1]
         problems = Problems()
         for slot in group.slots:
-            if slot.shape not in ("nested_set", "tabulated_function"):
+            if slot.shape not in ("nested_set", "set_reference", "tabulated_function"):
                 continue
             raw = slots.get(slot.name)
             if raw is None:
@@ -1015,6 +1072,13 @@ class CanonicalWriter:
                     continue
                 given[slot.name] = self._nested(
                     holder_context, f"{group.qualified}.{slot.name}", slot, "", raw
+                )
+            elif slot.shape == "set_reference":
+                if not isinstance(raw, SetReference):
+                    problems.add(slot.name, "a set-reference slot takes a SetReference")
+                    continue
+                given[slot.name] = self._reference(
+                    holder_context.locator, f"{group.qualified}.{slot.name}", slot, raw
                 )
             else:
                 if not isinstance(raw, TabulatedFunction):
@@ -1027,11 +1091,11 @@ class CanonicalWriter:
             raise ValidationError(locator, problems.items)
         for field, subject in zip(group.subjects, canonical, strict=True):
             given[field.name] = subject
+        if transposition.stores_arrangement(group):
+            given[m.ARRANGEMENT] = transposition.arrangement_of(group, ordered, canonical)
         merged = self._assemble(group.id, given, locator)
         self._check_output_observables(group, merged, locator)
-        if swapped:
-            merged.update(self._swap(group, merged, slot_group, locator))
-        family_rows = self._family_rows(group, families or {}, swapped, locator, holder_context)
+        family_rows = self._family_rows(group, families or {}, locator, holder_context)
         written = self._emit_kind(group.id, merged, origins, locator, slot_group=marker)
         assert written == set_id, "a set's identifier does not depend on its values"
         for family, rows in family_rows:
@@ -1094,6 +1158,68 @@ class CanonicalWriter:
             origins=holder.origins,
             at=holder.locator,
             nested=(holder, self._meta_ids["slot"][slot_qualified], index_key),
+        )
+
+    def _reference(
+        self, locator: str, slot_qualified: str, slot: m.Field, value: SetReference
+    ) -> uuid.UUID:
+        """The identifier of the set a slot references, after checking that the form of the set's
+        slot group implements the contract the slot names. A reference names a top-level set by
+        the identity it is written under, so it can never name a nested set (whose identity is
+        that of its holder); the verify check `referenced_set_implements_contract` holds the
+        database to the same rule."""
+        decl = self.decl
+        group = next((g for g in decl.slot_groups if g.qualified == value.slot_group), None)
+        if group is None:
+            raise ValidationError(
+                locator, [f"`{value.slot_group}` is not a slot group (`form.group`)"]
+            )
+        form = decl.forms[group.form]
+        if form.implements != slot.references:
+            raise ValidationError(
+                locator,
+                [
+                    f"{slot_qualified}: references a set of a form implementing contract "
+                    f"`{slot.references}`, and form `{form.name}` of `{value.slot_group}` "
+                    f"implements `{form.implements}`"
+                ],
+            )
+        if len(value.subjects) != len(group.subjects):
+            raise ValidationError(
+                locator,
+                [
+                    f"{slot_qualified}: `{value.slot_group}` has {len(group.subjects)} subject "
+                    f"role(s), the reference gives {len(value.subjects)}"
+                ],
+            )
+        if isinstance(value.occurrence, bool) or value.occurrence < 1:
+            raise ValidationError(
+                locator,
+                [f"{slot_qualified}: occurrence {value.occurrence!r} is not a whole number from one"],
+            )
+        ordered = tuple(value.subjects)
+        if transposition.is_diagonal(group, ordered):
+            raise ValidationError(
+                locator,
+                [
+                    f"{slot_qualified}: `{value.slot_group}` forbids the diagonal: the subjects "
+                    "name one instance twice"
+                ],
+            )
+        canonical, _ = transposition.canonical_orientation(group, ordered)
+        ps = pc.PARAMETER_SET
+        root = decl.kinds[decl.kinds[group.id].root]
+        return identity.identifier(
+            root.name,
+            self._identity_values(
+                root,
+                {
+                    ps.parameterization: value.parameterization,
+                    ps.slot_group: self._meta_ids["slot_group"][group.qualified],
+                    ps.subject_key: identity.canonical_encoding(list(canonical)),
+                    ps.occurrence: value.occurrence,
+                },
+            ),
         )
 
     def _tabulated(
@@ -1177,7 +1303,6 @@ class CanonicalWriter:
         self,
         group: m.SlotGroup,
         given: Mapping[str, Sequence[FamilyRow]],
-        swapped: bool,
         locator: str,
         holder: _Holder,
     ) -> list[tuple[m.Family, list[dict[str, object]]]]:
@@ -1189,7 +1314,6 @@ class CanonicalWriter:
         for family in group.families:
             rows: list[dict[str, object]] = []
             seen: set[tuple[object, ...]] = set()
-            parity = transposition.parity_index(group, family) if swapped else None
             for position, item in enumerate(given.get(family.name, ())):
                 where = f"{family.qualified}[{position}]"
                 row: dict[str, object] = {}
@@ -1231,6 +1355,16 @@ class CanonicalWriter:
                                 raw,
                             )
                         continue
+                    if slot.shape == "set_reference":
+                        if not isinstance(raw, SetReference):
+                            problems.add(
+                                f"{where}.{slot.name}", "a set-reference slot takes a SetReference"
+                            )
+                        else:
+                            row[slot.name] = self._reference(
+                                holder.locator, f"{family.qualified}.{slot.name}", slot, raw
+                            )
+                        continue
                     if slot.shape == "tabulated_function":
                         if not isinstance(raw, TabulatedFunction):
                             problems.add(
@@ -1256,11 +1390,6 @@ class CanonicalWriter:
                 if key in seen:
                     problems.add(where, f"the index {key} is repeated")
                 seen.add(key)
-                if parity is not None and isinstance(key[parity], int) and key[parity] % 2:  # type: ignore[operator]
-                    for slot in family.slots:
-                        number = row[slot.name]
-                        if isinstance(number, float):
-                            row[slot.name] = -number
                 rows.append(row)
             if family.interval is not None:
                 self._check_intervals(family, rows, problems)
@@ -1291,11 +1420,6 @@ class CanonicalWriter:
                 break
 
 
-def _inverts(owner: transposition.Owner) -> bool:
-    rule = owner.transposition
-    return rule is not None and rule.rule == "reciprocal"
-
-
 def _array(values: list[object], type_: pa.DataType) -> pa.Array:
     """An Arrow array of `type_`; identifiers go through the canonical `uuid` extension type."""
     if type_ == UUID:
@@ -1315,6 +1439,7 @@ __all__ = [
     "MissingOrigin",
     "NestedSet",
     "Origin",
+    "SetReference",
     "SourceRef",
     "TabulatedAxis",
     "TabulatedFunction",

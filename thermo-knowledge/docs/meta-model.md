@@ -185,7 +185,8 @@ enum, `Text` or `Id<scheme>`. Floating-point types are never keys.
 a missing row is an error for the consumer), `optional` (missing means not asserted) or a declared
 default. Missing and a stored zero are never the same state.
 
-A relation over two roles of the same kind may declare `transposition` (section 4.3).
+A relation over two roles of the same kind may declare `transposition` (section 4.3); where the rule
+acts on values it records an `arrangement` value column as a slot group does.
 
 A relation declares invariants as a kind does, over its keys and value columns, with the same fields
 and the same three enforcement points:
@@ -301,10 +302,26 @@ framework table `slot_uncertainty`.
 
 **Value shapes.** A slot holds one of: a dimensioned scalar or count; an enum member; a reference
 to an entity; a **nested set** (`accepts = "<contract>"`: the value is a parameter set of a form
-implementing that contract, which is how a temperature-dependent coefficient is represented); or a
+implementing that contract, which is how a temperature-dependent coefficient is represented); a
+**set reference** (`references = "<contract>"`, in place of `type` or `accepts`); or a
 **tabulated function** (a reference to the framework kind `tabulated_function`, which has an
 interpolation rule, one or more axes, each a quantity type with ascending points, and one or more
 named series of values over the full grid of the axes, in row-major order).
+
+A nested set has exactly one parent: its identity is derived from its holder. An object that many
+parents use is stored once and referenced instead: a generalised departure function used by eight
+binary pairs, a named function of temperature of a thermodynamic database used by many parameters.
+A set reference holds an independently identified, top-level parameter set of a form that
+implements the named contract, and any number of sets may reference the same one. A slot group or a
+family row may hold one; it projects to a foreign key to the parameter-set table. The canonical
+writer names the target by its identity (parameterization, slot group, subjects, occurrence) and
+refuses a target whose form does not implement the contract; the structural check
+`referenced_set_implements_contract` states the rule over the database and refuses a target that is
+a nested set. In an expression a referenced set is called like a nested one
+(`pair.departure[i, j].alpha_r(delta=delta, tau=tau)`); the parameter sources follow the reference.
+The subject of a referenced set is usually no entity the caller can name (a `model_component`, the
+kind of a named component of a model that parameter sets share), so the call need not give the roles
+of the called contract: a role it does not give is the subject of the referenced set bound to it.
 
 **Indexed families.** Slots that repeat over an index (terms, orders, pieces) are declared as a
 family:
@@ -324,6 +341,16 @@ a1 = { type = "Scalar" }
 A family projects to a child table keyed by (parameter set, index). Indices are keys inside a set,
 never subjects.
 
+**Convention facts.** A form declares the facts of its parameterization's convention set that its
+expressions read: `conventions = ["gas_constant"]`, each naming a quantity-typed attribute of the kind
+bound to the framework role `convention_set`. An expression reads one as `convention.gas_constant`,
+with the attribute's type (`expressions.md` section 3). A fact has one home, the convention set: a
+form carries no slot for it, because a coefficient set reproduces its source only with the gas
+constant it was built with. `meta.form_convention` reifies the declaration. The structural check
+`parameterization_has_conventions` requires every parameterization that holds a parameter set of such
+a form to have a convention set that states each declared fact, and an evaluation refuses
+parameterizations whose facts differ (`pipeline.md` section 5.3).
+
 ### 4.3 Transposition
 
 A slot group or relation with two roles of the same kind declares what happens when they are
@@ -332,15 +359,37 @@ swapped. The set of rules is closed:
 | Rule | Meaning | Stored |
 |---|---|---|
 | `ordered` | (i, j) and (j, i) are independent facts | both, if asserted |
-| `symmetric` | the value is the same either way | one canonical orientation |
-| `parity` | the sign alternates with a named index (`by = "order"`) | one canonical orientation |
-| `reciprocal` | named slots invert on swap (`slots = [...]`) | one canonical orientation |
-| `linear` | the values of named slots, as a vector, are multiplied by a declared matrix on swap (`slots`, `matrix`) | one canonical orientation |
-| `permutation_group` | a declared group of role permutations leaves the fact unchanged | the canonical representative |
+| `symmetric` | the value is the same either way | one canonical orientation; no `arrangement` |
+| `parity` | the sign alternates with a named index (`by = "order"`) | canonical subjects, values as asserted, `arrangement` |
+| `reciprocal` | named slots invert on swap (`slots = [...]`) | canonical subjects, values as asserted, `arrangement` |
+| `linear` | the values of named slots, as a vector, are multiplied by a declared matrix on swap (`slots`, `matrix`) | canonical subjects, values as asserted, `arrangement` |
+| `permutation_group` | a declared group of role permutations leaves the fact unchanged | canonical representative's subjects, values as asserted, `arrangement` |
 
 `diagonal = "forbidden" | "allowed"` states whether both roles may name the same instance. The
-canonical orientation is the one whose first role has the smaller identifier. The declaration is
-one inline table on the slot group or relation:
+canonical orientation is the one whose first role has the smaller identifier.
+
+**Values are stored as asserted.** A rule that acts on values (`parity`, `reciprocal`, `linear`) or keeps
+the asserted order of a `permutation_group` leaves the number the source published in the row. The
+subject columns are in the canonical order, so uniqueness and `subject_key` do not depend on the order
+the source used and a curated identity decision cannot change a stored number. The row also has an
+integer column `arrangement` saying for which arrangement of the subjects the values were asserted: 0
+for the canonical order; for a two-role rule 1 for the swapped order; for a `permutation_group` the
+1-based number of the arrangement that takes the asserted order to the canonical one (the declared
+permutations in declared order, then the rest of the group they generate). The generated DDL
+constrains its range. A `symmetric` group has no such column. The writer records the arrangement and
+never transforms a value; a reciprocal slot holding zero is stored. A relation whose rule acts on
+values has the same column.
+
+**The rule is applied on reading.** A parameter source returns the values for the order of the subjects
+a caller asks for. Asked for the order asserted, it returns the stored numbers unchanged, bit for bit;
+asked for another order the group's rule acts once, through `thermo_knowledge.transposition` (the one
+implementation, shared by the in-memory and the database-backed source), and the evaluator applies no
+rule itself. `permutation_group` does not change values, so its arrangement is data: the order the
+source used. A `constituent_array` has no transposition inside it: its identity includes the asserted
+order of its species, two arrays that differ only in order are different subjects, and that they
+describe one physical array is an equivalence assessment.
+
+The declaration is one inline table on the slot group or relation:
 
 ```toml
 transposition = { rule = "symmetric", roles = ["i", "j"], diagonal = "forbidden" }
@@ -351,10 +400,9 @@ transposition = { rule = "linear", roles = ["i", "j"], slots = ["h0", "h1"], mat
 
 `linear` holds the parameters of a pair that change into one another when the pair is swapped: the
 two Margules parameters of a pair become (h0 + h1, -h1). The values of the listed slots, in the
-order listed, are multiplied by the matrix, row by row, when the subject is given in the
-non-canonical orientation: the canonical writer applies it on writing, the evaluator when it finds
-a set in the orientation other than the one asked for, and the stored values stay in the canonical
-orientation. A slot the rule does not name is unchanged. The loader refuses a `linear` rule unless
+order listed, are multiplied by the matrix, row by row, when a set is read for the order of its
+subjects other than the one asserted; the stored values are the asserted ones. A slot the rule does
+not name is unchanged. The loader refuses a `linear` rule unless
 
 - it names two roles and at least one slot, each slot exists, is named once, is required (not
   `stateful`) and has a quantity type (a number a linear combination can take);
@@ -377,7 +425,14 @@ multiplicity = "one"              # one | optional | many (additive contribution
 per = "subject"                   # model | subject
 ```
 
-A `model_assembly` (a declared kind) records one choice per sub-form slot.
+A `model_assembly` (a declared kind) records one choice per sub-form slot. The relation
+`subject_subform_choice` records which form fills a slot for one subject under a parameterization,
+for a slot with `per = "subject"`: keyed by the parameterization, the slot, the canonical encoding of
+the subjects the choice is for and an `ordinal` (from one; more than one only for multiplicity
+`many`), it names the `form` and, when the chosen form's sets are held by another parameterization,
+its `source_parameterization`. The chosen form implements the contract the slot accepts and the
+ordinals are contiguous from one; both are verify checks written from `meta`. The database-backed
+parameter source takes a slot's choices from the relation when the qualification case states none.
 
 ### 4.5 Expressions
 
@@ -419,16 +474,18 @@ roles are required only when the declaration contains forms. An optional fifth r
 rows reference it by identifier); when it is not bound, `observable` may not be used. A sixth,
 `composition_basis`, binds the kind whose declared entities are the composition bases in the same
 way: a contract argument's `basis` and the name in `basis('<name>', [ ... ])` must name one, and
-without the role neither may be used.
+without the role neither may be used. A seventh, `convention_set`, binds the kind whose
+quantity-typed attributes a form may declare it reads (`conventions`, section 4.2); without the
+role `conventions` may not be used.
 
 ### The pipeline contract
 
 The roles above are what the generator needs. The stage code needs more: the canonical writer creates
-`carrier`, `artifact`, `import_record` and `rights_determination` rows and the text keys that restate
-references, resolution writes `species`, `species_form`, `source_entity`, `identity_assertion` and
+`carrier`, `artifact`, `import_record`, `rights_determination` and `subject_subform_choice` rows and the
+text keys that restate references, resolution writes `species`, `species_form`, `source_entity`, `identity_assertion` and
 `resolution_candidate`, the mapping framework writes `derivation`, `fit`, `envelope`, `mapping_rule`,
 `mapping_coverage` and `held_row`, qualification writes `qualification_run` and reads `parameter_set`,
-`parameterization`, `envelope` and `source_entity`. That dependency is declared in one file shipped with
+`parameterization`, `envelope`, `source_entity` and `subject_subform_choice`. That dependency is declared in one file shipped with
 the package, `src/thermo_knowledge/pipeline_contract.toml`, which names each kind, relation and enum
 the code uses directly (the model is this pipeline's model) with:
 
@@ -464,7 +521,7 @@ and a message (DP-21). At least:
 - duplicate name across the declaration; name that is not lowercase snake_case (quantity types
   and built-in types are CamelCase)
 - reference to a name not reachable through `uses`; a cycle in `uses`, in `extends`, or among
-  nested-set contracts
+  nested-set and referenced-set contracts
 - identity declared on a refinement, missing on a root, or containing an optional or
   floating-point attribute
 - an abstract kind with declared entities; an entity with an unknown or mistyped attribute
@@ -476,6 +533,11 @@ and a message (DP-21). At least:
   names an observable and takes it from a set; a form that does not declare the slot for an output
   taken from a set, declares one for another output, or names a slot that is not a required
   observable reference of a slot group
+- a slot that does not declare exactly one of `type`, `accepts` and `references`, or whose `accepts` or
+  `references` names something that is not a contract; a slot group or relation with a rule that acts
+  on values and a slot, key or column named `arrangement`
+- a form whose `conventions` names an attribute the convention-set kind lacks or one that is not a
+  quantity, or is used without the `convention_set` role
 - a quantity expression that does not resolve by unit algebra
 - a member that names a facet its enum does not declare; a `present_iff` that governs a column that is
   always present, depends on a column that is not an enum or names a member the enum lacks; a
@@ -505,7 +567,9 @@ direction.
 | slot group | table `param.<form>__<group>`, refining the `parameter_set` table, with a foreign-key column per subject role and a column per slot |
 | family | table `param.<form>__<group>__<family>` keyed by (set, index); an `interval` adds a range column and an exclusion constraint against overlap |
 | `stateful` slot | value column, `<slot>__state`, `<slot>__redirect`, and a check that the value is present exactly when the state is `known` and the redirect exactly when it is `redirect` |
-| symmetric, parity, reciprocal, linear transposition | a check that the first role's identifier is smaller; `diagonal = forbidden` adds inequality |
+| symmetric, parity, reciprocal, linear, permutation_group transposition | a check that the first role's identifier is smaller (for a permutation group, that the row is no greater than each of its images); `diagonal = forbidden` adds inequality |
+| a rule that acts on values (`parity`, `reciprocal`, `linear`, `permutation_group`) | an integer column `arrangement` with a range check: 0 and 1, or for a permutation group 0 to the number of arrangements less one |
+| set reference slot | a column with a foreign key to the parameter-set table, in a slot-group or family table |
 | `provenance = "own"` | foreign key from `id` to `prov.record` |
 | `requires` with `enforced = "ddl"`, of a kind or a relation | named `CHECK` constraint on its table |
 
@@ -519,7 +583,8 @@ hand-written in `sql/physical.sql`, which also holds the view `qual.form_qualifi
 and of relations alike, enums with their members, facets and the facets of each member, identifier
 schemes, units, quantity types, contracts, forms, slot groups, slots, families,
 sub-form slots, transposition slots and matrices, the slot that supplies an output's observable,
-and each output's evaluation hash), so the database describes itself and `parameter_set` rows reference their slot
+the contract each set-reference slot names, the convention facts each form reads and each output's
+evaluation hash), so the database describes itself and `parameter_set` rows reference their slot
 group by foreign key. These rows and the declared entities are inserted from the declaration when
 a database is built; they are not a second authority.
 
@@ -559,5 +624,7 @@ generated from those marks plus the table below.
 | `parity`, `reciprocal`, `linear`, `permutation_group` transposition | gap |
 | `stateful` slot (`not_applicable`, `redirect`, `withheld`) | gap |
 | nested set as a slot value | gap (pair values are `Scalar` only) |
+| set reference as a slot value | gap |
+| convention fact read by a form | gap (production quantity types carry the convention) |
 | rights determinations | gap (provenance has no rights facet) |
 | `derivation` lineage beyond dataset and source | gap (register R-50) |

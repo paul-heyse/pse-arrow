@@ -4,18 +4,23 @@
 """A `ParameterSource` over the built database (pipeline section 5).
 
 The source answers the reference evaluator from canonical records: slot values in storage units
-from the `param.<form>__<group>` tables, the rows of a family from its table, a nested set by
-following the slot's foreign key to the set it holds, and the forms chosen for a sub-form slot
-from an explicit choice given by the caller (model assemblies come later). It reads one or
-several parameterizations in order: the first that holds a set for a slot group and subjects
-answers. It holds no defaults (`default_slot_values` is always `None`), so a missing set is
-reported as missing and the evaluator refuses.
+from the `param.<form>__<group>` tables, the rows of a family from its table, a nested or
+referenced set by following the slot's foreign key to the set it holds, the forms chosen for a
+sub-form slot (from an explicit choice given by the caller, else for a slot chosen per subject
+from the `subject_subform_choice` relation), and the convention facts of the parameterizations
+that supplied the sets an evaluation read. It reads one or several parameterizations in order:
+the first that holds a set for a slot group and subjects answers. It holds no defaults
+(`default_slot_values` is always `None`), so a missing set is reported as missing and the
+evaluator refuses.
 
-Subjects are stored in the canonical orientation, and the source looks a subject tuple up exactly
-as asked; the evaluator tries the other orientations itself. Reads are bounded: one query for the
-row of a slot group (all its slots at once) and one for each family the evaluation touches, or,
-after `prefetch`, one query for the sets of many subjects and one per family for all of them.
-A database built from another declaration than the one given is refused.
+Subjects are stored in the canonical orientation, with the `arrangement` the values were asserted
+for where the group's rule acts on values. The source finds a set by the canonical orientation of
+the subjects asked for and returns its values for the order asked: the stored numbers unchanged
+when that is the order asserted, otherwise the rule applied once (`thermo_knowledge.transposition`).
+Reads are bounded: one query for the row of a slot group (all its slots at once) and one for each
+family the evaluation touches, or, after `prefetch`, one query for the sets of many subjects and
+one per family for all of them. A database built from another declaration than the one given is
+refused.
 
 One parameterization may hold several sets for one subject (repeated assertions of a source,
 distinguished by their `occurrence`). The source never picks one silently: for each
@@ -34,12 +39,14 @@ from pathlib import Path
 import psycopg
 from psycopg import sql
 
-from thermo_knowledge import config
+from thermo_knowledge import config, identity, transposition
 from thermo_knowledge import pipeline_contract as pc
 from thermo_knowledge.declaration import model as m
 from thermo_knowledge.expression.parameters import (
+    ConventionFact,
     FamilyRows,
     FormChoice,
+    SetRead,
     SlotValues,
     Subject,
 )
@@ -119,14 +126,18 @@ class _Set:
     id: uuid.UUID
     group: str
     subjects: tuple[Subject, ...]
-    parameterization: uuid.UUID | None = None
-    """Known for a set read by subject (the join that selects it carries it), else `None`."""
+    """The subjects in the canonical orientation, as stored."""
+    parameterization: uuid.UUID
     occurrence: int = 1
-    """Known with the parameterization."""
+    arrangement: int = 0
+    """For which order of the subjects the values were asserted (0 when the group records none)."""
     slots: dict[str, float] = field(default_factory=dict)
     nested: dict[str, uuid.UUID] = field(default_factory=dict)
+    """The set each set-valued slot outside a family holds: nested in this set or referenced."""
     redirects: dict[str, uuid.UUID] = field(default_factory=dict)
     families: dict[str, dict[tuple[int, ...], dict[str, float]]] = field(default_factory=dict)
+    family_sets: dict[str, dict[tuple[int, ...], uuid.UUID]] = field(default_factory=dict)
+    """The set each set-valued slot of a family holds, by `family.slot` and the row's index."""
 
 
 class _Backend:
@@ -139,9 +150,18 @@ class _Backend:
         self.groups = {group.qualified: group for group in decl.slot_groups}
         self.by_id: dict[uuid.UUID, _Set] = {}
         self.by_key: dict[tuple[str, tuple[Subject, ...], Scope], _Set | None] = {}
+        ids = decl.meta_ids()
         self.group_of_marker: dict[uuid.UUID, str] = {
-            marker: name for name, marker in decl.meta_ids()["slot_group"].items()
+            marker: name for name, marker in ids["slot_group"].items()
         }
+        self.form_of_id: dict[uuid.UUID, str] = {
+            marker: name for name, marker in ids["form"].items()
+        }
+        self.subform_slots = {
+            sub.qualified: sub for form in decl.forms.values() for sub in form.subforms
+        }
+        self.subform_ids = ids["subform_slot"]
+        self.facts: dict[tuple[uuid.UUID, str], ConventionFact] = {}
 
     def group(self, qualified: str) -> m.SlotGroup:
         found = self.groups.get(qualified)
@@ -149,35 +169,43 @@ class _Backend:
             raise SourceError(f"`{qualified}` is not a slot group (`form.group`)")
         return found
 
+    def canonical(self, group: m.SlotGroup, subjects: tuple[Subject, ...]) -> tuple[Subject, ...]:
+        """The orientation `subjects` is stored in."""
+        return transposition.canonical_orientation(group, subjects)[0]
+
+    def asserted(self, group: m.SlotGroup, record: _Set) -> tuple[Subject, ...]:
+        """The order of its subjects the values of `record` were asserted for."""
+        if transposition.stores_arrangement(group):
+            return transposition.asserted_order(group, record.subjects, record.arrangement)
+        return record.subjects
+
     # -- queries ---------------------------------------------------------------------------
 
     def _columns(self, group: m.SlotGroup) -> list[sql.Composable]:
         columns: list[sql.Composable] = [sql.SQL("g.id")]
         columns.extend(sql.SQL("g.{}").format(sql.Identifier(s.name)) for s in group.subjects)
+        if transposition.stores_arrangement(group):
+            columns.append(sql.SQL("g.{}").format(sql.Identifier(m.ARRANGEMENT)))
         for slot in group.slots:
             columns.append(sql.SQL("g.{}").format(sql.Identifier(slot.name)))
             if slot.presence == "stateful":
                 columns.append(sql.SQL("g.{}").format(sql.Identifier(f"{slot.name}__state")))
                 columns.append(sql.SQL("g.{}").format(sql.Identifier(f"{slot.name}__redirect")))
+        ps = pc.PARAMETER_SET
+        columns.append(sql.SQL("ps.{}").format(sql.Identifier(ps.parameterization)))
+        columns.append(sql.SQL("ps.{}").format(sql.Identifier(ps.occurrence)))
         return columns
 
     def _select(
-        self,
-        group: m.SlotGroup,
-        where: sql.Composable,
-        params: Sequence[object],
-        *,
-        owner: bool = False,
+        self, group: m.SlotGroup, where: sql.Composable, params: Sequence[object]
     ) -> list[_Set]:
-        """The sets `where` selects. With `owner`, `where` joins the parameter sets as `ps` and
-        each set carries its parameterization and occurrence."""
-        columns = self._columns(group)
-        if owner:
-            columns.append(sql.SQL("ps.{}").format(sql.Identifier(pc.PARAMETER_SET.parameterization)))
-            columns.append(sql.SQL("ps.{}").format(sql.Identifier(pc.PARAMETER_SET.occurrence)))
-        query = sql.SQL("SELECT {columns} FROM {table} g {where}").format(
-            columns=sql.SQL(", ").join(columns),
+        """The sets `where` selects; `where` may use the group's row as `g` and its parameter-set
+        row as `ps`."""
+        ps = pc.PARAMETER_SET
+        query = sql.SQL("SELECT {columns} FROM {table} g JOIN {sets} ps ON ps.id = g.id {where}").format(
+            columns=sql.SQL(", ").join(self._columns(group)),
             table=sql.Identifier(PARAM_SCHEMA, group.id),
+            sets=sql.Identifier(*ps.table.split(".")),
             where=where,
         )
         found: list[_Set] = []
@@ -185,23 +213,33 @@ class _Backend:
             values = iter(row)
             identifier = next(values)
             subjects = tuple(str(next(values)) for _ in group.subjects)
-            record = _Set(identifier, group.qualified, subjects)
+            arrangement = int(next(values)) if transposition.stores_arrangement(group) else 0
+            stored: dict[str, tuple[object, object, object]] = {}
             for slot in group.slots:
                 value = next(values)
                 state = redirect = None
                 if slot.presence == "stateful":
                     state, redirect = next(values), next(values)
-                if slot.shape == "nested_set":
+                stored[slot.name] = (value, state, redirect)
+            parameterization, occurrence = next(values), int(next(values))
+            record = _Set(
+                identifier,
+                group.qualified,
+                subjects,
+                parameterization,
+                occurrence,
+                arrangement,
+            )
+            for slot in group.slots:
+                value, state, redirect = stored[slot.name]
+                if slot.shape in ("nested_set", "set_reference"):
                     if value is not None:
-                        record.nested[slot.name] = value
+                        record.nested[slot.name] = value  # type: ignore[assignment]
                 elif slot.shape == "quantity":
                     if state == "redirect" and redirect is not None:
-                        record.redirects[slot.name] = redirect
+                        record.redirects[slot.name] = redirect  # type: ignore[assignment]
                     elif value is not None and state in (None, "known"):
-                        record.slots[slot.name] = float(value)
-            if owner:
-                record.parameterization = next(values)
-                record.occurrence = int(next(values))
+                        record.slots[slot.name] = float(value)  # type: ignore[arg-type]
             found.append(record)
         return found
 
@@ -215,10 +253,11 @@ class _Backend:
         subjects: Sequence[tuple[Subject, ...]],
         scope: Scope,
     ) -> None:
-        """Read the top-level sets of `group` for every tuple of `subjects` in the parameterizations
-        of `scope` (one query), remembering the answer, found or not. For each subject the first
-        parameterization that holds a set answers, with the occurrence `scope` states for it."""
-        wanted = [key for key in dict.fromkeys(subjects)]
+        """Read the top-level sets of `group` for every tuple of `subjects` (each in the canonical
+        orientation) in the parameterizations of `scope` (one query), remembering the answer,
+        found or not. For each subject the first parameterization that holds a set answers, with
+        the occurrence `scope` states for it."""
+        wanted = [key for key in dict.fromkeys(self.canonical(group, key) for key in subjects)]
         valid: list[tuple[uuid.UUID, ...]] = []
         for key in wanted:
             try:
@@ -241,21 +280,17 @@ class _Backend:
             params = []
         ps = pc.PARAMETER_SET
         where = (
-            sql.SQL(
-                "JOIN {sets} ps ON ps.id = g.id "
-                "WHERE ps.{parameterization} = ANY(%s) AND ps.{parent} IS NULL AND "
-            ).format(
-                sets=sql.Identifier(*ps.table.split(".")),
+            sql.SQL("WHERE ps.{parameterization} = ANY(%s) AND ps.{parent} IS NULL AND ").format(
                 parameterization=sql.Identifier(ps.parameterization),
                 parent=sql.Identifier(ps.parent),
             )
             + match
         )
-        rows = self._select(group, where, [list(scope.parameterizations), *params], owner=True)
+        rows = self._select(group, where, [list(scope.parameterizations), *params])
         held: dict[tuple[Subject, ...], dict[uuid.UUID, dict[int, _Set]]] = {}
         for row in rows:
             by_parameterization = held.setdefault(row.subjects, {})
-            by_parameterization.setdefault(row.parameterization, {})[row.occurrence] = row  # type: ignore[index]
+            by_parameterization.setdefault(row.parameterization, {})[row.occurrence] = row
         chosen: list[_Set] = []
         for key in wanted:
             if (group.qualified, key, scope) in self.by_key:
@@ -281,7 +316,8 @@ class _Backend:
         subjects: tuple[Subject, ...],
         scope: Scope,
     ) -> _Set | None:
-        key = (group.qualified, subjects, scope)
+        """The set of `group` for `subjects` in any order its transposition makes equivalent."""
+        key = (group.qualified, self.canonical(group, subjects), scope)
         if key not in self.by_key:
             self.load_by_keys(group, [subjects], scope)
         return self.by_key[key]
@@ -337,13 +373,15 @@ class _Backend:
         ids = [r.id for r in pending]
         for family in group.families:
             numeric = [s for s in family.slots if s.shape == "quantity"]
+            held = [s for s in family.slots if s.shape in ("nested_set", "set_reference")]
             columns = [sql.Identifier("set_id")]
             columns += [sql.Identifier(index.name) for index in family.indices]
-            columns += [sql.Identifier(s.name) for s in numeric]
+            columns += [sql.Identifier(s.name) for s in (*numeric, *held)]
             query = sql.SQL("SELECT {} FROM {} WHERE set_id = ANY(%s)").format(
                 sql.SQL(", ").join(columns), sql.Identifier(PARAM_SCHEMA, family.id)
             )
             rows: dict[uuid.UUID, dict[tuple[int, ...], dict[str, float]]] = {i: {} for i in ids}
+            sets: dict[uuid.UUID, dict[str, dict[tuple[int, ...], uuid.UUID]]] = {i: {} for i in ids}
             for row in self.conn.execute(query, (ids,)).fetchall():
                 identifier, rest = row[0], row[1:]
                 key = tuple(int(part) for part in rest[: len(family.indices)])
@@ -353,8 +391,77 @@ class _Backend:
                     for slot, value in zip(numeric, values)
                     if value is not None
                 }
+                for slot, value in zip(held, values[len(numeric) :]):
+                    if value is not None:
+                        sets[identifier].setdefault(f"{family.name}.{slot.name}", {})[key] = value
             for record in pending:
                 record.families[family.name] = rows[record.id]
+                record.family_sets.update(sets[record.id])
+
+    # -- parameterizations ----------------------------------------------------------------
+
+    def label(self, parameterization: uuid.UUID) -> str:
+        """`key@revision`, how a message names a parameterization."""
+        pz = pc.PARAMETERIZATION
+        row = self.conn.execute(
+            f"SELECT {pz.key}, {pz.revision} FROM {pz.table} WHERE id = %s",  # noqa: S608
+            (parameterization,),
+        ).fetchone()
+        return f"{row[0]}@{row[1]}" if row is not None else str(parameterization)
+
+    def convention_fact(self, parameterization: uuid.UUID, name: str) -> ConventionFact:
+        """The convention fact `name` of the convention set of `parameterization`."""
+        kind = self.decl.framework.get(m.CONVENTION_SET_ROLE)
+        if kind is None or name not in {a.name for a in self.decl.attributes_of(kind)}:
+            raise SourceError(f"`{name}` is not an attribute of the convention-set kind")
+        known = self.facts.get((parameterization, name))
+        if known is not None:
+            return known
+        pz = pc.PARAMETERIZATION
+        row = self.conn.execute(
+            sql.SQL(
+                "SELECT p.{link}, c.{fact} FROM {parameterizations} p "
+                "LEFT JOIN {conventions} c ON c.id = p.{link} WHERE p.id = %s"
+            ).format(
+                link=sql.Identifier(pz.convention_set),
+                fact=sql.Identifier(name),
+                parameterizations=sql.Identifier(*pz.table.split(".")),
+                conventions=sql.Identifier(*pc.CONVENTION_SET.table.split(".")),
+            ),
+            (parameterization,),
+        ).fetchone()
+        label = self.label(parameterization)
+        if row is None or row[0] is None:
+            fact = ConventionFact(label, None, "has no convention set")
+        elif row[1] is None:
+            fact = ConventionFact(label, None, f"has a convention set that states no `{name}`")
+        else:
+            fact = ConventionFact(label, float(row[1]))
+        self.facts[(parameterization, name)] = fact
+        return fact
+
+    def choices(
+        self, slot: str, subjects: tuple[Subject, ...], parameterizations: Sequence[uuid.UUID]
+    ) -> list[tuple[str, uuid.UUID]]:
+        """The forms `subject_subform_choice` gives the sub-form slot for `subjects`, in ordinal
+        order, each with the parameterization that holds the chosen form's sets: those of the
+        first parameterization (in order) that states any choice."""
+        try:
+            key = identity.canonical_encoding([uuid.UUID(part) for part in subjects])
+        except ValueError:
+            return []
+        choice = pc.SUBJECT_SUBFORM_CHOICE
+        rows = self.conn.execute(
+            f"SELECT {choice.parameterization}, {choice.form}, {choice.source_parameterization} "  # noqa: S608
+            f"FROM {choice.table} WHERE {choice.slot} = %s AND {choice.subject_key} = %s "
+            f"AND {choice.parameterization} = ANY(%s) ORDER BY {choice.ordinal}",
+            (self.subform_ids[slot], key, list(parameterizations)),
+        ).fetchall()
+        for parameterization in parameterizations:
+            mine = [row for row in rows if row[0] == parameterization]
+            if mine:
+                return [(self.form_of_id[row[1]], row[2] or row[0]) for row in mine]
+        return []
 
 
 def check_database(conn: psycopg.Connection, decl: m.Declaration, tree: Path | None = None) -> None:
@@ -379,8 +486,10 @@ class DatabaseSource:
     repeated assertions for a subject; a parameterization that holds several occurrences for a
     subject it is asked about and has no entry is refused (`AmbiguousOccurrence`).
     `subforms` maps a sub-form slot (`form.slot`) to the forms chosen for it, each with the
-    parameterizations its sets are read from; a slot with none chosen has no choices. The
-    constructor refuses a database whose recorded fingerprint differs from `decl`'s.
+    parameterizations its sets are read from. A slot chosen per subject that the map does not
+    mention takes its choices from the relation `subject_subform_choice` in the parameterizations
+    read; with neither, it has no choices. The constructor refuses a database whose recorded
+    fingerprint differs from `decl`'s.
     """
 
     def __init__(
@@ -434,7 +543,12 @@ class DatabaseSource:
         found = [
             record
             for key in subjects
-            if (record := self._backend.by_key[(group, key, self._scope)]) is not None
+            if (
+                record := self._backend.by_key[
+                    (group, self._backend.canonical(slot_group, key), self._scope)
+                ]
+            )
+            is not None
         ]
         for record in found:
             self._backend.resolve_redirects(record)
@@ -443,7 +557,10 @@ class DatabaseSource:
     def _set(self, group: str, subjects: tuple[Subject, ...]) -> _Set | None:
         slot_group = self._backend.group(group)
         if self._pinned is not None:
-            if self._pinned.group == group and self._pinned.subjects == subjects:
+            if (
+                self._pinned.group == group
+                and self._pinned.subjects == self._backend.canonical(slot_group, subjects)
+            ):
                 return self._pinned
             return None
         record = self._backend.by_key_lookup(slot_group, subjects, self._scope)
@@ -452,13 +569,18 @@ class DatabaseSource:
         return record
 
     def set_id(self, group: str, subjects: tuple[Subject, ...]) -> uuid.UUID | None:
-        """The identifier of the set this source reads for `group` and exactly `subjects`."""
+        """The identifier of the set this source reads for `group` and `subjects`."""
         record = self._set(group, subjects)
         return None if record is None else record.id
 
     def slot_values(self, group: str, subjects: tuple[Subject, ...]) -> SlotValues | None:
         record = self._set(group, subjects)
-        return None if record is None else dict(record.slots)
+        if record is None:
+            return None
+        owner = self._backend.group(group)
+        return transposition.read_slots(
+            owner, record.slots, self._backend.asserted(owner, record), subjects
+        )
 
     def default_slot_values(self, group: str, subjects: tuple[Subject, ...]) -> SlotValues | None:
         return None
@@ -469,32 +591,94 @@ class DatabaseSource:
         record = self._set(group, subjects)
         if record is None:
             return None
+        owner = self._backend.group(group)
         if family not in record.families:
-            self._backend.families(self._backend.group(group), [record])
+            self._backend.families(owner, [record])
         if family not in record.families:
             raise SourceError(f"`{family}` is not a family of `{group}`")
-        rows = record.families[family]
-        return {key: dict(values) for key, values in rows.items()}
+        declared = next(f for f in owner.families if f.name == family)
+        return transposition.read_rows(
+            owner,
+            declared,
+            record.families[family],
+            self._backend.asserted(owner, record),
+            subjects,
+        )
 
-    def nested_set(self, group: str, slot: str, subjects: tuple[Subject, ...]) -> FormChoice | None:
+    def nested_set(
+        self, group: str, slot: str, subjects: tuple[Subject, ...], index: tuple[int, ...] = ()
+    ) -> FormChoice | None:
         record = self._set(group, subjects)
-        if record is None or slot not in record.nested:
+        if record is None:
             return None
-        child = self._backend.set_by_id(record.nested[slot])
+        if "." in slot:
+            family = slot.split(".", 1)[0]
+            if family not in record.families:
+                self._backend.families(self._backend.group(group), [record])
+            target = record.family_sets.get(slot, {}).get(index)
+        else:
+            target = record.nested.get(slot)
+        if target is None:
+            return None
+        child = self._backend.set_by_id(target)
         self._backend.resolve_redirects(child)
         form = self._backend.group(child.group).form
-        return FormChoice(form, self._derived(self._backend, self._scope, child, self._subforms))
+        # A nested set is read where its holder is; a referenced set is top-level, so what it
+        # reads (sub-form choices, conventions) is of the parameterization that holds it.
+        scope = (
+            self._scope
+            if child.parameterization == record.parameterization
+            else Scope.of((child.parameterization,))
+        )
+        return FormChoice(
+            form,
+            self._derived(self._backend, scope, child, self._subforms),
+            child.group,
+            child.subjects,
+        )
 
     def subform_choices(self, slot: str, subjects: tuple[Subject, ...]) -> tuple[FormChoice, ...]:
+        explicit = self._subforms.get(slot)
+        if explicit is not None:
+            return tuple(
+                FormChoice(
+                    binding.form,
+                    self._derived(
+                        self._backend,
+                        Scope.of(binding.parameterizations, binding.occurrences),
+                        None,
+                        self._subforms,
+                    ),
+                )
+                for binding in explicit
+            )
+        declared = self._backend.subform_slots.get(slot)
+        if declared is None or declared.per != "subject":
+            return ()
+        parameterizations = (
+            (self._pinned.parameterization,)
+            if self._pinned is not None
+            else self._scope.parameterizations
+        )
         return tuple(
             FormChoice(
-                binding.form,
-                self._derived(
-                    self._backend,
-                    Scope.of(binding.parameterizations, binding.occurrences),
-                    None,
-                    self._subforms,
-                ),
+                form,
+                self._derived(self._backend, Scope.of((source,)), None, self._subforms),
             )
-            for binding in self._subforms.get(slot, ())
+            for form, source in self._backend.choices(slot, subjects, parameterizations)
         )
+
+    def convention_facts(self, name: str, reads: tuple[SetRead, ...]) -> tuple[ConventionFact, ...]:
+        """The convention fact `name` of each parameterization that supplied one of the `reads`
+        (this source's pinned set, for a nested or referenced one); with no read, of the first
+        parameterization this source reads."""
+        if self._pinned is not None:
+            supplying = [self._pinned.parameterization]
+        else:
+            found: dict[uuid.UUID, None] = {}
+            for group, subjects in reads:
+                record = self._set(group, subjects)
+                if record is not None:
+                    found.setdefault(record.parameterization)
+            supplying = list(found) or list(self._scope.parameterizations[:1])
+        return tuple(self._backend.convention_fact(p, name) for p in supplying)

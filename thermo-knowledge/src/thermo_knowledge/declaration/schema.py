@@ -209,6 +209,7 @@ class SlotDecl(Marked, frozen=True, kw_only=True, forbid_unknown_fields=True):
     doc: str
     type: str | None = None
     accepts: str | None = None
+    references: str | None = None
     presence: Literal["required", "stateful"] = "required"
     observable: str | None = None
 
@@ -291,6 +292,7 @@ class FormDecl(Marked, frozen=True, kw_only=True, forbid_unknown_fields=True):
     let: dict[str, str] = {}
     outputs: dict[str, str] = {}
     output_observables: dict[str, str] = {}
+    conventions: tuple[str, ...] = ()
     implicit: dict[str, ImplicitDecl] = {}
 
 
@@ -307,6 +309,7 @@ class FrameworkDecl(Construct, frozen=True, kw_only=True, forbid_unknown_fields=
     slot_uncertainty: str | None = None
     observable: str | None = None
     composition_basis: str | None = None
+    convention_set: str | None = None
 
 
 class ManifestDecl(Construct, frozen=True, kw_only=True, forbid_unknown_fields=True):

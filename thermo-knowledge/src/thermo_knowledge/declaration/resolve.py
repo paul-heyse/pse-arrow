@@ -110,6 +110,11 @@ class _Check:
     upper: float | None = None
 
 
+def _contract_of(slot: m.Field) -> str | None:
+    """The contract a slot's set value (nested or referenced) implements, else `None`."""
+    return slot.accepts or slot.references
+
+
 class _Refused(Exception):
     """Raised inside value coercion to carry one diagnostic out of a helper."""
 
@@ -1204,6 +1209,46 @@ class Resolver:
             matrix=tuple(tuple(row) for row in raw.matrix),
         )
 
+    def _arrangement(
+        self, owner: m.SlotGroup | m.Relation, what: str
+    ) -> tuple[m.Field, m.Requirement]:
+        """The `arrangement` column of a slot group or relation whose rule acts on values, and
+        the `ddl` requirement that keeps it in range (meta-model section 4.3)."""
+        transposition = owner.transposition
+        assert transposition is not None
+        construct = f"{owner.construct}.transposition"
+        if transposition.rule == "permutation_group":
+            meaning = (
+                f"0 when the values were asserted for the canonical order of the {what}; otherwise "
+                "the number, from 1, of the arrangement of the group that takes the asserted order "
+                "to the canonical one (the declared permutations in declared order, then the rest "
+                "of the group)."
+            )
+        else:
+            meaning = (
+                f"0 when the values were asserted for the canonical order of the {what}, 1 when "
+                "they were asserted for the swapped order."
+            )
+        field = m.Field(
+            name=m.ARRANGEMENT,
+            type=TypeRef(
+                container="scalar", element_kind="primitive", element="Integer", text="Integer"
+            ),
+            doc=f"For which order of the {what} the values were asserted: {meaning}",
+            construct=construct,
+        )
+        requirement = m.Requirement(
+            name="arrangement_range",
+            doc=f"The arrangement is one the rule `{transposition.rule}` admits.",
+            enforced="ddl",
+            rule="within",
+            attributes=(m.ARRANGEMENT,),
+            construct=construct,
+            lower=0,
+            upper=transposition_module.arrangement_count(owner) - 1,
+        )
+        return field, requirement
+
     def _dimension(self, type_: TypeRef) -> tuple[tuple[str, int], ...] | None:
         """The dimension of a quantity or quantity-expression type as base-dimension exponents,
         or `None` for any other type."""
@@ -1415,7 +1460,7 @@ class Resolver:
                 ok = False
         if not ok or provenance is None:
             return None
-        return m.Relation(
+        relation = m.Relation(
             name=name,
             module=module,
             schema=self.headers[module].schema or "tk",
@@ -1431,6 +1476,23 @@ class Resolver:
             requires=requires or (),
             traces=raw.traces,
             pse=raw.pse,
+        )
+        if transposition is None or not transposition_module.stores_arrangement(relation):
+            return relation
+        if m.ARRANGEMENT in (*keys, *values):
+            self.err(
+                module,
+                f"{construct}.transposition",
+                Code.BAD_NAME,
+                f"`{m.ARRANGEMENT}` is reserved: a relation whose rule acts on values records the "
+                "arrangement of its keys in it",
+            )
+            return None
+        arrangement, in_range = self._arrangement(relation, "keys")
+        return dataclasses.replace(
+            relation,
+            values=(*relation.values, arrangement),
+            requires=(*relation.requires, in_range),
         )
 
     # -- contracts -------------------------------------------------------------------------
@@ -1734,6 +1796,9 @@ class Resolver:
             output_observables = self._output_observables(module, name, raw, contract, groups)
             if output_observables is None:
                 ok = False
+        conventions = self._conventions(module, name, raw)
+        if conventions is None:
+            ok = False
         defined: dict[str, list[m.ExpressionDef]] = {"let": [], "outputs": []}
         for label, table in (("let", raw.let), ("outputs", raw.outputs)):
             for item_name, text in table.items():
@@ -1767,9 +1832,65 @@ class Resolver:
             outputs=tuple(defined["outputs"]),
             implicit=tuple(blocks),
             output_observables=tuple(output_observables or ()),
+            conventions=tuple(conventions or ()),
             traces=raw.traces,
             pse=raw.pse,
         )
+
+    def _conventions(
+        self, module: str, form: str, raw: s.FormDecl
+    ) -> list[m.FormConvention] | None:
+        """The convention facts a form reads: each names a quantity-typed attribute of the kind
+        bound to the framework role `convention_set`."""
+        construct = f"forms.{form}.conventions"
+        if not raw.conventions:
+            return []
+        kind = self.framework.get(m.CONVENTION_SET_ROLE)
+        if kind is None:
+            self.err(
+                module,
+                construct,
+                Code.FRAMEWORK_ROLE,
+                f"the form declares `conventions`, so the manifest binds `{m.CONVENTION_SET_ROLE}` "
+                "to a kind",
+            )
+            return None
+        attributes = {a.name: a for link in self._chain(kind) for a in link.attributes}
+        found: list[m.FormConvention] = []
+        ok = True
+        for name in raw.conventions:
+            attribute = attributes.get(name)
+            if name in (f.name for f in found):
+                self.err(module, construct, Code.BAD_CONVENTION, f"`{name}` is named twice")
+                ok = False
+            elif attribute is None:
+                self.err(
+                    module,
+                    construct,
+                    Code.BAD_CONVENTION,
+                    f"`{name}` is not an attribute of kind `{kind}`, the convention set "
+                    f"(its attributes: {', '.join(attributes)})",
+                )
+                ok = False
+            elif attribute.type.container != "scalar" or attribute.type.element_kind not in (
+                "quantity",
+                "expression",
+            ):
+                self.err(
+                    module,
+                    construct,
+                    Code.BAD_CONVENTION,
+                    f"`{name}` is {attribute.type.text}, not a quantity: an expression reads "
+                    "only quantity-typed convention facts",
+                )
+                ok = False
+            else:
+                found.append(
+                    m.FormConvention(
+                        name=name, type=attribute.type, doc=attribute.doc, construct=construct
+                    )
+                )
+        return found if ok else None
 
     def _output_observables(
         self,
@@ -1995,12 +2116,12 @@ class Resolver:
     ) -> m.Field | None:
         if not self.symbol(module, construct, name, "slot"):
             return None
-        if (raw.type is None) == (raw.accepts is None):
+        if sum(item is not None for item in (raw.type, raw.accepts, raw.references)) != 1:
             self.err(
                 module,
                 construct,
                 Code.SLOT_SHAPE,
-                "a slot declares exactly one of `type` and `accepts`",
+                "a slot declares exactly one of `type`, `accepts` and `references`",
             )
             return None
         if family and raw.presence != "required":
@@ -2012,16 +2133,15 @@ class Resolver:
             )
             return None
         parameter_set = self.framework["parameter_set"]
-        if raw.accepts is not None:
-            if (
-                self.lookup(raw.accepts, ("contract",), module, f"{construct}.accepts", "contract")
-                is None
-            ):
+        if raw.accepts is not None or raw.references is not None:
+            label, named = ("accepts", raw.accepts) if raw.accepts else ("references", raw.references)
+            assert named is not None
+            if self.lookup(named, ("contract",), module, f"{construct}.{label}", "contract") is None:
                 return None
             type_ = TypeRef(
                 container="scalar", element_kind="kind", element=parameter_set, text=parameter_set
             )
-            shape = "nested_set"
+            shape = "nested_set" if raw.accepts is not None else "set_reference"
         else:
             assert raw.type is not None
             resolved = self.resolve_type(raw.type, module, f"{construct}.type")
@@ -2059,6 +2179,7 @@ class Resolver:
             presence=raw.presence,
             shape=shape,
             accepts=raw.accepts,
+            references=raw.references,
             observable=raw.observable,
             traces=raw.traces,
             pse=raw.pse,
@@ -2203,6 +2324,18 @@ class Resolver:
             )
             if transposition is None:
                 ok = False
+            elif transposition.rule in transposition_module.VALUE_RULES and m.ARRANGEMENT in (
+                *subjects,
+                *slots,
+            ):
+                self.err(
+                    module,
+                    f"{construct}.transposition",
+                    Code.BAD_NAME,
+                    f"`{m.ARRANGEMENT}` is reserved: a slot group whose rule acts on values "
+                    "records the arrangement of its subjects in it",
+                )
+                ok = False
         bindings, bound_ok = self._bindings(module, construct, raw, subjects, contract, status)
         if not (ok and bound_ok):
             return None
@@ -2328,9 +2461,9 @@ class Resolver:
         for form in self.forms.values():
             edges = graph.setdefault(form.implements, set())
             for group in form.slot_groups:
-                edges.update(slot.accepts for slot in group.slots if slot.accepts)
+                edges.update(_contract_of(slot) for slot in group.slots if _contract_of(slot))
                 for family in group.families:
-                    edges.update(slot.accepts for slot in family.slots if slot.accepts)
+                    edges.update(_contract_of(s) for s in family.slots if _contract_of(s))
             edges.update(sub.accepts for sub in form.subforms)
         try:
             graphlib.TopologicalSorter(graph).prepare()
@@ -2341,7 +2474,7 @@ class Resolver:
                 first.module if first else None,
                 f"contracts.{cycle[0]}",
                 Code.CONTRACT_CYCLE,
-                "nested-set contracts form a cycle: " + " -> ".join(cycle),
+                "nested-set and referenced-set contracts form a cycle: " + " -> ".join(cycle),
             )
 
     def _value_state(self) -> None:
@@ -2368,6 +2501,11 @@ class Resolver:
         parameter_set = self.kinds[self.framework["parameter_set"]]
         for form in self.forms.values():
             for group in form.slot_groups:
+                arrangement: tuple[m.Field, ...] = ()
+                requires: tuple[m.Requirement, ...] = ()
+                if transposition_module.stores_arrangement(group):
+                    field, in_range = self._arrangement(group, "subjects")
+                    arrangement, requires = (field,), (in_range,)
                 self.kinds[group.id] = m.Kind(
                     name=group.id,
                     module=form.module,
@@ -2378,8 +2516,8 @@ class Resolver:
                     abstract=False,
                     identity=(),
                     provenance=parameter_set.provenance,
-                    attributes=(*group.subjects, *group.slots),
-                    requires=(),
+                    attributes=(*group.subjects, *arrangement, *group.slots),
+                    requires=requires,
                     uniques=(),
                     construct=group.construct,
                     origin="slot_group",

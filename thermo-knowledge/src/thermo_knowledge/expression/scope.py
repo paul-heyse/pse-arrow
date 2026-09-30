@@ -30,6 +30,12 @@ class RefError(Exception):
         self.node = node
 
 
+def held_contract(slot: m.Field) -> str | None:
+    """The contract the form of the set a slot holds implements, for a slot that holds a nested
+    set (`accepts`) or references one (`references`); `None` for any other slot."""
+    return slot.accepts or slot.references
+
+
 @dataclass(frozen=True)
 class FormScope:
     decl: m.Declaration
@@ -40,6 +46,7 @@ class FormScope:
     sets: Mapping[str, m.Field]
     groups: Mapping[str, m.SlotGroup]
     subforms: Mapping[str, m.SubformSlot]
+    conventions: Mapping[str, m.FormConvention]
     locals: tuple[str, ...]
     unknowns: Mapping[str, tuple[m.ImplicitBlock, m.Unknown]]
     dependent: frozenset[str]
@@ -62,6 +69,7 @@ class FormScope:
             sets={f.name: f for f in contract.sets},
             groups={g.name: g for g in form.slot_groups},
             subforms={s.name: s for s in form.subforms},
+            conventions={c.name: c for c in form.conventions},
             locals=tuple(local.name for local in form.locals),
             unknowns=unknowns,
             dependent=_dependent_locals(form, frozenset(unknowns)),
@@ -127,8 +135,8 @@ class FamilyRef:
 
 @dataclass(frozen=True)
 class OutputCall:
-    """`x.output(keyword=...)`: an output of a sub-form (`kind` `subform`), of a nested set
-    (`nested`) or of a contribution of a sub-form iterated by `for` (`contribution`)."""
+    """`x.output(keyword=...)`: an output of a sub-form (`kind` `subform`), of a nested or a
+    referenced set (`nested`) or of a contribution of a sub-form iterated by `for` (`contribution`)."""
 
     kind: str
     output: str
@@ -251,15 +259,15 @@ def classify_call(
         )
     if isinstance(owner, t.Attribute | t.Subscript):
         ref = classify_slot(scope, owner)
-        if ref is None or ref.slot.shape != "nested_set" or ref.slot.accepts is None:
+        contract = None if ref is None else held_contract(ref.slot)
+        if ref is None or contract is None:
             raise RefError(
-                Code.BAD_CALL, "only a sub-form slot or a nested-set slot has outputs to call", node
+                Code.BAD_CALL,
+                "only a sub-form slot, a nested-set slot or a set-reference slot has outputs "
+                "to call",
+                node,
             )
         return OutputCall(
-            "nested",
-            func.attr,
-            node.keywords,
-            scope.decl.contracts[ref.slot.accepts],
-            nested=ref,
+            "nested", func.attr, node.keywords, scope.decl.contracts[contract], nested=ref
         )
     raise RefError(Code.BAD_CALL, "this is not something that can be called", node)

@@ -163,10 +163,11 @@ def association_bound(sites: list[str], delta: dict[tuple[str, str], float]):  #
                 continue  # held in the other orientation
             else:
                 slots[("site_fractions.pair", (a, b))] = {"delta": 0.0}
+    declaration = scenario("implicit_association")
     return bind(
-        scenario("implicit_association"),
+        declaration,
         "site_fractions",
-        source=InMemorySource(slots=slots),
+        source=InMemorySource(slots=slots, declaration=declaration),
         sets={"sites": sites},
     )
 

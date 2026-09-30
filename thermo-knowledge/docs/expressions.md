@@ -26,7 +26,8 @@ declaration changing.
   dimensions; transcendental functions need dimensionless arguments; each output's dimension
   equals its contract type's. A number has no unit until it is multiplied by `unit(...)`.
 - **An expression never reads anything it does not name**: no globals, no clock, no constants
-  that are not slots or literals. The gas constant is a slot or an argument, never an ambient value.
+  that are not slots, convention facts or literals. The gas constant is a convention fact of the
+  parameterization or an argument, never an ambient value.
 
 ## 2. What a contract declares
 
@@ -96,18 +97,41 @@ p_sat = "exp(pure.A[i] - pure.B[i] / theta) * unit('Pa')"
 | `pure.piece(i)` | the index set of family `piece` for subject `i`, for use in `for n in ...` |
 | `theta` | a local from `let`; `r[i]` for a local indexed over sets |
 | `X`, `X[a]` | an unknown of an implicit block, subscripted by its sets when it has any |
+| `convention.gas_constant` | a convention fact the form declares in `conventions`, of the convention set of the parameterization in force; it has the type of the convention-set attribute of that name |
 | `alpha.value(i=i, T=T)` | output `value` of the form chosen for sub-form slot `alpha`, called with the accepted contract's roles, sets and arguments by keyword |
 | `c.alpha_r(...) for c in residual` | each contribution of a sub-form slot with multiplicity `many` |
 
-A transposable slot is written in either orientation; the engine applies the group's
-transposition rule, trying the orientation as written first. A slot whose value is a nested set
-is called like a sub-form: `pair.a[i, j].value(T=T)`.
+A transposable slot is written in either orientation; the parameter source returns the values
+for the orientation as written, applying the group's transposition rule when it holds the set for
+the other (section 5). A slot whose value is a nested set is called like a sub-form:
+`pair.a[i, j].value(T=T)`. A slot that references a set is called the same way
+(`pair.departure[i, j].alpha_r(delta=delta, tau=tau)`, and `param.term.function[i, n].value(T=T)`
+for a slot of a family, subscripted by the row's index): the call follows the reference. The
+called contract's roles that the call does not give are the subjects of the referenced set, bound
+as its slot group binds them; a call through a nested set names them all.
 
 A sub-form slot with multiplicity `many` or `optional` and `per = "subject"` is iterated for a
 subject, `for c in terms(i=i)`; with `per = "model"` it is iterated bare, `for c in residual`.
 
 Names in expressions are not Python keywords or grammar function names, and one name is not
 reused across arguments, roles, sets, slot groups, sub-form slots, locals and unknowns.
+
+### Convention facts
+
+```toml
+[forms.nasa7]
+conventions = ["gas_constant"]
+
+[forms.nasa7.let]
+R = "convention.gas_constant"
+```
+
+A form lists in `conventions` the facts of its parameterization's convention set that it reads; each
+names a quantity-typed attribute of the kind bound to the framework role `convention_set`, and an
+unknown or non-quantity attribute is a located diagnostic. `convention.<fact>` has the dimension of
+that attribute's type and is checked like any quantity. Reading a fact the form has not declared is
+refused. `convention` is a reserved name: no argument, role, set, slot group, sub-form slot, local or
+unknown may have it.
 
 ### Grammar
 
@@ -216,7 +240,8 @@ two quantity types of one dimension are interchangeable inside an expression (a 
 refusals:
 
 - syntax outside the grammar; an unknown function; a call to anything else
-- an unknown name; a slot subscripted with the wrong number or kinds of subject
+- an unknown name, a convention fact the form does not declare included; a slot subscripted with the
+  wrong number or kinds of subject
 - an index variable used outside its `for`; a sum over something that is not an index set
 - a dimension mismatch, stating both dimensions; a transcendental function of a dimensioned
   argument; a non-integer power of a dimensioned base
@@ -272,7 +297,8 @@ established at load.
 A missing required parameter set is an evaluation refusal that names the slot group and subject.
 It is never a zero. A default exists only where the parameter source supplies one explicitly
 (a named combining rule or a stated default, which a selection policy records as rule-derived);
-the evaluator asks for it only after every orientation of the subject has been tried.
+the evaluator asks for it only after the source has found no set for the subject in any order its
+transposition makes equivalent.
 
 `at(...)` selects by half-open intervals `[lower, upper)`, with the last piece closed at its
 upper bound; an argument outside every piece is refused when the expression is evaluated.
@@ -311,13 +337,20 @@ consequence is in the expression:
 - the **order of the pieces** of `at(...)` is the order of their lower bounds, and overlap is
   refused, both from the values; the piece chosen is decided by the argument when the function
   is evaluated;
-- a **transposition** is an operation on the stored value at bind time, not on the expression:
-  the value passed for a slot that is inverted when the subjects are swapped is its reciprocal,
-  the values passed for the slots of a `linear` rule are the product of its matrix and the vector
-  of the stored values (the Margules parameters of a swapped pair are (h0 + h1, -h1), and every
-  slot of the rule must be held for the pair), and the value passed for a family row whose index
-  is odd under `parity` is the negated one. A pair asked for in either orientation therefore has
-  the same expression.
+- a **transposition** is an operation on the stored value, made by the parameter source when it is
+  read, not on the expression: the source returns the values for the order of the subjects asked
+  for. In the order asserted they are the stored numbers, unchanged; in the other order the value
+  passed for a slot that is inverted when the subjects are swapped is its reciprocal, the values
+  passed for the slots of a `linear` rule are the product of its matrix and the vector of the
+  stored values (the Margules parameters of a swapped pair are (h0 + h1, -h1), and every slot of
+  the rule must be held for the pair), and the value passed for a family row whose index is odd
+  under `parity` is the negated one. The evaluator applies no rule of its own, so each acts
+  exactly once, and a pair asked for in either orientation has the same expression;
+- a **convention fact** is a stored value like a slot value, one symbol however many forms read it,
+  passed to the compiled function as an argument. Its value is settled when the expansion is
+  finished, from the parameterizations that supplied the sets the forms read: every source used
+  states the fact, and the values of all of them are equal, otherwise the evaluation is refused,
+  naming the fact, the two parameterizations and the two values (`pipeline.md` section 5.3).
 
 What is and is not guaranteed about the floating-point operations:
 
@@ -371,4 +404,6 @@ that found one; without a cache a binding has one of its own and shares nothing.
 | remapped sub-form call | gap |
 | `basis('name', [...])` | gap: a production quantity type carries its basis, and its checks compare it wherever it flows, not only at a call |
 | expressions checked by dimension, not by quantity type | gap: production types carry basis and reference state as well as dimension, so two types of one dimension are not interchangeable there |
+| convention fact `convention.x` | gap: a production quantity type carries the convention it assumes |
+| set reference called like a nested set | gap |
 | special functions | gap |

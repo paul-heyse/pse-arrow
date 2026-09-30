@@ -596,6 +596,130 @@ def test_a_mapping_numbers_repeated_assertions_and_each_becomes_a_set(tmp_path: 
     ] == pytest.approx(999.0)
 
 
+# -- the convention sets a mapping states -------------------------------------------------------
+
+CONVENTIONS = """convention_set = "fixture"
+
+[convention_sets.fixture]
+key = "fixture_conventions"
+revision = "1"
+temperature_scale = "its_90"
+{facts}"""
+
+NASA_RECORDS = """
+PIECE = {
+    "T_low": Quantity(200.0, "K"),
+    "T_high": Quantity(1000.0, "K"),
+    "a1": 3.5,
+    "a2": Quantity(0.0, "1/K"),
+    "a3": Quantity(0.0, "1/K**2"),
+    "a4": Quantity(0.0, "1/K**3"),
+    "a5": Quantity(0.0, "1/K**4"),
+    "a6": Quantity(0.0, "K"),
+    "a7": 1.0,
+}
+
+
+def records(ctx: RecordContext) -> None:
+    for curve in ctx.rows("curves", "pressure"):
+        with ctx.emit(curve) as emit:
+            emit.parameter_set(
+                parameterization=emit.parameterization("curves"),
+                slot_group="nasa7.pure",
+                subjects=[ctx.subject("species", curve["species"])],
+                slots={},
+                families={"piece": [FamilyRow({"n": 1}, PIECE)]},
+            )
+"""
+
+
+def nasa_mapping(env: Environment, convention: str | None) -> None:
+    """The fixture mapping with its records replaced by sets of `nasa7`, a form that reads the gas
+    constant (test scaffolding: a real mapping.py holds no number or unit), and its
+    parameterization given `convention`, a [convention_sets] body, or none."""
+    directory = env.mappings_dir / "fake"
+    text = (directory / "mapping.py").read_text()
+    kept = text[: text.index("def records")].replace(
+        "from thermo_knowledge.mapping.context",
+        "from thermo_knowledge.canonical.values import Quantity\n"
+        "from thermo_knowledge.canonical.writer import FamilyRow\n"
+        "from thermo_knowledge.mapping.context",
+        1,
+    )
+    (directory / "mapping.py").write_text(kept + NASA_RECORDS)
+    if convention is not None:
+        path = directory / "mapping.toml"
+        path.write_text(
+            path.read_text().replace(
+                'no_convention_set = "The fixture states no conventions."',
+                CONVENTIONS.format(facts=convention),
+            )
+        )
+
+
+def test_a_convention_set_states_the_gas_constant_with_a_source_unit(
+    fake: tuple[Environment, Workspace],
+) -> None:
+    env, _ = fake
+    nasa_mapping(env, 'gas_constant = { value = 1.98720425864083, unit = "cal/(mol*K)" }\n')
+    run_all(env)
+    (convention,) = output(env, "tk.convention_set")
+    # 1.98720425864083 thermochemical calories per mole and kelvin, in J/(mol K)
+    assert convention["gas_constant"] == pytest.approx(1.98720425864083 * 4.184, rel=1e-14)
+    assert "standard_pressure" not in convention
+    assert output(env, "param.nasa7__pure"), "the sets of the form that reads the constant load"
+
+
+@pytest.mark.parametrize(
+    ("convention", "why"),
+    [
+        ("", "does not state it"),
+        (None, "names no convention set"),
+    ],
+    ids=["a convention set without the fact", "no convention set"],
+)
+def test_a_mapping_that_emits_sets_of_a_form_reading_conventions_without_stating_them_is_refused(
+    fake: tuple[Environment, Workspace], convention: str | None, why: str
+) -> None:
+    from thermo_knowledge.mapping.staged import MappingError
+
+    env, _ = fake
+    nasa_mapping(env, convention)
+    runner.run_identity(env, "fake")
+    resolve_all(env, decl=real_declaration())
+    with pytest.raises(MappingError) as refused:
+        runner.run_records(env, "fake")
+    message = str(refused.value)
+    assert "form `nasa7`" in message and "`gas_constant`" in message and why in message
+    assert not (env.canonical_dir / "fake" / "tk.parameter_set.parquet").exists(), (
+        "the run is refused before anything is written"
+    )
+
+
+@pytest.mark.parametrize(
+    ("facts", "problem"),
+    [
+        ({"gas_constant": {"value": 8.3, "unit": "m"}}, "cannot be converted"),
+        ({"gas_constant": 8.3}, "state `{ value"),
+        ({"gas_constant": {"value": 8.3, "unit": "J/(mol*K)"}, "nothing": 1}, "not an attribute"),
+        ({"standard_pressure": {"value": 1.0, "unit": "bar"}}, "not an attribute"),
+        ({"temperature_scale": "nonsense"}, "not a member of `temperature_scale`"),
+        ({"temperature_scale": {"value": 1.0, "unit": "K"}}, "no unit"),
+    ],
+)
+def test_a_convention_fact_is_checked_like_any_other_value_rule(
+    fake: tuple[Environment, Workspace], facts: dict[str, object], problem: str
+) -> None:
+    def mutate(data: dict[str, object]) -> None:
+        data["parameterizations"]["curves"].pop("no_convention_set")  # type: ignore[index]
+        data["parameterizations"]["curves"]["convention_set"] = "fixture"  # type: ignore[index]
+        data["convention_sets"] = {  # type: ignore[assignment]
+            "fixture": {"key": "k", "revision": "1", "temperature_scale": "its_90", **facts}
+        }
+
+    assert any(problem in found for found in spec_problems(fake[0], mutate))
+
+
 # -- mapping.py holds structure only -----------------------------------------------------------
 
 

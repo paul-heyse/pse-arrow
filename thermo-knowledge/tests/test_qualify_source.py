@@ -99,6 +99,7 @@ def in_memory(world: World) -> InMemorySource:
         families=families,
         nested={(PAIR, "f", pair): nested},
         subforms={(SHIFT, ()): (shift,)},
+        declaration=world.decl,
     )
 
 
@@ -140,14 +141,14 @@ def test_slot_values_family_rows_and_nested_sets_equal_the_in_memory_ones(
     assert source.subform_choices("qfix_pair_form.other", ()) == ()
 
 
-def test_a_transposable_set_is_found_in_the_stored_orientation_only(
+def test_a_transposable_set_is_found_in_either_orientation(
     world: tuple[World, TestDatabase], conn: psycopg.Connection
 ) -> None:
     built, _ = world
     source = pair_source(conn, built.decl)
     first, second = canonical_pair(built)
     assert source.slot_values(PAIR, (first, second)) == {"k": 1.75}
-    assert source.slot_values(PAIR, (second, first)) is None  # the evaluator tries the swap itself
+    assert source.slot_values(PAIR, (second, first)) == {"k": 1.75}  # symmetric: the same number
 
 
 def test_a_missing_set_is_reported_as_missing_and_never_defaulted(

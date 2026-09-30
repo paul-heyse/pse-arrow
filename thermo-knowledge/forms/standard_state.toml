@@ -10,10 +10,11 @@ uses = [
 ]
 doc = """
 Standard-state thermodynamic functions of a species form as functions of temperature at the
-standard pressure of the parameterisation's convention set. The gas constant is a slot of each
-parameterisation, never an ambient value: a coefficient set reproduces its source only with the
-gas constant it was built with. Enthalpy is relative to the energy reference of the convention
-set; for the NASA and Shomate families that datum is carried by the integration constants.
+pressure of the standard state the parameterisation's convention set gives. The gas constant is a
+fact of each parameterisation's convention set, never an ambient value: a coefficient set
+reproduces its source only with the gas constant it was built with. Enthalpy is relative to the
+energy reference of the convention set; for the NASA and Shomate families that datum is carried by
+the integration constants.
 """
 
 [contracts.standard_state_thermo]
@@ -32,12 +33,7 @@ implements = "standard_state_thermo"
 completeness = "fully_declared"
 status = "expressed"
 citations = ["gordon_mcbride_1971_nasa_sp_273"]
-
-[forms.nasa7.slot_groups.constants]
-doc = "Constants one parameterisation uses for every species form."
-
-[forms.nasa7.slot_groups.constants.slots]
-R = { type = "GasConstant", doc = "The gas constant the coefficients are scaled by." }
+conventions = ["gas_constant"]
 
 [forms.nasa7.slot_groups.pure]
 doc = "The coefficient blocks of one species form."
@@ -61,7 +57,7 @@ a7 = { type = "Scalar", doc = "Entropy integration constant: S/R at the zero of 
 
 [forms.nasa7.let]
 n = "at(pure.piece(i), T)"
-R = "constants.R"
+R = "convention.gas_constant"
 a1 = "pure.piece.a1[i, n]"
 a2 = "pure.piece.a2[i, n]"
 a3 = "pure.piece.a3[i, n]"
@@ -83,12 +79,7 @@ implements = "standard_state_thermo"
 completeness = "fully_declared"
 status = "expressed"
 citations = ["mcbride_zehe_gordon_2002_nasa_tp_211556"]
-
-[forms.nasa9.slot_groups.constants]
-doc = "Constants one parameterisation uses for every species form."
-
-[forms.nasa9.slot_groups.constants.slots]
-R = { type = "GasConstant", doc = "The gas constant the coefficients are scaled by." }
+conventions = ["gas_constant"]
 
 [forms.nasa9.slot_groups.pure]
 doc = "The coefficient blocks of one species form."
@@ -114,7 +105,7 @@ b2 = { type = "Scalar", doc = "Entropy integration constant over R." }
 
 [forms.nasa9.let]
 n = "at(pure.piece(i), T)"
-R = "constants.R"
+R = "convention.gas_constant"
 a1 = "pure.piece.a1[i, n]"
 a2 = "pure.piece.a2[i, n]"
 a3 = "pure.piece.a3[i, n]"

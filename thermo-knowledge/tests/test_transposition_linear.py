@@ -217,7 +217,6 @@ def group_with(decl: Declaration, form: str) -> transposition.Owner:
 def test_the_swap_multiplies_the_listed_slots_by_the_matrix_and_leaves_the_rest() -> None:
     decl = full_declaration()
     group = group_with(decl, "margules")
-    assert transposition.swapped_slots(group) == ("h0", "h1")
     assert transposition.swapped_values(group, {"h0": 2.0, "h1": 0.5}) == {"h0": 2.5, "h1": -0.5}
     # a value the rule does not name is carried along
     assert transposition.swapped_values(group, {"h0": 2.0, "h1": 0.5, "z": 9.0})["z"] == 9.0
@@ -235,9 +234,7 @@ def test_a_swap_applied_twice_returns_the_values() -> None:
 def test_reciprocal_and_symmetric_groups_take_the_same_entry_point() -> None:
     decl = full_declaration()
     ratio = group_with(decl, "ratio")
-    assert transposition.swapped_slots(ratio) == ("r",)
     assert transposition.swapped_values(ratio, {"r": 4.0}) == {"r": 0.25}
-    assert transposition.swapped_slots(group_with(decl, "kij")) == ()
     assert transposition.swapped_values(group_with(decl, "kij"), {"k": 3.0}) == {"k": 3.0}
 
 
@@ -280,7 +277,7 @@ def write(
     )
 
 
-def test_a_pair_given_in_the_other_orientation_is_stored_in_the_canonical_one(
+def test_a_pair_given_in_the_other_orientation_is_stored_as_asserted(
     extended: Declaration,
 ) -> None:
     w = writer(extended)
@@ -288,19 +285,21 @@ def test_a_pair_given_in_the_other_orientation_is_stored_in_the_canonical_one(
     given = write(w, param, [high, low], 2.0, 0.5, "a.json#/3")
     (row,) = w.tables()["param.fixture_margules__pair"].to_pylist()
     assert row["id"] == given and (row["i"], row["j"]) == (low, high)
-    assert (row["h0"], row["h1"]) == (2.5, -0.5), "(h0, h1) -> (h0 + h1, -h1) for the swapped pair"
-    assert row["other"] == 3.0, "a slot the rule does not name is unchanged"
+    assert (row["h0"], row["h1"]) == (2.0, 0.5), "the asserted numbers, not (h0 + h1, -h1)"
+    assert row["other"] == 3.0
+    assert row["arrangement"] == 1, "asserted for the swapped order"
 
 
-def test_both_orientations_of_one_fact_are_one_set(extended: Declaration) -> None:
+def test_both_orientations_of_one_fact_are_one_set_with_their_own_assertions(
+    extended: Declaration,
+) -> None:
     w = writer(extended)
     low, high, param = pair(w)
     first = write(w, param, [low, high], 2.5, -0.5, "a.json#/2")
-    second = write(w, param, [high, low], 2.0, 0.5, "a.json#/3")
-    assert first == second
-    assert w.rows("param.fixture_margules__pair") == 1
     with pytest.raises(CompetingAssertion):
-        write(w, param, [high, low], 2.0, 0.75, "a.json#/4")
+        write(w, param, [high, low], 2.0, 0.5, "a.json#/3")
+    assert w.rows("param.fixture_margules__pair") == 1
+    assert first == write(w, param, [low, high], 2.5, -0.5, "a.json#/4")
 
 
 def test_a_pair_given_in_the_canonical_orientation_is_stored_as_given(
@@ -310,7 +309,7 @@ def test_a_pair_given_in_the_canonical_orientation_is_stored_as_given(
     low, high, param = pair(w)
     write(w, param, [low, high], 1.25, -4.0, "a.json#/2")
     (row,) = w.tables()["param.fixture_margules__pair"].to_pylist()
-    assert (row["h0"], row["h1"]) == (1.25, -4.0)
+    assert (row["h0"], row["h1"], row["arrangement"]) == (1.25, -4.0, 0)
 
 
 def test_the_diagonal_is_refused_for_a_linear_group(extended: Declaration) -> None:
@@ -326,10 +325,11 @@ def test_the_diagonal_is_refused_for_a_linear_group(extended: Declaration) -> No
 
 
 def excess(h0: float, h1: float, first: str, second: str, xi: np.ndarray) -> np.ndarray:
-    source = InMemorySource(slots={("margules_form.pair", ("a", "b")): {"h0": h0, "h1": h1}})
-    bound = bind(
-        scenario("transposition"), "margules_form", source=source, roles={"i": first, "j": second}
+    declaration = scenario("transposition")
+    source = InMemorySource(
+        slots={("margules_form.pair", ("a", "b")): {"h0": h0, "h1": h1}}, declaration=declaration
     )
+    bound = bind(declaration, "margules_form", source=source, roles={"i": first, "j": second})
     return bound.evaluate("gE", xi=xi)
 
 
@@ -349,7 +349,9 @@ def test_both_orientations_give_the_excess_energy_of_the_same_mixture() -> None:
 def test_the_swap_is_an_operation_on_the_values_and_not_on_the_structure() -> None:
     cache = CompileCache()
     declaration = scenario("transposition")
-    source = InMemorySource(slots={("margules_form.pair", ("a", "b")): {"h0": 1.25, "h1": -0.5}})
+    source = InMemorySource(
+        slots={("margules_form.pair", ("a", "b")): {"h0": 1.25, "h1": -0.5}}, declaration=declaration
+    )
     held = bind(
         declaration, "margules_form", source=source, roles={"i": "a", "j": "b"}, cache=cache
     )

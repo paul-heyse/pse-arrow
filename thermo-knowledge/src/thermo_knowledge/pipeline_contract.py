@@ -299,6 +299,7 @@ DERIVATION_OUTPUT = relation("derivation_output")
 RESOLUTION_CANDIDATE = relation("resolution_candidate")
 RUN_PARAMETER_SET = relation("run_parameter_set")
 FIT_FREE_PARAMETER = relation("fit_free_parameter")
+SUBJECT_SUBFORM_CHOICE = relation("subject_subform_choice")
 
 # -- enums --------------------------------------------------------------------------------------
 ORIGIN_ROLE = enum("origin_role")

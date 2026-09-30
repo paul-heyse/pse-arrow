@@ -283,6 +283,8 @@ def validate(
     for item in spec.formula_scope:
         if item.scope not in spec.scopes:
             problems.append(f"formula_scope: `{item.scope}` is not a declared scope")
+    for name, attributes in spec.convention_sets.items():
+        _convention_set(problems, decl, name, attributes)
     coherence = {member.name for member in decl.enums[pc.COHERENCE.declared].members}
     for name, item in spec.parameterizations.items():
         if item.coherence not in coherence:
@@ -305,6 +307,45 @@ def validate(
                 f"parameterization {name}: `revision` may use only the placeholder {{pin}}"
             )
     return problems
+
+
+def _convention_set(
+    problems: list[str],
+    decl: m.Declaration,
+    name: str,
+    attributes: dict[str, Scalar | dict[str, Scalar]],
+) -> None:
+    """One `[convention_sets.<name>]` table states attributes of the `convention_set` kind as
+    value rules do: a dimensioned fact (the gas constant) as `{ value, unit }` with a unit that
+    converts to its storage unit, an enum member by name, text or a number as itself."""
+    kind = pc.CONVENTION_SET.declared
+    for attribute, raw in attributes.items():
+        where = f"convention_sets.{name}.{attribute}"
+        target = resolve_target(decl, f"{kind}.{attribute}")
+        if isinstance(target, str):
+            problems.append(f"{where}: {target}")
+            continue
+        type_ = target.field.type
+        if target.dimensioned:
+            if not isinstance(raw, dict) or set(raw) != {"value", "unit"}:
+                problems.append(f"{where}: state `{{ value = ..., unit = \"...\" }}`, a dimensioned fact")
+            elif target.unit is not None:
+                try:
+                    convert(1.0, str(raw["unit"]), target.unit)
+                except ValueRefused as error:
+                    problems.append(f"{where}: {error}")
+            else:
+                message = _unit_parses(str(raw["unit"]))
+                if message:
+                    problems.append(f"{where}: {message}")
+        elif isinstance(raw, dict):
+            problems.append(f"{where}: the attribute has no unit, so the fact states none")
+        elif type_.element_kind == "enum":
+            members = {member.name for member in decl.enums[type_.element].members}
+            if raw not in members:
+                problems.append(f"{where}: `{raw}` is not a member of `{type_.element}`")
+        elif type_.element_kind == "kind":
+            problems.append(f"{where}: a reference to another record cannot be stated here")
 
 
 def _disposition(

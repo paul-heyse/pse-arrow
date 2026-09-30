@@ -311,7 +311,9 @@ def test_a_different_sub_form_choice_compiles_again() -> None:
 def test_a_transposition_is_an_operation_on_the_value_and_not_on_the_structure() -> None:
     cache = CompileCache()
     declaration = scenario("transposition")
-    source = InMemorySource(slots={("reciprocal_form.pair", ("a", "b")): {"r": 4.0, "s": 0.3}})
+    source = InMemorySource(
+        slots={("reciprocal_form.pair", ("a", "b")): {"r": 4.0, "s": 0.3}}, declaration=declaration
+    )
     T = np.array([300.0])
     held = bind(
         declaration, "reciprocal_form", source=source, roles={"i": "a", "j": "b"}, cache=cache
@@ -326,8 +328,10 @@ def test_a_transposition_is_an_operation_on_the_value_and_not_on_the_structure()
     assert sorted(swapped.parameters.values()) == [0.25, 0.3]  # the value passed is the reciprocal
 
     coefficients = {(0,): {"L": 1200.0}, (1,): {"L": -340.0}, (2,): {"L": 75.0}, (3,): {"L": 12.0}}
-    rk_source = InMemorySource(families={("redlich_kister.pair", "rk", ("a", "b")): coefficients})
     activity = scenario("activity")
+    rk_source = InMemorySource(
+        families={("redlich_kister.pair", "rk", ("a", "b")): coefficients}, declaration=activity
+    )
     x = np.linspace(0.05, 0.95, 5)
     canonical = bind(
         activity, "redlich_kister", source=rk_source, roles={"i": "a", "j": "b"}, cache=cache

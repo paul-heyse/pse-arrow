@@ -7,7 +7,8 @@ doc = "The thermodynamic knowledge model (Plan 24). Modules under this directory
 # are required once the declaration contains forms. `observable` is optional: bound, it names
 # the kind whose declared entities a contract output or a slot may denote. `composition_basis`
 # is optional too: bound, it names the kind whose declared entities a contract argument's `basis`
-# may name.
+# may name. `convention_set` is optional as well: bound, it names the kind whose quantity-typed
+# attributes a form may declare it reads (`conventions = [...]`, read as `convention.<fact>`).
 [framework]
 parameter_set = "parameter_set"
 parameterization = "parameterization"
@@ -15,3 +16,4 @@ tabulated_function = "tabulated_function"
 slot_uncertainty = "slot_uncertainty"
 observable = "observable"
 composition_basis = "composition_basis"
+convention_set = "convention_set"

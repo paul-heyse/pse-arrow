@@ -297,6 +297,15 @@ schema = "qual"
 keys.run = { type = "qualification_run" }
 keys.parameter_set = { type = "parameter_set" }
 
+[relations.subject_subform_choice]
+schema = "tk"
+keys.parameterization = { type = "parameterization" }
+keys.slot = { type = "Meta<subform_slot>" }
+keys.subject_key = { type = "Text" }
+keys.ordinal = { type = "Integer" }
+columns.form = { type = "Meta<form>" }
+columns.source_parameterization = { type = "parameterization", optional = true }
+
 [relations.fit_free_parameter]
 schema = "prov"
 columns.slot = { type = "Meta<slot>", optional = true }

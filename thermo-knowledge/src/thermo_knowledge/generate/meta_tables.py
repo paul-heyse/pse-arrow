@@ -34,7 +34,7 @@ ELEMENT_KINDS = (
     "real",
     "source_text",
 )
-SHAPES = ("quantity", "enum", "reference", "tabulated_function", "nested_set")
+SHAPES = ("quantity", "enum", "reference", "tabulated_function", "nested_set", "set_reference")
 PROVENANCE_MODES = ("own", "inherit", "declaration", "none")
 
 _TYPE_COLUMNS: tuple[Col, ...] = (
@@ -178,6 +178,7 @@ def _build() -> dict[str, ir.Table]:
                     "slot_uncertainty",
                     "observable",
                     "composition_basis",
+                    "convention_set",
                 )
             },
         )
@@ -907,6 +908,25 @@ def _build() -> dict[str, ir.Table]:
     )
     add(
         _table(
+            "form_convention",
+            "A convention fact a form reads (`convention.<name>` in its expressions): a "
+            "quantity-typed attribute of the convention-set kind.",
+            [
+                ("form", "text", "The form."),
+                ("name", "text", "The convention-set attribute the form reads."),
+                ("position", "integer", "Position among the form's convention facts, from 1."),
+                ("kind", "text", "The kind that declares the attribute (the kind bound to convention_set or one it extends)."),
+            ],
+            pk=["form", "name"],
+            unique=[["form", "position"]],
+            fks=[
+                (["form"], "form", ["name"]),
+                (["kind", "name"], "attribute", ["kind", "name"]),
+            ],
+        )
+    )
+    add(
+        _table(
             "form_implicit",
             "An implicit block of a form: unknowns defined by residuals that vanish.",
             [
@@ -1133,10 +1153,23 @@ def _build() -> dict[str, ir.Table]:
                 ("family", "text?", "The family's qualified name, for a family slot."),
                 ("name", "text", "The slot's name."),
                 ("position", "integer", "Position among the owner's slots, from 1."),
-                ("shape", "text", "quantity, enum, reference, tabulated_function or nested_set."),
-                ("element_kind", "text?", "The value's element kind; null for a nested set."),
-                ("element", "text?", "The value's type; null for a nested set."),
+                (
+                    "shape",
+                    "text",
+                    "quantity, enum, reference, tabulated_function, nested_set or set_reference.",
+                ),
+                (
+                    "element_kind",
+                    "text?",
+                    "The value's element kind; null for a nested set or a set reference.",
+                ),
+                ("element", "text?", "The value's type; null for a nested set or a set reference."),
                 ("accepts", "text?", "For a nested set: the contract its form implements."),
+                (
+                    "references_contract",
+                    "text?",
+                    "For a set reference: the contract the form of the referenced set implements.",
+                ),
                 ("presence", "text", "required or stateful."),
                 (
                     "observable",
@@ -1152,13 +1185,20 @@ def _build() -> dict[str, ir.Table]:
                 (["slot_group"], "slot_group", ["qualified_name"]),
                 (["family"], "family", ["qualified_name"]),
                 (["accepts"], "contract", ["name"]),
+                (["references_contract"], "contract", ["name"]),
             ],
             vocabulary={
                 "shape": SHAPES,
                 "presence": ("required", "stateful"),
                 "element_kind": ELEMENT_KINDS,
             },
-            checks=[("nested_set", '("shape" = \'nested_set\') = ("accepts" IS NOT NULL)')],
+            checks=[
+                ("nested_set", '("shape" = \'nested_set\') = ("accepts" IS NOT NULL)'),
+                (
+                    "set_reference",
+                    '("shape" = \'set_reference\') = ("references_contract" IS NOT NULL)',
+                ),
+            ],
         )
     )
     add(

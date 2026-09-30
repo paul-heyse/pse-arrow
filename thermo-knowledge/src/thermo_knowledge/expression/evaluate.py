@@ -10,8 +10,8 @@
    family-row value and a `unit(...)` conversion factor are each a parameter symbol; the stored
    number is kept beside it (in storage units) and is never put into the expression. A decision
    that depends on a stored value (a conditional on static values, the order of the pieces of
-   `at`, a transposition's sign or inversion) is made here, from the values, and only its
-   consequence is in the expression. Locals stay symbols until the output is finished, so that
+   `at`) is made here, from the values, and only its consequence is in the expression. A
+   transposition is not: a parameter source returns the values of the order it is asked for. Locals stay symbols until the output is finished, so that
    `d(expr, local)` is a partial derivative; a call to a sub-form is expanded in its own frame,
    given the sets and the indexed values its caller passed. An implicit block contributes one
    symbol for each scalar unknown and a `Block` (residuals, bounds, selection) that is solved
@@ -44,9 +44,11 @@ from thermo_knowledge.declaration import model as m
 from thermo_knowledge.expression import tree as t
 from thermo_knowledge.expression.compiled import CompileCache
 from thermo_knowledge.expression.parameters import (
+    ConventionFact,
     FamilyRows,
     FormChoice,
     ParameterSource,
+    SetRead,
     SlotValues,
     Subject,
 )
@@ -199,6 +201,11 @@ class _Machine:
         """The parameter symbol of each stored value the expansion has read, by what it was read
         from (never by its value)."""
         self.sources: dict[int, ParameterSource] = {}
+        self.reads: dict[int, list[SetRead]] = {}
+        """The sets each source supplied to this expansion: the slot group and the subjects as
+        asked for, in reading order."""
+        self.conventions: dict[str, dict[int, ParameterSource]] = {}
+        """For each convention fact the expansion reads, the sources of the frames that read it."""
         self.values: dict[sympy.Symbol, float] = {}
         """The number each parameter symbol stands for, in storage units, as bound."""
         self.numbers: dict[sympy.Basic, sympy.Basic] = {}
@@ -223,6 +230,46 @@ class _Machine:
             self.values[symbol] = value
             self.numbers[symbol] = _float(value)
         return symbol
+
+    def convention(self, frame: _Frame, name: str) -> sympy.Symbol:
+        """The symbol for the convention fact `name`: one symbol however many frames read it. Its
+        value is set when the expansion is finished (`resolve_conventions`), once every set the
+        frames read is known."""
+        self.sources[id(frame.source)] = frame.source
+        self.conventions.setdefault(name, {})[id(frame.source)] = frame.source
+        key = ("convention", name)
+        symbol = self.parameters.get(key)
+        if symbol is None:
+            symbol = sympy.Symbol(f"param:convention.{name}#{len(self.parameters) + 1}", real=True)
+            self.parameters[key] = symbol
+        return symbol
+
+    def resolve_conventions(self) -> None:
+        """Give each convention fact the expansion reads its value, from the parameterizations
+        that supplied the sets it read. Every source states the fact; two parameterizations that
+        state different values are refused, naming the fact, both and both values."""
+        for name, sources in self.conventions.items():
+            facts: list[ConventionFact] = []
+            for source in sources.values():
+                facts.extend(source.convention_facts(name, tuple(self.reads.get(id(source), ()))))
+            for fact in facts:
+                if fact.value is None:
+                    raise EvaluationRefusal(
+                        f"parameterization `{fact.parameterization}` {fact.absent}: a form reads "
+                        f"the convention fact `{name}`"
+                    )
+            first = next(iter(facts))
+            for other in facts:
+                if other.value != first.value:
+                    raise EvaluationRefusal(
+                        f"the convention fact `{name}` differs between the parameterizations an "
+                        f"evaluation draws sets from: `{first.parameterization}` has "
+                        f"{first.value!r}, `{other.parameterization}` has {other.value!r}"
+                    )
+            symbol = self.parameters[("convention", name)]
+            assert first.value is not None
+            self.values[symbol] = first.value
+            self.numbers[symbol] = _float(first.value)
 
     def decide(self, frame: _Frame, condition: Value) -> bool | sympy.Basic:
         """`condition` as a truth value when it is one: already, or because it depends on
@@ -652,6 +699,17 @@ class _Machine:
         self, frame: _Frame, node: t.Attribute | t.Subscript, env: dict[str, Value]
     ) -> Value:
         scope = frame.scope
+        if (
+            isinstance(node, t.Attribute)
+            and isinstance(node.value, t.Name)
+            and node.value.id == m.CONVENTION_NAME
+            and m.CONVENTION_NAME not in env
+        ):
+            if node.attr not in scope.conventions:
+                raise EvaluationRefusal(
+                    f"form `{scope.form.name}` does not declare the convention fact `{node.attr}`"
+                )
+            return self.convention(frame, node.attr)
         if isinstance(node, t.Subscript) and isinstance(node.base, t.Name):
             base = node.base.id
             key = self.subjects(frame, node.indices, env)
@@ -674,13 +732,6 @@ class _Machine:
         indices = [self.ev(frame, i, env) for i in ref.indices]
         return self.slot_value(frame, ref, subjects, indices)
 
-    def orientations(
-        self, group: m.SlotGroup, subjects: tuple[Subject, ...]
-    ) -> list[tuple[tuple[Subject, ...], bool]]:
-        """The orders in which a parameter set of `group` for `subjects` may be held: the one
-        asked for, then those the group's transposition makes equivalent."""
-        return transposition.orientations(group, subjects)
-
     def check_diagonal(self, group: m.SlotGroup, subjects: tuple[Subject, ...]) -> None:
         if transposition.is_diagonal(group, subjects):
             raise EvaluationRefusal(
@@ -690,23 +741,31 @@ class _Machine:
 
     def held[T](
         self,
+        frame: _Frame,
         group: m.SlotGroup,
         subjects: tuple[Subject, ...],
         read: Callable[[tuple[Subject, ...]], T | None],
         what: str,
         default: Callable[[], T | None] | None = None,
-    ) -> tuple[T, bool]:
-        """What `read` finds for `subjects` in the first orientation that holds it, and whether
-        that orientation is a swap of the one asked for; else the declared default, else a
-        refusal naming the slot group and the subject."""
+    ) -> T:
+        """What `read` finds for `subjects`, in the order asked for: the source applies the
+        transposition of the group when it holds the set for another order (`transposition.py`),
+        so nothing here does. Else the declared default, else a refusal naming the slot group and
+        the subject."""
         self.check_diagonal(group, subjects)
-        for candidate, swapped in self.orientations(group, subjects):
-            found = read(candidate)
-            if found is not None:
-                return found, swapped
+        try:
+            found = read(subjects)
+        except transposition.TranspositionError as error:
+            raise EvaluationRefusal(
+                f"the parameter set of slot group `{group.qualified}` for subject "
+                f"({', '.join(subjects)}) {error}"
+            ) from None
+        if found is not None:
+            self.reads.setdefault(id(frame.source), []).append((group.qualified, subjects))
+            return found
         fallback = default() if default is not None else None
         if fallback is not None:
-            return fallback, False
+            return fallback
         raise EvaluationRefusal(
             f"no {what} of slot group `{group.qualified}` for subject ({', '.join(subjects)})"
         )
@@ -717,7 +776,8 @@ class _Machine:
         group, slot = ref.group, ref.slot
         source = frame.source
         if ref.family is None:
-            values, swapped = self.held(
+            values = self.held(
+                frame,
                 group,
                 subjects,
                 lambda candidate: source.slot_values(group.qualified, candidate),
@@ -729,38 +789,20 @@ class _Machine:
                     f"the parameter set of slot group `{group.qualified}` for subject "
                     f"({', '.join(subjects)}) holds no value for slot `{slot.name}`"
                 )
-            number = float(values[slot.name])
-            if swapped and slot.name in transposition.swapped_slots(group):
-                # the transposition is an operation on the stored values, made here: the value
-                # the symbol stands for is the reciprocal, or a combination of the slots the rule
-                # names, which must all be held
-                named = {
-                    name: float(values[name])
-                    for name in transposition.swapped_slots(group)
-                    if name in values
-                }
-                missing = [name for name in transposition.swapped_slots(group) if name not in named]
-                if missing and group.transposition.rule == "linear":  # type: ignore[union-attr]
-                    raise EvaluationRefusal(
-                        f"the parameter set of slot group `{group.qualified}` for subject "
-                        f"({', '.join(subjects)}) holds no value for slot `{missing[0]}`, which "
-                        f"the swap of its subjects needs for `{slot.name}`"
-                    )
-                number = transposition.swapped_values(group, named)[slot.name]
             return self.parameter(
                 frame,
                 ("slot", group.qualified, subjects, slot.name),
                 f"{group.qualified}.{slot.name}",
-                number,
+                float(values[slot.name]),
             )
         family = ref.family
-        rows, swapped = self.held(
+        rows = self.held(
+            frame,
             group,
             subjects,
             lambda candidate: source.family_rows(group.qualified, family.name, candidate),
             f"rows of family `{family.name}`",
         )
-        by = transposition.parity_index(group, family) if swapped else None
         terms: list[tuple[sympy.Basic | bool, sympy.Symbol]] = []
         for key, row in rows.items():
             if slot.name not in row:
@@ -768,12 +810,6 @@ class _Machine:
                     f"row {key} of family `{group.qualified}.{family.name}` for subject "
                     f"({', '.join(subjects)}) holds no value for slot `{slot.name}`"
                 )
-            number = float(row[slot.name])
-            negated = by is not None and bool(key[by] % 2)
-            if negated:
-                number = (
-                    -number
-                )  # a parity sign is applied to the value here, not in the expression
             conditions: list[sympy.Basic | bool] = []
             for position, index in enumerate(indices):
                 if isinstance(index, int):
@@ -785,9 +821,9 @@ class _Machine:
                 condition = sympy.And(*conditions) if conditions else True
                 symbol = self.parameter(
                     frame,
-                    ("row", group.qualified, family.name, subjects, key, slot.name, negated),
+                    ("row", group.qualified, family.name, subjects, key, slot.name),
                     f"{group.qualified}.{family.name}.{slot.name}",
-                    number,
+                    float(row[slot.name]),
                 )
                 terms.append((condition, symbol))
         if all(isinstance(i, int) for i in indices):
@@ -847,17 +883,32 @@ class _Machine:
             choice = choices[0]
         else:
             assert ref.nested is not None
-            nested_subjects = self.subjects(frame, ref.nested.subjects, env)
             nested = ref.nested
-            found, _ = self.held(
+            nested_subjects = self.subjects(frame, nested.subjects, env)
+            positions = tuple(self.ev(frame, node, env) for node in nested.indices)
+            if not all(isinstance(position, int) for position in positions):
+                raise EvaluationRefusal(
+                    f"the family index of `{nested.slot.name}` is an integer known at expansion"
+                )
+            where = (
+                nested.slot.name
+                if nested.family is None
+                else f"{nested.family.name}.{nested.slot.name}"
+            )
+            choice = self.held(
+                frame,
                 nested.group,
                 nested_subjects,
                 lambda candidate: frame.source.nested_set(
-                    nested.group.qualified, nested.slot.name, candidate
+                    nested.group.qualified,
+                    where,
+                    candidate,
+                    positions,  # type: ignore[arg-type]
                 ),
-                f"nested set `{nested.slot.name}`",
+                f"set held by `{where}`",
             )
-            choice = found
+        if ref.kind == "nested":
+            roles.update(self.held_roles(choice, given))
         roles.update(self.role_values(accepted, given, skip=tuple(roles)))
         arguments = {
             name: _expr(value)
@@ -865,6 +916,20 @@ class _Machine:
             if name in {a.name for a in accepted.arguments}
         }
         return self.call_form(frame, choice, accepted, roles, arguments, vectors, sets, ref.output)
+
+    def held_roles(self, choice: FormChoice, given: Mapping[str, Value]) -> dict[str, Subject]:
+        """The roles of the called contract that the set `choice` holds supplies: the subjects of
+        its slot group, bound as the group binds them, for each role the call does not give."""
+        if choice.group is None:
+            return {}
+        group = next((g for g in self.decl.slot_groups if g.qualified == choice.group), None)
+        if group is None:
+            raise EvaluationRefusal(f"`{choice.group}` is not a slot group (`form.group`)")
+        return {
+            binding.target: subject
+            for binding, subject in zip(group.bindings, choice.subjects, strict=False)
+            if binding.kind == "role" and binding.target is not None and binding.target not in given
+        }
 
     def role_values(
         self, accepted: m.Contract, given: Mapping[str, Value], skip: tuple[str, ...] = ()
@@ -951,7 +1016,8 @@ class _Machine:
         ref = classify_call(scope, node, self.contributions(env))
         if isinstance(ref, FamilyRef):
             subjects = self.subjects(frame, ref.raw, env)
-            rows, _ = self.held(
+            rows = self.held(
+                frame,
                 ref.group,
                 subjects,
                 lambda candidate: frame.source.family_rows(
@@ -1042,7 +1108,8 @@ class _Machine:
         ref = classify_call(frame.scope, node.family, self.contributions(env))
         assert isinstance(ref, FamilyRef) and ref.family.interval is not None
         subjects = self.subjects(frame, ref.raw, env)
-        rows, _ = self.held(
+        rows = self.held(
+            frame,
             ref.group,
             subjects,
             lambda candidate: frame.source.family_rows(
@@ -1225,6 +1292,7 @@ class BoundForm:
     def _built(self, output: str) -> _Prepared:
         if output not in self._outputs:
             expr, guards = self.machine.output(self.frame, output)
+            self.machine.resolve_conventions()
             needed = set(expr.free_symbols)
             for _, condition in guards:
                 needed |= condition.free_symbols

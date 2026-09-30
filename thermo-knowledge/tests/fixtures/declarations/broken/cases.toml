@@ -384,3 +384,43 @@ expect = [
 expect = [
   { code = "bad-unit-from", construct = "kinds.k.attributes.y.unit_from", document = "model/zz_case.toml" },
 ]
+
+[slot_shape_type_and_references]
+expect = [
+  { code = "slot-shape", construct = "forms.bad.slot_groups.g.slots.s", document = "forms/zz_case.toml" },
+]
+
+[slot_references_unknown_contract]
+expect = [
+  { code = "unknown-name", construct = "forms.bad.slot_groups.g.slots.s.references", document = "forms/zz_case.toml" },
+]
+
+[slot_references_a_non_contract]
+expect = [
+  { code = "bad-type", construct = "forms.bad.slot_groups.g.slots.s.references", document = "forms/zz_case.toml" },
+]
+
+[reference_contract_cycle]
+expect = [
+  { code = "contract-cycle", construct = "contracts.alpha_function", document = "forms/contracts.toml" },
+]
+
+[arrangement_is_reserved]
+expect = [
+  { code = "bad-name", construct = "forms.bad.slot_groups.g.transposition", document = "forms/zz_case.toml" },
+]
+
+[convention_unknown_attribute]
+expect = [
+  { code = "bad-convention", construct = "forms.bad.conventions", document = "forms/zz_case.toml" },
+]
+
+[convention_not_a_quantity]
+expect = [
+  { code = "bad-convention", construct = "forms.bad.conventions", document = "forms/zz_case.toml" },
+]
+
+[convention_without_role]
+expect = [
+  { code = "framework-role", construct = "forms.bad.conventions", document = "forms/zz_case.toml" },
+]

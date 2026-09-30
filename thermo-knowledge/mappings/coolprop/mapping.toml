@@ -28,7 +28,7 @@ revision = "{pin}"
 title = "CoolProp saturation ancillaries"
 coherence = "independent_records"
 origin_role = "published"
-no_convention_set = "CoolProp states no temperature scale, gas constant or standard pressure for its ancillaries."
+no_convention_set = "CoolProp states no temperature scale or gas constant for its ancillaries."
 
 # ------------------------------------------------------------------------------------------
 # fluids: identities only (INFO identifiers). Environmental indicators are deferred.

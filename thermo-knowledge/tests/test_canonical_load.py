@@ -237,10 +237,10 @@ def test_every_transposition_rule_loads_under_the_generated_canonical_checks(
         assert count(database.url, "param.fixture_reciprocal__pair") == 1
         assert count(database.url, "param.fixture_margules__pair") == 1
         with psycopg.connect(database.url) as conn:
-            # written as (high, low): the stored row is the swapped pair, (h0 + h1, -h1)
-            assert conn.execute("SELECT h0, h1 FROM param.fixture_margules__pair").fetchall() == [
-                (2.5, -0.5)
-            ]
+            # written as (high, low): the stored row keeps the asserted values, arrangement 1
+            assert conn.execute(
+                "SELECT h0, h1, arrangement FROM param.fixture_margules__pair"
+            ).fetchall() == [(2.0, 0.5, 1)]
 
 
 def test_the_subject_keys_of_top_level_and_nested_sets_verify_and_a_changed_key_is_found(

@@ -29,13 +29,19 @@ from dataclasses import dataclass, field
 from thermo_knowledge import pipeline_contract as pc
 from thermo_knowledge.canonical.provenance import CarrierInfo, Origin, SourceRef
 from thermo_knowledge.canonical.values import Quantity
-from thermo_knowledge.canonical.writer import CanonicalWriter, FamilyRow, ValidationError
+from thermo_knowledge.canonical.writer import (
+    CanonicalWriter,
+    FamilyRow,
+    NestedSet,
+    ValidationError,
+)
 from thermo_knowledge.declaration import model as m
 from thermo_knowledge.mapping import claims
 from thermo_knowledge.mapping.spec import (
     DerivationSpec,
     FieldRule,
     MappingSpec,
+    ParameterizationSpec,
     Scalar,
     declared_entity,
     resolve_target,
@@ -469,6 +475,8 @@ class RecordContext(RunContext["RecordEmitter"]):
         super().__init__(**kwargs)  # type: ignore[arg-type]
         self.writer = writer
         self._subjects = subjects
+        self.parameterizations: dict[uuid.UUID, ParameterizationSpec] = {}
+        """The parameterizations this run created, by identifier, with their declared spec."""
 
     def subject(self, scope: str, key: str) -> uuid.UUID:
         """The material entity the source entity (`scope`, `key`) of this carrier resolved to.
@@ -518,7 +526,12 @@ class RecordEmitter:
     ) -> uuid.UUID:
         """One parameter set of `slot_group` (`form.group`) for `subjects`, with the block's rows
         as its origins (and so their role). `occurrence` numbers repeated assertions for one
-        subject within a parameterization, from one in source order; one when not given."""
+        subject within a parameterization, from one in source order; one when not given.
+
+        A form that declares the convention facts it reads needs the parameterization's
+        convention set to state them: a mapping that emits such a set without stating them is
+        refused (`MappingError`, which ends the run, so nothing is written)."""
+        self._require_conventions(parameterization, slot_group, slots, families)
         found = self._ctx.writer.parameter_set(
             parameterization=parameterization,
             slot_group=slot_group,
@@ -530,6 +543,56 @@ class RecordEmitter:
         )
         self._block.count += 1
         return found
+
+    def _require_conventions(
+        self,
+        parameterization: uuid.UUID,
+        slot_group: str,
+        slots: Mapping[str, object],
+        families: Mapping[str, Sequence[FamilyRow]] | None,
+    ) -> None:
+        """Refuse a set of a form that reads a convention fact (itself, or a nested set it holds)
+        when the parameterization's convention set in `mapping.toml` does not state it."""
+        ctx = self._ctx
+        spec = ctx.parameterizations.get(parameterization)
+        stated: set[str] = set()
+        if spec is not None and spec.convention_set is not None:
+            stated = set(ctx.spec.convention_sets[spec.convention_set])
+        groups = {group.qualified: group for group in ctx.decl.slot_groups}
+        pending: list[tuple[str, Mapping[str, object], Mapping[str, Sequence[FamilyRow]]]] = [
+            (slot_group, slots, families or {})
+        ]
+        while pending:
+            name, held, rows = pending.pop()
+            group = groups.get(name)
+            if group is None:
+                continue  # the writer refuses an unknown slot group, naming it
+            for convention in ctx.decl.forms[group.form].conventions:
+                if convention.name in stated:
+                    continue
+                if spec is None:
+                    where = "the parameterization is not one of mapping.toml's"
+                elif spec.convention_set is None:
+                    where = f"parameterization `{spec.key}` names no convention set"
+                else:
+                    where = (
+                        f"the convention set `{spec.convention_set}` of parameterization "
+                        f"`{spec.key}` does not state it"
+                    )
+                raise MappingError(
+                    f"form `{group.form}` reads the convention fact `{convention.name}`, and "
+                    f"{where}: state `{convention.name}` in a [convention_sets] entry of "
+                    "mapping.toml"
+                )
+            values = [*held.values()]
+            values += [
+                value for family_rows in rows.values() for row in family_rows for value in row.values.values()
+            ]
+            pending.extend(
+                (value.slot_group, value.slots, value.families or {})
+                for value in values
+                if isinstance(value, NestedSet)
+            )
 
     def kind(self, name: str, values: Mapping[str, object]) -> uuid.UUID:
         """One instance of kind `name`; a kind with its own record takes the block's origins."""
@@ -606,7 +669,7 @@ class RecordEmitter:
             }
             convention = self._kind(pc.CONVENTION_SET.declared, attributes, origins)
         pz = pc.PARAMETERIZATION
-        return self._kind(
+        found = self._kind(
             pz.declared,
             {
                 pz.key: spec.key,
@@ -617,3 +680,5 @@ class RecordEmitter:
             },
             origins,
         )
+        ctx.parameterizations[found] = spec
+        return found

@@ -227,7 +227,7 @@ doc = "Both site classes have the same host key."
 enforced = "verify"
 
 [kinds.constituent_array]
-doc = "A choice of one or more species on each site class of a phase, in a stated order: the subject of a compound-energy parameter. The order of interacting species on a site class fixes the sign of odd-order interaction terms and which species a ternary index selects, so it is part of the array. Canonical key: the phase and, per site class in order, the species in ascending order of their identifiers; a mapping whose source orders them differently applies the contribution form's transposition rule when it reorders."
+doc = "A choice of one or more species on each site class of a phase, in a stated order: the subject of a compound-energy parameter. The order of interacting species on a site class fixes the sign of odd-order interaction terms and which species a ternary index selects, so it is part of the array. Canonical key: the phase and, per site class in order, the species in position order as the source asserted them. Two arrays that differ only in that order are different arrays; that they describe one physical array is an equivalence assessment, not part of identity."
 identity = ["phase", "canonical_key"]
 provenance = "own"
 

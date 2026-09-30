@@ -410,7 +410,7 @@ def test_forbidden_diagonal_is_rejected_and_allowed_diagonal_is_not(
     )
     accepted(
         conn,
-        "INSERT INTO tk.triple (id, a, b, c, value) VALUES (%s, %s, %s, %s, 1)",
+        "INSERT INTO tk.triple (id, a, b, c, value, arrangement) VALUES (%s, %s, %s, %s, 1, 0)",
         (new_id(), same, same, same),
     )
 
@@ -420,20 +420,42 @@ def test_reciprocal_and_parity_relations_store_one_orientation(conn: psycopg.Con
     rejected(
         conn,
         errors.CheckViolation,
-        "INSERT INTO param.ratio__pair (id, i, j, r) VALUES (%s, %s, %s, 2)",
+        "INSERT INTO param.ratio__pair (id, i, j, r, arrangement) VALUES (%s, %s, %s, 2, 0)",
         (new_id(), high, low),
         "ratio__pair__ck__canonical",
     )
     rejected(
         conn,
         errors.CheckViolation,
-        'INSERT INTO tk.signed_interaction (id, i, j, "order", value) VALUES (%s, %s, %s, 1, 1)',
-        (new_id(), high, low),
-        "signed_interaction__ck__canonical",
+        "INSERT INTO param.ratio__pair (id, i, j, r, arrangement) VALUES (%s, %s, %s, 2, 2)",
+        (new_id(), low, high),
+        "ratio__pair__ck__arrangement_range",
     )
     accepted(
         conn,
-        'INSERT INTO tk.signed_interaction (id, i, j, "order", value) VALUES (%s, %s, %s, 1, 1)',
+        "INSERT INTO param.ratio__pair (id, i, j, r, arrangement) VALUES (%s, %s, %s, 2, 1)",
+        (new_id(), low, high),
+    )
+    rejected(
+        conn,
+        errors.CheckViolation,
+        'INSERT INTO tk.signed_interaction (id, i, j, "order", value, arrangement) '
+        "VALUES (%s, %s, %s, 1, 1, 0)",
+        (new_id(), high, low),
+        "signed_interaction__ck__canonical",
+    )
+    rejected(
+        conn,
+        errors.CheckViolation,
+        'INSERT INTO tk.signed_interaction (id, i, j, "order", value, arrangement) '
+        "VALUES (%s, %s, %s, 1, 1, -1)",
+        (new_id(), low, high),
+        "signed_interaction__ck__arrangement_range",
+    )
+    accepted(
+        conn,
+        'INSERT INTO tk.signed_interaction (id, i, j, "order", value, arrangement) '
+        "VALUES (%s, %s, %s, 1, 1, 1)",
         (new_id(), low, high),
     )
     rejected(
@@ -447,16 +469,26 @@ def test_reciprocal_and_parity_relations_store_one_orientation(conn: psycopg.Con
 
 def test_permutation_group_keeps_the_canonical_representative(conn: psycopg.Connection) -> None:
     a, b, c = sorted([new_id(), new_id(), new_id()])
-    statement = "INSERT INTO tk.triple (id, a, b, c, value) VALUES (%s, %s, %s, %s, 1)"
-    accepted(conn, statement, (new_id(), a, b, c))
+    statement = "INSERT INTO tk.triple (id, a, b, c, value, arrangement) VALUES (%s, %s, %s, %s, 1, %s)"
+    accepted(conn, statement, (new_id(), a, b, c, 0))
     for arrangement in ((b, a, c), (a, c, b), (c, b, a), (b, c, a), (c, a, b)):
         rejected(
             conn,
             errors.CheckViolation,
             statement,
-            (new_id(), *arrangement),
+            (new_id(), *arrangement, 0),
             "triple__ck__canonical",
         )
+    # the group the two declared generators make has six arrangements: numbers 0 to 5
+    x, y, z = sorted([new_id(), new_id(), new_id()])
+    accepted(conn, statement, (new_id(), x, y, z, 5))
+    rejected(
+        conn,
+        errors.CheckViolation,
+        statement,
+        (new_id(), a, b, c, 6),
+        "triple__ck__arrangement_range",
+    )
 
 
 STATE_INSERT = (
@@ -1058,7 +1090,10 @@ def test_a_linear_transposition_is_reified_with_its_slots_and_matrix(
 
 def test_a_linear_group_stores_one_orientation(conn: psycopg.Connection) -> None:
     low, high = sorted([new_id(), new_id()])
-    statement = "INSERT INTO param.margules__pair (id, i, j, h0, h1) VALUES (%s, %s, %s, 1, 2)"
+    statement = (
+        "INSERT INTO param.margules__pair (id, i, j, h0, h1, arrangement) "
+        "VALUES (%s, %s, %s, 1, 2, 0)"
+    )
     rejected(
         conn,
         errors.CheckViolation,

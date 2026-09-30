@@ -521,34 +521,71 @@ def test_symmetric_subjects_are_stored_in_the_canonical_orientation(extended: De
     assert "forbids the diagonal" in refused(w, lambda: write([low, low], "a.json#/5"))
 
 
-def test_reciprocal_slots_invert_when_the_subjects_are_swapped(extended: Declaration) -> None:
+def test_a_reciprocal_pair_asserted_in_the_other_order_is_stored_as_asserted(
+    extended: Declaration,
+) -> None:
     w = writer(extended)
     low, high = ordered_pair(w)
     param = parameterization(w)
-    swapped = w.parameter_set(
+    asserted = w.parameter_set(
         parameterization=param,
         slot_group="fixture_reciprocal.pair",
         subjects=[high, low],
         slots={"r": 0.25, "other": 3.0},
         origins=[origin("a.json#/3", "fitted")],
     )
-    direct = w.parameter_set(
-        parameterization=param,
-        slot_group="fixture_reciprocal.pair",
-        subjects=[low, high],
-        slots={"r": 4.0, "other": 3.0},
-        origins=[origin("a.json#/2", "fitted")],
-    )
-    assert direct == swapped, "the same fact in either orientation is one set with one row"
     (row,) = w.tables()["param.fixture_reciprocal__pair"].to_pylist()
-    assert row["id"] == swapped
-    assert (row["i"], row["j"]) == (low, high)
-    assert row["r"] == 4.0 and row["other"] == 3.0, (
-        "the swapped 1/4 is stored as 4; the other slot is unchanged"
+    assert row["id"] == asserted
+    assert (row["i"], row["j"]) == (low, high), "the subject columns are canonical"
+    assert (row["r"], row["other"]) == (0.25, 3.0), "the values are the asserted numbers"
+    assert row["arrangement"] == 1, "they were asserted for the swapped order"
+    (parent,) = w.tables()["tk.parameter_set"].to_pylist()
+    assert parent["subject_key"] == json.dumps([str(low), str(high)], separators=(",", ":"))
+
+
+def test_the_same_pair_asserted_in_both_orders_is_two_assertions_of_one_set(
+    extended: Declaration,
+) -> None:
+    w = writer(extended)
+    low, high = ordered_pair(w)
+    param = parameterization(w)
+
+    def assert_pair(subjects: list[uuid.UUID], r: float, locator: str, occurrence: int | None = None):  # noqa: ANN202
+        return w.parameter_set(
+            parameterization=param,
+            slot_group="fixture_reciprocal.pair",
+            subjects=subjects,
+            slots={"r": r, "other": 3.0},
+            origins=[origin(locator, "fitted")],
+            occurrence=occurrence,
+        )
+
+    direct = assert_pair([low, high], 4.0, "a.json#/2")
+    assert assert_pair([low, high], 4.0, "a.json#/4") == direct, "the same assertion twice"
+    with pytest.raises(CompetingAssertion):
+        assert_pair([high, low], 0.25, "a.json#/3")
+    second = assert_pair([high, low], 0.25, "a.json#/5", occurrence=2)
+    assert second != direct, "another occurrence is another set"
+    rows = {r["id"]: r for r in w.tables()["param.fixture_reciprocal__pair"].to_pylist()}
+    assert (rows[direct]["r"], rows[direct]["arrangement"]) == (4.0, 0)
+    assert (rows[second]["r"], rows[second]["arrangement"]) == (0.25, 1)
+
+
+def test_a_reciprocal_slot_holding_zero_is_stored(extended: Declaration) -> None:
+    w = writer(extended)
+    low, high = ordered_pair(w)
+    w.parameter_set(
+        parameterization=parameterization(w),
+        slot_group="fixture_reciprocal.pair",
+        subjects=[high, low],
+        slots={"r": 0.0, "other": 3.0},
+        origins=[origin("a.json#/3", "fitted")],
     )
+    (row,) = w.tables()["param.fixture_reciprocal__pair"].to_pylist()
+    assert (row["r"], row["arrangement"]) == (0.0, 1)
 
 
-def test_parity_family_rows_change_sign_when_the_subjects_are_swapped(
+def test_parity_family_rows_are_stored_as_asserted_when_the_subjects_are_swapped(
     extended: Declaration,
 ) -> None:
     w = writer(extended)
@@ -562,27 +599,34 @@ def test_parity_family_rows_change_sign_when_the_subjects_are_swapped(
         origins=[origin("a.json#/2", "fitted")],
     )
     rows = w.tables()["param.fixture_parity__pair__term"].to_pylist()
-    assert [(r["order"], r["c"]) for r in rows] == [(0, 1.0), (1, -2.0), (2, 3.0), (3, -4.0)]
+    assert [(r["order"], r["c"]) for r in rows] == [(0, 1.0), (1, 2.0), (2, 3.0), (3, 4.0)]
+    (head,) = w.tables()["param.fixture_parity__pair"].to_pylist()
+    assert (head["i"], head["j"], head["arrangement"]) == (low, high, 1)
 
 
-def test_a_permutation_group_has_one_canonical_representative(extended: Declaration) -> None:
-    w = writer(extended)
-    members = sorted(species(w, key, f"a.json#/{n}") for n, key in enumerate("XYZ"))
-    param = parameterization(w)
-    ids = set()
-    for arrangement in itertools.permutations(members):
-        ids.add(
-            w.parameter_set(
-                parameterization=param,
-                slot_group="fixture_group.triple",
-                subjects=list(arrangement),
-                slots={"v": 2.0},
-                origins=[origin("a.json#/9", "fitted")],
-            )
+def test_a_permutation_group_has_one_canonical_representative_and_records_the_arrangement(
+    extended: Declaration,
+) -> None:
+    arrangements: dict[tuple[uuid.UUID, ...], tuple[uuid.UUID, int]] = {}
+    for order in itertools.permutations(range(3)):
+        w = writer(extended)
+        members = sorted(species(w, key, f"a.json#/{n}") for n, key in enumerate("XYZ"))
+        asserted = tuple(members[position] for position in order)
+        identifier = w.parameter_set(
+            parameterization=parameterization(w),
+            slot_group="fixture_group.triple",
+            subjects=list(asserted),
+            slots={"v": 2.0},
+            origins=[origin("a.json#/9", "fitted")],
         )
-    assert len(ids) == 1, "the group of the two generators is the full symmetric group"
-    (row,) = w.tables()["param.fixture_group__triple"].to_pylist()
-    assert [row["a"], row["b"], row["c"]] == members
+        (row,) = w.tables()["param.fixture_group__triple"].to_pylist()
+        assert [row["a"], row["b"], row["c"]] == members, "the canonical representative"
+        assert row["v"] == 2.0
+        arrangements[asserted] = (identifier, row["arrangement"])
+    assert len({identifier for identifier, _ in arrangements.values()}) == 1, "one set"
+    assert sorted(number for _, number in arrangements.values()) == list(range(6)), (
+        "each of the six arrangements of the group the two generators make has its own number"
+    )
 
 
 def test_stateful_slots_and_piecewise_families(extended: Declaration) -> None:

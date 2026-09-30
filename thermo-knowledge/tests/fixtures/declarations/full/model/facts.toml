@@ -143,3 +143,12 @@ check = { within = { column = "value", lower = -0.5 } }
 name = "readings_distinct"
 doc = "No two readings of a record repeat."
 enforced = "verify"
+
+[kinds.convention_set]
+doc = "The conventions a body of data assumes."
+identity = ["label"]
+provenance = "own"
+
+[kinds.convention_set.attributes]
+label = { type = "Text", doc = "The convention set's label." }
+reference_pressure = { type = "Pressure", optional = true, doc = "The pressure its values are referred to." }

@@ -42,9 +42,17 @@ slot may denote."""
 COMPOSITION_BASIS_ROLE = "composition_basis"
 """Optional role: the kind whose declared entities are the composition bases a contract argument
 may name, and an expression may assert for a vector it builds."""
-OPTIONAL_ROLES = (OBSERVABLE_ROLE, COMPOSITION_BASIS_ROLE)
+CONVENTION_SET_ROLE = "convention_set"
+"""Optional role: the kind whose instances state the convention facts (a gas constant, a
+temperature scale) a form may declare it reads."""
+OPTIONAL_ROLES = (OBSERVABLE_ROLE, COMPOSITION_BASIS_ROLE, CONVENTION_SET_ROLE)
 """The roles a declaration may leave unbound; using what they enable without binding one is
 refused."""
+ARRANGEMENT = "arrangement"
+"""The column of a slot group or relation whose transposition rule acts on values: for which
+order of the subjects the stored values were asserted."""
+CONVENTION_NAME = "convention"
+"""The name an expression reads the convention facts of a form through: `convention.gas_constant`."""
 SCHEMAS = ("tk", "prov", "ev", "qual")
 """The schemas a module may name; slot-group tables go to `param`, reified rows to `meta`."""
 PARAM_SCHEMA = "param"
@@ -75,6 +83,7 @@ class Field:
     presence: Literal["required", "stateful"] = "required"
     shape: str | None = None
     accepts: str | None = None
+    references: str | None = None
     observable: str | None = None
     observable_from_set: bool = False
     minimum: int | None = None
@@ -367,6 +376,17 @@ class OutputObservable:
 
 
 @dataclass(frozen=True, kw_only=True)
+class FormConvention:
+    """A convention fact a form reads, `convention.<name>` in its expressions: a quantity-typed
+    attribute of the convention-set kind, with that attribute's type."""
+
+    name: str
+    type: TypeRef
+    doc: str
+    construct: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class Form:
     name: str
     module: str
@@ -382,6 +402,7 @@ class Form:
     outputs: tuple[ExpressionDef, ...] = ()
     implicit: tuple[ImplicitBlock, ...] = ()
     output_observables: tuple[OutputObservable, ...] = ()
+    conventions: tuple[FormConvention, ...] = ()
     traces: tuple[str, ...] = ()
     pse: str | None = None
 

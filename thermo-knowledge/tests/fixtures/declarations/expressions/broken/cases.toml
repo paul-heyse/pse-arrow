@@ -546,3 +546,23 @@ expect = [
 expect = [
   { code = "bad-call", construct = "forms.f.let.z", line = 1, column = 1 },
 ]
+
+[convention_not_declared]
+expect = [
+  { code = "unknown-name", construct = "forms.f.outputs.p", line = 1, column = 1 },
+]
+
+[convention_not_a_declared_fact]
+expect = [
+  { code = "unknown-name", construct = "forms.f.outputs.p", line = 1, column = 1 },
+]
+
+[convention_of_the_wrong_dimension]
+expect = [
+  { code = "dimension-mismatch", construct = "forms.f.outputs.p", line = 1 },
+]
+
+[convention_name_taken]
+expect = [
+  { code = "bad-name", construct = "forms.f.slot_groups.convention" },
+]

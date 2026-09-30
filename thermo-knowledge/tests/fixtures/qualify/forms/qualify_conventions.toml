@@ -1,0 +1,55 @@
+module = "qualify_conventions"
+uses = ["physical", "provenance", "identity", "conventions", "parameters", "standard_state"]
+doc = "Forms that read a convention fact of their parameterisation (the gas constant) and forms that combine parameter sets drawn from several parameterisations, to show that convention facts are compared."
+
+[contracts.qfix_mixture_sum]
+doc = "A molar-entropy-valued sum over the components of a mixture."
+sets.components = { type = "species", doc = "The components, in a fixed order." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+outputs.y = { type = "MolarEntropy", doc = "The sum." }
+
+[forms.qfix_gas_sum]
+doc = "The gas constant of the parameterisation times the sum of one weight per component."
+implements = "qfix_mixture_sum"
+completeness = "fully_declared"
+status = "expressed"
+conventions = ["gas_constant"]
+
+[forms.qfix_gas_sum.slot_groups.pure]
+doc = "One weight per component."
+subject.i = { type = "species", doc = "The component." }
+bind = { i = "components" }
+
+[forms.qfix_gas_sum.slot_groups.pure.slots]
+w = { type = "Scalar", doc = "The weight." }
+
+[forms.qfix_gas_sum.outputs]
+y = "convention.gas_constant * sum(pure.w[i] for i in components)"
+
+[contracts.qfix_heat_pair]
+doc = "The heat capacity of two species forms added."
+roles.i = { type = "species_form", doc = "The first species form." }
+roles.j = { type = "species_form", doc = "The second species form." }
+arguments.T = { type = "Temperature", doc = "Temperature." }
+outputs.cp = { type = "MolarEntropy", doc = "The sum of the two heat capacities." }
+
+[forms.qfix_heat_pair_form]
+doc = "The sum of the heat capacities two standard-state forms give for the two species."
+implements = "qfix_heat_pair"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.qfix_heat_pair_form.subforms.first]
+doc = "The standard-state form of the first species."
+accepts = "standard_state_thermo"
+multiplicity = "one"
+per = "model"
+
+[forms.qfix_heat_pair_form.subforms.second]
+doc = "The standard-state form of the second species."
+accepts = "standard_state_thermo"
+multiplicity = "one"
+per = "model"
+
+[forms.qfix_heat_pair_form.outputs]
+cp = "first.cp(i=i, T=T) + second.cp(i=j, T=T)"

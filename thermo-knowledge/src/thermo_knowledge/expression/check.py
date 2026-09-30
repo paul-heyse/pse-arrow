@@ -431,11 +431,12 @@ class Checker:
                     continue
                 ok = self.integer(expression, env, f"the index `{index.name}`") is not None and ok
         shape = ref.slot.shape
-        if shape == "nested_set":
+        if shape in ("nested_set", "set_reference"):
+            held = "a nested set" if shape == "nested_set" else "a reference to a set"
             self.fail(
                 node,
                 Code.SLOT_SHAPE,
-                f"slot `{ref.slot.name}` holds a nested set: call one of its outputs, "
+                f"slot `{ref.slot.name}` holds {held}: call one of its outputs, "
                 f"`...{ref.slot.name}[...].output(...)`",
             )
             return None
@@ -450,8 +451,34 @@ class Checker:
         dim = type_dimension(scope.decl, ref.slot.type)
         return dim if ok else None
 
+    def convention(self, node: t.Attribute) -> Ty | None:
+        """`convention.<name>`: a convention fact the form declares it reads."""
+        scope = self.scope
+        declared = scope.conventions.get(node.attr)
+        if declared is None:
+            listed = ", ".join(scope.conventions) or "none"
+            self.fail(
+                node,
+                Code.UNKNOWN_NAME,
+                f"form `{scope.form.name}` does not declare the convention fact `{node.attr}` "
+                f"(it declares {listed}): name it in `conventions`",
+            )
+            return None
+        dim = type_dimension(scope.decl, declared.type)
+        if dim is None:
+            self.fail(node, Code.BAD_TYPE, f"convention fact `{node.attr}` is not a quantity")
+            return None
+        return NumTy(dim)
+
     def reference(self, node: t.Attribute | t.Subscript, env: Env) -> Ty | None:
         scope = self.scope
+        if (
+            isinstance(node, t.Attribute)
+            and isinstance(node.value, t.Name)
+            and node.value.id == m.CONVENTION_NAME
+            and m.CONVENTION_NAME not in env
+        ):
+            return self.convention(node)
         if isinstance(node, t.Subscript) and isinstance(node.base, t.Name):
             ident = node.base.id
             argument = scope.arguments.get(ident)
@@ -554,6 +581,11 @@ class Checker:
         else:
             assert ref.nested is not None
             ok = self.slot_for_call(ref.nested, node, env)
+            if ref.nested.slot.shape == "set_reference":
+                # A referenced set is independently identified: its own subjects supply the roles
+                # of the called contract that the call does not give.
+                given_names = {keyword.name for keyword in ref.keywords}
+                bound = tuple(r.name for r in accepted.roles if r.name not in given_names)
         output = next((o for o in accepted.outputs if o.name == ref.output), None)
         if output is None:
             self.fail(
@@ -568,18 +600,32 @@ class Checker:
         return NumTy(dim) if ok and dim is not None else None
 
     def slot_for_call(self, ref: SlotRef, node: t.Node, env: Env) -> bool:
-        """The subscripts of a nested-set slot that is called, not read."""
+        """The subscripts of a nested-set or set-reference slot that is called, not read."""
         if len(ref.raw) != ref.expected:
             self.fail(
                 node,
                 Code.SLOT_SUBJECTS,
-                f"`{ref.group.name}.{ref.slot.name}` takes {ref.expected} subscripts, found {len(ref.raw)}",
+                f"`{ref.group.name}.{ref.slot.name}` takes {ref.expected} subscripts, found "
+                f"{len(ref.raw)}",
             )
             return False
-        if ref.family is not None:
+        if ref.family is not None and ref.slot.shape == "nested_set":
             self.fail(node, Code.SLOT_SHAPE, "a family slot cannot hold a nested set")
             return False
-        return self.subjects_of(ref.group, ref.subjects, node, env)
+        ok = self.subjects_of(ref.group, ref.subjects, node, env)
+        if ref.family is not None:
+            for expression, index in zip(ref.indices, ref.family.indices):
+                if index.type.text != "Integer":
+                    self.fail(
+                        node,
+                        Code.BAD_FAMILY,
+                        f"index `{index.name}` of family `{ref.family.name}` is "
+                        f"{index.type.text}: expressions index families by Integer only",
+                    )
+                    ok = False
+                    continue
+                ok = self.integer(expression, env, f"the index `{index.name}`") is not None and ok
+        return ok
 
     def keywords(
         self,
@@ -1276,6 +1322,14 @@ def _hygiene(checker: Checker) -> bool:
         *(("unknown", u.name, u.construct) for b in form.implicit for u in b.unknowns),
     ]
     for category, name, construct in sources:
+        if name == m.CONVENTION_NAME:
+            problems.append(
+                (
+                    construct,
+                    f"{category} `{name}` has the name the convention facts of a form are read "
+                    f"through (`{m.CONVENTION_NAME}.<fact>`)",
+                )
+            )
         if name in top:
             article = "an" if top[name][0] in "aeiou" else "a"
             problems.append(

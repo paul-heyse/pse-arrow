@@ -100,7 +100,6 @@ revision = { type = "Text", doc = "Revision." }
 energy_reference = { type = "energy_reference", optional = true, doc = "The energy reference, for data that carry absolute or formation energies." }
 gas_constant = { type = "GasConstant", optional = true, doc = "The value of the gas constant the data was built with." }
 temperature_scale = { type = "temperature_scale", doc = "The temperature scale." }
-standard_pressure = { type = "Pressure", optional = true, doc = "The standard pressure, where one applies to the whole set." }
 atomic_weights = { type = "source", optional = true, doc = "The atomic-weight edition." }
 
 [relations.convention_standard_state]

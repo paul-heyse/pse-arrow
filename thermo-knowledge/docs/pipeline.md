@@ -169,7 +169,7 @@ that live together in `mappings/<id>/`:
   column or field: the target (a kind attribute, a relation value, or a `form.group.slot`), the
   source unit, the precision (`exact`, `narrower`, `broader`, `close`) and what is lost or
   assumed. The conventions the source's values assume (which `convention_set`) and the scopes
-  rule 4 applies to are declared here too.
+  rule 4 applies to are declared here too; so are the convention facts the values assume.
 - **`mapping.py`**: the structure the rules cannot express: how nested or repeated source
   structures become sets, families and nested sets; how subjects are keyed. It contains no units,
   no constants and no defaults: those are in `mapping.toml`.
@@ -191,8 +191,9 @@ What the framework does, so that no mapping re-implements it:
   whose source unit is `not stated` is mapped only under an explicit assumption in
   `mapping.toml`, recorded as loss.
 - **Validation.** Rows are validated against the declaration before they are written: types,
-  required values, enum members, invariants with `enforced = "load"`, canonical orientation of
-  transposable subjects (the framework reorients and applies the rule's effect on the values).
+  required values, enum members, invariants with `enforced = "load"`, transposable subjects stored in
+  the canonical orientation (the values are kept as the source asserted them, with the arrangement
+  recorded; the rule acts on reading).
 - **Coverage.** Every source-faithful row ends in exactly one state: `mapped`, `mapped_with_loss`,
   `out_of_scope`, `deferred`, `held` (its subject is ambiguous or it failed validation; with the
   reason) or `unmapped`. The counts per source table and the reasons are the coverage report.
@@ -238,6 +239,7 @@ no_convention_set = "Why the source states none."   # or: convention_set = "<nam
 
 [convention_sets.<name>]                  # attributes of the `convention_set` kind; a quantity is
 temperature_scale = "its_90"              #   { value = 8.314, unit = "J/mol/K" }
+gas_constant = { value = 1.98720425864083, unit = "cal/(mol*K)" }
 
 [tables.<table>]
 disposition = "mapped"                    # mapped | out_of_scope | deferred
@@ -290,6 +292,13 @@ A field rule is exactly one of:
   carries no value of its own;
 - **not mapped** (`disposition = "out_of_scope"` or `"deferred"`, with a `reason`, and a `wave` for
   deferred).
+
+A `[convention_sets.<name>]` table states attributes of the `convention_set` kind as value rules do: a
+dimensioned fact such as `gas_constant` as `{ value, unit }` with a source unit that converts to its
+storage unit, an enum member by name. A form may declare the convention facts it reads
+(`meta-model.md` section 4.2); a mapping that emits a set of such a form under a parameterization
+whose convention set does not state a declared fact is refused, naming the form and the fact, and
+the run writes nothing.
 
 The declaration is checked against `mapping.toml` before anything runs: every staged table has a
 disposition (a table with none is an error), every column of a table that maps rows has a rule, every
@@ -364,11 +373,24 @@ names is declared and that its quantity type has the dimension of the output's d
 a parameter set with `parent` and `parent_slot` set, the parameterization and origins of the
 set that holds it, and `subject_key` the canonical encoding of the parent set, the slot and the
 family index (empty outside a family), as `slot_uncertainty.index_key` is. A nested set may sit in a
-family row and may itself hold nested sets. For a parameter set it stores the subjects in the
-canonical orientation (the order the DDL checks), applies the swap to the values (`reciprocal` slots
-invert, the slots of a `linear` rule are multiplied by its matrix, `parity` family rows of odd index
-change sign; `thermo_knowledge.transposition` holds the one implementation the evaluator shares) and writes the set, slot-group and family
-rows. Provenance rows follow from the carrier (the source manifest, the lock entry and the staged
+family row and may itself hold nested sets. A slot that references a contract takes a
+`SetReference` (parameterization, slot group, subjects and occurrence of a top-level set): the
+writer computes the target's identifier as a set is identified, refuses a target whose slot group's
+form does not implement the contract or whose subjects do not fit its group, and stores the
+identifier, so any number of sets reference one set, written once by its own call. For a parameter
+set it stores the subjects in the canonical orientation (the order the DDL checks) and **the values
+exactly as the source asserted them**: where the group's rule acts on values (`parity`,
+`reciprocal`, `linear`) or keeps an order (`permutation_group`) the row also records `arrangement`,
+for which arrangement of the subjects the values were asserted (0 canonical, 1 the swapped order of a
+two-role rule, for a permutation group the 1-based number of the arrangement that takes the asserted
+order to the canonical one). The writer applies no rule and changes no number (a reciprocal slot
+holding zero is stored), so a value read in the orientation it was asserted in is the source's
+number, bit for bit; `thermo_knowledge.transposition` holds the one implementation of the rule, which
+a parameter source applies on reading (section 5.3). It writes the set, slot-group and family
+rows. `subform_choice` writes one row of `subject_subform_choice`: the form a parameterization
+chooses for a sub-form slot chosen per subject, for the subjects of the roles of the contract the
+slot accepts (the writer refuses a form that does not implement it, a slot chosen per model, and an
+ordinal above one for a slot that is not `many`). Provenance rows follow from the carrier (the source manifest, the lock entry and the staged
 manifest) and each origin: `source` and `carrier` (key `<manifest id>@<pin>`), `artifact` (hash and
 size of the file), `import_record`, a `licence` where a rights entry gives an SPDX identifier (keyed
 and titled by it), a `rights_determination` per rights entry (ordinal counted per scope), and a
@@ -394,6 +416,7 @@ never an element: the encoding refuses one, and no key is built from one.
 | `species_form.canonical_key` | the canonical encoding of [species key, aggregation name], with the polymorph name appended when the entity states one; a provisional species gives its own key |
 | `parameter_set.subject_key`, top-level set | the canonical encoding of the subject identifiers in the slot group's role order, in the canonical orientation; `[]` for a group with no subject |
 | `parameter_set.subject_key`, nested set | the canonical encoding of [parent set identifier, `parent_slot` identifier, index key] |
+| `subject_subform_choice.subject_key` | the canonical encoding of the subject identifiers of the roles of the contract the slot accepts, in that role order, as the caller names them |
 | index key of a family row | the canonical encoding of the family's index values in declared order, as text; the empty text for a slot outside any family |
 | `tabulated_function.key` | the canonical encoding of [holding set identifier, slot identifier, index key] |
 | `site_class.host_key`, `association_site.carrier_key` | the identifier text of whichever of the two references is present |
@@ -486,6 +509,11 @@ check that returns the violating rows, plus these structural checks:
 - reactions conserve every conserved quantity with a composition entry on a participant (the declared
   invariant `reaction.conserves_declared_quantities`, enforced by one check);
 - nested sets implement the contract their slot accepts;
+- a set-reference slot holds a top-level set of a form that implements the contract the slot names
+  (`referenced_set_implements_contract`, read from `meta.slot`);
+- a parameterization that holds a parameter set of a form that declares convention facts has a
+  convention set that states each of them (`parameterization_has_conventions`, read from
+  `meta.form_convention`);
 - family indices are contiguous from their minimum;
 - derivation lineage and dependency relations are acyclic;
 - a record presented in a role with the facet `requires_derivation` (`origin_role` marks `fitted`,
@@ -498,7 +526,9 @@ check that returns the violating rows, plus these structural checks:
 
 The declared invariants of relations are checked the same way as those of kinds: a relation's
 `requires` with `enforced = "verify"` has a check file named `<relation>.<requirement>`, and the
-verify stage treats both alike.
+verify stage treats both alike. The relation `subject_subform_choice` has two: the chosen form
+implements the contract its slot accepts, and the ordinals of one slot and subject run from one
+without a gap and exceed one only for multiplicity `many`.
 
 A check is a file `sql/verify/<name>.sql`. Its first line names what it enforces, `-- invariant:
 <kind or relation>.<requirement>` for a declared verify requirement or `-- structural: <name>`; its second is a
@@ -683,9 +713,30 @@ for a slot group and subjects answers.
   from that set alone. `prefetch` reads the sets of many subjects and their families in a number of
   queries that does not depend on the subjects.
 - **Sub-form slots** are filled from an explicit mapping from slot to forms and parameterizations
-  (the case's `subforms`); a slot with none has no choices.
-- **Orientation.** A transposable subject tuple is looked up exactly as asked, in the stored
-  canonical orientation; the evaluator tries the others.
+  (the case's `subforms`), which takes precedence; for a slot chosen per subject that the case does
+  not mention, from the relation `subject_subform_choice` in the parameterizations read (the first that
+  states a choice for the subject answers; the choice names the parameterization that holds the chosen
+  form's sets when it is not its own). With neither, the slot has no choices and the evaluation is
+  refused, naming the slot and the subject.
+- **Referenced sets.** A slot that references a set is followed like a nested one: the source returns
+  the form and a source pinned to the referenced set, and the subjects of that set, from which the
+  called contract's roles the call does not give are bound. A referenced set reads its sub-form
+  choices and convention facts as the parameterization that holds it.
+- **Orientation.** A set is found by the canonical orientation of the subjects asked for, and its
+  values are returned for the order asked: the stored numbers unchanged when that is the order
+  asserted (the stored subjects and `arrangement` say which it was), otherwise the group's rule applied
+  once (`thermo_knowledge.transposition`: reciprocal slots inverted, the slots of a `linear` rule
+  multiplied by its matrix, family rows of odd index negated under `parity`; a slot a `linear` swap
+  needs and the set does not hold refuses the evaluation). The in-memory source does the same through
+  the same functions when given the declaration. The evaluator applies no rule.
+- **Convention facts.** The source gives the convention facts of the parameterizations that supplied the
+  sets an evaluation read: the database-backed source reads them from each parameterization's convention
+  set. When an evaluation draws sets from several parameterizations (within one source, or through the
+  sources of sub-forms and referenced sets) the evaluator requires every fact the evaluated forms read
+  to be stated by each of them and equal across them; otherwise it refuses, naming the fact, the two
+  parameterizations and the two values, or, for a parameterization with no convention set or whose set
+  lacks the fact, the parameterization and the fact. A parameterization that supplied no set is not
+  compared.
 - **Occurrence.** A parameterization may hold several sets for one subject, distinguished by
   `occurrence`. The source takes the occurrence stated for each parameterization (the case's
   `occurrence`; a sub-form choice states its own) and reads that set; a subject that does not have

@@ -3,17 +3,20 @@
 
 """What swapping the subject roles of a slot group means (meta-model section 4.3).
 
-One place answers four questions for the reference evaluator (which orientations may hold a
-value), the canonical writer (which orientation is stored, and what the swap does to the values)
-and the loader (what a `linear` rule must satisfy):
+One place answers the questions of the reference evaluator's parameter sources, the canonical
+writer and the loader:
 
 * `orientations`: the orders in which a parameter set for some subjects may be held;
 * `is_diagonal`: whether a transposable group's roles name one instance twice;
 * `canonical_orientation`: the stored orientation of a subject tuple and whether the tuple given
-  had to be swapped to reach it;
-* `swapped_values`: the values of a set after its subjects are swapped: the `reciprocal` slots
-  inverted and the `linear` slots multiplied by the declared matrix. Applying it twice gives the
-  values back, so it turns the values given in one orientation into those of the other.
+  had to be swapped to reach it (the subject columns of a row, its uniqueness and its
+  `subject_key` depend on it and on nothing else);
+* `stores_arrangement`, `arrangement_count`, `arrangement_of` and `asserted_order`: the integer
+  `arrangement` a row of a group or relation whose rule changes values records, which says for
+  which order of the subjects the stored values were asserted;
+* `read_slots` and `read_rows`: the values of a stored set for the order a reader asks for. They
+  are the only place a rule acts on a number: the writer never transforms a value, and a
+  source returns the stored numbers unchanged when the order asked for is the order asserted.
 
 The canonical orientation is the one whose first role has the smaller identifier (for a
 `permutation_group`, the smallest arrangement over the group). The generated DDL enforces the
@@ -55,11 +58,8 @@ def orientations[T](group: Owner, subjects: tuple[T, ...]) -> list[tuple[tuple[T
         return found
     names = _roles(group)
     if transposition.rule == "permutation_group":
-        for arrangement in transposition.permutations:
-            moved = list(subjects)
-            for position, role in enumerate(transposition.roles):
-                moved[names.index(role)] = subjects[names.index(arrangement[position])]
-            candidate = tuple(moved)
+        for arrangement in arrangements(transposition.roles, transposition.permutations)[1:]:
+            candidate = _arranged(names, transposition.roles, arrangement, subjects)
             if all(candidate != other for other, _ in found):
                 found.append((candidate, True))
         return found
@@ -69,6 +69,20 @@ def orientations[T](group: Owner, subjects: tuple[T, ...]) -> list[tuple[tuple[T
     if tuple(swapped) != subjects:
         found.append((tuple(swapped), True))
     return found
+
+
+def _arranged[T](
+    names: Sequence[str],
+    roles: Sequence[str],
+    arrangement: Sequence[str],
+    subjects: tuple[T, ...],
+) -> tuple[T, ...]:
+    """`subjects` with the subjects of `roles` read in `arrangement`: the subject now in the
+    k-th of `roles` is the one the k-th role of `arrangement` held."""
+    moved = list(subjects)
+    for role, source in zip(roles, arrangement, strict=True):
+        moved[names.index(role)] = subjects[names.index(source)]
+    return tuple(moved)
 
 
 def is_diagonal[T](group: Owner, subjects: tuple[T, ...]) -> bool:
@@ -153,21 +167,16 @@ def is_involution(matrix: Matrix) -> bool:
     )
 
 
-def swapped_slots(owner: Owner) -> tuple[str, ...]:
-    """The slots whose value changes when the subjects are swapped: those a `reciprocal` or a
-    `linear` rule names."""
-    transposition = owner.transposition
-    if transposition is not None and transposition.rule in ("reciprocal", "linear"):
-        return transposition.slots
-    return ()
+class TranspositionError(ValueError):
+    """A stored set cannot be read in the other order: a slot its rule needs is not held."""
 
 
 def swapped_values(owner: Owner, values: Mapping[str, float]) -> dict[str, float]:
-    """`values` (slot name to number, in storage units) of a set held in one orientation, as the
-    other orientation holds them. A `reciprocal` slot becomes its reciprocal (an exact zero gives
-    a signed infinity; a slot not in `values` is left out); the `linear` slots become the product
-    of the declared matrix and the vector of their values, all of which `values` holds; every
-    other entry is unchanged."""
+    """`values` (slot name to number, in storage units) of a set asserted in one order, as the
+    other order holds them. A `reciprocal` slot becomes its reciprocal (an exact zero gives a
+    signed infinity; a slot not in `values` is left out); the `linear` slots become the product
+    of the declared matrix and the vector of their values, all of which `values` must hold;
+    every other entry is unchanged."""
     transposition = owner.transposition
     result = dict(values)
     if transposition is None:
@@ -178,6 +187,12 @@ def swapped_values(owner: Owner, values: Mapping[str, float]) -> dict[str, float
                 number = float(values[slot])
                 result[slot] = math.copysign(math.inf, number) if number == 0 else 1.0 / number
     elif transposition.rule == "linear":
+        missing = [slot for slot in transposition.slots if slot not in values]
+        if missing:
+            raise TranspositionError(
+                f"holds no value for slot `{missing[0]}`, which the swap of its subjects needs "
+                f"for `{transposition.slots[0]}`"
+            )
         vector = [float(values[slot]) for slot in transposition.slots]
         for slot, row in zip(transposition.slots, transposition.matrix, strict=True):
             result[slot] = math.fsum(
@@ -197,3 +212,112 @@ def parity_index(group: Owner, family: m.Family) -> int | None:
     if transposition.by in names:
         return names.index(transposition.by)
     return None
+
+
+# -- the arrangement a row records ----------------------------------------------------------------
+
+VALUE_RULES = ("reciprocal", "parity", "linear", "permutation_group")
+"""The rules whose stored values depend on the order the source asserted the subjects in."""
+
+
+def stores_arrangement(owner: Owner) -> bool:
+    """Whether a row of `owner` records the `arrangement` of its subjects: its rule is one that
+    acts on values (`reciprocal`, `parity`, `linear`) or keeps the asserted order of a
+    `permutation_group`. `symmetric` and `ordered` have no such column."""
+    transposition = owner.transposition
+    return transposition is not None and transposition.rule in VALUE_RULES
+
+
+def group_arrangements(transposition: m.Transposition) -> list[tuple[str, ...]]:
+    """The non-identity arrangements of a `permutation_group`, numbered from one: the declared
+    permutations in declared order, then the other arrangements of the group they generate, in
+    sorted order (a declared list need not be closed)."""
+    declared = [tuple(permutation) for permutation in transposition.permutations]
+    identity = tuple(transposition.roles)
+    ordered = [item for item in dict.fromkeys(declared) if item != identity]
+    rest = [
+        item
+        for item in arrangements(transposition.roles, transposition.permutations)[1:]
+        if item not in ordered
+    ]
+    return [*ordered, *rest]
+
+
+def arrangement_count(owner: Owner) -> int:
+    """How many arrangements a row of `owner` can record, `0` (the canonical order) included:
+    the range of its `arrangement` column is `0` to this number less one."""
+    transposition = owner.transposition
+    assert transposition is not None and transposition.rule in VALUE_RULES
+    if transposition.rule == "permutation_group":
+        return 1 + len(group_arrangements(transposition))
+    return 2
+
+
+def arrangement_of[T](owner: Owner, asserted: tuple[T, ...], canonical: tuple[T, ...]) -> int:
+    """The arrangement of a set asserted for the subjects `asserted` and stored for `canonical`:
+    `0` when they are the same order; for a two-role rule `1`, the swapped order; for a
+    `permutation_group` the 1-based number of the arrangement (see `group_arrangements`) that
+    takes the asserted order to the canonical one."""
+    if asserted == canonical:
+        return 0
+    transposition = owner.transposition
+    assert transposition is not None and transposition.rule in VALUE_RULES
+    if transposition.rule != "permutation_group":
+        return 1
+    names = _roles(owner)
+    for number, arrangement in enumerate(group_arrangements(transposition), start=1):
+        if _arranged(names, transposition.roles, arrangement, asserted) == canonical:
+            return number
+    raise ValueError("the asserted subjects are not an arrangement of the canonical ones")
+
+
+def asserted_order[T](owner: Owner, canonical: tuple[T, ...], arrangement: int) -> tuple[T, ...]:
+    """The order of the subjects a row stored as `canonical` with `arrangement` was asserted
+    for: the inverse of `arrangement_of`."""
+    if arrangement == 0:
+        return canonical
+    transposition = owner.transposition
+    assert transposition is not None and transposition.rule in VALUE_RULES
+    names = _roles(owner)
+    if transposition.rule != "permutation_group":
+        first, second = (names.index(role) for role in transposition.roles)
+        swapped = list(canonical)
+        swapped[first], swapped[second] = canonical[second], canonical[first]
+        return tuple(swapped)
+    chosen = group_arrangements(transposition)[arrangement - 1]
+    moved = list(canonical)
+    for role, source in zip(transposition.roles, chosen, strict=True):
+        moved[names.index(source)] = canonical[names.index(role)]
+    return tuple(moved)
+
+
+# -- reading a stored set in the order a reader asks for --------------------------------------------
+
+
+def read_slots[T](
+    owner: Owner, values: Mapping[str, float], asserted: tuple[T, ...], asked: tuple[T, ...]
+) -> dict[str, float]:
+    """The slot values of a set stored with `values` for a set asserted for `asserted`, as a
+    reader asking for `asked` reads them. The order asked for is the order asserted: the stored
+    numbers, unchanged. Otherwise the rule of `owner` acts once (`swapped_values`)."""
+    if asked == asserted:
+        return dict(values)
+    return swapped_values(owner, values)
+
+
+def read_rows[T](
+    owner: Owner,
+    family: m.Family,
+    rows: Mapping[tuple[int, ...], Mapping[str, float]],
+    asserted: tuple[T, ...],
+    asked: tuple[T, ...],
+) -> dict[tuple[int, ...], dict[str, float]]:
+    """The rows of `family` of a set asserted for `asserted`, as a reader asking for `asked` reads
+    them: unchanged for the order asserted; for another order the rows whose index is odd under
+    `parity` change sign."""
+    by = None if asked == asserted else parity_index(owner, family)
+    result: dict[tuple[int, ...], dict[str, float]] = {}
+    for key, row in rows.items():
+        negate = by is not None and bool(key[by] % 2)
+        result[key] = {name: -float(number) if negate else number for name, number in row.items()}
+    return result
