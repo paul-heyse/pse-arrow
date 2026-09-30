@@ -17,7 +17,7 @@ tag = "2.13.0"
 [payload]
 reader = "idaes"
 environment = "core"
-include = ["idaes/models/properties/**/*.py"]
+include = ["idaes/models/properties/**/*.py", "idaes/models/properties/**/*.json"]
 exclude = []
 
 [[rights]]

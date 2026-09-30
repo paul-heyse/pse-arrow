@@ -1,17 +1,20 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 
-"""The IDAES reader: synthetic modules (invented values, written here), then the pinned checkout.
+"""The IDAES reader: synthetic modules and JSON files (invented values, written here), then the
+pinned checkout.
 
 The reader never imports IDAES. The real-tree tests count with a different traversal than the
-reader's (`ast.walk` over all statements) and check values by evaluating the literal structures
-with Python's own evaluator over a stand-in namespace for the names.
+reader's (`ast.walk` over all statements; a recursive walk of `json.load` for the JSON files) and
+check values by evaluating the literal structures with Python's own evaluator over a stand-in
+namespace for the names, and by rebuilding each JSON file from its staged rows.
 """
 
 from __future__ import annotations
 
 import ast
 import io
+import json
 import tokenize
 from collections import Counter
 from pathlib import Path
@@ -93,6 +96,24 @@ def compute(x):
     local_table = {"k": 0.5}
     return x
 """
+
+PARAMETER_FILE = """{
+    "comp": "fluidx",
+    "basic": {"R": 0.25, "MW": 40, "P_max": 6.5e7, "rho_v": 0.0000125, "T_min": -10},
+    "eos": {
+        "reference": ["First invented line", "Second invented line"],
+        "n": {"1": 0.5, "2": -1.25, "10": 3},
+        "a/b": {"t~c": [1, 2.0, [3]]},
+        "[0]": true,
+        "absent": null,
+        "none_yet": {},
+        "no_items": []
+    },
+    "have_visc": false
+}
+"""
+
+ROOT_SCALAR = "12.50"
 
 
 def test_every_declared_column_documents_name_and_unit() -> None:
@@ -215,6 +236,104 @@ def test_a_syntax_error_is_refused_with_its_line(tmp_path: Path) -> None:
         run_reader(idaes, tmp_path, {DEMO: "a = 1\nb = = 2\n"})
 
 
+JSON_FILE = f"{PACKAGE}/general_helmholtz/components/parameters/fluidx.json"
+
+
+def json_rows_of(run) -> dict[str, dict]:  # type: ignore[no-untyped-def]
+    return {row["pointer"]: row for row in run.rows("json_entries")}
+
+
+def test_json_file_is_read_leaf_by_leaf_in_its_own_keys(tmp_path: Path) -> None:
+    run = run_reader(idaes, tmp_path, {JSON_FILE: PARAMETER_FILE})
+    rows = run.rows("json_entries")
+    by_pointer = json_rows_of(run)
+    assert len(by_pointer) == len(rows) == 19  # pointers are unique; leaves counted by hand
+
+    r_value = by_pointer["/basic/R"]
+    assert (r_value["kind"], r_value["number"], r_value["integer"], r_value["text"]) == (
+        "number",
+        0.25,
+        False,
+        "0.25",
+    )
+    assert r_value["path"] == ["basic", "R"] and r_value["path_steps"] == ["key", "key"]
+    assert r_value["key"] == "R" and r_value["position"] is None
+    assert r_value["_artifact"] == JSON_FILE
+    assert r_value["_locator"] == f"{JSON_FILE}#/basic/R"
+    # numbers keep their own spelling and kind
+    assert by_pointer["/basic/MW"]["integer"] is True and by_pointer["/basic/MW"]["number"] == 40.0
+    big = by_pointer["/basic/P_max"]
+    assert (big["text"], big["number"], big["integer"]) == ("6.5e7", 6.5e7, False)
+    small = by_pointer["/basic/rho_v"]
+    assert (small["text"], small["number"]) == ("0.0000125", 1.25e-5)
+    assert by_pointer["/basic/T_min"]["number"] == -10.0
+    assert by_pointer["/eos/n/2"]["number"] == -1.25 and by_pointer["/eos/n/10"]["text"] == "3"
+    # strings are the strings themselves; an array element has a position and no key
+    line = by_pointer["/eos/reference/1"]
+    assert (line["kind"], line["text"], line["position"], line["key"]) == (
+        "string",
+        "Second invented line",
+        1,
+        None,
+    )
+    assert line["path"] == ["eos", "reference", "1"] and line["path_steps"] == ["key", "key", "index"]
+    # a key that looks like a number is a key; slash and tilde are escaped in the pointer only
+    assert by_pointer["/eos/n/1"]["path_steps"] == ["key", "key", "key"]
+    nested = by_pointer["/eos/a~1b/t~0c/2/0"]
+    assert nested["path"] == ["eos", "a/b", "t~c", "2", "0"]
+    assert nested["path_steps"] == ["key", "key", "key", "index", "index"]
+    assert (nested["number"], nested["integer"]) == (3.0, True)
+    assert by_pointer["/eos/a~1b/t~0c/1"]["integer"] is False  # 2.0 is a real literal
+    # a key that looks like one of the literal reader's positions stays a key
+    bracket = by_pointer["/eos/[0]"]
+    assert (bracket["kind"], bracket["flag"], bracket["text"], bracket["key"]) == (
+        "boolean",
+        True,
+        "true",
+        "[0]",
+    )
+    assert by_pointer["/have_visc"]["flag"] is False and by_pointer["/have_visc"]["number"] is None
+    assert by_pointer["/eos/absent"]["kind"] == "null" and by_pointer["/eos/absent"]["text"] == "null"
+    assert by_pointer["/eos/none_yet"]["kind"] == "empty_object"
+    assert by_pointer["/eos/no_items"]["kind"] == "empty_array"
+    # file order is kept
+    assert [row["pointer"] for row in rows][:3] == ["/comp", "/basic/R", "/basic/MW"]
+    assert run.rows("literal_entries") == [] and run.rows("parameter_declarations") == []
+    (record,) = run.result.payload
+    assert record.path == JSON_FILE and record.status == "read"
+
+
+def test_json_root_scalar_and_test_directories(tmp_path: Path) -> None:
+    run = run_reader(
+        idaes,
+        tmp_path,
+        {
+            f"{PACKAGE}/scalar.json": ROOT_SCALAR,
+            f"{PACKAGE}/tests/fixture.json": '{"a": 1}',
+        },
+    )
+    (row,) = run.rows("json_entries")
+    assert (row["pointer"], row["path"], row["key"], row["position"]) == ("", [], None, None)
+    assert row["_locator"] == f"{PACKAGE}/scalar.json#" and row["number"] == 12.5
+    assert row["text"] == "12.50"
+    accounts = {r.path: r for r in run.result.payload}
+    assert accounts[f"{PACKAGE}/tests/fixture.json"].status == "skipped"
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ('{"a": 1,\n "b": }', r"fluidx\.json#L2: cannot be parsed as JSON"),
+        ('{"a": 1, "a": 2}', r"fluidx\.json: the object has the key 'a' more than once"),
+        ('{"a": NaN}', r"fluidx\.json: the constant NaN is not a JSON number"),
+        ('{"a": 1e999}', r"fluidx\.json#/a: the number 1e999 is not finite"),
+    ],
+)
+def test_malformed_json_is_refused(tmp_path: Path, content: str, message: str) -> None:
+    with pytest.raises(StagingError, match=message):
+        run_reader(idaes, tmp_path, {JSON_FILE: content})
+
+
 # -- the pinned checkout ---------------------------------------------------------------------------
 
 real = pytest.mark.skipif(
@@ -230,6 +349,10 @@ def staged(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 def payload_modules() -> list[str]:
     return sorted(p.relative_to(TREE).as_posix() for p in (TREE / PACKAGE).rglob("*.py"))
+
+
+def payload_json_files() -> list[str]:
+    return sorted(p.relative_to(TREE).as_posix() for p in (TREE / PACKAGE).rglob("*.json"))
 
 
 def non_test_modules() -> list[str]:
@@ -288,8 +411,9 @@ def test_payload_is_accounted_for(staged: Path) -> None:
     manifest = staged_manifest_of(staged)
     assert set(manifest.tables) == set(idaes.TABLES)
     accounts = {r.path: r for r in manifest.payload}
-    assert set(accounts) == set(payload_modules())
-    assert len(accounts) == 211
+    assert set(accounts) == set(payload_modules()) | set(payload_json_files())
+    assert len(payload_json_files()) == 22
+    assert len(accounts) == 211 + 22
     skipped = [p for p, r in accounts.items() if r.status == "skipped"]
     assert skipped and all(idaes.is_test(p) for p in skipped)
     assert len(skipped) == sum(idaes.is_test(p) for p in accounts) == 102
@@ -315,6 +439,107 @@ def test_leaf_counts_match_an_independent_walk(staged: Path) -> None:
             ):
                 declared += 1
     assert staged_table(staged, "parameter_declarations").num_rows == declared
+
+
+def json_leaf_count(node: object) -> int:
+    """Leaves of a `json.load` document by recursion on the value types (an empty container
+    is one)."""
+    if isinstance(node, dict):
+        return sum(json_leaf_count(v) for v in node.values()) or 1
+    if isinstance(node, list):
+        return sum(json_leaf_count(v) for v in node) or 1
+    return 1
+
+
+def json_number_count(node: object) -> int:
+    if isinstance(node, dict):
+        return sum(json_number_count(v) for v in node.values())
+    if isinstance(node, list):
+        return sum(json_number_count(v) for v in node)
+    return int(isinstance(node, int | float) and not isinstance(node, bool))
+
+
+@real
+def test_json_leaf_counts_match_an_independent_walk(staged: Path) -> None:
+    documents = {
+        name: json.loads((TREE / name).read_text(encoding="utf-8")) for name in payload_json_files()
+    }
+    expected = Counter({name: json_leaf_count(document) for name, document in documents.items()})
+    table = staged_table(staged, "json_entries")
+    assert Counter(table.column("_artifact").to_pylist()) == expected
+    assert table.num_rows == sum(expected.values())
+    assert len(set(table.column("_locator").to_pylist())) == table.num_rows
+    rows = table.to_pylist()
+    assert sum(r["kind"] == "number" for r in rows) == sum(
+        json_number_count(d) for d in documents.values()
+    )
+    assert {r["kind"] for r in rows} <= set(idaes.jsonfiles.KINDS)
+    assert len({r["_artifact"].rsplit("/", 1)[-1] for r in rows}) == 22
+
+
+def rebuild(rows: list[dict]) -> object:
+    """A file's document from its staged rows alone: containers from `path_steps`, leaves from
+    `kind`, `number`, `integer`, `flag` and `text`."""
+    root: object = None
+    for row in rows:
+        if row["kind"] == "number":
+            leaf: object = int(row["number"]) if row["integer"] else row["number"]
+        elif row["kind"] == "boolean":
+            leaf = row["flag"]
+        elif row["kind"] == "null":
+            leaf = None
+        elif row["kind"] == "string":
+            leaf = row["text"]
+        else:
+            leaf = {} if row["kind"] == "empty_object" else []
+        steps = list(zip(row["path"], row["path_steps"], strict=True))
+        if not steps:
+            return leaf
+        if root is None:
+            root = {} if steps[0][1] == "key" else []
+        node = root
+        for (step, kind), (_, next_kind) in zip(steps, [*steps[1:], ("", "leaf")], strict=True):
+            last = next_kind == "leaf"
+            child = leaf if last else ({} if next_kind == "key" else [])
+            if kind == "key":
+                assert isinstance(node, dict)
+                if last:
+                    assert step not in node
+                    node[step] = child
+                else:
+                    node = node.setdefault(step, child)
+            else:
+                assert isinstance(node, list)
+                assert int(step) <= len(node)
+                if last:
+                    assert int(step) == len(node)
+                    node.append(child)
+                elif int(step) == len(node):
+                    node.append(child)
+                    node = child
+                else:
+                    node = node[int(step)]
+    return root
+
+
+@real
+def test_staged_rows_rebuild_each_files_parameter_values(staged: Path) -> None:
+    by_file: dict[str, list[dict]] = {}
+    for row in staged_table(staged, "json_entries").to_pylist():
+        by_file.setdefault(row["_artifact"], []).append(row)
+    assert set(by_file) == set(payload_json_files())
+    for name, rows in by_file.items():
+        loaded = json.loads((TREE / name).read_text(encoding="utf-8"))
+        rebuilt = rebuild(rows)
+        # dumps compares values, key order, and integer against real literals
+        assert json.dumps(rebuilt) == json.dumps(loaded), name
+        for row in rows:
+            assert row["_locator"] == f"{name}#{row['pointer']}"
+            if row["kind"] == "number":
+                assert float(row["text"]) == row["number"]
+    example = by_file[f"{PACKAGE}/general_helmholtz/components/parameters/h2o.json"]
+    n_values = [r["number"] for r in example if r["path"][:2] == ["eos", "n"]]
+    assert len(n_values) == 56  # the survey states 56 n values in the water file
 
 
 @real
@@ -462,7 +687,10 @@ def test_configuration_numbers_equal_python_evaluation(staged: Path) -> None:
 
 @real
 def test_no_docstring_or_comment_text_is_carried(staged: Path) -> None:
-    """Clean room: no staged text equals or contains a docstring or a comment of the source."""
+    """Clean room: no staged text of the Python modules equals or contains a docstring or a
+    comment of the source. The JSON files hold no docstring or comment; their strings are the
+    files' own values (the literature references also appear in the prose of the fluid modules,
+    so they are checked by the round trip to the parsed JSON, not here)."""
     protected: set[str] = set()
     for module in non_test_modules():
         source = (TREE / module).read_text(encoding="utf-8")
@@ -479,6 +707,8 @@ def test_no_docstring_or_comment_text_is_carried(staged: Path) -> None:
     assert len(protected) > 500
     staged_strings: set[str] = set()
     for name in idaes.TABLES:
+        if name in idaes.jsonfiles.SCHEMAS:
+            continue
         table = staged_table(staged, name)
         for field in table.schema:
             if pa.types.is_string(field.type) and field.name not in ("_artifact", "_locator"):

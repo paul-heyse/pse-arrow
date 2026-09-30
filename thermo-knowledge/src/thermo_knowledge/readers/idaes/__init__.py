@@ -1,20 +1,24 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 
-"""Reader of the IDAES-PSE property-package modules (`sources/idaes.toml`, tag 2.13.0).
+"""Reader of the IDAES-PSE property-package modules and parameter files (`sources/idaes.toml`,
+tag 2.13.0).
 
 Clean-room and values only. The modules are parsed with `ast` (never imported) and only literal
 parameter values are read, keyed by module, scope and target, with the file and position as
-locator; no code, docstring or comment of the source is copied into a row.
+locator; no code, docstring or comment of the source is copied into a row. The JSON parameter
+files are read as they are written (`jsonfiles`).
 
 | Payload | Tables |
 |---|---|
 | literal dict, list and tuple assignments (configuration dictionaries with their `parameter_data`, stoichiometries, correlation coefficient tables) and, in the data-definition modules, numeric assignments | `literal_entries` |
 | `self.<name> = Param(...)` / `Var(...)` of the data-definition modules | `parameter_declarations` |
+| every leaf of a `.json` parameter file (the Helmholtz equation-of-state parameters), with its key path | `json_entries` |
 
 Every non-test module of `idaes/models/properties` is parsed; one that holds no literal data is
 accounted as read without rows. The test modules are skipped: they exercise the packages and
-their configurations are fixtures, not package data.
+their configurations are fixtures, not package data. The compiled expression graphs (`.nl`) are
+code and are not payload.
 """
 
 from __future__ import annotations
@@ -25,13 +29,13 @@ from pathlib import Path
 
 import pyarrow as pa
 
-from thermo_knowledge.readers.idaes import declarations, literals
+from thermo_knowledge.readers.idaes import declarations, jsonfiles, literals
 from thermo_knowledge.staging.errors import StagingError
 from thermo_knowledge.staging.writer import Writer
 
-READER_VERSION = "1"
+READER_VERSION = "2"
 
-TABLES: dict[str, pa.Schema] = {**literals.SCHEMAS, **declarations.SCHEMAS}
+TABLES: dict[str, pa.Schema] = {**literals.SCHEMAS, **declarations.SCHEMAS, **jsonfiles.SCHEMAS}
 
 TESTS = "test modules exercise the property packages; their configurations are test fixtures, not package data"
 BATCH = 20_000
@@ -73,7 +77,7 @@ def _join(scope: str, name: str) -> str:
 
 
 def read(tree: Path, writer: Writer) -> None:
-    """Parse every non-test module and emit its literal parameter data."""
+    """Parse every non-test module and JSON file and emit its literal parameter data."""
     buffers: dict[str, list[dict[str, object]]] = {name: [] for name in TABLES}
 
     def flush(table: str) -> None:
@@ -81,15 +85,26 @@ def read(tree: Path, writer: Writer) -> None:
             writer.rows(table, buffers[table])
             buffers[table] = []
 
+    def flush_full() -> None:
+        for table in buffers:
+            if len(buffers[table]) >= BATCH:
+                flush(table)
+
     for artifact in writer.payload_files:
         if is_test(artifact):
             writer.skipped(artifact, TESTS)
             continue
         try:
             source = (tree / artifact).read_text(encoding="utf-8")
-            module = ast.parse(source, filename=artifact)
         except (OSError, UnicodeDecodeError) as error:
             raise StagingError(f"{artifact}: cannot be read: {error}") from error
+        if artifact.endswith(jsonfiles.SUFFIX):
+            buffers["json_entries"].extend(jsonfiles.json_rows(artifact, source))
+            writer.opened(artifact)
+            flush_full()
+            continue
+        try:
+            module = ast.parse(source, filename=artifact)
         except SyntaxError as error:
             raise StagingError(
                 f"{artifact}#L{error.lineno}: cannot be parsed as Python: {error.msg}"
@@ -114,8 +129,6 @@ def read(tree: Path, writer: Writer) -> None:
 
         walk(module.body, "module", "", visit)
         writer.opened(artifact)
-        for table in buffers:
-            if len(buffers[table]) >= BATCH:
-                flush(table)
+        flush_full()
     for table in buffers:
         flush(table)
